@@ -44,12 +44,12 @@ This is not one system. It is four tightly connected systems:
 - **Desktop/runtime architecture:** Use Tauri v2 with a Rust daemon/sidecar for local agent execution.
 - **Frontend strategy:** Desktop (Tauri) is the full control panel — trigger workflows, manage agents, make decisions. Web is a read-only viewing portal for browsing data and pipeline status. Both share React UI packages.
 - **Cost-estimation engine:** Build an internal landed-cost engine backed by HMRC Trade Tariff, HMRC FPO API for first-pass HS code classification, Taric Support and HS Ping for validation, HMRC Exchange Rate Service for customs valuation FX, Xe for commercial FX, Freightos and SeaRates for freight-market data, and CurrencyBeacon/OANDA plus optional third-party landed-cost services as secondary comparison sources.
-- **Agent orchestration:** Use headless PTY-based execution from day 1. The Rust daemon triggers Codex/Claude sessions via PTY terminals on cron schedules and manual triggers from the desktop control panel. PTY-first is a design constraint for robust daily pipeline operations.
+- **Agent orchestration:** Use adapter-mediated agent execution with PTY as a first-class runtime from day 1. The Rust daemon triggers Codex/Claude sessions on cron schedules and manual triggers from the desktop control panel, selecting PTY or contract mode per job. PTY-first remains a design constraint for browser-heavy and interactive flows.
 - **Automation policy:** The platform automates the request pipeline, not real-money bid submissions. Actual negotiations and fulfillment are handled manually by humans. An error manifest system flags failures with enough context to debug. Human review remains valuable for commercial decisions but risk is low since no real money changes hands automatically.
 
 ### Primary Recommendation in One Sentence
 
-Build a greenfield monorepo around skill-based agent scraping for data retrieval, a Rust daemon with local SQLite and Supabase/Postgres sync, PTY-based agent orchestration, and an expanded API-powered internal cost-estimation engine — with the desktop app as the control panel and the web app as a read-only viewing portal.
+Build a greenfield monorepo around skill-based agent scraping for data retrieval, a Rust daemon with local SQLite and Supabase/Postgres sync, adapter-mediated agent orchestration with PTY-first support, and an expanded API-powered internal cost-estimation engine — with the desktop app as the control panel and the web app as a read-only viewing portal.
 
 ### Critical Decisions Required
 
@@ -65,12 +65,12 @@ Build a greenfield monorepo around skill-based agent scraping for data retrieval
 |--------|-------|
 | Project Type | Greenfield |
 | Existing App Files | 0 meaningful application files |
-| New Files | ~70-110 |
+| New Files | ~131 planned files (104 implementation + 27 tests) |
 | Modified Files | 0 required beyond bootstrap |
 | New Dependencies | ~20-35 across Rust + TS |
 | Estimated Effort | XL |
 | Estimated Complexity | Very High |
-| Highest-Risk Area | PTY agent orchestration reliability + product identity/comparability chain (documents → lots → candidates → quoteability → price-signal matching) |
+| Highest-Risk Area | Agent/runtime orchestration reliability + product identity/comparability chain (documents → lots → candidates → quoteability → price-signal matching) + sync integrity |
 
 ### Recommended Delivery Phases
 
@@ -88,7 +88,7 @@ Build a greenfield monorepo around skill-based agent scraping for data retrieval
 - Landed-cost estimation is easy compared with robust PTY-based agent orchestration that works every day.
 - **But the real bottleneck is the identity chain:** documents/lots → candidate identity → quoteability → comparable listing shortlist → price-signal usability. The current architecture compresses this into concrete stages with deterministic gates, structured search profiles, and dual confidence scoring to prevent fake precision from propagating downstream.
 
-This means the platform must preserve confidence scores, raw evidence, full agent terminal output for tracing, and an error manifest system from day one.
+This means the platform must preserve confidence scores, raw evidence, full-fidelity agent execution traces (raw PTY output in PTY mode; raw stdout/stderr plus structured protocol events and result artifacts in contract mode), and an error manifest system from day one.
 
 ---
 
@@ -169,7 +169,7 @@ So that repetitive bidding preparation is partially automated
 
 1. As an administrator, I want skills, prompts, source credentials, and company profile data centrally managed so local agents run consistent workflows.
 2. As a compliance-aware operator, I want confidence scores and human-override points so I know when the system is uncertain.
-3. As an operator, I want comprehensive agent tracing logs including full terminal output so I can trace exactly where errors come from.
+3. As an operator, I want comprehensive agent tracing logs including full session output so I can trace exactly where errors come from.
 
 ### 2.4 Success Criteria
 
@@ -393,7 +393,7 @@ If this is not built into the schema early, the platform will drift into fake pr
 
 #### Pattern: Orchestration state separate from agent output
 
-Agent skills and manifests should be artifacts. The source of truth for job status, retries, leases, and workflow transitions should stay in database tables. Name the queue generically, because most jobs are workflow jobs, not agent runs.
+Agent skills and manifests should be artifacts. The authoritative record for job status, retries, leases, and workflow transitions should stay in database tables. Name the queue generically, because most jobs are workflow jobs, not agent runs.
 
 #### Pattern: Deterministic fallbacks
 
@@ -435,14 +435,14 @@ There are no current implementation files to study. The practical equivalent is:
 
 | File | Changes Needed | Impact |
 |------|----------------|--------|
-| `/Users/alinaaitova/Desktop/Testproject1/yolo` | Likely remove or ignore | Low |
+| `/Users/alinaaitova/Desktop/Testproject1/yolo` | Ignore during bootstrap; only delete during explicit repo cleanup | Low |
 
 #### Likely Bootstrap Files
 
 | File | Probable Changes | Confidence |
 |------|------------------|------------|
 | `/Users/alinaaitova/Desktop/Testproject1/package.json` | Workspace/bootstrap setup | High |
-| `/Users/alinaaitova/Desktop/Testproject1/pnpm-workspace.yaml` | Monorepo workspace definition | High |
+| `/Users/alinaaitova/Desktop/Testproject1/bunfig.toml` | Bun workspace/runtime settings | High |
 | `/Users/alinaaitova/Desktop/Testproject1/Cargo.toml` | Rust workspace definition | High |
 
 ### 3.8 Potential Refactoring Needs
@@ -608,13 +608,15 @@ All procurement data retrieval is constrained to the skill-based agent system ru
 
 **Important architectural consequence:**
 
-Each procurement source has a dedicated skill that defines the agent's scraping playbook. The daemon orchestrates execution via PTY sessions. The underlying platform still provides:
+Each procurement source has a dedicated skill that defines the agent's scraping playbook. The daemon orchestrates execution via adapter-mediated agent sessions, which are typically PTY-backed for procurement retrieval. The underlying platform still provides:
 
 - source registry (which skills to run and when),
 - cursor/watermark tracking (persisted in local SQLite),
 - raw payload retention,
 - OCDS normalization,
 - relation resolution and merge rules across sources.
+
+This retrieval strategy is formalized in **ADR-001** and operationalized through the skill/runtime boundary in **ADR-005**.
 
 ### 4.2 Procurement Rules and Notice Semantics
 
@@ -644,11 +646,12 @@ FTS's notice type documentation shows that linked notices share an OCID, but the
 - **Direct award after unsuccessful competition:** FTS explicitly treats this as a separate process with a different OCID. This is not a merge candidate — it is a genuinely new procurement process.
 - **Related but separate:** A planning notice and a later tender notice from the same buyer for the same subject may have different OCIDs. These are related but not the same process.
 
-This means the platform needs three relation types, not two:
+This means the platform needs four persisted relation classifications, not two:
 
 1. **`merged_same_process`** — same OCID or explicit linked notice chain.
 2. **`related_not_merged`** — framework/call-off, planning/tender, or same-buyer same-subject but different OCIDs.
-3. **`separate`** — no meaningful relationship.
+3. **`possible_duplicate`** — high-similarity pair held for operator review instead of forced merge.
+4. **`separate`** — no meaningful relationship.
 
 See §5.6 for the relation resolution algorithm.
 
@@ -1395,6 +1398,8 @@ These can flip the economics of a deal. The engine should flag when a special pr
 
 **Note:** This is the ONE area where APIs are explicitly preferred over agent scraping. Cost-estimation data sources (customs, freight, FX) benefit from API reliability and structured responses. The skill-based agent scraping strategy applies to procurement and supplier data, not to cost-estimation APIs.
 
+This internal-engine choice is formalized in **ADR-006**.
+
 ### 4.6 FX Conversion
 
 #### Need
@@ -1529,7 +1534,7 @@ Store `customsFxRate` and `commercialFxRate` **separately** in the database with
 A dual-database architecture that supports:
 
 - **local-first operation** with the Rust daemon owning its own data store,
-- **multi-user visibility** through a shared remote database,
+- **multi-user visibility** through a shared sync target,
 - **corruption resilience** — a local non-corrupted copy protects against shared DB corruption,
 - relational querying and auditability,
 - storage of structured and unstructured artifacts,
@@ -1541,9 +1546,11 @@ A dual-database architecture that supports:
 
 The owner requires multiple users to access the system's data. However, relying solely on a shared remote Postgres creates a single point of corruption risk. The architecture uses a **domain-owned authority model** rather than a singular "source of truth":
 
-- **Local operational authority** (SQLite, bundled with the Rust daemon): Pipeline execution state, job leasing, source cursors, full PTY terminal output, full error context, raw artifacts. The daemon that ran the job is authoritative for its outputs.
+- **Local operational authority** (SQLite, bundled with the Rust daemon): Pipeline execution state, job leasing, source cursors, full raw session-output artifacts, full error context, raw documents. The daemon that ran the job is authoritative for its outputs.
 - **Remote shared authority** (Supabase/Postgres): Shared configuration (company profile, source configs) and shared human decisions (operator dispositions). These originate remotely and are pulled to local.
 - **Remote projections** (Supabase/Postgres): Viewer-facing copies of pipeline facts and status. These are push-only from local to remote and are never authoritative — the local copy can always republish.
+
+**Terminology note:** In this document, prefer **local operational authority**, **remote shared authority**, and **shared sync target**. Historical mentions of "source of truth" appear only when contrasting this model with the superseded singular-authority design.
 
 **Mixed-write tables are prohibited.** Every table has exactly one authority domain. If a concept spans domains (e.g., a pipeline-computed margin AND an operator disposition on the same process), it must be split into separate tables with separate authority.
 
@@ -1557,7 +1564,7 @@ The owner requires multiple users to access the system's data. However, relying 
 |-----------|--------|----------------|
 | Local-only (no sync) | `raw_documents`, `sources` (local runtime copy), `source_cursors`, `workflow_jobs` (full rows), `agent_session_logs` (full transcript/trace), `error_manifests` (full context), local job leases, local runtime config/secrets | None |
 | Push-only (local → remote projections) | `executors` (heartbeat summary), `procurement_processes`, `contract_notices`, `notice_lots`, `qualification_runs`, `product_candidates`, `search_profiles`, `supplier_quotes`, `landed_cost_estimates`, `manifests`, `process_relations`, `pipeline_assessments`, `bid_workflow_states`, `process_stage_status`, `process_stage_heads`, `workflow_job_summaries`, `error_manifest_summaries` | Push only |
-| Pull-only (remote → local) | `shared_company_profile`, `shared_source_configs`, `operator_decision_heads`, `operator_decision_events` (optional) | Pull only |
+| Pull-only (remote → local) | `shared_company_profile`, `shared_source_configs`, `operator_decision_heads` | Pull only |
 | Mixed-write | **None — prohibited by design** | N/A |
 
 #### Push Protocol (Local → Remote)
@@ -1571,6 +1578,7 @@ Every local mutation to a push-owned entity writes to both business tables and a
 - **Atomicity:** Remote applies each push batch through a single transactional RPC / stored procedure, not a spray of individual upserts.
 - **Stage coherence:** All outputs from a pipeline stage share a `stage_run_id`. The stage's `process_stage_status` is updated and `process_stage_heads` is advanced in the same transaction. Failed stages publish failure status + redacted error summary but do NOT advance the head.
 - **Schema compatibility:** Every push batch carries a `schema_epoch`. If epochs are incompatible, sync pauses but local operation continues.
+- **Delivery timeout:** A push batch must either ack or fail within 60 seconds. After 3 consecutive failed attempts or 15 minutes in `pending`, the daemon marks sync `degraded`, surfaces an operator alert, and keeps local execution running.
 
 #### Pull Protocol (Remote → Local)
 
@@ -1596,7 +1604,7 @@ Shared config that originated in Supabase and was only cached locally may be los
 
 **Local SQLite lost → partial rebuild from Supabase:**
 
-From Supabase, the daemon can recover: shared config, shared operator decisions, remote projections of pipeline facts, redacted job/error summaries. The following are **permanently lost**: full PTY terminal output, full error context, source cursors (daemon will re-ingest from scratch — expensive but recoverable), local job leases, raw documents if stored only on the same disk.
+From Supabase, the daemon can recover: shared config, shared operator decisions, remote projections of pipeline facts, redacted job/error summaries. The following are **permanently lost**: full raw session-output artifacts (PTY terminal bytes or contract-mode stdout/stderr), full error context, source cursors (daemon will re-ingest from scratch — expensive but recoverable), local job leases, raw documents if stored only on the same disk.
 
 Two recovery tiers:
 
@@ -1688,6 +1696,8 @@ The sync engine implements authority-based replication as described in section 4
 
 Use **local SQLite** with authority-matrix-based replication to **Supabase/Postgres** for multi-user visibility. Convex and SpacetimeDB are not selected (see original evaluation — good products, wrong fit for this workload).
 
+This authority split is formalized in **ADR-002**.
+
 ### 4.8 Desktop Runtime and Frontend Shell
 
 #### Need
@@ -1754,6 +1764,8 @@ A desktop client with:
 
 **Strong recommendation:** Use **shared React UI packages** and avoid binding the whole product architecture to “one Next app inside Tauri”. If you insist on Next for desktop, keep it strictly client-side/static and do not design around SSR/server actions inside the Tauri shell.
 
+This shell/runtime choice is formalized in **ADR-003**.
+
 ### 4.9 Local Agent Orchestration Runtime
 
 #### Need
@@ -1763,8 +1775,8 @@ Run Codex/Claude agents locally on user machines with:
 - reusable skills,
 - dynamic kickoff prompts,
 - adapter-mediated agent execution with PTY and contract modes from day 1,
-- full terminal output capture as forensic infrastructure,
-- validated result contracts as the source of truth for workflow state,
+- full raw session-output capture as forensic infrastructure,
+- validated result contracts as the authoritative workflow-state record,
 - cron-triggered and manual-triggered sessions,
 - robust daily operation without interruption,
 - process-tree supervision and reliable cleanup.
@@ -1786,7 +1798,7 @@ The daemon selects mode per job based on the skill's declared `interaction_profi
 |-----------|-------------|-------|
 | Flexibility | 5 | PTY handles all CLI modes; contract mode handles deterministic flows with less overhead |
 | Robustness | 5 | adapter boundary isolates vendor changes; mode selection matches job requirements |
-| Log capture | 5 | full terminal output captured in PTY mode; structured events captured in contract mode |
+| Log capture | 5 | full raw session output captured in both modes, with structured events captured in contract mode |
 | Automation fit | 5 | cron + manual triggers, headless operation in both modes |
 | Complexity | 3 | adapter + dual-mode is more complex than single-mode, but reduces blast radius |
 | **Average Score** | **4.6** | |
@@ -1832,7 +1844,8 @@ A session is only **complete** after all of:
 - **Cron-triggered execution:** The daemon's built-in cron scheduler creates sessions on schedule, selects the appropriate execution mode via the adapter, injects the kickoff prompt and skill reference, and monitors execution.
 - **Manual triggers from desktop:** The Tauri desktop control panel sends trigger commands to the daemon, which creates a session (PTY or contract mode) and streams progress back to the desktop control panel.
 - **Full output capture (PTY mode):** Every byte of terminal output is captured and stored as an immutable forensic artifact. This includes agent thinking, tool calls, errors, and results. Terminal output is a forensic channel for debugging — it does not drive workflow state.
-- **Structured event capture (contract mode):** Vendor JSONL/JSON events are parsed by the adapter into daemon-native events, which drive workflow state directly.
+- **Full output capture (contract mode):** The daemon captures the raw stdout/stderr stream as an immutable forensic artifact while the adapter parses vendor JSONL/JSON events into daemon-native events. Parsed events drive workflow state; raw bytes remain for debugging and replay.
+- **Session capture invariant:** Every agent session must leave behind a complete forensic record appropriate to its mode: raw PTY bytes for PTY mode, or raw stdout/stderr bytes plus structured protocol events and result artifacts for contract mode.
 - **Auth challenge detection:** The daemon detects when an agent session fails due to expired credentials, MFA challenges, browser SSO failures, or hidden permission prompts. These are classified as `AGENT_AUTH_CHALLENGE` (distinct from `AGENT_STALLED`).
 
 **Why PTY remains a first-class runtime (not the only runtime):**
@@ -1882,6 +1895,8 @@ On Linux, each session can optionally run in a transient `systemd-run --scope` u
 - **Sleep/wake:** If the host suspends during an active session, assume browser-driven PTY sessions are tainted. Use monotonic time for stall detection and emit `HOST_SLEEP_INTERRUPTED` if a suspend gap crosses a configurable threshold.
 - **Missed runs:** When the daemon starts after extended downtime, it checks for overdue scheduled jobs and runs a catchup sweep. Jobs are executed in priority order, not all at once.
 
+This runtime model is formalized in **ADR-004**.
+
 ### 4.10 Skills and Browser Automation — Core Data Retrieval Architecture
 
 Skills are the **primary data retrieval mechanism** for the platform. All procurement data and supplier pricing is collected via skill-based agent scraping with browser automation. This is the core architectural decision that simplifies the entire system: instead of maintaining API client packages for each data source, the platform maintains skills (way easier to maintain, upgrade, and change).
@@ -1891,6 +1906,8 @@ Skills are the **primary data retrieval mechanism** for the platform. All procur
 **Official evidence:**
 
 - OpenAI Codex skills and Claude skills both use directory-based `SKILL.md` packaging and progressive disclosure.
+
+**Terminology note:** In this document, **skill** means the versioned directory asset bound to a job, while **skill playbook** means the human-readable instructions inside that skill's `SKILL.md`.
 
 **References:**
 
@@ -1981,6 +1998,8 @@ Skills are the primary data retrieval mechanism, but they are **still not the wo
 - **Orchestration stays in the daemon:** The daemon creates sessions (PTY or contract mode via the adapter), selects skills by explicit binding, monitors execution, validates result contracts, stores results in SQLite, and syncs to Supabase.
 - **Adapter mediates:** The Agent Adapter layer handles vendor-specific launch, structured output parsing, health classification, and capability probing — insulating the daemon from CLI version changes.
 
+These boundaries are formalized in **ADR-005**.
+
 ### 4.11 Licensing and Compliance Summary
 
 | Dependency / Data Source | License / Terms Signal | Compatible | Notes |
@@ -2036,21 +2055,21 @@ The core recommended architecture is license-compatible for cost-estimation APIs
 │   ┌─────────────────────────────────────────────────────────────┐                │
 │   │ Rust Daemon (Local Machine)                                 │                │
 │   │ ┌─────────────────────────────────────────────────────────┐ │                │
-│   │ │ PTY Agent Orchestrator                                  │ │                │
+│   │ │ Agent Session Runtime                                   │ │                │
 │   │ │ - cron scheduler + manual triggers                      │ │                │
-│   │ │ - headless PTY sessions for agent execution             │ │                │
+│   │ │ - adapter-mediated sessions (PTY or contract)           │ │                │
 │   │ │ - skill loading + kickoff prompt injection              │ │                │
-│   │ │ - full terminal output capture + tracing                │ │                │
+│   │ │ - forensic capture + protocol tracing                   │ │                │
 │   │ │ - agent health monitoring                               │ │                │
 │   │ └─────────────────────────┬───────────────────────────────┘ │                │
 │   │                           ▼                                  │                │
 │   │ ┌─────────────────────────────────────────────────────────┐ │                │
-│   │ │ Local SQLite (Source of Truth)                          │ │                │
+│   │ │ Local SQLite (Local Operational Authority)              │ │                │
 │   │ │ - contracts, jobs, manifests, artifacts                 │ │                │
 │   │ │ - agent session logs, error manifests                   │ │                │
 │   │ │ - cursor/watermark state                                │ │                │
 │   │ └─────────────────────────┬───────────────────────────────┘ │                │
-│   │                           │ push-pull sync                   │                │
+│   │                           │ authority-based sync             │                │
 │   └───────────────────────────┼──────────────────────────────────┘                │
 │                               ▼                                                  │
 │   ┌─────────────────────────────────────────────────────────────┐                │
@@ -2103,32 +2122,36 @@ export interface SourceDefinition {
 
 #### Component: PTY Session Manager
 
-**Responsibility:** Create, monitor, and manage headless PTY sessions for agent execution. Captures full terminal output as immutable forensic artifacts. Manages the full session lifecycle (`created → spawned → active → terminating → exited → reaped → archived`). Performs process-group supervision, kill escalation, and cleanup verdict recording. Handles PTY hardening (fd hygiene, EIO handling, fixed terminal geometry).
+**Responsibility:** Create, monitor, and manage live PTY-backed sessions for agent execution. Captures PTY-mode raw terminal bytes as immutable forensic artifacts and manages the active PTY lifecycle (`created → spawned → active → terminating → exited`). Performs PTY-specific process-group supervision and hardening (fd hygiene, EIO handling, fixed terminal geometry). Final descendant cleanup, orphan sweep, and end-of-life cleanup verdicts are owned by `Session Reaper`.
 
 #### Component: Daemon Cron Scheduler
 
-**Responsibility:** Schedule and trigger agent skill execution based on cron definitions. Runs locally in the Rust daemon — no hosted scheduler dependency. Binds explicit skill id and version for scheduled jobs (no implicit skill discovery for cron). Creates sessions on schedule via the adapter and monitors completion. Performs catchup sweeps for overdue jobs when the daemon starts after extended downtime.
+**Responsibility:** Schedule and enqueue agent work based on cron definitions. Runs locally in the Rust daemon — no hosted scheduler dependency. Binds explicit skill id and version for scheduled jobs (no implicit skill discovery for cron). Determines when a job should exist; it does NOT execute the job payload itself. Performs catchup sweeps for overdue jobs when the daemon starts after extended downtime.
+
+#### Component: Job Runner
+
+**Responsibility:** Claim queued jobs from local SQLite, acquire the required resource budget from the Resource Arbiter, invoke the Agent Adapter in the correct execution mode, and persist stage outputs plus job status. The Job Runner owns execution of already-enqueued work; it does not decide schedules or replication semantics.
 
 #### Component: Skill-Based Ingestion Runner
 
-**Responsibility:** Trigger agent skills for procurement source scraping via adapter-mediated sessions (PTY or contract mode per skill). The agent navigates to sources using browser automation, extracts data per the skill playbook, and outputs structured data through the result contract. The daemon validates result contracts, stores raw payloads and normalized notices in local SQLite, and writes immutable session artifacts to the artifact store.
+**Responsibility:** Domain-specific execution logic for procurement-ingestion jobs running under the Job Runner. It selects the procurement skill, invokes the Agent Adapter in the correct mode (PTY or contract per skill), normalizes the retrieved notice data, and writes immutable session artifacts to the artifact store. It is intentionally a job-type handler, not a second scheduler or runtime subsystem.
 
 #### Component: Log/Trace Capture Engine
 
-**Responsibility:** Capture session data across three layers: (1) **control events** from the daemon (spawn, signal, exit, reap, cleanup verdict), (2) **protocol events** from the adapter (vendor JSONL/JSON events parsed into daemon-native events, validated checkpoints), and (3) **forensic bytes** (immutable raw PTY capture in PTY mode). Control and protocol events drive workflow state; forensic bytes are for debugging and replay. Structured traces are derived primarily from control/protocol events; transcript parsing is best-effort enrichment only.
+**Responsibility:** Capture session data across three layers: (1) **control events** from the daemon (spawn, signal, exit, reap, cleanup verdict), (2) **protocol events** from the adapter (vendor JSONL/JSON events parsed into daemon-native events, validated checkpoints), and (3) **forensic bytes** (immutable raw PTY capture in PTY mode, raw stdout/stderr capture in contract mode). Control and protocol events drive workflow state; forensic bytes are for debugging and replay. Structured traces are derived primarily from control/protocol events; transcript parsing is best-effort enrichment only.
 
 #### Component: SQLite Local Store
 
 **Responsibility:** Local operational authority for all daemon-owned data. Stores pipeline data, jobs, manifests, agent session logs, error manifests, cursor state, and the sync outbox. Bundled with the Rust daemon. Split into two databases for operational isolation:
 
 - **`state.db`**: Hot relational state — pipeline entities, jobs, manifests, outbox, sync metadata. WAL mode enabled. STRICT tables where json1 is not required.
-- **`artifacts.db`** (or `artifacts/` directory): Large PTY transcripts, raw document payloads, error context blobs. Separating these from the hot state DB prevents checkpoint and vacuum overhead from large writes.
+- **`artifacts.db`** (or `artifacts/` directory): Large session transcripts (raw PTY bytes or raw stdout/stderr streams), raw document payloads, error context blobs. Separating these from the hot state DB prevents checkpoint and vacuum overhead from large writes.
 
 Operational requirements: keep on local disk only (never NFS/cloud-sync folders), run `PRAGMA quick_check` on startup, run `PRAGMA optimize` on maintenance cadence, use Online Backup API or `VACUUM INTO` for safe hot backups. Store `schema_epoch` in `PRAGMA user_version`.
 
 #### Component: Sync Engine
 
-**Responsibility:** Authority-based replication between local SQLite and Supabase/Postgres. NOT a generic bidirectional sync engine. Comprises:
+**Responsibility:** Authority-based replication between local SQLite and Supabase/Postgres. NOT a generic bidirectional sync engine. The SQLite Local Store owns persistence and local transactionality; the Sync Engine owns outbox construction, remote apply, pull cursors, and schema-epoch compatibility. Comprises:
 
 - **Local outbox writer:** Writes outbox entries in the same SQLite transaction as business mutations. Every push-owned entity change produces an outbox row.
 - **Push batch builder:** Reads outbox entries by `local_seq` range, constructs full-row projection batches with `schema_epoch`, `content_hash`, and `stage_run_id`.
@@ -2140,7 +2163,7 @@ Operational requirements: keep on local disk only (never NFS/cloud-sync folders)
 
 #### Component: Relation Resolution Engine
 
-**Responsibility:** Classify notice-pair relationships as `merged_same_process`, `related_not_merged`, or `separate`. Uses OCID matching, explicit notice references, hard blockers, and weighted heuristic scoring. Maintains `ProcessRelation` edges between related-but-unmerged processes to enable downstream cache sharing. See §4.2 for relation semantics and §5.6 for the resolution algorithm.
+**Responsibility:** Classify notice-pair relationships as `merged_same_process`, `related_not_merged`, `possible_duplicate`, or `separate`. Uses OCID matching, explicit notice references, hard blockers, and weighted heuristic scoring. Maintains `ProcessRelation` edges between related-but-unmerged processes to enable downstream cache sharing. See §4.2 for relation semantics and §5.6 for the resolution algorithm.
 
 #### Component: Preliminary Qualification Engine
 
@@ -2200,7 +2223,7 @@ This gate saves more pipeline cost than most infrastructure optimizations.
 
 #### Component: Supplier Quote Engine
 
-**Responsibility:** Trigger agent skills for supplier price scraping via PTY sessions, routed by candidate type (see §4.3 source routing table). The agent navigates to marketplace websites using source-specific skills, searches using structured multilingual query packs (not raw notice text), and extracts pricing data. Produces two separate confidence scores per quote: `matchConfidence` (product identity) and `quoteUsabilityConfidence` (commercial usability of the observed price). Applies deterministic hard-conflict filters and shortlisting before any AI adjudication of borderline matches.
+**Responsibility:** Trigger agent skills for supplier price scraping via adapter-mediated sessions, routed by candidate type (see §4.3 source routing table). In practice these runs are usually PTY-backed because marketplace search is browser-driven, but the component consumes the adapter abstraction rather than a PTY-only contract. The agent navigates to marketplace websites using source-specific skills, searches using structured multilingual query packs (not raw notice text), and extracts pricing data. Produces two separate confidence scores per quote: `matchConfidence` (product identity) and `quoteUsabilityConfidence` (commercial usability of the observed price). Applies deterministic hard-conflict filters and shortlisting before any AI adjudication of borderline matches.
 
 #### Component: Landed-Cost Engine
 
@@ -2224,11 +2247,11 @@ Key subsystems:
 
 #### Component: Bid Workflow Executor
 
-**Responsibility:** Launch portal-specific agent skills via PTY sessions for request pipeline automation. Note: this automates the request pipeline, not real-money bid submissions. Actual negotiations and fulfillment are handled manually by humans.
+**Responsibility:** Launch portal-specific agent skills via adapter-mediated sessions for request pipeline automation. Portal workflows are normally PTY-backed because they are browser-driven, but the daemon still enters through the adapter boundary so lifecycle, health, and result validation stay consistent with the rest of the runtime. Note: this automates the request pipeline, not real-money bid submissions. Actual negotiations and fulfillment are handled manually by humans.
 
 #### Component: Error Manifest System
 
-**Responsibility:** Track and flag pipeline failures with structured error logs. For each failure, records: which workflow step failed, the error message, the pipeline stage, enough context to debug. Generates error manifest files (Markdown) and surfaces errors in the desktop control panel and web viewing portal. Error manifests include CLI vendor + version, adapter version, model id, config hash, skill version, pid/pgid, cleanup verdict, and last valid checkpoint sequence.
+**Responsibility:** Track and flag pipeline failures with structured error-manifest records. For each failure, records: which workflow step failed, the error message, the pipeline stage, enough context to debug. Generates error manifest files (Markdown) and surfaces errors in the desktop control panel and web viewing portal. Error manifests include CLI vendor + version, adapter version, model id, config hash, skill version, pid/pgid, cleanup verdict, and last valid checkpoint sequence.
 
 #### Component: Agent Adapter Layer
 
@@ -2240,25 +2263,37 @@ Key subsystems:
 
 #### Component: Resource Arbiter
 
-**Responsibility:** Schedule agent jobs using typed resource budgets instead of a flat session cap. Manages three quota types: **browser slots** (hard cap — each browser-backed session consumes a slot), **agent slots** (soft cap — total concurrent adapter-mediated sessions), and **source/domain lanes** (rate cap — prevent overwhelming a single target). Schedules jobs in priority order: (1) procurement ingestion, (2) auth refresh / health probes, (3) qualification, (4) supplier enrichment, (5) manifest generation, (6) bid automation.
+**Responsibility:** Admit agent jobs using typed resource budgets instead of a flat session cap. Manages three quota types: **browser slots** (hard cap — each browser-backed session consumes a slot), **agent slots** (soft cap — total concurrent adapter-mediated sessions), and **source/domain lanes** (rate cap — prevent overwhelming a single target). Admission priority is: (1) procurement ingestion, (2) auth refresh / health probes, (3) qualification, (4) supplier enrichment, (5) manifest generation, (6) bid automation.
+
+**MVP operating limits:** Start with `browser_slots = 2`, `agent_slots = 4`, `procurement_source_lane = 1` per source, and `supplier_source_lane = 2` per source. Skill-level `max_concurrency` can lower these ceilings but never raise them.
 
 #### Component: Artifact Store
 
-**Responsibility:** Store immutable compressed PTY byte streams, result contract files, checkpoint artifacts, and large session outputs outside of hot SQLite tables. SQLite stores session metadata, byte counts, tail excerpts, artifact paths, SHA-256 hashes, and derived event summaries. Raw artifacts are chunked, compressed, and stored on the local filesystem at `artifacts/sessions/YYYY/MM/<session_id>/`.
+**Responsibility:** Store immutable compressed raw session-output streams, result contract files, checkpoint artifacts, and large session outputs outside of hot SQLite tables. SQLite stores session metadata, byte counts, tail excerpts, artifact paths, SHA-256 hashes, and derived event summaries. Raw artifacts are chunked, compressed, and stored on the local filesystem at `artifacts/sessions/YYYY/MM/<session_id>/`.
 
 #### Component: Session Reaper
 
 **Responsibility:** Descendant process-tree cleanup after session completion or failure. Performs kill escalation (in-band interrupt → SIGTERM group → SIGKILL group), PTY drain, explicit wait/reap, and orphan sweep. Records cleanup verdict (`clean`, `forced`, `leaked`) as a first-class session attribute. On daemon startup, sweeps for orphaned sessions from prior runs and cleans up leaked processes. On Linux, optionally leverages `systemd-run --scope` for per-session resource control.
+
+#### Architectural Coherence Notes
+
+- **Component purpose / merge guidance:** Every component remains justified, but some are intentionally layered rather than fully standalone. `Skill-Based Ingestion Runner` is best understood as a procurement-specific job handler under `Job Runner`, not a parallel execution stack. `Manifest Generator` remains separate from the `manifest-generation` skill because deterministic rendering is authoritative and the skill contributes optional narrative synthesis only. `Log/Trace Capture Engine` and `Artifact Store` stay separate because capture decides what to record while storage decides where/how to retain it.
+- **Qualification vs extraction boundary:** Preliminary Qualification decides whether a notice/lot is commercially worth deeper work using expiry, access route, and goods-shape signals. Product Extraction begins only after a notice survives that gate and documents/lots are available; it does not decide bidability.
+- **Scheduler vs runner boundary:** Daemon Cron Scheduler decides when work should be enqueued. Job Runner claims and executes queued work. This keeps schedule policy separate from runtime execution and retry behavior.
+- **Store vs sync boundary:** SQLite Local Store is the local persistence authority. Sync Engine is the only component that translates local rows into remote projections or pulls remote-owned state back down.
+- **Dependency direction:** Skills are passive assets loaded by the daemon/runtime; the daemon does not depend on skill internals for state management. The web portal depends only on Supabase projections, never on local SQLite. The landed-cost engine depends on upstream candidate/quote outputs, while upstream extraction and qualification do not depend on landed-cost outputs. Downstream review states may consume landed-cost outputs, but landed-cost computation itself does not feed back into extraction or matching logic.
+- **Coupling / cycle rule:** The intended graph is acyclic for automatic processing: ingestion → qualification → documents/lots → product extraction → quoteability → supplier matching → landed cost → manifest/review. Human/operator actions may trigger reruns, but no automatic component should depend on a downstream component that already depends on it.
+- **Complexity allocation:** The architecture intentionally spends the most component detail on the two hardest problems: PTY/agent orchestration (`PTY Session Manager`, `Agent Adapter Layer`, `Log/Trace Capture Engine`, `Resource Arbiter`, `Session Reaper`) and product/pricing comparability (`Product Extraction Engine`, `Quoteability Scorer`, `SearchProfile`, `Supplier Quote Engine`). The landed-cost engine remains Very High complexity, but it is deliberately kept downstream and API-driven so it does not distort the core orchestration boundaries.
 
 ### 5.3 Canonical Workflow
 
 ```text
 new notice
   -> normalize
-  -> relation resolution (merge | related_not_merged | separate)
+  -> relation resolution (merge | related_not_merged | possible_duplicate | separate)
   -> preliminary qualification (per lot)
      -> reject if expiry < 30 days (exception: DPS/dynamic market notices)
-     -> classify access route (open_tender / restricted / framework_call_off / dps / direct_award / not_bidable)
+     -> classify access route (open_tender / restricted / framework_call_off / dynamic_market / direct_award / closed_framework_award / not_bidable)
      -> reject if not-bidable access route
      -> classify goods dimensions:
         - legalCategory (goods / services / works / mixed / unknown)
@@ -2282,13 +2317,15 @@ new notice
      -> AI adjudication: only top-3 borderline candidates per search
      -> score matchConfidence and quoteUsabilityConfidence separately
      -> classify priceSignalRole (benchmark_ceiling / optimistic_floor / executable)
-  -> gross margin band estimate (floor-to-ceiling, not point estimate)
-     -> if best-case gross margin >= 30% and evidence confidence is adequate, continue
-     -> if gross margin < 30% but uncertainty is high, route to review instead of hard reject
+  -> gross margin estimate (normalized ex-VAT revenue vs normalized supplier cost)
+     -> if gross_margin >= 30% and gross_estimate_confidence >= confidence_floor, continue
+     -> if gross_estimate_confidence < confidence_floor, route to review
+     -> otherwise reject or deprioritize
   -> shipping + customs + FX (landed-cost engine)
   -> net margin band estimate
-     -> if best-case net margin >= 20% and confidence is adequate, qualify
-     -> otherwise keep as review / non-qualified
+     -> if netMarginLowPct >= 20% and no critical blockers, qualify
+     -> if netMarginBasePct >= 20% but pricing or blocker uncertainty remains, keep as review / RFQ
+     -> otherwise keep as non-qualified
   -> generate manifest
   -> operator review
      -> reject
@@ -2361,11 +2398,13 @@ The following new entities and field changes are required based on the procureme
 - **`ProductCandidate`**: add `lotId`, `candidateType` (`exact_sku` | `standard_commodity` | `brand_family` | `bundle` | `custom_or_fabricated` | `installed_goods` | `regulated_goods` | `unknown`), `headNoun`, `criticalAttributesJson`, `numericSpecsJson`, `standardsJson`, `excludedTermsJson`, `quoteabilityScore`, `identityConfidence`, `specConfidence`, `quantityConfidence`. The existing single `extractionConfidence` should be replaced by the three granular confidence fields.
 - **`SupplierQuote`**: add `matchConfidence`, `quoteUsabilityConfidence` (replacing single `confidence`), `priceSignalRole` (`benchmark_ceiling` | `optimistic_floor` | `executable`), `listingPackQty`, `listingPackUnit`, `normalizedUnitBasis`, `isUsedOrRefurbished`, `vatInclusive`, `shippingBasisConfidence`.
   - **Cross-domain note:** The data-architecture domain added `quoteRealismConfidence` (how realistic the observed price is for procurement-volume orders) and `negotiationUpliftPct` (expected uplift from indicative to negotiated price) to the `SupplierQuote` interface. These are **complementary to, not duplicates of**, the procurement pipeline's `quoteUsabilityConfidence` and `priceSignalRole`. The procurement pipeline fields assess the listing's commercial usability (unit basis, MOQ, shipping visibility); the data-architecture fields assess volume-adjusted realism and negotiation gap. Implementers should compute and store all four fields independently.
-- **`QualificationResult`**: add `legalCategory`, `goodsDensityScore`, `goodsSeparability`, `accessRoute`. The existing `goodsQualified` boolean should be supplemented (not replaced) by these dimensions.
+- **`QualificationResult`**: add `legalCategory`, `goodsDensityScore`, `goodsSeparability` (`true` | `false` | `uncertain`), `accessRoute`. The existing `goodsQualified` boolean should be supplemented (not replaced) by these dimensions.
 
 #### Core Entities
 
 Source notices and canonical opportunities should not be conflated. A single procurement process can have multiple notices across time and, in some cases, across publication surfaces. The source-specific notice model should therefore feed a canonical process/opportunity model.
+
+The TypeScript interfaces below describe the logical application contract. Persisted SQLite/Postgres columns use integer pence and basis points where noted in the SQL schema.
 
 ```ts
 export interface ProcurementProcess {
@@ -2404,6 +2443,14 @@ export interface ContractNotice {
     | "award"
     | "contract"
     | "termination";
+  accessRoute?:
+    | "open_tender"
+    | "restricted_tender"
+    | "framework_call_off"
+    | "dynamic_market"
+    | "direct_award"
+    | "closed_framework_award"
+    | "not_bidable";
   deadlineAt?: string;
   publishedAt: string;
   updatedAt: string;
@@ -2418,12 +2465,39 @@ export interface ContractNotice {
 ```
 
 ```ts
+export interface NoticeLot {
+  id: string;
+  noticeId: string;
+  sourceLotId?: string;
+  lotNumber?: number;
+  title?: string;
+  description?: string;
+  cpvCodes: string[];
+  estimatedValue?: number;
+  deadlineAt?: string;
+  isBidableSeparately: boolean;
+  documents?: string[];
+}
+```
+
+```ts
 export interface QualificationResult {
   processId: string;
   noticeId: string;
   expiryQualified: boolean;
   goodsQualified: boolean;
   goodsConfidence: number;
+  legalCategory?: "goods" | "services" | "works" | "mixed" | "unknown";
+  goodsDensityScore?: number;
+  goodsSeparability?: boolean | "uncertain";
+  accessRoute?:
+    | "open_tender"
+    | "restricted_tender"
+    | "framework_call_off"
+    | "dynamic_market"
+    | "direct_award"
+    | "closed_framework_award"
+    | "not_bidable";
   rationale: string[];
   qualifiedAt: string;
 }
@@ -2434,14 +2508,35 @@ export interface ProductCandidate {
   id: string;
   processId: string;
   noticeId: string;
+  lotId?: string;
   name: string;
+  candidateType?:
+    | "exact_sku"
+    | "standard_commodity"
+    | "brand_family"
+    | "bundle"
+    | "custom_or_fabricated"
+    | "installed_goods"
+    | "regulated_goods"
+    | "unknown";
+  headNoun?: string;
   quantity?: number;
   quantityUnit?: string;
   specificationText?: string;
   estimatedUnitWeightKg?: number;
   estimatedUnitVolumeM3?: number;
   candidateCommodityCodes: string[];
-  extractionConfidence: number;
+  criticalAttributes?: Record<string, string | number | boolean>;
+  numericSpecs?: Record<string, string | number>;
+  standards?: string[];
+  material?: string;
+  brandModel?: string;
+  preferredTerms?: string[];
+  excludedTerms?: string[];
+  quoteabilityScore?: number;
+  identityConfidence: number;
+  specConfidence: number;
+  quantityConfidence: number;
 }
 ```
 
@@ -2464,10 +2559,40 @@ export interface ProductCandidate {
      use them directly instead of inferring from text. -->
 
 ```ts
+export interface ProcessRelation {
+  id: string;
+  processIdA: string;
+  processIdB: string;
+  relationType: "merged_same_process" | "related_not_merged" | "possible_duplicate" | "separate";
+  confidence: number;
+  evidence?: string[];
+  createdAt: string;
+}
+```
+
+```ts
+export interface SearchProfile {
+  id: string;
+  productCandidateId: string;
+  headNoun?: string;
+  candidateType?: ProductCandidate["candidateType"];
+  criticalAttributes?: Record<string, string | number | boolean>;
+  standards?: string[];
+  numericSpecs?: Record<string, string | number>;
+  preferredTerms?: string[];
+  excludedTerms?: string[];
+  queryPack?: Record<string, string[]>;
+  createdAt: string;
+}
+```
+
+```ts
 export interface SupplierQuote {
   id: string;
   processId: string;
+  noticeId?: string;
   productCandidateId: string;
+  productName?: string;            // denormalized convenience copy for display/debugging
   region: "uk" | "eu" | "china";
   quoteClass: "indicative_marketplace" | "distributor_listing" | "rfq_quote" | "negotiated_quote";
   sourceName: string;
@@ -2484,11 +2609,19 @@ export interface SupplierQuote {
   unitPriceGbp: number;
   minimumOrderQuantity?: number;
   leadTimeDays?: number;
-  includesShipping: boolean;          // DEPRECATED: use quoteCostBoundary instead for precision
+  includesShipping?: boolean;         // legacy hint only; quoteCostBoundary is authoritative
+  priceSignalRole?: "benchmark_ceiling" | "optimistic_floor" | "executable";
+  listingPackQty?: number;
+  listingPackUnit?: string;
+  normalizedUnitBasis?: string;
+  isUsedOrRefurbished?: boolean;
+  vatInclusive?: boolean;
+  matchConfidence: number;
+  quoteUsabilityConfidence: number;
+  shippingBasisConfidence?: number;
   quoteRealismConfidence: number;     // NEW: how realistic is this price for procurement volumes?
   negotiationUpliftPct?: number;      // NEW: expected uplift from indicative to negotiated price
   evidence: string[];
-  confidence: number;
   validUntil?: string;
 }
 ```
@@ -2737,7 +2870,7 @@ create table qualification_runs (
   goods_confidence_bps integer not null,  -- basis points (0-10000)
   legal_category text,            -- from procurement pipeline review
   goods_density_score_bps integer,  -- basis points (0-10000)
-  goods_separability text,        -- e.g. 'fully_separable', 'partially_separable', 'inseparable'
+  goods_separability text,        -- true, false, uncertain (tri-state classification stored as text)
   access_route text,              -- open_tender, restricted_tender, etc.
   rationale jsonb not null,       -- renamed from 'evidence' to match TS interface
   qualified_at timestamptz not null default now(),
@@ -2769,10 +2902,9 @@ create table product_candidates (
   standards_json jsonb,
   excluded_terms_json jsonb,
   quoteability_score_bps integer,   -- basis points (0-10000)
-  identity_confidence_bps integer,  -- basis points (0-10000), replaces single extraction_confidence
+  identity_confidence_bps integer,  -- basis points (0-10000)
   spec_confidence_bps integer,      -- basis points (0-10000)
   quantity_confidence_bps integer,  -- basis points (0-10000)
-  extraction_confidence_bps integer not null,  -- basis points (0-10000), legacy aggregate
   -- sync tracking (push-owned)
   owner_executor_id text not null,
   row_version integer not null default 1,
@@ -2787,7 +2919,7 @@ create table supplier_quotes (
   process_id uuid not null references procurement_processes(id),
   notice_id uuid not null references contract_notices(id),
   product_candidate_id uuid references product_candidates(id),
-  product_name text not null,
+  product_name text not null,                 -- denormalized convenience copy for display/debugging
   region text not null,
   quote_class text not null,
   source_name text not null,
@@ -2853,7 +2985,7 @@ create table landed_cost_estimates (
   customs_duty_gbp_pence integer not null,         -- integer pence
   trade_remedy_duty_gbp_pence integer,             -- integer pence
   import_vat_gbp_pence integer not null,           -- integer pence
-  import_vat_treatment text not null,              -- standard, reduced, zero, exempt, pva_eligible
+  import_vat_treatment text not null,              -- postponed_full, postponed_partial, cash_paid_full, cash_paid_partial, non_recoverable, unknown
   vat_recovery_rate_bps integer,                   -- basis points
   uk_final_mile_cost_gbp_pence integer not null,   -- integer pence
   other_fees_gbp_pence integer not null,           -- integer pence
@@ -2978,16 +3110,17 @@ create table agent_session_logs (
   started_at timestamptz not null,
   completed_at timestamptz,
   status text not null,  -- created, spawned, active, terminating, exited, reaped, archived
-  -- terminal output (artifact-based; from agent orchestration review)
-  terminal_output_path text,   -- artifact file path (local only; not synced)
-  terminal_output_hash text,   -- SHA-256 of terminal output
+  -- raw session output (artifact-based; legacy column names retained)
+  terminal_output_path text,   -- artifact file path for PTY bytes or contract-mode stdout/stderr (local only; not synced)
+  terminal_output_hash text,   -- SHA-256 of raw session output
   terminal_output_bytes integer,
-  terminal_output_tail text,   -- last N KB for quick inspection (local only; Supabase gets redacted excerpt or null)
+  terminal_output_tail text,   -- last N KB of raw session output for quick inspection (local only; Supabase gets redacted excerpt or null)
   structured_trace jsonb,      -- full parsed trace locally; Supabase stores only redacted summaries
   -- error handling (expanded taxonomy from agent orchestration review)
-  error_type text,  -- AGENT_SESSION_EXPIRED, AGENT_INTERNAL_ERROR, AGENT_STALLED, AGENT_SKILL_FAILED,
-                    -- AGENT_AUTH_CHALLENGE, AGENT_OUTPUT_CONTRACT_INVALID, AGENT_PROTOCOL_MISMATCH,
-                    -- AGENT_PARTIAL_FAILURE, AGENT_CLEANUP_INCOMPLETE, HOST_SLEEP_INTERRUPTED, HOST_RESOURCE_EXHAUSTED
+  error_type text,  -- AGENT_AUTH_CHALLENGE, AGENT_INTERNAL_ERROR, AGENT_STALLED, AGENT_SKILL_FAILED,
+                    -- AGENT_OUTPUT_CONTRACT_INVALID, AGENT_PROTOCOL_MISMATCH,
+                    -- AGENT_PARTIAL_FAILURE, AGENT_CLEANUP_INCOMPLETE, AGENT_RUN_FAILED,
+                    -- HOST_SLEEP_INTERRUPTED, HOST_RESOURCE_EXHAUSTED
   error_message text,
   cleanup_verdict text,        -- clean, forced, leaked
   last_checkpoint_seq integer, -- last valid checkpoint sequence before failure
@@ -3009,6 +3142,42 @@ create table error_manifests (
   resolved boolean not null default false,
   resolved_at timestamptz,
   resolved_by text,
+  created_at timestamptz not null default now()
+);
+```
+
+```sql
+-- Remote-facing projection summaries for web visibility.
+create table workflow_job_summaries (
+  job_id uuid primary key references workflow_jobs(id),
+  process_id uuid references procurement_processes(id),
+  kind text not null,
+  status text not null,
+  scheduled_for timestamptz,
+  started_at timestamptz,
+  completed_at timestamptz,
+  last_error text,
+  owner_executor_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table error_manifest_summaries (
+  id uuid primary key references error_manifests(id),
+  process_id uuid references procurement_processes(id),
+  pipeline_stage text not null,
+  workflow_step text not null,
+  error_type text not null,
+  error_message text not null,
+  redacted_context jsonb,
+  resolved boolean not null default false,
+  resolved_at timestamptz,
+  owner_executor_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
 ```
@@ -3248,13 +3417,13 @@ not_started
 
 **State transition notes:**
 
-- `relation_resolved` is reached after the relation resolution engine classifies the notice's relationship to existing processes (merge / related_not_merged / separate).
+- `relation_resolved` is reached after the relation resolution engine classifies the notice's relationship to existing processes (merge / related_not_merged / possible_duplicate / separate).
 - `prelim_rejected` is reached when any qualification dimension fails: expiry within 30 days, non-bidable access route, or pure services/works with negligible goods density. The `QualificationResult` records which dimension(s) caused rejection.
 - `prelim_qualified` requires passing all four qualification dimensions: expiry, access route, goods classification, and lot-level goods separability. Processes routed to `needs_review` from qualification (e.g., mixed contracts with uncertain separability) remain at `prelim_qualified` with a review flag until the operator resolves them.
 - `docs_acquired` → `lots_extracted` → `products_extracted` → `quoteability_scored` form the document-to-candidate pipeline.
 - **Below-quoteability path:** Candidates with quoteabilityScore < 0.45 advance to `quoteability_scored` in pipeline state but do NOT enter `priced`. They remain at `quoteability_scored` and the operator disposition defaults to `pending` for operator triage. The operator may then set disposition to `watching`, `rejected`, or escalate to RFQ manually.
 - **RFQ escalation** is an operator disposition action (setting disposition to `approved` with a sub-action or note), not a separate pipeline state. The pipeline continues to `priced` if/when executable quotes are obtained.
-- `needs_review` is a pipeline state reachable from multiple stages: qualification ambiguity, gross margin below threshold with high uncertainty, or landed-cost blocker (see §5.7 Landed Cost step 13). The `pipeline_assessments` record should include `review_reason` and `review_stage` to distinguish these.
+- `needs_review` is a pipeline state reachable from multiple stages: qualification ambiguity, gross margin below threshold with high uncertainty, or landed-cost blocker (see §5.7 Landed Cost step 15). The `pipeline_assessments` record should include `review_reason` and `review_stage` to distinguish these.
 - `expired` is set by a background daemon job that periodically scans active processes and transitions those whose `latestDeadlineAt` has passed. Expiry check runs on daemon startup and on a configurable interval (default: every 6 hours).
 
 ### 5.6 Ingestion Data Flow
@@ -3262,26 +3431,27 @@ not_started
 #### Data Flow: Scheduled Ingestion (Skill-Based Agent Scraping)
 
 1. Daemon's local cron scheduler determines that an ingestion job is due for a source.
-2. Daemon creates a job record in local SQLite with explicit skill id and version binding.
-3. Agent Adapter selects execution mode (PTY or contract) based on the skill's `interaction_profile` and capability probe results.
-4. Adapter spawns the agent session in its own process group, recording pid, pgid, adapter id, CLI version, and config hash.
-5. The appropriate procurement ingestion skill is loaded into the agent (e.g., `skills/procurement-ingestion/fts/SKILL.md`).
-6. Agent navigates to the source via browser automation, following the skill playbook.
-7. Agent extracts notice data from the source, using cursor/watermark from the previous run.
-8. Full terminal output is captured as an immutable forensic artifact (PTY mode) or structured events are captured via adapter protocol parsing (contract mode).
-9. Agent writes checkpoints and final outputs through a validated result contract (artifact file, JSON payload, or structured stream).
-10. Workflow state advances from validated checkpoints/final contracts, not from transcript parsing.
-11. Result contract is validated by the Result Contract Validator. Raw artifacts are stored in the artifact store with hashes and paths referenced from SQLite.
-12. Notices are normalized into internal schema.
-13. Relation resolution engine classifies the notice's relationship to existing processes:
-    - **Step 13a: Hard blockers check.** Before scoring, check for hard contradictions that prevent merging:
+2. Scheduler reads the enabled source definition from the Source Registry and enqueues a job with explicit skill id/version binding.
+3. Job Runner claims the queued job from local SQLite and asks the Resource Arbiter for the relevant source lane before execution.
+4. Agent Adapter selects execution mode (PTY or contract) based on the skill's `interaction_profile` and capability probe results.
+5. Adapter spawns the agent session in its own process group, recording pid, pgid, adapter id, CLI version, and config hash.
+6. The appropriate procurement ingestion skill is loaded into the agent (e.g., `skills/procurement-ingestion/fts/SKILL.md`).
+7. Agent navigates to the source via browser automation, following the skill playbook.
+8. Agent extracts notice data from the source, using cursor/watermark from the previous run.
+9. Raw session output is captured as an immutable forensic artifact in both modes: PTY bytes in PTY mode, stdout/stderr bytes in contract mode. Structured events are also captured via adapter protocol parsing in contract mode.
+10. Agent writes checkpoints and final outputs through a validated result contract (artifact file, JSON payload, or structured stream).
+11. Workflow state advances from validated checkpoints/final contracts, not from transcript parsing.
+12. Result contract is validated by the Result Contract Validator. Raw artifacts are stored in the artifact store with hashes and paths referenced from SQLite.
+13. Notices are normalized into internal schema.
+14. Relation resolution engine classifies the notice's relationship to existing processes:
+    - **Step 14a: Hard blockers check.** Before scoring, check for hard contradictions that prevent merging:
       - Conflicting exact reference numbers.
       - One notice is framework establishment and the other is a call-off/award under framework.
       - Explicit different OCIDs where source semantics indicate separate processes (e.g., direct award after unsuccessful competition).
       - Incompatible stage chronology.
       - Same buyer and similar title but clearly different lot/value/reference structure.
-    - **Step 13b: Exact-match rules.** If exact OCID match → `merged_same_process`. If explicit related-notice reference with plausible stage sequence → `merged_same_process`. If framework/call-off relation detected → `related_not_merged`.
-    - **Step 13c: Heuristic scoring** (only for non-blocked, non-exact pairs):
+    - **Step 14b: Exact-match rules.** If exact OCID match → `merged_same_process`. If explicit related-notice reference with plausible stage sequence → `merged_same_process`. If framework/call-off relation detected → `related_not_merged`.
+    - **Step 14c: Heuristic scoring** (only for non-blocked, non-exact pairs):
       ```text
       merge_score =
         0.35 * reference_match
@@ -3294,11 +3464,11 @@ not_started
       - `>= 0.95` with no blocker → auto-merge (`merged_same_process`).
       - `0.75–0.94` → `related_not_merged` (or `possible_duplicate` for operator review).
       - `< 0.75` → `separate`.
-    - **Step 13d:** For `related_not_merged` pairs, create a `ProcessRelation` edge. This enables sharing search caches, extracted product families, and price signals across the cluster without forcing a false canonical merge.
-    - **Step 13e:** Map each notice into a canonical `procurement_processes` record. Merged notices update the existing record; separate notices create new records.
-14. Qualification jobs are queued for new or materially updated processes, retaining notice-level provenance.
-15. Session Reaper performs descendant cleanup and records cleanup verdict.
-16. Stage sync: In the same SQLite transaction that writes stage outputs, the daemon writes all rows with a shared `stage_run_id`, updates `process_stage_status` to `succeeded`, advances `process_stage_heads`, and writes outbox entries. The sync engine then pushes one atomic batch to Supabase. Failed stages publish failure status + redacted error summary but do NOT advance the stage head.
+    - **Step 14d:** For `related_not_merged` pairs, create a `ProcessRelation` edge. This enables sharing search caches, extracted product families, and price signals across the cluster without forcing a false canonical merge.
+    - **Step 14e:** Map each notice into a canonical `procurement_processes` record. Merged notices update the existing record; separate notices create new records.
+15. Job Runner persists normalized outputs and queues qualification jobs for new or materially updated processes, retaining notice-level provenance.
+16. Session Reaper performs descendant cleanup and records cleanup verdict.
+17. Stage sync: In the same SQLite transaction that writes stage outputs, the daemon writes all rows with a shared `stage_run_id`, updates `process_stage_status` to `succeeded`, advances `process_stage_heads`, and writes outbox entries. The sync engine then pushes one atomic batch to Supabase. Failed stages publish failure status + redacted error summary but do NOT advance the stage head.
 
 #### Data Flow: Manual Trigger
 
@@ -3309,7 +3479,7 @@ not_started
 
 #### Error Cases
 
-- Agent stalls (no output) -> daemon detects no terminal bytes for configurable timeout, marks `AGENT_STALLED`, kills process group, creates error manifest.
+- Agent stalls (no output) -> daemon detects no PTY/stdout-stderr bytes for configurable timeout, marks `AGENT_STALLED`, kills process group, creates error manifest.
 - Agent stalls (no progress) -> adapter detects no validated checkpoint progress despite ongoing output, marks `AGENT_STALLED`, kills process group, creates error manifest.
 - Auth challenge -> daemon detects re-login prompt, MFA challenge, browser SSO failure, or hidden permission prompt, marks `AGENT_AUTH_CHALLENGE`, flags for operator.
 - Host sleep during session -> daemon detects monotonic time gap exceeding threshold, marks `HOST_SLEEP_INTERRUPTED`, taints browser-backed sessions.
@@ -3362,7 +3532,7 @@ not_started
 #### Data Flow: Document Acquisition
 
 1. For each `prelim_qualified` notice, check for publicly accessible tender documents.
-2. Daemon creates a PTY session for the `document-acquisition` skill.
+2. Daemon creates an adapter-mediated agent session for the `document-acquisition` skill (normally PTY-backed because the flow is browser-driven).
 3. Agent navigates to the notice source portal and identifies available documents (spec PDFs, pricing schedules, BoQ spreadsheets, lot documents, tender appendices).
 4. Agent downloads publicly accessible documents and outputs structured references.
 5. Documents stored as raw artifacts in local SQLite, linked to the notice.
@@ -3396,8 +3566,8 @@ not_started
 #### Data Flow: Price-Signal Matching (Skill-Based Agent Scraping)
 
 1. **Source routing** by `candidateType` (see section 4.3). Not every source for every candidate.
-2. **Session batching:** One session per source per notice (multiple candidates).
-3. Agent searches using `queryPack` from search profile. Full terminal output captured.
+2. **Session batching:** Resource Arbiter grants supplier-source lanes; run at most one automated search session per source per notice (multiple candidates batched together).
+3. Agent searches using `queryPack` from search profile. Full raw session output is captured.
 4. **Deterministic shortlist:** Parse results, reject hard conflicts (wrong brand/model/standard/voltage/material/size, used when not allowed, accessory instead of primary, consumer instead of industrial), score top 10.
 5. **AI adjudication (top-3 only):** Agent judges pre-filtered borderline results, does not search.
 6. **Dual confidence scoring:** `matchConfidence` (0.40 product_type + 0.30 critical_attribute + 0.20 numeric_spec + 0.10 evidence_quality) and `quoteUsabilityConfidence` (0.35 unit_basis + 0.25 MOQ + 0.20 shipping_visibility + 0.20 completeness). Never average these.
@@ -3416,6 +3586,7 @@ Naive design: 1,200+ sessions/day at $0.18-$0.41 = $75-$170/day. Required optimi
 4. **Cache results:** Normalize query fingerprints, cache 24-72h. Reuse across related process clusters.
 5. **Model tiering:** Mini/Haiku for classification/extraction. Premium models only for ambiguous adjudication.
 6. **Realistic throughput:** 20-30 priced notices/day after filtering. Target $20-$60/day metered.
+7. **Default operating limits (MVP):** start with 2 browser slots, 4 total agent slots, 1 concurrent procurement session per source, 2 concurrent supplier sessions per source, max 25 extracted candidates per notice, max 8 auto-searched candidates per notice, and at most 3 supplier sources searched automatically per product candidate unless an operator forces a wider sweep. Treat marketplace quotes as stale after 72 hours unless `validUntil` is sooner.
 
 #### Data Flow: Landed Cost (API-Based)
 
@@ -3448,7 +3619,7 @@ Naive design: 1,200+ sessions/day at $0.18-$0.41 = $75-$170/day. Required optimi
     - `cashOutlayGbp` (total cost including all VAT whether recoverable or not),
     - `workingCapitalCostGbp` (optional — cost of capital tied up between payment and revenue).
 14. **Compute confidence breakdown:** Calculate each of the 6 components (`classificationStability`, `quoteRealism`, `commodityCodeConfidence`, `freightModeStability`, `revenueReliability`, `fxFreshness`) and the weighted composite. Assign `decisionGrade`: `screening` | `review` | `rfq_required` | `broker_required`.
-13. **Blocker check:** Stop auto-qualification when:
+15. **Blocker check:** Stop auto-qualification when:
     - Classification is unstable (HS6 candidates diverge or 10-digit code unresolved)
     - Revenue basis is uncertain (framework ceiling, dynamic market, no firm commitment)
     - Freight mode remains unresolved or mode confidence is low
@@ -3460,6 +3631,10 @@ Naive design: 1,200+ sessions/day at $0.18-$0.41 = $75-$170/day. Required optimi
 18. Sync results to Supabase.
 
 ### 5.8 Control Panel and Viewing Portal Data Flow
+
+**Terminology note:** In this document, **desktop app**, **desktop shell**, and **desktop control panel** all refer to the same writable Tauri client. **Web app**, **web shell**, and **viewing portal** all refer to the same read-only hosted client. **Procurement process** is the canonical internal record; the UI may call it an **opportunity**. A **contract notice** is the source document that feeds a procurement process.
+
+The desktop/web capability split is formalized in **ADR-008**.
 
 #### Data Flow: Desktop Control Panel (Full Read/Write/Trigger)
 
@@ -3473,13 +3648,13 @@ Naive design: 1,200+ sessions/day at $0.18-$0.41 = $75-$170/day. Required optimi
    - pricing evidence,
    - logistics/customs assumptions,
    - manifest,
-   - agent run history and terminal output traces,
+   - agent session history and terminal output traces,
    - error manifest entries (if any).
 5. Operator chooses:
    - reject,
    - watch,
-   - rerun enrichment (triggers agent skill via daemon PTY session),
-   - start bid workflow (triggers bid skill via daemon PTY session).
+   - rerun enrichment (triggers the appropriate daemon-managed agent session),
+   - start bid workflow (triggers the portal skill via a daemon-managed agent session).
 6. Operator can also:
    - trigger manual source syncs,
    - manage agent configurations and skills,
@@ -3489,7 +3664,7 @@ Naive design: 1,200+ sessions/day at $0.18-$0.41 = $75-$170/day. Required optimi
 #### Data Flow: Web Viewing Portal (Read-Only)
 
 1. Viewer opens the web viewing portal.
-2. Web queries canonical procurement processes by state **from Supabase projection tables** (designed for portal use-cases, not raw sync tables). Displays sync age and last replicated seq for staleness awareness.
+2. Web queries canonical procurement processes by state **from Supabase projection tables** (designed for portal use-cases, not raw sync tables), plus `workflow_job_summaries` and `error_manifest_summaries` for operator-safe status visibility. Displays sync age and last replicated seq for staleness awareness.
 3. Viewer opens opportunity detail.
 4. Detail view loads:
    - canonical process summary,
@@ -3511,19 +3686,21 @@ These are desktop-only operations.
 
 **Important clarification:** This section describes **request pipeline automation**, not real-money bid submissions. The platform automates the preparation and submission of requests/expressions of interest. Actual negotiations and fulfillment are handled manually by humans using the pipeline output. The cost of pipeline failure is low — no real money changes hands automatically.
 
+This automation-risk posture is formalized in **ADR-007**.
+
 In many cases the notice source and the submission portal are different. `Find a Tender` and `Contracts Finder` are discovery/publication sources, while the actual bidder interaction often happens on downstream eSourcing portals such as Jaggaer, Atamis, Proactis, PCS-Tender, or authority-specific procurement systems. Bid workflows should therefore be modeled around the **underlying submission portal**, not the notice discovery source.
 
 ```text
 operator clicks "bid" in desktop control panel
   -> create bid job in local SQLite
-  -> daemon creates PTY session
+  -> daemon creates adapter-mediated agent session (normally PTY for portal/browser flows)
   -> portal-specific skill loaded
   -> company profile injected into kickoff prompt
   -> agent navigates to downstream portal via browser automation
   -> agent fills portal forms using skill playbook
   -> draft submission or request-for-bid prepared
   -> evidence/screenshot/log artifacts stored in local SQLite
-  -> full terminal output captured for tracing
+  -> full raw session output captured for tracing
   -> job marked ready_to_bid, needs_review, or bid_submitted depending on workflow stage
   -> results synced to Supabase for visibility
   -> if failure: error manifest entry created with context for debugging
@@ -3632,7 +3809,7 @@ The desktop control panel provides an error manifest view where operators can:
 - Drill into error details including session artifacts (forensic PTY capture or structured event log).
 - Mark errors as resolved.
 
-Supabase receives the error-manifest metadata plus redacted context so the web viewing portal can show error status without receiving full terminal transcripts.
+Supabase receives the error-manifest metadata plus redacted context so the web viewing portal can show error status without receiving full raw session transcripts.
 
 #### Error Handling Example
 
@@ -3642,7 +3819,7 @@ type ConfidenceGate =
   | "manual_review"
   | "reject";
 
-function resolveConfidenceGate(score: number, floor = 0.7): ConfidenceGate {
+function resolveConfidenceGate(score: number, floor = 0.6): ConfidenceGate {
   if (score >= floor) return "pass";
   if (score >= 0.45) return "manual_review";
   return "reject";
@@ -3663,7 +3840,7 @@ function resolveConfidenceGate(score: number, floor = 0.7): ConfidenceGate {
 |-----------|------------|--------|
 | Procurement ingestion | Medium | skill-based scraping of structured official sources; incremental retrieval well-supported |
 | Notice normalization | Medium | OCDS helps, but not all sources are identical |
-| Relation resolution (merge/relate/separate) | High | OCID matching is straightforward; heuristic scoring for cross-source pairs without shared OCID is harder; framework/call-off detection requires notice-type semantics |
+| Relation resolution (merge / related_not_merged / possible_duplicate / separate) | High | OCID matching is straightforward; heuristic scoring for cross-source pairs without shared OCID is harder; framework/call-off detection requires notice-type semantics |
 | Goods qualification (multi-dimensional) | Medium-High | CPV heuristics cover most cases; mixed contracts with separable goods require more nuanced analysis; access route classification adds a new dimension |
 | Document acquisition | Medium-High | navigating procurement portals to find and download public documents; handling varied document formats |
 | Lot extraction | Medium | structured OCDS lot data is straightforward; unstructured lot descriptions in documents require AI assist |
@@ -3675,8 +3852,10 @@ function resolveConfidenceGate(score: number, floor = 0.7): ConfidenceGate {
 | Landed-cost engine | Very High | logistics + customs + FX + assumptions; expanded API surface; revenue normalization |
 | Operator surfaces | Medium | standard CRUD/search/detail flows; desktop control panel + web read-only viewing portal |
 | Request pipeline automation | High | portal-specific skills, brittle websites, but low risk since not real money |
-| Daemon orchestration (PTY + SQLite + sync) | Very High | PTY session management, SQLite storage, Supabase sync engine, cron scheduling, agent health monitoring, full terminal output capture |
+| Daemon orchestration (PTY + SQLite + sync) | Very High | PTY session management, SQLite storage, Supabase sync engine, cron scheduling, agent health monitoring, full session-output capture |
 | Skill maintenance | Medium | skills need updating when source websites change layout/flow |
+
+**Architecture-shape note:** The component graph is intentionally denser around PTY/runtime orchestration and product/pricing comparability than around generic CRUD or projection concerns. That is deliberate: those two areas dominate failure risk, operational cost, and correctness.
 
 **Risk Areas:**
 
@@ -3700,9 +3879,9 @@ function resolveConfidenceGate(score: number, floor = 0.7): ConfidenceGate {
 | VAT recoverability is modeled incorrectly | Medium | High | store VAT-registration assumptions explicitly and show economic-margin vs cash-outlay views separately |
 | Daemon not running for queued work | Medium | Medium | local cron + error manifest flags missed schedules + at least one designated always-on machine |
 | Source website layout changes break scraping skills | High | Medium | error manifest flags failures + skill versioning + fast skill update cycle |
-| Agent session expires (needs re-login) | High | Medium | daemon health monitoring detects `AGENT_SESSION_EXPIRED` + operator alert |
+| Agent auth challenge blocks a run | High | Medium | daemon health monitoring detects `AGENT_AUTH_CHALLENGE` + operator alert |
 | Agent stalls mid-execution | Medium | Medium | daemon timeout detection + auto-kill + error manifest |
-| SQLite-to-Supabase sync conflict | Low | Medium | clear conflict resolution rules (local wins for pipeline data, remote wins for config) |
+| SQLite-to-Supabase sync protocol drift / schema mismatch | Low | Medium | `schema_epoch` guard + transactional outbox ordering + sync round-trip tests in CI |
 | Portal UI changes break request pipeline skills | High | Low | portal-specific skills + screenshots + health checks. **Impact downgraded:** this automates the request pipeline, not real-money bids |
 | FX volatility changes decision outcome | High | Medium | stored rate snapshots + HMRC official rates for customs + recalculation triggers |
 | Attachment blindness — extraction from notice text only | High | Critical | document acquisition stage before product extraction; confidence penalty when no docs available |
@@ -3765,8 +3944,8 @@ All tables scoped by `org_id` (implicit — single-org MVP, explicit column adde
 - Store secrets in desktop OS keychain / Tauri secure storage strategy, not plain-text configs. Local secrets and runtime overrides must never be synced to Supabase.
 - Local SQLite file should have restrictive file permissions (0600).
 - Encrypt especially sensitive company profile fields if stored centrally in Supabase.
-- Redact agent logs before syncing to Supabase — full terminal output may contain sensitive data. Supabase receives only redacted excerpts or null for `terminal_output` and `structured_trace`.
-- Agent terminal output stored locally should be access-controlled.
+- Redact agent logs before syncing to Supabase — full raw session output may contain sensitive data. Supabase receives only redacted excerpts or null for `terminal_output` and `structured_trace`.
+- Agent session-output artifacts stored locally should be access-controlled.
 
 **Security Risks:**
 
@@ -3825,7 +4004,7 @@ All tables scoped by `org_id` (implicit — single-org MVP, explicit column adde
 | Bottleneck | Mitigation |
 |------------|------------|
 | Supplier search explosion | limit search permutations, use line-item heuristics |
-| Agent runtime saturation on user machine | daemon concurrency caps on PTY sessions |
+| Agent runtime saturation on user machine | daemon concurrency caps on PTY-backed browser sessions and total adapter-mediated sessions |
 | Large manifest generation | generate async and cache artifacts |
 | Control-panel and portal search over large JSON payloads | normalized columns + indexes (SQLite for desktop, GIN + FTS for Supabase/web) |
 | SQLite-to-Supabase sync volume | outbox-based batch sync, push only changed records via local_seq ordering |
@@ -3836,6 +4015,8 @@ All tables scoped by `org_id` (implicit — single-org MVP, explicit column adde
 ### 6.5 Testing Strategy
 
 **Core principle:** Prioritize **real end-to-end tests** over mocks and stubs. Real E2E agent tests are the ultimate success criterion — they determine whether the pipeline actually works. Avoid creating mocks or stub test functionality.
+
+For hybrid-runtime coverage, "real E2E" means exercising both PTY-backed sessions and contract-mode sessions against real agent CLIs where the workflow supports each mode.
 
 **Test Priority (highest to lowest):**
 
@@ -3850,14 +4031,14 @@ All tables scoped by `org_id` (implicit — single-org MVP, explicit column adde
 
 The most critical tests verify that the full agent pipeline works:
 
-1. Send real kickoff prompts to real agent PTY instances.
+1. Send real kickoff prompts to real agent sessions (PTY-backed or contract-mode as appropriate for the skill).
 2. Load actual skills into the agent session.
 3. Verify the agent is working, outputting, and proceeding with its tasks.
 4. Verify structured data output from the agent.
-5. Verify the daemon correctly captures terminal output.
+5. Verify the daemon correctly captures raw session output and validated protocol events.
 6. Verify error detection (stalls, failures, expired sessions).
 
-A real agent E2E test fails if any of these conditions are not met within the test budget: terminal output begins, structured result output is produced, expected job state is reached, and the correct health/error classification is recorded.
+A real agent E2E test fails if any of these conditions are not met within the test budget: raw session output begins, structured result output is produced, expected job state is reached, and the correct health/error classification is recorded.
 
 ```rust
 #[tokio::test]
@@ -3994,7 +4175,7 @@ Events parsed from vendor-specific structured output by the adapter:
 
 **Layer 3: Forensic Bytes (immutable raw capture)**
 
-Raw PTY byte stream captured in PTY mode. This includes:
+Raw session-output bytes captured in both execution modes. In PTY mode this includes:
 
 - Agent thinking/reasoning text.
 - Tool calls and their results.
@@ -4003,17 +4184,19 @@ Raw PTY byte stream captured in PTY mode. This includes:
 - Error messages and stack traces.
 - ANSI escape sequences (stripped for derived summaries, preserved in raw artifact for replay).
 
+In contract mode, Layer 3 additionally includes the raw stdout/stderr stream and any vendor-emitted JSONL/JSON framing before adapter normalization.
+
 **Critical rule:** Only Layer 1 and Layer 2 drive workflow state. Layer 3 is for post-hoc debugging and replay. A transcript can explain a failure; it must never upgrade a job to success.
 
 #### Artifact Storage Model
 
-Raw PTY bytes and large session outputs are stored as immutable compressed artifact files, **not inline in hot SQLite tables**:
+Raw session-output bytes and large session outputs are stored as immutable compressed artifact files, **not inline in hot SQLite tables**:
 
-- **Raw artifacts:** Chunked, compressed, immutable files at `artifacts/sessions/YYYY/MM/<session_id>/`.
-- **SQLite stores:** Session header, byte counts, last N KB tail excerpt, redaction markers, artifact path, SHA-256 hash, and derived control/protocol event summaries.
+- **Raw artifacts:** Chunked, compressed, immutable files at `artifacts/sessions/YYYY/MM/<session_id>/`. PTY mode stores raw terminal bytes; contract mode stores raw stdout/stderr bytes alongside parsed protocol events. Rotate capture chunks every 8 MiB and compress immediately. Preserve full raw capture by default; if a single session exceeds 256 MiB of raw bytes, stop capture only after writing an explicit truncation marker and surfacing an operator warning.
+- **SQLite stores:** Session header, byte counts, last 64 KB tail excerpt, redaction markers, artifact path, SHA-256 hash, and derived control/protocol event summaries.
 - **Supabase receives:** Redacted summary, event counts, and status only — no raw transcripts.
 
-This preserves "full terminal capture is critical infrastructure" without turning the operational database into a log sink.
+This preserves full session-output capture as critical infrastructure without turning the operational database into a log sink.
 
 #### Agent Health Detection
 
@@ -4021,9 +4204,9 @@ The daemon actively monitors every running session for:
 
 | Health Signal | Detection Method | Response |
 |---------------|-----------------|----------|
-| **No terminal output** | Configurable timeout since last output byte (PTY mode) | Mark `AGENT_STALLED`, kill process group, create error manifest |
+| **No output bytes** | Configurable timeout since last PTY byte or stdout/stderr byte | Mark `AGENT_STALLED`, kill process group, create error manifest |
 | **No validated progress** | No checkpoint written within progress timeout (both modes) | Mark `AGENT_STALLED`, kill process group, create error manifest |
-| **Auth challenge** | Pattern match on terminal output or structured event for login/MFA/SSO/permission prompts | Mark `AGENT_AUTH_CHALLENGE`, alert operator via desktop control panel |
+| **Auth challenge** | Pattern match on raw output stream or structured event for login/MFA/SSO/permission prompts | Mark `AGENT_AUTH_CHALLENGE`, alert operator via desktop control panel |
 | **API error inside agent** | Adapter parses error from structured events or terminal patterns | Mark `AGENT_INTERNAL_ERROR`, capture full context |
 | **Skill execution failed** | Agent exits with error or produces error output | Mark `AGENT_SKILL_FAILED`, capture skill path, step, and skill version |
 | **Result contract invalid** | Final output fails schema validation | Mark `AGENT_OUTPUT_CONTRACT_INVALID`, preserve artifacts |
@@ -4125,7 +4308,7 @@ The platform needs to retrieve data from procurement sources and supplier market
 
 **Decision:**
 
-All procurement and supplier data retrieval uses skill-based agent scraping via browser automation. The agent runs on the local machine, powered by source-specific skills, and is orchestrated by the Rust daemon via PTY sessions. No API client packages are maintained for procurement or supplier sources. The official procurement sources (Find a Tender, Contracts Finder, PCS) are still the target data sources — but they are accessed via browser automation, not via TypeScript API clients.
+All procurement and supplier data retrieval uses skill-based agent scraping via browser automation. The agent runs on the local machine, powered by source-specific skills, and is orchestrated by the Rust daemon through adapter-mediated agent sessions, typically PTY-backed for retrieval flows. No API client packages are maintained for procurement or supplier sources. The official procurement sources (Find a Tender, Contracts Finder, PCS) are still the target data sources — but they are accessed via browser automation, not via TypeScript API clients.
 
 **Options Considered:**
 
@@ -4234,7 +4417,7 @@ Launch agent jobs through an adapter-mediated execution model with two transport
 1. **PTY mode:** Required for browser automation, interactive auth, or TTY-dependent CLI behavior.
 2. **Contract mode:** Preferred for deterministic tasks where the vendor supports structured non-interactive execution.
 
-The daemon selects mode per job based on the skill's declared `interaction_profile` and the adapter's capability probe. Full terminal output is captured as a forensic artifact in PTY mode; structured events drive workflow state in both modes.
+The daemon selects mode per job based on the skill's declared `interaction_profile` and the adapter's capability probe. Raw session output is captured as a forensic artifact in both modes (PTY bytes in PTY mode, stdout/stderr in contract mode); structured events drive workflow state in both modes.
 
 **Options Considered:**
 
@@ -4416,7 +4599,7 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 | File | Purpose | Template |
 |------|---------|----------|
 | `/Users/alinaaitova/Desktop/Testproject1/package.json` | root workspace scripts | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/pnpm-workspace.yaml` | TS package workspace | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/bunfig.toml` | Bun workspace/runtime settings | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/Cargo.toml` | Rust workspace | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/.env.example` | environment contract | custom |
 
@@ -4427,7 +4610,7 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0001_sqlite_state_initial.sql` | Local SQLite state.db schema bootstrap — pipeline entities (procurement_processes, contract_notices, notice_lots, qualification_runs, product_candidates, supplier_quotes, landed_cost_estimates, manifests, pipeline_assessments, bid_workflow_states, process_relations, search_profiles, executors), all with sync tracking columns | based on section 5.4 (SQLite syntax) |
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0002_sqlite_state_sync.sql` | Local outbox, sync batches, pull cursors, stage tracking (process_stage_status, process_stage_heads) | section 5.4 sync infrastructure |
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0003_sqlite_artifacts.sql` | Artifacts DB schema — agent_session_logs (with orchestration domain columns), raw_documents, error_manifests | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0001_initial.sql` | Supabase/Postgres projection tables (all push-owned entities including notice_lots, process_relations, search_profiles) + remote-owned tables (shared_company_profile, shared_source_configs, operator_decision_heads) | based on section 5.4 |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0001_initial.sql` | Supabase/Postgres projection tables (all push-owned entities including notice_lots, process_relations, search_profiles, workflow_job_summaries, error_manifest_summaries) + remote-owned tables (shared_company_profile, shared_source_configs, operator_decision_heads) | based on section 5.4 |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0002_rls.sql` | RLS policies per authority role (viewer, operator, admin, daemon) — see §6.3 for policy matrix | section 6.3 |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0003_sync_apply.sql` | Transactional sync apply RPC for push batches + operator decision CAS RPC | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0004_schema_metadata.sql` | Schema metadata table + initial schema_epoch | custom |
@@ -4449,8 +4632,12 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 | File | Purpose | Template |
 |------|---------|----------|
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/qualification/expiry.ts` | 30-day expiry filter | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/qualification/access-route.ts` | access-route classification and bidability rules | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/qualification/goods.ts` | goods/services qualification | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/qualification/quoteability.ts` | deterministic quoteability scoring | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/relations/resolve-process-relations.ts` | OCID + heuristic relation resolution | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/extraction/products.ts` | line-item/product extraction | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/search/build-search-profile.ts` | multilingual query-pack construction from structured candidate slots | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/hmrc-tariff.ts` | HMRC Trade Tariff API integration | official HMRC docs |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/hmrc-fpo.ts` | HMRC FPO candidate code generator API | official HMRC FPO docs |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/classification-preprocessing.ts` | description-quality gate, bundle splitter, attribute extraction, multi-query FPO dispatch | custom (§4.5) |
@@ -4523,6 +4710,7 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/db/sqlite.rs` | local SQLite connection and schema management | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/db/sync.rs` | SQLite↔Supabase push-pull sync engine | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/db/checkpoints.rs` | local sync checkpoints and recovery cursors | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/sources/registry.rs` | source registry loading, enablement, and schedule binding | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/scheduler/cron.rs` | local cron scheduler for agent jobs with catchup sweep | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/jobs/claim.rs` | job claiming/leases (local SQLite) | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/jobs/runner.rs` | job executor via adapter-mediated sessions | custom |
@@ -4578,7 +4766,7 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 | Test File | Coverage |
 |-----------|----------|
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/adapter_codex.rs` | Codex adapter capability probe, JSONL parsing, mode selection, canary mode |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/adapter_claude.rs` | Claude adapter capability probe, JSON parsing, mode selection, canary mode |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/adapter_claude.rs` | Claude adapter capability probe, JSON parsing, mode selection, canary mode, protocol-mismatch detection |
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/adapter_result_contract.rs` | Result contract validation, checkpoint sequencing, partial failure classification |
 
 #### Fault-Injection Tests
@@ -4610,7 +4798,9 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 
 | Test File | Coverage |
 |-----------|----------|
+| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/relations/resolve-process-relations.test.ts` | relation-resolution scoring and hard blockers |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/qualification/goods.test.ts` | goods/services qualification |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/qualification/quoteability.test.ts` | quoteability thresholds and candidate routing |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/hmrc-tariff.test.ts` | tariff parsing |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/hmrc-fpo.test.ts` | FPO HS code classification |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/margins/net-margin.test.ts` | gross and net margin rules |
@@ -4651,9 +4841,13 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 | `tracing` | structured logging |
 | `chrono` | date/time |
 | `anyhow` / `thiserror` | error handling |
+| `nix` | POSIX process-group and signal handling |
 | `portable-pty` or `pty-process` | PTY session management |
 | `cron` | cron expression parsing for local scheduler |
+| `sysinfo` | host resource pressure detection for the resource arbiter |
 | `uuid` | UUID generation for SQLite (no gen_random_uuid) |
+| `sha2` | SHA-256 hashes for artifacts and result contracts |
+| `zstd` | compressed transcript and artifact storage |
 
 **Development:**
 
@@ -4703,7 +4897,7 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 | SQLite state initial | SQLite state.db | Pipeline entities (procurement_processes, contract_notices, notice_lots, qualification_runs, product_candidates, supplier_quotes, landed_cost_estimates, manifests, pipeline_assessments, bid_workflow_states, process_relations, search_profiles), sync tracking columns, junction tables | Yes |
 | SQLite sync infra | SQLite state.db | local_outbox, sync_batches, pull_cursors, stage tracking (process_stage_status, process_stage_heads) | Yes |
 | SQLite artifacts | SQLite artifacts.db | Agent session logs (with orchestration domain columns), raw documents, error manifests | Yes |
-| Postgres initial | Supabase | Projection tables (all push-owned entities including notice_lots, process_relations, search_profiles), remote-owned tables (shared_company_profile, shared_source_configs, operator_decision_heads) | Yes |
+| Postgres initial | Supabase | Projection tables (all push-owned entities including notice_lots, process_relations, search_profiles, workflow_job_summaries, error_manifest_summaries), remote-owned tables (shared_company_profile, shared_source_configs, operator_decision_heads) | Yes |
 | Postgres RLS | Supabase | Authority-based RLS per role (viewer, operator, admin, daemon) — see §6.3 for policy matrix | Yes |
 | Postgres sync apply | Supabase | Transactional RPC for push batch application + operator decision CAS RPC | Yes |
 | Postgres schema metadata | Supabase | schema_metadata table with schema_epoch | Yes |
@@ -4731,7 +4925,11 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
    - Context: This materially changes whether import VAT is treated as an economic cost or primarily a cash-flow item.
    - Recommendation: model both views, but set the default based on your real importer-of-record structure.
 
-5. ~~**Are browser-automation-based supplier price captures acceptable for high-value opportunities when official APIs are insufficient?**~~
+5. **Which machine is expected to stay online for scheduled execution and freshness SLAs?**
+   - Context: The plan now explicitly assumes one active local daemon per organization and catchup sweeps after downtime, but freshness still depends on at least one machine staying online.
+   - Recommendation: identify one designated always-on workstation or mini-server-class host for the MVP.
+
+6. ~~**Are browser-automation-based supplier price captures acceptable for high-value opportunities when official APIs are insufficient?**~~
    - **RESOLVED:** Yes — browser automation via agent skills is the primary data retrieval strategy for ALL procurement and supplier data, not just a fallback. This is a core architectural decision.
 
 ### Requiring Further Research
@@ -4754,9 +4952,9 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
    - Impact if wrong: source layer design changes significantly.
    - Validation: confirm MVP geography.
 
-2. **Assumption:** Desktop-local execution is non-negotiable.
-   - Impact if wrong: a hosted worker architecture may be simpler.
-   - Validation: confirm local-compute rationale and expected availability.
+2. **Validated:** Desktop-local execution is non-negotiable.
+   - Evidence: resolved owner feedback and integrated ADR-003/ADR-004 architecture.
+   - Remaining concern: confirm what machine is expected to stay online for freshness SLAs.
 
 3. **Assumption:** Margin thresholds are business gates, not just UI labels.
    - Impact if wrong: workflow state design may be too rigid.
@@ -4864,7 +5062,7 @@ This Document
 
 ### A. Suggested Margin Logic
 
-#### Gross Margin Gate
+#### Margin Gate Overview
 
 #### Revenue Normalization (Prerequisite)
 
@@ -5011,6 +5209,8 @@ final_confidence =
   (0.10 * fx_freshness)
 ```
 
+This composite applies only after a candidate has already passed the upstream pipeline gates in §5.7 (document acquisition, lot extraction, quoteability, and price-signal matching). Those earlier stages determine whether the system has enough evidence to compute a commercial-confidence score at all; they are not flattened into the final weighted number.
+
 Then apply:
 
 - `>= 0.80` -> high confidence
@@ -5039,7 +5239,7 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 |----------|---------|
 | `sync_source` | pull procurement notices (one session per source per run) |
 | `normalize_notice` | normalize into internal schema |
-| `resolve_relations` | classify notice-to-process relations (merge / related / separate) |
+| `resolve_relations` | classify notice-to-process relations (`merged_same_process` / `related_not_merged` / `possible_duplicate` / `separate`) |
 | `qualify_notice` | expiry + access route + multi-dimensional goods classification |
 | `acquire_documents` | download public tender documents (spec PDFs, BoQ, lot docs) |
 | `extract_lots` | extract lot structure from notices and documents |
@@ -5176,8 +5376,18 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 | 2026-03-12 | planmaxer pre-prep (data architecture) | Integrated expert review on data architecture and sync. Major changes: (1) Authority matrix replacing singular "source of truth" — three domains: local operational, remote shared, remote projections. Mixed-write tables prohibited. (2) Split opportunity_decisions into pipeline_assessments (daemon-owned), operator_decision_heads (remote-owned, CAS), bid_workflow_states (daemon-owned). (3) Transactional outbox pattern for push sync. (4) Stage coherence via process_stage_status + process_stage_heads. (5) Push protocol: monotonic local_seq, row_version, content_hash, atomic remote RPC. (6) Pull protocol: remote_change_seq cursors, compare-and-swap for decisions. (7) Schema migration coordination with schema_epoch. (8) Recovery model honesty: warm vs cold rebuild. (9) SQLite operational guidance: state.db/artifacts split. (10) Tombstone policy: only remote-owned entities. (11) Junction tables for cpv_codes and commodity_codes. (12) Integer pence for money, basis points for percentages. (13) MVP: one daemon per org. Sections modified: 4.7, 5.2, 5.4, 5.5, 5.6, 5.7, 5.8, 6.3, 6.4, 8.2, 9.4, ADR-002, Appendix E. |
 | 2026-03-12 | planmaxer step 3 (data architecture) | Fresh-eyes optimization: added sync tracking columns to 8 push-owned tables, converted monetary columns to integer pence and confidence to basis points, incorporated cross-domain fields (NoticeLot, ProcessRelation, SearchProfile entities; expanded ProductCandidate, SupplierQuote, QualificationResult, agent_session_logs), removed array columns in favor of junction tables, added RLS policy specifications, updated SQLite compatibility notes, added raw_documents/sources to authority matrix. Sections modified: 4.7 (authority matrix table, SQLite compat notes), 5.4 (all SQL tables, new cross-domain entity tables), 6.3 (RLS policy specs). |
 | 2026-03-12 | planmaxer step 4 (data architecture) | Sync pass: updated §8.2 migration file listings and §9.4 migration requirements to reflect new cross-domain entity tables (notice_lots, lot_cpv_codes, process_relations, search_profiles) and expanded column sets. |
-| 2026-03-12 | planmaxer step 3+4 (Agent Orchestration) | Fresh-eyes optimization + sync pass: fixed hybrid-model terminology in 4.10 skill lifecycle and 6.5 test priority table, updated error manifest drill-down to reference session artifacts (5.11), added 3 missing health detection rows to 6.6 (HOST_RESOURCE_EXHAUSTED, AGENT_PROTOCOL_MISMATCH, AGENT_RUN_FAILED), added missing fault-injection test for AGENT_RUN_FAILED in 6.5, verified 8.2/8.3 naming patterns and ADR-004/ADR-005 status fields, verified ToC anchors. Cross-domain notes: Supplier Quote Engine and Bid Workflow Executor in 5.2 still reference "PTY sessions" (owned by other domains); 5.6 step numbering collision needs holistic renumbering. |
+| 2026-03-12 | planmaxer step 3+4 (Agent Orchestration) | Fresh-eyes optimization + sync pass: fixed hybrid-model terminology in 4.10 skill lifecycle and 6.5 test priority table, updated error manifest drill-down to reference session artifacts (5.11), added 3 missing health detection rows to 6.6 (HOST_RESOURCE_EXHAUSTED, AGENT_PROTOCOL_MISMATCH, AGENT_RUN_FAILED), added missing fault-injection test for AGENT_RUN_FAILED in 6.5, verified 8.2/8.3 naming patterns and ADR-004/ADR-005 status fields, verified ToC anchors. At that point, Supplier Quote Engine and Bid Workflow Executor still referenced PTY-only wording, and 5.6 still had a step-numbering collision; both were resolved later in the holistic pass. |
 | 2026-03-12 | planmaxer steps 3–4 (procurement pipeline) | Fresh-eyes optimization and sync pass. §5.5: resolved rfq_escalated ghost state (clarified as operator disposition action), below-quoteability path, needs_review disambiguation (review_reason + review_stage), expired trigger mechanism (daemon background job), prelim_rejected entry conditions. §5.6: fixed step numbering collision — relation resolution renumbered to steps 13/13a–13e (was 10/10a–10e, colliding with data-arch agent adapter steps 10–12). §5.4: added cross-domain reconciliation note (quoteRealismConfidence from data-arch and quoteUsabilityConfidence from procurement pipeline are complementary, not duplicates). §8.2: added 3 missing intelligence pipeline skill file entries (document-acquisition, lot-extraction, product-extraction). Appendix C job kinds verified complete. §5.3 canonical workflow verified coherent. |
+| 2026-03-12 | planmaxer holistic pass | Cross-plan unification pass. Fixed stale PTY-only terminology in the system context and workflow-trigger sections to match the adapter-mediated hybrid runtime; aligned §5.3 margin gates with Appendix A; updated §5.4 TypeScript entities and SQL comments to match the integrated procurement/data-architecture/landed-cost model; added missing `workflow_job_summaries` and `error_manifest_summaries` projection tables to resolve orphaned references in §§4.7/6.3/5.11; added explicit MVP operating limits and quote staleness invariants; corrected Bun workspace file references; extended §8.2/§8.3 and §9.1/§9.4 so file maps, tests, and dependencies cover relation resolution, quoteability, search-profile building, artifact compression, and runtime resource detection. |
+| 2026-03-12 | planmaxer holistic pass (step 2 follow-up) | Completed the remaining cross-plan consistency cleanup. Added terminology notes for skill/playbook, process/opportunity, desktop/web surfaces, and shared-sync-target authority language; referenced Source Registry, Resource Arbiter, and summary projections directly in the runtime flows; switched the residual procurement/browser runtime wording from PTY-only to adapter-mediated sessions where appropriate; tightened the session-capture invariant so contract-mode runs also retain raw stdout/stderr forensic output; added sync delivery timeout and transcript chunking/truncation guardrails; made automatic search limits explicit per notice and per candidate; added missing `sha2` dependency and `sources/registry.rs` file mapping; removed the orphaned `operator_decision_events` mention; added the missing TypeScript interfaces for `NoticeLot`, `ProcessRelation`, and `SearchProfile`, and aligned `goodsSeparability` with the tri-state model used elsewhere; clarified that local execution is now a validated assumption and added a new user-input question for the designated always-on execution machine; clarified in Appendix B that the final confidence score applies after upstream qualification gates. |
+| 2026-03-12 | planmaxer holistic pass (step 3) | Architectural coherence pass. Added the missing `Job Runner` component and clarified the scheduler-vs-runner split; tightened the SQLite Local Store vs Sync Engine boundary; added explicit dependency-direction notes (skills loaded by daemon, web portal depends only on Supabase projections, landed-cost stays downstream of extraction/matching); documented that complexity is intentionally concentrated in PTY/runtime orchestration and product/pricing comparability; aligned workflow/state/component text with the four-way relation model (`possible_duplicate` included). |
+| 2026-03-12 | planmaxer holistic pass (step 4) | Sync pass. Verified the Table of Contents against the actual section structure; checked section/ADR/appendix cross-references and found them consistent; confirmed Appendix D category coverage and 9.3 external-account coverage; updated Quick Stats to reflect the current planned file count and expanded highest-risk area; corrected Appendix C job-kind wording to the four-way relation model. |
+| 2026-03-12 | planmaxer holistic pass (step 2 residual) | Final residual consistency cleanup. Normalized remaining PTY-only wording where the runtime now preserves raw output in both PTY and contract modes; clarified recovery, security, and ADR-004 language to refer to full raw session-output artifacts rather than only PTY terminal transcripts; updated legacy `terminal_output_*` SQL comments to match the hybrid runtime contract. |
+| 2026-03-12 | planmaxer holistic pass (step 2 residual 2) | Finalized the last hybrid-runtime consistency edits. Updated `Artifact Store` and Layer 3 observability wording to describe raw session-output capture in both PTY and contract modes, and aligned the illustrative `resolveConfidenceGate` example with the document-wide `0.60` starting confidence floor. |
+| 2026-03-12 | planmaxer holistic pass (step 2 residual 3) | Closed the last remaining live wording gaps in the current document. Updated supplier-search and bid-workflow flows plus the daemon-complexity row to refer to full raw session output rather than PTY-only output where the runtime is hybrid, and made Appendix C use the canonical four-way relation labels. |
+| 2026-03-12 | planmaxer holistic pass (step 3 residual) | Tightened the remaining architecture-language gaps. Added an explicit acyclic coupling rule to the coherence notes, updated the relation-resolution complexity row to the four-way model, and normalized the last user-facing / portal-facing wording to refer to full session output or raw session transcripts rather than PTY-only terminology where the runtime is hybrid. |
+| 2026-03-12 | planmaxer holistic pass (step 3 residual 2) | Finalized the last boundary clarifications. Narrowed `PTY Session Manager` to live PTY-backed supervision while leaving final cleanup ownership to `Session Reaper`, reframed `Resource Arbiter` as admission control rather than a second scheduler, and made the complexity-allocation note explicit that the landed-cost engine remains very high complexity while intentionally staying downstream of the orchestration-critical boundaries. |
+| 2026-03-12 | planmaxer holistic pass (step 4 residual) | Final sync pass. Rechecked the Table of Contents against the current section layout, verified section/ADR/appendix cross-references still line up, confirmed Appendix D and 9.3 remain complete for the cited services, and corrected the Quick Stats file-count total to the current 131 planned files. |
 
 ---
 
