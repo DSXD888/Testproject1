@@ -39,10 +39,10 @@ This is not one system. It is four tightly connected systems:
 
 ### Key Recommendations
 
-- **Primary data strategy:** Use skill-based agent scraping via browser automation for all procurement and supplier data retrieval. The agent runs on the local machine, powered by the skill system and triggered by the Rust daemon. APIs are reserved for cost-estimation data (customs, freight, FX) where they are more reliable.
+- **Primary data strategy:** Use skill-based agent scraping via browser automation for all procurement and supplier data retrieval. The agent runs on the local machine, powered by the skill system and triggered by the Rust daemon. APIs are reserved for cost-estimation data (customs, freight, FX) where they are more reliable. The skill layer is operationalized as a production contract system: each skill is a versioned directory with structured schemas, canary inputs, and golden assertions; skills follow a 6-stage promotion flow (draft → candidate → canary → shadow → stable → rollback); and return 6 outcome classes (not binary success/failure) enabling the daemon to handle continuation, degradation, and quarantine of suspect output.
 - **System of record:** Authority-matrix database architecture — local SQLite as local operational authority (pipeline data, jobs, logs), Supabase/Postgres as remote shared authority (config, operator decisions) and remote projections (viewer-facing pipeline facts). Mixed-write tables prohibited. Push-only pipeline replication via transactional outbox; pull-only shared config/decisions via cursor-based sync.
-- **Desktop/runtime architecture:** Use Tauri v2 with a Rust daemon/sidecar for local agent execution.
-- **Frontend strategy:** Desktop (Tauri) is the full control panel — trigger workflows, manage agents, make decisions. Web is a read-only viewing portal for browsing data and pipeline status. Both share React UI packages.
+- **Desktop/runtime architecture:** Use Tauri v2 with a separate Rust daemon process for local agent execution. Desktop communicates with the daemon via a hybrid transport: Tauri `invoke()` for snapshot reads (QueryService → read-only SQLite) and mutations (DaemonBridge → UDS/named-pipe → daemon), Tauri `Channel<T>` for live session streaming.
+- **Frontend strategy:** Desktop (Tauri) is the full control panel — trigger workflows, manage agents, make decisions. Web is a read-only viewing portal with Supabase Broadcast invalidation for live updates. Both share presentational React components and view-model types via `packages/ui`, but data-fetching hooks are surface-specific (SQLite-via-QueryService vs Supabase-client). Desktop supports browse-only degraded mode when the daemon is unavailable.
 - **Cost-estimation engine:** Build an internal landed-cost engine backed by HMRC Trade Tariff, HMRC FPO API for first-pass HS code classification, Taric Support and HS Ping for validation, HMRC Exchange Rate Service for customs valuation FX, Xe for commercial FX, Freightos and SeaRates for freight-market data, and CurrencyBeacon/OANDA plus optional third-party landed-cost services as secondary comparison sources.
 - **Agent orchestration:** Use adapter-mediated agent execution with PTY as a first-class runtime from day 1. The Rust daemon triggers Codex/Claude sessions on cron schedules and manual triggers from the desktop control panel, selecting PTY or contract mode per job. PTY-first remains a design constraint for browser-heavy and interactive flows.
 - **Automation policy:** The platform automates the request pipeline, not real-money bid submissions. Actual negotiations and fulfillment are handled manually by humans. An error manifest system flags failures with enough context to debug. Human review remains valuable for commercial decisions but risk is low since no real money changes hands automatically.
@@ -65,20 +65,24 @@ Build a greenfield monorepo around skill-based agent scraping for data retrieval
 |--------|-------|
 | Project Type | Greenfield |
 | Existing App Files | 0 meaningful application files |
-| New Files | ~131 planned files (104 implementation + 27 tests) |
+| New Files | 150 planned files (118 implementation + 32 tests) |
 | Modified Files | 0 required beyond bootstrap |
 | New Dependencies | ~20-35 across Rust + TS |
 | Estimated Effort | XL |
 | Estimated Complexity | Very High |
-| Highest-Risk Area | Agent/runtime orchestration reliability + product identity/comparability chain (documents → lots → candidates → quoteability → price-signal matching) + sync integrity |
+| Highest-Risk Area | Agent/runtime orchestration reliability + product identity/comparability chain (documents → lots → candidates → archetype-driven query-wave matching → evidence-state filtering → adaptive shortlisting) + sync integrity |
 
 ### Recommended Delivery Phases
 
-1. **Phase A:** Procurement ingestion + normalized storage + operator-surface browsing.
-2. **Phase B:** Preliminary AI qualification + supplier price enrichment.
-3. **Phase C:** Landed-cost engine with customs/logistics and confidence scoring.
-4. **Phase D:** Opportunity manifest generation + operator decision flow.
-5. **Phase E:** Portal-specific request-pipeline automation skills.
+Delivery is sequenced by risk retirement, not architectural completeness. A **Minimum Viable Experiment (MVE)** validates the intelligence thesis before infrastructure investment.
+
+0. **Phase 0 — Gold Set + Evaluation Harness:** Document acquisition, lot/product extraction, supplier matching, screening-grade margin bands — proving the intelligence thesis on a curated lot corpus before building infrastructure.
+1. **Phase 1 — Thin Local Runner:** Minimal Rust runtime with agent launch, artifact capture, and local SQLite — PTY as a capability, not a full daemon platform.
+2. **Phase 2 — Single-Operator Desktop MVP:** Manual-trigger desktop UI with list/detail review, decision capture, and FTS ingestion — proving repeatable operator value.
+3. **Phase 3 — Operational Hardening:** Cron scheduling, batched ingestion, health monitoring, PTY hardening, relation resolution — daily automation without babysitting.
+4. **Phase 4 — Shared Visibility:** Supabase sync, projection tables, web viewing portal — collaboration infrastructure.
+5. **Phase 5 — Expanded Commercial Intelligence:** Broader categories, more supplier sources, decision-grade landed cost.
+6. **Phase 6 — Request Pipeline Automation:** Portal-specific bid skills.
 
 ### What Will Make or Break the Product
 
@@ -86,7 +90,7 @@ Build a greenfield monorepo around skill-based agent scraping for data retrieval
 - Supplier-price normalization is easy compared with correct product matching.
 - Product matching is easy compared with accurate landed-cost estimation at contract scale.
 - Landed-cost estimation is easy compared with robust PTY-based agent orchestration that works every day.
-- **But the real bottleneck is the identity chain:** documents/lots → candidate identity → quoteability → comparable listing shortlist → price-signal usability. The current architecture compresses this into concrete stages with deterministic gates, structured search profiles, and dual confidence scoring to prevent fake precision from propagating downstream.
+- **But the real bottleneck is the identity chain:** documents/lots → candidate identity → quoteability → comparable listing shortlist → price-signal usability. The architecture compresses this into concrete stages with deterministic gates, `matchArchetype`-driven query planning, four-state evidence comparison, adaptive diversified shortlisting, compliance evidence tiers, and dual confidence scoring with lexicographic gating to prevent fake precision from propagating downstream.
 
 This means the platform must preserve confidence scores, raw evidence, full-fidelity agent execution traces (raw PTY output in PTY mode; raw stdout/stderr plus structured protocol events and result artifacts in contract mode), and an error manifest system from day one.
 
@@ -206,7 +210,7 @@ So that repetitive bidding preparation is partially automated
 - Manual and scheduled execution.
 - Portal-specific bid workflow framework, with at least one example implementation.
 
-**Phase 2 (Should Have):**
+**Later Milestones (Should Have):**
 
 - More procurement source scraping skills.
 - More supplier marketplace scraping skills.
@@ -214,7 +218,7 @@ So that repetitive bidding preparation is partially automated
 - Freight broker quote escalation when confidence is low.
 - Multi-user collaboration and task assignment (via Supabase sync).
 
-**Future Consideration (Could Have):**
+**Future Considerations (Could Have):**
 
 - Cloud fallback execution when the local daemon is offline.
 - Automated RFQ emails/messages to suppliers.
@@ -310,7 +314,7 @@ This research document therefore acts as a **foundational architecture brief** f
 
 **Relevance:** None to the target application. Appears to be a placeholder file.
 
-**Recommendation:** Ignore or remove during bootstrap.
+**Recommendation:** Ignore during bootstrap. Delete only during explicit repo cleanup approved by the operator.
 
 ### 3.4 Proposed Greenfield Project Shape
 
@@ -888,6 +892,39 @@ The system should compute a **margin band** (floor to ceiling) rather than fake 
 
 A listing can be a strong product match and still be a weak pricing signal (right product, wrong pack basis), and vice versa (usable market price range, but only a near-match). These should not be averaged for control flow.
 
+**Compliance evidence tiers:** For `regulated_goods` and `standard_class_led` archetypes, raw confidence scores are insufficient. Each supplier quote carries a `complianceEvidenceTier` that classifies the strength of compliance evidence found on the marketplace listing:
+
+| Tier | Evidence Source | Matching Implication |
+|---|---|---|
+| `structured_attribute` | Standards/certifications appear in the listing's structured spec table or attribute fields | Strong — eligible for automatic match |
+| `title_body_mention` | Standards/certifications mentioned in title or body text only | Moderate — eligible for automatic match with confidence penalty |
+| `absent` | No compliance evidence found on listing | No automatic match for `regulated_goods`; confidence cap for other types |
+
+The compliance evidence tier is determined during the detail-page enrichment step (see §5.7), not during the initial search-card screen. Missing compliance on the search card alone does not disqualify a result — many compliant listings omit standards from the title but include them in the detail page.
+
+**Lexicographic gating for dual confidence:** The `matchConfidence` and `quoteUsabilityConfidence` scores drive downstream decisions through lexicographic gating — identity gates first, then commercial usability, then price-signal role:
+
+| matchConfidence | quoteUsabilityConfidence | priceSignalRole | Action |
+|---|---|---|---|
+| High (≥ 0.75) | High (≥ 0.70) | any | Landed-cost candidate |
+| High (≥ 0.75) | Medium (0.45–0.69) | `benchmark_ceiling` / `optimistic_floor` | Screening-only price signal |
+| High (≥ 0.75) | Low (< 0.45) | any | Identity evidence only, not pricing |
+| Medium (0.50–0.74) | High (≥ 0.70) | any | AI/manual review of identity |
+| Low (< 0.50) | any | any | Reject |
+
+**Regulated override:** For `regulated_goods`, the lexicographic gate additionally requires `complianceEvidenceTier` of `structured_attribute` or `title_body_mention` before automatic match acceptance, regardless of confidence scores.
+
+**Archetype-specific confidence floors:** Global thresholds produce mediocre results across diverse product categories. `matchArchetype` drives differentiated identity floors:
+
+| Match Archetype | Identity Floor | Key Requirement |
+|---|---|---|
+| `model_exact` | Very high (≥ 0.85) | Exact brand/model match required |
+| `standard_class_led` | High (≥ 0.75) | Explicit compliance evidence required |
+| `compatibility_led` | High (≥ 0.75) | Parent product reference must resolve |
+| `electrical_spec_led` | High (≥ 0.70) | Mandatory electrical specs must match |
+| `dimension_material_led` | Medium-high (≥ 0.65) | Key dimensions within tolerance window |
+| `pack_count_led` | Medium (≥ 0.55) | Higher pack/unit usability requirements |
+
 **Source routing by candidate type:** Not every product candidate should be searched on every source. Route by `candidateType` (see §5.7):
 
 | Candidate Type | UK Sources | China Sources | Notes |
@@ -902,15 +939,77 @@ A listing can be a strong product match and still be a weak pricing signal (righ
 
 This routing stops the search explosion: instead of 4 sources × N candidates, the system only hits sources where results are meaningful.
 
-**Cross-language matching strategy:** Do not translate whole procurement sentences into Chinese and search them. Instead:
+**Match archetype classification:** `candidateType` describes the commercial/procurement shape of a product candidate. `matchArchetype` describes how product identity is recovered on marketplaces — the matching strategy axis. These are orthogonal: a `standard_commodity` could be matched by standards compliance, by physical dimensions, by electrical specifications, by pack count, by compatibility reference, or by exact model number. The `matchArchetype` drives query formulation templates, hard-conflict weighting, confidence floor profiles, and shortlist budgets.
+
+| Match Archetype | Identity Recovery Strategy | Example Products |
+|---|---|---|
+| `standard_class_led` | Standards family + class + compliance evidence dominate identity | PPE, medical consumables, workwear, fire safety equipment |
+| `dimension_material_led` | Physical dimensions + material + fire/load rating dominate | Desks, lockers, bins, shelving, racking, panel systems |
+| `electrical_spec_led` | Voltage, wattage, plug type, IP rating, connector dominate | Work lights, PSUs, chargers, switchgear, cable |
+| `pack_count_led` | Unit/pack basis + material + disposability dominate | Gloves, wipes, bags, cable ties, bin liners |
+| `compatibility_led` | Parent product reference + part number + compatibility chain | Filters, toner, printer parts, replacement blades, fittings |
+| `model_exact` | Brand + model number + generation/revision | IT equipment, branded power tools, instruments |
+
+The product extraction stage assigns `matchArchetype` alongside `candidateType`. If extraction cannot determine the archetype, it defaults to `unknown`, which triggers generic matching with wider shortlist budgets.
+
+**Source-specific search behavior:** Each marketplace has distinct search semantics. The query planner adapts per source:
+
+- **eBay:** Search supports keyword, GTIN, category, and aspect-based refinement. The planner derives a UK category prior (using eBay's category suggestion from the head noun) and searches within it for cleaner results. eBay's Browse stack defaults to fixed-price listings, which produces cleaner ceiling-price signals than auction results. Queries should be short title-like phrases, typically 3–7 tokens.
+- **Amazon:** Product titles are constrained to be concise and non-repetitive. Amazon's search rewards synonyms, spelling variations, and abbreviations over verbose descriptions. The planner generates **alias families** rather than procurement text — multiple short noun-phrase variants of the same product. Queries should target the structured title vocabulary, not specification paragraphs. The PA-API 5.0 deprecation (30 April 2026) reinforces the browser-first strategy.
+- **Alibaba:** Search is filter-heavy and sourcing-oriented. Category, supplier type, MOQ range, shipping option, certifications, price range, and supplier location are first-class search parameters, not just post-processing. "Ready to Ship" listings (upfront shipping, fixed price, fast dispatch) deserve a `quoteUsabilityConfidence` bump over generic custom/OEM listings. The planner uses structured filters alongside keyword queries.
+- **1688:** Search is Chinese-keyword-only. Short keyword clusters (2–4 terms), not translated prose. Results serve primarily as commodity existence signals and domestic wholesale floor prices. For regulated goods, 1688 results without explicit compliance/export evidence should not drive landed-cost decisions.
+
+**Slot criticality model:** Each extracted attribute on a `ProductCandidate` carries a criticality role that governs how it participates in matching:
+
+| Role | Meaning | Matching Behavior |
+|---|---|---|
+| `required` | Tender mandates this attribute; absence or conflict is disqualifying | Hard reject on conflict; review-flag on absence |
+| `preferred` | Tender mentions preference but does not mandate | Confidence penalty on conflict; no penalty on absence |
+| `descriptive` | Informational only; does not affect commercial suitability | No matching impact; stored for evidence |
+| `exclusion` | Explicitly excluded attribute or product form | Hard reject on presence |
+
+Slot criticality is determined during product extraction using tender language signals ("must", "shall", "required" → `required`; "preferred", "desirable" → `preferred`; "not", "excluding" → `exclusion`). When ambiguous, the extraction stage defaults to `preferred` rather than `required` to avoid false rejections. The `matchArchetype` provides category-level defaults: for `standard_class_led` products, standards slots default to `required`; for `dimension_material_led`, key dimension slots default to `required`.
+
+**Cross-language matching strategy:** Do not translate whole procurement sentences into Chinese and search them. Translate structured slots **plus market framing and use context**. Pure slot translation fails when the marketplace term is not a literal translation of the procurement noun — procurement says "illumination equipment" while marketplaces say "LED work light"; PPE is often framed as `劳保用品` (labor protection supplies) rather than literal item translation; sector-specific consumables carry different market framing in medical vs janitorial vs food-prep contexts.
+
+Core rules:
 
 1. Normalize the product candidate into structured slots (head noun, critical attributes, standards, numeric specs).
-2. Expand English synonyms for marketplace search terms.
-3. Translate only the head noun + critical modifiers + standards-relevant descriptors to Chinese.
+2. Expand English synonyms for marketplace search terms, including marketplace-native vocabulary (not just procurement vocabulary).
+3. Translate the head noun + critical modifiers + **market framing context** + standards-relevant descriptors to Chinese.
 4. Keep numerics and standards codes unchanged (EN 397, EN 455, dimensions, voltages are universal anchors).
-5. Run dual-language queries for China sources: English search first on Alibaba (broad recall), Chinese search on 1688 (where listings are primarily in Chinese).
+5. Do **not** translate prose, do **not** rely on machine-translated paragraphs.
+6. Run dual-language queries for China sources: English search first on Alibaba (broad recall), Chinese search on 1688 (where listings are primarily in Chinese).
+7. **Chinese retry on Alibaba:** When English search on Alibaba returns zero results, returns only accessories, or returns clearly consumer/non-industrial items, retry with Chinese queries on Alibaba (many Alibaba listings have both English and Chinese content). This is a recovery step, not a first-pass strategy.
 
-The bilingual layer is a small curated lexicon per CPV/product family — English marketplace aliases, Chinese marketplace aliases, critical attributes, exclusion vocabulary. This is a search aid, not a taxonomy.
+**Market framing and use context slots:** In addition to literal noun translation, each search profile carries:
+
+- `marketFrameEn` — English marketplace framing terms (e.g., "industrial", "commercial", "heavy duty", "professional")
+- `marketFrameZh` — Chinese marketplace framing terms (e.g., `劳保` for PPE, `工地` for construction, `工业` for industrial)
+- `useContext` — end-use context that disambiguates otherwise identical products (e.g., "medical", "janitorial", "food prep" for disposable gloves)
+- `sectorContext` — industry sector that affects both terminology and compliance expectations
+
+For PPE, Chinese search includes both the item noun and the industrial frame: a helmet query uses not just `安全帽` but also variants like `劳保 安全帽` and `工地 安全帽` when the lot is construction-related. For medical consumables, sector context determines whether `检查 手套 丁腈 无粉` (examination glove nitrile powder-free) or `一次性 丁腈 手套` (disposable nitrile glove) is the right market framing.
+
+**Practical lexicon:** Do not build a grand taxonomy. The bilingual layer is a small curated lexicon per CPV/product family — English marketplace aliases, Chinese marketplace aliases (including market-frame variants), critical attributes, exclusion vocabulary. This is a search aid, not a taxonomy.
+
+For MVP, seed the **top 30–50 spend-heavy searchable product families**. For each family, maintain roughly:
+
+- 5–15 EN noun aliases (marketplace vocabulary, not procurement vocabulary)
+- 5–15 ZH noun aliases / market-frame aliases
+- 5–20 negative terms
+- 3–10 unit/pack aliases
+- a few standard/class patterns
+
+That is **hundreds of curated entries**, not tens of thousands.
+
+**Lexicon maintenance model:** Seed manually from procurement category knowledge. Then bootstrap from operational data: accepted matches contribute confirmed aliases, rejected false positives contribute negative terms, repeated zero-result cases identify vocabulary gaps, operator edits refine framing. An alias is promoted into the production lexicon only when it is operator-confirmed or repeatedly associated with accepted matches.
+
+**Bilingual unit dictionary:** For quantity and MOQ handling, maintain a bilingual unit normalization dictionary:
+
+- `件 / 个 / 只 / 双 / 套 / 箱 / 包 / 卷 / 瓶 / 桶 / 台`
+
+Normalize Chinese marketplace units to the candidate's procurement unit. This is where gloves, wipes, cable ties, bin liners, and workwear quantity comparisons go wrong. Do not search the tender quantity — search the product identity; use quantity later for tier-price selection, MOQ compatibility, and quote realism assessment.
 
 For large tenders, marketplace listings should usually be treated as **indicative signals**, not executable procurement offers. Once an opportunity survives early filtering, the system should escalate toward RFQs, negotiated quotes, or supplier-confirmed volume pricing before treating margin as decision-grade.
 
@@ -1562,8 +1661,8 @@ The owner requires multiple users to access the system's data. However, relying 
 
 | Authority | Tables | Sync Direction |
 |-----------|--------|----------------|
-| Local-only (no sync) | `raw_documents`, `sources` (local runtime copy), `source_cursors`, `workflow_jobs` (full rows), `agent_session_logs` (full transcript/trace), `error_manifests` (full context), local job leases, local runtime config/secrets | None |
-| Push-only (local → remote projections) | `executors` (heartbeat summary), `procurement_processes`, `contract_notices`, `notice_lots`, `qualification_runs`, `product_candidates`, `search_profiles`, `supplier_quotes`, `landed_cost_estimates`, `manifests`, `process_relations`, `pipeline_assessments`, `bid_workflow_states`, `process_stage_status`, `process_stage_heads`, `workflow_job_summaries`, `error_manifest_summaries` | Push only |
+| Local-only (no sync) | `raw_documents`, `sources` (local runtime copy), `source_runtime_state`, `source_cursors`, `listing_evidence`, `pending_operator_intents`, `workflow_jobs` (full rows), `agent_session_logs` (full transcript/trace), `error_manifests` (full context), local job leases, local runtime config/secrets | None |
+| Push-only (local → remote projections) | `executors` (heartbeat summary), `procurement_processes`, `contract_notices`, `notice_lots`, `qualification_runs`, `product_candidates`, `search_profiles`, `search_attempts`, `supplier_quotes`, `landed_cost_estimates`, `manifests`, `process_relations`, `process_aliases`, `pipeline_assessments`, `bid_workflow_states`, `process_stage_status`, `process_stage_heads`, `workflow_job_summaries`, `error_manifest_summaries`, `viewer_sync_status` | Push only |
 | Pull-only (remote → local) | `shared_company_profile`, `shared_source_configs`, `operator_decision_heads` | Pull only |
 | Mixed-write | **None — prohibited by design** | N/A |
 
@@ -1957,22 +2056,40 @@ The platform requires skills across three categories:
 | `bid-portal-*` | Portal-specific bid preparation | Navigate to eSourcing portal, fill forms, capture evidence |
 | `manifest-generation` | Generate opportunity manifests | Fill narrative sections for the canonical Markdown manifest produced by the manifest package |
 
+**5. Operational Skills** (maintain source health and authentication):
+
+| Skill | Target Source | Approach |
+|-------|--------------|----------|
+| `auth-refresh/alibaba` | Alibaba.com | Establish or refresh authenticated session state, publish auth-state handle for enrichment skills |
+| `auth-refresh/1688` | 1688.com | Establish or refresh authenticated session state, publish auth-state handle for enrichment skills |
+| `source-health/<source>` | Any configured source | Pre-flight canary: verify reachability, geo-correctness, auth state, page fingerprint, challenge rate |
+
+Auth-refresh skills do one thing: establish or refresh authenticated state and publish a new auth-state handle. They are easier to stabilize than forcing every enrichment skill to own login logic. Source-health canary skills run before expensive scheduled jobs to detect whether a source is reachable, geo-correct, authenticated (if needed), and not actively challenging — if health is red, the daemon skips the big job and preserves the account/IP.
+
 #### Skill Lifecycle
 
-1. **Creation:** Skills are written as `SKILL.md` files with clear playbook instructions for the agent.
-2. **Execution:** The daemon triggers an agent session (PTY or contract mode) via the adapter with the skill loaded. The agent follows the skill's playbook.
-3. **Maintenance:** When a source website changes layout/flow, only the skill needs updating — no API client code changes.
-4. **Versioning:** Skills are versioned in the repo. The daemon records which skill version was used for each execution.
-5. **Upgrade:** Updating a skill is as simple as editing the `SKILL.md` — no recompilation, no package upgrades.
+1. **Creation:** Skills are authored as directories containing `SKILL.md` plus supporting artifacts (schemas, canary inputs, validators). Markdown-first authoring is preserved — the `SKILL.md` remains the primary human-readable playbook.
+2. **Promotion:** New or updated skills follow a promotion flow: draft → candidate (CI lint + smoke canaries pass) → canary (small percentage or single source shard) → shadow (runs in parallel with stable, comparing quality metrics) → stable (scheduler default). Rollback rebinds the source to the prior stable version.
+3. **Execution:** The daemon triggers an agent session (PTY or contract mode) via the adapter with the skill loaded. Scheduled jobs bind an explicit `stable_version` (plus optional `canary_version` and `shadow_version`). The agent follows the skill's playbook.
+4. **Maintenance:** When a source website changes layout/flow, only the skill needs updating — no API client code changes. Source-health canary skills detect drift before expensive extraction runs.
+5. **Versioning:** Skills are versioned in the repo. The daemon records which skill version was used for each execution. Behavior version, result schema version, checkpoint schema version, validator version, and normalizer version are tracked independently — a playbook update does not force a schema version bump unless the contract shape changes.
+6. **Upgrade:** Updating a skill is as simple as editing the `SKILL.md` and supporting files — no recompilation, no package upgrades. Schema migrations use dual-accept windows: the daemon accepts both old and new schema versions during transition, with shadow comparison to validate quality parity.
 
 #### Skill Design Principles
 
 - Skills define **what data to extract** and **how to navigate** the source.
-- Skills include **validation rules** so the agent can verify it extracted correct data.
-- Skills include **error handling instructions** so the agent can report failures clearly.
+- Skills include **validation rules** so the agent can verify it extracted correct data — at three levels: syntactic (schema match), semantic (business invariants), and behavioral/drift (statistical envelope checks).
+- Skills include **error handling instructions** so the agent can report failures clearly, using the standard outcome classes.
 - Skills are **source-specific** — one skill per source, not generic "scrape anything" skills.
 - Skills output a validated result contract (JSON payload, artifact file, or NDJSON checkpoint stream) that the daemon validates against a declared schema — workflow state is never driven by transcript scraping.
 - **Scheduled jobs bind explicit skill id and version.** Implicit skill discovery is disabled for production cron runs. Discovery may be used for ad hoc operator-triggered sessions.
+- Every skill defines explicit **trigger boundaries**: when the skill should run, when it should not, what inputs it expects, what outputs it promises, and what is explicitly out of scope.
+- Every browser skill defines **page fingerprints** for each important page state: required anchors, forbidden anchors, expected locale/currency/persona. Page fingerprint checks run before extraction to prevent "clean run, wrong page" failures.
+- Navigation uses a **tiered locator strategy**: semantic locator → anchored relative locator → text/content fallback → CSS/XPath escape hatch. Every navigation step has a goal, proof, fallback, abort condition, and checkpoint rule.
+- Every extracted business item carries **per-item evidence**: source URL, raw text fragments used, capture timestamp, page fingerprint ID, normalization version, evidence snippet or artifact pointer, and item digest.
+- Checkpoints align to **idempotency units** (notice batch, candidate-source pair, document, lot), not browser state (DOM index, scroll position, tab number). Resume tokens are business-level identifiers.
+- Skills declare explicit **cost budgets**: max pages, max scroll cycles, max detail page visits, max query variants, target confident hits, time budget, and degrade/continue thresholds.
+- **If the same input should always produce the same intermediate check or normalization, that part belongs in deterministic helper code** (scripts/ directory), not in model prose.
 
 #### Skill Metadata
 
@@ -1986,8 +2103,12 @@ Every skill declares metadata that the daemon uses for execution planning:
 | `browser_required` | Whether the skill needs browser automation | `true` / `false` |
 | `max_concurrency` | Maximum concurrent sessions for this skill's source | `1` |
 | `expected_duration` | Typical runtime for resource planning | `5m`, `30m` |
+| `model_profile` | Model capability tier for daemon-side model selection | `browse_stable_low_cost`, `structured_extract_low_cost`, `ambiguous_match_high_reasoning`, `portal_form_high_reliability` |
+| `egress_profile` | Expected network egress for geo-sensitive skills | `uk_residential`, `cn_exit`, `default` |
 
 Skills that declare `interaction_profile: headless_contract` must also declare a `result_schema_version` that the daemon uses for result contract validation.
+
+Skills declare a `model_profile` instead of a vendor-specific model string. The daemon maps the profile to the current best-fit model. This allows model upgrades without touching skill files and enables cost-tier optimization (cheap models for classification/extraction, premium models for ambiguous adjudication).
 
 #### Architecture Distinction
 
@@ -1999,6 +2120,394 @@ Skills are the primary data retrieval mechanism, but they are **still not the wo
 - **Adapter mediates:** The Agent Adapter layer handles vendor-specific launch, structured output parsing, health classification, and capability probing — insulating the daemon from CLI version changes.
 
 These boundaries are formalized in **ADR-005**.
+#### Production Skill Directory Standard
+
+A production skill is not "just `SKILL.md`." The maintained unit is the **skill directory**: `SKILL.md` plus supporting artifacts that operationalize the skill as a contract. This is consistent with how both Codex and Claude define skills: filesystem directories with `SKILL.md` plus optional scripts and resources, loaded on demand from metadata.
+
+**Required for production-bound skills:**
+
+| File | Purpose |
+|------|---------|
+| `SKILL.md` | Human-readable playbook — the primary authoring artifact |
+| `result.schema.json` | JSON Schema for the final result contract |
+| `checkpoint.schema.json` | JSON Schema for checkpoint payloads |
+| `canary.inputs.jsonl` | Small set of known inputs for smoke testing |
+| `golden.assertions.yaml` | Invariant-based assertions for golden journey tests |
+
+**Optional supporting files:**
+
+| File | Purpose |
+|------|---------|
+| `scripts/` | Deterministic helper code for validation, normalization, field extraction, query fingerprinting |
+| `references/` | Source notes, screenshots of expected page layouts, challenge fingerprints |
+
+**When markdown-only is enough:**
+
+Instruction-only skills suffice for short, non-authenticated, non-resumable tasks where correctness is obvious from the final artifact (e.g., manifest narrative synthesis, simple qualification checks).
+
+**When deterministic helpers are needed:**
+
+The moment a skill requires any of the following, prose instructions alone are insufficient:
+
+- Auth/session state reuse
+- Resumability from checkpoints
+- Deterministic field validation or normalization
+- Stable query fingerprinting
+- Challenge classification
+- Field-level evidence extraction
+- Canary assertions that must be bit-exact
+
+The rule: **if the same input should always produce the same intermediate check or normalization, that part belongs in deterministic helper code, not in model prose.**
+
+#### Skill Authoring Guide
+
+Every production skill answers eight questions explicitly in its `SKILL.md`.
+
+**1. Trigger Boundary**
+
+Every `SKILL.md` includes:
+
+- **Use when:** conditions under which this skill is appropriate
+- **Do not use when:** explicit exclusions and non-goals
+- **Inputs expected:** schema reference, required context, cursor/resume data
+- **Outputs promised:** result contract shape, artifact types
+- **Known non-goals:** what this skill explicitly does not attempt
+
+Vague trigger boundaries are the single largest source of skill unreliability. Half of "skill unreliability" is bad trigger boundaries, not bad extraction logic.
+
+**2. Page Fingerprint**
+
+Before a skill clicks or extracts, it proves the page is the page it expects. For each important page state, the skill defines:
+
+| Check | Purpose | Example |
+|-------|---------|---------|
+| Required anchors | Prove correct page loaded | Search box present, results container present, at least one result card visible |
+| Forbidden anchors | Detect blocks or wrong page | Login form, CAPTCHA text, "verify you are human," "access denied" |
+| Expected locale | Prevent locale drift | `en-GB` |
+| Expected currency | Prevent currency contamination | `GBP` |
+| Expected persona/auth state | Verify correct account | Logged in as expected persona, or anonymous where expected |
+| Expected page kind | Distinguish result types | Search results vs category page vs single-product detail |
+
+This stops "clean run, wrong page" failures — the most insidious skill failure mode because the output looks schema-valid.
+
+**3. Navigation Strategy**
+
+Navigation uses a **tiered locator strategy**, following Playwright's best-practice model: prefer user-facing locators and explicit contracts (`role`, `label`, `text`, `testid`) because they re-resolve at action time and come with auto-waiting/actionability checks; use raw CSS/XPath only as the last fallback.
+
+The locator tier:
+
+1. Semantic locator (role, label, accessible name)
+2. Anchored relative locator (relative to a stable landmark)
+3. Text/content fallback (visible text matching)
+4. CSS/XPath escape hatch (fragile, last resort)
+
+Every navigation step in `SKILL.md` specifies:
+
+- **Goal:** what this step accomplishes
+- **Proof:** how the skill verifies the step succeeded
+- **Fallback:** what to try if the primary locator fails
+- **Abort condition:** when to stop trying and classify the failure
+- **Checkpoint rule:** whether completing this step is a valid checkpoint boundary
+
+**4. Overlay and Interrupt Handling**
+
+Unexpected overlays (cookie banners, login nags, survey popups, interstitials) are common enough to deserve first-class handling:
+
+- **Predictable overlays** (cookie consent, login prompts on known pages): explicit step in the normal flow — handle as part of the expected page state, not as an exception.
+- **Unpredictable overlays** (surveys, promotional interstitials, A/B test popups): handled via a known overlay handler map in the skill. Each handler specifies the detection pattern and dismissal action.
+- Every overlay handler invocation increments a metric.
+- Repeated handler invocations in one run (e.g., >3 overlay dismissals of the same type) raise a suspicion signal.
+
+**5. Extraction Validation**
+
+Each skill defines three validation layers:
+
+**Syntactic validation:** Required fields present, types valid, URLs parse and belong to expected domains, schema matches `result.schema.json`.
+
+**Semantic validation:** Deadline after publication date, currency consistent with expected locale, source IDs unique within extraction batch, price/unit normalization plausible, lot value totals plausible relative to notice total, quantity × unit price within reasonable range.
+
+**Behavioral/drift validation:** Null-rate within historical envelope (sudden spike signals extraction breakage), duplicate rate within envelope (sudden spike signals pagination loop), result count not collapsing unexpectedly, page fingerprint hash not newly divergent, locator fallback depth not suddenly much higher than usual (signals DOM structure change).
+
+This is the layer that catches schema-valid garbage. A skill can produce valid JSON with completely wrong data and still look "successful" without behavioral validation. The daemon enforces this through an **Output Quality Gate** that runs after schema validation and before DB commit; outputs that fail semantic or drift checks are quarantined as `AGENT_SUSPECT_OUTPUT` and never promoted into pipeline state.
+
+**6. Per-Item Evidence**
+
+Every extracted business item (notice, quote, document reference, product candidate) carries evidence alongside the normalized record:
+
+| Field | Purpose |
+|-------|---------|
+| `sourceUrl` | Exact URL the data was extracted from |
+| `rawTextFragments` | Key text snippets used for extraction (not full page HTML) |
+| `captureTimestampUtc` | When the extraction occurred |
+| `pageFingerprint` | Hash of the page fingerprint at extraction time |
+| `normalizationVersion` | Version of the normalization logic applied |
+| `evidenceSnippet` | Human-readable excerpt for debugging |
+| `artifactPointer` | Reference to the forensic session artifact if deeper inspection needed |
+| `itemDigest` | Content hash of the normalized record for deduplication and change detection |
+
+**7. Checkpoint Unit**
+
+Checkpoints align to the **idempotency unit** of the business operation, not browser state.
+
+| Skill Type | Durable Unit | Checkpoint Cadence | Resume Token |
+|------------|-------------|-------------------|--------------|
+| Procurement ingestion | Notice batch / source page | Every page or every 25 notices | `last_source_notice_id`, `cursor_value` |
+| Supplier enrichment | Candidate-source pair | After shortlist complete, then after normalized quotes | `candidate_id`, `query_fingerprint`, `after_listing_id` |
+| Document acquisition | Document | Per downloaded document | `document_checksum`, `document_url` |
+| Lot/product extraction | Lot or document | Per lot/document processed | `lot_id`, `document_id` |
+| Bid portal automation | Verified save boundary | After each server-verified save/upload | `last_verified_portal_section`, `form_checkpoint_id` |
+
+**Bad checkpoint units** (browser state, non-resumable): DOM element index, scroll pixel count, current tab number, "I clicked something."
+
+Resume tokens are business-level identifiers. On resume, the daemon injects the resume token into the kickoff prompt so the agent can skip already-committed work.
+
+**Concrete checkpoint format:**
+
+```json
+{
+  "schema_version": "1.0",
+  "job_id": "job-123",
+  "skill_id": "supplier-price-enrichment/alibaba",
+  "skill_version": "2026.03.12-4",
+  "seq": 12,
+  "kind": "candidate_source_batch",
+  "stage": "shortlist_complete",
+  "resume_from": {
+    "candidate_id": "cand-7",
+    "query_fingerprint": "qf-abc",
+    "after_listing_id": "listing-443"
+  },
+  "progress": { "units_total": 5, "units_done": 3 },
+  "payload_ref": "artifact://session/.../cp-12.json",
+  "payload_digest": "sha256:..."
+}
+```
+
+Daemon acceptance rules: schema valid, monotonic `seq`, skill/job identity match, digest valid, resume token present when required, idempotency keys valid, payload stored before checkpoint accepted.
+
+**Resume logic examples:**
+
+- **45 of 50 notices ingested, then website errors:** Keep the 45 if each batch was durably checkpointed. Resume from the last committed cursor with a small overlap/backtrack window. Do not restart from scratch unless cursor semantics are broken.
+- **3 of 5 product prices found before failure:** Keep the 3 if the durable unit is candidate-source pair. Retry only the 2 missing units. Do not discard committed quotes because a later unit failed.
+- **Bid portal failed after upload but before submit:** Resume only if the last safe boundary was server-verified. If there is any chance the submit boundary was crossed, resume enters **verify-only** mode first.
+
+**8. Outcome Classes**
+
+Skills return one of six standard outcome classes, not a binary success/failure:
+
+| Status | Meaning | Daemon Action |
+|--------|---------|--------------|
+| `completed` | Full scope finished, all validation passed | Accept results, advance stage |
+| `degraded_completed` | Partial but usable results with quality warnings | Accept results with degradation flag, surface warnings |
+| `continuation_required` | Clean exit at a safe boundary with remaining work | Accept committed results, enqueue continuation segment |
+| `blocked_human_action` | Human intervention required (CAPTCHA, MFA, manual approval) | Emit appropriate error code, alert operator |
+| `suspect_output` | Schema-valid output that failed semantic or drift validation | Quarantine results, do not promote to pipeline, surface for review |
+| `failed` | Unrecoverable error with specific failure code | Create error manifest, apply retry/cooldown policy |
+
+The `failed` status carries structured failure metadata:
+
+```json
+{
+  "status": "failed",
+  "failure_code": "PAGE_SHAPE_DRIFT | AUTH_STATE_STALE | SOURCE_CAPTCHA_BLOCKED | SOURCE_SOFT_BLOCKED | LOCALE_OR_CURRENCY_DRIFT | AGENT_OUTPUT_CONTRACT_INVALID | ...",
+  "retry_advice": "step_retry | session_retry | cooldown | resume | manual | none",
+  "cooldown_seconds": 0,
+  "resume_from": {},
+  "warnings": []
+}
+```
+
+The critical distinction `continuation_required` provides: a long-running skill that hits its time budget after 45 notices is not a failure. It emits a valid final contract with continuation data, and the Job Runner automatically enqueues the next segment using the emitted resume token. Crashes with only prior checkpoints remain `AGENT_PARTIAL_FAILURE`. Clean exits with continuation contract are a different, healthy class.
+
+#### Browser Automation Reliability Patterns
+
+**Anti-Bot, CAPTCHA, and Rate Limit Classification**
+
+Skills do not "try harder" when blocked. They classify the block and apply the appropriate response:
+
+| Condition | Immediate Action | Auto Retry |
+|-----------|-----------------|------------|
+| Navigation timeout before page fingerprint | Retry same step | 2 times: 5s then 20s backoff |
+| Repeated timeout with no challenge markers | Restart clean session | 1 session restart, then fail |
+| Soft block / challenge page / suspicious empty shell | Capture artifacts, report `SOURCE_SOFT_BLOCKED` | No immediate retry, set source cooldown |
+| Hard CAPTCHA / MFA | Emit `blocked_human_action` with artifacts | None — requires human |
+| Auth expired | One rehydrate attempt from stored auth state | 1 time, then `AUTH_STATE_STALE` |
+| Geo / locale mismatch | Fail fast with `LOCALE_OR_CURRENCY_DRIFT` | None — requires different egress |
+| Empty results with valid page fingerprint | Record as legitimate empty result set | None — valid business outcome |
+
+The daemon backs this with a **source circuit breaker**: three challenge-class events in a rolling 30-minute window open the circuit for that source, set a cooldown in `source_runtime_state`, and suppress normal extraction jobs. During cooldown, only `auth-refresh/*` and `source-health/*` can run until a canary clears the source.
+
+**Authentication Persistence**
+
+Per-session browser isolation is the correct baseline. Re-authenticating from scratch every session is not.
+
+The pattern:
+
+1. Maintain **source-scoped auth state** per persona/account, managed by dedicated `auth-refresh/<source>` skills.
+2. Inject stored auth state (cookies, local storage, IndexedDB snapshot) into a fresh isolated browser context at session start.
+3. Verify logged-in identity before doing extraction work — if persona is wrong or auth is stale, fail fast with `AUTH_STATE_STALE`.
+4. On auth expiry mid-run, attempt one rehydrate from stored auth state. If rehydrate fails, emit `blocked_human_action`.
+5. Auth-refresh skills publish new auth-state handles that enrichment skills consume. This isolates login complexity from extraction complexity.
+
+For multi-account sources (e.g., multiple Alibaba accounts), concurrent runs use unique accounts to avoid session interference.
+
+**Dynamic Content and Infinite Scroll**
+
+Never use "wait N seconds" as the primary readiness strategy. Use a readiness algorithm:
+
+1. Page fingerprint passes (required anchors present, forbidden anchors absent).
+2. First result card visible and content-populated (not skeleton loader).
+3. Capture visible item IDs/titles.
+4. Wait/scroll once.
+5. Compare visible item IDs with previous capture.
+6. Stop when no new IDs appear across two consecutive scroll cycles, or max scroll budget hit.
+
+For list/search pages, skills declare: `maxScrollCycles` (hard cap), `maxDetailPageVisits` (drill-down cap), `stopCondition` ("no new IDs twice" or equivalent), `skeletonTimeout` (if skeleton loaders remain with no content change, classify as `PAGE_SHAPE_DRIFT`).
+
+**Geo-Restriction and Locale Drift**
+
+This is a data correctness problem, not just a networking problem. If Amazon flips from GBP to EUR, or Alibaba serves a different locale, the skill produces valid-looking garbage.
+
+Every browser skill asserts at run start: expected country, expected currency, expected language, expected signed-in persona (if authenticated), expected seller/market variant. If any assertion fails, the skill fails fast with `LOCALE_OR_CURRENCY_DRIFT`.
+
+The `egress_profile` in source config (not buried in skill prose) controls whether UK residential, CN exit, or default egress is used. Skills **detect and report** geo mismatch; the daemon/source config **decides** egress routing.
+
+**Session Contamination**
+
+Per-session browser profiles prevent cookie/lock contention, but additional isolation is required: isolated browser context (no shared live profile across concurrent sessions), isolated downloads directory per session, persona verification at run start (not assumed from profile contents), cache keys that include persona + locale + currency + egress profile (not just source + query). Do not randomize fingerprints aggressively — for production automation, stable and boring is safer than "stealthy and weird."
+
+#### Skill Versioning and Lifecycle Management
+
+**Version Binding at Enqueue**
+
+At enqueue time, the daemon resolves each source to its bound skill versions:
+
+| Binding | Purpose |
+|---------|---------|
+| `stable_version` | Scheduler default — runs authoritative extraction |
+| `canary_version` | Optional — runs on small percentage or single source shard for validation |
+| `shadow_version` | Optional — runs in parallel with stable for quality comparison without writing authoritative results |
+
+"Latest on disk" never determines production behavior. Scheduled jobs bind explicit versions.
+
+**Promotion Flow**
+
+| Stage | Gate | Scope |
+|-------|------|-------|
+| **Draft** | Dev-only | Manual runs only, not scheduler-eligible |
+| **Candidate** | CI lint + smoke canaries pass | CI-validated but not production-eligible |
+| **Canary** | Smoke canaries pass against live source | Small percentage of production traffic or single source shard |
+| **Shadow** | Quality comparison against stable on real workload | Full production inputs, but results are not authoritative |
+| **Stable** | Shadow metrics meet promotion thresholds | Scheduler default for all production runs |
+| **Rollback** | Any time | Rebind source to prior stable version immediately |
+
+The rollback mechanism is "change source binding," not "edit markdown again." This makes rollback instantaneous and safe.
+
+**Independent Version Dimensions**
+
+| Dimension | What It Tracks | When It Bumps |
+|-----------|---------------|---------------|
+| `skill_version` | Playbook instructions and behavior | Any change to SKILL.md or scripts/ |
+| `result_schema_version` | Final result contract shape | Contract-breaking changes to result.schema.json |
+| `checkpoint_schema_version` | Checkpoint payload shape | Changes to checkpoint.schema.json |
+| `validator_version` | Output quality validation logic | Changes to golden.assertions.yaml or validation scripts |
+| `normalizer_version` | Deterministic data cleanup/normalization | Changes to normalization helpers in scripts/ |
+
+A playbook update does not force a schema version bump unless the contract shape changes. This separation enables identifying whether a regression came from the playbook, the schema, or the validator.
+
+**Schema Migration**
+
+For result schema transitions (e.g., `v1.0 → v1.1`): daemon accepts both versions during a transition window, shadow comparison validates quality parity, dual-read/dual-validate if downstream consumers need adaptation time, promote when all consumers accept the new version, retire old version after the promotion window closes. Skill version and schema version move in lockstep only when the change is genuinely contract-breaking.
+
+**Cache Invalidation**
+
+Cache keys for supplier results include all relevant dimensions:
+
+| Key Component | Why It Matters |
+|--------------|---------------|
+| Source | Different sources return different data |
+| Query fingerprint | Different queries return different results |
+| Candidate normalization version | Changed normalization invalidates cached matches |
+| Skill major version | Major skill changes may extract different fields |
+| Validator version | Changed validation may reclassify cached results |
+| Persona | Different accounts may see different pricing/availability |
+| Locale / currency | Market variant affects all pricing data |
+| Egress profile | Different exit nodes may trigger different geo behavior |
+
+For procurement normalization changes (not source changes), prefer **reprocessing from stored raw artifacts** over re-scraping. Raw artifact retention enables replay, not just forensics.
+
+#### Cost Efficiency Patterns
+
+The cheapest skill is the one that knows when to stop.
+
+**Budget Declarations**
+
+Every browser skill declares explicit cost budgets:
+
+| Budget | Purpose | Example |
+|--------|---------|---------|
+| `maxPages` | Hard cap on paginated navigation | `10` |
+| `maxScrollCycles` | Hard cap on infinite scroll iterations | `5` |
+| `maxDetailPageVisits` | Cap on detail-page drill-downs | `15` |
+| `maxQueryVariants` | Cap on search query attempts | `3` (exact → broad → stop) |
+| `targetConfidentHits` | Early-stop threshold on strong matches | `3` |
+| `timeBudgetMinutes` | Session time budget (triggers `continuation_required`) | `15` |
+| `degradeThreshold` | When to accept degraded results and stop | Fill-rate < 20% after half the budget |
+
+**Concrete Cost Patterns**
+
+- Stop supplier search after 3 strong comparable hits with high `matchConfidence`, not after exhausting 30 weak candidates.
+- Only visit detail pages for shortlisted result cards — list-page data is often sufficient for screening-grade quotes.
+- Try the exact query pack first, then one broader fallback, then stop.
+- If shipping information is hidden behind login or interaction, record a screening-grade quote and move on.
+- Segment long jobs with `continuation_required` rather than letting sessions bloat past their time budget.
+- For procurement ingestion, batch by source: one session per source per run, not one session per notice.
+
+**Cost Observability**
+
+Cost per session alone is noisy. The meaningful metric is **cost per committed useful record**: cost per committed notice, per accepted quote, per qualified opportunity. Tracked per skill, per source, and trended over time to detect efficiency regressions after skill updates.
+
+#### Skill Composition and Model Policy
+
+**Composition Rules**
+
+Skills can compose conceptually, but a production skill must not recursively invoke other skills inside one opaque session. Uncontrolled sub-skill recursion breaks cost attribution, resume logic, and debugging.
+
+Composition uses one of two paths:
+
+1. **Shared references/scripts within the skill directory:** Deterministic helper scripts in `scripts/` and reference documents in `references/` loaded into the agent's context. This is intra-skill composition.
+2. **Daemon-orchestrated sub-jobs:** When a workflow requires multiple skill invocations (e.g., auth-refresh before enrichment, or document acquisition before product extraction), the daemon orchestrates them as separate jobs with independent result contracts and observability. This is inter-skill composition.
+
+The daemon owns composition sequencing. Skills are leaf-level execution units.
+
+**Model Policy**
+
+Skills declare a `model_profile` that specifies the capability tier needed, not a vendor-specific model string:
+
+| Profile | Use Case | Optimization |
+|---------|----------|-------------|
+| `browse_stable_low_cost` | Procurement ingestion, document acquisition, simple navigation | Cheapest model that can follow browser playbooks reliably |
+| `structured_extract_low_cost` | Lot extraction, product extraction, field normalization | Cheapest model with strong structured output |
+| `ambiguous_match_high_reasoning` | Borderline product matching, qualification of mixed contracts | Premium model for reasoning-heavy adjudication |
+| `portal_form_high_reliability` | Bid portal form filling, submission preparation | Premium model where errors have operational consequences |
+
+The daemon maps profiles to current best-fit models. This allows model upgrades without touching skill files, enables A/B testing of model assignments, and concentrates cost optimization in one place.
+
+#### Failure Modes Requiring Explicit Skill-Level Detection
+
+Beyond the standard error taxonomy, skills detect and report these production failure modes:
+
+| Failure Mode | Detection | Why It's Dangerous |
+|-------------|-----------|-------------------|
+| Schema-valid garbage | Semantic + drift validation | Clean exit, valid JSON, but wrong page or bad extraction |
+| Soft blocks disguised as empty results | Page fingerprint + challenge marker check | HTTP 200, no useful data, not technically an error |
+| Auth half-expired state | Persona verification + privileged data presence check | Session loads but privileged data missing or persona changed |
+| Locale/currency/persona drift | Pre-extraction assertion of expected market state | Same site, different market mode, silently poisoning comparisons |
+| Pagination loops / duplicate scroll churn | Business-item dedup across scroll cycles | Skill keeps "working" but not discovering new items |
+| Wrong artifact acquisition | Post-download content-type and structure validation | File is wrong format, corrupted, login HTML, or empty PDF |
+| Unsafe resume after external side effect | Side-effect boundary tracking in portal skills | Especially dangerous in bid portal automation |
+| Cache poisoning across versions/personas | Cache key includes all relevant dimensions | Old cached results reused under different normalization assumptions |
+
 
 ### 4.11 Licensing and Compliance Summary
 
@@ -2103,7 +2612,7 @@ The core recommended architecture is license-compatible for cost-estimation APIs
 
 #### Component: Source Registry
 
-**Responsibility:** Define procurement and supplier sources, associated skills, schedules, and status. Stored in local SQLite.
+**Responsibility:** Define procurement and supplier sources, associated skills, schedules, version bindings, and health/cooldown status. Static source definitions live in local SQLite `sources`; mutable challenge-rate and cooldown state lives in `source_runtime_state`.
 
 **Interface:**
 
@@ -2189,8 +2698,11 @@ Deterministic rules run first (CPV-based heuristics, expiry check, access route 
 **Responsibility:** Convert lot-level descriptions and acquired documents into structured `ProductCandidate` entities. Each candidate gets:
 
 - A `candidateType` classification: `exact_sku`, `standard_commodity`, `brand_family`, `bundle`, `custom_or_fabricated`, `installed_goods`, `regulated_goods`, `unknown`.
-- Structured slots: `headNoun`, `criticalAttributes`, `numericSpecs`, `standards`, `material`, `brandModel`.
+- A `matchArchetype` classification: `standard_class_led`, `dimension_material_led`, `electrical_spec_led`, `pack_count_led`, `compatibility_led`, `model_exact`, `unknown`. This describes how product identity is recovered on marketplaces — the matching strategy axis — and is orthogonal to `candidateType` (see §4.3).
+- Structured slots: `headNoun`, `criticalAttributes`, `numericSpecs`, `standards`, `material`, `brandModel`, each annotated with a `slotCriticality` role (`required`, `preferred`, `descriptive`, `exclusion`).
 - Separate confidence scores: `identityConfidence` (how well the product is identified), `specConfidence` (how complete the specification is), `quantityConfidence` (how reliable the quantity estimate is).
+
+Slot criticality is determined from tender language signals ("must", "shall", "required" → `required`; "preferred", "desirable" → `preferred`; "not", "excluding" → `exclusion`). When ambiguous, defaults to `preferred`. The `matchArchetype` provides category-level defaults (e.g., standards slots default to `required` for `standard_class_led` products).
 
 Bundles are decomposed into constituent candidate families before downstream processing.
 
@@ -2221,9 +2733,17 @@ Policy thresholds:
 
 This gate saves more pipeline cost than most infrastructure optimizations.
 
+Additionally, the Quoteability Scorer computes a `recallRiskScore` per candidate that drives adaptive shortlist budgets during price-signal matching (see §5.7). `recallRiskScore` is computed from: alias drift for the `matchArchetype`, compliance criticality (`regulated_goods` = high), accessory contamination risk for the product family, spec sparsity on the candidate, expected source noisiness per routed source, and language mismatch risk for cross-language queries.
+
 #### Component: Supplier Quote Engine
 
-**Responsibility:** Trigger agent skills for supplier price scraping via adapter-mediated sessions, routed by candidate type (see §4.3 source routing table). In practice these runs are usually PTY-backed because marketplace search is browser-driven, but the component consumes the adapter abstraction rather than a PTY-only contract. The agent navigates to marketplace websites using source-specific skills, searches using structured multilingual query packs (not raw notice text), and extracts pricing data. Produces two separate confidence scores per quote: `matchConfidence` (product identity) and `quoteUsabilityConfidence` (commercial usability of the observed price). Applies deterministic hard-conflict filters and shortlisting before any AI adjudication of borderline matches.
+**Responsibility:** Trigger agent skills for supplier price scraping via adapter-mediated sessions, routed by candidate type (see §4.3 source routing table). In practice these runs are usually PTY-backed because marketplace search is browser-driven, but the component consumes the adapter abstraction rather than a PTY-only contract.
+
+The search pipeline executes in stages: (1) query-wave planning from the search profile's structured `queryWaves`, generating a sequence of queries from most precise to broadest per candidate × source; (2) search execution collecting de-duplicated results across all waves; (3) search-card screening applying four-state evidence comparison (`match`/`missing`/`ambiguous`/`conflict`) with only `conflict` triggering hard rejection; (4) detail-page enrichment for plausible results to extract structured attributes, compliance evidence, and pack/unit details not visible on search cards; (5) diversified deterministic shortlisting with adaptive budget driven by `recallRiskScore`; (6) AI adjudication on borderline cases only, with budget scaling by recall risk.
+
+Produces two separate confidence scores per quote: `matchConfidence` (product identity, with archetype-specific weight profiles) and `quoteUsabilityConfidence` (commercial usability of the observed price). Assigns `complianceEvidenceTier` (`structured_attribute`, `title_body_mention`, `absent`) for regulated goods. Applies lexicographic gating: identity gate first, then usability gate, then price-signal role assignment (see §4.3). Maintains a two-tier cache (search-result + listing-evidence) for cost optimization.
+
+When search returns zero usable results, applies the zero-result recovery ladder (see §5.7) and classifies failures into `searchFailureMode` categories for operational visibility and lexicon improvement.
 
 #### Component: Landed-Cost Engine
 
@@ -2259,7 +2779,7 @@ Key subsystems:
 
 #### Component: Result Contract Validator
 
-**Responsibility:** Validate agent checkpoints and final result artifacts against the skill's declared `result_schema_version`. Enforces the rule: **success = valid final result contract + clean process exit + complete cleanup/reap.** Partial results with valid checkpoints before a crash are classified as `partial_failure`, never upgraded to success. Validates schema version, job identity, checksum, and checkpoint sequencing.
+**Responsibility:** Validate agent checkpoints and final result artifacts against the skill's declared `result_schema_version`, then pass accepted artifacts through the Output Quality Gate for semantic and behavioral/drift checks. Enforces the rule: **success = valid final result contract + clean process exit + complete cleanup/reap.** Partial results with valid checkpoints before a crash are classified as `partial_failure`, never upgraded to success. Outputs that are schema-valid but fail the quality gate are classified as `suspect_output`, quarantined, and never committed to pipeline state. Validates schema version, job identity, checksum, and checkpoint sequencing.
 
 #### Component: Resource Arbiter
 
@@ -2311,10 +2831,13 @@ new notice
      -> >= 0.65: search automatically
      -> 0.45–0.64: search only top-value/top-risk candidates
      -> < 0.45: skip marketplace search; route to watch/RFQ/manual
-  -> build structured search profiles (multilingual query packs, not raw text)
+  -> build structured search profiles (multilingual query waves, not raw text)
   -> price-signal matching (via agent skill scraping, routed by candidate type)
-     -> deterministic shortlist: parse results, reject hard conflicts, score top-10
-     -> AI adjudication: only top-3 borderline candidates per search
+     -> query-wave search: exact anchor → alias swap → market framing → broad → compliance-off
+     -> search-card screening: four-state evidence (match/missing/ambiguous/conflict), reject on conflict only
+     -> detail-page enrichment for plausible results (compliance evidence tier determination)
+     -> adaptive diversified shortlist: budget driven by recallRiskScore (top-8 to top-20)
+     -> AI adjudication: borderline only, budget scales with recallRiskScore
      -> score matchConfidence and quoteUsabilityConfidence separately
      -> classify priceSignalRole (benchmark_ceiling / optimistic_floor / executable)
   -> gross margin estimate (normalized ex-VAT revenue vs normalized supplier cost)
@@ -2390,13 +2913,15 @@ The following new entities and field changes are required based on the procureme
 
 - **`NoticeLot`** — lot-level decomposition of notices. Fields: `id`, `noticeId`, `sourceLotId`, `lotNumber`, `title`, `description`, `cpvCodes`, `estimatedValue`, `deadlineAt`, `isBidableSeparately`, `documents[]`. If no explicit lots, create a synthetic whole-notice lot. `ProductCandidate` should reference `lotId`, not just `noticeId`.
 - **`ProcessRelation`** — edges between related-but-unmerged processes. Fields: `id`, `processIdA`, `processIdB`, `relationType` (`merged_same_process` | `related_not_merged` | `possible_duplicate` | `separate`), `confidence`, `evidence`, `createdAt`. Enables cache sharing across related clusters without forced merges.
-- **`SearchProfile`** — structured search profile per product candidate. Fields: `id`, `productCandidateId`, `headNoun`, `candidateType`, `criticalAttributesJson`, `standardsJson`, `numericSpecsJson`, `preferredTerms`, `excludedTerms`, `queryPackJson`, `createdAt`. Persisted for debugging and skill improvement.
+- **`SearchProfile`** — structured search profile per product candidate. Fields: `id`, `productCandidateId`, `headNoun`, `headNounFamily`, `candidateType`, `matchArchetype`, `criticalAttributesJson`, `standardsJson`, `numericSpecsJson`, `nounAliasesEn`, `nounAliasesZh`, `marketFrameEn`, `marketFrameZh`, `useContext`, `sectorContext`, `requiredAnchors`, `optionalAnchors`, `mustNotHave`, `preferredTerms`, `excludedTerms`, `queryWavesJson`, `recallRiskScore`, `createdAt`. Persisted for debugging, recall measurement, and lexicon improvement.
+- **`SearchAttempt`** — tracks each query execution for debugging, recall measurement, and failure diagnosis. Fields: `id`, `productCandidateId`, `searchProfileId`, `source`, `locale`, `waveNumber`, `queryText`, `filtersJson`, `isRecoveryWave`, `resultCount`, `hardRejectedCount`, `shortlistedCount`, `searchFailureMode`, `executedAt`, `sessionId`. Push-owned.
+- **`ListingEvidence`** — cached listing evidence for re-scoring across candidates without re-fetching. Fields: `id`, `source`, `sourceListingId`, `normalizedTitle`, `structuredAttributesJson`, `parsedStandardsJson`, `parsedUnitsJson`, `sellerIdentifier`, `minimumOrderQuantity`, `shippingTerms`, `condition`, `complianceEvidenceTier`, `intendedUseLanguage`, `isReadyToShip`, `fetchedAt`, `detailPageFetched`. Local-only cache (no sync).
 
 **Field additions to existing entities:**
 
 - **`ContractNotice`**: add `accessRoute` (`open_tender` | `restricted_tender` | `framework_call_off` | `dynamic_market` | `direct_award` | `closed_framework_award` | `not_bidable`).
-- **`ProductCandidate`**: add `lotId`, `candidateType` (`exact_sku` | `standard_commodity` | `brand_family` | `bundle` | `custom_or_fabricated` | `installed_goods` | `regulated_goods` | `unknown`), `headNoun`, `criticalAttributesJson`, `numericSpecsJson`, `standardsJson`, `excludedTermsJson`, `quoteabilityScore`, `identityConfidence`, `specConfidence`, `quantityConfidence`. The existing single `extractionConfidence` should be replaced by the three granular confidence fields.
-- **`SupplierQuote`**: add `matchConfidence`, `quoteUsabilityConfidence` (replacing single `confidence`), `priceSignalRole` (`benchmark_ceiling` | `optimistic_floor` | `executable`), `listingPackQty`, `listingPackUnit`, `normalizedUnitBasis`, `isUsedOrRefurbished`, `vatInclusive`, `shippingBasisConfidence`.
+- **`ProductCandidate`**: add `lotId`, `candidateType` (`exact_sku` | `standard_commodity` | `brand_family` | `bundle` | `custom_or_fabricated` | `installed_goods` | `regulated_goods` | `unknown`), `matchArchetype` (`standard_class_led` | `dimension_material_led` | `electrical_spec_led` | `pack_count_led` | `compatibility_led` | `model_exact` | `unknown`), `headNoun`, `criticalAttributesJson` (now with slot criticality annotations), `numericSpecsJson` (now with tolerance windows and criticality), `standardsJson` (now structured: family/part/edition/amendment/class with criticality), `excludedTermsJson`, `quoteabilityScore`, `recallRiskScore`, `identityConfidence`, `specConfidence`, `quantityConfidence`. The existing single `extractionConfidence` should be replaced by the three granular confidence fields.
+- **`SupplierQuote`**: add `matchConfidence`, `quoteUsabilityConfidence` (replacing single `confidence`), `priceSignalRole` (`benchmark_ceiling` | `optimistic_floor` | `executable`), `listingPackQty`, `listingPackUnit`, `normalizedUnitBasis`, `isUsedOrRefurbished`, `isReadyToShip`, `vatInclusive`, `shippingBasisConfidence`, `complianceEvidenceTier` (`structured_attribute` | `title_body_mention` | `absent`), `rawMatchScore`, `searchAttemptId`, `sourceListingId`, `evidenceStatesJson`, `queryWaveNumber`.
   - **Cross-domain note:** The data-architecture domain added `quoteRealismConfidence` (how realistic the observed price is for procurement-volume orders) and `negotiationUpliftPct` (expected uplift from indicative to negotiated price) to the `SupplierQuote` interface. These are **complementary to, not duplicates of**, the procurement pipeline's `quoteUsabilityConfidence` and `priceSignalRole`. The procurement pipeline fields assess the listing's commercial usability (unit basis, MOQ, shipping visibility); the data-architecture fields assess volume-adjusted realism and negotiation gap. Implementers should compute and store all four fields independently.
 - **`QualificationResult`**: add `legalCategory`, `goodsDensityScore`, `goodsSeparability` (`true` | `false` | `uncertain`), `accessRoute`. The existing `goodsQualified` boolean should be supplemented (not replaced) by these dimensions.
 
@@ -2519,6 +3044,14 @@ export interface ProductCandidate {
     | "installed_goods"
     | "regulated_goods"
     | "unknown";
+  matchArchetype?:                                          // NEW: how identity is recovered on marketplaces
+    | "standard_class_led"
+    | "dimension_material_led"
+    | "electrical_spec_led"
+    | "pack_count_led"
+    | "compatibility_led"
+    | "model_exact"
+    | "unknown";
   headNoun?: string;
   quantity?: number;
   quantityUnit?: string;
@@ -2526,17 +3059,42 @@ export interface ProductCandidate {
   estimatedUnitWeightKg?: number;
   estimatedUnitVolumeM3?: number;
   candidateCommodityCodes: string[];
-  criticalAttributes?: Record<string, string | number | boolean>;
-  numericSpecs?: Record<string, string | number>;
-  standards?: string[];
+  criticalAttributes?: Record<string, CriticalAttribute>;  // CHANGED: annotated with criticality
+  numericSpecs?: Record<string, NumericSpec>;               // CHANGED: annotated with criticality
+  standards?: StandardSlot[];                               // CHANGED: structured standard references
   material?: string;
   brandModel?: string;
   preferredTerms?: string[];
   excludedTerms?: string[];
   quoteabilityScore?: number;
+  recallRiskScore?: number;                                 // NEW: drives adaptive shortlist budgets
   identityConfidence: number;
   specConfidence: number;
   quantityConfidence: number;
+}
+
+// NEW: slot criticality annotation
+export interface CriticalAttribute {
+  value: string | number | boolean;
+  criticality: "required" | "preferred" | "descriptive" | "exclusion";
+}
+
+export interface NumericSpec {
+  value: string | number;
+  unit?: string;
+  toleranceWindow?: { min?: number; max?: number };         // NEW: acceptable range for matching
+  criticality: "required" | "preferred" | "descriptive";
+}
+
+// NEW: structured standard reference for normalization
+export interface StandardSlot {
+  raw: string;                       // original text from tender (e.g., "EN 397:2012+A1:2012")
+  family: string;                    // standard family (e.g., "EN 397")
+  part?: string;                     // part number if applicable
+  editionYear?: string;              // edition year (e.g., "2012")
+  amendment?: string;                // amendment (e.g., "A1:2012")
+  classLevel?: string;               // class or level (e.g., "Class 2")
+  criticality: "required" | "preferred" | "descriptive";
 }
 ```
 
@@ -2575,14 +3133,36 @@ export interface SearchProfile {
   id: string;
   productCandidateId: string;
   headNoun?: string;
+  headNounFamily?: string;                                  // NEW: broader noun family for fallback queries
   candidateType?: ProductCandidate["candidateType"];
-  criticalAttributes?: Record<string, string | number | boolean>;
-  standards?: string[];
-  numericSpecs?: Record<string, string | number>;
+  matchArchetype?: ProductCandidate["matchArchetype"];      // NEW: drives query templates and scoring
+  criticalAttributes?: Record<string, CriticalAttribute>;   // CHANGED: with criticality
+  standards?: StandardSlot[];                                // CHANGED: structured standards
+  numericSpecs?: Record<string, NumericSpec>;                // CHANGED: with criticality + tolerance
+  nounAliasesEn?: string[];                                 // NEW: English marketplace noun aliases
+  nounAliasesZh?: string[];                                 // NEW: Chinese marketplace noun aliases
+  marketFrameEn?: string[];                                 // NEW: English market framing terms
+  marketFrameZh?: string[];                                 // NEW: Chinese market framing terms
+  useContext?: string;                                       // NEW: end-use context (medical, janitorial, etc.)
+  sectorContext?: string;                                    // NEW: industry sector
+  requiredAnchors?: string[];                                // NEW: must-have search anchors
+  optionalAnchors?: string[];                                // NEW: nice-to-have anchors
+  mustNotHave?: string[];                                    // NEW: explicit exclusion terms
   preferredTerms?: string[];
   excludedTerms?: string[];
-  queryPack?: Record<string, string[]>;
+  queryWaves?: QueryWave[];                                  // NEW: replaces flat queryPack
+  recallRiskScore?: number;                                  // NEW: drives adaptive shortlist budget
   createdAt: string;
+}
+
+// NEW: structured query wave for staged search
+export interface QueryWave {
+  waveNumber: number;                // 0=exact anchor, 1=alias swap, 2=market framing, 3=broad, 4=compliance-off
+  source: "ebay" | "amazon" | "alibaba" | "1688";
+  locale: "en" | "zh";
+  queryText: string;
+  filters?: Record<string, string>; // source-specific structured filters (category, MOQ range, etc.)
+  isRecoveryWave: boolean;          // true if generated by zero-result recovery
 }
 ```
 
@@ -2592,16 +3172,18 @@ export interface SupplierQuote {
   processId: string;
   noticeId?: string;
   productCandidateId: string;
+  searchAttemptId?: string;                                  // NEW: trace to SearchAttempt that produced this quote
   productName?: string;            // denormalized convenience copy for display/debugging
   region: "uk" | "eu" | "china";
   quoteClass: "indicative_marketplace" | "distributor_listing" | "rfq_quote" | "negotiated_quote";
   sourceName: string;
   sourceUrl?: string;
+  sourceListingId?: string;                                  // NEW: marketplace-specific listing identifier for cache
   shipFromCountry?: string;
-  countryOfOrigin?: string;           // NEW: actual origin for duty/preference, not dispatch location
-  countryOfDispatch?: string;         // NEW: where goods ship from (may differ from origin)
+  countryOfOrigin?: string;           // actual origin for duty/preference, not dispatch location
+  countryOfDispatch?: string;         // where goods ship from (may differ from origin)
   incoterm?: "EXW" | "FOB" | "CIF" | "DAP" | "DDP" | string;
-  quoteCostBoundary?: "EXW" | "FOB" | "CIF" | "CIP" | "DAP" | "DDP" | "UNKNOWN"; // NEW: normalized cost boundary
+  quoteCostBoundary?: "EXW" | "FOB" | "CIF" | "CIP" | "DAP" | "DDP" | "UNKNOWN"; // normalized cost boundary
   quotedQuantity?: number;
   quotedQuantityUnit?: string;
   unitPriceOriginal: number;
@@ -2615,14 +3197,64 @@ export interface SupplierQuote {
   listingPackUnit?: string;
   normalizedUnitBasis?: string;
   isUsedOrRefurbished?: boolean;
+  isReadyToShip?: boolean;                                   // NEW: Alibaba Ready-to-Ship flag (usability bump)
   vatInclusive?: boolean;
+  complianceEvidenceTier?: "structured_attribute" | "title_body_mention" | "absent"; // NEW: strength of compliance evidence
+  rawMatchScore?: number;                                    // NEW: pre-calibration deterministic score
   matchConfidence: number;
   quoteUsabilityConfidence: number;
   shippingBasisConfidence?: number;
-  quoteRealismConfidence: number;     // NEW: how realistic is this price for procurement volumes?
-  negotiationUpliftPct?: number;      // NEW: expected uplift from indicative to negotiated price
+  quoteRealismConfidence: number;     // how realistic is this price for procurement volumes?
+  negotiationUpliftPct?: number;      // expected uplift from indicative to negotiated price
+  evidenceStates?: Record<string, "match" | "missing" | "ambiguous" | "conflict">; // NEW: per-slot evidence states
+  queryWaveNumber?: number;                                  // NEW: which wave produced this match
   evidence: string[];
   validUntil?: string;
+}
+```
+
+```ts
+// NEW: tracks each search execution for debugging, recall measurement, and failure diagnosis
+export interface SearchAttempt {
+  id: string;
+  productCandidateId: string;
+  searchProfileId: string;
+  source: "ebay" | "amazon" | "alibaba" | "1688";
+  locale: "en" | "zh";
+  waveNumber: number;
+  queryText: string;
+  filters?: Record<string, string>;
+  isRecoveryWave: boolean;
+  resultCount: number;
+  hardRejectedCount: number;
+  shortlistedCount: number;
+  searchFailureMode?: "vocabulary_gap" | "overconstrained_query" | "accessory_swamp"
+    | "compliance_not_surfaceable" | "no_marketplace_presence"
+    | "low_extraction_quality" | "source_specific_failure";
+  executedAt: string;
+  sessionId?: string;                // link to agent session for tracing
+}
+```
+
+```ts
+// NEW: cached listing evidence for re-scoring across candidates without re-fetching
+export interface ListingEvidence {
+  id: string;
+  source: "ebay" | "amazon" | "alibaba" | "1688";
+  sourceListingId: string;           // marketplace-specific listing identifier
+  normalizedTitle: string;
+  structuredAttributes?: Record<string, string>;  // parsed spec table / product attributes
+  parsedStandards?: StandardSlot[];
+  parsedUnits?: { packQty?: number; packUnit?: string; normalizedBasis?: string };
+  sellerIdentifier?: string;
+  minimumOrderQuantity?: number;
+  shippingTerms?: string;
+  condition?: "new" | "used" | "refurbished" | "unknown";
+  complianceEvidenceTier: "structured_attribute" | "title_body_mention" | "absent";
+  intendedUseLanguage?: string;      // detected use-context from listing
+  isReadyToShip?: boolean;
+  fetchedAt: string;                 // for freshness decay
+  detailPageFetched: boolean;        // whether detail-page enrichment was performed
 }
 ```
 
@@ -2699,8 +3331,13 @@ export interface PipelineAssessment {
   pipelineState:
     | "discovered"
     | "normalized"
+    | "relation_resolved"
     | "prelim_rejected"
     | "prelim_qualified"
+    | "docs_acquired"
+    | "lots_extracted"
+    | "products_extracted"
+    | "quoteability_scored"
     | "needs_review"
     | "priced"
     | "gross_qualified"
@@ -2709,6 +3346,8 @@ export interface PipelineAssessment {
     | "expired";
   grossMarginBps?: number;   // basis points (e.g., 1500 = 15.00%)
   netMarginBps?: number;     // basis points
+  reviewStage?: "qualification" | "quoteability" | "pricing" | "landed_cost" | "manifest";
+  reviewReason?: string;
   assessedAt: string;
 }
 ```
@@ -2722,6 +3361,7 @@ export interface OperatorDecisionHead {
     | "watching"
     | "approved"
     | "rejected";
+  decisionNote?: string;
   decidedBy?: string;
   decidedAt?: string;
   remoteRevision: number;  // for compare-and-swap
@@ -2754,6 +3394,17 @@ export interface ProcessStageStatus {
   startedAt: string;
   completedAt?: string;
   errorManifestId?: string;
+}
+```
+
+```ts
+export interface ViewerSyncStatus {
+  executorId: string;
+  daemonLastSeenAt: string;
+  lastLocalSeqAcked: number;
+  lastSuccessAt?: string;
+  syncHealth: "healthy" | "degraded" | "offline";
+  schemaEpoch: number;
 }
 ```
 
@@ -2791,6 +3442,19 @@ create table source_cursors (
   cursor_value text,
   updated_at timestamptz not null default now(),
   primary key (source_id, cursor_key)
+);
+
+create table source_runtime_state (
+  source_id text primary key references sources(id),
+  last_health_state text not null default 'green',
+  challenge_event_count integer not null default 0,
+  challenge_window_started_at timestamptz,
+  circuit_opened_at timestamptz,
+  cooldown_until timestamptz,
+  last_canary_at timestamptz,
+  last_error_code text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
 );
 
 -- Single-daemon MVP: one row representing the local daemon.
@@ -2890,21 +3554,51 @@ create table product_candidates (
   lot_id uuid references notice_lots(id),
   name text not null,
   candidate_type text,  -- exact_sku, standard_commodity, brand_family, bundle, custom_or_fabricated, installed_goods, regulated_goods, unknown
+  match_archetype text, -- standard_class_led, dimension_material_led, electrical_spec_led, pack_count_led, compatibility_led, model_exact, unknown
   head_noun text,
   quantity numeric,
   quantity_unit text,
   specification_text text,
   estimated_unit_weight_kg numeric,
   estimated_unit_volume_m3 numeric,
+  material text,
+  brand_model text,
   -- candidate_commodity_codes: use junction table product_commodity_codes instead of array column
   critical_attributes_json jsonb,
   numeric_specs_json jsonb,
   standards_json jsonb,
+  preferred_terms_json jsonb,
   excluded_terms_json jsonb,
   quoteability_score_bps integer,   -- basis points (0-10000)
+  recall_risk_score_bps integer,    -- basis points (0-10000)
   identity_confidence_bps integer,  -- basis points (0-10000)
   spec_confidence_bps integer,      -- basis points (0-10000)
   quantity_confidence_bps integer,  -- basis points (0-10000)
+  -- sync tracking (push-owned)
+  owner_executor_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table search_attempts (
+  id uuid primary key default gen_random_uuid(),
+  product_candidate_id uuid not null references product_candidates(id),
+  search_profile_id uuid not null references search_profiles(id),
+  source text not null,
+  locale text not null,
+  wave_number integer not null,
+  query_text text not null,
+  filters_json jsonb,
+  is_recovery_wave boolean not null default false,
+  result_count integer not null default 0,
+  hard_rejected_count integer not null default 0,
+  shortlisted_count integer not null default 0,
+  search_failure_mode text,
+  session_id uuid references agent_session_logs(id),
+  executed_at timestamptz not null default now(),
   -- sync tracking (push-owned)
   owner_executor_id text not null,
   row_version integer not null default 1,
@@ -2919,13 +3613,18 @@ create table supplier_quotes (
   process_id uuid not null references procurement_processes(id),
   notice_id uuid not null references contract_notices(id),
   product_candidate_id uuid references product_candidates(id),
+  search_attempt_id uuid references search_attempts(id),
   product_name text not null,                 -- denormalized convenience copy for display/debugging
   region text not null,
   quote_class text not null,
   source_name text not null,
   source_url text,
+  source_listing_id text,
   ship_from_country text,
+  country_of_origin text,
+  country_of_dispatch text,
   incoterm text,
+  quote_cost_boundary text,
   quoted_quantity numeric,
   quoted_quantity_unit text,
   unit_price_original_pence integer not null,  -- integer pence
@@ -2940,13 +3639,18 @@ create table supplier_quotes (
   listing_pack_unit text,
   normalized_unit_basis text,
   is_used_or_refurbished boolean not null default false,
+  is_ready_to_ship boolean,
   vat_inclusive boolean,
+  compliance_evidence_tier text,
+  raw_match_score_bps integer,
   match_confidence_bps integer,     -- basis points (0-10000)
   quote_usability_confidence_bps integer,  -- basis points (0-10000)
   shipping_basis_confidence_bps integer,   -- basis points (0-10000)
   -- cross-domain fields (data architecture review)
   quote_realism_confidence_bps integer,  -- basis points (0-10000)
   negotiation_uplift_bps integer,        -- basis points
+  evidence_states_json jsonb,
+  query_wave_number integer,
   evidence jsonb not null,
   valid_until timestamptz,
   -- sync tracking (push-owned)
@@ -3031,9 +3735,11 @@ create table manifests (
 -- Pipeline-computed assessment (daemon-owned, push-only)
 create table pipeline_assessments (
   process_id uuid primary key references procurement_processes(id),
-  pipeline_state text not null,  -- discovered, normalized, prelim_rejected, etc.
+  pipeline_state text not null,  -- discovered, normalized, relation_resolved, prelim_rejected, prelim_qualified, docs_acquired, lots_extracted, products_extracted, quoteability_scored, needs_review, priced, gross_qualified, landed_costed, net_qualified, expired
   gross_margin_bps integer,      -- basis points (1500 = 15.00%)
   net_margin_bps integer,        -- basis points
+  review_stage text,
+  review_reason text,
   assessed_at timestamptz not null default now(),
   -- sync tracking (push-owned)
   owner_executor_id text not null,
@@ -3048,6 +3754,7 @@ create table pipeline_assessments (
 create table operator_decision_heads (
   process_id uuid primary key references procurement_processes(id),
   disposition text not null default 'pending',  -- pending, watching, approved, rejected
+  decision_note text,
   decided_by uuid,
   decided_at timestamptz,
   -- remote-owned tracking
@@ -3180,6 +3887,20 @@ create table error_manifest_summaries (
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
+
+create table viewer_sync_status (
+  executor_id uuid primary key references executors(id),
+  daemon_last_seen_at timestamptz not null,
+  last_local_seq_acked integer not null default 0,
+  last_success_at timestamptz,
+  sync_health text not null,
+  schema_epoch integer not null,
+  owner_executor_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
 ```
 
 #### Stage Tracking Tables
@@ -3250,6 +3971,19 @@ create table pull_cursors (
   domain text primary key,
   last_pulled_seq bigint not null default 0,
   pulled_at text not null
+);
+
+-- SQLite-only: queued remote-authoritative mutations while sync is degraded
+create table pending_operator_intents (
+  id text primary key,
+  process_id text not null,
+  desired_disposition text not null,
+  base_remote_revision bigint not null,
+  idempotency_key text not null unique,
+  status text not null default 'queued',
+  queued_at text not null,
+  last_attempt_at text,
+  last_error text
 );
 
 -- Supabase-side: schema version tracking
@@ -3352,19 +4086,42 @@ create table process_relations (
   created_at timestamptz not null default now()
 );
 
+create table process_aliases (
+  alias_process_id uuid primary key,
+  canonical_process_id uuid not null references procurement_processes(id),
+  alias_reason text not null default 'merged_same_process',
+  owner_executor_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
 -- Structured search profile per product candidate (from procurement pipeline review).
 -- Persisted for debugging and skill improvement.
 create table search_profiles (
   id uuid primary key default gen_random_uuid(),
   product_candidate_id uuid not null references product_candidates(id),
   head_noun text,
+  head_noun_family text,
   candidate_type text,
+  match_archetype text,
   critical_attributes_json jsonb,
   standards_json jsonb,
   numeric_specs_json jsonb,
+  noun_aliases_en jsonb,
+  noun_aliases_zh jsonb,
+  market_frame_en jsonb,
+  market_frame_zh jsonb,
+  use_context text,
+  sector_context text,
+  required_anchors jsonb,
+  optional_anchors jsonb,
+  must_not_have jsonb,
   preferred_terms jsonb,
   excluded_terms jsonb,
-  query_pack_json jsonb,
+  query_waves_json jsonb,
+  recall_risk_score_bps integer,
   -- sync tracking (push-owned)
   owner_executor_id text not null,
   row_version integer not null default 1,
@@ -3372,6 +4129,27 @@ create table search_profiles (
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
+);
+
+create table listing_evidence (
+  id uuid primary key default gen_random_uuid(),
+  source text not null,
+  source_listing_id text not null,
+  normalized_title text not null,
+  structured_attributes_json jsonb,
+  parsed_standards_json jsonb,
+  parsed_units_json jsonb,
+  seller_identifier text,
+  minimum_order_quantity numeric,
+  shipping_terms text,
+  condition text,
+  compliance_evidence_tier text not null,
+  intended_use_language text,
+  is_ready_to_ship boolean,
+  fetched_at timestamptz not null,
+  detail_page_fetched boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique (source, source_listing_id)
 );
 ```
 
@@ -3431,17 +4209,17 @@ not_started
 #### Data Flow: Scheduled Ingestion (Skill-Based Agent Scraping)
 
 1. Daemon's local cron scheduler determines that an ingestion job is due for a source.
-2. Scheduler reads the enabled source definition from the Source Registry and enqueues a job with explicit skill id/version binding.
+2. Scheduler reads the enabled source definition from the Source Registry and enqueues a job with explicit skill id/version binding. If `source_runtime_state` shows an open circuit or active cooldown, the scheduler suppresses normal ingestion and only allows `source-health/*` or `auth-refresh/*` jobs for that source.
 3. Job Runner claims the queued job from local SQLite and asks the Resource Arbiter for the relevant source lane before execution.
 4. Agent Adapter selects execution mode (PTY or contract) based on the skill's `interaction_profile` and capability probe results.
 5. Adapter spawns the agent session in its own process group, recording pid, pgid, adapter id, CLI version, and config hash.
 6. The appropriate procurement ingestion skill is loaded into the agent (e.g., `skills/procurement-ingestion/fts/SKILL.md`).
-7. Agent navigates to the source via browser automation, following the skill playbook.
-8. Agent extracts notice data from the source, using cursor/watermark from the previous run.
+7. Agent navigates to the source via browser automation, following the skill playbook and proving the expected page fingerprint before extraction begins.
+8. Agent extracts notice data from the source, using cursor/watermark from the previous run. Durable commit boundaries are notice batches (or source pages), and resume uses a small cursor backtrack window to avoid skipping records when the upstream cursor semantics are imperfect.
 9. Raw session output is captured as an immutable forensic artifact in both modes: PTY bytes in PTY mode, stdout/stderr bytes in contract mode. Structured events are also captured via adapter protocol parsing in contract mode.
 10. Agent writes checkpoints and final outputs through a validated result contract (artifact file, JSON payload, or structured stream).
 11. Workflow state advances from validated checkpoints/final contracts, not from transcript parsing.
-12. Result contract is validated by the Result Contract Validator. Raw artifacts are stored in the artifact store with hashes and paths referenced from SQLite.
+12. Result contract is validated by the Result Contract Validator, then checked by the Output Quality Gate. Raw artifacts are stored in the artifact store with hashes and paths referenced from SQLite. Schema-valid outputs that fail semantic or drift checks are quarantined as `AGENT_SUSPECT_OUTPUT` instead of being committed.
 13. Notices are normalized into internal schema.
 14. Relation resolution engine classifies the notice's relationship to existing processes:
     - **Step 14a: Hard blockers check.** Before scoring, check for hard contradictions that prevent merging:
@@ -3465,8 +4243,8 @@ not_started
       - `0.75–0.94` → `related_not_merged` (or `possible_duplicate` for operator review).
       - `< 0.75` → `separate`.
     - **Step 14d:** For `related_not_merged` pairs, create a `ProcessRelation` edge. This enables sharing search caches, extracted product families, and price signals across the cluster without forcing a false canonical merge.
-    - **Step 14e:** Map each notice into a canonical `procurement_processes` record. Merged notices update the existing record; separate notices create new records.
-15. Job Runner persists normalized outputs and queues qualification jobs for new or materially updated processes, retaining notice-level provenance.
+    - **Step 14e:** Map each notice into a canonical `procurement_processes` record. Merged notices update the existing record; separate notices create new records. If a previously published process ID is retired by a later merge, write a `process_aliases` redirect from the retired ID to the surviving canonical process so desktop/web deep links remain stable.
+15. Job Runner persists normalized outputs and queues qualification jobs for new or materially updated processes, retaining notice-level provenance. When the skill exits `continuation_required`, the Job Runner persists the committed notice batches and immediately enqueues the next segment using the emitted resume token.
 16. Session Reaper performs descendant cleanup and records cleanup verdict.
 17. Stage sync: In the same SQLite transaction that writes stage outputs, the daemon writes all rows with a shared `stage_run_id`, updates `process_stage_status` to `succeeded`, advances `process_stage_heads`, and writes outbox entries. The sync engine then pushes one atomic batch to Supabase. Failed stages publish failure status + redacted error summary but do NOT advance the stage head.
 
@@ -3485,10 +4263,13 @@ not_started
 - Host sleep during session -> daemon detects monotonic time gap exceeding threshold, marks `HOST_SLEEP_INTERRUPTED`, taints browser-backed sessions.
 - Source website changed -> skill-based error, marks `AGENT_SKILL_FAILED`, creates error manifest with skill path and step.
 - Result contract invalid -> agent output fails schema validation, marks `AGENT_OUTPUT_CONTRACT_INVALID`, preserves transcript + artifact, fails job without transcript-based recovery.
+- Output quality gate failed -> agent output is schema-valid but fails semantic or drift validation, marks `AGENT_SUSPECT_OUTPUT`, quarantines results, and keeps pipeline state unchanged.
+- Time budget reached at a safe batch boundary -> skill returns `continuation_required`; daemon commits the completed batches and enqueues the next segment automatically.
 - Partial failure with checkpoint -> valid checkpoint exists before crash, persists checkpoint outputs, marks `AGENT_PARTIAL_FAILURE`, never upgrades to success without final contract + clean exit + reap.
 - Agent internal error -> adapter captures error from structured events or terminal output, marks `AGENT_INTERNAL_ERROR`.
 - Cleanup failure -> descendant processes leaked after session exit, marks `AGENT_CLEANUP_INCOMPLETE`, records leaked pids for operator attention.
 - Resource exhaustion -> host memory/CPU pressure detected, marks `HOST_RESOURCE_EXHAUSTED`, may preempt lower-priority sessions.
+- Repeated challenge-class failures -> source circuit breaker opens, source enters cooldown, and only auth-refresh/health canaries remain eligible until the source recovers.
 - Daemon not running -> jobs remain in local SQLite queue; freshness SLA depends on the daemon being online. On restart, the daemon performs a catchup sweep for overdue jobs.
 
 ### 5.7 Intelligence Pipeline Data Flow
@@ -3550,31 +4331,147 @@ not_started
 
 1. For each qualified lot, extract `ProductCandidate` entities from lot descriptions and acquired documents.
 2. Classify `candidateType`: `exact_sku`, `standard_commodity`, `brand_family`, `bundle`, `custom_or_fabricated`, `installed_goods`, `regulated_goods`, `unknown`.
-3. **Decompose bundles** into constituent candidate families before downstream processing.
-4. Extract structured slots: headNoun, criticalAttributes, standards, numericSpecs, material, brandModel, preferredTerms, excludedTerms.
-5. Use **category-specific critical attribute tables** keyed off CPV family (PPE: standards/material; Electrical: voltage/plug/wattage; Furniture: dimensions/fire-rating; IT: brand/model/specs; Medical: standard/classification/sterile).
-6. Assign separate confidence scores: `identityConfidence`, `specConfidence`, `quantityConfidence`.
-7. Store candidates in local SQLite linked to their lot.
+3. Classify `matchArchetype`: `standard_class_led`, `dimension_material_led`, `electrical_spec_led`, `pack_count_led`, `compatibility_led`, `model_exact`, `unknown`. The match archetype describes how product identity is recovered on marketplaces and is orthogonal to `candidateType` (see §4.3). If extraction cannot determine the archetype, default to `unknown`.
+4. **Decompose bundles** into constituent candidate families before downstream processing.
+5. Extract structured slots: headNoun, criticalAttributes, standards, numericSpecs, material, brandModel, preferredTerms, excludedTerms.
+6. **Assign slot criticality** per extracted attribute: `required` (tender mandates it), `preferred` (tender mentions preference), `descriptive` (informational only), `exclusion` (explicitly excluded). Use tender language signals ("must", "shall", "required" → `required`; "preferred", "desirable" → `preferred`; "not", "excluding" → `exclusion`). When ambiguous, default to `preferred`. The `matchArchetype` provides category-level defaults: for `standard_class_led`, standards slots default to `required`; for `dimension_material_led`, key dimension slots default to `required`.
+7. **Normalize standard references** into structured components: family (EN 397), part, edition year, amendment (A1:2012), and class/level. This structured representation enables precise standard comparison during hard-conflict filtering (see §5.7).
+8. Use **category-specific critical attribute tables** keyed off CPV family (PPE: standards/material; Electrical: voltage/plug/wattage; Furniture: dimensions/fire-rating; IT: brand/model/specs; Medical: standard/classification/sterile).
+9. Assign separate confidence scores: `identityConfidence`, `specConfidence`, `quantityConfidence`.
+10. Store candidates in local SQLite linked to their lot.
 
 #### Data Flow: Quoteability Scoring
 
 1. Compute deterministic `quoteabilityScore` per candidate based on: commodity-like head noun, critical attributes, numeric specs, standards, quantity/unit, public docs, open access route; minus penalties for custom fabrication, installation scope, closed framework, missing compliance detail.
 2. Thresholds: `>= 0.65` search automatically; `0.45-0.64` search top-value only; `< 0.45` skip marketplace, route to watch/RFQ/manual.
-3. Generate structured search profile with multilingual `queryPack` (uk_precise, uk_broad, china_en, china_zh) for passing candidates. Translate only structured product slots, not whole sentences.
-4. Store search profiles in local SQLite for debugging.
+3. Compute `recallRiskScore` per candidate from: alias drift for the `matchArchetype`, compliance criticality, accessory contamination risk for the product family, spec sparsity, expected source noisiness, and language mismatch risk. This score drives adaptive shortlist budgets during price-signal matching.
+4. Generate structured search profile with multilingual `queryWaves` (see §5.7) for passing candidates. Each profile includes: head noun family, `matchArchetype`, noun aliases (EN/ZH), market framing terms (EN/ZH), required/optional anchors, exclusion terms, use context, and sector context. Query waves are generated per source, from most precise to broadest. Translate only structured product slots plus market framing, not whole sentences.
+5. Store search profiles in local SQLite for debugging and lexicon improvement.
 
 #### Data Flow: Price-Signal Matching (Skill-Based Agent Scraping)
 
 1. **Source routing** by `candidateType` (see section 4.3). Not every source for every candidate.
-2. **Session batching:** Resource Arbiter grants supplier-source lanes; run at most one automated search session per source per notice (multiple candidates batched together).
-3. Agent searches using `queryPack` from search profile. Full raw session output is captured.
-4. **Deterministic shortlist:** Parse results, reject hard conflicts (wrong brand/model/standard/voltage/material/size, used when not allowed, accessory instead of primary, consumer instead of industrial), score top 10.
-5. **AI adjudication (top-3 only):** Agent judges pre-filtered borderline results, does not search.
-6. **Dual confidence scoring:** `matchConfidence` (0.40 product_type + 0.30 critical_attribute + 0.20 numeric_spec + 0.10 evidence_quality) and `quoteUsabilityConfidence` (0.35 unit_basis + 0.25 MOQ + 0.20 shipping_visibility + 0.20 completeness). Never average these.
-7. **Price-signal role:** `benchmark_ceiling` (UK retail), `optimistic_floor` (China wholesale), `executable` (RFQ/negotiated).
-8. Save quotes with dual confidence and price-signal role to local SQLite.
-9. **Cache sharing:** Reuse results across related-but-unmerged clusters via `ProcessRelation` edges.
-10. Stage sync: write outbox entries in same transaction as quote storage, update stage status/heads, push atomic batch to Supabase.
+2. **Session batching:** Resource Arbiter grants supplier-source lanes; run at most one automated search session per source per notice (multiple candidates batched together). The durable business unit is the **candidate-source pair**: a single session may work many pairs, but checkpoints, resumability, and downstream commits are tracked per pair.
+3. **Query-wave planning:** For each candidate × source, the query planner generates a sequence of query waves from the search profile, ordered from most precise to broadest:
+   - **Wave 0 — exact anchor:** Head noun alias + strongest anchor (model number, standard family, key numeric spec). High precision, low recall.
+   - **Wave 1 — alias swap:** Change the noun phrase, keep the anchor. Tests marketplace vocabulary variants.
+   - **Wave 2 — market framing:** Add use-context / industry framing terms from `marketFrameEn`/`marketFrameZh`. Recovers results behind different market vocabulary.
+   - **Wave 3 — broad existence check:** Drop soft modifiers. Keep only head noun family + one anchor. Tests whether the product category exists on the source at all.
+   - **Wave 4 — compliance-off search (regulated goods only):** Remove the standard token from the query, keep it as a deterministic post-filter. Critical because many compliant listings omit the standard from the title but include it on the detail page.
+   Each wave records its query text, source, locale, and wave number for debugging and recall measurement.
+4. **Search execution:** Agent searches using query waves from the search profile. Full raw session output is captured. Results across all waves for a candidate × source are collected into a union set, de-duplicated by listing identifier. A zero-result page only enters the recovery ladder when the page fingerprint is valid and no challenge markers are present; blocked empty shells are classified as source failure, not as business-level zero results.
+5. **Search-card screening:** Parse search results and apply hard-conflict filters using **four evidence states** per required slot:
+   - `match` — listing evidence explicitly satisfies the slot requirement.
+   - `missing` — listing does not mention the attribute (no evidence either way).
+   - `ambiguous` — listing evidence is present but unclear or partially matching.
+   - `conflict` — listing evidence explicitly contradicts the slot requirement.
+   Only `conflict` triggers hard rejection. `missing` and `ambiguous` are confidence penalties, not disqualifications.
+
+   **Hard-conflict matrix:**
+
+   | Conflict Type | Hard Reject When | Penalty / Review When |
+   |---|---|---|
+   | Brand / model | Explicit different brand/model on `exact_sku` or locked brand family | Brand/model absent |
+   | Standard / certification | Wrong standard family; wrong part; class below required; explicit non-equivalent substitute | Same family but edition/amendment absent; class not stated |
+   | Voltage / frequency / plug | Explicit incompatible mandatory electrical spec | Missing electrical spec |
+   | Material | Explicit contradiction on mandatory material (`nitrile` vs `latex`) | Material missing or non-mandatory |
+   | Dimensions / size | Explicit incompatible fixed size or range | Size missing; adjustable size |
+   | Condition | Used/refurbished when not allowed | Condition unclear |
+   | Accessory vs primary | Explicit accessory / liner / refill / replacement / shell-only / compatible-with listing | Bundle or unclear title |
+   | Consumer vs industrial | Explicit sports / toy / fashion / domestic variant conflicting with required industrial use | Weak industrial signal only |
+   | Pack basis | Wrong product form (single vs pair, consumable vs kit) | Unclear pack/unit basis |
+
+   **Standards normalization:** Before comparing, normalize standard references into components: family (EN 397), part, edition year, amendment (A1:2012), and class/level. Rules: wrong family or part = hard reject; same family with amendment absent = soft conflict; same family with edition absent = penalty; class below required = hard reject; class absent = review/penalty.
+
+   **Consumer vs industrial detection:** Do not use price as the primary signal. Use: category path on marketplace, standard family (EN 1078 cycling vs EN 397 industrial), title vocabulary (bike / climbing / kids = hard reject for industrial PPE), seller assortment, detail-page intended-use language, and structured spec attributes.
+
+6. **Detail-page enrichment:** For results that survive search-card screening as plausible matches (not hard-rejected, not obvious garbage), fetch the detail page to extract:
+   - Structured spec table / product attributes
+   - Standards/certification mentions not visible on search card
+   - Seller information and assortment context
+   - Pack/unit details
+   - Shipping and MOQ specifics
+   - Intended-use language
+
+   This is where `complianceEvidenceTier` is determined: `structured_attribute` (spec table), `title_body_mention` (text only), or `absent`. For `regulated_goods`, missing compliance evidence on the search card alone does not disqualify — the detail-page check is mandatory before rejection for absent compliance. If list-page results are usable but detail pages become unavailable, auth-gated, or rate-limited after shortlist completion, the skill may exit `degraded_completed` with list-only quotes plus explicit confidence penalties instead of failing the whole candidate-source pair.
+
+7. **Diversified deterministic shortlist:** After hard-conflict filtering and detail-page enrichment, build a shortlist from the de-duplicated union of results across all query waves. Shortlist budget is adaptive, driven by `recallRiskScore`:
+   - Low recall risk: deterministic top 8, AI adjudication on 0–2 borderline
+   - Medium recall risk: deterministic top 12, AI adjudication on 3
+   - High recall risk: deterministic top 20, AI adjudication on 5–8
+
+   **Diversity enforcement rules** (applied before rank truncation):
+   - Max 2 results per seller
+   - Max 2 results per query wave
+   - Max 1 result per normalized title family (listings with near-identical titles after brand/seller removal)
+
+   Without diversity enforcement, the shortlist for noisy categories (PPE, lighting, accessories) will contain near-duplicates that waste AI adjudication budget.
+
+   **`recallRiskScore`** is computed from: alias drift for the archetype, compliance criticality (`regulated_goods` = high), accessory contamination risk for the product family, spec sparsity on the candidate, source noisiness (1688 > Alibaba > Amazon > eBay for search noise), and language mismatch risk (Chinese sources = higher).
+
+8. **AI adjudication (borderline only):** Agent judges pre-filtered borderline results from the deterministic shortlist. AI does not perform new searches — it evaluates identity and usability of candidates that the deterministic scorer could not confidently classify. Budget scales with `recallRiskScore`.
+
+9. **Dual confidence scoring:** Apply per result:
+   - `matchConfidence` = 0.40 × product_type_match + 0.30 × critical_attribute_match + 0.20 × numeric_spec_match + 0.10 × evidence_quality. Weights are MVP priors; archetype-specific profiles adjust them (e.g., `model_exact` shifts weight toward product_type_match; `dimension_material_led` shifts weight toward numeric_spec_match).
+   - `quoteUsabilityConfidence` = 0.35 × unit_basis_clarity + 0.25 × MOQ_compatibility + 0.20 × shipping_visibility + 0.20 × completeness.
+   Never average these. Apply lexicographic gating: identity gate first (matchConfidence floor by archetype), then usability gate, then price-signal role assignment (see §4.3).
+
+10. **Price-signal role:** `benchmark_ceiling` (UK retail), `optimistic_floor` (China wholesale), `executable` (RFQ/negotiated).
+11. Save quotes with dual confidence, compliance evidence tier, price-signal role, and `SearchAttempt` metadata to local SQLite. Persist each wave execution in `search_attempts`; cache reusable detail-page evidence in local-only `listing_evidence`.
+12. **Cache sharing:** Reuse listing evidence (not just search results) across related-but-unmerged clusters via `ProcessRelation` edges. See cache strategy below. If a source is in cooldown, use only fresh cached evidence and suppress new detail-page fetches until the circuit closes.
+13. Stage sync: write outbox entries in same transaction as quote storage, update stage status/heads, push atomic batch to Supabase.
+
+#### Data Flow: Zero-Result Recovery
+
+When marketplace search returns zero usable results for a candidate × source combination, the system applies a staged recovery ladder rather than treating zero results as a verdict:
+
+1. **Round 1 — drop weakest modifier:** Remove the least-critical optional anchor. Keep head noun + one hard anchor.
+2. **Round 2 — alias swap:** Change the noun phrase using the next alias from the search profile. Keep the hard anchor.
+3. **Round 3 — market framing:** Add use-context / industry framing terms from `marketFrameEn`/`marketFrameZh`.
+4. **Round 4 — compliance-off search:** For regulated goods, remove the standard token from the query, keep it as a post-filter on results.
+5. **Round 5 — China language escalation:** Alibaba EN → Alibaba ZH → 1688 ZH (when routed).
+6. **Round 6 — broad existence check:** Search on category-family term only (head noun family + source).
+
+**Stop conditions:**
+
+- Max 2 recovery rounds per source beyond the initial query waves
+- Per-candidate query budget ceiling (higher for high-value or high-risk candidates)
+- Stop immediately if broad category queries find plausible items — the problem is the specific query, not the market
+
+**Search failure classification:** Every zero-result or low-quality-result outcome is stored with a `searchFailureMode`:
+
+| Failure Mode | Diagnosis | Implication |
+|---|---|---|
+| `vocabulary_gap` | Broad queries find products but specific queries miss | Query planner needs alias expansion for this family |
+| `overconstrained_query` | Too many anchors for the source's search quality | Relax constraints; more recovery rounds |
+| `accessory_swamp` | Source returns mostly accessories/parts, not primary products | Add stronger negative terms; adjust source routing |
+| `compliance_not_surfaceable` | Product exists but compliance evidence is not marketplace-searchable | Detail-page-only compliance check; longer search budget |
+| `no_marketplace_presence` | All broad queries across all routed sources return nothing | Genuine absence — route to RFQ/manual |
+| `low_extraction_quality` | Product candidate description is too vague for meaningful search | Upstream issue — confidence penalty, not a search failure |
+| `source_specific_failure` | Source website error, rate limit, or layout change | Retry later; error manifest |
+
+**Key distinction:** If broad category queries find lots of plausible items but the specific query finds none, that is `vocabulary_gap` — a query problem, not a market absence. If all broad queries across all routed sources return nothing, that is closer to genuine `no_marketplace_presence`.
+Blocked empty shells, soft blocks, and challenge pages never count as `no_marketplace_presence`; they stay in the source-failure path and can open the source circuit breaker.
+
+#### Data Flow: Recall Measurement and Calibration
+
+For every operator-accepted match, log:
+
+- source, query wave number, raw rank in source results, reranked position in shortlist
+- whether the match was inside top 3 (AI pool), top 10 (deterministic), or top 20 (extended)
+- `matchArchetype` and `candidateType`
+
+Compute weekly/monthly:
+
+- recall@3 for AI pool, recall@10 deterministic, recall@20 deterministic — by `matchArchetype × source`
+- operator override rate (matches accepted that the system would have rejected)
+- false-positive reason mix
+- score histogram and precision by score decile
+- reliability curve (predicted confidence vs actual acceptance rate)
+
+If 80% of scores land in the 0.50–0.70 middle band, the confidence weights are not informative enough. If the distribution is bimodal (clearly good or clearly bad), thresholds can be tightened. This data feeds back into archetype-specific confidence floor calibration.
+
+**Calibration approach:** For MVP, keep deterministic rules with explicit feature logging. When sufficient operator data accumulates (target: 200+ labeled decisions per archetype × source), fit a simple interpretable calibration layer (isotonic regression or Platt scaling) per source × `matchArchetype`, backed off to a pooled calibrator when data is sparse. Store `rawMatchScore` (the deterministic pre-calibration score) alongside the calibrated `matchConfidence` for auditability. Calibration recalibrates scores to probabilities without replacing the deterministic feature set.
 
 #### Data Flow: Pipeline Cost Management
 
@@ -3582,11 +4479,50 @@ Naive design: 1,200+ sessions/day at $0.18-$0.41 = $75-$170/day. Required optimi
 
 1. **Batch by source:** One ingestion session per source per run. One supplier session per source per notice (searching multiple candidates).
 2. **Search selectively:** Top 2-3 candidates per notice by quoteability/spend share. Skip 1688 unless commodity-type.
-3. **Deterministic first:** Hard-conflict filters and shortlisting are deterministic. AI only for top-3 ambiguous.
-4. **Cache results:** Normalize query fingerprints, cache 24-72h. Reuse across related process clusters.
+3. **Deterministic first:** Hard-conflict filters and shortlisting are deterministic. AI adjudication budget scales with `recallRiskScore` (0–2 for low risk, up to 5–8 for high risk), not a fixed top-3 for all categories.
+4. **Two-tier cache:** Separate search-result cache from listing-evidence cache for maximum reuse (see below).
 5. **Model tiering:** Mini/Haiku for classification/extraction. Premium models only for ambiguous adjudication.
 6. **Realistic throughput:** 20-30 priced notices/day after filtering. Target $20-$60/day metered.
-7. **Default operating limits (MVP):** start with 2 browser slots, 4 total agent slots, 1 concurrent procurement session per source, 2 concurrent supplier sessions per source, max 25 extracted candidates per notice, max 8 auto-searched candidates per notice, and at most 3 supplier sources searched automatically per product candidate unless an operator forces a wider sweep. Treat marketplace quotes as stale after 72 hours unless `validUntil` is sooner.
+7. **Default operating limits (MVP):** start with 2 browser slots, 4 total agent slots, 1 concurrent procurement session per source, 2 concurrent supplier sessions per source, max 25 extracted candidates per notice, max 8 auto-searched candidates per notice, and at most 3 supplier sources searched automatically per product candidate unless an operator forces a wider sweep. Zero-result recovery adds at most 2 extra query rounds per source beyond initial waves.
+
+**Two-tier cache strategy:**
+
+The cache separates into two layers with different invalidation semantics:
+
+**A. Search-result cache:** Stores per query execution:
+- source, locale, query text, query wave number
+- returned listing IDs with rank/order
+- result count, timestamp
+
+**B. Listing-evidence cache:** Stores per listing ID (far more valuable):
+- normalized title, structured attributes / spec table
+- seller identity, MOQ, shipping terms, condition
+- parsed standards, parsed units/packs
+- compliance evidence tier
+- detail-page extraction timestamp
+
+The listing-evidence cache lets the system re-score the same listing against a new candidate without paying the fetch cost again. This is the primary cost saver for related candidates within the same product family.
+
+**Query fingerprint design:** Fingerprints are structured, not raw-string hashes. Split into:
+
+- **Hard fingerprint** (identity-defining): source, locale, `headNounFamily`, `matchArchetype`, required anchors, compliance-required flag, negative family. Changing a hard anchor invalidates cache reuse entirely.
+- **Soft fingerprint** (optional modifiers): optional anchors, market framing terms, cosmetic descriptors. Changing a soft anchor triggers re-ranking of cached results, not a full cache miss.
+
+Example: `gloves` → `nitrile gloves` = hard change (invalidates). `nitrile gloves` → `blue nitrile gloves` = soft change (re-rank only).
+
+**Source-specific freshness TTLs:** A single 72-hour TTL is too blunt. Different sources have different price volatility:
+
+| Source | Search-Result TTL | Listing-Evidence TTL | Rationale |
+|---|---|---|---|
+| eBay UK | 24h | 48h | Price signals are volatile (auction/fixed mix, stock turnover) |
+| Amazon UK | 36h | 48h | Prices change frequently but less than eBay |
+| Alibaba | 48h | 72h | MOQ prices are relatively stable; shipping options change |
+| 1688 | 72h | 96h | Domestic wholesale prices are the most stable |
+| Ready-to-Ship (Alibaba) | 36h | 48h | Fixed-price, decays faster than custom listings |
+
+Cached results carry **decayed commercial confidence**: identity evidence from the listing-evidence cache remains mostly stable, but price freshness, shipping freshness, and stock freshness decay with age. The `quoteUsabilityConfidence` of a cached result is penalized proportionally to age relative to the source-specific TTL.
+
+**Cache sharing across process clusters:** Reuse results across related-but-unmerged clusters via `ProcessRelation` edges. When Process A searched "nitrile gloves EN 455" and Process B has "nitrile examination gloves EN 455", the listing-evidence cache allows re-scoring cached listings against Process B's candidate without re-fetching, provided the hard fingerprint overlaps. The search-result cache is not shared across different hard fingerprints.
 
 #### Data Flow: Landed Cost (API-Based)
 
@@ -3636,12 +4572,81 @@ Naive design: 1,200+ sessions/day at $0.18-$0.41 = $75-$170/day. Required optimi
 
 The desktop/web capability split is formalized in **ADR-008**.
 
+**Architectural framing:** The desktop is not "React talking to SQLite." It is React talking to a **local control plane**. The web portal is not "React talking to the same hooks." It is React talking to a **read replica with live invalidation**. These two surfaces share presentational components and view-model types but have fundamentally different data access patterns, latency characteristics, and capability sets.
+
+```text
+DESKTOP
+React SPA (Vite)
+  → Tauri invoke()          for snapshot queries + mutations
+  → Tauri Channel<T>        for live streams (sessions, jobs, daemon health)
+  → Desktop Rust bridge
+       → QueryService       (read-only SQLite, page-specific read models)
+       → DaemonBridge       (UDS/named-pipe RPC to daemon)
+            → Rust daemon   (writer, jobs, PTY, sync, Supabase)
+
+WEB
+Next.js / React
+  → Supabase snapshot queries (projection tables)
+  → Supabase Broadcast private channels (invalidation hints)
+  → refetch / patch read-only projections
+```
+
+#### Desktop ↔ Daemon Communication Protocol
+
+The desktop communicates with the daemon through a hybrid transport. The logical API resources are defined in §5.10; this section describes the transport layer that delivers them.
+
+- **Snapshot reads:** `invoke()` from JS → Tauri-side Rust **QueryService** that opens **read-only** SQLite connections and returns page-specific read models. The QueryService enforces: read-only/query-only connections, page-limited queries, no streaming cursors held open, no generic SQL from the frontend, no transcript/blob reads in hot queries. The desktop reads local operational authority directly, but in a controlled way. In `recovery_required` mode, the QueryService returns error responses — it does not serve stale data from a mismatched schema.
+- **Writes and triggers:** `invoke()` from JS → Tauri-side Rust **DaemonBridge**, which forwards commands (the logical endpoints in §5.10) to the daemon over a Unix domain socket (macOS/Linux) or named pipe (Windows). The DaemonBridge is a thin RPC proxy — it does not hold state or perform writes itself.
+- **Real-time streams (desktop only):** Daemon → DaemonBridge → **Tauri `Channel<T>`** → React. Channels are Tauri's fast ordered streaming primitive, used for the stream surfaces defined in §5.10 (session output, job progress, daemon health). The DaemonBridge constructs `Channel<T>` instances and relays daemon subscription events through them. The Tauri event system is reserved for smaller JSON-string payloads (notifications, state transitions), not high-throughput streaming.
+- **Debug/dev adapter:** An optional localhost HTTP adapter exposes the same `/api/*` logical resources for CLI tooling and development. This is not the production desktop transport.
+
+**Why not pure HTTP on localhost:** A production loopback HTTP server adds port discovery/conflicts, auth/token management, another attack surface for same-user local processes, and network semantics for something that is not a networked relationship.
+
+**Why the Tauri backend is not the daemon:** The daemon is a background scheduler/executor. It must survive UI close, restart independently, and have its own lifecycle. Embedding it into the Tauri app makes shutdown, crash recovery, and "app closed but cron still runs" architecturally unsound.
+
+**SQLite concurrency rule:** SQLite is single-writer (daemon only), but supports many short readers. The desktop QueryService opens read-only connections with short-lived transactions. Long-lived readers are prohibited because they prevent WAL checkpoints from draining. The QueryService never reads transcript blobs or large artifacts in hot queries — those load on demand from the artifact store.
+
+**App-facing protocol contracts:**
+
+```ts
+type QueryEnvelope<T> = {
+  data: T
+  snapshotSeq: number
+  sourceMeta: {
+    mode: 'healthy' | 'browse_only' | 'recovery_required'
+    daemonConnected: boolean
+    syncHealth: 'healthy' | 'degraded' | 'offline'
+  }
+}
+
+type MutationAck = {
+  accepted: boolean
+  idempotencyKey: string
+  jobId?: string
+  remoteState?: 'committed' | 'queued' | 'conflicted' | 'not_applicable'
+}
+```
+
+**Bridge RPC types (desktop Rust ↔ daemon):**
+
+```ts
+type BridgeRequest =
+  | { id: string; kind: 'command'; method: string; params: Record<string, unknown>; idempotencyKey: string }
+  | { id: string; kind: 'subscribe'; topic: string; fromSeq?: number }
+  | { id: string; kind: 'unsubscribe'; topic: string }
+
+type BridgeEvent =
+  | { topic: 'daemon.health'; payload: DaemonHealthPayload }
+  | { topic: string; payload: JobProgressPayload }
+  | { topic: string; seq: number; kind: 'pty' | 'stdout' | 'stderr' | 'event' | 'lifecycle' | 'gap'; payload: unknown }
+```
+
 #### Data Flow: Desktop Control Panel (Full Read/Write/Trigger)
 
-1. Operator opens the Tauri desktop app.
-2. Desktop queries canonical procurement processes by state **from local SQLite** (fast, no network dependency). All desktop writes go through the daemon; desktop SQLite connections are read-oriented.
+1. Operator opens the Tauri desktop app. Tauri Rust bootstrap starts, checks local DB readability and schema epoch, attempts daemon handshake over socket/pipe.
+2. Desktop queries canonical procurement processes by state through `invoke()` → QueryService → **read-only local SQLite** (fast, no network dependency). QueryService returns `QueryEnvelope<T>` with `snapshotSeq` and `sourceMeta`.
 3. Operator opens opportunity detail.
-4. Detail view loads:
+4. Detail view loads (all via QueryService snapshot reads):
    - canonical process summary,
    - normalized source notices,
    - source links,
@@ -3651,22 +4656,81 @@ The desktop/web capability split is formalized in **ADR-008**.
    - agent session history and terminal output traces,
    - error manifest entries (if any).
 5. Operator chooses:
-   - reject,
-   - watch,
-   - rerun enrichment (triggers the appropriate daemon-managed agent session),
-   - start bid workflow (triggers the portal skill via a daemon-managed agent session).
+   - reject (→ DaemonBridge → daemon, returns `MutationAck`),
+   - watch (→ DaemonBridge → daemon, returns `MutationAck`),
+   - rerun enrichment (→ DaemonBridge → daemon creates adapter-mediated agent session),
+   - start bid workflow (→ DaemonBridge → daemon creates portal skill session).
 6. Operator can also:
    - trigger manual source syncs,
    - manage agent configurations and skills,
    - view comprehensive agent tracing logs,
    - view and resolve error manifests.
+7. All lists use stable **keyset/cursor pagination**, not offset pagination. Offset pagination causes rows to jump and duplicate when live updates modify the underlying data.
+
+#### Real-Time Event Streaming Architecture
+
+Live agent session monitoring is the hardest frontend problem in the system. The design treats session output as a **log system**, not a React state problem.
+
+**Rule: never put raw transcript arrays in React state.**
+
+**Three-layer streaming model:**
+
+1. **Daemon buffer + artifact writer:** For each session, the daemon maintains immutable artifact chunks on disk, an in-memory hot ring buffer, monotonic `seq` numbers, normalized structured events, and session summary metadata.
+2. **Desktop stream store:** Purpose-built external stores per session, outside React's render cycle.
+3. **Terminal/timeline views:** Thin React wrappers that subscribe to store slices.
+
+**Session frame types** (lifecycle states correspond to the 7-phase session lifecycle in §4.9: `created → spawned → active → terminating → exited → reaped → archived`):
+
+```ts
+type SessionFrame =
+  | { seq: number; kind: 'lifecycle'; state: string; ts: string }
+  | { seq: number; kind: 'pty'; chunk: Uint8Array; ts: string }
+  | { seq: number; kind: 'stdout'; chunk: string; ts: string }
+  | { seq: number; kind: 'stderr'; chunk: string; ts: string }
+  | { seq: number; kind: 'event'; event: StructuredSessionEvent; ts: string }
+  | { seq: number; kind: 'gap'; fromSeq: number; toSeq: number }
+```
+
+**Attach semantics — two subscription levels:**
+
+- **All running sessions (metadata only):** Status, checkpoint count, last line excerpt, elapsed time. Cheap enough for the session list page to show 20+ concurrent sessions.
+- **Selected session(s) (full stream attach):** Full PTY/stdout/stderr stream via `Channel<T>`. At most 2–3 sessions attached simultaneously (primary viewer + optional detached window).
+
+**Buffering strategy for the live viewer:**
+
+- Batch frames every 33–50ms before writing to the terminal component.
+- Keep only the last N lines / M MB hot in the live buffer.
+- If the user scrolls up, switch from live-tail mode to history mode (lazy-loaded from artifact chunks).
+- If the UI falls behind the stream, emit a `gap` frame and force a resync from the last known artifact position.
+
+**Dual viewer pattern:**
+
+1. **Live terminal view:** ANSI-faithful, auto-scroll, optimized for the last few thousand lines. Default for PTY-mode sessions.
+2. **Transcript/history view:** Virtualized line list, searchable, lazy-loaded from artifact chunks. For reviewing past output or searching large transcripts.
+
+**PTY mode vs contract mode — different default views:**
+
+- **PTY mode default:** Live terminal tail (ANSI terminal emulator component).
+- **Contract mode default:** Structured timeline showing checkpoints, tool invocations, browser events, artifact emissions, final contract validation, and cleanup verdict. Stdout/stderr available as secondary tabs.
+
+**React state pattern:** Use purpose-built external stores per session with `useSyncExternalStore()` for slice subscriptions:
+
+- `SessionRegistry` — tracks all active/recent sessions with metadata.
+- `SessionBuffer` — per-session ring buffer for live frames.
+- `useSessionMeta(sessionId)` — metadata slice (status, elapsed, checkpoints).
+- `useSessionTail(sessionId)` — last N lines for terminal view.
+- `useSessionTimeline(sessionId)` — structured event timeline for contract mode.
+
+This gives slice subscriptions instead of rerendering the whole page on every chunk.
 
 #### Data Flow: Web Viewing Portal (Read-Only)
 
 1. Viewer opens the web viewing portal.
-2. Web queries canonical procurement processes by state **from Supabase projection tables** (designed for portal use-cases, not raw sync tables), plus `workflow_job_summaries` and `error_manifest_summaries` for operator-safe status visibility. Displays sync age and last replicated seq for staleness awareness.
-3. Viewer opens opportunity detail.
-4. Detail view loads:
+2. Web gets an initial snapshot from **Supabase projection tables** (designed for portal use-cases, not raw sync tables — see §4.7 for the push-pull sync protocol that populates them), plus `workflow_job_summaries` and `error_manifest_summaries` for operator-safe status visibility.
+3. Web attaches **Supabase Broadcast private-channel subscriptions** for live invalidation hints (see Web Portal Subscription Architecture below).
+4. Every page displays **`viewer_sync_status`** so stale remote data is explicit.
+5. Viewer opens opportunity detail.
+6. Detail view loads (all from Supabase projection tables):
    - canonical process summary,
    - normalized source notices,
    - source links,
@@ -3675,12 +4739,165 @@ The desktop/web capability split is formalized in **ADR-008**.
    - manifest,
    - pipeline status,
    - error status.
-5. **No write operations.** Portal remains read-only in MVP; do not build generic cross-device edit sync before a second writable desktop exists. The web portal does not support:
+7. **No write operations.** Portal remains read-only in MVP; do not build generic cross-device edit sync before a second writable desktop exists. The web portal does not support:
    - reject/bid/rerun controls,
    - agent management,
    - configuration changes.
+8. All lists use stable **keyset/cursor pagination**, not offset pagination.
 
 These are desktop-only operations.
+
+#### Web Portal Subscription Architecture
+
+The web portal uses **Supabase Broadcast as an invalidation plane**, not as a database subscription. Broadcast payloads are small invalidation hints, not full rows.
+
+**Why Broadcast over Postgres Changes:** Postgres Changes is simpler but scales worse (single-threaded for ordering). Broadcast supports private channels, custom payloads via `realtime.send`, and better security scoping. The portal never subscribes to raw row changes on hot tables.
+
+**Topic scheme (page-level, not row-level):**
+
+| Page | Topics |
+|------|--------|
+| `/contracts` | `org:{orgId}:contracts`, `org:{orgId}:sync` |
+| `/contracts/[id]` | `process:{processId}:updates`, `org:{orgId}:sync` |
+| `/status` | `org:{orgId}:status`, `org:{orgId}:errors`, `org:{orgId}:sync` |
+
+**Invalidation payload types:**
+
+```ts
+type PortalUpdate =
+  | {
+      event: 'contracts.changed'
+      processIds: string[]
+      changed: Array<'assessment' | 'decision' | 'manifest' | 'error'>
+      maxSeq: number
+    }
+  | {
+      event: 'process.updated'
+      processId: string
+      changed: Array<'quotes' | 'landed_cost' | 'manifest' | 'jobs' | 'errors'>
+      major: boolean
+      maxSeq: number
+    }
+  | {
+      event: 'sync.updated'
+      syncHealth: 'healthy' | 'degraded' | 'offline'
+      lastAckedSeq: number
+      lastSuccessAt: string
+    }
+```
+
+**Emission point:** The daemon emits Broadcast notifications **after** the remote projection batch is successfully applied. The apply flow coalesces affected process/org topics so that 20 quote row upserts produce one notification per affected topic, not 20 websocket messages.
+
+**Per-page web portal behavior:**
+
+- **List page:** Patch cheap badges/counts if present in the invalidation payload. Otherwise invalidate the list query. Do NOT reorder the visible list live while the user is reading — show a "N new / updated opportunities" pill that applies on click or on next refetch.
+- **Detail page (minor change — jobs, status, sync):** Auto-refresh the affected section.
+- **Detail page (major change — manifest, landed cost, canonical process):** Show a non-destructive refresh chip. Do not silently swap the full manifest out from under the user.
+
+**Sync lag handling:**
+
+If daemon sync is delayed, the portal is stale by definition. No subscription design fixes that. The portal is honest about staleness:
+
+- Every portal page renders `viewer_sync_status` globally.
+- Suggested thresholds: **green** `< 90s`, **amber** `90s–5min`, **red** `> 5min` or daemon offline.
+- Display text: "Data may be behind desktop local state."
+This badge is backed by the push-owned `viewer_sync_status` projection table in Supabase, updated after each successful remote apply.
+
+#### Shared React Component Architecture
+
+The shared layer uses a **snapshot + overlay** model:
+
+- **Snapshot:** Durable read model from SQLite (desktop) or Supabase (web).
+- **Overlay:** Ephemeral live data, pending intents, freshness state.
+- **View:** Shared presentational React component consuming view-model props.
+
+**State management by class:**
+
+| State Class | Desktop | Web |
+|-------------|---------|-----|
+| Snapshot server-state | Small query cache (TanStack Query for snapshot reads only) | Same |
+| Live streaming state | Custom external stores + `useSyncExternalStore` | Broadcast invalidation manager |
+| Ephemeral UI state | Local component state / tiny persisted store | Same |
+
+TanStack Query is used for **snapshot reads only** — no offline persistence, no normalized cache gymnastics, no session logs in the query cache.
+
+**What to share in `packages/ui`:**
+
+- `ContractListView`, `ContractDetailView` (presentational frames)
+- `ManifestViewer`, `PipelineBadge`, `SyncAgeBadge`, `ErrorSummaryList`
+- Formatting helpers, Markdown renderers, table components, badges
+- Prop types and view-model types
+
+**What NOT to share:**
+
+- `useContractsList()` hooks (data-fetching is surface-specific)
+- Supabase subscriptions or Tauri invoke wrappers
+- Mutation orchestration
+- Session stream stores
+- Desktop-only capability checks
+
+**Component composition rule:** Do not make one component with fifteen boolean props (`canReject`, `canBid`, `readOnly`, ...). Use frame + slot composition:
+
+```tsx
+<ContractCardFrame
+  summary={vm.summary}
+  metrics={vm.metrics}
+  rightRail={<SyncAgeBadge meta={vm.meta} />}
+  actions={desktop ? <DesktopContractActions ... /> : null}
+/>
+```
+
+**Sharing boundary:** Share down to **view-models**, **presentational components**, and **formatting/markdown/tables/badges**. Stop sharing at **repositories**, **hooks**, **realtime subscriptions**, and **mutation flows**.
+
+#### Desktop Lifecycle Management
+
+**Startup sequence:**
+
+1. Tauri Rust bootstrap starts.
+2. Check local DB readability and `schema_epoch` (via `PRAGMA user_version`).
+3. Attempt daemon handshake over socket/pipe.
+4. If daemon not found, start daemon:
+   - Preferred: user-scoped service/agent installed with app.
+   - Fallback: bundled sidecar/external binary launch.
+5. Handshake returns: daemon version, IPC protocol version, schema epoch, sync health, active sessions summary.
+6. If IPC protocol version mismatch or schema epoch mismatch between desktop and daemon, enter recovery-required mode.
+
+**Runtime modes:**
+
+| Mode | Local DB | Daemon | Remote Sync | UX |
+|------|----------|--------|-------------|-----|
+| Healthy | OK | Connected | Healthy | Full desktop |
+| Remote degraded | OK | Connected | Degraded/offline | Full local ops, sync warning banner |
+| Browse-only | OK | Unavailable | N/A | Read-only local browsing, clear banner |
+| Recovery required | Missing/mismatch | Any | Any | Repair/update screen |
+
+**Browse-only degraded mode (daemon down at launch):** Do not block the whole UI if local data exists. In browse-only mode: contracts list/detail works, manifests and historical transcripts load, but no reruns, no bid triggers, no live session output. Clear banner: "Daemon unavailable — read-only local snapshot."
+
+**Remote-degraded mode (Supabase sync down):** Local-authoritative actions (rerun enrichment, start bid, source sync, session monitoring) continue working. Remote-authoritative actions (operator decisions, shared config writes) use a **local intent queue**: the desktop overlays the queued intent immediately; the web portal does not show it until the remote CAS succeeds after sync recovery. This preserves the authority model without freezing the operator.
+Queued remote-authoritative mutations persist in local SQLite `pending_operator_intents` until the remote CAS succeeds, conflicts, or is cancelled by the operator.
+
+**Daemon crash mid-session:**
+
+1. Stream/heartbeat drops.
+2. Desktop shows reconnect overlay.
+3. Bootstrap attempts one automatic daemon restart.
+4. On reconnect: invalidate all snapshot queries, reattach session streams from last `seq`, daemon reconciles orphan sessions and cleanup verdicts.
+5. If restart fails: desktop falls back to browse-only mode.
+
+**Shutdown behavior:** Closing the main window does not silently kill the daemon. Two explicit choices:
+
+- **Quit UI** — daemon keeps running, cron schedules continue.
+- **Stop background daemon and quit** — clean daemon shutdown.
+
+If background schedules exist, default to "quit UI, keep daemon."
+
+#### Accessibility
+
+- Do not `aria-live` every transcript line — announce only state transitions ("session stalled", "sync degraded", "new opportunities available").
+- Do not use color as the only signal for margin/risk or sync health — provide text labels and icons alongside color indicators.
+- Provide a plain-text transcript mode for screen readers and copy/search alongside the ANSI terminal view.
+- Keyset pagination is accessible by default (stable focus targets, no shifting content).
+Deep links and bookmarked detail routes resolve through `process_aliases` before loading the canonical opportunity so previously published IDs stay navigable after a later merge.
 
 ### 5.9 Request Pipeline Automation Flow
 
@@ -3708,7 +4925,20 @@ operator clicks "bid" in desktop control panel
 
 ### 5.10 API Design
 
-#### New Endpoints
+#### Transport Architecture
+
+The daemon exposes logical API resources through multiple transport adapters:
+
+| Transport | Purpose | Production Use |
+|-----------|---------|---------------|
+| **Tauri commands** (`invoke()`) | Desktop app snapshot reads + mutations | Yes — primary desktop path |
+| **Tauri channels** (`Channel<T>`) | Desktop app live streams (sessions, jobs, health) | Yes — primary streaming path |
+| **UDS / named-pipe RPC** | Desktop Rust bridge ↔ daemon communication | Yes — DaemonBridge transport |
+| **Localhost HTTP** | CLI tooling, development, debugging | Dev/test only — not the production desktop transport |
+
+The `/api/*` endpoint definitions below describe **logical resources** shared across all transports. The desktop app accesses them through Tauri commands and the DaemonBridge; the optional HTTP adapter exposes the same resources for dev tooling.
+
+#### Logical Endpoints
 
 | Endpoint | Method | Purpose | Auth |
 |----------|--------|---------|------|
@@ -3723,6 +4953,31 @@ operator clicks "bid" in desktop control panel
 | `/api/company-profile` | GET/PUT | Manage bidder company profile | admin (desktop only) |
 | `/api/sources` | GET/PUT | Manage source configs | admin (desktop only) |
 
+#### Stream Surfaces (Desktop Only)
+
+These are subscription-based endpoints consumed via the DaemonBridge → `Channel<T>` path. The web portal does not use these — it uses Supabase Broadcast invalidation (see §5.8 Web Portal Subscription Architecture):
+
+| Stream | Purpose | Payload |
+|--------|---------|---------|
+| `stream/session.attach(sessionId, fromSeq)` | Attach to live session output | `SessionFrame` (see §5.8) |
+| `stream/job.watch(jobId)` | Watch job progress | Job status + stage updates |
+| `stream/daemon.health()` | Daemon health + sync status | `DaemonHealthPayload` |
+
+#### Mutation Acknowledgment Contract
+
+All write operations return a `MutationAck`:
+
+```ts
+type MutationAck = {
+  accepted: boolean
+  idempotencyKey: string
+  jobId?: string
+  remoteState?: 'committed' | 'queued' | 'conflicted' | 'not_applicable'
+}
+```
+
+`remoteState` indicates whether the mutation has been synced to Supabase (`committed`), is pending sync (`queued`), hit a CAS conflict on a remote-authoritative table (`conflicted`), or does not involve remote state (`not_applicable`).
+
 #### Request / Response Example
 
 ```json
@@ -3735,9 +4990,10 @@ POST /api/contracts/123e4567-e89b-12d3-a456-426614174000/bid
 
 ```json
 {
+  "accepted": true,
+  "idempotencyKey": "bid-123e4567-1710288000",
   "jobId": "2ac6d0ac-f7e4-47e6-9a33-d1da267f4e1c",
-  "status": "queued",
-  "processId": "123e4567-e89b-12d3-a456-426614174000"
+  "remoteState": "queued"
 }
 ```
 
@@ -3777,6 +5033,7 @@ POST /api/contracts/123e4567-e89b-12d3-a456-426614174000/bid
 | Protocol mismatch | `AGENT_PROTOCOL_MISMATCH` | Adapter detected unexpected CLI output format or unsupported protocol version. Enter canary mode for the vendor. Create error manifest with CLI version details. |
 | Partial failure | `AGENT_PARTIAL_FAILURE` | Valid checkpoints exist before crash but no final result contract. Persist checkpoint outputs. Never upgrade to success. |
 | Cleanup incomplete | `AGENT_CLEANUP_INCOMPLETE` | Descendant processes leaked after session exit. Record leaked pids/pgids. Operator may need manual intervention. |
+| Suspect output | `AGENT_SUSPECT_OUTPUT` | Agent exited cleanly with valid result contract, but output failed semantic or behavioral/drift validation. Results quarantined, not promoted to pipeline. Surface for operator review. |
 
 #### Host/Runtime Error Types
 
@@ -3784,6 +5041,30 @@ POST /api/contracts/123e4567-e89b-12d3-a456-426614174000/bid
 |-------|------|----------|
 | Host sleep interrupted | `HOST_SLEEP_INTERRUPTED` | Host suspended during active session. Detected via monotonic time gap. Taint browser-backed sessions. May require job re-run. |
 | Host resource exhausted | `HOST_RESOURCE_EXHAUSTED` | Host memory/CPU pressure detected by resource arbiter. May preempt lower-priority sessions. Create error manifest with resource metrics. |
+
+
+#### Source and Skill-Level Error Types
+
+| Error | Code | Handling |
+|-------|------|----------|
+| Source soft blocked | `SOURCE_SOFT_BLOCKED` | HTTP 200 but no useful data and no explicit error page. Capture artifacts, set source cooldown, do not retry immediately. |
+| Source CAPTCHA blocked | `SOURCE_CAPTCHA_BLOCKED` | Hard CAPTCHA requiring human intervention. Emit `blocked_human_action`, alert operator. |
+| Auth state stale | `AUTH_STATE_STALE` | Session loads but privileged data is missing or account persona has changed. Trigger auth-refresh skill, then retry. |
+| Page shape drift | `PAGE_SHAPE_DRIFT` | Page fingerprint no longer matches expected anchors. Flag skill needs review, create error manifest with old/new fingerprint hashes. |
+| Locale or currency drift | `LOCALE_OR_CURRENCY_DRIFT` | Source serving different locale, currency, or market variant than expected. Fail fast, require egress/config review. |
+| Resume unsafe after submit | `RESUME_UNSAFE_AFTER_SUBMIT` | Cannot safely resume a portal workflow after a potential side-effect boundary (e.g., form submission). Switch to verify-only mode or require human confirmation. |
+
+#### Skill Outcome Classes (Non-Error)
+
+Not every non-success outcome is an error. Skills return structured outcome classes that the daemon uses for continuation and quality decisions:
+
+| Outcome | When | Daemon Action |
+|---------|------|--------------|
+| `continuation_required` | Skill exited cleanly at a safe boundary with remaining work (e.g., time budget hit after 45 notices) | Accept committed results, enqueue continuation segment with resume token |
+| `degraded_completed` | Skill completed but with reduced coverage or confidence (e.g., detail pages unavailable, only list-level data) | Accept results with degradation flag, apply confidence penalty to downstream calculations |
+| `blocked_human_action` | Human intervention required beyond auth challenges (e.g., CAPTCHA, manual approval step, bid portal requiring human review) | Alert operator, pause job, preserve session state for potential human-assisted resume |
+
+These are distinct from `AGENT_PARTIAL_FAILURE`. A `continuation_required` outcome has a valid final contract with continuation data. An `AGENT_PARTIAL_FAILURE` has only prior checkpoints and no final contract.
 
 #### Error Manifest System
 
@@ -3844,18 +5125,26 @@ function resolveConfidenceGate(score: number, floor = 0.6): ConfidenceGate {
 | Goods qualification (multi-dimensional) | Medium-High | CPV heuristics cover most cases; mixed contracts with separable goods require more nuanced analysis; access route classification adds a new dimension |
 | Document acquisition | Medium-High | navigating procurement portals to find and download public documents; handling varied document formats |
 | Lot extraction | Medium | structured OCDS lot data is straightforward; unstructured lot descriptions in documents require AI assist |
-| Product candidate identity extraction | High | noisy natural language, quantities often ambiguous; bundle decomposition; candidate typing |
-| Quoteability scoring | Medium | deterministic rules-based; main complexity is tuning the scoring weights per category |
-| Marketplace comparability scoring | Very High | bridging procurement text to marketplace listings; cross-language matching; category-specific attribute matching; hard-conflict detection |
+| Product candidate identity extraction | High | noisy natural language, quantities often ambiguous; bundle decomposition; candidate typing; match archetype classification; slot criticality assignment |
+| Quoteability scoring | Medium-High | deterministic rules-based; main complexity is tuning the scoring weights per category; now also computes recallRiskScore for adaptive shortlisting |
+| Marketplace comparability scoring | Very High | query-wave planning per archetype × source; four-state evidence comparison; detail-page enrichment for compliance evidence; cross-language matching with market framing; category-specific attribute matching; hard-conflict detection with standards normalization; adaptive diversified shortlisting; zero-result recovery ladder with failure taxonomy; two-tier cache with structured fingerprinting |
 | Commercial usability of observed prices | High | pack/unit basis normalization; MOQ compatibility; VAT/shipping inclusion detection; price-signal role classification |
 | RFQ escalation strategy | Medium | identifying when indicative pricing is insufficient and executable quotes are needed |
 | Landed-cost engine | Very High | logistics + customs + FX + assumptions; expanded API surface; revenue normalization |
 | Operator surfaces | Medium | standard CRUD/search/detail flows; desktop control panel + web read-only viewing portal |
 | Request pipeline automation | High | portal-specific skills, brittle websites, but low risk since not real money |
 | Daemon orchestration (PTY + SQLite + sync) | Very High | PTY session management, SQLite storage, Supabase sync engine, cron scheduling, agent health monitoring, full session-output capture |
-| Skill maintenance | Medium | skills need updating when source websites change layout/flow |
+| Skill maintenance and reliability | Medium-High | updating SKILL.md when sources change is straightforward; the added complexity is three-layer validation (syntactic/semantic/behavioral-drift), page fingerprint maintenance, schema migrations with dual-accept windows, promotion flow gates, golden assertion curation, and auth-refresh skill coordination |
 
 **Architecture-shape note:** The component graph is intentionally denser around PTY/runtime orchestration and product/pricing comparability than around generic CRUD or projection concerns. That is deliberate: those two areas dominate failure risk, operational cost, and correctness.
+
+**Delivery-priority annotation:** Components cluster into three delivery tiers based on risk retirement:
+
+- **MVE-critical (validate first):** Product candidate extraction (High), Marketplace comparability scoring (Very High), Commercial usability of observed prices (High), Lot extraction (Medium), Document acquisition (Medium-High), Quoteability scoring (Medium-High — gates which candidates enter marketplace search), Landed-cost engine screening-grade subset (Medium — needed to produce margin bands for validation). These components determine whether the product thesis is viable. Without them, nothing downstream produces real signal.
+- **MVP-critical (build second):** Procurement ingestion (Medium), Notice normalization (Medium), Goods qualification (Medium-High), Landed-cost engine full scope (Very High), Operator surfaces (Medium).
+- **Operational (build third):** Daemon orchestration (Very High at full scope, but a thin-runner subset is Medium), Relation resolution (High), Skill maintenance (Medium), Request pipeline automation (High), RFQ escalation (Medium).
+
+This ordering means the highest-complexity components (marketplace comparability, landed-cost, daemon orchestration) are addressed in phases: screening-grade subsets first for validation, full complexity later for production.
 
 **Risk Areas:**
 
@@ -3865,14 +5154,14 @@ function resolveConfidenceGate(score: number, floor = 0.6): ConfidenceGate {
 4. Commodity-code accuracy and duty/VAT correctness.
 5. Freight-mode selection and cost assumptions for large contracts.
 6. PTY session reliability and agent health monitoring.
-7. Skill drift when source websites change — mitigated by the error manifest system.
+7. Skill drift when source websites change — mitigated by page fingerprint monitoring, production drift detection, source-health canaries, and the error manifest system.
 8. SQLite-to-Supabase sync consistency.
 
 ### 6.2 Risk Assessment
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
-| Wrong product match inflates margin | High | High | confidence scoring + evidence + manual review |
+| Wrong product match inflates margin | High | High | dual confidence scoring with lexicographic gating + archetype-specific floors + four-state evidence comparison + compliance evidence tiers + operator review |
 | Incorrect notice-to-process merging conflates separate opportunities | Medium | High | conservative merge heuristics + merge confidence + manual unmerge tooling |
 | HS code is wrong | Medium | Critical | HMRC FPO first-pass + candidate-code ranking + ATR workflow + broker escalation |
 | Freight estimate too optimistic | High | Critical | mode-aware engine + Freightos + SeaRates cross-check + manual quote threshold |
@@ -3887,10 +5176,23 @@ function resolveConfidenceGate(score: number, floor = 0.6): ConfidenceGate {
 | Attachment blindness — extraction from notice text only | High | Critical | document acquisition stage before product extraction; confidence penalty when no docs available |
 | Lot blindness — no lot structure in data model | High | High | NoticeLot entity; synthetic lot for notices without explicit lots; per-lot qualification |
 | False bidability on framework call-offs | High | Medium | access route classification early in pipeline; reject closed/non-bidable routes before pricing |
-| Compliance-critical false positive (regulatory goods matched without standards verification) | Medium | High | regulated_goods candidate type triggers mandatory standards/compliance slot check before match acceptance |
+| Compliance-critical false positive (regulatory goods matched without standards verification) | Medium | High | regulated_goods candidate type + complianceEvidenceTier (structured_attribute / title_body_mention / absent) + detail-page enrichment before rejection + standard normalization (family/part/edition/amendment/class) |
 | Pack-basis normalization error (comparing per-unit vs per-box vs per-pallet) | High | High | listing pack qty/unit extraction; normalized unit basis on every quote; quoteUsabilityConfidence penalizes unclear basis |
 | Price-signal false precision (single marketplace listing treated as decision-grade pricing) | High | Medium | margin bands not point estimates; priceSignalRole classification; RFQ escalation for high-value opportunities |
 | HMRC FPO API access not secured (restricted to invited UK Carrier scheme organisations) | Medium | High | do not make FPO a hard dependency; fallback to CPV-to-HS mapping heuristics + manual classification |
+| Missing evidence treated as conflicting evidence in hard-conflict filter | High | High | four-state evidence model (match/missing/ambiguous/conflict); only `conflict` triggers hard rejection; `missing` and `ambiguous` are confidence penalties |
+| Static shortlist truncation drops valid matches in noisy categories | High | Medium | adaptive shortlist budget driven by `recallRiskScore`; diversity enforcement (max 2 per seller, max 2 per wave, max 1 per title family); recall@k measurement per archetype × source |
+| Query vocabulary mismatch between procurement and marketplace terminology | High | Medium | `matchArchetype`-driven query templates; market framing slots; noun alias families; query-wave pattern with staged recovery; stored `searchFailureMode` for vocabulary gap detection |
+| Zero-result classified as no marketplace presence when query is bad | Medium | High | formal recovery ladder with 6 rounds; broad existence check distinguishes vocabulary gap from genuine absence; `searchFailureMode` taxonomy |
+| Slot criticality too flat — nice-to-have attributes treated as hard requirements | High | Medium | `slotCriticality` roles (required/preferred/descriptive/exclusion) on each extracted attribute; archetype-specific defaults |
+| Cross-language market framing gap — literal slot translation misses marketplace vocabulary | Medium | Medium | `marketFrameEn`/`marketFrameZh` slots; curated lexicon with industry framing; Chinese retry on Alibaba after English failure |
+| Accessory contamination in search results dominates shortlist | High | Medium | aggressive negative vocabulary per product family; diversity enforcement limits per-seller and per-title-family; `accessory_swamp` failure mode classification |
+| Infrastructure-first delivery delays thesis validation | High | High | validate intelligence pipeline (extraction, matching, margin accuracy) before investing in daemon hardening, cron, sync, and web — wrong answers at scale are worse than no automation |
+| Premature category breadth before depth | High | High | start with a narrow goods-category whitelist (commodity-like, low regulatory burden); expand only after the system proves reliable on the initial wedge |
+| No labeled benchmark corpus for calibration | High | Medium | curate a gold-set lot corpus with human labels before building confidence scoring; without it every demo is a cherry-picked success story |
+| Schema-valid garbage from skills (silent wrong-page or wrong-locale extraction) | High | High | three-layer validation (syntactic/semantic/behavioral-drift); page fingerprint checks before extraction; locale/currency/persona assertions at run start; `AGENT_SUSPECT_OUTPUT` quarantine path |
+| Anti-bot escalation burns accounts or IP addresses | Medium | High | anti-bot classification table with proportional responses (no blind retry); source-health canaries before expensive jobs; source cooldown on challenge detection; dedicated auth-refresh skills isolate login complexity |
+| Skill promotion regression (new version faster but dumber) | Medium | Medium | mandatory shadow comparison before promotion; shadow metrics must meet or exceed stable version; fill-rate, duplicate-rate, suspect-output-rate, and cost-per-committed-item all gated |
 
 ### 6.3 Security Considerations
 
@@ -3918,8 +5220,8 @@ All tables scoped by `org_id` (implicit — single-org MVP, explicit column adde
 
 | Table Category | Tables | viewer | operator | admin | daemon |
 |---|---|---|---|---|---|
-| Push-owned projections | `procurement_processes`, `contract_notices`, `notice_lots`, `qualification_runs`, `product_candidates`, `search_profiles`, `supplier_quotes`, `landed_cost_estimates`, `manifests`, `process_relations`, `pipeline_assessments`, `bid_workflow_states`, `process_stage_status`, `process_stage_heads` | SELECT | SELECT | SELECT | INSERT, UPDATE (via batch RPC) |
-| Push-owned summaries | `workflow_job_summaries`, `error_manifest_summaries`, `executors` | SELECT | SELECT | SELECT | INSERT, UPDATE (via batch RPC) |
+| Push-owned projections | `procurement_processes`, `contract_notices`, `notice_lots`, `qualification_runs`, `product_candidates`, `search_profiles`, `search_attempts`, `supplier_quotes`, `landed_cost_estimates`, `manifests`, `process_relations`, `process_aliases`, `pipeline_assessments`, `bid_workflow_states`, `process_stage_status`, `process_stage_heads` | SELECT | SELECT | SELECT | INSERT, UPDATE (via batch RPC) |
+| Push-owned summaries | `workflow_job_summaries`, `error_manifest_summaries`, `viewer_sync_status`, `executors` | SELECT | SELECT | SELECT | INSERT, UPDATE (via batch RPC) |
 | Remote-owned shared config | `shared_company_profile`, `shared_source_configs` | SELECT | SELECT | SELECT, INSERT, UPDATE, DELETE | SELECT (pull) |
 | Remote-owned decisions | `operator_decision_heads` | SELECT | SELECT, UPDATE (via CAS RPC) | SELECT, INSERT, UPDATE, DELETE | SELECT (pull) |
 | Sync infrastructure | `schema_metadata` | — | — | SELECT, UPDATE | SELECT, UPDATE |
@@ -4011,6 +5313,16 @@ All tables scoped by `org_id` (implicit — single-org MVP, explicit column adde
 | Terminal output storage growth | store in separate artifacts DB, compress old logs, rotate after configurable retention |
 | WAL file growth | monitor checkpoint latency, keep desktop reads short, periodic checkpoint |
 | Tombstone accumulation | GC only after all replicas have pulled past delete seq + offline window (37 days default) |
+| Session stream UI freezing | batch frames 33–50ms, external stores outside React state, gap frames on backpressure |
+| List pagination instability | keyset/cursor pagination, not offset — offset causes duplicates and jumps with live updates |
+
+**Frontend Performance Guidance:**
+
+- **Desktop search:** Use SQLite FTS5 for full-text search on contracts, manifests, and error manifests. Do not load thousands of rows into React and filter client-side.
+- **Web search:** Use Postgres text search with indexed projection columns and GIN indexes. Dedicated search-optimized columns in projection tables.
+- **Session streaming budget:** Terminal viewer batches frames at 33–50ms intervals. Live buffer retains only the last N lines / M MB. History mode lazy-loads from artifact chunks. Never put raw transcript arrays in React state.
+- **Snapshot query budget:** Desktop `QueryEnvelope<T>` queries should complete in under 50ms from warm SQLite (page-specific read models, not generic table scans). Transcript/blob reads are excluded from snapshot queries and loaded on demand.
+- **Broadcast payload budget:** Web portal invalidation payloads are small hints (process IDs + change categories), never full rows or manifests. One coalesced notification per topic per push batch.
 
 ### 6.5 Testing Strategy
 
@@ -4143,6 +5455,83 @@ Each vendor adapter is tested for:
 - Canary mode behavior (unknown CLI versions blocked from production until probe passes).
 - Structured output parsing (vendor JSONL/JSON parsed into daemon-native events without loss).
 
+
+#### Skill-Specific Testing
+
+**Skill Linting (CI gate — required on every skill change):**
+
+Cheap, deterministic, runs on every commit that touches a skill directory:
+
+- Required metadata present (interaction_profile, result_schema_version, model_profile, etc.)
+- Trigger boundary sections present in SKILL.md (use when, do not use when, inputs, outputs, non-goals)
+- `result.schema.json` present and valid JSON Schema
+- `checkpoint.schema.json` present and valid JSON Schema
+- Failure codes enumerated in SKILL.md
+- Resume strategy declared
+- For portal/bid skills: unsafe side-effect boundary declared
+- Bounded pagination/scroll rules exist (maxPages, maxScrollCycles, etc.)
+- `canary.inputs.jsonl` exists and is non-empty
+- `golden.assertions.yaml` exists
+
+**Live Smoke Canaries (per critical source, frequent):**
+
+Cheap, narrow, per-source validation runs:
+
+- Page fingerprint still matches expected anchors
+- Auth still works (if authenticated source)
+- One small extraction completes (e.g., first page of results, single known notice)
+- Result shape + semantic invariants hold
+- Expected locale/currency/persona confirmed
+
+Run schedule: on every skill change (before promotion gate), before promotion from candidate → canary, on a recurring schedule during production hours (catch source-side changes between skill updates).
+
+**Invariant-Based Golden Live Journeys:**
+
+Real E2E tests pinned to known stable tasks, using **invariant assertions** (not brittle literal output matching):
+
+| Skill Family | Golden Journey | Invariant Assertions |
+|-------------|----------------|---------------------|
+| Procurement ingestion (FTS) | Known OCID or fixed recent time window | Minimum result count, required fields present, locale correct, duplicate rate below threshold |
+| Supplier enrichment (eBay/Amazon) | Stable commodity search (e.g., "A4 paper 500 sheets") | Results found, currency GBP, at least one price extracted, page fingerprint correct |
+| Supplier enrichment (Alibaba/1688) | Known logged-in search + one detail extraction | Auth verified, results found, MOQ extracted, at least one artifact type acquired |
+| Document acquisition | Public tender with known PDF + spreadsheet | Documents downloaded, content-type correct, file size non-zero, checksum stable |
+| Bid portal | Sandbox tenant or stop-at-draft-save path | Draft saved, no submission triggered, form fields populated, screenshot captured |
+
+**Shadow Runs (promotion gate):**
+
+When skill version `vNext` is a candidate for promotion:
+
+1. Stable version continues to write authoritative results.
+2. `vNext` runs in shadow on the same inputs.
+3. Compare: fill-rate, duplicate rate, suspect-output rate, challenge rate, result count, cost per committed item.
+4. Promote only after shadow metrics meet or exceed stable version across a minimum sample window.
+5. If shadow is materially worse on any dimension, block promotion and flag for investigation.
+
+Shadow runs catch "new skill is faster but dumber" — the most common regression pattern.
+
+**Production Drift Monitoring:**
+
+Every production run emits a quality scorecard:
+
+| Metric | What It Detects |
+|--------|----------------|
+| Page fingerprint hash | Source layout changes |
+| Locator fallback depth | DOM structure changes (tier 1 → tier 3 = degradation) |
+| Challenge count | Anti-bot escalation |
+| Auth-refresh count | Auth stability regression |
+| Fill-rate | Extraction completeness changes |
+| Duplicate rate | Pagination/dedup problems |
+| Median result count | Source yield changes |
+| Time to first checkpoint | Startup performance regression |
+| Cost per committed item | Efficiency regression |
+| Suspect-output rate | Silent quality degradation |
+
+Treat "flaky" as a failing skill health signal, not a minor annoyance. Skills with intermittent failures are skills with unhandled failure modes.
+
+**Browser Debugging Artifacts:**
+
+For canary and golden journey tests, retain: Playwright trace (or equivalent), screenshot at each navigation step, video on retry or failure runs (not routine passes), JSON reporter output with timing and assertion results, artifact links in the failure record for drill-down.
+
 ### 6.6 Operational Observability
 
 Comprehensive agent tracing and health monitoring is **critical infrastructure**, not a nice-to-have. The entire pipeline runs through agent sessions, so observability of those sessions is essential for debugging and reliability.
@@ -4261,6 +5650,29 @@ From day one, record per session:
 - redaction count (sensitive data markers),
 - peak resource estimate (if available from resource arbiter).
 
+#### Skill-Level Telemetry
+
+In addition to per-session metrics, record skill-specific operational telemetry from day one:
+
+| Metric | Source | What It Reveals |
+|--------|--------|----------------|
+| Page fingerprint hash | Skill extraction phase | Source layout stability — sudden changes signal skill maintenance needed |
+| Locator fallback depth | Skill navigation phase | DOM stability — rising fallback depth predicts skill breakage |
+| Challenge count | Skill navigation phase | Anti-bot escalation — rising count signals account/IP risk |
+| Auth-refresh count | Auth-refresh skills | Auth stability — rising count signals credential or session management issues |
+| Time to first checkpoint | Skill execution timeline | Startup reliability — increasing time signals source or auth degradation |
+| Checkpoint interval | Skill execution timeline | Throughput stability — widening intervals signal source throttling or extraction difficulty |
+| Fill-rate | Skill extraction validation | Extraction completeness — dropping fill-rate signals silent breakage |
+| Duplicate rate | Skill extraction validation | Dedup health — rising duplicates signal pagination loops |
+| Cost per committed item | Post-run calculation | Efficiency trend — cost spikes signal skill regression or source changes |
+| Suspect-output rate | Output quality gate | Silent quality degradation — non-zero rate requires investigation |
+| Continuation-required rate | Outcome classification | Segmentation frequency — rising rate may signal time budget too tight or source too slow |
+| Overlay handler invocation count | Skill navigation phase | Source behavioral changes — rising count signals new overlays or anti-bot patterns |
+| Degraded-completed rate | Outcome classification | Partial success frequency — high rate signals source access problems |
+
+These metrics are aggregated per skill, per source, and trended over time. Sudden discontinuities trigger alerts. The desktop control panel surfaces skill health dashboards alongside session-level observability.
+
+
 #### Standard Operational Metrics
 
 From day one, record aggregate:
@@ -4373,32 +5785,51 @@ The daemon runs locally and writes pipeline data continuously. A local database 
 
 ### ADR-003: Use Tauri v2 With a Rust Daemon
 
-**Status:** Accepted
+**Status:** Accepted (expanded with communication architecture)
 
 **Context:**
 
-The user wants local background execution and values Rust robustness.
+The user wants local background execution and values Rust robustness. The desktop must communicate with a background daemon for writes, job triggers, and live session streaming while reading local SQLite for fast snapshot queries.
 
 **Decision:**
 
-Use Tauri v2 for desktop shell and a Rust daemon/sidecar for background work.
+Use Tauri v2 for the desktop shell with a **separate** Rust daemon process for background work. The desktop communicates with the daemon through a hybrid transport: Tauri `invoke()` commands for snapshot reads (via a Tauri-side QueryService reading SQLite directly) and mutations (via a DaemonBridge forwarding to the daemon over UDS/named-pipe), and Tauri `Channel<T>` for live streaming (session output, job progress, daemon health).
+
+The daemon is NOT embedded in the Tauri app process. It runs independently, survives UI close, and has its own lifecycle. An optional localhost HTTP adapter is available for dev tooling only.
 
 **Options Considered:**
 
 | Option | Pros | Cons |
 |--------|------|------|
-| A: Tauri + Rust daemon | lightweight desktop, strong local execution | two-language stack |
+| A: Tauri + separate Rust daemon (SELECTED) | lightweight desktop, daemon survives UI close, clean lifecycle separation | two-language stack, IPC complexity |
 | B: Electron + Node daemon | familiar web tooling | heavier runtime |
 | C: Pure web app only | simpler deploy | cannot satisfy local execution requirement |
+| D: Embed daemon in Tauri process | simpler deployment | shutdown/crash/cron-while-closed problems |
+| E: Desktop talks to daemon via localhost HTTP only | simpler transport | port conflicts, auth overhead, wrong abstraction for local IPC |
 
 **Rationale:**
 
-Tauri aligns with the desktop-first ops model and Rust is a good fit for process management and deterministic cost logic.
+Tauri aligns with the desktop-first ops model and Rust is a good fit for process management and deterministic cost logic. Keeping the daemon separate means: closing the desktop window does not stop cron schedules, daemon crashes do not corrupt UI state, and the desktop can enter browse-only degraded mode when the daemon is unavailable. UDS/named-pipe transport avoids the security and discovery problems of localhost HTTP.
+
+**Communication Architecture:**
+
+- Snapshot reads: `invoke()` → QueryService (read-only SQLite) → `QueryEnvelope<T>`
+- Writes/triggers: `invoke()` → DaemonBridge → UDS/named-pipe → daemon → `MutationAck`
+- Live streams: daemon → DaemonBridge → `Channel<T>` → React
+- See §5.8 for full protocol contracts and §5.10 for transport architecture.
+
+**IPC Protocol Versioning:**
+
+The daemon handshake returns an `ipc_protocol_version` separate from `schema_epoch`. A desktop binary and daemon binary drifting out of lockstep is guaranteed pain — the IPC protocol version catches this at startup and routes to a recovery/update screen rather than producing silent failures.
+
+**Multi-Window Support:**
+
+Tauri v2 supports per-window capability scoping. The desktop provides a detached **Session Monitor** window for multi-monitor setups, scoped to read-only session streaming permissions. A **Contract Compare** window may be added later with similar read-only scoping.
 
 **Consequences:**
 
-- Positive: lighter desktop footprint, strong systems language for daemon.
-- Negative: desktop and web frontends should share UI, not runtime assumptions.
+- Positive: lighter desktop footprint, strong systems language for daemon, clean lifecycle separation, browse-only degraded mode when daemon is down.
+- Negative: desktop and web frontends should share UI, not runtime assumptions. IPC adds complexity vs embedded daemon.
 
 **User Input Required:** No
 
@@ -4546,20 +5977,28 @@ Since the platform automates request preparation (not real-money transactions), 
 
 ### ADR-008: Desktop is Control Panel, Web is Read-Only Viewing Portal
 
-**Status:** Revised (answers original "Separate Desktop and Web Shells" question)
+**Status:** Revised (answers original "Separate Desktop and Web Shells" question, expanded with shared component architecture)
 
 **Context:**
 
-The desktop app and web app serve fundamentally different roles. The desktop is the control panel; the web is the viewing portal.
+The desktop app and web app serve fundamentally different roles. The desktop is the control panel; the web is the viewing portal. They have fundamentally different data sources (local SQLite vs Supabase), different capabilities (write vs read-only), and different latency characteristics.
 
 **Decision:**
 
 Separate shells with clearly different capabilities:
 
-- **`apps/desktop`** (Tauri + static frontend) — **CONTROL PANEL**: Full read/write/trigger capabilities. Trigger workflows, manage agents, configure skills, make reject/bid/watch decisions, view local data from SQLite, view agent tracing logs, manage error manifests.
-- **`apps/web`** (hosted) — **READ-ONLY VIEWING PORTAL**: Browse opportunities, view manifests, view pipeline status, view errors. No write operations. Reads from Supabase (synced data).
-- **`packages/ui`** for shared React components (but desktop shell includes additional control components).
-- **`packages/contracts-schema`** for shared domain models.
+- **`apps/desktop`** (Tauri + static frontend) — **CONTROL PANEL**: Full read/write/trigger capabilities. Trigger workflows, manage agents, configure skills, make reject/bid/watch decisions, view local data from SQLite via QueryService, view agent tracing logs via session streaming, manage error manifests.
+- **`apps/web`** (hosted) — **READ-ONLY VIEWING PORTAL**: Browse opportunities, view manifests, view pipeline status, view errors. No write operations. Reads from Supabase projection tables. Live updates via Supabase Broadcast invalidation.
+- **`packages/ui`** for shared **presentational** React components — view-model-driven frames, formatting helpers, badges, Markdown renderers. Desktop shell includes additional control components not shared with web.
+- **`packages/contracts-schema`** for shared domain models and view-model types.
+
+**Shared Component Boundary:**
+
+Share down to: view-models, presentational components, formatting/markdown/tables/badges.
+
+Stop sharing at: repositories, data-fetching hooks, realtime subscriptions, mutation flows. The abstraction breaks when hooks pretend SQLite and Supabase are the same thing — they are not. Use frame + slot composition (e.g., `ContractCardFrame` with pluggable `actions` slot) rather than boolean-prop components (`canReject`, `canBid`, `readOnly`).
+
+See §5.8 Shared React Component Architecture for the full specification.
 
 **Options Considered:**
 
@@ -4570,12 +6009,12 @@ Separate shells with clearly different capabilities:
 
 **Rationale:**
 
-The desktop app runs alongside the daemon and has direct access to local SQLite and agent controls. The web app is for remote viewing only — it reads from Supabase and provides no write operations. This clear split simplifies the web shell significantly.
+The desktop app runs alongside the daemon and has direct access to local SQLite and agent controls. The web app is for remote viewing only — it reads from Supabase and provides no write operations. This clear split simplifies the web shell significantly. The shared component boundary is deliberately narrow: share views, not data access lies.
 
 **Consequences:**
 
-- Positive: web shell is simple and safe (no write operations to protect). Desktop has full local power.
-- Negative: some duplicated shell code for shared views.
+- Positive: web shell is simple and safe (no write operations to protect). Desktop has full local power. Shared presentational components avoid duplication without false abstraction.
+- Negative: data-fetching hooks are duplicated per surface (SQLite-via-QueryService vs Supabase-client). This is intentional — the alternative is a leaky abstraction.
 
 **User Input Required:** No (resolved by owner feedback)
 
@@ -4607,10 +6046,10 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 
 | File | Purpose | Template |
 |------|---------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0001_sqlite_state_initial.sql` | Local SQLite state.db schema bootstrap — pipeline entities (procurement_processes, contract_notices, notice_lots, qualification_runs, product_candidates, supplier_quotes, landed_cost_estimates, manifests, pipeline_assessments, bid_workflow_states, process_relations, search_profiles, executors), all with sync tracking columns | based on section 5.4 (SQLite syntax) |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0002_sqlite_state_sync.sql` | Local outbox, sync batches, pull cursors, stage tracking (process_stage_status, process_stage_heads) | section 5.4 sync infrastructure |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0001_sqlite_state_initial.sql` | Local SQLite state.db schema bootstrap — pipeline entities (procurement_processes, contract_notices, notice_lots, qualification_runs, product_candidates, search_profiles, search_attempts, supplier_quotes, landed_cost_estimates, manifests, pipeline_assessments, bid_workflow_states, process_relations, process_aliases, executors), plus local-only runtime/cache tables (`source_runtime_state`, `listing_evidence`) | based on section 5.4 (SQLite syntax) |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0002_sqlite_state_sync.sql` | Local outbox, sync batches, pull cursors, pending_operator_intents queue, stage tracking (process_stage_status, process_stage_heads) | section 5.4 sync infrastructure |
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0003_sqlite_artifacts.sql` | Artifacts DB schema — agent_session_logs (with orchestration domain columns), raw_documents, error_manifests | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0001_initial.sql` | Supabase/Postgres projection tables (all push-owned entities including notice_lots, process_relations, search_profiles, workflow_job_summaries, error_manifest_summaries) + remote-owned tables (shared_company_profile, shared_source_configs, operator_decision_heads) | based on section 5.4 |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0001_initial.sql` | Supabase/Postgres projection tables (all push-owned entities including notice_lots, process_relations, process_aliases, search_profiles, search_attempts, workflow_job_summaries, error_manifest_summaries, viewer_sync_status) + remote-owned tables (shared_company_profile, shared_source_configs, operator_decision_heads) | based on section 5.4 |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0002_rls.sql` | RLS policies per authority role (viewer, operator, admin, daemon) — see §6.3 for policy matrix | section 6.3 |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0003_sync_apply.sql` | Transactional sync apply RPC for push batches + operator decision CAS RPC | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0004_schema_metadata.sql` | Schema metadata table + initial schema_epoch | custom |
@@ -4637,7 +6076,7 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/qualification/quoteability.ts` | deterministic quoteability scoring | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/relations/resolve-process-relations.ts` | OCID + heuristic relation resolution | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/extraction/products.ts` | line-item/product extraction | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/search/build-search-profile.ts` | multilingual query-pack construction from structured candidate slots | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/search/build-search-profile.ts` | multilingual query-wave construction from structured candidate slots | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/hmrc-tariff.ts` | HMRC Trade Tariff API integration | official HMRC docs |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/hmrc-fpo.ts` | HMRC FPO candidate code generator API | official HMRC FPO docs |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/classification-preprocessing.ts` | description-quality gate, bundle splitter, attribute extraction, multi-query FPO dispatch | custom (§4.5) |
@@ -4660,6 +6099,13 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/margins/revenue-normalizer.ts` | revenue basis classification and expected_addressable_revenue_ex_vat extraction | custom (Appendix A) |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/margins/quote-normalizer.ts` | Incoterm cost boundary normalization (EXW/FOB/CIF/DDP → comparable basis) | custom (Appendix A) |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/margins/margin-scenarios.ts` | low/base/high margin scenario calculation with critical blocker checks | custom (Appendix A) |
+
+#### Evaluation Harness
+
+| File | Purpose | Template |
+|------|---------|----------|
+| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/evaluation/harness.ts` | gold-set pipeline runner — feeds curated lots through extraction → matching → cost pipeline, collects per-lot results | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/evaluation/metrics.ts` | lot-level precision/recall computation, archetype-stratified reporting, pass/fail against threshold | custom |
 
 #### Manifests
 
@@ -4684,11 +6130,16 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 |------|---------|----------|
 | `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/package.json` | desktop app package | Tauri bootstrap |
 | `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src-tauri/src/main.rs` | Tauri entrypoint | Tauri bootstrap |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src-tauri/capabilities/default.json` | shell/sidecar permissions | Tauri permissions docs |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/lib/daemon.ts` | frontend bridge to daemon | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/contracts.tsx` | contracts list (reads local SQLite via daemon) | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/contract-detail.tsx` | opportunity detail with reject/bid/rerun controls | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/agent-sessions.tsx` | agent session monitoring with live terminal output | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src-tauri/src/query_service.rs` | read-only SQLite QueryService — page-specific read models, QueryEnvelope responses | custom (§5.8) |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src-tauri/src/daemon_bridge.rs` | DaemonBridge — UDS/named-pipe RPC proxy to daemon, Channel<T> stream relay | custom (§5.8) |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src-tauri/capabilities/default.json` | shell/sidecar permissions with per-window capability scoping | Tauri permissions docs |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/lib/daemon.ts` | frontend bridge to daemon (Tauri invoke wrappers, typed command definitions) | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/lib/session-stream-store.ts` | SessionRegistry + SessionBuffer external stores for live session streaming | custom (§5.8) |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/lib/terminal-buffer.ts` | ring buffer, gap detection, live-tail/history mode switching for terminal viewer | custom (§5.8) |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/lib/bootstrap-state.ts` | desktop startup state machine — daemon handshake, mode detection (healthy/remote-degraded/browse-only/recovery-required) | custom (§5.8) |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/contracts.tsx` | contracts list (reads local SQLite via QueryService, keyset pagination) | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/contract-detail.tsx` | opportunity detail with reject/bid/rerun controls via DaemonBridge | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/agent-sessions.tsx` | agent session monitoring with live terminal output via Channel<T> streaming | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/error-manifest.tsx` | error manifest viewer with resolution controls | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/settings.tsx` | source configs, skill management, agent settings | custom |
 
@@ -4697,9 +6148,12 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 | File | Purpose | Template |
 |------|---------|----------|
 | `/Users/alinaaitova/Desktop/Testproject1/apps/web/package.json` | web app package | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/web/src/app/contracts/page.tsx` | contracts list (reads Supabase) | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/web/src/app/contracts/page.tsx` | contracts list (reads Supabase projections, keyset pagination) | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/apps/web/src/app/contracts/[id]/page.tsx` | opportunity detail (read-only, no controls) | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/apps/web/src/app/status/page.tsx` | pipeline status and error overview (read-only) | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/web/src/lib/realtime-subscriptions.ts` | Supabase Broadcast subscription manager — topic attachment, invalidation dispatch | custom (§5.8) |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/web/src/lib/staleness-store.ts` | viewer_sync_status polling, staleness threshold rendering (green/amber/red) | custom (§5.8) |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/web/src/lib/topic-map.ts` | page-to-Broadcast-topic mapping (org:contracts, process:updates, org:sync, etc.) | custom (§5.8) |
 
 #### Rust Daemon
 
@@ -4747,6 +6201,12 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 | `/Users/alinaaitova/Desktop/Testproject1/skills/preliminary-qualification/SKILL.md` | expiry + goods reasoning | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/skills/manifest-generation/SKILL.md` | manifest creation workflow | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/skills/bid-portal-proactis/SKILL.md` | first bidding portal workflow | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/skills/auth-refresh/alibaba/SKILL.md` | Alibaba auth state refresh playbook | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/skills/auth-refresh/1688/SKILL.md` | 1688 auth state refresh playbook | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/skills/source-health/fts/SKILL.md` | Find a Tender source health canary | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/skills/source-health/alibaba/SKILL.md` | Alibaba source health canary | custom |
+
+Each production skill directory includes supporting files beyond `SKILL.md`: `result.schema.json`, `checkpoint.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`, and optional `scripts/` and `references/` directories. These artifacts operationalize the skill as a testable, versionable contract (see §4.10 Production Skill Directory Standard).
 
 ### 8.3 Test Files Required
 
@@ -4811,6 +6271,167 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 |-----------|----------|
 | `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/e2e/contracts.spec.ts` | desktop control panel browsing and decision flow |
 | `/Users/alinaaitova/Desktop/Testproject1/apps/web/e2e/contracts.spec.ts` | web viewing portal read-only browsing |
+
+
+#### Skill Testing
+
+| Test File | Coverage |
+|-----------|----------|
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/skill_lint.rs` | Skill directory structure validation — required files present, metadata valid, trigger boundaries declared, schemas parseable |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/skill_canary_harness.rs` | Live smoke canary framework — page fingerprint check, auth verification, minimal extraction, result shape validation |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/skill_golden_journeys.rs` | Invariant-based golden live journey tests per skill family — real E2E against known stable inputs |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/skill_shadow_compare.rs` | Shadow run comparison framework — quality metric diff between stable and candidate skill versions |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/skill_drift_monitor.rs` | Production drift detection — page fingerprint hash, fallback depth, fill-rate, duplicate rate trending |
+
+### 8.4 Milestone Assignment Map
+
+Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No files are deleted — files not needed for early milestones are assigned to later milestones.
+
+#### Milestone 0: Gold Set + Evaluation Harness (MVE) — ~25-35 files
+
+**Workspace (partial):**
+- `package.json`, `bunfig.toml`, `.env.example`
+
+**Shared Domain (all 4):**
+- `contracts-schema/src/contracts.ts`, `jobs.ts`, `confidence.ts`, `zod.ts`
+
+**Skills (5):**
+- `skills/document-acquisition/SKILL.md`
+- `skills/lot-extraction/SKILL.md`
+- `skills/product-extraction/SKILL.md`
+- `skills/preliminary-qualification/SKILL.md`
+- `skills/supplier-price-enrichment/ebay/SKILL.md`
+
+**Intelligence (12):**
+- `intelligence/src/qualification/expiry.ts`, `access-route.ts`, `goods.ts`, `quoteability.ts`
+- `intelligence/src/extraction/products.ts`
+- `intelligence/src/search/build-search-profile.ts`
+- `intelligence/src/customs/hmrc-tariff.ts` (screening-grade only)
+- `intelligence/src/margins/revenue-normalizer.ts`, `quote-normalizer.ts`, `margin-scenarios.ts`
+- `intelligence/src/evaluation/harness.ts`, `metrics.ts`
+
+**Database (1):**
+- `crates/daemon/migrations/0001_sqlite_state_initial.sql` (MVE subset)
+
+**Tests (4):**
+- `intelligence/src/qualification/goods.test.ts`
+- `intelligence/src/qualification/quoteability.test.ts`
+- `intelligence/src/customs/hmrc-tariff.test.ts`
+- `intelligence/src/margins/net-margin.test.ts`
+
+#### Milestone 1: Thin Local Runner — ~18 files
+
+**Workspace:**
+- `Cargo.toml` (workspace root)
+
+**Rust Daemon (core subset — 12):**
+- `crates/daemon/Cargo.toml`, `src/main.rs`
+- `src/db/sqlite.rs`
+- `src/pty/session.rs`, `src/pty/capture.rs`, `src/pty/health.rs`
+- `src/jobs/runner.rs`
+- `src/agents/adapter.rs`, `src/agents/codex.rs`, `src/agents/claude.rs`
+- `src/agents/artifacts.rs`, `src/agents/contracts.rs`
+
+**Tests (5):**
+- `crates/daemon/tests/agent_pty_session.rs`
+- `crates/daemon/tests/agent_contract_session.rs`
+- `crates/daemon/tests/adapter_codex.rs`
+- `crates/daemon/tests/adapter_claude.rs`
+- `crates/daemon/tests/adapter_result_contract.rs`
+
+#### Milestone 2: Single-Operator Desktop MVP — ~25 files
+
+**Skills (3):**
+- `skills/procurement-ingestion/fts/SKILL.md`
+- `skills/procurement-ingestion/contracts-finder/SKILL.md`
+- `skills/manifest-generation/SKILL.md`
+
+**Rust Daemon (additions — 2):**
+- `src/errors/manifest.rs`, `src/errors/markdown.rs`
+
+**Desktop Shell (all 14):**
+- All files in §8.2 "Desktop Shell" table
+
+**Manifests (2):**
+- `manifests/src/render-opportunity.ts`, `manifests/src/templates/opportunity.md.ts`
+
+**Tests (5):**
+- `crates/daemon/tests/agent_procurement_ingestion.rs`
+- `crates/daemon/tests/agent_supplier_enrichment.rs`
+- `crates/daemon/tests/agent_health_detection.rs`
+- `crates/daemon/tests/agent_error_manifest.rs`
+- `apps/desktop/e2e/contracts.spec.ts`
+
+#### Milestone 3: Operational Hardening — ~15 files
+
+**Rust Daemon (additions — 9):**
+- `src/scheduler/cron.rs`
+- `src/sources/registry.rs`
+- `src/jobs/claim.rs`
+- `src/pty/reaper.rs`, `src/pty/hardening.rs`
+- `src/agents/arbiter.rs`
+- `src/db/checkpoints.rs`
+- `src/tracing/structured.rs`, `src/tracing/forensic.rs`
+
+**Intelligence (addition — 1):**
+- `intelligence/src/relations/resolve-process-relations.ts`
+
+**Manifests (addition — 2):**
+- `manifests/src/render-error-manifest.ts`, `manifests/src/templates/error.md.ts`
+
+**Tests (9):**
+- `crates/daemon/tests/fault_process_cleanup.rs`
+- `crates/daemon/tests/fault_pty_edge_cases.rs`
+- `crates/daemon/tests/fault_host_events.rs`
+- `crates/daemon/tests/fault_partial_failure.rs`
+- `crates/daemon/tests/replay_pty_sessions.rs`
+- `crates/daemon/tests/replay_contract_sessions.rs`
+- `crates/daemon/tests/cron_scheduler.rs`
+- `crates/daemon/tests/job_claim.rs`
+- `intelligence/src/relations/resolve-process-relations.test.ts`
+
+#### Milestone 4: Shared Visibility — ~15 files
+
+**Database (9):**
+- `crates/daemon/migrations/0002_sqlite_state_sync.sql`, `0003_sqlite_artifacts.sql`
+- `packages/db/migrations/0001_initial.sql`, `0002_rls.sql`, `0003_sync_apply.sql`, `0004_schema_metadata.sql`, `0005_stage_tracking.sql`, `0006_junction_tables.sql`
+- `infra/supabase/config.toml`
+
+**Rust Daemon (addition — 1):**
+- `src/db/sync.rs`
+
+**Web Shell (all 7):**
+- All files in §8.2 "Web Shell" table
+
+**Tests (3):**
+- `crates/daemon/tests/sqlite_schema.rs`
+- `crates/daemon/tests/sqlite_supabase_sync.rs`
+- `apps/web/e2e/contracts.spec.ts`
+
+#### Milestone 5: Expanded Commercial Intelligence — ~25 files
+
+**Skills (4):**
+- `skills/supplier-price-enrichment/amazon/SKILL.md`
+- `skills/supplier-price-enrichment/alibaba/SKILL.md`
+- `skills/supplier-price-enrichment/1688/SKILL.md`
+- `skills/procurement-ingestion/pcs/SKILL.md`
+
+**Intelligence (19):**
+- `customs/hmrc-fpo.ts`, `classification-preprocessing.ts`, `ten-digit-resolver.ts`, `measure-scanner.ts`, `taric-support.ts`, `hs-ping.ts`
+- `fx/xe.ts`, `hmrc-exchange-rates.ts`, `currencybeacon.ts`, `oanda.ts`
+- `logistics/freightos.ts`, `searates.ts`, `mode-selection.ts`, `easyship.ts`, `shippo.ts`
+- `validation/dutify.ts`, `zonos.ts`, `avalara.ts`
+
+**Tests (1):**
+- `intelligence/src/customs/hmrc-fpo.test.ts`
+
+#### Milestone 6: Request Pipeline Automation — ~4 files
+
+**Skills (1):**
+- `skills/bid-portal-proactis/SKILL.md`
+
+**Bidding (all 3):**
+- `bidding/src/workflows/index.ts`, `workflows/proactis-v1.ts`, `company-profile/schema.ts`
 
 ---
 
@@ -4894,10 +6515,10 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 
 | Migration | Database | Purpose | Reversible |
 |-----------|----------|---------|------------|
-| SQLite state initial | SQLite state.db | Pipeline entities (procurement_processes, contract_notices, notice_lots, qualification_runs, product_candidates, supplier_quotes, landed_cost_estimates, manifests, pipeline_assessments, bid_workflow_states, process_relations, search_profiles), sync tracking columns, junction tables | Yes |
-| SQLite sync infra | SQLite state.db | local_outbox, sync_batches, pull_cursors, stage tracking (process_stage_status, process_stage_heads) | Yes |
+| SQLite state initial | SQLite state.db | Pipeline entities (procurement_processes, contract_notices, notice_lots, qualification_runs, product_candidates, search_profiles, search_attempts, supplier_quotes, landed_cost_estimates, manifests, pipeline_assessments, bid_workflow_states, process_relations, process_aliases), local-only runtime/cache tables (`source_runtime_state`, `listing_evidence`), sync tracking columns, junction tables | Yes |
+| SQLite sync infra | SQLite state.db | local_outbox, sync_batches, pull_cursors, pending_operator_intents queue, stage tracking (process_stage_status, process_stage_heads) | Yes |
 | SQLite artifacts | SQLite artifacts.db | Agent session logs (with orchestration domain columns), raw documents, error manifests | Yes |
-| Postgres initial | Supabase | Projection tables (all push-owned entities including notice_lots, process_relations, search_profiles, workflow_job_summaries, error_manifest_summaries), remote-owned tables (shared_company_profile, shared_source_configs, operator_decision_heads) | Yes |
+| Postgres initial | Supabase | Projection tables (all push-owned entities including notice_lots, process_relations, process_aliases, search_profiles, search_attempts, workflow_job_summaries, error_manifest_summaries, viewer_sync_status), remote-owned tables (shared_company_profile, shared_source_configs, operator_decision_heads) | Yes |
 | Postgres RLS | Supabase | Authority-based RLS per role (viewer, operator, admin, daemon) — see §6.3 for policy matrix | Yes |
 | Postgres sync apply | Supabase | Transactional RPC for push batch application + operator decision CAS RPC | Yes |
 | Postgres schema metadata | Supabase | schema_metadata table with schema_epoch | Yes |
@@ -4972,89 +6593,264 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 
 ## 11. Next Steps
 
-### Immediate Actions
+### Validation-First Delivery Philosophy
 
-1. Confirm remaining open questions (Scotland scope, VAT entity structure).
-2. Bootstrap the monorepo structure with the shell split (desktop control panel + web viewing portal).
-3. Build the Rust daemon with PTY session management and local SQLite storage first — this is the critical infrastructure.
-4. Build the first procurement ingestion skill (Find a Tender) and verify the full agent E2E flow.
-5. Stand up Supabase schema and sync engine.
-6. Build the cost-estimation API integrations (HMRC, freight, FX).
+Delivery is sequenced by **risk retirement**, not architectural completeness. The riskiest assumptions are in the intelligence pipeline — can the system extract usable product candidates, match them to real marketplace listings, and produce margin estimates accurate enough to act on? Infrastructure (daemon orchestration, cron, sync, web) is well-understood systems engineering that follows, not leads.
+
+A **Minimum Viable Experiment (MVE)** validates the intelligence thesis before infrastructure investment. The MVE proves the product can surface high-precision, non-fake opportunities on a curated lot corpus. Only after the MVE demonstrates credible signal does infrastructure scale it.
+
+Wrong answers at scale are worse than no automation. Building a reliable daemon that produces unreliable intelligence is wasted work. Building credible intelligence first means every infrastructure component has a clear reason to exist.
+
+### Core Validation Order
+
+Four experiments, run in sequence. Each must pass before the next is worth pursuing.
+
+| # | Experiment | Pass Criteria | What It Proves |
+|---|-----------|--------------|----------------|
+| 1 | **Extraction quality** — Can we pull structured lot/product candidates from real procurement documents? | ≥80% of lots in the gold set yield at least one usable product candidate with correct unit, quantity, and specification | The system can read procurement intent |
+| 2 | **Matching quality** — Can marketplace search find relevant supplier listings for extracted candidates? | ≥70% of product candidates with a `matchArchetype` produce at least one genuine match (not a false positive from keyword overlap) | The system can connect demand to supply |
+| 3 | **Margin accuracy** — Can screening-grade landed cost produce margin bands that distinguish real opportunities from noise? | Margin bands agree with human expert assessment on ≥75% of gold-set lots (within ±5pp for screening-grade) | The system produces actionable commercial signal |
+| 4 | **Runtime reliability** — Can the thin runner execute a batch of skills without manual intervention? | 10 consecutive batch runs complete with ≥90% skill success rate and no orphaned processes | The system can operate unattended |
+
+### Minimum Viable Experiment (MVE)
+
+The MVE is ~25-35 files proving experiments 1-3 on a curated lot corpus. No daemon, no cron, no desktop UI, no web portal, no Supabase sync. Skills run from CLI. Results land in local SQLite. Evaluation is via test harness and manual inspection.
+
+**MVE scope:**
+- Gold-set lot corpus (50-100 curated lots with human labels)
+- Document acquisition for gold-set notices
+- Lot extraction with product candidate generation
+- `matchArchetype` assignment and slot criticality scoring
+- Quoteability scoring with `recallRiskScore`
+- One marketplace search skill (eBay or Amazon) with query generation
+- Search-card screening with four-state evidence comparison
+- Screening-grade landed-cost bands (simplified duty + freight + FX)
+- Evaluation harness comparing system output to human labels
+- Local SQLite for results (no sync, no projections)
+
+**MVE explicitly excludes:**
+- Rust daemon (skills run via CLI)
+- Cron scheduling (manual trigger)
+- Desktop or web UI (CLI + test harness)
+- Supabase sync
+- Relation resolution (gold-set lots are pre-curated)
+- Multiple procurement sources (gold set is pre-selected)
+- Full landed-cost engine (screening-grade only)
+- Bid workflow automation
+
+### Category Scope
+
+Start with a narrow goods-category whitelist: commodity-like products with low regulatory burden, high marketplace availability, and straightforward landed-cost estimation.
+
+**Initial whitelist:** office supplies, cleaning products, basic PPE, hand tools, basic furniture, packaging materials.
+
+**Explicit no-list (defer until system proves reliable on whitelist):** medical devices, pharmaceuticals, IT hardware (complex specifications), vehicles, construction materials, food/perishables, chemicals (regulatory burden), bespoke/custom-manufactured goods.
+
+The whitelist expands only after the system demonstrates reliable extraction, matching, and margin estimation on the initial categories. Each new category requires its own gold-set validation before entering production.
+
+### MVP-Alpha Definition
+
+After MVE validation, the MVP-Alpha proves repeatable operator value with a single operator running the system daily. It adds infrastructure around the validated intelligence pipeline.
+
+**MVP-Alpha scope (in addition to MVE):**
+- Thin Rust runner (agent launch, artifact capture, process supervision — not full daemon)
+- Local SQLite with operational schema
+- Manual-trigger desktop UI (Tauri) with list/detail review, QueryService + DaemonBridge + bootstrap state machine
+- Decision capture (reject/watch/shortlist)
+- FTS ingestion skill (live notices, not just gold set)
+- Batched ingestion (Contracts Finder as second source)
+- Basic health monitoring and error manifests
 
 ### Recommended Delivery Order
 
-#### Milestone 1: Foundation + Daemon Core
+#### Milestone 0: Gold Set + Evaluation Harness (MVE)
 
-- Workspace bootstrap
-- Rust daemon with PTY session management
-- Local SQLite schema and storage
-- Daemon cron scheduler
-- Agent health monitoring and log capture
+Prove the intelligence thesis on a curated lot corpus before building infrastructure.
+
+- Establish skill authoring guide (8-question template) and production skill directory standard (SKILL.md + result.schema.json + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml) before writing first production skill
+- Curate gold-set lot corpus (50-100 lots across whitelist categories, with human labels for product candidates, expected matches, and margin bands)
+- Seed bilingual lexicon for top 30-50 spend-heavy product families (EN/ZH noun aliases, market framing terms, negative terms, unit aliases)
+- Document acquisition skill (PDF/attachment download from notice URLs)
+- Lot extraction with product candidate generation
+- `matchArchetype` assignment and slot criticality scoring
+- Structured standard normalization (family/part/edition/amendment/class)
+- Quoteability scoring with `recallRiskScore`
+- One marketplace search skill (category-prior search with alias-family query generation)
+- Search-card screening with four-state evidence comparison
+- Detail-page enrichment and compliance evidence tier extraction
+- Screening-grade landed-cost bands (duty via HMRC Tariff API, flat-rate freight estimate, single FX rate)
+- Evaluation harness: lot-level precision/recall against gold-set labels
+- Recall measurement instrumentation (recall@k by archetype × source)
+- Local SQLite for intermediate results
+- All skills run from CLI (no daemon)
+
+**Exit criteria:** Experiments 1-3 pass on gold-set corpus.
+
+#### Milestone 1: Thin Local Runner
+
+Minimal Rust runtime — just enough to launch skills, capture artifacts, and supervise processes. PTY is available as a capability, not a full daemon platform.
+
+- Rust binary with skill-launch command (PTY session for interactive skills, direct exec for deterministic skills)
+- Process-group supervision with cleanup verdicts
+- Artifact capture (session bytes to compressed files, not inline in SQLite)
+- Local SQLite operational schema (sessions, artifacts, errors)
 - Error manifest system
-- Basic Tauri desktop shell (control panel)
-- Basic web shell (read-only viewing portal)
+- Agent health monitoring and log capture
+- CLI interface for manual skill triggering
+- Skill linting CI gate (validate directory structure, metadata, schemas, trigger boundaries on every skill change)
+- Smoke canary harness (page fingerprint check, auth verification, minimal extraction for each critical source)
 
-#### Milestone 2: Agent Ingestion Pipeline
+**Exit criteria:** Experiment 4 passes (10 consecutive batch runs, ≥90% success rate).
 
-- Find a Tender ingestion skill
+#### Milestone 2: Single-Operator Desktop MVP
+
+Prove repeatable operator value with manual-trigger desktop and live procurement data.
+
+- FTS ingestion skill (Find a Tender)
 - Contracts Finder ingestion skill
-- Agent E2E tests verifying real PTY sessions
-- Normalized notice list/detail UI in desktop
-- Supabase schema + sync engine
-- Web viewing portal reading from Supabase
+- Notice normalization and lot-level data model
+- Goods/services classifier and expiry filter
+- Adaptive diversified shortlisting with diversity enforcement
+- Zero-result recovery ladder and failure-mode classification
+- Query-wave planning for multi-source search
+- Net-margin view with screening-grade landed cost
+- Basic Tauri desktop shell (control panel) with QueryService + DaemonBridge + bootstrap state machine
+- Notice list/detail views with keyset pagination
+- Agent session monitoring page with live terminal viewer and session stream stores
+- Opportunity list with margin bands
+- Decision capture (reject/watch/shortlist) with decision ledger
+- Feature flags for progressive capability enablement
+- Agent E2E tests verifying real skill sessions
 
-#### Milestone 3: Qualification
+**Exit criteria:** Single operator runs system daily for one week, makes real accept/reject decisions, reports the pipeline surfaces genuine opportunities.
 
-- Expiry filter
-- Goods/services classifier
-- Product extraction
+#### Milestone 3: Operational Hardening
 
-#### Milestone 4: Commercial Intelligence
+Daily automation without babysitting.
 
-- eBay supplier scraping skill
-- Alibaba/1688 supplier scraping skill
-- HMRC Trade Tariff API integration
+- Daemon cron scheduler with explicit skill binding
+- Batched ingestion (scheduled FTS + CF runs)
+- Relation resolution (notice → parent-notice → framework linkage)
+- PTY hardening (fd hygiene, EIO handling, terminal geometry)
+- Host environment awareness (sleep/wake detection, catchup sweeps)
+- Two-tier cache (search-result + listing-evidence)
+- Resource arbiter with typed quotas (browser slots, agent slots, source lanes)
+- Job history and agent session tracing in desktop
+- Error manifest control-panel view
+- Pipeline cost tracking and budget controls
+- Shadow mode: system runs alongside operator decisions, compares recommendations to human choices
+- Skill promotion flow (draft → candidate → canary → shadow → stable → rollback) with version binding at enqueue
+- Source-health canary skills (pre-flight reachability, geo, auth, page fingerprint checks before scheduled jobs)
+- Auth-refresh skills for authenticated sources (Alibaba, 1688)
+- Production drift monitoring (page fingerprint hash, locator fallback depth, fill-rate, duplicate-rate trending)
+- Golden live journey tests per skill family (invariant-based, not brittle literal matching)
+
+**Exit criteria:** System runs unattended for 5 consecutive days with ≥95% skill success rate and no manual intervention required.
+
+#### Milestone 4: Shared Visibility
+
+Collaboration infrastructure.
+
+- Supabase schema and sync engine
+- Transactional outbox push (local → remote)
+- Cursor-based pull (remote → local) with CAS for shared decisions
+- Projection tables for web consumption
+- Web viewing portal (read-only, reading from Supabase) with Broadcast invalidation and staleness rendering
+- Multi-user decision visibility
+
+**Exit criteria:** Two users can view the same opportunity pipeline, one via desktop (read-write) and one via web (read-only).
+
+#### Milestone 5: Expanded Commercial Intelligence
+
+Broader categories, more sources, decision-grade accuracy.
+
+- Additional marketplace search skills (Alibaba/1688 with Chinese keyword clusters, Amazon)
 - HMRC FPO API for HS code classification
-- HMRC Exchange Rate Service integration
+- HMRC Exchange Rate Service integration (dual-rate: spot + HMRC monthly)
 - Xe commercial FX integration
 - Freightos + SeaRates freight API integration
-- Net-margin view
+- Decision-grade landed cost per validated category (replacing screening-grade)
+- Category-specific gold-set expansion and validation
+- Expanded bilingual lexicon coverage
 
-#### Milestone 5: Operator Workflow
-
-- Manifest generation
-- Reject/watch/bid controls in desktop control panel
-- Job history and agent session tracing pages
-- Error manifest control-panel view
+**Exit criteria:** System handles ≥3 goods categories with decision-grade landed cost and ≥2 supplier sources per category.
 
 #### Milestone 6: Request Pipeline Automation
 
-- One portal-specific bid skill
+Portal-specific bid skills.
+
+- One portal-specific bid skill (Find a Tender or Contracts Finder)
 - Agent-browser request pipeline flow
-- Screenshot/log artifact capture
+- Screenshot/log artifact capture for bid workflows
 - Full terminal output tracing for bid workflows
+- Manifest generation for submitted requests
+
+**Exit criteria:** System can prepare and submit a request on one portal with full audit trail.
+
+### Stack Sequencing
+
+Build stacks in order of risk retirement, not in parallel:
+
+1. **Skills first** — SKILL.md playbooks for document acquisition, lot extraction, marketplace search. Skills are the cheapest to write, the fastest to iterate, and they validate the intelligence thesis directly. Run from CLI.
+2. **TypeScript intelligence** — Pipeline logic (extraction, matching, scoring, landed cost), evaluation harness, data model types, SQLite integration. This is where the product thesis lives.
+3. **Thin Rust** — Minimal runner for skill launch, artifact capture, process supervision. Kept deliberately thin until the intelligence pipeline is validated.
+4. **Desktop UI** — Tauri shell with list/detail views, decision capture. Only after the pipeline produces results worth displaying.
+5. **Web + infrastructure** — Supabase sync, web portal, cron, operational hardening. Only after a single operator has validated daily use.
+
+### MVE Testing Approach
+
+Four testing lanes, each serving a different feedback loop:
+
+| Lane | Scope | Trigger | Cost | Purpose |
+|------|-------|---------|------|---------|
+| **Fast inner loop** | Deterministic logic: extraction parsers, margin math, scoring functions, data model validation | Every save / pre-commit | Near zero (no network, no LLM) | Catch regressions instantly |
+| **Live smoke** | One skill against one real source, one lot through the pipeline | Per-change (manual or CI) | Low (~$0.10-0.30 per run) | Verify the pipeline still produces real results |
+| **Benchmark batch** | Full gold-set corpus through the pipeline, compare to human labels | Periodic (daily or per-milestone) | Medium (~$2-10 per run) | Track precision/recall trends, catch quality drift |
+| **Release gate** | All skills, full pipeline, extended corpus | Pre-milestone release | Higher (~$20-50 per run) | Confidence that a milestone is shippable |
+
+The "no mocks" principle applies to the **live smoke** and **release gate** lanes. The **fast inner loop** tests deterministic functions that don't need mocks — they operate on concrete data structures. The **benchmark batch** uses real pipeline components against the gold set.
+
+### Validation Techniques
+
+**Gold set:** A curated corpus of 50-100 lots with human-labeled product candidates, expected marketplace matches, and margin assessments. The gold set is the ground truth for all quality metrics. It must be maintained as categories expand.
+
+**Lot-level measurement:** The lot is the minimum commercial unit. All precision/recall metrics are measured per-lot, not per-notice. A notice with 12 lots where 11 are irrelevant and 1 is gold — the system should find the 1, not report "notice matched."
+
+**Precision over recall:** For MVE, false positives (fake opportunities) are more damaging than false negatives (missed opportunities). The system should abstain rather than guess. An explicit abstain path ("not enough evidence to score") is better than a low-confidence score that looks like a real answer.
+
+**Shadow mode:** After Milestone 2, run the system alongside operator decisions. Compare system recommendations to human choices. Track agreement rate, false positive rate, and cases where the system found opportunities the operator missed.
+
+**Decision ledger:** Every operator accept/reject/watch decision is stored with the system's recommendation at time of decision. This creates a training signal for future calibration and a quality audit trail.
+
+**Feature flags:** New capabilities (additional categories, new supplier sources, upgraded cost models) are deployed behind flags. They run in shadow mode before becoming the default. This prevents quality regressions when expanding scope.
+
+**Raised auto-pass bar:** As the gold set grows and confidence metrics stabilize, raise the threshold for what counts as "passing." Early MVE: ≥70% lot-level precision. Mature system: ≥85%.
 
 ### Recommended Pipeline
 
 ```text
 This Document
-  -> research-to-spec
-  -> implementation plan
-  -> milestone execution
+  -> MVE implementation (Milestone 0, ~25-35 files)
+  -> MVE validation against gold set
+  -> research-to-spec (informed by MVE learnings)
+  -> milestone execution (1-6, spec-driven)
 ```
 
 ### Pre-requisites for Implementation
 
+- [ ] Gold-set lot corpus curated (50-100 lots across whitelist categories, with human labels)
 - [ ] Scope geography confirmed (Scotland in/out of MVP)
 - [x] Desktop/web shell decision made — desktop = control panel, web = read-only viewing portal
 - [ ] Initial procurement sources ranked by commercial importance
-- [ ] Supabase project created (shared sync target)
+- [ ] Bilingual lexicon seeded for top 30-50 product families
 - [x] Data retrieval strategy confirmed — skill-based agent scraping for procurement + supplier data
 - [x] Cost-estimation API strategy confirmed — HMRC Tariff + FPO + Exchange Rates, Freightos + SeaRates, Xe
-- [x] Agent orchestration strategy confirmed — PTY-first from day 1
+- [x] Agent orchestration strategy confirmed — adapter-mediated hybrid runtime with PTY as a first-class capability from day 1
 - [x] Risk policy for automation confirmed — request pipeline automation, not real-money bids
-- [ ] Codex/Claude CLI credentials set up for agent PTY sessions
+- [ ] Codex/Claude CLI credentials set up for agent sessions
 - [ ] VAT entity structure confirmed for margin modeling
+- [ ] Category whitelist validated (confirm initial goods categories are viable for arbitrage)
+- [ ] Supabase project created (needed by Milestone 4, not before)
 
 ---
 
@@ -5362,6 +7158,8 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 - OpenAI Codex skills: https://developers.openai.com/codex/skills/
 - Claude agent skills: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview
 - Agent-browser skill reference: https://github.com/vercel-labs/agent-browser/blob/main/skills/agent-browser/SKILL.md
+- Playwright locators (tiered locator strategy reference): https://playwright.dev/docs/locators
+- Playwright best practices: https://playwright.dev/docs/best-practices
 
 ### E. Change Log
 
@@ -5387,7 +7185,14 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 | 2026-03-12 | planmaxer holistic pass (step 2 residual 3) | Closed the last remaining live wording gaps in the current document. Updated supplier-search and bid-workflow flows plus the daemon-complexity row to refer to full raw session output rather than PTY-only output where the runtime is hybrid, and made Appendix C use the canonical four-way relation labels. |
 | 2026-03-12 | planmaxer holistic pass (step 3 residual) | Tightened the remaining architecture-language gaps. Added an explicit acyclic coupling rule to the coherence notes, updated the relation-resolution complexity row to the four-way model, and normalized the last user-facing / portal-facing wording to refer to full session output or raw session transcripts rather than PTY-only terminology where the runtime is hybrid. |
 | 2026-03-12 | planmaxer holistic pass (step 3 residual 2) | Finalized the last boundary clarifications. Narrowed `PTY Session Manager` to live PTY-backed supervision while leaving final cleanup ownership to `Session Reaper`, reframed `Resource Arbiter` as admission control rather than a second scheduler, and made the complexity-allocation note explicit that the landed-cost engine remains very high complexity while intentionally staying downstream of the orchestration-critical boundaries. |
-| 2026-03-12 | planmaxer holistic pass (step 4 residual) | Final sync pass. Rechecked the Table of Contents against the current section layout, verified section/ADR/appendix cross-references still line up, confirmed Appendix D and 9.3 remain complete for the cited services, and corrected the Quick Stats file-count total to the current 131 planned files. |
+| 2026-03-12 | planmaxer holistic pass (step 4 residual) | Final sync pass. Rechecked the Table of Contents against the current section layout, verified section/ADR/appendix cross-references still line up, confirmed Appendix D and 9.3 remain complete for the cited services, and corrected the Quick Stats file-count total to the then-current planned file map. |
+| 2026-03-12 | planmaxer pre-prep (frontend integration) | Integrated expert review on frontend and desktop-daemon integration architecture. Major changes: (1) Desktop ↔ daemon hybrid communication protocol — Tauri invoke() for snapshot reads via QueryService (read-only SQLite), DaemonBridge for writes/triggers via UDS/named-pipe RPC, Tauri Channel<T> for live streams. (2) Real-time event streaming architecture — three-layer model (daemon buffer → desktop stream store → terminal/timeline views), SessionFrame types, two-level attach semantics (metadata-only for session list, full stream for selected), dual viewer (live terminal + searchable history), PTY vs contract mode default views, useSyncExternalStore pattern. (3) Web portal subscription architecture — Supabase Broadcast as invalidation plane with page-level topic scheme, small PortalUpdate payloads (not full rows), per-page behavior (list pill, detail refresh chip), coalesced post-batch emission, viewer_sync_status staleness thresholds. (4) Shared React component architecture — snapshot+overlay model, TanStack Query for snapshots only, frame+slot composition pattern, explicit sharing boundary (views yes, hooks no). (5) Desktop lifecycle management — startup sequence with daemon handshake, four runtime modes (healthy/remote-degraded/browse-only/recovery-required), local intent queue for remote-degraded operator decisions, daemon crash recovery, explicit shutdown behavior. (6) Accessibility guidance for live views. (7) IPC protocol versioning separate from schema_epoch. (8) Multi-window support (detached session monitor). (9) Keyset/cursor pagination on both surfaces. (10) SQLite FTS5 for desktop search, Postgres text search for web. (11) Updated transport architecture in §5.10 with stream surfaces and mutation ack contract. Cross-domain notes deferred: viewer_sync_status table, pending_operator_intents table, process_aliases for relation resolution — all need data-architecture domain coordination. Sections modified: 1 (exec summary), 5.8 (full rewrite), 5.10 (expanded), 6.4 (frontend performance), 8.2 (8 new files), ADR-003 (expanded), ADR-008 (expanded), Appendix E. |
+| 2026-03-13 | planmaxer steps 3–4 (frontend integration) | Fresh-eyes optimization + sync pass. Verified 7 cross-reference consistency criteria: (1) §5.8↔§5.10 — endpoint names, stream surfaces, MutationAck contract consistent. (2) §5.8↔§4.9 — 7-phase session lifecycle matches exactly, adapter events aligned. (3) §8.2 file map — fixed bootstrap-state.ts mode list from 3 modes to 4 (added remote-degraded, corrected recovery to recovery-required). (4) ADR-003↔§5.8 — communication architecture summary, IPC versioning, multi-window aligned. (5) §5.8↔§4.7 — authority matrix, CAS for decisions, sync protocol references consistent. (6) §6.4 performance — all 5 frontend guidance items and 2 bottleneck rows match §5.8 specifications. (7) Terminology consistent across all edited sections per §5.8 terminology note. Sync pass: verified §1 exec summary reflects communication protocol and frontend strategy; §8.2 complete with 8 new files; §11 milestones 2 and 4 include frontend-specific items; validated 16 cross-references to §5.8/§5.10/ADR-003/ADR-008. Section modified: 8.2 (bootstrap-state.ts description). |
+| 2026-03-13 | planmaxer pre-prep (skill reliability) | Integrated expert review on skill authoring and agent reliability. Major changes: (1) Production skill directory standard — skill is a versioned directory (SKILL.md + result.schema.json + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml + optional scripts/ and references/), not just SKILL.md. (2) 8-question skill authoring guide (trigger boundary, page fingerprint, navigation strategy with tiered locators, overlay handling, three-layer extraction validation, per-item evidence, checkpoint unit with concrete format, 6 outcome classes). (3) Browser automation reliability patterns — anti-bot classification table, source-scoped auth persistence via dedicated auth-refresh skills, readiness algorithm for dynamic content, geo/locale/currency drift detection, session contamination prevention. (4) Skill versioning and lifecycle management — 6-stage promotion flow (draft → candidate → canary → shadow → stable → rollback), 5 independent version dimensions, version binding at enqueue, schema migration with dual-accept windows, cache invalidation across 8 key dimensions. (5) Cost efficiency patterns — explicit budget declarations (maxPages, maxScrollCycles, etc.), cost-per-committed-useful-record metric. (6) Skill composition and model policy — intra-skill (scripts/) vs inter-skill (daemon-orchestrated sub-jobs), model_profile abstraction (4 tiers). (7) Failure modes table — 8 production failure modes requiring explicit skill-level detection. (8) New error types in §5.11: AGENT_SUSPECT_OUTPUT + 6 source/skill codes (SOURCE_SOFT_BLOCKED, SOURCE_CAPTCHA_BLOCKED, AUTH_STATE_STALE, PAGE_SHAPE_DRIFT, LOCALE_OR_CURRENCY_DRIFT, RESUME_UNSAFE_AFTER_SUBMIT). (9) Skill outcome classes (non-error): continuation_required, degraded_completed, blocked_human_action. (10) Skill-specific testing strategy: CI linting, live smoke canaries, invariant-based golden journeys, shadow runs, production drift monitoring, browser debugging artifacts. (11) Skill-level telemetry: 13 metrics. (12) Operational skills category: auth-refresh/alibaba, auth-refresh/1688, source-health/<source>. (13) 3 new risks in §6.2. (14) §11 milestones updated with skill authoring prerequisites. Cross-domain notes deferred: output quality gate (§5.2), continuation re-enqueue (§4.9), source circuit breaker (§4.9), ingestion flow changes (§5.6), intelligence pipeline changes (§5.7). Sections modified: 1, 4.10, 5.11, 6.1, 6.2, 6.5, 6.6, 8.2, 8.3, 11, Appendix D, Appendix E. |
+| 2026-03-13 | planmaxer steps 3–4 (search intelligence) | Fresh-eyes optimization + sync pass. Fixed stale terminology: §5.3 canonical workflow updated from "query packs" to "query waves", from static "top-10" shortlist to adaptive budget (top-8 to top-20), from fixed "top-3" AI adjudication to recallRiskScore-scaled budget. Updated §5.3 price-signal matching summary to reflect current pipeline (query-wave search, four-state evidence screening, detail-page enrichment, adaptive diversified shortlisting, scaled AI adjudication). Updated §8.2 file reference from "query-pack construction" to "query-wave construction". Added cross-domain note flagging SQL column `query_pack_json` → `query_waves_json` rename. Verified consistent: §4.3 ↔ §5.7 source routing and query waves, §5.2 ↔ §5.4 interfaces, §5.7 ↔ §6.1/§6.2 complexity and risks, confidence weights (both sum to 1.0), pipeline cost ($11.70–$51.25/day within target), Appendix A margin logic. §1, §4.2, §11, Appendix A verified current — no changes needed. Sections modified: 5.3, 5.4 (cross-domain note), 8.2, Appendix E. |
+| 2026-03-12 | planmaxer pre-prep (search intelligence) | Integrated expert review on search intelligence and product matching quality. Major changes: (1) `matchArchetype` classification added to ProductCandidate and SearchProfile — orthogonal to `candidateType`, drives query templates, hard-conflict weights, confidence floors, and shortlist budgets. Six archetypes: standard_class_led, dimension_material_led, electrical_spec_led, pack_count_led, compatibility_led, model_exact. (2) Query-wave planning replacing flat queryPack — staged queries from exact anchor → alias swap → market framing → broad → compliance-off, per candidate × source. (3) Four-state evidence model (match/missing/ambiguous/conflict) for hard-conflict filtering — only `conflict` triggers hard rejection; `missing` and `ambiguous` are confidence penalties. (4) Detail-page enrichment step before rejection — compliance evidence tiers (structured_attribute/title_body_mention/absent) determined from detail pages, not search cards alone. (5) Adaptive diversified shortlisting with `recallRiskScore` — budget scales from top-8 to top-20 based on category noise; diversity rules (max 2 per seller, max 2 per wave, max 1 per title family). (6) Zero-result recovery ladder with 6 rounds and formal `searchFailureMode` taxonomy (vocabulary_gap, overconstrained_query, accessory_swamp, compliance_not_surfaceable, no_marketplace_presence, low_extraction_quality, source_specific_failure). (7) Slot criticality model (required/preferred/descriptive/exclusion) on each extracted attribute. (8) Structured standard normalization (family/part/edition/amendment/class) for precise comparison. (9) Market framing slots (marketFrameEn/Zh, useContext, sectorContext) expanding the cross-language matching strategy beyond literal slot translation. (10) Chinese retry on Alibaba after English failure. (11) Source-specific search behavior (eBay category-prior search, Amazon alias families, Alibaba filter-heavy sourcing, 1688 Chinese keyword clusters). (12) Lexicographic gating for dual confidence — identity gate → usability gate → role gate, with archetype-specific confidence floors. (13) Two-tier cache (search-result + listing-evidence) with structured hard/soft fingerprints and source-specific TTLs. (14) Recall measurement framework (recall@k by archetype × source, operator override tracking, calibration pipeline). (15) Curated bilingual lexicon maintenance model with operator feedback loop. (16) Bilingual unit normalization dictionary. (17) New entities: SearchAttempt, ListingEvidence. (18) 8 new risks in §6.2. Sections modified: 1, 4.3, 5.2, 5.4 (TypeScript interfaces + data model notes), 5.7, 6.1, 6.2, Appendix E. |
+| 2026-03-13 | planmaxer pre-prep (MVP delivery strategy) | Integrated expert review on delivery strategy and vertical slicing. Core change: replaced infrastructure-first milestone ordering with validation-first ordering (intelligence thesis → thin runner → desktop MVP → hardening → shared visibility → expanded intelligence → bid automation). Major changes: (1) Validation-first delivery philosophy. (2) MVE definition (~25-35 files, gold-set validation before infrastructure). (3) 4 sequenced experiments with quantitative pass criteria. (4) Category whitelist + no-list. (5) MVP-Alpha definition. (6) 7 milestones (0-6) replacing 6 (1-6). (7) Stack sequencing (Skills → TS → Rust → Desktop → Web). (8) 4-lane testing approach. (9) Validation techniques (gold set, shadow mode, decision ledger, feature flags). (10) §8.4 milestone assignment map. (11) Evaluation harness files in §8.2. (12) 3 new delivery risks in §6.2. (13) §6.1 MVE-critical tier updated. (14) Exit criteria for every milestone. Sections modified: 1, 6.1, 6.2, 8.2, 8.4 (new), 11 (full restructure), Appendix E. |
+| 2026-03-13 | codex holistic pass (iteration 001) | Completed the post-integration cross-plan unification pass. Resolved the remaining deferred cross-domain items by integrating the Output Quality Gate, automatic continuation re-enqueue, and source circuit breaker into the authoritative runtime flows; aligned ingestion and supplier-enrichment flows with durable commit units, suspect-output quarantine, degraded list-only outcomes, and blocked-empty-shell handling; brought §5.4 SQL into parity with the current TypeScript/data-flow model (search_attempts, listing_evidence, process_aliases, viewer_sync_status, pending_operator_intents, source_runtime_state, expanded search/profile/quote fields, `query_waves_json`, expanded pipeline states); updated authority mapping, RLS, migration/file-map descriptions, and prerequisites to match the integrated architecture; and corrected Quick Stats to the current 150 planned files. Sections modified: 1, 2.5, 3.3, 4.7, 4.10, 5.2, 5.4, 5.6, 5.7, 5.8, 6.3, 8.2, 9.4, 11, Appendix E. |
 
 ---
 
