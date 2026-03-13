@@ -28,7 +28,7 @@
 
 ### Feature Overview
 
-The product is a procurement intelligence platform for UK public-sector contracts. It should ingest official contract notice data every day, normalize and store it, qualify it for relevance to physical-goods supply opportunities, enrich qualified notices with supplier pricing plus landed-cost estimates, surface high-margin opportunities in the desktop control panel and web viewing portal, and optionally launch request pipeline automation workflows using agent skills and browser automation (the platform automates preparation and submission steps; it does not place real-money bids without human approval).
+The product is a procurement intelligence platform for UK public-sector contracts. It should ingest official contract notice data every day, normalize and store it, qualify it for relevance to physical-goods supply opportunities, enrich qualified notices with supplier pricing plus landed-cost estimates, surface high-margin opportunities in the desktop control panel and viewing portal, and optionally launch request pipeline automation workflows using agent skills and browser automation (the platform automates preparation and submission steps; it does not place real-money bids without human approval).
 
 **Terminology note:** Throughout this document, a **contract notice** is the source publication, a **procurement process** is the canonical internal record assembled from one or more notices, and an **opportunity** is the operator-facing label for that procurement process. A **search profile** is the persisted structured search definition; **query waves** are the concrete search attempts generated from it. A **match** is a candidate-listing identity judgment; a **supplier quote** is the normalized commercial record persisted only after a listing survives screening and pricing checks.
 
@@ -44,19 +44,19 @@ This is not one system. It is four tightly connected systems:
 - **Primary data strategy:** Use skill-based agent scraping via browser automation for all procurement and supplier data retrieval. The agent runs on the local machine, powered by the skill system and triggered by the Rust daemon. APIs are reserved for cost-estimation data (customs, freight, FX) where they are more reliable. The skill layer is operationalized as a production contract system: each skill is a versioned directory with structured schemas, canary inputs, and golden assertions; skills follow a 6-stage promotion flow (draft → candidate → canary → shadow → stable → rollback); and return 6 outcome classes (not binary success/failure) enabling the daemon to handle continuation, degradation, and quarantine of suspect output.
 - **System of record:** Authority-matrix database architecture — local SQLite as local operational authority (pipeline data, jobs, logs), Supabase/Postgres as remote shared authority (config, operator decisions) and remote projections (viewer-facing pipeline facts). Mixed-write tables prohibited. Push-only pipeline replication via transactional outbox; pull-only shared config/decisions via cursor-based sync.
 - **Desktop/runtime architecture:** Use Tauri v2 with a separate Rust daemon process for local agent execution. Desktop communicates with the daemon via a hybrid transport: Tauri `invoke()` for snapshot reads (QueryService → read-only SQLite) and mutations (DaemonBridge → UDS/named-pipe → daemon), Tauri `Channel<T>` for live session streaming.
-- **Frontend strategy:** Desktop (Tauri) is the full control panel — trigger workflows, manage agents, make decisions. Web is a read-only viewing portal with Supabase Broadcast invalidation for live updates. Both share presentational React components and view-model types via `packages/ui`, but data-fetching hooks are surface-specific (SQLite-via-QueryService vs Supabase-client). Desktop supports browse-only degraded mode when the daemon is unavailable.
+- **Frontend strategy:** The Tauri desktop control panel is the full operator surface — trigger workflows, manage agents, make decisions. The viewing portal is read-only with Supabase Broadcast invalidation for live updates. Both share presentational React components and view-model types via `packages/ui`, but data-fetching hooks are surface-specific (SQLite-via-QueryService vs Supabase-client). The desktop control panel supports browse-only degraded mode when the daemon is unavailable.
 - **Cost-estimation engine:** Build an internal landed-cost engine backed by HMRC Trade Tariff, HMRC FPO API for first-pass HS code classification, Taric Support and HS Ping for validation, HMRC Exchange Rate Service for customs valuation FX, Xe for commercial FX, Freightos and SeaRates for freight-market data, and CurrencyBeacon/OANDA plus optional third-party landed-cost services as secondary comparison sources.
 - **Agent orchestration:** Use adapter-mediated agent execution with PTY as a first-class runtime from day 1. The Rust daemon triggers Codex/Claude sessions on cron schedules and manual triggers from the desktop control panel, selecting PTY or contract mode per job. PTY-first remains a design constraint for browser-heavy and interactive flows.
 - **Automation policy:** The platform automates the request pipeline, not real-money bid submissions. Actual negotiations and fulfillment are handled manually by humans. An error manifest system flags failures with enough context to debug. Human review remains valuable for commercial decisions but risk is low since no real money changes hands automatically.
 
 ### Primary Recommendation in One Sentence
 
-Build a greenfield monorepo around skill-based agent scraping for data retrieval, a Rust daemon with local SQLite and Supabase/Postgres sync, adapter-mediated agent orchestration with PTY-first support, and an expanded API-powered internal cost-estimation engine — with the desktop app as the control panel and the web app as a read-only viewing portal.
+Build a greenfield monorepo around skill-based agent scraping for data retrieval, a Rust daemon with local SQLite and Supabase/Postgres sync, adapter-mediated agent orchestration with PTY-first support, and an expanded API-powered internal cost-estimation engine — with the desktop control panel as the writable operator surface and the viewing portal as the read-only remote surface.
 
 ### Critical Decisions Required
 
 1. Whether MVP scope is England/Wales/Northern Ireland only or full UK coverage including Scotland-specific procurement flows.
-2. ~~Whether the first release should optimize for desktop-first operators or equal desktop/web parity.~~ **RESOLVED:** Desktop = control panel (full read/write/trigger), Web = read-only viewing portal.
+2. ~~Whether the first release should optimize for desktop-first operators or equal desktop/web parity.~~ **RESOLVED:** Desktop = control panel (full read/write/trigger), viewing portal = read-only.
 3. ~~How much autonomy is acceptable in bidding workflows before manual review is mandatory.~~ **RESOLVED:** Full automation of the request pipeline is acceptable — this is not real-money bidding. Human negotiation handles actual commercial decisions.
 4. Whether the margin model should default to a VAT-recoverable importer-of-record assumption.
 5. ~~Whether Chinese supplier pricing is allowed to rely on browser automation when official APIs are insufficient.~~ **RESOLVED:** Yes — browser automation via agent skills is the primary data retrieval strategy for all procurement and supplier data.
@@ -82,7 +82,7 @@ Delivery is sequenced by risk retirement, not architectural completeness. A **Mi
 1. **Phase 1 — Thin Local Runner:** Minimal Rust runtime with agent launch, artifact capture, and local SQLite — PTY as a capability, not a full daemon platform.
 2. **Phase 2 — Single-Operator Desktop MVP:** Manual-trigger desktop UI with list/detail review, decision capture, and FTS ingestion — proving repeatable operator value.
 3. **Phase 3 — Operational Hardening:** Cron scheduling, batched ingestion, health monitoring, PTY hardening, relation resolution — daily automation without babysitting.
-4. **Phase 4 — Shared Visibility:** Supabase sync, projection tables, web viewing portal — collaboration infrastructure.
+4. **Phase 4 — Shared Visibility:** Supabase sync, projection tables, viewing portal — collaboration infrastructure.
 5. **Phase 5 — Expanded Commercial Intelligence:** Broader categories, more supplier sources, decision-grade landed cost.
 6. **Phase 6 — Request Pipeline Automation:** Portal-specific bid skills.
 
@@ -166,7 +166,7 @@ So that repetitive bidding preparation is partially automated
 4. As a desktop operator, I want clear reject/bid controls and auditable history so contract handling is disciplined.
 5. As a desktop operator, I want to see an error manifest when pipeline steps fail so I can debug issues quickly.
 
-**Web Viewer Stories:**
+**Viewing-Portal Stories:**
 
 1. As a web viewer, I want to browse opportunities, view manifests, and see pipeline status without needing the desktop app installed.
 2. As a web viewer, I want to see error status and pipeline health so I understand the current system state.
@@ -207,7 +207,7 @@ So that repetitive bidding preparation is partially automated
 - Preliminary qualification by expiry and goods relevance.
 - Supplier-price enrichment from selected sources.
 - Landed-cost engine with shipping/customs/FX.
-- Desktop control panel + web viewing portal for browse/search/review.
+- Desktop control panel + viewing portal for browse/search/review.
 - Manifest generation.
 - Manual and scheduled execution.
 - Portal-specific bid workflow framework, with at least one example implementation.
@@ -259,7 +259,7 @@ So that repetitive bidding preparation is partially automated
 |-----------|---------------|--------------------|
 | Full UK or only non-Scottish procurement in MVP | Source skills and legal variation differ | Start with England/Wales/NI plus optional PCS scraping skill |
 | Exact supplier sources in China | Marketplace access and ToS differ sharply | Skill-based agent scraping via browser automation is the primary approach |
-| Web and desktop parity | Affects frontend architecture | **RESOLVED:** Desktop = control panel, Web = read-only viewing portal |
+| Web and desktop parity | Affects frontend architecture | **RESOLVED:** Desktop = control panel, viewing portal = read-only |
 | Fully automatic bidding or semi-automatic | Major risk and compliance impact | **RESOLVED:** Full automation of request pipeline; human negotiation handles commercial decisions |
 | Use of pure local compute | Affects reliability of scheduled ingestion | **RESOLVED:** Local-first with Rust daemon, SQLite, PTY agent execution. Supabase for shared sync. |
 
@@ -1657,7 +1657,7 @@ The owner requires multiple users to access the system's data. However, relying 
 
 **Mixed-write tables are prohibited.** Every table has exactly one authority domain. If a concept spans domains (e.g., a pipeline-computed margin AND an operator disposition on the same process), it must be split into separate tables with separate authority.
 
-**MVP constraint:** Exactly one active pipeline daemon per organization. Multi-executor coordination (remote source leases, primary election) is a future extension, not an MVP requirement. The web viewing portal is read-only; shared human decisions come only from other desktop apps if they exist.
+**MVP constraint:** Exactly one active pipeline daemon per organization. Multi-executor coordination (remote source leases, primary election) is a future extension, not an MVP requirement. The viewing portal is read-only; shared human decisions come only from other desktop apps if they exist.
 
 **Corruption protection scope:** The dual-database design protects against remote-only failures (bad Supabase migration, accidental admin update, stale restore, RLS policy mistakes). It does NOT protect against application-level logical corruption in the sync/replication layer — a bug in normalization, merge heuristics, or sync mapping will write bad data to both sides. The sync layer is therefore the highest-risk component for data integrity and must be treated accordingly.
 
@@ -1777,7 +1777,7 @@ Replicas offline past the window become **stale** and must full-bootstrap instea
 |-----------|-------------|-------|
 | Multi-user shared access | 5 | ideal for shared visibility |
 | Audit/query power | 5 | excellent for joins, analytics, history |
-| Realtime | 4 | strong enough for web viewing portal updates |
+| Realtime | 4 | strong enough for viewing-portal updates |
 | Auth/RLS | 5 | mature and explicit |
 | Rust compatibility | 4 | Postgres/sqlx is straightforward |
 | **Average Score** | **4.6** | |
@@ -1785,7 +1785,7 @@ Replicas offline past the window become **stale** and must full-bootstrap instea
 **Role in authority matrix:** Supabase/Postgres serves two distinct roles:
 
 - **Remote shared authority:** Shared configuration (company profile, source configs) and shared human decisions (operator dispositions) originate here and are pulled to local.
-- **Remote projections:** Viewer-facing copies of pipeline facts, stage status, and summaries are pushed here from local. The web viewing portal reads these projections. Multiple operators can see data from each other's local pipelines.
+- **Remote projections:** Viewer-facing copies of pipeline facts, stage status, and summaries are pushed here from local. The viewing portal reads these projections. Multiple operators can see data from each other's local pipelines.
 
 #### Sync Protocol (Supabase-Specific)
 
@@ -1810,7 +1810,7 @@ A desktop client with:
 - ergonomic UI,
 - secure local agent execution,
 - background daemon/sidecar support,
-- optional shared UI with web viewing portal.
+- optional shared UI with the viewing portal.
 
 #### Option A: Tauri v2 + Next.js static export
 
@@ -2782,7 +2782,7 @@ Key subsystems:
 
 #### Component: Error Manifest System
 
-**Responsibility:** Track and flag pipeline failures with structured error-manifest records. For each failure, records: which workflow step failed, the error message, the pipeline stage, enough context to debug. Generates error manifest files (Markdown) and surfaces errors in the desktop control panel and web viewing portal. Error manifests include CLI vendor + version, adapter version, model id, config hash, skill version, pid/pgid, cleanup verdict, and last valid checkpoint sequence.
+**Responsibility:** Track and flag pipeline failures with structured error-manifest records. For each failure, records: which workflow step failed, the error message, the pipeline stage, enough context to debug. Generates error manifest files (Markdown) and surfaces errors in the desktop control panel and viewing portal. Error manifests include CLI vendor + version, adapter version, model id, config hash, skill version, pid/pgid, cleanup verdict, and last valid checkpoint sequence.
 
 #### Component: Agent Adapter Layer
 
@@ -4736,7 +4736,7 @@ This gives slice subscriptions instead of rerendering the whole page on every ch
 
 #### Data Flow: Web Viewing Portal (Read-Only)
 
-1. Viewer opens the web viewing portal.
+1. Viewer opens the viewing portal.
 2. Web gets an initial snapshot from **Supabase projection tables** (designed for portal use-cases, not raw sync tables — see §4.7 for the push-pull sync protocol that populates them), plus `workflow_job_summaries` and `error_manifest_summaries` for operator-safe status visibility.
 3. Web attaches **Supabase Broadcast private-channel subscriptions** for live invalidation hints (see Web Portal Subscription Architecture below).
 4. Every page displays **`viewer_sync_status`** so stale remote data is explicit.
@@ -5112,7 +5112,7 @@ The desktop control panel provides an error manifest view where operators can:
 - Drill into error details including session artifacts (forensic PTY capture or structured event log).
 - Mark errors as resolved.
 
-Supabase receives the error-manifest metadata plus redacted context so the web viewing portal can show error status without receiving full raw session transcripts.
+Supabase receives the error-manifest metadata plus redacted context so the viewing portal can show error status without receiving full raw session transcripts.
 
 #### Error Handling Example
 
@@ -5153,7 +5153,7 @@ function resolveConfidenceGate(score: number, floor = 0.6): ConfidenceGate {
 | Commercial usability of observed prices | High | pack/unit basis normalization; MOQ compatibility; VAT/shipping inclusion detection; price-signal role classification |
 | RFQ escalation strategy | Medium | identifying when indicative pricing is insufficient and executable quotes are needed |
 | Landed-cost engine | Very High | logistics + customs + FX + assumptions; expanded API surface; revenue normalization |
-| Operator surfaces | Medium | standard CRUD/search/detail flows; desktop control panel + web read-only viewing portal |
+| Operator surfaces | Medium | standard CRUD/search/detail flows; desktop control panel + read-only viewing portal |
 | Request pipeline automation | High | portal-specific skills, brittle websites, but low risk since not real money |
 | Daemon orchestration (PTY + SQLite + sync) | Very High | PTY session management, SQLite storage, Supabase sync engine, cron scheduling, agent health monitoring, full session-output capture |
 | Skill maintenance and reliability | Medium-High | updating SKILL.md when sources change is straightforward; the added complexity is three-layer validation (syntactic/semantic/behavioral-drift), page fingerprint maintenance, schema migrations with dual-accept windows, promotion flow gates, golden assertion curation, and auth-refresh skill coordination |
@@ -5220,7 +5220,7 @@ This ordering means the highest-complexity components (marketplace comparability
 
 **Authentication:**
 
-- Web viewing portal users authenticate through Supabase Auth or compatible OIDC (read-only access).
+- Viewing-portal users authenticate through Supabase Auth or compatible OIDC (read-only access).
 - Desktop operators authenticate locally; the daemon uses a device-scoped token for Supabase sync.
 - Local SQLite requires no authentication (protected by OS-level file permissions).
 - Agent CLIs use locally managed credentials, never browser-exposed secrets.
@@ -6005,7 +6005,7 @@ Since the platform automates request preparation (not real-money transactions), 
 
 **Context:**
 
-The desktop app and web app serve fundamentally different roles. The desktop is the control panel; the web is the viewing portal. They have fundamentally different data sources (local SQLite vs Supabase), different capabilities (write vs read-only), and different latency characteristics.
+The desktop control panel and viewing portal serve fundamentally different roles. They have fundamentally different data sources (local SQLite vs Supabase), different capabilities (write vs read-only), and different latency characteristics.
 
 **Decision:**
 
@@ -6033,7 +6033,7 @@ See §5.8 Shared React Component Architecture for the full specification.
 
 **Rationale:**
 
-The desktop app runs alongside the daemon and has direct access to local SQLite and agent controls. The web app is for remote viewing only — it reads from Supabase and provides no write operations. This clear split simplifies the web shell significantly. The shared component boundary is deliberately narrow: share views, not data access lies.
+The desktop control panel runs alongside the daemon and has direct access to local SQLite and agent controls. The viewing portal is for remote viewing only — it reads from Supabase and provides no write operations. This clear split simplifies the web shell significantly. The shared component boundary is deliberately narrow: share views, not data access lies.
 
 **Consequences:**
 
@@ -6165,7 +6165,7 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 | `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/contract-detail.tsx` | opportunity detail with reject/bid/rerun controls via DaemonBridge | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/agent-sessions.tsx` | agent session monitoring with live terminal output via Channel<T> streaming | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/error-manifest.tsx` | error manifest viewer with resolution controls | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/settings.tsx` | source configs, skill bindings, company profile, local runtime settings | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/settings.tsx` | source configs, skill bindings, and local runtime settings | custom |
 
 #### Web Shell (READ-ONLY VIEWING PORTAL)
 
@@ -6294,7 +6294,7 @@ Each production skill directory includes supporting files beyond `SKILL.md`: `re
 | Test File | Coverage |
 |-----------|----------|
 | `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/e2e/contracts.spec.ts` | desktop control panel browsing and decision flow |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/web/e2e/contracts.spec.ts` | web viewing portal read-only browsing |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/web/e2e/contracts.spec.ts` | viewing-portal read-only browsing |
 
 
 #### Skill Testing
@@ -6561,7 +6561,7 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
    - Recommendation: Include PCS skill in Phase A only if Scotland matters commercially on day one.
 
 2. ~~**Do you want one shared web/desktop shell or separate shells with shared packages?**~~
-   - **RESOLVED:** Separate shells with clearly different roles. Desktop = control panel (full read/write/trigger). Web = read-only viewing portal.
+   - **RESOLVED:** Separate shells with clearly different roles. Desktop = control panel (full read/write/trigger). Viewing portal = read-only.
 
 3. ~~**What level of autonomy is acceptable for bid workflows in MVP?**~~
    - **RESOLVED:** Full automation of the request pipeline is acceptable. This is not real-money bidding — actual negotiations and fulfillment are handled manually by humans. Error manifest system flags failures for debugging.
@@ -6780,7 +6780,7 @@ Collaboration infrastructure.
 - Transactional outbox push (local → remote)
 - Cursor-based pull (remote → local) with CAS for shared decisions
 - Projection tables for web consumption
-- Web viewing portal (read-only, reading from Supabase) with Broadcast invalidation and staleness rendering
+- Viewing portal (read-only, reading from Supabase) with Broadcast invalidation and staleness rendering
 - Multi-user decision visibility
 
 **Exit criteria:** Two users can view the same opportunity pipeline, one via desktop (read-write) and one via web (read-only).
@@ -6865,7 +6865,7 @@ This Document
 
 - [ ] Gold-set lot corpus curated (50-100 lots across whitelist categories, with human labels)
 - [ ] Scope geography confirmed (Scotland in/out of MVP)
-- [x] Desktop/web shell decision made — desktop = control panel, web = read-only viewing portal
+- [x] Desktop/web shell decision made — desktop = control panel, viewing portal = read-only
 - [ ] Initial procurement sources ranked by commercial importance
 - [ ] Bilingual lexicon seeded for top 30-50 product families
 - [x] Data retrieval strategy confirmed — skill-based agent scraping for procurement + supplier data
@@ -7220,6 +7220,7 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 | 2026-03-13 | codex holistic pass (iteration 001) | Completed the post-integration cross-plan unification pass. Resolved the remaining deferred cross-domain items by integrating the Output Quality Gate, automatic continuation re-enqueue, and source circuit breaker into the authoritative runtime flows; aligned ingestion and supplier-enrichment flows with durable commit units, suspect-output quarantine, degraded list-only outcomes, and blocked-empty-shell handling; brought §5.4 SQL into parity with the current TypeScript/data-flow model (search_attempts, listing_evidence, process_aliases, viewer_sync_status, pending_operator_intents, source_runtime_state, expanded search/profile/quote fields, `query_waves_json`, expanded pipeline states); updated authority mapping, RLS, migration/file-map descriptions, and prerequisites to match the integrated architecture; and corrected Quick Stats to the current 150 planned files. Sections modified: 1, 2.5, 3.3, 4.7, 4.10, 5.2, 5.4, 5.6, 5.7, 5.8, 6.3, 8.2, 9.4, 11, Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001, step 2) | Cross-plan improvement pass with fresh-eyes consistency cleanup. Added a top-level terminology note clarifying notice/process/opportunity, search-profile/query-wave, and match/supplier-quote distinctions; fixed stale milestone terminology (`Phase B`, `query pack`, fixed AI-pool sizing wording); added missing cross-references from supplier pricing to §5.4, skills to §5.11, testing to §4.10, component designs to §5.4, and delivery strategy to §§6.1–6.2; aligned the daemon API surface in §5.10 with the control-panel flows in §5.8 by adding session/error-manifest/health endpoints; clarified that terminal traces load on demand; and standardized remaining live “web portal” references to the primary “viewing portal” term outside historical changelog entries. Sections modified: 1, 4.3, 4.10, 5.2, 5.7, 5.8, 5.10, 6.5, 11, Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001, step 2 follow-up) | Final targeted consistency cleanup. Resolved the remaining settings/API mismatch by adding daemon API endpoints for skill bindings and local runtime settings and aligning the desktop settings page description; clarified the typical-vs-hard-cap supplier-search budget in pipeline cost management; and updated the deterministic margin unit-test example to use integer pence, matching the persisted-money invariant in §5.4. Sections modified: 5.8, 5.10, 6.5, 8.2, Appendix E. |
+| 2026-03-13 | codex holistic pass (iteration 001, step 2 residual) | Final terminology normalization pass. Replaced the remaining live authoritative uses of “web viewing portal” / “Web = read-only viewing portal” with the primary “viewing portal” term in executive summary, MVP constraint, realtime guidance, user-input resolutions, the viewing-portal flow, and the browser E2E file description. Sections modified: 1, 4.7, 4.8, 5.8, 8.3, 10, Appendix E. |
 
 ---
 
