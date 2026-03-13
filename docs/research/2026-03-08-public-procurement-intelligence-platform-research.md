@@ -67,7 +67,7 @@ Build a greenfield monorepo around skill-based agent scraping for data retrieval
 |--------|-------|
 | Project Type | Greenfield |
 | Existing App Files | 0 meaningful application files |
-| New Files | 150 planned files (118 implementation + 32 tests) |
+| New Files | 155 planned files (123 implementation + 32 tests) |
 | Modified Files | 0 required beyond bootstrap |
 | New Dependencies | ~20-35 across Rust + TS |
 | Estimated Effort | XL |
@@ -4981,6 +4981,8 @@ The surface is intentionally page-oriented and task-oriented: contracts, jobs, s
 | `/api/company-profile` | GET/PUT | Manage bidder company profile | admin (desktop only) |
 | `/api/sources` | GET/PUT | Manage source configs | admin (desktop only) |
 
+`/api/company-profile` is part of the target-state daemon API because request-pipeline automation needs it, but the underlying company-profile contract is only required once the bidding package enters the plan in Milestone 6. Earlier milestones can omit this surface without weakening the core intelligence-validation path.
+
 #### Stream Surfaces (Desktop Only)
 
 These are subscription-based endpoints consumed via the DaemonBridge → `Channel<T>` path. The viewing portal does not use these — it uses Supabase Broadcast invalidation (see §5.8 Web Portal Subscription Architecture):
@@ -7259,6 +7261,7 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 | 2026-03-13 | codex holistic pass (iteration 001, step 3) | Architectural-coherence pass. Marked `apps/api` as future-only so the project shape no longer over-promises a broker surface absent from the milestone/file map; clarified that §5.2 is target-state architecture and that the daemon API is intentionally page-oriented/task-oriented rather than generic; and aligned §8.4 milestone assignments with §11 by moving artifacts/error-manifest/skill-lint/smoke-canary work into Milestone 1 and auth-refresh/source-health/golden-journey/shadow/drift assets into Milestone 3. Sections modified: 3.4, 5.2, 5.10, 8.4, Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001, step 3 residual) | Final architecture-shape cleanup. Demoted `crates/common` and `packages/config` from implied MVP structure to later extraction points so the repo shape no longer carries “just in case” packages; clarified that `Skill-Based Ingestion Runner` can remain a module under the Job Runner until complexity justifies extraction; normalized the system-context and flow heading to the primary “viewing portal” term; and added the missing `packages/ui` file entries plus Milestone 2 assignments so the shared-UI boundary described in ADR-008 and §5.8 is reflected in the file map and delivery plan. Sections modified: 3.4, 5.1, 5.2, 5.8, 8.2, 8.4, Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001, step 3 final) | Final boundary-clarity cleanup. Added an explicit dependency rule that `packages/contracts-schema` and `packages/ui` must not import `packages/db`, daemon modules, bridge code, or Supabase clients; and clarified that `ProcessStageStatus.stage` is intentionally coarser than `PipelineAssessment.pipelineState` so orchestration stages and business progression cannot be mistaken for competing models. Sections modified: 3.4, 5.4, Appendix E. |
+| 2026-03-13 | codex holistic pass (iteration 001, step 3 sync note) | Sync cleanup after the architecture passes. Updated Quick Stats to the current 155 planned files after the shared-UI additions, and clarified in §5.10 that `/api/company-profile` is a target-state endpoint tied to the Milestone 6 bidding package rather than an early-MVP requirement. Sections modified: 1, 5.10, Appendix E. |
 
 ---
 
