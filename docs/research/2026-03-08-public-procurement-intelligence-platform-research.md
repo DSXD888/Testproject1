@@ -331,7 +331,7 @@ Testproject1/
 ├── crates/
 │   ├── daemon/                  # Rust daemon: PTY agent orchestration, SQLite storage,
 │   │                            #   cron scheduling, Supabase sync, log capture
-│   └── common/                  # Rust shared process/runtime utilities if needed
+│   └── common/                  # optional later extraction for shared runtime code
 ├── packages/
 │   ├── contracts-schema/        # shared TS domain types / zod schemas
 │   ├── db/                      # SQL migrations (Supabase), typed queries, generated types
@@ -339,7 +339,7 @@ Testproject1/
 │   ├── manifests/               # Markdown manifest generation
 │   ├── bidding/                 # bid workflow orchestration definitions
 │   ├── ui/                      # shared React components
-│   └── config/                  # source configs, env parsing, feature flags
+│   └── config/                  # optional later extraction for shared config helpers
 ├── skills/
 │   ├── procurement-ingestion/   # agent scraping skills for procurement sources
 │   │   ├── fts/                 # Find a Tender scraping skill
@@ -363,7 +363,7 @@ Testproject1/
     └── ci/
 ```
 
-`apps/api` is a future-only escape hatch for a hosted broker surface and is intentionally absent from the MVP file map and milestone plan. The core shared packages (`packages/contracts-schema`, `packages/ui`) are boundary packages and should remain free of daemon-specific or Supabase-specific implementation details.
+`apps/api` is a future-only escape hatch for a hosted broker surface and is intentionally absent from the MVP file map and milestone plan. `crates/common` and `packages/config` are also intentional later extractions, not MVP commitments; keep shared code in place until repetition justifies the split. The core shared packages (`packages/contracts-schema`, `packages/ui`) are boundary packages and should remain free of daemon-specific or Supabase-specific implementation details.
 
 The primary implementation path in this document assumes **skill-based agent scraping for data retrieval** (procurement notices and supplier pricing), **API-based integration for cost estimation** (customs, freight, FX), and a **Rust daemon for PTY-based agent orchestration with local SQLite storage and Supabase sync**. The `packages/connectors/` directory from the original design is replaced by the skills system — each data source has a corresponding skill that the agent uses to scrape it via browser automation.
 
@@ -2596,7 +2596,7 @@ The core recommended architecture is license-compatible for cost-estimation APIs
 │               │                           │                                      │
 │               ▼                           ▼                                      │
 │   ┌───────────────────────┐   ┌────────────────────────────────┐                │
-│   │ Desktop (Tauri)       │   │ Web Viewing Portal             │                │
+│   │ Desktop (Tauri)       │   │ Viewing Portal                 │                │
 │   │ CONTROL PANEL         │   │ READ-ONLY                      │                │
 │   │ - trigger workflows   │   │ - browse opportunities         │                │
 │   │ - manage agents       │   │ - view manifests               │                │
@@ -2657,7 +2657,7 @@ export interface SourceDefinition {
 
 #### Component: Skill-Based Ingestion Runner
 
-**Responsibility:** Domain-specific execution logic for procurement-ingestion jobs running under the Job Runner. It selects the procurement skill, invokes the Agent Adapter in the correct mode (PTY or contract per skill), normalizes the retrieved notice data, and writes immutable session artifacts to the artifact store. It is intentionally a job-type handler, not a second scheduler or runtime subsystem.
+**Responsibility:** Domain-specific execution logic for procurement-ingestion jobs running under the Job Runner. It selects the procurement skill, invokes the Agent Adapter in the correct mode (PTY or contract per skill), normalizes the retrieved notice data, and writes immutable session artifacts to the artifact store. It is intentionally a job-type handler, not a second scheduler or runtime subsystem, and can remain a module under `jobs/runner.rs` until procurement-specific complexity justifies a separate handler.
 
 #### Component: Log/Trace Capture Engine
 
@@ -4737,7 +4737,7 @@ type SessionFrame =
 
 This gives slice subscriptions instead of rerendering the whole page on every chunk.
 
-#### Data Flow: Web Viewing Portal (Read-Only)
+#### Data Flow: Viewing Portal (Read-Only)
 
 1. Viewer opens the viewing portal.
 2. Web gets an initial snapshot from **Supabase projection tables** (designed for portal use-cases, not raw sync tables — see §4.7 for the push-pull sync protocol that populates them), plus `workflow_job_summaries` and `error_manifest_summaries` for operator-safe status visibility.
@@ -6094,6 +6094,16 @@ The desktop control panel runs alongside the daemon and has direct access to loc
 | `/Users/alinaaitova/Desktop/Testproject1/packages/contracts-schema/src/confidence.ts` | confidence models | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/contracts-schema/src/zod.ts` | runtime validation | custom |
 
+#### Shared UI
+
+| File | Purpose | Template |
+|------|---------|----------|
+| `/Users/alinaaitova/Desktop/Testproject1/packages/ui/src/index.ts` | shared presentational exports for desktop + viewing portal | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/ui/src/contracts/contract-card-frame.tsx` | frame + slot base component for contract/opportunity cards | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/ui/src/manifest/manifest-viewer.tsx` | shared manifest presentation component | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/ui/src/status/pipeline-badge.tsx` | shared pipeline-state badge component | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/ui/src/status/sync-age-badge.tsx` | shared sync-freshness badge component | custom |
+
 #### Cost-Estimation Intelligence Engine (API-Based)
 
 | File | Purpose | Template |
@@ -6379,6 +6389,13 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 - `skills/procurement-ingestion/fts/SKILL.md`
 - `skills/procurement-ingestion/contracts-finder/SKILL.md`
 - `skills/manifest-generation/SKILL.md`
+
+**Shared UI (5):**
+- `packages/ui/src/index.ts`
+- `packages/ui/src/contracts/contract-card-frame.tsx`
+- `packages/ui/src/manifest/manifest-viewer.tsx`
+- `packages/ui/src/status/pipeline-badge.tsx`
+- `packages/ui/src/status/sync-age-badge.tsx`
 
 **Desktop Shell (all 14):**
 - All files in §8.2 "Desktop Shell" table
@@ -7238,6 +7255,7 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 | 2026-03-13 | codex holistic pass (iteration 001, step 2 follow-up) | Final targeted consistency cleanup. Resolved the remaining settings/API mismatch by adding daemon API endpoints for skill bindings and local runtime settings and aligning the desktop settings page description; clarified the typical-vs-hard-cap supplier-search budget in pipeline cost management; and updated the deterministic margin unit-test example to use integer pence, matching the persisted-money invariant in §5.4. Sections modified: 5.8, 5.10, 6.5, 8.2, Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001, step 2 residual) | Final terminology normalization pass. Replaced the remaining live authoritative uses of “web viewing portal” / “Web = read-only viewing portal” with the primary “viewing portal” term in executive summary, MVP constraint, realtime guidance, user-input resolutions, the viewing-portal flow, and the browser E2E file description. Sections modified: 1, 4.7, 4.8, 5.8, 8.3, 10, Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001, step 3) | Architectural-coherence pass. Marked `apps/api` as future-only so the project shape no longer over-promises a broker surface absent from the milestone/file map; clarified that §5.2 is target-state architecture and that the daemon API is intentionally page-oriented/task-oriented rather than generic; and aligned §8.4 milestone assignments with §11 by moving artifacts/error-manifest/skill-lint/smoke-canary work into Milestone 1 and auth-refresh/source-health/golden-journey/shadow/drift assets into Milestone 3. Sections modified: 3.4, 5.2, 5.10, 8.4, Appendix E. |
+| 2026-03-13 | codex holistic pass (iteration 001, step 3 residual) | Final architecture-shape cleanup. Demoted `crates/common` and `packages/config` from implied MVP structure to later extraction points so the repo shape no longer carries “just in case” packages; clarified that `Skill-Based Ingestion Runner` can remain a module under the Job Runner until complexity justifies extraction; normalized the system-context and flow heading to the primary “viewing portal” term; and added the missing `packages/ui` file entries plus Milestone 2 assignments so the shared-UI boundary described in ADR-008 and §5.8 is reflected in the file map and delivery plan. Sections modified: 3.4, 5.1, 5.2, 5.8, 8.2, 8.4, Appendix E. |
 
 ---
 
