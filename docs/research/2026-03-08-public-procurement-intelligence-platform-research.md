@@ -4489,7 +4489,7 @@ If 80% of scores land in the 0.50–0.70 middle band, the confidence weights are
 Naive design: 1,200+ sessions/day at $0.18-$0.41 = $75-$170/day. Required optimizations:
 
 1. **Batch by source:** One ingestion session per source per run. One supplier session per source per notice (searching multiple candidates).
-2. **Search selectively:** Top 2-3 candidates per notice by quoteability/spend share. Skip 1688 unless commodity-type.
+2. **Search selectively:** In typical MVP runs, search the top 2-3 candidates per notice by quoteability/spend share. The default operating hard cap is 8 auto-searched candidates per notice. Skip 1688 unless commodity-type.
 3. **Deterministic first:** Hard-conflict filters and shortlisting are deterministic. AI adjudication budget scales with `recallRiskScore` (0–2 for low risk, up to 5–8 for high risk), not a fixed top-3 for all categories.
 4. **Two-tier cache:** Separate search-result cache from listing-evidence cache for maximum reuse (see below).
 5. **Model tiering:** Mini/Haiku for classification/extraction. Premium models only for ambiguous adjudication.
@@ -4673,7 +4673,7 @@ type BridgeEvent =
    - start bid workflow (→ DaemonBridge → daemon creates portal skill session).
 6. Operator can also:
    - trigger manual source syncs,
-   - manage agent configurations and skills,
+   - manage source configs, skill bindings, and local runtime settings,
    - view comprehensive agent tracing logs,
    - view and resolve error manifests.
 7. All lists use stable **keyset/cursor pagination**, not offset pagination. Offset pagination causes rows to jump and duplicate when live updates modify the underlying data.
@@ -4970,6 +4970,8 @@ In this document, **daemon API** refers to these logical resources independent o
 | `/api/error-manifests/:id` | GET | Error-manifest detail | user/admin |
 | `/api/error-manifests/:id/resolve` | POST | Mark an error manifest resolved | user/admin (desktop only) |
 | `/api/daemon/health` | GET | Daemon health, sync health, runtime mode | user/admin |
+| `/api/skills` | GET/PUT | Inspect available skill versions and manage source skill bindings | admin (desktop only) |
+| `/api/runtime-settings` | GET/PUT | Manage local runtime settings (CLI paths, concurrency caps, local overrides) | admin (desktop only) |
 | `/api/company-profile` | GET/PUT | Manage bidder company profile | admin (desktop only) |
 | `/api/sources` | GET/PUT | Manage source configs | admin (desktop only) |
 
@@ -5423,12 +5425,12 @@ Unit tests are reserved for purely deterministic logic that does not depend on e
 describe("net margin gating", () => {
   it("qualifies only when net margin is at least 20%", () => {
     const estimate = {
-      revenueGbpExVat: 1000,
-      economicLandedCostGbp: 780,
+      revenueGbpExVatPence: 100_000,
+      economicLandedCostGbpPence: 78_000,
     };
 
     const netMargin =
-      (estimate.revenueGbpExVat - estimate.economicLandedCostGbp) / estimate.revenueGbpExVat;
+      (estimate.revenueGbpExVatPence - estimate.economicLandedCostGbpPence) / estimate.revenueGbpExVatPence;
     expect(netMargin).toBeGreaterThanOrEqual(0.2);
   });
 });
@@ -6163,7 +6165,7 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 | `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/contract-detail.tsx` | opportunity detail with reject/bid/rerun controls via DaemonBridge | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/agent-sessions.tsx` | agent session monitoring with live terminal output via Channel<T> streaming | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/error-manifest.tsx` | error manifest viewer with resolution controls | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/settings.tsx` | source configs, skill management, agent settings | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/settings.tsx` | source configs, skill bindings, company profile, local runtime settings | custom |
 
 #### Web Shell (READ-ONLY VIEWING PORTAL)
 
@@ -7217,6 +7219,7 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 | 2026-03-13 | planmaxer pre-prep (MVP delivery strategy) | Integrated expert review on delivery strategy and vertical slicing. Core change: replaced infrastructure-first milestone ordering with validation-first ordering (intelligence thesis → thin runner → desktop MVP → hardening → shared visibility → expanded intelligence → bid automation). Major changes: (1) Validation-first delivery philosophy. (2) MVE definition (~25-35 files, gold-set validation before infrastructure). (3) 4 sequenced experiments with quantitative pass criteria. (4) Category whitelist + no-list. (5) MVP-Alpha definition. (6) 7 milestones (0-6) replacing 6 (1-6). (7) Stack sequencing (Skills → TS → Rust → Desktop → Web). (8) 4-lane testing approach. (9) Validation techniques (gold set, shadow mode, decision ledger, feature flags). (10) §8.4 milestone assignment map. (11) Evaluation harness files in §8.2. (12) 3 new delivery risks in §6.2. (13) §6.1 MVE-critical tier updated. (14) Exit criteria for every milestone. Sections modified: 1, 6.1, 6.2, 8.2, 8.4 (new), 11 (full restructure), Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001) | Completed the post-integration cross-plan unification pass. Resolved the remaining deferred cross-domain items by integrating the Output Quality Gate, automatic continuation re-enqueue, and source circuit breaker into the authoritative runtime flows; aligned ingestion and supplier-enrichment flows with durable commit units, suspect-output quarantine, degraded list-only outcomes, and blocked-empty-shell handling; brought §5.4 SQL into parity with the current TypeScript/data-flow model (search_attempts, listing_evidence, process_aliases, viewer_sync_status, pending_operator_intents, source_runtime_state, expanded search/profile/quote fields, `query_waves_json`, expanded pipeline states); updated authority mapping, RLS, migration/file-map descriptions, and prerequisites to match the integrated architecture; and corrected Quick Stats to the current 150 planned files. Sections modified: 1, 2.5, 3.3, 4.7, 4.10, 5.2, 5.4, 5.6, 5.7, 5.8, 6.3, 8.2, 9.4, 11, Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001, step 2) | Cross-plan improvement pass with fresh-eyes consistency cleanup. Added a top-level terminology note clarifying notice/process/opportunity, search-profile/query-wave, and match/supplier-quote distinctions; fixed stale milestone terminology (`Phase B`, `query pack`, fixed AI-pool sizing wording); added missing cross-references from supplier pricing to §5.4, skills to §5.11, testing to §4.10, component designs to §5.4, and delivery strategy to §§6.1–6.2; aligned the daemon API surface in §5.10 with the control-panel flows in §5.8 by adding session/error-manifest/health endpoints; clarified that terminal traces load on demand; and standardized remaining live “web portal” references to the primary “viewing portal” term outside historical changelog entries. Sections modified: 1, 4.3, 4.10, 5.2, 5.7, 5.8, 5.10, 6.5, 11, Appendix E. |
+| 2026-03-13 | codex holistic pass (iteration 001, step 2 follow-up) | Final targeted consistency cleanup. Resolved the remaining settings/API mismatch by adding daemon API endpoints for skill bindings and local runtime settings and aligning the desktop settings page description; clarified the typical-vs-hard-cap supplier-search budget in pipeline cost management; and updated the deterministic margin unit-test example to use integer pence, matching the persisted-money invariant in §5.4. Sections modified: 5.8, 5.10, 6.5, 8.2, Appendix E. |
 
 ---
 
