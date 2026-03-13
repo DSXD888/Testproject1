@@ -363,7 +363,7 @@ Testproject1/
     └── ci/
 ```
 
-`apps/api` is a future-only escape hatch for a hosted broker surface and is intentionally absent from the MVP file map and milestone plan. `crates/common` and `packages/config` are also intentional later extractions, not MVP commitments; keep shared code in place until repetition justifies the split. The core shared packages (`packages/contracts-schema`, `packages/ui`) are boundary packages and should remain free of daemon-specific or Supabase-specific implementation details.
+`apps/api` is a future-only escape hatch for a hosted broker surface and is intentionally absent from the MVP file map and milestone plan. `crates/common` and `packages/config` are also intentional later extractions, not MVP commitments; keep shared code in place until repetition justifies the split. The core shared packages (`packages/contracts-schema`, `packages/ui`) are boundary packages and should remain free of daemon-specific or Supabase-specific implementation details. Concretely: they must not import `packages/db`, desktop bridge code, daemon modules, or Supabase clients.
 
 The primary implementation path in this document assumes **skill-based agent scraping for data retrieval** (procurement notices and supplier pricing), **API-based integration for cost estimation** (customs, freight, FX), and a **Rust daemon for PTY-based agent orchestration with local SQLite storage and Supabase sync**. The `packages/connectors/` directory from the original design is replaced by the skills system — each data source has a corresponding skill that the agent uses to scrape it via browser automation.
 
@@ -3410,6 +3410,8 @@ export interface ProcessStageStatus {
   errorManifestId?: string;
 }
 ```
+
+`ProcessStageStatus.stage` is intentionally **coarser** than `PipelineAssessment.pipelineState`: several business states can occur inside one execution stage. For example, `docs_acquired`, `lots_extracted`, `products_extracted`, and `quoteability_scored` all roll up under the broader execution flow rather than forcing one orchestration stage row per business-state hop.
 
 ```ts
 export interface ViewerSyncStatus {
@@ -7256,6 +7258,7 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 | 2026-03-13 | codex holistic pass (iteration 001, step 2 residual) | Final terminology normalization pass. Replaced the remaining live authoritative uses of “web viewing portal” / “Web = read-only viewing portal” with the primary “viewing portal” term in executive summary, MVP constraint, realtime guidance, user-input resolutions, the viewing-portal flow, and the browser E2E file description. Sections modified: 1, 4.7, 4.8, 5.8, 8.3, 10, Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001, step 3) | Architectural-coherence pass. Marked `apps/api` as future-only so the project shape no longer over-promises a broker surface absent from the milestone/file map; clarified that §5.2 is target-state architecture and that the daemon API is intentionally page-oriented/task-oriented rather than generic; and aligned §8.4 milestone assignments with §11 by moving artifacts/error-manifest/skill-lint/smoke-canary work into Milestone 1 and auth-refresh/source-health/golden-journey/shadow/drift assets into Milestone 3. Sections modified: 3.4, 5.2, 5.10, 8.4, Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001, step 3 residual) | Final architecture-shape cleanup. Demoted `crates/common` and `packages/config` from implied MVP structure to later extraction points so the repo shape no longer carries “just in case” packages; clarified that `Skill-Based Ingestion Runner` can remain a module under the Job Runner until complexity justifies extraction; normalized the system-context and flow heading to the primary “viewing portal” term; and added the missing `packages/ui` file entries plus Milestone 2 assignments so the shared-UI boundary described in ADR-008 and §5.8 is reflected in the file map and delivery plan. Sections modified: 3.4, 5.1, 5.2, 5.8, 8.2, 8.4, Appendix E. |
+| 2026-03-13 | codex holistic pass (iteration 001, step 3 final) | Final boundary-clarity cleanup. Added an explicit dependency rule that `packages/contracts-schema` and `packages/ui` must not import `packages/db`, daemon modules, bridge code, or Supabase clients; and clarified that `ProcessStageStatus.stage` is intentionally coarser than `PipelineAssessment.pipelineState` so orchestration stages and business progression cannot be mistaken for competing models. Sections modified: 3.4, 5.4, Appendix E. |
 
 ---
 
