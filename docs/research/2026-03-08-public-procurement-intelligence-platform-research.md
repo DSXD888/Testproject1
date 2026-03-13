@@ -363,6 +363,8 @@ Testproject1/
     └── ci/
 ```
 
+`apps/api` is a future-only escape hatch for a hosted broker surface and is intentionally absent from the MVP file map and milestone plan. The core shared packages (`packages/contracts-schema`, `packages/ui`) are boundary packages and should remain free of daemon-specific or Supabase-specific implementation details.
+
 The primary implementation path in this document assumes **skill-based agent scraping for data retrieval** (procurement notices and supplier pricing), **API-based integration for cost estimation** (customs, freight, FX), and a **Rust daemon for PTY-based agent orchestration with local SQLite storage and Supabase sync**. The `packages/connectors/` directory from the original design is replaced by the skills system — each data source has a corresponding skill that the agent uses to scrape it via browser automation.
 
 Only procurement/supplier retrieval and workflow playbooks live under `skills/`. The landed-cost engine itself remains in `packages/intelligence` because cost estimation is API-based and deterministic at its core, not an agent-scraping workflow.
@@ -2615,6 +2617,7 @@ The core recommended architecture is license-compatible for cost-estimation APIs
 ### 5.2 High-Level Component Design
 
 Unless noted otherwise, the component inputs and outputs named below correspond directly to the §5.4 entities with the same names.
+This section describes the target-state architecture. Early milestones intentionally implement subsets of these components per §11 and the file assignments in §8.4.
 
 #### Component: Source Registry
 
@@ -4949,6 +4952,7 @@ The daemon exposes logical API resources through multiple transport adapters:
 
 The `/api/*` endpoint definitions below describe **logical resources** shared across all transports. The desktop app accesses them through Tauri commands and the DaemonBridge; the optional HTTP adapter exposes the same resources for dev tooling.
 In this document, **daemon API** refers to these logical resources independent of transport. The optional localhost HTTP surface is only a development adapter over the same daemon API.
+The surface is intentionally page-oriented and task-oriented: contracts, jobs, sessions, errors, settings, and health. It deliberately excludes generic SQL access, raw artifact-blob reads in hot paths, and arbitrary skill-execution RPCs.
 
 #### Logical Endpoints
 
@@ -6348,20 +6352,26 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 **Workspace:**
 - `Cargo.toml` (workspace root)
 
-**Rust Daemon (core subset — 12):**
+**Database (1):**
+- `crates/daemon/migrations/0003_sqlite_artifacts.sql`
+
+**Rust Daemon (core subset — 14):**
 - `crates/daemon/Cargo.toml`, `src/main.rs`
 - `src/db/sqlite.rs`
 - `src/pty/session.rs`, `src/pty/capture.rs`, `src/pty/health.rs`
 - `src/jobs/runner.rs`
 - `src/agents/adapter.rs`, `src/agents/codex.rs`, `src/agents/claude.rs`
 - `src/agents/artifacts.rs`, `src/agents/contracts.rs`
+- `src/errors/manifest.rs`, `src/errors/markdown.rs`
 
-**Tests (5):**
+**Tests (7):**
 - `crates/daemon/tests/agent_pty_session.rs`
 - `crates/daemon/tests/agent_contract_session.rs`
 - `crates/daemon/tests/adapter_codex.rs`
 - `crates/daemon/tests/adapter_claude.rs`
 - `crates/daemon/tests/adapter_result_contract.rs`
+- `crates/daemon/tests/skill_lint.rs`
+- `crates/daemon/tests/skill_canary_harness.rs`
 
 #### Milestone 2: Single-Operator Desktop MVP — ~25 files
 
@@ -6369,9 +6379,6 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 - `skills/procurement-ingestion/fts/SKILL.md`
 - `skills/procurement-ingestion/contracts-finder/SKILL.md`
 - `skills/manifest-generation/SKILL.md`
-
-**Rust Daemon (additions — 2):**
-- `src/errors/manifest.rs`, `src/errors/markdown.rs`
 
 **Desktop Shell (all 14):**
 - All files in §8.2 "Desktop Shell" table
@@ -6388,6 +6395,12 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 
 #### Milestone 3: Operational Hardening — ~15 files
 
+**Skills (4):**
+- `skills/auth-refresh/alibaba/SKILL.md`
+- `skills/auth-refresh/1688/SKILL.md`
+- `skills/source-health/fts/SKILL.md`
+- `skills/source-health/alibaba/SKILL.md`
+
 **Rust Daemon (additions — 9):**
 - `src/scheduler/cron.rs`
 - `src/sources/registry.rs`
@@ -6403,7 +6416,7 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 **Manifests (addition — 2):**
 - `manifests/src/render-error-manifest.ts`, `manifests/src/templates/error.md.ts`
 
-**Tests (9):**
+**Tests (12):**
 - `crates/daemon/tests/fault_process_cleanup.rs`
 - `crates/daemon/tests/fault_pty_edge_cases.rs`
 - `crates/daemon/tests/fault_host_events.rs`
@@ -6413,11 +6426,14 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 - `crates/daemon/tests/cron_scheduler.rs`
 - `crates/daemon/tests/job_claim.rs`
 - `intelligence/src/relations/resolve-process-relations.test.ts`
+- `crates/daemon/tests/skill_golden_journeys.rs`
+- `crates/daemon/tests/skill_shadow_compare.rs`
+- `crates/daemon/tests/skill_drift_monitor.rs`
 
 #### Milestone 4: Shared Visibility — ~15 files
 
-**Database (9):**
-- `crates/daemon/migrations/0002_sqlite_state_sync.sql`, `0003_sqlite_artifacts.sql`
+**Database (8):**
+- `crates/daemon/migrations/0002_sqlite_state_sync.sql`
 - `packages/db/migrations/0001_initial.sql`, `0002_rls.sql`, `0003_sync_apply.sql`, `0004_schema_metadata.sql`, `0005_stage_tracking.sql`, `0006_junction_tables.sql`
 - `infra/supabase/config.toml`
 
@@ -7221,6 +7237,7 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 | 2026-03-13 | codex holistic pass (iteration 001, step 2) | Cross-plan improvement pass with fresh-eyes consistency cleanup. Added a top-level terminology note clarifying notice/process/opportunity, search-profile/query-wave, and match/supplier-quote distinctions; fixed stale milestone terminology (`Phase B`, `query pack`, fixed AI-pool sizing wording); added missing cross-references from supplier pricing to §5.4, skills to §5.11, testing to §4.10, component designs to §5.4, and delivery strategy to §§6.1–6.2; aligned the daemon API surface in §5.10 with the control-panel flows in §5.8 by adding session/error-manifest/health endpoints; clarified that terminal traces load on demand; and standardized remaining live “web portal” references to the primary “viewing portal” term outside historical changelog entries. Sections modified: 1, 4.3, 4.10, 5.2, 5.7, 5.8, 5.10, 6.5, 11, Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001, step 2 follow-up) | Final targeted consistency cleanup. Resolved the remaining settings/API mismatch by adding daemon API endpoints for skill bindings and local runtime settings and aligning the desktop settings page description; clarified the typical-vs-hard-cap supplier-search budget in pipeline cost management; and updated the deterministic margin unit-test example to use integer pence, matching the persisted-money invariant in §5.4. Sections modified: 5.8, 5.10, 6.5, 8.2, Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001, step 2 residual) | Final terminology normalization pass. Replaced the remaining live authoritative uses of “web viewing portal” / “Web = read-only viewing portal” with the primary “viewing portal” term in executive summary, MVP constraint, realtime guidance, user-input resolutions, the viewing-portal flow, and the browser E2E file description. Sections modified: 1, 4.7, 4.8, 5.8, 8.3, 10, Appendix E. |
+| 2026-03-13 | codex holistic pass (iteration 001, step 3) | Architectural-coherence pass. Marked `apps/api` as future-only so the project shape no longer over-promises a broker surface absent from the milestone/file map; clarified that §5.2 is target-state architecture and that the daemon API is intentionally page-oriented/task-oriented rather than generic; and aligned §8.4 milestone assignments with §11 by moving artifacts/error-manifest/skill-lint/smoke-canary work into Milestone 1 and auth-refresh/source-health/golden-journey/shadow/drift assets into Milestone 3. Sections modified: 3.4, 5.2, 5.10, 8.4, Appendix E. |
 
 ---
 
