@@ -30,6 +30,8 @@
 
 The product is a procurement intelligence platform for UK public-sector contracts. It should ingest official contract notice data every day, normalize and store it, qualify it for relevance to physical-goods supply opportunities, enrich qualified notices with supplier pricing plus landed-cost estimates, surface high-margin opportunities in the desktop control panel and web viewing portal, and optionally launch request pipeline automation workflows using agent skills and browser automation (the platform automates preparation and submission steps; it does not place real-money bids without human approval).
 
+**Terminology note:** Throughout this document, a **contract notice** is the source publication, a **procurement process** is the canonical internal record assembled from one or more notices, and an **opportunity** is the operator-facing label for that procurement process. A **search profile** is the persisted structured search definition; **query waves** are the concrete search attempts generated from it. A **match** is a candidate-listing identity judgment; a **supplier quote** is the normalized commercial record persisted only after a listing survives screening and pricing checks.
+
 This is not one system. It is four tightly connected systems:
 
 1. Procurement ingestion.
@@ -581,7 +583,7 @@ Use as a primary ingestion target for a dedicated agent skill alongside Find a T
 
 **Recommendation:** **RECOMMENDED FOR FULL-UK SCOPE**
 
-Add in MVP only if Scotland is in initial scope. Otherwise make it Phase B.
+Include in the early ingestion wave only if Scotland is in initial scope. Otherwise defer it to a later commercial-intelligence milestone.
 
 #### Option D: HTML scraping of notice portals
 
@@ -873,6 +875,8 @@ Do not flatten these into one “price” field. Every quote needs:
 - used/refurbished flag,
 - confidence (split: see below),
 - validity window.
+
+The persisted shapes for this layer are defined in §5.4 under `SearchProfile`, `SearchAttempt`, `ListingEvidence`, and `SupplierQuote`.
 
 **Price-signal role classification:** Marketplace listings serve different roles depending on source:
 
@@ -1788,8 +1792,8 @@ Replicas offline past the window become **stale** and must full-bootstrap instea
 The sync engine implements authority-based replication as described in section 4.7 above. Supabase-specific considerations:
 
 - Push batches are applied through a single transactional RPC / stored procedure (not a spray of individual upserts from the daemon client).
-- For web portal live updates, prefer small projection-change or status broadcast events over raw Postgres Changes subscriptions on every hot table. Supabase Broadcast is the recommended path for scalability; Postgres Changes is simpler but less scalable.
-- Do not have the web portal query all raw sync tables directly — provide dedicated projection tables keyed to portal use-cases.
+- For viewing-portal live updates, prefer small projection-change or status broadcast events over raw Postgres Changes subscriptions on every hot table. Supabase Broadcast is the recommended path for scalability; Postgres Changes is simpler but less scalable.
+- Do not have the viewing portal query all raw sync tables directly — provide dedicated projection tables keyed to portal use-cases.
 
 #### Database Recommendation
 
@@ -2079,7 +2083,7 @@ Auth-refresh skills do one thing: establish or refresh authenticated state and p
 
 - Skills define **what data to extract** and **how to navigate** the source.
 - Skills include **validation rules** so the agent can verify it extracted correct data — at three levels: syntactic (schema match), semantic (business invariants), and behavioral/drift (statistical envelope checks).
-- Skills include **error handling instructions** so the agent can report failures clearly, using the standard outcome classes.
+- Skills include **error handling instructions** so the agent can report failures clearly, using the standard outcome classes and error taxonomy in §5.11.
 - Skills are **source-specific** — one skill per source, not generic "scrape anything" skills.
 - Skills output a validated result contract (JSON payload, artifact file, or NDJSON checkpoint stream) that the daemon validates against a declared schema — workflow state is never driven by transcript scraping.
 - **Scheduled jobs bind explicit skill id and version.** Implicit skill discovery is disabled for production cron runs. Discovery may be used for ad hoc operator-triggered sessions.
@@ -2458,7 +2462,7 @@ Every browser skill declares explicit cost budgets:
 
 - Stop supplier search after 3 strong comparable hits with high `matchConfidence`, not after exhausting 30 weak candidates.
 - Only visit detail pages for shortlisted result cards — list-page data is often sufficient for screening-grade quotes.
-- Try the exact query pack first, then one broader fallback, then stop.
+- Try the exact query wave sequence first, then one broader fallback, then stop.
 - If shipping information is hidden behind login or interaction, record a screening-grade quote and move on.
 - Segment long jobs with `continuation_required` rather than letting sessions bloat past their time budget.
 - For procurement ingestion, batch by source: one session per source per run, not one session per notice.
@@ -2551,7 +2555,7 @@ The core recommended architecture is license-compatible for cost-estimation APIs
 │   Procurement Sources (scraped via agent skills)                                 │
 │   ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐        │
 │   │ Find a Tender      │  │ Contracts Finder   │  │ Public Contracts   │        │
-│   │ (web portal/API)   │  │ (web portal/API)   │  │ Scotland           │        │
+│   │ (viewing portal/API)│  │ (viewing portal/API)│ │ Scotland           │        │
 │   └─────────┬──────────┘  └─────────┬──────────┘  └─────────┬──────────┘        │
 │             └──────────────┬────────┴──────────────┬────────┘                    │
 │                            ▼                       ▼                             │
@@ -2585,7 +2589,7 @@ The core recommended architecture is license-compatible for cost-estimation APIs
 │   │ Supabase / PostgreSQL (Shared Sync Target)                  │                │
 │   │ - multi-user visibility                                     │                │
 │   │ - shared configuration                                      │                │
-│   │ - web portal data source                                    │                │
+│   │ - viewing portal data source                                │                │
 │   └───────────┬───────────────────────────┬─────────────────────┘                │
 │               │                           │                                      │
 │               ▼                           ▼                                      │
@@ -2610,6 +2614,8 @@ The core recommended architecture is license-compatible for cost-estimation APIs
 
 ### 5.2 High-Level Component Design
 
+Unless noted otherwise, the component inputs and outputs named below correspond directly to the §5.4 entities with the same names.
+
 #### Component: Source Registry
 
 **Responsibility:** Define procurement and supplier sources, associated skills, schedules, version bindings, and health/cooldown status. Static source definitions live in local SQLite `sources`; mutable challenge-rate and cooldown state lives in `source_runtime_state`.
@@ -2623,7 +2629,12 @@ export interface SourceDefinition {
   category: "procurement" | "supplier";
   enabled: boolean;
   skillPath: string;  // path to the skill directory
+  stableVersion?: string;
+  canaryVersion?: string;
+  shadowVersion?: string;
   scheduleCron?: string;
+  lastHealthState?: "green" | "amber" | "red";
+  cooldownUntil?: string;
   lastRunAt?: string;
   lastCursorValue?: string;
 }
@@ -2801,7 +2812,7 @@ Key subsystems:
 - **Qualification vs extraction boundary:** Preliminary Qualification decides whether a notice/lot is commercially worth deeper work using expiry, access route, and goods-shape signals. Product Extraction begins only after a notice survives that gate and documents/lots are available; it does not decide bidability.
 - **Scheduler vs runner boundary:** Daemon Cron Scheduler decides when work should be enqueued. Job Runner claims and executes queued work. This keeps schedule policy separate from runtime execution and retry behavior.
 - **Store vs sync boundary:** SQLite Local Store is the local persistence authority. Sync Engine is the only component that translates local rows into remote projections or pulls remote-owned state back down.
-- **Dependency direction:** Skills are passive assets loaded by the daemon/runtime; the daemon does not depend on skill internals for state management. The web portal depends only on Supabase projections, never on local SQLite. The landed-cost engine depends on upstream candidate/quote outputs, while upstream extraction and qualification do not depend on landed-cost outputs. Downstream review states may consume landed-cost outputs, but landed-cost computation itself does not feed back into extraction or matching logic.
+- **Dependency direction:** Skills are passive assets loaded by the daemon/runtime; the daemon does not depend on skill internals for state management. The viewing portal depends only on Supabase projections, never on local SQLite. The landed-cost engine depends on upstream candidate/quote outputs, while upstream extraction and qualification do not depend on landed-cost outputs. Downstream review states may consume landed-cost outputs, but landed-cost computation itself does not feed back into extraction or matching logic.
 - **Coupling / cycle rule:** The intended graph is acyclic for automatic processing: ingestion → qualification → documents/lots → product extraction → quoteability → supplier matching → landed cost → manifest/review. Human/operator actions may trigger reruns, but no automatic component should depend on a downstream component that already depends on it.
 - **Complexity allocation:** The architecture intentionally spends the most component detail on the two hardest problems: PTY/agent orchestration (`PTY Session Manager`, `Agent Adapter Layer`, `Log/Trace Capture Engine`, `Resource Arbiter`, `Session Reaper`) and product/pricing comparability (`Product Extraction Engine`, `Quoteability Scorer`, `SearchProfile`, `Supplier Quote Engine`). The landed-cost engine remains Very High complexity, but it is deliberately kept downstream and API-driven so it does not distort the core orchestration boundaries.
 
@@ -4417,7 +4428,7 @@ not_started
    Never average these. Apply lexicographic gating: identity gate first (matchConfidence floor by archetype), then usability gate, then price-signal role assignment (see §4.3).
 
 10. **Price-signal role:** `benchmark_ceiling` (UK retail), `optimistic_floor` (China wholesale), `executable` (RFQ/negotiated).
-11. Save quotes with dual confidence, compliance evidence tier, price-signal role, and `SearchAttempt` metadata to local SQLite. Persist each wave execution in `search_attempts`; cache reusable detail-page evidence in local-only `listing_evidence`.
+11. Save quotes with dual confidence, compliance evidence tier, price-signal role, and `SearchAttempt` metadata to local SQLite. Persist each wave execution in `search_attempts`; cache reusable detail-page evidence in local-only `listing_evidence`. A listing can be a valid match without becoming a `SupplierQuote`; only screened, normalized, commercially usable results are persisted as quote rows.
 12. **Cache sharing:** Reuse listing evidence (not just search results) across related-but-unmerged clusters via `ProcessRelation` edges. See cache strategy below. If a source is in cooldown, use only fresh cached evidence and suppress new detail-page fetches until the circuit closes.
 13. Stage sync: write outbox entries in same transaction as quote storage, update stage status/heads, push atomic batch to Supabase.
 
@@ -4458,7 +4469,7 @@ Blocked empty shells, soft blocks, and challenge pages never count as `no_market
 For every operator-accepted match, log:
 
 - source, query wave number, raw rank in source results, reranked position in shortlist
-- whether the match was inside top 3 (AI pool), top 10 (deterministic), or top 20 (extended)
+- whether the match was inside the AI adjudication pool, the deterministic shortlist budget, or the extended shortlist window
 - `matchArchetype` and `candidateType`
 
 Compute weekly/monthly:
@@ -4572,7 +4583,7 @@ Cached results carry **decayed commercial confidence**: identity evidence from t
 
 The desktop/web capability split is formalized in **ADR-008**.
 
-**Architectural framing:** The desktop is not "React talking to SQLite." It is React talking to a **local control plane**. The web portal is not "React talking to the same hooks." It is React talking to a **read replica with live invalidation**. These two surfaces share presentational components and view-model types but have fundamentally different data access patterns, latency characteristics, and capability sets.
+**Architectural framing:** The desktop is not "React talking to SQLite." It is React talking to a **local control plane**. The viewing portal is not "React talking to the same hooks." It is React talking to a **read replica with live invalidation**. These two surfaces share presentational components and view-model types but have fundamentally different data access patterns, latency characteristics, and capability sets.
 
 ```text
 DESKTOP
@@ -4653,7 +4664,7 @@ type BridgeEvent =
    - pricing evidence,
    - logistics/customs assumptions,
    - manifest,
-   - agent session history and terminal output traces,
+   - agent session history plus on-demand terminal/trace views,
    - error manifest entries (if any).
 5. Operator chooses:
    - reject (→ DaemonBridge → daemon, returns `MutationAck`),
@@ -4739,7 +4750,7 @@ This gives slice subscriptions instead of rerendering the whole page on every ch
    - manifest,
    - pipeline status,
    - error status.
-7. **No write operations.** Portal remains read-only in MVP; do not build generic cross-device edit sync before a second writable desktop exists. The web portal does not support:
+7. **No write operations.** Portal remains read-only in MVP; do not build generic cross-device edit sync before a second writable desktop exists. The viewing portal does not support:
    - reject/bid/rerun controls,
    - agent management,
    - configuration changes.
@@ -4749,7 +4760,7 @@ These are desktop-only operations.
 
 #### Web Portal Subscription Architecture
 
-The web portal uses **Supabase Broadcast as an invalidation plane**, not as a database subscription. Broadcast payloads are small invalidation hints, not full rows.
+The viewing portal uses **Supabase Broadcast as an invalidation plane**, not as a database subscription. Broadcast payloads are small invalidation hints, not full rows.
 
 **Why Broadcast over Postgres Changes:** Postgres Changes is simpler but scales worse (single-threaded for ordering). Broadcast supports private channels, custom payloads via `realtime.send`, and better security scoping. The portal never subscribes to raw row changes on hot tables.
 
@@ -4788,7 +4799,7 @@ type PortalUpdate =
 
 **Emission point:** The daemon emits Broadcast notifications **after** the remote projection batch is successfully applied. The apply flow coalesces affected process/org topics so that 20 quote row upserts produce one notification per affected topic, not 20 websocket messages.
 
-**Per-page web portal behavior:**
+**Per-page viewing-portal behavior:**
 
 - **List page:** Patch cheap badges/counts if present in the invalidation payload. Otherwise invalidate the list query. Do NOT reorder the visible list live while the user is reading — show a "N new / updated opportunities" pill that applies on click or on next refetch.
 - **Detail page (minor change — jobs, status, sync):** Auto-refresh the affected section.
@@ -4873,7 +4884,7 @@ TanStack Query is used for **snapshot reads only** — no offline persistence, n
 
 **Browse-only degraded mode (daemon down at launch):** Do not block the whole UI if local data exists. In browse-only mode: contracts list/detail works, manifests and historical transcripts load, but no reruns, no bid triggers, no live session output. Clear banner: "Daemon unavailable — read-only local snapshot."
 
-**Remote-degraded mode (Supabase sync down):** Local-authoritative actions (rerun enrichment, start bid, source sync, session monitoring) continue working. Remote-authoritative actions (operator decisions, shared config writes) use a **local intent queue**: the desktop overlays the queued intent immediately; the web portal does not show it until the remote CAS succeeds after sync recovery. This preserves the authority model without freezing the operator.
+**Remote-degraded mode (Supabase sync down):** Local-authoritative actions (rerun enrichment, start bid, source sync, session monitoring) continue working. Remote-authoritative actions (operator decisions, shared config writes) use a **local intent queue**: the desktop overlays the queued intent immediately; the viewing portal does not show it until the remote CAS succeeds after sync recovery. This preserves the authority model without freezing the operator.
 Queued remote-authoritative mutations persist in local SQLite `pending_operator_intents` until the remote CAS succeeds, conflicts, or is cancelled by the operator.
 
 **Daemon crash mid-session:**
@@ -4937,6 +4948,7 @@ The daemon exposes logical API resources through multiple transport adapters:
 | **Localhost HTTP** | CLI tooling, development, debugging | Dev/test only — not the production desktop transport |
 
 The `/api/*` endpoint definitions below describe **logical resources** shared across all transports. The desktop app accesses them through Tauri commands and the DaemonBridge; the optional HTTP adapter exposes the same resources for dev tooling.
+In this document, **daemon API** refers to these logical resources independent of transport. The optional localhost HTTP surface is only a development adapter over the same daemon API.
 
 #### Logical Endpoints
 
@@ -4945,17 +4957,25 @@ The `/api/*` endpoint definitions below describe **logical resources** shared ac
 | `/api/contracts` | GET | Search/browse canonical opportunities | user |
 | `/api/contracts/:processId` | GET | Opportunity detail | user |
 | `/api/contracts/:processId/manifest` | GET | Read generated manifest | user |
+| `/api/contracts/:processId/sessions` | GET | Session-history summary for an opportunity | user |
+| `/api/contracts/:processId/errors` | GET | Error-manifest summaries for an opportunity | user |
 | `/api/contracts/:processId/reject` | POST | Reject an opportunity | user (desktop only) |
 | `/api/contracts/:processId/watch` | POST | Move to watch state | user (desktop only) |
 | `/api/contracts/:processId/bid` | POST | Trigger request pipeline workflow | user (desktop only) |
 | `/api/jobs/sync-source` | POST | Trigger manual source sync | user/admin (desktop only) |
 | `/api/jobs/:id` | GET | Job status/log summary | user/admin |
+| `/api/sessions` | GET | Browse/filter session history | user/admin |
+| `/api/sessions/:id` | GET | Session detail, structured trace summary, artifact pointers | user/admin |
+| `/api/error-manifests` | GET | Browse/filter error manifests | user/admin |
+| `/api/error-manifests/:id` | GET | Error-manifest detail | user/admin |
+| `/api/error-manifests/:id/resolve` | POST | Mark an error manifest resolved | user/admin (desktop only) |
+| `/api/daemon/health` | GET | Daemon health, sync health, runtime mode | user/admin |
 | `/api/company-profile` | GET/PUT | Manage bidder company profile | admin (desktop only) |
 | `/api/sources` | GET/PUT | Manage source configs | admin (desktop only) |
 
 #### Stream Surfaces (Desktop Only)
 
-These are subscription-based endpoints consumed via the DaemonBridge → `Channel<T>` path. The web portal does not use these — it uses Supabase Broadcast invalidation (see §5.8 Web Portal Subscription Architecture):
+These are subscription-based endpoints consumed via the DaemonBridge → `Channel<T>` path. The viewing portal does not use these — it uses Supabase Broadcast invalidation (see §5.8 Web Portal Subscription Architecture):
 
 | Stream | Purpose | Payload |
 |--------|---------|---------|
@@ -5209,7 +5229,7 @@ This ordering means the highest-complexity components (marketplace comparability
 - Do not distribute the Supabase service-role key to desktop clients.
 - Prefer a dedicated `daemon` role exposed through RLS-safe RPCs or a thin hosted broker API for privileged operations. Push batches should be applied through a single transactional RPC, not direct table upserts from the daemon client.
 - Distinct roles:
-  - `viewer` — read-only access to projection tables via web portal
+  - `viewer` — read-only access to projection tables via viewing portal
   - `operator` — read access to projections + write access to `operator_decision_heads` (via compare-and-swap RPC)
   - `admin` — full access to shared config tables
   - `daemon` — push-only access to projection tables via batch RPC, pull-only access to remote-owned tables
@@ -5275,7 +5295,7 @@ All tables scoped by `org_id` (implicit — single-org MVP, explicit column adde
 - Use async worker queues for heavy enrichment.
 - Cache FX and tariff lookups for short TTL windows.
 - Local SQLite: enable WAL mode for concurrent reads during writes; use appropriate indexes.
-- Supabase: precompute viewing-portal summary tables/materialized views for the web portal.
+- Supabase: precompute viewing-portal summary tables/materialized views for the viewing portal.
 
 **SQLite Performance Characteristics:**
 
@@ -5297,9 +5317,9 @@ All tables scoped by `org_id` (implicit — single-org MVP, explicit column adde
 
 **Supabase Performance Guidance:**
 
-- Precompute viewing-portal summary tables/materialized views for the web portal.
-- Do not turn on Postgres Changes subscriptions for every hot table. For live web portal updates, prefer small projection-change or status broadcast events (Supabase Broadcast) over raw row-by-row Postgres Changes streams.
-- Do not have the web portal query all raw sync tables directly — provide dedicated projection tables keyed to portal use-cases.
+- Precompute viewing-portal summary tables/materialized views for the viewing portal.
+- Do not turn on Postgres Changes subscriptions for every hot table. For live viewing-portal updates, prefer small projection-change or status broadcast events (Supabase Broadcast) over raw row-by-row Postgres Changes streams.
+- Do not have the viewing portal query all raw sync tables directly — provide dedicated projection tables keyed to portal use-cases.
 
 **Potential Bottlenecks:**
 
@@ -5457,6 +5477,8 @@ Each vendor adapter is tested for:
 
 
 #### Skill-Specific Testing
+
+These tests operationalize the production skill-directory standard, checkpoint rules, and outcome classes defined in §4.10.
 
 **Skill Linting (CI gate — required on every skill change):**
 
@@ -6596,6 +6618,7 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 ### Validation-First Delivery Philosophy
 
 Delivery is sequenced by **risk retirement**, not architectural completeness. The riskiest assumptions are in the intelligence pipeline — can the system extract usable product candidates, match them to real marketplace listings, and produce margin estimates accurate enough to act on? Infrastructure (daemon orchestration, cron, sync, web) is well-understood systems engineering that follows, not leads.
+This ordering follows the complexity and risk profile in §§6.1–6.2: validate the very-high-complexity intelligence and matching chain before scaling the lower-risk operational shell around it.
 
 A **Minimum Viable Experiment (MVE)** validates the intelligence thesis before infrastructure investment. The MVE proves the product can surface high-precision, non-fake opportunities on a curated lot corpus. Only after the MVE demonstrates credible signal does infrastructure scale it.
 
@@ -6614,7 +6637,7 @@ Four experiments, run in sequence. Each must pass before the next is worth pursu
 
 ### Minimum Viable Experiment (MVE)
 
-The MVE is ~25-35 files proving experiments 1-3 on a curated lot corpus. No daemon, no cron, no desktop UI, no web portal, no Supabase sync. Skills run from CLI. Results land in local SQLite. Evaluation is via test harness and manual inspection.
+The MVE is ~25-35 files proving experiments 1-3 on a curated lot corpus. No daemon, no cron, no desktop UI, no viewing portal, no Supabase sync. Skills run from CLI. Results land in local SQLite. Evaluation is via test harness and manual inspection.
 
 **MVE scope:**
 - Gold-set lot corpus (50-100 curated lots with human labels)
@@ -6795,7 +6818,7 @@ Build stacks in order of risk retirement, not in parallel:
 2. **TypeScript intelligence** — Pipeline logic (extraction, matching, scoring, landed cost), evaluation harness, data model types, SQLite integration. This is where the product thesis lives.
 3. **Thin Rust** — Minimal runner for skill launch, artifact capture, process supervision. Kept deliberately thin until the intelligence pipeline is validated.
 4. **Desktop UI** — Tauri shell with list/detail views, decision capture. Only after the pipeline produces results worth displaying.
-5. **Web + infrastructure** — Supabase sync, web portal, cron, operational hardening. Only after a single operator has validated daily use.
+5. **Web + infrastructure** — Supabase sync, viewing portal, cron, operational hardening. Only after a single operator has validated daily use.
 
 ### MVE Testing Approach
 
@@ -7168,7 +7191,7 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 | 2026-03-08 | idea-to-research | Initial research document |
 | 2026-03-11 | harmonymaxer (Run 001) | Harmonized owner feedback: skill-first agent scraping, PTY-first execution, local SQLite + Supabase sync, desktop control panel + web viewing portal, expanded cost-estimation sources (HMRC FPO, SeaRates, HMRC Exchange Rates, CurrencyBeacon, OANDA, HS Ping, Taric Support, Dutify, Zonos, Avalara), real E2E testing, comprehensive agent tracing, error manifest system, relaxed automation policy. Revised ADR-001, ADR-002, ADR-004, ADR-005, ADR-007, ADR-008. |
 | 2026-03-12 | planmaxer pre-prep (Agent Orchestration) | Integrated expert review: hybrid PTY + contract execution model via adapter boundary, three-layer observability (control/protocol/forensic), process-group supervision with cleanup verdicts, explicit skill binding for cron, skill metadata declarations, artifact store for session bytes outside SQLite, resource arbiter with typed quotas, expanded error taxonomy (AUTH_CHALLENGE, OUTPUT_CONTRACT_INVALID, PROTOCOL_MISMATCH, PARTIAL_FAILURE, CLEANUP_INCOMPLETE, HOST_SLEEP_INTERRUPTED, HOST_RESOURCE_EXHAUSTED), deterministic replay + fault-injection + adapter contract tests. Updated ADR-004, ADR-005. Sections modified: 4.9, 4.10, 5.2, 5.4 (note), 5.6, 5.11, 6.5, 6.6, 8.2, 8.3. |
-| 2026-03-12 | planmaxer pre-prep (procurement pipeline) | Integrated expert review feedback on procurement pipeline and product matching. Major changes: (1) Three-way relation resolution replacing binary merge (merged/related/separate) with hard blockers and conservative heuristics in §5.6. (2) Multi-dimensional goods classification (legalCategory, goodsDensityScore, goodsSeparability, accessRoute) replacing single goods/services label in §5.7. (3) New pipeline stages: document acquisition, lot extraction, product extraction with candidateType, quoteability scoring, price-signal matching with source routing in §5.3/§5.7. (4) NoticeLot entity, ProcessRelation edges, SearchProfile entity, expanded ProductCandidate and SupplierQuote fields noted for §5.4 data-architecture domain. (5) Dual confidence scoring (matchConfidence + quoteUsabilityConfidence) and price-signal role classification in §4.3/§5.7. (6) Cross-language matching strategy (translate slots not prose) in §4.3. (7) Pipeline cost management and throughput optimization in §5.7. (8) New risks in §6.2: attachment blindness, lot blindness, false bidability, compliance false positives, pack-basis errors, price-signal false precision, FPO access risk. (9) Updated complexity analysis in §6.1. (10) New skills: document-acquisition, lot-extraction, product-extraction in §4.10. (11) Updated state model in §5.5 and job kinds in Appendix C. Sections modified: 4.1, 4.2, 4.3, 4.10, 5.2, 5.3, 5.4 (notes), 5.5, 5.6, 5.7, 6.1, 6.2, Appendix C, Appendix E. |
+| 2026-03-12 | planmaxer pre-prep (procurement pipeline) | Integrated expert review feedback on procurement pipeline and product matching. Major changes: (1) Four-way relation resolution replacing binary merge (merged_same_process / related_not_merged / possible_duplicate / separate) with hard blockers and conservative heuristics in §5.6. (2) Multi-dimensional goods classification (legalCategory, goodsDensityScore, goodsSeparability, accessRoute) replacing single goods/services label in §5.7. (3) New pipeline stages: document acquisition, lot extraction, product extraction with candidateType, quoteability scoring, price-signal matching with source routing in §5.3/§5.7. (4) NoticeLot entity, ProcessRelation edges, SearchProfile entity, expanded ProductCandidate and SupplierQuote fields noted for §5.4 data-architecture domain. (5) Dual confidence scoring (matchConfidence + quoteUsabilityConfidence) and price-signal role classification in §4.3/§5.7. (6) Cross-language matching strategy (translate slots not prose) in §4.3. (7) Pipeline cost management and throughput optimization in §5.7. (8) New risks in §6.2: attachment blindness, lot blindness, false bidability, compliance false positives, pack-basis errors, price-signal false precision, FPO access risk. (9) Updated complexity analysis in §6.1. (10) New skills: document-acquisition, lot-extraction, product-extraction in §4.10. (11) Updated state model in §5.5 and job kinds in Appendix C. Sections modified: 4.1, 4.2, 4.3, 4.10, 5.2, 5.3, 5.4 (notes), 5.5, 5.6, 5.7, 6.1, 6.2, Appendix C, Appendix E. |
 | 2026-03-12 | planmaxer (landed-cost review) | Integrated expert review: FPO reframed as candidate generator, 10-digit code resolution + measure scanning, classification preprocessing pipeline, Incoterm normalization, revenue basis normalization, low/base/high margin scenarios with critical blockers, expanded VAT treatment (PVA eligibility), dual FX with basis gap, freight mode decision tree, special procedures, screening/decision grade distinction, confidence model with blocker override, 12 new error codes. Updated 4.4, 4.5, 4.6, 5.2, 5.4 (data model + SQL), 5.7, 5.11, A, B, D, ADR-006. |
 | 2026-03-12 | planmaxer steps 3–4 (landed-cost) | Fresh-eyes optimization + sync pass: added missing pipeline steps (ukFinalMileCostGbp, otherFeesGbp, customsValuationMethod, confidenceBreakdown population), updated 5.4 SQL landed_cost_estimates table to match TypeScript interface (27 new/renamed columns), added Easyship and Shippo to 9.3 External Accounts, added cross-domain coordination note for ProductCandidate → freight mode data flow, added 8 new intelligence engine files to 8.2 (classification preprocessing, 10-digit resolution, measure scanning, revenue/quote normalization, margin scenarios, Easyship/Shippo adapters), added missing APIs to 4.11 licensing table. Sections modified: 4.11, 5.4, 5.7, 8.2, 9.3, Appendix D. |
 | 2026-03-12 | planmaxer pre-prep (data architecture) | Integrated expert review on data architecture and sync. Major changes: (1) Authority matrix replacing singular "source of truth" — three domains: local operational, remote shared, remote projections. Mixed-write tables prohibited. (2) Split opportunity_decisions into pipeline_assessments (daemon-owned), operator_decision_heads (remote-owned, CAS), bid_workflow_states (daemon-owned). (3) Transactional outbox pattern for push sync. (4) Stage coherence via process_stage_status + process_stage_heads. (5) Push protocol: monotonic local_seq, row_version, content_hash, atomic remote RPC. (6) Pull protocol: remote_change_seq cursors, compare-and-swap for decisions. (7) Schema migration coordination with schema_epoch. (8) Recovery model honesty: warm vs cold rebuild. (9) SQLite operational guidance: state.db/artifacts split. (10) Tombstone policy: only remote-owned entities. (11) Junction tables for cpv_codes and commodity_codes. (12) Integer pence for money, basis points for percentages. (13) MVP: one daemon per org. Sections modified: 4.7, 5.2, 5.4, 5.5, 5.6, 5.7, 5.8, 6.3, 6.4, 8.2, 9.4, ADR-002, Appendix E. |
@@ -7193,6 +7216,7 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 | 2026-03-12 | planmaxer pre-prep (search intelligence) | Integrated expert review on search intelligence and product matching quality. Major changes: (1) `matchArchetype` classification added to ProductCandidate and SearchProfile — orthogonal to `candidateType`, drives query templates, hard-conflict weights, confidence floors, and shortlist budgets. Six archetypes: standard_class_led, dimension_material_led, electrical_spec_led, pack_count_led, compatibility_led, model_exact. (2) Query-wave planning replacing flat queryPack — staged queries from exact anchor → alias swap → market framing → broad → compliance-off, per candidate × source. (3) Four-state evidence model (match/missing/ambiguous/conflict) for hard-conflict filtering — only `conflict` triggers hard rejection; `missing` and `ambiguous` are confidence penalties. (4) Detail-page enrichment step before rejection — compliance evidence tiers (structured_attribute/title_body_mention/absent) determined from detail pages, not search cards alone. (5) Adaptive diversified shortlisting with `recallRiskScore` — budget scales from top-8 to top-20 based on category noise; diversity rules (max 2 per seller, max 2 per wave, max 1 per title family). (6) Zero-result recovery ladder with 6 rounds and formal `searchFailureMode` taxonomy (vocabulary_gap, overconstrained_query, accessory_swamp, compliance_not_surfaceable, no_marketplace_presence, low_extraction_quality, source_specific_failure). (7) Slot criticality model (required/preferred/descriptive/exclusion) on each extracted attribute. (8) Structured standard normalization (family/part/edition/amendment/class) for precise comparison. (9) Market framing slots (marketFrameEn/Zh, useContext, sectorContext) expanding the cross-language matching strategy beyond literal slot translation. (10) Chinese retry on Alibaba after English failure. (11) Source-specific search behavior (eBay category-prior search, Amazon alias families, Alibaba filter-heavy sourcing, 1688 Chinese keyword clusters). (12) Lexicographic gating for dual confidence — identity gate → usability gate → role gate, with archetype-specific confidence floors. (13) Two-tier cache (search-result + listing-evidence) with structured hard/soft fingerprints and source-specific TTLs. (14) Recall measurement framework (recall@k by archetype × source, operator override tracking, calibration pipeline). (15) Curated bilingual lexicon maintenance model with operator feedback loop. (16) Bilingual unit normalization dictionary. (17) New entities: SearchAttempt, ListingEvidence. (18) 8 new risks in §6.2. Sections modified: 1, 4.3, 5.2, 5.4 (TypeScript interfaces + data model notes), 5.7, 6.1, 6.2, Appendix E. |
 | 2026-03-13 | planmaxer pre-prep (MVP delivery strategy) | Integrated expert review on delivery strategy and vertical slicing. Core change: replaced infrastructure-first milestone ordering with validation-first ordering (intelligence thesis → thin runner → desktop MVP → hardening → shared visibility → expanded intelligence → bid automation). Major changes: (1) Validation-first delivery philosophy. (2) MVE definition (~25-35 files, gold-set validation before infrastructure). (3) 4 sequenced experiments with quantitative pass criteria. (4) Category whitelist + no-list. (5) MVP-Alpha definition. (6) 7 milestones (0-6) replacing 6 (1-6). (7) Stack sequencing (Skills → TS → Rust → Desktop → Web). (8) 4-lane testing approach. (9) Validation techniques (gold set, shadow mode, decision ledger, feature flags). (10) §8.4 milestone assignment map. (11) Evaluation harness files in §8.2. (12) 3 new delivery risks in §6.2. (13) §6.1 MVE-critical tier updated. (14) Exit criteria for every milestone. Sections modified: 1, 6.1, 6.2, 8.2, 8.4 (new), 11 (full restructure), Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001) | Completed the post-integration cross-plan unification pass. Resolved the remaining deferred cross-domain items by integrating the Output Quality Gate, automatic continuation re-enqueue, and source circuit breaker into the authoritative runtime flows; aligned ingestion and supplier-enrichment flows with durable commit units, suspect-output quarantine, degraded list-only outcomes, and blocked-empty-shell handling; brought §5.4 SQL into parity with the current TypeScript/data-flow model (search_attempts, listing_evidence, process_aliases, viewer_sync_status, pending_operator_intents, source_runtime_state, expanded search/profile/quote fields, `query_waves_json`, expanded pipeline states); updated authority mapping, RLS, migration/file-map descriptions, and prerequisites to match the integrated architecture; and corrected Quick Stats to the current 150 planned files. Sections modified: 1, 2.5, 3.3, 4.7, 4.10, 5.2, 5.4, 5.6, 5.7, 5.8, 6.3, 8.2, 9.4, 11, Appendix E. |
+| 2026-03-13 | codex holistic pass (iteration 001, step 2) | Cross-plan improvement pass with fresh-eyes consistency cleanup. Added a top-level terminology note clarifying notice/process/opportunity, search-profile/query-wave, and match/supplier-quote distinctions; fixed stale milestone terminology (`Phase B`, `query pack`, fixed AI-pool sizing wording); added missing cross-references from supplier pricing to §5.4, skills to §5.11, testing to §4.10, component designs to §5.4, and delivery strategy to §§6.1–6.2; aligned the daemon API surface in §5.10 with the control-panel flows in §5.8 by adding session/error-manifest/health endpoints; clarified that terminal traces load on demand; and standardized remaining live “web portal” references to the primary “viewing portal” term outside historical changelog entries. Sections modified: 1, 4.3, 4.10, 5.2, 5.7, 5.8, 5.10, 6.5, 11, Appendix E. |
 
 ---
 
