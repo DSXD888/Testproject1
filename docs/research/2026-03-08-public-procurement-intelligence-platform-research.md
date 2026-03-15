@@ -30,7 +30,7 @@
 
 The product is a procurement intelligence platform for UK public-sector contracts. It should ingest official contract notice data every day, normalize and store it, qualify it for relevance to physical-goods supply opportunities, enrich qualified notices with supplier pricing plus landed-cost estimates, surface high-margin opportunities in the desktop control panel and viewing portal, and optionally launch request pipeline automation workflows using agent skills and browser automation (the platform automates preparation and submission steps; it does not place real-money bids without human approval).
 
-**Terminology note:** Throughout this document, a **contract notice** is the source publication, a **procurement process** is the canonical internal record assembled from one or more notices, and an **opportunity** is the operator-facing label for that procurement process. A **search profile** is the persisted structured search definition; **query waves** are the concrete search attempts generated from it. A **match** is a candidate-listing identity judgment; a **supplier quote** is the normalized commercial record persisted only after a listing survives screening and pricing checks.
+**Terminology note:** Throughout this document, a **contract notice** is the source publication, a **procurement process** is the canonical internal record assembled from one or more notices, and an **opportunity** is the operator-facing label for that procurement process. A **search profile** is the persisted structured search definition; **query waves** are the concrete search attempts generated from it. A **match** is a candidate-listing identity judgment; a **supplier quote** is the normalized commercial record persisted only after a listing survives screening and pricing checks. A **run manifest** is the agent-authored narrative plus daemon evidence appendix for a skill run; an **agent session log** is the daemon-captured execution record. Prefer **desktop control panel** and **viewing portal** as the primary surface names in user-facing prose.
 
 This is not one system. It is four tightly connected systems:
 
@@ -38,14 +38,15 @@ This is not one system. It is four tightly connected systems:
 2. Intelligence enrichment and margin estimation.
 3. User-facing review and decision surfaces.
 4. Agent-assisted request pipeline automation.
+5. **Pipeline:** Ingest → normalize → relate → qualify → acquire docs → extract lots → extract products → score quoteability → price-signal match → gross margin gate → landed cost → net margin gate → manifest → operator decision → bid workflow. Each stage operates at a specific scope grain (process/notice/lot/candidate/candidate-source pair) with set-replacement or additive commit semantics — see §5.3 Stage Scoping Model.
 
 ### Key Recommendations
 
-- **Primary data strategy:** Use skill-based agent scraping via browser automation for all procurement and supplier data retrieval. The agent runs on the local machine, powered by the skill system and triggered by the Rust daemon. APIs are reserved for cost-estimation data (customs, freight, FX) where they are more reliable. The skill layer is operationalized as a production contract system: each skill is a versioned directory with structured schemas, canary inputs, and golden assertions; skills follow a 6-stage promotion flow (draft → candidate → canary → shadow → stable → rollback); and return 6 outcome classes (not binary success/failure) enabling the daemon to handle continuation, degradation, and quarantine of suspect output.
+- **Primary data strategy:** Use skill-based agent scraping via browser automation for all procurement and supplier data retrieval. The agent runs on the local machine, powered by the skill system and triggered by the Rust daemon. APIs are reserved for cost-estimation data (customs, freight, FX) where they are more reliable. The skill layer is operationalized as a production contract system: each skill is a versioned directory with structured schemas, canary inputs, and golden assertions; skills follow a 6-stage promotion flow (draft → candidate → canary → shadow → stable → rollback); and return 6 outcome classes (not binary success/failure) enabling the daemon to handle continuation, degradation, and quarantine of suspect output. Every skill run produces a hybrid-authored **run manifest** — an agent-written Markdown narrative of what it did and found, plus a daemon-appended evidence appendix of machine-observed facts (timings, HTTP status codes, byte counts, fingerprint matches). Validator skills cross-check agent claims against this daemon evidence to catch semantic errors invisible to code-based checks (e.g., schema-valid data extracted from the wrong page or wrong locale).
 - **System of record:** Authority-matrix database architecture — local SQLite as local operational authority (pipeline data, jobs, logs), Supabase/Postgres as remote shared authority (config, operator decisions) and remote projections (viewer-facing pipeline facts). Mixed-write tables prohibited. Push-only pipeline replication via transactional outbox; pull-only shared config/decisions via cursor-based sync.
 - **Desktop/runtime architecture:** Use Tauri v2 with a separate Rust daemon process for local agent execution. Desktop communicates with the daemon via a hybrid transport: Tauri `invoke()` for snapshot reads (QueryService → read-only SQLite) and mutations (DaemonBridge → UDS/named-pipe → daemon), Tauri `Channel<T>` for live session streaming.
 - **Frontend strategy:** The Tauri desktop control panel is the full operator surface — trigger workflows, manage agents, make decisions. The viewing portal is read-only with Supabase Broadcast invalidation for live updates. Both share presentational React components and view-model types via `packages/ui`, but data-fetching hooks are surface-specific (SQLite-via-QueryService vs Supabase-client). The desktop control panel supports browse-only degraded mode when the daemon is unavailable.
-- **Cost-estimation engine:** Build an internal landed-cost engine backed by HMRC Trade Tariff, HMRC FPO API for first-pass HS code classification, Taric Support and HS Ping for validation, HMRC Exchange Rate Service for customs valuation FX, Xe for commercial FX, Freightos and SeaRates for freight-market data, and CurrencyBeacon/OANDA plus optional third-party landed-cost services as secondary comparison sources.
+- **Cost-estimation engine:** Build an internal landed-cost engine that prefers abstention over false precision, backed by HMRC Trade Tariff for authoritative duty/measure data, multi-source candidate recall for HS classification (HMRC FPO, CPV→chapter priors, rule-based hints, tariff keyword search, ATR/codebook reuse — with multi-family expansion to all plausible declarable 10-digit codes), Taric Support and HS Ping for validation, HMRC Exchange Rate Service for customs valuation FX, Xe for commercial FX, Freightos and SeaRates for freight-market data, and CurrencyBeacon/OANDA plus optional third-party landed-cost services as secondary comparison sources. The customs engine models exporter-specific trade remedy rates (defaulting to residual when identity is unverified), compound/specific duty expressions, measure interactions, and classification freshness via daily TRA/tariff monitoring.
 - **Agent orchestration:** Use adapter-mediated agent execution with PTY as a first-class runtime from day 1. The Rust daemon triggers Codex/Claude sessions on cron schedules and manual triggers from the desktop control panel, selecting PTY or contract mode per job. PTY-first remains a design constraint for browser-heavy and interactive flows.
 - **Automation policy:** The platform automates the request pipeline, not real-money bid submissions. Actual negotiations and fulfillment are handled manually by humans. An error manifest system flags failures with enough context to debug. Human review remains valuable for commercial decisions but risk is low since no real money changes hands automatically.
 
@@ -67,7 +68,7 @@ Build a greenfield monorepo around skill-based agent scraping for data retrieval
 |--------|-------|
 | Project Type | Greenfield |
 | Existing App Files | 0 meaningful application files |
-| New Files | 155 planned files (123 implementation + 32 tests) |
+| New Files | 156 planned files (124 implementation + 32 tests) |
 | Modified Files | 0 required beyond bootstrap |
 | New Dependencies | ~20-35 across Rust + TS |
 | Estimated Effort | XL |
@@ -92,9 +93,11 @@ Delivery is sequenced by risk retirement, not architectural completeness. A **Mi
 - Supplier-price normalization is easy compared with correct product matching.
 - Product matching is easy compared with accurate landed-cost estimation at contract scale.
 - Landed-cost estimation is easy compared with robust PTY-based agent orchestration that works every day.
-- **But the real bottleneck is the identity chain:** documents/lots → candidate identity → quoteability → comparable listing shortlist → price-signal usability. The architecture compresses this into concrete stages with deterministic gates, `matchArchetype`-driven query planning, four-state evidence comparison, adaptive diversified shortlisting, compliance evidence tiers, and dual confidence scoring with lexicographic gating to prevent fake precision from propagating downstream.
+- **But the real bottleneck is the identity chain:** documents/lots → candidate identity → quoteability → comparable listing shortlist → price-signal usability. The architecture compresses this into concrete stages with deterministic gates, `matchArchetype`-driven query planning, four-state evidence comparison, adaptive diversified shortlisting, compliance evidence tiers, and dual confidence scoring with lexicographic gating to prevent fake precision from propagating downstream. The pipeline integration layer ensures that each stage operates at the correct scope grain (process/notice/lot/candidate/candidate-source pair), that fan-out stages distinguish set-replacement from additive commit semantics, that process-level rollups carry coverage metrics (not just the best candidate's result), and that the identity chain is gap-free from notice to landed-cost estimate.
 
-This means the platform must preserve confidence scores, raw evidence, full-fidelity agent execution traces (raw PTY output in PTY mode; raw stdout/stderr plus structured protocol events and result artifacts in contract mode), and an error manifest system from day one.
+The worker-validator architecture addresses the most insidious failure mode: schema-valid garbage from skills that navigated to the wrong page, extracted data from the wrong locale, or interpreted the wrong context. Code-based checks (Output Quality Gate) catch structural and statistical anomalies; the semantic validator catches contextual errors invisible to code — it cross-checks the agent's narrative claims against daemon-observed evidence in the hybrid-authored run manifest and judges whether the output makes sense. Risk-stratified sampling and per-slice enforcement readiness ensure validation cost scales with actual risk, not uniformly.
+
+This means the platform must preserve confidence scores, raw evidence, full-fidelity agent execution traces (raw PTY output in PTY mode; raw stdout/stderr plus structured protocol events and result artifacts in contract mode), run manifests as human-readable forensic narratives, and an error manifest system from day one.
 
 ---
 
@@ -717,6 +720,8 @@ Normalize notice lifecycle into internal stages:
 
 Then derive operator-facing eligibility rules from normalized state, not from raw portal-specific labels. Classify access route early in the pipeline to suppress non-actionable notices before pricing.
 
+**Cross-reference:** The 15-stage pipeline implementation details (scope grains, commit semantics, stage boundary contracts, staleness model) are in §5.3. The conceptual pipeline in this section (§4.2) describes WHAT the system does; §5.3 describes HOW stages execute, at what scope, and with what coherence guarantees.
+
 ### 4.3 Supplier Price Intelligence Sources
 
 #### Need
@@ -1272,7 +1277,7 @@ This should be the canonical customs engine.
 **Pros:**
 
 - Official HMRC source with ML-powered classification.
-- Accepts plain English product descriptions — ideal for automated first-pass HS code classification.
+- Accepts plain English product descriptions — useful as one automated recall source for HS code candidate generation.
 - Free and accessible.
 
 **Cons:**
@@ -1280,12 +1285,14 @@ This should be the canonical customs engine.
 - Originally designed for Windsor Framework GB→NI parcels; accuracy on procurement-scale industrial goods (Chapter 84 machinery, Chapter 90 medical instruments, Chapter 94 furniture) may be weaker than on consumer goods.
 - Returns only 6-digit HS or 8-digit CN candidates with a match score. The score is retrieval relevance, not legal classification confidence — HMRC's own public repo example shows kitchen towels ranking below textile-towel codes despite eventually matching paper-towel codes.
 - Does not return 10-digit declarable commodity codes. The UK tariff's legal duty treatment, additional codes, measure conditions, and specific measurement units live at the 10-digit commodity layer.
-- Access may be restricted to UK Carrier-scheme FPOs invited to test. Verify access availability before depending on this as the primary automated classifier.
-- Should be treated as a candidate generator, not a final classifier or authority.
+- Access may be restricted to UK Carrier-scheme FPOs invited to test. Verify access availability before depending on this as the sole automated recall source.
+- Should be treated as one candidate recall source among several, not a final classifier or authority.
 
-**Recommendation:** **STRONGLY RECOMMENDED AS CANDIDATE GENERATOR**
+**Recommendation:** **ONE RECALL SOURCE AMONG SEVERAL**
 
-Use as the primary automated first-pass HS code **candidate generator**, not the final classifier. Feed extracted product descriptions into the FPO API to get candidate commodity codes (HS6/CN8), then resolve candidates to 10-digit declarable codes via HMRC Trade Tariff API and validate against Taric Support and HS Ping. The FPO match score indicates retrieval relevance, not classification confidence — downstream resolution and measure scanning determine actual classification quality.
+Use as one candidate-recall source in a multi-source classification strategy, not the sole first-pass generator. FPO's `score` is "a rating for how well the code matches" — retrieval relevance, not legal classification confidence. FPO was trained on parcel-level Windsor Framework data; its accuracy on vague, bundled procurement-scale industrial text is unproven. Feed extracted product descriptions into the FPO API to collect HS6/CN8 candidate codes alongside candidates from parallel recall sources (CPV→chapter priors, rule-based chapter hints from head noun/material/function, tariff keyword search via HMRC Trade Tariff API, and ATR/codebook reuse for known product families). Resolve all candidates to 10-digit declarable codes via HMRC Trade Tariff API and validate against Taric Support and HS Ping. Persist `candidateSource[]` and `candidateRecallAgreement` for every candidate to track which recall sources agreed and which diverged.
+
+**Critical:** FPO agreement with other recall sources increases confidence; FPO alone does not constitute evidence. Correlated agreement between FPO, Taric Support, and HS Ping is not independent evidence — all three may return the same plausible-looking-but-wrong family for vague input. Independent evidence requires slot-level compatibility checking against the actual tariff hierarchy.
 
 #### Option C: HS Ping
 
@@ -1421,71 +1428,160 @@ Before any API call, apply preprocessing to improve classification quality:
 1. **Description-quality gate.** Reject raw strings that are bundles ("centrifuges, sample preparation devices, and associated consumables"), service descriptions, or generic nouns ("goods", "samples", "parts", "equipment" without qualification). FPO's own documentation warns against generic words.
 2. **Bundle splitter.** Decompose multi-item descriptions into separate product candidates before classification. "Centrifuges, sample preparation devices, and associated consumables" must become three separate classification requests. If decomposition fails, mark the basket as mixed/manual and stop automatic net-margin qualification.
 3. **Attribute extraction.** Before lookup, extract: head noun, material, principal function, sector, sterility/medical status, power/size, and pack form. These attributes improve both FPO query quality and downstream 10-digit resolution.
-4. **Multi-query FPO.** For each product candidate, run multiple normalized description variants: head noun only, noun+material, noun+function, noun+end-use. This reduces dependence on a single description phrasing.
+4. **Multi-query recall.** For each product candidate, run multiple normalized description variants across all recall sources: head noun only, noun+material, noun+function, noun+end-use. This reduces dependence on a single description phrasing or a single recall source.
 
 #### 10-Digit Resolution and Measure Scanning
 
-FPO returns only 6-digit HS or 8-digit CN candidates. The UK tariff's legal duty treatment lives at the **10-digit commodity code** layer and can require:
+Recall sources (FPO, CPV priors, rule-based hints, tariff keyword search, codebook reuse) produce HS6/CN8 candidates. The UK tariff's legal duty treatment lives at the **10-digit commodity code** layer and can require:
 
-- **Additional 4-character codes** for trade remedies, preferences, quotas, or excise
+- **Additional 4-character codes** (TARIC additional codes and national additional codes) for trade remedies, preferences, quotas, excise, and VAT relief paths. HMRC's CDS guidance uses national additional code family 6/17 for VAT reduced-rate and zero-rate paths including `VATZ` where the relief is commodity-driven
 - **Measure conditions** that change duty or documentary requirements based on price, weight, volume, or certificates
-- **Specific measurement units** (e.g., duty per kg, per litre, per unit) that make weight/volume a duty input, not just a freight input
-- **Geographic applicability** — different rates for different origin countries
+- **Specific and compound duty expressions** — HMRC's commodities API models duty as one or more measure components, each with its own type (ad valorem, specific per unit/kg/litre, compound), conditions, and geographic scope. Flattening everything to a single `dutyPct` is wrong for any commodity with specific or compound duty components
+- **Supplementary units** (e.g., number of items, kg net, litres, pairs) — required for declaration and sometimes for duty calculation. Missing supplementary-unit data can prevent a valid duty estimate
+- **Geographic applicability** — different rates for different origin countries, and exporter-specific or annex-specific rates within the same origin country for trade remedy measures
 
-The pipeline must resolve from HS6/CN8 candidates to a declarable 10-digit UK commodity code, then scan import measures for:
+The pipeline must expand **all plausible HS6/CN8 families** to **all declarable 10-digit UK descendants**, not greedily descend only the top-ranked candidate. Top-candidate poisoning — where a recall source gives a plausible HS family, the engine descends it alone, and never tests the runner-up family that would have led to the correct UK10 — is a primary silent failure mode. Rerank descendants using slot compatibility (do the extracted product attributes match this code's description and scope notes?) and measure compatibility (does this code's measure profile make sense for the claimed origin and use?).
 
-- Standard duty rates and any compound/specific duty components
-- Trade remedy duties (anti-dumping, countervailing, safeguard) — additional duties that can dwarf base tariff rates, not cancelled by duty suspensions or ATQs
-- Preferential tariff eligibility (requires rules-of-origin analysis and proof, not just supplier location)
-- Quota/order numbers and remaining quota availability
+For each resolved or candidate 10-digit code, scan import measures for:
+
+- Standard duty rates including compound/specific duty components with their full measure expressions
+- Trade remedy duties (anti-dumping, countervailing, safeguard) — additional duties that can dwarf base tariff rates, not cancelled by duty suspensions or ATQs. Trade remedy measures carry exporter-specific, annex, and residual rates; the engine must resolve to a specific rate tier based on known exporter/manufacturer identity and invoice declaration evidence
+- Preferential tariff eligibility (requires rules-of-origin analysis and proof, not just supplier location). Default to **MFN (most-favoured nation)** rate unless origin preference is proved
+- Quota/order numbers and remaining quota availability. Default to **out-of-quota rate** when quota allocation is unknown
 - Import controls, prohibitions, restrictions, and required certificates/documents
-- Additional codes required for declaration
+- Additional codes required for declaration (both TARIC and national additional codes, including VAT-relevant national codes)
 - Measure condition thresholds (price, weight, volume triggers)
+- **Measure interactions** — AD, CVD, safeguard, and quota duties do not always stack arithmetically. UK steel-family measures demonstrate that when quota is exceeded, only the safeguard duty or only the portion of AD/CVD above the safeguard is charged. The engine must model interaction rules per measure family, not assume simple additive stacking
+
+**Exporter/manufacturer resolution for trade remedy rates:**
+
+Trade remedy measures on Chinese goods frequently carry exporter-specific or annex rates that are materially lower than the residual rate. Examples: certain aluminium foil in rolls has rates from 14.2% to 35.6% residual depending on exporter/additional-code/invoice path; aluminium extrusions range from 0% to 35.1% residual; tin mill products carry 27.85% for the cooperating exporter and 49.98% for all other Chinese exporters. The engine must classify:
+- `exporterRateBasis`: `named_exporter` | `annex_exporter` | `residual_default`
+- `exporterIdentityConfidence`: how reliably the exporter/manufacturer can be identified from supplier listing data
+- Default to **residual rate** whenever exporter identity, required additional codes, or required invoice declaration text cannot be verified. Systematic understatement of remedy exposure through assumed named-exporter rates is a catastrophic failure mode.
 
 **Escalation logic:** Escalate automatically when:
-- Top HS6 candidates do not converge (code dispersion)
-- Candidates converge at HS6 but diverge materially at 10-digit measure level (measure dispersion)
+- Top HS6 candidates do not converge across recall sources (code dispersion)
+- HS6 candidates converge but diverge materially at 10-digit measure level (measure dispersion) — HS6 convergence is the least interesting agreement once declarable codes split on remedy/no-remedy, additional-code requirements, or supplementary units
 - Additional codes or measure conditions are present that the engine cannot resolve
-- Trade remedy duties are detected
+- Trade remedy duties are detected (any tier)
+- Plausible UK10 branches split on remedy vs no-remedy, specific vs ad-valorem duty, different VAT family, or unresolved supplementary units — this is a customs suppression trigger, not a scenario band
 - A positive margin coexists with an unsatisfied control measure (operational blocker)
+- Exporter identity is unresolved for a commodity with active trade remedy measures
 
 #### Customs Recommendation
 
 The landed-cost engine classification pipeline should:
 
-1. Apply **description-quality gate and bundle splitter** to decompose and clean product descriptions before API calls.
+1. Apply **description-quality gate and bundle splitter** to decompose and clean product descriptions before API calls. When the gate rejects a description, output a **missing-facts request** keyed to the product archetype (e.g., gloves: material, sterile/non-sterile, examination vs household/industrial, powder-free, pack basis; helmets: industrial vs sports, standard met, shell material, end use; shelving/furniture: material, free-standing vs structural, knock-down vs component, load-bearing role; wipes: substrate, impregnation/chemical treatment, disposable vs reusable; packaging: foil thickness and roll weight, glass capacity, tinplate/ECCS vs other coated steel, polymer composition). Sparse extraction should not bottom out at "low confidence but still scoreable" — in customs terms, sparse extraction often means **no legal confidence**.
 2. Extract **structured attributes** (head noun, material, function, sector) from cleaned descriptions.
-3. Use **HMRC FPO API** as the first-pass **candidate generator** — run multi-query variants and collect HS6/CN8 candidate codes with retrieval scores.
-4. **Cluster and rank candidates** at HS6/CN8 level. If top candidates do not converge, flag classification instability.
-5. **Resolve to 10-digit declarable commodity codes** via **HMRC Trade Tariff API** commodity hierarchy navigation.
+3. Run **multi-source candidate recall** in parallel:
+   - **HMRC FPO API** — run multi-query variants and collect HS6/CN8 candidate codes with retrieval scores
+   - **CPV→chapter prior** — deterministic mapping from procurement CPV codes to likely tariff chapters
+   - **Rule-based chapter hints** — match head noun, material, and function against tariff chapter keyword tables
+   - **Tariff keyword search** — search HMRC Trade Tariff API heading/subheading descriptions for extracted product terms
+   - **ATR/codebook reuse** — for known product families with cached codebooks from prior classifications or ATRs
+4. **Cluster and rank candidates** at HS6/CN8 level across all recall sources. Track `candidateRecallAgreement` — whether sources converge or diverge. If top candidates do not converge across sources, flag classification instability. FPO agreement with other sources increases confidence; FPO alone does not constitute evidence.
+5. **Expand all plausible HS6/CN8 families to all declarable 10-digit UK descendants** via **HMRC Trade Tariff API** commodity hierarchy navigation. Never descend only the top-ranked candidate. Rerank descendants using slot compatibility (do extracted attributes match this code's scope notes?) and measure compatibility (does this code's measure profile make sense for the claimed origin?).
 6. Validate and cross-reference via **Taric Support API** for code completeness and hierarchy checking.
 7. Cross-check with **HS Ping** for additional confidence signal.
-8. **Scan import measures** via HMRC Trade Tariff API for: duty rates (including compound/specific), trade remedies, preferences, quotas, controls, additional codes, measurement units, and condition thresholds.
-9. Apply customs valuation rules. **Method 1 (transaction value) is not universal** — no-sale scenarios, free samples, consignment stock, branch-office transfers, hire/lease, and condition-dependent or provisional pricing can require fallback valuation methods 2–6.
-10. Note that **invoice price is not customs value** — selling commissions, assists, certain royalties/licence fees, seller's share of resale proceeds, and separately shown post-import deductions can all change duty liability.
-11. Compute import VAT using the broadened VAT base: customs value + incidental expenses to first UK destination + duty + other import charges except VAT itself.
-12. Determine **import VAT treatment** — postponed VAT accounting (PVA) is available only where the importer is UK VAT-registered, imports for business use, has the right to dispose of the goods, and includes its VAT number on the declaration. Non-VAT-registered importers cannot reclaim. Partially exempt or mixed business/non-business use can reduce recovery rates.
-13. Produce per product candidate:
+8. **Scan import measures** via HMRC Trade Tariff API for: duty rates (including compound/specific with full measure expressions), trade remedies (with exporter-specific, annex, and residual rate tiers), preferences, quotas, controls, additional codes (TARIC and national), measurement units, condition thresholds, and supplementary unit requirements.
+9. **Resolve exporter rate basis** for trade remedy measures: `named_exporter` | `annex_exporter` | `residual_default`. Default to residual whenever exporter identity or required invoice declaration text is unverified.
+10. **Model measure interactions** — do not assume simple additive stacking of AD + CVD + safeguard + quota duties. Apply measure-family-specific interaction rules.
+11. Apply customs valuation rules. Distinguish **estimation mode** (using indicative marketplace pricing as a proxy for transaction value) from **declaration mode** (using actual transaction prices). Method 1 (transaction value) is not universal — no-sale scenarios, free samples, consignment stock, branch-office transfers, hire/lease, and condition-dependent or provisional pricing can require fallback valuation methods 2–6. Record `valuationMode` (`estimation` | `declaration`) alongside `customsValuationMethod` (including `1_proxy` for marketplace-derived estimates vs `1_actual` for real transactions).
+12. Note that **invoice price is not customs value** — selling commissions, assists, certain royalties/licence fees, seller's share of resale proceeds, and separately shown post-import deductions can all change duty liability.
+13. **Determine VAT rate** separately from VAT recovery. `vatRateState`: `standard` | `reduced` | `zero` | `unresolved`. National additional codes (family 6/17) carry VAT relief paths. Default to **standard rate** when VAT rate is unresolved.
+14. Compute import VAT using the broadened VAT base: customs value + incidental expenses to first UK destination + duty + other import charges except VAT itself.
+15. Determine **import VAT recovery treatment** — postponed VAT accounting (PVA) is available only where the importer is UK VAT-registered, imports for business use, has the right to dispose of the goods, and includes its VAT number on the declaration. Non-VAT-registered importers cannot reclaim. Partially exempt or mixed business/non-business use can reduce recovery rates.
+16. **Compute duty outcome range** across all plausible UK10 branches: `dutyOutcomeMinGbp`, `dutyOutcomeMaxGbp`, `customsCostSpreadBps`. If the spread is material (e.g., branches split on remedy/no-remedy), this is a blocker, not a scenario band.
+17. Produce per product candidate:
     - declarable 10-digit commodity code (or candidate set if unresolved),
-    - additional codes required,
+    - additional codes required (both TARIC and national),
+    - supplementary units required,
     - classification stability score,
-    - duty estimate (base tariff + any trade remedy duties),
-    - import VAT estimate with treatment classification,
+    - duty estimate with full measure expression (base tariff + any trade remedy duties, preserving compound/specific components),
+    - duty outcome range across plausible branches,
+    - exporter rate basis and exporter identity confidence,
+    - origin evidence state (`proved` | `claimed` | `unknown`),
+    - trade remedy state (`none` | `investigation_open` | `provisional` | `definitive` | `review_open` | `adjacent_risk`),
+    - import VAT rate state and estimate with treatment classification,
     - VAT recovery rate estimate,
-    - measure warnings (trade remedies, quotas, controls, operational blockers),
+    - measure warnings (trade remedies, quotas, controls, operational blockers, measure interactions),
+    - customs resolution confidence (separate from commercial confidence),
     - decision grade: `screening` | `review` | `rfq_required` | `broker_required`.
 
 For repeated high-value product families, formalise the fallback:
 - Request **Advance Tariff Rulings (ATRs)** — HMRC replies in roughly 30–120 days; legally binding for three years.
 - Request **Advance Valuation Rulings (AVRs)** where the valuation method is complex — HMRC issues within 90 days; binding for three years.
-- Cache approved product-family codebooks (HS10 + measures + ruling references) and reuse for matching products.
-- Track classification accuracy: chapter accuracy, HS6 accuracy, 10-digit accuracy, duty-outcome accuracy, and review-trigger recall.
+- Cache approved product-family codebooks (HS10 + measures + ruling references + exporter rate basis) and reuse for matching products.
+
+Track classification accuracy using **evidence-tiered metrics**:
+- **Gold labels:** ATR outcome, actual import declaration outcome, or broker-confirmed family with no later amendment.
+- **Silver labels:** Two independent internal reviewers with documented reasoning and supporting technical docs.
+- **Bronze labels:** Best-effort label from tender docs only.
+
+Score by evidence tier, not just by exact code. The primary outcome metrics are:
+- `duty-outcome accuracy` (not just code accuracy)
+- `trade-remedy yes/no accuracy`
+- `additional-code required yes/no accuracy`
+- `supplementary-unit required yes/no accuracy`
+- `review-trigger recall`
+- `catastrophic understatement rate` (engine emitted a number; actual was materially higher)
+- `unsafe auto-classification rate` (engine auto-classified; should have escalated)
+- **Abstention as a positive class** — if the description lacked the facts needed to classify legally and the engine escalated, that is a success, not a miss.
+
+**A/B test FPO:** Keep it only if it improves recall@k or lowers abstention on the benchmark without increasing catastrophic misses.
+
+**Cross-reference:** The execution sequence for this classification pipeline inside landed-cost estimation is in §5.7 Data Flow: Landed Cost. The downstream margin-gate formulas that consume the customs outputs are in Appendix A.
 
 **References:**
 - Advance Tariff Ruling: https://www.gov.uk/guidance/apply-for-an-advance-tariff-ruling
 - Customs valuation Method 1: https://www.gov.uk/guidance/valuing-imported-goods-using-method-1-transaction-value
 - PVA eligibility: https://www.gov.uk/guidance/check-when-you-can-account-for-import-vat-on-your-vat-return
 - Trade remedies: https://www.gov.uk/government/publications/the-uk-trade-remedies-investigations-process/introduction-to-trade-remedies
+
+#### Classification Freshness and Trade Remedy Monitoring
+
+Classification results have a **temporal validity**. HMRC's declarable-measures dataset is a representation of future events and is subject to change. Tariff stop-press updates, new trade remedy actions, code-structure changes, and investigation openings can all change the duty outcome for a previously classified commodity code.
+
+The engine must maintain:
+- `tariffCheckedAt` — when the classification was last verified against live tariff data
+- `classificationFreshUntil` — expiry date for the classification result, based on known upcoming tariff changes and remedy investigation timelines
+- `tradeRemedyWatchState` — per commodity code family: `clear` | `investigation_open` | `provisional_measure` | `review_pending` | `adjacent_family_active`
+
+**Daily monitoring:** Run a daily watcher against the TRA public case register and HMRC tariff stop-press updates. When a new investigation is opened, provisional measure imposed, or definitive measure changed for any commodity code in the engine's active codebook, mark affected classifications as stale and trigger re-classification. March 2026 alone has demonstrated how fast this moves: tin mill products received a new definitive anti-dumping measure on 12 March 2026; glass containers from China entered a new AD investigation on 5 March 2026.
+
+**References:**
+- TRA public case register: https://www.trade-remedies.service.gov.uk/public/cases/
+- UK Global Tariff declarable commodities API: https://www.api.gov.uk/dbt/uk-global-tariff-measures-on-declarable-commodities/
+- HMRC tariff stop press: https://www.gov.uk/government/collections/tariff-stop-press-notices
+
+#### Whitelist Category Classification Analysis
+
+The initial whitelist categories have materially different classification difficulty and trade remedy exposure:
+
+**Office supplies** — easiest overall for classification. A4 copier paper, envelopes, basic binders, plain notebooks are screening-grade candidates if substrate and pack basis are explicit. Main traps: generic "stationery", labels, adhesive-backed products, and paper-vs-textile wipe language. Remedy concentration: low in current UK measures.
+
+**Cleaning products** — medium-hard. Buckets and simple brushes are fine. Wipes, cloths, chemically treated consumables, and mixed cleaning kits are not. Risk is less live trade remedies and more substrate/preparation ambiguity (paper vs nonwoven textile vs cellulose vs chemically impregnated preparations — different tariff chapters).
+
+**Basic PPE** — hard. Gloves and helmets are `standard_class_led` products and need exactly the kind of facts procurement notices omit (material, sterile/non-sterile, examination vs household/industrial, standard met, shell material, end use). Direct remedy exposure in current UK cases appears lower than packaging or metal goods, but **false confidence risk** is very high — the engine may resolve a plausible code without enough facts to determine the legally correct one.
+
+**Hand tools** — medium. Single non-powered tools are workable. Sets, replacement parts, blades, bits, kits, and anything edging toward powered/electrical are not. Direct current remedy exposure appears lower than packaging, but steel-family adjacency still matters.
+
+**Basic furniture** — hard. Material and construction method matter too much. If the lot is wood-only and simple, screening can work. If it is metal shelving, office screens, partition systems, or modular frames, remedy adjacency jumps sharply because coated steel, aluminium extrusions, and household metal goods already have live UK measures (organic coated steel: AD rates 0%–26.1%, CVD rates 13.7%–44.7% residual; aluminium extrusions: 0%–35.1% residual).
+
+**Packaging materials** — **split category: easy subfamilies and dangerous subfamilies**. Corrugated cartons and simple poly mailers are easy. Foil, glass containers, metal can/tin mill families, and composites are high-risk right now:
+- Certain aluminium foil in rolls (`7607111111`, `7607191011`, `7607191019`, `7607111119`): 14.2%–35.6% residual with exporter-specific TAP codes and invoice declaration requirements; measure maintained to 6 June 2029.
+- Glass containers from China: active investigation AD0087 opened 5 March 2026 across multiple `701090****` codes. No final duty yet, but any cached "no remedy risk" assumption is already stale.
+- Tin mill products from China: new definitive anti-dumping measure imposed 12 March 2026; 27.85% cooperating / 49.98% residual.
+
+**Recommendation:** Reclassify packaging from "generally safe" to "split: easy subfamilies / dangerous subfamilies." Treat foil, glass, and metal packaging as high-risk sub-categories requiring enhanced classification scrutiny.
+
+#### CBAM Forward Placeholder
+
+UK Carbon Border Adjustment Mechanism (CBAM) starts **1 January 2027**, with trial rates in **Q4 2026**. For iron/steel and aluminium goods — including packaging metals, steel shelving, coated steel, and aluminium systems in the whitelist — CBAM becomes a real landed-cost dimension soon. The engine should carry a forward `cbamExposureFlag` field for affected commodity families and a placeholder `cbamEstimateGbp` in the landed-cost estimate, even if the value is zero until rates are finalized.
+
+**Reference:** https://www.gov.uk/government/publications/carbon-border-adjustment-mechanism-cbam-policy-summary/carbon-border-adjustment-mechanism-cbam-policy-summary
 
 #### Special Procedures and Alternative Duty Scenarios
 
@@ -1628,9 +1724,13 @@ Store `customsFxRate` and `commercialFxRate` **separately** in the database with
 
 **Basis gap tracking:** Compute and store `fxBasisDeltaPct` — the percentage gap between the HMRC customs rate and the Xe commercial rate at the time of estimation. For example, if HMRC CNY rate is 9.3778/£1 and Xe mid-market is 9.2029/£1, the basis gap is ~1.9%. This gap is a real cost/risk that affects margin accuracy.
 
-**Recalculation trigger:** Trigger margin recalculation when the projected margin **moves materially or crosses a gate threshold**, not when raw FX drift alone exceeds a fixed percentage. A 2% FX move that doesn't change the margin decision is noise; a 0.5% move that flips a marginal opportunity across the 20% net gate is material.
+**Recalculation trigger:** Trigger margin recalculation when the projected margin **moves materially or crosses a gate threshold**, not when raw FX drift alone exceeds a fixed percentage. A 2% FX move that doesn't change the margin decision is noise; a 0.5% move that flips a marginal opportunity across the 20% net gate is material. Additionally, force recalculation at every **HMRC monthly-rate rollover** (penultimate Thursday publication, applicable to the following calendar month) even if the commercial FX rate is unchanged — the customs duty calculation uses the HMRC rate, and a rate change at rollover can shift the duty component independently of market FX movement.
+
+**Margin stress integration:** Feed `fxBasisDeltaPct` into margin stress scenarios. When the basis gap is large (e.g., >2%), the net margin low/base/high scenarios should incorporate the customs-vs-commercial rate divergence as an additional spread dimension, not just as a stored metadata field.
 
 **Operator display:** Present operators with both HMRC customs FX and market FX side by side, with the basis gap clearly shown. Do not hide the dual-rate complexity behind a single number.
+
+**Cross-reference:** Appendix A uses `customsFxRate`, `commercialFxRate`, and `fxBasisDeltaPct` in the gross and net margin formulas.
 
 ### 4.7 Database Architecture — Local SQLite + Supabase/Postgres Sync
 
@@ -1655,11 +1755,18 @@ The owner requires multiple users to access the system's data. However, relying 
 - **Remote shared authority** (Supabase/Postgres): Shared configuration (company profile, source configs) and shared human decisions (operator dispositions). These originate remotely and are pulled to local.
 - **Remote projections** (Supabase/Postgres): Viewer-facing copies of pipeline facts and status. These are push-only from local to remote and are never authoritative — the local copy can always republish.
 
-**Terminology note:** In this document, prefer **local operational authority**, **remote shared authority**, and **shared sync target**. Historical mentions of "source of truth" appear only when contrasting this model with the superseded singular-authority design.
+**Terminology note:** In this document, prefer **local operational authority**, **remote shared authority**, and **shared sync target**. Historical mentions of "source of truth" appear only when contrasting this model with the superseded singular-authority design. Also use **push** for local→remote replication, **pull** for remote→local replication, and **sync** for the overall bidirectional replication system.
 
 **Mixed-write tables are prohibited.** Every table has exactly one authority domain. If a concept spans domains (e.g., a pipeline-computed margin AND an operator disposition on the same process), it must be split into separate tables with separate authority.
 
-**MVP constraint:** Exactly one active pipeline daemon per organization. Multi-executor coordination (remote source leases, primary election) is a future extension, not an MVP requirement. The viewing portal is read-only; shared human decisions come only from other desktop apps if they exist.
+**MVP constraint:** Exactly one active pipeline daemon per organization. Multi-executor coordination (remote source leases, primary election) is a future extension, not an MVP requirement. The viewing portal is read-only; shared human decisions come only from other desktop apps if they exist. The one-daemon-per-org constraint is enforced at the protocol level via an **active-writer lease** on the remote (see Push Protocol below), not by convention alone.
+
+**Executor identity split:** Two identifiers serve distinct purposes in the MVP:
+
+- **`owner_id`** (text, stable): The logical authority identity for push-owned rows. Stable across daemon restarts and machine replacements when the same org is intended. Set once on row creation and never changes. Used for `row_version` comparison ("same owner" means same `owner_id`).
+- **`executor_id`** (runtime instance identity): The per-process daemon identity carried by the `executors` row and echoed through outbox/batch metadata. It changes when a new daemon instance becomes the active writer and is used for heartbeat, diagnostics, batch deduplication, and `local_seq` ordering.
+
+This split prevents two common failure modes: (1) split-brain where two daemon instances push concurrently and remote dedup/order tracking must distinguish them, and (2) machine replacement where a new runtime instance must inherit the same logical row authority without rewriting all push-owned data.
 
 **Corruption protection scope:** The dual-database design protects against remote-only failures (bad Supabase migration, accidental admin update, stale restore, RLS policy mistakes). It does NOT protect against application-level logical corruption in the sync/replication layer — a bug in normalization, merge heuristics, or sync mapping will write bad data to both sides. The sync layer is therefore the highest-risk component for data integrity and must be treated accordingly.
 
@@ -1667,14 +1774,16 @@ The owner requires multiple users to access the system's data. However, relying 
 
 | Authority | Tables | Sync Direction |
 |-----------|--------|----------------|
-| Local-only (no sync) | `raw_documents`, `sources` (local runtime copy), `source_runtime_state`, `source_cursors`, `listing_evidence`, `pending_operator_intents`, `workflow_jobs` (full rows), `agent_session_logs` (full transcript/trace), `error_manifests` (full context), local job leases, local runtime config/secrets | None |
-| Push-only (local → remote projections) | `executors` (heartbeat summary), `procurement_processes`, `contract_notices`, `notice_lots`, `qualification_runs`, `product_candidates`, `search_profiles`, `search_attempts`, `supplier_quotes`, `landed_cost_estimates`, `manifests`, `process_relations`, `process_aliases`, `pipeline_assessments`, `bid_workflow_states`, `process_stage_status`, `process_stage_heads`, `workflow_job_summaries`, `error_manifest_summaries`, `viewer_sync_status` | Push only |
+| Local-only (no sync) | `raw_documents`, `sources` (local runtime copy), `source_runtime_state`, `source_cursors`, `listing_evidence`, `pending_operator_intents`, `workflow_jobs` (full rows), `agent_session_logs` (full transcript/trace), `error_manifests` (full context), `validation_verdicts` (full validator reasoning), local job leases, local runtime config/secrets | None |
+| Push-only (local → remote projections) | `executors` (heartbeat summary), `procurement_processes`, `contract_notices`, `notice_lots`, `tender_document_sets`, `qualification_runs`, `product_candidates`, `search_profiles`, `search_attempts`, `supplier_quotes`, `candidate_pricing_assessments`, `landed_cost_estimates`, `manifests`, `process_relations`, `process_aliases`, `pipeline_assessments`, `bid_workflow_states`, `process_stage_status`, `process_stage_heads`, `workflow_job_summaries`, `error_manifest_summaries`, `validation_verdict_summaries`, `viewer_sync_status` | Push only |
 | Pull-only (remote → local) | `shared_company_profile`, `shared_source_configs`, `operator_decision_heads` | Pull only |
 | Mixed-write | **None — prohibited by design** | N/A |
 
 #### Push Protocol (Local → Remote)
 
 Every local mutation to a push-owned entity writes to both business tables and a **local outbox** in the same SQLite transaction. Crashes cannot create ghost writes or missing replications.
+
+Concrete storage for the outbox and stage-tracking envelopes is defined in §5.4 (`local_outbox`, `sync_batches`, `process_stage_status`, `process_stage_heads`). Runtime responsibilities for batching and apply are defined in §5.2 Sync Engine.
 
 - **Push unit:** Full-row projections (not field patches), batched by `local_seq` range.
 - **Ordering:** Monotonic `local_seq` per executor. Remote rejects gaps in `local_seq` — if remote has seq 4810 and receives 4812 first, it fails closed until 4811 arrives.
@@ -1886,7 +1995,7 @@ Run Codex/Claude agents locally on user machines with:
 - robust daily operation without interruption,
 - process-tree supervision and reliable cleanup.
 
-Agent orchestration is the most critical infrastructure piece. The entire data ingestion, intelligence, and bidding pipeline depends on it working every time. PTY execution is a first-class runtime capability from day 1, but not the mandatory transport for every job — the daemon selects the appropriate execution mode per job via an adapter boundary.
+Agent orchestration is the most critical infrastructure piece. The entire data-ingestion and intelligence pipeline depends on it working every time, and the optional request-pipeline automation layer inherits the same runtime. PTY execution is a first-class runtime capability from day 1, but not the mandatory transport for every job — the daemon selects the appropriate execution mode per job via an adapter boundary.
 
 #### Selected Approach: Adapter-Mediated Hybrid Execution
 
@@ -1945,6 +2054,8 @@ A session is only **complete** after all of:
 3. Descendant process tree cleaned up (verified, not assumed).
 4. Final result contract validated (if present).
 5. Cleanup verdict recorded.
+
+**Validator sessions:** Validator agent sessions follow the same lifecycle and adapter-mediated execution as all other sessions. They use `headless_contract` mode exclusively (they read run manifests, not browse websites). The daemon treats them identically for supervision, cleanup, and observability — they simply have a different skill type and are spawned as sub-jobs linked to a worker job via `parent_job_id`.
 
 - **Cron-triggered execution:** The daemon's built-in cron scheduler creates sessions on schedule, selects the appropriate execution mode via the adapter, injects the kickoff prompt and skill reference, and monitors execution.
 - **Manual triggers from desktop:** The Tauri desktop control panel sends trigger commands to the daemon, which creates a session (PTY or contract mode) and streams progress back to the desktop control panel.
@@ -2072,19 +2183,38 @@ The platform requires skills across three categories:
 
 Auth-refresh skills do one thing: establish or refresh authenticated state and publish a new auth-state handle. They are easier to stabilize than forcing every enrichment skill to own login logic. Source-health canary skills run before expensive scheduled jobs to detect whether a source is reachable, geo-correct, authenticated (if needed), and not actively challenging — if health is red, the daemon skips the big job and preserves the account/IP.
 
+**6. Validator Skills** (agent reviews run manifests for semantic quality):
+
+| Skill | Purpose | Approach |
+|-------|---------|----------|
+| `validation/base` | Generic run manifest quality checks | Review hybrid-authored run manifest completeness, narrative consistency, cross-check agent-claimed fields against daemon-observed evidence appendix, cross-check manifest claims against result contract data, assess `basis_sufficiency` |
+| `validation/procurement-ingestion` | Procurement-specific validation overlay | Verify extracted data matches expected source (OCID structure, date ranges, notice types), detect cross-source contamination |
+| `validation/supplier-enrichment` | Supplier-specific validation overlay | Verify pricing plausibility, currency consistency, locale correctness, detect wrong-market data |
+| `validation/document-acquisition` | Document acquisition validation overlay | Verify downloaded documents match expected types, content is non-empty, format is correct |
+| `validation/product-extraction` | Product extraction validation overlay | Verify extracted candidates are plausible given lot descriptions, detect fabricated or implausible structured data |
+
+Validator skills are the semantic validation layer. They read the worker's hybrid-authored run manifest — agent narrative sections plus daemon-authored evidence appendix with machine-observed facts — and render a verdict (`approved`, `rejected`, `flagged`) with verdict metadata including `basis_sufficiency` and `enforcement_eligible`. They use `headless_contract` mode (no browser needed) with `structured_extract_low_cost` model profile. Base validator checks apply to all runs; domain-specific criteria are supplied by the validator overlay package bound to the worker skill metadata, typically under `skills/validation/*` with co-located overrides reserved for source-specific exceptions. Validator skills follow the same production directory standard and promotion flow as all other skills. Invocation policy and execution details are defined in §5.2 Validation Policy Engine and §5.2 Validation Executor.
+
+**Boundary note:** There is intentionally no `validation/landed-cost` overlay in the current file map because the landed-cost engine remains deterministic and API-based in this architecture. If a future landed-cost stage becomes skill-executed, it adopts the same validator-overlay pattern.
+
+**Relationship between OQG and semantic validation:** The existing Output Quality Gate performs three validation layers: syntactic (schema), semantic (business invariants), and behavioral/drift (statistical envelope). These are code-based, deterministic checks. Validator skills perform a **fourth layer**: agent-based semantic validation — the validator reads the hybrid-authored run manifest, cross-checks the agent's narrative claims against daemon-observed evidence in the machine appendix, and judges whether the output makes sense contextually. OQG catches structural and statistical anomalies (wrong fields, null-rate spikes, duplicate rate changes). The semantic validator catches contextual errors invisible to code-based checks (navigated to wrong page but extracted valid-looking data, Scottish notices from an England-only source, prices from consumer listings when industrial was required). OQG signals feed INTO the validator as inputs (via the daemon evidence appendix and anomaly-stratified result contract sample), not compete with it.
+
 #### Skill Lifecycle
 
 1. **Creation:** Skills are authored as directories containing `SKILL.md` plus supporting artifacts (schemas, canary inputs, validators). Markdown-first authoring is preserved — the `SKILL.md` remains the primary human-readable playbook.
-2. **Promotion:** New or updated skills follow a promotion flow: draft → candidate (CI lint + smoke canaries pass) → canary (small percentage or single source shard) → shadow (runs in parallel with stable, comparing quality metrics) → stable (scheduler default). Rollback rebinds the source to the prior stable version.
-3. **Execution:** The daemon triggers an agent session (PTY or contract mode) via the adapter with the skill loaded. Scheduled jobs bind an explicit `stable_version` (plus optional `canary_version` and `shadow_version`). The agent follows the skill's playbook.
-4. **Maintenance:** When a source website changes layout/flow, only the skill needs updating — no API client code changes. Source-health canary skills detect drift before expensive extraction runs.
-5. **Versioning:** Skills are versioned in the repo. The daemon records which skill version was used for each execution. Behavior version, result schema version, checkpoint schema version, validator version, and normalizer version are tracked independently — a playbook update does not force a schema version bump unless the contract shape changes.
-6. **Upgrade:** Updating a skill is as simple as editing the `SKILL.md` and supporting files — no recompilation, no package upgrades. Schema migrations use dual-accept windows: the daemon accepts both old and new schema versions during transition, with shadow comparison to validate quality parity.
+2. **Promotion:** New or updated skills follow a promotion flow: draft → candidate (CI lint + smoke canaries pass) → canary (small percentage or single source shard) → shadow (runs in parallel with stable, comparing quality metrics) → stable (scheduler default). Rollback rebinds the source to the prior stable version. Promotion from canary → shadow → stable can require validation pass rates (from the worker-validator system) meeting thresholds — validator approval is a promotion gate alongside quality metrics. The concrete promotion test requirements are defined in §6.5 under Skill-Specific Testing and Validator Testing.
+3. **Execution:** The daemon triggers an agent session (PTY or contract mode) via the adapter with the skill loaded. Scheduled jobs bind an explicit `stable_version` (plus optional `canary_version` and `shadow_version`). The agent follows the skill's playbook. After completing its work, the agent writes the narrative sections of a **hybrid-authored run manifest** — what it did, what it found, what decisions it made, and any warnings, with claim/evidence references. The daemon appends a machine-authored evidence appendix with independently observed facts. The combined run manifest is part of the skill's output contract and is stored as an immutable artifact. See §5.2 Run Manifest Writer for the full format.
+4. **Manual mode:** Draft skills can be explored without scheduler involvement. The Kickoff Prompt Renderer emits the exact kickoff prompt, including the standardized run manifest instruction block, for copy-paste into a fresh Codex/Claude session. Manual mode is for early exploration and does not commit pipeline state.
+5. **Dry-run mode:** The daemon can execute the full worker + validator path against a scratch artifact workspace at `artifacts/scratch/<run_id>/`. Dry-run mode records run manifests and validation verdicts for review but does not advance authoritative pipeline rows, outbox entries, or stage heads. It is the default calibration path before validator enforcement is enabled.
+6. **Validation:** After the result contract passes the Output Quality Gate, the daemon's Validation Policy Engine applies risk-stratified sampling and trigger evaluation to determine whether semantic validation is required. If so, a validator sub-job is spawned: a validator skill reads the hybrid-authored run manifest (cross-checking agent-claimed vs daemon-observed fields), an anomaly-stratified result contract sample, the distilled runtime rubric, OQG anomaly signals, and structured drift deltas. It renders a verdict (`approved`, `rejected`, `flagged`) with verdict metadata including `basis_sufficiency` and `enforcement_eligible`. See §5.2 for the full validation pipeline.
+7. **Maintenance:** When a source website changes layout/flow, only the skill needs updating — no API client code changes. Source-health canary skills detect drift before expensive extraction runs.
+8. **Versioning:** Skills are versioned in the repo. The daemon records which skill version was used for each execution. Behavior version, result schema version, checkpoint schema version, validator version, and normalizer version are tracked independently — a playbook update does not force a schema version bump unless the contract shape changes.
+9. **Upgrade:** Updating a skill is as simple as editing the `SKILL.md` and supporting files — no recompilation, no package upgrades. Schema migrations use dual-accept windows: the daemon accepts both old and new schema versions during transition, with shadow comparison to validate quality parity.
 
 #### Skill Design Principles
 
 - Skills define **what data to extract** and **how to navigate** the source.
-- Skills include **validation rules** so the agent can verify it extracted correct data — at three levels: syntactic (schema match), semantic (business invariants), and behavioral/drift (statistical envelope checks).
+- Skills include **validation rules** so the agent can verify it extracted correct data — at four levels: syntactic (schema match), semantic (business invariants), behavioral/drift (statistical envelope checks), and agent-based semantic validation (validator skill reviews the run manifest to catch contextual errors invisible to code-based checks). The first three are code-based (Output Quality Gate); the fourth is agent-based (worker-validator system, see §5.2).
 - Skills include **error handling instructions** so the agent can report failures clearly, using the standard outcome classes and error taxonomy in §5.11.
 - Skills are **source-specific** — one skill per source, not generic "scrape anything" skills.
 - Skills output a validated result contract (JSON payload, artifact file, or NDJSON checkpoint stream) that the daemon validates against a declared schema — workflow state is never driven by transcript scraping.
@@ -2111,8 +2241,16 @@ Every skill declares metadata that the daemon uses for execution planning:
 | `expected_duration` | Typical runtime for resource planning | `5m`, `30m` |
 | `model_profile` | Model capability tier for daemon-side model selection | `browse_stable_low_cost`, `structured_extract_low_cost`, `ambiguous_match_high_reasoning`, `portal_form_high_reliability` |
 | `egress_profile` | Expected network egress for geo-sensitive skills | `uk_residential`, `cn_exit`, `default` |
+| `validation_policy` | When semantic validation runs for this skill | `always`, `sample`, `trigger`, `skip` |
+| `validation_sample_rate` | Base sample rate when `validation_policy` is `sample` (risk factors increase effective rate) | `0.1` (10%) |
+| `validation_triggers` | Skill-authored conditions that force validation regardless of policy (the Policy Engine also evaluates runtime triggers like `operator_requested`) | `fill_rate_drop > threshold` (default 0.2), `first_run_after_version_change`, `suspect_output_in_last_5`, `source_health_amber_or_red`, `page_fingerprint_unknown`, `continuation_chain_length > 1`, `high_value_opportunity` |
+| `validator_overlay_compatible_versions` | Worker behavior-version range the current validator overlay was authored against | `>= 2026.03.12-1, < 2026.04.01` |
 
 Skills that declare `interaction_profile: headless_contract` must also declare a `result_schema_version` that the daemon uses for result contract validation.
+
+**Validation policy** is declared per-skill in skill metadata, not in daemon config. This preserves plug-and-play composability: adding validation to a skill requires only setting the `validation_policy` field and binding a compatible validator overlay package — either a shared overlay package under `skills/validation/*` or, for source-specific exceptions, a co-located `validator-overlay.md` file in the worker skill directory. No daemon code changes, schema changes, or recompilation are required. Skills in draft/candidate/canary/shadow stages always validate regardless of declared policy.
+
+**Validator compatibility:** Worker skills that bind a validator overlay package must also declare `validator_overlay_compatible_versions` — the worker behavior-version range the overlay was authored against. The Validation Policy Engine checks compatibility before allowing enforcement mode for a given slice (worker skill × source × worker version × validator overlay version). If the worker's current behavior version is outside the overlay's compatible range, the engine demotes that slice to dry-run or flag-only mode until the overlay is updated. No compatibility declaration means no enforcement — dry-run only.
 
 Skills declare a `model_profile` instead of a vendor-specific model string. The daemon maps the profile to the current best-fit model. This allows model upgrades without touching skill files and enables cost-tier optimization (cheap models for classification/extraction, premium models for ambiguous adjudication).
 
@@ -2146,6 +2284,8 @@ A production skill is not "just `SKILL.md`." The maintained unit is the **skill 
 |------|---------|
 | `scripts/` | Deterministic helper code for validation, normalization, field extraction, query fingerprinting |
 | `references/` | Source notes, screenshots of expected page layouts, challenge fingerprints |
+| `validator-rubric.yaml` | Distilled runtime rubric consumed by the Validation Executor at runtime |
+| `validator-overlay.md` | Co-located override for domain-specific validation criteria when a shared overlay package under `skills/validation/*` is not sufficient. Loaded by the validator skill alongside the base validator. Not required if the shared/base validator criteria are sufficient. |
 
 **When markdown-only is enough:**
 
@@ -2234,7 +2374,7 @@ Each skill defines three validation layers:
 
 **Behavioral/drift validation:** Null-rate within historical envelope (sudden spike signals extraction breakage), duplicate rate within envelope (sudden spike signals pagination loop), result count not collapsing unexpectedly, page fingerprint hash not newly divergent, locator fallback depth not suddenly much higher than usual (signals DOM structure change).
 
-This is the layer that catches schema-valid garbage. A skill can produce valid JSON with completely wrong data and still look "successful" without behavioral validation. The daemon enforces this through an **Output Quality Gate** that runs after schema validation and before DB commit; outputs that fail semantic or drift checks are quarantined as `AGENT_SUSPECT_OUTPUT` and never promoted into pipeline state.
+These three code-based layers are the first line of defense against schema-valid garbage. A skill can produce valid JSON with completely wrong data and still look "successful" without behavioral validation. The daemon enforces this through an **Output Quality Gate** that runs after schema validation and before DB commit; outputs that fail semantic or drift checks are quarantined as `AGENT_SUSPECT_OUTPUT` and never promoted into pipeline state. For contextual errors that code-based checks cannot detect (e.g., navigated to the wrong page but extracted valid-looking data), the worker-validator system provides an additional agent-based semantic validation layer — see §5.2 Validation Executor.
 
 **6. Per-Item Evidence**
 
@@ -2653,15 +2793,15 @@ export interface SourceDefinition {
 
 #### Component: Job Runner
 
-**Responsibility:** Claim queued jobs from local SQLite, acquire the required resource budget from the Resource Arbiter, invoke the Agent Adapter in the correct execution mode, and persist stage outputs plus job status. The Job Runner owns execution of already-enqueued work; it does not decide schedules or replication semantics.
+**Responsibility:** Claim queued jobs from local SQLite, acquire the required resource budget from the Resource Arbiter, invoke the Agent Adapter in the correct execution mode, and persist stage outputs plus job status. Every job carries the scoped business unit it is operating on (`scopeKind`, `scopeId`), and additive stages that segment work over time also carry a `continuationChainId`. After the Output Quality Gate passes, the Job Runner consults the Validation Policy Engine. If validation is required, it spawns a validator sub-job with `parent_job_id` linking back to the worker job. The Job Runner holds the worker job's final stage advancement until the verdict is rendered (or the validation policy says skip). On verdict: `approved` → advance stage normally; `rejected` with `enforcement_eligible=true` and the slice in enforcement mode → quarantine results as `AGENT_SUSPECT_OUTPUT`, create error manifest with validator reasoning; `rejected` outside enforcement → treat as flagged and commit with review state; `flagged` → advance stage with flag for operator review. Validator failure (crash, timeout, invalid verdict) is fail-open by default — the worker's results advance as if validation were skipped, with a `validation_skipped_validator_error` flag. For continuation chains, per-segment commits remain valid, but the Job Runner does not mark the chain closed or advance the final stage head until chain-close aggregate validation passes. The Job Runner owns execution of already-enqueued work; it does not decide schedules or replication semantics.
 
 #### Component: Skill-Based Ingestion Runner
 
-**Responsibility:** Domain-specific execution logic for procurement-ingestion jobs running under the Job Runner. It selects the procurement skill, invokes the Agent Adapter in the correct mode (PTY or contract per skill), normalizes the retrieved notice data, and writes immutable session artifacts to the artifact store. It is intentionally a job-type handler, not a second scheduler or runtime subsystem, and can remain a module under `jobs/runner.rs` until procurement-specific complexity justifies a separate handler.
+**Responsibility:** Domain-specific execution logic for procurement-ingestion jobs running under the Job Runner. It selects the procurement skill, invokes the Agent Adapter in the correct mode (PTY or contract per skill), normalizes the retrieved notice data, and writes immutable session artifacts to the artifact store. It is intentionally a `job kind` handler, not a second scheduler or runtime subsystem, and can remain a module under `jobs/runner.rs` until procurement-specific complexity justifies a separate handler.
 
 #### Component: Log/Trace Capture Engine
 
-**Responsibility:** Capture session data across three layers: (1) **control events** from the daemon (spawn, signal, exit, reap, cleanup verdict), (2) **protocol events** from the adapter (vendor JSONL/JSON events parsed into daemon-native events, validated checkpoints), and (3) **forensic bytes** (immutable raw PTY capture in PTY mode, raw stdout/stderr capture in contract mode). Control and protocol events drive workflow state; forensic bytes are for debugging and replay. Structured traces are derived primarily from control/protocol events; transcript parsing is best-effort enrichment only.
+**Responsibility:** Capture session data across the first three observability layers: (1) **control events** from the daemon (spawn, signal, exit, reap, cleanup verdict), (2) **protocol events** from the adapter (vendor JSONL/JSON events parsed into daemon-native events, validated checkpoints), and (3) **forensic bytes** (immutable raw PTY capture in PTY mode, raw stdout/stderr capture in contract mode). Control and protocol events drive workflow state; forensic bytes are for debugging and replay. Structured traces are derived primarily from control/protocol events; transcript parsing is best-effort enrichment only. The fourth observability layer (run manifests) is agent-generated and stored by the Run Manifest Writer — see §6.6 for the full four-layer model.
 
 #### Component: SQLite Local Store
 
@@ -2764,15 +2904,16 @@ When search returns zero usable results, applies the zero-result recovery ladder
 **Responsibility:** Combine ex-works or seller price with freight, duty, VAT, fees, and FX to produce gross and net margin estimates at the **line-item level**, then roll up to process-level estimates. Uses cost-estimation APIs (HMRC Tariff, HMRC FPO, Freightos, SeaRates, Xe, HMRC Exchange Rates) — this is the one area where direct API access is preferred over agent scraping.
 
 The engine operates at two grades:
-- **Screening grade:** Automated across the whole market. Uses indicative marketplace pricing, FPO-generated HS6/CN8 candidates, and scenario-based freight estimates. Sufficient for early-stage filtering and gross margin gating.
+- **Screening grade:** Automated across the whole market. Uses indicative marketplace pricing, multi-source HS6/CN8 recall, and scenario-based freight estimates. Sufficient for early-stage filtering and gross margin gating.
 - **Decision grade:** Automated only for repeated product families where the system has a proven codebook (confirmed 10-digit codes, cached ATRs/AVRs), confirmed supplier economics (RFQ or negotiated quotes), and known freight patterns. Everything else requires operator review or RFQ before final qualification.
 
 Key subsystems:
-- **Classification pipeline:** Description preprocessing → FPO candidate generation → 10-digit resolution → measure risk scanning
+- **Classification pipeline:** Description preprocessing → multi-source candidate recall (FPO + CPV priors + rule hints + tariff keyword search + codebook reuse) → 10-digit resolution → measure risk scanning
 - **Revenue normalizer:** Convert notice values to expected addressable revenue on an ex-VAT basis, accounting for framework ceilings, dynamic-market structures, and VAT-inclusive notice values
 - **Quote normalizer:** Normalize supplier quotes to a common cost boundary based on Incoterm before comparison
 - **Freight estimator:** Provider-abstracted, mode-aware, with dual packing scenarios and low/base/high estimates
-- **Customs engine:** Duty, trade remedies, VAT treatment, valuation method, special procedures, operational blockers
+- **Customs engine:** Duty, trade remedies, exporter-rate resolution, VAT treatment, valuation method, special procedures, operational blockers, and measure interaction handling
+- **Freshness watcher:** Daily tariff/TRA monitoring with `tariffCheckedAt`, `classificationFreshUntil`, and `tradeRemedyWatchState`
 - **FX engine:** Dual-rate (customs + commercial), basis gap tracking, margin-triggered recalculation
 
 #### Component: Manifest Generator
@@ -2793,7 +2934,7 @@ Key subsystems:
 
 #### Component: Result Contract Validator
 
-**Responsibility:** Validate agent checkpoints and final result artifacts against the skill's declared `result_schema_version`, then pass accepted artifacts through the Output Quality Gate for semantic and behavioral/drift checks. Enforces the rule: **success = valid final result contract + clean process exit + complete cleanup/reap.** Partial results with valid checkpoints before a crash are classified as `partial_failure`, never upgraded to success. Outputs that are schema-valid but fail the quality gate are classified as `suspect_output`, quarantined, and never committed to pipeline state. Validates schema version, job identity, checksum, and checkpoint sequencing.
+**Responsibility:** Validate agent checkpoints and final result artifacts against the skill's declared `result_schema_version`, then pass accepted artifacts through the Output Quality Gate for semantic and behavioral/drift checks. Enforces the rule: **success = valid final result contract + clean process exit + complete cleanup/reap.** Partial results with valid checkpoints before a crash are classified as `partial_failure`, never upgraded to success. Outputs that are schema-valid but fail the quality gate are classified as `suspect_output`, quarantined, and never committed to pipeline state. Validates schema version, job identity, checksum, and checkpoint sequencing. OQG signals (syntactic/semantic/behavioral-drift check results) are packaged as inputs to the semantic validator when validation runs — OQG remains the first gate; the semantic validator is the second gate. The two serve different purposes: OQG catches structural and statistical anomalies via deterministic code; the semantic validator catches contextual errors via agent-based run manifest review.
 
 #### Component: Resource Arbiter
 
@@ -2803,19 +2944,169 @@ Key subsystems:
 
 #### Component: Artifact Store
 
-**Responsibility:** Store immutable compressed raw session-output streams, result contract files, checkpoint artifacts, and large session outputs outside of hot SQLite tables. SQLite stores session metadata, byte counts, tail excerpts, artifact paths, SHA-256 hashes, and derived event summaries. Raw artifacts are chunked, compressed, and stored on the local filesystem at `artifacts/sessions/YYYY/MM/<session_id>/`.
+**Responsibility:** Store immutable compressed raw session-output streams, result contract files, checkpoint artifacts, run manifests, and large session outputs outside of hot SQLite tables. SQLite stores session metadata, byte counts, tail excerpts, artifact paths, SHA-256 hashes, and derived event summaries. Raw artifacts are chunked, compressed, and stored on the local filesystem at `artifacts/sessions/YYYY/MM/<session_id>/`. Run manifests (structured Markdown narratives of what a skill run did) are stored at `artifacts/sessions/YYYY/MM/<session_id>/run-manifest.md` and referenced from `agent_session_logs` via `run_manifest_path` and `run_manifest_hash`.
 
 #### Component: Session Reaper
 
 **Responsibility:** Descendant process-tree cleanup after session completion or failure. Performs kill escalation (in-band interrupt → SIGTERM group → SIGKILL group), PTY drain, explicit wait/reap, and orphan sweep. Records cleanup verdict (`clean`, `forced`, `leaked`) as a first-class session attribute. On daemon startup, sweeps for orphaned sessions from prior runs and cleans up leaked processes. On Linux, optionally leverages `systemd-run --scope` for per-session resource control.
 
+#### Component: Kickoff Prompt Renderer
+
+**Responsibility:** Compose the standardized kickoff prompts used by worker, validator, manual-mode, and dry-run executions. The renderer owns the shared preamble, context injection (skill content, job parameters, resume token, company profile), the run manifest instruction block, and scratch-path routing for dry-run artifacts.
+
+**Manual mode:** Emits copy-paste-ready prompts for a fresh Codex/Claude session so draft skills can be explored without scheduler involvement or authoritative state changes.
+
+**Dry-run mode:** Uses the same prompt templates but routes worker and validator artifacts to `artifacts/scratch/<run_id>/`, records run manifests and validation verdicts for review, and suppresses authoritative pipeline writes, outbox entries, and stage-head advancement.
+
+#### Component: Run Manifest Writer
+
+**Responsibility:** Produce a **hybrid-authored run manifest** after every skill run (success or failure). The run manifest combines agent-authored narrative sections with a daemon-authored evidence appendix. The agent writes a human-readable Markdown narrative describing what it did, what it found, what decisions it made, and any warnings — embedded in the kickoff prompt as a standardized instruction block. The daemon appends a concise machine-authored evidence appendix derived from Layers 1–3 (control events, protocol events, forensic bytes) that provides externally verifiable anchors the agent cannot fabricate. The combined manifest is stored as an immutable artifact and its path and SHA-256 hash are recorded in `agent_session_logs`. The run manifest is the primary input for semantic validation — purpose-built for a validator to consume both narrative context and machine-observed facts.
+
+**Run manifest format:** YAML frontmatter with structured metadata followed by agent narrative sections, then a daemon evidence appendix.
+
+**YAML frontmatter — agent-claimed fields** (populated by the agent, explicitly labeled as self-reported):
+- manifest_version, skill_id, skill_version, job_id, session_id, execution_mode
+- started_at, completed_at, outcome_class
+- items_processed, items_skipped, items_failed, warnings_count
+- agent_claimed_pages_visited, agent_claimed_source_url
+- agent_claimed_fingerprint_state (`matched` | `mismatched` | `unknown`)
+- agent_claimed_locale_state (`matched` | `mismatched` | `unknown`)
+- agent_claimed_currency_state (`matched` | `mismatched` | `unknown`)
+
+**Agent narrative sections** (human-readable, agent-authored):
+- **Summary:** What the agent did and what it found.
+- **Steps Taken:** Navigation and extraction sequence.
+- **Decisions Made:** Choices the agent made during the run with reasoning.
+- **Warnings:** Anomalies, degradations, or issues encountered.
+- **Evidence:** Key evidence supporting the results, with claim/evidence references pointing to result contract fields, daemon appendix anchors, or artifact refs where available. Not every sentence needs a reference — major claims (correct page, correct locale, extraction completeness, pricing plausibility) should be anchored.
+
+**Daemon evidence appendix** (machine-authored, immutable, appended by the daemon after agent narrative):
+- `observed_url_chain`: URL sequence from Layer 2 protocol events (actual domains visited)
+- `observed_page_kind_sequence`: page-kind classifications from adapter events
+- `daemon_observed_fingerprint_state`: `matched` | `mismatched` | `unknown` | `no_baseline` (from page fingerprint check, independent of agent claim)
+- `daemon_observed_locale`: detected locale from protocol events or page content signals
+- `daemon_observed_currency`: detected currency from protocol events or page content signals
+- `auth_challenge_events`: count and types of auth/challenge events from Layer 1
+- `locator_fallback_depth`: maximum fallback tier reached during navigation
+- `checkpoint_count`: number of validated checkpoints from Layer 2
+- `result_item_count`: item count from the validated result contract (independent of agent's claimed count)
+- `oqg_anomaly_summary`: OQG semantic and drift signals (fill-rate delta, duplicate-rate delta, value-range outliers)
+- `representative_item_sample`: IDs of a few median items plus any OQG-flagged outlier items from the result contract
+- `artifact_refs`: paths and hashes to forensic artifacts for drill-down
+
+The daemon evidence appendix is compact (target < 2 KB) and provides the validator with anchors that are independent of the agent's narrative. The validator should cross-check the agent's narrative claims against the daemon appendix — discrepancies between agent-claimed and daemon-observed states are high-signal issues.
+
+**Critical field naming rule:** Self-reported fields use the `agent_claimed_*` prefix. Daemon-observed fields use the `daemon_observed_*` prefix. Fields that sound objective (e.g., `page_fingerprint_matched`, `locale_verified`) must never be ambiguous between "the agent claims it verified this" and "the daemon observed and verified this." This naming convention prevents false certainty from anchoring operators and validators.
+
+**Fallback mode:** If the worker agent fails to emit a run manifest (crash, timeout, invalid output), the daemon synthesizes a **minimum machine-authored run manifest** from Layers 1–3 alone. This fallback manifest contains only the daemon evidence appendix (no agent narrative) with `agent_narrative_missing: true` in the frontmatter. The worst runs must not leave the thinnest review surface — the fallback ensures some structured review artifact always exists, enabling validators and operators to assess what happened even when the agent could not narrate.
+
+Target size: < 50 KB per run manifest (agent narrative + daemon appendix combined). The manifest is a focused narrative summary, not a log dump. If processing hundreds of items, the agent narrative summarizes patterns and highlights anomalies rather than enumerating every item.
+
+**Terminology disambiguation:** Three things are called "manifest" in this architecture: (1) **opportunity manifest** — the Markdown summary of an opportunity (§5.2 Manifest Generator, stored in `manifests` table); (2) **error manifest** — the structured pipeline failure record (§5.2 Error Manifest System, stored in `error_manifests` table); (3) **run manifest** — the hybrid-authored MD narrative + daemon evidence appendix of what a skill run did (this component, stored in artifact store). Always use the full term "run manifest" when referring to this concept.
+
+**Cross-reference:** In the four-layer observability model, run manifests are Layer 4. See §6.6 for how Layer 4 complements control events, protocol events, and forensic bytes.
+
+#### Component: Validation Policy Engine
+
+**Responsibility:** Determine whether a completed job requires semantic validation based on the skill's `validation_policy` metadata, the skill's promotion stage, trigger conditions, and risk factors. The engine evaluates the `always` / `sample` / `trigger` / `skip` policy modes and returns a concrete runtime decision: validate or skip. Additionally, the engine tracks **per-slice enforcement readiness** and manages automatic demotion from enforcement mode back to dry-run/flag-only when quality signals degrade.
+
+**Decision flow:**
+
+1. Schema validation failed? → No validator (already quarantined as `AGENT_OUTPUT_CONTRACT_INVALID`).
+2. Skill in draft/candidate/canary/shadow stage? → **ALWAYS VALIDATE** regardless of declared policy.
+3. Skill in stable with `validation_policy: always`? → **VALIDATE**.
+4. Skill in stable with `validation_policy: sample`? → **Risk-stratified sampling** (see below). Always validate if any risk factor is present; otherwise roll against `validation_sample_rate` as the unconditional random floor for surveillance.
+5. Skill in stable with `validation_policy: trigger`? → Check trigger conditions (see extended trigger list below). Validate if any trigger fires.
+6. Skill in stable with `validation_policy: skip`? → **SKIP** (OQG code checks still run).
+7. Any trigger condition met regardless of policy? → **VALIDATE**.
+
+**Risk-stratified sampling:** Pure Bernoulli random sampling misses the runs most worth validating. When `validation_policy: sample`, the effective validation probability is the **maximum** of the base `validation_sample_rate` and any applicable risk multipliers. Risk factors that increase effective sampling rate to 1.0 (always validate):
+
+| Risk Factor | Source | Rationale |
+|-------------|--------|-----------|
+| Source health amber or red | `source_runtime_state` | Degraded sources produce the outputs most likely to be wrong |
+| Page fingerprint unknown or no baseline | Daemon evidence appendix | No fingerprint baseline means no machine-verifiable page identity |
+| First run after worker version change | Skill version metadata | Version transitions are the highest-risk moment for regressions |
+| Validator error spike on same slice | Recent validation history | If validators are crashing on this slice, fail-open is opening on the hard cases |
+| Continuation chain length > 1 | Job metadata | Multi-segment runs have cross-segment blind spots |
+| High locator fallback depth | Daemon evidence appendix | Deep fallback signals DOM instability |
+| Low basis sufficiency in recent runs | Recent verdict metadata | If validators recently couldn't assess this slice, more coverage is warranted |
+| High-value opportunity | Pipeline assessment | Downstream damage from false approval scales with opportunity value |
+| `suspect_output_in_last_5` | Recent job history | Pattern of suspect output signals ongoing quality issue |
+
+**Extended trigger conditions** (force validation regardless of declared policy): `fill_rate_drop > threshold`, `first_run_after_version_change`, `suspect_output_in_last_5`, `operator_requested`, `source_health_amber_or_red`, `page_fingerprint_unknown`, `continuation_chain_length > 1`, `high_value_opportunity`.
+
+**Per-slice enforcement scope:** The unit of enforcement readiness is **worker skill × source × worker version × validator overlay version** — not the whole system. A supplier-enrichment validator can be enforcement-ready while a document-acquisition validator stays dry-run. The policy engine tracks enforcement eligibility per slice based on:
+- Validator overlay `validator_overlay_compatible_versions` matches current worker behavior version
+- Calibration thresholds met for that slice (minimum adjudicated cases, reject precision bounds, audited-approval false-pass audit — see §6.5)
+- No active demotion trigger
+
+**Automatic demotion:** A slice in enforcement mode is automatically demoted to dry-run or flag-only if any of the following occur:
+- Operator override rate spikes above threshold for that slice (operators are regularly reversing validator rejections)
+- Challenge-bank performance regresses (validator stops catching known-bad cases)
+- Anomaly-conditioned validator error rate rises (validators crash disproportionately on risky runs)
+- Worker behavior version moves outside the validator overlay's compatible range
+
+Demotion is automatic and immediate. Re-promotion requires meeting calibration thresholds again.
+
+**Composability:** The policy engine reads validation policy from skill metadata — no daemon code changes are needed to adjust validation behavior for any skill. Adding validation to a new skill requires only setting the `validation_policy` field in the skill's metadata. Enforcement readiness is determined by calibration data and compatibility metadata, not by daemon configuration.
+
+#### Component: Validation Executor
+
+**Responsibility:** Spawn validator sub-jobs via the Job Runner. Load the base validator skill (`skills/validation/base/SKILL.md`) plus the domain-specific overlay package bound to the worker skill metadata. The initial overlay set lives under `skills/validation/*`; source-specific overrides can still be co-located as `validator-overlay.md` files inside worker skill directories when reuse is not desirable. Compose the validator's kickoff prompt with inputs designed to give the validator independent evidence, not just the worker's self-report. The validator skill does NOT see raw forensic bytes (too large, too noisy) or the worker's internal reasoning (prevents anchoring bias).
+
+**Kickoff prompt composition:**
+
+1. **Run manifest** (full text, including both agent narrative and daemon evidence appendix). The validator should cross-check agent-claimed fields against daemon-observed fields — discrepancies are high-signal issues.
+2. **Result contract** (anomaly-stratified sample for large contracts — see sampling strategy below). Never uniform random.
+3. **Distilled runtime rubric** (`validator-rubric.yaml` or invariant summary generated from the skill package). This replaces raw `golden.assertions.yaml` injection — goldens are for offline regression and challenge-bank testing, not live runtime prompts. The rubric contains the skill's semantic invariants (expected domains, locale constraints, value-range bounds, mandatory fields, known failure signatures) without historical example anchoring.
+4. **OQG anomaly signals** (fill-rate delta, duplicate-rate delta, value-range outliers, drift flags from the code-based quality gate).
+5. **Structured drift deltas and recent incident signatures** (not narrative historical summaries). This includes: metric deltas from last N runs (fill-rate trend, reject-rate trend, fallback-depth trend), any recent `VALIDATION_REJECTED` or `VALIDATION_FLAGGED` incident signatures on the same skill × source, and source health state. The validator sees structured change indicators, not a nostalgic essay about what the source usually looks like.
+
+**Result contract sampling strategy:** For large result contracts (> 50 items), the executor provides an **anomaly-stratified sample**, not a uniform random sample. The sample always includes:
+- OQG-flagged outlier items (price extremes, value-range violations, fill-rate gaps)
+- Duplicate cluster representatives
+- First and last processed items (boundary cases)
+- Extreme prices or quantities
+- A few median/typical items for baseline comparison
+- Segment boundary items for continuation chains
+
+Uniform random sampling misses the sparse corruption patterns validators are designed to catch (one wrong currency cluster, a small duplicate tail, one pack-basis outlier).
+
+**Verdict processing:** The validator renders a verdict with structured issues and verdict metadata:
+
+- **`approved`** — Worker's original outcome class preserved; normal commit.
+- **`rejected`** — Results quarantined as `AGENT_SUSPECT_OUTPUT`; error manifest created with validator's reasoning and suggested fixes; operator alerted. In enforcement mode, results do not advance. In dry-run mode, results advance but verdict is logged.
+- **`flagged`** — Results accepted with flag for operator review; non-critical issues recorded.
+
+**Verdict metadata** (required on every verdict):
+- `basis_sufficiency`: `high` | `medium` | `low` — the validator's self-assessment of whether it had sufficient evidence to render a confident verdict. When `basis_sufficiency: low`, the validator should not hard-reject unless there is a hard machine-observed contradiction (daemon_observed vs agent_claimed discrepancy, or result contract vs manifest count mismatch). Otherwise it should `flag` with a `coverage_gap` issue. This is how the validator communicates "I don't actually know."
+- `anchor_conflict_count`: number of discrepancies found between agent-claimed and daemon-observed evidence.
+- `incident_signature`: optional structured tag classifying the type of issue found (e.g., `wrong_domain`, `locale_mismatch`, `count_discrepancy`, `price_implausibility`, `accessory_confusion`, `coverage_gap`). Incident signatures enable triage and pattern detection across runs.
+- `enforcement_eligible`: boolean — whether this verdict was rendered with sufficient basis and calibration data to support enforcement. False when `basis_sufficiency: low` or when the slice has not met calibration thresholds.
+
+**Basis sufficiency rule:** A validator with `basis_sufficiency: low` must not produce a `rejected` verdict with `enforcement_eligible: true`. If the validator cannot confidently assess the run — because the daemon evidence appendix is thin, the fingerprint baseline is missing, or the result contract is too small to sample meaningfully — it should `flag` with a `coverage_gap` issue rather than reject. Hard rejection requires either high basis sufficiency or a hard machine-observed contradiction. This prevents validators from confidently rejecting runs they cannot actually assess.
+
+**Fail-open principle:** If the validator itself fails (crash, timeout, invalid verdict schema), the daemon treats this as a validator error, NOT a worker error. Worker results advance as if validation were skipped, with `validation_skipped_validator_error` flag. Broken validators never block the pipeline — workers operated without validators before; validation is an improvement layer, not a hard dependency. However, `VALIDATION_SKIPPED_VALIDATOR_ERROR` is not just a log flag — it propagates as a trust-state signal on the downstream results, indicating these results were not semantically validated. Downstream consumers (operator surfaces, sync projections) can display this state. Validation is non-recursive: validator skills do NOT have their own validators. If a validator skill is unreliable, it is fixed through the same skill promotion flow as worker skills (calibration harness, challenge-bank testing, operator override feedback), not by adding a meta-validator.
+
+**Cost profile:** Validators use `headless_contract` mode with `structured_extract_low_cost` model profile. Typical cost: ~$0.01–0.03 per validation. Even "always validate" adds only 5–15% overhead over worker cost.
+
+**Multi-segment validation:** When a worker skill exits with `continuation_required`, each segment is validated independently. The validator does NOT wait for all segments to complete — each segment's run manifest is self-contained, and each segment's results are independently committed via checkpoints. If a segment is rejected, only that segment is quarantined; prior committed segments remain. This prevents validation from blocking long-running multi-segment jobs.
+
+**Chain-close aggregate validation:** Per-segment validation is necessary but not sufficient. After all segments of a continuation chain complete, the executor performs a **chain-close aggregate validation** before final stage-head advancement. The chain-close check verifies cross-segment consistency: no duplicated items across segments, no gaps in the expected item range, consistent locale/currency/persona assumptions across segments, and cumulative counts that reconcile with per-segment totals. Chain-close validation runs as a lightweight final validator invocation with all segment manifests and a chain summary. If chain-close validation fails, the entire chain is flagged for operator review — individual segment commits remain, but the stage head does not advance until the chain-level issue is resolved.
+
 #### Architectural Coherence Notes
 
 - **Component purpose / merge guidance:** Every component remains justified, but some are intentionally layered rather than fully standalone. `Skill-Based Ingestion Runner` is best understood as a procurement-specific job handler under `Job Runner`, not a parallel execution stack. `Manifest Generator` remains separate from the `manifest-generation` skill because deterministic rendering is authoritative and the skill contributes optional narrative synthesis only. `Log/Trace Capture Engine` and `Artifact Store` stay separate because capture decides what to record while storage decides where/how to retain it.
+- **No just-in-case components:** Future-only escape hatches such as `apps/api`, `crates/common`, and `packages/config` are documented as later extractions or optional broker surfaces, not as MVP commitments. The target-state architecture names them only where their future role matters; they are intentionally absent from the near-term execution path.
 - **Qualification vs extraction boundary:** Preliminary Qualification decides whether a notice/lot is commercially worth deeper work using expiry, access route, and goods-shape signals. Product Extraction begins only after a notice survives that gate and documents/lots are available; it does not decide bidability.
 - **Scheduler vs runner boundary:** Daemon Cron Scheduler decides when work should be enqueued. Job Runner claims and executes queued work. This keeps schedule policy separate from runtime execution and retry behavior.
 - **Store vs sync boundary:** SQLite Local Store is the local persistence authority. Sync Engine is the only component that translates local rows into remote projections or pulls remote-owned state back down.
 - **Dependency direction:** Skills are passive assets loaded by the daemon/runtime; the daemon does not depend on skill internals for state management. The viewing portal depends only on Supabase projections, never on local SQLite. The landed-cost engine depends on upstream candidate/quote outputs, while upstream extraction and qualification do not depend on landed-cost outputs. Downstream review states may consume landed-cost outputs, but landed-cost computation itself does not feed back into extraction or matching logic.
+- **Validation boundary:** The Output Quality Gate is mandatory and load-bearing; semantic validation is optional per policy, fail-open by default, and never required for the pipeline to execute basic work. The validator system earns its complexity because OQG cannot detect context failures like wrong-page, wrong-locale, or wrong-source extraction, but the pipeline still functions without it during calibration or validator outages.
+- **Classification vs cost boundary:** Customs classification resolves to declarable-code candidates, measure bundles, and blocker state; landed-cost computation consumes that output. The landed-cost stage must not silently reclassify goods through ad hoc heuristics after the classification pipeline has spoken.
+- **MVP sync scope:** The sync engine is intentionally limited to one-daemon-per-org replication with a transactional outbox, push RPC, and pull cursors. It is not a general multi-writer distributed system; multi-executor coordination and conflict engines remain out of MVP scope.
+- **Core value chain vs extensions:** The core value chain is qualification → extraction → matching → landed cost → operator decision. The viewing portal, request-pipeline automation, and semantic validator improve trust, collaboration, or downstream throughput, but they are not prerequisites for proving the commercial thesis. That is why they arrive after the MVE in §11.
 - **Coupling / cycle rule:** The intended graph is acyclic for automatic processing: ingestion → qualification → documents/lots → product extraction → quoteability → supplier matching → landed cost → manifest/review. Human/operator actions may trigger reruns, but no automatic component should depend on a downstream component that already depends on it.
 - **Complexity allocation:** The architecture intentionally spends the most component detail on the two hardest problems: PTY/agent orchestration (`PTY Session Manager`, `Agent Adapter Layer`, `Log/Trace Capture Engine`, `Resource Arbiter`, `Session Reaper`) and product/pricing comparability (`Product Extraction Engine`, `Quoteability Scorer`, `SearchProfile`, `Supplier Quote Engine`). The landed-cost engine remains Very High complexity, but it is deliberately kept downstream and API-driven so it does not distort the core orchestration boundaries.
 
@@ -2824,7 +3115,7 @@ Key subsystems:
 ```text
 new notice
   -> normalize
-  -> relation resolution (merge | related_not_merged | possible_duplicate | separate)
+  -> relation resolution (merged_same_process | related_not_merged | possible_duplicate | separate)
   -> preliminary qualification (per lot)
      -> reject if expiry < 30 days (exception: DPS/dynamic market notices)
      -> classify access route (open_tender / restricted / framework_call_off / dynamic_market / direct_award / closed_framework_award / not_bidable)
@@ -2863,13 +3154,120 @@ new notice
      -> if netMarginLowPct >= 20% and no critical blockers, qualify
      -> if netMarginBasePct >= 20% but pricing or blocker uncertainty remains, keep as review / RFQ
      -> otherwise keep as non-qualified
-  -> generate manifest
+  -> generate opportunity manifest
+  -> cross-cutting semantic validation
+     -> every skill-executed stage runs result-contract validation → OQG → Validation Policy Engine
+     -> when policy requires, a validator skill reviews the run manifest after OQG
+     -> approved: stage outputs proceed normally
+     -> rejected (enforcement-eligible, slice in enforcement): quarantine outputs, create error manifest with incident signature
+     -> rejected (not enforcement-eligible or dry-run): treat as flagged
+     -> flagged / insufficient basis: proceed with review flag and unverified trust state
+     -> continuation chains: per-segment validation + chain-close aggregate check before final stage-head advancement
   -> operator review
+     -> approve
      -> reject
      -> watch
      -> escalate to RFQ (for high-value opportunities with indicative-only pricing)
      -> bid workflow
 ```
+
+This canonical workflow describes the business progression. Use §5.5 for the process-level state rollup and overlays, and Appendix C for the executable `job kind` mapping across these stages.
+Semantic validation is shown once here for readability; in execution it is a cross-cutting gate that runs after every skill-executed stage that reaches the Output Quality Gate, as detailed in §5.6 and §5.7.
+
+#### Stage Scoping Model
+
+The pipeline's unit of work changes as it progresses. Each stage operates at a specific **scope grain**:
+
+| Stage | Scope Grain | Commit Semantics | Rationale |
+|-------|-------------|------------------|-----------|
+| 1. Ingest | per source per run | additive (notice batches) | continuation_required for large batches |
+| 2. Normalize | per notice | set-replacement | normalization produces one authoritative version |
+| 3. Relate | per process cluster | set-replacement | relation graph is one coherent classification |
+| 4. Qualify | **per lot** | set-replacement per lot | lot-varying decisions cannot be process-level |
+| 5. Acquire docs | per notice | set-replacement | document set is one coherent acquisition |
+| 6. Extract lots | per notice + document set | **set-replacement** | partial lot set is semantically unsafe |
+| 7. Extract products | per lot | additive per lot | lots are independent; failure on lot 3 does not invalidate lots 1-2 |
+| 8. Score quoteability | per candidate | additive per candidate | candidates are independent |
+| 9. Price-signal match | **per candidate-source pair** | additive per pair | completed pairs survive when others fail |
+| 10. Gross margin gate | per candidate | additive per candidate | gate decision is per-candidate |
+| 11. Landed cost | **per candidate-quote scenario** | additive per scenario | each scenario is an independent estimate |
+| 12. Net margin gate | per candidate | additive per candidate | gate decision is per-candidate |
+| 13. Manifest | per process | set-replacement | manifest is one coherent narrative |
+| 14. Operator decision | per process | set-replacement | decision is one coherent judgment |
+| 15. Bid workflow | per process (with lot/candidate scope) | set-replacement | bid is one coherent submission |
+
+**Set-replacement stages** must commit atomically for their full scope. Partial results from set-replacement stages (e.g., lots 1-7 of 12 extracted) are stored as checkpoint/debug artifacts but do NOT advance the stage head. The stage must succeed for the complete scope or fail entirely.
+
+**Additive stages** may commit independently per their scope grain. If product extraction succeeds for lots 1-2 but fails on lot 3, lots 1-2 are authoritative. If eBay search succeeds for candidates 1-5 but fails on candidate 6, candidates 1-5 have valid quotes.
+
+`stage_run_id` means **one atomic commit cohort for one scoped business unit**. A single agent session (`session_execution_id`) may produce multiple `stage_run_id` commits. For example, one stage-9 eBay session for a notice may produce 5 committed `stage_run_id`s (one per candidate-source pair that completed).
+
+#### Revenue Normalization Sequencing
+
+Revenue normalization (determining `expected_addressable_revenue_ex_vat` from the notice value and `revenue_basis_type`) is a prerequisite for BOTH the gross margin gate (stage 10) and the net margin gate (stage 12). It is computed once during the gross margin gate stage and persisted for reuse by landed cost and net margin stages. See Appendix A for the normalization formula and §5.7 for the computation steps.
+
+For mixed contracts with separable goods, the gross margin gate must use the **goods-addressable value** (the goods portion of the contract), not the whole notice value. This requires `addressableValuePence` to be computed during qualification (stage 4) and propagated through the pipeline. See §5.7 Preliminary Qualification step 6.
+
+#### Staleness and Invalidation Model
+
+The pipeline distinguishes two types of staleness:
+
+**Hard invalidation** — the semantic input changed. Downstream outputs are no longer authoritative.
+
+Examples: new document set acquired, lot set changed, product extraction re-run, relation resolution changed process cluster, quoteability formula changed AND score crossed a band boundary or query fingerprint changed.
+
+Action: mark affected downstream scoped heads as `hard_invalid`, keep old rows for audit, exclude them from current rollup, enqueue rerun from the earliest invalid stage.
+
+**Soft staleness** — the semantics are still valid, but time-sensitive inputs have aged.
+
+Examples: quote TTL expired (source-specific: 24h-96h), FX snapshots aged out, freight quotes aged out, tariff snapshot changed without product semantics changing.
+
+Action: mark affected rows as `soft_stale`, keep them viewable, block auto-qualification if the soft-stale input is decision-critical (e.g., stale freight estimate when margin is within 10 percentage points of gate), rerun only the affected later stages.
+
+**Cascade rules:**
+
+| Upstream Change | Re-run From | Cascade Condition |
+|-----------------|-------------|-------------------|
+| Notice material content changed | normalize → relate → qualify | Only if normalized fields materially changed |
+| Document set hash changed | extract_lots onward | Full cascade for affected notice/lots |
+| Lot set changed | extract_products onward | For affected lots only |
+| Candidate lineage/archetype changed | score_quoteability onward | For affected candidates only |
+| Quoteability formula version changed | score_quoteability | Cascade to price_match only if band boundary crossed or query fingerprint changed |
+| Supplier quote expired / refreshed | gross_gate onward | For affected candidate only |
+| FX / freight / tariff refresh | landed_cost onward | Soft staleness only unless rate change exceeds threshold |
+| Manual RFQ quote arrives | gross_gate onward | For that candidate only — new SupplierQuote(quoteClass=rfq_quote) |
+
+**Guard rule:** Every job should carry `expected_input_basis_hash`. At claim time, the Job Runner compares it to current scope heads. If mismatched, mark job obsolete and enqueue a new job from the correct earliest invalid stage. This prevents out-of-order execution and stale retries.
+
+#### Stage Boundary Contracts
+
+Each pipeline stage has an implicit input/output contract. These contracts should be testable — each specifies required fields, expected population rates, and violation handling.
+
+**Critical stage boundary contracts:**
+
+| Boundary | Required Input Fields | Required Output Fields | Violation Handling |
+|----------|----------------------|----------------------|-------------------|
+| qualify → acquire_docs | QualificationResult with lotId, expiryQualified, goodsQualified, accessRoute | Per-lot pass/review/reject decision | Fail qualification stage |
+| acquire_docs → extract_lots | Document set completeness state, document roles | TenderDocumentSet with completenessState and documentSetHash | Proceed with notice-only basis; set qualificationBasis = notice_only |
+| extract_lots → extract_products | NoticeLot with title OR description, lotNumber | At least one lot entity per qualified notice | Fail lot extraction |
+| extract_products → score_quoteability | ProductCandidate with required lotId, headNoun, identityConfidence, candidateType, matchArchetype | At least one candidate per qualified lot | Skip lot if no candidates extractable |
+| score_quoteability → price_match | quoteabilityScore, recallRiskScore, SearchProfile with queryWaves | quoteabilityScore >= 0.45 for auto-search | Below-threshold: create SearchProfile but set searchEligibilityState = manual_only |
+| price_match → gross_gate | SupplierQuote with matchConfidence, quoteUsabilityConfidence, priceSignalRole | At least one quote per searched candidate-source pair | searchFailureMode recorded; candidate continues without pricing |
+| gross_gate → landed_cost | Candidate-scoped pricing assessment: selected quote(s), revenue basis, confidence gates passed | grossMarginBps, selected quote with row version | Route to review if identity or usability floor not met |
+| landed_cost → net_gate | LandedCostEstimate anchored to candidate + selected quote | netMarginLowPct, netMarginBasePct, netMarginHighPct, blockers, decisionGrade | Route to review if blockers present |
+| net_gate → manifest | Process-level rollup: pricedCoverageBps, netQualifiedCoverageBps, unresolvedMandatoryLots | Coverage-aware qualification decision | Block auto-qualification if coverage below floor |
+
+**Note:** The net margin gate (stage 12) does not have a dedicated data flow section in §5.7 — its logic is distributed across the landed cost data flow (steps 9-12: margin computation, blocker check, coverage rollup) and Appendix A (net margin gate formula). This is intentional: the net margin gate operates on the outputs of landed cost computation and is tightly coupled to it.
+
+**Must-have seam tests** (see §6.5 for integration testing strategy):
+
+1. Synthetic whole-notice lot later splits into real lots — downstream candidates must be re-extracted
+2. Documents arrive after notice-only product extraction — candidates must be re-extracted from better inputs
+3. Candidate-source session dies after some pairs commit — committed pairs survive, failed pairs retried
+4. Pack-basis-unresolved quote tries to pass gross gate — blocked by quoteUsabilityConfidence floor
+5. Quoteability formula changes without band crossing — no cascade, no rerun
+6. Late process merge after pricing — requires cluster-aware rollup
+7. Operator decision becomes stale after upstream invalidation — decision marked stale, bid blocked until re-affirmed
 
 ### 5.4 Data Model Design
 
@@ -2890,9 +3288,11 @@ The SQL tables below are shown in Postgres syntax for the Supabase sync target. 
 
 The authority matrix (see §4.7) governs which database owns each table. This section specifies the concrete change-tracking columns.
 
+**Worker-validator additions in this section:** the data model carries the worker-validator system through four concrete changes: (1) `workflow_jobs` adds `parent_job_id`, `validation_required`, and `validation_verdict_id`; (2) `agent_session_logs` adds `run_manifest_path` and `run_manifest_hash`; (3) `validation_verdicts` stores the full local validator verdict; and (4) `validation_verdict_summaries` stores the push-owned remote projection for viewing-portal visibility.
+
 **Push-owned mutable entities** (local → remote projections) carry:
 
-- `owner_executor_id text not null` — which executor produced this row
+- `owner_id text not null` — which executor produced this row
 - `row_version integer not null default 1` — monotonic per row, incremented only by the owner; used for remote apply (NOT `updated_at`)
 - `last_local_seq integer` — the outbox sequence that last changed this row (for sync correlation)
 - `stage_run_id text` — for stage-produced rows, links all outputs of a single stage execution
@@ -3020,15 +3420,35 @@ export interface NoticeLot {
 ```
 
 ```ts
+export interface TenderDocumentSet {
+  id: string;
+  processId: string;
+  noticeId: string;
+  documentSetHash: string;
+  completenessState: "none" | "partial" | "full";
+  documentRoles: Array<"spec" | "pricing_schedule" | "boq" | "appendix" | "other">;
+  documents: Array<{
+    rawDocumentId: string;
+    role: "spec" | "pricing_schedule" | "boq" | "appendix" | "other";
+    sourceUrl?: string;
+  }>;
+  acquiredAt: string;
+}
+```
+
+```ts
 export interface QualificationResult {
   processId: string;
   noticeId: string;
+  lotId: string;
   expiryQualified: boolean;
   goodsQualified: boolean;
   goodsConfidence: number;
   legalCategory?: "goods" | "services" | "works" | "mixed" | "unknown";
   goodsDensityScore?: number;
   goodsSeparability?: boolean | "uncertain";
+  qualificationBasis: "notice_only" | "notice_plus_docs" | "lot_level";
+  addressableValuePence?: number;
   accessRoute?:
     | "open_tender"
     | "restricted_tender"
@@ -3047,9 +3467,11 @@ export interface ProductCandidate {
   id: string;
   processId: string;
   noticeId: string;
-  lotId?: string;
+  lotId: string;
+  parentCandidateId?: string;
+  candidateRole: "standalone" | "bundle_parent" | "bundle_component";
   name: string;
-  candidateType?:
+  candidateType:
     | "exact_sku"
     | "standard_commodity"
     | "brand_family"
@@ -3058,7 +3480,7 @@ export interface ProductCandidate {
     | "installed_goods"
     | "regulated_goods"
     | "unknown";
-  matchArchetype?:                                          // NEW: how identity is recovered on marketplaces
+  matchArchetype:                                           // how identity is recovered on marketplaces
     | "standard_class_led"
     | "dimension_material_led"
     | "electrical_spec_led"
@@ -3066,12 +3488,15 @@ export interface ProductCandidate {
     | "compatibility_led"
     | "model_exact"
     | "unknown";
-  headNoun?: string;
+  headNoun: string;
   quantity?: number;
   quantityUnit?: string;
   specificationText?: string;
   estimatedUnitWeightKg?: number;
   estimatedUnitVolumeM3?: number;
+  candidateValueShareBps?: number;
+  packingHint?: "flat_pack" | "assembled" | "mixed" | "unknown";
+  handlingRestrictions?: Array<"hazmat" | "oversized" | "fragile" | "reefer" | "lithium_battery">;
   candidateCommodityCodes: string[];
   criticalAttributes?: Record<string, CriticalAttribute>;  // CHANGED: annotated with criticality
   numericSpecs?: Record<string, NumericSpec>;               // CHANGED: annotated with criticality
@@ -3080,6 +3505,7 @@ export interface ProductCandidate {
   brandModel?: string;
   preferredTerms?: string[];
   excludedTerms?: string[];
+  sourceEvidence?: Array<{ documentId?: string; pageRef?: string; excerpt?: string }>;
   quoteabilityScore?: number;
   recallRiskScore?: number;                                 // NEW: drives adaptive shortlist budgets
   identityConfidence: number;
@@ -3112,24 +3538,6 @@ export interface StandardSlot {
 }
 ```
 
-<!-- COORDINATION NOTE (landed-cost-engine review, 2026-03-12):
-     SupplierQuote and LandedCostEstimate fields below were expanded by landed-cost
-     domain review. Data-architecture domain should verify SQL table alignment and
-     sync-projection design for these additions. -->
-
-<!-- CROSS-DOMAIN NOTE (landed-cost → procurement-pipeline, 2026-03-12):
-     The freight mode decision tree (§4.4) depends on ProductCandidate fields that the
-     procurement-pipeline domain produces. Specifically, mode selection needs:
-     - estimatedUnitWeightKg and estimatedUnitVolumeM3 (already on ProductCandidate)
-     - candidateType (from §5.4 data model notes — e.g. bundle triggers decomposition)
-     - Packaging state inference (flat-pack vs assembled) — currently derived heuristically
-       from candidateType + headNoun, no explicit field
-     - Hazmat/oversized/fragile/reefer/battery classification — no explicit field yet
-     The landed-cost engine treats missing weight/volume as "unknown" and runs dual
-     packing scenarios. If the procurement-pipeline domain adds explicit packingHint
-     or handlingRestrictions fields to ProductCandidate, freight mode selection can
-     use them directly instead of inferring from text. -->
-
 ```ts
 export interface ProcessRelation {
   id: string;
@@ -3146,10 +3554,10 @@ export interface ProcessRelation {
 export interface SearchProfile {
   id: string;
   productCandidateId: string;
-  headNoun?: string;
+  headNoun: string;
   headNounFamily?: string;                                  // NEW: broader noun family for fallback queries
-  candidateType?: ProductCandidate["candidateType"];
-  matchArchetype?: ProductCandidate["matchArchetype"];      // NEW: drives query templates and scoring
+  candidateType: ProductCandidate["candidateType"];
+  matchArchetype: ProductCandidate["matchArchetype"];       // NEW: drives query templates and scoring
   criticalAttributes?: Record<string, CriticalAttribute>;   // CHANGED: with criticality
   standards?: StandardSlot[];                                // CHANGED: structured standards
   numericSpecs?: Record<string, NumericSpec>;                // CHANGED: with criticality + tolerance
@@ -3164,8 +3572,9 @@ export interface SearchProfile {
   mustNotHave?: string[];                                    // NEW: explicit exclusion terms
   preferredTerms?: string[];
   excludedTerms?: string[];
-  queryWaves?: QueryWave[];                                  // NEW: replaces flat queryPack
+  queryWaves: QueryWave[];                                   // NEW: replaces the legacy flat query bundle
   recallRiskScore?: number;                                  // NEW: drives adaptive shortlist budget
+  searchEligibilityState: "auto_search" | "manual_only" | "skip";
   createdAt: string;
 }
 
@@ -3184,7 +3593,7 @@ export interface QueryWave {
 export interface SupplierQuote {
   id: string;
   processId: string;
-  noticeId?: string;
+  noticeId: string;
   productCandidateId: string;
   searchAttemptId?: string;                                  // NEW: trace to SearchAttempt that produced this quote
   productName?: string;            // denormalized convenience copy for display/debugging
@@ -3206,7 +3615,7 @@ export interface SupplierQuote {
   minimumOrderQuantity?: number;
   leadTimeDays?: number;
   includesShipping?: boolean;         // legacy hint only; quoteCostBoundary is authoritative
-  priceSignalRole?: "benchmark_ceiling" | "optimistic_floor" | "executable";
+  priceSignalRole: "benchmark_ceiling" | "optimistic_floor" | "executable";
   listingPackQty?: number;
   listingPackUnit?: string;
   normalizedUnitBasis?: string;
@@ -3273,21 +3682,45 @@ export interface ListingEvidence {
 ```
 
 ```ts
+export interface CandidatePricingAssessment {
+  id: string;
+  processId: string;
+  noticeId: string;
+  productCandidateId: string;
+  selectedQuoteId: string;
+  selectedQuoteRowVersion: number;
+  quoteCostBoundary: "EXW" | "FOB" | "CIF" | "CIP" | "DAP" | "DDP" | "UNKNOWN";
+  revenueBasisType: "firm_contract" | "estimated_contract" | "framework_ceiling" | "dynamic_market" | "concession" | "unknown";
+  expectedAddressableRevenueExVatPence: number;
+  revenueConfidenceBps: number;
+  grossMarginBps: number;
+  grossEstimateConfidenceBps: number;
+  identityGatePassed: boolean;
+  usabilityGatePassed: boolean;
+  pricingInputConfidenceBps: number;
+  createdAt: string;
+}
+```
+
+```ts
 export interface LandedCostEstimate {
   id: string;
   processId: string;
-  noticeId?: string;
-  productCandidateId?: string;
-  supplierQuoteId?: string;                                            // NEW: trace to source quote
+  noticeId: string;
+  productCandidateId: string;
+  supplierQuoteId: string;
   shippingMode: "parcel" | "air_freight" | "lcl_ocean" | "fcl_ocean" | "mixed";
   modeConfidence: number;                                              // NEW: confidence in mode selection
   packingScenario?: "compact" | "bulky" | "unknown";                   // NEW: packing assumption used
   declarableCommodityCode10?: string;                                  // RENAMED: 10-digit declarable code
   candidateCommodityCodes?: CandidateCommodityCode[];                  // NEW: full candidate set
   additionalCodes?: string[];                                          // NEW: 4-char additional codes
+  additionalCodeRequirements?: string[];
+  supplementaryUnitsRequired?: string[];
   commodityConfidence: number;
   classificationStability: number;                                     // NEW: do candidates converge?
-  customsValuationMethod?: "1" | "2" | "3" | "4" | "5" | "6" | "unknown"; // NEW
+  customsValuationMethod?: "1_actual" | "1_proxy" | "2" | "3" | "4" | "5" | "6" | "unknown";
+  valuationMode?: "estimation" | "declaration";
   customsFxRate: number;                                               // RENAMED: HMRC rate for duty
   commercialFxRate: number;                                            // NEW: Xe rate for margin
   fxBasisDeltaPct: number;                                             // NEW: customs vs commercial gap
@@ -3297,7 +3730,16 @@ export interface LandedCostEstimate {
   freightHighGbp: number;                                              // NEW: high scenario
   customsDutyGbp: number;
   tradeRemedyDutyGbp?: number;                                         // NEW: AD/CVD/safeguard
+  dutyOutcomeMinGbp?: number;
+  dutyOutcomeMaxGbp?: number;
+  customsCostSpreadBps?: number;
+  tradeRemedyState?: "none" | "investigation_open" | "provisional" | "definitive" | "review_open" | "adjacent_risk";
+  tradeRemedyCases?: string[];
+  exporterRateBasis?: "named_exporter" | "annex_exporter" | "residual_default";
+  exporterIdentityConfidence?: number;
+  originEvidenceState?: "proved" | "claimed" | "unknown";
   importVatGbp: number;
+  vatRateState?: "standard" | "reduced" | "zero" | "unresolved";
   importVatTreatment: "postponed_full" | "postponed_partial"           // NEW: replaces boolean
     | "cash_paid_full" | "cash_paid_partial" | "non_recoverable" | "unknown";
   vatRecoveryRate?: number;                                            // NEW: 0.0-1.0
@@ -3310,6 +3752,8 @@ export interface LandedCostEstimate {
   revenueBasisType: "firm_contract" | "estimated_contract"             // NEW
     | "framework_ceiling" | "dynamic_market" | "concession" | "unknown";
   revenueConfidence: number;                                           // NEW
+  customsResolutionConfidence?: number;
+  commercialEstimateConfidence?: number;
   netMarginLowPct: number;                                             // NEW: conservative
   netMarginBasePct: number;                                            // NEW: base
   netMarginHighPct: number;                                            // NEW: optimistic
@@ -3318,12 +3762,17 @@ export interface LandedCostEstimate {
   confidenceBreakdown?: ConfidenceBreakdown;                           // NEW
   warnings: string[];
   blockers: string[];                                                  // NEW: critical blockers
+  tariffCheckedAt?: string;
+  classificationFreshUntil?: string;
+  tradeRemedyWatchState?: "clear" | "investigation_open" | "provisional_measure" | "review_pending" | "adjacent_family_active";
+  cbamExposureFlag?: boolean;
+  cbamEstimateGbp?: number;
 }
 
 export interface CandidateCommodityCode {
   code: string;
   digits: 6 | 8 | 10;
-  source: "fpo" | "taric_support" | "hs_ping" | "manual" | "atr";
+  source: "fpo" | "cpv_prior" | "rule_hint" | "tariff_keyword" | "taric_support" | "hs_ping" | "manual" | "atr";
   score: number;
   description?: string;
 }
@@ -3352,14 +3801,20 @@ export interface PipelineAssessment {
     | "lots_extracted"
     | "products_extracted"
     | "quoteability_scored"
-    | "needs_review"
     | "priced"
     | "gross_qualified"
     | "landed_costed"
-    | "net_qualified"
-    | "expired";
+    | "net_qualified";
+  reviewRequired: boolean;
+  availabilityStatus: "active" | "expired" | "cancelled";
+  validationState: "validated" | "flagged" | "unverified";
   grossMarginBps?: number;   // basis points (e.g., 1500 = 15.00%)
   netMarginBps?: number;     // basis points
+  pricedCoverageBps?: number;
+  landedCostCoverageBps?: number;
+  netQualifiedCoverageBps?: number;
+  unresolvedMandatoryLots?: number;
+  decisionBasisHash?: string;
   reviewStage?: "qualification" | "quoteability" | "pricing" | "landed_cost" | "manifest";
   reviewReason?: string;
   assessedAt: string;
@@ -3378,6 +3833,10 @@ export interface OperatorDecisionHead {
   decisionNote?: string;
   decidedBy?: string;
   decidedAt?: string;
+  reviewedBasisHash?: string;
+  reviewedManifestHash?: string;
+  reviewedAtStageRunId?: string;
+  decisionStale?: boolean;
   remoteRevision: number;  // for compare-and-swap
 }
 ```
@@ -3392,6 +3851,8 @@ export interface BidWorkflowState {
     | "bid_in_progress"
     | "bid_submitted"
     | "bid_failed";
+  bidScope?: { lotIds: string[]; candidateIds: string[] };
+  reviewRequired?: boolean;
   bidJobId?: string;
   startedAt?: string;
   completedAt?: string;
@@ -3399,19 +3860,190 @@ export interface BidWorkflowState {
 ```
 
 ```ts
+// Job orchestration row (local-only, mirrored to summaries for remote visibility)
+export interface WorkflowJob {
+  id: string;
+  kind:
+    | "sync_source"
+    | "normalize_notice"
+    | "resolve_relations"
+    | "qualify_notice"
+    | "acquire_documents"
+    | "extract_lots"
+    | "extract_products"
+    | "score_quoteability"
+    | "enrich_supplier_prices"
+    | "compute_gross_gate"
+    | "estimate_landed_cost"
+    | "compute_net_gate"
+    | "generate_manifest"
+    | "record_operator_decision"
+    | "run_bid_workflow"
+    | "escalate_rfq"
+    | "validation";
+  processId?: string;
+  noticeId?: string;
+  scopeKind?: "process" | "notice" | "lot" | "candidate" | "candidate_source_pair" | "candidate_quote_scenario";
+  scopeId?: string;
+  parentJobId?: string;
+  continuationChainId?: string;
+  chainClosed?: boolean;
+  validationRequired: boolean;
+  validationVerdictId?: string;
+  status: string;
+  scheduledFor?: string;
+  attemptCount: number;
+  inputPayload: Record<string, unknown>;
+  outputPayload?: Record<string, unknown>;
+  lastError?: string;
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+}
+```
+
+```ts
+// Full local session log row (local-only; remote gets summaries/redactions)
+export interface AgentSessionLog {
+  id: string;
+  jobId?: string;
+  skillPath: string;
+  skillVersion?: string;
+  executionMode: "pty" | "contract";
+  cliVendor?: string;
+  cliVersion?: string;
+  adapterVersion?: string;
+  configHash?: string;
+  ptySessionId: string;
+  pid?: number;
+  pgid?: number;
+  startedAt: string;
+  completedAt?: string;
+  status: "created" | "spawned" | "active" | "terminating" | "exited" | "reaped" | "archived";
+  terminalOutputPath?: string;
+  terminalOutputHash?: string;
+  terminalOutputBytes?: number;
+  terminalOutputTail?: string;
+  structuredTrace?: Record<string, unknown>;
+  errorType?: string;
+  errorMessage?: string;
+  cleanupVerdict?: "clean" | "forced" | "leaked";
+  lastCheckpointSeq?: number;
+  runManifestPath?: string;
+  runManifestHash?: string;
+}
+```
+
+```ts
+export interface ValidationIssue {
+  severity: "critical" | "warning" | "info";
+  category:
+    | "wrong_source"
+    | "wrong_locale"
+    | "data_fabrication"
+    | "data_quality"
+    | "missing_data"
+    | "semantic_error"
+    | "suspicious_pattern"
+    | "manifest_inconsistency"
+    | "coverage_gap"
+    | "policy_violation";
+  description: string;
+  evidence?: string;
+  suggestion?: string;
+}
+```
+
+```ts
+// Full validator verdict row (local-only)
+export interface ValidationVerdict {
+  id: string;
+  workerJobId: string;
+  workerSessionId?: string;
+  validatorJobId: string;
+  validatorSessionId?: string;
+  validatorSkillPath: string;
+  validatorSkillVersion?: string;
+  verdict: "approved" | "rejected" | "flagged";
+  confidenceBps?: number;
+  summary: string;
+  basisSufficiency: "high" | "medium" | "low";
+  anchorConflictCount: number;
+  incidentSignature?: string;
+  enforcementEligible: boolean;
+  issues: ValidationIssue[];
+  qualityAssessment?: {
+    manifestCompleteness?: "complete" | "partial" | "minimal" | "missing";
+    narrativeConsistency?: "consistent" | "minor_inconsistencies" | "contradictory";
+    evidencePresent?: boolean;
+    fingerprintVerified?: boolean;
+    localeVerified?: boolean;
+    resultCountMatchesManifest?: boolean;
+  };
+  skillImprovementSuggestions?: string[];
+  runManifestHash: string;
+  oqgSignalsSummary?: string;
+  overrideVerdict?: "approved" | "rejected";
+  overrideReason?: string;
+  overrideBy?: string;
+  overrideAt?: string;
+  verdictRenderedAt: string;
+  createdAt: string;
+}
+```
+
+```ts
+// Remote-facing validation summary projection (push-owned)
+export interface ValidationVerdictSummary {
+  id: string;
+  workerJobId: string;
+  verdict: "approved" | "rejected" | "flagged";
+  confidenceBps?: number;
+  basisSufficiency?: "high" | "medium" | "low";
+  incidentSignature?: string;
+  enforcementEligible?: boolean;
+  summary?: string;
+  issueCount: number;
+  criticalIssueCount: number;
+  overrideVerdict?: "approved" | "rejected";
+  verdictRenderedAt: string;
+}
+```
+
+```ts
 // Stage execution tracking (daemon-owned, push-only)
 export interface ProcessStageStatus {
   processId: string;
-  stage: "ingestion" | "qualification" | "enrichment" | "landed_cost" | "manifest" | "bidding";
+  stage:
+    | "ingest"
+    | "normalize"
+    | "relate"
+    | "qualify"
+    | "acquire_docs"
+    | "extract_lots"
+    | "extract_products"
+    | "score_quoteability"
+    | "price_signal_match"
+    | "gross_margin_gate"
+    | "landed_cost"
+    | "net_margin_gate"
+    | "generate_manifest"
+    | "operator_decision"
+    | "bid_workflow";
+  scopeKind: "process" | "notice" | "lot" | "candidate" | "candidate_source_pair" | "candidate_quote_scenario";
+  scopeId: string;
   stageRunId: string;
   state: "running" | "succeeded" | "failed";
+  freshnessState?: "fresh" | "soft_stale" | "hard_invalid";
+  basisHash?: string;
+  inputStageVector?: Record<string, string>;
   startedAt: string;
   completedAt?: string;
   errorManifestId?: string;
 }
 ```
 
-`ProcessStageStatus.stage` is intentionally **coarser** than `PipelineAssessment.pipelineState`: several business states can occur inside one execution stage. For example, `docs_acquired`, `lots_extracted`, `products_extracted`, and `quoteability_scored` all roll up under the broader execution flow rather than forcing one orchestration stage row per business-state hop.
+`ProcessStageStatus.stage` follows the 15 rerunnable execution boundaries from §5.3, while `PipelineAssessment.pipelineState` remains the process-level business rollup. `scopeKind` and `scopeId` carry the grain for each execution record so stage heads, freshness, and invalidation operate at the right unit of work.
 
 ```ts
 export interface ViewerSyncStatus {
@@ -3481,7 +4113,7 @@ create table executors (
   status text not null,
   last_heartbeat_at timestamptz not null default now(),
   -- sync tracking (push-owned: heartbeat summary pushed to remote)
-  owner_executor_id text not null,  -- self-referential for consistency
+  owner_id text not null,  -- self-referential for consistency
   row_version integer not null default 1,
   last_local_seq integer,
   updated_at timestamptz not null default now(),
@@ -3499,7 +4131,7 @@ create table procurement_processes (
   latest_published_at timestamptz not null,
   latest_updated_at timestamptz not null,
   -- sync tracking (push-owned)
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   stage_run_id text,
@@ -3530,7 +4162,7 @@ create table contract_notices (
   estimated_value_vat_inclusive boolean,
   normalized_payload jsonb not null,
   -- sync tracking (push-owned)
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   stage_run_id text,
@@ -3545,17 +4177,20 @@ create table qualification_runs (
   id uuid primary key default gen_random_uuid(),
   process_id uuid not null references procurement_processes(id),
   notice_id uuid not null references contract_notices(id),
+  lot_id uuid not null references notice_lots(id),
   expiry_qualified boolean not null,
   goods_qualified boolean not null,
   goods_confidence_bps integer not null,  -- basis points (0-10000)
   legal_category text,            -- from procurement pipeline review
   goods_density_score_bps integer,  -- basis points (0-10000)
   goods_separability text,        -- true, false, uncertain (tri-state classification stored as text)
+  qualification_basis text not null,  -- notice_only, notice_plus_docs, lot_level
+  addressable_value_pence integer,
   access_route text,              -- open_tender, restricted_tender, etc.
   rationale jsonb not null,       -- renamed from 'evidence' to match TS interface
   qualified_at timestamptz not null default now(),
   -- sync tracking (push-owned)
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   stage_run_id text,
@@ -3567,16 +4202,21 @@ create table product_candidates (
   id uuid primary key default gen_random_uuid(),
   process_id uuid not null references procurement_processes(id),
   notice_id uuid not null references contract_notices(id),
-  lot_id uuid references notice_lots(id),
+  lot_id uuid not null references notice_lots(id),
+  parent_candidate_id uuid references product_candidates(id),
+  candidate_role text not null default 'standalone',  -- standalone, bundle_parent, bundle_component
   name text not null,
-  candidate_type text,  -- exact_sku, standard_commodity, brand_family, bundle, custom_or_fabricated, installed_goods, regulated_goods, unknown
-  match_archetype text, -- standard_class_led, dimension_material_led, electrical_spec_led, pack_count_led, compatibility_led, model_exact, unknown
-  head_noun text,
+  candidate_type text not null,  -- exact_sku, standard_commodity, brand_family, bundle, custom_or_fabricated, installed_goods, regulated_goods, unknown
+  match_archetype text not null, -- standard_class_led, dimension_material_led, electrical_spec_led, pack_count_led, compatibility_led, model_exact, unknown
+  head_noun text not null,
   quantity numeric,
   quantity_unit text,
   specification_text text,
   estimated_unit_weight_kg numeric,
   estimated_unit_volume_m3 numeric,
+  candidate_value_share_bps integer,
+  packing_hint text,              -- flat_pack, assembled, mixed, unknown
+  handling_restrictions_json jsonb,
   material text,
   brand_model text,
   -- candidate_commodity_codes: use junction table product_commodity_codes instead of array column
@@ -3585,13 +4225,14 @@ create table product_candidates (
   standards_json jsonb,
   preferred_terms_json jsonb,
   excluded_terms_json jsonb,
+  source_evidence_json jsonb,
   quoteability_score_bps integer,   -- basis points (0-10000)
   recall_risk_score_bps integer,    -- basis points (0-10000)
   identity_confidence_bps integer,  -- basis points (0-10000)
   spec_confidence_bps integer,      -- basis points (0-10000)
   quantity_confidence_bps integer,  -- basis points (0-10000)
   -- sync tracking (push-owned)
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   stage_run_id text,
@@ -3616,7 +4257,7 @@ create table search_attempts (
   session_id uuid references agent_session_logs(id),
   executed_at timestamptz not null default now(),
   -- sync tracking (push-owned)
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   stage_run_id text,
@@ -3650,7 +4291,7 @@ create table supplier_quotes (
   lead_time_days integer,
   includes_shipping boolean not null default false,
   -- cross-domain fields (procurement pipeline review)
-  price_signal_role text,           -- benchmark_ceiling, optimistic_floor, executable
+  price_signal_role text not null,  -- benchmark_ceiling, optimistic_floor, executable
   listing_pack_qty numeric,
   listing_pack_unit text,
   normalized_unit_basis text,
@@ -3670,7 +4311,7 @@ create table supplier_quotes (
   evidence jsonb not null,
   valid_until timestamptz,
   -- sync tracking (push-owned)
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   stage_run_id text,
@@ -3684,17 +4325,21 @@ create table supplier_quotes (
 create table landed_cost_estimates (
   id uuid primary key default gen_random_uuid(),
   process_id uuid not null references procurement_processes(id),
-  notice_id uuid references contract_notices(id),
-  product_candidate_id uuid references product_candidates(id),
-  supplier_quote_id uuid references supplier_quotes(id),
+  notice_id uuid not null references contract_notices(id),
+  product_candidate_id uuid not null references product_candidates(id),
+  supplier_quote_id uuid not null references supplier_quotes(id),
   shipping_mode text not null,
   mode_confidence_bps integer not null,            -- basis points (0-10000)
   packing_scenario text,
   declarable_commodity_code_10 text,
+  candidate_commodity_codes_json jsonb,
   additional_codes jsonb,
+  additional_code_requirements_json jsonb,
+  supplementary_units_required_json jsonb,
   commodity_confidence_bps integer not null,        -- basis points (0-10000)
   classification_stability_bps integer not null,   -- basis points (0-10000)
-  customs_valuation_method text,
+  customs_valuation_method text,                   -- 1_actual, 1_proxy, 2, 3, 4, 5, 6, unknown
+  valuation_mode text,                            -- estimation, declaration
   customs_fx_rate numeric not null,                -- exchange rate (not money — keep numeric)
   commercial_fx_rate numeric not null,             -- exchange rate (not money — keep numeric)
   fx_basis_delta_bps integer not null,             -- basis points
@@ -3704,7 +4349,16 @@ create table landed_cost_estimates (
   freight_high_gbp_pence integer not null,         -- integer pence
   customs_duty_gbp_pence integer not null,         -- integer pence
   trade_remedy_duty_gbp_pence integer,             -- integer pence
+  duty_outcome_min_gbp_pence integer,
+  duty_outcome_max_gbp_pence integer,
+  customs_cost_spread_bps integer,
+  trade_remedy_state text,
+  trade_remedy_cases_json jsonb,
+  exporter_rate_basis text,
+  exporter_identity_confidence_bps integer,
+  origin_evidence_state text,
   import_vat_gbp_pence integer not null,           -- integer pence
+  vat_rate_state text,
   import_vat_treatment text not null,              -- postponed_full, postponed_partial, cash_paid_full, cash_paid_partial, non_recoverable, unknown
   vat_recovery_rate_bps integer,                   -- basis points
   uk_final_mile_cost_gbp_pence integer not null,   -- integer pence
@@ -3715,6 +4369,8 @@ create table landed_cost_estimates (
   working_capital_cost_gbp_pence integer,          -- integer pence
   revenue_basis_type text not null,
   revenue_confidence_bps integer not null,          -- basis points (0-10000)
+  customs_resolution_confidence_bps integer,
+  commercial_estimate_confidence_bps integer,
   net_margin_low_bps integer not null,              -- basis points
   net_margin_base_bps integer not null,             -- basis points
   net_margin_high_bps integer not null,             -- basis points
@@ -3723,8 +4379,13 @@ create table landed_cost_estimates (
   confidence_breakdown jsonb,
   warnings jsonb not null,
   blockers jsonb not null default '[]',
+  tariff_checked_at timestamptz,
+  classification_fresh_until timestamptz,
+  trade_remedy_watch_state text,
+  cbam_exposure_flag boolean,
+  cbam_estimate_gbp_pence integer,
   -- sync tracking (push-owned)
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   stage_run_id text,
@@ -3740,7 +4401,7 @@ create table manifests (
   markdown text not null,
   artifact_path text,
   -- sync tracking (push-owned)
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   stage_run_id text,
@@ -3751,14 +4412,22 @@ create table manifests (
 -- Pipeline-computed assessment (daemon-owned, push-only)
 create table pipeline_assessments (
   process_id uuid primary key references procurement_processes(id),
-  pipeline_state text not null,  -- discovered, normalized, relation_resolved, prelim_rejected, prelim_qualified, docs_acquired, lots_extracted, products_extracted, quoteability_scored, needs_review, priced, gross_qualified, landed_costed, net_qualified, expired
+  pipeline_state text not null,  -- discovered, normalized, relation_resolved, prelim_rejected, prelim_qualified, docs_acquired, lots_extracted, products_extracted, quoteability_scored, priced, gross_qualified, landed_costed, net_qualified
+  review_required boolean not null default false,
+  availability_status text not null default 'active',  -- active, expired, cancelled
+  validation_state text not null default 'unverified', -- validated, flagged, unverified
   gross_margin_bps integer,      -- basis points (1500 = 15.00%)
   net_margin_bps integer,        -- basis points
+  priced_coverage_bps integer,
+  landed_cost_coverage_bps integer,
+  net_qualified_coverage_bps integer,
+  unresolved_mandatory_lots integer not null default 0,
+  decision_basis_hash text,
   review_stage text,
   review_reason text,
   assessed_at timestamptz not null default now(),
   -- sync tracking (push-owned)
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   stage_run_id text,
@@ -3773,6 +4442,10 @@ create table operator_decision_heads (
   decision_note text,
   decided_by uuid,
   decided_at timestamptz,
+  reviewed_basis_hash text,
+  reviewed_manifest_hash text,
+  reviewed_at_stage_run_id text,
+  decision_stale boolean not null default false,
   -- remote-owned tracking
   remote_change_seq bigint,
   remote_revision bigint not null default 1,
@@ -3784,11 +4457,13 @@ create table operator_decision_heads (
 create table bid_workflow_states (
   process_id uuid primary key references procurement_processes(id),
   bid_state text not null default 'not_started',  -- not_started, ready_to_bid, bid_in_progress, bid_submitted, bid_failed
+  bid_scope_json jsonb,
+  review_required boolean not null default false,
   bid_job_id uuid references workflow_jobs(id),
   started_at timestamptz,
   completed_at timestamptz,
   -- sync tracking (push-owned)
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   updated_at timestamptz not null default now(),
@@ -3797,9 +4472,16 @@ create table bid_workflow_states (
 
 create table workflow_jobs (
   id uuid primary key default gen_random_uuid(),
-  kind text not null,
+  kind text not null,            -- sync_source, normalize_notice, resolve_relations, qualify_notice, acquire_documents, extract_lots, extract_products, score_quoteability, enrich_supplier_prices, compute_gross_gate, estimate_landed_cost, compute_net_gate, generate_manifest, record_operator_decision, run_bid_workflow, escalate_rfq, validation
   process_id uuid references procurement_processes(id),
   notice_id uuid references contract_notices(id),
+  scope_kind text,               -- process, notice, lot, candidate, candidate_source_pair, candidate_quote_scenario
+  scope_id text,
+  parent_job_id uuid references workflow_jobs(id),  -- links validator sub-job to worker job
+  continuation_chain_id text,
+  chain_closed boolean not null default false,
+  validation_required boolean not null default false,  -- set by Validation Policy Engine
+  validation_verdict_id uuid,    -- populated after validation completes (references validation_verdicts.id)
   status text not null,
   scheduled_for timestamptz,
   lease_owner uuid references executors(id), -- authoritative in local SQLite; mirrored to Supabase for visibility only
@@ -3847,6 +4529,9 @@ create table agent_session_logs (
   error_message text,
   cleanup_verdict text,        -- clean, forced, leaked
   last_checkpoint_seq integer, -- last valid checkpoint sequence before failure
+  -- run manifest (worker-validator system)
+  run_manifest_path text,      -- artifact path to the agent-generated run manifest MD file
+  run_manifest_hash text,      -- SHA-256 of the run manifest for integrity verification
   created_at timestamptz not null default now()
 );
 
@@ -3870,6 +4555,61 @@ create table error_manifests (
 ```
 
 ```sql
+-- Semantic validation verdicts from validator skills (local-only — full verdict reasoning stays local).
+create table validation_verdicts (
+  id uuid primary key default gen_random_uuid(),
+  worker_job_id uuid not null references workflow_jobs(id),
+  worker_session_id uuid references agent_session_logs(id),
+  validator_job_id uuid not null references workflow_jobs(id),
+  validator_session_id uuid references agent_session_logs(id),
+  validator_skill_path text not null,
+  validator_skill_version text,
+  verdict text not null,                        -- approved, rejected, flagged
+  confidence_bps integer,                       -- basis points (0-10000)
+  summary text not null,                        -- one-paragraph human-readable summary (max 2000 chars)
+  basis_sufficiency text not null default 'medium', -- high, medium, low
+  anchor_conflict_count integer not null default 0,
+  incident_signature text,
+  enforcement_eligible boolean not null default false,
+  issues_json jsonb not null default '[]',      -- JSON array of ValidationIssue objects
+  quality_assessment_json jsonb,                -- JSON quality scores (manifest completeness, narrative consistency, etc.)
+  skill_improvement_suggestions_json jsonb,     -- JSON array of improvement suggestions for the worker skill
+  run_manifest_hash text not null,              -- SHA-256 of the run manifest that was validated
+  oqg_signals_summary text,                     -- OQG inputs provided to validator
+  override_verdict text,                        -- operator override (if any): approved, rejected
+  override_reason text,
+  override_by text,
+  override_at timestamptz,
+  verdict_rendered_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+```
+
+```sql
+-- Validation verdict summaries pushed to Supabase for web visibility (push-owned projection).
+create table validation_verdict_summaries (
+  id uuid primary key,                          -- references validation_verdicts(id)
+  worker_job_id uuid not null,
+  verdict text not null,                        -- approved, rejected, flagged
+  confidence_bps integer,
+  basis_sufficiency text,
+  incident_signature text,
+  enforcement_eligible boolean,
+  summary text,
+  issue_count integer not null default 0,
+  critical_issue_count integer not null default 0,
+  override_verdict text,
+  verdict_rendered_at timestamptz not null,
+  -- sync tracking (same pattern as other push-owned projections)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+```
+
+```sql
 -- Remote-facing projection summaries for web visibility.
 create table workflow_job_summaries (
   job_id uuid primary key references workflow_jobs(id),
@@ -3880,7 +4620,7 @@ create table workflow_job_summaries (
   started_at timestamptz,
   completed_at timestamptz,
   last_error text,
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   updated_at timestamptz not null default now(),
@@ -3897,7 +4637,7 @@ create table error_manifest_summaries (
   redacted_context jsonb,
   resolved boolean not null default false,
   resolved_at timestamptz,
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   updated_at timestamptz not null default now(),
@@ -3911,7 +4651,7 @@ create table viewer_sync_status (
   last_success_at timestamptz,
   sync_health text not null,
   schema_epoch integer not null,
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   updated_at timestamptz not null default now(),
@@ -3925,15 +4665,20 @@ create table viewer_sync_status (
 create table process_stage_status (
   id uuid primary key default gen_random_uuid(),
   process_id uuid not null references procurement_processes(id),
-  stage text not null,
+  stage text not null,              -- ingest, normalize, relate, qualify, acquire_docs, extract_lots, extract_products, score_quoteability, price_signal_match, gross_margin_gate, landed_cost, net_margin_gate, generate_manifest, operator_decision, bid_workflow
+  scope_kind text not null,         -- process, notice, lot, candidate, candidate_source_pair, candidate_quote_scenario
+  scope_id text not null,
   stage_run_id text not null,
   state text not null,
+  freshness_state text not null default 'fresh', -- fresh, soft_stale, hard_invalid
+  basis_hash text,
+  input_stage_vector_json jsonb,
   started_at timestamptz not null,
   completed_at timestamptz,
   error_manifest_id uuid references error_manifests(id),
   input_revision integer,
   output_revision integer,
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   updated_at timestamptz not null default now(),
@@ -3943,12 +4688,17 @@ create table process_stage_status (
 create table process_stage_heads (
   process_id uuid not null references procurement_processes(id),
   stage text not null,
+  scope_kind text not null,
+  scope_id text not null,
   current_stage_run_id text not null,
-  owner_executor_id text not null,
+  freshness_state text not null default 'fresh',
+  basis_hash text,
+  input_stage_vector_json jsonb,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   updated_at timestamptz not null default now(),
-  primary key (process_id, stage)
+  primary key (process_id, stage, scope_kind, scope_id)
 );
 ```
 
@@ -4069,7 +4819,24 @@ create table notice_lots (
   is_bidable_separately boolean not null default true,
   documents jsonb,  -- opaque array of document references
   -- sync tracking (push-owned)
-  owner_executor_id text not null,
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table tender_document_sets (
+  id uuid primary key default gen_random_uuid(),
+  process_id uuid not null references procurement_processes(id),
+  notice_id uuid not null references contract_notices(id),
+  document_set_hash text not null,
+  completeness_state text not null,  -- none, partial, full
+  document_roles_json jsonb not null,
+  documents_json jsonb not null,
+  acquired_at timestamptz not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   stage_run_id text,
@@ -4094,7 +4861,7 @@ create table process_relations (
   confidence_bps integer not null,  -- basis points (0-10000)
   evidence jsonb,
   -- sync tracking (push-owned)
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   stage_run_id text,
@@ -4106,7 +4873,7 @@ create table process_aliases (
   alias_process_id uuid primary key,
   canonical_process_id uuid not null references procurement_processes(id),
   alias_reason text not null default 'merged_same_process',
-  owner_executor_id text not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   updated_at timestamptz not null default now(),
@@ -4118,10 +4885,10 @@ create table process_aliases (
 create table search_profiles (
   id uuid primary key default gen_random_uuid(),
   product_candidate_id uuid not null references product_candidates(id),
-  head_noun text,
+  head_noun text not null,
   head_noun_family text,
-  candidate_type text,
-  match_archetype text,
+  candidate_type text not null,
+  match_archetype text not null,
   critical_attributes_json jsonb,
   standards_json jsonb,
   numeric_specs_json jsonb,
@@ -4136,10 +4903,35 @@ create table search_profiles (
   must_not_have jsonb,
   preferred_terms jsonb,
   excluded_terms jsonb,
-  query_waves_json jsonb,
+  query_waves_json jsonb not null,
   recall_risk_score_bps integer,
+  search_eligibility_state text not null,  -- auto_search, manual_only, skip
   -- sync tracking (push-owned)
-  owner_executor_id text not null,
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table candidate_pricing_assessments (
+  id uuid primary key default gen_random_uuid(),
+  process_id uuid not null references procurement_processes(id),
+  notice_id uuid not null references contract_notices(id),
+  product_candidate_id uuid not null references product_candidates(id),
+  selected_quote_id uuid not null references supplier_quotes(id),
+  selected_quote_row_version integer not null,
+  quote_cost_boundary text not null,
+  revenue_basis_type text not null,
+  expected_addressable_revenue_ex_vat_pence integer not null,
+  revenue_confidence_bps integer not null,
+  gross_margin_bps integer not null,
+  gross_estimate_confidence_bps integer not null,
+  identity_gate_passed boolean not null,
+  usability_gate_passed boolean not null,
+  pricing_input_confidence_bps integer not null,
+  owner_id text not null,
   row_version integer not null default 1,
   last_local_seq integer,
   stage_run_id text,
@@ -4184,12 +4976,10 @@ discovered
   -> lots_extracted
   -> products_extracted
   -> quoteability_scored
-  -> needs_review
   -> priced
   -> gross_qualified
   -> landed_costed
   -> net_qualified
-  -> expired
 ```
 
 **Operator Disposition** (remote-owned, in `operator_decision_heads`):
@@ -4200,6 +4990,8 @@ pending
   -> rejected
 ```
 
+`approved` means the operator accepts the current decision basis and is willing to pursue the opportunity on that basis. It is an operator disposition, not a guarantee that bid workflow has already started.
+
 **Bid Workflow State** (daemon-owned, in `bid_workflow_states`):
 ```text
 not_started
@@ -4209,16 +5001,45 @@ not_started
   -> bid_failed
 ```
 
+**Overlay states** (orthogonal to pipeline progression):
+
+- **`reviewRequired`** (boolean): Set when any stage routes to manual review. The `reviewStage` and `reviewReason` fields distinguish the source. `reviewRequired` can be set from qualification ambiguity, gross margin uncertainty, landed-cost blockers, validation flags, or below-quoteability candidate coverage concerns. The pipeline state continues to reflect the actual processing frontier — `reviewRequired` is an overlay, not a replacement for progression state.
+- **`availabilityStatus`**: `active` | `expired` | `cancelled`. Set independently of pipeline progression. A process can be `gross_qualified` and `expired` simultaneously — the expiry does not erase the processing frontier. Expiry is set by a background daemon job that periodically scans active processes whose `latestDeadlineAt` has passed (on daemon startup and every 6 hours). In-flight jobs for expired processes should complete (to preserve data) but their results should not auto-qualify.
+- **`validationState`**: Propagated from worker-validator verdicts. When `validation_skipped_validator_error` occurs, set `reviewRequired = true` on the affected scope/process rollup. Fail-open for pipeline progress, but not invisible downstream.
+
+**Coverage metrics** (on `PipelineAssessment`, derived from scoped stage heads):
+
+- `pricedCoverageBps` — percentage of total candidate value that has been priced (has SupplierQuote rows). If unknown candidate value shares, count by candidate count instead.
+- `landedCostCoverageBps` — percentage of total candidate value with landed-cost estimates.
+- `netQualifiedCoverageBps` — percentage of total candidate value that passed the net margin gate.
+- `unresolvedMandatoryLots` — count of lots that are neither rejected nor fully processed. Non-zero blocks auto-qualification.
+- `decisionBasisHash` — hash of the exact set of candidates, quotes, and estimates that the current process-level assessment is derived from. Changes when upstream data changes.
+
 **State transition notes:**
 
 - `relation_resolved` is reached after the relation resolution engine classifies the notice's relationship to existing processes (merge / related_not_merged / possible_duplicate / separate).
-- `prelim_rejected` is reached when any qualification dimension fails: expiry within 30 days, non-bidable access route, or pure services/works with negligible goods density. The `QualificationResult` records which dimension(s) caused rejection.
-- `prelim_qualified` requires passing all four qualification dimensions: expiry, access route, goods classification, and lot-level goods separability. Processes routed to `needs_review` from qualification (e.g., mixed contracts with uncertain separability) remain at `prelim_qualified` with a review flag until the operator resolves them.
+- `prelim_rejected` is reached when any qualification dimension fails: expiry within 30 days, non-bidable access route, or pure services/works with negligible goods density. The `QualificationResult` records which dimension(s) caused rejection. Qualification is **per-lot** — different lots in the same notice can have different outcomes. The process-level state reflects the best-qualifying lot.
+- `prelim_qualified` requires at least one lot passing all qualification dimensions: expiry, access route, goods classification, and goods separability. Processes with ambiguous qualification (e.g., mixed contracts with uncertain separability) remain at `prelim_qualified` with `reviewRequired = true` and `qualificationBasis = notice_only` until documents are acquired or the operator resolves them. See §5.7 for provisional qualification semantics.
 - `docs_acquired` → `lots_extracted` → `products_extracted` → `quoteability_scored` form the document-to-candidate pipeline.
-- **Below-quoteability path:** Candidates with quoteabilityScore < 0.45 advance to `quoteability_scored` in pipeline state but do NOT enter `priced`. They remain at `quoteability_scored` and the operator disposition defaults to `pending` for operator triage. The operator may then set disposition to `watching`, `rejected`, or escalate to RFQ manually.
-- **RFQ escalation** is an operator disposition action (setting disposition to `approved` with a sub-action or note), not a separate pipeline state. The pipeline continues to `priced` if/when executable quotes are obtained.
-- `needs_review` is a pipeline state reachable from multiple stages: qualification ambiguity, gross margin below threshold with high uncertainty, or landed-cost blocker (see §5.7 Landed Cost step 15). The `pipeline_assessments` record should include `review_reason` and `review_stage` to distinguish these.
-- `expired` is set by a background daemon job that periodically scans active processes and transitions those whose `latestDeadlineAt` has passed. Expiry check runs on daemon startup and on a configurable interval (default: every 6 hours).
+- **Below-quoteability path:** Candidates with quoteabilityScore < 0.45 advance to `quoteability_scored` in pipeline state but do NOT enter `priced`. They remain at `quoteability_scored` and the operator disposition defaults to `pending` for operator triage. SearchProfiles are created for ALL candidates (not just auto-searched ones), with `searchEligibilityState = auto_search | manual_only | skip` to preserve search intent even for below-threshold candidates. The operator may then set disposition to `watching`, `rejected`, or escalate to RFQ. When an RFQ produces executable quotes, they enter as `SupplierQuote(quoteClass = rfq_quote | negotiated_quote)` and the candidate re-enters the pipeline at the gross margin gate (stage 10).
+- **RFQ re-entry:** When the operator escalates to RFQ and an executable quote arrives, the system creates a new `SupplierQuote` with `quoteClass = rfq_quote` or `negotiated_quote`. This triggers re-evaluation from the gross margin gate onward for that candidate only. The process-level pipeline state advances past `quoteability_scored` when at least one candidate has pricing.
+- **Process-level state is a rollup.** Stages 7-12 operate at candidate/quote grain, but `PipelineAssessment.pipelineState` is process-level. The process-level state reflects the **furthest stage reached by any qualifying candidate**, combined with coverage metrics that show how much of the process value is actually resolved. A process at `net_qualified` with `netQualifiedCoverageBps = 2000` means only 20% of value is qualified — the operator must see this clearly. Auto-qualification requires `netQualifiedCoverageBps >= process_coverage_floor_bps` (calibratable; default 5000 = 50%). `PipelineAssessment` therefore carries `reviewRequired`, `availabilityStatus`, `validationState`, `pricedCoverageBps`, `landedCostCoverageBps`, `netQualifiedCoverageBps`, `unresolvedMandatoryLots`, and `decisionBasisHash` as first-class fields.
+
+**Decision staleness:**
+
+Operator decisions in `OperatorDecisionHead` should record the basis they were made on:
+- `reviewedBasisHash` — hash of the candidates/quotes/estimates the operator reviewed
+- `reviewedManifestHash` — hash of the manifest the operator read
+- `reviewedAtStageRunId` — which stage run the decision was based on
+
+If upstream hard-invalidation changes the basis after an operator decision:
+- Keep the decision (do not auto-revoke)
+- Mark `decisionStale = true`
+- Block bid workflow until the operator re-affirms
+
+**Bid workflow scope:**
+
+Bid workflow jobs must carry explicit scope: which lots and which candidates are included in the bid. A process can have qualifying lot 1, review lot 2, and rejected lot 3 — a process-level bid state is too blunt.
 
 ### 5.6 Ingestion Data Flow
 
@@ -4236,6 +5057,10 @@ not_started
 10. Agent writes checkpoints and final outputs through a validated result contract (artifact file, JSON payload, or structured stream).
 11. Workflow state advances from validated checkpoints/final contracts, not from transcript parsing.
 12. Result contract is validated by the Result Contract Validator, then checked by the Output Quality Gate. Raw artifacts are stored in the artifact store with hashes and paths referenced from SQLite. Schema-valid outputs that fail semantic or drift checks are quarantined as `AGENT_SUSPECT_OUTPUT` instead of being committed.
+12a. **Run manifest generation (hybrid-authored):** Agent writes the narrative sections of the run manifest (Summary, Steps Taken, Decisions Made, Warnings, Evidence with claim/evidence references). The daemon appends the machine-authored evidence appendix (observed URL chain, daemon-observed fingerprint/locale/currency state, checkpoint counts, result item count from contract, OQG anomaly summary, representative item sample, artifact refs). If the agent fails to emit a narrative (crash, timeout), the daemon synthesizes a minimum machine-authored fallback manifest with `agent_narrative_missing: true`. The combined run manifest is stored as an immutable artifact at `artifacts/sessions/YYYY/MM/<session_id>/run-manifest.md`; the path and SHA-256 hash are recorded in `agent_session_logs`.
+12b. **Validation policy check:** The Validation Policy Engine applies risk-stratified sampling and trigger evaluation. If `skip` and no trigger conditions met, proceed directly to step 13. If `always`, or if any risk factor or trigger condition is met (source health amber/red, page fingerprint unknown, first run after version change, continuation chain, high fallback depth, high-value opportunity, suspect output in recent runs), or if the skill is in a pre-stable promotion stage — spawn a validator sub-job. If `sample`, apply risk-stratified effective rate (base rate + risk multipliers). See §5.2 Validation Policy Engine for the full risk factor table.
+12c. **Semantic validation:** The validator agent reads the hybrid-authored run manifest (cross-checking agent-claimed vs daemon-observed fields), anomaly-stratified result contract sample (OQG outliers, boundary items, extremes, medians — not uniform random), distilled runtime rubric (skill semantic invariants, not raw golden assertions), OQG anomaly signals, and structured drift deltas with recent incident signatures. It renders a verdict (`approved`, `rejected`, `flagged`) with verdict metadata including `basis_sufficiency`, `anchor_conflict_count`, `incident_signature`, and `enforcement_eligible`. When `basis_sufficiency: low`, the validator flags with `coverage_gap` rather than rejecting, unless a hard machine-observed contradiction exists.
+12d. **Verdict processing:** `approved` → proceed to step 13. `rejected` with `enforcement_eligible: true` and slice in enforcement mode → quarantine results as `AGENT_SUSPECT_OUTPUT`, create error manifest with validator's reasoning, incident signature, and suggested fixes, alert operator. `rejected` with `enforcement_eligible: false` or slice not in enforcement mode → treat as `flagged` (log verdict, proceed with flag). `flagged` → proceed to step 13 with flag for operator review. In **dry-run mode**, steps 12b–12d run against `artifacts/scratch/<run_id>/`; verdicts are logged without enforcement, and no authoritative pipeline rows, outbox entries, or stage heads are advanced. For `continuation_required` runs, per-segment validation occurs at each segment boundary; chain-close aggregate validation occurs after all segments complete, before final stage-head advancement (see §5.2 Validation Executor).
 13. Notices are normalized into internal schema.
 14. Relation resolution engine classifies the notice's relationship to existing processes:
     - **Step 14a: Hard blockers check.** Before scoring, check for hard contradictions that prevent merging:
@@ -4287,6 +5112,9 @@ not_started
 - Resource exhaustion -> host memory/CPU pressure detected, marks `HOST_RESOURCE_EXHAUSTED`, may preempt lower-priority sessions.
 - Repeated challenge-class failures -> source circuit breaker opens, source enters cooldown, and only auth-refresh/health canaries remain eligible until the source recovers.
 - Daemon not running -> jobs remain in local SQLite queue; freshness SLA depends on the daemon being online. On restart, the daemon performs a catchup sweep for overdue jobs.
+- Validator rejects output -> if `enforcement_eligible: true` and slice in enforcement mode, results quarantined as `AGENT_SUSPECT_OUTPUT`; otherwise treated as `flagged`. Error manifest created with validator's reasoning, `incident_signature`, and suggested fixes, operator alerted. The error manifest includes which gate triggered quarantine (OQG vs semantic validator) and verdict metadata (`basis_sufficiency`, `anchor_conflict_count`).
+- Validator finds insufficient basis -> validator cannot confidently assess the run (daemon evidence appendix too thin, fingerprint baseline missing, result contract too small). Results advance with `VALIDATION_FLAGGED_INSUFFICIENT_BASIS` and `coverage_gap` flag. Downstream results carry `unverified` trust state.
+- Validator itself fails -> validator crash, timeout, or invalid verdict schema is treated as a validator error, NOT a worker error. Worker results advance as if validation were skipped, with `validation_skipped_validator_error` flag and `unverified` trust state propagated to downstream consumers. Broken validators never block the pipeline.
 
 ### 5.7 Intelligence Pipeline Data Flow
 
@@ -4324,7 +5152,12 @@ not_started
    - **Pass:** Pure goods, or mixed with goods separable and adequate goods density, and open/accessible bid route.
    - **Review:** Mixed/unknown with strong goods density but weak separability, or works notices with identifiable goods packages but unclear award structure.
    - **Reject:** Services only, works with negligible goods density, or closed/non-bidable access route.
-6. For mixed contracts with separable goods, price only the goods package — not the whole contract value. Adjust `estimatedValue` to reflect the goods portion.
+6. For mixed contracts with separable goods, price only the goods package — not the whole contract value. Persist `addressableValuePence` at lot level to reflect the goods portion. If candidate value share within a lot is unknown, process-level auto-qualification must stay conservative.
+7. **Qualification basis tracking:** Each qualification result must record its `qualificationBasis`:
+   - `notice_only` — qualified from notice text and CPV codes only (no tender documents yet). This is a provisional result that may be upgraded after document acquisition.
+   - `notice_plus_docs` — qualified after tender documents were available (stronger basis).
+   - `lot_level` — qualified at individual lot granularity from structured lot data.
+   Provisional qualification (`notice_only`) can still trigger document acquisition (stage 5) for ambiguous cases. If documents later become available and change the qualification outcome, the qualification result is re-run with `qualificationBasis = notice_plus_docs`. This avoids the causal inversion where meaningful qualification requires documents but documents require qualification.
 
 #### Data Flow: Document Acquisition
 
@@ -4334,6 +5167,7 @@ not_started
 4. Agent downloads publicly accessible documents and outputs structured references.
 5. Documents stored as raw artifacts in local SQLite, linked to the notice.
 6. If no public documents are available, proceed with notice text only (lower extraction confidence).
+7. **Document set output contract:** Stage 5 must produce a first-class output — not just raw artifacts. The output should include: which documents were found, their roles (`spec` | `pricing_schedule` | `boq` | `appendix` | `other`), completeness state (`none` | `partial` | `full`), and a `documentSetHash` computed from the acquired document set. This hash is the invalidation key: if documents are re-acquired and the hash changes, downstream stages (6-8) are hard-invalidated. Downstream stages can tell `notice_only` (no docs), `partial_docs` (some docs found), and `full_docs` (all referenced docs acquired).
 
 #### Data Flow: Lot Extraction
 
@@ -4342,6 +5176,8 @@ not_started
 3. Create `NoticeLot` entities with: lot number, title, description, CPV codes, estimated value, deadline, documents, bidability.
 4. If no lots are identifiable, create a synthetic whole-notice lot.
 5. Run per-lot qualification if the notice-level qualification was provisional.
+
+**Commit semantics:** Lot extraction is a **set-replacement** stage — a notice's lot set is one coherent decomposition of scope. If extraction succeeds for lots 1-7 but fails on lot 8, partial authoritative commit is unsafe. The stage must succeed for the complete lot set or fail entirely. Partial outputs are stored as checkpoint artifacts but do NOT advance the stage head. See §5.3 Stage Scoping Model.
 
 #### Data Flow: Product Extraction
 
@@ -4354,14 +5190,18 @@ not_started
 7. **Normalize standard references** into structured components: family (EN 397), part, edition year, amendment (A1:2012), and class/level. This structured representation enables precise standard comparison during hard-conflict filtering (see §5.7).
 8. Use **category-specific critical attribute tables** keyed off CPV family (PPE: standards/material; Electrical: voltage/plug/wattage; Furniture: dimensions/fire-rating; IT: brand/model/specs; Medical: standard/classification/sterile).
 9. Assign separate confidence scores: `identityConfidence`, `specConfidence`, `quantityConfidence`.
-10. Store candidates in local SQLite linked to their lot.
+10. Store candidates in local SQLite linked to their lot. **`lotId` is required**, not optional — every candidate must trace to a specific lot (or the synthetic whole-notice lot). For bundle decomposition, record `parentCandidateId` and `candidateRole` (`standalone` | `bundle_parent` | `bundle_component`) to preserve lineage. Persist `candidateValueShareBps` when decomposition or value allocation occurs — this is needed for "top-value" search selection in quoteability scoring and for process-level coverage rollups. Store `sourceEvidence` (document/page/span provenance) so downstream reviewers can trace candidate fields back to tender evidence.
 
 #### Data Flow: Quoteability Scoring
 
 1. Compute deterministic `quoteabilityScore` per candidate based on: commodity-like head noun, critical attributes, numeric specs, standards, quantity/unit, public docs, open access route; minus penalties for custom fabrication, installation scope, closed framework, missing compliance detail.
 2. Thresholds: `>= 0.65` search automatically; `0.45-0.64` search top-value only; `< 0.45` skip marketplace, route to watch/RFQ/manual.
 3. Compute `recallRiskScore` per candidate from: alias drift for the `matchArchetype`, compliance criticality, accessory contamination risk for the product family, spec sparsity, expected source noisiness, and language mismatch risk. This score drives adaptive shortlist budgets during price-signal matching.
-4. Generate structured search profile with multilingual `queryWaves` (see §5.7) for passing candidates. Each profile includes: head noun family, `matchArchetype`, noun aliases (EN/ZH), market framing terms (EN/ZH), required/optional anchors, exclusion terms, use context, and sector context. Query waves are generated per source, from most precise to broadest. Translate only structured product slots plus market framing, not whole sentences.
+4. Generate structured `SearchProfile` for **all candidates** (not just auto-searched ones). Each profile includes: head noun family, `matchArchetype`, noun aliases (EN/ZH), market framing terms (EN/ZH), required/optional anchors, exclusion terms, use context, and sector context. Set `searchEligibilityState` per candidate:
+   - `auto_search` (quoteabilityScore >= 0.65): full query waves generated, automatic marketplace search
+   - `manual_only` (0.45-0.64): query waves generated but only top-value/top-risk candidates searched automatically. "Top-value" is determined by `candidateValueShareBps` — candidates representing the largest share of lot value are searched first.
+   - `skip` (< 0.45): query waves generated for RFQ reference but no automatic marketplace search. The operator sees the search profile and can trigger manual search or RFQ.
+   Creating SearchProfiles for all candidates preserves search intent even for below-threshold candidates, enabling RFQ re-entry (see §5.5).
 5. Store search profiles in local SQLite for debugging and lexicon improvement.
 
 #### Data Flow: Price-Signal Matching (Skill-Based Agent Scraping)
@@ -4540,55 +5380,74 @@ Cached results carry **decayed commercial confidence**: identity evidence from t
 
 **Cache sharing across process clusters:** Reuse results across related-but-unmerged clusters via `ProcessRelation` edges. When Process A searched "nitrile gloves EN 455" and Process B has "nitrile examination gloves EN 455", the listing-evidence cache allows re-scoring cached listings against Process B's candidate without re-fetching, provided the hard fingerprint overlaps. The search-result cache is not shared across different hard fingerprints.
 
+#### Data Flow: Gross Margin Gate
+
+Revenue normalization must happen BEFORE the gross margin gate, not as part of landed cost. The gross margin gate computes:
+
+1. **Revenue normalization** (prerequisite — see Appendix A): Determine `revenue_basis_type` and compute `expected_addressable_revenue_ex_vat`. For mixed contracts with separable goods, use the goods-addressable value from qualification (stage 4), not the whole notice value.
+2. **Quote selection per candidate:** Select the best supplier quote(s) for each candidate based on lexicographic confidence gating (see §4.3 and Appendix A). The selection must gate on identity floor first (matchConfidence >= archetype floor), then usability floor (quoteUsabilityConfidence >= 0.45), then realism. A quote can be realistic and still be the wrong product or the wrong pack basis.
+3. **Quote normalization** (prerequisite — see Appendix A): Normalize selected quotes to a common EXW cost boundary based on Incoterm.
+4. **Gross margin computation and gate** per candidate (see Appendix A for formula).
+5. **Persist the selection:** The gross margin gate must produce a durable output — the selected quote(s), revenue basis, normalization applied, and confidence gates passed. The target-state schema uses a first-class `CandidatePricingAssessment` entity for this purpose, carrying `selectedQuoteId`, `selectedQuoteRowVersion`, `revenueBasisType`, `expectedAddressableRevenueExVatPence`, `grossMarginBps`, and the confidence-gate decisions. Without this, the landed cost stage (stage 11) can easily use a different quote or basis than stage 10 selected.
+
 #### Data Flow: Landed Cost (API-Based)
 
-**Revenue normalization (before any margin gate):**
-
-1. Determine **revenue basis type**: firm contract, estimated contract value, framework ceiling, dynamic-market admission, or concession. Under Procurement Act guidance, estimated contract value is the maximum value payable and is inclusive of VAT. For frameworks, the estimate is the value of all call-offs and must not be exceeded, but this does not make it guaranteed revenue.
-2. Normalize to `expected_addressable_revenue_ex_vat`. Do not use raw notice value — framework ceiling or dynamic-market values are not firm revenue.
-3. Assign `revenueConfidence` based on basis type. Firm contracts score higher than framework ceilings.
+**Revenue normalization prerequisite:** Revenue normalization (`expected_addressable_revenue_ex_vat`, `revenue_basis_type`, `revenueConfidence`) and Incoterm-normalized supplier cost are computed and persisted during the Gross Margin Gate (stage 10 — see above). The landed cost stage reuses these persisted values. It does NOT recompute revenue normalization or quote selection. The selected quote, revenue basis, and normalization applied are read from the stage-10 `CandidatePricingAssessment`.
 
 **Per-line-item estimation (do not force one commodity code onto a mixed basket):**
 
-4. Split mixed notices into separate product candidate line items (bundle splitting should have occurred at the product extraction stage).
-5. Select best supplier quote pairs per line item.
-6. **Normalize each supplier quote to a common cost boundary based on Incoterm.** Under EXW, buyer pays all transport; under FOB, seller pays to port; under CIF, seller pays freight + insurance; under DDP, seller handles everything including import clearance. Without normalization, the gross-margin gate is mathematically inconsistent across quotes with different Incoterms.
-7. **Classification pipeline:** Apply description-quality gate → attribute extraction → multi-query **HMRC FPO API** for HS6/CN8 candidate codes → cluster and rank candidates → resolve to 10-digit declarable codes via **HMRC Trade Tariff API** → validate via **Taric Support API** → cross-check via **HS Ping**.
-8. **Measure risk scan:** Query HMRC Trade Tariff API import measures for each resolved 10-digit code. Check for: base duty (including compound/specific), trade remedy duties (anti-dumping, countervailing, safeguard), preferential eligibility, quotas, import controls/prohibitions, additional codes, condition thresholds, and required measurement units.
-9. **Freight estimation:** Resolve Incoterm cost boundary → apply hard mode locks (hazmat, oversized, fragile, reefer, batteries) → infer packaging state → select mode(s) → fetch estimates from **Freightos** and **SeaRates** APIs → if packaging state unknown, run dual scenarios → emit `freightLowGbp` / `freightBaseGbp` / `freightHighGbp` with `modeConfidence`.
-10. Convert to GBP using:
+1. Split mixed notices into separate product candidate line items (bundle splitting should have occurred at the product extraction stage).
+2. Read persisted stage 10 output: selected quote, normalized supplier cost, revenue basis, and confidence gates for each candidate. **Landed-cost estimates are scoped to candidate + selected quote** — each estimate is anchored to a single commercial scenario (one candidate, one quote, plus tariff/FX/freight snapshots). The `supplierQuoteId` field is **required**, not optional. If sometimes per-candidate (no specific quote), that is a screening-grade estimate with `decisionGrade = screening`.
+3. **Classification pipeline:** Apply description-quality gate (with archetype-keyed missing-facts request on rejection) → attribute extraction → **multi-source candidate recall** (HMRC FPO API, CPV→chapter priors, rule-based hints, tariff keyword search, ATR/codebook reuse) for HS6/CN8 candidates → cluster and rank across sources with `candidateRecallAgreement` → **expand all plausible families to all declarable 10-digit UK descendants** via **HMRC Trade Tariff API** (never descend only the top candidate) → rerank descendants by slot + measure compatibility → validate via **Taric Support API** → cross-check via **HS Ping**. Check `tariffCheckedAt` and `tradeRemedyWatchState` for classification freshness.
+4. **Measure risk scan:** Query HMRC Trade Tariff API import measures for each resolved or candidate 10-digit code. Check for: base duty (including compound/specific with full measure expressions), trade remedy duties (with exporter-specific, annex, and residual rate tiers — default to residual when exporter identity is unverified), preferential eligibility (default to MFN unless origin preference is proved), quotas (default to out-of-quota rate when allocation is unknown), import controls/prohibitions, additional codes (TARIC and national), condition thresholds, required supplementary units, and **measure interactions** (AD/CVD/safeguard/quota do not always stack — apply measure-family-specific interaction rules). Compute `dutyOutcomeMinGbp` / `dutyOutcomeMaxGbp` / `customsCostSpreadBps` across all plausible branches.
+5. **Freight estimation:** Resolve Incoterm cost boundary → apply hard mode locks (hazmat, oversized, fragile, reefer, batteries) → infer packaging state → select mode(s) → fetch estimates from **Freightos** and **SeaRates** APIs → if packaging state unknown, run dual scenarios → emit `freightLowGbp` / `freightBaseGbp` / `freightHighGbp` with `modeConfidence`. When no Incoterm is stated, run boundary scenarios (EXW vs FOB vs CIF assumptions) rather than forcing point normalization.
+
+    **Conservative defaults for all cost-estimation steps:**
+    - No origin proof → MFN rate (not preferential)
+    - No exporter proof → residual remedy rate (not named-exporter or annex)
+    - No quota allocation → out-of-quota rate
+    - Unresolved VAT status → standard VAT rate
+    - Unresolved Incoterm → boundary scenarios, not point normalization
+    - Unresolved supplementary units → abstain on duty calculation for that component
+6. Convert to GBP using:
     - **HMRC Exchange Rate Service** for customs duty calculation (legally authoritative, `customsFxRate`),
     - **Xe** for commercial margin estimation (real-time market rates, `commercialFxRate`).
     - Compute and store `fxBasisDeltaPct` between the two rates.
-11. Determine **import VAT treatment**: postponed (full/partial), cash-paid (full/partial), or non-recoverable. Assign `vatRecoveryRate` rather than a binary flag. Record `customsValuationMethod` used (Method 1–6 or unknown).
-12. **Estimate remaining cost components:**
+7. Determine **VAT rate** (`vatRateState`: `standard` | `reduced` | `zero` | `unresolved` — using national additional codes for relief paths; default to standard when unresolved) and **import VAT recovery treatment**: postponed (full/partial), cash-paid (full/partial), or non-recoverable. Assign `vatRecoveryRate` rather than a binary flag. Record `valuationMode` (`estimation` | `declaration`) and `customsValuationMethod` used (`1_actual` | `1_proxy` | 2–6 | unknown), distinguishing marketplace-derived proxy values from actual transaction prices.
+8. **Estimate remaining cost components:**
     - `ukFinalMileCostGbp` — UK domestic delivery from port/airport to contract delivery address. Use internal rate cards, carrier quotes, or heuristic by weight/volume and distance.
     - `otherFeesGbp` — customs brokerage fees (~£30–150 per entry), port/terminal handling charges (~£150–400 per container), insurance (typically 0.5–2% of CIF value), quality inspection if applicable.
-13. **Compute landed cost and margin scenarios** per line item:
+9. **Compute landed cost and margin scenarios** per line item:
     - `economicLandedCostGbp` = supplierCost + freightBase + customsDuty + tradeRemedyDuty + ukFinalMile + otherFees (ex-recoverable-VAT)
     - `netMarginLowPct`, `netMarginBasePct`, `netMarginHighPct` (economic, ex-VAT basis, using freight low/base/high and duty variation from classification uncertainty),
     - `cashToClearGbp` (total upfront cash including non-recoverable or delayed-recovery VAT),
     - `cashOutlayGbp` (total cost including all VAT whether recoverable or not),
     - `workingCapitalCostGbp` (optional — cost of capital tied up between payment and revenue).
-14. **Compute confidence breakdown:** Calculate each of the 6 components (`classificationStability`, `quoteRealism`, `commodityCodeConfidence`, `freightModeStability`, `revenueReliability`, `fxFreshness`) and the weighted composite. Assign `decisionGrade`: `screening` | `review` | `rfq_required` | `broker_required`.
-15. **Blocker check:** Stop auto-qualification when:
+10. **Compute confidence breakdown:** Calculate each of the 6 components (`classificationStability`, `quoteRealism`, `commodityCodeConfidence`, `freightModeStability`, `revenueReliability`, `fxFreshness`) and the weighted composite. Assign `decisionGrade`: `screening` | `review` | `rfq_required` | `broker_required`.
+11. **Blocker check:** Stop auto-qualification when:
     - Classification is unstable (HS6 candidates diverge or 10-digit code unresolved)
     - Revenue basis is uncertain (framework ceiling, dynamic market, no firm commitment)
     - Freight mode remains unresolved or mode confidence is low
-    - Trade remedy duties detected
+    - Trade remedy duties detected (any tier — named exporter, annex, or residual)
     - Unsatisfied measure conditions or import controls present (operational blockers)
+    - Plausible UK10 branches split on remedy vs no-remedy, specific vs ad-valorem duty, different VAT family, or unresolved supplementary units — customs cost spread is a hard blocker, not a scenario band
+    - Exporter identity unresolved for a commodity with active trade remedy measures
+    - Classification freshness expired (`tariffCheckedAt` older than freshness window or `tradeRemedyWatchState` is not `clear`)
     - Quote class is only `indicative_marketplace` and margin is within 10 percentage points of gate
-16. Roll up line-item estimates to process-level aggregate estimates.
-17. Store warnings, confidence breakdown, blockers, and decision grade in local SQLite.
-18. Sync results to Supabase.
+    - `valuationMode` is `estimation` and customs valuation cannot be meaningfully estimated from available data
+12. Roll up line-item estimates to process-level aggregate estimates. The rollup computes `pricedCoverageBps`, `landedCostCoverageBps`, and `netQualifiedCoverageBps` on `PipelineAssessment`. Auto-qualification requires `netQualifiedCoverageBps >= process_coverage_floor_bps` (default 5000 = 50%). If below-quoteability candidates represent more than 50% of process value and remain unresolved, the process cannot auto-qualify regardless of the net margin on resolved candidates.
+13. Store warnings, confidence breakdown, blockers, and decision grade in local SQLite.
+14. Sync results to Supabase.
+
+**Validation note for intelligence pipeline skills:** The same run manifest generation and semantic validation flow described in §5.6 steps 12a–12d applies to all skill-based pipeline stages above (document acquisition, lot extraction, product extraction, supplier enrichment). Each skill produces a run manifest; the Validation Policy Engine determines whether a validator sub-job is required. The validation step is inserted after each skill's OQG check and before results are committed to pipeline state. Intelligence pipeline skills that perform browser-based extraction (document acquisition, supplier enrichment) benefit most from semantic validation because they are most susceptible to "clean run, wrong page" failures.
 
 ### 5.8 Control Panel and Viewing Portal Data Flow
 
-**Terminology note:** In this document, **desktop app**, **desktop shell**, and **desktop control panel** all refer to the same writable Tauri client. **Web app**, **web shell**, and **viewing portal** all refer to the same read-only hosted client. **Procurement process** is the canonical internal record; the UI may call it an **opportunity**. A **contract notice** is the source document that feeds a procurement process.
+**Terminology note:** In this document, **desktop control panel** is the primary name for the writable Tauri client; **desktop shell** is used only when discussing packaging/runtime. **Viewing portal** is the primary name for the read-only hosted client; **web shell** is used only for packaging/runtime discussion. **Procurement process** is the canonical internal record; the UI may call it an **opportunity**. A **contract notice** is the source document that feeds a procurement process.
 
 The desktop/web capability split is formalized in **ADR-008**.
 
-**Architectural framing:** The desktop is not "React talking to SQLite." It is React talking to a **local control plane**. The viewing portal is not "React talking to the same hooks." It is React talking to a **read replica with live invalidation**. These two surfaces share presentational components and view-model types but have fundamentally different data access patterns, latency characteristics, and capability sets.
+**Architectural framing:** The desktop is not "React talking to SQLite." It is React talking to a **local control plane**. The viewing portal is not "React talking to the same hooks." It is React talking to **read-only projections with live invalidation**. These two surfaces share presentational components and view-model types but have fundamentally different data access patterns, latency characteristics, and capability sets.
 
 ```text
 DESKTOP
@@ -4919,6 +5778,8 @@ Deep links and bookmarked detail routes resolve through `process_aliases` before
 
 **Important clarification:** This section describes **request pipeline automation**, not real-money bid submissions. The platform automates the preparation and submission of requests/expressions of interest. Actual negotiations and fulfillment are handled manually by humans using the pipeline output. The cost of pipeline failure is low — no real money changes hands automatically.
 
+**Validation policy:** Despite the low financial risk, bid automation skills should default to `validation_policy: always` given their operational consequence (portal form filling, document submission). A validator checking the run manifest can catch scenarios like submitting to the wrong tender, filling forms with data from the wrong opportunity, or uploading incorrect documents — errors that are embarrassing even if not financially costly.
+
 This automation-risk posture is formalized in **ADR-007**.
 
 In many cases the notice source and the submission portal are different. `Find a Tender` and `Contracts Finder` are discovery/publication sources, while the actual bidder interaction often happens on downstream eSourcing portals such as Jaggaer, Atamis, Proactis, PCS-Tender, or authority-specific procurement systems. Bid workflows should therefore be modeled around the **underlying submission portal**, not the notice discovery source.
@@ -4934,7 +5795,7 @@ operator clicks "bid" in desktop control panel
   -> draft submission or request-for-bid prepared
   -> evidence/screenshot/log artifacts stored in local SQLite
   -> full raw session output captured for tracing
-  -> job marked ready_to_bid, needs_review, or bid_submitted depending on workflow stage
+  -> job marked ready_to_bid, bid_in_progress, or bid_submitted depending on workflow stage, with `reviewRequired=true` when operator sign-off is still needed
   -> results synced to Supabase for visibility
   -> if failure: error manifest entry created with context for debugging
 ```
@@ -4955,6 +5816,7 @@ The daemon exposes logical API resources through multiple transport adapters:
 The `/api/*` endpoint definitions below describe **logical resources** shared across all transports. The desktop app accesses them through Tauri commands and the DaemonBridge; the optional HTTP adapter exposes the same resources for dev tooling.
 In this document, **daemon API** refers to these logical resources independent of transport. The optional localhost HTTP surface is only a development adapter over the same daemon API.
 The surface is intentionally page-oriented and task-oriented: contracts, jobs, sessions, errors, settings, and health. It deliberately excludes generic SQL access, raw artifact-blob reads in hot paths, and arbitrary skill-execution RPCs.
+For MVP, that narrowness is intentional: there is no generic `/api/skills/run`, no generic `/api/sql`, and no catch-all workflow-mutation surface. New endpoints should correspond to concrete operator actions or page read-model needs, not to internal daemon subsystems.
 
 #### Logical Endpoints
 
@@ -4965,6 +5827,7 @@ The surface is intentionally page-oriented and task-oriented: contracts, jobs, s
 | `/api/contracts/:processId/manifest` | GET | Read generated manifest | user |
 | `/api/contracts/:processId/sessions` | GET | Session-history summary for an opportunity | user |
 | `/api/contracts/:processId/errors` | GET | Error-manifest summaries for an opportunity | user |
+| `/api/contracts/:processId/approve` | POST | Record operator approval / pursue decision | user (desktop only) |
 | `/api/contracts/:processId/reject` | POST | Reject an opportunity | user (desktop only) |
 | `/api/contracts/:processId/watch` | POST | Move to watch state | user (desktop only) |
 | `/api/contracts/:processId/bid` | POST | Trigger request pipeline workflow | user (desktop only) |
@@ -5039,16 +5902,26 @@ POST /api/contracts/123e4567-e89b-12d3-a456-426614174000/bid
 | Supplier match weak | `SUPPLIER_MATCH_LOW_CONFIDENCE` | do not auto-qualify |
 | Commodity code uncertain | `COMMODITY_CODE_LOW_CONFIDENCE` | route to manual review |
 | Freight estimate weak | `LOGISTICS_LOW_CONFIDENCE` | use manual quote/broker escalation |
-| FPO API unavailable | `FPO_ACCESS_UNAVAILABLE` | skip FPO, use manual classification or Taric Support lookup |
+| FPO API unavailable | `FPO_ACCESS_UNAVAILABLE` | skip FPO, continue with remaining recall sources (CPV priors, rule-based hints, tariff keyword search, codebook reuse); apply confidence penalty for reduced recall breadth |
 | HS10 code unresolved | `HS10_UNRESOLVED` | cannot determine declarable 10-digit code; block auto-qualification, escalate to broker |
 | Additional code required | `ADDITIONAL_CODE_REQUIRED` | 10-digit code requires additional 4-char codes for declaration; block auto-qualification |
 | Measure condition unsatisfied | `MEASURE_CONDITION_UNSATISFIED` | trade tariff measure condition cannot be resolved; operational blocker |
 | Trade remedy risk | `TRADE_REMEDY_RISK` | anti-dumping/countervailing/safeguard duty detected; flag for review, add to duty estimate |
 | Revenue basis uncertain | `REVENUE_BASIS_UNCERTAIN` | framework ceiling or dynamic market; margin gate uses discounted revenue |
+| Operator decision conflict | `OPERATOR_DECISION_CONFLICT` | compare-and-swap write to `operator_decision_heads` failed because remote revision changed; refetch current decision basis and require operator reconciliation |
 | Incoterm cost overlap | `INCOTERM_COST_OVERLAP` | supplier quote Incoterm includes costs also being added separately; double-counting risk |
 | PVA ineligible | `PVA_INELIGIBLE` | importer cannot use postponed VAT accounting; import VAT is real cash cost |
 | Freight provider unsupported | `FREIGHT_PROVIDER_UNSUPPORTED` | Freightos/SeaRates cannot quote this route/mode; use manual freight estimate |
 | Freight mode low confidence | `FREIGHT_MODE_LOW_CONFIDENCE` | packaging state unknown or weight/volume too uncertain for reliable mode selection |
+| Exporter identity unresolved | `EXPORTER_IDENTITY_UNRESOLVED` | commodity has active trade remedy measures but exporter/manufacturer cannot be identified; residual rate assumed |
+| Residual rate assumed | `RESIDUAL_RATE_ASSUMED` | trade remedy rate defaulted to residual because exporter-specific or annex evidence is unavailable |
+| Origin proof missing | `ORIGIN_PROOF_MISSING` | preferential rate not applied because origin proof is unavailable; MFN rate used |
+| Supplementary unit required | `SUPPLEMENTARY_UNIT_REQUIRED` | 10-digit code requires supplementary units (number of items, kg net, litres, etc.) for duty calculation; unit data unavailable |
+| Measure interaction complex | `MEASURE_INTERACTION_COMPLEX` | commodity has AD/CVD/safeguard/quota measures that do not stack arithmetically; interaction rules applied |
+| VAT rate unresolved | `VAT_RATE_UNRESOLVED` | national additional codes indicate possible reduced/zero rate but determination is incomplete; standard rate assumed |
+| Classification stale | `CLASSIFICATION_STALE` | classification result's `tariffCheckedAt` has expired or `tradeRemedyWatchState` indicates a relevant change since last check |
+| TRA investigation open | `TRA_INVESTIGATION_OPEN` | commodity code family has an open TRA investigation; no current duty but commercial risk state changed |
+| Estimation-mode valuation only | `ESTIMATE_MODE_VALUATION_ONLY` | customs valuation uses marketplace-derived proxy (not actual transaction value); duty estimate is indicative only |
 
 #### Agent-Specific Error Types
 
@@ -5063,7 +5936,7 @@ POST /api/contracts/123e4567-e89b-12d3-a456-426614174000/bid
 | Protocol mismatch | `AGENT_PROTOCOL_MISMATCH` | Adapter detected unexpected CLI output format or unsupported protocol version. Enter canary mode for the vendor. Create error manifest with CLI version details. |
 | Partial failure | `AGENT_PARTIAL_FAILURE` | Valid checkpoints exist before crash but no final result contract. Persist checkpoint outputs. Never upgrade to success. |
 | Cleanup incomplete | `AGENT_CLEANUP_INCOMPLETE` | Descendant processes leaked after session exit. Record leaked pids/pgids. Operator may need manual intervention. |
-| Suspect output | `AGENT_SUSPECT_OUTPUT` | Agent exited cleanly with valid result contract, but output failed semantic or behavioral/drift validation. Results quarantined, not promoted to pipeline. Surface for operator review. |
+| Suspect output | `AGENT_SUSPECT_OUTPUT` | Agent exited cleanly with valid result contract, but output failed code-based semantic or behavioral/drift validation (Output Quality Gate) OR agent-based semantic validation (validator rejection). Results quarantined, not promoted to pipeline. Surface for operator review. Error manifest indicates which gate triggered quarantine. |
 
 #### Host/Runtime Error Types
 
@@ -5083,6 +5956,23 @@ POST /api/contracts/123e4567-e89b-12d3-a456-426614174000/bid
 | Page shape drift | `PAGE_SHAPE_DRIFT` | Page fingerprint no longer matches expected anchors. Flag skill needs review, create error manifest with old/new fingerprint hashes. |
 | Locale or currency drift | `LOCALE_OR_CURRENCY_DRIFT` | Source serving different locale, currency, or market variant than expected. Fail fast, require egress/config review. |
 | Resume unsafe after submit | `RESUME_UNSAFE_AFTER_SUBMIT` | Cannot safely resume a portal workflow after a potential side-effect boundary (e.g., form submission). Switch to verify-only mode or require human confirmation. |
+
+#### Validation-Specific Error Types
+
+| Error | Code | Handling |
+|-------|------|----------|
+| Validation rejected | `VALIDATION_REJECTED` | Validator agent found critical semantic issues with `enforcement_eligible: true`. Worker results quarantined as `AGENT_SUSPECT_OUTPUT` (enforcement mode) or flagged (dry-run mode). Error manifest created with validator's issues, reasoning, incident signature, and suggested fixes. Operator alerted for review. |
+| Validation flagged | `VALIDATION_FLAGGED` | Validator agent found non-critical issues, or found issues with `basis_sufficiency: low` and no hard machine-observed contradiction. Worker results accepted and committed, but flagged for operator review. Issues and verdict metadata recorded in `validation_verdicts`. |
+| Validation flagged (insufficient basis) | `VALIDATION_FLAGGED_INSUFFICIENT_BASIS` | Validator could not confidently assess the run — daemon evidence appendix too thin, fingerprint baseline missing, or result contract too small to sample meaningfully. Results accepted with `coverage_gap` flag. This is first-class validator blindness: the validator explicitly communicates "I don't actually know." Downstream results carry an `unverified` trust signal. |
+| Validation skipped (validator error) | `VALIDATION_SKIPPED_VALIDATOR_ERROR` | Validator itself failed (crash, timeout, invalid verdict schema). This is a validator error, NOT a worker error. Worker results advance as if validation were skipped. Operator alerted about validator health. Fail-open by default. The skip propagates as a trust-state signal — downstream results are marked as not semantically validated, visible on operator surfaces and sync projections. |
+
+**Key distinction:** `AGENT_SUSPECT_OUTPUT` can now be set by either the Output Quality Gate (existing code-based checks) or a validator rejection with `enforcement_eligible: true` (new agent-based semantic check). Both paths create error manifests. The error manifest includes which gate triggered the quarantine and, for validator rejections, the `incident_signature` classifying the type of issue found. Validator verdicts are NOT skill outcome classes — they are a separate verdict layer. A validator skill itself uses the standard outcome classes (completed/failed/etc). The verdict (approved/rejected/flagged) is the validator's assessment of the WORKER's output, carried in the result contract along with verdict metadata (`basis_sufficiency`, `anchor_conflict_count`, `incident_signature`, `enforcement_eligible`).
+
+**Error-manifest boundary:** Validation verdicts do not replace the error manifest system. The verdict is the quality judgment; the error manifest remains the operator-facing debugging artifact and incident record whenever a validator rejection or other failure needs follow-up.
+
+**Trust-state propagation:** Both `VALIDATION_FLAGGED_INSUFFICIENT_BASIS` and `VALIDATION_SKIPPED_VALIDATOR_ERROR` result in pipeline advancement (fail-open), but downstream consumers should not treat these results as semantically validated. The trust state propagates to operator surfaces and sync projections so that unverified results are visually distinguishable from validated results.
+
+See §5.2 Validation Executor for the verdict model, verdict metadata definitions, basis sufficiency rule, and per-slice enforcement logic. See §5.2 Validation Policy Engine for policy modes and risk-stratified sampling. See §4.10 for validator skill types (category 6) and validation policy metadata declarations.
 
 #### Skill Outcome Classes (Non-Error)
 
@@ -5160,11 +6050,12 @@ function resolveConfidenceGate(score: number, floor = 0.6): ConfidenceGate {
 | Marketplace comparability scoring | Very High | query-wave planning per archetype × source; four-state evidence comparison; detail-page enrichment for compliance evidence; cross-language matching with market framing; category-specific attribute matching; hard-conflict detection with standards normalization; adaptive diversified shortlisting; zero-result recovery ladder with failure taxonomy; two-tier cache with structured fingerprinting |
 | Commercial usability of observed prices | High | pack/unit basis normalization; MOQ compatibility; VAT/shipping inclusion detection; price-signal role classification |
 | RFQ escalation strategy | Medium | identifying when indicative pricing is insufficient and executable quotes are needed |
-| Landed-cost engine | Very High | logistics + customs + FX + assumptions; expanded API surface; revenue normalization |
+| Landed-cost engine | Very High | logistics + customs + FX + assumptions; multi-source classification with multi-family expansion; exporter rate resolution; compound/specific duty expressions; measure interaction engine (AD/CVD/safeguard/quota non-additive); classification freshness monitoring via TRA/tariff watcher; VAT rate determination via national additional codes; conservative defaults with aggressive abstention; expanded API surface; revenue normalization. Still corridor-scoped: UK import valuation and China-to-UK sourcing economics, not a general multi-jurisdiction customs platform. |
 | Operator surfaces | Medium | standard CRUD/search/detail flows; desktop control panel + read-only viewing portal |
 | Request pipeline automation | High | portal-specific skills, brittle websites, but low risk since not real money |
 | Daemon orchestration (PTY + SQLite + sync) | Very High | PTY session management, SQLite storage, Supabase sync engine, cron scheduling, agent health monitoring, full session-output capture |
-| Skill maintenance and reliability | Medium-High | updating SKILL.md when sources change is straightforward; the added complexity is three-layer validation (syntactic/semantic/behavioral-drift), page fingerprint maintenance, schema migrations with dual-accept windows, promotion flow gates, golden assertion curation, and auth-refresh skill coordination |
+| Skill maintenance and reliability | Medium-High | updating SKILL.md when sources change is straightforward; the added complexity is four-layer validation (syntactic/semantic/behavioral-drift via OQG, plus agent-based semantic validation via worker-validator), page fingerprint maintenance, schema migrations with dual-accept windows, promotion flow gates, golden assertion curation, and auth-refresh skill coordination |
+| Worker-validator semantic validation | Medium-High | Run manifest generation is straightforward (agent writes a structured narrative as part of its output). The validation policy engine is config-driven. The hard part is writing good validator skills that catch real semantic issues without excessive false positives. Validator skill quality improves iteratively via the same promotion flow as worker skills. |
 
 **Architecture-shape note:** The component graph is intentionally denser around PTY/runtime orchestration and product/pricing comparability than around generic CRUD or projection concerns. That is deliberate: those two areas dominate failure risk, operational cost, and correctness.
 
@@ -5172,9 +6063,10 @@ function resolveConfidenceGate(score: number, floor = 0.6): ConfidenceGate {
 
 - **MVE-critical (validate first):** Product candidate extraction (High), Marketplace comparability scoring (Very High), Commercial usability of observed prices (High), Lot extraction (Medium), Document acquisition (Medium-High), Quoteability scoring (Medium-High — gates which candidates enter marketplace search), Landed-cost engine screening-grade subset (Medium — needed to produce margin bands for validation). These components determine whether the product thesis is viable. Without them, nothing downstream produces real signal.
 - **MVP-critical (build second):** Procurement ingestion (Medium), Notice normalization (Medium), Goods qualification (Medium-High), Landed-cost engine full scope (Very High), Operator surfaces (Medium).
-- **Operational (build third):** Daemon orchestration (Very High at full scope, but a thin-runner subset is Medium), Relation resolution (High), Skill maintenance (Medium), Request pipeline automation (High), RFQ escalation (Medium).
+- **Operational (build third):** Daemon orchestration (Very High at full scope, but a thin-runner subset is Medium), Relation resolution (High), Skill maintenance (Medium), Worker-validator semantic validation (Medium-High — dry-run mode is Operational tier; enforcement is later), Request pipeline automation (High), RFQ escalation (Medium).
 
 This ordering means the highest-complexity components (marketplace comparability, landed-cost, daemon orchestration) are addressed in phases: screening-grade subsets first for validation, full complexity later for production.
+The deliberate exception is the thin runner in Milestone 1: it is a minimal runtime slice inserted only to validate experiment 4 (runtime reliability), not a reversal back to infrastructure-first delivery.
 
 **Risk Areas:**
 
@@ -5186,6 +6078,7 @@ This ordering means the highest-complexity components (marketplace comparability
 6. PTY session reliability and agent health monitoring.
 7. Skill drift when source websites change — mitigated by page fingerprint monitoring, production drift detection, source-health canaries, and the error manifest system.
 8. SQLite-to-Supabase sync consistency.
+9. Pipeline integration coherence — the pipeline's unit of work changes across stages (process → notice → lot → candidate → candidate-source pair → quote → scenario), but the control model must track scope, coverage, and freshness correctly at each grain. Scope-aware stage tracking, coverage-aware rollups, and staleness propagation are essential to prevent clean-looking wrongness (e.g., `net_qualified` processes with only one small candidate actually priced).
 
 ### 6.2 Risk Assessment
 
@@ -5193,7 +6086,7 @@ This ordering means the highest-complexity components (marketplace comparability
 |------|------------|--------|------------|
 | Wrong product match inflates margin | High | High | dual confidence scoring with lexicographic gating + archetype-specific floors + four-state evidence comparison + compliance evidence tiers + operator review |
 | Incorrect notice-to-process merging conflates separate opportunities | Medium | High | conservative merge heuristics + merge confidence + manual unmerge tooling |
-| HS code is wrong | Medium | Critical | HMRC FPO first-pass + candidate-code ranking + ATR workflow + broker escalation |
+| HS code is wrong | Medium | Critical | multi-source candidate recall (FPO + CPV priors + rule-based hints + tariff keyword search + codebook reuse) + multi-family expansion to all UK10 descendants + slot/measure compatibility reranking + ATR workflow + broker escalation |
 | Freight estimate too optimistic | High | Critical | mode-aware engine + Freightos + SeaRates cross-check + manual quote threshold |
 | VAT recoverability is modeled incorrectly | Medium | High | store VAT-registration assumptions explicitly and show economic-margin vs cash-outlay views separately |
 | Daemon not running for queued work | Medium | Medium | local cron + error manifest flags missed schedules + at least one designated always-on machine |
@@ -5220,9 +6113,24 @@ This ordering means the highest-complexity components (marketplace comparability
 | Infrastructure-first delivery delays thesis validation | High | High | validate intelligence pipeline (extraction, matching, margin accuracy) before investing in daemon hardening, cron, sync, and web — wrong answers at scale are worse than no automation |
 | Premature category breadth before depth | High | High | start with a narrow goods-category whitelist (commodity-like, low regulatory burden); expand only after the system proves reliable on the initial wedge |
 | No labeled benchmark corpus for calibration | High | Medium | curate a gold-set lot corpus with human labels before building confidence scoring; without it every demo is a cherry-picked success story |
-| Schema-valid garbage from skills (silent wrong-page or wrong-locale extraction) | High | High | three-layer validation (syntactic/semantic/behavioral-drift); page fingerprint checks before extraction; locale/currency/persona assertions at run start; `AGENT_SUSPECT_OUTPUT` quarantine path |
+| Schema-valid garbage from skills (silent wrong-page or wrong-locale extraction) | High | High | four-layer validation: syntactic/semantic/behavioral-drift (OQG, code-based) PLUS agent-based semantic validation via worker-validator system; page fingerprint checks before extraction; locale/currency/persona assertions at run start; `AGENT_SUSPECT_OUTPUT` quarantine path; run manifests enable human and validator review of what the agent actually did |
 | Anti-bot escalation burns accounts or IP addresses | Medium | High | anti-bot classification table with proportional responses (no blind retry); source-health canaries before expensive jobs; source cooldown on challenge detection; dedicated auth-refresh skills isolate login complexity |
-| Skill promotion regression (new version faster but dumber) | Medium | Medium | mandatory shadow comparison before promotion; shadow metrics must meet or exceed stable version; fill-rate, duplicate-rate, suspect-output-rate, and cost-per-committed-item all gated |
+| Skill promotion regression (new version faster but dumber) | Medium | Medium | mandatory shadow comparison before promotion; shadow metrics must meet or exceed stable version; fill-rate, duplicate-rate, suspect-output-rate, and cost-per-committed-item all gated; validator approval rate is an additional promotion gate |
+| Validator produces false rejections, blocking good data | Medium | Medium | dry-run mode first (log verdicts without enforcement); track validator approval/rejection rates per skill; operator override for rejected results; false positive rate monitored via operator override count |
+| Validator itself fails or is unreliable | Medium | Low | validator skills follow same promotion flow as worker skills; validator failures are fail-open (don't block worker results); validator health monitored separately |
+| Run manifest quality too low for meaningful validation | Medium | Medium | run manifest is part of the skill contract — skill promotion requires run manifests that validators can meaningfully review; manifest completeness checked by base validator |
+| Validation cost overhead per job | Low | Low | validator skills use headless_contract mode with cheap models (~$0.01–0.03 per validation); validation policy can sample instead of always-validate; even "always validate" adds only 5–15% overhead |
+| Fan-out coherence failure — partial lot set treated as authoritative | Medium | High | Set-replacement commit semantics for lot extraction; partial outputs stored as checkpoint only, not promoted to stage head |
+| Process-level auto-qualification with low candidate coverage | High | High | Coverage metrics on PipelineAssessment (pricedCoverageBps, netQualifiedCoverageBps); auto-qualification requires coverage >= 50% of process value |
+| Gross margin gate passes wrong-product quote (identity not gated) | High | Critical | Lexicographic confidence gating: identity floor → usability floor → realism, not just realism alone |
+| Operator decision on stale basis after upstream invalidation | Medium | High | Decision basis hash tracking; stale decisions block bid workflow until re-affirmed |
+| Revenue normalization uses whole-notice value for mixed contract | High | High | Lot-level addressableValuePence; goods-only value for mixed contracts with separable goods |
+| Correlated-source false confidence in classification | Medium | High | FPO + Taric Support + HS Ping may agree on a plausible-but-wrong family for vague input; multi-source recall with independent CPV priors and rule-based hints; slot-level compatibility checking against tariff hierarchy |
+| Exporter-specific trade remedy understatement | High | Critical | Engine assumes named-exporter rate without verified identity; default to residual rate whenever exporter/additional-code/invoice evidence is missing; `EXPORTER_IDENTITY_UNRESOLVED` error type |
+| National VAT additional-code miss | Medium | Medium | Defaulting to standard VAT when reduced/zero applies (or vice versa); national additional code 6/17 VAT path resolution with `VAT_RATE_UNRESOLVED` error type; default to standard rate when unresolved |
+| Tariff stop-press / code-structure drift | Medium | High | Classification cached but tariff data changed (new measures, code restructures); daily TRA + tariff stop-press watcher; `CLASSIFICATION_STALE` error type; `tradeRemedyWatchState` per commodity family |
+| Trade-remedy investigation staleness | Medium | High | Investigation opened after classification cached; cached "no remedy risk" assumption already stale; TRA case register daily monitoring; `TRA_INVESTIGATION_OPEN` error type |
+| Measure-interaction arithmetic error | Medium | Critical | Naïve additive stacking of AD + CVD + safeguard + quota duties is provably wrong for steel-family measures; measure-family-specific interaction rules; `MEASURE_INTERACTION_COMPLEX` error type |
 
 ### 6.3 Security Considerations
 
@@ -5241,17 +6149,19 @@ This ordering means the highest-complexity components (marketplace comparability
 - Distinct roles:
   - `viewer` — read-only access to projection tables via viewing portal
   - `operator` — read access to projections + write access to `operator_decision_heads` (via compare-and-swap RPC)
-  - `admin` — full access to shared config tables
-  - `daemon` — push-only access to projection tables via batch RPC, pull-only access to remote-owned tables
+- `admin` — full access to shared config tables
+- `daemon` — push-only access to projection tables via batch RPC, pull-only access to remote-owned tables
 
 **RLS policy specifications (Supabase/Postgres):**
+
+These policies are the Supabase-side enforcement of the authority matrix defined in §4.7. They preserve the single-writer rules and mixed-write prohibition at the database boundary.
 
 All tables scoped by `org_id` (implicit — single-org MVP, explicit column added when multi-org is needed). Policies below use Supabase `auth.role()` and `auth.uid()`.
 
 | Table Category | Tables | viewer | operator | admin | daemon |
 |---|---|---|---|---|---|
-| Push-owned projections | `procurement_processes`, `contract_notices`, `notice_lots`, `qualification_runs`, `product_candidates`, `search_profiles`, `search_attempts`, `supplier_quotes`, `landed_cost_estimates`, `manifests`, `process_relations`, `process_aliases`, `pipeline_assessments`, `bid_workflow_states`, `process_stage_status`, `process_stage_heads` | SELECT | SELECT | SELECT | INSERT, UPDATE (via batch RPC) |
-| Push-owned summaries | `workflow_job_summaries`, `error_manifest_summaries`, `viewer_sync_status`, `executors` | SELECT | SELECT | SELECT | INSERT, UPDATE (via batch RPC) |
+| Push-owned projections | `procurement_processes`, `contract_notices`, `notice_lots`, `tender_document_sets`, `qualification_runs`, `product_candidates`, `search_profiles`, `search_attempts`, `supplier_quotes`, `candidate_pricing_assessments`, `landed_cost_estimates`, `manifests`, `process_relations`, `process_aliases`, `pipeline_assessments`, `bid_workflow_states`, `process_stage_status`, `process_stage_heads` | SELECT | SELECT | SELECT | INSERT, UPDATE (via batch RPC) |
+| Push-owned summaries | `workflow_job_summaries`, `error_manifest_summaries`, `validation_verdict_summaries`, `viewer_sync_status`, `executors` | SELECT | SELECT | SELECT | INSERT, UPDATE (via batch RPC) |
 | Remote-owned shared config | `shared_company_profile`, `shared_source_configs` | SELECT | SELECT | SELECT, INSERT, UPDATE, DELETE | SELECT (pull) |
 | Remote-owned decisions | `operator_decision_heads` | SELECT | SELECT, UPDATE (via CAS RPC) | SELECT, INSERT, UPDATE, DELETE | SELECT (pull) |
 | Sync infrastructure | `schema_metadata` | — | — | SELECT, UPDATE | SELECT, UPDATE |
@@ -5368,6 +6278,8 @@ For hybrid-runtime coverage, "real E2E" means exercising both PTY-backed session
 | 2 | **Integration** | Real database + real agent processes | SQLite + Supabase local stack |
 | 3 | **Unit** | Deterministic cost/qualification logic | Vitest, cargo test |
 | 4 | **Browser E2E** | Key operator control-panel and viewing-portal flows | Playwright |
+
+Test density is intentionally proportional to architectural complexity. Matching, landed cost, daemon orchestration, and semantic validation get the heaviest E2E / replay / fault-injection coverage; ingestion, UI, and sync stay narrower until they become the primary risk drivers.
 
 **Agent E2E Testing (PRIMARY — determines success):**
 
@@ -5560,6 +6472,60 @@ Every production run emits a quality scorecard:
 
 Treat "flaky" as a failing skill health signal, not a minor annoyance. Skills with intermittent failures are skills with unhandled failure modes.
 
+**Validator Testing:** (See §4.10 for validator skill type definitions and promotion flow. See §5.2 Validation Executor for the verdict model and kickoff prompt composition that these tests exercise.)
+
+| Test Type | What It Covers |
+|-----------|---------------|
+| Validator canary tests | Feed known-good and known-bad run manifests (including hybrid daemon evidence appendix) to validator skills, verify correct verdicts (approved for good, rejected for bad, flagged for ambiguous) and correct `basis_sufficiency` assessment |
+| Validator golden journeys | Run full worker → validator pipeline on gold-set inputs; verify end-to-end verdict correctness including verdict metadata (basis_sufficiency, incident_signature) |
+| Dry-run validation tests | Verify that dry-run mode logs verdicts without enforcement — rejected results still advance in dry-run |
+| False positive monitoring | Track validator rejection rate against operator overrides; high override rate signals validator is too strict and needs tuning |
+| Validator regression tests | When validator skill is updated, replay historical run manifests; verify verdicts don't regress |
+| Calibration tests | Compare validator verdicts against human judgments on a curated set; track agreement rate as validator quality metric |
+| Chain-close validation tests | For multi-segment continuation runs, verify chain-close aggregate validation catches cross-segment duplicates, gaps, locale drift, and count reconciliation failures |
+| Basis sufficiency tests | Verify that validators correctly self-assess `basis_sufficiency: low` when daemon evidence is thin, fingerprint baseline is missing, or result contract is too small; verify low-basis validators produce `flagged` with `coverage_gap` instead of `rejected` |
+| Validator fail-open tests | Verify that when the validator itself fails (crash, timeout, invalid verdict schema), worker results advance with `VALIDATION_SKIPPED_VALIDATOR_ERROR` trust signal; verify trust-state propagates to operator surfaces and sync projections; verify operator is alerted about validator health |
+| Override feedback loop tests | Verify that every operator override of a validator rejection feeds back into the calibration harness as a labeled case, is added to the incident cluster, and becomes a candidate mutation template in the challenge bank |
+
+**Validator Calibration Harness:**
+
+The calibration harness uses three corpora per skill family or validator overlay, not a single undifferentiated test set:
+
+The target-state file map stores the corpus index under `skills/validation/base/references/manifest-corpus-index.md` so the challenge-bank inputs described here have an explicit home in §8.2.
+
+1. **Clean real runs** (25–30 per skill family): Real successful runs from gold lots and live dry-run traffic. These establish what healthy variability looks like. Without this corpus, validators have no baseline for "normal."
+
+2. **Weird-but-valid runs** (15–20 per skill family): Runs that are unusual but acceptable — source layout changed but extraction is still correct, localized content appears but correctly normalized, partial data but honestly narrated, low-result-count but legitimate searches. Without this corpus, validators overlearn conservatism and reject novelty.
+
+3. **Mutated bad runs** (30–50 per skill family): Start from real good runs and mutate them into realistic failure cases. Mutation families worth building immediately:
+   - Wrong source/domain in URL chain
+   - Wrong page kind (search results vs category page vs detail page)
+   - Locale/currency swap (agent claims GBP, evidence shows EUR)
+   - Pack/unit distortion (per-unit vs per-box vs per-pallet confusion)
+   - Accessory-vs-primary confusion
+   - Selective warning omission (manifest says 2 warnings, daemon appendix shows 5 anomalies)
+   - Manifest/result count mismatch (agent claims 12 items, contract has 8)
+   - Fabricated evidence references (claim/evidence refs point to non-existent anchors)
+   - Cross-segment duplicate/gap (for continuation chains)
+   - "Novel but valid" near-miss reversals (mutations of weird-but-valid cases)
+
+The trick is to mutate **production-looking** runs, not to invent cartoonishly bad examples. Mutations should be realistic enough that a validator needs to work to detect them.
+
+**Pairwise challenge sets:** In addition to absolute verdict testing, build pairwise challenges: run A = clean, run B = one realistic corruption. Measure whether the validator ranks B as less trustworthy or identifies the specific defect. Pairwise judgment gives more signal per labeled case than raw pass/fail scoring.
+
+**Minimum calibration targets before enforcement:** Per skill family or validator overlay, before enabling hard rejection for a given slice:
+- At least 30 adjudicated rejected/flagged cases with known ground truth
+- At least 60 audited approved cases checked for silent misses
+- Wilson-bound reject precision lower bound ≥ 70% (approximately 26 correct rejects out of 30)
+- Rule-of-three false-pass upper bound ≤ 5% (0 misses in 60 audited approvals)
+- Coverage of dominant failure families in the challenge bank
+
+These are minimum thresholds, not aspirational targets. They provide enough signal for simple confidence bounds rather than vibes.
+
+**Cross-model audit sampling:** Periodically (not on every run), run a sample of validator assessments through a different model family to detect correlated blindness. If worker and validator share model family, prompt priors, and source assumptions, they can fail together. Cross-model audit is a calibration technique for detecting systematic bias, not a production consensus mechanism.
+
+**Override feedback loop:** Every operator override of a validator rejection must immediately become: (1) a labeled calibration case in the harness, (2) an incident-cluster member for triage, (3) a candidate mutation template for the challenge bank. If overrides are not feeding the calibration harness, the most trustworthy labels available are being wasted.
+
 **Browser Debugging Artifacts:**
 
 For canary and golden journey tests, retain: Playwright trace (or equivalent), screenshot at each navigation step, video on retry or failure runs (not routine passes), JSON reporter output with timing and assertion results, artifact links in the failure record for drill-down.
@@ -5568,9 +6534,9 @@ For canary and golden journey tests, retain: Playwright trace (or equivalent), s
 
 Comprehensive agent tracing and health monitoring is **critical infrastructure**, not a nice-to-have. The entire pipeline runs through agent sessions, so observability of those sessions is essential for debugging and reliability.
 
-#### Three-Layer Observability Model
+#### Four-Layer Observability Model
 
-Observability is structured into three distinct layers, each with a clear role:
+Observability is structured into four distinct layers, each with a clear role:
 
 **Layer 1: Control Events (daemon-generated)**
 
@@ -5607,7 +6573,11 @@ Raw session-output bytes captured in both execution modes. In PTY mode this incl
 
 In contract mode, Layer 3 additionally includes the raw stdout/stderr stream and any vendor-emitted JSONL/JSON framing before adapter normalization.
 
-**Critical rule:** Only Layer 1 and Layer 2 drive workflow state. Layer 3 is for post-hoc debugging and replay. A transcript can explain a failure; it must never upgrade a job to success.
+**Layer 4: Narrative (hybrid-authored run manifest)**
+
+A hybrid-authored Markdown document combining agent narrative sections with a daemon-authored evidence appendix. The agent writes the narrative at the end of every skill run (what it did, what decisions it made, warnings, evidence with claim/evidence references). The daemon appends machine-observed facts derived from Layers 1–3 (observed URL chain, fingerprint/locale/currency state from protocol events, checkpoint counts, result item count from contract, OQG anomaly summary). Self-reported fields use the `agent_claimed_*` prefix; daemon-observed fields use the `daemon_observed_*` prefix — eliminating ambiguity between self-reports and objective observations. If the agent fails to narrate (crash, timeout), the daemon synthesizes a minimum fallback manifest from Layers 1–3 alone. Stored as an immutable artifact at `artifacts/sessions/YYYY/MM/<session_id>/run-manifest.md`. Layer 4 fills a gap the other layers cannot: Layer 1 knows the session started/ended but not what the agent chose to do; Layer 2 knows data was extracted but not whether the agent navigated correctly; Layer 3 has every byte but is too large and noisy for automated semantic review. Layer 4 is the purposeful, structured summary designed for both human and validator-agent consumption — the agent provides narrative context, the daemon provides verifiable anchors. See §5.2 Run Manifest Writer for format and §5.2 Validation Executor for how the validator consumes it.
+
+**Critical rule:** Only Layer 1 and Layer 2 drive workflow state. Layer 3 is for post-hoc debugging and replay. Layer 4 informs the validator's semantic judgment, which influences state indirectly (via verdicts), but the run manifest itself never drives state directly. A transcript can explain a failure; it must never upgrade a job to success.
 
 #### Artifact Storage Model
 
@@ -5701,6 +6671,19 @@ In addition to per-session metrics, record skill-specific operational telemetry 
 | Continuation-required rate | Outcome classification | Segmentation frequency — rising rate may signal time budget too tight or source too slow |
 | Overlay handler invocation count | Skill navigation phase | Source behavioral changes — rising count signals new overlays or anti-bot patterns |
 | Degraded-completed rate | Outcome classification | Partial success frequency — high rate signals source access problems |
+| Validation approval rate | Validation executor | Validator quality — low approval rate signals overly strict validators or degrading worker quality |
+| Validation rejection rate | Validation executor | Worker quality issues — rising rejection rate signals worker skill regression or source changes |
+| Validation flag rate | Validation executor | Borderline case frequency — high flag rate signals validator uncertainty or edge cases in source data |
+| Validator cost per job | Post-run calculation | Validation overhead efficiency — cost of the validator sub-job relative to the worker job |
+| Operator override rate (of rejections) | Operator actions | False positive rate — high override rate signals validator needs tuning; low rate validates validator quality |
+| Basis sufficiency distribution | Verdict metadata | Validator confidence profile — rising `low` rate signals thin evidence (missing fingerprint baselines, small result contracts, thin daemon appendix). A validator with mostly-low basis sufficiency is not doing useful work. |
+| Anomaly-conditioned validator error rate | Validation executor + OQG | `P(validator_error | source_health=amber)`, `P(validator_error | OQG drift anomaly)`, etc. — if validator crashes cluster on anomalous runs, fail-open is opening precisely when review is most needed |
+| Severity-weighted reject precision | Validation executor + operator overrides | True catches weighted by downstream damage prevented, not raw count. A validator that catches one wrong-locale batch is more valuable than one that catches 10 trivial fill-rate warnings |
+| Sampled false-approve rate | Periodic operator audit | Estimated rate of approved runs that should have been caught. Audit a random sample of approved runs; any silent miss becomes a calibration case |
+| High-confidence wrong rate | Operator overrides + verdict metadata | Rate of `rejected` verdicts with `basis_sufficiency: high` that operators override. This is the most dangerous metric — a validator that confidently rejects valid data is actively harmful |
+| True catches per 100 validations | Validation executor + operator confirmation | How many of every 100 validations produce a rejection or flag that operators confirm. Distinguishes "validator is busy" from "validator is useful" |
+| Incident signature distribution | Verdict metadata | Frequency of each `incident_signature` tag. Shifting distribution signals changing failure modes or validator drift |
+| Enforcement eligibility rate | Validation policy engine | Fraction of slices that meet calibration thresholds for enforcement. Low rate after extended dry-run signals calibration is not progressing |
 
 These metrics are aggregated per skill, per source, and trended over time. Sudden discontinuities trigger alerts. The desktop control panel surfaces skill health dashboards alongside session-level observability.
 
@@ -5871,7 +6854,7 @@ Tauri v2 supports per-window capability scoping. The desktop provides a detached
 
 **Context:**
 
-The entire data ingestion, intelligence, and bidding pipeline runs through agent sessions triggered by the Rust daemon. PTY execution is a first-class runtime from day 1 for browser automation, interactive auth, and TTY-dependent flows. However, both Codex (`exec` with `--json` JSONL output) and Claude (headless mode with `json`/`stream-json` and `--json-schema`) now support stable structured non-interactive execution. A hybrid model reduces blast radius: PTY for interactive flows, contract mode for deterministic tasks.
+The entire data-ingestion and intelligence pipeline runs through agent sessions triggered by the Rust daemon, and the optional request-pipeline automation layer uses the same runtime. PTY execution is a first-class runtime from day 1 for browser automation, interactive auth, and TTY-dependent flows. However, both Codex (`exec` with `--json` JSONL output) and Claude (headless mode with `json`/`stream-json` and `--json-schema`) now support stable structured non-interactive execution. A hybrid model reduces blast radius: PTY for interactive flows, contract mode for deterministic tasks.
 
 **Decision:**
 
@@ -5892,7 +6875,7 @@ The daemon selects mode per job based on the skill's declared `interaction_profi
 
 **Rationale:**
 
-The pipeline must function without interruption every day. PTY provides real terminal semantics needed for browser automation and interactive flows. Contract mode provides stronger result contracts and simpler cleanup for deterministic work. The adapter boundary isolates the daemon from vendor CLI changes. The hybrid model gives the right execution semantics for each job type.
+The pipeline must function without interruption every day. PTY provides real terminal semantics needed for browser automation and interactive flows. Contract mode provides stronger result contracts and simpler cleanup for deterministic work. The adapter boundary isolates the daemon from vendor CLI changes. The hybrid model gives the right execution semantics for each `job kind`.
 
 **Consequences:**
 
@@ -5913,6 +6896,8 @@ Skills serve a dual role in the architecture:
 2. **Workflow behavioral assets:** Skills define how the agent behaves during qualification, manifest generation, and bid automation.
 
 Skills are NOT the workflow engine — orchestration (scheduling, job state, retries, sync) stays in the daemon and database. Scheduled production jobs bind explicit skill id and version; implicit skill discovery is disabled for cron runs to prevent reliability issues at scale.
+
+3. **Validator skills** are a new skill category that follows the same boundary rules. The daemon orchestrates validator sessions just like worker sessions — spawning them as sub-jobs with the same adapter, lifecycle, and cleanup semantics. Validator skills are passive directory assets loaded by the daemon; they do not contain orchestration logic. Adding a new validator overlay requires only binding a compatible overlay package to the worker skill metadata — typically one of the shared overlays under `skills/validation/*`, with a co-located `validator-overlay.md` reserved for source-specific exceptions — and does not require daemon code changes.
 
 **Decision:**
 
@@ -5947,7 +6932,7 @@ Third-party shipping/tax APIs are useful, but margin decisions need explainable 
 
 **Decision:**
 
-Implement customs, valuation, shipping mode selection, and FX combination as internal logic using authoritative and commercial source inputs. The engine operates at two grades:
+Implement customs, valuation, shipping mode selection, and FX combination as internal logic using authoritative and commercial source inputs. The engine is a **conservative legal-bounding engine**: it prefers abstention over false precision, records when customs resolution is incomplete, and does not collapse materially divergent customs branches into a single deceptive number. It operates at two grades:
 - **Screening grade** — automated across the whole market using indicative data
 - **Decision grade** — automated only for repeated product families with proven codebooks and confirmed supplier economics
 
@@ -6019,7 +7004,7 @@ The desktop control panel and viewing portal serve fundamentally different roles
 
 Separate shells with clearly different capabilities:
 
-- **`apps/desktop`** (Tauri + static frontend) — **CONTROL PANEL**: Full read/write/trigger capabilities. Trigger workflows, manage agents, configure skills, make reject/bid/watch decisions, view local data from SQLite via QueryService, view agent tracing logs via session streaming, manage error manifests.
+- **`apps/desktop`** (Tauri + static frontend) — **CONTROL PANEL**: Full read/write/trigger capabilities. Trigger workflows, manage agents, configure skills, record approve/reject/watch decisions, start bid workflows, view local data from SQLite via QueryService, view agent tracing logs via session streaming, manage error manifests.
 - **`apps/web`** (hosted) — **READ-ONLY VIEWING PORTAL**: Browse opportunities, view manifests, view pipeline status, view errors. No write operations. Reads from Supabase projection tables. Live updates via Supabase Broadcast invalidation.
 - **`packages/ui`** for shared **presentational** React components — view-model-driven frames, formatting helpers, badges, Markdown renderers. Desktop shell includes additional control components not shared with web.
 - **`packages/contracts-schema`** for shared domain models and view-model types.
@@ -6041,7 +7026,7 @@ See §5.8 Shared React Component Architecture for the full specification.
 
 **Rationale:**
 
-The desktop control panel runs alongside the daemon and has direct access to local SQLite and agent controls. The viewing portal is for remote viewing only — it reads from Supabase and provides no write operations. This clear split simplifies the web shell significantly. The shared component boundary is deliberately narrow: share views, not data access lies.
+The desktop control panel runs alongside the daemon and has direct access to local SQLite and agent controls. The viewing portal is for remote viewing only — it reads from Supabase and provides no write operations. This clear split simplifies the viewing portal significantly. The shared component boundary is deliberately narrow: share views, not data access lies.
 
 **Consequences:**
 
@@ -6078,14 +7063,14 @@ The desktop control panel runs alongside the daemon and has direct access to loc
 
 | File | Purpose | Template |
 |------|---------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0001_sqlite_state_initial.sql` | Local SQLite state.db schema bootstrap — pipeline entities (procurement_processes, contract_notices, notice_lots, qualification_runs, product_candidates, search_profiles, search_attempts, supplier_quotes, landed_cost_estimates, manifests, pipeline_assessments, bid_workflow_states, process_relations, process_aliases, executors), plus local-only runtime/cache tables (`source_runtime_state`, `listing_evidence`) | based on section 5.4 (SQLite syntax) |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0002_sqlite_state_sync.sql` | Local outbox, sync batches, pull cursors, pending_operator_intents queue, stage tracking (process_stage_status, process_stage_heads) | section 5.4 sync infrastructure |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0001_sqlite_state_initial.sql` | Local SQLite state.db schema bootstrap — pipeline entities (procurement_processes, contract_notices, notice_lots, tender_document_sets, qualification_runs, product_candidates, search_profiles, search_attempts, supplier_quotes, candidate_pricing_assessments, landed_cost_estimates, manifests, pipeline_assessments, bid_workflow_states, process_relations, process_aliases, executors), plus local-only orchestration/cache tables (`workflow_jobs`, `validation_verdicts`, `source_runtime_state`, `listing_evidence`) | based on section 5.4 (SQLite syntax) |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0002_sqlite_state_sync.sql` | Local outbox, sync batches, pull cursors, pending_operator_intents queue, and scope-aware stage tracking (`process_stage_status`, `process_stage_heads`, freshness/basis metadata) | section 5.4 sync infrastructure |
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0003_sqlite_artifacts.sql` | Artifacts DB schema — agent_session_logs (with orchestration domain columns), raw_documents, error_manifests | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0001_initial.sql` | Supabase/Postgres projection tables (all push-owned entities including notice_lots, process_relations, process_aliases, search_profiles, search_attempts, workflow_job_summaries, error_manifest_summaries, viewer_sync_status) + remote-owned tables (shared_company_profile, shared_source_configs, operator_decision_heads) | based on section 5.4 |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0001_initial.sql` | Supabase/Postgres projection tables (all push-owned entities including notice_lots, tender_document_sets, process_relations, process_aliases, search_profiles, search_attempts, candidate_pricing_assessments, workflow_job_summaries, error_manifest_summaries, validation_verdict_summaries, viewer_sync_status) + remote-owned tables (shared_company_profile, shared_source_configs, operator_decision_heads) | based on section 5.4 |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0002_rls.sql` | RLS policies per authority role (viewer, operator, admin, daemon) — see §6.3 for policy matrix | section 6.3 |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0003_sync_apply.sql` | Transactional sync apply RPC for push batches + operator decision CAS RPC | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0004_schema_metadata.sql` | Schema metadata table + initial schema_epoch | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0005_stage_tracking.sql` | process_stage_status, process_stage_heads projection tables | section 5.4 stage tracking |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0005_stage_tracking.sql` | scope-aware `process_stage_status`, `process_stage_heads`, and freshness/basis tracking projections | section 5.4 stage tracking |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0006_junction_tables.sql` | notice_cpv_codes, product_commodity_codes, lot_cpv_codes | section 5.4 junction tables |
 | `/Users/alinaaitova/Desktop/Testproject1/infra/supabase/config.toml` | local Supabase config | Supabase standard |
 
@@ -6141,6 +7126,8 @@ The desktop control panel runs alongside the daemon and has direct access to loc
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/margins/revenue-normalizer.ts` | revenue basis classification and expected_addressable_revenue_ex_vat extraction | custom (Appendix A) |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/margins/quote-normalizer.ts` | Incoterm cost boundary normalization (EXW/FOB/CIF/DDP → comparable basis) | custom (Appendix A) |
 | `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/margins/margin-scenarios.ts` | low/base/high margin scenario calculation with critical blocker checks | custom (Appendix A) |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/margins/gross-gate.ts` | gross margin gate: identity floor → usability floor → realism gate → margin computation (see §5.7 Gross Margin Gate) | custom (Appendix A) |
+| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/margins/coverage-rollup.ts` | process-level coverage computation: pricedCoverageBps, landedCostCoverageBps, netQualifiedCoverageBps from candidate-level results | custom (§5.5) |
 
 #### Evaluation Harness
 
@@ -6225,6 +7212,10 @@ The desktop control panel runs alongside the daemon and has direct access to loc
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/errors/markdown.rs` | error manifest Markdown artifact writer | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/tracing/structured.rs` | structured trace derivation from control/protocol events | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/tracing/forensic.rs` | forensic transcript enrichment (best-effort PTY output parsing) | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/prompt/renderer.rs` | Kickoff Prompt Renderer: renders worker/validator/manual-mode/dry-run kickoff prompts | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/validation/policy.rs` | Validation policy engine: evaluates `always` / `sample` / `trigger` / `skip` policy modes and returns validate/skip | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/validation/executor.rs` | Validation executor: spawns validator sub-jobs, injects run manifest + OQG signals, processes verdicts | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/validation/manifest_writer.rs` | Run manifest artifact writer: stores agent-produced MD narratives as compressed immutable artifacts | custom |
 
 #### Skills (Primary Data Retrieval + Workflow Playbooks)
 
@@ -6248,7 +7239,21 @@ The desktop control panel runs alongside the daemon and has direct access to loc
 | `/Users/alinaaitova/Desktop/Testproject1/skills/source-health/fts/SKILL.md` | Find a Tender source health canary | custom |
 | `/Users/alinaaitova/Desktop/Testproject1/skills/source-health/alibaba/SKILL.md` | Alibaba source health canary | custom |
 
-Each production skill directory includes supporting files beyond `SKILL.md`: `result.schema.json`, `checkpoint.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`, and optional `scripts/` and `references/` directories. These artifacts operationalize the skill as a testable, versionable contract (see §4.10 Production Skill Directory Standard).
+| `/Users/alinaaitova/Desktop/Testproject1/skills/validation/base/SKILL.md` | Base validator skill: generic run manifest quality checks (completeness, consistency, cross-check against result contract) | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/skills/validation/base/result.schema.json` | Validator result contract schema (verdict + issues + quality assessment) | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/skills/validation/base/checkpoint.schema.json` | Validator checkpoint schema placeholder (validators do not checkpoint) | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/skills/validation/base/canary.inputs.jsonl` | Known-good and known-bad run manifests for validator smoke tests | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/skills/validation/base/golden.assertions.yaml` | Golden verdict expectations for validator regression tests | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/skills/validation/base/validator-rubric.yaml` | Distilled runtime rubric consumed by the Validation Executor at runtime (replaces raw golden injection in the validator prompt) | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/skills/validation/base/references/manifest-corpus-index.md` | Index of clean / weird-but-valid / mutated-bad run-manifest corpora used by validator canary, regression, and calibration tests | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/skills/validation/procurement-ingestion/SKILL.md` | Procurement-specific validation overlay (OCID structure, date ranges, source verification) | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/skills/validation/supplier-enrichment/SKILL.md` | Supplier-specific validation overlay (pricing plausibility, currency, locale) | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/skills/validation/document-acquisition/SKILL.md` | Document-acquisition validation overlay (artifact type, content, completeness) | custom |
+| `/Users/alinaaitova/Desktop/Testproject1/skills/validation/product-extraction/SKILL.md` | Product-extraction validation overlay (candidate plausibility, structured-slot consistency) | custom |
+
+Each production skill directory includes supporting files beyond `SKILL.md`: `result.schema.json`, `checkpoint.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`, and optional `scripts/`, `references/`, and `validator-overlay.md` files. These artifacts operationalize the skill as a testable, versionable contract (see §4.10 Production Skill Directory Standard).
+
+`skills/validation/landed-cost/SKILL.md` is intentionally absent from the current file map because landed-cost remains deterministic and API-based in this architecture rather than skill-executed.
 
 ### 8.3 Test Files Required
 
@@ -6325,11 +7330,20 @@ Each production skill directory includes supporting files beyond `SKILL.md`: `re
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/skill_shadow_compare.rs` | Shadow run comparison framework — quality metric diff between stable and candidate skill versions |
 | `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/skill_drift_monitor.rs` | Production drift detection — page fingerprint hash, fallback depth, fill-rate, duplicate rate trending |
 
+#### Validator Tests
+
+| Test File | Coverage |
+|-----------|----------|
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/validation_policy.rs` | Validation policy engine decision logic — all combinations of skill stage, policy mode, trigger conditions |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/validation_executor.rs` | Validator sub-job spawning, kickoff prompt composition, verdict processing (approved/rejected/flagged) |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/validation_dry_run.rs` | Dry-run mode — verdicts logged but not enforced, rejected results still advance |
+| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/validation_golden_verdicts.rs` | Known-good and known-bad run manifests fed to validator → verify correct verdicts |
+
 ### 8.4 Milestone Assignment Map
 
 Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No files are deleted — files not needed for early milestones are assigned to later milestones.
 
-#### Milestone 0: Gold Set + Evaluation Harness (MVE) — ~25-35 files
+#### Milestone 0: Gold Set + Evaluation Harness (MVE)
 
 **Workspace (partial):**
 - `package.json`, `bunfig.toml`, `.env.example`
@@ -6344,12 +7358,12 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 - `skills/preliminary-qualification/SKILL.md`
 - `skills/supplier-price-enrichment/ebay/SKILL.md`
 
-**Intelligence (12):**
+**Intelligence (13):**
 - `intelligence/src/qualification/expiry.ts`, `access-route.ts`, `goods.ts`, `quoteability.ts`
 - `intelligence/src/extraction/products.ts`
 - `intelligence/src/search/build-search-profile.ts`
 - `intelligence/src/customs/hmrc-tariff.ts` (screening-grade only)
-- `intelligence/src/margins/revenue-normalizer.ts`, `quote-normalizer.ts`, `margin-scenarios.ts`
+- `intelligence/src/margins/revenue-normalizer.ts`, `quote-normalizer.ts`, `margin-scenarios.ts`, `gross-gate.ts`
 - `intelligence/src/evaluation/harness.ts`, `metrics.ts`
 
 **Database (1):**
@@ -6361,7 +7375,9 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 - `intelligence/src/customs/hmrc-tariff.test.ts`
 - `intelligence/src/margins/net-margin.test.ts`
 
-#### Milestone 1: Thin Local Runner — ~18 files
+**Note:** Evaluation harness skills should produce run manifests (embedded in kickoff prompt instructions) so that validation infrastructure can be developed against real examples from Milestone 0 onward.
+
+#### Milestone 1: Thin Local Runner
 
 **Workspace:**
 - `Cargo.toml` (workspace root)
@@ -6376,6 +7392,7 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 - `src/jobs/runner.rs`
 - `src/agents/adapter.rs`, `src/agents/codex.rs`, `src/agents/claude.rs`
 - `src/agents/artifacts.rs`, `src/agents/contracts.rs`
+- `src/prompt/renderer.rs`
 - `src/errors/manifest.rs`, `src/errors/markdown.rs`
 
 **Tests (7):**
@@ -6387,12 +7404,15 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 - `crates/daemon/tests/skill_lint.rs`
 - `crates/daemon/tests/skill_canary_harness.rs`
 
-#### Milestone 2: Single-Operator Desktop MVP — ~25 files
+#### Milestone 2: Single-Operator Desktop MVP
 
 **Skills (3):**
 - `skills/procurement-ingestion/fts/SKILL.md`
 - `skills/procurement-ingestion/contracts-finder/SKILL.md`
 - `skills/manifest-generation/SKILL.md`
+
+**Intelligence (1):**
+- `intelligence/src/margins/coverage-rollup.ts` (process-level coverage computation for operator-facing coverage metrics)
 
 **Shared UI (5):**
 - `packages/ui/src/index.ts`
@@ -6414,7 +7434,7 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 - `crates/daemon/tests/agent_error_manifest.rs`
 - `apps/desktop/e2e/contracts.spec.ts`
 
-#### Milestone 3: Operational Hardening — ~15 files
+#### Milestone 3: Operational Hardening
 
 **Skills (4):**
 - `skills/auth-refresh/alibaba/SKILL.md`
@@ -6422,7 +7442,7 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 - `skills/source-health/fts/SKILL.md`
 - `skills/source-health/alibaba/SKILL.md`
 
-**Rust Daemon (additions — 9):**
+**Rust Daemon (additions — 12):**
 - `src/scheduler/cron.rs`
 - `src/sources/registry.rs`
 - `src/jobs/claim.rs`
@@ -6430,6 +7450,10 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 - `src/agents/arbiter.rs`
 - `src/db/checkpoints.rs`
 - `src/tracing/structured.rs`, `src/tracing/forensic.rs`
+- `src/validation/policy.rs`, `src/validation/executor.rs`, `src/validation/manifest_writer.rs`
+
+**Skills (additions — 5):**
+- `skills/validation/base/SKILL.md`, `skills/validation/base/result.schema.json`, `skills/validation/base/checkpoint.schema.json`, `skills/validation/base/canary.inputs.jsonl`, `skills/validation/base/golden.assertions.yaml`, `skills/validation/base/validator-rubric.yaml` (base validator skill package — dry-run mode)
 
 **Intelligence (addition — 1):**
 - `intelligence/src/relations/resolve-process-relations.ts`
@@ -6437,7 +7461,7 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 **Manifests (addition — 2):**
 - `manifests/src/render-error-manifest.ts`, `manifests/src/templates/error.md.ts`
 
-**Tests (12):**
+**Tests (16):**
 - `crates/daemon/tests/fault_process_cleanup.rs`
 - `crates/daemon/tests/fault_pty_edge_cases.rs`
 - `crates/daemon/tests/fault_host_events.rs`
@@ -6450,8 +7474,14 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 - `crates/daemon/tests/skill_golden_journeys.rs`
 - `crates/daemon/tests/skill_shadow_compare.rs`
 - `crates/daemon/tests/skill_drift_monitor.rs`
+- `crates/daemon/tests/validation_policy.rs`
+- `crates/daemon/tests/validation_executor.rs`
+- `crates/daemon/tests/validation_dry_run.rs`
+- `crates/daemon/tests/validation_golden_verdicts.rs`
 
-#### Milestone 4: Shared Visibility — ~15 files
+**Validation milestone note:** Validation runs in **dry-run mode** in Milestone 3 — verdicts are logged but do not block worker results. This allows calibrating validator skills and monitoring false positive rates before enabling enforcement.
+
+#### Milestone 4: Shared Visibility
 
 **Database (8):**
 - `crates/daemon/migrations/0002_sqlite_state_sync.sql`
@@ -6461,6 +7491,12 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 **Rust Daemon (addition — 1):**
 - `src/db/sync.rs`
 
+**Skills (additions — 4):**
+- `skills/validation/procurement-ingestion/SKILL.md`
+- `skills/validation/supplier-enrichment/SKILL.md`
+- `skills/validation/document-acquisition/SKILL.md`
+- `skills/validation/product-extraction/SKILL.md`
+
 **Web Shell (all 7):**
 - All files in §8.2 "Web Shell" table
 
@@ -6469,7 +7505,11 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 - `crates/daemon/tests/sqlite_supabase_sync.rs`
 - `apps/web/e2e/contracts.spec.ts`
 
-#### Milestone 5: Expanded Commercial Intelligence — ~25 files
+**Validation note:** Milestone 4 adds `validation_verdict_summaries` to the Supabase projection tables. The viewing portal can now display validation verdict status (approved/rejected/flagged) alongside job summaries.
+
+**Validation enforcement:** After Milestone 3 dry-run calibration, Milestone 4 enables enforcement mode — validator rejections quarantine results. The four domain-specific validator overlays above are introduced alongside their source-specific validation criteria.
+
+#### Milestone 5: Expanded Commercial Intelligence
 
 **Skills (4):**
 - `skills/supplier-price-enrichment/amazon/SKILL.md`
@@ -6486,7 +7526,7 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 **Tests (1):**
 - `intelligence/src/customs/hmrc-fpo.test.ts`
 
-#### Milestone 6: Request Pipeline Automation — ~4 files
+#### Milestone 6: Request Pipeline Automation
 
 **Skills (1):**
 - `skills/bid-portal-proactis/SKILL.md`
@@ -6576,14 +7616,14 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 
 | Migration | Database | Purpose | Reversible |
 |-----------|----------|---------|------------|
-| SQLite state initial | SQLite state.db | Pipeline entities (procurement_processes, contract_notices, notice_lots, qualification_runs, product_candidates, search_profiles, search_attempts, supplier_quotes, landed_cost_estimates, manifests, pipeline_assessments, bid_workflow_states, process_relations, process_aliases), local-only runtime/cache tables (`source_runtime_state`, `listing_evidence`), sync tracking columns, junction tables | Yes |
-| SQLite sync infra | SQLite state.db | local_outbox, sync_batches, pull_cursors, pending_operator_intents queue, stage tracking (process_stage_status, process_stage_heads) | Yes |
+| SQLite state initial | SQLite state.db | Pipeline entities (procurement_processes, contract_notices, notice_lots, tender_document_sets, qualification_runs, product_candidates, search_profiles, search_attempts, supplier_quotes, candidate_pricing_assessments, landed_cost_estimates, manifests, pipeline_assessments, bid_workflow_states, process_relations, process_aliases), local-only orchestration/cache tables (`workflow_jobs`, `validation_verdicts`, `source_runtime_state`, `listing_evidence`), sync tracking columns, junction tables | Yes |
+| SQLite sync infra | SQLite state.db | local_outbox, sync_batches, pull_cursors, pending_operator_intents queue, scope-aware stage tracking (process_stage_status, process_stage_heads, freshness/basis metadata) | Yes |
 | SQLite artifacts | SQLite artifacts.db | Agent session logs (with orchestration domain columns), raw documents, error manifests | Yes |
-| Postgres initial | Supabase | Projection tables (all push-owned entities including notice_lots, process_relations, process_aliases, search_profiles, search_attempts, workflow_job_summaries, error_manifest_summaries, viewer_sync_status), remote-owned tables (shared_company_profile, shared_source_configs, operator_decision_heads) | Yes |
+| Postgres initial | Supabase | Projection tables (all push-owned entities including notice_lots, tender_document_sets, process_relations, process_aliases, search_profiles, search_attempts, candidate_pricing_assessments, workflow_job_summaries, error_manifest_summaries, validation_verdict_summaries, viewer_sync_status), remote-owned tables (shared_company_profile, shared_source_configs, operator_decision_heads) | Yes |
 | Postgres RLS | Supabase | Authority-based RLS per role (viewer, operator, admin, daemon) — see §6.3 for policy matrix | Yes |
 | Postgres sync apply | Supabase | Transactional RPC for push batch application + operator decision CAS RPC | Yes |
 | Postgres schema metadata | Supabase | schema_metadata table with schema_epoch | Yes |
-| Postgres stage tracking | Supabase | process_stage_status, process_stage_heads projections | Yes |
+| Postgres stage tracking | Supabase | scope-aware `process_stage_status`, `process_stage_heads`, and freshness/basis projections | Yes |
 | Postgres junction tables | Supabase | notice_cpv_codes, product_commodity_codes, lot_cpv_codes | Yes |
 
 ---
@@ -6595,7 +7635,7 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 1. **Is Scotland in the MVP ingestion scope?**
    - Context: This determines whether PCS is a first-wave scraping skill or a later phase.
    - Options: England/Wales/NI only, or full UK including Scotland.
-   - Recommendation: Include PCS skill in Phase A only if Scotland matters commercially on day one.
+   - Recommendation: Include PCS skill in the first live procurement wave only if Scotland matters commercially on day one.
 
 2. ~~**Do you want one shared web/desktop shell or separate shells with shared packages?**~~
    - **RESOLVED:** Separate shells with clearly different roles. Desktop = control panel (full read/write/trigger). Viewing portal = read-only.
@@ -6627,6 +7667,28 @@ Files from §8.2 and §8.3 mapped to the delivery milestones defined in §11. No
 3. **Chinese supplier source strategy**
    - Why unresolved: official APIs exist, but practical access and data quality depend on your commercial relationships.
    - Research needed: validate which supplier platforms you can lawfully and reliably integrate.
+
+4. **Expiry behavior for in-flight jobs**
+   - Should expiry (`availabilityStatus = expired`) cancel in-flight jobs, or let them complete and just prevent auto-qualification? The current design lets jobs complete but blocks downstream progression — this needs validation.
+
+5. **Auto-qualification coverage floor calibration**
+   - What is the correct `process_coverage_floor_bps` for auto-qualification? Default is 5000 (50%), but this may be too aggressive for mixed contracts with many service lots.
+
+6. **Late process merge reconciliation**
+   - How should late process merges (after enrichment) reconcile downstream data? A `processClusterId` or equivalent lineage key is proposed but not yet designed.
+
+7. **Validator calibration corpus bootstrapping**
+   - The calibration harness requires three corpora per skill family (clean real, weird-but-valid, mutated bad) with minimum targets (25-30 / 15-20 / 30-50). The mutation bank needs realistic failure cases from real production runs.
+   - Research needed: determine how to bootstrap the weird-but-valid corpus before production traffic exists, and whether the gold-set lot corpus from Milestone 0 provides enough raw material for initial mutation generation.
+
+8. **Customs cost spread materiality threshold**
+   - What `customsCostSpreadBps` value should trigger the `customs_branch_divergent` blocker? A 2.7%–4.7% spread is arguably tolerable for screening; a 2.7%–48.5% spread is clearly a blocker. The threshold needs calibration against the whitelist categories.
+
+9. **Packaging materials sub-category reclassification**
+   - The whitelist category "packaging materials" now contains both easy subfamilies (corrugated cartons, poly mailers) and dangerous subfamilies (aluminium foil, glass containers, tin mill products) with active or imminent trade remedy measures. Should the whitelist split packaging into separate sub-categories with different pipeline treatment, or treat the dangerous subfamilies as effectively on the no-list until the engine proves reliable on them?
+
+10. **CBAM rate integration timeline**
+    - UK CBAM trial rates are expected in Q4 2026 and full rates from January 2027. When should the engine start computing non-zero `cbamEstimateGbp` for affected iron/steel and aluminium families? The forward field exists but the data source and calculation method are undefined.
 
 ### Assumptions Made
 
@@ -6662,6 +7724,11 @@ This ordering follows the complexity and risk profile in §§6.1–6.2: validate
 A **Minimum Viable Experiment (MVE)** validates the intelligence thesis before infrastructure investment. The MVE proves the product can surface high-precision, non-fake opportunities on a curated lot corpus. Only after the MVE demonstrates credible signal does infrastructure scale it.
 
 Wrong answers at scale are worse than no automation. Building a reliable daemon that produces unreliable intelligence is wasted work. Building credible intelligence first means every infrastructure component has a clear reason to exist.
+
+The worker-validator layer does not change that ordering. It is a trust amplifier for later milestones, not part of the core commercial-thesis proof. That is why §11 places it in Milestone 3 as dry-run first and Milestone 4 for enforcement only after real run-manifest corpus and operator feedback exist.
+That sequencing is deliberate: Milestone 2 produces the first live operator decisions and run-manifest corpus, Milestone 3 uses that corpus to calibrate dry-run validation, and only Milestone 4 turns semantic validation into an enforcement gate.
+The thin runner in Milestone 1 is the narrow exception that proves the rule: it exists only to validate runtime reliability after the commercial-signal experiments, not to front-load full daemon/sync complexity before the product thesis is tested.
+After the review cycles and harmonymaxer integrations, this validation-first philosophy still holds: the added sophistication mostly increased trust, observability, and correctness requirements around the proven core thesis rather than changing which assumptions are riskiest.
 
 ### Core Validation Order
 
@@ -6718,7 +7785,7 @@ After MVE validation, the MVP-Alpha proves repeatable operator value with a sing
 - Thin Rust runner (agent launch, artifact capture, process supervision — not full daemon)
 - Local SQLite with operational schema
 - Manual-trigger desktop UI (Tauri) with list/detail review, QueryService + DaemonBridge + bootstrap state machine
-- Decision capture (reject/watch/shortlist)
+- Decision capture (reject/watch/approve)
 - FTS ingestion skill (live notices, not just gold set)
 - Batched ingestion (Contracts Finder as second source)
 - Basic health monitoring and error manifests
@@ -6761,6 +7828,7 @@ Minimal Rust runtime — just enough to launch skills, capture artifacts, and su
 - CLI interface for manual skill triggering
 - Skill linting CI gate (validate directory structure, metadata, schemas, trigger boundaries on every skill change)
 - Smoke canary harness (page fingerprint check, auth verification, minimal extraction for each critical source)
+- Scope-aware stage tracking: job runner must scope `stage_run_id` commits to the correct business-unit grain (process/notice/lot/candidate-source pair) and use set-replacement semantics for fan-out stages (see §5.5 commit semantics)
 
 **Exit criteria:** Experiment 4 passes (10 consecutive batch runs, ≥90% success rate).
 
@@ -6780,9 +7848,11 @@ Prove repeatable operator value with manual-trigger desktop and live procurement
 - Notice list/detail views with keyset pagination
 - Agent session monitoring page with live terminal viewer and session stream stores
 - Opportunity list with margin bands
-- Decision capture (reject/watch/shortlist) with decision ledger
+- Decision capture (reject/watch/approve) with decision ledger
 - Feature flags for progressive capability enablement
 - Agent E2E tests verifying real skill sessions
+- Operator-facing coverage metrics: process-level `pricedCoverageBps`, `landedCostCoverageBps`, `netQualifiedCoverageBps` displayed in opportunity list so the operator sees decision basis completeness (see §5.5 coverage rollup)
+- Decision-basis staleness indicators: flag stale decisions when underlying pipeline data has advanced beyond the reviewed stage run
 
 **Exit criteria:** Single operator runs system daily for one week, makes real accept/reject decisions, reports the pipeline surfaces genuine opportunities.
 
@@ -6806,6 +7876,8 @@ Daily automation without babysitting.
 - Auth-refresh skills for authenticated sources (Alibaba, 1688)
 - Production drift monitoring (page fingerprint hash, locator fallback depth, fill-rate, duplicate-rate trending)
 - Golden live journey tests per skill family (invariant-based, not brittle literal matching)
+- **Worker-validator validation layer (dry-run mode):** Run manifest generation in all skills (embedded in kickoff prompts), base validator skill for generic semantic quality checks, validation policy engine, dry-run mode for initial deployment (verdicts logged but not enforced). Calibrate validator false positive rate before enabling enforcement.
+- Staleness propagation and invalidation queue: when upstream pipeline stages re-run, downstream results and operator decisions are marked stale via `reviewedBasisHash` / `reviewedAtStageRunId` comparison; invalidation queue triggers targeted re-runs for affected downstream stages
 
 **Exit criteria:** System runs unattended for 5 consecutive days with ≥95% skill success rate and no manual intervention required.
 
@@ -6816,7 +7888,8 @@ Collaboration infrastructure.
 - Supabase schema and sync engine
 - Transactional outbox push (local → remote)
 - Cursor-based pull (remote → local) with CAS for shared decisions
-- Projection tables for web consumption
+- Projection tables for web consumption (including `validation_verdict_summaries`)
+- **Validation enforcement mode:** Validator rejections quarantine results. Domain-specific validator skills for procurement ingestion, supplier enrichment, document acquisition, and product extraction. Validation trend dashboard in desktop. Auto-rollback on consecutive rejections as a promotion gate.
 - Viewing portal (read-only, reading from Supabase) with Broadcast invalidation and staleness rendering
 - Multi-user decision visibility
 
@@ -6902,7 +7975,7 @@ This Document
 
 - [ ] Gold-set lot corpus curated (50-100 lots across whitelist categories, with human labels)
 - [ ] Scope geography confirmed (Scotland in/out of MVP)
-- [x] Desktop/web shell decision made — desktop = control panel, viewing portal = read-only
+- [x] Desktop/viewing-portal split decided — desktop = control panel, viewing portal = read-only
 - [ ] Initial procurement sources ranked by commercial importance
 - [ ] Bilingual lexicon seeded for top 30-50 product families
 - [x] Data retrieval strategy confirmed — skill-based agent scraping for procurement + supplier data
@@ -6979,7 +8052,21 @@ Use normalized ex-VAT revenue and normalized supplier cost:
 ```text
 gross_margin = (expected_addressable_revenue_ex_vat - normalized_supplier_cost)
              / expected_addressable_revenue_ex_vat
-gross_estimate_confidence = min(revenue_confidence, quote_realism_confidence)
+
+# Identity and usability gates FIRST (lexicographic — see §4.3)
+# These prevent a realistic-looking price for the WRONG product from passing.
+if match_confidence < archetype_identity_floor:
+  route_to_manual_review   # product identity not established
+else if quote_usability_confidence < 0.45:
+  route_to_manual_review   # unit basis, MOQ, or shipping unclear
+
+# Combined pricing confidence (all three dimensions)
+pricing_input_confidence = min(
+  match_confidence,
+  quote_usability_confidence,
+  quote_realism_confidence
+)
+gross_estimate_confidence = min(revenue_confidence, pricing_input_confidence)
 
 if gross_margin >= 0.30 and gross_estimate_confidence >= confidence_floor:
   qualify_for_landed_cost_stage
@@ -6995,9 +8082,14 @@ Use an ex-VAT economic margin view with **low/base/high scenarios**. Do not blin
 
 **Note on duty scenarios:** The `customs_duty_high/base/low` values below are computed at
 margin-calculation time from classification uncertainty (candidate codes with different duty
-rates) and trade remedy risk. The stored `LandedCostEstimate` entity records `customsDutyGbp`
-(base estimate) and `tradeRemedyDutyGbp` separately; the scenarios are derived and stored as
-final `netMarginLowPct`/`netMarginBasePct`/`netMarginHighPct` values.
+rates), trade remedy risk, and exporter rate basis. The stored `LandedCostEstimate` entity
+records `customsDutyGbp` (base estimate) and `tradeRemedyDutyGbp` separately, plus
+`dutyOutcomeMinGbp` / `dutyOutcomeMaxGbp` / `customsCostSpreadBps` for the full duty range
+across plausible classification branches. The margin scenarios are derived from these stored
+components and stored as final `netMarginLowPct`/`netMarginBasePct`/`netMarginHighPct` values.
+If `customsCostSpreadBps` exceeds a material threshold (e.g., branches split on remedy vs
+no-remedy), this triggers the `customs_branch_divergent` blocker rather than producing a
+margin scenario band.
 
 ```text
 net_margin_low = (
@@ -7035,7 +8127,10 @@ wc_adjusted_margin = net_margin_base
   - (working_capital_cost / expected_addressable_revenue_ex_vat)
 
 # Gate logic: use CONSERVATIVE (low) estimate for auto-qualification
-if net_margin_low >= 0.20 and no critical_blockers:
+# Coverage floor: process-level auto-qualification requires sufficient candidate
+# value coverage. A single easy candidate should not qualify the whole process.
+if net_margin_low >= 0.20 and no critical_blockers
+   and net_qualified_coverage_bps >= process_coverage_floor_bps:
   final_qualified
 else if net_margin_base >= 0.20 and (quote_class == "indicative_marketplace"
                                      or has_blockers):
@@ -7045,17 +8140,32 @@ else:
 
 # Critical blockers override margin regardless of value:
 critical_blockers = [
-  classification_unstable,        # HS6 diverges or 10-digit unresolved
-  trade_remedy_detected,          # anti-dumping/countervailing/safeguard
-  measure_condition_unsatisfied,  # operational blocker
-  revenue_basis_uncertain,        # framework ceiling or dynamic market
-  pva_ineligible,                 # cannot recover import VAT
+  classification_unstable,              # HS6 diverges or 10-digit unresolved
+  trade_remedy_detected,                # anti-dumping/countervailing/safeguard (any tier)
+  measure_condition_unsatisfied,        # operational blocker
+  revenue_basis_uncertain,              # framework ceiling or dynamic market
+  pva_ineligible,                       # cannot recover import VAT
+  customs_branch_divergent,             # plausible UK10 branches split on remedy/no-remedy,
+                                        # specific/ad-valorem, VAT family, or supplementary units
+  exporter_identity_unresolved,         # active remedy but no exporter proof -> residual assumed
+  classification_stale,                 # tariff data expired or TRA watch state changed
 ]
+
+# Customs-specific hard rule:
+# If any plausible customs branch introduces remedy/no-remedy split,
+# unresolved specific duty, quota/safeguard interaction,
+# or different VAT family, suppress decision-grade margin.
+# A 2.7%-48.5% customs branch is not a scenario band. It is a blocker.
+#
+# Screening-grade auto-pass only when:
+#   worstCaseNetMargin >= gate
+#   AND customsCostSpread is immaterial (all branches in same measure family)
+#   AND no catastrophic legal branch exists (no undetected remedy, no unresolved VAT)
 ```
 
 ### B. Suggested Confidence Model
 
-Use a weighted confidence score as an internal heuristic only. The weights below are priors for MVP and should be recalibrated against observed operator decisions and realized sourcing outcomes rather than treated as statistically validated probabilities.
+Use a weighted confidence score as an internal heuristic only. The weights below are priors for MVP and should be recalibrated against observed operator decisions and realized sourcing outcomes rather than treated as statistically validated probabilities. Persist `customsResolutionConfidence` and `commercialEstimateConfidence` separately; the weighted composite below is a routing heuristic applied only after legal/customs confidence has cleared its own blocker checks.
 
 ```text
 final_confidence =
@@ -7093,21 +8203,25 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 
 ### C. Suggested Job Kinds
 
-| Job Kind | Purpose |
-|----------|---------|
-| `sync_source` | pull procurement notices (one session per source per run) |
-| `normalize_notice` | normalize into internal schema |
-| `resolve_relations` | classify notice-to-process relations (`merged_same_process` / `related_not_merged` / `possible_duplicate` / `separate`) |
-| `qualify_notice` | expiry + access route + multi-dimensional goods classification |
-| `acquire_documents` | download public tender documents (spec PDFs, BoQ, lot docs) |
-| `extract_lots` | extract lot structure from notices and documents |
-| `extract_products` | per-lot product candidate extraction with candidateType and structured slots |
-| `score_quoteability` | deterministic quoteability gate before marketplace search |
-| `enrich_supplier_prices` | price-signal matching via marketplace scraping (batched per source per notice) |
-| `estimate_landed_cost` | customs/logistics/FX with margin bands |
-| `generate_manifest` | Markdown summary |
-| `run_bid_workflow` | portal-specific bid assistance |
-| `escalate_rfq` | escalate to RFQ for high-value opportunities with indicative-only pricing |
+| Job Kind | Pipeline Stage | Scope Grain | Purpose |
+|----------|---------------|-------------|---------|
+| `sync_source` | 1. Ingest | per source per run | Pull procurement notices (one session per source per run). Additive — continuation_required for large batches. |
+| `normalize_notice` | 2. Normalize | per notice | Normalize into internal schema. Set-replacement. |
+| `resolve_relations` | 3. Relate | per process cluster | Classify notice-to-process relations (`merged_same_process` / `related_not_merged` / `possible_duplicate` / `separate`). Set-replacement per cluster. |
+| `qualify_notice` | 4. Qualify | **per lot** | Expiry + access route + multi-dimensional goods classification. Records `qualificationBasis` and `addressableValuePence`. Set-replacement per lot. |
+| `acquire_documents` | 5. Acquire docs | per notice | Download public tender documents (spec PDFs, BoQ, lot docs). Produces `documentSetHash` and completeness state. Set-replacement. |
+| `extract_lots` | 6. Extract lots | per notice + doc set | Extract lot structure from notices and documents. **Set-replacement** — partial lot set is not authoritative. |
+| `extract_products` | 7. Extract products | per lot | Per-lot product candidate extraction with candidateType, matchArchetype, structured slots, and required lotId. Additive per lot. |
+| `score_quoteability` | 8. Score quoteability | per candidate | Deterministic quoteability gate. Creates SearchProfile for ALL candidates (including below-threshold). Additive per candidate. |
+| `enrich_supplier_prices` | 9. Price-signal match | per candidate-source pair | Price-signal matching via marketplace scraping (batched per source per notice). Additive per candidate-source pair — completed pairs survive partial session failures. |
+| `compute_gross_gate` | 10. Gross margin gate | per candidate | Revenue normalization + quote selection + Incoterm normalization + gross margin computation. Persists selected quote and revenue basis. Additive per candidate. |
+| `estimate_landed_cost` | 11. Landed cost | per candidate-quote scenario | Customs/logistics/FX with margin bands. Anchored to specific candidate + selected quote + tariff/FX/freight snapshots. Additive per scenario. |
+| `compute_net_gate` | 12. Net margin gate | per candidate + process rollup | Net margin computation + blocker check + coverage rollup. Process-level auto-qualification requires coverage floor. |
+| `generate_manifest` | 13. Manifest | per process | Markdown opportunity summary with `basisHash` tying it to exact candidates/quotes/estimates. Set-replacement. |
+| `record_operator_decision` | 14. Operator decision | per process | Compare-and-swap mutation of `operator_decision_heads`. User-triggered from the desktop control panel rather than a scheduled daemon background job. |
+| `run_bid_workflow` | 15. Bid workflow | per process (with lot/candidate scope) | Portal-specific bid assistance. Carries explicit `bidScopeJson` with lot/candidate ids. |
+| `escalate_rfq` | (re-entry) | per candidate | Escalate to RFQ for high-value opportunities. Produces `SupplierQuote(quoteClass=rfq_quote)`. Triggers re-evaluation from gross gate. |
+| `validation` | (cross-cutting) | per worker job | Semantic validation sub-job (see §5.6 steps 12a-12d). Owned by worker-validator domain. |
 
 ### D. Source References
 
@@ -7190,6 +8304,19 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 - Inward Processing rules: https://www.gov.uk/guidance/special-procedure-inward-processing/rules-and-processes
 - Origin proof requirements: https://www.gov.uk/guidance/get-proof-of-origin-for-your-goods
 - Advance Tariff Ruling: https://www.gov.uk/guidance/apply-for-an-advance-tariff-ruling
+- Advance Tariff Ruling requirements: https://www.gov.uk/guidance/check-what-youll-need-to-get-a-legally-binding-decision-on-a-commodity-code
+- TRA public case register: https://www.trade-remedies.service.gov.uk/public/cases/
+- UK Global Tariff declarable commodities API: https://www.api.gov.uk/dbt/uk-global-tariff-measures-on-declarable-commodities/
+- HMRC tariff stop-press notices: https://www.gov.uk/government/collections/tariff-stop-press-notices
+- CDS additional codes guidance: https://www.gov.uk/guidance/using-commodity-codes-and-related-additional-codes-in-the-customs-declaration-service
+- UK CBAM policy summary: https://www.gov.uk/government/publications/carbon-border-adjustment-mechanism-cbam-policy-summary/carbon-border-adjustment-mechanism-cbam-policy-summary
+- Aluminium foil AD notice: https://www.gov.uk/government/publications/trade-remedies-notices-anti-dumping-duty-on-aluminium-foil-from-china/trade-remedies-notice-202524-anti-dumping-duty-on-certain-aluminium-foil-in-rolls-originating-from-the-peoples-republic-of-china
+- Aluminium extrusions AD notice: https://www.gov.uk/government/publications/trade-remedies-notices-anti-dumping-duty-on-certain-aluminium-extrusions-from-china/taxation-notice-202211-definitive-anti-dumping-duties-on-certain-aluminium-extrusions-originating-from-china
+- Organic coated steel AD notice: https://www.gov.uk/government/publications/trade-remedies-notices-anti-dumping-duty-on-organic-coated-steel-products-from-china/trade-remedies-notice-202514-anti-dumping-duty-on-organic-coated-steel-products-originating-from-china
+- Glass containers AD investigation (AD0087): https://www.trade-remedies.service.gov.uk/public/case/AD0087/
+- Tin mill products AD measure (March 2026): https://www.gov.uk/government/news/new-anti-dumping-measure-on-chinese-tin-mill-imposed
+- Ironing boards AD notice: https://www.gov.uk/government/publications/trade-remedies-notices-anti-dumping-duty-on-ironing-boards-from-china/trade-remedies-notice-202609-definitive-anti-dumping-duty-on-ironing-boards-originating-from-china
+- Organic coated steel CVD suspension notice: https://www.gov.uk/government/publications/trade-remedies-notices-countervailing-duty-on-organic-coated-steel-products-from-china/suspension-notice-202011-countervailing-duty-on-certain-organic-coated-steel-products-originating-in-the-peoples-republic-of-china
 
 #### Procurement Act / Contract Valuation
 
@@ -7262,6 +8389,14 @@ For implementation, `gross_estimate_confidence` and `net_estimate_confidence` sh
 | 2026-03-13 | codex holistic pass (iteration 001, step 3 residual) | Final architecture-shape cleanup. Demoted `crates/common` and `packages/config` from implied MVP structure to later extraction points so the repo shape no longer carries “just in case” packages; clarified that `Skill-Based Ingestion Runner` can remain a module under the Job Runner until complexity justifies extraction; normalized the system-context and flow heading to the primary “viewing portal” term; and added the missing `packages/ui` file entries plus Milestone 2 assignments so the shared-UI boundary described in ADR-008 and §5.8 is reflected in the file map and delivery plan. Sections modified: 3.4, 5.1, 5.2, 5.8, 8.2, 8.4, Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001, step 3 final) | Final boundary-clarity cleanup. Added an explicit dependency rule that `packages/contracts-schema` and `packages/ui` must not import `packages/db`, daemon modules, bridge code, or Supabase clients; and clarified that `ProcessStageStatus.stage` is intentionally coarser than `PipelineAssessment.pipelineState` so orchestration stages and business progression cannot be mistaken for competing models. Sections modified: 3.4, 5.4, Appendix E. |
 | 2026-03-13 | codex holistic pass (iteration 001, step 3 sync note) | Sync cleanup after the architecture passes. Updated Quick Stats to the current 155 planned files after the shared-UI additions, and clarified in §5.10 that `/api/company-profile` is a target-state endpoint tied to the Milestone 6 bidding package rather than an early-MVP requirement. Sections modified: 1, 5.10, Appendix E. |
+| 2026-03-15 | harmonymaxer (Run 002) | Integrated worker-validator and run manifest system from standalone research doc. Fresh-eyes pass corrections: (a) §4.10 extraction validation updated from "three levels" to "four levels" with OQG/validator distinction; (b) §4.10 OQG paragraph reframed as "first line of defense" not sole defense; (c) §5.11 AGENT_SUSPECT_OUTPUT definition updated to list both OQG and validator as sources; (d) §6.1 complexity table updated to "four-layer validation"; (e) §6.6 updated from "Three-Layer Observability Model" to "Four-Layer" with Layer 4 (Narrative / run manifests); (f) §5.2 Log/Trace Capture Engine clarified as covering first three layers with cross-reference to Layer 4; (g) §5.2 Validation Executor: multi-segment validation rule added (validate each segment independently); (h) SQL comment fixed from "the manifest" to "the run manifest"; (i) AGENTS.md observability reference updated to four-layer model. Full integration details follow. |
+| 2026-03-15 | harmonymaxer (Run 002, continued) | Integrated worker-validator and run manifest system from standalone research doc (`docs/research/2026-03-15-worker-validator-run-manifest-research.md`). Major changes: (1) Run manifests — every skill run produces a human-readable MD narrative stored as an immutable artifact; agent_session_logs gets run_manifest_path + run_manifest_hash columns. (2) Validator skills — new category 6 in skill types; base validator + domain-specific overlays; headless_contract mode with structured_extract_low_cost model profile. (3) Validation policy engine — per-skill validation_policy metadata (always/sample/trigger/skip); pre-stable stages always validate; trigger conditions for anomaly detection. (4) Three new §5.2 components: Run Manifest Writer, Validation Policy Engine, Validation Executor. (5) Job Runner modified: consults validation policy after OQG, spawns validator sub-jobs, processes verdicts (approved/rejected/flagged), fail-open on validator failure. (6) New DB entities: validation_verdicts (local-only), validation_verdict_summaries (push-owned projection). (7) Modified DB entities: workflow_jobs (parent_job_id, validation_required, validation_verdict_id), agent_session_logs (run_manifest_path, run_manifest_hash). (8) §4.7 authority split updated with new tables. (9) §5.3 canonical workflow: semantic validation step after opportunity manifest generation. (10) §5.6 ingestion flow: steps 12a-12d for run manifest generation and semantic validation. (11) §5.7 intelligence pipeline: validation note for all skill-based stages. (12) §5.9 bid automation: always-validate default for portal skills. (13) §5.11: VALIDATION_REJECTED, VALIDATION_FLAGGED, VALIDATION_SKIPPED_VALIDATOR_ERROR error types; validator verdicts distinguished from skill outcome classes. (14) §6.1: worker-validator complexity entry (Medium-High). (15) §6.2: 4 new risks (false rejections, validator unreliability, run manifest quality, validation cost). (16) §6.5: validator testing subsection (canaries, golden journeys, dry-run, false positive monitoring, regression, calibration). (17) §6.6: 5 new telemetry metrics (approval/rejection/flag rates, validator cost, operator override rate). (18) §8.2: 3 daemon files (policy.rs, executor.rs, manifest_writer.rs), 4 validator skill files. (19) §8.3: 4 validator test files. (20) §8.4: validation files assigned to Milestone 3 (dry-run) and Milestone 4 (enforcement + Supabase projection). (21) §11: Milestone 3 adds dry-run validation layer; Milestone 4 adds enforcement mode. (22) ADR-005 updated: validator skills as new category following same boundary rules. (23) OQG/Result Contract Validator: clarified relationship with semantic validator — OQG is first gate (code-based), validator is second gate (agent-based); OQG signals feed into validator. (24) §4.9: validator sessions follow same lifecycle, use headless_contract mode. (25) Terminology: "run manifest" always used as full term to disambiguate from opportunity manifest and error manifest. Sections modified: 1, 4.7, 4.9, 4.10, 5.2, 5.3, 5.4, 5.6, 5.7, 5.9, 5.11, 6.1, 6.2, 6.5, 6.6, 8.2, 8.3, 8.4, 11, ADR-005, Appendix E. |
+| 2026-03-15 | harmonymaxer (Run 002, optimization audit) | Fresh-eyes harmonization audit after Run 002 integration. Closed the remaining documentation gaps by adding manual mode and dry-run semantics to the skill lifecycle, adding a Kickoff Prompt Renderer component and scratch-workspace behavior, disambiguating `generate opportunity manifest` from `run manifest`, adding TypeScript interfaces for `WorkflowJob`, `AgentSessionLog`, `ValidationVerdict`, and `ValidationVerdictSummary`, aligning the validator file map and milestone assignments with the skill-type table (base validator support files plus document-acquisition/product-extraction overlays), and replacing the residual policy-wording leak with the authoritative "validation policy" term. Sections modified: 4.10, 5.2, 5.3, 5.4, 5.6, 8.2, 8.4, Appendix E. |
+| 2026-03-15 | planmaxer sync pass (pipeline integration) | **Pipeline Integration Review (Iteration 002, 2026-03-15):** Integrated expert feedback from data pipeline integration architect review. Sections modified: §5.3 (added Stage Scoping Model, Revenue Normalization Sequencing, Staleness and Invalidation Model, Stage Boundary Contracts subsections), §5.5 (extracted needs_review/expired as overlays, added coverage metrics, decision staleness, bid workflow scope), §5.7 (lot-scoped qualification with qualificationBasis, first-class document set output, set-replacement lot extraction, required lotId on ProductCandidate, SearchProfile for all candidates with searchEligibilityState, new Gross Margin Gate data flow section, candidate-quote scoped landed cost, coverage-aware process rollup), Appendix A (three-gate lexicographic confidence on gross margin gate, coverage floor on net margin gate), Appendix C (expanded to 16 job kinds aligned to 15-stage pipeline with scope grain and commit semantics), §6.2 (5 new risks). Key contributions: grain drift analysis (pipeline unit of work changes across stages but control model was process-level), fan-out coherence model (set-replacement vs additive stages), identity chain audit (FK gaps and optional fields that break traceability), silent corruption path mapping (confidence scores consumed vs parked), revenue normalization sequencing fix, coverage-aware rollups. Deferred cross-domain items: ProcessStageStatus scope-aware redesign (sync-engine), TenderDocumentSet entity (data-architecture), ProductCandidate schema changes (data-architecture), PipelineAssessment schema changes (data-architecture), OperatorDecisionHead staleness fields (data-architecture/sync-engine), BidWorkflowState scope (data-architecture), processClusterId for late merge (data-architecture), candidate-scoped pricing assessment entity (data-architecture). |
+| 2026-03-15 | planmaxer sync pass (worker-validator) | **Planmaxer Iteration 002: Worker-Validator & Semantic QA Domain Review (2026-03-15).** Sections modified: §1 (executive summary), §4.10 (skill metadata — validator compatibility, extended triggers), §5.2 (Run Manifest Writer — hybrid-authored manifests with daemon evidence appendix, field naming conventions, fallback mode; Validation Policy Engine — risk-stratified sampling, per-slice enforcement, automatic demotion; Validation Executor — distilled runtime rubric replacing raw goldens, anomaly-stratified sampling, verdict metadata with basis_sufficiency, chain-close aggregate validation), §5.6 (steps 12a-12d rewritten for hybrid manifests, risk-stratified policy, structured drift deltas, enforcement eligibility), §5.11 (added VALIDATION_FLAGGED_INSUFFICIENT_BASIS, trust-state propagation, enforcement eligibility in error handling), §6.5 (validator calibration harness with three corpora, mutation bank, pairwise challenges, minimum calibration targets, cross-model audit, override feedback loop, fail-open test coverage), §6.6 (Layer 4 updated for hybrid authoring, expanded validation telemetry from 5 to 13 metrics). Key reviewer contributions: (1) hybrid-authored run manifests separating agent narrative from daemon-observed facts, (2) basis_sufficiency as first-class validator blindness concept, (3) risk-stratified sampling replacing pure Bernoulli, (4) per-slice enforcement readiness with automatic demotion, (5) anomaly-stratified result contract sampling, (6) chain-close aggregate validation for continuation chains, (7) distilled runtime rubric replacing raw golden injection, (8) structured drift deltas replacing narrative history, (9) formal calibration harness with three-corpus design and minimum thresholds, (10) trust-state propagation for unverified results. Deferred cross-domain items: chain-close tracking in Job Runner (§4.9), verdict metadata fields in validation_verdicts table (§5.4), per-slice enforcement in milestone structure (§11). |
+| 2026-03-15 | planmaxer steps 3–4 (worker-validator) | Fresh-eyes optimization + sync pass. Fixed 7 inconsistencies: (1) §4.10 Skill Lifecycle Execution step updated for hybrid-authored manifests, (2) §4.10 Skill Lifecycle Validation step updated with full kickoff composition and verdict metadata, (3) §4.10 base validator skill description updated with daemon evidence cross-checking and basis_sufficiency, (4) §4.10 validator skills paragraph updated for hybrid-authored manifests and verdict metadata, (5) §4.10 OQG relationship updated for daemon evidence cross-checking, (6) §5.3 canonical workflow validation summary updated with enforcement eligibility, insufficient basis, and chain-close, (7) Job Runner enforcement_eligible handling noted as cross-domain (§4.9). Added cross-references: §5.11 → §5.2/§4.10, §6.5 → §4.10/§5.2. Verified §8.2 file references and §10 open questions — no changes needed. |
+| 2026-03-15 | planmaxer pre-prep (customs classification) | **Customs Classification & Landed-Cost Engine Maturity Review (Iteration 002).** Integrated expert feedback from customs and trade compliance technologist. Major changes: (1) FPO reframed from "primary candidate generator" to one recall source among several — parallel recall via CPV→chapter priors, rule-based chapter hints, tariff keyword search, ATR/codebook reuse. (2) Multi-family expansion: expand ALL plausible HS6/CN8 families to ALL declarable UK10 descendants, never greedy descent of top candidate only; rerank by slot + measure compatibility. (3) Exporter/manufacturer resolution: `exporterRateBasis` (named_exporter / annex_exporter / residual_default), default to residual when identity unverified; prevents systematic understatement of trade remedy exposure. (4) Measure interaction engine: AD/CVD/safeguard/quota duties do not always stack arithmetically (proved by UK steel-family measures). (5) Compound/specific duty expressions preserved as full measure components, not flattened to single `dutyPct`. (6) Supplementary units as first-class requirement. (7) VAT rate determination separated from VAT recovery (`vatRateState` via national additional codes family 6/17). (8) Valuation mode distinction (estimation vs declaration; `1_proxy` vs `1_actual`). (9) Classification freshness system: `tariffCheckedAt`, `classificationFreshUntil`, `tradeRemedyWatchState` with daily TRA + tariff stop-press monitoring. (10) Whitelist category classification analysis with per-category difficulty ratings and live trade remedy exposure. (11) Packaging reclassified from "generally safe" to "split: easy subfamilies / dangerous subfamilies" (foil 14.2-35.6%, glass containers under investigation AD0087, tin mill 27.85-49.98%). (12) CBAM forward placeholder for iron/steel/aluminium (UK CBAM from Jan 2027). (13) Conservative defaults (MFN, residual, out-of-quota, standard VAT, boundary scenarios for unresolved Incoterm). (14) Customs branch divergence as hard blocker, not scenario band (`customsCostSpreadBps`). (15) Evidence-tiered accuracy measurement (gold/silver/bronze labels; abstention as positive class). (16) Archetype-keyed missing-facts requests replacing generic "manual review". (17) 10 new error types in §5.11. (18) FX monthly rollover forced recalculation. (19) `fxBasisDeltaPct` fed into margin stress scenarios. (20) 6 new risks in §6.2. (21) 3 new open questions in §10. (22) 14 new source references in Appendix D. Sections modified: §1, §4.5 (FPO recommendation, 10-digit resolution, customs recommendation — all rewritten; 3 new subsections: classification freshness, whitelist analysis, CBAM), §4.6 (FX recalculation + margin stress), §5.7 (landed-cost steps 3-11 rewritten), §5.11 (10 new error types), §6.1 (landed-cost complexity updated), §6.2 (6 new risks), §10 (3 new open questions), Appendix A (duty scenarios note + expanded critical blockers), Appendix D (14 new references), Appendix E. Cross-domain notes for: §5.4 (18 new LandedCostEstimate fields + CandidateCommodityCode source enum), ADR-006 (conservative bounding engine), Appendix B (split confidence model), §5.2 (5 new landed-cost subsystems). |
+| 2026-03-15 | codex holistic pass (iteration 002) | Completed the post-integration cross-plan unification pass for Iteration 002. Removed the remaining live coordination comments and integrated their target-state decisions directly into the document: added `TenderDocumentSet`, `CandidatePricingAssessment`, validation verdict metadata, scope-aware stage tracking, decision-basis staleness fields, bid scope, validation state, and the expanded landed-cost/customs fields to the TypeScript and SQL contracts; aligned `WorkflowJob.kind`, `ProcessStageStatus.stage`, `SearchProfile`, and file/migration descriptions with the 15-stage scope-aware pipeline; clarified validator overlay packaging (shared `skills/validation/*` overlays plus optional co-located overrides), added `validator-rubric.yaml` to the file map, replaced the residual non-canonical state/action wording in the request-pipeline and delivery sections, and updated Quick Stats to the current 156 planned files. Sections modified: §1, §4.10, §5.2, §5.4, §5.5, §5.7, §5.9, ADR-006, §8.2, §8.4, §9.4, Appendix B, Appendix E. |
 
 ---
 

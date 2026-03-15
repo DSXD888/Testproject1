@@ -140,7 +140,7 @@ If you see errors, **carefully understand and resolve each issue**. Read suffici
 
 A **UK public procurement intelligence platform** that ingests official contract notice data daily, normalizes and stores it, qualifies it for relevance to physical-goods supply opportunities, enriches qualified notices with supplier pricing plus landed-cost estimates, surfaces high-margin opportunities in a desktop control panel and web viewing portal, and optionally launches request pipeline automation workflows using agent skills and browser automation.
 
-**Core idea:** A Rust daemon runs locally, orchestrating AI agent sessions via PTY terminals and structured contract mode. Skill-based agent scraping via browser automation is the primary data retrieval mechanism for all procurement and supplier data. The daemon manages local SQLite storage (operational authority), syncs to Supabase/Postgres (shared authority + projections), runs a cron scheduler for automated pipeline execution, and provides full observability through a three-layer model (control events, protocol events, forensic bytes).
+**Core idea:** A Rust daemon runs locally, orchestrating AI agent sessions via PTY terminals and structured contract mode. Skill-based agent scraping via browser automation is the primary data retrieval mechanism for all procurement and supplier data. The daemon manages local SQLite storage (operational authority), syncs to Supabase/Postgres (shared authority + projections), runs a cron scheduler for automated pipeline execution, and provides full observability through a four-layer model (control events, protocol events, forensic bytes, agent-generated run manifests).
 
 ### Architecture at a Glance
 

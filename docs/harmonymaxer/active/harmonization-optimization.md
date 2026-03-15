@@ -1,290 +1,199 @@
-# Harmonization Optimization — Run 001: Verification & Consistency Audit
+# Harmonization Optimization — Worker-Validator & Run Manifest System
 
-## Mission Statement
-
-You are a fresh-eyes architecture auditor. The research document for a UK public procurement intelligence platform was recently updated to incorporate owner feedback across 8 architectural areas. Your job is to verify that the harmonization is flawless — no contradictions between sections, no stale terminology, no silent omissions, and no ambiguity that could produce incompatible implementations.
-
-**You are auditing and fixing documentation only. Do not change code.**
-
-**Standard:** "Boringly consistent" — every section tells the same story about every concept.
+> **Run:** 002
+> **Purpose:** Fresh-eyes verification and consistency audit after harmonization handoff execution
+> **Source material:** `docs/research/2026-03-15-worker-validator-run-manifest-research.md`
+> **Target doc:** `docs/research/2026-03-08-public-procurement-intelligence-platform-research.md`
+> **Generated:** 2026-03-15
 
 ---
 
-## Mandatory Deep Re-Read (Before Any Audit)
+## Mission
 
-1. **Read the harmonization handoff** at `docs/harmonymaxer/active/harmonization-handoff.md` — this describes what was supposed to change and why. It contains the complete list of feedback areas and integration requirements.
+You are a fresh-eyes architecture auditor. The main research document has just been updated to absorb the worker-validator and run manifest system from a standalone research doc. Your job is to verify that the integration is flawless — no contradictions, no stale terminology, no silent drops, no overreach.
 
-2. **Read the ENTIRE research document** at `docs/research/2026-03-08-public-procurement-intelligence-platform-research.md` — every section, every ADR, every diagram, every data model, every file reference. Do NOT skim.
+**You are editing documentation only. Do not change code.**
 
-3. **Build a fresh mental model** of the architecture as described in the current document. Note any remaining divergences or ambiguities.
-
-4. **Only THEN begin the audit below.**
+The standard is "boringly consistent" — every section that mentions validation, manifests, OQG, skill execution, or job flow should tell the same story.
 
 ---
 
-## Audit Dimension 1: Contradiction Hunt
+## 1. MANDATORY Deep Re-Read
 
-For each of the 8 core concepts below, search EVERY section of the research document for statements about this concept and verify all statements are mutually consistent.
+Before any audit, you MUST:
 
-### Concept 1: Data Retrieval Strategy
-**Expected state:** Skill-based agent scraping via browser automation is the primary data retrieval method for procurement data AND supplier pricing. APIs are used ONLY for cost-estimation data (customs, freight, FX).
+1. **Re-read the source material in full:** `docs/research/2026-03-15-worker-validator-run-manifest-research.md` (all ~2256 lines). Build a checklist of every concept it contains.
 
-**Hunt for:**
-- Any remaining references to "API-first connectors" as the primary data strategy
-- Any section still describing `packages/connectors/` TypeScript API clients as the main data path
-- Any section recommending API integration for procurement or supplier data (vs. cost estimation)
-- ADR-001 — does it reflect skill-first, or still say "Use Official Procurement APIs Before Scraping"?
-- The connector package in Section 3.4 / Section 8.2 — has it been replaced with skills architecture?
-- Section 5.6 and 5.7 — do ingestion and enrichment flows describe agent execution or API calls?
+2. **Re-read the entire target document:** `docs/research/2026-03-08-public-procurement-intelligence-platform-research.md` (all lines — it's now ~7500+ lines). Not just the modified sections — ALL of it. Cross-cutting dependencies are only visible after reading everything.
 
-**Specific terms to flag if they appear in the wrong context:**
-- "connector" (acceptable only when referring to cost-estimation APIs or as historical context)
-- "API-first" (acceptable only for cost-estimation)
-- "client.ts" in packages/connectors/ (should be replaced or reframed)
-
-### Concept 2: Agent Orchestration Model
-**Expected state:** Headless PTY terminals are the day-1 execution model for codex/claude agents. NOT deferred.
-
-**Hunt for:**
-- Any remaining text recommending non-interactive child process as the primary/selected approach
-- ADR-004 — does it say "PTY from day 1" or still say "defer PTY"?
-- Section 4.9 — is Option A (non-interactive) still marked as "SELECTED"?
-- Any mention of "add PTY support only for workflows that genuinely require it" or similar deferral language
-
-**Specific terms to flag:**
-- "defer" or "later" in relation to PTY
-- "non-interactive" as the "selected" or "primary" approach (should be secondary/fallback at most)
-
-### Concept 3: Database Architecture
-**Expected state:** Local SQLite bundled with Rust daemon is the source of truth during operation. Supabase/Postgres is the shared sync target for multi-user visibility. Push-pull sync mechanism between them.
-
-**Hunt for:**
-- Any remaining references to Supabase as "the source of truth" or "the control plane"
-- ADR-002 — does it describe the dual-database architecture or still recommend Supabase-only?
-- Section 5.1 system context diagram — does it show SQLite locally + Supabase as sync target?
-- Section 5.4 data model — does it note SQLite compatibility considerations?
-- Section 5.6 ingestion flow — does data flow to local SQLite first, then sync?
-- Section 5.8 dashboard flow — does desktop read from SQLite and web from Supabase?
-- "Hosted Scheduler" component — has it been replaced with daemon-local cron?
-- Job leasing mechanism — does it still assume Supabase-only or reflect local SQLite?
-
-**Specific terms to flag:**
-- "source of truth" applied to Supabase (should say "shared sync target" or similar)
-- "control plane" for Supabase (acceptable if clearly framed as shared visibility layer, not primary authority)
-- "pg_cron" or hosted scheduling concepts (should be daemon-local cron)
-
-### Concept 4: Frontend Role Split
-**Expected state:** Desktop (Tauri) = full control panel (read, write, trigger workflows, manage agents). Web = read-only viewing portal.
-
-**Hunt for:**
-- Any section implying web has write capabilities (reject, bid, trigger, rerun)
-- Section 5.8 — does it distinguish desktop and web data flows?
-- ADR-008 — does it explicitly state the control/view split?
-- User stories (2.3) — are operator write actions scoped to desktop only?
-- Section 8.2 web shell files — does the web app still have reject/bid controls?
-- Open Question #2 (Section 10) — is it answered?
-
-**Specific terms to flag:**
-- "bid" or "reject" or "trigger" in web app context (should be desktop-only)
-
-### Concept 5: Cost-Estimation Engine Data Sources
-**Expected state:** Sections 4.4, 4.5, 4.6 are expanded with new data sources, each properly scored.
-
-**Hunt for:**
-- Is HMRC FPO API present in Section 4.5 with proper evaluation?
-- Is SeaRates Logistics Explorer present in Section 4.4 with proper evaluation?
-- Is HMRC Exchange Rate Service present in Section 4.6 as MANDATORY for customs valuation?
-- Are CurrencyBeacon and OANDA present as supporting FX options?
-- Are HS Ping, Taric Support, Dutify present in Section 4.5?
-- Is there a new subsection for third-party landed cost services (Zonos, Avalara)?
-- Are all new sources scored using the existing evaluation pattern?
-- Is the distinction clear: HMRC rates for customs duty, Xe for commercial FX?
-- Were any of the new sources silently dropped?
-
-### Concept 6: Agent Tracing & Observability
-**Expected state:** Section 6.6 describes comprehensive agent tracing including full terminal output capture, agent health detection, and error source tracing.
-
-**Hunt for:**
-- Does Section 6.6 include full terminal output capture?
-- Does it include agent health detection (session expired, stalled, internal error)?
-- Does Section 5.11 include agent-specific error types?
-- Does the daemon architecture reference log capture?
-- Is the tracing comprehensive enough for an engineer to implement?
-
-### Concept 7: Testing Strategy
-**Expected state:** Real E2E agent tests are the priority. No emphasis on mocks or stubs.
-
-**Hunt for:**
-- Does Section 6.5 prioritize real E2E agent tests?
-- Are "recorded fixtures" or "schema assertions" still emphasized for agent testing?
-- Are agent E2E test files listed in Section 8.3?
-- Is the phrase "mock" or "stub" used positively in the testing strategy?
-- Is the success criterion for testing clearly "real agent execution works"?
-
-### Concept 8: Automation Policy & Error Manifest
-**Expected state:** Bid automation risk is downgraded. Error manifest system is described for debugging.
-
-**Hunt for:**
-- Does ADR-007 reflect relaxed risk framing?
-- Does Section 5.9 clarify that "bids" are request pipeline automation, not real-money?
-- Is the error manifest system described (structured error log, MD files, dashboard integration)?
-- Does Section 6.2 have appropriate risk levels for bid automation?
+3. **Note any remaining divergences** between the source and target.
 
 ---
 
-## Audit Dimension 2: Document Boundary Sanity
+## 2. Contradiction Hunt
 
-Verify that the document's internal structure is coherent:
+For each core concept from the source material, search every section of the target doc for statements about that concept. Verify all statements are mutually consistent. Flag any remaining stale or conflicting language.
 
-- **Section 4 (External Research)** describes data sources and technology options
-- **Section 5 (Architecture)** describes how those options are assembled into a system
-- **Section 7 (ADRs)** captures the key decisions from Sections 4-5
-- **Section 8 (File Reference)** maps the architecture to concrete file paths
-- **Section 9 (Dependencies)** lists what's needed to build the architecture
+### Target terms and concepts to hunt:
 
-Check:
-- Does every ADR in Section 7 align with the corresponding Section 4/5 analysis?
-- Does the file reference map in Section 8 reflect the architecture in Section 5?
-- Do the dependencies in Section 9 match what the architecture actually needs?
-- Is there any concept defined in one place but contradicted in another?
-
----
-
-## Audit Dimension 3: Implementation Readiness
-
-Ask: **Could an engineer implement the full system from only this document?**
-
-For each major architecture component, verify:
-
-1. **Skill-based scraping system** — Is it clear HOW skills are triggered, what the agent does in the browser, how data is captured and stored? Or is it hand-wavy?
-
-2. **PTY-based agent execution** — Is it clear HOW the daemon launches PTY sessions, captures output, detects errors, and manages lifecycle? Or just "use PTY"?
-
-3. **SQLite + Supabase sync** — Is it clear WHAT the sync mechanism looks like (conflict resolution, sync frequency, what data syncs, corruption recovery)? Or just "push-pull"?
-
-4. **Error manifest system** — Is it clear WHERE errors are stored, in what FORMAT, how they appear in the dashboard?
-
-5. **Agent E2E testing** — Is it clear WHAT a test looks like (what prompt is sent, what is verified, how long tests take, what constitutes pass/fail)?
-
-6. **Cost-estimation engine** — Are the data source options clear enough to choose between them? Is the recommended composition clear (HMRC FPO for classification + HMRC Tariff for duty + HMRC Exchange Rates for customs FX + Xe for commercial FX + Freightos for ocean/air + SeaRates as complement)?
-
-If any area is too vague, add clarifying detail — enough for implementation, not so much that it becomes implementation planning.
+| Term / Concept | Search Pattern | What to verify |
+|---|---|---|
+| **"run manifest"** | `run manifest`, `run_manifest`, `runManifest` | Always full term. Never confused with "error manifest" or "opportunity manifest". Storage location consistent (artifact store). Hash and path columns in agent_session_logs. |
+| **"manifest"** (unqualified) | `manifest` | Every unqualified use must clearly refer to either "opportunity manifest" (Manifest Generator, manifests table) or "error manifest" (Error Manifest System). No ambiguous uses that could mean "run manifest". |
+| **"Output Quality Gate" / "OQG"** | `Output Quality Gate`, `OQG`, `quality gate` | OQG role is augmented (signals feed validator), not replaced. OQG still performs syntactic/semantic/behavioral-drift checks. Validator is a separate, optional gate AFTER OQG. |
+| **"AGENT_SUSPECT_OUTPUT"** | `AGENT_SUSPECT_OUTPUT`, `suspect_output`, `suspect output` | Both OQG failures AND validator rejections can trigger this status. The error manifest must indicate which gate triggered quarantine. |
+| **"validation"** | `validation`, `validate`, `validator` | No pre-existing use of "validation" conflicts with the new validation layer. The existing three validation layers (syntactic/semantic/behavioral-drift) in §4.10 are code-based checks BY the skill. The new validator is an AGENT-based check OF the skill's output. These must not be confused. |
+| **"workflow_jobs"** | `workflow_jobs`, `WorkflowJob` | parent_job_id and validation_required fields present in TS interface AND SQL table. |
+| **"agent_session_logs"** | `agent_session_logs`, `AgentSessionLog` | run_manifest_path and run_manifest_hash fields present in TS interface AND SQL table. |
+| **"promotion"** | `promotion`, `promote`, `promotion flow` | Validation pass rates mentioned as optional promotion gate (canary → shadow → stable). |
+| **"plug-and-play"** | `plug-and-play`, `composab`, `no daemon code`, `no schema change`, `no recompilation` | Validation design preserves plug-and-play composability. Adding a validator overlay to a skill directory requires NO daemon code changes. |
+| **"validation_verdicts"** | `validation_verdicts`, `ValidationVerdict` | Table exists in SQL, TS interface exists, appears in authority split table as local-only. |
+| **"validation_verdict_summaries"** | `validation_verdict_summaries` | Table exists in SQL, appears in authority split table as push-owned projection. |
+| **"Validation Policy Engine"** | `Validation Policy`, `validation_policy` | Component described in §5.2. Metadata field in skill metadata table. Policy modes (always/sample/trigger/skip) documented. |
+| **"Validation Executor"** | `Validation Executor` | Component described in §5.2. Spawns validator sub-jobs via Job Runner. |
+| **"validator skill"** | `validator skill`, `validator overlay`, `base validator` | Category 6 in skill types table. Uses headless_contract mode. Follows same directory standard. |
+| **"dry-run"** | `dry-run`, `dry_run`, `dryRun` | Described consistently — verdicts logged but not enforced. Default initial deployment mode. |
+| **"authority split" / "authority matrix"** | `authority`, `push-owned`, `local-only` | New tables correctly classified in §4.7 table. |
 
 ---
 
-## Audit Dimension 4: Overreach Check
+## 3. Doc Boundary Sanity
 
-Verify the harmonization didn't accidentally:
+Verify concept ownership hasn't drifted:
 
-- Add implementation sequencing or task planning ("first build X, then Y" beyond the existing milestone structure)
-- Include tool-specific dev instructions
-- Blur into execution guidance
-- Over-specify things that are still design choices
-- Add content that duplicates or contradicts itself
-- Introduce premature abstraction or unnecessary complexity
-- Add excessive caveats that dilute clear decisions
-
----
-
-## Audit Dimension 5: Absorption Completeness
-
-Verify EVERY concept from the owner's feedback has a home in the document:
-
-| Feedback Concept | Expected Location | Present? | Consistent? |
-|---|---|---|---|
-| Skill-first data retrieval | Sections 4.1, 4.3, 4.10, 5.1, 5.2, 5.6, ADR-001 | ? | ? |
-| Browser-enabled agent scraping | Section 4.10, 5.2 | ? | ? |
-| Skills easier to maintain than APIs | Section 4.1, 4.3, ADR-001 rationale | ? | ? |
-| PTY from day 1 | Section 4.9, 5.2, ADR-004 | ? | ? |
-| Cron + manual trigger via dashboard | Section 5.2, 5.6 | ? | ? |
-| Comprehensive tracing logs | Section 6.6 | ? | ? |
-| Full terminal output from agent | Section 6.6, 5.2 | ? | ? |
-| Agent health detection (re-login, errors) | Section 6.6, 5.11 | ? | ? |
-| Real E2E agent tests, no mocks | Section 6.5, 8.3 | ? | ? |
-| Send real prompts, verify real output | Section 6.5 | ? | ? |
-| Cost estimation APIs welcome | Sections 4.4-4.6 | ? | ? |
-| HMRC FPO API for HS classification | Section 4.5 | ? | ? |
-| SeaRates for freight | Section 4.4 | ? | ? |
-| HMRC Exchange Rates for customs FX | Section 4.6 | ? | ? |
-| Relaxed bid automation risk | ADR-007, 5.9, 6.2 | ? | ? |
-| Request pipeline, not real money bids | Section 5.9 | ? | ? |
-| Error flagging system | Section 5.11, 6.6 | ? | ? |
-| Error manifest MD file | Section 5.11 or 5.4 | ? | ? |
-| Dashboard error display | Section 5.8 | ? | ? |
-| Local SQLite with Rust daemon | Section 4.7, 5.2, ADR-002 | ? | ? |
-| Supabase as shared sync target | Section 4.7, ADR-002 | ? | ? |
-| Push-pull sync mechanism | Section 4.7, 5.2 | ? | ? |
-| Corruption resilience rationale | Section 4.7, ADR-002 | ? | ? |
-| Desktop = control panel | ADR-008, 5.8 | ? | ? |
-| Web = viewing portal only | ADR-008, 5.8 | ? | ? |
-
-If any concept is missing or inconsistent, fix it.
+- [ ] Run manifests are described in §4.10 (what they are), §5.2 (who writes/stores them), §5.4 (DB columns), §6.6 (artifact storage). No section contradicts another.
+- [ ] Validation policy is owned by skill metadata (§4.10) and the Validation Policy Engine component (§5.2). Not duplicated in a different section with different rules.
+- [ ] Validator skills are listed in the skill types table (§4.10) and in the files-to-create list (§8.2). Both lists agree.
+- [ ] Validation verdicts are described in §5.4 (data model), §4.7 (authority split), and §5.11 (error handling). All descriptions are compatible.
+- [ ] The Job Runner description (§5.2) mentions spawning validator sub-jobs. The ingestion flow (§5.6) and intelligence flow (§5.7) show the validation step in the right place. These are consistent.
+- [ ] §6.2 risks, §6.5 testing, §6.6 observability, and Appendix E all cover validation-related concerns. No risk is mentioned in one place and contradicted in another.
 
 ---
 
-## Audit Dimension 6: Terminology Consistency
+## 4. Implementation Readiness
+
+Ask: could an engineer implement the worker-validator system from only the harmonized research doc?
+
+- [ ] Are the integrated validation concepts clear enough to implement without reading the source doc?
+- [ ] Is the boundary between OQG and semantic validation unmistakable?
+- [ ] Could engineers reading §5.2 (components) and §5.6 (data flow) derive compatible implementations?
+- [ ] Is the run manifest format described well enough? (MD artifact, human-readable narrative, what sections to include)
+- [ ] Is the validation verdict schema described well enough? (verdict enum, issues array, severity levels, categories)
+- [ ] Is the validation policy engine's decision logic described well enough? (always/sample/trigger/skip modes, trigger conditions)
+- [ ] Is the relationship between worker job and validator job clear? (parent_job_id, validation_required, how verdict affects job advancement)
+- [ ] Is the dry-run vs enforcement mode distinction clear? (when verdicts block vs when they only log)
+- [ ] Is the fail-open behavior clear? (validator itself failing does not block worker results)
+- [ ] Could the engineer still misread any integrated concept?
+
+---
+
+## 5. Overreach Check
+
+Verify the harmonization didn't:
+
+- [ ] Add implementation sequencing or task planning ("first build X, then Y")
+- [ ] Include bead/issue tracking instructions
+- [ ] Blur into execution guidance
+- [ ] Over-specify things that are still design choices (e.g., exact trigger condition formulas for the validation policy engine)
+- [ ] Modify sections unrelated to the worker-validator system
+- [ ] Change existing skill outcome classes (they should remain exactly 6)
+- [ ] Replace or weaken the existing OQG description
+- [ ] Add unnecessary complexity to sections that were fine before
+
+---
+
+## 6. Absorption Completeness
+
+Verify the source material is FULLY absorbed:
+
+- [ ] **Run manifests** — described in the target doc? Format, storage, when generated, by whom?
+- [ ] **Validator skills** — described in the target doc? Category, mode, base + overlay pattern?
+- [ ] **Validation policy engine** — described? Modes, trigger conditions, metadata?
+- [ ] **Dry-run mode** — described? What it does, when to use it?
+- [ ] **Manual mode** — described? Kickoff prompt rendering for human-initiated validation?
+- [ ] **New DB entities** — validation_verdicts, validation_verdict_summaries?
+- [ ] **Modified DB entities** — workflow_jobs (parent_job_id, validation_required), agent_session_logs (run_manifest_path, run_manifest_hash)?
+- [ ] **Integration with Job Runner** — described? Sub-job spawning, verdict processing?
+- [ ] **Integration with OQG** — described? OQG signals as validator inputs?
+- [ ] **Integration with promotion flow** — described? Validation as promotion gate?
+- [ ] **Integration with error manifests** — described? Rejections create error manifests?
+- [ ] **Plug-and-play composability** — described? No daemon code changes for new validators?
+- [ ] **New files** — listed in §8.2, §8.3?
+- [ ] **Milestone assignment** — files assigned in §8.4?
+- [ ] **Risks** — listed in §6.2 and Appendix E?
+- [ ] **Testing** — validator testing described in §6.5?
+- [ ] **Observability** — validation metrics described in §6.6?
+
+For any concept NOT found in the target doc, flag it as a silent drop and integrate it.
+
+The source doc (`docs/research/2026-03-15-worker-validator-run-manifest-research.md`) should now be genuinely redundant — an engineer does NOT need to read it to get the full picture.
+
+---
+
+## 7. Terminology Consistency
 
 Verify all sections use identical terminology for:
 
-- **Data retrieval**: "skill-based agent scraping" / "agent browser automation" (not "API connectors" or "connector platform" for procurement/supplier data)
-- **Database local**: "local SQLite" (not "local database" sometimes and "SQLite" other times inconsistently)
-- **Database shared**: "Supabase/Postgres sync target" or "shared Postgres" (not "source of truth" or "control plane" for Supabase)
-- **Agent execution**: "headless PTY" or "PTY-based execution" (not "non-interactive child process" as the primary model)
-- **Desktop role**: "control panel" (not "dashboard" used interchangeably for both desktop and web)
-- **Web role**: "viewing portal" (not "dashboard" implying write access)
-- **Cost data sources**: "cost-estimation APIs" (clearly distinguished from the skill-based approach used for procurement/supplier data)
-- **Error tracking**: "error manifest" (consistent term throughout)
-- **Testing**: "real E2E agent tests" (not "contract tests" or "recorded fixtures" as primary)
+- **"run manifest"** — never "run log", "execution manifest", "session manifest", "skill manifest", or unqualified "manifest"
+- **"validation verdict"** — never "validation result", "validation outcome", or "validation decision" (these overlap with existing terms)
+- **"validator skill"** — never "validation skill", "checker skill", "audit skill"
+- **"validation policy"** — never "validation config", "validation setting", "validation mode" (the MODES are always/sample/trigger/skip; the POLICY is the overall concept)
+- **"approved" / "rejected" / "flagged"** — these are the three verdict values, used consistently everywhere
+- **"VALIDATION_REJECTED" / "VALIDATION_FLAGGED"** — these are the error codes, distinct from the verdict values
+- **"dry-run mode"** — never "test mode", "passive mode", "non-blocking mode"
+- **"validator overlay"** — never "validation template", "validation rules", "domain validator" (the overlay IS domain-specific rules, but the term is "overlay")
 
 ---
 
-## Audit Dimension 7: Fix and Final Fresh-Eyes Pass
+## 8. Fix and Final Fresh-Eyes Pass
 
 Fix any issues found above with targeted edits, not wholesale rewrites.
 
-After all fixes, re-read the ENTIRE document ONE MORE TIME.
+After all fixes, re-read everything ONE MORE TIME:
 
-**The Implementation Engineer Test:**
+**"Imagine you are the implementation engineer and the docs are the only thing you get. You need to implement the worker-validator system. Could you still misread anything about:**
 
-Imagine you are the implementation engineer and this document is the ONLY thing you get. Ask yourself:
-
-1. "If I only read Section 5.1, would I know the data retrieval strategy is skill-based agent scraping?" → If not, fix.
-2. "If I only read the ADRs, would I get a consistent picture of the architecture?" → If not, fix.
-3. "If I read Section 4.7 about the database, would I understand it's SQLite local + Supabase sync?" → If not, fix.
-4. "If I read Section 6.5 about testing, would I know to write real E2E tests, not mocks?" → If not, fix.
-5. "If I read Section 4.1 about procurement data, would I understand I'm building agent skills, not API clients?" → If not, fix.
-6. "If I read Section 4.5 about customs classification, would I know about HMRC FPO API?" → If not, fix.
+1. **When validation runs?** (Policy engine decides based on skill metadata)
+2. **Who writes the run manifest?** (The agent, as part of its skill execution)
+3. **Who reads the run manifest?** (The validator agent, spawned as a sub-job)
+4. **What happens on approval?** (Worker job advances normally)
+5. **What happens on rejection?** (Results quarantined as AGENT_SUSPECT_OUTPUT, error manifest created, operator alerted)
+6. **What happens on flagging?** (Results advance with flag for operator review)
+7. **What happens if the validator itself fails?** (Fail-open — worker results not blocked)
+8. **What's the difference between OQG and semantic validation?** (OQG = code-based structural/statistical; validator = agent-based contextual/semantic)
+9. **Where are run manifests stored?** (Artifact store, path in agent_session_logs)
+10. **Where are validation verdicts stored?** (validation_verdicts table locally, summaries pushed to Supabase)
+11. **How does this preserve plug-and-play?** (Validation policy in skill metadata, overlay in skill directory — no daemon code changes)
+12. **What's the difference between the three kinds of 'manifest'?** (Opportunity manifest, error manifest, run manifest — all different things)**"
 
 Fix anything that fails this test.
 
 ---
 
-## Required Output
+## 9. Required Output Format
 
-When finished, provide:
+When complete, provide:
 
-1. **Docs changed:** List of sections modified during this audit
-2. **Contradictions removed:** Specific contradictions found and resolved
-3. **Ambiguities tightened:** Areas where vague language was made concrete
-4. **Remaining concerns:** Anything that couldn't be fully resolved or needs owner input
-5. **Confidence assessment:** How confident are you (1-10) that the document is now internally consistent and implementation-ready?
+1. **Docs changed:** List every file and section modified.
+2. **Contradictions removed:** List specific contradictions that were fixed.
+3. **Ambiguities tightened:** List specific ambiguities that were resolved.
+4. **Remaining concerns:** List any issues that could not be resolved or require user input.
 
 ---
 
-## Follow-Up Fresh-Eyes Pass
+## 10. Follow-Up Fresh-Eyes Pass
 
-> **Send this as a follow-up message in the same session after completing the audit above.**
+> **Send this as a follow-up message in the same session after the optimization is complete.**
 
-One final pass. Re-read the executive summary (Section 1) and the key recommendations. Do they match the body of the document? Specifically:
+One final pass. Re-read:
+1. §1 (Executive Summary) — does it mention worker-validator?
+2. §4.10 (Skills) — is the validator skill category present? Is run manifest generation in the lifecycle?
+3. §5.2 (Components) — are all new components present? Is Job Runner updated?
+4. §5.4 (Data Model) — are all new/modified entities present in BOTH TS and SQL?
+5. §5.6 (Ingestion Flow) — is the validation step present after OQG?
+6. §5.11 (Error Handling) — are validation error types present?
+7. §8.2 + §8.3 + §8.4 — are all files listed and assigned to milestones?
 
-1. Does the "Primary data strategy" recommendation reflect skill-based agent scraping?
-2. Does the "System of record" recommendation reflect SQLite + Supabase sync?
-3. Does the "Agent orchestration" recommendation reflect PTY from day 1?
-4. Does the "Frontend strategy" recommendation reflect desktop = control, web = view only?
-5. Does the "Cost-estimation engine" recommendation reference the expanded data sources?
-6. Does the "Automation policy" recommendation reflect the relaxed risk model?
-7. Does the "Primary Recommendation in One Sentence" need updating?
-8. Do the "Critical Decisions Required" reflect which are now answered?
-9. Do the "Quick Stats" still make sense?
+For each section, ask: "If I only read this section, would I know about the worker-validator system?" For §1, §4.10, §5.2, §5.4, §5.6, §5.11 — the answer must be yes. For other sections, it depends on relevance.
 
-Fix any executive summary inconsistencies. The executive summary is often the only thing decision-makers read — it MUST match the body.
+Fix anything missing.
