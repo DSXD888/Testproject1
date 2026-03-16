@@ -70,6 +70,26 @@ The layer decomposition follows three ordering principles from the research docu
 
 The 7 layers map directly to the research document's M0–M6 milestones (§11). Deviations are minimal and justified inline. The research doc's milestone structure was validated through 3 planmaxer expert review iterations and 2 harmonymaxer feedback integrations, making it a reliable starting hypothesis that required no major reordering.
 
+### Implementation Order Snapshot
+
+If an implementation team starts tomorrow, the build order is:
+
+1. **Layer 0 first**: establish the gold set, evaluation harness, screening-grade pipeline primitives, and schema skeleton.
+2. **Layer 1 second**: make the first live FTS loop real under the thin runner and prove `ingest → process → verifiable local output`.
+3. **Layer 2 third**: add the single-operator desktop surface and Contracts Finder so a real operator can use the system daily.
+4. **Layer 3 fourth**: automate and harden what Layer 2 already proved useful.
+5. **Layer 4 fifth**: activate sync, remote-owned shared state, and the read-only viewing portal.
+6. **Layer 5 sixth**: deepen commercial intelligence quality, not platform breadth.
+7. **Layer 6 last**: automate the request pipeline only after the intelligence stack is already trusted.
+
+Stop/go rule between layers:
+
+- Do not start Layer 1 until Layer 0 passes the gold-set experiments.
+- Do not start Layer 2 until Layer 1 proves the first live loop and runtime reliability.
+- Do not start Layer 3 until Layer 2 proves single-operator value on live data.
+- Do not start Layer 4 until Layer 3 proves unattended local operation.
+- Do not start Layer 6 until Layer 5 proves decision-grade commercial intelligence on validated categories.
+
 ### Non-Negotiable Constraints Respected in Every Layer
 
 These constraints from the research document apply to ALL layers without exception:
