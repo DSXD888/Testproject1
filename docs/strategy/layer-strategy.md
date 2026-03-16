@@ -109,6 +109,7 @@ Authority split inside the maintained set is fixed:
 - Each layer doc owns only layer-local narrative, capability, components, data first activated in that layer, stubs, definition of done, risks, and open questions.
 - Open questions must live in the owning layer doc, not in a separate scratch file or review artifact.
 - Temporary prompt artifacts, review handoffs, and iteration notes are explicitly non-authoritative and must never become de facto companion docs.
+- Until the 7 per-layer docs are authored, this strategy file must remain self-sufficient for sequencing, scope boundaries, and implementation order on its own.
 
 ### Atomic Operation Pairs (Never Split Across Layers)
 
@@ -369,6 +370,7 @@ None (Rust-only layer).
 | Session reaper | Basic cleanup | Layer 3: full reaper with escalation |
 | Tracing | Basic log capture | Layer 3: structured + forensic tracing |
 | Validation | Fields exist, always `validation_required = false` | Layer 3: dry-run; Layer 4: enforcement |
+| Operator-facing manifest rendering | Minimal local markdown/file artifact emitted directly by the thin runner + skill | Layer 2: shared `packages/manifests` renderer and desktop presentation |
 | Desktop/operator surface | CLI summary + local file artifact only | Layer 2: desktop control panel |
 | Sync | Tracking columns populated, no outbox entries | Layer 4: full sync engine |
 
@@ -446,7 +448,7 @@ Single operator runs system daily for one week, making real accept/reject decisi
 
 | Component | Action | Files |
 |-----------|--------|-------|
-| Skills | Create | 2 (Contracts Finder ingestion, manifest generation) |
+| Skills | Create | 1 (Contracts Finder ingestion) |
 | `packages/intelligence` | Create | 1 (coverage-rollup.ts) |
 | `packages/ui` | Create | 5 (index, contract-card-frame, manifest-viewer, pipeline-badge, sync-age-badge) |
 | `packages/manifests` | Create | 2 (render-opportunity.ts, opportunity.md.ts template) |
@@ -569,7 +571,7 @@ System runs unattended for 5 consecutive days with ≥95% skill success rate. Cr
 | Component | Action | Files |
 |-----------|--------|-------|
 | `crates/daemon` | Create | 12 additions (scheduler/cron, sources/registry, jobs/claim, pty/reaper+hardening, agents/arbiter, db/checkpoints, tracing/structured+forensic, validation/policy+executor+manifest_writer) |
-| Skills | Create | 9 (4 operational: auth-refresh/alibaba+1688, source-health/fts+alibaba; 5 validator base: SKILL.md + schemas + canary + golden + rubric) |
+| Skills | Create | 10 (4 operational: auth-refresh/alibaba+1688, source-health/fts+alibaba; 6 validator-base files: SKILL.md, result.schema.json, checkpoint.schema.json, canary.inputs.jsonl, golden.assertions.yaml, validator-rubric.yaml) |
 | `packages/intelligence` | Create | 1 (relations/resolve-process-relations.ts) |
 | `packages/manifests` | Create | 2 (render-error-manifest.ts, error.md.ts template) |
 
@@ -1135,6 +1137,11 @@ Nothing — this is the final layer.
 | Operator decision | per process | `process` | `pending_operator_intents` first, `operator_decision_heads` once Layer 4 activates remote authority |
 | Bid workflow | per process with explicit lot/candidate scope | `process` | `bid_workflow_states`, explicit bid scope payload |
 
+Implementation note for the apparent ingest-grain mismatch:
+
+- Source-batched ingestion is tracked at the `workflow_jobs` / `source_cursors` / `executors` level.
+- `process_stage_status` begins once a notice or process identity exists, so persisted stage-head coherence still stays inside the six canonical `scopeKind` values from the research model.
+
 Scope dependency rule:
 
 - Lot-grain stages require `notice_lots` to exist in the same or an earlier layer.
@@ -1149,14 +1156,14 @@ These input/output contracts between pipeline stages are established in Layer 0 
 | Boundary | Required Input | Required Output | Established |
 |----------|---------------|-----------------|-------------|
 | qualify → acquire_docs | `QualificationResult` with lotId, expiryQualified, goodsQualified, accessRoute | Per-lot pass/review/reject | L0 |
-| acquire_docs → extract_lots | Document set completeness, document roles | `TenderDocumentSet` with `documentSetHash` | L2 |
+| acquire_docs → extract_lots | Document set completeness, document roles | `TenderDocumentSet` with `documentSetHash` | L1 |
 | extract_lots → extract_products | `NoticeLot` with title/description, lotNumber | At least one lot per qualified notice | L0 |
 | extract_products → score_quoteability | `ProductCandidate` with lotId, headNoun, identityConfidence, candidateType, matchArchetype | At least one candidate per qualified lot | L0 |
 | score_quoteability → price_match | quoteabilityScore, recallRiskScore, SearchProfile with queryWaves | quoteabilityScore ≥ 0.45 for auto-search | L0 |
 | price_match → gross_gate | `SupplierQuote` with matchConfidence, quoteUsabilityConfidence, priceSignalRole | At least one quote per searched pair | L0 |
 | gross_gate → landed_cost | Candidate-scoped pricing assessment, revenue basis, confidence gates | grossMarginBps, selected quote | L0 |
 | landed_cost → net_gate | `LandedCostEstimate` anchored to candidate + quote | netMarginLowPct/BasePct/HighPct, blockers | L0 |
-| net_gate → manifest | Process-level rollup with coverage metrics | Coverage-aware qualification | L2 |
+| net_gate → manifest | Process-level rollup with coverage metrics | Coverage-aware qualification | L1 |
 
 ---
 
