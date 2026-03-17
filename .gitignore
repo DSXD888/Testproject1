@@ -1,0 +1,6 @@
+.env
+.claude/settings.local.json
+.claude/worktrees/
+*.mcp.json
+opencode.json
+storage.sqlite3*
