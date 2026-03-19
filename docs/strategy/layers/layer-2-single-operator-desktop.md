@@ -304,3 +304,186 @@ The canonical rendering lives here, not in the `manifest-generation` skill. The 
 - Provide plain-text transcript mode for screen readers alongside ANSI terminal view
 - Keyset pagination is accessible by default (stable focus targets, no shifting content)
 - Deep links resolve through `process_aliases` so bookmarked IDs survive later merges
+
+---
+
+## 2. Shared UI Components & Manifest Rendering
+
+### 2.1 `packages/ui` — Shared Presentational Components
+
+**5 files.** These components are shared between the desktop control panel (Layer 2) and the web viewing portal (Layer 4). They are **pure presentational** — they receive typed props and render UI. They must NOT import data-fetching hooks, Supabase clients, Tauri invoke wrappers, daemon bridge code, or mutation orchestration.
+
+**Boundary rule:** Share down to view-models, presentational components, and formatting helpers. Stop sharing at repositories, hooks, realtime subscriptions, and mutation flows. Data-fetching is surface-specific: desktop uses QueryService (SQLite), web uses Supabase client.
+
+#### `index.ts` — Barrel Export
+
+Re-exports all shared components. Consumers import from `@project/ui`.
+
+#### `contract-card-frame.tsx` — Process Summary Card
+
+Frame + slot composition for process/opportunity cards in list views.
+
+```tsx
+interface ContractCardFrameProps {
+  summary: {
+    processId: string
+    title: string
+    buyerName: string
+    publishedDate: string
+    deadlineDate: string | null
+    estimatedValuePence: number | null
+    lotCount: number
+    accessRoute: string
+    legalCategory: 'goods' | 'services' | 'works' | 'mixed' | 'unknown'
+  }
+  metrics: {
+    pipelineState: 'pending' | 'qualifying' | 'enriching' | 'qualified' | 'review' | 'rejected'
+    pricedCoverageBps: number | null
+    netQualifiedCoverageBps: number | null
+    grossMarginBps: number | null     // best candidate
+    netMarginBasePct: number | null   // best candidate
+    candidateCount: number
+    quotedCandidateCount: number
+  }
+  decision?: {
+    disposition: 'approve' | 'reject' | 'watch' | null
+    isStale: boolean   // decisionBasisHash changed since decision
+    decidedAt: string | null
+  }
+  rightRail?: React.ReactNode   // Slot for SyncAgeBadge, custom badges
+  actions?: React.ReactNode     // Slot for desktop-only action buttons (null on web)
+}
+```
+
+**Rendering rules:**
+- All monetary values displayed in `£X,XXX` format (from integer pence)
+- All percentages displayed from basis points (`bps / 100` for display)
+- Stale decisions show warning indicator
+- Keyset pagination: card order is stable (no shifting on live updates)
+
+#### `manifest-viewer.tsx` — Opportunity Manifest Renderer
+
+Renders Markdown opportunity manifests with section navigation sidebar.
+
+```tsx
+interface ManifestViewerProps {
+  manifestMarkdown: string
+  manifestVersion: string
+  basisHash: string
+  generatedAt: string
+  sections?: string[]           // Parsed section headings for sidebar nav
+  highlightBlockers?: boolean   // Visually highlight blocker sections
+  onSectionClick?: (sectionId: string) => void
+}
+```
+
+**Features:**
+- Markdown rendering (via `marked` or equivalent)
+- Table formatting for pricing/margin data
+- Blocker highlighting (red badge on sections with critical blockers)
+- Section navigation sidebar
+- Copy-to-clipboard for individual sections
+- Print-friendly layout
+
+#### `pipeline-badge.tsx` — Pipeline State Indicator
+
+```tsx
+interface PipelineBadgeProps {
+  state: 'pending' | 'qualifying' | 'enriching' | 'qualified' | 'review' | 'rejected' | 'error'
+  validationState?: 'unverified' | 'approved' | 'flagged' | 'rejected'  // Layer 3+
+  size?: 'sm' | 'md' | 'lg'
+}
+```
+
+**Display rules:**
+- Color + text label + icon (never color alone — accessibility)
+- `validationState` badge shown only when not `unverified` (Layer 3+)
+- Tooltip with timestamp of last state change
+
+#### `sync-age-badge.tsx` — Data Freshness Indicator
+
+```tsx
+interface SyncAgeBadgeProps {
+  meta: {
+    mode: 'healthy' | 'browse_only' | 'recovery_required'
+    daemonConnected: boolean
+    syncHealth: 'healthy' | 'degraded' | 'offline'
+    lastSnapshotAt?: string
+    lastSyncAt?: string           // Layer 4: last successful Supabase push
+  }
+}
+```
+
+**Thresholds (Layer 4 — for web portal sync freshness):**
+- Green: < 90 seconds since last sync
+- Amber: 90s–5min
+- Red: > 5min or daemon offline
+- Text: "Data may be behind desktop local state."
+
+**Layer 2 behavior:** Shows daemon connection status and local data freshness only. Sync fields are null.
+
+### 2.2 `packages/manifests` — Opportunity Manifest Renderer
+
+**2 files.** Deterministic opportunity manifest rendering from pipeline data. The canonical rendering lives here — the `manifest-generation` skill may contribute narrative synthesis, but this package is authoritative.
+
+#### `render-opportunity.ts` — Manifest Renderer
+
+```typescript
+interface ManifestInput {
+  process: ProcurementProcess
+  notices: ContractNotice[]
+  lots: NoticeLot[]
+  candidates: ProductCandidate[]
+  quotes: SupplierQuote[]
+  pricingAssessments: CandidatePricingAssessment[]
+  landedCosts: LandedCostEstimate[]
+  pipelineAssessment: PipelineAssessment
+  coverageMetrics: {
+    pricedCoverageBps: number
+    landedCostCoverageBps: number
+    netQualifiedCoverageBps: number
+    unresolvedMandatoryLots: number
+  }
+}
+
+interface ManifestOutput {
+  markdown: string
+  basisHash: string           // SHA-256 of inputs — staleness detection
+  sections: string[]          // Parsed section headings
+  blockerCount: number
+  generatedAt: string
+}
+
+function renderOpportunityManifest(input: ManifestInput): ManifestOutput
+```
+
+#### `opportunity.md.ts` — Markdown Template
+
+Sections in the generated manifest:
+
+| Section | Content |
+|---------|---------|
+| **Summary** | Process title, buyer, value, lot count, deadline, access route |
+| **Lot Analysis** | Per-lot qualification result, addressable value, goods classification |
+| **Product Candidates** | Per-lot candidate list with archetype, identity confidence, quoteability score |
+| **Pricing Evidence** | Per-candidate quotes with source, match confidence, usability confidence, price-signal role |
+| **Margin Estimate** | Gross margin gate result, landed cost breakdown, net margin band (low/base/high) |
+| **Coverage Metrics** | `pricedCoverageBps`, `netQualifiedCoverageBps`, `unresolvedMandatoryLots` |
+| **Risk Flags** | Critical blockers, low-confidence components, stale data warnings |
+| **Recommendation** | Auto-qualified / manual review required / not qualified — with reasoning |
+
+**Formatting rules:**
+- All monetary values in `£X,XXX.XX` (from integer pence)
+- All percentages from basis points
+- Blockers shown prominently with red indicators
+- Confidence shown as bands (high/usable/manual), not decimal numbers
+- Component scores shown in panel format, not as a single composite number
+
+### 2.3 Component Design Rules (Constitutional)
+
+1. **`packages/ui` components must NOT import** `packages/db`, desktop bridge code, daemon modules, Supabase clients, or data-fetching hooks
+2. **`packages/manifests` must NOT import** daemon modules or Supabase clients — it operates on typed inputs only
+3. **Data-fetching is surface-specific:** Desktop uses `QueryService` (SQLite via `invoke()`); Web (Layer 4) uses Supabase client
+4. **No boolean prop explosion:** Use frame + slot composition, not `<Card canReject canBid readOnly showSync ... />`
+5. **View-model types shared; data-access types not shared:** `ContractCardFrameProps` is shared; `useContractsList()` is not
+6. **All monetary display from integer pence;** all percentage display from integer basis points — no floating-point formatting paths
