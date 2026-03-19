@@ -114,9 +114,22 @@ The following are designed but NOT implemented. Mark them honestly as "not yet i
 
 ## 3. Mandatory Source-of-Truth Loading
 
-**BEFORE claiming any bead**, read these documents:
+**BEFORE claiming any bead**, read these documents IN THIS ORDER:
 
-### 3.1 Strategy Document
+### 3.1 Project Constraints (READ FIRST)
+
+Read `AGENTS.md` **in full** before doing anything else. It contains:
+- No file deletion without permission
+- No script-based code changes
+- Rust 2024 edition, Bun for TypeScript
+- `br` (beads_rust) for issue tracking — the complete workflow pattern
+- **MCP Agent Mail for multi-agent coordination** — the complete same-repository workflow including identity registration, file reservations, thread-based messaging, and macros
+- `bv` for graph-aware triage
+- Session completion protocol (landing the plane)
+
+**You MUST follow the Agent Mail workflow described in AGENTS.md.** It is NOT optional. Every agent working in this repo coordinates via Agent Mail. Failure to register, reserve files, and announce work will cause conflicts with other agents.
+
+### 3.2 Strategy Document
 
 Read `docs/strategy/layer-strategy.md` completely. Understand:
 - How many layers exist
@@ -125,18 +138,9 @@ Read `docs/strategy/layer-strategy.md` completely. Understand:
 - Schema stability matrix
 - Milestone mapping
 
-### 3.2 Research Document
+### 3.3 Research Document
 
 Read `docs/research/2026-03-08-public-procurement-intelligence-platform-research.md`. This is your RAW MATERIAL — the content you're reorganizing into layer docs.
-
-### 3.3 Project Constraints
-
-Read `AGENTS.md` for:
-- No file deletion without permission
-- No script-based code changes
-- Rust 2024 edition, Bun for TypeScript
-- `br` (beads_rust) for issue tracking
-- Agent Mail for multi-agent coordination
 
 ### 3.4 File Classification
 
@@ -160,40 +164,100 @@ Run `br ready` to see which beads have no blockers and are available for work.
 
 ---
 
-## 5. Coordination (If Multi-Agent)
+## 5. Agent Mail Coordination (MANDATORY)
 
-If other agents are active in this repository:
+**This is NOT optional.** Multiple agents work in this repo concurrently. You MUST register, reserve files, and announce work via Agent Mail before touching any files. Skipping this causes conflicts, overwrites, and lost work.
 
-### 5.1 Register Identity
+### 5.1 Session Startup (Do This Once at Session Start)
+
+Register your identity and check for existing activity. Use the macro for speed:
+
+```
+macro_start_session(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  program="layermaxxer-executor",
+  model="your-model"
+)
+```
+
+This registers your agent, fetches your inbox, and shows active file reservations in one call.
+
+If `macro_start_session` is unavailable, do it manually:
 
 ```
 ensure_project(project_key="/Users/alinaaitova/Desktop/Testproject1")
-register_agent(project_key, program="layermaxxer-executor", model="your-model")
+register_agent(project_key="/Users/alinaaitova/Desktop/Testproject1", program="layermaxxer-executor", model="your-model")
+fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name="your-name")
 ```
 
-### 5.2 Reserve Files Before Editing
+**Check your inbox.** Acknowledge any messages. Note any conflicts or coordination requests from other agents.
+
+### 5.2 Before Each Bead — Reserve Files
+
+Before editing ANY file, you MUST reserve it:
 
 ```
 file_reservation_paths(
   project_key="/Users/alinaaitova/Desktop/Testproject1",
   agent_name="your-name",
-  paths=["docs/strategy/layer-N-*.md"],
+  paths=["docs/strategy/layers/layer-N-*.md"],
   ttl_seconds=3600,
   exclusive=true,
   reason="br-{bead-id}"
 )
 ```
 
-### 5.3 Announce Claims
+If you get `FILE_RESERVATION_CONFLICT`, another agent is working on that file. **Do NOT proceed.** Pick a different bead instead.
+
+### 5.3 Before Each Bead — Announce Start
+
+Send a message announcing you are starting work on this bead:
 
 ```
 send_message(
-  ...,
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  from_agent="your-name",
+  to_agent="broadcast",
   thread_id="br-{bead-id}",
   subject="[br-{bead-id}] Start: {bead title}",
+  body="Claiming bead {bead-id}. Target: {target file} {section}. Reserved files: {paths}.",
   ack_required=true
 )
 ```
+
+### 5.4 After Each Bead — Announce Completion and Release
+
+After closing a bead and pushing, you MUST:
+
+1. **Release the file reservation:**
+   ```
+   release_file_reservations(
+     project_key="/Users/alinaaitova/Desktop/Testproject1",
+     agent_name="your-name",
+     paths=["docs/strategy/layers/layer-N-*.md"]
+   )
+   ```
+
+2. **Announce completion:**
+   ```
+   send_message(
+     project_key="/Users/alinaaitova/Desktop/Testproject1",
+     from_agent="your-name",
+     to_agent="broadcast",
+     thread_id="br-{bead-id}",
+     subject="[br-{bead-id}] Completed: {bead title}",
+     body="Produced {section} in {target file}. {brief summary of content produced}. File reservation released."
+   )
+   ```
+
+### 5.5 Coordination Mapping (from AGENTS.md)
+
+| Concept | Value |
+|---------|-------|
+| Mail `thread_id` | `br-{bead-id}` (e.g., `br-testproject1-dy0.1`) |
+| Mail subject prefix | `[br-{bead-id}]` |
+| File reservation `reason` | `br-{bead-id}` |
+| Commit messages | Include `br-{bead-id}` for traceability |
 
 ---
 
@@ -214,11 +278,11 @@ For the chosen bead:
 2. Identify the parent epic — what layer does this bead contribute to?
 3. Identify the target file and section
 
-### 6.3 Claim and Reserve
+### 6.3 Claim, Reserve, and Announce
 
 1. `br update {id} --status=in_progress`
-2. Reserve the target file via Agent Mail (if multi-agent)
-3. Announce the claim (if multi-agent)
+2. **Reserve the target file via Agent Mail** (see §5.2 — MANDATORY)
+3. **Announce the claim via Agent Mail** (see §5.3 — MANDATORY)
 
 ---
 
@@ -254,7 +318,7 @@ After writing content for a bead:
 
 ## 8. Close / Sync / Push Loop
 
-After completing a bead:
+After completing a bead, execute ALL of these steps in order. Do NOT skip any.
 
 ### 8.1 Close the Bead
 
@@ -263,9 +327,10 @@ br close {id} --reason "Completed: {brief summary of what was produced}"
 br sync --flush-only
 ```
 
-### 8.2 Commit
+### 8.2 Commit and Push
 
 ```bash
+git pull --rebase
 git add docs/strategy/{target-file}
 git add .beads/
 git commit -m "docs: {layer-N}: {bead description}
@@ -274,26 +339,40 @@ br-{id}"
 git push
 ```
 
-### 8.3 Release Reservation
+### 8.3 Release Reservation (MANDATORY)
 
 ```
-release_file_reservations(project_key, agent_name, paths=["docs/strategy/layer-N-*.md"])
-```
-
-### 8.4 Announce Completion (If Multi-Agent)
-
-```
-send_message(
-  ...,
-  thread_id="br-{bead-id}",
-  subject="[br-{bead-id}] Completed: {title}",
-  body="Produced {section} in {target file}. {brief summary}."
+release_file_reservations(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  agent_name="your-name",
+  paths=["docs/strategy/layers/layer-N-*.md"]
 )
 ```
 
-### 8.5 Pick Next Bead
+### 8.4 Announce Completion (MANDATORY)
 
-Immediately pick the next ready bead and continue. **Do not ask what to work on next.** Run `br ready` and choose the highest priority available bead.
+```
+send_message(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  from_agent="your-name",
+  to_agent="broadcast",
+  thread_id="br-{bead-id}",
+  subject="[br-{bead-id}] Completed: {title}",
+  body="Produced {section} in {target file}. {brief summary}. File reservation released."
+)
+```
+
+### 8.5 Check Inbox Before Picking Next Bead
+
+```
+fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name="your-name")
+```
+
+Acknowledge any messages. Check for conflicts or requests from other agents.
+
+### 8.6 Pick Next Bead
+
+Immediately pick the next ready bead and continue. **Do not ask what to work on next.** Run `br ready` and choose the highest priority available bead. Then repeat from §6 (reserve → announce → execute → close → release → announce).
 
 ---
 
@@ -325,14 +404,32 @@ For each section in the layer doc:
 
 ## 10. End-of-Session Protocol
 
-When ending a work session:
+When ending a work session, execute ALL steps. Do NOT skip Agent Mail steps.
 
 1. Close any in-progress beads with partial completion notes
 2. `br sync --flush-only`
-3. `git add .beads/ docs/strategy/`
-4. `git commit -m "docs: session progress on layer docs"`
-5. `git push`
-6. Release all file reservations
-7. Announce session end (if multi-agent)
+3. `git pull --rebase`
+4. `git add .beads/ docs/strategy/`
+5. `git commit -m "docs: session progress on layer docs"`
+6. `git push`
+7. **Release ALL file reservations (MANDATORY):**
+   ```
+   release_file_reservations(
+     project_key="/Users/alinaaitova/Desktop/Testproject1",
+     agent_name="your-name",
+     paths=["docs/strategy/**"]
+   )
+   ```
+8. **Announce session end (MANDATORY):**
+   ```
+   send_message(
+     project_key="/Users/alinaaitova/Desktop/Testproject1",
+     from_agent="your-name",
+     to_agent="broadcast",
+     thread_id="session-end",
+     subject="[session-end] {your-name} signing off",
+     body="Completed beads: {list}. In-progress beads: {list}. All file reservations released."
+   )
+   ```
 
-**Work is NOT complete until `git push` succeeds.**
+**Work is NOT complete until `git push` succeeds AND file reservations are released AND session-end is announced.**

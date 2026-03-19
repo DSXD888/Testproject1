@@ -12,9 +12,9 @@
 
 If your context has been compressed or you're resuming from a previous session:
 
-1. Re-read `docs/strategy/layer-strategy.md` — understand the layer structure
-2. Re-read any layer docs you've already produced — verify you know the current state
-3. Re-read `AGENTS.md` — refresh project constraints
+1. **Re-read `AGENTS.md` FIRST** — refresh project constraints, especially the **MCP Agent Mail workflow** and **Beads workflow integration** sections. Agent Mail coordination is MANDATORY, not optional.
+2. Re-read `docs/strategy/layer-strategy.md` — understand the layer structure
+3. Re-read any layer docs you've already produced — verify you know the current state
 
 ### 1.2 Confirm Convergence
 
@@ -33,23 +33,45 @@ br list --status=in_progress  # What you or others have claimed
 
 ---
 
-## 2. Check Coordination (If Multi-Agent)
+## 2. Agent Mail Coordination (MANDATORY)
 
-### 2.1 Check Inbox
+**This is NOT optional.** Multiple agents work in this repo concurrently. You MUST coordinate via Agent Mail at every session start, before every bead, and after every bead.
+
+### 2.1 Re-Register and Check Inbox
+
+If resuming a session, re-register and check your inbox. Use the macro for speed:
 
 ```
+macro_start_session(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  program="layermaxxer-executor",
+  model="your-model"
+)
+```
+
+If `macro_start_session` is unavailable, do it manually:
+
+```
+ensure_project(project_key="/Users/alinaaitova/Desktop/Testproject1")
+register_agent(project_key="/Users/alinaaitova/Desktop/Testproject1", program="layermaxxer-executor", model="your-model")
 fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name="your-name")
 ```
 
-Acknowledge any messages. Note any conflicts or coordination requests.
+**Acknowledge all messages.** Note any conflicts or coordination requests from other agents.
 
 ### 2.2 Check File Reservations
 
+Check what files other agents have reserved before picking work:
+
 ```
-file_reservation_paths(project_key, agent_name, paths=["docs/strategy/**"])
+file_reservation_paths(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  agent_name="your-name",
+  paths=["docs/strategy/**"]
+)
 ```
 
-Verify your reservations are still active. Avoid claiming work on files another agent has reserved.
+If another agent has reserved a file you need, **pick a different bead**.
 
 ### 2.3 Pull Latest
 
@@ -81,13 +103,40 @@ Before executing the bead:
 2. Confirm you understand what section of that file this bead owns
 3. Confirm you have the research doc context needed for this section
 
-### 3.3 Claim
+### 3.3 Claim, Reserve, and Announce
 
 ```bash
 br update {id} --status=in_progress
 ```
 
-Reserve the file and announce (if multi-agent).
+**Reserve the target file (MANDATORY):**
+
+```
+file_reservation_paths(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  agent_name="your-name",
+  paths=["docs/strategy/layers/layer-N-*.md"],
+  ttl_seconds=3600,
+  exclusive=true,
+  reason="br-{bead-id}"
+)
+```
+
+If you get `FILE_RESERVATION_CONFLICT`, pick a different bead.
+
+**Announce start (MANDATORY):**
+
+```
+send_message(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  from_agent="your-name",
+  to_agent="broadcast",
+  thread_id="br-{bead-id}",
+  subject="[br-{bead-id}] Start: {bead title}",
+  body="Claiming bead {bead-id}. Target: {target file} {section}. Reserved files: {paths}.",
+  ack_required=true
+)
+```
 
 ---
 
@@ -151,6 +200,8 @@ If the answer is no → add the missing context.
 
 ## 6. Finish Properly
 
+Execute ALL steps for every completed bead. Do NOT skip Agent Mail steps.
+
 ### 6.1 Close Bead
 
 ```bash
@@ -161,6 +212,7 @@ br sync --flush-only
 ### 6.2 Commit and Push
 
 ```bash
+git pull --rebase
 git add docs/strategy/{target-file} .beads/
 git commit -m "docs: {layer-N}: {bead description}
 
@@ -168,13 +220,40 @@ br-{id}"
 git push
 ```
 
-### 6.3 Release and Announce
+### 6.3 Release Reservation (MANDATORY)
 
-Release file reservations. Announce completion if multi-agent.
+```
+release_file_reservations(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  agent_name="your-name",
+  paths=["docs/strategy/layers/layer-N-*.md"]
+)
+```
 
-### 6.4 Continue
+### 6.4 Announce Completion (MANDATORY)
 
-Pick the next ready bead. **Do not ask what to work on next.** Do not stop between beads unless you've completed a full layer or hit a blocker.
+```
+send_message(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  from_agent="your-name",
+  to_agent="broadcast",
+  thread_id="br-{bead-id}",
+  subject="[br-{bead-id}] Completed: {bead title}",
+  body="Produced {section} in {target file}. {brief summary}. File reservation released."
+)
+```
+
+### 6.5 Check Inbox Before Next Bead
+
+```
+fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name="your-name")
+```
+
+Acknowledge any messages. Check for conflicts before continuing.
+
+### 6.6 Continue
+
+Pick the next ready bead. **Do not ask what to work on next.** Do not stop between beads unless you've completed a full layer or hit a blocker. For the next bead, repeat from §3.3 (reserve → announce → execute → close → release → announce).
 
 **Do not let the graph drift back into document sprawl.**
 
@@ -182,14 +261,32 @@ Pick the next ready bead. **Do not ask what to work on next.** Do not stop betwe
 
 ## 7. End-of-Session
 
-When ending work:
+When ending work, execute ALL steps. Do NOT skip Agent Mail steps.
 
 1. Close or update all in-progress beads
 2. `br sync --flush-only`
-3. `git add .beads/ docs/strategy/`
-4. `git commit -m "docs: session progress"`
-5. `git push`
-6. Release all file reservations
-7. Announce session end
+3. `git pull --rebase`
+4. `git add .beads/ docs/strategy/`
+5. `git commit -m "docs: session progress"`
+6. `git push`
+7. **Release ALL file reservations (MANDATORY):**
+   ```
+   release_file_reservations(
+     project_key="/Users/alinaaitova/Desktop/Testproject1",
+     agent_name="your-name",
+     paths=["docs/strategy/**"]
+   )
+   ```
+8. **Announce session end (MANDATORY):**
+   ```
+   send_message(
+     project_key="/Users/alinaaitova/Desktop/Testproject1",
+     from_agent="your-name",
+     to_agent="broadcast",
+     thread_id="session-end",
+     subject="[session-end] {your-name} signing off",
+     body="Completed beads: {list}. In-progress beads: {list}. All file reservations released."
+   )
+   ```
 
-**Work is NOT complete until `git push` succeeds.**
+**Work is NOT complete until `git push` succeeds AND file reservations are released AND session-end is announced.**
