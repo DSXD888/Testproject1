@@ -258,6 +258,1826 @@ The following are designed in the research document but NOT active in this layer
 
 ---
 
+## 2. Database Schema (Full DDL)
+
+> **Authority:** This section is the constitutional schema for the entire platform. Every table, every column, every constraint is defined here. Implementation agents copy-paste these statements. No table may be added, reclassified, or have columns renamed in later layers — only nullable columns may be added (and those are already provisioned here).
+>
+> **Dialect:** SQL is written in Postgres syntax targeting the Supabase remote database. The local SQLite schema mirrors these definitions with type substitutions documented in 2.1. An implementation agent produces both from this single source.
+
+### 2.1 SQLite Compatibility Notes
+
+The platform uses dual databases: local SQLite (operational authority) and Supabase/Postgres (shared authority + projections). The SQL below is Postgres-canonical. SQLite mirrors with these substitutions:
+
+| Postgres | SQLite | Notes |
+|----------|--------|-------|
+| `uuid` | `TEXT` | Application-generated via Rust `uuid` crate or `crypto.randomUUID()` in TS |
+| `gen_random_uuid()` | *(none)* | Application-side UUID generation; no DB default |
+| `timestamptz` | `TEXT` | ISO 8601 format (`2026-03-19T14:30:00.000Z`) |
+| `jsonb` | `TEXT` | JSON stored as text; `json_extract()` / `json_each()` via json1 extension |
+| `boolean` | `INTEGER` | 0 / 1 |
+| `numeric` | `REAL` | For exchange rates and quantities only (never money) |
+| `bigint` | `INTEGER` | SQLite integers are 64-bit |
+| `serial` / `autoincrement` | `INTEGER PRIMARY KEY AUTOINCREMENT` | Only for `local_outbox.local_seq` |
+| `now()` | *(none)* | Application-side timestamp; no DB default |
+| `CHECK` constraints | Supported | SQLite enforces CHECK constraints |
+| `REFERENCES` (FK) | Supported | Requires `PRAGMA foreign_keys = ON` |
+
+**SQLite operational settings:**
+
+```sql
+PRAGMA journal_mode = WAL;          -- concurrent reads during writes
+PRAGMA foreign_keys = ON;           -- enforce referential integrity
+PRAGMA busy_timeout = 5000;         -- 5s wait on lock contention
+PRAGMA synchronous = NORMAL;        -- WAL-safe durability
+```
+
+**Key implications:**
+- No native array types — use junction tables (e.g., `notice_cpv_codes`) or JSON TEXT columns for variable-shape data never queried by DB
+- Single-writer model suits single-daemon architecture (one process writes, readers use WAL snapshots)
+- Type affinity: TEXT for UUIDs, INTEGER for boolean/pence/bps, TEXT for timestamps
+- All money in integer pence (`_pence` suffix, INTEGER type) — never floating point
+- All confidence/percentage values in integer basis points (`_bps` suffix, INTEGER 0-10000)
+
+### 2.2 Constitutional Schema Rules
+
+These rules are permanent. No layer may violate them.
+
+| # | Rule | Enforcement |
+|---|------|------------|
+| 1 | Integer pence for all money | `_pence` suffix, INTEGER type |
+| 2 | Integer basis points for confidence/percentage | `_bps` suffix, INTEGER (0-10000) |
+| 3 | Exchange rates use NUMERIC (ratios, not money) | No `_pence` suffix; `numeric` type |
+| 4 | All push-owned tables carry sync tracking columns | `owner_id`, `row_version`, `last_local_seq`, `stage_run_id` (pipeline tables), `created_at`, `updated_at` — populated from first write |
+| 5 | `pipeline_assessments.validation_state` default `'unverified'` | From creation |
+| 6 | `workflow_jobs.validation_required` default `false` | From creation |
+| 7 | `lot_id` NOT NULL on `product_candidates` | DDL constraint |
+| 8 | All future-layer columns exist as nullable from creation | No column adds in later layers |
+| 9 | No table reclassification | Authority permanent from introduction |
+| 10 | No column renames | Stable across all layers |
+| 11 | Junction tables introduced with parent tables | Created together |
+| 12 | JSON TEXT only for variable-shape data never queried by DB | Relational for anything filtered/joined/indexed |
+| 13 | No mixed-write tables | Every table has exactly one authority owner |
+| 14 | Remote-owned tables carry tombstone support | `deleted_at` column for soft-delete semantics |
+
+### 2.3 Authority Classification
+
+Every table has exactly one authority classification. This is permanent — no reclassification across layers.
+
+**Push-owned pipeline tables** (daemon writes locally, pushes to Supabase):
+
+| # | Table | Scope | Notes |
+|---|-------|-------|-------|
+| 1 | `procurement_processes` | Process | Canonical process entity |
+| 2 | `contract_notices` | Notice | Source-specific notice records |
+| 3 | `notice_lots` | Lot | Per-notice lot decomposition |
+| 4 | `tender_document_sets` | Process | Acquired document set per notice |
+| 5 | `qualification_runs` | Lot | Per-lot qualification results |
+| 6 | `product_candidates` | Lot | Extracted product candidates |
+| 7 | `search_profiles` | Candidate | Structured search profile per candidate |
+| 8 | `search_attempts` | Candidate | Per-wave search execution records |
+| 9 | `supplier_quotes` | Candidate | Marketplace/RFQ quotes |
+| 10 | `candidate_pricing_assessments` | Candidate | Gross margin gate results |
+| 11 | `landed_cost_estimates` | Candidate-quote | Per-candidate-quote cost estimate |
+| 12 | `manifests` | Process | Generated opportunity manifests |
+| 13 | `pipeline_assessments` | Process | Process-level pipeline rollup |
+| 14 | `bid_workflow_states` | Process | Bid automation state |
+| 15 | `process_stage_status` | Scoped | Per-stage execution records |
+| 16 | `process_stage_heads` | Scoped | Current stage head per scope |
+
+**Push-owned infrastructure tables:**
+
+| # | Table | Notes |
+|---|-------|-------|
+| 17 | `executors` | Daemon identity (single row in MVP) |
+| 18 | `process_relations` | Inter-process relationship edges |
+| 19 | `process_aliases` | Merged-process alias pointers |
+
+**Push-owned junction tables:**
+
+| # | Table | Notes |
+|---|-------|-------|
+| 20 | `notice_cpv_codes` | Notice-level CPV codes |
+| 21 | `product_commodity_codes` | Candidate commodity codes |
+| 22 | `lot_cpv_codes` | Lot-level CPV codes |
+
+**Push-owned projection tables** (Supabase-only, for web viewer visibility):
+
+| # | Table | Notes |
+|---|-------|-------|
+| 23 | `workflow_job_summaries` | Redacted job status for web |
+| 24 | `error_manifest_summaries` | Redacted error info for web |
+| 25 | `validation_verdict_summaries` | Verdict summary for web |
+| 26 | `viewer_sync_status` | Daemon health for web |
+
+**Local-only tables** (SQLite only, never synced):
+
+| # | Table | Notes |
+|---|-------|-------|
+| 27 | `workflow_jobs` | Job orchestration (summaries pushed separately) |
+| 28 | `agent_session_logs` | Full session logs (redacted summaries pushed) |
+| 29 | `raw_documents` | Fetched document payloads |
+| 30 | `error_manifests` | Full error context (summaries pushed separately) |
+| 31 | `source_cursors` | Source pagination cursors |
+| 32 | `sources` | Local copy of source definitions |
+| 33 | `source_runtime_state` | Circuit breaker / health state |
+| 34 | `listing_evidence` | Cached marketplace listing data |
+| 35 | `validation_verdicts` | Full validator verdicts |
+| 36 | `pending_operator_intents` | Queued operator mutations during degraded sync |
+| 37 | `local_outbox` | Transactional outbox for push sync |
+| 38 | `sync_batches` | Push batch tracking |
+| 39 | `pull_cursors` | Pull cursor per remote domain |
+
+**Remote-owned tables** (Supabase authoritative, daemon pulls):
+
+| # | Table | Layer | Notes |
+|---|-------|-------|-------|
+| 40 | `operator_decision_heads` | L4 | Human operator dispositions (CAS writes) |
+| 41 | `shared_company_profile` | L4 | Company profile data |
+| 42 | `shared_source_configs` | L4 | Source configuration (authoritative copy) |
+
+**Supabase-only infrastructure:**
+
+| # | Table | Notes |
+|---|-------|-------|
+| 43 | `schema_metadata` | Schema epoch tracking |
+
+### 2.4 Sync Tracking Column Patterns
+
+Two patterns exist depending on authority direction.
+
+**Pattern 1 — Push-owned tables** (daemon writes, pushes to Supabase):
+
+```sql
+-- Present on ALL push-owned tables
+owner_id text not null,              -- executor that owns this row
+row_version integer not null default 1,  -- monotonic version counter, incremented on every write
+last_local_seq integer,              -- outbox sequence number of last push (NULL until first push)
+created_at timestamptz not null default now(),
+updated_at timestamptz not null default now()
+
+-- Present on push-owned PIPELINE tables only (not infrastructure/projections)
+stage_run_id text,                   -- atomic commit cohort for one scoped unit of work
+```
+
+**Pattern 2 — Remote-owned tables** (Supabase authoritative, daemon pulls):
+
+```sql
+-- Present on ALL remote-owned tables
+remote_change_seq bigint,            -- Supabase-assigned change sequence for pull ordering
+remote_revision bigint not null default 1,  -- for compare-and-swap (CAS) writes
+deleted_at timestamptz,              -- tombstone for soft-delete semantics
+created_at timestamptz not null default now()
+```
+
+### 2.5 Full CREATE TABLE Statements
+
+All tables grouped by category. SQL is in Postgres syntax. SQLite mirrors with type substitutions from 2.1.
+
+#### 2.5.1 Infrastructure Tables
+
+```sql
+-- Local runtime copy of source definitions. Populated from shared_source_configs
+-- during pull sync. Exists locally so raw_documents, source_cursors, and
+-- contract_notices can have local FK references without network dependency.
+-- The authoritative version is shared_source_configs (remote-owned, pull-only).
+-- Authority: LOCAL-ONLY
+create table sources (
+  id text primary key,
+  kind text not null,
+  enabled boolean not null default true,
+  config jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+-- Authority: LOCAL-ONLY
+create table source_cursors (
+  source_id text not null references sources(id),
+  cursor_key text not null,
+  cursor_value text,
+  updated_at timestamptz not null default now(),
+  primary key (source_id, cursor_key)
+);
+
+-- Authority: LOCAL-ONLY
+create table source_runtime_state (
+  source_id text primary key references sources(id),
+  last_health_state text not null default 'green',
+  challenge_event_count integer not null default 0,
+  challenge_window_started_at timestamptz,
+  circuit_opened_at timestamptz,
+  cooldown_until timestamptz,
+  last_canary_at timestamptz,
+  last_error_code text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Authority: LOCAL-ONLY
+create table raw_documents (
+  id uuid primary key default gen_random_uuid(),
+  source_id text not null references sources(id),
+  fetched_at timestamptz not null default now(),
+  content_type text,
+  source_url text,
+  payload_json jsonb,
+  storage_path text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  check (payload_json is not null or storage_path is not null)
+);
+
+-- Single-daemon MVP: one row representing the local daemon.
+-- Multi-executor support is a future-consideration extension.
+-- Authority: PUSH-OWNED
+create table executors (
+  id uuid primary key default gen_random_uuid(),
+  device_name text not null,
+  status text not null,
+  last_heartbeat_at timestamptz not null default now(),
+  -- sync tracking (push-owned: heartbeat summary pushed to remote)
+  owner_id text not null,  -- self-referential for consistency
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+```
+
+#### 2.5.2 Pipeline Tables
+
+```sql
+-- Authority: PUSH-OWNED
+create table procurement_processes (
+  id uuid primary key default gen_random_uuid(),
+  canonical_ocid text,
+  primary_notice_id uuid,
+  current_stage text not null,
+  buyer_name text,
+  title text not null,
+  latest_deadline_at timestamptz,
+  latest_published_at timestamptz not null,
+  latest_updated_at timestamptz not null,
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Authority: PUSH-OWNED
+create table contract_notices (
+  id uuid primary key default gen_random_uuid(),
+  process_id uuid references procurement_processes(id),
+  source_id text not null references sources(id),
+  source_notice_id text not null,
+  raw_document_id uuid not null references raw_documents(id),
+  ocid text,
+  title text not null,
+  summary text,
+  buyer_name text,
+  procurement_stage text not null,
+  access_route text,  -- open_tender, restricted_tender, framework_call_off, dynamic_market, direct_award, closed_framework_award, not_bidable
+  deadline_at timestamptz,
+  published_at timestamptz not null,
+  source_updated_at timestamptz not null,
+  main_category text,
+  -- cpv_codes: use junction table notice_cpv_codes instead of array column
+  estimated_value_original_pence integer,  -- integer pence
+  estimated_value_currency text,
+  estimated_value_gbp_ex_vat_pence integer,  -- integer pence
+  estimated_value_vat_inclusive boolean,
+  normalized_payload jsonb not null,
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique (source_id, source_notice_id)
+);
+
+-- Lot-level decomposition of notices.
+-- If no explicit lots, a synthetic whole-notice lot is created.
+-- Authority: PUSH-OWNED
+create table notice_lots (
+  id uuid primary key default gen_random_uuid(),
+  notice_id uuid not null references contract_notices(id),
+  source_lot_id text,
+  lot_number integer,
+  title text,
+  description text,
+  estimated_value_pence integer,  -- integer pence
+  deadline_at timestamptz,
+  is_bidable_separately boolean not null default true,
+  documents jsonb,  -- opaque array of document references
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Authority: PUSH-OWNED
+create table tender_document_sets (
+  id uuid primary key default gen_random_uuid(),
+  process_id uuid not null references procurement_processes(id),
+  notice_id uuid not null references contract_notices(id),
+  document_set_hash text not null,
+  completeness_state text not null,  -- none, partial, full
+  document_roles_json jsonb not null,
+  documents_json jsonb not null,
+  acquired_at timestamptz not null,
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Authority: PUSH-OWNED
+create table qualification_runs (
+  id uuid primary key default gen_random_uuid(),
+  process_id uuid not null references procurement_processes(id),
+  notice_id uuid not null references contract_notices(id),
+  lot_id uuid not null references notice_lots(id),
+  expiry_qualified boolean not null,
+  goods_qualified boolean not null,
+  goods_confidence_bps integer not null,  -- basis points (0-10000)
+  legal_category text,            -- from procurement pipeline review
+  goods_density_score_bps integer,  -- basis points (0-10000)
+  goods_separability text,        -- true, false, uncertain (tri-state classification stored as text)
+  qualification_basis text not null,  -- notice_only, notice_plus_docs, lot_level
+  addressable_value_pence integer,
+  access_route text,              -- open_tender, restricted_tender, etc.
+  rationale jsonb not null,       -- renamed from 'evidence' to match TS interface
+  qualified_at timestamptz not null default now(),
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Authority: PUSH-OWNED
+-- Constitutional rule: lot_id NOT NULL
+create table product_candidates (
+  id uuid primary key default gen_random_uuid(),
+  process_id uuid not null references procurement_processes(id),
+  notice_id uuid not null references contract_notices(id),
+  lot_id uuid not null references notice_lots(id),
+  parent_candidate_id uuid references product_candidates(id),
+  candidate_role text not null default 'standalone',  -- standalone, bundle_parent, bundle_component
+  name text not null,
+  candidate_type text not null,  -- exact_sku, standard_commodity, brand_family, bundle, custom_or_fabricated, installed_goods, regulated_goods, unknown
+  match_archetype text not null, -- standard_class_led, dimension_material_led, electrical_spec_led, pack_count_led, compatibility_led, model_exact, unknown
+  head_noun text not null,
+  quantity numeric,
+  quantity_unit text,
+  specification_text text,
+  estimated_unit_weight_kg numeric,
+  estimated_unit_volume_m3 numeric,
+  candidate_value_share_bps integer,
+  packing_hint text,              -- flat_pack, assembled, mixed, unknown
+  handling_restrictions_json jsonb,
+  material text,
+  brand_model text,
+  -- candidate_commodity_codes: use junction table product_commodity_codes instead of array column
+  critical_attributes_json jsonb,
+  numeric_specs_json jsonb,
+  standards_json jsonb,
+  preferred_terms_json jsonb,
+  excluded_terms_json jsonb,
+  source_evidence_json jsonb,
+  quoteability_score_bps integer,   -- basis points (0-10000)
+  recall_risk_score_bps integer,    -- basis points (0-10000)
+  identity_confidence_bps integer,  -- basis points (0-10000)
+  spec_confidence_bps integer,      -- basis points (0-10000)
+  quantity_confidence_bps integer,  -- basis points (0-10000)
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Structured search profile per product candidate.
+-- Persisted for debugging and skill improvement.
+-- Authority: PUSH-OWNED
+create table search_profiles (
+  id uuid primary key default gen_random_uuid(),
+  product_candidate_id uuid not null references product_candidates(id),
+  head_noun text not null,
+  head_noun_family text,
+  candidate_type text not null,
+  match_archetype text not null,
+  critical_attributes_json jsonb,
+  standards_json jsonb,
+  numeric_specs_json jsonb,
+  noun_aliases_en jsonb,
+  noun_aliases_zh jsonb,
+  market_frame_en jsonb,
+  market_frame_zh jsonb,
+  use_context text,
+  sector_context text,
+  required_anchors jsonb,
+  optional_anchors jsonb,
+  must_not_have jsonb,
+  preferred_terms jsonb,
+  excluded_terms jsonb,
+  query_waves_json jsonb not null,
+  recall_risk_score_bps integer,
+  search_eligibility_state text not null,  -- auto_search, manual_only, skip
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Authority: PUSH-OWNED
+create table search_attempts (
+  id uuid primary key default gen_random_uuid(),
+  product_candidate_id uuid not null references product_candidates(id),
+  search_profile_id uuid not null references search_profiles(id),
+  source text not null,
+  locale text not null,
+  wave_number integer not null,
+  query_text text not null,
+  filters_json jsonb,
+  is_recovery_wave boolean not null default false,
+  result_count integer not null default 0,
+  hard_rejected_count integer not null default 0,
+  shortlisted_count integer not null default 0,
+  search_failure_mode text,
+  session_id uuid references agent_session_logs(id),
+  executed_at timestamptz not null default now(),
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Authority: PUSH-OWNED
+create table supplier_quotes (
+  id uuid primary key default gen_random_uuid(),
+  process_id uuid not null references procurement_processes(id),
+  notice_id uuid not null references contract_notices(id),
+  product_candidate_id uuid references product_candidates(id),
+  search_attempt_id uuid references search_attempts(id),
+  product_name text not null,                 -- denormalized convenience copy for display/debugging
+  region text not null,
+  quote_class text not null,
+  source_name text not null,
+  source_url text,
+  source_listing_id text,
+  ship_from_country text,
+  country_of_origin text,
+  country_of_dispatch text,
+  incoterm text,
+  quote_cost_boundary text,
+  quoted_quantity numeric,
+  quoted_quantity_unit text,
+  unit_price_original_pence integer not null,  -- integer pence
+  currency text not null,
+  unit_price_gbp_pence integer not null,       -- integer pence
+  minimum_order_quantity numeric,
+  lead_time_days integer,
+  includes_shipping boolean not null default false,
+  -- cross-domain fields (procurement pipeline review)
+  price_signal_role text not null,  -- benchmark_ceiling, optimistic_floor, executable
+  listing_pack_qty numeric,
+  listing_pack_unit text,
+  normalized_unit_basis text,
+  is_used_or_refurbished boolean not null default false,
+  is_ready_to_ship boolean,
+  vat_inclusive boolean,
+  compliance_evidence_tier text,
+  raw_match_score_bps integer,
+  match_confidence_bps integer,     -- basis points (0-10000)
+  quote_usability_confidence_bps integer,  -- basis points (0-10000)
+  shipping_basis_confidence_bps integer,   -- basis points (0-10000)
+  -- cross-domain fields (data architecture review)
+  quote_realism_confidence_bps integer,  -- basis points (0-10000)
+  negotiation_uplift_bps integer,        -- basis points
+  evidence_states_json jsonb,
+  query_wave_number integer,
+  evidence jsonb not null,
+  valid_until timestamptz,
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Authority: PUSH-OWNED
+create table candidate_pricing_assessments (
+  id uuid primary key default gen_random_uuid(),
+  process_id uuid not null references procurement_processes(id),
+  notice_id uuid not null references contract_notices(id),
+  product_candidate_id uuid not null references product_candidates(id),
+  selected_quote_id uuid not null references supplier_quotes(id),
+  selected_quote_row_version integer not null,
+  quote_cost_boundary text not null,
+  revenue_basis_type text not null,
+  expected_addressable_revenue_ex_vat_pence integer not null,
+  revenue_confidence_bps integer not null,
+  gross_margin_bps integer not null,
+  gross_estimate_confidence_bps integer not null,
+  identity_gate_passed boolean not null,
+  usability_gate_passed boolean not null,
+  pricing_input_confidence_bps integer not null,
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Authority: PUSH-OWNED
+create table landed_cost_estimates (
+  id uuid primary key default gen_random_uuid(),
+  process_id uuid not null references procurement_processes(id),
+  notice_id uuid not null references contract_notices(id),
+  product_candidate_id uuid not null references product_candidates(id),
+  supplier_quote_id uuid not null references supplier_quotes(id),
+  shipping_mode text not null,
+  mode_confidence_bps integer not null,            -- basis points (0-10000)
+  packing_scenario text,
+  declarable_commodity_code_10 text,
+  candidate_commodity_codes_json jsonb,
+  additional_codes jsonb,
+  additional_code_requirements_json jsonb,
+  supplementary_units_required_json jsonb,
+  commodity_confidence_bps integer not null,        -- basis points (0-10000)
+  classification_stability_bps integer not null,   -- basis points (0-10000)
+  customs_valuation_method text,                   -- 1_actual, 1_proxy, 2, 3, 4, 5, 6, unknown
+  valuation_mode text,                            -- estimation, declaration
+  customs_fx_rate numeric not null,                -- exchange rate (not money -- keep numeric)
+  commercial_fx_rate numeric not null,             -- exchange rate (not money -- keep numeric)
+  fx_basis_delta_bps integer not null,             -- basis points
+  supplier_cost_gbp_pence integer not null,        -- integer pence
+  freight_low_gbp_pence integer not null,          -- integer pence
+  freight_base_gbp_pence integer not null,         -- integer pence
+  freight_high_gbp_pence integer not null,         -- integer pence
+  customs_duty_gbp_pence integer not null,         -- integer pence
+  trade_remedy_duty_gbp_pence integer,             -- integer pence
+  duty_outcome_min_gbp_pence integer,
+  duty_outcome_max_gbp_pence integer,
+  customs_cost_spread_bps integer,
+  trade_remedy_state text,
+  trade_remedy_cases_json jsonb,
+  exporter_rate_basis text,
+  exporter_identity_confidence_bps integer,
+  origin_evidence_state text,
+  import_vat_gbp_pence integer not null,           -- integer pence
+  vat_rate_state text,
+  import_vat_treatment text not null,              -- postponed_full, postponed_partial, cash_paid_full, cash_paid_partial, non_recoverable, unknown
+  vat_recovery_rate_bps integer,                   -- basis points
+  uk_final_mile_cost_gbp_pence integer not null,   -- integer pence
+  other_fees_gbp_pence integer not null,           -- integer pence
+  economic_landed_cost_gbp_pence integer not null,  -- integer pence
+  cash_outlay_gbp_pence integer not null,          -- integer pence
+  cash_to_clear_gbp_pence integer not null,        -- integer pence
+  working_capital_cost_gbp_pence integer,          -- integer pence
+  revenue_basis_type text not null,
+  revenue_confidence_bps integer not null,          -- basis points (0-10000)
+  customs_resolution_confidence_bps integer,
+  commercial_estimate_confidence_bps integer,
+  net_margin_low_bps integer not null,              -- basis points
+  net_margin_base_bps integer not null,             -- basis points
+  net_margin_high_bps integer not null,             -- basis points
+  decision_grade text not null,
+  confidence_bps integer not null,                  -- basis points (0-10000)
+  confidence_breakdown jsonb,
+  warnings jsonb not null,
+  blockers jsonb not null default '[]',
+  tariff_checked_at timestamptz,
+  classification_fresh_until timestamptz,
+  trade_remedy_watch_state text,
+  cbam_exposure_flag boolean,
+  cbam_estimate_gbp_pence integer,
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Authority: PUSH-OWNED
+create table manifests (
+  id uuid primary key default gen_random_uuid(),
+  process_id uuid not null references procurement_processes(id),
+  markdown text not null,
+  artifact_path text,
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Pipeline-computed assessment (daemon-owned, push-only).
+-- One row per process — the process-level rollup of all stage outcomes.
+-- Authority: PUSH-OWNED
+create table pipeline_assessments (
+  process_id uuid primary key references procurement_processes(id),
+  pipeline_state text not null,  -- discovered, normalized, relation_resolved, prelim_rejected, prelim_qualified, docs_acquired, lots_extracted, products_extracted, quoteability_scored, priced, gross_qualified, landed_costed, net_qualified
+  review_required boolean not null default false,
+  availability_status text not null default 'active',  -- active, expired, cancelled
+  validation_state text not null default 'unverified', -- validated, flagged, unverified
+  gross_margin_bps integer,      -- basis points (1500 = 15.00%)
+  net_margin_bps integer,        -- basis points
+  priced_coverage_bps integer,
+  landed_cost_coverage_bps integer,
+  net_qualified_coverage_bps integer,
+  unresolved_mandatory_lots integer not null default 0,
+  decision_basis_hash text,
+  review_stage text,
+  review_reason text,
+  assessed_at timestamptz not null default now(),
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Bid workflow state (daemon-owned, push-only).
+-- Authority: PUSH-OWNED
+create table bid_workflow_states (
+  process_id uuid primary key references procurement_processes(id),
+  bid_state text not null default 'not_started',  -- not_started, ready_to_bid, bid_in_progress, bid_submitted, bid_failed
+  bid_scope_json jsonb,
+  review_required boolean not null default false,
+  bid_job_id uuid references workflow_jobs(id),
+  started_at timestamptz,
+  completed_at timestamptz,
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+```
+
+#### 2.5.3 Stage Tracking Tables
+
+```sql
+-- Per-stage execution records. Each row represents one execution of one stage
+-- at one scope grain. stage_run_id is the atomic commit cohort.
+-- Authority: PUSH-OWNED
+create table process_stage_status (
+  id uuid primary key default gen_random_uuid(),
+  process_id uuid not null references procurement_processes(id),
+  stage text not null,              -- ingest, normalize, relate, qualify, acquire_docs, extract_lots, extract_products, score_quoteability, price_signal_match, gross_margin_gate, landed_cost, net_margin_gate, generate_manifest, operator_decision, bid_workflow
+  scope_kind text not null,         -- process, notice, lot, candidate, candidate_source_pair, candidate_quote_scenario
+  scope_id text not null,
+  stage_run_id text not null,
+  state text not null,
+  freshness_state text not null default 'fresh', -- fresh, soft_stale, hard_invalid
+  basis_hash text,
+  input_stage_vector_json jsonb,
+  started_at timestamptz not null,
+  completed_at timestamptz,
+  error_manifest_id uuid references error_manifests(id),
+  input_revision integer,
+  output_revision integer,
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Current stage head per (process, stage, scope) tuple.
+-- Updated on each stage completion to point to the latest stage_run_id.
+-- Authority: PUSH-OWNED
+create table process_stage_heads (
+  process_id uuid not null references procurement_processes(id),
+  stage text not null,
+  scope_kind text not null,
+  scope_id text not null,
+  current_stage_run_id text not null,
+  freshness_state text not null default 'fresh',
+  basis_hash text,
+  input_stage_vector_json jsonb,
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
+  primary key (process_id, stage, scope_kind, scope_id)
+);
+```
+
+#### 2.5.4 Orchestration Tables
+
+```sql
+-- Job orchestration row. Local-only — mirrored to workflow_job_summaries for remote visibility.
+-- Authority: LOCAL-ONLY
+create table workflow_jobs (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null,            -- sync_source, normalize_notice, resolve_relations, qualify_notice, acquire_documents, extract_lots, extract_products, score_quoteability, enrich_supplier_prices, compute_gross_gate, estimate_landed_cost, compute_net_gate, generate_manifest, record_operator_decision, run_bid_workflow, escalate_rfq, validation
+  process_id uuid references procurement_processes(id),
+  notice_id uuid references contract_notices(id),
+  scope_kind text,               -- process, notice, lot, candidate, candidate_source_pair, candidate_quote_scenario
+  scope_id text,
+  parent_job_id uuid references workflow_jobs(id),  -- links validator sub-job to worker job
+  continuation_chain_id text,
+  chain_closed boolean not null default false,
+  validation_required boolean not null default false,  -- set by Validation Policy Engine
+  validation_verdict_id uuid,    -- populated after validation completes (references validation_verdicts.id)
+  status text not null,
+  scheduled_for timestamptz,
+  lease_owner uuid references executors(id), -- authoritative in local SQLite; mirrored to Supabase for visibility only
+  lease_expires_at timestamptz, -- authoritative in local SQLite; mirrored to Supabase for visibility only
+  attempt_count integer not null default 0,
+  input_payload jsonb not null,
+  output_payload jsonb,
+  last_error text,
+  started_at timestamptz,
+  completed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+-- Full local session log row. Local-only — remote gets summaries/redactions.
+-- Authority: LOCAL-ONLY
+create table agent_session_logs (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid references workflow_jobs(id),
+  skill_path text not null,
+  skill_version text,
+  -- execution identity (from agent orchestration review)
+  execution_mode text not null default 'pty',  -- 'pty' or 'contract'
+  cli_vendor text,
+  cli_version text,
+  adapter_version text,
+  config_hash text,
+  -- process supervision (from agent orchestration review)
+  pty_session_id text not null,
+  pid integer,
+  pgid integer,
+  started_at timestamptz not null,
+  completed_at timestamptz,
+  status text not null,  -- created, spawned, active, terminating, exited, reaped, archived
+  -- raw session output (artifact-based; legacy column names retained)
+  terminal_output_path text,   -- artifact file path for PTY bytes or contract-mode stdout/stderr (local only; not synced)
+  terminal_output_hash text,   -- SHA-256 of raw session output
+  terminal_output_bytes integer,
+  terminal_output_tail text,   -- last N KB of raw session output for quick inspection (local only; Supabase gets redacted excerpt or null)
+  structured_trace jsonb,      -- full parsed trace locally; Supabase stores only redacted summaries
+  -- error handling (expanded taxonomy from agent orchestration review)
+  error_type text,  -- AGENT_AUTH_CHALLENGE, AGENT_INTERNAL_ERROR, AGENT_STALLED, AGENT_SKILL_FAILED,
+                    -- AGENT_OUTPUT_CONTRACT_INVALID, AGENT_PROTOCOL_MISMATCH,
+                    -- AGENT_PARTIAL_FAILURE, AGENT_CLEANUP_INCOMPLETE, AGENT_RUN_FAILED,
+                    -- HOST_SLEEP_INTERRUPTED, HOST_RESOURCE_EXHAUSTED
+  error_message text,
+  cleanup_verdict text,        -- clean, forced, leaked
+  last_checkpoint_seq integer, -- last valid checkpoint sequence before failure
+  -- run manifest (worker-validator system)
+  run_manifest_path text,      -- artifact path to the agent-generated run manifest MD file
+  run_manifest_hash text,      -- SHA-256 of the run manifest for integrity verification
+  created_at timestamptz not null default now()
+);
+
+-- Authority: LOCAL-ONLY
+create table error_manifests (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid references workflow_jobs(id),
+  process_id uuid references procurement_processes(id),
+  pipeline_stage text not null, -- 'ingestion', 'qualification', 'enrichment', 'landed_cost', 'bidding'
+  workflow_step text not null, -- specific step within the stage
+  error_type text not null,
+  error_message text not null,
+  error_context jsonb not null, -- full context locally; redacted context in Supabase
+  skill_path text,
+  agent_session_id uuid references agent_session_logs(id),
+  markdown_path text, -- local Markdown artifact path for human-friendly debugging
+  resolved boolean not null default false,
+  resolved_at timestamptz,
+  resolved_by text,
+  created_at timestamptz not null default now()
+);
+```
+
+#### 2.5.5 Validation Tables
+
+```sql
+-- Semantic validation verdicts from validator skills (local-only -- full verdict reasoning stays local).
+-- Authority: LOCAL-ONLY
+create table validation_verdicts (
+  id uuid primary key default gen_random_uuid(),
+  worker_job_id uuid not null references workflow_jobs(id),
+  worker_session_id uuid references agent_session_logs(id),
+  validator_job_id uuid not null references workflow_jobs(id),
+  validator_session_id uuid references agent_session_logs(id),
+  validator_skill_path text not null,
+  validator_skill_version text,
+  verdict text not null,                        -- approved, rejected, flagged
+  confidence_bps integer,                       -- basis points (0-10000)
+  summary text not null,                        -- one-paragraph human-readable summary (max 2000 chars)
+  basis_sufficiency text not null default 'medium', -- high, medium, low
+  anchor_conflict_count integer not null default 0,
+  incident_signature text,
+  enforcement_eligible boolean not null default false,
+  issues_json jsonb not null default '[]',      -- JSON array of ValidationIssue objects
+  quality_assessment_json jsonb,                -- JSON quality scores (manifest completeness, narrative consistency, etc.)
+  skill_improvement_suggestions_json jsonb,     -- JSON array of improvement suggestions for the worker skill
+  run_manifest_hash text not null,              -- SHA-256 of the run manifest that was validated
+  oqg_signals_summary text,                     -- OQG inputs provided to validator
+  override_verdict text,                        -- operator override (if any): approved, rejected
+  override_reason text,
+  override_by text,
+  override_at timestamptz,
+  verdict_rendered_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+-- Validation verdict summaries pushed to Supabase for web visibility (push-owned projection).
+-- Authority: PUSH-OWNED (projection)
+create table validation_verdict_summaries (
+  id uuid primary key,                          -- references validation_verdicts(id)
+  worker_job_id uuid not null,
+  verdict text not null,                        -- approved, rejected, flagged
+  confidence_bps integer,
+  basis_sufficiency text,
+  incident_signature text,
+  enforcement_eligible boolean,
+  summary text,
+  issue_count integer not null default 0,
+  critical_issue_count integer not null default 0,
+  override_verdict text,
+  verdict_rendered_at timestamptz not null,
+  -- sync tracking (same pattern as other push-owned projections)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+```
+
+#### 2.5.6 Projection Tables
+
+```sql
+-- Remote-facing projection summaries for web visibility.
+-- Authority: PUSH-OWNED (projection)
+create table workflow_job_summaries (
+  job_id uuid primary key references workflow_jobs(id),
+  process_id uuid references procurement_processes(id),
+  kind text not null,
+  status text not null,
+  scheduled_for timestamptz,
+  started_at timestamptz,
+  completed_at timestamptz,
+  last_error text,
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Authority: PUSH-OWNED (projection)
+create table error_manifest_summaries (
+  id uuid primary key references error_manifests(id),
+  process_id uuid references procurement_processes(id),
+  pipeline_stage text not null,
+  workflow_step text not null,
+  error_type text not null,
+  error_message text not null,
+  redacted_context jsonb,
+  resolved boolean not null default false,
+  resolved_at timestamptz,
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Authority: PUSH-OWNED (projection)
+create table viewer_sync_status (
+  executor_id uuid primary key references executors(id),
+  daemon_last_seen_at timestamptz not null,
+  last_local_seq_acked integer not null default 0,
+  last_success_at timestamptz,
+  sync_health text not null,
+  schema_epoch integer not null,
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+```
+
+#### 2.5.7 Remote-Owned Tables
+
+```sql
+-- Human operator disposition (remote-owned, pull-only, compare-and-swap).
+-- Authority: REMOTE-OWNED
+create table operator_decision_heads (
+  process_id uuid primary key references procurement_processes(id),
+  disposition text not null default 'pending',  -- pending, watching, approved, rejected
+  decision_note text,
+  decided_by uuid,
+  decided_at timestamptz,
+  reviewed_basis_hash text,
+  reviewed_manifest_hash text,
+  reviewed_at_stage_run_id text,
+  decision_stale boolean not null default false,
+  -- remote-owned tracking
+  remote_change_seq bigint,
+  remote_revision bigint not null default 1,
+  deleted_at timestamptz,  -- tombstone for shared delete semantics
+  created_at timestamptz not null default now()
+);
+
+-- Authority: REMOTE-OWNED
+create table shared_company_profile (
+  id uuid primary key default gen_random_uuid(),
+  profile_data jsonb not null,
+  -- remote-owned tracking
+  remote_change_seq bigint,
+  remote_revision bigint not null default 1,
+  deleted_at timestamptz,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Authority: REMOTE-OWNED
+create table shared_source_configs (
+  source_id text primary key,
+  kind text not null,
+  enabled boolean not null default true,
+  config jsonb not null,
+  -- remote-owned tracking
+  remote_change_seq bigint,
+  remote_revision bigint not null default 1,
+  deleted_at timestamptz,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+```
+
+#### 2.5.8 Sync Infrastructure Tables
+
+```sql
+-- SQLite-only: local outbox for transactional sync.
+-- Every push-owned write appends an outbox entry in the same transaction.
+-- The push dispatcher reads from here and sends batches to Supabase.
+-- Authority: LOCAL-ONLY (SQLite-only)
+create table local_outbox (
+  local_seq integer primary key autoincrement,
+  executor_id text not null,
+  entity_kind text not null,
+  entity_id text not null,
+  op text not null,
+  row_version integer not null,
+  stage_run_id text,
+  schema_epoch integer not null,
+  payload_json text not null,
+  content_hash text not null,
+  created_at text not null
+);
+
+-- SQLite-only: tracks push batches for exactly-once delivery.
+-- Authority: LOCAL-ONLY (SQLite-only)
+create table sync_batches (
+  batch_id text primary key,
+  executor_id text not null,
+  from_local_seq integer not null,
+  to_local_seq integer not null,
+  schema_epoch integer not null,
+  sent_at text not null,
+  ack_at text,
+  status text not null default 'pending'
+);
+
+-- SQLite-only: pull cursors per remote domain.
+-- Authority: LOCAL-ONLY (SQLite-only)
+create table pull_cursors (
+  domain text primary key,
+  last_pulled_seq bigint not null default 0,
+  pulled_at text not null
+);
+
+-- SQLite-only: queued remote-authoritative mutations while sync is degraded.
+-- Latest-per-process coalescing: only the most recent intent per process matters.
+-- Authority: LOCAL-ONLY (SQLite-only)
+create table pending_operator_intents (
+  id text primary key,
+  process_id text not null,
+  desired_disposition text not null,
+  base_remote_revision bigint not null,
+  idempotency_key text not null unique,
+  status text not null default 'queued',
+  queued_at text not null,
+  last_attempt_at text,
+  last_error text
+);
+
+-- Supabase-side: schema version tracking for epoch coordination.
+-- Authority: SUPABASE-ONLY
+create table schema_metadata (
+  key text primary key,
+  value text not null,
+  updated_at timestamptz not null default now()
+);
+```
+
+#### 2.5.9 Junction Tables
+
+```sql
+-- Junction: notice-level CPV codes.
+-- Created with contract_notices (constitutional rule: junction tables introduced with parent).
+-- Authority: PUSH-OWNED
+create table notice_cpv_codes (
+  notice_id uuid not null references contract_notices(id),
+  cpv_code text not null,
+  primary key (notice_id, cpv_code)
+);
+
+-- Junction: candidate-level commodity codes.
+-- Created with product_candidates.
+-- Authority: PUSH-OWNED
+create table product_commodity_codes (
+  product_candidate_id uuid not null references product_candidates(id),
+  commodity_code text not null,
+  primary key (product_candidate_id, commodity_code)
+);
+
+-- Junction: lot-level CPV codes.
+-- Created with notice_lots.
+-- Authority: PUSH-OWNED
+create table lot_cpv_codes (
+  lot_id uuid not null references notice_lots(id),
+  cpv_code text not null,
+  primary key (lot_id, cpv_code)
+);
+```
+
+#### 2.5.10 Relation Tables
+
+```sql
+-- Edges between related-but-unmerged processes.
+-- Enables cache sharing across related clusters without forced merges.
+-- Authority: PUSH-OWNED
+create table process_relations (
+  id uuid primary key default gen_random_uuid(),
+  process_id_a uuid not null references procurement_processes(id),
+  process_id_b uuid not null references procurement_processes(id),
+  relation_type text not null,  -- merged_same_process, related_not_merged, possible_duplicate, separate
+  confidence_bps integer not null,  -- basis points (0-10000)
+  evidence jsonb,
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Alias pointers for merged processes.
+-- When two processes are merged, the alias points to the canonical survivor.
+-- Authority: PUSH-OWNED
+create table process_aliases (
+  alias_process_id uuid primary key,
+  canonical_process_id uuid not null references procurement_processes(id),
+  alias_reason text not null default 'merged_same_process',
+  -- sync tracking (push-owned)
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+```
+
+#### 2.5.11 Cache Tables
+
+```sql
+-- Cached marketplace listing evidence for re-scoring across candidates without re-fetching.
+-- Authority: LOCAL-ONLY
+create table listing_evidence (
+  id uuid primary key default gen_random_uuid(),
+  source text not null,
+  source_listing_id text not null,
+  normalized_title text not null,
+  structured_attributes_json jsonb,
+  parsed_standards_json jsonb,
+  parsed_units_json jsonb,
+  seller_identifier text,
+  minimum_order_quantity numeric,
+  shipping_terms text,
+  condition text,
+  compliance_evidence_tier text not null,
+  intended_use_language text,
+  is_ready_to_ship boolean,
+  fetched_at timestamptz not null,
+  detail_page_fetched boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique (source, source_listing_id)
+);
+```
+
+### 2.6 Key TypeScript Interfaces
+
+These interfaces define the logical application contract. They are the source of truth for TypeScript code in `packages/contracts-schema/`. Persisted SQLite/Postgres columns use integer pence (`_pence` suffix) and basis points (`_bps` suffix) where noted in the SQL schema above; the TypeScript interfaces use `number` for these fields (the boundary conversion is in the repository layer).
+
+```ts
+export interface ProcurementProcess {
+  id: string;
+  canonicalOcid?: string;
+  primaryNoticeId?: string;
+  currentStage:
+    | "pipeline"
+    | "planning"
+    | "tender_open"
+    | "award"
+    | "contract"
+    | "termination";
+  buyerName?: string;
+  title: string;
+  latestDeadlineAt?: string;
+  latestPublishedAt: string;
+  latestUpdatedAt: string;
+}
+```
+
+```ts
+export interface ContractNotice {
+  id: string;
+  processId: string;
+  source: "fts" | "contracts_finder" | "pcs" | string;
+  sourceNoticeId: string;
+  ocid?: string;
+  title: string;
+  summary?: string;
+  buyerName?: string;
+  procurementStage:
+    | "pipeline"
+    | "planning"
+    | "tender_open"
+    | "award"
+    | "contract"
+    | "termination";
+  accessRoute?:
+    | "open_tender"
+    | "restricted_tender"
+    | "framework_call_off"
+    | "dynamic_market"
+    | "direct_award"
+    | "closed_framework_award"
+    | "not_bidable";
+  deadlineAt?: string;
+  publishedAt: string;
+  updatedAt: string;
+  mainCategory?: "goods" | "services" | "works" | "mixed" | "unknown";
+  cpvCodes: string[];
+  estimatedValueOriginal?: number;
+  estimatedValueCurrency?: string;
+  estimatedValueGbpExVat?: number;
+  estimatedValueVatInclusive?: boolean;
+  rawDocumentId: string;
+}
+```
+
+```ts
+export interface NoticeLot {
+  id: string;
+  noticeId: string;
+  sourceLotId?: string;
+  lotNumber?: number;
+  title?: string;
+  description?: string;
+  cpvCodes: string[];
+  estimatedValue?: number;
+  deadlineAt?: string;
+  isBidableSeparately: boolean;
+  documents?: string[];
+}
+```
+
+```ts
+export interface TenderDocumentSet {
+  id: string;
+  processId: string;
+  noticeId: string;
+  documentSetHash: string;
+  completenessState: "none" | "partial" | "full";
+  documentRoles: Array<"spec" | "pricing_schedule" | "boq" | "appendix" | "other">;
+  documents: Array<{
+    rawDocumentId: string;
+    role: "spec" | "pricing_schedule" | "boq" | "appendix" | "other";
+    sourceUrl?: string;
+  }>;
+  acquiredAt: string;
+}
+```
+
+```ts
+export interface ProductCandidate {
+  id: string;
+  processId: string;
+  noticeId: string;
+  lotId: string;
+  parentCandidateId?: string;
+  candidateRole: "standalone" | "bundle_parent" | "bundle_component";
+  name: string;
+  candidateType:
+    | "exact_sku"
+    | "standard_commodity"
+    | "brand_family"
+    | "bundle"
+    | "custom_or_fabricated"
+    | "installed_goods"
+    | "regulated_goods"
+    | "unknown";
+  matchArchetype:
+    | "standard_class_led"
+    | "dimension_material_led"
+    | "electrical_spec_led"
+    | "pack_count_led"
+    | "compatibility_led"
+    | "model_exact"
+    | "unknown";
+  headNoun: string;
+  quantity?: number;
+  quantityUnit?: string;
+  specificationText?: string;
+  estimatedUnitWeightKg?: number;
+  estimatedUnitVolumeM3?: number;
+  candidateValueShareBps?: number;
+  packingHint?: "flat_pack" | "assembled" | "mixed" | "unknown";
+  handlingRestrictions?: Array<"hazmat" | "oversized" | "fragile" | "reefer" | "lithium_battery">;
+  candidateCommodityCodes: string[];
+  criticalAttributes?: Record<string, CriticalAttribute>;
+  numericSpecs?: Record<string, NumericSpec>;
+  standards?: StandardSlot[];
+  material?: string;
+  brandModel?: string;
+  preferredTerms?: string[];
+  excludedTerms?: string[];
+  sourceEvidence?: Array<{ documentId?: string; pageRef?: string; excerpt?: string }>;
+  quoteabilityScore?: number;
+  recallRiskScore?: number;
+  identityConfidence: number;
+  specConfidence: number;
+  quantityConfidence: number;
+}
+
+export interface CriticalAttribute {
+  value: string | number | boolean;
+  criticality: "required" | "preferred" | "descriptive" | "exclusion";
+}
+
+export interface NumericSpec {
+  value: string | number;
+  unit?: string;
+  toleranceWindow?: { min?: number; max?: number };
+  criticality: "required" | "preferred" | "descriptive";
+}
+
+export interface StandardSlot {
+  raw: string;
+  family: string;
+  part?: string;
+  editionYear?: string;
+  amendment?: string;
+  classLevel?: string;
+  criticality: "required" | "preferred" | "descriptive";
+}
+```
+
+```ts
+export interface SearchProfile {
+  id: string;
+  productCandidateId: string;
+  headNoun: string;
+  headNounFamily?: string;
+  candidateType: ProductCandidate["candidateType"];
+  matchArchetype: ProductCandidate["matchArchetype"];
+  criticalAttributes?: Record<string, CriticalAttribute>;
+  standards?: StandardSlot[];
+  numericSpecs?: Record<string, NumericSpec>;
+  nounAliasesEn?: string[];
+  nounAliasesZh?: string[];
+  marketFrameEn?: string[];
+  marketFrameZh?: string[];
+  useContext?: string;
+  sectorContext?: string;
+  requiredAnchors?: string[];
+  optionalAnchors?: string[];
+  mustNotHave?: string[];
+  preferredTerms?: string[];
+  excludedTerms?: string[];
+  queryWaves: QueryWave[];
+  recallRiskScore?: number;
+  searchEligibilityState: "auto_search" | "manual_only" | "skip";
+  createdAt: string;
+}
+
+export interface QueryWave {
+  waveNumber: number;
+  source: "ebay" | "amazon" | "alibaba" | "1688";
+  locale: "en" | "zh";
+  queryText: string;
+  filters?: Record<string, string>;
+  isRecoveryWave: boolean;
+}
+```
+
+```ts
+export interface SupplierQuote {
+  id: string;
+  processId: string;
+  noticeId: string;
+  productCandidateId: string;
+  searchAttemptId?: string;
+  productName?: string;
+  region: "uk" | "eu" | "china";
+  quoteClass: "indicative_marketplace" | "distributor_listing" | "rfq_quote" | "negotiated_quote";
+  sourceName: string;
+  sourceUrl?: string;
+  sourceListingId?: string;
+  shipFromCountry?: string;
+  countryOfOrigin?: string;
+  countryOfDispatch?: string;
+  incoterm?: "EXW" | "FOB" | "CIF" | "DAP" | "DDP" | string;
+  quoteCostBoundary?: "EXW" | "FOB" | "CIF" | "CIP" | "DAP" | "DDP" | "UNKNOWN";
+  quotedQuantity?: number;
+  quotedQuantityUnit?: string;
+  unitPriceOriginal: number;
+  currency: string;
+  unitPriceGbp: number;
+  minimumOrderQuantity?: number;
+  leadTimeDays?: number;
+  includesShipping?: boolean;
+  priceSignalRole: "benchmark_ceiling" | "optimistic_floor" | "executable";
+  listingPackQty?: number;
+  listingPackUnit?: string;
+  normalizedUnitBasis?: string;
+  isUsedOrRefurbished?: boolean;
+  isReadyToShip?: boolean;
+  vatInclusive?: boolean;
+  complianceEvidenceTier?: "structured_attribute" | "title_body_mention" | "absent";
+  rawMatchScore?: number;
+  matchConfidence: number;
+  quoteUsabilityConfidence: number;
+  shippingBasisConfidence?: number;
+  quoteRealismConfidence: number;
+  negotiationUpliftPct?: number;
+  evidenceStates?: Record<string, "match" | "missing" | "ambiguous" | "conflict">;
+  queryWaveNumber?: number;
+  evidence: string[];
+  validUntil?: string;
+}
+```
+
+```ts
+export interface CandidatePricingAssessment {
+  id: string;
+  processId: string;
+  noticeId: string;
+  productCandidateId: string;
+  selectedQuoteId: string;
+  selectedQuoteRowVersion: number;
+  quoteCostBoundary: "EXW" | "FOB" | "CIF" | "CIP" | "DAP" | "DDP" | "UNKNOWN";
+  revenueBasisType: "firm_contract" | "estimated_contract" | "framework_ceiling" | "dynamic_market" | "concession" | "unknown";
+  expectedAddressableRevenueExVatPence: number;
+  revenueConfidenceBps: number;
+  grossMarginBps: number;
+  grossEstimateConfidenceBps: number;
+  identityGatePassed: boolean;
+  usabilityGatePassed: boolean;
+  pricingInputConfidenceBps: number;
+  createdAt: string;
+}
+```
+
+```ts
+export interface LandedCostEstimate {
+  id: string;
+  processId: string;
+  noticeId: string;
+  productCandidateId: string;
+  supplierQuoteId: string;
+  shippingMode: "parcel" | "air_freight" | "lcl_ocean" | "fcl_ocean" | "mixed";
+  modeConfidence: number;
+  packingScenario?: "compact" | "bulky" | "unknown";
+  declarableCommodityCode10?: string;
+  candidateCommodityCodes?: CandidateCommodityCode[];
+  additionalCodes?: string[];
+  additionalCodeRequirements?: string[];
+  supplementaryUnitsRequired?: string[];
+  commodityConfidence: number;
+  classificationStability: number;
+  customsValuationMethod?: "1_actual" | "1_proxy" | "2" | "3" | "4" | "5" | "6" | "unknown";
+  valuationMode?: "estimation" | "declaration";
+  customsFxRate: number;
+  commercialFxRate: number;
+  fxBasisDeltaPct: number;
+  supplierCostGbp: number;
+  freightLowGbp: number;
+  freightBaseGbp: number;
+  freightHighGbp: number;
+  customsDutyGbp: number;
+  tradeRemedyDutyGbp?: number;
+  dutyOutcomeMinGbp?: number;
+  dutyOutcomeMaxGbp?: number;
+  customsCostSpreadBps?: number;
+  tradeRemedyState?: "none" | "investigation_open" | "provisional" | "definitive" | "review_open" | "adjacent_risk";
+  tradeRemedyCases?: string[];
+  exporterRateBasis?: "named_exporter" | "annex_exporter" | "residual_default";
+  exporterIdentityConfidence?: number;
+  originEvidenceState?: "proved" | "claimed" | "unknown";
+  importVatGbp: number;
+  vatRateState?: "standard" | "reduced" | "zero" | "unresolved";
+  importVatTreatment: "postponed_full" | "postponed_partial"
+    | "cash_paid_full" | "cash_paid_partial" | "non_recoverable" | "unknown";
+  vatRecoveryRate?: number;
+  ukFinalMileCostGbp: number;
+  otherFeesGbp: number;
+  economicLandedCostGbp: number;
+  cashOutlayGbp: number;
+  cashToClearGbp: number;
+  workingCapitalCostGbp?: number;
+  revenueBasisType: "firm_contract" | "estimated_contract"
+    | "framework_ceiling" | "dynamic_market" | "concession" | "unknown";
+  revenueConfidence: number;
+  customsResolutionConfidence?: number;
+  commercialEstimateConfidence?: number;
+  netMarginLowPct: number;
+  netMarginBasePct: number;
+  netMarginHighPct: number;
+  decisionGrade: "screening" | "review" | "rfq_required" | "broker_required";
+  confidence: number;
+  confidenceBreakdown?: ConfidenceBreakdown;
+  warnings: string[];
+  blockers: string[];
+  tariffCheckedAt?: string;
+  classificationFreshUntil?: string;
+  tradeRemedyWatchState?: "clear" | "investigation_open" | "provisional_measure" | "review_pending" | "adjacent_family_active";
+  cbamExposureFlag?: boolean;
+  cbamEstimateGbp?: number;
+}
+
+export interface CandidateCommodityCode {
+  code: string;
+  digits: 6 | 8 | 10;
+  source: "fpo" | "cpv_prior" | "rule_hint" | "tariff_keyword" | "taric_support" | "hs_ping" | "manual" | "atr";
+  score: number;
+  description?: string;
+}
+
+export interface ConfidenceBreakdown {
+  classificationStability: number;
+  quoteRealism: number;
+  commodityCodeConfidence: number;
+  freightModeStability: number;
+  revenueReliability: number;
+  fxFreshness: number;
+}
+```
+
+```ts
+export interface PipelineAssessment {
+  processId: string;
+  pipelineState:
+    | "discovered"
+    | "normalized"
+    | "relation_resolved"
+    | "prelim_rejected"
+    | "prelim_qualified"
+    | "docs_acquired"
+    | "lots_extracted"
+    | "products_extracted"
+    | "quoteability_scored"
+    | "priced"
+    | "gross_qualified"
+    | "landed_costed"
+    | "net_qualified";
+  reviewRequired: boolean;
+  availabilityStatus: "active" | "expired" | "cancelled";
+  validationState: "validated" | "flagged" | "unverified";
+  grossMarginBps?: number;
+  netMarginBps?: number;
+  pricedCoverageBps?: number;
+  landedCostCoverageBps?: number;
+  netQualifiedCoverageBps?: number;
+  unresolvedMandatoryLots?: number;
+  decisionBasisHash?: string;
+  reviewStage?: "qualification" | "quoteability" | "pricing" | "landed_cost" | "manifest";
+  reviewReason?: string;
+  assessedAt: string;
+}
+```
+
+```ts
+export interface WorkflowJob {
+  id: string;
+  kind:
+    | "sync_source"
+    | "normalize_notice"
+    | "resolve_relations"
+    | "qualify_notice"
+    | "acquire_documents"
+    | "extract_lots"
+    | "extract_products"
+    | "score_quoteability"
+    | "enrich_supplier_prices"
+    | "compute_gross_gate"
+    | "estimate_landed_cost"
+    | "compute_net_gate"
+    | "generate_manifest"
+    | "record_operator_decision"
+    | "run_bid_workflow"
+    | "escalate_rfq"
+    | "validation";
+  processId?: string;
+  noticeId?: string;
+  scopeKind?: "process" | "notice" | "lot" | "candidate" | "candidate_source_pair" | "candidate_quote_scenario";
+  scopeId?: string;
+  parentJobId?: string;
+  continuationChainId?: string;
+  chainClosed?: boolean;
+  validationRequired: boolean;
+  validationVerdictId?: string;
+  status: string;
+  scheduledFor?: string;
+  attemptCount: number;
+  inputPayload: Record<string, unknown>;
+  outputPayload?: Record<string, unknown>;
+  lastError?: string;
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+}
+```
+
+```ts
+export interface ProcessStageStatus {
+  processId: string;
+  stage:
+    | "ingest"
+    | "normalize"
+    | "relate"
+    | "qualify"
+    | "acquire_docs"
+    | "extract_lots"
+    | "extract_products"
+    | "score_quoteability"
+    | "price_signal_match"
+    | "gross_margin_gate"
+    | "landed_cost"
+    | "net_margin_gate"
+    | "generate_manifest"
+    | "operator_decision"
+    | "bid_workflow";
+  scopeKind: "process" | "notice" | "lot" | "candidate" | "candidate_source_pair" | "candidate_quote_scenario";
+  scopeId: string;
+  stageRunId: string;
+  state: "running" | "succeeded" | "failed";
+  freshnessState?: "fresh" | "soft_stale" | "hard_invalid";
+  basisHash?: string;
+  inputStageVector?: Record<string, string>;
+  startedAt: string;
+  completedAt?: string;
+  errorManifestId?: string;
+}
+```
+
+```ts
+export interface ValidationVerdict {
+  id: string;
+  workerJobId: string;
+  workerSessionId?: string;
+  validatorJobId: string;
+  validatorSessionId?: string;
+  validatorSkillPath: string;
+  validatorSkillVersion?: string;
+  verdict: "approved" | "rejected" | "flagged";
+  confidenceBps?: number;
+  summary: string;
+  basisSufficiency: "high" | "medium" | "low";
+  anchorConflictCount: number;
+  incidentSignature?: string;
+  enforcementEligible: boolean;
+  issues: ValidationIssue[];
+  qualityAssessment?: {
+    manifestCompleteness?: "complete" | "partial" | "minimal" | "missing";
+    narrativeConsistency?: "consistent" | "minor_inconsistencies" | "contradictory";
+    evidencePresent?: boolean;
+    fingerprintVerified?: boolean;
+    localeVerified?: boolean;
+    resultCountMatchesManifest?: boolean;
+  };
+  skillImprovementSuggestions?: string[];
+  runManifestHash: string;
+  oqgSignalsSummary?: string;
+  overrideVerdict?: "approved" | "rejected";
+  overrideReason?: string;
+  overrideBy?: string;
+  overrideAt?: string;
+  verdictRenderedAt: string;
+  createdAt: string;
+}
+```
+
+```ts
+export interface ValidationIssue {
+  severity: "critical" | "warning" | "info";
+  category:
+    | "wrong_source"
+    | "wrong_locale"
+    | "data_fabrication"
+    | "data_quality"
+    | "missing_data"
+    | "semantic_error"
+    | "suspicious_pattern"
+    | "manifest_inconsistency"
+    | "coverage_gap"
+    | "policy_violation";
+  description: string;
+  evidence?: string;
+  suggestion?: string;
+}
+```
+
+```ts
+export interface ViewerSyncStatus {
+  executorId: string;
+  daemonLastSeenAt: string;
+  lastLocalSeqAcked: number;
+  lastSuccessAt?: string;
+  syncHealth: "healthy" | "degraded" | "offline";
+  schemaEpoch: number;
+}
+```
+
+### 2.7 Index Design
+
+Beyond primary keys (implicit in all CREATE TABLE statements above), these indices support the critical query paths.
+
+#### Foreign Key Lookup Indices
+
+```sql
+-- Pipeline entity traversal
+create index idx_contract_notices_process_id on contract_notices(process_id);
+create index idx_notice_lots_notice_id on notice_lots(notice_id);
+create index idx_product_candidates_lot_id on product_candidates(lot_id);
+create index idx_product_candidates_process_id on product_candidates(process_id);
+create index idx_supplier_quotes_candidate_id on supplier_quotes(product_candidate_id);
+create index idx_supplier_quotes_process_id on supplier_quotes(process_id);
+create index idx_search_profiles_candidate_id on search_profiles(product_candidate_id);
+create index idx_search_attempts_profile_id on search_attempts(search_profile_id);
+create index idx_search_attempts_candidate_id on search_attempts(product_candidate_id);
+create index idx_candidate_pricing_candidate_id on candidate_pricing_assessments(product_candidate_id);
+create index idx_landed_cost_candidate_id on landed_cost_estimates(product_candidate_id);
+create index idx_landed_cost_quote_id on landed_cost_estimates(supplier_quote_id);
+create index idx_tender_docs_process_id on tender_document_sets(process_id);
+create index idx_qualification_runs_lot_id on qualification_runs(lot_id);
+
+-- Orchestration traversal
+create index idx_workflow_jobs_process_id on workflow_jobs(process_id);
+create index idx_workflow_jobs_parent_id on workflow_jobs(parent_job_id);
+create index idx_agent_sessions_job_id on agent_session_logs(job_id);
+create index idx_error_manifests_job_id on error_manifests(job_id);
+create index idx_error_manifests_process_id on error_manifests(process_id);
+create index idx_validation_verdicts_worker_job on validation_verdicts(worker_job_id);
+
+-- Relation traversal
+create index idx_process_relations_a on process_relations(process_id_a);
+create index idx_process_relations_b on process_relations(process_id_b);
+create index idx_process_aliases_canonical on process_aliases(canonical_process_id);
+```
+
+#### Query Path Indices
+
+```sql
+-- Pipeline assessment lookup (most common dashboard query)
+create index idx_pipeline_assessments_state on pipeline_assessments(pipeline_state);
+
+-- Stage tracking queries
+create index idx_stage_status_process on process_stage_status(process_id, stage);
+create index idx_stage_status_run on process_stage_status(stage_run_id);
+
+-- Job queue queries (scheduler hot path)
+create index idx_workflow_jobs_status on workflow_jobs(status, scheduled_for);
+create index idx_workflow_jobs_kind_status on workflow_jobs(kind, status);
+
+-- Source cursor lookup
+create index idx_raw_documents_source on raw_documents(source_id);
+```
+
+#### Keyset Pagination Indices
+
+```sql
+-- For list-view pagination in desktop/web UI (created_at, id) pairs
+create index idx_procurement_processes_pagination on procurement_processes(created_at, id);
+create index idx_contract_notices_pagination on contract_notices(created_at, id);
+create index idx_supplier_quotes_pagination on supplier_quotes(created_at, id);
+create index idx_workflow_jobs_pagination on workflow_jobs(created_at, id);
+```
+
+#### Unique Constraints (declared in DDL, restated for clarity)
+
+```sql
+-- Already declared in CREATE TABLE statements above:
+-- contract_notices: unique (source_id, source_notice_id)
+-- listing_evidence: unique (source, source_listing_id)
+-- source_cursors: primary key (source_id, cursor_key)
+-- notice_cpv_codes: primary key (notice_id, cpv_code)
+-- product_commodity_codes: primary key (product_candidate_id, commodity_code)
+-- lot_cpv_codes: primary key (lot_id, cpv_code)
+-- process_stage_heads: primary key (process_id, stage, scope_kind, scope_id)
+-- pending_operator_intents: unique (idempotency_key)
+```
+
+### 2.8 Forward-Compatibility Columns
+
+These columns exist as nullable from Layer 0 table creation but are first meaningfully populated in later layers. They are listed here to prevent "where did this column come from?" confusion during implementation.
+
+| Table | Column(s) | First Populated | Purpose |
+|-------|-----------|----------------|---------|
+| `workflow_jobs` | `parent_job_id` | L3 | Links validator sub-job to worker job |
+| `workflow_jobs` | `validation_required` | L3 | Set by Validation Policy Engine (default `false` from creation) |
+| `workflow_jobs` | `validation_verdict_id` | L3 | Populated after validation completes |
+| `workflow_jobs` | `continuation_chain_id`, `chain_closed` | L1 | Continuation chain tracking for multi-session skills |
+| `workflow_jobs` | `lease_owner`, `lease_expires_at` | L1 | Job leasing for daemon scheduler |
+| `workflow_jobs` | `scope_kind`, `scope_id` | L1 | Stage scope grain (process/notice/lot/candidate) |
+| `pipeline_assessments` | `validation_state` | L3 | Default `'unverified'`; set to `'validated'`/`'flagged'` by validator |
+| `pipeline_assessments` | `priced_coverage_bps` | L2 | Coverage metric display |
+| `pipeline_assessments` | `landed_cost_coverage_bps` | L2 | Coverage metric display |
+| `pipeline_assessments` | `net_qualified_coverage_bps` | L2 | Coverage metric display |
+| `pipeline_assessments` | `decision_basis_hash` | L2 | Decision staleness tracking |
+| `agent_session_logs` | `run_manifest_path`, `run_manifest_hash` | L1 | Formal run manifest system |
+| `agent_session_logs` | `cleanup_verdict` | L1 | Process-group supervision |
+| `process_stage_status` | `freshness_state` | L1 | Staleness model (default `'fresh'`) |
+| `process_stage_status` | `input_revision`, `output_revision` | L1 | Revision tracking for invalidation |
+| `process_stage_heads` | `freshness_state`, `basis_hash` | L1 | Staleness propagation |
+| `landed_cost_estimates` | Decision-grade fields (all non-screening columns) | L5 | Full customs resolution |
+| `landed_cost_estimates` | `cbam_exposure_flag`, `cbam_estimate_gbp_pence` | Future | CBAM carbon border adjustment |
+| `operator_decision_heads` | All columns | L4 | Remote-owned, pulled via sync engine |
+| `shared_company_profile` | All columns | L4 | Remote-owned, pulled via sync engine |
+| `shared_source_configs` | All columns | L4 | Remote-owned, pulled via sync engine |
+| `local_outbox` | All columns | L4 | Sync engine transactional outbox |
+| `sync_batches` | All columns | L4 | Sync engine batch tracking |
+| `pull_cursors` | All columns | L4 | Sync engine pull cursors |
+| `pending_operator_intents` | All columns | L2 | Local intent queue for operator actions |
+| `validation_verdicts` | All columns | L3 | Worker-validator system |
+| `validation_verdict_summaries` | All columns | L3 | Worker-validator projections |
+| `bid_workflow_states` | All columns | L6 | Bid automation |
+| `viewer_sync_status` | All columns | L4 | Sync health monitoring |
+
+**Tables that are fully active in Layer 0** (all columns populated during gold-set evaluation):
+
+- `sources`, `source_cursors`, `raw_documents` (infrastructure)
+- `procurement_processes`, `contract_notices`, `notice_lots` (pipeline core)
+- `qualification_runs`, `product_candidates`, `search_profiles` (extraction/matching)
+- `search_attempts`, `supplier_quotes`, `listing_evidence` (search execution)
+- `candidate_pricing_assessments` (gross gate)
+- `landed_cost_estimates` (screening-grade subset of columns)
+- `pipeline_assessments` (pipeline state tracking)
+- `notice_cpv_codes`, `product_commodity_codes`, `lot_cpv_codes` (junction tables)
+- `workflow_jobs` (job tracking, even in CLI mode)
+- `agent_session_logs` (skill execution records)
+
 ## 3. Intelligence Pipeline (Screening-Grade)
 
 > **Ownership:** This section owns the **processing logic** of each pipeline stage — what it does, what it produces, what gates it applies. Stage **tracking infrastructure** (stage_run_id, scope grain table, commit semantics) is owned by Layer 1 §3. Coverage metric **presentation** is owned by Layer 2 §3.
