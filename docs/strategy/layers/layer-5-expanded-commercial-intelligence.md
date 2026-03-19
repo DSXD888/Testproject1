@@ -185,3 +185,258 @@ UK CBAM trial rates expected Q4 2026, full rates from January 2027. A forward `c
 | `packages/intelligence/src/logistics/` | 5 files | Full freight engine: mode selection, Freightos integration, SeaRates integration, dual-packing scenarios, low/base/high estimates |
 | `packages/intelligence/src/validation/` | 3 files | Landed-cost comparison adapters: Dutify, Zonos, Avalara (validation only, not canonical) |
 | `packages/intelligence/src/customs/accuracy.ts` | 1 file | Evidence-tiered classification accuracy measurement (gold/silver/bronze labels) |
+
+---
+
+## 2. FX, Freight & Multi-Source Marketplace Search
+
+### 2.1 Dual FX Engine (`packages/intelligence/src/fx/` -- 4 files)
+
+Two FX rates serve different purposes:
+
+| Rate | Source | Purpose | Update Frequency |
+|------|--------|---------|-----------------|
+| `customsFxRate` | HMRC Exchange Rate Service | Legally authoritative for customs duty calculation | Monthly rolling (published rates) |
+| `commercialFxRate` | Xe Currency Data API | Real-time market rates for commercial margin estimation | On-demand / cached with TTL |
+
+**`fxBasisDeltaPct`:** Stored difference between customs and commercial rates. Fed into margin stress scenarios -- when the gap is large, margin estimates are less reliable.
+
+**FX monthly rollover:** When HMRC publishes new monthly rates, all affected `landed_cost_estimates` require forced recalculation. The system detects rate changes and enqueues recalculation jobs for affected candidates.
+
+**4 files:**
+
+| File | Purpose |
+|------|---------|
+| `hmrc-exchange-rates.ts` | HMRC Exchange Rate Service client: fetch monthly rates, cache locally, detect rollovers |
+| `xe-commercial-rates.ts` | Xe API client: fetch spot rates, cache with TTL, handle rate-limit |
+| `fx-engine.ts` | Dual-rate computation: select correct rate per use case, compute basis delta, trigger recalculation |
+| `fx-types.ts` | Type definitions: `FxSnapshot`, `FxBasisDelta`, `FxRecalculationTrigger` |
+
+### 2.2 Full Freight Engine (`packages/intelligence/src/logistics/` -- 5 files)
+
+| File | Purpose |
+|------|---------|
+| `mode-selector.ts` | Determine shipping mode(s): sea, air, express, multimodal. Based on weight/volume/value/urgency/product type. Hard mode locks: hazmat, oversized, fragile, reefer, batteries |
+| `freightos-client.ts` | Freightos API integration: price stats, route quotes, container/LCL pricing |
+| `searates-client.ts` | SeaRates API integration: logistics explorer rates, container pricing |
+| `freight-engine.ts` | Orchestrator: resolve Incoterm cost boundary, select mode(s), fetch from both providers, dual-packing scenarios when packaging state unknown, emit `freightLowGbp` / `freightBaseGbp` / `freightHighGbp` with `modeConfidence` |
+| `freight-types.ts` | Type definitions: `FreightEstimate`, `ModeSelection`, `PackingScenario` |
+
+**Dual-source cross-check:** Fetch estimates from BOTH Freightos and SeaRates. Use agreement/disagreement as a confidence signal. Large discrepancies trigger `FREIGHT_MODE_LOW_CONFIDENCE`.
+
+**Conservative defaults when freight data unavailable:**
+- Unknown packaging state -> run dual scenarios (e.g., palletized vs loose cartons)
+- No Incoterm stated -> run boundary scenarios (EXW vs FOB vs CIF assumptions)
+- Neither provider can quote -> emit `FREIGHT_PROVIDER_UNSUPPORTED`, use manual estimate
+
+### 2.3 Multi-Source Marketplace Search Skills
+
+**4 new skills** (all follow production skill directory standard from L0 S4):
+
+#### `skills/supplier-price-enrichment/alibaba/`
+
+| Attribute | Value |
+|-----------|-------|
+| Profile | `pty_browser` |
+| Search | Filter-heavy: category, supplier type, MOQ range, shipping, certifications, price range. "Ready to Ship" listings get `quoteUsabilityConfidence` bump. |
+| Language | English first, **Chinese retry** when English returns zero/accessories/consumer items |
+| Anti-bot | Source-health canary before production jobs. Auth-refresh skill coordination. Circuit breaker on repeated challenges. |
+
+#### `skills/supplier-price-enrichment/1688/`
+
+| Attribute | Value |
+|-----------|-------|
+| Profile | `pty_browser` |
+| Search | Chinese-keyword-only. Short clusters (2-4 terms). Domestic wholesale floor prices. |
+| Limitations | Results without explicit compliance/export evidence should NOT drive landed-cost decisions for regulated goods |
+| Auth | Requires auth-refresh/1688 skill for session maintenance |
+
+#### `skills/supplier-price-enrichment/amazon/`
+
+| Attribute | Value |
+|-----------|-------|
+| Profile | `pty_browser` |
+| Search | Alias families (multiple short noun-phrase variants). Target structured title vocabulary. |
+| Notes | PA-API 5.0 deprecated 30 April 2026 -- browser-first strategy avoids API sunset risk |
+
+#### `skills/procurement-ingestion/pcs/`
+
+| Attribute | Value |
+|-----------|-------|
+| Profile | `pty_browser` |
+| API | OCDS Web API with notice list and notice family retrieval. Month-based query model. |
+| Scope | Only if Scotland confirmed in MVP scope (see Open Questions) |
+
+### 2.4 Existing Field Activation (Self-Contained for L5 Implementer)
+
+Layer 5 does NOT add columns or tables. It populates existing nullable fields created in Layer 0. An implementer reading this section should know exactly which fields become active:
+
+**`landed_cost_estimates` -- decision-grade fields now populated:**
+
+| Field | Type | Now Contains |
+|-------|------|-------------|
+| `duty_breakdown_json` | TEXT (JSON) | Full duty breakdown: base tariff rate, trade remedy duties (AD/CVD/safeguard), preferential eligibility, compound/specific components |
+| `measure_interaction_json` | TEXT (JSON) | Measure interaction results: which measures stack, which substitute, family-specific rules applied |
+| `exporter_rate_basis` | TEXT | `named_exporter` / `annex_exporter` / `residual_default` |
+| `exporter_identity_confidence_bps` | INTEGER | 0-10000 bps confidence in exporter identification |
+| `supplementary_unit_type` | TEXT | Required unit type (kg_net, litres, pairs, units, etc.) or NULL if not required |
+| `supplementary_unit_value` | REAL | Quantity in required supplementary units |
+| `valuation_mode` | TEXT | `estimation` / `declaration` |
+| `customs_valuation_method` | TEXT | `1_actual` / `1_proxy` / 2-6 / `unknown` |
+| `customs_fx_rate` | NUMERIC | HMRC customs valuation FX rate used |
+| `commercial_fx_rate` | NUMERIC | Xe commercial spot rate used |
+| `fx_basis_delta_pct` | NUMERIC | Difference between customs and commercial rates |
+| `duty_outcome_min_pence` | INTEGER | Minimum duty across plausible branches |
+| `duty_outcome_max_pence` | INTEGER | Maximum duty across plausible branches |
+| `customs_cost_spread_bps` | INTEGER | Spread in basis points -- triggers blocker if material |
+| `freight_low_pence` | INTEGER | Low freight estimate |
+| `freight_base_pence` | INTEGER | Base freight estimate |
+| `freight_high_pence` | INTEGER | High freight estimate |
+| `freight_mode` | TEXT | Selected mode (sea/air/express/multimodal) |
+| `freight_mode_confidence_bps` | INTEGER | Mode selection confidence |
+| `tariff_checked_at` | TEXT | ISO-8601 timestamp of last tariff verification |
+| `classification_fresh_until` | TEXT | ISO-8601 expiry for classification freshness |
+| `trade_remedy_watch_state` | TEXT | `clear` / `investigation_open` / `measure_pending` / `measure_active` |
+| `vat_rate_state` | TEXT | `standard` / `reduced` / `zero` / `unresolved` |
+| `vat_recovery_rate` | REAL | 0.0-1.0 recovery fraction |
+| `decision_grade` | TEXT | `screening` / `review` / `rfq_required` / `broker_required` |
+
+**`product_commodity_codes` junction -- now actively populated:**
+
+Multi-source recall produces multiple HS6/CN8/UK10 candidates per product. Each row links a `product_candidate` to a commodity code with recall source and agreement metadata.
+
+**`supplier_quotes` -- additional marketplace rows:**
+
+Same schema, more rows. Alibaba, 1688, Amazon quotes join existing eBay quotes. Each carries source-specific `priceSignalRole`:
+- Amazon/eBay: `benchmark_ceiling`
+- Alibaba: `optimistic_floor`
+- 1688: `domestic_wholesale_floor`
+
+---
+
+## 3. Testing, DoD, Risks & Open Questions
+
+### 3.1 Definition of Done
+
+| # | Criterion |
+|---|----------|
+| 1 | Alibaba/1688 search skills operational with Chinese keyword clusters |
+| 2 | Amazon search skill operational |
+| 3 | PCS (Scotland) ingestion skill operational (if Scotland in scope) |
+| 4 | HMRC FPO API integration for HS code classification candidates |
+| 5 | Multi-source recall produces candidates from >=2 independent sources |
+| 6 | 10-digit resolution via HMRC Trade Tariff API produces UK-specific commodity codes |
+| 7 | Measure scanner detects AD/CVD/safeguard/quota measures and models interactions |
+| 8 | HMRC Exchange Rate Service provides customs valuation FX (monthly rolling) |
+| 9 | Xe commercial FX provides spot rates |
+| 10 | Freightos + SeaRates provide freight market data |
+| 11 | Decision-grade landed cost per validated category (with full audit trail) |
+| 12 | Category-specific gold-set expansion completed for >=3 categories |
+
+### 3.2 Test Scenarios
+
+| Scenario | Expected Behavior |
+|----------|------------------|
+| Multi-family expansion: product with 3 plausible HS6 families | ALL UK10 descendants evaluated across all 3 families (not just top candidate) |
+| Trade remedy detection: steel product | AD/CVD measures detected; residual rate applied (not named-exporter); `TRADE_REMEDY_RISK` emitted |
+| Compound duty: product with specific duty (GBP X/kg) | Duty expression preserved as compound; NOT flattened to single percentage |
+| FX monthly rollover | Forced recalculation of all affected landed cost estimates |
+| Alibaba search with Chinese retry | English search fails -> Chinese retry on Alibaba produces results |
+| Category whitelist enforcement: medical device | Rejected before search -- not in whitelist |
+| `hmrc-fpo.test.ts` | FPO API response parsing, candidate code extraction, multi-query variants |
+
+### 3.3 Evidence-Tiered Classification Accuracy
+
+| Tier | Evidence Source | Weight |
+|------|---------------|--------|
+| **Gold** | ATR outcome, actual import declaration, broker-confirmed family (no later amendment) | Authoritative |
+| **Silver** | Two independent internal reviewers with documented reasoning | High confidence |
+| **Bronze** | Best-effort label from tender docs only | Indicative |
+
+**Primary metrics (scored by evidence tier):**
+- Duty-outcome accuracy (not just code accuracy)
+- Trade-remedy yes/no accuracy
+- Additional-code required yes/no accuracy
+- Supplementary-unit required yes/no accuracy
+- Review-trigger recall
+- Catastrophic understatement rate (engine emitted a number; actual was materially higher)
+- Unsafe auto-classification rate (engine auto-classified; should have escalated)
+- **Abstention as positive class** -- if the description lacked facts for legal classification and the engine escalated, that is a success
+
+### 3.4 Customs-Specific Error Types (Layer 5 Extension)
+
+| Code | Trigger | Action |
+|------|---------|--------|
+| `CLASSIFICATION_AMBIGUOUS` | Top HS6 candidates diverge across recall sources | Block auto-qualification; escalate to broker |
+| `TARIFF_BRANCH_DIVERGENCE` | UK10 branches split on remedy/no-remedy or duty type | Hard blocker -- NOT a scenario band |
+| `MEASURE_INTERACTION_UNKNOWN` | AD/CVD/safeguard interaction rules unclear for this measure family | Flag for manual customs review |
+| `EXPORTER_UNRESOLVED` | Active trade remedy but exporter/manufacturer unidentified | Residual rate assumed; operator alerted |
+| `SUPPLEMENTARY_UNIT_MISSING` | Tariff line requires supplementary units; data unavailable | Abstain on duty for that component |
+| `VALUATION_MODE_CONFLICT` | Marketplace proxy and declaration mode produce materially different duty | Flag uncertainty range |
+| `FPO_UNAVAILABLE` | HMRC FPO API unreachable | Continue with remaining recall sources; confidence penalty |
+| `TRADE_REMEDY_WATCH_STALE` | TRA investigation opened since last classification | Reclassification required |
+| `FX_RATE_MISSING` | Neither HMRC nor Xe rate available | Block landed-cost computation |
+| `FREIGHT_ESTIMATE_FAILED` | Neither Freightos nor SeaRates can quote | Use manual freight estimate; emit warning |
+
+### 3.5 Open Questions
+
+**S10 Further Research #2: Product-family-specific logistics assumptions**
+- Shipping mode depends on item class and packaging density. Need default freight-mode heuristics per target product family.
+- **L5 impact:** Directly affects freight engine mode selection defaults.
+
+**S10 Further Research #3: Chinese supplier source strategy**
+- Validate which supplier platforms can be lawfully and reliably integrated.
+- **L5 impact:** Determines operational scope of Alibaba/1688 skills.
+
+**S10 Further Research #8: Customs cost spread materiality threshold**
+- What `customsCostSpreadBps` triggers `customs_branch_divergent` blocker? 2.7%-4.7% may be tolerable; 2.7%-48.5% is clearly a blocker. Calibrate against whitelist categories.
+- **L5 impact:** Directly affects blocker logic in customs engine.
+
+**S10 Further Research #9: Packaging materials sub-category reclassification**
+- Split easy (cartons, poly mailers) vs dangerous (aluminium foil, glass, tin mill) subfamilies?
+- **L5 impact:** Determines customs engine treatment of packaging category.
+
+**S10 Further Research #10: CBAM rate integration timeline**
+- UK CBAM trial rates expected Q4 2026, full rates January 2027. When to compute non-zero `cbamEstimateGbp`?
+- **L5 impact:** Determines activation timeline for CBAM field.
+
+### 3.6 Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| HMRC FPO API access restricted | Medium | High | FPO is not hard dependency; fallback to CPV-to-HS mapping + other recall sources |
+| Anti-bot detection on Alibaba/1688 | High | Medium | Anti-bot classification; source-health canaries; auth-refresh skills; circuit breaker |
+| Customs classification wrong for complex products | Medium | Critical | Multi-source recall + conservative defaults + abstention + broker escalation |
+| Freight API rate variability | Medium | Medium | Dual-source cross-check (Freightos + SeaRates); confidence scoring |
+
+### 3.7 Forward-Compatibility
+
+- Classification freshness system enables future auto-refresh of stale classifications
+- CBAM forward placeholder ready for future regulation implementation
+- Evidence-tiered accuracy framework supports future calibration against declared outcomes
+
+### 3.8 Dependencies
+
+**Layers 0-4** (full pipeline, sync, web portal).
+
+**External accounts (from S9.3):**
+
+| Service | Type | Required |
+|---------|------|----------|
+| HMRC Trade Tariff Developer Portal | Government | Yes -- tariff API + FPO API |
+| HMRC Exchange Rate Service | Government (free) | Yes -- customs FX |
+| Xe Currency Data API | Commercial | Yes -- commercial FX |
+| Freightos | Commercial | Yes -- freight pricing |
+| SeaRates | Commercial | Yes -- freight cross-check |
+| Taric Support | Commercial | Yes -- code validation |
+| HS Ping | Commercial | Optional -- cross-check |
+| Easyship, Shippo | Commercial | Optional -- parcel-mode |
+| CurrencyBeacon, OANDA | Commercial | Optional -- backup FX |
+| Dutify, Zonos, Avalara | Commercial | Optional -- comparison only |
+
+### 3.9 ADRs Addressed
+
+| ADR | Decision | Layer 5 Action |
+|-----|----------|---------------|
+| **ADR-006** | Internal landed-cost engine | Full decision-grade scope: multi-source recall, 10-digit resolution, measure interaction, dual FX, real freight |
+| **ADR-001** | Skills as primary data retrieval | Additional marketplace skills: Alibaba, 1688, Amazon, PCS |
