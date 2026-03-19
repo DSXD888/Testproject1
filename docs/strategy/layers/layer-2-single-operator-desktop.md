@@ -487,3 +487,107 @@ Sections in the generated manifest:
 4. **No boolean prop explosion:** Use frame + slot composition, not `<Card canReject canBid readOnly showSync ... />`
 5. **View-model types shared; data-access types not shared:** `ContractCardFrameProps` is shared; `useContractsList()` is not
 6. **All monetary display from integer pence;** all percentage display from integer basis points — no floating-point formatting paths
+
+---
+
+## 3. Pipeline Surface, Coverage & Decision Capture
+
+### 3.1 Coverage Metrics — Operator-Facing Presentation
+
+> **Ownership:** L0 §3 owns the full pipeline-side derivation and production logic. Strategy §10 owns the cross-layer interface summary. This section owns **Layer 2 presentation**: thresholds, display format, and operator-facing behavior.
+
+**Coverage metric interface (compact recap for self-containment):**
+
+| Field | Type | Meaning | Denominator |
+|-------|------|---------|-------------|
+| `pricedCoverageBps` | `INTEGER` (0-10000) | Fraction of qualifying lots with >=1 priced candidate | Total qualifying lots |
+| `landedCostCoverageBps` | `INTEGER` (0-10000) | Fraction of qualifying lots with a landed cost estimate | Total qualifying lots |
+| `netQualifiedCoverageBps` | `INTEGER` (0-10000) | Fraction of qualifying lots passing the net margin gate | Total qualifying lots |
+| `unresolvedMandatoryLots` | `INTEGER` | Count of mandatory lots without resolution | N/A (absolute count) |
+| `decisionBasisHash` | `TEXT` | SHA-256 of the pipeline data the operator would review | N/A (staleness key) |
+
+Display: `bps / 100` for percentage (e.g., 7500 bps = "75.0%").
+
+**Color thresholds for `netQualifiedCoverageBps`:**
+
+| Range | Color | Label |
+|-------|-------|-------|
+| >= 7000 bps (70%+) | Green | Strong coverage |
+| 3000-6999 bps (30-69%) | Amber | Partial coverage -- review recommended |
+| < 3000 bps (< 30%) | Red | Low coverage -- manual review required |
+
+Always show both color AND text label (accessibility). Auto-qualification guard: `netQualifiedCoverageBps >= 5000` (50%) required. Desktop surfaces "Coverage below threshold" indicator when not met.
+
+### 3.2 Decision Capture -- `pending_operator_intents`
+
+Local single-operator overlay. NOT the authoritative shared decision table (that is `operator_decision_heads` in Layer 4 via CAS).
+
+**Dispositions:** `approve` | `reject` | `watch`
+
+**Decision metadata captured on every intent:**
+
+| Field | Purpose |
+|-------|---------|
+| `process_id` | Target process |
+| `disposition` | approve / reject / watch |
+| `reviewedBasisHash` | SHA-256 of pipeline data at decision time |
+| `reviewedManifestHash` | SHA-256 of the manifest reviewed |
+| `reviewedAtStageRunId` | Current `stage_run_id` at decision time |
+| `idempotencyKey` | UUID for future CAS deduplication (Layer 4) |
+| `decidedAt` | Timestamp |
+| `status` | `pending` (always in L2 -- no remote flush yet) |
+
+**Latest-per-process coalescing:** Only the latest intent per process matters. If operator changes `approve` to `reject`, the `reject` supersedes. Desktop immediately reflects the queued intent as the current decision. In L2, the local intent IS the decision. In L4, it becomes a queue entry flushed to Supabase via CAS.
+
+### 3.3 Decision Staleness Detection
+
+1. Operator decides -> `reviewedBasisHash` captured from `pipeline_assessments.decisionBasisHash`
+2. Pipeline re-runs -> `decisionBasisHash` changes
+3. Desktop compares: mismatch = **stale**
+
+**Stale decision UX:**
+- Warning indicator: "Decision may be outdated -- pipeline data changed since review"
+- Operator can re-affirm (new intent with updated hash) or change disposition
+- **Stale decisions block bid workflow** (Layer 6) -- must re-affirm first
+
+**Staleness triggers:** New/updated quotes, re-run landed cost, new documents changing candidates, relation resolution changes, any upstream change modifying `decisionBasisHash`.
+
+### 3.4 Coverage Rollup Module
+
+`packages/intelligence/src/coverage/coverage-rollup.ts` -- runtime implementation of L0 §3.14 formulas.
+
+```typescript
+interface CoverageInput {
+  lots: Array<{
+    lotId: string
+    qualificationResult: 'pass' | 'review' | 'reject'
+    isMandatory: boolean
+    candidates: Array<{
+      candidateId: string
+      hasPricing: boolean
+      hasLandedCost: boolean
+      passesNetGate: boolean
+      candidateValueShareBps: number
+    }>
+  }>
+}
+
+interface CoverageOutput {
+  pricedCoverageBps: number
+  landedCostCoverageBps: number
+  netQualifiedCoverageBps: number
+  unresolvedMandatoryLots: number
+  decisionBasisHash: string
+}
+
+function computeCoverageRollup(input: CoverageInput): CoverageOutput
+```
+
+### 3.5 Keyset Pagination
+
+All list views use **keyset/cursor pagination** (not offset). Offset causes row jumping on live updates.
+
+- Client sends: `{ after: lastSeenCursor, limit: 25, filters: {...} }`
+- Server returns: `{ items: [...], nextCursor: string | null, hasMore: boolean }`
+- Cursor encodes sort position (e.g., `created_at + id`)
+- Stable focus targets -- items don't shift while user reads
