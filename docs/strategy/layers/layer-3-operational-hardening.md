@@ -422,3 +422,199 @@ Before enforcement can be enabled in Layer 4, the dry-run system must demonstrat
 **Cross-model audit:** A subset of calibration runs should use a different model than the primary validator to detect model-specific blind spots.
 
 **Override feedback loop:** Every operator override of a validator verdict (operator approves what validator rejected, or vice versa) becomes a calibration case for the next calibration cycle.
+
+---
+
+## 3. Skill Promotion, Source Health & Relations
+
+> **Ownership:** This section owns the skill promotion flow, source health monitoring, source circuit breaker, relation resolution logic, and browser automation reliability patterns. Skill directory standard and metadata declarations are owned by L0 §4. Worker-validator system is owned by §2 above. Schema (new tables for relations/source state) is owned by §4 below.
+
+### 3.1 Six-Stage Skill Promotion Flow
+
+Every skill follows a linear promotion path. No stage can be skipped. Skills in pre-stable stages always validate regardless of declared `validation_policy`.
+
+| Stage | Entry Criteria | What Happens | Exit Criteria |
+|-------|---------------|-------------|---------------|
+| **`draft`** | Skill directory created with SKILL.md | Manual exploration via Kickoff Prompt Renderer. No scheduler binding, no pipeline state commits. Dry-run mode only. | CI lint passes (directory structure, metadata fields, schema validity). Smoke canary passes on at least one input. |
+| **`candidate`** | CI lint + smoke canaries pass | Skill runs in dry-run mode against scratch workspace. Run manifests generated but not authoritative. Validator sub-jobs always spawned. | All canary inputs produce valid result contracts. Golden assertions pass. Validator approves >=90% of runs. |
+| **`canary`** | Candidate exit criteria met | Small percentage of production traffic (or single source shard) routed to canary version. Results committed to pipeline state alongside stable results. Quality metrics compared against stable baseline. | Quality metrics within acceptable variance of stable baseline for >=20 runs. No regression on precision/recall vs gold set. Validator approval rate >=95%. |
+| **`shadow`** | Canary exit criteria met | Runs in parallel with stable version on full production traffic. Both versions produce results; only stable results are authoritative. Quality metric diff computed. | Shadow quality >= stable quality (or within configured tolerance). Fill-rate, precision, recall stable over >=50 parallel runs. |
+| **`stable`** | Shadow exit criteria met | Scheduler default. All production jobs bind this version. Results are authoritative. | Remains stable until replaced by a newer version completing the promotion path. |
+| **`rollback`** | Operator-initiated or automated quality regression detected | Scheduler rebinds the source to the prior stable version. Current stable demoted. | Rollback version verified operational. Failed version returned to candidate for investigation. |
+
+**Promotion gates include validation pass rates.** Validator approval rate is a first-class promotion gate alongside quality metrics. A skill cannot promote from canary to shadow unless the worker-validator system approves at threshold rates.
+
+### 3.2 Five Independent Version Dimensions
+
+Skill versioning tracks five dimensions independently. Only `skill_version` is manually bumped.
+
+| Dimension | What It Tracks | Bumped By | Example |
+|-----------|---------------|-----------|---------|
+| `skill_version` | SKILL.md playbook content, navigation logic, extraction rules | Manual (author edits SKILL.md) | `2026.03.15-1` |
+| `result_schema_version` | Shape of the result contract (JSON Schema) | Manual (when output fields change) | `1.2` |
+| `checkpoint_schema_version` | Shape of checkpoint payloads | Manual (when checkpoint format changes) | `1.0` |
+| `validator_overlay_version` | Domain-specific validation criteria | Manual (when rubric changes) | `2026.03.12-1` |
+| `source_structure_version` | Source website layout fingerprint | Automated (drift detection) | `fts-2026-03-19` |
+
+**Key rule:** A playbook update does NOT force a schema version bump unless the result contract shape changes. Schema migrations use dual-accept windows during transition.
+
+### 3.3 New Skills Introduced in Layer 3
+
+**Validator base skill (6 files):**
+
+| File | Purpose |
+|------|---------|
+| `skills/validation/base/SKILL.md` | Generic run manifest quality checks — narrative consistency, agent-claimed vs daemon-observed cross-check, result contract plausibility, `basis_sufficiency` assessment |
+| `skills/validation/base/result.schema.json` | Verdict output schema (`approved`/`rejected`/`flagged` with metadata) |
+| `skills/validation/base/checkpoint.schema.json` | Checkpoint schema for multi-segment validation |
+| `skills/validation/base/canary.inputs.jsonl` | Known-good and known-bad manifests for smoke testing |
+| `skills/validation/base/golden.assertions.yaml` | Invariant assertions (mutated-bad must be caught, clean-real must pass) |
+| `skills/validation/base/validator-rubric.yaml` | Distilled runtime rubric — skill semantic invariants consumed by the Validation Executor at runtime (NOT raw golden assertions injected into live prompts) |
+
+**Operational skills (4):**
+
+| Skill | Path | Purpose |
+|-------|------|---------|
+| Auth refresh (Alibaba) | `skills/auth-refresh/alibaba/` | Establish/refresh authenticated session state for Alibaba.com. Publishes auth-state handle for enrichment skills. |
+| Auth refresh (1688) | `skills/auth-refresh/1688/` | Establish/refresh authenticated session state for 1688.com. Publishes auth-state handle. |
+| Source health (FTS) | `skills/source-health/fts/` | Pre-flight canary: verify FTS reachability, page fingerprint, no challenge markers, OCDS endpoint responsive. |
+| Source health (Alibaba) | `skills/source-health/alibaba/` | Pre-flight canary: verify Alibaba reachability, geo-correctness, auth state, page fingerprint, challenge rate. |
+
+Auth-refresh skills do one thing: establish authenticated state and publish an auth-state handle. Source-health canaries run before expensive scheduled jobs to detect whether a source is reachable and not actively challenging.
+
+### 3.4 Source Health Monitoring
+
+Source-health canary skills run at higher frequency than production jobs. Each canary checks:
+
+| Check | Purpose | Failure Classification |
+|-------|---------|----------------------|
+| **Reachability** | Source responds at all | `SOURCE_UNREACHABLE` |
+| **Page fingerprint** | Expected page structure present (required anchors, no forbidden anchors) | `SOURCE_LAYOUT_CHANGED` |
+| **Auth state** | Authenticated session still valid (where applicable) | `AGENT_AUTH_CHALLENGE` |
+| **Geo/locale** | Correct locale and currency (e.g., `en-GB`, `GBP` for eBay UK) | `SOURCE_LOCALE_DRIFT` |
+| **Challenge rate** | No CAPTCHA, rate-limit, or bot-detection triggers | `SOURCE_BLOCKED` |
+| **Minimal extraction** | Can extract at least one valid item from a known query | `SOURCE_EXTRACTION_FAILED` |
+
+**Scheduling:** Source-health canaries run every 30 minutes for active sources. Production ingestion/enrichment jobs are suppressed if the most recent canary failed.
+
+### 3.5 Source Circuit Breaker
+
+Repeated challenge-class failures trigger a circuit breaker that protects the source account/IP.
+
+**Three states:**
+
+```text
+CLOSED (healthy)
+  → repeated failures → HALF_OPEN (canary-only)
+  → canary fails → OPEN (paused)
+  → canary succeeds → CLOSED
+
+HALF_OPEN
+  → canary succeeds → CLOSED
+  → canary fails → OPEN
+
+OPEN
+  → cooldown expires → HALF_OPEN
+  → manual reset → HALF_OPEN
+```
+
+| State | Allowed Jobs | Duration |
+|-------|-------------|----------|
+| `closed` | All jobs for this source | Normal operation |
+| `half_open` | Only `source-health/*` and `auth-refresh/*` canary/auth jobs | Until canary succeeds |
+| `open` | No jobs for this source | Configurable cooldown (default 2 hours), then auto-transitions to `half_open` |
+
+**Trigger criteria:** Circuit opens after N consecutive challenge-class failures (default N=3) within a time window. Challenge-class failures include: `AGENT_AUTH_CHALLENGE`, `SOURCE_BLOCKED`, `SOURCE_RATE_LIMITED`.
+
+**State persisted in:** `source_runtime_state` table (local-only — see §4 for DDL).
+
+### 3.6 Relation Resolution Engine
+
+**Module:** `packages/intelligence/src/relations/resolve-process-relations.ts`
+
+**Purpose:** Classify notice-to-process relations after normalization. Runs as stage 3 of the pipeline.
+
+**Four classifications:**
+
+| Classification | Meaning | Action |
+|---------------|---------|--------|
+| `merged_same_process` | Same OCID or explicit linked notice chain | Merge into single `ProcurementProcess`; retired ID gets `process_aliases` redirect |
+| `related_not_merged` | Framework/call-off, planning/tender, same buyer + subject but different OCIDs | Create `ProcessRelation` edge for cache sharing; keep separate processes |
+| `possible_duplicate` | High-similarity pair but not confident enough for auto-merge | Hold for operator review; create `ProcessRelation` edge |
+| `separate` | No meaningful relationship | No action |
+
+**Resolution algorithm:**
+
+1. **Hard blockers check** — contradictions that prevent merging regardless of similarity:
+   - Conflicting exact reference numbers
+   - Framework establishment vs call-off/award mismatch
+   - Explicit different OCIDs with separate-process semantics (e.g., direct award after unsuccessful competition)
+   - Incompatible stage chronology
+   - Same buyer but clearly different lot/value/reference structure
+
+2. **Exact-match rules** — deterministic classification:
+   - Same OCID → `merged_same_process`
+   - Explicit related-notice reference with plausible stage sequence → `merged_same_process`
+   - Framework/call-off relation detected → `related_not_merged`
+
+3. **Heuristic scoring** (non-blocked, non-exact pairs only):
+
+   ```
+   merge_score =
+     0.35 * reference_match
+   + 0.20 * buyer_match
+   + 0.20 * title_similarity
+   + 0.10 * cpv_overlap
+   + 0.10 * date_proximity
+   + 0.05 * value_proximity
+   ```
+
+   - >= 0.95 with no blocker → `merged_same_process`
+   - 0.75–0.94 → `related_not_merged` or `possible_duplicate` (for operator review)
+   - < 0.75 → `separate`
+
+4. **Edge creation** — `related_not_merged` pairs get a `ProcessRelation` edge enabling cache sharing of search results and listing evidence across the cluster.
+
+5. **Alias management** — when a previously published process ID is retired by a merge, write a `process_aliases` redirect so desktop/web deep links remain stable.
+
+**New tables:** `process_relations` (push-owned) and `process_aliases` (push-owned). See §4 for full DDL.
+
+**Conservative thresholds:** Default thresholds are deliberately conservative. False merges are harder to undo than false separations. The operator can manually merge `possible_duplicate` pairs.
+
+### 3.7 Anti-Bot Classification Table
+
+Per-source anti-bot difficulty rating and mitigation strategy:
+
+| Source | Anti-Bot Difficulty | Primary Challenges | Mitigation |
+|--------|--------------------|--------------------|------------|
+| **FTS** | Low | Rate limiting only | Respect rate limits; cursor-based incremental retrieval |
+| **Contracts Finder** | Low | Rate limiting, daily CSV limits | Rate-limit-aware polling; batch via daily export |
+| **PCS** | Low | Standard rate limiting | Month-based query model; respectful polling |
+| **eBay UK** | Medium | Bot detection on search, CAPTCHA on rapid access | Category-prior search (not raw keyword spam); fixed-price filter; moderate request pacing |
+| **Amazon UK** | Medium-High | Sophisticated bot detection, request fingerprinting | Alias-family queries (not specification paragraphs); session rotation; PA-API deprecated 2026-04-30 reinforces browser-first |
+| **Alibaba** | High | Auth walls, geo-detection, session fingerprinting, CAPTCHA | Auth-refresh skills; geo-correct egress; session state management; "Ready to Ship" filter reduces page depth |
+| **1688** | High | Chinese-only, heavy auth, aggressive bot detection | Auth-refresh skills; Chinese keyword clusters only; minimal page depth; primarily existence signals |
+
+### 3.8 Browser Automation Reliability Patterns
+
+**Auth persistence:** Auth-refresh skills maintain session state independently from extraction skills. Session handles are stored and reused. Extraction skills consume auth-state handles rather than owning login logic.
+
+**Readiness algorithm:** Wait for specific DOM state, not arbitrary timeouts. Every navigation step specifies:
+- Required anchors that must be present
+- Forbidden anchors that indicate error/block state
+- Maximum wait time before classifying as failure
+
+**Geo/locale drift detection:** Every browser skill checks locale and currency before extraction:
+- Expected locale (e.g., `en-GB`) verified via page language attributes
+- Expected currency (e.g., `GBP`) verified via price format or currency selector
+- Mismatch triggers `SOURCE_LOCALE_DRIFT` and skill abort (wrong-locale data is worse than no data)
+
+**Session contamination prevention:**
+- Each skill session starts with a clean browser context (no shared cookies/state from other skills)
+- Auth-refresh skills write to a dedicated auth-state store; extraction skills read from it
+- No implicit session sharing between different skill types or different sources
+
+**Page fingerprint verification:** Before extracting, prove the page is correct:
+- Required anchors present (search box, results container, expected headings)
+- Forbidden anchors absent (login form, CAPTCHA, "access denied", wrong-locale indicators)
+- This prevents "clean run, wrong page" — the most insidious failure mode because output looks schema-valid
