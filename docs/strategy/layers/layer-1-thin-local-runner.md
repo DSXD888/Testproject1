@@ -634,3 +634,287 @@ PRAGMA cache_size = -64000;          -- 64MB page cache
 - JSON1 extension for structured JSON columns
 - Type affinity: TEXT for UUIDs, INTEGER for boolean/pence/bps, TEXT for ISO-8601 timestamps
 - No `gen_random_uuid` — use application-side `uuid` crate
+
+---
+
+## 4. Skills, Run Manifests & Error Manifests
+
+### 4.1 New Skills (Layer 1)
+
+Two skills are introduced in Layer 1. Both follow the production skill directory standard established in Layer 0 §4 (SKILL.md + result.schema.json + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml).
+
+#### `skills/procurement-ingestion/fts/`
+
+| Attribute | Value |
+|-----------|-------|
+| **Purpose** | Ingest live procurement notices from Find a Tender (FTS) via browser automation |
+| **Interaction profile** | `pty_browser` — requires PTY mode (browser-driven navigation) |
+| **Model profile** | `balanced` — needs reasoning for page structure changes but not deep analysis |
+| **Input** | Cursor/watermark from `source_cursors` (last successful ingestion position) |
+| **Output** | Batch of raw OCDS notice records with structured metadata |
+| **Commit semantics** | Additive (notice batches); `continuation_required` for large result sets |
+| **Auth requirements** | None — FTS is publicly accessible under Open Government Licence |
+| **Resume strategy** | Cursor backtrack window (re-fetch small overlap to avoid record skipping) |
+
+**Skill playbook summary:**
+1. Navigate to FTS OCDS release package endpoint
+2. Verify page fingerprint before extraction
+3. Fetch notices since last cursor using `updatedFrom`, `updatedTo`, `cursor`, `limit` parameters
+4. Parse OCDS release packages into structured notice records
+5. Write checkpoints at notice batch boundaries
+6. Emit `continuation_required` if time budget reached at a safe boundary
+7. Update cursor position on success
+
+**Canary test:** Fetch 5 most recent notices; verify OCDS structure, required fields present, notice count > 0, locale correct.
+
+#### `skills/manifest-generation/`
+
+| Attribute | Value |
+|-----------|-------|
+| **Purpose** | Generate opportunity manifest from pipeline results |
+| **Interaction profile** | `contract_json` — deterministic, no browser needed |
+| **Model profile** | `balanced` — needs reasoning to synthesize narrative from pipeline data |
+| **Input** | Pipeline assessment + all candidate/quote/cost data for a process |
+| **Output** | Markdown opportunity manifest with structured metadata |
+| **Commit semantics** | Set-replacement per process |
+| **Auth requirements** | None — operates on local data only |
+| **Resume strategy** | Not applicable (single-process, fast execution) |
+
+**Skill playbook summary:**
+1. Read pipeline assessment and all supporting data for the target process
+2. Synthesize human-readable narrative: opportunity summary, candidate list, pricing evidence, margin bands, coverage metrics, blockers, confidence breakdown
+3. Compute `decisionBasisHash` (SHA-256 of the pipeline data the operator would review)
+4. Emit structured manifest with YAML frontmatter + Markdown body
+5. Store in `manifests` table row
+
+**Note:** The canonical manifest rendering logic lives in `packages/manifests` (Layer 2). In Layer 1, the skill produces a minimal local markdown artifact directly. Layer 2's `packages/manifests` package provides the shared renderer used by both desktop and web surfaces.
+
+### 4.2 Run Manifest System (Authoritative Layer 1 Definition)
+
+> **Ownership:** This is the authoritative definition of the run manifest system. Layer-strategy.md §10 carries a compact cross-layer summary. Later layers may include concise recaps for self-containment but must not redefine or contradict this contract.
+
+Every skill execution produces a **hybrid-authored run manifest** — an agent-written narrative combined with a daemon-appended evidence appendix. This is the primary input for semantic validation (Layer 3+) and operator review.
+
+#### Structure
+
+```text
+┌─────────────────────────────────────────┐
+│ YAML Frontmatter (structured metadata)  │
+├─────────────────────────────────────────┤
+│ Agent Narrative Sections                │
+│ - Summary                               │
+│ - Steps Taken                            │
+│ - Decisions Made                         │
+│ - Warnings                               │
+│ - Evidence (with claim/evidence refs)    │
+├─────────────────────────────────────────┤
+│ Daemon Evidence Appendix (< 2 KB)       │
+│ - observed_url_chain                     │
+│ - daemon_observed_fingerprint_state      │
+│ - daemon_observed_locale/currency        │
+│ - checkpoint_count, result_item_count    │
+│ - oqg_anomaly_summary                   │
+│ - artifact_refs                          │
+└─────────────────────────────────────────┘
+```
+
+**Storage:** Immutable artifact at `artifacts/sessions/YYYY/MM/<session_id>/run-manifest.md`. Path and SHA-256 hash recorded in `agent_session_logs.run_manifest_path` and `agent_session_logs.run_manifest_hash`.
+
+**Target size:** < 50 KB. The manifest is a focused narrative summary, not a log dump.
+
+#### YAML Frontmatter — Agent-Claimed Fields
+
+Self-reported by the agent. Explicitly labeled with `agent_claimed_*` prefix where ambiguity exists:
+
+```yaml
+manifest_version: "1.0"
+skill_id: "procurement-ingestion/fts"
+skill_version: "1.2.0"
+job_id: "job-uuid-here"
+session_id: "session-uuid-here"
+execution_mode: "pty"
+started_at: "2026-03-19T10:00:00Z"
+completed_at: "2026-03-19T10:05:23Z"
+outcome_class: "completed"   # completed | continuation_required | degraded_completed | blocked_human_action
+items_processed: 47
+items_skipped: 3
+items_failed: 0
+warnings_count: 1
+agent_claimed_pages_visited: 12
+agent_claimed_source_url: "https://www.find-tender.service.gov.uk/..."
+agent_claimed_fingerprint_state: "matched"    # matched | mismatched | unknown
+agent_claimed_locale_state: "matched"
+agent_claimed_currency_state: "matched"
+```
+
+#### Agent Narrative Sections
+
+Human-readable, agent-authored Markdown:
+
+- **Summary:** What the agent did and what it found.
+- **Steps Taken:** Navigation and extraction sequence.
+- **Decisions Made:** Choices the agent made during the run with reasoning.
+- **Warnings:** Anomalies, degradations, or issues encountered.
+- **Evidence:** Key evidence supporting the results, with claim/evidence references pointing to result contract fields, daemon appendix anchors, or artifact refs. Not every sentence needs a reference — major claims (correct page, correct locale, extraction completeness, pricing plausibility) should be anchored.
+
+#### Daemon Evidence Appendix
+
+Machine-authored, immutable, appended by the daemon after agent narrative. Provides externally verifiable anchors the agent cannot fabricate:
+
+| Field | Source | Purpose |
+|-------|--------|---------|
+| `observed_url_chain` | Layer 2 protocol events | Actual domains visited (independent of agent claim) |
+| `observed_page_kind_sequence` | Adapter events | Page-kind classifications from navigation |
+| `daemon_observed_fingerprint_state` | Page fingerprint check | `matched` / `mismatched` / `unknown` / `no_baseline` |
+| `daemon_observed_locale` | Protocol events / page content | Detected locale (independent of agent claim) |
+| `daemon_observed_currency` | Protocol events / page content | Detected currency |
+| `auth_challenge_events` | Layer 1 control events | Count and types of auth/challenge events |
+| `locator_fallback_depth` | Navigation events | Maximum fallback tier reached |
+| `checkpoint_count` | Layer 2 protocol events | Number of validated checkpoints |
+| `result_item_count` | Validated result contract | Item count from contract (independent of agent's claimed count) |
+| `oqg_anomaly_summary` | Output Quality Gate | Fill-rate delta, duplicate-rate delta, value-range outliers |
+| `representative_item_sample` | Result contract | IDs of median items + OQG-flagged outlier items |
+| `artifact_refs` | Artifact store | Paths and hashes for forensic drill-down |
+
+#### `agent_claimed_*` vs `daemon_observed_*` Naming Convention
+
+**Critical rule:** Self-reported fields use `agent_claimed_*`. Daemon-observed fields use `daemon_observed_*`. Fields that sound objective (e.g., `page_fingerprint_matched`, `locale_verified`) must never be ambiguous between "the agent claims it verified this" and "the daemon observed and verified this."
+
+This naming convention prevents false certainty from anchoring operators and validators. Discrepancies between agent-claimed and daemon-observed states are **high-signal issues** that validators should cross-check.
+
+#### Fallback Mode
+
+If the worker agent fails to emit a run manifest (crash, timeout, invalid output), the daemon synthesizes a **minimum machine-authored run manifest** from observability layers 1-3 alone:
+
+- Contains only the daemon evidence appendix (no agent narrative)
+- `agent_narrative_missing: true` in frontmatter
+- Ensures some structured review artifact always exists
+- Enables validators and operators to assess what happened even when the agent could not narrate
+
+The worst runs must not leave the thinnest review surface.
+
+#### Terminology Disambiguation
+
+Three things called "manifest" in this architecture:
+
+| Term | What It Is | Stored In |
+|------|-----------|-----------|
+| **Opportunity manifest** | Markdown summary of an opportunity for operator review | `manifests` table |
+| **Error manifest** | Structured pipeline failure record for debugging | `error_manifests` table |
+| **Run manifest** | Hybrid-authored narrative of what a skill run did (this system) | Artifact store, referenced from `agent_session_logs` |
+
+Always use the full term "run manifest" when referring to this concept.
+
+### 4.3 Error Taxonomy & Error Manifest System
+
+> **Ownership:** This section defines the error taxonomy framework and Layer 0-1 base error types. Customs-specific error types (`TARIFF_BRANCH_DIVERGENCE`, `MEASURE_INTERACTION_UNKNOWN`, etc.) are defined in Layer 5 §3. Validation-specific error types (`VALIDATION_FLAGGED_INSUFFICIENT_BASIS`, etc.) are defined in Layer 3 §2. This section defines the framework; later layers extend it with domain-specific codes.
+
+#### Error Categories
+
+| Category | Prefix | Scope | Examples |
+|----------|--------|-------|---------|
+| Pipeline errors | various | Data quality issues in the intelligence pipeline | `SOURCE_CHANGED`, `NOTICE_PARSE_FAILED`, `COMMODITY_CODE_LOW_CONFIDENCE` |
+| Agent errors | `AGENT_*` | Runtime failures in agent sessions | `AGENT_STALLED`, `AGENT_AUTH_CHALLENGE`, `AGENT_SUSPECT_OUTPUT` |
+| Host errors | `HOST_*` | Environment/infrastructure issues | `HOST_SLEEP_INTERRUPTED`, `HOST_RESOURCE_EXHAUSTED` |
+| Source errors | `SOURCE_*` | Source website/API issues | `SOURCE_SOFT_BLOCKED`, `SOURCE_CAPTCHA_BLOCKED`, `PAGE_SHAPE_DRIFT` |
+| Validation errors | `VALIDATION_*` | Semantic validation outcomes (Layer 3+) | `VALIDATION_REJECTED`, `VALIDATION_FLAGGED` |
+
+#### Layer 0-1 Base Error Types
+
+**Pipeline errors (active from Layer 0 intelligence pipeline):**
+
+| Code | Trigger | Action |
+|------|---------|--------|
+| `SOURCE_CHANGED` | Source website changed | Flag skill needs update; create error manifest |
+| `NOTICE_PARSE_FAILED` | Notice parse failed | Store raw payload; mark manual review |
+| `GOODS_CLASSIFICATION_LOW_CONFIDENCE` | Goods classification uncertain | Keep notice; require review |
+| `SUPPLIER_MATCH_LOW_CONFIDENCE` | Supplier match weak | Do not auto-qualify |
+| `COMMODITY_CODE_LOW_CONFIDENCE` | Commodity code uncertain | Route to manual review |
+| `REVENUE_BASIS_UNCERTAIN` | Framework ceiling or dynamic market | Margin gate uses discounted revenue |
+| `FPO_ACCESS_UNAVAILABLE` | HMRC FPO API unavailable | Skip FPO; continue with remaining recall sources; confidence penalty |
+
+**Agent errors (active from Layer 1 daemon):**
+
+| Code | Trigger | Action |
+|------|---------|--------|
+| `AGENT_STALLED` | No output or no progress for timeout | Kill process group; create error manifest |
+| `AGENT_AUTH_CHALLENGE` | Re-login, MFA, SSO, permission prompt | Flag for operator; create error manifest |
+| `AGENT_SKILL_FAILED` | Skill playbook failed at specific step | Create error manifest with skill path and step |
+| `AGENT_OUTPUT_CONTRACT_INVALID` | Output fails schema validation | Preserve transcript + artifact; fail job |
+| `AGENT_SUSPECT_OUTPUT` | Schema-valid but fails OQG semantic/drift checks | Quarantine results; keep pipeline unchanged |
+| `AGENT_PARTIAL_FAILURE` | Valid checkpoint before crash, no final contract | Persist checkpoints; never upgrade to success |
+| `AGENT_INTERNAL_ERROR` | Internal error from agent CLI | Create error manifest with trace |
+| `AGENT_RUN_FAILED` | Non-zero exit, no specific pattern | Create error manifest |
+| `AGENT_CLEANUP_INCOMPLETE` | Descendant processes leaked | Record leaked pids; flag for operator |
+| `AGENT_PROTOCOL_MISMATCH` | Unexpected CLI output format | Canary mode; create error manifest |
+
+**Source/skill errors (active from Layer 1):**
+
+| Code | Trigger | Action |
+|------|---------|--------|
+| `SOURCE_SOFT_BLOCKED` | HTTP 200 but no useful data | Capture artifacts; set source cooldown |
+| `SOURCE_CAPTCHA_BLOCKED` | Hard CAPTCHA requiring human | Emit `blocked_human_action`; alert operator |
+| `AUTH_STATE_STALE` | Session loads but privileged data missing | Trigger auth-refresh skill; retry |
+| `PAGE_SHAPE_DRIFT` | Page fingerprint mismatch | Flag skill needs review; create error manifest |
+| `LOCALE_OR_CURRENCY_DRIFT` | Wrong locale/currency/market variant | Fail fast; require config review |
+
+**Host errors (active from Layer 1):**
+
+| Code | Trigger | Action |
+|------|---------|--------|
+| `HOST_SLEEP_INTERRUPTED` | Monotonic time gap during session | Taint browser sessions; create error manifest |
+| `HOST_RESOURCE_EXHAUSTED` | Memory/CPU pressure | May preempt lower-priority sessions |
+
+#### Skill Outcome Classes (Non-Error)
+
+Not every non-success outcome is an error:
+
+| Outcome | When | Daemon Action |
+|---------|------|--------------|
+| `continuation_required` | Skill exited cleanly at safe boundary with remaining work | Accept committed results; enqueue continuation segment with resume token |
+| `degraded_completed` | Skill completed with reduced coverage/confidence | Accept results with degradation flag; apply confidence penalty |
+| `blocked_human_action` | Human intervention required (CAPTCHA, manual approval) | Alert operator; pause job; preserve session state |
+
+**Key distinction:** `continuation_required` has a valid final contract with continuation data. `AGENT_PARTIAL_FAILURE` has only prior checkpoints and no final contract.
+
+#### Error Manifest Structure
+
+Every pipeline and agent failure produces an entry in `error_manifests` table and a local Markdown artifact at `artifacts/error-manifests/YYYY/MM/<error_manifest_id>.md`.
+
+**Contents:**
+
+| Field | Description |
+|-------|------------|
+| Pipeline stage | Which stage failed (ingestion, qualification, enrichment, landed_cost, bidding) |
+| Workflow step | Specific step within the stage |
+| Error type + code | What went wrong |
+| Error message | Human-readable description |
+| Error context | Enough to debug: skill path, agent session ID, relevant data |
+| Runtime context | CLI vendor + version, adapter version, model id, config hash, skill version, pid/pgid, cleanup verdict, last valid checkpoint sequence |
+| Markdown artifact | Header, pipeline summary, redacted context, linked session artifact path, next debugging action |
+| Resolution tracking | Resolved status, by whom, when |
+
+Error manifests are debugging artifacts, not control flow. They don't drive pipeline state — they record what went wrong for operator review and debugging.
+
+### 4.4 Skill Linting CI Gate
+
+A CI gate runs on every commit that touches a skill directory. It validates compliance with the production skill directory standard (see Layer 0 §4).
+
+**Checks:**
+
+| Check | Validation |
+|-------|-----------|
+| `SKILL.md` present | File exists in skill directory root |
+| Required metadata present | `interaction_profile`, `result_schema_version`, `model_profile` fields in SKILL.md |
+| Trigger boundary sections | "Use when", "Do not use when", "Inputs", "Outputs", "Non-goals" sections in SKILL.md |
+| `result.schema.json` present | Valid JSON Schema file |
+| `checkpoint.schema.json` present | Valid JSON Schema file |
+| `canary.inputs.jsonl` present | Non-empty JSONL file |
+| `golden.assertions.yaml` present | Valid YAML file |
+| Failure codes enumerated | SKILL.md lists possible failure codes |
+| Resume strategy declared | SKILL.md describes resume behavior |
+| Unsafe side-effect boundary | Portal/bid skills declare side-effect boundary |
+| Bounded pagination/scroll rules | `maxPages`, `maxScrollCycles`, etc. present |
+| Run manifest instructions | SKILL.md includes narrative instruction block for agent |
+
+**Implementation:** `skill_lint.rs` in `crates/daemon` — a standalone validation pass that can run in CI without the full daemon.
