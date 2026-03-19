@@ -591,3 +591,101 @@ All list views use **keyset/cursor pagination** (not offset). Offset causes row 
 - Server returns: `{ items: [...], nextCursor: string | null, hasMore: boolean }`
 - Cursor encodes sort position (e.g., `created_at + id`)
 - Stable focus targets -- items don't shift while user reads
+
+---
+
+## 4. Testing & Acceptance
+
+### 4.1 Definition of Done
+
+| # | Criterion | Verification |
+|---|----------|-------------|
+| 1 | **FTS ingestion skill** scrapes live notices from Find a Tender | Automated: agent E2E test produces notices |
+| 2 | **Contracts Finder ingestion skill** scrapes live notices | Automated: agent E2E test produces notices |
+| 3 | **Notice normalization** produces canonical internal records | Automated: normalized records match expected schema |
+| 4 | **Goods/services classifier** correctly categorizes notices | Automated: unit tests for CPV-based classification |
+| 5 | **Desktop control panel** launches with QueryService + DaemonBridge + bootstrap state machine | Manual: app launches, state machine detects daemon |
+| 6 | **Notice list view** with keyset pagination displays live pipeline output | E2E: Playwright test navigates list, verifies pagination |
+| 7 | **Opportunity detail view** shows margin bands, product candidates, supplier quotes | E2E: Playwright test opens detail, verifies data |
+| 8 | **Decision capture** (reject/watch/approve) persists locally in `pending_operator_intents` with reviewed-basis metadata | E2E: Playwright test captures decision, verifies DB |
+| 9 | **Agent session monitoring** page shows live terminal output via Channel\<T\> streaming | Manual: observe live PTY output during ingestion |
+| 10 | **Coverage metrics** displayed: `pricedCoverageBps`, `netQualifiedCoverageBps` with color thresholds | E2E: verify badges render with correct colors |
+| 11 | **Decision-basis staleness** indicators flag stale decisions | Automated: re-run pipeline, verify staleness flag |
+| 12 | **Single operator** runs daily for 1 week and reports genuine opportunities surfaced | Manual: operator validation over 5-7 working days |
+
+### 4.2 Test Files
+
+| File | Type | What It Tests |
+|------|------|--------------|
+| `agent_procurement_ingestion.rs` | Agent E2E | Real FTS skill session: PTY spawn, notice extraction, result contract validation, cleanup verdict |
+| `agent_supplier_enrichment.rs` | Agent E2E | Real eBay enrichment session: search execution, quote extraction, dual confidence scoring |
+| `agent_health_detection.rs` | Agent E2E | Stall detection (no output + no progress), auth challenge detection, cleanup escalation |
+| `agent_error_manifest.rs` | Agent E2E | Error manifest creation on various failure types (skill failed, contract invalid, suspect output) |
+| `apps/desktop/e2e/contracts.spec.ts` | Browser E2E | Desktop control panel: list browsing, detail view, decision capture, session monitoring, error view |
+
+### 4.3 Test Scenarios
+
+| Scenario | Expected Behavior |
+|----------|------------------|
+| Notice with 12 lots | System processes each lot independently; detail view shows per-lot results |
+| Mixed contract with separable goods | Goods-addressable value used for margin computation, not whole contract value |
+| Expired notice | Correctly filtered; not displayed as active opportunity |
+| Agent session crashes mid-run | Error manifest created; operator sees failure context in desktop error view; cleanup verdict is `forced` |
+| Decision on process, then pipeline re-runs | Decision marked stale; warning indicator shown; bid workflow blocked |
+| DPS/Dynamic Market notice | 30-day expiry filter NOT applied; notice remains active |
+| Agent auth challenge during ingestion | `AGENT_AUTH_CHALLENGE` classified; operator alerted via desktop |
+| Daemon unavailable at desktop launch | Bootstrap state machine falls back to browse-only mode with clear banner |
+
+### 4.4 Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Source website changes break FTS/CF skills | High | Medium | Error manifest flags failures; skill update cycle; page fingerprint drift detection |
+| Desktop UX reveals pipeline quality issues | Medium | Medium | Expected -- this is why desktop comes before hardening (Layer 3). Operator feedback drives pipeline improvement. |
+| Single-source eBay pricing not representative | High | Medium | Known limitation; Layer 5 adds Alibaba/1688 for wholesale pricing |
+| QueryService read performance on large datasets | Low | Low | SQLite reads are fast; keyset pagination prevents full scans; short-lived read transactions |
+| Desktop-daemon IPC failure | Medium | Medium | Bootstrap state machine detects failure; browse-only fallback; reconnect overlay |
+
+---
+
+## 5. Open Questions, Forward Compatibility & Dependencies
+
+### 5.1 Open Questions
+
+**§10 Further Research #5: Auto-qualification coverage floor calibration**
+- Default `process_coverage_floor_bps` is 5000 (50%). May be too aggressive for mixed contracts with many service lots.
+- **Layer 2 impact:** Affects coverage rollup thresholds and auto-qualification guard in the desktop UI.
+
+**§10 Further Research #1: Exact procurement source list by commercial importance**
+- Which portals matter for daily operator value beyond FTS and Contracts Finder?
+- **Layer 2 impact:** Determines whether PCS or other sources should be added before Layer 5.
+
+### 5.2 Forward-Compatibility Provisions
+
+| Provision | What Exists in L2 | Target Layer |
+|-----------|-------------------|-------------|
+| Bootstrap state machine health modes | Detects daemon-unavailable; browse-only fallback | Layer 4: three-state degraded UX (healthy/degraded/offline with distinct sync/daemon states) |
+| `packages/ui` frame + slot pattern | 5 components shared between desktop and web | Layer 4: web viewing portal uses same components |
+| Coverage metrics on `pipeline_assessments` | Populated and displayed in desktop | Layer 4: sync projections push these to Supabase |
+| `stage_run_id` on all stage outputs | Populated from Layer 1 | Layer 4: sync batch boundaries use `stage_run_id` |
+| CAS payload on `pending_operator_intents` | `process_id`, disposition, reviewed-basis metadata, idempotency key | Layer 4: remote-owned `operator_decision_heads` with CAS flush |
+
+### 5.3 Dependencies
+
+- **Layer 0:** Intelligence pipeline, skills (5 initial), contracts-schema, SQLite schema
+- **Layer 1:** Daemon runtime, artifact capture, process-group supervision, run manifests, error manifests
+
+**Desktop configuration (from §9.2):**
+
+| Config File | Purpose |
+|-------------|---------|
+| `apps/desktop/src-tauri/capabilities/default.json` | Allowed shell/sidecar commands only |
+| `apps/desktop/src-tauri/tauri.conf.json` | Sidecar and desktop build configuration |
+
+### 5.4 ADRs Addressed
+
+| ADR | Decision | Layer 2 Action |
+|-----|----------|---------------|
+| **ADR-003** | Tauri v2 + separate daemon (not embedded) | Desktop shell created with QueryService + DaemonBridge architecture |
+| **ADR-008** | Desktop = control panel (full read/write/trigger) | Full operator surface: list, detail, decide, trigger, monitor |
+| **ADR-001** | Skills as primary data retrieval | FTS + Contracts Finder ingestion skills live |
