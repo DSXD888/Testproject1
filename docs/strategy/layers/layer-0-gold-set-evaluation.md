@@ -1068,3 +1068,580 @@ These input/output contracts between stages are established in Layer 0 and must 
 | gross_gate → landed_cost | CandidatePricingAssessment: selected quote, revenue basis, confidence gates | grossMarginBps, selected quote |
 | landed_cost → net_gate | `LandedCostEstimate` anchored to candidate + quote | netMarginLowPct/BasePct/HighPct, blockers |
 | net_gate → manifest | Process-level rollup with coverage metrics | Coverage-aware qualification |
+
+---
+
+## 4. Skills & Skill Authoring Standard
+
+### 4.1 Architecture Role
+
+Skills are the **primary data retrieval mechanism** for the platform. All procurement data and supplier pricing is collected via skill-based agent scraping with browser automation. Instead of maintaining API client packages for each data source, the platform maintains skills — versioned directory assets that are easier to maintain, upgrade, and change than traditional API clients.
+
+**Architecture distinction:**
+
+- **Skills define:** How the agent behaves when scraping a source, what data to extract, how to handle errors, and what execution mode they require.
+- **Daemon defines:** When to run which skill, what job state to track, retry logic, scheduling, sync, and which skill version to bind.
+- **Orchestration stays in the daemon:** The daemon creates sessions (PTY or contract mode via the adapter), selects skills by explicit binding, monitors execution, validates result contracts, stores results in SQLite, and syncs to Supabase.
+- **Adapter mediates:** The Agent Adapter layer handles vendor-specific launch, structured output parsing, health classification, and capability probing — insulating the daemon from CLI version changes.
+
+These boundaries are formalized in **ADR-005**.
+
+**Terminology:** In this document, **skill** means the versioned directory asset bound to a job, while **skill playbook** means the human-readable instructions inside that skill's `SKILL.md`.
+
+### 4.2 Production Skill Directory Standard
+
+A production skill is not "just `SKILL.md`." The maintained unit is the **skill directory**: `SKILL.md` plus supporting artifacts that operationalize the skill as a contract.
+
+**Required files for production-bound skills:**
+
+| File | Purpose | Format |
+|------|---------|--------|
+| `SKILL.md` | Human-readable playbook — the primary authoring artifact. Contains trigger boundaries, navigation strategy, extraction validation, per-item evidence rules, checkpoint unit, and outcome classes. | Markdown |
+| `result.schema.json` | JSON Schema for the final result contract. The daemon validates every skill output against this. | JSON Schema draft-07 |
+| `checkpoint.schema.json` | JSON Schema for checkpoint payloads. Checkpoints align to idempotency units (notice batch, candidate-source pair, document, lot), not browser state. | JSON Schema draft-07 |
+| `canary.inputs.jsonl` | Small set of known inputs for smoke testing. Used by the CI canary gate and the live smoke canary harness. | JSONL — one input per line |
+| `golden.assertions.yaml` | Invariant-based assertions for golden journey tests. Each assertion specifies a condition that must hold on the skill's output for the corresponding canary input. | YAML |
+
+**Optional supporting files:**
+
+| File | Purpose |
+|------|---------|
+| `scripts/` | Deterministic helper code for validation, normalization, field extraction, query fingerprinting. Rule: **if the same input should always produce the same intermediate check or normalization, that part belongs in deterministic helper code, not in model prose.** |
+| `references/` | Source notes, screenshots of expected page layouts, challenge fingerprints |
+| `validator-rubric.yaml` | Distilled runtime rubric consumed by the Validation Executor at runtime (Layer 3+) |
+| `validator-overlay.md` | Co-located override for domain-specific validation criteria when a shared overlay package under `skills/validation/*` is not sufficient |
+
+**When markdown-only is enough:** Instruction-only skills suffice for short, non-authenticated, non-resumable tasks where correctness is obvious from the final artifact (e.g., manifest narrative synthesis, simple qualification checks).
+
+**When deterministic helpers are needed:** The moment a skill requires any of the following, prose instructions alone are insufficient:
+
+- Auth/session state reuse
+- Resumability from checkpoints
+- Deterministic field validation or normalization
+- Stable query fingerprinting
+- Challenge classification
+- Field-level evidence extraction
+- Canary assertions that must be bit-exact
+
+### 4.3 SKILL.md Structure & Metadata
+
+Every skill declares metadata that the daemon uses for execution planning:
+
+| Field | Purpose | Values |
+|-------|---------|--------|
+| `interaction_profile` | Execution mode selection | `pty_interactive` (browser automation, interactive flows) or `headless_contract` (structured JSON/JSONL I/O, no browser) |
+| `result_schema_version` | Result contract versioning | Semantic version (e.g., `1.0`) |
+| `auth_requirements` | What credentials the agent needs | `browser_session`, `api_key`, `none` |
+| `browser_required` | Whether the skill needs browser automation | `true` / `false` |
+| `max_concurrency` | Maximum concurrent sessions for this skill's source | Integer (e.g., `1`) |
+| `expected_duration` | Typical runtime for resource planning | Duration string (e.g., `5m`, `30m`) |
+| `model_profile` | Model capability tier for daemon-side model selection (see §4.7) | `browse_stable_low_cost`, `structured_extract_low_cost`, `ambiguous_match_high_reasoning`, `portal_form_high_reliability` |
+| `egress_profile` | Expected network egress for geo-sensitive skills | `uk_residential`, `cn_exit`, `default` |
+| `validation_policy` | When semantic validation runs for this skill (Layer 3+) | `always`, `sample`, `trigger`, `skip` |
+| `validation_sample_rate` | Base sample rate when policy is `sample` (risk factors increase effective rate) | Float (e.g., `0.1` = 10%) |
+| `validation_triggers` | Conditions that force validation regardless of policy | `fill_rate_drop > 0.2`, `first_run_after_version_change`, `suspect_output_in_last_5`, `source_health_amber_or_red`, `page_fingerprint_unknown`, `continuation_chain_length > 1`, `high_value_opportunity` |
+| `validator_overlay_compatible_versions` | Worker behavior-version range the current validator overlay was authored against | Version range (e.g., `>= 2026.03.12-1, < 2026.04.01`) |
+
+Skills that declare `interaction_profile: headless_contract` must also declare a `result_schema_version` that the daemon uses for result contract validation.
+
+**Validation policy** is declared per-skill in skill metadata, not in daemon config. This preserves plug-and-play composability: adding validation to a skill requires only setting the `validation_policy` field and binding a compatible validator overlay package — either a shared overlay under `skills/validation/*` or a co-located `validator-overlay.md` for source-specific exceptions. No daemon code changes, schema changes, or recompilation required. Skills in draft/candidate/canary/shadow stages always validate regardless of declared policy.
+
+**Validator compatibility:** Worker skills binding a validator overlay must declare `validator_overlay_compatible_versions`. The Validation Policy Engine checks compatibility before allowing enforcement mode for a given slice (worker skill x source x worker version x validator overlay version). If the worker's behavior version is outside the overlay's compatible range, the engine demotes that slice to dry-run or flag-only mode. No compatibility declaration = no enforcement (dry-run only).
+
+**Independent version dimensions:**
+
+| Dimension | What It Tracks | When It Bumps |
+|-----------|---------------|---------------|
+| `skill_version` | Playbook instructions and behavior | Any change to SKILL.md or scripts/ |
+| `result_schema_version` | Final result contract shape | Contract-breaking changes to result.schema.json |
+| `checkpoint_schema_version` | Checkpoint payload shape | Changes to checkpoint.schema.json |
+| `validator_version` | Output quality validation logic | Changes to golden.assertions.yaml or validation scripts |
+| `normalizer_version` | Deterministic data cleanup/normalization | Changes to normalization helpers in scripts/ |
+
+A playbook update does not force a schema version bump unless the contract shape changes. This separation enables identifying whether a regression came from the playbook, the schema, or the validator.
+
+### 4.4 Skill Authoring Guide (8 Questions)
+
+Every production skill answers eight questions explicitly in its `SKILL.md`. Vague trigger boundaries are the single largest source of skill unreliability.
+
+**1. Trigger Boundary**
+
+Every `SKILL.md` includes:
+
+- **Use when:** conditions under which this skill is appropriate
+- **Do not use when:** explicit exclusions and non-goals
+- **Inputs expected:** schema reference, required context, cursor/resume data
+- **Outputs promised:** result contract shape, artifact types
+- **Known non-goals:** what this skill explicitly does not attempt
+
+**2. Page Fingerprint**
+
+Before extracting, the skill proves the page is the page it expects:
+
+| Check | Purpose | Example |
+|-------|---------|---------|
+| Required anchors | Prove correct page loaded | Search box present, results container, at least one result card |
+| Forbidden anchors | Detect blocks or wrong page | Login form, CAPTCHA text, "verify you are human," "access denied" |
+| Expected locale | Prevent locale drift | `en-GB` |
+| Expected currency | Prevent currency contamination | `GBP` |
+| Expected persona/auth state | Verify correct account | Logged in as expected, or anonymous where expected |
+| Expected page kind | Distinguish result types | Search results vs category page vs detail page |
+
+This stops "clean run, wrong page" failures — the most insidious failure mode because the output looks schema-valid.
+
+**3. Navigation Strategy**
+
+Tiered locator strategy (Playwright best-practice model — prefer user-facing locators with auto-waiting/actionability checks; raw CSS/XPath only as last fallback):
+
+1. **Semantic locator** (role, label, accessible name) — preferred
+2. **Anchored relative locator** (relative to a stable landmark)
+3. **Text/content fallback** (visible text matching)
+4. **CSS/XPath escape hatch** (fragile, last resort)
+
+Every navigation step specifies: **Goal** (what it accomplishes), **Proof** (verification the step succeeded), **Fallback** (alternative if primary locator fails), **Abort condition** (when to stop trying and classify the failure), **Checkpoint rule** (whether completing this step is a valid checkpoint boundary).
+
+**4. Overlay and Interrupt Handling**
+
+- **Predictable overlays** (cookie consent, login prompts on known pages): explicit step in the normal flow — handle as part of expected page state, not as exception
+- **Unpredictable overlays** (surveys, promotional interstitials, A/B test popups): handled via known overlay handler map. Each handler specifies detection pattern and dismissal action
+- Every handler invocation increments a metric
+- Repeated handler invocations in one run (>3 same type) raise a suspicion signal
+
+**5. Extraction Validation** (three code-based layers)
+
+| Layer | What It Checks | Examples |
+|-------|---------------|---------|
+| **Syntactic** | Required fields present, types valid, URLs parse to expected domains, schema matches `result.schema.json` | Missing fields, wrong types, invalid URLs |
+| **Semantic** | Business invariants hold | Deadline after publication, currency consistent with locale, source IDs unique in batch, price/unit plausible, lot values sum correctly, quantity x unit price within range |
+| **Behavioral/drift** | Statistical envelope checks against historical norms | Null-rate spike (extraction breakage), duplicate rate spike (pagination loop), result count collapse, page fingerprint hash divergence, locator fallback depth increase (DOM structure change) |
+
+These three code-based layers are enforced by the **Output Quality Gate** (OQG). Contextual errors invisible to code (wrong page with valid-looking data, Scottish notices from England-only source, consumer vs industrial pricing) are caught by the semantic validator (Layer 3+). OQG signals feed INTO the validator as inputs (via daemon evidence appendix), not compete with it.
+
+**6. Per-Item Evidence**
+
+Every extracted business item (notice, quote, document reference, product candidate) carries evidence:
+
+| Field | Purpose |
+|-------|---------|
+| `sourceUrl` | Exact URL the data was extracted from |
+| `rawTextFragments` | Key text snippets used for extraction (not full page HTML) |
+| `captureTimestampUtc` | When the extraction occurred |
+| `pageFingerprint` | Hash of the page fingerprint at extraction time |
+| `normalizationVersion` | Version of the normalization logic applied |
+| `evidenceSnippet` | Human-readable excerpt for debugging |
+| `artifactPointer` | Reference to forensic session artifact if deeper inspection needed |
+| `itemDigest` | Content hash of the normalized record for deduplication and change detection |
+
+**7. Checkpoint Unit**
+
+Checkpoints align to the **idempotency unit** of the business operation, not browser state:
+
+| Skill Type | Durable Unit | Checkpoint Cadence | Resume Token |
+|------------|-------------|-------------------|--------------|
+| Procurement ingestion | Notice batch / source page | Every page or every 25 notices | `last_source_notice_id`, `cursor_value` |
+| Supplier enrichment | Candidate-source pair | After shortlist complete, then after normalized quotes | `candidate_id`, `query_fingerprint`, `after_listing_id` |
+| Document acquisition | Document | Per downloaded document | `document_checksum`, `document_url` |
+| Lot/product extraction | Lot or document | Per lot/document processed | `lot_id`, `document_id` |
+| Bid portal automation | Verified save boundary | After each server-verified save/upload | `last_verified_portal_section`, `form_checkpoint_id` |
+
+**Bad checkpoint units** (browser state, non-resumable): DOM element index, scroll pixel count, current tab number, "I clicked something."
+
+Resume tokens are business-level identifiers. On resume, the daemon injects the resume token into the kickoff prompt so the agent can skip already-committed work.
+
+**Concrete checkpoint format:**
+
+```json
+{
+  "schema_version": "1.0",
+  "job_id": "job-123",
+  "skill_id": "supplier-price-enrichment/alibaba",
+  "skill_version": "2026.03.12-4",
+  "seq": 12,
+  "kind": "candidate_source_batch",
+  "stage": "shortlist_complete",
+  "resume_from": {
+    "candidate_id": "cand-7",
+    "query_fingerprint": "qf-abc",
+    "after_listing_id": "listing-443"
+  },
+  "progress": { "units_total": 5, "units_done": 3 },
+  "payload_ref": "artifact://session/.../cp-12.json",
+  "payload_digest": "sha256:..."
+}
+```
+
+Daemon acceptance rules: schema valid, monotonic `seq`, skill/job identity match, digest valid, resume token present when required, idempotency keys valid, payload stored before checkpoint accepted.
+
+**Resume logic examples:**
+
+- **45/50 notices ingested, then website errors:** Keep the 45 if each batch was durably checkpointed. Resume from last committed cursor with small overlap/backtrack window. Do not restart from scratch unless cursor semantics are broken.
+- **3/5 product prices found before failure:** Keep the 3 if durable unit is candidate-source pair. Retry only the 2 missing units. Do not discard committed quotes because a later unit failed.
+- **Bid portal failed after upload but before submit:** Resume only if last safe boundary was server-verified. If any chance the submit boundary was crossed, enter **verify-only** mode first.
+
+**8. Outcome Classes**
+
+Skills return one of six standard outcome classes (not binary success/failure):
+
+| Status | Meaning | Daemon Action |
+|--------|---------|--------------|
+| `completed` | Full scope finished, all validation passed | Accept results, advance stage |
+| `degraded_completed` | Partial but usable results with quality warnings | Accept with degradation flag, surface warnings |
+| `continuation_required` | Clean exit at safe boundary with remaining work | Accept committed results, enqueue continuation segment |
+| `blocked_human_action` | Human intervention required (CAPTCHA, MFA, manual approval) | Emit appropriate error code, alert operator |
+| `suspect_output` | Schema-valid output that failed semantic or drift validation | Quarantine results, do not promote to pipeline, surface for review |
+| `failed` | Unrecoverable error with specific failure code | Create error manifest, apply retry/cooldown policy |
+
+The `failed` status carries structured failure metadata:
+
+```json
+{
+  "status": "failed",
+  "failure_code": "PAGE_SHAPE_DRIFT | AUTH_STATE_STALE | SOURCE_CAPTCHA_BLOCKED | SOURCE_SOFT_BLOCKED | LOCALE_OR_CURRENCY_DRIFT | AGENT_OUTPUT_CONTRACT_INVALID | ...",
+  "retry_advice": "step_retry | session_retry | cooldown | resume | manual | none",
+  "cooldown_seconds": 0,
+  "resume_from": {},
+  "warnings": []
+}
+```
+
+The critical distinction: `continuation_required` means a long-running skill hit its time budget after 45 notices — not a failure. It emits a valid final contract with continuation data, and the Job Runner automatically enqueues the next segment using the emitted resume token. Crashes with only prior checkpoints remain `AGENT_PARTIAL_FAILURE`. Clean exits with continuation contract are a different, healthy class.
+
+### 4.5 Skill Categories
+
+The platform requires skills across six categories:
+
+**Category 1 — Procurement Ingestion Skills** (agent scrapes procurement sources via browser):
+
+| Skill | Target | Layer | `interaction_profile` | `model_profile` |
+|-------|--------|-------|-----------------------|-----------------|
+| `procurement-ingestion/fts` | Find a Tender | L1 | `pty_interactive` | `browse_stable_low_cost` |
+| `procurement-ingestion/contracts-finder` | Contracts Finder | L2 | `pty_interactive` | `browse_stable_low_cost` |
+| `procurement-ingestion/pcs` | Public Contracts Scotland | L5 | `pty_interactive` | `browse_stable_low_cost` |
+
+**Category 2 — Supplier Price Enrichment Skills** (agent scrapes marketplaces via browser):
+
+| Skill | Target | Layer | `interaction_profile` | `model_profile` |
+|-------|--------|-------|-----------------------|-----------------|
+| `supplier-price-enrichment/ebay` | eBay UK | L0 | `pty_interactive` | `browse_stable_low_cost` |
+| `supplier-price-enrichment/amazon` | Amazon UK | L5 | `pty_interactive` | `browse_stable_low_cost` |
+| `supplier-price-enrichment/alibaba` | Alibaba.com | L5 | `pty_interactive` | `browse_stable_low_cost` |
+| `supplier-price-enrichment/1688` | 1688.com | L5 | `pty_interactive` | `browse_stable_low_cost` |
+
+**Category 3 — Intelligence Pipeline Skills** (agent performs extraction and classification):
+
+| Skill | Purpose | Layer | `interaction_profile` | `model_profile` |
+|-------|---------|-------|-----------------------|-----------------|
+| `document-acquisition` | Download tender documents from notice source portals | L0 | `pty_interactive` | `browse_stable_low_cost` |
+| `lot-extraction` | Extract lot structure from unstructured documents | L0 | `headless_contract` | `structured_extract_low_cost` |
+| `product-extraction` | Extract product candidates with candidateType and structured slots | L0 | `headless_contract` | `structured_extract_low_cost` |
+| `preliminary-qualification` | Classify goods/services/works/mixed for ambiguous cases | L0 | `headless_contract` | `ambiguous_match_high_reasoning` |
+
+**Category 4 — Workflow Skills** (agent performs workflow actions):
+
+| Skill | Purpose | Layer | `interaction_profile` | `model_profile` |
+|-------|---------|-------|-----------------------|-----------------|
+| `manifest-generation` | Fill narrative sections for opportunity manifests | L1 | `headless_contract` | `structured_extract_low_cost` |
+| `bid-portal-*` | Portal-specific bid preparation and submission | L6 | `pty_interactive` | `portal_form_high_reliability` |
+
+**Category 5 — Operational Skills** (maintain source health and authentication):
+
+| Skill | Purpose | Layer |
+|-------|---------|-------|
+| `auth-refresh/alibaba` | Establish or refresh Alibaba authenticated session state, publish auth-state handle | L3 |
+| `auth-refresh/1688` | Establish or refresh 1688 authenticated session state, publish auth-state handle | L3 |
+| `source-health/<source>` | Pre-flight canary: verify reachability, geo-correctness, auth state, page fingerprint, challenge rate | L3 |
+
+Auth-refresh skills do one thing: establish or refresh authenticated state and publish a new auth-state handle. They isolate login complexity from extraction complexity. Source-health canary skills run before expensive scheduled jobs to detect whether a source is reachable, geo-correct, authenticated (if needed), and not actively challenging — if health is red, the daemon skips the big job.
+
+**Category 6 — Validator Skills** (agent reviews run manifests for semantic quality):
+
+| Skill | Purpose | Layer |
+|-------|---------|-------|
+| `validation/base` | Generic run manifest quality checks: completeness, consistency, cross-check agent-claimed fields against daemon-observed evidence appendix, assess `basis_sufficiency` | L3 |
+| `validation/procurement-ingestion` | Procurement-specific overlay: verify OCID structure, date ranges, notice types, detect cross-source contamination | L4 |
+| `validation/supplier-enrichment` | Supplier-specific overlay: verify pricing plausibility, currency consistency, locale correctness, detect wrong-market data | L4 |
+| `validation/document-acquisition` | Document acquisition overlay: verify document types, non-empty content, correct format | L4 |
+| `validation/product-extraction` | Product extraction overlay: verify candidate plausibility given lot descriptions, detect fabricated structured data | L4 |
+
+Validator skills read the worker's hybrid-authored run manifest (agent narrative + daemon evidence appendix with machine-observed facts) and render a verdict (`approved`, `rejected`, `flagged`) with verdict metadata including `basis_sufficiency` and `enforcement_eligible`. They use `headless_contract` mode with `structured_extract_low_cost` model profile. Base validator criteria apply to all runs; domain-specific criteria come from the bound validator overlay.
+
+**Boundary note:** There is intentionally no `validation/landed-cost` overlay because the landed-cost engine is deterministic and API-based. If it becomes skill-executed in the future, it adopts the same overlay pattern.
+
+**OQG vs semantic validation:** The Output Quality Gate performs three code-based validation layers (syntactic, semantic, behavioral/drift). Validator skills perform a fourth layer: agent-based semantic validation — catching contextual errors invisible to code. OQG signals feed INTO the validator as inputs (via daemon evidence appendix and anomaly-stratified result contract sample), not compete with it.
+
+### 4.6 Layer 0 Skills (5 Initial Skills)
+
+These 5 skills are authored in Layer 0 with complete production directory structure. Each contains all 5 required files: `SKILL.md`, `result.schema.json`, `checkpoint.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`.
+
+#### 4.6.1 `skills/document-acquisition/`
+
+| Field | Value |
+|-------|-------|
+| **Purpose** | Navigate to notice source portal, identify and download tender specification PDFs, pricing schedules, BoQ spreadsheets, and lot documents |
+| **`interaction_profile`** | `pty_interactive` |
+| **`model_profile`** | `browse_stable_low_cost` |
+| **`auth_requirements`** | `none` (FTS/CF are public portals) |
+| **Inputs** | Notice URL, expected document types |
+| **Outputs** | Downloaded documents stored as artifacts, `TenderDocumentSet` with document roles and completeness |
+| **Checkpoint unit** | Per downloaded document (`document_checksum`, `document_url`) |
+| **L0 scope** | **STUBBED** — gold-set documents are pre-curated. No live source interaction until Layer 1. |
+
+#### 4.6.2 `skills/lot-extraction/`
+
+| Field | Value |
+|-------|-------|
+| **Purpose** | Parse unstructured lot descriptions from tender documents when OCDS lot data is absent. Extract lot number, title, description, estimated value, CPV codes. |
+| **`interaction_profile`** | `headless_contract` |
+| **`model_profile`** | `structured_extract_low_cost` |
+| **`auth_requirements`** | `none` |
+| **Inputs** | Tender document text/parsed content, notice metadata |
+| **Outputs** | Structured `NoticeLot` entities with `lot_cpv_codes` junction records |
+| **Checkpoint unit** | Per lot/document processed (`lot_id`, `document_id`) |
+
+#### 4.6.3 `skills/product-extraction/`
+
+| Field | Value |
+|-------|-------|
+| **Purpose** | Extract product candidates from lot text/documents. Identify items, classify `candidateType`, extract structured slots (headNoun, unit, quantity, specification), decompose bundles, assign `matchArchetype`. |
+| **`interaction_profile`** | `headless_contract` |
+| **`model_profile`** | `structured_extract_low_cost` |
+| **`auth_requirements`** | `none` |
+| **Inputs** | Lot descriptions, document context |
+| **Outputs** | `ProductCandidate` entities per lot with `lotId` (required NOT NULL), `headNoun`, `identityConfidenceBps`, `candidateType`, `matchArchetype`, `candidateValueShareBps` |
+| **Checkpoint unit** | Per lot/document processed (`lot_id`, `document_id`) |
+
+#### 4.6.4 `skills/preliminary-qualification/`
+
+| Field | Value |
+|-------|-------|
+| **Purpose** | Classify goods/services/works/mixed for notices where deterministic CPV/expiry/category rules leave ambiguity. Analyze notice text only when needed. |
+| **`interaction_profile`** | `headless_contract` |
+| **`model_profile`** | `ambiguous_match_high_reasoning` |
+| **`auth_requirements`** | `none` |
+| **Inputs** | Notice text, CPV codes, prior classification signals |
+| **Outputs** | `QualificationResult` with goods/services/works/mixed classification, reasoning, confidence |
+| **Checkpoint unit** | Per notice |
+
+#### 4.6.5 `skills/supplier-price-enrichment/ebay/`
+
+| Field | Value |
+|-------|-------|
+| **Purpose** | Search eBay UK for matching supplier listings. Extract pricing, seller info, shipping, condition, specification fields. |
+| **`interaction_profile`** | `pty_interactive` |
+| **`model_profile`** | `browse_stable_low_cost` |
+| **`auth_requirements`** | `none` (eBay browsing is public) |
+| **`egress_profile`** | `uk_residential` |
+| **Inputs** | `SearchProfile` with query waves, `ProductCandidate` identity fields |
+| **Outputs** | `SupplierQuote` entities per candidate-source pair with `matchConfidenceBps`, `quoteUsabilityConfidenceBps`, `priceSignalRole` |
+| **Checkpoint unit** | Candidate-source pair (`candidate_id`, `query_fingerprint`, `after_listing_id`) |
+| **Budget declarations** | `maxPages: 5`, `maxScrollCycles: 3`, `maxDetailPageVisits: 10`, `maxQueryVariants: 3`, `targetConfidentHits: 3`, `timeBudgetMinutes: 10` |
+
+### 4.7 Model Profile Abstraction
+
+Skills declare a `model_profile` instead of a vendor-specific model string. The daemon maps the profile to the current best-fit model. This allows model upgrades without touching skill files, enables A/B testing of model assignments, and concentrates cost optimization in one place.
+
+| Profile | Use Case | Optimization |
+|---------|----------|-------------|
+| `browse_stable_low_cost` | Procurement ingestion, document acquisition, simple navigation | Cheapest model that can follow browser playbooks reliably |
+| `structured_extract_low_cost` | Lot extraction, product extraction, field normalization, validator skills | Cheapest model with strong structured output |
+| `ambiguous_match_high_reasoning` | Borderline product matching, qualification of mixed contracts | Premium model for reasoning-heavy adjudication |
+| `portal_form_high_reliability` | Bid portal form filling, submission preparation | Premium model where errors have operational consequences |
+
+### 4.8 Skill Composition Rules
+
+Skills can compose conceptually, but a production skill must not recursively invoke other skills inside one opaque session. Uncontrolled sub-skill recursion breaks cost attribution, resume logic, and debugging.
+
+Two composition paths:
+
+1. **Intra-skill composition** — Shared references/scripts within the skill directory: deterministic helper scripts in `scripts/` and reference documents in `references/` loaded into the agent's context.
+2. **Inter-skill composition** — Daemon-orchestrated sub-jobs: when a workflow requires multiple skill invocations (e.g., auth-refresh before enrichment, document acquisition before product extraction), the daemon orchestrates them as separate jobs with independent result contracts and observability.
+
+The daemon owns composition sequencing. Skills are leaf-level execution units.
+
+### 4.9 Browser Automation Reliability Patterns
+
+#### Anti-Bot, CAPTCHA, and Rate Limit Classification
+
+Skills classify blocks and apply the appropriate response — they do not "try harder":
+
+| Condition | Immediate Action | Auto Retry |
+|-----------|-----------------|------------|
+| Navigation timeout before page fingerprint | Retry same step | 2 times: 5s then 20s backoff |
+| Repeated timeout with no challenge markers | Restart clean session | 1 restart, then fail |
+| Soft block / challenge page / empty shell | Capture artifacts, report `SOURCE_SOFT_BLOCKED` | No retry, set source cooldown |
+| Hard CAPTCHA / MFA | Emit `blocked_human_action` with artifacts | None — requires human |
+| Auth expired | One rehydrate attempt from stored auth state | 1 attempt, then `AUTH_STATE_STALE` |
+| Geo / locale mismatch | Fail fast with `LOCALE_OR_CURRENCY_DRIFT` | None — requires different egress |
+| Empty results with valid page fingerprint | Record as legitimate empty result set | None — valid business outcome |
+
+The daemon backs this with a **source circuit breaker**: three challenge-class events in a rolling 30-minute window open the circuit for that source, set cooldown in `source_runtime_state`, and suppress normal extraction jobs. During cooldown, only `auth-refresh/*` and `source-health/*` can run until a canary clears the source.
+
+#### Authentication Persistence
+
+Per-session browser isolation is the correct baseline. Re-authenticating from scratch every session is not.
+
+1. Maintain **source-scoped auth state** per persona/account, managed by dedicated `auth-refresh/<source>` skills
+2. Inject stored auth state (cookies, local storage, IndexedDB snapshot) into fresh isolated browser context at session start
+3. Verify logged-in identity before extraction — if persona wrong or auth stale, fail fast with `AUTH_STATE_STALE`
+4. On auth expiry mid-run, attempt one rehydrate. If rehydrate fails, emit `blocked_human_action`
+5. Auth-refresh skills publish new auth-state handles that enrichment skills consume — isolating login complexity from extraction complexity
+
+For multi-account sources (e.g., multiple Alibaba accounts), concurrent runs use unique accounts to avoid session interference.
+
+#### Dynamic Content and Infinite Scroll
+
+Never use "wait N seconds" as primary readiness strategy. Use a readiness algorithm:
+
+1. Page fingerprint passes (required anchors present, forbidden absent)
+2. First result card visible and content-populated (not skeleton loader)
+3. Capture visible item IDs/titles
+4. Wait/scroll once
+5. Compare visible item IDs with previous capture
+6. Stop when no new IDs across two consecutive scroll cycles, or max scroll budget hit
+
+Skills declare: `maxScrollCycles` (hard cap), `maxDetailPageVisits` (drill-down cap), `stopCondition` ("no new IDs twice" or equivalent), `skeletonTimeout` (skeleton loaders with no content change -> `PAGE_SHAPE_DRIFT`).
+
+#### Geo-Restriction and Locale Drift
+
+Every browser skill asserts at run start: expected country, expected currency, expected language, expected signed-in persona (if authenticated), expected seller/market variant. If any assertion fails, fail fast with `LOCALE_OR_CURRENCY_DRIFT`.
+
+The `egress_profile` in source config controls egress routing. Skills **detect and report** geo mismatch; the daemon/source config **decides** egress routing.
+
+#### Session Contamination Prevention
+
+- Isolated browser context per session (no shared live profiles across concurrent sessions)
+- Isolated downloads directory per session
+- Persona verification at run start (not assumed from profile contents)
+- Cache keys include persona + locale + currency + egress profile (not just source + query)
+- Stable fingerprints preferred over randomized — for production automation, boring is safer than stealthy
+
+### 4.10 Cost Efficiency Patterns
+
+**Budget declarations** — every browser skill declares:
+
+| Budget | Purpose | Example |
+|--------|---------|---------|
+| `maxPages` | Hard cap on paginated navigation | `10` |
+| `maxScrollCycles` | Hard cap on infinite scroll iterations | `5` |
+| `maxDetailPageVisits` | Cap on detail-page drill-downs | `15` |
+| `maxQueryVariants` | Cap on search query attempts | `3` (exact -> broad -> stop) |
+| `targetConfidentHits` | Early-stop threshold on strong matches | `3` |
+| `timeBudgetMinutes` | Session time budget (triggers `continuation_required`) | `15` |
+| `degradeThreshold` | When to accept degraded results and stop | Fill-rate < 20% after half budget |
+
+**Concrete cost patterns:**
+
+- Stop supplier search after 3 strong comparable hits with high `matchConfidence`, not after exhausting 30 weak candidates
+- Only visit detail pages for shortlisted result cards — list-page data is often sufficient for screening-grade quotes
+- Try exact query wave first, then one broader fallback, then stop
+- If shipping information is behind login/interaction, record screening-grade quote and move on
+- Segment long jobs with `continuation_required` rather than letting sessions bloat past time budget
+- For procurement ingestion, batch by source: one session per source per run, not one session per notice
+
+**Cost observability:** The meaningful metric is **cost per committed useful record**: cost per committed notice, per accepted quote, per qualified opportunity. Tracked per skill, per source, and trended over time to detect efficiency regressions after skill updates.
+
+### 4.11 Skill Failure Modes
+
+Beyond the standard error taxonomy, skills detect and report these production failure modes:
+
+| Failure Mode | Detection | Why It's Dangerous |
+|-------------|-----------|-------------------|
+| Schema-valid garbage | Semantic + drift validation | Clean exit, valid JSON, but wrong page or bad extraction |
+| Soft blocks disguised as empty results | Page fingerprint + challenge marker check | HTTP 200, no useful data, not technically an error |
+| Auth half-expired state | Persona verification + privileged data presence check | Session loads but privileged data missing or persona changed |
+| Locale/currency/persona drift | Pre-extraction assertion of expected market state | Same site, different market mode, silently poisoning comparisons |
+| Pagination loops / duplicate scroll churn | Business-item dedup across scroll cycles | Skill keeps "working" but not discovering new items |
+| Wrong artifact acquisition | Post-download content-type and structure validation | File is wrong format, corrupted, login HTML, or empty PDF |
+| Unsafe resume after external side effect | Side-effect boundary tracking in portal skills | Especially dangerous in bid portal automation |
+| Cache poisoning across versions/personas | Cache key includes all relevant dimensions | Old cached results reused under different normalization assumptions |
+
+### 4.12 Skill Lifecycle & Promotion Flow
+
+**Lifecycle stages:**
+
+1. **Creation** — Skills authored as directories with `SKILL.md` plus supporting artifacts. Markdown-first authoring preserved.
+2. **Promotion** — New/updated skills follow: draft -> candidate -> canary -> shadow -> stable. Rollback rebinds to prior stable version. Validator approval is a promotion gate alongside quality metrics (Layer 3+).
+3. **Execution** — Daemon triggers agent session (PTY or contract via adapter). Scheduled jobs bind explicit `stable_version` + optional `canary_version`/`shadow_version`. Agent follows playbook, writes run manifest narrative. Daemon appends evidence appendix.
+4. **Manual mode** — Draft skills explored without scheduler. Kickoff Prompt Renderer emits exact prompt for copy-paste into fresh agent session. Does not commit pipeline state.
+5. **Dry-run mode** — Full worker + validator path against scratch workspace at `artifacts/scratch/<run_id>/`. Records manifests and verdicts for review but does not advance authoritative rows, outbox, or stage heads. Default calibration path before enforcement.
+6. **Validation** — After OQG, Validation Policy Engine applies risk-stratified sampling. Validator sub-job reads hybrid manifest, result contract sample, rubric, OQG signals, drift deltas. Renders verdict (Layer 3+).
+7. **Maintenance** — Source website changes only require skill update, not API client changes. Source-health canaries detect drift before expensive extraction runs.
+8. **Versioning** — Skills version-tracked in repo. Daemon records which skill version was used for each execution. Behavior, schema, checkpoint, validator, and normalizer versions tracked independently.
+9. **Upgrade** — Editing SKILL.md + supporting files. No recompilation, no package upgrades. Schema migrations use dual-accept windows: daemon accepts both old and new schema versions during transition, shadow comparison validates quality parity.
+
+**Promotion flow:**
+
+| Stage | Gate | Scope |
+|-------|------|-------|
+| **Draft** | Dev-only | Manual runs only, not scheduler-eligible |
+| **Candidate** | CI lint + smoke canaries pass | CI-validated, not production-eligible |
+| **Canary** | Smoke canaries pass against live source | Small percentage or single source shard |
+| **Shadow** | Quality comparison against stable on real workload | Full production inputs, results not authoritative |
+| **Stable** | Shadow metrics meet promotion thresholds | Scheduler default for all production runs |
+| **Rollback** | Any time | Rebind source to prior stable version immediately |
+
+Rollback is "change source binding," not "edit markdown again" — instantaneous and safe.
+
+**Version binding at enqueue time:**
+
+| Binding | Purpose |
+|---------|---------|
+| `stable_version` | Scheduler default — runs authoritative extraction |
+| `canary_version` | Optional — small percentage or single shard for validation |
+| `shadow_version` | Optional — parallel with stable for quality comparison, no authoritative writes |
+
+"Latest on disk" never determines production behavior. Scheduled jobs bind explicit versions.
+
+**Schema migration:** For result schema transitions (v1.0 -> v1.1): daemon accepts both versions during transition window, shadow comparison validates quality parity, dual-read/dual-validate if downstream consumers need adaptation time, promote when all consumers accept new version, retire old version after promotion window closes.
+
+**Cache key dimensions** (for supplier result caching):
+
+| Key Component | Why It Matters |
+|--------------|---------------|
+| Source | Different sources return different data |
+| Query fingerprint | Different queries return different results |
+| Candidate normalization version | Changed normalization invalidates cached matches |
+| Skill major version | Major skill changes may extract different fields |
+| Validator version | Changed validation may reclassify cached results |
+| Persona | Different accounts may see different pricing/availability |
+| Locale / currency | Market variant affects all pricing data |
+| Egress profile | Different exit nodes may trigger different geo behavior |
+
+For procurement normalization changes (not source changes), prefer **reprocessing from stored raw artifacts** over re-scraping. Raw artifact retention enables replay, not just forensics.
+
+### 4.13 Run Manifest Preparation (Layer 0)
+
+In Layer 0, skills run from the CLI without a daemon. There is no formal run manifest system yet (that arrives in Layer 1). However, each skill's `SKILL.md` includes instructions for the agent to write a structured narrative of what it did as part of its output:
+
+1. Every skill output includes a narrative section describing: what pages were visited, what data was extracted, what decisions were made, and any warnings or anomalies encountered
+2. The narrative format follows a consistent structure that the Layer 1 daemon can later consume as the agent-authored portion of the hybrid run manifest
+3. Skills practice the "what I did, what I found, what I decided" discipline from their first execution
+
+In Layer 1, the daemon formalizes this into the hybrid-authored run manifest system:
+- The agent writes narrative sections ("what I did")
+- The daemon appends a machine-authored evidence appendix with independently observed facts (machine-timed events, resource usage, checkpoint sequence, OQG results)
+- If the agent fails to narrate, the daemon produces a fallback machine-authored manifest
+- The combined manifest is stored as an immutable artifact referenced by `run_manifest_path` and `run_manifest_hash` in `agent_session_logs`
+
+### 4.14 Licensing & Compliance Notes
+
+| Source | License / Terms | Status | Notes |
+|--------|----------------|--------|-------|
+| **Find a Tender** data | Open Government Licence | Compatible | Official public data, accessed via agent skill scraping |
+| **Contracts Finder** data | Government open publication model | Compatible | Accessed via agent skill scraping |
+| **PCS** | Official public API | Likely compatible | Accessed via agent skill scraping |
+| **HMRC Trade Tariff API** | Official public government API | Compatible | Direct API access for cost estimation |
+| **HMRC FPO API** | Official public government API | Compatible | Direct API access for HS code classification |
+| **HMRC Exchange Rate Service** | Official public government data | Compatible | Free, published monthly |
+| **eBay** (browser scraping) | Website terms of use | **Review required** | Agent skill scraping — review ToS for automated access before implementation. Low-volume, source-specific. |
+| **Amazon** (browser scraping) | Website terms of use | **Review required** | Agent skill scraping — review ToS before implementation (Layer 5) |
+| **Alibaba/1688** (browser scraping) | Website terms of use | **Review required** | Agent skill scraping — review ToS before implementation (Layer 5) |
+| **Xe API** | Commercial | Compatible | Paid integration for commercial FX (Layer 5) |
+| **Freightos** | Commercial | Compatible | Sales/commercial access required (Layer 5) |
+| **SeaRates** | Commercial | Compatible | Commercial API access required (Layer 5) |
+| **Easyship** | Commercial | Compatible | Parcel-mode freight and duty estimation (Layer 5) |
+| **Shippo** | Commercial | Compatible | Parcel-mode carrier rates (Layer 5) |
+| **Taric Support, HS Ping** | Commercial | **Review required** | Verify API terms for automated pipeline use |
+| **Dutify, Zonos, Avalara** | Commercial | **Review required** | Optional landed-cost comparison providers — validation use only |
+
+**General rule:** APIs marked "Review required" require verification of commercial terms for automated pipeline use. The main compliance consideration for skill-based scraping is **website terms of use** for supplier marketplaces. Agent skill scraping should be low-volume and source-specific, with ToS reviewed for each marketplace before implementation.
