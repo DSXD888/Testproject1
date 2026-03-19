@@ -8,6 +8,116 @@
 
 ---
 
+## 1. Overview & Sync Engine
+
+### 1.1 Layer Narrative
+
+Collaboration infrastructure. The sync engine activates, projecting pipeline data to Supabase for the read-only web viewing portal. Operator decisions flow through Supabase CAS. Worker-validator enforcement mode is enabled after dry-run calibration. Two users can now view the same opportunity pipeline — one via desktop (read-write), one via web (read-only).
+
+**Why this layer exists:** Layers 1-3 proved the pipeline works for a single operator on a single machine. Layer 4 makes the pipeline output visible to others and enables shared decision-making. The sync engine is the bridge between local operational authority and shared visibility.
+
+**If we never build Layer 5:** Multi-user visibility works with screening-grade accuracy and single-marketplace pricing. The system is production-ready for the initial category whitelist.
+
+### 1.2 Capability Delivered
+
+Two users view the same pipeline: desktop operator (read-write) and web viewer (read-only). Sync engine pushes pipeline data to Supabase. Operator decisions use compare-and-swap via Supabase. Validator rejections quarantine results in enforcement mode. Domain-specific validator overlays for procurement, supplier enrichment, document acquisition, and product extraction.
+
+### 1.3 Push Protocol (Local -> Supabase)
+
+**Transactional outbox pattern:** From Layer 4 activation, every push-owned mutation creates a `local_outbox` entry in the same SQLite transaction as the data write. No data mutation without outbox entry.
+
+**Push dispatcher contract:**
+- Single-in-flight batch (one batch at a time per push stream)
+- Identical-envelope retries on failure (same content, same order)
+- Batch boundaries never cross `schema_epoch` or `stage_run_id`
+- `row_version` ordering within batch (monotonic per row)
+- `content_hash` for idempotent deduplication
+
+**Push batch RPC:** `apply_push_batch(batch_json)` — single transactional Supabase RPC. Batch either fully applies or fully rejects. No partial application.
+
+**Outbox entry structure:**
+
+```sql
+-- Each outbox entry (from L0 §2 DDL):
+-- local_seq (autoincrement), executor_id, entity_kind, entity_id,
+-- op (insert/update), row_version, stage_run_id, schema_epoch,
+-- payload_json, content_hash, created_at
+```
+
+### 1.4 Pull Protocol (Supabase -> Local)
+
+**Cursor-based pull:** Per-domain pull cursors track `remote_change_seq`. Three pull domains:
+- `shared_source_configs` — source enablement and configuration
+- `shared_company_profile` — org-wide bidder profile
+- `operator_decision_heads` — operator dispositions with CAS
+
+**Pull-before-push ordering:** On sync startup, pull remote-owned state FIRST, then classify/coalesce pending intents, then resume push. This ensures cross-authority consistency.
+
+**Pending operator intent reconciliation:** After pull, reconcile `pending_operator_intents` queue:
+1. Compare each queued intent against freshly pulled `operator_decision_heads`
+2. If intent's `base_remote_revision` matches current remote revision → flush via CAS RPC
+3. If revision mismatch → conflict, update local queue status, surface to operator
+4. Coalesce multiple intents for same process (latest-per-process)
+
+### 1.5 Compare-and-Swap (CAS) for Operator Decisions
+
+**CAS RPC:** `update_operator_decision(process_id, disposition, base_revision, command_id)`
+- `base_remote_revision` checked — mismatch means someone else changed it
+- `command_id` for idempotent retry (lost-response handling)
+- Conflict returned (not silently overwritten)
+- Desktop shows conflict resolution UI
+
+### 1.6 Active-Writer Lease
+
+One daemon per org in MVP. Enforced at push protocol level:
+- Daemon registers with `executor_id` on first push
+- Second daemon attempting to push → rejected with lease conflict
+- Lease heartbeat via `viewer_sync_status` updates
+
+### 1.7 Schema Epoch Guard
+
+`schema_epoch` (integer) on every push batch and in `PRAGMA user_version`:
+- If batch epoch != remote epoch → sync pauses
+- Local operation continues uninterrupted
+- Operator/admin must resolve epoch mismatch before sync resumes
+- Prevents schema-mismatched data from corrupting the remote projection
+
+### 1.8 Degraded Mode Behavior
+
+| Sync State | Desktop | Web |
+|-----------|---------|-----|
+| Healthy | Full read-write-trigger | Full read-only with live Broadcast updates |
+| Degraded (push failing) | Full local operation; push queues in outbox | Stale data (amber indicator); Broadcast stopped |
+| Offline (Supabase unreachable) | Full local operation; browse-only for decisions | Red staleness indicator; last-known data |
+
+Desktop continues operating on local SQLite regardless of sync state. Web reflects last-pushed data with staleness indicator.
+
+### 1.9 Invariants Enforced
+
+| Invariant | Type | Enforcement |
+|-----------|------|-------------|
+| Push batch atomicity | Constitutional | Single transactional RPC, not individual upserts |
+| Outbox + data in same SQLite transaction | Constitutional | Every push-owned mutation creates outbox entry atomically |
+| CAS for operator decisions | Constitutional | `base_remote_revision` checked; mismatch -> conflict |
+| Active-writer lease | Constitutional | One daemon per org at push protocol level |
+| `schema_epoch` on every batch | Constitutional | Incompatible epoch -> sync pauses |
+| Batch boundaries never cross `stage_run_id` | Constitutional | Push dispatcher enforces |
+| Single-in-flight batch | Constitutional | One batch at a time per push stream |
+| Validation enforcement | Operational | Rejections quarantine results after dry-run calibration |
+| RLS on all Supabase tables | Constitutional | Policy matrix at database boundary |
+| Pull-before-push ordering | Constitutional | Pull remote state FIRST on startup |
+
+### 1.10 Components Touched
+
+| Component | Action | Files |
+|-----------|--------|-------|
+| Database | Create | `0002_sqlite_state_sync.sql` (SQLite sync tables), 6 Supabase migrations, `infra/supabase/config.toml` |
+| `crates/daemon` | Create | `src/db/sync.rs` (push-pull sync engine) |
+| Skills | Create | 4 domain validator overlays |
+| `apps/web` | Create | 7 files (full Next.js viewing portal) |
+
+---
+
 ## 2. Supabase Schema, RLS & Remote-Owned Tables
 
 > **Ownership:** This section owns the Supabase-side schema: projection tables, summary tables, remote-owned tables, junction tables, RLS policies, and migration listing. Push/pull protocol mechanics are owned by §1 (Sync Engine). SQLite schema is owned by L0 §2 and L1 §3.
