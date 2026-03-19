@@ -637,6 +637,242 @@ PRAGMA cache_size = -64000;          -- 64MB page cache
 
 ---
 
+## 3. Schema, Artifacts & Stage Tracking
+
+> **Ownership:** This section owns the **stage tracking model** — the authoritative mapping of pipeline stages to scope grains and commit semantics. Stage **processing logic** (what each stage computes) is owned by Layer 0 §3. Full **DDL for all tables** is owned by Layer 0 §2 (constitutional schema).
+
+### 3.1 Tables Introduced in Layer 1
+
+These tables are defined in Layer 0 §2 (constitutional schema with all columns from creation) but become **first actively used** in Layer 1. Full CREATE TABLE statements are in L0 §2; this section documents what activates and why.
+
+#### 3.1.1 `agent_session_logs` (Local-Only)
+
+**Purpose:** Full session transcript/trace for every agent execution. Contains execution identity, process supervision metadata, raw output artifact pointers, error handling, and run manifest references.
+
+**Key columns activated in L1:**
+
+| Column | Purpose |
+|--------|---------|
+| `job_id` | Links session to the workflow job that triggered it |
+| `skill_path`, `skill_version` | Which skill ran and at what version |
+| `execution_mode` | `'pty'` or `'contract'` — adapter mode used |
+| `cli_vendor`, `cli_version`, `adapter_version` | Execution identity for debugging adapter issues |
+| `pty_session_id`, `pid`, `pgid` | Process-group supervision identifiers |
+| `status` | Session lifecycle: `created` -> `spawned` -> `active` -> `terminating` -> `exited` -> `reaped` -> `archived` |
+| `terminal_output_path`, `terminal_output_hash`, `terminal_output_bytes` | Artifact pointers to compressed raw PTY bytes or contract-mode stdout/stderr |
+| `terminal_output_tail` | Last N KB for quick inspection (local only; Supabase gets redacted excerpt) |
+| `structured_trace` | Full parsed trace locally; Supabase stores redacted summaries only |
+| `cleanup_verdict` | `clean` / `forced` / `leaked` — mandatory for every session |
+| `run_manifest_path`, `run_manifest_hash` | Artifact path and SHA-256 of the hybrid-authored run manifest |
+| `last_checkpoint_seq` | Last valid checkpoint before failure (for resume logic) |
+
+**Authority:** Local-only. Too large and sensitive for sync. A redacted summary is pushed as `workflow_job_summaries` in Layer 4.
+
+#### 3.1.2 `raw_documents` (Local-Only)
+
+**Purpose:** Downloaded tender document payloads from live source acquisition. Either stored inline as `payload_json` or as file reference via `storage_path`.
+
+**Key columns:** `source_id`, `content_type`, `source_url`, `payload_json` OR `storage_path`, `metadata`.
+
+**CHECK constraint:** `payload_json IS NOT NULL OR storage_path IS NOT NULL` — at least one storage form required.
+
+**Authority:** Local-only. Per-daemon operational state.
+
+#### 3.1.3 `error_manifests` (Local-Only)
+
+**Purpose:** Full error context for every pipeline failure. Includes job reference, pipeline stage, workflow step, structured error context, agent session link, and Markdown artifact path for human-friendly debugging.
+
+**Key columns:** `job_id`, `process_id`, `pipeline_stage`, `workflow_step`, `error_type`, `error_message`, `error_context` (JSON — full locally, redacted in Supabase), `skill_path`, `agent_session_id`, `markdown_path`, `resolved`, `resolved_at`, `resolved_by`.
+
+**Authority:** Local-only. Summaries pushed as `error_manifest_summaries` in Layer 4.
+
+#### 3.1.4 `executors` (Push-Owned)
+
+**Purpose:** Daemon instance identity. Single row in MVP (one daemon per org).
+
+**Key columns:** `device_name`, `status`, `last_heartbeat_at`, `owner_id`, `row_version`, `last_local_seq`.
+
+**Executor identity split** (future-proofed for multi-executor):
+
+| Field | Purpose | When Populated |
+|-------|---------|----------------|
+| `owner_id` | Org-level identity — which organization this daemon belongs to | From first boot (single value in MVP) |
+| `executors.id` | Daemon instance UUID — which physical daemon process | From first boot |
+| `push_stream_id` | Push stream identity for sync batching (planned L4) | From sync activation (L4) |
+
+In MVP (single daemon per org), `owner_id` is a constant, `executors.id` is the single daemon's UUID, and `push_stream_id` is not yet used. The active-writer lease (one daemon per org enforced at push protocol level) is activated in Layer 4.
+
+**Authority:** Push-owned. Heartbeat summary synced to Supabase in Layer 4.
+
+#### 3.1.5 `source_cursors` (Local-Only)
+
+**Purpose:** Per-source ingestion watermarks for incremental retrieval. Each source has one or more cursor keys (e.g., `last_published_date`, `last_page_number`) with cursor values.
+
+**Key columns:** `source_id`, `cursor_key`, `cursor_value`, `updated_at`. Primary key: `(source_id, cursor_key)`.
+
+**Authority:** Local-only. Per-daemon operational state.
+
+### 3.2 Tables Activated in Layer 1
+
+These tables were created in Layer 0 (with full schema including all future-layer columns as nullable) and first used by the gold-set evaluation harness. In Layer 1, they receive their **first live-source writes** via the daemon-managed pipeline loop.
+
+| Table | What Changes in L1 |
+|-------|-------------------|
+| `workflow_jobs` | Now actively used by Job Runner for job lifecycle. `parent_job_id`, `validation_required`, `validation_verdict_id` remain nullable (validation system activates in L3). |
+| `process_stage_status` | Now actively written by Job Runner — records execution status per stage per scope grain. Every pipeline stage execution creates a row. |
+| `process_stage_heads` | Now actively written — advances atomically when a stage succeeds for its full scope. Points to the latest successful `stage_run_id`. |
+| `tender_document_sets` | First live-source document acquisition writes (gold-set was pre-curated). |
+| `manifests` | First live-source verifiable output — local markdown/file artifact + database row. |
+| `pipeline_assessments` | First live-source process rollups. `validation_state` starts as `'unverified'` from first write. |
+| `procurement_processes` | First live-source process creation from FTS notices. |
+| `contract_notices` | First live-source notice records. |
+| `notice_lots` | First live-source lot decomposition. |
+| `product_candidates` | First live-source extraction results. |
+| `search_profiles`, `search_attempts`, `supplier_quotes` | First live-source marketplace search results. |
+| `candidate_pricing_assessments`, `landed_cost_estimates` | First live-source margin computation results. |
+| `qualification_runs` | First live-source qualification decisions. |
+
+**Sync tracking columns** (`owner_id`, `row_version`, `last_local_seq`, `stage_run_id`) are **populated on every write** from Layer 1, even though the sync engine is not yet active. This is a constitutional requirement — sync tracking is always populated, outbox entries are deferred to Layer 4.
+
+### 3.3 Stage Tracking Model (Authoritative)
+
+> **This section is the authoritative source for the stage-to-scope-grain mapping.** Layer 0 §3 owns stage processing logic. This section owns stage tracking infrastructure.
+
+#### 3.3.1 Core Concepts
+
+**`stage_run_id`** = one atomic commit cohort for one scoped business unit. A single agent session (`session_execution_id`) may produce multiple `stage_run_id` commits. For example, one eBay enrichment session may produce 5 committed `stage_run_id`s (one per candidate-source pair that completed).
+
+**`process_stage_status`** records every execution of every stage at every scope grain. Each row has a `stage_run_id`, state, freshness tracking, and basis hash.
+
+**`process_stage_heads`** tracks the current (latest successful) stage run per `(process_id, stage, scope_kind, scope_id)` tuple. Updated atomically when a stage succeeds for its full scope.
+
+**`scope_kind`** is constrained to exactly six values: `process`, `notice`, `lot`, `candidate`, `candidate_source_pair`, `candidate_quote_scenario`.
+
+#### 3.3.2 Stage-to-Scope-Grain Mapping
+
+| # | Stage | `scope_kind` | Commit Semantics | Rationale |
+|---|-------|-------------|------------------|-----------|
+| 1 | **Ingest** | *(not in `process_stage_status`)* | Source-batched precursor | Tracked at `workflow_jobs` / `source_cursors` level; `process_stage_status` begins once notice/process identity exists |
+| 2 | **Normalize** | `notice` | Set-replacement | Normalization produces one authoritative version per notice |
+| 3 | **Relate** | `process` | Set-replacement | Relation graph is one coherent classification per process cluster |
+| 4 | **Qualify** | `lot` | Set-replacement | Lot-varying decisions cannot be process-level |
+| 5 | **Acquire docs** | `notice` | Set-replacement | Document set is one coherent acquisition per notice |
+| 6 | **Extract lots** | `notice` | Set-replacement | Partial lot set is semantically unsafe — atomic for all lots in notice |
+| 7 | **Extract products** | `lot` | Additive | Lots are independent; failure on lot 3 does not invalidate lots 1-2 |
+| 8 | **Score quoteability** | `candidate` | Additive | Candidates are independent |
+| 9 | **Price-signal match** | `candidate_source_pair` | Additive | Completed pairs survive when others fail |
+| 10 | **Gross margin gate** | `candidate` | Additive | Gate decision is per-candidate |
+| 11 | **Landed cost** | `candidate_quote_scenario` | Additive | Each scenario is an independent estimate |
+| 12 | **Net margin gate** | `candidate` | Additive | Gate decision is per-candidate |
+| 13 | **Manifest** | `process` | Set-replacement | Manifest is one coherent narrative per process |
+| 14 | **Operator decision** | `process` | Set-replacement | Decision is one coherent judgment per process |
+| 15 | **Bid workflow** | `process` | Set-replacement | Bid is one coherent submission per process |
+
+#### 3.3.3 Commit Semantics
+
+**Set-replacement stages** must commit atomically for their full scope. Partial results from set-replacement stages (e.g., lots 1-7 of 12 extracted) are stored as checkpoint/debug artifacts but do NOT advance the stage head. The stage must succeed for the complete scope or fail entirely.
+
+**Additive stages** may commit independently per their scope grain. If product extraction succeeds for lots 1-2 but fails on lot 3, lots 1-2 are authoritative. If eBay search succeeds for candidates 1-5 but fails on candidate 6, candidates 1-5 have valid quotes.
+
+#### 3.3.4 Stage Head Advancement Rules
+
+1. **Set-replacement:** Stage head advances only after ALL outputs for the scope unit are committed in a single transaction. The `stage_run_id` ties all outputs together.
+2. **Additive:** Stage head advances per individual scope unit. Each committed unit gets its own `stage_run_id`.
+3. **Atomic pair:** Stage output write + `stage_run_id` assignment + stage head advancement happen in the same SQLite transaction. Never split across transactions.
+4. **Freshness tracking:** `process_stage_heads.freshness_state` starts as `'fresh'`. Upstream changes may set it to `'soft_stale'` or `'hard_invalid'` (see staleness model below).
+
+#### 3.3.5 Staleness and Invalidation Model
+
+**Hard invalidation** — the semantic input changed. Downstream outputs are no longer authoritative.
+
+Examples: new document set acquired, lot set changed, product extraction re-run, relation resolution changed process cluster, quoteability formula changed AND score crossed a band boundary or query fingerprint changed.
+
+Action: mark affected downstream scoped heads as `hard_invalid`, keep old rows for audit, exclude from current rollup, enqueue rerun from earliest invalid stage.
+
+**Soft staleness** — semantics still valid, but time-sensitive inputs have aged.
+
+Examples: quote TTL expired (source-specific: 24h-96h), FX snapshots aged out, freight quotes aged out, tariff snapshot changed without product semantics changing.
+
+Action: mark affected rows as `soft_stale`, keep them viewable, block auto-qualification if soft-stale input is decision-critical (margin within 10pp of gate), rerun only affected later stages.
+
+**Cascade rules:**
+
+| Upstream Change | Re-run From | Cascade Condition |
+|-----------------|-------------|-------------------|
+| Notice material content changed | normalize -> relate -> qualify | Only if normalized fields materially changed |
+| Document set hash changed | extract_lots onward | Full cascade for affected notice/lots |
+| Lot set changed | extract_products onward | For affected lots only |
+| Candidate lineage/archetype changed | score_quoteability onward | For affected candidates only |
+| Quoteability formula version changed | score_quoteability | Cascade to price_match only if band boundary crossed or query fingerprint changed |
+| Supplier quote expired / refreshed | gross_gate onward | For affected candidate only |
+| FX / freight / tariff refresh | landed_cost onward | Soft staleness only unless rate change exceeds threshold |
+| Manual RFQ quote arrives | gross_gate onward | For that candidate only — new SupplierQuote(quoteClass=rfq_quote) |
+
+**Guard rule:** Every job carries `expected_input_basis_hash`. At claim time, the Job Runner compares it to current scope heads. If mismatched, mark job obsolete and enqueue a new job from the correct earliest invalid stage. This prevents out-of-order execution and stale retries.
+
+### 3.4 Source Configuration (Layer 1 Stub)
+
+In Layer 1, source configuration is **bootstrapped locally** — hardcoded or seeded runtime definitions in the `sources` table. There is no remote-owned `shared_source_configs` pull yet (that activates in Layer 4).
+
+The `sources` table is a local-only runtime copy. In Layer 4, it will be populated from `shared_source_configs` during pull sync. In Layer 1, it contains:
+
+| Source | `kind` | `config` contents |
+|--------|--------|-------------------|
+| Find a Tender | `procurement` | Base URL, OCDS API endpoint, rate limits |
+
+Contracts Finder is added in Layer 2.
+
+### 3.5 Job Runner Integration
+
+The Job Runner uses the tables above as follows:
+
+1. **Job creation:** A trigger (CLI in L1, cron in L3) creates a `workflow_jobs` row with `kind`, `scope_kind`, `scope_id`, `input_payload` (including `expected_input_basis_hash`).
+2. **Job claim:** The runner claims the job (sets `lease_owner`, `lease_expires_at`, `started_at`, increments `attempt_count`). Single-threaded execution in L1 (concurrent claiming in L3).
+3. **Skill execution:** The runner selects the adapter (PTY or contract) based on the bound skill's `interaction_profile` and launches the agent session. An `agent_session_logs` row is created.
+4. **Stage output commit:** On skill completion, the runner validates the result contract, writes pipeline table outputs with `stage_run_id`, creates a `process_stage_status` row, and advances `process_stage_heads` — all in one SQLite transaction.
+5. **Run manifest capture:** The runner stores the agent-authored narrative + daemon evidence appendix as an immutable artifact. `run_manifest_path` and `run_manifest_hash` are written to `agent_session_logs`.
+6. **Error handling:** On failure, an `error_manifests` row is created with full context. The `agent_session_logs` row gets `error_type`, `error_message`, and `cleanup_verdict`.
+7. **Process-group cleanup:** The runner ensures the session's process group is fully reaped. `cleanup_verdict` is mandatory: `clean` (normal exit), `forced` (kill escalation needed), `leaked` (orphaned processes detected).
+
+### 3.6 Index Design
+
+Beyond primary keys, the following indices support critical query paths in Layer 1:
+
+```sql
+-- Job scheduling and claiming
+CREATE INDEX idx_workflow_jobs_status_scheduled ON workflow_jobs(status, scheduled_for) WHERE status IN ('pending', 'retry');
+CREATE INDEX idx_workflow_jobs_process ON workflow_jobs(process_id);
+
+-- Stage tracking lookups
+CREATE INDEX idx_process_stage_status_process ON process_stage_status(process_id, stage, scope_kind);
+CREATE INDEX idx_process_stage_status_run ON process_stage_status(stage_run_id);
+
+-- Session logs by job
+CREATE INDEX idx_agent_session_logs_job ON agent_session_logs(job_id);
+
+-- Error manifests by process
+CREATE INDEX idx_error_manifests_process ON error_manifests(process_id);
+CREATE INDEX idx_error_manifests_unresolved ON error_manifests(resolved, created_at) WHERE resolved = false;
+
+-- Source cursors for incremental ingestion
+CREATE INDEX idx_source_cursors_source ON source_cursors(source_id);
+```
+
+### 3.7 Forward-Compatibility Provisions
+
+| Provision | Target Layer | Status in L1 |
+|-----------|-------------|-------------|
+| Sync tracking columns on all push-owned writes | L4 | Populated from first write; no outbox entries yet |
+| `workflow_jobs.parent_job_id` | L3 | Nullable, unused |
+| `workflow_jobs.validation_required` | L3 | Default `false`, unused |
+| `workflow_jobs.validation_verdict_id` | L3 | Nullable, unused |
+| `pipeline_assessments.validation_state` | L3 | Default `'unverified'` from first write |
+| `agent_session_logs.run_manifest_path/hash` | L3 | Populated from first skill run |
+| Adapter trait designed for extension | Future | New agent CLIs via new adapter implementations |
+| Error manifest format includes validator fields | L3 | Fields exist, not populated |
+
+---
+
 ## 4. Skills, Run Manifests & Error Manifests
 
 ### 4.1 New Skills (Layer 1)
