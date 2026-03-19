@@ -301,3 +301,336 @@ These are designed but not active. They exist only as forward-compatible schema 
 - Multi-source marketplace search: Alibaba, 1688, Amazon (Layer 5)
 - Decision-grade landed cost (Layer 5)
 - Bid workflow automation (Layer 6)
+
+---
+
+## 2. Daemon Core, PTY & Process Supervision
+
+### 2.1 Rust Crate Structure
+
+```
+crates/
+  daemon/
+    Cargo.toml
+    src/
+      main.rs              # CLI entry, argument parsing, daemon bootstrap, signal handling
+      db/
+        sqlite.rs          # Connection management: WAL mode, read-only query pool,
+                           #   single-writer enforcement, migration runner, PRAGMA init
+      pty/
+        session.rs         # PTY pair creation (master/slave), process-group spawn,
+                           #   pgid recording, session state machine (7 phases)
+        capture.rs         # Raw byte capture from PTY master fd; zstd compression;
+                           #   chunked artifact storage at artifacts/sessions/YYYY/MM/<sid>/
+        health.rs          # Session health monitoring: no-output stall detection,
+                           #   no-progress stall detection, auth challenge detection,
+                           #   host sleep/monotonic-gap detection
+      jobs/
+        runner.rs          # Job Runner: claim from workflow_jobs, execute via adapter,
+                           #   persist results, update process_stage_status/heads,
+                           #   stage_run_id scoping, parent_job_id awareness for future
+                           #   validation sub-jobs, continuation_required handling
+      agents/
+        adapter.rs         # Agent Adapter trait: unified daemon event stream regardless
+                           #   of PTY/contract mode; mode selection via interaction_profile
+        codex.rs           # Codex adapter: launch command construction, capability probe
+                           #   (CLI version, auth health, structured output viability),
+                           #   JSONL parsing, health classification, canary mode
+        claude.rs          # Claude adapter: launch command construction, capability probe,
+                           #   JSON/stream-json parsing, health classification, canary mode
+        artifacts.rs       # Artifact store: compressed immutable session output,
+                           #   result contract files, checkpoint artifacts, run manifests;
+                           #   stored at artifacts/sessions/YYYY/MM/<session_id>/
+        contracts.rs       # Result contract validator: schema validation against
+                           #   result.schema.json, checkpoint sequencing, partial failure
+                           #   classification; OQG semantic/drift checks
+      prompt/
+        renderer.rs        # Kickoff prompt composition: SKILL.md content injection,
+                           #   job parameters, resume tokens, run manifest instruction
+                           #   block, company profile injection (future)
+      errors/
+        manifest.rs        # Error manifest generation: structured Markdown error records
+                           #   with CLI vendor+version, adapter version, model id, config
+                           #   hash, skill version, pid/pgid, cleanup verdict, last
+                           #   valid checkpoint sequence
+        markdown.rs        # Error manifest Markdown rendering engine
+```
+
+### 2.2 Rust Crate Dependencies
+
+**Production dependencies (Layer 1 scope only):**
+
+| Crate | Purpose | Notes |
+|-------|---------|-------|
+| `tokio` | Async runtime | Full features: rt-multi-thread, macros, signal, process, io-util, time |
+| `rusqlite` | Local SQLite access | With `bundled` feature for zero-dep SQLite. Alternative: `sqlx` with SQLite feature |
+| `serde` | Serialization framework | With `derive` feature |
+| `serde_json` | JSON serialization | For result contracts, checkpoint parsing, config |
+| `tracing` | Structured logging | Async-aware structured logging |
+| `tracing-subscriber` | Log output | Console + file output layers |
+| `chrono` | Date/time | ISO-8601 timestamps, duration tracking |
+| `anyhow` | Error context | For application-level error propagation |
+| `thiserror` | Typed errors | For library-level error enums |
+| `nix` | POSIX process-group and signal handling | `killpg`, `setpgid`, `waitpid`, signal constants |
+| `portable-pty` | PTY session management | Cross-platform PTY creation. Alternative: `pty-process` |
+| `uuid` | UUID generation | v4 UUIDs for session IDs, job IDs (SQLite has no `gen_random_uuid`) |
+| `sha2` | SHA-256 hashes | For artifact content hashes, result contract verification, `decisionBasisHash` |
+| `zstd` | Compression | For PTY byte stream and artifact compression |
+| `clap` | CLI argument parsing | For daemon CLI interface |
+
+**NOT needed until later layers:**
+
+| Crate | Layer | Purpose |
+|-------|-------|---------|
+| `reqwest` | L0 (intelligence) / L5 (freight/FX APIs) | HTTP client for cost-estimation APIs |
+| `sqlx` (Postgres feature) | L4 | Supabase/Postgres sync |
+| `cron` | L3 | Cron expression parsing for scheduler |
+| `sysinfo` | L3 | Host resource pressure detection for resource arbiter |
+
+### 2.3 Agent Adapter Trait
+
+The adapter trait is the abstraction boundary between the daemon and vendor-specific agent CLIs. Everything above the adapter speaks only in daemon-native events.
+
+```rust
+/// Canonical daemon event stream — all adapters produce this
+#[derive(Debug, Clone)]
+pub enum DaemonEvent {
+    SessionStarted { session_id: Uuid, pid: u32, pgid: u32, mode: ExecutionMode },
+    CheckpointWritten { seq: u32, artifact_path: PathBuf, hash: String },
+    ProgressUpdate { items_processed: u32, items_total: Option<u32> },
+    AuthChallenge { challenge_type: String, details: String },
+    SessionStalled { reason: StallReason, last_output_ago: Duration },
+    HealthWarning { warning: String },
+    FinalResultValidated { artifact_path: PathBuf, hash: String, item_count: u32 },
+    SessionExited { exit_code: Option<i32>, duration: Duration },
+    CleanupIncomplete { leaked_pids: Vec<u32> },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ExecutionMode {
+    Pty,       // Full PTY session with terminal semantics
+    Contract,  // Structured JSON/JSONL non-interactive session
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum StallReason {
+    NoOutput,    // No PTY/stdout bytes for timeout period
+    NoProgress,  // Output present but no validated checkpoints advancing
+}
+
+/// Agent Adapter trait — each vendor implements this
+#[async_trait]
+pub trait AgentAdapter: Send + Sync {
+    /// Probe CLI capabilities: version, auth health, structured output
+    /// viability, PTY viability, browser/tool viability.
+    /// Unknown versions enter canary mode.
+    async fn capability_probe(&self) -> Result<CapabilityReport>;
+
+    /// Select execution mode based on skill's interaction_profile
+    /// and probe results.
+    fn select_mode(&self, profile: &InteractionProfile, probe: &CapabilityReport)
+        -> ExecutionMode;
+
+    /// Construct the launch command: binary path, flags, env vars,
+    /// working directory, config paths (session-isolated).
+    fn build_launch_command(
+        &self,
+        skill: &SkillManifest,
+        job: &WorkflowJob,
+        kickoff_prompt: &str,
+        mode: ExecutionMode,
+    ) -> Command;
+
+    /// Parse vendor-native output into daemon events.
+    /// For PTY mode: best-effort parsing of terminal output.
+    /// For contract mode: structured JSONL/JSON parsing.
+    async fn parse_events(
+        &self,
+        raw_output: &mut dyn AsyncRead,
+        mode: ExecutionMode,
+    ) -> Result<Vec<DaemonEvent>>;
+
+    /// Classify health from vendor-specific signals.
+    fn classify_health(&self, events: &[DaemonEvent], exit_code: Option<i32>)
+        -> HealthClassification;
+
+    /// Validate the final result contract against the skill's
+    /// result.schema.json.
+    async fn validate_result(
+        &self,
+        artifact_path: &Path,
+        schema: &serde_json::Value,
+    ) -> Result<ValidationResult>;
+}
+
+#[derive(Debug, Clone)]
+pub struct CapabilityReport {
+    pub cli_version: String,
+    pub auth_healthy: bool,
+    pub structured_output: bool,  // Can produce JSON/JSONL
+    pub pty_viable: bool,         // Terminal semantics available
+    pub browser_tools: bool,      // Browser automation tools available
+    pub is_canary: bool,          // Unknown version — canary mode
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum InteractionProfile {
+    PtyBrowser,       // Browser automation — requires PTY
+    PtyCli,           // Interactive CLI — requires PTY
+    ContractJson,     // Structured JSON output — prefers contract mode
+    ContractStream,   // Streaming JSON output — prefers contract mode
+}
+```
+
+**Mode selection logic:**
+
+| `interaction_profile` | Probe: structured output | Probe: PTY viable | Selected Mode |
+|----------------------|-------------------------|-------------------|---------------|
+| `pty_browser` | any | must be true | PTY |
+| `pty_cli` | any | must be true | PTY |
+| `contract_json` | must be true | any | Contract |
+| `contract_stream` | must be true | any | Contract |
+| any | false | true | PTY (fallback) |
+| any | false | false | Error: cannot execute |
+
+### 2.4 Session Lifecycle (7 Phases)
+
+Every agent session transitions through exactly 7 phases. No phase can be skipped.
+
+```text
+created -> spawned -> active -> terminating -> exited -> reaped -> archived
+```
+
+| Phase | Responsibilities | Failure Mode |
+|-------|-----------------|-------------|
+| **created** | Session record created in `agent_session_logs`. Adapter selected. Kickoff prompt composed. Skill loaded. Working directory prepared. Session-isolated config paths set. | Config error → job fails before spawn |
+| **spawned** | Process launched in own process group (`setpgid`). `pid`, `pgid`, PTY id recorded. PTY master fd opened (PTY mode). Capture stream started. | Spawn failure → `AGENT_RUN_FAILED` |
+| **active** | Agent executing. Raw bytes captured. Health monitoring active: no-output timeout, no-progress timeout, auth challenge detection. Checkpoints validated as they arrive. | Stall → `AGENT_STALLED`; auth → `AGENT_AUTH_CHALLENGE`; host sleep → `HOST_SLEEP_INTERRUPTED` |
+| **terminating** | Clean shutdown initiated. In-band interrupt sent if adapter supports it. Wait for graceful exit with timeout. | Timeout → escalate to SIGTERM group |
+| **exited** | Child process exited. Exit code recorded. PTY master drained to EOF or drain timeout (PTY mode). Raw stdout/stderr capture finalized (contract mode). | EIO on PTY read → normal (slave closed first); drain timeout → proceed to reap |
+| **reaped** | Descendant process tree cleaned up. Kill escalation: SIGTERM group → grace period → SIGKILL group → orphan sweep. Cleanup verdict recorded: `clean` / `forced` / `leaked`. Final result contract validated. Run manifest finalized (agent narrative + daemon evidence appendix). | Leaked descendants → `AGENT_CLEANUP_INCOMPLETE` |
+| **archived** | Session complete. All artifacts stored and indexed. Session metadata finalized in `agent_session_logs`. Job status updated in `workflow_jobs`. Stage status/heads updated if pipeline job. | None — terminal state |
+
+**Session completeness rule:** A session is only complete after ALL of:
+1. Child exit observed
+2. PTY drained to EOF or drain timeout (PTY mode only)
+3. Descendant process tree verified clean (not assumed)
+4. Final result contract validated (if present)
+5. Cleanup verdict recorded (`clean` | `forced` | `leaked`)
+6. Run manifest stored (agent narrative + daemon evidence appendix; machine-authored fallback if agent fails to narrate)
+
+### 2.5 Artifact Store
+
+Raw session output is stored as compressed immutable artifacts **outside SQLite** — session byte streams are too large for inline database storage.
+
+**Storage layout:**
+
+```
+artifacts/
+  sessions/
+    YYYY/
+      MM/
+        <session_id>/
+          raw-pty.zst          # Compressed PTY byte stream (PTY mode)
+          raw-stdout.zst       # Compressed stdout (contract mode)
+          raw-stderr.zst       # Compressed stderr (contract mode)
+          run-manifest.md      # Hybrid-authored run manifest
+          result.json          # Validated result contract
+          checkpoint-001.json  # Checkpoint artifacts
+          checkpoint-002.json
+          ...
+```
+
+**SQLite stores metadata only:**
+- `agent_session_logs`: session ID, skill ID, job ID, pid, pgid, adapter, mode, start/end times, exit code, cleanup verdict, byte counts, tail excerpts, artifact paths, SHA-256 hashes, `run_manifest_path`, `run_manifest_hash`
+- `raw_documents`: document metadata and paths (actual files in artifact store)
+- `error_manifests`: error context, skill path, step, resolution hints
+
+**Run manifest format:**
+
+YAML frontmatter with structured metadata followed by agent narrative sections, then daemon evidence appendix. Target size: < 50 KB.
+
+**Frontmatter — agent-claimed fields** (self-reported, `agent_claimed_*` prefix):
+- `manifest_version`, `skill_id`, `skill_version`, `job_id`, `session_id`, `execution_mode`
+- `started_at`, `completed_at`, `outcome_class`
+- `items_processed`, `items_skipped`, `items_failed`, `warnings_count`
+- `agent_claimed_pages_visited`, `agent_claimed_source_url`
+- `agent_claimed_fingerprint_state` (`matched` | `mismatched` | `unknown`)
+- `agent_claimed_locale_state`, `agent_claimed_currency_state`
+
+**Agent narrative sections** (human-readable):
+- Summary, Steps Taken, Decisions Made, Warnings, Evidence (with claim/evidence references)
+
+**Daemon evidence appendix** (machine-authored, immutable, < 2 KB):
+- `observed_url_chain`, `observed_page_kind_sequence`
+- `daemon_observed_fingerprint_state`, `daemon_observed_locale`, `daemon_observed_currency`
+- `auth_challenge_events`, `locator_fallback_depth`
+- `checkpoint_count`, `result_item_count`
+- `oqg_anomaly_summary`, `representative_item_sample`, `artifact_refs`
+
+**Critical naming rule:** Self-reported fields use `agent_claimed_*`. Daemon-observed fields use `daemon_observed_*`. Never ambiguous between "agent claims" and "daemon observed."
+
+**Fallback mode:** If agent fails to emit narrative (crash, timeout) → daemon synthesizes minimum machine-authored manifest from observability layers 1-3 alone, with `agent_narrative_missing: true`. The worst runs must not leave the thinnest review surface.
+
+### 2.6 Job Runner
+
+The Job Runner claims queued jobs from `workflow_jobs`, executes them via the Agent Adapter, and persists results with stage tracking.
+
+**Job execution flow:**
+
+1. Claim next job from `workflow_jobs` (single-threaded in L1 — concurrent claiming in L3)
+2. Read job payload: `job_kind`, `scope_kind`, `scope_id`, skill binding
+3. Request resource budget from Resource Arbiter (no-op in L1 — arbiter not yet implemented)
+4. Invoke Agent Adapter in the correct execution mode
+5. Monitor session through 7-phase lifecycle
+6. On success: validate result contract, run OQG checks
+7. Persist stage outputs in same SQLite transaction:
+   - Write all output rows with shared `stage_run_id`
+   - Update `process_stage_status` to `succeeded`
+   - Advance `process_stage_heads`
+   - Populate sync tracking columns (`owner_id`, `row_version`, `last_local_seq`) on every push-owned write
+8. On failure: create error manifest, update job status, do NOT advance stage head
+9. On `continuation_required`: persist committed batches, enqueue next segment with resume token
+
+**`stage_run_id` scoping rules:**
+- One `stage_run_id` = one atomic commit cohort for one scoped business unit
+- A single agent session may produce multiple `stage_run_id` commits (e.g., one per candidate-source pair)
+- Set-replacement stages: all outputs must share one `stage_run_id`; partial results do not advance the head
+- Additive stages: each scope unit gets its own `stage_run_id`; committed units survive when others fail
+
+**Sync tracking (L1 behavior):**
+- Every push-owned table write populates `owner_id`, `row_version`, `last_local_seq`
+- No `local_outbox` entries created yet (outbox engine activates in Layer 4)
+- Columns are populated from first write so no migration is needed when sync activates
+
+### 2.7 SQLite Configuration
+
+**Two-database split:**
+
+| Database | Contents | Rationale |
+|----------|----------|-----------|
+| `state.db` | Pipeline entities, jobs, manifests, outbox (future), sync metadata (future), stage tracking | Hot relational state — needs fast reads/writes |
+| `artifacts.db` | Agent session logs (metadata), raw documents (metadata), error manifests | Large artifacts prevent checkpoint/vacuum overhead on hot state DB |
+
+Actual session byte streams and run manifests are stored in the filesystem artifact store, not in either database.
+
+**Initialization sequence:**
+
+```sql
+PRAGMA journal_mode = WAL;           -- Write-ahead logging for concurrent reads
+PRAGMA synchronous = NORMAL;         -- Safe with WAL mode
+PRAGMA foreign_keys = ON;            -- Enforce referential integrity
+PRAGMA busy_timeout = 5000;          -- 5s retry on lock contention
+PRAGMA cache_size = -64000;          -- 64MB page cache
+```
+
+**Operational rules:**
+- Single writer (daemon only); multiple short-lived readers (desktop QueryService in L2)
+- Run `PRAGMA quick_check` on startup
+- Run `PRAGMA optimize` on maintenance cadence
+- Use Online Backup API or `VACUUM INTO` for safe hot backups
+- Store `schema_epoch` in `PRAGMA user_version`
+- Keep on local disk only — never NFS/cloud-sync folders
+- JSON1 extension for structured JSON columns
+- Type affinity: TEXT for UUIDs, INTEGER for boolean/pence/bps, TEXT for ISO-8601 timestamps
+- No `gen_random_uuid` — use application-side `uuid` crate
