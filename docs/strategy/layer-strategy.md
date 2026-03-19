@@ -129,7 +129,32 @@ Authority split inside the maintained set is fixed:
 - Each layer doc owns only layer-local narrative, capability, components, data first activated in that layer, stubs, definition of done, risks, and open questions.
 - Open questions must live in the owning layer doc, not in a separate scratch file or review artifact.
 - Temporary prompt artifacts, review handoffs, and iteration notes are explicitly non-authoritative and must never become de facto companion docs.
-- Until the 7 per-layer docs are authored, this strategy file must remain self-sufficient for sequencing, scope boundaries, and implementation order on its own.
+- `docs/strategy/README.md` and `docs/strategy/cross-reference-index.md` are **supporting navigation aids**, not part of the 8 authoritative planning files. They provide reading order and topic lookup but carry no planning authority.
+- All 7 per-layer docs have been authored and reviewed. This strategy file now serves as the cross-layer reference; layer-local detail lives in the layer docs.
+
+### Performance Targets
+
+| Metric | Target | Owning Layer | Notes |
+|--------|--------|-------------|-------|
+| Daemon startup | <500ms | L1 | SQLite open + schema check + cron init |
+| Incremental ingestion | <5min/source | L1 | Per-source agent session |
+| Desktop detail page | <2s | L2 | From warm local SQLite cache via QueryService |
+| Binary size (release) | <30MB | L1 | LTO + strip enabled (see Cargo release profile) |
+| Idle memory (daemon) | <100MB | L1 | No leaks on long sessions |
+
+### Per-Layer Documentation
+
+All layer docs are complete. Each is self-contained for implementation.
+
+| Layer | File | Lines | Key Content |
+|-------|------|-------|-------------|
+| 0 | `layers/layer-0-gold-set-evaluation.md` | ~3,900 | Full DDL (43 tables), 15-stage pipeline logic, skill standard, evaluation harness |
+| 1 | `layers/layer-1-thin-local-runner.md` | ~1,300 | Daemon core, PTY/contract adapters, stage tracking model, run manifests |
+| 2 | `layers/layer-2-single-operator-desktop.md` | ~700 | Desktop architecture, QueryService/DaemonBridge/Channel interfaces, coverage UI |
+| 3 | `layers/layer-3-operational-hardening.md` | ~900 | Worker-validator dry-run, skill promotion, source health, relation resolution |
+| 4 | `layers/layer-4-shared-visibility.md` | ~800 | Sync engine, Supabase schema/RLS, web portal, validation enforcement |
+| 5 | `layers/layer-5-expanded-commercial-intelligence.md` | ~600 | Full customs engine, FX/freight, multi-source marketplace |
+| 6 | `layers/layer-6-request-pipeline-automation.md` | ~400 | Bid workflow, portal-specific skills, audit trail |
 
 ### Atomic Operation Pairs (Never Split Across Layers)
 
