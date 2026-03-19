@@ -1648,6 +1648,210 @@ In Layer 1, the daemon formalizes this into the hybrid-authored run manifest sys
 
 ---
 
+## 5. TypeScript Packages & Evaluation Harness
+
+### 5.1 packages/contracts-schema
+
+4 files providing the canonical TypeScript domain types shared across all layers.
+
+> **Ownership rule:** §2 (Schema) owns the full TypeScript interface definitions inline with DDL. This section owns the *package structure* — which interfaces go in which file. Reference §2 for interface bodies.
+
+**contracts.ts** — All pipeline entity interfaces:
+- `ProcurementProcess`, `ContractNotice`, `NoticeLot`, `TenderDocumentSet`
+- `QualificationResult`
+- `ProductCandidate` (with `CriticalAttribute`, `NumericSpec`, `StandardSlot` supporting types)
+- `ProcessRelation`, `SearchProfile` (with `QueryWave`), `SearchAttempt`, `ListingEvidence`
+- `SupplierQuote`
+- `CandidatePricingAssessment`
+- `LandedCostEstimate` (with `CandidateCommodityCode`, `ConfidenceBreakdown`)
+- `PipelineAssessment`
+- `OperatorDecisionHead` (remote-owned)
+- `BidWorkflowState`
+- `ProcessStageStatus`, `ViewerSyncStatus`
+
+**jobs.ts** — Job payload types:
+- `WorkflowJob` interface with `kind` discriminator
+- 16 + 2 job kinds mapping (from Appendix C):
+
+| Job Kind | Pipeline Stage | Scope Grain |
+|----------|---------------|-------------|
+| `sync_source` | 1. Ingest | per source per run |
+| `normalize_notice` | 2. Normalize | per notice |
+| `resolve_relations` | 3. Relate | per process cluster |
+| `qualify_notice` | 4. Qualify | per lot |
+| `acquire_documents` | 5. Acquire docs | per notice |
+| `extract_lots` | 6. Extract lots | per notice + doc set |
+| `extract_products` | 7. Extract products | per lot |
+| `score_quoteability` | 8. Score quoteability | per candidate |
+| `enrich_supplier_prices` | 9. Price-signal match | per candidate-source pair |
+| `compute_gross_gate` | 10. Gross margin gate | per candidate |
+| `estimate_landed_cost` | 11. Landed cost | per candidate-quote scenario |
+| `compute_net_gate` | 12. Net margin gate | per candidate + process rollup |
+| `generate_manifest` | 13. Manifest | per process |
+| `record_operator_decision` | 14. Operator decision | per process |
+| `run_bid_workflow` | 15. Bid workflow | per process (with scope) |
+| `escalate_rfq` | (re-entry) | per candidate |
+| `validation` | (cross-cutting) | per worker job |
+
+- `AgentSessionLog` interface
+- `ValidationVerdict`, `ValidationVerdictSummary` interfaces
+- `ValidationIssue` interface
+
+**confidence.ts** — Confidence scoring types:
+- `ConfidenceBreakdown` (6 components: `classificationStability`, `quoteRealism`, `commodityCodeConfidence`, `freightModeStability`, `revenueReliability`, `fxFreshness`)
+- Confidence bands: >= 0.80 high, 0.60–0.79 usable, < 0.60 manual review
+- `CandidateCommodityCode` with source enum
+- Dual confidence model types (`matchConfidence` + `quoteUsabilityConfidence`)
+- Lexicographic gating types
+
+**zod.ts** — Runtime validation schemas:
+- Zod schemas for all entity interfaces in contracts.ts
+- Used for skill result contract validation and data boundary checks
+- Must stay in sync with TypeScript interfaces
+
+### 5.2 packages/intelligence
+
+The intelligence pipeline logic. All screening-grade computation, deterministic gates, and evaluation harness.
+
+**Package boundary rule (constitutional):** `packages/intelligence` must NOT import `packages/db`, daemon modules, desktop bridge, or Supabase clients. It is a pure TypeScript library consumed by the daemon (via Bun), the evaluation harness, and tests.
+
+#### qualification/ (4 files)
+
+| File | Responsibility |
+|------|---------------|
+| `expiry.ts` | 30-day expiry filter with DPS/Dynamic Market exception |
+| `access-route.ts` | Access route classification and bidability rules (7 access routes) |
+| `goods.ts` | Multi-dimensional goods classification (`legalCategory`, `goodsDensityScore`, `goodsSeparability`) + CPV deterministic lookup |
+| `quoteability.ts` | Deterministic quoteability scoring formula, `recallRiskScore` computation, `SearchProfile` generation for all candidates |
+
+#### extraction/ (1 file)
+
+| File | Responsibility |
+|------|---------------|
+| `products.ts` | Product candidate extraction: `candidateType` classification, `matchArchetype` assignment, structured slot extraction, slot criticality annotation, standard normalization, bundle decomposition |
+
+#### search/ (1 file)
+
+| File | Responsibility |
+|------|---------------|
+| `build-search-profile.ts` | Multilingual query-wave construction from structured candidate slots. Generates `QueryWave` sequences per candidate x source. Consumes bilingual lexicon. |
+
+#### customs/ (L0: 1 file; L5: 6 additional files)
+
+| File | Layer | Responsibility |
+|------|-------|---------------|
+| `hmrc-tariff.ts` | L0 | HMRC Trade Tariff API integration — HS6 duty lookup, MFN rate retrieval (screening-grade) |
+| `hmrc-fpo.ts` | L5 | HMRC FPO API for HS code candidate generation |
+| `classification-preprocessing.ts` | L5 | Description-quality gate, attribute extraction, multi-source recall dispatch |
+| `ten-digit-resolver.ts` | L5 | 10-digit UK commodity code resolution from 6/8-digit candidates |
+| `measure-scanner.ts` | L5 | Trade remedy detection, preferential eligibility, quota checks, measure interactions |
+| `taric-support.ts` | L5 | Taric Support API for code validation |
+| `hs-ping.ts` | L5 | HS Ping comparison lookup |
+
+#### fx/ (L0: 0 files; L5: 4 files)
+
+| File | Layer | Responsibility |
+|------|-------|---------------|
+| `hmrc-exchange-rates.ts` | L5 | HMRC official exchange rates (customs valuation, monthly rolling) |
+| `xe.ts` | L5 | Xe commercial FX (real-time spot rates) |
+| `currencybeacon.ts` | L5 | CurrencyBeacon backup/comparison FX |
+| `oanda.ts` | L5 | OANDA historical FX |
+
+L0 uses a single hardcoded/seeded FX rate for screening-grade. Full dual-rate FX in Layer 5.
+
+#### logistics/ (L0: 0 files; L5: 5 files)
+
+| File | Layer | Responsibility |
+|------|-------|---------------|
+| `mode-selection.ts` | L5 | Freight mode decision tree with hard locks (hazmat, oversized, fragile, reefer, batteries) |
+| `freightos.ts` | L5 | Freightos freight API |
+| `searates.ts` | L5 | SeaRates freight API |
+| `easyship.ts` | L5 | Easyship parcel-mode estimation |
+| `shippo.ts` | L5 | Shippo parcel-mode carrier rates |
+
+L0 uses flat freight assumption. Full freight engine in Layer 5.
+
+#### margins/ (5 files)
+
+| File | Responsibility |
+|------|---------------|
+| `revenue-normalizer.ts` | Revenue basis classification (`firm_contract` / `estimated_contract` / `framework_ceiling` / `dynamic_market` / `concession` / `unknown`) and `expected_addressable_revenue_ex_vat` computation |
+| `quote-normalizer.ts` | Incoterm cost boundary normalization (EXW/FOB/CIF/DDP to comparable basis) |
+| `gross-gate.ts` | Gross margin gate: identity floor, usability floor, realism gate, margin computation. Produces `CandidatePricingAssessment`. |
+| `margin-scenarios.ts` | Low/base/high net margin scenario calculation with critical blocker checks |
+| `coverage-rollup.ts` | Process-level coverage: `pricedCoverageBps`, `landedCostCoverageBps`, `netQualifiedCoverageBps`, `unresolvedMandatoryLots`, `decisionBasisHash` |
+
+#### validation/ (L0: 0 files; L5: 3 files)
+
+| File | Layer | Responsibility |
+|------|-------|---------------|
+| `dutify.ts` | L5 | Dutify landed-cost comparison adapter |
+| `zonos.ts` | L5 | Zonos landed-cost comparison adapter |
+| `avalara.ts` | L5 | Avalara landed-cost comparison adapter |
+
+#### relations/ (L0: 0 files; L3: 1 file)
+
+| File | Layer | Responsibility |
+|------|-------|---------------|
+| `resolve-process-relations.ts` | L3 | OCID + heuristic relation resolution engine |
+
+#### evaluation/ (2 files)
+
+| File | Responsibility |
+|------|---------------|
+| `harness.ts` | Gold-set pipeline runner — feeds curated lots through extraction, matching, and cost pipeline, collects per-lot results |
+| `metrics.ts` | Lot-level precision/recall computation, archetype-stratified reporting, pass/fail against experiment thresholds |
+
+### 5.3 Evaluation Harness Design
+
+The evaluation harness runs the gold-set lot corpus through the full screening-grade pipeline and produces verifiable metrics.
+
+**Workflow:**
+1. **Load** — Read gold-set lot corpus (50–100 curated lots with human labels for product candidates, expected matches, and margin bands)
+2. **Run** — Execute full pipeline per lot: extraction, matching, screening-grade cost estimation
+3. **Measure** — Compare pipeline output against human labels. Compute per-lot precision/recall for extraction, matching, and margin accuracy.
+4. **Report** — Produce structured results report with:
+   - Per-lot pass/fail against experiment thresholds
+   - Archetype-stratified metrics (recall@k by `matchArchetype` x source)
+   - Aggregate pass/fail for experiments 1–3
+   - Failure mode breakdown (which stages fail, why)
+
+**Experiment thresholds (from §1.5):**
+
+| # | Experiment | Pass Criteria |
+|---|-----------|--------------|
+| 1 | Extraction quality | >= 80% of lots yield >= 1 usable candidate |
+| 2 | Matching quality | >= 70% of candidates with `matchArchetype` produce >= 1 genuine match |
+| 3 | Margin accuracy | Margin bands agree with human expert on >= 75% of lots (within +/-5pp) |
+
+**Cost:** ~$2–10 per benchmark batch run (model calls for extraction + matching adjudication).
+
+**Test lanes:**
+- **Fast inner loop** (per-save, near-zero cost): extraction parsers, margin math, scoring functions, data model validation
+- **Benchmark batch** (per-milestone, medium cost): full gold-set corpus through pipeline
+
+### 5.4 Package Boundary Rules
+
+Constitutional rules that apply from Layer 0 forward:
+
+1. `packages/contracts-schema` and `packages/ui` are **boundary packages** — they must remain free of daemon-specific or Supabase-specific implementation
+2. They must NOT import `packages/db`, desktop bridge code, daemon modules, or Supabase clients
+3. Only procurement/supplier retrieval and workflow playbooks live under `skills/`
+4. The landed-cost engine lives in `packages/intelligence` because cost estimation is API-based and deterministic, not agent-scraping
+
+### 5.5 L0 File Count Summary
+
+| Package | L0 Files | Purpose |
+|---------|----------|---------|
+| `packages/contracts-schema` | 4 | Domain types + Zod schemas |
+| `packages/intelligence` | 14 | Qualification (4), extraction (1), search (1), customs (1), margins (5), evaluation (2) |
+| Workspace bootstrap | 3 | `package.json`, `bunfig.toml`, `.env.example` |
+| **Total L0 TypeScript** | **21** | |
+
+This does NOT count skills (5 skill directories) or database migrations (owned by §2).
+
+---
+
 ## 6. Testing & Acceptance
 
 ### 6.1 Definition of Done
