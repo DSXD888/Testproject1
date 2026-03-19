@@ -404,3 +404,138 @@ CREATE TABLE viewer_sync_status (
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 ```
+
+---
+
+## 4. Testing & Acceptance
+
+### 4.1 Definition of Done
+
+| # | Criterion | Verification |
+|---|----------|-------------|
+| 1 | Push protocol: transactional outbox entries created for all push-owned mutations in same SQLite transaction | `sqlite_supabase_sync.rs` |
+| 2 | Push batches applied to Supabase via single transactional RPC with schema_epoch, row_version ordering | `sqlite_supabase_sync.rs` |
+| 3 | Pull protocol: cursor-based pull for shared_source_configs, shared_company_profile, operator_decision_heads | `sqlite_supabase_sync.rs` |
+| 4 | Operator decisions: queued local intents flush through Supabase CAS RPC with base_remote_revision; conflicts returned (not silently overwritten) | E2E test |
+| 5 | Active-writer lease: second daemon instance detected and rejected | `sqlite_supabase_sync.rs` |
+| 6 | RLS policies enforced for all 4 roles (viewer, operator, admin, daemon) | Supabase migration test |
+| 7 | Web viewing portal displays opportunities, manifests, pipeline status (read-only) | `contracts.spec.ts` |
+| 8 | Supabase Broadcast invalidation delivers live updates to web portal | Manual + E2E |
+| 9 | viewer_sync_status shows sync freshness (green/amber/red) | Manual verification |
+| 10 | Validation enforcement mode: validator rejections quarantine results as AGENT_SUSPECT_OUTPUT | `sqlite_supabase_sync.rs` |
+| 11 | 4 domain-specific validator overlays deployed and producing verdicts | Validator canary tests |
+| 12 | Two users can view the same pipeline: desktop (read-write) + web (read-only) | Manual: two-browser test |
+
+### 4.2 Test File Listing (3 New, Cumulative 35)
+
+| File | Coverage |
+|------|---------|
+| `sqlite_schema.rs` | Full schema creation and migration: all tables created, all constraints enforced, all indices present, sync tracking columns populated, integer pence/bps verified |
+| `sqlite_supabase_sync.rs` | Push-pull round-trip: outbox entry creation, batch assembly, transactional RPC apply, row_version ordering, pull cursor advancement, CAS conflict detection, active-writer lease, schema_epoch guard, idempotent replay |
+| `apps/web/e2e/contracts.spec.ts` | Web portal E2E: navigate to contracts list, verify read-only (no decision controls), verify keyset pagination, verify sync freshness indicator, verify Broadcast live updates |
+
+### 4.3 Test Scenarios
+
+| Scenario | Expected Behavior |
+|----------|------------------|
+| Push batch with stale row_version | Remote rejects batch (idempotent); daemon retries with current version |
+| Push batch with incompatible schema_epoch | Sync pauses; local operation continues; operator alerted |
+| Two desktop operators make concurrent decisions | CAS detects conflict on base_remote_revision; second operator retries with refreshed state |
+| Validator rejects output in enforcement mode | Results quarantined as AGENT_SUSPECT_OUTPUT; error manifest created; operator can override |
+| Validator itself crashes during validation | Fail-open: worker results advance with VALIDATION_SKIPPED_VALIDATOR_ERROR; operator can review manually |
+| Sync degraded (Supabase unreachable) | Desktop shows browse-only mode (local SQLite reads); web shows staleness indicator (amber/red); local operations continue uninterrupted |
+| Full push replay after sync recovery | Idempotent: no duplicates; row_version ordering prevents stale overwrites |
+| Batch boundary crosses stage_run_id | Push dispatcher rejects: batch boundaries never cross stage_run_id (enforced) |
+| Pull-before-push ordering violation | Sync startup enforces pull first, then classify/coalesce pending intents, then resume push |
+| Network interruption during push batch | Identical-envelope retry; batch either fully applied or fully rejected (transactional RPC) |
+
+### 4.4 Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Sync engine bugs corrupt remote data | Medium | Medium | Local copy is authoritative; remote can be fully republished from local outbox replay |
+| Validator enforcement blocks good data | Medium | Medium | Dry-run calibration in L3; operator override available; false positive rate monitored via operator_override_rate_bps |
+| Push batch size exceeds Supabase RPC limits | Low | Low | Batch size bounded by stage_run_id scope; single-in-flight batch constraint |
+| Network interruptions during push | Medium | Low | Identical-envelope retries; degraded mode continues local operation; no data loss |
+
+---
+
+## 5. Open Questions, Forward Compatibility & Dependencies
+
+### 5.1 Open Questions
+
+**§10 Further Research #7: Validator calibration corpus bootstrapping**
+- Formal calibration harness requires three corpora per skill family: clean real (25-30), weird-but-valid (15-20), mutated bad (30-50).
+- L3 dry-run accumulated initial corpus. L4 enforcement decision depends on calibration quality.
+- **L4 impact:** Must have sufficient calibration before enabling enforcement; per-slice readiness prevents premature enforcement.
+
+**§10 Assumption #5: Company profile data can be centrally stored with appropriate protections**
+- shared_company_profile in Supabase stores org-wide bidder data.
+- Impact if wrong: bid workflows need stronger local-only secret partitioning.
+- **L4 impact:** RLS policies must protect company profile; confirm data residency comfort level.
+
+### 5.2 Stubs
+
+| Feature | L4 Stub | Full Implementation |
+|---------|---------|-------------------|
+| Schema epoch transitions | Initial epoch only (no transitions needed) | Future: expand/drain/upgrade/contract protocol |
+| Multi-org | Single org hardcoded | Future: org_id scoping on all tables |
+| Full remote rebuild | Not implemented | Future: generation-based projection_generation |
+| Logical consistency auditor | Not implemented | Future: domain invariant checking with conditional auto-repair |
+
+### 5.3 Forward-Compatibility
+
+| Provision | What Exists in L4 | Target Layer |
+|-----------|-------------------|-------------|
+| schema_epoch on every batch | Initial epoch; sync pauses on mismatch | Future schema evolution protocol |
+| RLS roles designed for multi-org | viewer/operator/admin/daemon roles | Future: org_id column for multi-tenancy |
+| Projection tables | Denormalized push-owned mirrors | Future: materialized views for complex queries |
+
+### 5.4 Dependencies
+
+**Layer deps:** L0-L3 (all pipeline data, all push-owned tables with sync tracking columns)
+
+#### External Accounts (L4)
+
+| Account | Purpose |
+|---------|---------|
+| Supabase project | Shared sync target: Postgres database, Auth, Realtime (Broadcast), Storage |
+
+#### Supabase Migrations (from §9.4)
+
+| Migration | Purpose |
+|-----------|---------|
+| `0001_initial.sql` | All push-owned projection tables + remote-owned tables |
+| `0002_rls.sql` | RLS policies per role (viewer, operator, admin, daemon) |
+| `0003_sync_apply.sql` | Transactional sync apply RPC + operator decision CAS RPC |
+| `0004_schema_metadata.sql` | Schema metadata table + initial schema_epoch |
+| `0005_stage_tracking.sql` | Scope-aware process_stage_status + process_stage_heads projections |
+| `0006_junction_tables.sql` | notice_cpv_codes, product_commodity_codes, lot_cpv_codes |
+
+#### New Daemon Module
+
+| Module | Purpose |
+|--------|---------|
+| `crates/daemon/src/db/sync.rs` | SQLite-to-Supabase push-pull sync engine |
+
+#### New Skills (4 Domain Validator Overlays)
+
+| Skill | Purpose |
+|-------|---------|
+| `skills/validation/procurement-ingestion/` | OCID structure, date ranges, source verification |
+| `skills/validation/supplier-enrichment/` | Pricing plausibility, currency, locale checks |
+| `skills/validation/document-acquisition/` | Artifact type, content, completeness |
+| `skills/validation/product-extraction/` | Candidate plausibility, slot consistency |
+
+#### Web App
+
+| Path | Files | Purpose |
+|------|-------|---------|
+| `apps/web` | 7 files | Next.js viewing portal: contracts list, contract detail, status page, realtime subscriptions, staleness store, topic map |
+
+### 5.5 ADRs Addressed
+
+| ADR | Decision | L4 Action |
+|-----|----------|----------|
+| **ADR-002** | Authority-matrix database | Sync/remote-projection half fully operational |
+| **ADR-008** | Desktop = control, web = view | Web viewing portal created (read-only) |
