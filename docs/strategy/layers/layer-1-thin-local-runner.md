@@ -1154,3 +1154,164 @@ A CI gate runs on every commit that touches a skill directory. It validates comp
 | Run manifest instructions | SKILL.md includes narrative instruction block for agent |
 
 **Implementation:** `skill_lint.rs` in `crates/daemon` — a standalone validation pass that can run in CI without the full daemon.
+---
+
+## 5. Testing & Acceptance
+
+### 5.1 Definition of Done
+
+All items must pass before Layer 1 is complete:
+
+| # | Criterion | Verification |
+|---|----------|-------------|
+| 1 | `cargo check --all-targets` and `cargo clippy --all-targets -- -D warnings` pass | Automated: CI gate |
+| 2 | Rust binary launches skills via CLI (both PTY and contract mode) | Manual: `./daemon --run-skill skills/supplier-price-enrichment/ebay --mode pty` |
+| 3 | Manual CLI trigger ingests a live FTS batch using source-batched skill execution | Manual: `./daemon --ingest fts` produces notice records |
+| 4 | First live end-to-end local loop completes for at least one notice: normalize -> qualify -> acquire docs -> extract lots -> extract products -> price-signal match -> gross gate -> landed cost -> manifest | Manual: verify manifest artifact exists |
+| 5 | Verifiable output exists without later layers: CLI summary and/or local markdown manifest artifact proves the loop completed | Manual: inspect output file |
+| 6 | Process-group supervision verified: every session gets pgid, cleanup verdict recorded (clean/forced/leaked) | Automated: test + manual inspection of `agent_session_logs` |
+| 7 | Artifact capture works: PTY bytes compressed and stored, session metadata in `agent_session_logs` | Automated: test verifies compressed artifact exists |
+| 8 | Run manifests generated: agent narrative + daemon evidence appendix; fallback machine-authored if agent fails to narrate | Automated: test verifies manifest exists and has both sections |
+| 9 | Error manifest system operational: pipeline failures produce Markdown error manifests with full context | Automated: test injects failure, verifies manifest |
+| 10 | Skill linting CI gate validates directory structure, metadata, schemas, trigger boundaries | Automated: `skill_lint.rs` test |
+| 11 | Smoke canary harness executes: page fingerprint check + auth verification + minimal extraction per source | Automated: `skill_canary_harness.rs` test |
+| 12 | Experiment 4 passes: 10 consecutive batch runs, >=90% success rate, 0 orphaned processes | Semi-automated: harness runs 10 batches, checks orphans |
+| 13 | `stage_run_id` correctly scoped per business unit grain for all live-pipeline stage commits | Automated: test verifies stage_run_id uniqueness per scope grain |
+
+### 5.2 Test File Listing
+
+7 new Rust test files for Layer 1 (cumulative: 11 including L0's 4 TS test files):
+
+| Test File | Coverage |
+|-----------|----------|
+| `agent_pty_session.rs` | PTY session creation, output capture, full lifecycle (created -> spawned -> active -> terminating -> exited -> reaped -> archived), cleanup verdict recording, pgid verification, compressed artifact storage |
+| `agent_contract_session.rs` | Contract-mode session, structured JSONL/JSON event capture, result contract validation against `result.schema.json`, checkpoint sequencing, partial failure classification |
+| `agent_procurement_ingestion.rs` | Live FTS batch ingestion: daemon triggers FTS skill, notice records created in SQLite, pipeline runs through normalize -> qualify -> extract -> match -> gate -> landed cost -> manifest. Verifies: end-to-end artifact produced, stage_run_id scoped correctly per stage, pipeline_assessments updated, workflow_jobs lifecycle tracked |
+| `adapter_codex.rs` | Codex adapter capability probe (detects CLI presence + version), JSONL parsing from contract-mode output, mode selection (pty vs contract based on skill interaction_profile), error classification on probe failure |
+| `adapter_claude.rs` | Claude adapter capability probe, JSON/stream-JSON parsing, mode selection, error classification |
+| `adapter_result_contract.rs` | Result contract validation against Zod schemas, checkpoint sequencing (monotonic seq, no gaps), partial failure classification (which checkpoints committed, which failed), degraded_completed vs failed outcome distinction |
+| `skill_lint.rs` | Skill directory structure validation: SKILL.md exists, result.schema.json valid JSON Schema, checkpoint.schema.json valid, canary.inputs.jsonl parseable, golden.assertions.yaml parseable, metadata fields present (interaction_profile, result_schema_version, auth_requirements, model_profile) |
+| `skill_canary_harness.rs` | Live smoke canary execution: page fingerprint check (source hasn't restructured), auth verification (credentials work), minimal extraction (at least one record returned). Per-source canary for FTS. |
+
+### 5.3 Test Scenarios
+
+#### Edge Case Scenarios
+
+| Scenario | Expected Behavior |
+|----------|------------------|
+| Agent crashes mid-session (SIGKILL) | Cleanup verdict = `forced`, run manifest has machine-authored fallback narrative, error manifest created, pgid group killed, no orphaned processes |
+| Orphaned grandchild process | Detected by pgid sweep after session exit, reaped by process supervisor, logged as cleanup warning |
+| PTY EOF received unexpectedly | Session transitions to `terminating`, cleanup runs, verdict = `clean` if output was captured, `forced` if mid-extraction |
+| Agent CLI not found on PATH | Capability probe fails gracefully, adapter reports `AGENT_INTERNAL_ERROR`, job marked failed with clear error |
+| Agent produces partial output then stalls | Stall detection triggers after timeout, session force-killed, partial checkpoints preserved, verdict = `forced` |
+| FTS API returns empty results (no new notices) | Normal completion with zero records, no error manifest, cursor not advanced if no data |
+| FTS API returns rate limit or error | Source-specific error classified, error manifest created with HTTP context, job retryable |
+| Skill result.schema.json validation fails on output | Result contract validator rejects output, `AGENT_OUTPUT_CONTRACT_INVALID` error, error manifest with validation details |
+| Multiple candidates in single notice | Each stage runs at correct scope grain: lot extraction per-notice (set-replacement), product extraction per-lot (additive), pricing per-candidate-source-pair (additive) |
+| stage_run_id collision | UUID-based, should never collide. Test verifies uniqueness across 100 concurrent stage commits |
+
+### 5.4 Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| PTY session reliability across macOS/Linux | Medium | High | Focus on macOS first (primary development platform); basic PTY only in L1, full hardening (fd hygiene, EIO, terminal geometry) in Layer 3 |
+| Agent CLI API changes break adapter | Low | Medium | Adapter abstraction isolates CLI specifics; capability probe detects version incompatibility before session launch; adapter_version tracked in agent_session_logs |
+| Process-group cleanup misses edge cases | Medium | Medium | Conservative kill escalation (SIGTERM -> wait -> SIGKILL); pgid sweep after session exit; `leaked` verdict for uncleanable processes; Layer 3 adds full reaper with escalation |
+| Live FTS source changes between gold-set validation and first live run | Medium | Medium | Smoke canary harness detects source structure changes before production run; page fingerprint check in canary |
+| First live run produces different quality than gold-set evaluation | High | Medium | Expected — gold set was curated, live data is noisy. Error manifests capture failures for debugging. Screening-grade accuracy is acceptable. |
+
+---
+
+## 6. Open Questions, Forward Compatibility & Dependencies
+
+### 6.1 Open Questions
+
+These questions are routed from the research document §10. They are explicitly unresolved.
+
+**§10 User Input #5: Which machine is expected to stay online for scheduled execution and freshness SLAs?**
+- Context: Layer 1 introduces the daemon. While L1 uses manual CLI trigger (no cron), the daemon host requirements affect all subsequent layers.
+- Recommendation: Identify one designated always-on workstation or mini-server-class host.
+- **Layer 1 impact:** Daemon binary must run on this machine. PTY session creation depends on host terminal capabilities.
+
+**§10 Further Research #4: Expiry behavior for in-flight jobs**
+- Should expiry (availabilityStatus = expired) cancel in-flight jobs, or let them complete and just prevent auto-qualification?
+- Current design: let jobs complete but block downstream progression.
+- **Layer 1 impact:** Job Runner needs clear expiry-handling semantics even for manual triggers.
+
+**§10 Assumption #2: Desktop-local execution is non-negotiable (VALIDATED)**
+- Evidence: Resolved in owner feedback and ADR-003/ADR-004 architecture.
+- Remaining concern: Confirm what machine is expected to stay online for freshness SLAs.
+- **Layer 1 impact:** Daemon is a local process, not a cloud service. PTY sessions run locally.
+
+### 6.2 Stubs (What L1 Defers)
+
+| Feature | L1 Stub | Full Implementation |
+|---------|---------|-------------------|
+| Scheduler | CLI manual trigger only | Layer 3: cron scheduler with explicit skill binding |
+| Resource arbiter | No concurrency limits | Layer 3: typed quotas (browser slots, agent slots, source lanes) |
+| PTY hardening | Basic session creation only | Layer 3: fd hygiene, EIO handling, terminal geometry stability |
+| Job claiming/leases | Single-threaded sequential execution | Layer 3: concurrent job claiming with lease management |
+| Source registry | Bootstrapped local seed / hardcoded source definitions | Layer 3: typed registry with cron binding; Layer 4: pull from shared_source_configs |
+| Procurement coverage | FTS only (first live source) | Layer 2: adds Contracts Finder; Layer 5: PCS if in scope |
+| Session reaper | Basic cleanup (pgid kill + verdict) | Layer 3: full reaper with escalation tiers, orphan sweep, cleanup timeout |
+| Tracing | Basic stdout/stderr log capture | Layer 3: structured trace derivation + forensic transcript enrichment |
+| Validation | Fields exist, always validation_required = false | Layer 3: dry-run; Layer 4: enforcement |
+| Manifest rendering | Minimal local markdown artifact | Layer 2: shared packages/manifests renderer + desktop presentation |
+| Desktop/operator surface | CLI summary + local file artifact | Layer 2: Tauri desktop control panel |
+| Sync | Tracking columns populated, no outbox entries | Layer 4: transactional outbox + push/pull sync engine |
+
+### 6.3 Forward-Compatibility Provisions
+
+| Provision | What Exists in L1 | Target Layer |
+|-----------|-------------------|-------------|
+| Adapter trait designed for extension | Generic trait with codex + claude implementations; new agent CLIs add new adapter implementations without runtime changes | Future CLIs |
+| Error manifest format includes validator fields | Incident signature, resolution context, and skill path fields present even though validator doesn't exist yet | Layer 3 (validation) |
+| Agent session logs include run_manifest_path and run_manifest_hash | Populated from first skill run; daemon produces machine-authored fallback if agent fails | Layer 3 (validation reviews manifests) |
+| Job Runner aware of parent_job_id | Field exists and is queryable; null in L1 because no validation sub-jobs yet | Layer 3 (validator sub-jobs) |
+| stage_run_id on all pipeline writes | Populated from first live write; scope grain tracked in process_stage_status | Layer 4 (sync batch boundaries never cross stage_run_id) |
+| Sync tracking columns populated on every write | owner_id, row_version, last_local_seq set even before outbox exists | Layer 4 (sync activation) |
+
+### 6.4 Dependencies
+
+**Layer dependency:** Layer 0 (skills, intelligence pipeline, contracts-schema, SQLite schema)
+
+#### Rust Production Dependencies
+
+| Crate | Purpose |
+|-------|---------|
+| `tokio` | Async runtime for daemon event loop |
+| `rusqlite` (or `sqlx` with SQLite feature) | Local SQLite access |
+| `serde` / `serde_json` | Serialization for skill payloads, config, structured traces |
+| `tracing` | Structured logging framework |
+| `chrono` | Date/time handling (ISO 8601 timestamps) |
+| `anyhow` / `thiserror` | Error handling (anyhow for application, thiserror for library errors) |
+| `nix` | POSIX process-group and signal handling (setpgid, killpg, waitpid) |
+| `portable-pty` (or `pty-process`) | PTY session management (pseudo-terminal creation, resize, read/write) |
+| `uuid` | UUID generation for SQLite (replaces gen_random_uuid) |
+| `sha2` | SHA-256 hashing for artifact integrity, content hashing, run manifest hashing |
+| `zstd` | Compressed transcript and artifact storage |
+
+#### External Accounts / Credentials
+
+| Account | Purpose |
+|---------|---------|
+| Codex CLI credentials | Agent CLI for skill execution (PTY or contract mode) |
+| Claude CLI credentials | Alternative agent CLI |
+
+#### Configuration
+
+| Config | L1 Entries |
+|--------|-----------|
+| `.env.example` | All L0 entries + `DAEMON_LOG_LEVEL` (tracing verbosity), `ARTIFACT_STORE_PATH` (compressed session artifacts), `DAEMON_PID_FILE` (process management) |
+| `Cargo.toml` | Workspace root + daemon crate with all dependencies above |
+| `rust-toolchain.toml` | Rust 2024 edition, nightly channel |
+
+### 6.5 ADRs Addressed
+
+| ADR | Decision | Layer 1 Action |
+|-----|----------|---------------|
+| **ADR-001** | Skill-based agent scraping | First live skill-based procurement ingestion loop (FTS) |
+| **ADR-002** | Authority-matrix database | Local-operational-authority half becomes live on real writes; sync engine deferred to Layer 4 |
+| **ADR-003** | Tauri + separate Rust daemon | Daemon binary starts here as a standalone process |
+| **ADR-004** | PTY-based agent execution from day 1 | Hybrid PTY + contract mode via adapter boundary |
+| **ADR-005** | Skills as passive assets, daemon orchestrates | Skills + explicit binding + daemon-managed execution lifecycle |
