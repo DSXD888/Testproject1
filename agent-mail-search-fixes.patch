@@ -1,0 +1,211 @@
+diff --git a/crates/mcp-agent-mail-db/src/queries.rs b/crates/mcp-agent-mail-db/src/queries.rs
+index 421ccfd..d9c7a51 100644
+--- a/crates/mcp-agent-mail-db/src/queries.rs
++++ b/crates/mcp-agent-mail-db/src/queries.rs
+@@ -1293,6 +1293,13 @@ pub async fn ensure_project(
+         ));
+     }
+ 
++    // Canonicalize the path so that symlink aliases (e.g. /tmp → /private/tmp
++    // on macOS) always resolve to the same slug and project identity.
++    let canonical_key = std::fs::canonicalize(human_key)
++        .map(|p| p.to_string_lossy().into_owned())
++        .unwrap_or_else(|_| human_key.to_string());
++    let human_key = canonical_key.as_str();
++
+     let slug = generate_slug(human_key);
+     let cache_scope = cache_scope_for_pool(pool);
+ 
+diff --git a/crates/mcp-agent-mail-db/src/search_planner.rs b/crates/mcp-agent-mail-db/src/search_planner.rs
+index 7b62b69..a98befa 100644
+--- a/crates/mcp-agent-mail-db/src/search_planner.rs
++++ b/crates/mcp-agent-mail-db/src/search_planner.rs
+@@ -285,6 +285,14 @@ pub struct SearchQuery {
+     /// Maximum results to return (clamped to `1..=100_000`).
+     pub limit: Option<usize>,
+ 
++    /// Result offset for pagination (applied at the search-engine level).
++    /// When set, the search engine skips this many results before returning.
++    /// Preferred over application-level `.skip()` because it interacts
++    /// correctly with collectors that keep a fixed-size heap (e.g. Tantivy
++    /// `TopDocs` with equal-score documents such as `AllQuery`).
++    #[serde(default)]
++    pub offset: Option<usize>,
++
+     /// Cursor for stable pagination (opaque token from previous result).
+     pub cursor: Option<String>,
+ 
+diff --git a/crates/mcp-agent-mail-db/src/search_service.rs b/crates/mcp-agent-mail-db/src/search_service.rs
+index 14b19fc..ea8ef62 100644
+--- a/crates/mcp-agent-mail-db/src/search_service.rs
++++ b/crates/mcp-agent-mail-db/src/search_service.rs
+@@ -3311,9 +3311,14 @@ fn build_search_cache_key(
+         }
+     });
+     let offset_proxy = if query.cursor.is_none() {
++        // Fold the query-level offset into the cache discriminator so that
++        // different offset values produce distinct cache keys.
++        let mut h = DefaultHasher::new();
++        scope_discriminator.hash(&mut h);
++        query.offset.unwrap_or(0).hash(&mut h);
+         #[allow(clippy::cast_possible_truncation)]
+         {
+-            scope_discriminator as usize
++            h.finish() as usize
+         }
+     } else {
+         offset_proxy
+@@ -3487,13 +3492,22 @@ pub async fn execute_search(
+                 Outcome::Panicked(payload) => return Outcome::Panicked(payload),
+             }
+         };
+-        let raw_results =
++        let mut raw_results =
+             match canonicalize_message_results(cx, pool, query, raw_results, false).await {
+                 Outcome::Ok(results) => results,
+                 Outcome::Err(err) => return Outcome::Err(err),
+                 Outcome::Cancelled(reason) => return Outcome::Cancelled(reason),
+                 Outcome::Panicked(payload) => return Outcome::Panicked(payload),
+             };
++        // Re-sort for recency after canonicalization (which rebuilds results
++        // from a HashMap and may lose the SQL ORDER BY).
++        if query.ranking == RankingMode::Recency {
++            raw_results.sort_by(|a, b| {
++                b.created_ts
++                    .cmp(&a.created_ts)
++                    .then_with(|| a.id.cmp(&b.id))
++            });
++        }
+         let raw_results = apply_cursor_window(raw_results, query);
+         let raw_results = trim_search_results_to_limit(raw_results, query.effective_limit());
+         let explain = if query.explain {
+@@ -3561,7 +3575,7 @@ pub async fn execute_search(
+                     }
+                 }
+             }
+-            let raw_results =
++            let mut raw_results =
+                 match canonicalize_message_results(cx, pool, query, raw_results, explicit_lexical)
+                     .await
+                 {
+@@ -3570,6 +3584,16 @@ pub async fn execute_search(
+                     Outcome::Cancelled(reason) => return Outcome::Cancelled(reason),
+                     Outcome::Panicked(payload) => return Outcome::Panicked(payload),
+                 };
++            // The Tantivy collector always returns results in BM25 relevance
++            // order. When the caller requested recency ranking, re-sort by
++            // created_ts descending (newest first) before cursor windowing.
++            if query.ranking == RankingMode::Recency {
++                raw_results.sort_by(|a, b| {
++                    b.created_ts
++                        .cmp(&a.created_ts)
++                        .then_with(|| a.id.cmp(&b.id))
++                });
++            }
+             let raw_results = apply_cursor_window(raw_results, query);
+             let raw_results = trim_search_results_to_limit(raw_results, query.effective_limit());
+             let explain = if query.explain {
+diff --git a/crates/mcp-agent-mail-db/src/search_v3.rs b/crates/mcp-agent-mail-db/src/search_v3.rs
+index d14d371..f3e6fb9 100644
+--- a/crates/mcp-agent-mail-db/src/search_v3.rs
++++ b/crates/mcp-agent-mail-db/src/search_v3.rs
+@@ -145,7 +145,7 @@ impl TantivyBridge {
+                 &self.handles,
+                 &terms,
+                 fetch_limit,
+-                0, // offset handled externally via cursor
++                query.offset.unwrap_or(0),
+                 query.explain,
+                 &config,
+             );
+diff --git a/crates/mcp-agent-mail-tools/src/products.rs b/crates/mcp-agent-mail-tools/src/products.rs
+index 3a4819c..9ba28b5 100644
+--- a/crates/mcp-agent-mail-tools/src/products.rs
++++ b/crates/mcp-agent-mail-tools/src/products.rs
+@@ -467,6 +467,14 @@ pub async fn search_messages_product(
+         None
+     };
+ 
++    // When a sender filter is provided, restrict to outbox direction so the
++    // filter matches only messages *sent by* the named agent.
++    let direction = if sender_filter.is_some() {
++        Some(mcp_agent_mail_db::search_planner::Direction::Outbox)
++    } else {
++        None
++    };
++
+     // Build planner query with product scope and facets
+     let search_query = mcp_agent_mail_db::search_planner::SearchQuery {
+         text: trimmed.to_string(),
+@@ -474,7 +482,7 @@ pub async fn search_messages_product(
+         project_id: scoped_project_id,
+         product_id: Some(product_id),
+         importance: importance_filter,
+-        direction: None,
++        direction,
+         agent_name: sender_filter,
+         thread_id,
+         ack_required: None,
+diff --git a/crates/mcp-agent-mail-tools/src/search.rs b/crates/mcp-agent-mail-tools/src/search.rs
+index b5449d0..c7f4e9e 100644
+--- a/crates/mcp-agent-mail-tools/src/search.rs
++++ b/crates/mcp-agent-mail-tools/src/search.rs
+@@ -711,7 +711,6 @@ pub async fn search_messages(
+     } else {
+         offset.unwrap_or(0).max(0).unsigned_abs() as usize
+     };
+-    let planner_limit = max_results.saturating_add(offset_val);
+ 
+     // Legacy parity: empty query returns an empty result set (no DB call).
+     let trimmed = query.trim();
+@@ -758,20 +757,33 @@ pub async fn search_messages(
+     let project = resolve_project(ctx, &pool, &project_key).await?;
+     let project_id = project.id.unwrap_or(0);
+ 
+-    // Build a SearchQuery with all facets
++    // When a sender filter is provided, restrict to outbox direction so the
++    // filter matches only messages *sent by* the named agent, not messages
++    // the agent can *see* (which would include received messages).
++    let direction = if sender_filter.is_some() {
++        Some(mcp_agent_mail_db::search_planner::Direction::Outbox)
++    } else {
++        None
++    };
++
++    // Build a SearchQuery with all facets.
++    // Offset is set on the query so the search engine can skip results at the
++    // collector level, which is necessary for correct pagination with
++    // equal-score results (e.g. AllQuery from wildcard `*`).
+     let search_query = mcp_agent_mail_db::search_planner::SearchQuery {
+         text: trimmed.to_string(),
+         doc_kind: mcp_agent_mail_db::search_planner::DocKind::Message,
+         project_id: Some(project_id),
+         product_id: None,
+         importance: importance_filter,
+-        direction: None,
++        direction,
+         agent_name: sender_filter,
+         thread_id,
+         ack_required: None,
+         time_range,
+         ranking: ranking_mode,
+-        limit: Some(planner_limit),
++        limit: Some(max_results),
++        offset: if offset_val > 0 { Some(offset_val) } else { None },
+         cursor,
+         // Always collect explain internally so degraded diagnostics remain deterministic
+         // even when `explain=false` for the caller.
+@@ -795,11 +807,11 @@ pub async fn search_messages(
+     )?;
+ 
+     // Map planner SearchResult → tool SearchResult (legacy format)
+-    // Apply offset manually (planner doesn't support offset for simple search)
++    // Offset is now applied at the search-engine level via SearchQuery.offset,
++    // so no application-level .skip() is needed here.
+     let results: Vec<SearchResult> = planner_response
+         .results
+         .into_iter()
+-        .skip(offset_val)
+         .take(max_results)
+         .map(|scoped| {
+             let r = scoped.result;
