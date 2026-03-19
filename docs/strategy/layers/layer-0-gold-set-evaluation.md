@@ -1645,3 +1645,204 @@ In Layer 1, the daemon formalizes this into the hybrid-authored run manifest sys
 | **Dutify, Zonos, Avalara** | Commercial | **Review required** | Optional landed-cost comparison providers — validation use only |
 
 **General rule:** APIs marked "Review required" require verification of commercial terms for automated pipeline use. The main compliance consideration for skill-based scraping is **website terms of use** for supplier marketplaces. Agent skill scraping should be low-volume and source-specific, with ToS reviewed for each marketplace before implementation.
+
+---
+
+## 6. Testing & Acceptance
+
+### 6.1 Definition of Done
+
+All items must pass before Layer 0 is complete. Experiment 4 (runtime reliability) is deferred to Layer 1.
+
+| # | Criterion | Verification |
+|---|----------|-------------|
+| 1 | **Gold-set lot corpus** contains ≥50 curated lots across whitelist categories (office supplies, cleaning products, basic PPE, hand tools, basic furniture, packaging materials) with human labels for product candidates, expected matches, and margin bands | Manual: corpus file count and label coverage audit |
+| 2 | **Bilingual lexicon** seeded for top 30–50 product families with EN/ZH noun aliases, market framing terms, negative terms, unit/pack aliases, and standard/class patterns | Manual: lexicon file review; ≥30 families covered |
+| 3 | **All 5 skills** have complete `SKILL.md` + `result.schema.json` + `checkpoint.schema.json` + `canary.inputs.jsonl` + `golden.assertions.yaml` | Automated: skill linting CI gate validates directory structure and metadata |
+| 4 | **Evaluation harness** runs full gold-set corpus through extraction → matching → screening-grade cost, produces per-lot precision/recall report | Automated: `bun run harness` completes without error and emits metrics report |
+| 5 | **Experiment 1 passes:** ≥80% of gold-set lots yield at least one usable product candidate with correct unit, quantity, and specification | Automated: harness metrics check |
+| 6 | **Experiment 2 passes:** ≥70% of candidates with `matchArchetype` produce at least one genuine match (not a false positive from keyword overlap) | Automated: harness metrics check |
+| 7 | **Experiment 3 passes:** Margin bands agree with human expert assessment on ≥75% of gold-set lots (within ±5pp for screening-grade) | Semi-automated: harness computes bands, human expert reviews a sample |
+| 8 | **All 4 unit test suites pass:** `goods-qualification.test.ts`, `quoteability.test.ts`, `tariff-parsing.test.ts`, `margin-rules.test.ts` | Automated: `bun test` |
+| 9 | **SQLite schema validates:** all push-owned tables have sync tracking columns (`owner_id`, `row_version`, `last_local_seq`, `stage_run_id`), all monetary fields are integer pence (`_pence` suffix), all confidence/percentage fields are integer basis points (`_bps` suffix, 0–10000) | Automated: schema introspection test |
+| 10 | **Each skill's SKILL.md** includes instructions for the agent to write a structured narrative of what it did (a "run manifest") as part of its output — prepares for the formal daemon-managed manifest system in Layer 1 | Manual: review each SKILL.md for narrative instruction block |
+
+### 6.2 Test Scenarios
+
+#### Fast Inner Loop (per-save, near-zero cost)
+
+Deterministic logic tests that run on every save:
+
+| Suite | File | What It Tests |
+|-------|------|--------------|
+| Goods qualification | `packages/intelligence/src/qualification/goods-qualification.test.ts` | CPV-to-legalCategory lookup (divisions 14–44 → goods, 45 → works, 50–98 → services), goodsDensityScore computation, goodsSeparability detection, access route classification, expiry check (30-day rule with DPS exception) |
+| Quoteability scoring | `packages/intelligence/src/search/quoteability.test.ts` | quoteabilityScore formula (positive/negative signal weighting), recallRiskScore computation, searchEligibilityState thresholds (≥0.65 auto, 0.45–0.64 manual, <0.45 skip), SearchProfile generation for all candidates including below-threshold |
+| Tariff parsing | `packages/intelligence/src/customs/tariff-parsing.test.ts` | HMRC Tariff API response parsing, HS6-to-duty-rate extraction, MFN rate identification, compound/specific duty expression handling, conservative default selection (MFN, residual, out-of-quota, standard VAT) |
+| Margin rules | `packages/intelligence/src/margins/margin-rules.test.ts` | Revenue normalization by basis type (firm/estimated/framework/dynamic/concession/unknown), quote normalization to EXW basis, gross margin gate (≥30% threshold + confidence floor), net margin gate (≥20% conservative + blockers + coverage floor), critical blocker list enforcement, integer pence arithmetic throughout |
+
+#### Benchmark Batch (per-milestone, ~$2–10 per run)
+
+Full gold-set corpus through the pipeline:
+
+1. Load all gold-set lots with human labels
+2. Run full pipeline: extraction → matching → screening-grade cost estimation
+3. Compare pipeline output against human labels per lot
+4. Produce metrics report: extraction precision/recall, matching precision/recall by archetype, margin accuracy per category
+5. Validate experiments 1–3 against thresholds
+
+#### Specific Edge Cases
+
+| Scenario | Expected Behavior |
+|----------|------------------|
+| Gold-set lot with 12 lots where 11 are irrelevant (services/works) | System correctly identifies the 1 qualifying goods lot; irrelevant lots rejected with correct `legalCategory` |
+| Mixed contract with separable goods | `addressableValuePence` reflects goods portion only, not whole contract value; margin computed against goods-addressable revenue |
+| Candidate with `matchArchetype = unknown` | System does NOT fabricate an archetype; uses generic matching with wider shortlist budgets; `identityConfidence` penalty applied |
+| Screening-grade landed cost | Uses conservative defaults throughout: MFN rate (not preferential), residual duty (not named-exporter), out-of-quota, standard VAT |
+| DPS/Dynamic Market notice | 30-day expiry filter NOT applied; notice remains active |
+| Pure services notice with goods-like CPV codes (software) | Correctly classified as `services` despite CPV division placement |
+| Notice with missing deadline | Routed to manual review, NOT auto-passed |
+| Framework call-off notice | Flagged for access-route review, NOT auto-passed as fully actionable |
+| Bundle candidate | Decomposed into constituent candidate families before downstream processing; `parentCandidateId` and `candidateRole` recorded |
+| Regulated goods candidate without compliance evidence | `complianceEvidenceTier = absent` prevents automatic match acceptance regardless of confidence scores |
+| Pack-basis mismatch (per-unit vs per-box) | `quoteUsabilityConfidence` penalized; not treated as valid pricing signal |
+| Query returns only accessories | Classified as `accessory_swamp` failure mode; not counted as genuine marketplace presence |
+
+### 6.3 Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Gold-set too small for statistical significance | Medium | Medium | Start with 50 lots, expand per category; lot-level measurement (not notice-level); per-archetype and per-category metrics to detect weak spots |
+| Screening-grade landed cost too inaccurate for margin estimation | Medium | High | Conservative defaults ensure overestimation of costs, not underestimation — system rejects on the safe side; Layer 5 delivers decision-grade accuracy |
+| eBay listings don't represent real supplier economics | High | Medium | eBay is first validation source only; Layer 5 adds Alibaba/1688 for wholesale pricing; eBay prices treated as `benchmark_ceiling`, not `executable` |
+| Wrong product match inflates margin | High | High | Dual confidence scoring with lexicographic gating + archetype-specific identity floors + four-state evidence comparison + compliance evidence tiers + operator review |
+| Attachment blindness — extraction from notice text only | High | Critical | Gold set includes pre-acquired documents; Layer 1 adds live document acquisition; `qualificationBasis` tracks whether extraction had document support |
+| Pack-basis normalization error | High | High | Listing pack qty/unit extraction; normalized unit basis on every quote; `quoteUsabilityConfidence` penalizes unclear basis |
+| Price-signal false precision | High | Medium | Margin bands (not point estimates); `priceSignalRole` classification; RFQ escalation for high-value opportunities |
+| Compliance-critical false positive | Medium | High | `regulated_goods` candidateType + `complianceEvidenceTier` + detail-page enrichment before rejection + standard normalization |
+| Missing evidence treated as conflict | High | High | Four-state evidence model; only `conflict` triggers hard rejection; `missing` and `ambiguous` are confidence penalties |
+| Static shortlist truncation drops valid matches | High | Medium | Adaptive shortlist budget driven by `recallRiskScore`; diversity enforcement; recall@k measurement |
+| Query vocabulary mismatch | High | Medium | matchArchetype-driven query templates; market framing slots; query-wave pattern with staged recovery |
+| Cross-language market framing gap | Medium | Medium | `marketFrameEn`/`marketFrameZh` slots; curated lexicon; Chinese retry on Alibaba |
+| Infrastructure-first delivery delays thesis validation | High | High | Intelligence pipeline validated first (L0 experiments); no daemon/desktop/sync investment until intelligence thesis proven |
+| Premature category breadth | High | High | Narrow whitelist (6 categories); expand only after system proves reliable |
+| No labeled benchmark corpus for calibration | High | Medium | Gold-set lot corpus with human labels is the first deliverable of L0 |
+| HMRC FPO API access not secured | Medium | High | FPO not a hard dependency; fallback to CPV-to-HS mapping; HS6-level screening in L0 |
+
+---
+
+## 7. Open Questions, Forward Compatibility & Dependencies
+
+### 7.1 Open Questions
+
+These questions are routed from the research document §10. They are **explicitly unresolved** — do NOT silently resolve them. Each must be answered before or during implementation.
+
+#### Requiring User Input
+
+**§10 User Input #1: Is Scotland in the MVP ingestion scope?**
+- Context: Determines whether PCS is a first-wave scraping skill or a later phase.
+- Options: England/Wales/NI only, or full UK including Scotland.
+- Recommendation: Include PCS skill in the first live procurement wave only if Scotland matters commercially on day one.
+- **Layer 0 impact:** Affects gold-set source selection — should gold-set include PCS-sourced notices?
+
+**§10 User Input #4: Should the margin model assume VAT-recoverable importer?**
+- Context: Materially changes whether import VAT is treated as an economic cost or primarily a cash-flow item.
+- Recommendation: Model both views, but set the default based on real importer-of-record structure.
+- **Layer 0 impact:** Affects margin-rules test expectations and screening-grade landed cost defaults.
+
+**§10 User Input #5: Which machine is expected to stay online for scheduled execution?**
+- Context: One active local daemon per org assumed; freshness depends on at least one machine staying online.
+- Recommendation: Identify one designated always-on workstation or mini-server-class host.
+- **Layer 0 impact:** None directly — daemon is L1. But gold-set evaluation harness environment should match expected production host.
+
+#### Requiring Further Research
+
+**§10 Further Research #1: Exact procurement source list by commercial importance**
+- Why unresolved: Broad platform scope described, but which portals matter most beyond government sites is unclear.
+- Research needed: Rank target sources by contract volume, goods density, and bidability.
+- **Layer 0 impact:** Informs gold-set source selection and notice variety.
+
+**§10 Further Research #5: Auto-qualification coverage floor calibration**
+- What is the correct `process_coverage_floor_bps` for auto-qualification? Default is 5000 (50%).
+- May be too aggressive for mixed contracts with many service lots.
+- **Layer 0 impact:** Affects coverage rollup logic in the evaluation harness.
+
+**§10 Further Research #8: Customs cost spread materiality threshold**
+- What `customsCostSpreadBps` value should trigger the `customs_branch_divergent` blocker?
+- A 2.7%–4.7% spread is arguably tolerable; 2.7%–48.5% is clearly a blocker. Threshold needs calibration against whitelist categories.
+- **Layer 0 impact:** Affects screening-grade blocker logic.
+
+**§10 Further Research #9: Packaging materials sub-category reclassification**
+- Packaging contains both easy subfamilies (corrugated cartons, poly mailers) and dangerous subfamilies (aluminium foil with 14.2%–35.6% residual AD rates, glass containers under active investigation, tin mill products with 27.85%–49.98% duties).
+- Should the whitelist split packaging into separate sub-categories with different pipeline treatment?
+- **Layer 0 impact:** Directly affects gold-set lot selection and category-specific test expectations.
+
+#### Assumptions Requiring Validation
+
+**§10 Assumption #1: UK procurement is the primary geography.**
+- Impact if wrong: Source layer design changes significantly.
+- **Layer 0 impact:** Gold-set lot selection assumes UK sources.
+
+**§10 Assumption #3: Margin thresholds are business gates, not just UI labels.**
+- Impact if wrong: Workflow state design may be too rigid.
+- Validation: Confirm whether 30% gross and 20% net are hard filters or soft indicators.
+- **Layer 0 impact:** Directly affects gross/net gate implementation in margin-rules tests.
+
+**§10 Assumption #4: Import VAT is usually recoverable (UK VAT-registered importer).**
+- Impact if wrong: Economic-margin modeling could materially overstate opportunity quality.
+- Validation: Confirm importer-of-record and VAT-registration structure.
+- **Layer 0 impact:** Affects screening-grade landed cost defaults and margin test expectations.
+
+### 7.2 Forward-Compatibility Provisions
+
+All provisions below are schema or structural decisions made in Layer 0 that exist to support later layers. They are NOT implemented features — they are nullable columns, structural patterns, or design decisions that prevent breaking changes later.
+
+| Provision | What Exists in L0 | Target Layer | Why It Matters |
+|-----------|-------------------|-------------|----------------|
+| Sync tracking columns | `owner_id`, `row_version`, `last_local_seq`, `stage_run_id` on ALL push-owned tables from creation | Layer 4 (sync engine) | Avoids schema migration when sync activates; columns populated on first write even before outbox exists |
+| Validation columns on `workflow_jobs` | `parent_job_id` (nullable), `validation_required` (default `false`), `validation_verdict_id` (nullable) from creation | Layer 3 (dry-run validation) | Avoids adding columns to a hot table later |
+| `stage_run_id` on pipeline tables | Column present from creation; not actively managed by daemon in L0 | Layer 1 (stage tracking) | Enables atomic commit cohort tracking without schema change |
+| Skill directory structure | Follows production standard: SKILL.md + schemas + canary + golden | Layer 1 (skill linting CI gate) | Skills authored in L0 pass L1 linting without restructuring |
+| SearchProfile for ALL candidates | Created even for below-threshold candidates (`searchEligibilityState = skip`) | Layer 2 (RFQ re-entry) | Operator can trigger manual search or RFQ using existing search profile |
+| `pending_operator_intents` table | Exists from L0 schema with CAS payload structure | Layer 2 (desktop decisions), Layer 4 (remote CAS flush) | Local decision capture without authority matrix violation; no table reclassification needed |
+| `pipeline_assessments.validation_state` | Column exists with default `'unverified'` from creation | Layer 3 (validation system) | Every pipeline assessment already carries validation state |
+| All future-layer columns nullable from creation | Decision-grade fields on `landed_cost_estimates`, coverage fields on `pipeline_assessments`, etc. | Layers 2–5 | Later layers populate existing columns; never add new columns to existing tables |
+| Run manifest preparation in SKILL.md | Each skill includes instructions for agent to write structured narrative | Layer 1 (daemon-managed manifests) | Skills already produce narrative output; L1 formalizes it |
+| `lotId` required on `product_candidates` | NOT NULL constraint from creation | All layers | Prevents orphaned candidates that can't trace to lot-level qualification |
+
+### 7.3 Dependencies
+
+**Layer 0 has no upstream layer dependencies** — it is greenfield.
+
+#### TypeScript Production Dependencies
+
+| Package | Purpose | Layer 0 Scope |
+|---------|---------|--------------|
+| `zod` | Runtime validation of pipeline entities and skill result contracts | Full — used for all entity validation |
+| `marked` (or equivalent) | Markdown manifest rendering | Minimal — used for gold-set evaluation report output |
+
+#### TypeScript Development Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `vitest` | Unit test runner for intelligence pipeline tests |
+| `playwright` | Browser automation for skill E2E testing (gold-set evaluation uses CLI, but skill canary tests need browser) |
+| `typescript` | TypeScript build toolchain |
+| `turbo` (or equivalent) | Monorepo task orchestration |
+
+#### Rust Dependencies (Layer 0 scope: none)
+
+No Rust dependencies in Layer 0. Rust daemon is introduced in Layer 1. The `Cargo.toml` workspace root is not created until Layer 1.
+
+#### Configuration
+
+| Config File | Layer 0 Entries |
+|-------------|----------------|
+| `.env.example` | `SQLITE_PATH` — path to local SQLite database; `HMRC_TARIFF_API_BASE` — HMRC Trade Tariff API base URL (public, no key); `AGENT_CLI_PATH` — path to agent CLI binary (Codex/Claude); `GOLD_SET_PATH` — path to gold-set lot corpus |
+
+### 7.4 ADRs Addressed
+
+| ADR | Decision | Layer 0 Action |
+|-----|----------|---------------|
+| **ADR-001:** Skills as primary data retrieval | Skill-based agent scraping via browser automation for all procurement and supplier data | First 5 skills authored with complete directory standard |
+| **ADR-005:** Skill directory standard | SKILL.md + schemas + canary inputs + golden assertions per skill | All 5 skills follow production standard; 8-question authoring guide established |
+| **ADR-006:** Internal landed-cost engine | Build internal engine instead of third-party API | Screening-grade subset implemented: HMRC Tariff API for duty, flat freight, single FX, conservative defaults |
