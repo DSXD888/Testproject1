@@ -618,3 +618,366 @@ Per-source anti-bot difficulty rating and mitigation strategy:
 - Required anchors present (search box, results container, expected headings)
 - Forbidden anchors absent (login form, CAPTCHA, "access denied", wrong-locale indicators)
 - This prevents "clean run, wrong page" — the most insidious failure mode because output looks schema-valid
+
+---
+
+## 4. Schema, Telemetry & Observability
+
+### 4.1 New Tables (Layer 3)
+
+All DDL in Postgres syntax (SQLite mirrors with type substitutions per L0 §2.1).
+
+#### validation_verdicts (local-only)
+
+Full validator verdict reasoning — never synced. Redacted summary pushed as `validation_verdict_summaries` in Layer 4.
+
+```sql
+create table validation_verdicts (
+  id uuid primary key default gen_random_uuid(),
+  worker_job_id uuid not null references workflow_jobs(id),
+  worker_session_id uuid references agent_session_logs(id),
+  validator_job_id uuid not null references workflow_jobs(id),
+  validator_session_id uuid references agent_session_logs(id),
+  validator_skill_path text not null,
+  validator_skill_version text,
+  verdict text not null,                        -- approved, rejected, flagged
+  confidence_bps integer,                       -- basis points (0-10000)
+  summary text not null,                        -- one-paragraph human-readable (max 2000 chars)
+  basis_sufficiency text not null default 'medium', -- high, medium, low
+  anchor_conflict_count integer not null default 0,
+  incident_signature text,
+  enforcement_eligible boolean not null default false,
+  issues_json jsonb not null default '[]',      -- JSON array of ValidationIssue objects
+  quality_assessment_json jsonb,
+  skill_improvement_suggestions_json jsonb,
+  run_manifest_hash text not null,              -- SHA-256 of validated manifest
+  oqg_signals_summary text,                     -- OQG inputs provided to validator
+  override_verdict text,                        -- operator override: approved, rejected
+  override_reason text,
+  override_by text,
+  override_at timestamptz,
+  verdict_rendered_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+```
+
+#### source_runtime_state (local-only)
+
+Per-source circuit breaker state.
+
+```sql
+create table source_runtime_state (
+  source_id text primary key references sources(id),
+  last_health_state text not null default 'green',
+  circuit_state text not null default 'closed', -- closed, half_open, open
+  challenge_event_count integer not null default 0,
+  challenge_window_started_at timestamptz,
+  circuit_opened_at timestamptz,
+  cooldown_until timestamptz,
+  last_canary_at timestamptz,
+  last_canary_result text,                      -- passed, failed
+  last_error_code text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+```
+
+#### listing_evidence (local-only)
+
+Two-tier cache for marketplace listing evidence. Reusable across candidates/processes via `ProcessRelation` edges.
+
+```sql
+create table listing_evidence (
+  id uuid primary key default gen_random_uuid(),
+  source text not null,                         -- ebay, amazon, alibaba, 1688
+  source_listing_id text not null,
+  normalized_title text not null,
+  structured_attributes_json jsonb,
+  parsed_standards_json jsonb,
+  parsed_units_json jsonb,
+  seller_identifier text,
+  minimum_order_quantity numeric,
+  shipping_terms text,
+  condition text,                               -- new, used, refurbished, unknown
+  compliance_evidence_tier text not null,        -- structured_attribute, title_body_mention, absent
+  intended_use_language text,
+  is_ready_to_ship boolean,
+  fetched_at timestamptz not null,
+  detail_page_fetched boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique (source, source_listing_id)
+);
+```
+
+Source-specific freshness TTLs:
+
+| Source | Search-Result TTL | Listing-Evidence TTL |
+|--------|------------------|---------------------|
+| eBay UK | 24h | 48h |
+| Amazon UK | 36h | 48h |
+| Alibaba | 48h | 72h |
+| 1688 | 72h | 96h |
+| Ready-to-Ship (Alibaba) | 36h | 48h |
+
+#### process_relations (push-owned)
+
+```sql
+create table process_relations (
+  id uuid primary key default gen_random_uuid(),
+  process_id_a uuid not null references procurement_processes(id),
+  process_id_b uuid not null references procurement_processes(id),
+  relation_type text not null,                  -- merged_same_process, related_not_merged, possible_duplicate, separate
+  confidence_bps integer not null,              -- basis points (0-10000)
+  evidence jsonb,
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  stage_run_id text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+```
+
+#### process_aliases (push-owned)
+
+```sql
+create table process_aliases (
+  alias_process_id uuid primary key,
+  canonical_process_id uuid not null references procurement_processes(id),
+  alias_reason text not null default 'merged_same_process',
+  owner_id text not null,
+  row_version integer not null default 1,
+  last_local_seq integer,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+```
+
+### 4.2 Modified Tables
+
+| Table | Field | Change in L3 |
+|-------|-------|-------------|
+| `workflow_jobs` | `parent_job_id` | Now actively used — links validator sub-jobs to worker jobs |
+| `workflow_jobs` | `validation_required` | Now actively set by Validation Policy Engine (still defaults false) |
+| `workflow_jobs` | `validation_verdict_id` | Now populated after validation completes |
+| `agent_session_logs` | `run_manifest_path` | Now actively populated by Run Manifest Writer |
+| `agent_session_logs` | `run_manifest_hash` | Now actively populated (SHA-256 of manifest) |
+
+### 4.3 Authority Classification (L3 Additions)
+
+| Table | Authority | Rationale |
+|-------|-----------|-----------|
+| `validation_verdicts` | Local-only | Full verdict reasoning too large/sensitive for sync |
+| `source_runtime_state` | Local-only | Per-daemon operational state |
+| `listing_evidence` | Local-only | Cache layer, not authoritative data |
+| `process_relations` | Push-owned | Shared visibility in Layer 4 |
+| `process_aliases` | Push-owned | Stable deep links across desktop/web |
+
+### 4.4 Four-Layer Observability Model
+
+| Layer | Content | Storage | Purpose |
+|-------|---------|---------|---------|
+| **Control events** | Job lifecycle, stage transitions, decision points, resource grants/denials, circuit breaker state changes | Structured JSON logs (tracing crate) | Operational monitoring, alerting |
+| **Protocol events** | Agent communication, skill loading, checkpoint progression, result contract events, adapter events | Structured JSON in `agent_session_logs.structured_trace` | Debugging, replay, performance |
+| **Forensic bytes** | Raw PTY output OR contract-mode stdout/stderr | Compressed immutable artifacts at `terminal_output_path` | Post-incident analysis, deterministic replay |
+| **Narrative** | Run manifests — agent-written narrative + daemon evidence appendix | Immutable artifacts at `run_manifest_path` | Semantic validation, operator review |
+
+All four layers capture data from both PTY and contract-mode sessions.
+
+### 4.5 Skill-Level Telemetry (13 Metrics)
+
+| # | Metric | Definition | Unit | Alert Threshold |
+|---|--------|-----------|------|----------------|
+| 1 | `success_rate` | Successful completions / total runs | ratio | < 0.90 over 24h |
+| 2 | `median_duration_ms` | Median wall-clock time per run | ms | > 2x baseline |
+| 3 | `p95_duration_ms` | 95th percentile duration | ms | > 3x baseline |
+| 4 | `cost_per_run_pence` | Model token cost per run | integer pence | > 2x baseline |
+| 5 | `token_count` | Total tokens consumed per run | count | Informational |
+| 6 | `checkpoint_count` | Checkpoints emitted per run | count | Informational |
+| 7 | `retry_count` | Retries triggered per run | count | > 2 average |
+| 8 | `extraction_fill_rate_bps` | Fields populated / total expected | bps (0-10000) | < 7000 (70%) |
+| 9 | `page_fingerprint_delta_bps` | Structure deviation from baseline | bps (0-10000) | > 2000 (20%) |
+| 10 | `auth_challenge_rate_bps` | Runs encountering auth challenge | bps (0-10000) | > 1000 (10%) |
+| 11 | `listing_match_rate_bps` | Candidates with >= 1 genuine match | bps (0-10000) | < 5000 (50%) |
+| 12 | `validation_rejection_rate_bps` | Runs rejected by validator | bps (0-10000) | > 2000 (20%) |
+| 13 | `drift_score_bps` | Composite page/content drift | bps (0-10000) | > 3000 (30%) |
+
+### 4.6 Validation Telemetry (Dry-Run)
+
+5 validation metrics for Layer 3 (expanded to 13 in Layer 4 enforcement):
+
+| Metric | Definition | Unit |
+|--------|-----------|------|
+| `validator_approval_rate_bps` | Approved / total validated | bps |
+| `validator_rejection_rate_bps` | Rejected / total validated | bps |
+| `validator_flag_rate_bps` | Flagged / total validated | bps |
+| `validator_cost_per_run_pence` | Model cost per validation | integer pence |
+| `operator_override_rate_bps` | Overrides / total rejections (false positive proxy) | bps |
+
+---
+
+## 5. Testing & Acceptance
+
+### 5.1 Definition of Done
+
+| # | Criterion | Verification |
+|---|----------|-------------|
+| 1 | Cron scheduler runs on configured schedule with explicit skill binding | `cron_scheduler.rs` |
+| 2 | Batched ingestion: scheduled FTS + CF runs complete without manual intervention | 24h unattended cycle |
+| 3 | Relation resolution correctly classifies (merged/related/possible_duplicate/separate) | `resolve-process-relations.test.ts` |
+| 4 | PTY hardening: fd hygiene, EIO handling, terminal geometry stability | `fault_pty_edge_cases.rs` |
+| 5 | Host environment awareness: sleep/wake detection, catchup sweeps | `fault_host_events.rs` |
+| 6 | Resource arbiter enforces typed quotas (browser slots, agent slots, source lanes) | Load test |
+| 7 | Skill promotion flow: draft -> candidate -> canary -> shadow -> stable | `skill_golden_journeys.rs` + `skill_shadow_compare.rs` |
+| 8 | Source-health canaries and auth-refresh skills operational | Canary test per source |
+| 9 | Worker-validator dry-run: manifests generated, base validator renders verdicts, logged without enforcement | `validation_dry_run.rs` + `validation_golden_verdicts.rs` |
+| 10 | Error manifest control-panel view displays failures with resolution context | Manual desktop verification |
+| 11 | System runs unattended for 5 consecutive days, >=95% success rate | Monitoring + operator sign-off |
+
+### 5.2 Test File Listing (16 New, Cumulative 32)
+
+#### Fault Injection (4)
+
+| File | Coverage |
+|------|---------|
+| `fault_process_cleanup.rs` | Orphaned grandchildren, dropped handle, cleanup timeout, leaked detection, pgid kill escalation |
+| `fault_pty_edge_cases.rs` | PTY EOF/EIO, fd leak scenarios, terminal geometry changes mid-session |
+| `fault_host_events.rs` | Host sleep/monotonic gap, resource exhaustion, concurrent pressure, catchup sweep |
+| `fault_partial_failure.rs` | Partial checkpoint then crash, result contract failure mid-stream, additive partial commit |
+
+#### Deterministic Replay (2)
+
+| File | Coverage |
+|------|---------|
+| `replay_pty_sessions.rs` | Replay captured PTY byte streams against adapter parser (escape sequences, split reads) |
+| `replay_contract_sessions.rs` | Replay captured contract-mode sessions (structured event parsing, checkpoint extraction) |
+
+#### Scheduling & Jobs (2)
+
+| File | Coverage |
+|------|---------|
+| `cron_scheduler.rs` | Cron expression parsing, schedule evaluation, skill binding, catchup sweep, timezone/DST |
+| `job_claim.rs` | Concurrent claiming, lease expiry, double-claim prevention, crash recovery |
+
+#### Skill Lifecycle (3)
+
+| File | Coverage |
+|------|---------|
+| `skill_golden_journeys.rs` | Invariant-based E2E per skill family against known inputs/golden assertions |
+| `skill_shadow_compare.rs` | Quality diff between stable and candidate: fill-rate, duplicate-rate, cost, validator approval |
+| `skill_drift_monitor.rs` | Page fingerprint trending, fallback depth, fill-rate trending |
+
+#### Validation (4)
+
+| File | Coverage |
+|------|---------|
+| `validation_policy.rs` | All policy mode x trigger combinations: always/sample/trigger/skip, anomaly triggers |
+| `validation_executor.rs` | Sub-job spawning, kickoff prompt composition, verdict parsing, basis_sufficiency |
+| `validation_dry_run.rs` | Dry-run verdicts logged, pipeline NOT blocked, no outbox, no stage head advancement |
+| `validation_golden_verdicts.rs` | Known-good -> approved, known-bad -> rejected, ambiguous -> flagged |
+
+#### Relations (1)
+
+| File | Coverage |
+|------|---------|
+| `resolve-process-relations.test.ts` | Relation scoring, hard blockers, four-way classification, confidence thresholds |
+
+### 5.3 Test Scenarios
+
+| Scenario | Expected Behavior |
+|----------|------------------|
+| Cron fires after daemon slept through scheduled time | Catchup sweep detects, runs overdue jobs |
+| Two FTS jobs scheduled concurrently | Resource arbiter grants one browser slot, second queues |
+| Candidate skill has worse fill-rate than stable | Shadow comparison fails, candidate NOT promoted |
+| Source-health canary detects FTS layout change | Source enters cooldown (circuit breaker), error manifest created |
+| Validator rejects supplier enrichment manifest | Dry-run: logged, NOT enforced, worker results advance |
+| Validator crashes mid-validation | Fail-open: worker results advance, `VALIDATION_SKIPPED_VALIDATOR_ERROR` |
+| Relation resolution: same OCID but different buyers | `possible_duplicate` (NOT merged) — buyer mismatch is hard blocker |
+| Host enters low-disk state during session | Resource arbiter blocks new starts, existing complete, alert logged |
+| PTY receives EIO (terminal disconnected) | Graceful handling, session transitions to terminating, verdict recorded |
+| Auth-refresh detects expired Alibaba session | Re-authenticates, stores fresh state, subsequent jobs use new auth |
+
+### 5.4 Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Validator false positive rate too high for future enforcement | Medium | High | Dry-run calibration in L3; golden verdicts regression; track rejection rate per skill |
+| Cron edge cases (timezone, DST, clock drift) | Low | Medium | Catchup sweeps; monotonic clock for internal timers |
+| Relation resolution false merges | Medium | Medium | Conservative thresholds; hard blockers; operator can unmerge; `possible_duplicate` for borderline |
+| Source changes break multiple skills simultaneously | Medium | High | Source-health canaries detect before production; per-source circuit breaker isolates failures |
+
+---
+
+## 6. Open Questions, Forward Compatibility & Dependencies
+
+### 6.1 Open Questions
+
+**§10 Further Research #4: Expiry behavior for in-flight jobs**
+- Should expiry (`availabilityStatus = expired`) cancel in-flight jobs or let them complete?
+- Current design: let complete, block downstream progression.
+- **L3 impact:** Cron scheduler may trigger jobs for notices expiring mid-pipeline.
+
+**§10 Further Research #6: Late process merge reconciliation**
+- How should post-enrichment merges reconcile downstream data?
+- `processClusterId` proposed but not designed.
+- **L3 impact:** Relation engine creates edges, but post-enrichment merges need cluster-aware rollups.
+
+**§10 Further Research #7: Validator calibration corpus bootstrapping**
+- Three corpora needed: clean real (25-30), weird-but-valid (15-20), mutated bad (30-50).
+- How to bootstrap weird-but-valid before production traffic?
+- **L3 impact:** Gold-set from L0 may provide initial mutation material.
+
+### 6.2 Stubs
+
+| Feature | L3 Stub | Full Implementation |
+|---------|---------|-------------------|
+| Validation enforcement | Dry-run only — logged, not enforced | Layer 4: enforcement + quarantine |
+| Domain-specific validators | Base validator only | Layer 4: 4 overlays (procurement, supplier, document, product) |
+| Formal calibration harness | Initial calibration against gold-set | Layer 4: three-corpus with mutation bank |
+| Sync | Tracking columns populated, no outbox | Layer 4: full sync engine |
+| Multi-user | Single operator only | Layer 4: web portal + RLS |
+
+### 6.3 Forward-Compatibility
+
+| Provision | What Exists in L3 | Target Layer |
+|-----------|-------------------|-------------|
+| Validation policy engine ready for enforcement toggle | Evaluates but always dry-run=true | Layer 4 |
+| Run manifest corpus accumulates | Every skill run produces manifest | Layer 4 calibration |
+| `validation_verdicts` full schema from creation | Includes enforcement_eligible, basis_sufficiency | Layer 4 projections |
+| Source circuit breaker state accessible | Feeds into risk-stratified sampling | Layer 4 |
+| Skill promotion includes validator approval rate | Shadow comparison metric | Layer 4 promotion gate |
+
+### 6.4 Dependencies
+
+**Layer deps:** L0 (intelligence, gold set), L1 (daemon, adapter), L2 (desktop, pipeline model)
+
+#### Additional Rust Crates
+
+| Crate | Purpose |
+|-------|---------|
+| `cron` | Cron expression parsing |
+| `sysinfo` | Host resource pressure detection |
+
+#### New Skills (10)
+
+| Skill | Purpose |
+|-------|---------|
+| `auth-refresh/alibaba/` | Alibaba auth state refresh |
+| `auth-refresh/1688/` | 1688 auth state refresh |
+| `source-health/fts/` | FTS source health canary |
+| `source-health/alibaba/` | Alibaba source health canary |
+| `validation/base/` (6 files) | Base validator skill with rubric |
+
+#### New TS Module
+
+| Module | Purpose |
+|--------|---------|
+| `packages/intelligence/src/relations/resolve-process-relations.ts` | Relation resolution engine |
+| `packages/manifests/src/render-error-manifest.ts` + template | Error manifest renderer |
+
+### 6.5 ADRs Addressed
+
+| ADR | Decision | L3 Action |
+|-----|----------|----------|
+| **ADR-004** | PTY-based execution | Full PTY hardening |
+| **ADR-005** | Explicit skill binding | Scheduler binds skill id+version at enqueue |
