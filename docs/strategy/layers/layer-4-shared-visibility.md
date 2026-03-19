@@ -8,6 +8,186 @@
 
 ---
 
+## 2. Supabase Schema, RLS & Remote-Owned Tables
+
+> **Ownership:** This section owns the Supabase-side schema: projection tables, summary tables, remote-owned tables, junction tables, RLS policies, and migration listing. Push/pull protocol mechanics are owned by §1 (Sync Engine). SQLite schema is owned by L0 §2 and L1 §3.
+
+### 2.1 Supabase Projection Tables (Push-Owned)
+
+All 18 push-owned SQLite tables get Supabase counterparts. These are **push-only projections** — the daemon pushes via `apply_push_batch(batch_json)` RPC. The local SQLite copy is authoritative; Supabase is a read-only mirror for the web portal.
+
+| # | Table | Scope | Notes |
+|---|-------|-------|-------|
+| 1 | `procurement_processes` | Process | Canonical process entity |
+| 2 | `contract_notices` | Notice | Source-specific notice records |
+| 3 | `notice_lots` | Lot | Per-notice lot decomposition |
+| 4 | `tender_document_sets` | Process | Acquired document sets |
+| 5 | `qualification_runs` | Lot | Per-lot qualification results |
+| 6 | `product_candidates` | Lot | Extracted product candidates |
+| 7 | `search_profiles` | Candidate | Structured search profiles |
+| 8 | `search_attempts` | Candidate | Per-wave search execution records |
+| 9 | `supplier_quotes` | Candidate | Marketplace/RFQ quotes |
+| 10 | `candidate_pricing_assessments` | Candidate | Gross margin gate results |
+| 11 | `landed_cost_estimates` | Candidate-quote | Per-candidate-quote cost estimates |
+| 12 | `manifests` | Process | Generated opportunity manifests |
+| 13 | `pipeline_assessments` | Process | Process-level pipeline rollup |
+| 14 | `bid_workflow_states` | Process | Bid automation state (dormant until L6) |
+| 15 | `process_stage_status` | Scoped | Per-stage execution records |
+| 16 | `process_stage_heads` | Scoped | Current stage head per scope |
+| 17 | `process_relations` | Process | Inter-process relationship edges |
+| 18 | `process_aliases` | Process | Merged-process alias redirects |
+
+Schema for these tables mirrors the SQLite DDL from L0 §2 with Postgres type substitutions (TEXT → text, INTEGER → integer/bigint, etc.). All push-owned columns (`owner_id`, `row_version`, `last_local_seq`, `stage_run_id`, `created_at`, `updated_at`) are present.
+
+### 2.2 Summary Tables (Push-Owned Projections)
+
+Redacted/summarized views of local-only tables, pushed to Supabase for web portal visibility.
+
+| Table | Source | Purpose | Key Fields |
+|-------|--------|---------|-----------|
+| `workflow_job_summaries` | `workflow_jobs` (local-only) | Redacted job status for web | `job_id`, `job_kind`, `status`, `skill_path`, `started_at`, `completed_at`, `error_type` (no full context) |
+| `error_manifest_summaries` | `error_manifests` (local-only) | Redacted error context for web | `manifest_id`, `job_id`, `error_type`, `error_code`, `incident_signature`, `created_at` (no full context_json or markdown) |
+| `validation_verdict_summaries` | `validation_verdicts` (local-only) | Verdict status for web | `verdict_id`, `worker_job_id`, `verdict`, `basis_sufficiency`, `enforcement_eligible`, `created_at` (no full reasoning) |
+| `viewer_sync_status` | Daemon sync state | Sync freshness indicator | `sync_health` (healthy/degraded/offline), `last_push_success_at`, `pending_outbox_count`, `schema_epoch` |
+| `executors` | `executors` (push-owned) | Daemon heartbeat summary | `executor_id`, `heartbeat_at`, `daemon_version`, `started_at` |
+
+### 2.3 Remote-Owned Tables
+
+These tables originate in Supabase and are pulled to local. The daemon does NOT write to these — it only reads (pulls).
+
+#### shared_company_profile
+
+Org-wide bidder profile used by the bid workflow (Layer 6).
+
+```sql
+CREATE TABLE shared_company_profile (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id text NOT NULL,
+  company_name text NOT NULL,
+  registration_number text,
+  vat_number text,
+  address_json jsonb,
+  contact_json jsonb,
+  bid_profile_json jsonb,       -- portal-specific form field defaults
+  remote_change_seq bigint NOT NULL DEFAULT 1,
+  remote_revision bigint NOT NULL DEFAULT 1,
+  deleted_at timestamptz,       -- tombstone for soft-delete
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+#### shared_source_configs
+
+Source enablement and configuration. Controls which procurement/supplier sources are active and their scheduling parameters.
+
+```sql
+CREATE TABLE shared_source_configs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id text NOT NULL,
+  source_id text NOT NULL UNIQUE,
+  source_type text NOT NULL CHECK (source_type IN ('procurement', 'supplier')),
+  display_name text NOT NULL,
+  enabled boolean NOT NULL DEFAULT true,
+  skill_path text NOT NULL,                       -- e.g., 'procurement-ingestion/fts'
+  schedule_cron text,                              -- cron expression for scheduled runs
+  config_json jsonb,                               -- source-specific configuration
+  remote_change_seq bigint NOT NULL DEFAULT 1,
+  remote_revision bigint NOT NULL DEFAULT 1,
+  deleted_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+#### operator_decision_heads
+
+Operator dispositions with compare-and-swap semantics. This is the **remote-authoritative** decision table — before Layer 4, operator decisions exist only as local intents in `pending_operator_intents`.
+
+```sql
+CREATE TABLE operator_decision_heads (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id text NOT NULL,
+  process_id text NOT NULL UNIQUE,
+  disposition text NOT NULL CHECK (disposition IN ('pending', 'watching', 'approved', 'rejected')),
+  reviewed_basis_hash text,                        -- hash of candidates/quotes/estimates reviewed
+  reviewed_manifest_hash text,                     -- hash of manifest read
+  reviewed_at_stage_run_id text,                   -- stage run decision was based on
+  decision_stale boolean NOT NULL DEFAULT false,    -- set true when upstream changes basis
+  operator_id text,                                 -- who made the decision
+  command_id text,                                  -- idempotency key for CAS (handles lost-response retries)
+  remote_change_seq bigint NOT NULL DEFAULT 1,
+  remote_revision bigint NOT NULL DEFAULT 1,
+  deleted_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX idx_decisions_process ON operator_decision_heads(process_id);
+CREATE INDEX idx_decisions_disposition ON operator_decision_heads(disposition);
+```
+
+**CAS semantics:** Updates via `update_operator_decision(process_id, disposition, base_remote_revision, command_id)` RPC. Mismatch on `base_remote_revision` → conflict returned (not silently overwritten). `command_id` provides idempotency for lost-response retries. Direct table UPDATE is blocked — only the RPC path is exposed.
+
+### 2.4 Junction Tables (Supabase)
+
+Mirrored from SQLite for web portal querying:
+
+| Table | Purpose |
+|-------|---------|
+| `notice_cpv_codes` | Notice ↔ CPV code mapping |
+| `product_commodity_codes` | Product ↔ commodity code mapping |
+| `lot_cpv_codes` | Lot ↔ CPV code mapping |
+
+### 2.5 RLS Policy Matrix
+
+Row-Level Security policies enforce the authority matrix at the Supabase database boundary. All tables scoped by `org_id` (implicit single-org in MVP).
+
+| Table Category | Tables | `viewer` | `operator` | `admin` | `daemon` |
+|---|---|---|---|---|---|
+| Push-owned projections | All 18 projection tables | SELECT | SELECT | SELECT | INSERT, UPDATE (via `apply_push_batch` RPC) |
+| Push-owned summaries | 5 summary tables + executors | SELECT | SELECT | SELECT | INSERT, UPDATE (via `apply_push_batch` RPC) |
+| Remote-owned config | `shared_company_profile`, `shared_source_configs` | SELECT | SELECT | Full CRUD | SELECT (pull) |
+| Remote-owned decisions | `operator_decision_heads` | SELECT | SELECT, UPDATE (via CAS RPC) | Full CRUD | SELECT (pull) |
+| Sync infrastructure | `schema_metadata` | — | — | SELECT, UPDATE | SELECT, UPDATE |
+
+**Implementation rules:**
+- Push-owned tables: daemon writes through `apply_push_batch(batch_json)` RPC that validates `schema_epoch`, checks `row_version` ordering, applies atomically. RLS grants INSERT/UPDATE only to `daemon` role.
+- Operator decisions: `update_operator_decision()` RPC enforces CAS. Direct UPDATE blocked.
+- All SELECT policies include `WHERE deleted_at IS NULL` for tombstoned tables (excludes soft-deleted rows from portal views).
+- **RLS tombstone visibility fix:** The daemon pull query must see tombstoned rows (to propagate deletions locally). Daemon role SELECT policy does NOT filter on `deleted_at IS NULL` for remote-owned tables.
+- `viewer` and `operator` roles cannot see sync infrastructure tables.
+
+### 2.6 Supabase Migrations
+
+Six migration files create the full Supabase schema:
+
+| # | Migration | Purpose |
+|---|-----------|---------|
+| 1 | `supabase/migrations/0001_projection_tables.sql` | CREATE TABLE for all 18 push-owned projection tables + 3 junction tables. Schema mirrors SQLite DDL with Postgres types. |
+| 2 | `supabase/migrations/0002_remote_owned_tables.sql` | CREATE TABLE for `shared_company_profile`, `shared_source_configs`, `operator_decision_heads`. |
+| 3 | `supabase/migrations/0003_summary_tables.sql` | CREATE TABLE for 5 summary tables: `workflow_job_summaries`, `error_manifest_summaries`, `validation_verdict_summaries`, `viewer_sync_status`, `executors`. |
+| 4 | `supabase/migrations/0004_rls_policies.sql` | RLS policies for all 4 roles (viewer, operator, admin, daemon) across all table categories. |
+| 5 | `supabase/migrations/0005_sync_rpcs.sql` | `apply_push_batch(batch_json)` transactional RPC + `update_operator_decision(process_id, disposition, base_revision, command_id)` CAS RPC. |
+| 6 | `supabase/migrations/0006_schema_metadata.sql` | `schema_metadata` table with `schema_epoch` for compatibility checking. |
+
+**Schema coordination rule:** Both SQLite and Postgres derive from the same canonical logical schema. CI must apply both migrations from scratch, introspect both, and fail if logical schema hash differs.
+
+**SQLite sync migration:** `supabase/migrations/0007_sqlite_sync.sql` — adds `local_outbox`, `sync_batches`, `pull_cursors` tables to SQLite (see §1 for DDL).
+
+### 2.7 Cross-Authority Consistency
+
+Pipeline data crosses authority boundaries at specific points. Each crossing has a classification:
+
+| Crossing Point | Authority Domains | Classification | Provenance Tracking |
+|---|---|---|---|
+| Pipeline output → operator review | Push-owned → display | **Display** — no authority conflict | `decisionBasisHash` links decision to pipeline snapshot |
+| Operator decision → bid workflow | Remote-owned → push-owned automation | **Automation** — must track decision provenance | `reviewedAtStageRunId`, `reviewedBasisHash` carried through |
+| Coverage metrics → qualification gate | Push-owned → push-owned control | **Control** — no authority crossing | Internal to pipeline |
+| Sync health → UX mode | Push-owned infra → display | **Display** — no authority conflict | `viewer_sync_status` drives 3-state UX |
+
+---
+
 ## 3. Web Portal & Validation Enforcement
 
 ### 3.1 Web Viewing Portal (`apps/web/` -- 7 files)
