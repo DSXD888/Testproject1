@@ -13,10 +13,12 @@
 ## Strategy Guardrails
 
 - This is a Rust-only layer. All implementation sequencing assumes one crate, `crates/daemon`, plus root workspace files.
+- L1 is sequenced as a binary-first crate. No `lib.rs` split is assumed in this layer. Parent `mod` declarations must only name files already landed in earlier or same-phase work, using inline directory-module declarations in `main.rs` so the 17-file inventory does not silently expand with extra `mod.rs` files.
 - Phase mappings use a primary-home rule: every file/section is assigned to the phase where it first becomes gateable. Later phases may extend earlier files without changing their home phase.
 - Every phase has a compile gate. `cargo check --all-targets` stays green after each phase; `T1/T2` remain the cumulative per-commit gate, `T3` is nightly, `T4` is scheduled live-network coverage, and `Manual Gate` is target-host signoff.
 - Layer 0 is a hard prerequisite. Phase 1 assumes `0001_sqlite_state_initial.sql`, the Layer 0 skill standard, and the TypeScript intelligence pipeline already exist.
 - The phase DAG must stay acyclic. Internal parallelism is allowed only where the spec’s dependency graph permits it.
+- Bead sizing is calculated from production surfaces first. Test/support files are phased with their owning runtime surface but do not force a separate phase by themselves.
 
 ## Overview
 
@@ -94,6 +96,21 @@
 | `crates/daemon/tests/skill_lint.rs` | 9 | Needs real skill directories and prompt contract fields |
 | `crates/daemon/tests/skill_canary_harness.rs` | 9 | Needs real skills plus runnable adapter/runtime surfaces |
 | `crates/daemon/tests/agent_procurement_ingestion.rs` | 10 | Full live-loop test home; final convergence of all prior phases |
+
+## Suggested Bead Fan-Out
+
+| Phase | Primary production surfaces | Suggested bead fan-out |
+|-------|-----------------------------|------------------------|
+| 1 | Workspace manifests + migration + `db/sqlite.rs` | 2-3 beads |
+| 2 | `main.rs` + `ipc/descriptor.rs` + `ipc/handshake.rs` | 1-2 beads |
+| 3 | `pty/session.rs` + `pty/capture.rs` + helper binary | 2-3 beads |
+| 4 | `pty/health.rs` + `sessions/reaper.rs` | 1-2 beads |
+| 5 | `agents/adapter.rs` + `agents/codex.rs` + `agents/claude.rs` | 2-3 beads |
+| 6 | `agents/artifacts.rs` + `agents/contracts.rs` | 1-2 beads |
+| 7 | `jobs/runner.rs` | 1-2 beads |
+| 8 | `errors/manifest.rs` + `errors/markdown.rs` | 1-2 beads |
+| 9 | `prompt/renderer.rs` + 2 skill directories | 2-3 beads |
+| 10 | Integration/reliability expansion of existing runtime surfaces | 1-3 beads |
 
 ## Phase 1: Workspace And SQLite Foundation
 
@@ -436,6 +453,24 @@ Primary-home rule: each spec section maps to the phase where its behavior first 
 | §6.5 ADRs Addressed | 1 | Planning guardrail only |
 
 **Coverage:** 39/39 section homes assigned.
+
+## Definition-Of-Done Accumulation
+
+| DoD Item | First phase where it becomes gateable | Notes |
+|----------|---------------------------------------|-------|
+| 1 | 1 | Static Rust gates start in the bootstrap phase |
+| 2 | 6 | Both PTY and contract execution surfaces are present by then |
+| 3 | 10 | Manual FTS trigger is part of the final live-loop convergence |
+| 4 | 10 | Full live end-to-end local loop is the final integration proof |
+| 5 | 10 | CLI summary + local manifest artifact are final-loop outputs |
+| 6 | 4 | Process-group supervision and cleanup verdicts are closed by reaper phase |
+| 7 | 3 | Artifact capture becomes real with PTY capture |
+| 8 | 9 | Prompt + manifest-generation skill + fallback manifest path are all present |
+| 9 | 8 | Error manifest system becomes active before final integration |
+| 10 | 9 | Skill-lint CI gate begins with real skill directories |
+| 11 | 9 | Canary harness begins with real skills and prompt contract |
+| 12 | 10 | Experiment 4 is the final release gate |
+| 13 | 7 | Runner/stage-cohort rules become gateable before the live-source final phase |
 
 ## Dependency Diagram
 
