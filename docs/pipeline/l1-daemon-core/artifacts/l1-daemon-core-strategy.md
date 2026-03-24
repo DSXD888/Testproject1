@@ -26,9 +26,9 @@
 | 2 | Walking Skeleton Startup | Phase 1 | Daemon starts, opens `state.db`, binds the socket, writes `daemon.info.json`, and exits cleanly |
 | 3 | PTY Spawn And Capture | Phase 2 | PTY session semantics and chunked capture work with real helper processes |
 | 4 | Health And Reaper Closure | Phase 3 | Seven-phase lifecycle, cleanup ladder, verdicts, and cleanup reports are mechanically testable |
-| 5 | Adapter Contract And Vendor Probes | Phase 4 | Shared adapter trait exists and both vendor adapters satisfy the mode/probe/parser contract |
+| 5 | Adapter Contract And Vendor Probes | Phase 3 | Shared adapter trait exists and both vendor adapters satisfy the mode/probe/parser contract |
 | 6 | Artifact Contracts And Contract Validation | Phase 5 | Artifact store, run-manifest/result-contract handling, and contract-mode persistence are testable |
-| 7 | Runner Commit And Stage Tracking | Phase 6 | Job claim/execute/persist flow, `commit_seq`, idempotent acks, and `stage_run_id` cohort rules are durable |
+| 7 | Runner Commit And Stage Tracking | Phase 4 + Phase 6 | Job claim/execute/persist flow, `commit_seq`, idempotent acks, and `stage_run_id` cohort rules are durable |
 | 8 | Error Manifests | Phase 7 | Runtime failures produce stored Markdown error manifests with stable runtime context |
 | 9 | Prompt, Skills, And Canary Gates | Phase 7 | Real skill directories, lint gate, prompt renderer, and canary lanes are valid against the daemon runtime |
 | 10 | Full Live Loop And Reliability | Phase 8 + Phase 9 | Full L1 loop passes end to end, restart semantics hold, and Experiment 4 is the final release gate |
@@ -172,7 +172,7 @@
 ### Gate Criteria
 
 - `UT-PTY-001` through `UT-PTY-007` pass.
-- `IT-PTY-008` through `IT-PTY-011` pass.
+- `IT-PTY-009` through `IT-PTY-011` pass.
 - `IT-PTY-019` and `IT-PTY-022` pass.
 - `E2E-PTY-017` and `E2E-PTY-018` pass.
 - `cargo check --all-targets` passes.
@@ -215,7 +215,7 @@
 
 ### Prerequisites
 
-- Phase 4 gate passed.
+- Phase 3 gate passed.
 
 ### Ordering
 
@@ -229,6 +229,7 @@
 
 ### Gate Criteria
 
+- `IT-PTY-008` passes.
 - `UT-CON-004` and `UT-CON-005` pass.
 - `UT-CDX-001` through `UT-CDX-010` and `IT-CDX-010` pass.
 - `UT-CLD-001` through `UT-CLD-010` and `IT-CLD-010` pass.
@@ -259,7 +260,7 @@
 ### Gate Criteria
 
 - `UT-CON-001` through `UT-CON-003` pass.
-- `IT-CON-006` through `IT-CON-010` pass.
+- `IT-CON-016` passes.
 - `UT-RSL-001` through `UT-RSL-007` pass.
 - `IT-RSL-008`, `IT-RSL-009`, `IT-RSL-011`, and `IT-RSL-012` pass.
 - `cargo check --all-targets` passes.
@@ -273,6 +274,7 @@
 
 ### Prerequisites
 
+- Phase 4 gate passed.
 - Phase 6 gate passed.
 
 ### Ordering
@@ -287,7 +289,7 @@
 
 ### Gate Criteria
 
-- `IT-CON-011` through `IT-CON-018` pass.
+- `IT-CON-006` through `IT-CON-018` pass.
 - `cargo check --all-targets` passes.
 - Runner gate: one job can claim -> execute -> persist -> acknowledge without needing the final prompt/skill layer.
 
@@ -445,23 +447,23 @@ Phase 2  Walking skeleton startup
    |
    v
 Phase 3  PTY spawn -> capture
-   |
-   v
-Phase 4  Health + reaper
-   |
-   v
-Phase 5  Adapter trait -> {Codex, Claude}
-   |
-   v
-Phase 6  {Artifacts, Contracts}
-   |
-   v
-Phase 7  Runner commit/stage tracking
    | \
    |  \
-   |   +--> Phase 8  Error manifests
+   |   +--> Phase 4  Health + reaper
    |
-   +------> Phase 9  Prompt + skills + lint + canary
+   +------> Phase 5  Adapter trait -> {Codex, Claude}
+                  |
+                  v
+             Phase 6  {Artifacts, Contracts}
+                  \      /
+                   \    /
+                    v  v
+            Phase 7  Runner commit/stage tracking
+               | \
+               |  \
+               |   +--> Phase 8  Error manifests
+               |
+               +------> Phase 9  Prompt + skills + lint + canary
                  \        /
                   \      /
                    v    v
