@@ -30,10 +30,20 @@ Two users view the same pipeline: desktop operator (read-write) and web viewer (
 - Single-in-flight batch (one batch at a time per push stream)
 - Identical-envelope retries on failure (same content, same order)
 - Batch boundaries never cross `schema_epoch` or `stage_run_id`
+- Batch boundaries never split a `commit_group_id` (preserves local SQLite transaction atomicity)
 - `row_version` ordering within batch (monotonic per row)
 - `content_hash` for idempotent deduplication
+- Every batch carries `writer_epoch` (see §1.6 Active-Writer Lease)
 
-**Push batch RPC:** `apply_push_batch(batch_json)` — single transactional Supabase RPC. Batch either fully applies or fully rejects. No partial application.
+**Push batch RPC:** `apply_push_batch(batch_json, writer_epoch)` — single transactional Supabase RPC. Batch either fully applies or fully rejects. No partial application. Remote validates `writer_epoch` matches current lease holder.
+
+**Equal-version retry semantics:** The remote apply logic must define:
+- Incoming `row_version` = remote `row_version` AND `content_hash` matches → **no-op success** (idempotent retry)
+- Incoming `row_version` = remote `row_version` but `content_hash` differs → **hard conflict** (data corruption)
+- Incoming `row_version` = remote `row_version` + 1 → **apply** (normal advance)
+- Anything else (older, larger jump) → **reject** (stale or out-of-order)
+
+Without defining the equal-version case, identical-envelope retries fail spuriously.
 
 **Outbox entry structure:**
 
@@ -41,15 +51,37 @@ Two users view the same pipeline: desktop operator (read-write) and web viewer (
 -- Each outbox entry (from L0 §2 DDL):
 -- local_seq (autoincrement), executor_id, entity_kind, entity_id,
 -- op (insert/update), row_version, stage_run_id, schema_epoch,
--- payload_json, content_hash, created_at
+-- commit_group_id (groups rows from same SQLite transaction),
+-- writer_epoch, payload_json, content_hash, created_at
 ```
+
+**Provisional promotion buffer for enforcement slices:**
+
+For slices where validation enforcement is active, worker outputs must NOT be written directly to push-owned tables before validation completes. Without this, rejected rows have already been committed and outboxed — making "quarantine" post-hoc theater.
+
+For enforcement-active slices, the write flow becomes:
+1. Worker completes → OQG runs
+2. Worker outputs stored as **local-only provisional results** (artifact JSON + result contract blob in a staging table or artifact directory)
+3. Validator runs against provisional results
+4. If approved: promote to push-owned tables + create outbox entries + advance stage heads (normal path)
+5. If rejected: keep artifacts and verdicts locally; do NOT promote to authoritative push-owned state; create error manifest
+
+For dry-run slices and non-enforcement slices, the current direct-write path continues unchanged.
 
 ### 1.4 Pull Protocol (Supabase -> Local)
 
-**Cursor-based pull:** Per-domain pull cursors track `remote_change_seq`. Three pull domains:
+**Cursor-based pull with hi-water fence:** Per-domain pull cursors track `remote_change_seq`. Three pull domains:
 - `shared_source_configs` — source enablement and configuration
 - `shared_company_profile` — org-wide bidder profile
 - `operator_decision_heads` — operator dispositions with CAS
+
+**Hi-water fenced pull algorithm:**
+1. Read current `hiwater = max(remote_change_seq)` for the domain (snapshot fence)
+2. Fetch rows where `cursor < change_seq <= hiwater` (bounded range)
+3. Apply to local SQLite in `change_seq` order (upsert based on primary key)
+4. Advance cursor to `hiwater`
+
+Without a hi-water fence, paginated pulls can skip or duplicate rows when remote changes occur during pagination. Per-domain monotonic pull fences are required; cross-domain serializability is not.
 
 **Pull-before-push ordering:** On sync startup, pull remote-owned state FIRST, then classify/coalesce pending intents, then resume push. This ensures cross-authority consistency.
 
@@ -63,16 +95,52 @@ Two users view the same pipeline: desktop operator (read-write) and web viewer (
 
 **CAS RPC:** `update_operator_decision(process_id, disposition, base_revision, command_id)`
 - `base_remote_revision` checked — mismatch means someone else changed it
-- `command_id` for idempotent retry (lost-response handling)
+- `command_id` for idempotent retry (lost-response handling) via **durable command ledger**
 - Conflict returned (not silently overwritten)
 - Desktop shows conflict resolution UI
 
-### 1.6 Active-Writer Lease
+**Durable command ledger:**
 
-One daemon per org in MVP. Enforced at push protocol level:
+Storing `command_id` only on the `operator_decision_heads` row is insufficient — it only remembers the latest command. A retried command after a later command has already landed cannot be distinguished from a stale conflict. A separate command ledger provides true idempotency:
+
+```sql
+CREATE TABLE operator_decision_commands (
+  command_id TEXT PRIMARY KEY,
+  process_id TEXT NOT NULL,
+  base_revision BIGINT NOT NULL,
+  applied_revision BIGINT,          -- NULL if conflict
+  disposition TEXT NOT NULL,
+  result TEXT NOT NULL,              -- 'applied', 'conflict', 'superseded'
+  response_payload_json JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+CAS flow with command ledger:
+1. Check command ledger for `command_id` — if present, return stored result (idempotent replay)
+2. Compare `base_revision` against current `operator_decision_heads` row
+3. If match: apply, increment revision, write command ledger row transactionally
+4. If mismatch: write conflict entry to command ledger, return conflict
+
+Command ledger entries are GC'd after a configurable retention period (default 30 days).
+
+### 1.6 Active-Writer Lease (Fenced)
+
+One daemon per org in MVP. Enforced at push protocol level with **writer fencing token**:
 - Daemon registers with `executor_id` on first push
 - Second daemon attempting to push → rejected with lease conflict
 - Lease heartbeat via `viewer_sync_status` updates
+
+**Fencing token:** Without a fencing token, a stale daemon (partitioned, then recovered) can race a newly-leased daemon. The remote lease row carries:
+
+```sql
+-- In schema_metadata or dedicated lease table:
+-- org_id, holder_executor_id, lease_expires_at, writer_epoch (integer, incremented on acquisition)
+```
+
+On lease acquisition, increment `writer_epoch`. Every `apply_push_batch` must include the current `writer_epoch`. Remote rejects batches with stale epoch. This is the correct MVP single-writer fence.
+
+**Operational rule (MVP):** One bound machine per org. Other installations are viewer-only unless explicitly rehomed. Active-writer lease protects remote pushing but does not prevent a second offline daemon from creating divergent local state. Document this as an operational constraint.
 
 ### 1.7 Schema Epoch Guard
 
@@ -88,9 +156,22 @@ One daemon per org in MVP. Enforced at push protocol level:
 |-----------|---------|-----|
 | Healthy | Full read-write-trigger | Full read-only with live Broadcast updates |
 | Degraded (push failing) | Full local operation; push queues in outbox | Stale data (amber indicator); Broadcast stopped |
-| Offline (Supabase unreachable) | Full local operation; browse-only for decisions | Red staleness indicator; last-known data |
+| Offline (Supabase unreachable) | Full local operation; decision capture continues into local queues until CAS flush resumes | Red staleness indicator; last-known data |
 
 Desktop continues operating on local SQLite regardless of sync state. Web reflects last-pushed data with staleness indicator.
+
+**Remote config staleness classes:**
+
+If pull breaks, the daemon continues with stale remote-owned config. Not all config is equally safe to use stale:
+
+| Config | Class | Stale Behaviour |
+|--------|-------|----------------|
+| `shared_company_profile` | Informational | Stale OK — used only for bid form filling (L6) |
+| `shared_source_configs` (display/schedule) | Operational | Warn after 1 hour; use cached values |
+| `shared_source_configs` (enabled/disabled) | Safety-critical | If a source is remotely disabled (legal/compliance), an offline daemon must NOT scrape it indefinitely. Degrade that source after configurable TTL (default 4 hours) |
+| `operator_decision_heads` | Operational | CAS protects correctness on push; stale pull means decisions may not reflect latest remote state |
+
+**Backup and durability:** Local SQLite authority without backup is availability theater. Encrypted WAL-aware snapshots should be taken periodically. Single-device durability is a known MVP limitation — if the machine dies before push, authoritative data is lost.
 
 ### 1.9 Invariants Enforced
 
@@ -99,19 +180,24 @@ Desktop continues operating on local SQLite regardless of sync state. Web reflec
 | Push batch atomicity | Constitutional | Single transactional RPC, not individual upserts |
 | Outbox + data in same SQLite transaction | Constitutional | Every push-owned mutation creates outbox entry atomically |
 | CAS for operator decisions | Constitutional | `base_remote_revision` checked; mismatch -> conflict |
-| Active-writer lease | Constitutional | One daemon per org at push protocol level |
+| CAS command ledger for idempotency | Constitutional | Durable `operator_decision_commands` table; retry returns stored result |
+| Active-writer lease with fencing token | Constitutional | `writer_epoch` on every batch; stale epoch -> rejected |
 | `schema_epoch` on every batch | Constitutional | Incompatible epoch -> sync pauses |
 | Batch boundaries never cross `stage_run_id` | Constitutional | Push dispatcher enforces |
+| Batch boundaries never split `commit_group_id` | Constitutional | Preserves local SQLite transaction atomicity |
 | Single-in-flight batch | Constitutional | One batch at a time per push stream |
+| Equal-version retry = no-op on content_hash match | Constitutional | Identical-envelope retries must not fail spuriously |
+| Provisional promotion for enforcement slices | Constitutional | Worker outputs not committed to push-owned tables until validator completes |
 | Validation enforcement | Operational | Rejections quarantine results after dry-run calibration |
 | RLS on all Supabase tables | Constitutional | Policy matrix at database boundary |
 | Pull-before-push ordering | Constitutional | Pull remote state FIRST on startup |
+| Hi-water fenced pull | Constitutional | Per-domain bounded range pull prevents skip/duplicate during pagination |
 
 ### 1.10 Components Touched
 
 | Component | Action | Files |
 |-----------|--------|-------|
-| Database | Create | `0002_sqlite_state_sync.sql` (SQLite sync tables), 6 Supabase migrations, `infra/supabase/config.toml` |
+| Database | Create | `0002_sqlite_state_sync.sql` (SQLite sync tables), 8 Supabase migrations, `infra/supabase/config.toml` |
 | `crates/daemon` | Create | `src/db/sync.rs` (push-pull sync engine) |
 | Skills | Create | 4 domain validator overlays |
 | `apps/web` | Create | 7 files (full Next.js viewing portal) |
@@ -151,7 +237,7 @@ Schema for these tables mirrors the SQLite DDL from L0 §2 with Postgres type su
 
 ### 2.2 Summary Tables (Push-Owned Projections)
 
-Redacted/summarized views of local-only tables, pushed to Supabase for web portal visibility.
+Redacted/summarized views of local-only tables, plus a read-only decision summary projection of remote-owned dispositions, pushed to Supabase for web portal visibility.
 
 | Table | Source | Purpose | Key Fields |
 |-------|--------|---------|-----------|
@@ -160,6 +246,7 @@ Redacted/summarized views of local-only tables, pushed to Supabase for web porta
 | `validation_verdict_summaries` | `validation_verdicts` (local-only) | Verdict status for web | `verdict_id`, `worker_job_id`, `verdict`, `basis_sufficiency`, `enforcement_eligible`, `created_at` (no full reasoning) |
 | `viewer_sync_status` | Daemon sync state | Sync freshness indicator | `sync_health` (healthy/degraded/offline), `last_push_success_at`, `pending_outbox_count`, `schema_epoch` |
 | `executors` | `executors` (push-owned) | Daemon heartbeat summary | `executor_id`, `heartbeat_at`, `daemon_version`, `started_at` |
+| `operator_decision_summaries` | `operator_decision_heads` (remote-owned, pulled locally) | Decision display for web viewers | `process_id`, `disposition`, `decision_stale`, `reviewed_at_stage_run_id`, `updated_at` (no operator identity, no company profile, no command history) |
 
 ### 2.3 Remote-Owned Tables
 
@@ -223,9 +310,9 @@ CREATE TABLE operator_decision_heads (
   reviewed_basis_hash text,                        -- hash of candidates/quotes/estimates reviewed
   reviewed_manifest_hash text,                     -- hash of manifest read
   reviewed_at_stage_run_id text,                   -- stage run decision was based on
-  decision_stale boolean NOT NULL DEFAULT false,    -- set true when upstream changes basis
+  decision_stale boolean NOT NULL DEFAULT false,    -- set true when decisionBasisHash changes or L5 freshness vectors expire
   operator_id text,                                 -- who made the decision
-  command_id text,                                  -- idempotency key for CAS (handles lost-response retries)
+  command_id text,                                  -- latest applied CAS command for audit/debug; durable idempotency lives in operator_decision_commands
   remote_change_seq bigint NOT NULL DEFAULT 1,
   remote_revision bigint NOT NULL DEFAULT 1,
   deleted_at timestamptz,
@@ -257,20 +344,33 @@ Row-Level Security policies enforce the authority matrix at the Supabase databas
 |---|---|---|---|---|---|
 | Push-owned projections | All 18 projection tables | SELECT | SELECT | SELECT | INSERT, UPDATE (via `apply_push_batch` RPC) |
 | Push-owned summaries | 5 summary tables + executors | SELECT | SELECT | SELECT | INSERT, UPDATE (via `apply_push_batch` RPC) |
-| Remote-owned config | `shared_company_profile`, `shared_source_configs` | SELECT | SELECT | Full CRUD | SELECT (pull) |
-| Remote-owned decisions | `operator_decision_heads` | SELECT | SELECT, UPDATE (via CAS RPC) | Full CRUD | SELECT (pull) |
-| Sync infrastructure | `schema_metadata` | — | — | SELECT, UPDATE | SELECT, UPDATE |
+| Remote-owned config | `shared_company_profile` | — | — | Full CRUD | SELECT (pull) |
+| Remote-owned config | `shared_source_configs` | — | — | Full CRUD | SELECT (pull) |
+| Remote-owned decisions | `operator_decision_heads` | — | SELECT, UPDATE (via CAS RPC) | Full CRUD | SELECT (pull) |
+| Decision display projection | `operator_decision_summaries` (push-owned) | SELECT | SELECT | SELECT | INSERT, UPDATE (via `apply_push_batch` RPC) |
+| Sync infrastructure | `schema_metadata`, lease table | — | — | SELECT, UPDATE | SELECT, UPDATE |
+| CAS infrastructure | `operator_decision_commands` | — | — | SELECT | INSERT (via CAS RPC), SELECT |
+
+**Web read-only is a security boundary, not a UI convention:**
+- The web portal uses **viewer-scoped credentials only** — the browser must not possess operator or admin mutation rights
+- `viewer` role has SELECT on push-owned projections and summaries only
+- `viewer` and `operator` roles cannot access `shared_company_profile` or `shared_source_configs` directly — config display is surfaced through push-owned summary projections where appropriate
+- Operator decisions are exposed to web viewers via a read-only `operator_decision_summaries` push-owned projection, not via the raw remote-owned `operator_decision_heads` table
+- `operator` role accesses `operator_decision_heads` only from the desktop via daemon-mediated CAS
 
 **Implementation rules:**
-- Push-owned tables: daemon writes through `apply_push_batch(batch_json)` RPC that validates `schema_epoch`, checks `row_version` ordering, applies atomically. RLS grants INSERT/UPDATE only to `daemon` role.
-- Operator decisions: `update_operator_decision()` RPC enforces CAS. Direct UPDATE blocked.
+- Push-owned tables: daemon writes through `apply_push_batch(batch_json, writer_epoch)` RPC that validates `schema_epoch`, checks `writer_epoch`, checks `row_version` ordering, applies atomically. RLS grants INSERT/UPDATE only to `daemon` role.
+- Operator decisions: `update_operator_decision()` RPC enforces CAS with durable command ledger. Direct UPDATE blocked.
 - All SELECT policies include `WHERE deleted_at IS NULL` for tombstoned tables (excludes soft-deleted rows from portal views).
 - **RLS tombstone visibility fix:** The daemon pull query must see tombstoned rows (to propagate deletions locally). Daemon role SELECT policy does NOT filter on `deleted_at IS NULL` for remote-owned tables.
-- `viewer` and `operator` roles cannot see sync infrastructure tables.
+- `viewer` role cannot see sync infrastructure, CAS infrastructure, or remote-owned tables.
+- `operator` role cannot see sync infrastructure or CAS infrastructure.
+
+**Redaction boundary testing:** Add explicit redaction tests for every summary projection to verify no leakage of operator identity, company profile, raw supplier data, tender document metadata, or full error context.
 
 ### 2.6 Supabase Migrations
 
-Six migration files create the full Supabase schema:
+Eight migration files create the full Supabase schema:
 
 | # | Migration | Purpose |
 |---|-----------|---------|
@@ -279,11 +379,13 @@ Six migration files create the full Supabase schema:
 | 3 | `supabase/migrations/0003_summary_tables.sql` | CREATE TABLE for 5 summary tables: `workflow_job_summaries`, `error_manifest_summaries`, `validation_verdict_summaries`, `viewer_sync_status`, `executors`. |
 | 4 | `supabase/migrations/0004_rls_policies.sql` | RLS policies for all 4 roles (viewer, operator, admin, daemon) across all table categories. |
 | 5 | `supabase/migrations/0005_sync_rpcs.sql` | `apply_push_batch(batch_json)` transactional RPC + `update_operator_decision(process_id, disposition, base_revision, command_id)` CAS RPC. |
-| 6 | `supabase/migrations/0006_schema_metadata.sql` | `schema_metadata` table with `schema_epoch` for compatibility checking. |
+| 6 | `supabase/migrations/0006_schema_metadata.sql` | `schema_metadata` table with `schema_epoch` + active-writer lease row with `writer_epoch` for fencing. |
+| 7 | `supabase/migrations/0007_command_ledger.sql` | `operator_decision_commands` table for durable CAS idempotency. |
+| 8 | `supabase/migrations/0008_decision_summaries.sql` | `operator_decision_summaries` push-owned projection for web viewer access. |
 
 **Schema coordination rule:** Both SQLite and Postgres derive from the same canonical logical schema. CI must apply both migrations from scratch, introspect both, and fail if logical schema hash differs.
 
-**SQLite sync migration:** `supabase/migrations/0007_sqlite_sync.sql` — adds `local_outbox`, `sync_batches`, `pull_cursors` tables to SQLite (see §1 for DDL).
+**SQLite sync migration:** `sqlite/migrations/0002_sqlite_state_sync.sql` — adds `local_outbox`, `sync_batches`, `pull_cursors` tables to SQLite (see §1 for DDL). This is a SQLite-only migration, separate from the Supabase migration namespace above.
 
 ### 2.7 Cross-Authority Consistency
 
@@ -295,6 +397,8 @@ Pipeline data crosses authority boundaries at specific points. Each crossing has
 | Operator decision → bid workflow | Remote-owned → push-owned automation | **Automation** — must track decision provenance | `reviewedAtStageRunId`, `reviewedBasisHash` carried through |
 | Coverage metrics → qualification gate | Push-owned → push-owned control | **Control** — no authority crossing | Internal to pipeline |
 | Sync health → UX mode | Push-owned infra → display | **Display** — no authority conflict | `viewer_sync_status` drives 3-state UX |
+
+**Provenance of remote-owned config used in a run:** Record the exact revisions consumed by each pipeline run: `source_config_revision` (from `shared_source_configs.remote_revision` at pull time), `company_profile_revision` (if consumed, e.g., L6 bid workflow), `operator_decision_revision` (when a workflow consumes a decision). This enables replay and blame assignment when something goes wrong.
 
 ---
 
@@ -325,7 +429,7 @@ Next.js / React
 | `src/lib/supabase.ts` | Supabase client initialization, typed query helpers using `packages/contracts-schema` types |
 | `src/lib/broadcast.ts` | Supabase Broadcast subscription manager: topic-based invalidation, per-page subscription lifecycle |
 
-**Web-specific data-fetching:** The web uses Supabase client for all data access. It reuses `packages/ui` presentational components (ContractCardFrame, ManifestViewer, PipelineBadge, SyncAgeBadge, ErrorSummaryList) but has its own data-fetching hooks. No SQLite, no daemon bridge, no `invoke()`.
+**Web-specific data-fetching:** The web uses Supabase client for all data access. It reuses `packages/ui` presentational components (ContractCardFrame, ManifestViewer, PipelineBadge, FreshnessBadge, ErrorSummaryList) but has its own data-fetching hooks. No SQLite, no daemon bridge, no `invoke()`.
 
 ### 3.2 Supabase Broadcast Invalidation
 
@@ -422,9 +526,11 @@ Transition from Layer 3 dry-run to production enforcement. In enforcement mode, 
 | Outbox entries | Normal | **Not created** for quarantined results |
 | Pipeline state | Unchanged by verdicts | Quarantined results excluded from rollups |
 
+**Provisional promotion buffer:** For enforcement-active slices, worker outputs are held in local-only staging until validation completes (see §1.3). This resolves the collision between the outbox invariant ("every push-owned mutation creates an outbox entry") and enforcement ("rejected results must not be outboxed"). Without the promotion buffer, rejected rows would already be committed and outboxed before validation completes.
+
 **Per-slice enforcement readiness:**
 
-The unit of enforcement is **worker skill x source x worker version x validator overlay version** -- not the whole system. Enforcement is enabled independently per slice.
+The unit of enforcement is **worker skill x source x worker behavior version x validator behavior version** -- not the whole system. Enforcement is enabled independently per slice. Only bump behavior versions when output semantics or decision boundaries materially change (see L3 §3.2 for behavior version derivation).
 
 **Prerequisites for enabling enforcement on a slice:**
 1. Validator overlay `validator_overlay_compatible_versions` matches current worker behavior version
@@ -494,7 +600,9 @@ Real good runs mutated into realistic failures:
 
 **Cross-model audit sampling:** Periodically run a sample through a different model family to detect correlated blindness.
 
-**Override feedback loop:** Every operator override becomes: (1) labeled calibration case, (2) incident-cluster member, (3) candidate mutation template for challenge bank.
+**Override feedback loop:** Every operator override becomes: (1) labeled calibration case, (2) incident-cluster member, (3) candidate mutation template for challenge bank. Note: override rate is a biased metric — overrides are selection-biased toward visible/contested cases. Use overrides as demotion signal, incident source, and mutation template source, but not as sole precision estimator.
+
+**Tombstone retention:** Cursor-based pull requires tombstones to remain visible longer than the maximum expected offline window. If tombstones are GC'd too early, an offline daemon permanently misses deletions. Tombstone retention must be ≥ max offline duration + safety margin (default: 14 days). Alternatively, periodic anti-entropy / full-hash diff can detect missed deletes.
 
 ### 3.7 `viewer_sync_status` Table
 
@@ -505,13 +613,13 @@ CREATE TABLE viewer_sync_status (
   org_id TEXT PRIMARY KEY,
   sync_health TEXT NOT NULL DEFAULT 'offline'
     CHECK (sync_health IN ('healthy', 'degraded', 'offline')),
-  last_push_success_at TEXT,           -- ISO-8601
-  last_push_attempt_at TEXT,           -- ISO-8601
-  last_acked_local_seq INTEGER,        -- Latest local_seq pushed
+  last_push_success_at TIMESTAMPTZ,
+  last_push_attempt_at TIMESTAMPTZ,
+  last_acked_local_seq BIGINT,         -- Latest local_seq pushed
   pending_outbox_count INTEGER DEFAULT 0,
   schema_epoch INTEGER NOT NULL,
   daemon_version TEXT,
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
 
@@ -535,14 +643,21 @@ CREATE TABLE viewer_sync_status (
 | 10 | Validation enforcement mode: validator rejections quarantine results as AGENT_SUSPECT_OUTPUT | `sqlite_supabase_sync.rs` |
 | 11 | 4 domain-specific validator overlays deployed and producing verdicts | Validator canary tests |
 | 12 | Two users can view the same pipeline: desktop (read-write) + web (read-only) | Manual: two-browser test |
+| 13 | Writer fencing: stale daemon with old `writer_epoch` rejected on push | `sqlite_supabase_sync.rs` |
+| 14 | CAS command ledger: retried command returns stored result (idempotent replay) | `sqlite_supabase_sync.rs` |
+| 15 | Provisional promotion buffer: enforcement-active slices hold results until validation completes | `sqlite_supabase_sync.rs` |
+| 16 | Equal-version retry: identical-envelope retry with matching content_hash = no-op success | `sqlite_supabase_sync.rs` |
+| 17 | Web portal uses viewer-scoped credentials only (security boundary, not UI convention) | Supabase migration test + RLS test |
+| 18 | Redaction tests pass: no leakage of operator identity/company profile/raw supplier data in summary projections | `redaction_boundary.rs` |
 
-### 4.2 Test File Listing (3 New, Cumulative 35)
+### 4.2 Test File Listing (4 New, Cumulative 42)
 
 | File | Coverage |
 |------|---------|
 | `sqlite_schema.rs` | Full schema creation and migration: all tables created, all constraints enforced, all indices present, sync tracking columns populated, integer pence/bps verified |
-| `sqlite_supabase_sync.rs` | Push-pull round-trip: outbox entry creation, batch assembly, transactional RPC apply, row_version ordering, pull cursor advancement, CAS conflict detection, active-writer lease, schema_epoch guard, idempotent replay |
-| `apps/web/e2e/contracts.spec.ts` | Web portal E2E: navigate to contracts list, verify read-only (no decision controls), verify keyset pagination, verify sync freshness indicator, verify Broadcast live updates |
+| `sqlite_supabase_sync.rs` | Push-pull round-trip: outbox entry creation, batch assembly, transactional RPC apply, row_version ordering, writer fencing (stale epoch rejected), commit_group_id atomicity, equal-version retry no-op, pull cursor advancement with hi-water fence, CAS conflict detection with command ledger idempotency, active-writer lease, schema_epoch guard, provisional promotion buffer for enforcement slices |
+| `redaction_boundary.rs` | Summary projection redaction tests: operator_decision_summaries, workflow_job_summaries, error_manifest_summaries, validation_verdict_summaries — verify no leakage of operator identity, company profile, raw supplier data, tender document metadata, or full error context |
+| `apps/web/e2e/contracts.spec.ts` | Web portal E2E: navigate to contracts list, verify read-only (no decision controls), verify keyset pagination, verify sync freshness indicator, verify Broadcast live updates, verify viewer credentials cannot access remote-owned tables |
 
 ### 4.3 Test Scenarios
 
@@ -553,11 +668,18 @@ CREATE TABLE viewer_sync_status (
 | Two desktop operators make concurrent decisions | CAS detects conflict on base_remote_revision; second operator retries with refreshed state |
 | Validator rejects output in enforcement mode | Results quarantined as AGENT_SUSPECT_OUTPUT; error manifest created; operator can override |
 | Validator itself crashes during validation | Fail-open: worker results advance with VALIDATION_SKIPPED_VALIDATOR_ERROR; operator can review manually |
-| Sync degraded (Supabase unreachable) | Desktop shows browse-only mode (local SQLite reads); web shows staleness indicator (amber/red); local operations continue uninterrupted |
+| Sync degraded (Supabase unreachable) | Desktop stays in remote-degraded mode with full local operation and sync warning banner; web shows staleness indicator (amber/red); local operations continue uninterrupted |
 | Full push replay after sync recovery | Idempotent: no duplicates; row_version ordering prevents stale overwrites |
 | Batch boundary crosses stage_run_id | Push dispatcher rejects: batch boundaries never cross stage_run_id (enforced) |
 | Pull-before-push ordering violation | Sync startup enforces pull first, then classify/coalesce pending intents, then resume push |
 | Network interruption during push batch | Identical-envelope retry; batch either fully applied or fully rejected (transactional RPC) |
+| Stale daemon recovers after lease loss | Push rejected due to stale `writer_epoch`; daemon must re-acquire lease |
+| CAS command retried after later command landed | Command ledger returns stored conflict result (not re-evaluated against current state) |
+| Equal-version retry with matching content_hash | No-op success; no duplicate rows created |
+| Equal-version retry with different content_hash | Hard conflict; data corruption detected |
+| Enforcement-active slice: worker completes, validator rejects | Provisional results NOT promoted to push-owned tables; no outbox entries created; error manifest created |
+| Paginated pull during concurrent remote changes | Hi-water fence prevents skip/duplicate; pull bounded to snapshot range |
+| Source remotely disabled while daemon offline for 5 hours | Source degrade after safety-critical TTL (4h); daemon does not scrape disabled source |
 
 ### 4.4 Risks
 
@@ -567,6 +689,10 @@ CREATE TABLE viewer_sync_status (
 | Validator enforcement blocks good data | Medium | Medium | Dry-run calibration in L3; operator override available; false positive rate monitored via operator_override_rate_bps |
 | Push batch size exceeds Supabase RPC limits | Low | Low | Batch size bounded by stage_run_id scope; single-in-flight batch constraint |
 | Network interruptions during push | Medium | Low | Identical-envelope retries; degraded mode continues local operation; no data loss |
+| Epoch mismatch causes permanent remote divergence | Medium | High | Epoch-repair reproject path required (see §5.2 stubs); cannot remain "future nice-to-have" |
+| Single-device durability loss (machine dies before push) | Low | Critical | Encrypted WAL-aware snapshots; operational rule: one bound machine per org |
+| Outbox growth during long offline windows | Medium | Medium | Eventually coalesce superseded unsent updates by entity key; monitor outbox depth |
+| Stale daemon races after partition recovery | Low | High | Writer fencing token (`writer_epoch`) prevents stale pushes |
 
 ---
 
@@ -579,6 +705,12 @@ CREATE TABLE viewer_sync_status (
 - L3 dry-run accumulated initial corpus. L4 enforcement decision depends on calibration quality.
 - **L4 impact:** Must have sufficient calibration before enabling enforcement; per-slice readiness prevents premature enforcement.
 
+**Epoch mismatch recovery and reproject**
+- Current design: epoch mismatch → sync pauses, stale-epoch outbox entries never sent, local operation continues.
+- This means remote permanently misses everything created during the mismatch window unless a full or table-level reproject occurs after epoch repair.
+- "Full rebuild not implemented" cannot remain a future nice-to-have — it is required by current mismatch behavior.
+- **L4 impact:** Minimum fix: after epoch repair, mark a `projection_generation`, republish current row images from local authoritative tables, discard stale-epoch outbox entries only after successful reseed.
+
 **§10 Assumption #5: Company profile data can be centrally stored with appropriate protections**
 - shared_company_profile in Supabase stores org-wide bidder data.
 - Impact if wrong: bid workflows need stronger local-only secret partitioning.
@@ -590,7 +722,7 @@ CREATE TABLE viewer_sync_status (
 |---------|---------|-------------------|
 | Schema epoch transitions | Initial epoch only (no transitions needed) | Future: expand/drain/upgrade/contract protocol |
 | Multi-org | Single org hardcoded | Future: org_id scoping on all tables |
-| Full remote rebuild | Not implemented | Future: generation-based projection_generation |
+| Epoch-repair reproject | Minimum path: after epoch repair, mark `projection_generation`, republish current row images from local tables, discard stale-epoch outbox entries after successful reseed | Future: full generation-based rebuild with anti-entropy |
 | Logical consistency auditor | Not implemented | Future: domain invariant checking with conditional auto-repair |
 
 ### 5.3 Forward-Compatibility
@@ -611,16 +743,18 @@ CREATE TABLE viewer_sync_status (
 |---------|---------|
 | Supabase project | Shared sync target: Postgres database, Auth, Realtime (Broadcast), Storage |
 
-#### Supabase Migrations (from §9.4)
+#### Supabase Migrations
 
 | Migration | Purpose |
 |-----------|---------|
-| `0001_initial.sql` | All push-owned projection tables + remote-owned tables |
-| `0002_rls.sql` | RLS policies per role (viewer, operator, admin, daemon) |
-| `0003_sync_apply.sql` | Transactional sync apply RPC + operator decision CAS RPC |
-| `0004_schema_metadata.sql` | Schema metadata table + initial schema_epoch |
-| `0005_stage_tracking.sql` | Scope-aware process_stage_status + process_stage_heads projections |
-| `0006_junction_tables.sql` | notice_cpv_codes, product_commodity_codes, lot_cpv_codes |
+| `0001_projection_tables.sql` | All 18 push-owned projection tables + 3 junction tables |
+| `0002_remote_owned_tables.sql` | `shared_company_profile`, `shared_source_configs`, `operator_decision_heads` |
+| `0003_summary_tables.sql` | `workflow_job_summaries`, `error_manifest_summaries`, `validation_verdict_summaries`, `viewer_sync_status`, `executors` |
+| `0004_rls_policies.sql` | RLS policies per role (viewer, operator, admin, daemon) |
+| `0005_sync_rpcs.sql` | Transactional sync apply RPC (with `writer_epoch` validation) + operator decision CAS RPC (with command ledger) |
+| `0006_schema_metadata.sql` | Schema metadata table + initial schema_epoch + active-writer lease row with `writer_epoch` |
+| `0007_command_ledger.sql` | `operator_decision_commands` table for durable CAS idempotency |
+| `0008_decision_summaries.sql` | `operator_decision_summaries` push-owned projection for web viewer access |
 
 #### New Daemon Module
 
@@ -648,4 +782,12 @@ CREATE TABLE viewer_sync_status (
 | ADR | Decision | L4 Action |
 |-----|----------|----------|
 | **ADR-002** | Authority-matrix database | Sync/remote-projection half fully operational |
-| **ADR-008** | Desktop = control, web = view | Web viewing portal created (read-only) |
+| **ADR-008** | Desktop = control, web = view | Web viewing portal created (read-only, viewer-scoped security boundary) |
+
+<!-- CROSS-DOMAIN NOTE FOR L0: `commit_group_id` (text, nullable) and `writer_epoch` (integer, nullable) are part of the L4 operational activation of `local_outbox`. The constitutional table shape is reserved in L0, so these fields must be present when the table is first materialized for sync activation. `operator_decision_commands` remains a Supabase-only CAS-infrastructure table and therefore has no SQLite impact. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L2: Desktop degraded-mode UX in L4 adds explicit sync state on top of L2's control-plane model (healthy/remote-degraded/browse-only). L2's `ControlPlaneState` health dimensions should accommodate the sync health state from `viewer_sync_status` once sync is active. The FreshnessBadge component (L2 §2.1) should support the three-state sync indicator. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L2: Desktop operator decisions transition from local-only `pending_operator_intents` (L2) to remote CAS-backed `operator_decision_heads` (L4). Desktop's decision capture flow remains the same (write to `pending_operator_intents`), but L4 adds daemon-side CAS flush + conflict resolution UI. L2's decision capture should already carry `reviewedBasisHash`, `reviewedManifestHash`, `reviewedAtStageRunId` — these become the CAS payload in L4. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L6: Remote config staleness classes (L4 §1.8) include safety-critical TTL for source enablement. If bid workflow depends on source configs (e.g., checking source health before bid preparation), the safety-critical TTL model applies. Additionally, the upstream trust gate for bid workflow should be evaluated using the L3 mapping: no selected-scope `suspect` inputs and process-level `pipeline_assessments.validation_state = validated`, unless the operator explicitly accepts flagged/unverified trust debt. -->

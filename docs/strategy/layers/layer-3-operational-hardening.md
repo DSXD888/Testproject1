@@ -113,12 +113,12 @@ struct CronJobDefinition {
 
 **4 operational skills:**
 
-| Skill | Purpose | Profile |
-|-------|---------|---------|
-| `skills/auth-refresh/alibaba/` | Re-authenticate Alibaba session when auth expires | `pty_browser` |
-| `skills/auth-refresh/1688/` | Re-authenticate 1688 session when auth expires | `pty_browser` |
-| `skills/source-health/fts/` | Canary probe: verify FTS page fingerprint + basic extraction | `pty_browser` |
-| `skills/source-health/alibaba/` | Canary probe: verify Alibaba page fingerprint + auth + basic search | `pty_browser` |
+| Skill | Purpose | Interaction Profile |
+|-------|---------|---------------------|
+| `skills/auth-refresh/alibaba/` | Re-authenticate Alibaba session when auth expires | `pty_interactive` |
+| `skills/auth-refresh/1688/` | Re-authenticate 1688 session when auth expires | `pty_interactive` |
+| `skills/source-health/fts/` | Canary probe: verify FTS page fingerprint + basic extraction | `pty_interactive` |
+| `skills/source-health/alibaba/` | Canary probe: verify Alibaba page fingerprint + auth + basic search | `pty_interactive` |
 
 **6 validator-base files** (base semantic validator skill):
 
@@ -260,7 +260,9 @@ When `validation_policy: sample`, the effective validation probability = `max(va
 
 **Per-slice enforcement scope:**
 
-The unit of enforcement readiness is **worker skill x source x worker version x validator overlay version** — not the whole system. A supplier-enrichment validator can be enforcement-ready while a document-acquisition validator stays dry-run.
+The unit of enforcement readiness is **worker skill x source x worker behavior version x validator behavior version** — not the whole system. A supplier-enrichment validator can be enforcement-ready while a document-acquisition validator stays dry-run.
+
+**Behavior version vs raw version:** Only bump `worker_behavior_version` or `validator_behavior_version` when output semantics or decision boundaries materially change. Cosmetic prompt edits, observability-only changes, or cost-optimisation tuning do NOT reset slice readiness. Without this distinction, most slices never reach enforcement because the evidence window is shorter than the version half-life.
 
 Enforcement eligibility per slice requires:
 - Validator overlay `validator_overlay_compatible_versions` matches current worker behavior version
@@ -275,9 +277,24 @@ Enforcement eligibility per slice requires:
 
 Demotion is automatic and immediate. Re-promotion requires meeting calibration thresholds again.
 
+**Dry-run bootstrap validation ladder:**
+
+Validation rates during dry-run should be staged to accelerate calibration data acquisition:
+
+| Phase | Validation Rate | Duration / Trigger |
+|-------|----------------|--------------------|
+| **Bootstrap** | 100% of first 20 live runs for a new slice | New slice introduction |
+| **Calibrating** | 50% of all runs; 100% of high-risk runs | Until slice is clearly maturing or clearly long-tail |
+| **Signature-limited enforcement** | Quarantine only on calibrated high-precision incident signatures; everything else flag-only | After overlay/family prequalification passes |
+| **Full slice enforcement** | Per current 30/60 + Wilson + false-pass criteria | After all calibration gates met |
+
+This ladder fits the existing design because `incident_signature` and `enforcement_eligible` are already first-class verdict fields. Calibrated incident families can accelerate enforcement without collapsing the per-slice model.
+
 ### 2.4 Validation Executor
 
 Spawns validator sub-jobs via the Job Runner. Links validator job to worker job via `parent_job_id`.
+
+Execution reuses the Layer 1 agent-runtime contracts rather than inventing a validator-only path: validator sessions run through the same Agent Adapter boundary defined in [layer-1-thin-local-runner.md](/Users/alinaaitova/Desktop/Testproject1/docs/strategy/layers/layer-1-thin-local-runner.md#L475), the same result-contract validation boundary in [layer-1-thin-local-runner.md](/Users/alinaaitova/Desktop/Testproject1/docs/strategy/layers/layer-1-thin-local-runner.md#L1302), and the same cross-layer interface contract summarized in [layer-strategy.md](/Users/alinaaitova/Desktop/Testproject1/docs/strategy/layer-strategy.md#L1176).
 
 **Kickoff prompt composition:**
 
@@ -306,7 +323,7 @@ Spawns validator sub-jobs via the Job Runner. Links validator job to worker job 
 ```json
 {
   "verdict": "approved | rejected | flagged",
-  "basis_sufficiency": "sufficient | partial | insufficient",
+  "basis_sufficiency": "high | medium | low",
   "enforcement_eligible": true,
   "confidence_bps": 8500,
   "issues": [
@@ -329,8 +346,8 @@ Spawns validator sub-jobs via the Job Runner. Links validator job to worker job 
 | `rejected` + `enforcement_eligible` | Log verdict, advance stage anyway (dry-run) | Quarantine as `AGENT_SUSPECT_OUTPUT`, create error manifest |
 | `rejected` + not enforcement-eligible | Log verdict, advance with flag | Advance with flag for operator review |
 | `flagged` | Log verdict, advance with flag | Advance with flag for operator review |
-| `basis_sufficiency: insufficient` | Log as `VALIDATION_FLAGGED_INSUFFICIENT_BASIS` | Advance with `unverified` trust state |
-| Validator crash/timeout | Fail-open: advance as if skipped | Fail-open: advance with `validation_skipped_validator_error` |
+| `basis_sufficiency: low` | Log as `VALIDATION_FLAGGED` with a `coverage_gap` issue | Advance with `unverified` trust state |
+| Validator crash/timeout | Fail-open: advance as if skipped | Fail-open: advance with `VALIDATION_SKIPPED_VALIDATOR_ERROR` |
 
 ### 2.5 Outcome Classes
 
@@ -368,13 +385,79 @@ Dry-run is the default calibration path before enforcement is enabled. Isolation
 
 **Validator failures never block the pipeline.** This is a constitutional invariant — not a temporary expedient.
 
+**Framing:** Fail-open for availability, not fail-open for trust equivalence. Unvalidated results flow through the pipeline but carry lower trust. Downstream behaviour should depend on trust state.
+
 If the validator crashes, times out, or produces an invalid verdict:
 - Worker results advance as if validation were skipped
-- `validation_skipped_validator_error` flag set on the job
+- `VALIDATION_SKIPPED_VALIDATOR_ERROR` flag set on the job
 - Error manifest created for the validator failure itself
 - Validation system self-monitors its own failure rate
+- Result queued in **retroactive validation backlog** for later backfill (see below)
 
 The rationale: a broken validator is worse than no validator. The pipeline must never stall because the quality-checking subsystem fails. The validator adds confidence; it does not gate availability.
+
+**Trust-state lattice:**
+
+Every pipeline result carries a trust state that propagates downstream:
+
+| State | Meaning | Downstream Behaviour |
+|-------|---------|---------------------|
+| `verified` | Validator approved (or enforcement not active and OQG clean) | Full trust — all downstream actions allowed |
+| `flagged` | Validator flagged for human review | Manifests generated; rollups allowed but surfaced as flagged; operator review recommended |
+| `unverified` | Validation skipped (fail-open, dry-run, or no policy) | Manifests generated; rollups surfaced as unverified; bid workflow requires explicit human review |
+| `suspect` | Validator rejected (or suspect output from OQG) | Quarantined in enforcement mode; in dry-run, surfaced for review with high-priority trust debt |
+
+**Process-level surface mapping:** The trust-state lattice is finer-grained than the operator-facing `pipeline_assessments.validation_state` field. `pipeline_assessments.validation_state` remains the coarse process-level rollup exposed to desktop/web and therefore stays constrained to `validated` / `flagged` / `unverified`. Mapping rule:
+- selected-scope outputs all `verified` → process rollup `validated`
+- any selected-scope `flagged` or `suspect` output participating in the current rollup → process rollup `flagged`
+- validation skipped / insufficient basis / fail-open path → process rollup `unverified`
+
+Downstream behaviour by trust state:
+- **Manifest generation:** allowed at all trust states
+- **Internal rollups:** allowed, but surfaced externally through the coarse `pipeline_assessments.validation_state` mapping above
+- **Decision recommendations:** lowered weight for `unverified`/`suspect`
+- **Bid workflow / external actions:** require a clean upstream trust gate for the selected scope plus explicit process-level `validation_state = validated`, or an explicit operator override
+- **Reusable caches** (`listing_evidence`, relation cache sharing): do not allow `suspect` outputs to seed caches at full trust; carry trust metadata
+
+**Validator health states (subsystem-level):**
+
+Beyond per-run failure flags, the validation subsystem maintains an aggregate health state:
+
+| State | Meaning | Trigger |
+|-------|---------|---------|
+| `healthy` | Validator operating normally | Default; canary checks passing |
+| `degraded` | Elevated failure rate or latency | Validator execution failure rate >20% over 1h, or timeout spike, or basis-insufficiency spike |
+| `blind` | Validator effectively non-functional | Validator execution failure rate >50% over 1h, canary misclassification, model/provider unavailable |
+
+When `blind`:
+- Pipeline still runs (fail-open)
+- Enforcement auto-demotes on all affected slices
+- Desktop and web show explicit **validation blackout banner** with affected time window
+- Retroactive validation backlog starts accumulating
+- Operator morning queue shows one prominent incident with sorted trust-debt queue
+
+**Synthetic validator canaries:**
+
+Run the validator path every 15-30 minutes with:
+- One known-good manifest (must approve)
+- One known-bad manifest (must reject)
+- One known-insufficient-basis manifest (must declare insufficient)
+
+These use the same executor, same model family, same overlay loading, same schema validation path as production. A misclassification triggers transition from `healthy` to `degraded` or `blind`. A broken validator should be noticed in minutes, not after 500 unverified rows at 9 AM.
+
+**Retroactive validation backlog:**
+
+Every result that passes through due to validator failure is queued for later backfill validation. Backlog priority:
+1. High-value opportunities
+2. Operator-reviewed processes (decisions may be based on bad data)
+3. Slices currently under enforcement (trust regression)
+4. Recent outputs (freshest data, most actionable)
+
+When the validator recovers:
+- Validate backlog items
+- If later rejected: mark affected underlying outputs as `suspect`, surface affected process rollups as `flagged`, and flag decisions as stale
+- Push updated status to web portal
+- Surface "validated retroactively: N issues found" in operator dashboard
 
 ### 2.8 Base Validator Skill
 
@@ -388,7 +471,7 @@ The rationale: a broken validator is worse than no validator. The pipeline must 
 2. **Agent-vs-daemon agreement:** Cross-check `agent_claimed_*` against `daemon_observed_*` — discrepancies in fingerprint state, locale, currency, item count are high-signal
 3. **Result contract consistency:** Manifest claims consistent with result contract sample (item counts, value ranges, source URLs)
 4. **Narrative plausibility:** Steps described match the observed URL chain and page-kind sequence
-5. **`basis_sufficiency` assessment:** Can the validator render a confident verdict? If the daemon appendix is thin (e.g., `no_baseline` fingerprint, missing OQG signals), the validator declares `basis_sufficiency: insufficient` rather than guessing
+5. **`basis_sufficiency` assessment:** Can the validator render a confident verdict? If the daemon appendix is thin (e.g., `no_baseline` fingerprint, missing OQG signals), the validator declares `basis_sufficiency: low` rather than guessing
 6. **Drift detection:** Current run's fill rate, fallback depth, and error patterns compared to recent runs via structured drift deltas
 
 **What the base validator does NOT check:**
@@ -421,7 +504,30 @@ Before enforcement can be enabled in Layer 4, the dry-run system must demonstrat
 
 **Cross-model audit:** A subset of calibration runs should use a different model than the primary validator to detect model-specific blind spots.
 
-**Override feedback loop:** Every operator override of a validator verdict (operator approves what validator rejected, or vice versa) becomes a calibration case for the next calibration cycle.
+**Override feedback loop:** Every operator override of a validator verdict (operator approves what validator rejected, or vice versa) becomes a calibration case for the next calibration cycle. Note: overrides are selection-biased toward visible/contested cases — use as demotion signal, incident source, and mutation template source, but not as sole precision estimator.
+
+**Realistic calibration timeline:**
+
+For a given slice, the bottleneck is almost always the 30 confirmed reject cases, not the approvals.
+
+Formula: `weeks_to_30_rejects = 30 / (runs_per_week × validation_rate × reject_yield × adjudication_rate)`
+
+| Slice Profile | Runs/Week | Validation Rate | Reject Yield | Weeks to 30 Rejects | Weeks to 60 Audited Approvals | Earliest Enforcement |
+|---------------|-----------|-----------------|--------------|---------------------|-------------------------------|---------------------|
+| Hot slice | 100 | 50% | 15% | ~4 | ~1.4 | ~4–6 weeks |
+| Warm slice | 40 | 50% | 10% | ~15 | ~3.3 | ~15–18 weeks |
+| Long-tail slice | 10 | 100% | 10% | ~30 | ~6.7 | ~30+ weeks |
+
+**Explicit product truth:** Many slices will remain permanently dry-run / flag-only because their traffic volume is too low to accumulate enforcement-grade evidence before the worker or overlay changes. This is not a flaw — it is an expected operational steady state. The dry-run bootstrap validation ladder (§2.3) and signature-limited enforcement allow partial enforcement value even for slices that never reach full gate criteria.
+
+**Two calibration gates (not one):**
+
+| Gate | Purpose | Data Required |
+|------|---------|---------------|
+| **A. Overlay/family prequalification** | Prove the validator architecture is sane for this skill family | 20–30 clean-real + 15–20 weird-but-valid + 30–50 mutated-bad (offline corpus) |
+| **B. Exact-slice enforcement readiness** | Prove this exact worker/source/version combination is trustworthy | 30 adjudicated rejects + 60 audited approvals from live traffic (current gate) |
+
+Gate A is reusable across versions within a skill family. Gate B is per-slice. Gate A must pass before Gate B evidence acquisition begins.
 
 ---
 
@@ -457,6 +563,8 @@ Skill versioning tracks five dimensions independently. Only `skill_version` is m
 | `source_structure_version` | Source website layout fingerprint | Automated (drift detection) | `fts-2026-03-19` |
 
 **Key rule:** A playbook update does NOT force a schema version bump unless the result contract shape changes. Schema migrations use dual-accept windows during transition.
+
+**Behavior version derivation:** For enforcement slice tracking, `worker_behavior_version` is derived from `skill_version` + `result_schema_version` (changes that affect output semantics). `validator_behavior_version` is derived from `validator_overlay_version`. Cosmetic-only skill edits (observability improvements, prompt formatting, cost tuning) do NOT bump behavior version and therefore do NOT reset slice enforcement readiness. The skill metadata must declare whether a version bump is behavior-affecting.
 
 ### 3.3 New Skills Introduced in Layer 3
 
@@ -577,9 +685,29 @@ OPEN
 
 5. **Alias management** — when a previously published process ID is retired by a merge, write a `process_aliases` redirect so desktop/web deep links remain stable.
 
+6. **Cluster identity assignment** — every `ProcurementProcess` carries a `canonical_process_id` (defaults to self). On merge, the surviving process becomes the cluster root; the retired process's `canonical_process_id` points to the root. Rollups, manifests, and deep links resolve through `canonical_process_id`, not raw `process_id`. The `process_aliases` table handles redirects, but `canonical_process_id` is the full merge model.
+
+7. **Late merge as decision-staleness event** — if two already-enriched processes merge after operator review:
+   - All relevant `pending_operator_intents` / `operator_decision_heads` entries are marked stale (`decision_stale = true`)
+   - Manifest is regenerated for the merged cluster
+   - `pipeline_assessments` recomputed at cluster level
+   - Operator sees explicit "identity changed after review" notification
+   - This prevents technically correct sync with semantically wrong decisions
+
 **New tables:** `process_relations` (push-owned) and `process_aliases` (push-owned). See §4 for full DDL.
 
 **Conservative thresholds:** Default thresholds are deliberately conservative. False merges are harder to undo than false separations. The operator can manually merge `possible_duplicate` pairs.
+
+**Weight variation by context:** The global weights above are a bootstrap default. Weights should eventually vary by source-pair and notice-stage-pair:
+- Planning → tender → award: values drift significantly across lifecycle stages
+- Call-offs share buyer/CPV/title but may differ on reference semantics
+- FTS vs Contracts Finder duplicates may normalise references differently
+
+For MVP, the global weights are acceptable. A simple interpretable logistic model per source-pair / stage-pair fitted from adjudicated pairs can replace them later — keep the rule engine and hard blockers, fit only the soft weights.
+
+**Additional features for future improvement:** Normalised buyer registration/authority identifier, contact email/domain similarity, lot-count similarity, postcode/region, procurement method / notice type compatibility, reference edit distance after stripping amendment/lot suffixes, document hash overlap if available.
+
+**UI grouping before perfect merge:** To reduce false non-merge cost without destructive auto-merge, group `related_not_merged` and `possible_duplicate` in the desktop UI as a cluster card with relation confidence. Share caches cautiously within the cluster. Let the operator see one cluster view with constituent processes.
 
 ### 3.7 Anti-Bot Classification Table
 
@@ -623,13 +751,15 @@ Per-source anti-bot difficulty rating and mitigation strategy:
 
 ## 4. Schema, Telemetry & Observability
 
-### 4.1 New Tables (Layer 3)
+### 4.1 Tables First Activated in Layer 3
 
-All DDL in Postgres syntax (SQLite mirrors with type substitutions per L0 §2.1).
+All DDL in Postgres syntax (SQLite mirrors with type substitutions per L0 §2.1). The authoritative table shapes are reserved in L0 §2; this section restates the tables that become operationally active in Layer 3.
 
 #### validation_verdicts (local-only)
 
 Full validator verdict reasoning — never synced. Redacted summary pushed as `validation_verdict_summaries` in Layer 4.
+
+From the first verdict in Layer 3, the daemon also materializes the redacted local `validation_verdict_summaries` projection rows that Layer 4 later syncs to Supabase. This keeps the forward-compatibility chain explicit: L0 reserves the projection schema, L3 starts producing projection content, L4 exports it remotely.
 
 ```sql
 create table validation_verdicts (
@@ -704,6 +834,8 @@ create table listing_evidence (
   is_ready_to_ship boolean,
   fetched_at timestamptz not null,
   detail_page_fetched boolean not null default false,
+  trust_state text not null default 'unverified', -- verified, flagged, unverified, suspect
+  source_job_id uuid,                             -- job that produced this evidence (for trust tracing)
   created_at timestamptz not null default now(),
   unique (source, source_listing_id)
 );
@@ -730,8 +862,8 @@ create table process_relations (
   confidence_bps integer not null,              -- basis points (0-10000)
   evidence jsonb,
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -746,8 +878,8 @@ create table process_aliases (
   canonical_process_id uuid not null references procurement_processes(id),
   alias_reason text not null default 'merged_same_process',
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
@@ -804,7 +936,7 @@ All four layers capture data from both PTY and contract-mode sessions.
 
 ### 4.6 Validation Telemetry (Dry-Run)
 
-5 validation metrics for Layer 3 (expanded to 13 in Layer 4 enforcement):
+8 validation metrics for Layer 3 (expanded to 16 in Layer 4 enforcement):
 
 | Metric | Definition | Unit |
 |--------|-----------|------|
@@ -813,6 +945,9 @@ All four layers capture data from both PTY and contract-mode sessions.
 | `validator_flag_rate_bps` | Flagged / total validated | bps |
 | `validator_cost_per_run_pence` | Model cost per validation | integer pence |
 | `operator_override_rate_bps` | Overrides / total rejections (false positive proxy) | bps |
+| `validator_execution_failure_rate_bps` | Validator crashes/timeouts / total validation attempts | bps |
+| `validator_canary_pass_rate_bps` | Synthetic canary correct classifications / total canary runs | bps |
+| `validator_health_state` | Current subsystem health: healthy/degraded/blind | enum |
 
 ---
 
@@ -832,9 +967,12 @@ All four layers capture data from both PTY and contract-mode sessions.
 | 8 | Source-health canaries and auth-refresh skills operational | Canary test per source |
 | 9 | Worker-validator dry-run: manifests generated, base validator renders verdicts, logged without enforcement | `validation_dry_run.rs` + `validation_golden_verdicts.rs` |
 | 10 | Error manifest control-panel view displays failures with resolution context | Manual desktop verification |
-| 11 | System runs unattended for 5 consecutive days, >=95% success rate | Monitoring + operator sign-off |
+| 11 | Validator health canaries running every 15-30 min; known-good/bad/insufficient-basis correctly classified | `validation_canary_health.rs` |
+| 12 | Validator health state transitions (healthy → degraded → blind) fire on failure rate spikes | `validation_canary_health.rs` |
+| 13 | Retroactive validation backlog accumulates during validator outage and drains on recovery | `validation_retro_backlog.rs` |
+| 14 | System runs unattended for 5 consecutive days, >=95% success rate | Monitoring + operator sign-off |
 
-### 5.2 Test File Listing (16 New, Cumulative 32)
+### 5.2 Test File Listing (18 New, Cumulative 38)
 
 #### Fault Injection (4)
 
@@ -867,7 +1005,7 @@ All four layers capture data from both PTY and contract-mode sessions.
 | `skill_shadow_compare.rs` | Quality diff between stable and candidate: fill-rate, duplicate-rate, cost, validator approval |
 | `skill_drift_monitor.rs` | Page fingerprint trending, fallback depth, fill-rate trending |
 
-#### Validation (4)
+#### Validation (6)
 
 | File | Coverage |
 |------|---------|
@@ -875,6 +1013,8 @@ All four layers capture data from both PTY and contract-mode sessions.
 | `validation_executor.rs` | Sub-job spawning, kickoff prompt composition, verdict parsing, basis_sufficiency |
 | `validation_dry_run.rs` | Dry-run verdicts logged, pipeline NOT blocked, no outbox, no stage head advancement |
 | `validation_golden_verdicts.rs` | Known-good -> approved, known-bad -> rejected, ambiguous -> flagged |
+| `validation_canary_health.rs` | Synthetic canary scheduling, known-good/bad/insufficient-basis classification, health state transitions (healthy → degraded → blind), auto-demotion on blind |
+| `validation_retro_backlog.rs` | Backlog accumulation during validator outage, priority-ordered drain on recovery, stale-marking of affected decisions |
 
 #### Relations (1)
 
@@ -896,6 +1036,10 @@ All four layers capture data from both PTY and contract-mode sessions.
 | Host enters low-disk state during session | Resource arbiter blocks new starts, existing complete, alert logged |
 | PTY receives EIO (terminal disconnected) | Graceful handling, session transitions to terminating, verdict recorded |
 | Auth-refresh detects expired Alibaba session | Re-authenticates, stores fresh state, subsequent jobs use new auth |
+| Validator breaks at 2 AM, 200 overnight runs | All 200 results carry `unverified` trust state; validator health transitions to `blind`; retroactive validation backlog queued; operator morning dashboard shows single validation blackout incident |
+| Validator canary misclassifies known-bad as approved | Health transitions to `degraded`; enforcement auto-demotes on affected slices |
+| Two processes merge after operator reviewed one | Both operator decisions marked stale; merged `canonical_process_id` assigned; manifest regenerated |
+| Cosmetic prompt edit to skill (no behavior change) | Behavior version unchanged; slice enforcement readiness preserved |
 
 ### 5.4 Risks
 
@@ -905,6 +1049,10 @@ All four layers capture data from both PTY and contract-mode sessions.
 | Cron edge cases (timezone, DST, clock drift) | Low | Medium | Catchup sweeps; monotonic clock for internal timers |
 | Relation resolution false merges | Medium | Medium | Conservative thresholds; hard blockers; operator can unmerge; `possible_duplicate` for borderline |
 | Source changes break multiple skills simultaneously | Medium | High | Source-health canaries detect before production; per-source circuit breaker isolates failures |
+| Systematic validator failure goes undetected overnight | Medium | High | Synthetic validator canaries every 15-30 min; health state transitions; retroactive validation backlog on recovery |
+| Late merge invalidates operator decisions silently | Medium | High | Late merge treated as decision-staleness event; affected decisions marked stale; manifest regenerated |
+| Most slices never reach enforcement-grade calibration | High | Medium | Expected — explicit product truth; signature-limited enforcement provides partial value; dry-run still catches issues |
+| Unverified results seed reusable caches at full trust | Low | High | Trust metadata on `listing_evidence` and relation cache sharing; `suspect` outputs excluded from cache seeding |
 
 ---
 
@@ -919,8 +1067,9 @@ All four layers capture data from both PTY and contract-mode sessions.
 
 **§10 Further Research #6: Late process merge reconciliation**
 - How should post-enrichment merges reconcile downstream data?
-- `processClusterId` proposed but not designed.
-- **L3 impact:** Relation engine creates edges, but post-enrichment merges need cluster-aware rollups.
+- **Partially resolved:** `canonical_process_id` introduced (§3.6) as the cluster identity root. Late merges now treated as decision-staleness events with manifest regeneration, assessment recomputation, and decision stale-marking.
+- **Remaining open:** Full cluster-aware rollup logic (reconciling divergent product candidates, quotes, and coverage metrics from the two previously-separate processes). How to handle conflicting quotes for the same product from different processes? How to merge coverage metrics when one process has enrichment the other lacks?
+- **L3 impact:** Relation engine creates edges and assigns `canonical_process_id`. Full rollup reconciliation deferred until post-enrichment merges actually occur in practice.
 
 **§10 Further Research #7: Validator calibration corpus bootstrapping**
 - Three corpora needed: clean real (25-30), weird-but-valid (15-20), mutated bad (30-50).
@@ -946,6 +1095,10 @@ All four layers capture data from both PTY and contract-mode sessions.
 | `validation_verdicts` full schema from creation | Includes enforcement_eligible, basis_sufficiency | Layer 4 projections |
 | Source circuit breaker state accessible | Feeds into risk-stratified sampling | Layer 4 |
 | Skill promotion includes validator approval rate | Shadow comparison metric | Layer 4 promotion gate |
+| Validator health states operational | healthy/degraded/blind with canary checks | Layer 4 enforcement auto-demotion |
+| Retroactive validation backlog | Accumulates during outages | Layer 4 trust-state-aware enforcement |
+| Trust-state lattice on pipeline results | verified/flagged/unverified/suspect tracked | Layer 4 downstream behaviour gating |
+| `canonical_process_id` on processes | Defaults to self; updated on merge | Layer 4 cluster-aware sync |
 
 ### 6.4 Dependencies
 
@@ -981,3 +1134,17 @@ All four layers capture data from both PTY and contract-mode sessions.
 |-----|----------|----------|
 | **ADR-004** | PTY-based execution | Full PTY hardening |
 | **ADR-005** | Explicit skill binding | Scheduler binds skill id+version at enqueue |
+
+<!-- CROSS-DOMAIN NOTE FOR L0: `canonical_process_id` (uuid, nullable, defaults to self) must exist on `procurement_processes` from creation. This column is introduced conceptually in L3 §3.6 but per the all-columns-from-creation rule, it must be present as nullable in the L0 DDL. On first write, it defaults to the process's own `id`. L3 relation resolution populates it on merge. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L0: `trust_state` (text, not null, default 'unverified') and `source_job_id` (uuid, nullable) belong to the Layer 3 operational activation of `listing_evidence`. The constitutional table shape is reserved in L0, so these fields must be present when that table is first materialized for runtime use. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L2: Trust-state lattice (verified/flagged/unverified/suspect) from L3 §2.7 is finer-grained than the operator-facing `pipeline_assessments.validation_state` field. L2's primary surface remains the coarse process-level states `validated` / `flagged` / `unverified`, but desktop views should still expose finer-grained trust debt where relevant (for example, highlighting `suspect` supporting artifacts or caches behind a `flagged` process rollup). -->
+
+<!-- CROSS-DOMAIN NOTE FOR L2: `canonical_process_id` from L3 §3.6 affects desktop deep links and cluster UI grouping. L2's opportunity detail page should resolve through `canonical_process_id` when navigating. L2's opportunity list should group `related_not_merged` and `possible_duplicate` processes as cluster cards with relation confidence. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L6: Trust-state lattice from L3 §2.7 gates bid workflow. At the bid-readiness surface this maps to two checks: the selected bid scope must contain no `suspect` upstream inputs, and the process-level rollup should surface `pipeline_assessments.validation_state = validated` unless the operator explicitly accepts flagged/unverified trust debt. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L5: Cumulative test count in L5 §3.2 header shows 44 but should be 47 (L4 cumulative 42 + L5 new 5 = 47). The authoritative count is in layer-strategy.md §11. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L6: Cumulative test count in L6 §2.2 header shows 47 but should be 50 (L5 cumulative 47 + L6 new 3 = 50). The authoritative count is in layer-strategy.md §11. -->

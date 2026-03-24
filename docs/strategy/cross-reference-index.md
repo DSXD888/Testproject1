@@ -2,7 +2,7 @@
 
 > Quick lookup: "if you're looking for X, it's in file Y, section Z."
 >
-> **Maintained doc set:** `layer-strategy.md` + 7 per-layer docs in `layers/` + this index + `README.md`.
+> **Normative planning docs:** `layer-strategy.md` + 7 per-layer docs in `layers/`. **Navigation aids (no planning authority):** this index + `README.md`.
 
 ## By Topic
 
@@ -10,37 +10,52 @@
 
 | Topic | File | Section |
 |-------|------|---------|
-| Full SQLite DDL (20+ tables, all columns from creation) | `layers/layer-0-gold-set-evaluation.md` | §2 |
+| Full SQLite DDL (47 tables, all columns from creation) | `layers/layer-0-gold-set-evaluation.md` | §2 |
+| Evaluation tables (gold_set_cases, evaluation_runs, evaluation_case_results, evaluation_metric_summaries) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.12) |
+| Cross-authority FK discipline (rule 15) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.2) |
+| Rounding policy and BPS constraint families (rules 17-18) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.2) |
+| Original-currency minor units (rule 16) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.2) |
 | Table authority classification (push-owned / local-only / remote-owned) | `layers/layer-0-gold-set-evaluation.md` | §2 |
 | Sync tracking columns (`owner_id`, `row_version`, `last_local_seq`, `stage_run_id`) | `layers/layer-0-gold-set-evaluation.md` | §2 |
 | All-columns-from-creation rule (no later-layer column adds) | `layer-strategy.md` | §9 Schema Evolution Rules |
+| Constitutional schema ownership vs activation matrix (`Created` vs `First Active Use`) | `layer-strategy.md` | §9 |
 | Schema stability matrix (all tables x all layers) | `layer-strategy.md` | §9 |
 | TypeScript interfaces (`packages/contracts-schema`) | `layers/layer-0-gold-set-evaluation.md` | §5 |
 | Supabase projection tables (18 push-owned mirrors) | `layers/layer-4-shared-visibility.md` | §2 |
-| Supabase summary tables (5 redacted projections) | `layers/layer-4-shared-visibility.md` | §2 |
+| Supabase summary tables (6 redacted projections incl. operator_decision_summaries) | `layers/layer-4-shared-visibility.md` | §2 |
+| CAS command ledger (`operator_decision_commands`) | `layers/layer-4-shared-visibility.md` | §1 (§1.5) |
 | Remote-owned tables (`operator_decision_heads`, `shared_*`) | `layers/layer-4-shared-visibility.md` | §2 |
-| RLS policy matrix (4 roles x all tables) | `layers/layer-4-shared-visibility.md` | §2 |
-| Supabase migrations (6 files) | `layers/layer-4-shared-visibility.md` | §2 |
+| RLS policy matrix (4 roles x all tables, web read-only as security boundary) | `layers/layer-4-shared-visibility.md` | §2 |
+| Supabase migrations (8 files) | `layers/layer-4-shared-visibility.md` | §2 |
 | Executor identity (`executors`) | `layers/layer-1-thin-local-runner.md` | §1 |
 | Source cursors (ingestion watermarks) | `layers/layer-1-thin-local-runner.md` | §1 |
 | Sync infrastructure (`local_outbox`, `sync_batches`, `pull_cursors`) | `layers/layer-4-shared-visibility.md` | §1 |
-| `pending_operator_intents` (local decision queue) | `layers/layer-2-single-operator-desktop.md` | §3 |
+| `pending_operator_intents` (local decision queue with reviewed-basis fields) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.8 DDL), `layers/layer-2-single-operator-desktop.md` §3 (usage) |
+| Basis-total pricing on `supplier_quotes` (offer_total fields for sub-penny accuracy) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.2) |
+| `product_commodity_codes` expanded entity (digits, source, score, rank for L5 multi-source recall) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.9) |
+| "All columns from creation" scope clarification (what it does and doesn't prevent) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.2.1) |
+| Branded scalar types recommendation (`Pence`, `MinorUnits`, `BpsBounded`, `BpsSigned`) | `layers/layer-0-gold-set-evaluation.md` | §5 (§5.3.5) |
+| Harness DB isolation (separate SQLite from operational DB) | `layers/layer-0-gold-set-evaluation.md` | §5 (§5.3.4) |
 | New L3 tables (`validation_verdicts`, `source_runtime_state`, `listing_evidence`, `process_relations`, `process_aliases`) | `layers/layer-3-operational-hardening.md` | §4 |
 
 ### Pipeline
 
 | Topic | File | Section |
 |-------|------|---------|
-| 15-stage pipeline processing logic | `layers/layer-0-gold-set-evaluation.md` | §3 |
+| 15-stage pipeline processing logic (qualification split into prequalify_notice + qualify_lot) | `layers/layer-0-gold-set-evaluation.md` | §3 |
+| Qualification two-phase model (notice-grain → lot-grain) | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.4) |
+| Canonical scope_id format per scope_kind | `layer-strategy.md` | §10 Stage Scope Matrix |
+| Commit semantics: decision surface vs audit history | `layer-strategy.md` | §10 Stage Scope Matrix |
+| Value-weighted coverage metrics | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.13 Coverage Rollup) |
 | Stage scoping model (`stage_run_id`, commit semantics, scope grains) | `layer-strategy.md` | §10 Stage Scope Matrix |
 | Stage boundary contracts | `layer-strategy.md` | §10 Interface Contracts |
-| Coverage metric formulas (authoritative definitions) | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.14 Coverage Rollup) |
+| Coverage metric formulas (authoritative definitions, value-weighted) | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.13 Coverage Rollup) |
 | Coverage metric presentation (operator-facing thresholds) | `layers/layer-2-single-operator-desktop.md` | §3 |
-| Margin logic (revenue normalization, gross/net gate formulas) | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.20 Margin Logic) |
-| matchArchetype classification (6 archetypes) | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.17) |
-| Dual confidence model & lexicographic gating | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.19) |
-| Pipeline cost management | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.21) |
-| Bilingual lexicon & cross-language matching | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.18) |
+| Margin logic (revenue normalization, gross/net gate formulas) | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.10-§3.12) |
+| matchArchetype classification (6 domain archetypes + `unknown` fallback) | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.7) |
+| Dual confidence model & lexicographic gating | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.9.7) |
+| Pipeline cost management | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.18) |
+| Bilingual lexicon & cross-language matching | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.17) |
 
 ### Skills & Agent Orchestration
 
@@ -48,12 +63,17 @@
 |-------|------|---------|
 | Skill directory standard (SKILL.md + schemas) | `layers/layer-0-gold-set-evaluation.md` | §4 |
 | 8-question skill authoring guide | `layers/layer-0-gold-set-evaluation.md` | §4 |
-| Agent Adapter trait (full Rust interface) | `layers/layer-1-thin-local-runner.md` | §2 (§2.3) |
-| Rust crate structure (14 daemon files) | `layers/layer-1-thin-local-runner.md` | §2 (§2.1) |
+| Agent Adapter trait (two-lane: OutputFrame + ControlEvent) | `layers/layer-1-thin-local-runner.md` | §2 (§2.3) |
+| Rust crate structure (17 daemon files) | `layers/layer-1-thin-local-runner.md` | §2 (§2.1) |
 | Rust crate dependencies | `layers/layer-1-thin-local-runner.md` | §2 (§2.2) |
 | PTY + contract mode execution | `layers/layer-1-thin-local-runner.md` | §1 (§1.7) |
-| Process-group supervision (cleanup verdicts) | `layers/layer-1-thin-local-runner.md` | §1 (§1.8) |
+| Process-group supervision & session semantics (setsid, ctty, CLOEXEC, cleanup verdicts) | `layers/layer-1-thin-local-runner.md` | §1 (§1.8) |
+| Daemon discovery & IPC protocol (descriptor, lock, handshake) | `layers/layer-1-thin-local-runner.md` | §2 (§2.8) |
+| Commit fence model (`commit_seq`, `visibleAfterSeq`) | `layers/layer-1-thin-local-runner.md` | §2 (§2.6) |
+| Session Reaper (L1-critical, SIGCHLD/waitpid) | `layers/layer-1-thin-local-runner.md` | §2 (§2.1), §1 (§1.8) |
 | Session lifecycle (7 phases) | `layers/layer-1-thin-local-runner.md` | §2 (§2.4) |
+| Lifecycle events → Channel\<T\> mapping (all 7 phases, adapter vs daemon-managed) | `layers/layer-1-thin-local-runner.md` | §2 (§2.8) |
+| L1 IPC scope (socket active, CLI-only triggers, handshake-only commands) | `layers/layer-1-thin-local-runner.md` | §2 (§2.8) |
 | Run manifest system (authoritative definition) | `layers/layer-1-thin-local-runner.md` | §4 (§4.2) |
 | Error taxonomy & error manifest system | `layers/layer-1-thin-local-runner.md` | §4 (§4.3) |
 | Skill linting CI gate | `layers/layer-1-thin-local-runner.md` | §4 (§4.4) |
@@ -63,7 +83,9 @@
 | PTY hardening (fd hygiene, EIO, geometry) | `layers/layer-3-operational-hardening.md` | §1 (§1.6) |
 | Skill promotion flow (draft -> stable) | `layers/layer-3-operational-hardening.md` | §3 |
 | Source-health canaries, auth-refresh skills | `layers/layer-3-operational-hardening.md` | §1 (§1.9) |
-| Artifact store (storage layout, run manifest format) | `layers/layer-1-thin-local-runner.md` | §2 (§2.5) |
+| Cluster identity (`canonical_process_id`) + late merge | `layers/layer-3-operational-hardening.md` | §3 (§3.6) |
+| Artifact store (chunked storage layout, stream.index.jsonl, run manifest format) | `layers/layer-1-thin-local-runner.md` | §2 (§2.5) |
+| Single-database model (`state.db`, commit_clock) | `layers/layer-1-thin-local-runner.md` | §2 (§2.7) |
 | Job Runner (stage_run_id scoping) | `layers/layer-1-thin-local-runner.md` | §2 (§2.6) |
 
 ### Validation (Worker-Validator)
@@ -74,7 +96,13 @@
 | Validation policy engine (always/sample/trigger/skip) | `layers/layer-3-operational-hardening.md` | §2 (§2.3) |
 | Validation executor (kickoff prompt composition) | `layers/layer-3-operational-hardening.md` | §2 (§2.4) |
 | Dry-run mode (isolation guarantees) | `layers/layer-3-operational-hardening.md` | §2 (§2.6) |
-| Fail-open semantics (constitutional) | `layers/layer-3-operational-hardening.md` | §2 (§2.7) |
+| Fail-open semantics (constitutional) + trust-state lattice | `layers/layer-3-operational-hardening.md` | §2 (§2.7) |
+| Validator health states (healthy/degraded/blind) | `layers/layer-3-operational-hardening.md` | §2 (§2.7) |
+| Retroactive validation backlog | `layers/layer-3-operational-hardening.md` | §2 (§2.7) |
+| Synthetic validator canaries | `layers/layer-3-operational-hardening.md` | §2 (§2.7) |
+| Calibration timeline formula (per-slice) | `layers/layer-3-operational-hardening.md` | §2 (§2.9) |
+| Behavior version vs raw version | `layers/layer-3-operational-hardening.md` | §3 (§3.2) |
+| Process-level `validation_state` mapping from finer-grained trust states | `layers/layer-3-operational-hardening.md` | §2 (§2.7) |
 | Base validator skill | `layers/layer-3-operational-hardening.md` | §2 (§2.8) |
 | Outcome classes (6 standard) | `layers/layer-3-operational-hardening.md` | §2 (§2.5) |
 | Initial calibration (L3) | `layers/layer-3-operational-hardening.md` | §2 (§2.9) |
@@ -99,8 +127,15 @@
 | CBAM forward placeholder | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.14) |
 | Dual FX engine (HMRC customs + Xe commercial) | `layers/layer-5-expanded-commercial-intelligence.md` | §2 (§2.1) |
 | Full freight engine (Freightos + SeaRates) | `layers/layer-5-expanded-commercial-intelligence.md` | §2 (§2.2) |
-| Customs error types (10 domain-specific) | `layers/layer-5-expanded-commercial-intelligence.md` | §3 (§3.4) |
-| Evidence-tiered accuracy (gold/silver/bronze) | `layers/layer-5-expanded-commercial-intelligence.md` | §3 (§3.3) |
+| Customs error types (10 domain-specific) | `layers/layer-5-expanded-commercial-intelligence.md` | §3 (§3.5) |
+| Evidence-tiered accuracy (gold/silver/bronze) | `layers/layer-5-expanded-commercial-intelligence.md` | §3 (§3.4) |
+| Multi-family expansion tractability (local cache, shortlist, scenarioing) | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.5) |
+| Classification freshness (4 vectors: structure, measures, remedies, FX) | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.11) |
+| Unlockable margin and evidence leverage | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.12) |
+| Additional-code satisfiability (DE 6/17) | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.7) |
+| Bundle/set classification (GIR 3 escape hatch) | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.8) |
+| CBAM scope (aluminium, cement, fertiliser, hydrogen, iron & steel) | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.14) |
+| Classification lattice stage contract (candidate sub-grain) | `layer-strategy.md` | §10 Stage Scope Matrix |
 
 ### Frontend
 
@@ -110,24 +145,36 @@
 | QueryEnvelope\<T\> interface | `layers/layer-2-single-operator-desktop.md` | §1 (§1.4) |
 | MutationAck interface | `layers/layer-2-single-operator-desktop.md` | §1 (§1.5) |
 | Channel\<T\> streaming (SessionFrame types) | `layers/layer-2-single-operator-desktop.md` | §1 (§1.6) |
-| Bootstrap state machine (healthy/browse-only/recovery) | `layers/layer-2-single-operator-desktop.md` | §1 (§1.7) |
-| Shared UI components (`packages/ui` -- 5 components) | `layers/layer-2-single-operator-desktop.md` | §2 |
+| Bootstrap state machine (5-state structured health from ControlPlaneState) | `layers/layer-2-single-operator-desktop.md` | §1 (§1.7) |
+| ControlPlaneState (storage/daemon/control/load dimensions) | `layers/layer-2-single-operator-desktop.md` | §1 (§1.4) |
+| Commit fence (desktop read-your-writes via snapshotSeq/visibleAfterSeq) | `layers/layer-2-single-operator-desktop.md` | §1 (§1.4) |
+| Desktop-daemon handshake (hello/welcome, instanceId, PTY resume rules) | `layers/layer-2-single-operator-desktop.md` | §1 (§1.5) |
+| Desktop session controls (stop/input/resize/retry/restart) | `layers/layer-2-single-operator-desktop.md` | §1 (§1.5) |
+| FreshnessBadge (surface-neutral FreshnessBadgeVM) | `layers/layer-2-single-operator-desktop.md` | §2 (§2.1) |
+| ErrorSummaryList (typed ErrorSummaryItem + severity derivation rule) | `layers/layer-2-single-operator-desktop.md` | §2 (§2.1) |
+| Error severity derivation (error_type category → critical/warning/info) | `layers/layer-2-single-operator-desktop.md` | §2 (§2.1) |
+| Shared UI components (`packages/ui` — 5 components with typed props) | `layers/layer-2-single-operator-desktop.md` | §2 |
 | Manifest rendering (`packages/manifests`) | `layers/layer-2-single-operator-desktop.md` | §2 (§2.2) |
 | Decision capture (`pending_operator_intents`) | `layers/layer-2-single-operator-desktop.md` | §3 (§3.2) |
 | Decision staleness detection | `layers/layer-2-single-operator-desktop.md` | §3 (§3.3) |
 | Web viewing portal (Next.js + Supabase) | `layers/layer-4-shared-visibility.md` | §3 (§3.1) |
 | Supabase Broadcast invalidation | `layers/layer-4-shared-visibility.md` | §3 (§3.2) |
-| Degraded-mode UX (3 states) | `layers/layer-4-shared-visibility.md` | §3 (§3.3) |
+| Degraded-mode UX (L4 adds sync dimension to ControlPlaneState) | `layers/layer-4-shared-visibility.md` | §3 (§3.3) |
 
 ### Sync Engine
 
 | Topic | File | Section |
 |-------|------|---------|
-| Push protocol (transactional outbox) | `layers/layer-4-shared-visibility.md` | §1 |
-| Pull protocol (cursor-based + CAS) | `layers/layer-4-shared-visibility.md` | §1 |
-| Active-writer lease | `layer-strategy.md` | §6 Invariants Enforced |
-| `schema_epoch` guard | `layer-strategy.md` | §6 Invariants Enforced |
-| Batch boundaries (never cross `stage_run_id`) | `layer-strategy.md` | §6 Invariants Enforced |
+| Push protocol (transactional outbox + commit_group_id + writer_epoch) | `layers/layer-4-shared-visibility.md` | §1 |
+| Pull protocol (hi-water fenced cursor + CAS with command ledger) | `layers/layer-4-shared-visibility.md` | §1 |
+| Active-writer lease (fenced with writer_epoch) | `layers/layer-4-shared-visibility.md` | §1 (§1.6) |
+| Provisional promotion buffer (enforcement slices) | `layers/layer-4-shared-visibility.md` | §1 (§1.3) |
+| Equal-version retry semantics | `layers/layer-4-shared-visibility.md` | §1 (§1.3) |
+| `schema_epoch` guard + epoch-repair reproject | `layers/layer-4-shared-visibility.md` | §1 (§1.7), §5 (§5.2) |
+| Batch boundaries (never cross `stage_run_id` or `commit_group_id`) | `layer-strategy.md` | §6 Invariants Enforced |
+| Remote config staleness classes (safety-critical TTLs) | `layers/layer-4-shared-visibility.md` | §1 (§1.8) |
+| Tombstone retention policy | `layers/layer-4-shared-visibility.md` | §3 (§3.6) |
+| Redaction boundary testing | `layers/layer-4-shared-visibility.md` | §2 (§2.5) |
 | `viewer_sync_status` table DDL | `layers/layer-4-shared-visibility.md` | §3 (§3.7) |
 | Cross-authority consistency | `layers/layer-4-shared-visibility.md` | §2 (§2.7) |
 
@@ -135,36 +182,50 @@
 
 | Topic | File | Section |
 |-------|------|---------|
-| Bid workflow state machine | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.3) |
-| Bid scope payload (explicit lot/candidate) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.4) |
-| Bid portal skill (Proactis, 11-step playbook) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.7) |
-| `packages/bidding` (workflow registry, company profile) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.6) |
+| Bid workflow state machine (6 states incl. draft_saved, portal_state_unknown) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.3) |
+| Bid scope payload (explicit lot/candidate + sideEffectCap + decisionBasisHash) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.4) |
+| Side-effect classes (READ_ONLY → FUNDS_COMMITTED) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.4, §1.7) |
+| Bid portal skill (Proactis, 11-step playbook with per-step side-effect class) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.7) |
+| `packages/bidding` (workflow registry, company profile, BidDocument, SubmissionResult) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.6) |
 | Audit trail (constitutional) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.8) |
+| L5→L6 readiness gate (blocker checks, quote-role quality) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.3) |
+| Portal submission fail-closed on validation | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.3) |
+| L5→L6 readiness gate (cross-layer contract) | `layer-strategy.md` | §10 Interface Contracts |
 
 ### Testing
 
 | Topic | File | Section |
 |-------|------|---------|
-| Evaluation harness (gold-set benchmarking) | `layers/layer-0-gold-set-evaluation.md` | §5, §6 |
+| Evaluation harness (gold-set benchmarking, gating/challenge corpus split) | `layers/layer-0-gold-set-evaluation.md` | §5 (§5.3) |
+| Evaluation experiments (1–3b: extraction, matching, margin, hard-negative correctness) | `layers/layer-0-gold-set-evaluation.md` | §5 (§5.3.3) |
+| Evaluation tables (DDL) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.12) |
+| Definition of Done (L0, 10+ criteria incl. experiments) | `layers/layer-0-gold-set-evaluation.md` | §6 |
 | L0 test suites (4: qualification, quoteability, tariff, margin) | `layers/layer-0-gold-set-evaluation.md` | §6 (§6.2) |
 | Agent E2E tests | `layers/layer-1-thin-local-runner.md` | §5 |
 | Desktop E2E tests | `layers/layer-2-single-operator-desktop.md` | §4 (§4.2) |
 | Fault injection + replay tests | `layers/layer-3-operational-hardening.md` | §5 |
 | Validator calibration tests | `layers/layer-3-operational-hardening.md` | §2 (§2.9) |
-| Sync round-trip tests | `layers/layer-4-shared-visibility.md` | §4 |
-| Testing evolution (all layers) | `layer-strategy.md` | §11 |
+| Validator canary health + retro-validation tests | `layers/layer-3-operational-hardening.md` | §5 (§5.2) |
+| Sync round-trip tests (writer fencing, command ledger, provisional promotion) | `layers/layer-4-shared-visibility.md` | §4 |
+| Redaction boundary tests (summary projection leakage) | `layers/layer-4-shared-visibility.md` | §4 (§4.2) |
+| L5 customs test files (5: classification, measure interaction, FX, freight, FPO) | `layers/layer-5-expanded-commercial-intelligence.md` | §3 (§3.2) |
+| L6 bid workflow test files (3: states, side-effects, readiness gate) | `layers/layer-6-request-pipeline-automation.md` | §2 (§2.2) |
+| No mock-only release gates (real sessions, real portals/APIs, or captured evidence bundles) | `layer-strategy.md` | §11 |
+| Testing evolution (all layers, cumulative 4→51) | `layer-strategy.md` | §11 |
 
 ### Open Questions
 
 | Topic | File | Origin |
 |-------|------|--------|
-| Scotland in MVP scope? | `layers/layer-0-gold-set-evaluation.md` | §10 User Input #1 |
-| VAT-recoverable importer assumption? | `layers/layer-0-gold-set-evaluation.md` | §10 User Input #4 |
-| Margin thresholds as hard filters? | `layers/layer-0-gold-set-evaluation.md` | §10 Assumption #3 |
-| Auto-qualification coverage floor? | `layers/layer-2-single-operator-desktop.md` | §10 Further Research #5 |
-| Customs cost spread materiality? | `layers/layer-5-expanded-commercial-intelligence.md` | §10 Further Research #8 |
-| Packaging sub-category reclassification? | `layers/layer-5-expanded-commercial-intelligence.md` | §10 Further Research #9 |
-| CBAM rate integration timeline? | `layers/layer-5-expanded-commercial-intelligence.md` | §10 Further Research #10 |
+| Scotland in MVP scope? | `layers/layer-0-gold-set-evaluation.md` | §7.1 User Input #1 |
+| VAT-recoverable importer assumption? | `layers/layer-0-gold-set-evaluation.md` | §7.1 User Input #4 |
+| Margin thresholds as hard filters? | `layers/layer-0-gold-set-evaluation.md` | §7.1 Assumption #3 |
+| Auto-qualification coverage floor? | `layers/layer-2-single-operator-desktop.md` | §5.1 Further Research #5 |
+| Customs cost spread materiality? | `layers/layer-5-expanded-commercial-intelligence.md` | §3.6 Further Research #8 |
+| Packaging sub-category reclassification? | `layers/layer-5-expanded-commercial-intelligence.md` | §3.6 Further Research #9 |
+| CBAM rate integration timeline? | `layers/layer-5-expanded-commercial-intelligence.md` | §3.6 Further Research #10 |
+| Late merge cluster rollup reconciliation (partially resolved) | `layers/layer-3-operational-hardening.md` | §6 (§6.1) |
+| Epoch mismatch recovery and reproject | `layers/layer-4-shared-visibility.md` | §5 (§5.1) |
 
 ## By ADR
 

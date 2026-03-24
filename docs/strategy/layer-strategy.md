@@ -105,8 +105,10 @@ These constraints from the research document apply to ALL layers without excepti
 | Skill metadata declarations (SKILL.md + schemas) | §4.10, ADR-005 | From Layer 0 (first skill authored) |
 | Conservative customs defaults (MFN, residual, standard VAT) | ADR-006, §4.5 | From Layer 0 (screening-grade) |
 | No real-money bids without human approval | ADR-007 | All layers |
+| Portal submission fail-closed on validation | §4.10, ADR-007 | Validator rejection or validator outage blocks `bid_submitted`; workflow may reach `draft_saved` but not final submission without validation clearance |
 | Sync tracking columns on push-owned tables from creation | §5.4 | Schema DDL |
 | `pipeline_assessments.validation_state = 'unverified'` from introduction | §5.4 | Schema DDL |
+| Release gates use real systems or captured evidence bundles, not mock-only substitutes | §6.5 | Testing strategy and CI/release policy |
 
 ### Maintained Doc Set
 
@@ -129,14 +131,20 @@ Authority split inside the maintained set is fixed:
 - Each layer doc owns only layer-local narrative, capability, components, data first activated in that layer, stubs, definition of done, risks, and open questions.
 - Open questions must live in the owning layer doc, not in a separate scratch file or review artifact.
 - Temporary prompt artifacts, review handoffs, and iteration notes are explicitly non-authoritative and must never become de facto companion docs.
-- `docs/strategy/README.md` and `docs/strategy/cross-reference-index.md` are **supporting navigation aids**, not part of the 8 authoritative planning files. They provide reading order and topic lookup but carry no planning authority.
+**Authority tiers:**
+
+| Tier | Files | Purpose |
+|------|-------|---------|
+| **Normative planning** | 8 files: `layer-strategy.md` + 7 per-layer docs | Authoritative execution specifications |
+| **Maintained navigation** | `README.md`, `cross-reference-index.md` | Reading order and topic lookup — no planning authority |
+| **Non-authoritative artifacts** | Handoffs, pre-preps, review notes, iteration archives | Temporary review instruments — never become de facto companion docs |
 - All 7 per-layer docs have been authored and reviewed. This strategy file now serves as the cross-layer reference; layer-local detail lives in the layer docs.
 
 ### Performance Targets
 
 | Metric | Target | Owning Layer | Notes |
 |--------|--------|-------------|-------|
-| Daemon startup | <500ms | L1 | SQLite open + schema check + cron init |
+| Daemon startup | <500ms | L1 | SQLite open + schema check; budget must still hold after L3 adds scheduler init |
 | Incremental ingestion | <5min/source | L1 | Per-source agent session |
 | Desktop detail page | <2s | L2 | From warm local SQLite cache via QueryService |
 | Binary size (release) | <30MB | L1 | LTO + strip enabled (see Cargo release profile) |
@@ -148,13 +156,13 @@ All layer docs are complete. Each is self-contained for implementation.
 
 | Layer | File | Lines | Key Content |
 |-------|------|-------|-------------|
-| 0 | `layers/layer-0-gold-set-evaluation.md` | ~3,900 | Full DDL (43 tables), 15-stage pipeline logic, skill standard, evaluation harness |
-| 1 | `layers/layer-1-thin-local-runner.md` | ~1,300 | Daemon core, PTY/contract adapters, stage tracking model, run manifests |
-| 2 | `layers/layer-2-single-operator-desktop.md` | ~700 | Desktop architecture, QueryService/DaemonBridge/Channel interfaces, coverage UI |
-| 3 | `layers/layer-3-operational-hardening.md` | ~900 | Worker-validator dry-run, skill promotion, source health, relation resolution |
-| 4 | `layers/layer-4-shared-visibility.md` | ~800 | Sync engine, Supabase schema/RLS, web portal, validation enforcement |
-| 5 | `layers/layer-5-expanded-commercial-intelligence.md` | ~600 | Full customs engine, FX/freight, multi-source marketplace |
-| 6 | `layers/layer-6-request-pipeline-automation.md` | ~400 | Bid workflow, portal-specific skills, audit trail |
+| 0 | `layers/layer-0-gold-set-evaluation.md` | ~4,170 | Full DDL (47 tables), 15-stage pipeline logic, skill standard, evaluation harness |
+| 1 | `layers/layer-1-thin-local-runner.md` | ~1,590 | Daemon core (17 files), two-lane adapter, session/ctty/reaper, chunked capture, commit fence, IPC protocol, stage tracking, run manifests |
+| 2 | `layers/layer-2-single-operator-desktop.md` | ~860 | Desktop architecture (16 files), commit fence, ControlPlaneState, 5-state bootstrap, 10 bridge commands, interactive SessionViewer, FreshnessBadge |
+| 3 | `layers/layer-3-operational-hardening.md` | ~1,140 | Worker-validator dry-run, skill promotion, source health, relation resolution |
+| 4 | `layers/layer-4-shared-visibility.md` | ~790 | Sync engine, Supabase schema/RLS, web portal, validation enforcement |
+| 5 | `layers/layer-5-expanded-commercial-intelligence.md` | ~520 | Full customs engine, FX/freight, multi-source marketplace |
+| 6 | `layers/layer-6-request-pipeline-automation.md` | ~380 | Bid workflow, portal-specific skills, audit trail |
 
 ### Atomic Operation Pairs (Never Split Across Layers)
 
@@ -164,6 +172,7 @@ All layer docs are complete. Each is self-contained for implementation.
 | Job execution + stage status update | Layer 1 | Pipeline state machine becomes inconsistent without stage tracking |
 | Local data mutation + outbox entry | Layer 4 | From sync activation, every push-owned write must create outbox entry in same SQLite transaction |
 | Stage output write + `stage_run_id` + stage head advancement | Layer 1 | All outputs of a pipeline stage share a `stage_run_id`; stage head advances atomically |
+| Classification lattice write + commodity-code junction replacement | Layer 5 | Multi-family expansion replaces all `product_commodity_codes` rows for a candidate atomically under one `stage_run_id` |
 
 ---
 
@@ -177,11 +186,12 @@ Prove the intelligence thesis on a curated lot corpus before building any live-s
 
 ### Capability Delivered
 
-A curated gold-set lot corpus (50–100 lots) runs through extraction → matching → screening-grade cost estimation, producing per-lot precision/recall metrics against human-labeled ground truth. Three experiments are validated:
+A curated gold-set lot corpus (≥80 lots: ≥60 gating + ≥20 challenge) runs through extraction → matching → screening-grade cost estimation, producing per-lot precision/recall metrics against human-labeled ground truth. Four experiment groups are validated:
 
-1. **Extraction quality** — ≥80% of lots yield usable product candidates
-2. **Matching quality** — ≥70% of candidates with `matchArchetype` produce genuine matches
-3. **Margin accuracy** — screening-grade margin bands agree with human expert on ≥75% of lots (±5pp)
+1. **Extraction quality** — ≥80% of gating-corpus lots yield usable product candidates (slice floors per category)
+2. **Matching quality** — ≥70% of candidates with `matchArchetype` produce genuine matches (slice floors per category and archetype)
+3. **Margin accuracy** — margin bands agree with human expert on ≥75% of gating-corpus lots (±5pp); decision agreement ≥85%
+3b. **Hard-negative correctness** — false auto-qualify rate ≤5% on challenge corpus; abstention correctness ≥90%
 
 ### Components Touched
 
@@ -355,12 +365,12 @@ The verifiable output is a CLI-visible summary plus a local markdown opportunity
 |-----------|--------|-------|
 | Skills | Create | 2 (`procurement-ingestion/fts`, `manifest-generation`) |
 | Rust workspace | Create | `Cargo.toml` (workspace root) |
-| `crates/daemon` | Create | 14 core files (main, db/sqlite, pty/session+capture+health, jobs/runner, agents/adapter+codex+claude+artifacts+contracts, prompt/renderer, errors/manifest+markdown) |
-| Database | Create | `0003_sqlite_artifacts.sql` (agent_session_logs, raw_documents, error_manifests) |
+| `crates/daemon` | Create | 17 core files (main, db/sqlite, pty/session+capture+health, jobs/runner, agents/adapter+codex+claude+artifacts+contracts, prompt/renderer, errors/manifest+markdown, ipc/descriptor+handshake, sessions/reaper) |
+| Database | Create | `0003_sqlite_runtime.sql` (agent_session_logs, raw_documents, error_manifests, executors, source_cursors, commit_clock — all in single `state.db`) |
 
 ### Data Introduced
 
-**SQLite tables (artifacts DB):**
+**SQLite tables (in `state.db` — single-database model):**
 
 | Table | Authority | Purpose |
 |-------|-----------|---------|
@@ -408,11 +418,11 @@ None (Rust-only layer).
 |---------|------|-------------------|
 | Scheduler | CLI manual trigger only | Layer 3: cron scheduler |
 | Resource arbiter | No concurrency limits | Layer 3: typed quotas |
-| PTY hardening | Basic session creation | Layer 3: fd hygiene, EIO handling, terminal geometry |
+| PTY hardening | Session/ctty setup, CLOEXEC, EIO/drain handling, reaper, default geometry | Layer 3: advanced fd hygiene edge cases, terminal geometry resize stability under load |
 | Job claiming/leases | Single-threaded execution | Layer 3: concurrent job claiming |
 | Source registry | Bootstrapped local seed / hardcoded source definitions | Layer 3: typed registry; Layer 4: `shared_source_configs` pull |
 | Procurement coverage | First live source only (FTS) | Layer 2: adds Contracts Finder; Layer 5: PCS if needed |
-| Session reaper | Basic cleanup | Layer 3: full reaper with escalation |
+| Session reaper | SIGCHLD/waitpid drain loop, pid→session map, orphan scan, cleanup verdicts, cleanup_report.json | Layer 3: full escalation tiers with configurable timeouts and diagnostic introspection |
 | Tracing | Basic log capture | Layer 3: structured + forensic tracing |
 | Validation | Fields exist, always `validation_required = false` | Layer 3: dry-run; Layer 4: enforcement |
 | Operator-facing manifest rendering | Minimal local markdown/file artifact emitted directly by the thin runner + skill | Layer 2: shared `packages/manifests` renderer and desktop presentation |
@@ -494,10 +504,10 @@ Single operator runs system daily for one week, making real accept/reject decisi
 | Component | Action | Files |
 |-----------|--------|-------|
 | Skills | Create | 1 (Contracts Finder ingestion) |
-| `packages/intelligence` | Create | 1 (coverage-rollup.ts) |
-| `packages/ui` | Create | 5 (index, contract-card-frame, manifest-viewer, pipeline-badge, sync-age-badge) |
+| `packages/intelligence` | Create | 1 (`margins/coverage-rollup.ts`) |
+| `packages/ui` | Create | 5 (index, contract-card-frame, manifest-viewer, pipeline-badge, freshness-badge) |
 | `packages/manifests` | Create | 2 (render-opportunity.ts, opportunity.md.ts template) |
-| `apps/desktop` | Create | 14 files (full desktop shell) |
+| `apps/desktop` | Create | 16 files (full desktop shell) |
 
 ### Data Introduced
 
@@ -517,7 +527,7 @@ No new remote-owned tables are introduced in this layer. The desktop writes only
 
 ### Shared Library Additions
 
-- `packages/ui` — Frame + slot presentational components (contract cards, manifest viewer, pipeline badges, sync-age badges)
+- `packages/ui` — Frame + slot presentational components (contract cards, manifest viewer, pipeline badges, freshness badges)
 - `packages/manifests` — Opportunity manifest renderer
 
 ### Invariants Enforced
@@ -705,6 +715,8 @@ System runs unattended for 5 consecutive days with ≥95% skill success rate. Cr
 - `validation_executor.rs` — Validator sub-job spawning, kickoff prompt composition
 - `validation_dry_run.rs` — Dry-run verdicts logged, pipeline not blocked
 - `validation_golden_verdicts.rs` — Known-good/bad manifests → correct verdicts
+- `validation_canary_health.rs` — Synthetic canary scheduling, health state transitions
+- `validation_retro_backlog.rs` — Backlog accumulation during validator outage, priority-ordered drain
 - `resolve-process-relations.test.ts` — Relation scoring and hard blockers
 
 ### Dependencies
@@ -752,7 +764,7 @@ Two users view the same pipeline: desktop operator (read-write) and web viewer (
 
 | Component | Action | Files |
 |-----------|--------|-------|
-| Database | Create | 8 files (SQLite sync migration, 6 Supabase migrations, Supabase config) |
+| Database | Create | 10 files (SQLite sync migration, 8 Supabase migrations, Supabase config) |
 | `crates/daemon` | Create | 1 (db/sync.rs) |
 | Skills | Create | 4 domain validator overlays (procurement-ingestion, supplier-enrichment, document-acquisition, product-extraction) |
 | `apps/web` | Create | 7 files (full web shell) |
@@ -781,6 +793,13 @@ All push-owned tables from Layers 0–3 get Supabase counterparts: `procurement_
 | `validation_verdict_summaries` | Verdict status for web |
 | `viewer_sync_status` | Sync freshness indicator |
 | `executors` | Heartbeat summary |
+| `operator_decision_summaries` | Redacted decision display for web viewers |
+
+**Supabase CAS infrastructure tables:**
+
+| Table | Purpose |
+|-------|---------|
+| `operator_decision_commands` | Durable command ledger for CAS idempotency |
 
 **Supabase remote-owned tables:**
 
@@ -820,11 +839,13 @@ Formalized and enforced at the Supabase database level via RLS:
 |-----------|------|-------------|
 | Push batch atomicity | Constitutional | Single transactional RPC, not individual upserts |
 | Outbox + data in same SQLite transaction | Constitutional | From activation, every push-owned mutation creates outbox entry atomically |
-| CAS for operator decisions | Constitutional | `base_remote_revision` checked; mismatch → conflict |
-| Active-writer lease | Constitutional | One daemon per org enforced at push protocol level |
+| CAS for operator decisions | Constitutional | `base_remote_revision` checked; mismatch → conflict; durable command ledger for idempotency |
+| Active-writer lease with fencing | Constitutional | `writer_epoch` on every batch; stale daemon rejected |
 | `schema_epoch` on every batch | Constitutional | Incompatible epoch → sync pauses, local operation continues |
 | Batch boundaries never cross `stage_run_id` | Constitutional | Push dispatcher enforces |
+| Batch boundaries never split `commit_group_id` | Constitutional | Preserves local SQLite transaction atomicity |
 | Single-in-flight batch | Constitutional | One batch at a time per push stream |
+| Provisional promotion for enforcement slices | Constitutional | Worker outputs held until validator completes |
 | Validation enforcement | Operational | Rejections quarantine results (after dry-run calibration) |
 | RLS on all Supabase tables | Constitutional | Policy matrix enforced at database boundary |
 
@@ -855,14 +876,15 @@ Formalized and enforced at the Supabase database level via RLS:
 ### Test Scenarios
 
 - `sqlite_schema.rs` — Full schema creation and migration
-- `sqlite_supabase_sync.rs` — Push-pull round-trip sync
-- `apps/web/e2e/contracts.spec.ts` — Web portal browsing
+- `sqlite_supabase_sync.rs` — Push-pull round-trip sync, writer fencing, command ledger, provisional promotion
+- `redaction_boundary.rs` — Summary projection redaction tests
+- `apps/web/e2e/contracts.spec.ts` — Web portal browsing, viewer credential verification
 - Push batch with stale `row_version` → remote rejects (idempotent)
 - Push batch with incompatible `schema_epoch` → sync pauses, local operation continues
 - Two desktop operators make concurrent decisions → CAS detects conflict, second operator retries
 - Validator rejects output in enforcement mode → results quarantined, error manifest created
-- Validator itself crashes → fail-open, worker results advance with `validation_skipped_validator_error`
-- Sync degraded → desktop shows browse-only mode, web shows staleness indicator
+- Validator itself crashes → fail-open, worker results advance with `VALIDATION_SKIPPED_VALIDATOR_ERROR`
+- Sync degraded → desktop stays in remote-degraded mode with full local operation; web shows staleness indicator
 - Full push replay after sync recovery → idempotent, no duplicates
 
 ### Dependencies
@@ -901,7 +923,7 @@ Broader categories, more supplier sources, decision-grade accuracy. The customs 
 
 ### Capability Delivered
 
-System handles ≥3 goods categories with decision-grade landed cost and ≥2 supplier sources per category. Full customs classification pipeline: multi-source recall (FPO + CPV priors + rule-based hints + tariff keyword search), multi-family expansion to UK 10-digit, exporter/manufacturer resolution, measure interaction engine, and trade remedy monitoring.
+System handles ≥3 goods categories with decision-grade landed cost and ≥2 supplier sources per category. Full customs classification pipeline: multi-source recall (FPO + CPV priors + rule-based hints + tariff keyword search + ATR/codebook reuse), multi-family expansion to UK 10-digit, exporter/manufacturer resolution, measure interaction engine, and trade remedy monitoring.
 
 ### Components Touched
 
@@ -1004,7 +1026,7 @@ Portal-specific bid skills automate the request pipeline — preparation and sub
 
 ### Capability Delivered
 
-System can prepare and submit a request on one portal (Find a Tender or Contracts Finder) with full audit trail. Includes agent-browser workflow, screenshot capture, and manifest generation for submitted requests.
+System can prepare and submit a request on one downstream eSourcing portal (Proactis as initial target) with full audit trail. Includes browser automation workflow, screenshot capture per step, and manifest generation for submitted requests.
 
 ### Components Touched
 
@@ -1019,7 +1041,7 @@ System can prepare and submit a request on one portal (Find a Tender or Contract
 
 | Table | Enhancement |
 |-------|-------------|
-| `bid_workflow_states` | Fully active: `not_started` → `ready_to_bid` → `bid_in_progress` → `bid_submitted` / `bid_failed` |
+| `bid_workflow_states` | Fully active: `not_started` → `ready_to_bid` → `bid_in_progress` → `draft_saved` → `bid_submitted` / `bid_failed` / `portal_state_unknown` |
 
 ### Authority Classification
 
@@ -1085,6 +1107,8 @@ Nothing — this is the final layer.
 
 ### Table Introduction and Modification Across Layers
 
+L0 §2 is the constitutional schema source and reserves the full logical shape of every table up front. In this matrix, **Created** means the first layer where that already-specified table is physically materialized or operationally introduced in the implementation plan; **First Active Use** means the first layer where real workloads begin writing or consuming it.
+
 | Table | Created | First Active Use | Sync Activated | Authority |
 |-------|---------|-----------------|----------------|-----------|
 | `procurement_processes` | L0 | L0 | L4 | Push-owned |
@@ -1121,20 +1145,25 @@ Nothing — this is the final layer.
 | `local_outbox` | L4 | L4 | N/A (SQLite sync infra) | Local-only |
 | `sync_batches` | L4 | L4 | N/A (SQLite sync infra) | Local-only |
 | `pull_cursors` | L4 | L4 | N/A (SQLite sync infra) | Local-only |
-| `pending_operator_intents` | L0 | L2 (desktop decision capture), L4 (CAS flush + conflict tracking) | Never (local-only) | Local-only |
+| `pending_operator_intents` | L0 | L2 (desktop decision capture with reviewed-basis fields), L4 (CAS flush + conflict tracking) | Never (local-only) | Local-only |
+| `gold_set_cases` | L0 | L0 (evaluation harness) | Never (local-only) | Local-only |
+| `evaluation_runs` | L0 | L0 (evaluation harness) | Never (local-only) | Local-only |
+| `evaluation_case_results` | L0 | L0 (evaluation harness) | Never (local-only) | Local-only |
+| `evaluation_metric_summaries` | L0 | L0 (evaluation harness) | Never (local-only) | Local-only |
 | `operator_decision_heads` | L4 (Supabase + pulled local cache) | L4 | N/A (Supabase-native) | Remote-owned |
 | `shared_company_profile` | L4 (Supabase) | L4, L6 (bid workflow fields populated) | N/A (Supabase-native) | Remote-owned |
 | `shared_source_configs` | L4 (Supabase) | L4, L5 (new source entries) | N/A (Supabase-native) | Remote-owned |
-| Summary tables (`workflow_job_summaries`, `error_manifest_summaries`, `validation_verdict_summaries`, `viewer_sync_status`) | L4 (Supabase) | L4 | N/A (push-only projections) | Push-owned |
+| Summary tables (`workflow_job_summaries`, `error_manifest_summaries`, `validation_verdict_summaries`, `viewer_sync_status`, `operator_decision_summaries`) | L4 (Supabase) | L4 | N/A (push-only projections) | Push-owned |
+| `operator_decision_commands` | L4 (Supabase) | L4 | N/A (CAS infrastructure) | CAS infrastructure |
 
 ### Schema Evolution Rules
 
 1. **No table reclassification.** A table's authority classification is permanent from its introduction layer. `operator_decision_heads` is remote-owned from introduction in Layer 4; before that, local single-operator decisions exist only as `pending_operator_intents`.
-2. **All columns exist from table creation.** Later layers populate existing nullable columns — they never add new columns to tables introduced in earlier layers. This eliminates schema migrations between layers.
+2. **All columns exist from table creation.** Later layers populate existing nullable columns — they never add new columns to tables introduced in earlier layers. This eliminates late `ALTER TABLE` on synced tables. It does not eliminate index migrations, check-constraint changes, view changes, backfills, RLS/RPC changes, or semantic migrations (see L0 §2.2.1 for full scope).
 3. **Sync tracking columns from day 1.** All push-owned tables include `owner_id`, `row_version`, `last_local_seq`, `stage_run_id`, `created_at`, `updated_at` from their creation in Layer 0, and those fields are populated on first write even before the outbox engine exists.
 4. **No column renames.** Column names are stable across layers (important for sync field mapping).
 5. **Junction tables introduced with parent tables.** `notice_cpv_codes` created alongside `contract_notices` in L0.
-6. **Job kinds.** Each pipeline stage maps to a specific `job_kind` value in `workflow_jobs` (e.g., `sync_source`, `normalize_notice`, `qualify_notice`, `extract_products`, `enrich_supplier_prices`, `estimate_landed_cost`). The full mapping of 16 job kinds to pipeline stages is defined in the research document Appendix C.
+6. **Job kinds.** Each pipeline stage maps to a specific `job_kind` value in `workflow_jobs` (e.g., `sync_source`, `normalize_notice`, `prequalify_notice`, `qualify_lot`, `extract_products`, `enrich_supplier_prices`, `estimate_landed_cost`). Qualification split into `prequalify_notice` (notice-grain) and `qualify_lot` (lot-grain). The full mapping of 17+ job kinds to pipeline stages is defined in the Layer 0 doc §5.1.
 7. **Validation forward-compatibility exists from job-table introduction.** `workflow_jobs.parent_job_id` is nullable from Layer 0, `workflow_jobs.validation_required` exists from Layer 0 with default `false`, and `workflow_jobs.validation_verdict_id` is nullable from Layer 0.
 8. **Run-manifest columns exist from session-log introduction.** `agent_session_logs.run_manifest_path` and `agent_session_logs.run_manifest_hash` exist when `agent_session_logs` is introduced in Layer 1 and are populated from the first skill run.
 9. **Validation state exists from assessment-table introduction.** `pipeline_assessments.validation_state` exists from Layer 0 with default `'unverified'`.
@@ -1147,18 +1176,25 @@ Nothing — this is the final layer.
 
 | Interface | Introduced | Consumers | Contract |
 |-----------|-----------|-----------|----------|
-| Agent Adapter trait | L1 | All skill execution | Unified event stream regardless of PTY/contract mode; mode selection via `interaction_profile` |
-| QueryService envelope | L2 | Desktop UI | `QueryEnvelope<T>` response format for all SQLite reads |
-| DaemonBridge commands | L2 | Desktop UI | Mutation acknowledgment format; UDS/named-pipe transport |
-| Channel<T> streaming | L2 | Desktop session viewer | Session streaming protocol |
+| Agent Adapter trait | L1 | All skill execution | Two-lane event model: output lane (`OutputFrame`: `Pty`/`Stdout`/`Stderr` bytes) for transport + control lane (`ControlEvent`: `Started`/`Checkpoint`/`Progress`/`AuthChallenge`/`Warning`/`FinalResultReady`/`Exited`) for semantics. Adapters return `LaunchSpec` (not `Command`); result validation in `contracts.rs` (not adapters). Mode selection via `InteractionProfile` (`PtyRequired`/`ContractRequired`/`ContractPreferred`); no silent contract→PTY fallback. |
+| Commit fence | L1 | Desktop UI, Job Runner | Daemon increments monotonic `commit_seq` on every write transaction; `MutationAck` returns `visibleAfterSeq`; `QueryEnvelope<T>` returns `snapshotSeq`; UI treats mutation as visible only when `snapshotSeq >= visibleAfterSeq` |
+| Daemon descriptor + handshake | L1 | Desktop bootstrap | `daemon.info.json` (instanceId, pid, socketPath, protocolVersion, schemaEpoch); `daemon.lock` for single-writer; `hello`/`welcome` handshake with version negotiation, `commitSeq` exchange, active sessions summary; `instanceId` mismatch = daemon restarted (PTY streams NOT resumable) |
+| QueryService envelope | L2 | Desktop UI | `QueryEnvelope<T>` carries snapshot data only (`snapshotSeq`, `snapshotAt`); live daemon health is separate `ControlPlaneState` (storage/daemon/control/load dimensions) populated from handshake/heartbeat, not SQLite queries |
+| DaemonBridge commands | L2 | Desktop UI | `MutationAck` with `durability`, `visibleAfterSeq`, `conflictReason`; UDS/named-pipe transport with peer credential verification; 10 commands including `stop_session`, `send_session_input`, `resize_session`, `retry_job`, `restart_daemon` |
+| Channel<T> streaming | L2 | Desktop session viewer | Session streaming protocol with chunked replay; `SessionFrame` lifecycle frames include `cleanupVerdict` (on `reaped`) and `archiveSeq` (on `archived`); all 7 lifecycle phases emit frames (adapter-level for spawned/active/exited, daemon-level for created/terminating/reaped/archived); gap recovery via artifact chunk index (`stream.index.jsonl`); live→historical handoff waits for `snapshotSeq >= archiveSeq`; desktop reconnect resumes from `lastSeq`; daemon restart = streams NOT resumable |
 | Skill directory standard | L0 | All skills, skill linting | SKILL.md + result.schema.json + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml |
 | Result contract format | L1 | Job Runner, OQG, validators | Schema-validated output format per skill |
-| Push batch RPC | L4 | Sync engine → Supabase | `apply_push_batch(batch_json)` with `schema_epoch`, `row_version` ordering |
-| CAS decision RPC | L4 | Desktop → Supabase | `update_operator_decision(process_id, disposition, base_revision, command_id)` — idempotent via `command_id` to handle lost-response retries |
-| Pull-before-push ordering | L4 | Sync startup | Pull remote-owned state FIRST, then classify/coalesce pending intents, then resume push — ensures cross-authority consistency |
+| Push batch RPC | L4 | Sync engine → Supabase | `apply_push_batch(batch_json, writer_epoch)` with `schema_epoch`, `writer_epoch` fencing, `row_version` ordering, `commit_group_id` atomicity, equal-version no-op on content_hash match |
+| CAS decision RPC | L4 | Desktop → Supabase | `update_operator_decision(process_id, disposition, base_revision, command_id)` — idempotent via durable `operator_decision_commands` ledger |
+| Pull-before-push ordering | L4 | Sync startup | Pull remote-owned state FIRST (hi-water fenced per domain), then classify/coalesce pending intents, then resume push — ensures cross-authority consistency |
+| Writer fencing token | L4 | Active-writer lease | `writer_epoch` incremented on lease acquisition; every batch validated against current epoch; stale daemon rejected |
+| Provisional promotion buffer | L4 | Enforcement-active slices | Worker outputs held in local-only staging until validator completes; only promoted to push-owned tables + outbox on approval |
+| Trust-state lattice | L3 | Pipeline results, downstream stages | Every result carries `verified`/`flagged`/`unverified`/`suspect`; downstream behaviour varies by trust state |
+| Process-level validation rollup | L3 | Desktop, web portal, L6 bid readiness | `pipeline_assessments.validation_state` is the coarse process-level projection of underlying trust states and is constrained to `validated`/`flagged`/`unverified`; it is not the same thing as per-output trust state |
 | `packages/contracts-schema` types | L0 | All TypeScript code | Canonical type definitions; changes must be backward-compatible |
 | `packages/ui` frame + slot pattern | L2 | Desktop + web shells | Presentational components; data-fetching hooks are shell-specific |
 | Evaluation harness API | L0 | Gold-set benchmarking | Pipeline runner + metrics computation interface |
+| L5→L6 readiness gate | L5 | L6 bid workflow | Bid workflow CANNOT reach `ready_to_bid` while any L5 blocker is active: `CLASSIFICATION_AMBIGUOUS`, `TARIFF_BRANCH_DIVERGENCE`, `SUPPLEMENTARY_UNIT_MISSING` on required components, `decision_grade = broker_required`, classification freshness expired for expected import window. Quote-role quality gate: opportunities backed only by `domestic_wholesale_floor` or `optimistic_floor` evidence are not bid-ready unless operator explicitly overrides. |
 
 ### Stage Scope Matrix
 
@@ -1169,9 +1205,10 @@ Nothing — this is the final layer.
 | Ingest | source-batched precursor job | Not recorded in `process_stage_status` until notice/process identity exists | `sources`, `source_cursors`, procurement ingestion skill |
 | Normalize | per notice | `notice` | `contract_notices` |
 | Relate | per process cluster | `process` | `procurement_processes`, `contract_notices` |
-| Qualify | per lot | `lot` | `notice_lots`, `qualification_runs` |
-| Acquire docs | per notice | `notice` | `contract_notices`, `tender_document_sets` |
+| Prequalify notice | per notice | `notice` | `contract_notices` (provisional goods/services/works classification before lot extraction) |
+| Acquire docs | per notice | `notice` | `contract_notices`, `tender_document_sets` (only for provisionally-qualified notices) |
 | Extract lots | per notice | `notice` | `contract_notices`, `notice_lots` |
+| Qualify lot | per lot | `lot` | `notice_lots`, `qualification_runs` (final lot-level qualification with document support) |
 | Extract products | per lot | `lot` | `notice_lots`, `product_candidates` |
 | Score quoteability | per candidate | `candidate` | `product_candidates`, `search_profiles` |
 | Price-signal match | per candidate-source pair | `candidate_source_pair` | `product_candidates`, `search_profiles`, `search_attempts`, `supplier_quotes` |
@@ -1187,6 +1224,19 @@ Implementation note for the apparent ingest-grain mismatch:
 - Source-batched ingestion is tracked at the `workflow_jobs` / `source_cursors` / `executors` level.
 - `process_stage_status` begins once a notice or process identity exists, so persisted stage-head coherence still stays inside the six canonical `scopeKind` values from the research model.
 
+**Canonical `scope_id` format** (for `process_stage_status.scope_id`):
+
+| `scope_kind` | `scope_id` Format |
+|--------------|-------------------|
+| `process` | `procurement_processes.id` |
+| `notice` | `contract_notices.id` |
+| `lot` | `notice_lots.lot_key` (deterministic natural key) |
+| `candidate` | `product_candidates.candidate_key` (deterministic natural key) |
+| `candidate_source_pair` | `hash(candidate_key + source + search_profile_hash)` |
+| `candidate_quote_scenario` | `hash(candidate_key + quote_key + calculation_basis_hash)` |
+
+**Commit semantics clarification:** Audit history is append-only (all `search_attempts`, `supplier_quotes`, etc. accumulate). But the **decision surface** uses set-replacement per `stage_run_id`: re-extraction replaces the current candidate set per lot; rescoring replaces current profiles per candidate; re-pricing replaces current assessments per candidate. Application queries must filter by latest `stage_run_id` via `process_stage_heads`. Direct queries against additive base tables without stage-head filtering will produce stale-data bugs.
+
 Scope dependency rule:
 
 - Lot-grain stages require `notice_lots` to exist in the same or an earlier layer.
@@ -1194,20 +1244,25 @@ Scope dependency rule:
 - Candidate-source-pair stages require `search_profiles` and `supplier_quotes` machinery to exist in the same or an earlier layer.
 - Candidate-quote-scenario stages require a persisted candidate-scoped pricing assessment and selected quote before landed cost runs.
 
+**Classification lattice contract (L5):**
+
+Layer 5 introduces a candidate × commodity-code lattice via multi-family expansion. This lattice is an **internal sub-grain of the `candidate` stage** — it does not introduce a new `scopeKind`. The `product_commodity_codes` junction table uses **set-replacement semantics for the whole candidate**: when classification re-runs for a candidate, all prior commodity-code rows for that candidate are replaced atomically under the same `stage_run_id`. The lattice expansion, scoring, shortlisting, and external validation are all internal to the `candidate`-scoped classification stage.
+
 ### Stage Boundary Contracts
 
 These input/output contracts between pipeline stages are established in Layer 0 and must hold through all layers:
 
 | Boundary | Required Input | Required Output | Established |
 |----------|---------------|-----------------|-------------|
-| qualify → acquire_docs | `QualificationResult` with lotId, expiryQualified, goodsQualified, accessRoute | Per-lot pass/review/reject | L0 |
+| prequalify_notice → acquire_docs | `QualificationResult` per notice: expiryQualified, goodsQualified, accessRoute, qualificationBasis=notice_only | Per-notice provisional pass/review/reject | L0 |
 | acquire_docs → extract_lots | Document set completeness, document roles | `TenderDocumentSet` with `documentSetHash` | L1 |
+| extract_lots → qualify_lot | `NoticeLot` entities, document context | `QualificationResult` per lot with lotId, qualificationBasis=lot_level, addressableValuePence | L0 |
 | extract_lots → extract_products | `NoticeLot` with title/description, lotNumber | At least one lot per qualified notice | L0 |
 | extract_products → score_quoteability | `ProductCandidate` with lotId, headNoun, identityConfidence, candidateType, matchArchetype | At least one candidate per qualified lot | L0 |
 | score_quoteability → price_match | quoteabilityScore, recallRiskScore, SearchProfile with queryWaves | quoteabilityScore ≥ 0.45 for auto-search | L0 |
 | price_match → gross_gate | `SupplierQuote` with matchConfidence, quoteUsabilityConfidence, priceSignalRole | At least one quote per searched pair | L0 |
 | gross_gate → landed_cost | Candidate-scoped pricing assessment, revenue basis, confidence gates | grossMarginBps, selected quote | L0 |
-| landed_cost → net_gate | `LandedCostEstimate` anchored to candidate + quote | netMarginLowPct/BasePct/HighPct, blockers | L0 |
+| landed_cost → net_gate | `LandedCostEstimate` anchored to candidate + quote | netMarginLowBps/BaseBps/HighBps, blockers | L0 |
 | net_gate → manifest | Process-level rollup with coverage metrics | Coverage-aware qualification | L1 |
 
 ---
@@ -1216,27 +1271,29 @@ These input/output contracts between pipeline stages are established in Layer 0 
 
 ### Testing Strategy Per Layer
 
+Release gates use either real external integrations (live browser sessions, live daemon paths, live sync) or captured evidence bundles / replay artifacts. Mock-only release gates are not sufficient for this architecture because the dominant failure modes are page-shape drift, session semantics, sync ordering, and process supervision.
+
 | Layer | Fast Inner Loop | Live Smoke | Benchmark Batch | Release Gate |
 |-------|----------------|------------|-----------------|--------------|
 | L0 | Extraction parsers, margin math, scoring, data model | One skill + one lot through pipeline | Full gold-set corpus vs human labels | All skills, full pipeline, extended corpus |
 | L1 | + Rust unit tests (adapter, PTY) | + Real skill session via daemon | + 10 consecutive batch runs | + Process supervision stress test |
-| L2 | + Desktop component tests | + Desktop E2E flow | + Operator runs daily for 1 week | + Full desktop + pipeline E2E |
-| L3 | + Validation policy logic, relation scoring | + Cron-triggered skill session | + 5 consecutive days unattended | + All fault injection + replay tests |
-| L4 | + Sync protocol unit tests | + Push-pull round trip | + Multi-user concurrent access | + Full sync + web portal E2E |
-| L5 | + Customs classification, FX, freight | + Multi-source search session | + Decision-grade accuracy vs gold set | + ≥3 categories, ≥2 sources each |
-| L6 | + Bid workflow logic | + Portal navigation | + End-to-end bid submission | + Full audit trail verification |
+| L2 | + Desktop integration tests (stores, bridge contracts, render surfaces) | + Desktop E2E flow | + Operator runs daily for 1 week | + Full desktop + pipeline E2E |
+| L3 | + Validation policy logic, relation scoring, validator canary health | + Cron-triggered skill session | + 5 consecutive days unattended | + All fault injection + replay + validator health tests |
+| L4 | + Sync protocol unit tests, writer fencing, command ledger, redaction boundary | + Push-pull round trip | + Multi-user concurrent access | + Full sync + web portal E2E + provisional promotion |
+| L5 | + Customs classification, measure interaction, FX, freight, evidence tiers | + Multi-source search session, tariff API round-trip | + Decision-grade accuracy vs gold set, conservative-to-actual uplift calibration | + ≥3 categories, ≥2 sources each, measure interaction golden cases |
+| L6 | + Bid workflow states, side-effect classes, readiness gate | + Portal navigation, draft save, side-effect verification | + End-to-end bid submission with audit trail | + Full audit trail, crash recovery after side-effect class escalation |
 
 ### Test Count Growth
 
 | Layer | New Test Files | Cumulative | Focus |
 |-------|---------------|------------|-------|
 | L0 | 4 | 4 | Intelligence pipeline unit tests |
-| L1 | 7 | 11 | Adapter, PTY, skill linting |
-| L2 | 5 | 16 | Agent E2E, desktop E2E |
-| L3 | 16 | 32 | Fault injection, replay, validation, drift |
-| L4 | 3 | 35 | Sync, schema, web E2E |
-| L5 | 1 | 36 | Customs FPO |
-| L6 | 0 | 36 | Covered by skill E2E tests |
+| L1 | 10 | 14 | Adapter, PTY, skill linting, canary harness, session reaper, IPC handshake |
+| L2 | 7 | 21 | Agent E2E, desktop E2E, session controls, commit fence |
+| L3 | 18 | 39 | Fault injection, replay, validation, drift, validator canary health, retro-validation |
+| L4 | 4 | 43 | Sync, schema, web E2E, redaction boundary |
+| L5 | 5 | 48 | Customs classification, measure interaction, FX, freight |
+| L6 | 3 | 51 | Bid workflow states, portal side-effects, readiness gate |
 
 ---
 
@@ -1321,18 +1378,23 @@ For quick reference, when each major component becomes active:
 | Skill directory standard | L0 | Full |
 | TypeScript intelligence pipeline | L0 | Screening-grade |
 | Evaluation harness | L0 | Full |
-| Gold-set lot corpus | L0 | Initial (50–100 lots) |
-| Rust daemon binary | L1 | Thin (launch + capture + supervise) |
-| Agent adapter (PTY + contract) | L1 | Full |
-| Process-group supervision | L1 | Full |
+| Gold-set lot corpus | L0 | Initial (≥80 lots: gating + challenge) |
+| Rust daemon binary | L1 | Thin (17 files: launch + capture + supervise + IPC + reaper) |
+| Agent adapter (two-lane: OutputFrame + ControlEvent) | L1 | Full |
+| Process-group supervision + session semantics | L1 | Full (setsid, ctty, CLOEXEC, reaper) |
+| Commit fence (`commit_seq` / `visibleAfterSeq`) | L1 | Full |
+| Daemon descriptor + handshake | L1 | Full |
+| Chunked artifact capture | L1 | Full (stream.index.jsonl, gap recovery) |
 | Run manifest writer | L1 | Full (with machine-authored fallback) |
 | Error manifest system | L1 | Full |
 | Stage tracking (`stage_run_id` + heads) | L1 | Full |
-| Tauri desktop shell | L2 | Full control panel |
-| QueryService (SQLite reads) | L2 | Full |
-| DaemonBridge (daemon commands) | L2 | Full |
-| Live session streaming | L2 | Full |
-| Shared UI components | L2 | Full |
+| Tauri desktop shell | L2 | Full control panel (16 files) |
+| QueryService (SQLite reads + commit fence) | L2 | Full |
+| DaemonBridge (10 commands + handshake) | L2 | Full |
+| ControlPlaneState (5-state structured health) | L2 | Full |
+| Live session streaming (chunked replay) | L2 | Full |
+| Interactive SessionViewer (PTY input/resize) | L2 | Full |
+| Shared UI components (FreshnessBadge) | L2 | Full |
 | Cron scheduler | L3 | Full |
 | Resource arbiter | L3 | Full |
 | PTY hardening | L3 | Full |

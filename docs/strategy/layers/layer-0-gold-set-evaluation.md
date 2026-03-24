@@ -4,7 +4,7 @@
 >
 > **Milestone:** M0
 > **Dependencies:** None (greenfield)
-> **Exit criteria:** Experiments 1–3 pass on the gold-set corpus.
+> **Exit criteria:** Experiments 1–3b pass on the gold-set corpus (≥80 lots: gating + challenge).
 
 ---
 
@@ -22,13 +22,14 @@ Skills run from the command line for benchmark execution only. Results land in a
 
 ### 1.2 Capability Delivered
 
-A curated gold-set lot corpus (50–100 lots) runs through extraction, matching, and screening-grade cost estimation, producing per-lot precision/recall metrics against human-labeled ground truth. Three experiments are validated:
+A curated gold-set lot corpus (≥80 lots: ≥60 gating + ≥20 challenge) runs through extraction, matching, and screening-grade cost estimation, producing per-lot precision/recall metrics against human-labeled ground truth. Four experiment groups are validated:
 
 | # | Experiment | Pass Criteria | What It Proves |
 |---|-----------|--------------|----------------|
-| 1 | **Extraction quality** — Can we pull structured lot/product candidates from real procurement documents? | ≥80% of lots in the gold set yield at least one usable product candidate with correct unit, quantity, and specification | The system can read procurement intent |
-| 2 | **Matching quality** — Can marketplace search find relevant supplier listings for extracted candidates? | ≥70% of product candidates with a `matchArchetype` produce at least one genuine match (not a false positive from keyword overlap) | The system can connect demand to supply |
-| 3 | **Margin accuracy** — Can screening-grade landed cost produce margin bands that distinguish real opportunities from noise? | Margin bands agree with human expert assessment on ≥75% of gold-set lots (within ±5pp for screening-grade) | The system produces actionable commercial signal |
+| 1 | **Extraction quality** — Can we pull structured lot/product candidates from real procurement documents? | ≥80% of gating-corpus lots yield ≥1 usable product candidate. No in-scope category below 65%. | The system can read procurement intent |
+| 2 | **Matching quality** — Can marketplace search find relevant supplier listings for extracted candidates? | ≥70% of candidates with `matchArchetype` produce ≥1 genuine match. Slice floors: no category below 55%, no archetype slice (n≥8) below 50%. | The system can connect demand to supply |
+| 3 | **Margin accuracy** — Can screening-grade landed cost produce margin bands that distinguish real opportunities from noise? | Margin bands agree with human expert on ≥75% of gating-corpus lots (±5pp). Decision agreement ≥85%. Auto-qualify precision ≥85%. | The system produces actionable commercial signal |
+| 3b | **Hard-negative correctness** — Does the system correctly abstain on hard cases? | False auto-qualify rate ≤5% on challenge corpus. Abstention correctness ≥90%. `matchArchetype=unknown` rate ≤20%. | The system does not fabricate confidence where it should abstain |
 
 Experiment 4 (runtime reliability) is deferred to Layer 1 — it requires the Rust daemon.
 
@@ -82,12 +83,13 @@ Four experiments, run in sequence. Each must pass before the next is worth pursu
 
 | # | Experiment | Pass Criteria | What It Proves | Layer |
 |---|-----------|--------------|----------------|-------|
-| 1 | **Extraction quality** | ≥80% of gold-set lots yield ≥1 usable product candidate with correct unit, quantity, specification | System can read procurement intent | L0 |
-| 2 | **Matching quality** | ≥70% of candidates with `matchArchetype` produce ≥1 genuine match | System can connect demand to supply | L0 |
-| 3 | **Margin accuracy** | Margin bands agree with human expert on ≥75% of lots (±5pp) | System produces actionable commercial signal | L0 |
+| 1 | **Extraction quality** | ≥80% of gating-corpus lots yield ≥1 usable product candidate with correct unit, quantity, specification. No in-scope category below 65%. | System can read procurement intent | L0 |
+| 2 | **Matching quality** | ≥70% of candidates with `matchArchetype` produce ≥1 genuine match. No in-scope category below 55%. No active archetype slice (n≥8) below 50%. | System can connect demand to supply | L0 |
+| 3 | **Margin accuracy** | Margin bands agree with human expert on ≥75% of gating-corpus lots (±5pp). Decision agreement ≥85%. Auto-qualify precision ≥85%. | System produces actionable commercial signal | L0 |
+| 3b | **Hard-negative correctness** | False auto-qualify rate ≤5% on challenge corpus. Abstention correctness ≥90%. `matchArchetype=unknown` rate ≤20%. | System correctly abstains on hard cases | L0 |
 | 4 | **Runtime reliability** | 10 consecutive batch runs, ≥90% success rate, 0 orphaned processes | System can operate unattended | L1 |
 
-Stop/go rule: Do not start Layer 1 until Layer 0 passes experiments 1–3 on the gold-set corpus.
+Stop/go rule: Do not start Layer 1 until Layer 0 passes experiments 1–3b on the gold-set corpus (≥80 lots: ≥60 gating + ≥20 challenge).
 
 ### 1.6 Category Whitelist
 
@@ -189,8 +191,10 @@ These constraints apply to ALL layers without exception. Layer 0 establishes the
 | Constraint | Source | Enforcement |
 |-----------|--------|-------------|
 | Authority matrix — every table classified, no mixed writes | ADR-002, §4.7 | Schema DDL enforces classification at table creation |
-| Integer pence for money (`_pence` suffix) | §5.4 | Type system + DDL |
-| Integer basis points for confidence/percentage (`_bps` suffix, 0–10000) | §5.4 | Type system + DDL |
+| Bigint pence for GBP money (`_pence` suffix, BIGINT); original-currency minor units (`_original_minor` + currency) | §5.4, §2.2 rules 1, 16, 20 | Type system + DDL |
+| Integer basis points for confidence/percentage (`_bps` suffix); bounded 0–10000 vs signed/unbounded | §5.4, §2.2 rules 2, 17 | Type system + DDL |
+| Cross-authority FK discipline — no SQL REFERENCES from push/remote to local-only tables | §2.2 rule 15 | DDL discipline |
+| Rounding policy: aggregate first, round last; ROUND_HALF_AWAY_FROM_ZERO | §2.2 rule 18 | Calculation code |
 | Skill metadata declarations (SKILL.md + schemas) | §4.10, ADR-005 | Skill authoring guide + linting |
 | Conservative customs defaults (MFN, residual, out-of-quota, standard VAT) | ADR-006 | Screening-grade implementation |
 | No real-money bids without human approval | ADR-007 | All layers |
@@ -230,7 +234,7 @@ The critical bottleneck is the **identity chain**, not infrastructure:
 **But the real bottleneck is the identity chain:** documents/lots -> candidate identity -> quoteability -> comparable listing shortlist -> price-signal usability. The architecture compresses this into concrete stages with:
 
 - Deterministic gates at each transition
-- `matchArchetype`-driven query planning (6 archetypes: `standard_class_led`, `dimension_material_led`, `model_exact`, `brand_series`, `functional_spec`, `unknown`)
+- `matchArchetype`-driven query planning (6 domain archetypes plus `unknown` fallback: `standard_class_led`, `dimension_material_led`, `electrical_spec_led`, `pack_count_led`, `compatibility_led`, `model_exact`, `unknown`)
 - Four-state evidence comparison for listing screening
 - Adaptive diversified shortlisting
 - Compliance evidence tiers
@@ -260,7 +264,7 @@ The following are designed in the research document but NOT active in this layer
 
 ## 2. Database Schema (Full DDL)
 
-> **Authority:** This section is the constitutional schema for the entire platform. Every table, every column, every constraint is defined here. Implementation agents copy-paste these statements. No table may be added, reclassified, or have columns renamed in later layers — only nullable columns may be added (and those are already provisioned here).
+> **Authority:** This section is the constitutional schema for the entire platform. Every table, every column, every constraint is defined here. Implementation agents copy-paste these statements. No table may be invented later, reclassified, or have columns renamed in later layers. Later layers may first materialize or activate already-specified dormant tables, but they do so using the shapes reserved here.
 >
 > **Dialect:** SQL is written in Postgres syntax targeting the Supabase remote database. The local SQLite schema mirrors these definitions with type substitutions documented in 2.1. An implementation agent produces both from this single source.
 
@@ -304,9 +308,9 @@ These rules are permanent. No layer may violate them.
 
 | # | Rule | Enforcement |
 |---|------|------------|
-| 1 | Integer pence for all money | `_pence` suffix, INTEGER type |
-| 2 | Integer basis points for confidence/percentage | `_bps` suffix, INTEGER (0-10000) |
-| 3 | Exchange rates use NUMERIC (ratios, not money) | No `_pence` suffix; `numeric` type |
+| 1 | Bigint pence for all GBP money | `_pence` suffix, BIGINT type. Non-GBP originals use `_original_minor` suffix + currency code (rule 16). |
+| 2 | Integer basis points for confidence/percentage | `_bps` suffix, INTEGER. **Bounded** (0–10000): confidence, coverage, recovery rates. **Signed/unbounded**: margins, deltas, spreads (rule 17). |
+| 3 | Exchange rates use NUMERIC (ratios, not money) | No `_pence` suffix; `numeric` type. All calculations involving FX must use scaled integer arithmetic internally, not floating point. |
 | 4 | All push-owned tables carry sync tracking columns | `owner_id`, `row_version`, `last_local_seq`, `stage_run_id` (pipeline tables), `created_at`, `updated_at` — populated from first write |
 | 5 | `pipeline_assessments.validation_state` default `'unverified'` | From creation |
 | 6 | `workflow_jobs.validation_required` default `false` | From creation |
@@ -318,6 +322,26 @@ These rules are permanent. No layer may violate them.
 | 12 | JSON TEXT only for variable-shape data never queried by DB | Relational for anything filtered/joined/indexed |
 | 13 | No mixed-write tables | Every table has exactly one authority owner |
 | 14 | Remote-owned tables carry tombstone support | `deleted_at` column for soft-delete semantics |
+| 15 | Cross-authority FK discipline | Push-owned and remote-owned tables must NOT use SQL `REFERENCES` to local-only tables. Cross-authority references are opaque IDs. Local-only FK enforcement is optional in SQLite only. |
+| 16 | Original-currency amounts use minor units | `*_original_minor` suffix + separate `currency` column. Only GBP-normalized amounts use `*_pence`. |
+| 17 | BPS constraint families | **Bounded** (0–10000): confidence, coverage, recovery rates — use CHECK(x >= 0 AND x <= 10000). **Signed/unbounded**: margins, deltas, spreads — may be negative or >10000, no CHECK. |
+| 18 | Rounding policy: aggregate first, round last | Intermediate money calculations use full-precision scaled integers. Round to whole pence only at persisted estimate boundaries. `ROUND_HALF_AWAY_FROM_ZERO`. |
+| 19 | Junction tables are parent-embedded sync sets | Junction tables sync as part of their parent row's outbox entry, not independently. No standalone sync tracking columns required. |
+| 20 | Money columns use BIGINT not INTEGER | All `_pence` and `_minor` columns, plus `row_version`, `last_local_seq`, sequence counters use `bigint` to handle framework ceilings (>£21.4M) and high-volume sequences. |
+
+### 2.2.1 Scope of "All Columns From Creation"
+
+The no-ALTER-TABLE principle (rule 8) eliminates the worst class of migration pain: late column additions to hot synced tables. It does **not** eliminate:
+
+- Index migrations (new query paths require new indices)
+- Check constraint additions
+- View changes (current-state views must evolve with pipeline logic)
+- Backfill operations (populating nullable columns when a layer activates them)
+- RLS / RPC / sync protocol changes
+- Semantic migrations (a column's meaning can evolve even if its name doesn't)
+- Codegen / type wrapper migrations
+
+The correct framing: freeze **logical schema slots** early, but treat **activation, constraints, views, and projections** as first-class migration surfaces.
 
 ### 2.3 Authority Classification
 
@@ -386,20 +410,24 @@ Every table has exactly one authority classification. This is permanent — no r
 | 37 | `local_outbox` | Transactional outbox for push sync |
 | 38 | `sync_batches` | Push batch tracking |
 | 39 | `pull_cursors` | Pull cursor per remote domain |
+| 40 | `gold_set_cases` | Gold-set corpus cases with human labels |
+| 41 | `evaluation_runs` | Evaluation run metadata |
+| 42 | `evaluation_case_results` | Per-case results within runs |
+| 43 | `evaluation_metric_summaries` | Aggregate metrics per run |
 
 **Remote-owned tables** (Supabase authoritative, daemon pulls):
 
 | # | Table | Layer | Notes |
 |---|-------|-------|-------|
-| 40 | `operator_decision_heads` | L4 | Human operator dispositions (CAS writes) |
-| 41 | `shared_company_profile` | L4 | Company profile data |
-| 42 | `shared_source_configs` | L4 | Source configuration (authoritative copy) |
+| 44 | `operator_decision_heads` | L4 | Human operator dispositions (CAS writes) |
+| 45 | `shared_company_profile` | L4 | Company profile data |
+| 46 | `shared_source_configs` | L4 | Source configuration (authoritative copy) |
 
 **Supabase-only infrastructure:**
 
 | # | Table | Notes |
 |---|-------|-------|
-| 43 | `schema_metadata` | Schema epoch tracking |
+| 47 | `schema_metadata` | Schema epoch tracking |
 
 ### 2.4 Sync Tracking Column Patterns
 
@@ -410,8 +438,8 @@ Two patterns exist depending on authority direction.
 ```sql
 -- Present on ALL push-owned tables
 owner_id text not null,              -- executor that owns this row
-row_version integer not null default 1,  -- monotonic version counter, incremented on every write
-last_local_seq integer,              -- outbox sequence number of last push (NULL until first push)
+row_version bigint not null default 1,  -- monotonic version counter, incremented on every write
+last_local_seq bigint,              -- outbox sequence number of last push (NULL until first push)
 created_at timestamptz not null default now(),
 updated_at timestamptz not null default now()
 
@@ -461,7 +489,7 @@ create table source_cursors (
 -- Authority: LOCAL-ONLY
 create table source_runtime_state (
   source_id text primary key references sources(id),
-  last_health_state text not null default 'green',
+  last_health_state text not null default 'unknown',  -- epistemic: not yet assessed, not optimistic
   challenge_event_count integer not null default 0,
   challenge_window_started_at timestamptz,
   circuit_opened_at timestamptz,
@@ -496,8 +524,8 @@ create table executors (
   last_heartbeat_at timestamptz not null default now(),
   -- sync tracking (push-owned: heartbeat summary pushed to remote)
   owner_id text not null,  -- self-referential for consistency
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
@@ -511,6 +539,7 @@ create table procurement_processes (
   id uuid primary key default gen_random_uuid(),
   canonical_ocid text,
   primary_notice_id uuid,
+  canonical_process_id uuid,  -- cluster identity root; set to own id on first write, updated on merge
   current_stage text not null,
   buyer_name text,
   title text not null,
@@ -519,8 +548,8 @@ create table procurement_processes (
   latest_updated_at timestamptz not null,
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -530,9 +559,9 @@ create table procurement_processes (
 create table contract_notices (
   id uuid primary key default gen_random_uuid(),
   process_id uuid references procurement_processes(id),
-  source_id text not null references sources(id),
+  source_id text not null,  -- local-only FK: sources (enforced in SQLite only)
   source_notice_id text not null,
-  raw_document_id uuid not null references raw_documents(id),
+  raw_document_id uuid not null,  -- local-only FK: raw_documents
   ocid text,
   title text not null,
   summary text,
@@ -544,15 +573,15 @@ create table contract_notices (
   source_updated_at timestamptz not null,
   main_category text,
   -- cpv_codes: use junction table notice_cpv_codes instead of array column
-  estimated_value_original_pence integer,  -- integer pence
+  estimated_value_original_minor bigint,   -- original currency minor units (fen, cents, etc.)
   estimated_value_currency text,
-  estimated_value_gbp_ex_vat_pence integer,  -- integer pence
+  estimated_value_gbp_ex_vat_pence bigint,  -- GBP integer pence
   estimated_value_vat_inclusive boolean,
   normalized_payload jsonb not null,
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
@@ -566,17 +595,18 @@ create table notice_lots (
   id uuid primary key default gen_random_uuid(),
   notice_id uuid not null references contract_notices(id),
   source_lot_id text,
+  lot_key text,                       -- deterministic natural key for rerun diffing and gold-set scoring
   lot_number integer,
   title text,
   description text,
-  estimated_value_pence integer,  -- integer pence
+  estimated_value_pence bigint,  -- integer pence
   deadline_at timestamptz,
   is_bidable_separately boolean not null default true,
   documents jsonb,  -- opaque array of document references
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -594,8 +624,8 @@ create table tender_document_sets (
   acquired_at timestamptz not null,
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -614,14 +644,14 @@ create table qualification_runs (
   goods_density_score_bps integer,  -- basis points (0-10000)
   goods_separability text,        -- true, false, uncertain (tri-state classification stored as text)
   qualification_basis text not null,  -- notice_only, notice_plus_docs, lot_level
-  addressable_value_pence integer,
+  addressable_value_pence bigint,
   access_route text,              -- open_tender, restricted_tender, etc.
   rationale jsonb not null,       -- renamed from 'evidence' to match TS interface
   qualified_at timestamptz not null default now(),
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -635,6 +665,7 @@ create table product_candidates (
   notice_id uuid not null references contract_notices(id),
   lot_id uuid not null references notice_lots(id),
   parent_candidate_id uuid references product_candidates(id),
+  candidate_key text,                 -- deterministic natural key for rerun diffing and gold-set scoring
   candidate_role text not null default 'standalone',  -- standalone, bundle_parent, bundle_component
   name text not null,
   candidate_type text not null,  -- exact_sku, standard_commodity, brand_family, bundle, custom_or_fabricated, installed_goods, regulated_goods, unknown
@@ -664,8 +695,8 @@ create table product_candidates (
   quantity_confidence_bps integer,  -- basis points (0-10000)
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -700,8 +731,8 @@ create table search_profiles (
   search_eligibility_state text not null,  -- auto_search, manual_only, skip
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -722,12 +753,12 @@ create table search_attempts (
   hard_rejected_count integer not null default 0,
   shortlisted_count integer not null default 0,
   search_failure_mode text,
-  session_id uuid references agent_session_logs(id),
+  session_id uuid,  -- local-only FK: agent_session_logs
   executed_at timestamptz not null default now(),
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -753,9 +784,13 @@ create table supplier_quotes (
   quote_cost_boundary text,
   quoted_quantity numeric,
   quoted_quantity_unit text,
-  unit_price_original_pence integer not null,  -- integer pence
+  unit_price_original_minor bigint not null,   -- per-unit price in original currency minor units
   currency text not null,
-  unit_price_gbp_pence integer not null,       -- integer pence
+  unit_price_gbp_pence bigint not null,        -- per-unit GBP pence (may be 0 for sub-penny items)
+  offer_total_original_minor bigint,           -- total offer price in original currency minor units
+  offer_total_gbp_pence bigint,               -- total offer price in GBP pence
+  price_basis_qty numeric,                     -- quantity the offer covers (e.g., 5000 gloves)
+  price_basis_unit text,                       -- unit for basis qty (e.g., 'glove')
   minimum_order_quantity numeric,
   lead_time_days integer,
   includes_shipping boolean not null default false,
@@ -781,8 +816,8 @@ create table supplier_quotes (
   valid_until timestamptz,
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -795,10 +830,10 @@ create table candidate_pricing_assessments (
   notice_id uuid not null references contract_notices(id),
   product_candidate_id uuid not null references product_candidates(id),
   selected_quote_id uuid not null references supplier_quotes(id),
-  selected_quote_row_version integer not null,
+  selected_quote_row_version bigint not null,
   quote_cost_boundary text not null,
   revenue_basis_type text not null,
-  expected_addressable_revenue_ex_vat_pence integer not null,
+  expected_addressable_revenue_ex_vat_pence bigint not null,
   revenue_confidence_bps integer not null,
   gross_margin_bps integer not null,
   gross_estimate_confidence_bps integer not null,
@@ -807,8 +842,8 @@ create table candidate_pricing_assessments (
   pricing_input_confidence_bps integer not null,
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -836,30 +871,33 @@ create table landed_cost_estimates (
   customs_fx_rate numeric not null,                -- exchange rate (not money -- keep numeric)
   commercial_fx_rate numeric not null,             -- exchange rate (not money -- keep numeric)
   fx_basis_delta_bps integer not null,             -- basis points
-  supplier_cost_gbp_pence integer not null,        -- integer pence
-  freight_low_gbp_pence integer not null,          -- integer pence
-  freight_base_gbp_pence integer not null,         -- integer pence
-  freight_high_gbp_pence integer not null,         -- integer pence
-  customs_duty_gbp_pence integer not null,         -- integer pence
-  trade_remedy_duty_gbp_pence integer,             -- integer pence
-  duty_outcome_min_gbp_pence integer,
-  duty_outcome_max_gbp_pence integer,
+  fx_rate_checked_at timestamptz,
+  supplier_cost_gbp_pence bigint not null,        -- integer pence
+  freight_low_gbp_pence bigint not null,          -- integer pence
+  freight_base_gbp_pence bigint not null,         -- integer pence
+  freight_high_gbp_pence bigint not null,         -- integer pence
+  customs_duty_gbp_pence bigint not null,         -- integer pence
+  trade_remedy_duty_gbp_pence bigint,             -- integer pence
+  duty_outcome_min_gbp_pence bigint,
+  duty_outcome_max_gbp_pence bigint,
   customs_cost_spread_bps integer,
   trade_remedy_state text,
   trade_remedy_cases_json jsonb,
+  duty_breakdown_json jsonb,
+  measure_interaction_json jsonb,
   exporter_rate_basis text,
   exporter_identity_confidence_bps integer,
   origin_evidence_state text,
-  import_vat_gbp_pence integer not null,           -- integer pence
+  import_vat_gbp_pence bigint not null,           -- integer pence
   vat_rate_state text,
   import_vat_treatment text not null,              -- postponed_full, postponed_partial, cash_paid_full, cash_paid_partial, non_recoverable, unknown
   vat_recovery_rate_bps integer,                   -- basis points
-  uk_final_mile_cost_gbp_pence integer not null,   -- integer pence
-  other_fees_gbp_pence integer not null,           -- integer pence
-  economic_landed_cost_gbp_pence integer not null,  -- integer pence
-  cash_outlay_gbp_pence integer not null,          -- integer pence
-  cash_to_clear_gbp_pence integer not null,        -- integer pence
-  working_capital_cost_gbp_pence integer,          -- integer pence
+  uk_final_mile_cost_gbp_pence bigint not null,   -- integer pence
+  other_fees_gbp_pence bigint not null,           -- integer pence
+  economic_landed_cost_gbp_pence bigint not null,  -- integer pence
+  cash_outlay_gbp_pence bigint not null,          -- integer pence
+  cash_to_clear_gbp_pence bigint not null,        -- integer pence
+  working_capital_cost_gbp_pence bigint,          -- integer pence
   revenue_basis_type text not null,
   revenue_confidence_bps integer not null,          -- basis points (0-10000)
   customs_resolution_confidence_bps integer,
@@ -873,14 +911,15 @@ create table landed_cost_estimates (
   warnings jsonb not null,
   blockers jsonb not null default '[]',
   tariff_checked_at timestamptz,
+  measures_fresh_until timestamptz,
   classification_fresh_until timestamptz,
   trade_remedy_watch_state text,
   cbam_exposure_flag boolean,
-  cbam_estimate_gbp_pence integer,
+  cbam_estimate_gbp_pence bigint,
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -891,11 +930,12 @@ create table manifests (
   id uuid primary key default gen_random_uuid(),
   process_id uuid not null references procurement_processes(id),
   markdown text not null,
-  artifact_path text,
+  artifact_hash text,                  -- SHA-256 of manifest artifact for integrity / staleness
+  artifact_locator text,               -- portable storage key (not filesystem path)
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -915,6 +955,9 @@ create table pipeline_assessments (
   priced_coverage_bps integer,
   landed_cost_coverage_bps integer,
   net_qualified_coverage_bps integer,
+  priced_value_coverage_bps integer,          -- value-weighted: sum of priced lot values / total qualifying value
+  landed_cost_value_coverage_bps integer,     -- value-weighted landed-cost coverage
+  net_qualified_value_coverage_bps integer,   -- value-weighted net-qualified coverage
   unresolved_mandatory_lots integer not null default 0,
   decision_basis_hash text,
   review_stage text,
@@ -922,8 +965,8 @@ create table pipeline_assessments (
   assessed_at timestamptz not null default now(),
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -933,16 +976,17 @@ create table pipeline_assessments (
 -- Authority: PUSH-OWNED
 create table bid_workflow_states (
   process_id uuid primary key references procurement_processes(id),
-  bid_state text not null default 'not_started',  -- not_started, ready_to_bid, bid_in_progress, bid_submitted, bid_failed
+  bid_state text not null default 'not_started',  -- not_started, ready_to_bid, bid_in_progress, draft_saved, bid_submitted, bid_failed, portal_state_unknown
   bid_scope_json jsonb,
   review_required boolean not null default false,
-  bid_job_id uuid references workflow_jobs(id),
+  bid_job_id uuid,  -- local-only FK: workflow_jobs
   started_at timestamptz,
   completed_at timestamptz,
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
+  stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
@@ -957,9 +1001,9 @@ create table bid_workflow_states (
 create table process_stage_status (
   id uuid primary key default gen_random_uuid(),
   process_id uuid not null references procurement_processes(id),
-  stage text not null,              -- ingest, normalize, relate, qualify, acquire_docs, extract_lots, extract_products, score_quoteability, price_signal_match, gross_margin_gate, landed_cost, net_margin_gate, generate_manifest, operator_decision, bid_workflow
+  stage text not null,              -- ingest, normalize, relate, prequalify_notice, qualify_lot, acquire_docs, extract_lots, extract_products, score_quoteability, price_signal_match, gross_margin_gate, landed_cost, net_margin_gate, generate_manifest, operator_decision, bid_workflow
   scope_kind text not null,         -- process, notice, lot, candidate, candidate_source_pair, candidate_quote_scenario
-  scope_id text not null,
+  scope_id text not null,             -- canonical format defined per scope_kind (see layer-strategy.md §10)
   stage_run_id text not null,
   state text not null,
   freshness_state text not null default 'fresh', -- fresh, soft_stale, hard_invalid
@@ -967,15 +1011,16 @@ create table process_stage_status (
   input_stage_vector_json jsonb,
   started_at timestamptz not null,
   completed_at timestamptz,
-  error_manifest_id uuid references error_manifests(id),
+  error_manifest_id uuid,  -- local-only FK: error_manifests
   input_revision integer,
   output_revision integer,
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   updated_at timestamptz not null default now(),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  unique (process_id, stage, scope_kind, scope_id, stage_run_id)
 );
 
 -- Current stage head per (process, stage, scope) tuple.
@@ -992,9 +1037,10 @@ create table process_stage_heads (
   input_stage_vector_json jsonb,
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
   primary key (process_id, stage, scope_kind, scope_id)
 );
 ```
@@ -1006,7 +1052,7 @@ create table process_stage_heads (
 -- Authority: LOCAL-ONLY
 create table workflow_jobs (
   id uuid primary key default gen_random_uuid(),
-  kind text not null,            -- sync_source, normalize_notice, resolve_relations, qualify_notice, acquire_documents, extract_lots, extract_products, score_quoteability, enrich_supplier_prices, compute_gross_gate, estimate_landed_cost, compute_net_gate, generate_manifest, record_operator_decision, run_bid_workflow, escalate_rfq, validation
+  kind text not null,            -- sync_source, normalize_notice, resolve_relations, prequalify_notice, qualify_lot, acquire_documents, extract_lots, extract_products, score_quoteability, enrich_supplier_prices, compute_gross_gate, estimate_landed_cost, compute_net_gate, generate_manifest, record_operator_decision, run_bid_workflow, escalate_rfq, validation
   process_id uuid references procurement_processes(id),
   notice_id uuid references contract_notices(id),
   scope_kind text,               -- process, notice, lot, candidate, candidate_source_pair, candidate_quote_scenario
@@ -1139,8 +1185,8 @@ create table validation_verdict_summaries (
   verdict_rendered_at timestamptz not null,
   -- sync tracking (same pattern as other push-owned projections)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
@@ -1152,7 +1198,7 @@ create table validation_verdict_summaries (
 -- Remote-facing projection summaries for web visibility.
 -- Authority: PUSH-OWNED (projection)
 create table workflow_job_summaries (
-  job_id uuid primary key references workflow_jobs(id),
+  job_id uuid primary key,  -- opaque ref to workflow_jobs.id (local-only; no Supabase FK)
   process_id uuid references procurement_processes(id),
   kind text not null,
   status text not null,
@@ -1162,15 +1208,15 @@ create table workflow_job_summaries (
   last_error text,
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
 
 -- Authority: PUSH-OWNED (projection)
 create table error_manifest_summaries (
-  id uuid primary key references error_manifests(id),
+  id uuid primary key,  -- opaque ref to error_manifests.id (local-only; no Supabase FK)
   process_id uuid references procurement_processes(id),
   pipeline_stage text not null,
   workflow_step text not null,
@@ -1181,8 +1227,8 @@ create table error_manifest_summaries (
   resolved_at timestamptz,
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
@@ -1191,14 +1237,14 @@ create table error_manifest_summaries (
 create table viewer_sync_status (
   executor_id uuid primary key references executors(id),
   daemon_last_seen_at timestamptz not null,
-  last_local_seq_acked integer not null default 0,
+  last_local_seq_acked bigint not null default 0,
   last_success_at timestamptz,
   sync_health text not null,
   schema_epoch integer not null,
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
@@ -1261,12 +1307,12 @@ create table shared_source_configs (
 -- The push dispatcher reads from here and sends batches to Supabase.
 -- Authority: LOCAL-ONLY (SQLite-only)
 create table local_outbox (
-  local_seq integer primary key autoincrement,
+  local_seq bigint primary key autoincrement,
   executor_id text not null,
   entity_kind text not null,
   entity_id text not null,
   op text not null,
-  row_version integer not null,
+  row_version bigint not null,
   stage_run_id text,
   schema_epoch integer not null,
   payload_json text not null,
@@ -1279,8 +1325,8 @@ create table local_outbox (
 create table sync_batches (
   batch_id text primary key,
   executor_id text not null,
-  from_local_seq integer not null,
-  to_local_seq integer not null,
+  from_local_seq bigint not null,
+  to_local_seq bigint not null,
   schema_epoch integer not null,
   sent_at text not null,
   ack_at text,
@@ -1302,9 +1348,15 @@ create table pending_operator_intents (
   id text primary key,
   process_id text not null,
   desired_disposition text not null,
-  base_remote_revision bigint not null,
+  decision_note text,
+  reviewed_basis_hash text,            -- pipeline data hash the operator reviewed
+  reviewed_manifest_hash text,         -- manifest hash the operator reviewed
+  reviewed_at_stage_run_id text,       -- stage_run_id the operator reviewed against
+  reviewed_at text,                    -- when the operator reviewed
+  base_remote_revision bigint not null default 0,  -- 0 = no remote head existed when queued (pre-L4)
   idempotency_key text not null unique,
-  status text not null default 'queued',
+  status text not null default 'queued',  -- queued, flushing, flushed, conflict, superseded
+  superseded_by_intent_id text,        -- coalescing: newer intent for same process
   queued_at text not null,
   last_attempt_at text,
   last_error text
@@ -1328,6 +1380,7 @@ create table schema_metadata (
 create table notice_cpv_codes (
   notice_id uuid not null references contract_notices(id),
   cpv_code text not null,
+  is_primary boolean not null default false,
   primary key (notice_id, cpv_code)
 );
 
@@ -1335,9 +1388,16 @@ create table notice_cpv_codes (
 -- Created with product_candidates.
 -- Authority: PUSH-OWNED
 create table product_commodity_codes (
+  id uuid primary key default gen_random_uuid(),
   product_candidate_id uuid not null references product_candidates(id),
   commodity_code text not null,
-  primary key (product_candidate_id, commodity_code)
+  digits integer not null,            -- 6, 8, or 10
+  source text not null,               -- fpo, cpv_prior, rule_hint, tariff_keyword, taric_support, hs_ping, manual, atr
+  score_bps integer not null,         -- ranking score (bounded 0-10000)
+  rank_ordinal integer,               -- position within source-ranked results
+  description text,
+  evidence_json jsonb,
+  unique (product_candidate_id, commodity_code, source)
 );
 
 -- Junction: lot-level CPV codes.
@@ -1346,6 +1406,7 @@ create table product_commodity_codes (
 create table lot_cpv_codes (
   lot_id uuid not null references notice_lots(id),
   cpv_code text not null,
+  is_primary boolean not null default false,
   primary key (lot_id, cpv_code)
 );
 ```
@@ -1365,8 +1426,8 @@ create table process_relations (
   evidence jsonb,
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   stage_run_id text,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
@@ -1381,8 +1442,8 @@ create table process_aliases (
   alias_reason text not null default 'merged_same_process',
   -- sync tracking (push-owned)
   owner_id text not null,
-  row_version integer not null default 1,
-  last_local_seq integer,
+  row_version bigint not null default 1,
+  last_local_seq bigint,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
@@ -1410,8 +1471,102 @@ create table listing_evidence (
   is_ready_to_ship boolean,
   fetched_at timestamptz not null,
   detail_page_fetched boolean not null default false,
+  trust_state text not null default 'unverified',
+  source_job_id uuid,
   created_at timestamptz not null default now(),
   unique (source, source_listing_id)
+);
+```
+
+#### 2.5.12 Evaluation Tables
+
+```sql
+-- Gold-set corpus cases. Each row is one curated lot with human labels.
+-- Authority: LOCAL-ONLY
+create table gold_set_cases (
+  id uuid primary key default gen_random_uuid(),
+  corpus_version text not null,
+  lot_title text not null,
+  lot_description text,
+  category text not null,             -- office_supplies, cleaning, ppe, hand_tools, furniture, packaging
+  corpus_set text not null,           -- gating (easy categories) or challenge (hard categories / hard negatives)
+  source_notice_json jsonb not null,  -- curated OCDS notice data
+  source_documents_json jsonb,        -- curated document references
+  expected_candidates_json jsonb not null,   -- human-labeled expected product candidates
+  expected_matches_json jsonb not null,      -- human-labeled expected supplier matches
+  expected_margin_band_json jsonb not null,  -- human-labeled margin bands {lowBps, baseBps, highBps}
+  expected_decision text,             -- auto_qualify, review, reject, abstain
+  case_as_of_at timestamptz not null,        -- market state date for temporal reproducibility
+  label_as_of_at timestamptz not null,       -- when labels were created/verified
+  evidence_bundle_hash text,                 -- hash of captured evidence for reproducible benchmark lane
+  is_hard_negative boolean not null default false,  -- challenge case for abstention/blocker testing
+  hard_negative_reason text,                 -- services_only, custom_fabricated, remedy_adjacent, compliance_gap, etc.
+  match_archetype_expected text,             -- expected matchArchetype for unknown-rate monitoring
+  is_double_annotated boolean not null default false,  -- flagged for inter-annotator agreement measurement
+  created_at timestamptz not null default now()
+);
+
+-- Evaluation run metadata for reproducibility and regression tracking.
+-- Authority: LOCAL-ONLY
+create table evaluation_runs (
+  id uuid primary key default gen_random_uuid(),
+  corpus_version text not null,
+  pipeline_version text not null,
+  run_mode text not null,             -- reproducible_benchmark, live_smoke
+  started_at timestamptz not null,
+  completed_at timestamptz,
+  config_json jsonb not null,         -- pipeline config snapshot
+  created_at timestamptz not null default now()
+);
+
+-- Per-case results within an evaluation run.
+-- Authority: LOCAL-ONLY
+create table evaluation_case_results (
+  id uuid primary key default gen_random_uuid(),
+  run_id uuid not null references evaluation_runs(id),
+  case_id uuid not null references gold_set_cases(id),
+  extraction_passed boolean,
+  matching_passed boolean,
+  margin_passed boolean,
+  decision_agreed boolean,            -- auto-qualify/review/reject agrees with expert label
+  abstention_correct boolean,         -- for hard negatives: correctly abstained/blocked?
+  candidates_found integer not null default 0,
+  genuine_matches_found integer not null default 0,
+  margin_error_bps integer,           -- signed: pipeline minus expert (bps)
+  match_archetype_assigned text,
+  candidate_type_assigned text,
+  details_json jsonb not null,        -- full pipeline output for debugging
+  created_at timestamptz not null default now(),
+  unique (run_id, case_id)
+);
+
+-- Aggregate metrics per evaluation run.
+-- Authority: LOCAL-ONLY
+create table evaluation_metric_summaries (
+  id uuid primary key default gen_random_uuid(),
+  run_id uuid not null references evaluation_runs(id) unique,
+  -- Headline experiment results
+  experiment_1_rate_bps integer not null,   -- extraction yield rate (bounded bps)
+  experiment_2_rate_bps integer not null,   -- matching yield rate (bounded bps)
+  experiment_3_rate_bps integer not null,   -- margin agreement rate (bounded bps)
+  -- Slice floors (per-category minimums)
+  worst_category_exp1_bps integer,
+  worst_category_exp2_bps integer,
+  worst_category_exp3_bps integer,
+  worst_archetype_exp2_bps integer,
+  -- Hard-negative gates
+  false_auto_qualify_rate_bps integer,      -- false positives on hard negatives (bounded bps)
+  false_match_rate_bps integer,             -- false matches on hard negatives (bounded bps)
+  -- Decision-oriented metrics
+  decision_agreement_rate_bps integer,      -- auto-qualify/review/reject agreement (bounded bps)
+  auto_qualify_precision_bps integer,       -- precision of auto-qualify decisions (bounded bps)
+  abstention_correctness_bps integer,       -- correct abstention on challenge cases (bounded bps)
+  -- Unknown escape hatch monitoring
+  unknown_archetype_rate_bps integer,       -- rate of matchArchetype = unknown (bounded bps)
+  unknown_candidate_type_rate_bps integer,  -- rate of candidateType = unknown (bounded bps)
+  -- Full breakdown
+  metrics_json jsonb not null,              -- per-category, per-archetype, per-corpus-set breakdowns
+  created_at timestamptz not null default now()
 );
 ```
 
@@ -1424,6 +1579,7 @@ export interface ProcurementProcess {
   id: string;
   canonicalOcid?: string;
   primaryNoticeId?: string;
+  canonicalProcessId?: string;
   currentStage:
     | "pipeline"
     | "planning"
@@ -1469,7 +1625,7 @@ export interface ContractNotice {
   updatedAt: string;
   mainCategory?: "goods" | "services" | "works" | "mixed" | "unknown";
   cpvCodes: string[];
-  estimatedValueOriginal?: number;
+  estimatedValueOriginalMinor?: number;  // original currency minor units (fen, cents, etc.)
   estimatedValueCurrency?: string;
   estimatedValueGbpExVat?: number;
   estimatedValueVatInclusive?: boolean;
@@ -1482,6 +1638,7 @@ export interface NoticeLot {
   id: string;
   noticeId: string;
   sourceLotId?: string;
+  lotKey?: string;
   lotNumber?: number;
   title?: string;
   description?: string;
@@ -1517,6 +1674,7 @@ export interface ProductCandidate {
   noticeId: string;
   lotId: string;
   parentCandidateId?: string;
+  candidateKey?: string;
   candidateRole: "standalone" | "bundle_parent" | "bundle_component";
   name: string;
   candidateType:
@@ -1585,6 +1743,57 @@ export interface StandardSlot {
 ```
 
 ```ts
+export interface ProcessRelation {
+  id: string;
+  processIdA: string;
+  processIdB: string;
+  relationType: "merged_same_process" | "related_not_merged" | "possible_duplicate" | "separate";
+  confidence: number;
+  evidence?: string[];
+  createdAt: string;
+}
+
+export interface SearchAttempt {
+  id: string;
+  productCandidateId: string;
+  searchProfileId: string;
+  source: "ebay" | "amazon" | "alibaba" | "1688";
+  locale: "en" | "zh";
+  waveNumber: number;
+  queryText: string;
+  filters?: Record<string, string>;
+  isRecoveryWave: boolean;
+  resultCount: number;
+  hardRejectedCount: number;
+  shortlistedCount: number;
+  searchFailureMode?: "vocabulary_gap" | "overconstrained_query" | "accessory_swamp"
+    | "compliance_not_surfaceable" | "no_marketplace_presence"
+    | "low_extraction_quality" | "source_specific_failure";
+  executedAt: string;
+  sessionId?: string;
+}
+
+export interface ListingEvidence {
+  id: string;
+  source: "ebay" | "amazon" | "alibaba" | "1688";
+  sourceListingId: string;
+  normalizedTitle: string;
+  structuredAttributes?: Record<string, string>;
+  parsedStandards?: StandardSlot[];
+  parsedUnits?: { packQty?: number; packUnit?: string; normalizedBasis?: string };
+  sellerIdentifier?: string;
+  minimumOrderQuantity?: number;
+  shippingTerms?: string;
+  condition?: "new" | "used" | "refurbished" | "unknown";
+  complianceEvidenceTier: "structured_attribute" | "title_body_mention" | "absent";
+  intendedUseLanguage?: string;
+  isReadyToShip?: boolean;
+  fetchedAt: string;
+  detailPageFetched: boolean;
+  trustState?: "verified" | "flagged" | "unverified" | "suspect";
+  sourceJobId?: string;
+}
+
 export interface SearchProfile {
   id: string;
   productCandidateId: string;
@@ -1642,9 +1851,13 @@ export interface SupplierQuote {
   quoteCostBoundary?: "EXW" | "FOB" | "CIF" | "CIP" | "DAP" | "DDP" | "UNKNOWN";
   quotedQuantity?: number;
   quotedQuantityUnit?: string;
-  unitPriceOriginal: number;
+  unitPriceOriginalMinor: number;  // per-unit in original currency minor units
   currency: string;
   unitPriceGbp: number;
+  offerTotalOriginalMinor?: number;  // total offer price in original minor units
+  offerTotalGbp?: number;            // total offer price in GBP pence
+  priceBasisQty?: number;            // quantity the offer covers
+  priceBasisUnit?: string;           // unit for basis qty
   minimumOrderQuantity?: number;
   leadTimeDays?: number;
   includesShipping?: boolean;
@@ -1661,7 +1874,7 @@ export interface SupplierQuote {
   quoteUsabilityConfidence: number;
   shippingBasisConfidence?: number;
   quoteRealismConfidence: number;
-  negotiationUpliftPct?: number;
+  negotiationUpliftBps?: number;
   evidenceStates?: Record<string, "match" | "missing" | "ambiguous" | "conflict">;
   queryWaveNumber?: number;
   evidence: string[];
@@ -1711,7 +1924,8 @@ export interface LandedCostEstimate {
   valuationMode?: "estimation" | "declaration";
   customsFxRate: number;
   commercialFxRate: number;
-  fxBasisDeltaPct: number;
+  fxBasisDeltaBps: number;
+  fxRateCheckedAt?: string;
   supplierCostGbp: number;
   freightLowGbp: number;
   freightBaseGbp: number;
@@ -1723,6 +1937,8 @@ export interface LandedCostEstimate {
   customsCostSpreadBps?: number;
   tradeRemedyState?: "none" | "investigation_open" | "provisional" | "definitive" | "review_open" | "adjacent_risk";
   tradeRemedyCases?: string[];
+  dutyBreakdown?: Record<string, unknown>;
+  measureInteraction?: Record<string, unknown>;
   exporterRateBasis?: "named_exporter" | "annex_exporter" | "residual_default";
   exporterIdentityConfidence?: number;
   originEvidenceState?: "proved" | "claimed" | "unknown";
@@ -1742,15 +1958,16 @@ export interface LandedCostEstimate {
   revenueConfidence: number;
   customsResolutionConfidence?: number;
   commercialEstimateConfidence?: number;
-  netMarginLowPct: number;
-  netMarginBasePct: number;
-  netMarginHighPct: number;
+  netMarginLowBps: number;
+  netMarginBaseBps: number;
+  netMarginHighBps: number;
   decisionGrade: "screening" | "review" | "rfq_required" | "broker_required";
   confidence: number;
   confidenceBreakdown?: ConfidenceBreakdown;
   warnings: string[];
   blockers: string[];
   tariffCheckedAt?: string;
+  measuresFreshUntil?: string;
   classificationFreshUntil?: string;
   tradeRemedyWatchState?: "clear" | "investigation_open" | "provisional_measure" | "review_pending" | "adjacent_family_active";
   cbamExposureFlag?: boolean;
@@ -1800,6 +2017,9 @@ export interface PipelineAssessment {
   pricedCoverageBps?: number;
   landedCostCoverageBps?: number;
   netQualifiedCoverageBps?: number;
+  pricedValueCoverageBps?: number;
+  landedCostValueCoverageBps?: number;
+  netQualifiedValueCoverageBps?: number;
   unresolvedMandatoryLots?: number;
   decisionBasisHash?: string;
   reviewStage?: "qualification" | "quoteability" | "pricing" | "landed_cost" | "manifest";
@@ -1809,13 +2029,44 @@ export interface PipelineAssessment {
 ```
 
 ```ts
+export interface OperatorDecisionHead {
+  processId: string;
+  disposition: "pending" | "watching" | "approved" | "rejected";
+  decisionNote?: string;
+  decidedBy?: string;
+  decidedAt?: string;
+  reviewedBasisHash?: string;
+  reviewedManifestHash?: string;
+  reviewedAtStageRunId?: string;
+  decisionStale?: boolean;
+  remoteRevision: number;
+}
+
+export interface BidWorkflowState {
+  processId: string;
+  bidState:
+    | "not_started"
+    | "ready_to_bid"
+    | "bid_in_progress"
+    | "draft_saved"
+    | "bid_submitted"
+    | "bid_failed"
+    | "portal_state_unknown";
+  bidScope?: { lotIds: string[]; candidateIds: string[] };
+  reviewRequired?: boolean;
+  bidJobId?: string;
+  startedAt?: string;
+  completedAt?: string;
+}
+
 export interface WorkflowJob {
   id: string;
   kind:
     | "sync_source"
     | "normalize_notice"
     | "resolve_relations"
-    | "qualify_notice"
+    | "prequalify_notice"
+    | "qualify_lot"
     | "acquire_documents"
     | "extract_lots"
     | "extract_products"
@@ -1851,13 +2102,43 @@ export interface WorkflowJob {
 ```
 
 ```ts
+export interface AgentSessionLog {
+  id: string;
+  jobId?: string;
+  skillPath: string;
+  skillVersion?: string;
+  executionMode: "pty" | "contract";
+  cliVendor?: string;
+  cliVersion?: string;
+  adapterVersion?: string;
+  configHash?: string;
+  ptySessionId: string;
+  pid?: number;
+  pgid?: number;
+  startedAt: string;
+  completedAt?: string;
+  status: "created" | "spawned" | "active" | "terminating" | "exited" | "reaped" | "archived";
+  terminalOutputPath?: string;
+  terminalOutputHash?: string;
+  terminalOutputBytes?: number;
+  terminalOutputTail?: string;
+  structuredTrace?: Record<string, unknown>;
+  errorType?: string;
+  errorMessage?: string;
+  cleanupVerdict?: "clean" | "forced" | "leaked";
+  lastCheckpointSeq?: number;
+  runManifestPath?: string;
+  runManifestHash?: string;
+}
+
 export interface ProcessStageStatus {
   processId: string;
   stage:
     | "ingest"
     | "normalize"
     | "relate"
-    | "qualify"
+    | "prequalify_notice"
+    | "qualify_lot"
     | "acquire_docs"
     | "extract_lots"
     | "extract_products"
@@ -1920,6 +2201,21 @@ export interface ValidationVerdict {
 ```
 
 ```ts
+export interface ValidationVerdictSummary {
+  id: string;
+  workerJobId: string;
+  verdict: "approved" | "rejected" | "flagged";
+  confidenceBps?: number;
+  basisSufficiency?: "high" | "medium" | "low";
+  incidentSignature?: string;
+  enforcementEligible?: boolean;
+  summary?: string;
+  issueCount: number;
+  criticalIssueCount: number;
+  overrideVerdict?: "approved" | "rejected";
+  verdictRenderedAt: string;
+}
+
 export interface ValidationIssue {
   severity: "critical" | "warning" | "info";
   category:
@@ -2023,7 +2319,7 @@ create index idx_workflow_jobs_pagination on workflow_jobs(created_at, id);
 -- listing_evidence: unique (source, source_listing_id)
 -- source_cursors: primary key (source_id, cursor_key)
 -- notice_cpv_codes: primary key (notice_id, cpv_code)
--- product_commodity_codes: primary key (product_candidate_id, commodity_code)
+-- product_commodity_codes: primary key (id), unique (product_candidate_id, commodity_code, source)
 -- lot_cpv_codes: primary key (lot_id, cpv_code)
 -- process_stage_heads: primary key (process_id, stage, scope_kind, scope_id)
 -- pending_operator_intents: unique (idempotency_key)
@@ -2031,10 +2327,11 @@ create index idx_workflow_jobs_pagination on workflow_jobs(created_at, id);
 
 ### 2.8 Forward-Compatibility Columns
 
-These columns exist as nullable from Layer 0 table creation but are first meaningfully populated in later layers. They are listed here to prevent "where did this column come from?" confusion during implementation.
+These columns exist from Layer 0 table creation and are either populated immediately or become meaningful in later layers. They are listed here to prevent "where did this column come from?" confusion during implementation.
 
 | Table | Column(s) | First Populated | Purpose |
 |-------|-----------|----------------|---------|
+| `procurement_processes` | `canonical_process_id` | L0 | Stable cluster identity root; initialized to self on first write, updated by L3 relation merges |
 | `workflow_jobs` | `parent_job_id` | L3 | Links validator sub-job to worker job |
 | `workflow_jobs` | `validation_required` | L3 | Set by Validation Policy Engine (default `false` from creation) |
 | `workflow_jobs` | `validation_verdict_id` | L3 | Populated after validation completes |
@@ -2051,7 +2348,10 @@ These columns exist as nullable from Layer 0 table creation but are first meanin
 | `process_stage_status` | `freshness_state` | L1 | Staleness model (default `'fresh'`) |
 | `process_stage_status` | `input_revision`, `output_revision` | L1 | Revision tracking for invalidation |
 | `process_stage_heads` | `freshness_state`, `basis_hash` | L1 | Staleness propagation |
+| `listing_evidence` | `trust_state`, `source_job_id` | L3 | Carry reusable marketplace evidence forward with trust propagation and producing-job lineage |
 | `landed_cost_estimates` | Decision-grade fields (all non-screening columns) | L5 | Full customs resolution |
+| `landed_cost_estimates` | `duty_breakdown_json`, `measure_interaction_json` | L5 | Preserve full duty expression and measure-family interaction outcomes |
+| `landed_cost_estimates` | `measures_fresh_until`, `fx_rate_checked_at` | L5 | Track measure freshness and FX verification as independent invalidation vectors |
 | `landed_cost_estimates` | `cbam_exposure_flag`, `cbam_estimate_gbp_pence` | Future | CBAM carbon border adjustment |
 | `operator_decision_heads` | All columns | L4 | Remote-owned, pulled via sync engine |
 | `shared_company_profile` | All columns | L4 | Remote-owned, pulled via sync engine |
@@ -2137,9 +2437,14 @@ Four persisted relation classifications:
 
 **Output:** Linked process graph.
 
-### 3.4 Stage 4 — Qualify (Preliminary)
+### 3.4 Stages 4a/4b — Prequalify Notice + Qualify Lot
 
-Per-lot qualification with multi-dimensional goods classification.
+Qualification runs in **two phases** at different scope grains:
+
+- **Phase A — `prequalify_notice`** (notice-grain): Runs before lot extraction. Uses notice-level text, CPV codes, and access route to make a provisional goods/services determination. If clearly non-goods or non-bidable → reject early, skip document acquisition and lot extraction. If qualified or ambiguous → proceed to document acquisition (stage 5) and lot extraction (stage 6).
+- **Phase B — `qualify_lot`** (lot-grain): Runs after lot extraction. Per-lot qualification with document support, lot-level CPV codes, and addressable-value computation. Upgrades or downgrades the provisional notice-level qualification with lot-specific evidence.
+
+Both phases use the same multi-dimensional goods classification logic below, but differ in scope grain and evidence quality (`qualificationBasis`).
 
 **Step 1 — Expiry check:**
 - Reject if deadline < 30 days from now
@@ -2194,7 +2499,9 @@ Reject `direct_award`, `closed_framework_award`, `not_bidable` immediately. Flag
 
 Provisional `notice_only` qualification can still trigger document acquisition for ambiguous cases. Documents arriving later trigger re-qualification with `notice_plus_docs`.
 
-**Output:** `QualificationResult` per lot with `lotId`, `expiryQualified`, `goodsQualified`, `accessRoute`, `qualificationBasis`, `addressableValuePence`.
+**Output:**
+- **Phase A (`prequalify_notice`):** `QualificationResult` per notice with `expiryQualified`, `goodsQualified`, `accessRoute`, `qualificationBasis = notice_only`. No `lotId` yet.
+- **Phase B (`qualify_lot`):** `QualificationResult` per lot with `lotId`, `expiryQualified`, `goodsQualified`, `accessRoute`, `qualificationBasis = notice_plus_docs | lot_level`, `addressableValuePence`.
 
 ### 3.5 Stage 5 — Acquire Documents
 
@@ -2663,7 +2970,7 @@ economicLandedCostGbp = supplierCost + freightBase + customsDuty
 **FX conversion:**
 - **HMRC Exchange Rate Service** for customs duty calculation (`customsFxRate`, legally authoritative, monthly rolling)
 - **Xe** for commercial margin estimation (`commercialFxRate`, real-time)
-- Compute and store `fxBasisDeltaPct` between the two rates
+- Compute and store `fxBasisDeltaBps` between the two rates
 
 **VAT determination:**
 - `vatRateState`: `standard` | `reduced` | `zero` | `unresolved` (default to standard when unresolved)
@@ -2721,19 +3028,24 @@ else:
 
 **Customs hard rule:** If plausible branches introduce remedy/no-remedy split, unresolved specific duty, quota/safeguard interaction, or different VAT family → suppress decision-grade margin. A 2.7%–48.5% customs branch spread is a **blocker**, not a scenario band.
 
-### 3.13 Stage 13 — Coverage Rollup
+### 3.13 Coverage Rollup (Inline Computation, Not a Tracked Stage)
 
-Process-level business rollup computed from candidate-level results. **These are the authoritative coverage metric definitions:**
+Process-level business rollup computed from candidate-level results. **This is not a separately tracked pipeline stage** — it runs inline as part of `compute_net_gate` and `generate_manifest` job execution. It has no entry in `process_stage_status`, `workflow_jobs.kind`, or the Stage Scope Matrix. The §3 numbering is retained for reference continuity only.
+
+**These are the authoritative coverage metric definitions:**
 
 | Metric | Formula | Meaning |
 |--------|---------|---------|
-| `pricedCoverageBps` | (lots with ≥1 priced candidate / total qualifying lots) × 10000 | Pricing breadth |
-| `landedCostCoverageBps` | (lots with landed cost / total qualifying lots) × 10000 | Landed-cost breadth |
-| `netQualifiedCoverageBps` | (lots passing net gate / total qualifying lots) × 10000 | Net-qualified breadth |
+| `pricedCoverageBps` | (lots with ≥1 priced candidate / total qualifying lots) × 10000 | Pricing breadth (lot-count) |
+| `landedCostCoverageBps` | (lots with landed cost / total qualifying lots) × 10000 | Landed-cost breadth (lot-count) |
+| `netQualifiedCoverageBps` | (lots passing net gate / total qualifying lots) × 10000 | Net-qualified breadth (lot-count) |
+| `pricedValueCoverageBps` | (sum of priced lot values / total qualifying lot value) × 10000 | Pricing breadth (value-weighted) |
+| `landedCostValueCoverageBps` | (sum of landed-cost lot values / total qualifying lot value) × 10000 | Landed-cost breadth (value-weighted) |
+| `netQualifiedValueCoverageBps` | (sum of net-qualified lot values / total qualifying lot value) × 10000 | Net-qualified breadth (value-weighted) |
 | `unresolvedMandatoryLots` | Count of mandatory lots without resolution | Gap count |
 | `decisionBasisHash` | SHA-256 of pipeline data the operator would review | Staleness detection |
 
-**Auto-qualification coverage floor:** `netQualifiedCoverageBps >= 5000` (50%). If below-quoteability candidates represent >50% of process value and remain unresolved, the process cannot auto-qualify regardless of net margin on resolved candidates.
+**Auto-qualification coverage floor:** Uses **value-weighted** coverage: `netQualifiedValueCoverageBps >= 5000` (50% of qualifying value). Lot-count coverage is displayed but value coverage gates. A process with 9/10 lots qualified but the unresolved lot representing 80% of value cannot auto-qualify.
 
 ### 3.14 Stage 14 — Manifest Generation
 
@@ -2879,14 +3191,15 @@ These input/output contracts between stages are established in Layer 0 and must 
 
 | Boundary | Required Input | Required Output |
 |----------|---------------|----------------|
-| qualify → acquire_docs | `QualificationResult` with lotId, expiryQualified, goodsQualified, accessRoute | Per-lot pass/review/reject |
+| prequalify_notice → acquire_docs | `QualificationResult` per notice: expiryQualified, goodsQualified, accessRoute, qualificationBasis=notice_only | Per-notice provisional pass/review/reject |
+| extract_lots → qualify_lot | `NoticeLot` entities, document context | `QualificationResult` per lot with lotId, qualificationBasis=lot_level, addressableValuePence |
 | acquire_docs → extract_lots | Document set completeness, document roles | `TenderDocumentSet` with `documentSetHash` |
 | extract_lots → extract_products | `NoticeLot` with title/description, lotNumber | At least one lot per qualified notice |
 | extract_products → score_quoteability | `ProductCandidate` with lotId, headNoun, identityConfidence, candidateType, matchArchetype | At least one candidate per qualified lot |
 | score_quoteability → price_match | quoteabilityScore, recallRiskScore, SearchProfile with queryWaves | quoteabilityScore ≥ 0.45 for auto-search |
 | price_match → gross_gate | `SupplierQuote` with matchConfidence, quoteUsabilityConfidence, priceSignalRole | At least one quote per searched pair |
 | gross_gate → landed_cost | CandidatePricingAssessment: selected quote, revenue basis, confidence gates | grossMarginBps, selected quote |
-| landed_cost → net_gate | `LandedCostEstimate` anchored to candidate + quote | netMarginLowPct/BasePct/HighPct, blockers |
+| landed_cost → net_gate | `LandedCostEstimate` anchored to candidate + quote | netMarginLowBps/BaseBps/HighBps, blockers |
 | net_gate → manifest | Process-level rollup with coverage metrics | Coverage-aware qualification |
 
 ---
@@ -3498,7 +3811,8 @@ In Layer 1, the daemon formalizes this into the hybrid-authored run manifest sys
 | `sync_source` | 1. Ingest | per source per run |
 | `normalize_notice` | 2. Normalize | per notice |
 | `resolve_relations` | 3. Relate | per process cluster |
-| `qualify_notice` | 4. Qualify | per lot |
+| `prequalify_notice` | 4a. Prequalify notice | per notice |
+| `qualify_lot` | 4b. Qualify lot | per lot |
 | `acquire_documents` | 5. Acquire docs | per notice |
 | `extract_lots` | 6. Extract lots | per notice + doc set |
 | `extract_products` | 7. Extract products | per lot |
@@ -3624,31 +3938,115 @@ L0 uses flat freight assumption. Full freight engine in Layer 5.
 
 ### 5.3 Evaluation Harness Design
 
-The evaluation harness runs the gold-set lot corpus through the full screening-grade pipeline and produces verifiable metrics.
+The evaluation harness runs the gold-set lot corpus through the full screening-grade pipeline and produces verifiable metrics. Results are persisted in the evaluation tables (§2.5.12) for regression analysis.
 
-**Workflow:**
-1. **Load** — Read gold-set lot corpus (50–100 curated lots with human labels for product candidates, expected matches, and margin bands)
-2. **Run** — Execute full pipeline per lot: extraction, matching, screening-grade cost estimation
-3. **Measure** — Compare pipeline output against human labels. Compute per-lot precision/recall for extraction, matching, and margin accuracy.
-4. **Report** — Produce structured results report with:
+#### 5.3.1 Gold-Set Corpus Structure
+
+The corpus is split into two sets:
+
+**Gating corpus** (≥60 lots) — categories where L0 screening-grade intelligence is expected to succeed:
+- Office supplies
+- Simple cleaning hardware (buckets, brushes — not chemically treated consumables)
+- Hand tools (single non-powered tools — not sets/kits/powered)
+- Simple packaging subfamilies (corrugated cartons, poly mailers)
+
+**Challenge corpus** (≥20 lots) — categories where the correct answer is often "abstain" or "blocker":
+- Basic PPE (glove/helmet/eyewear families requiring standard compliance evidence)
+- Metal or remedy-adjacent furniture (steel shelving, aluminium extrusions)
+- Remedy-adjacent packaging families (aluminium foil, glass containers, tin mill)
+- Services-only contracts (hard negatives — should be rejected)
+- Mixed contracts with inseparable goods+services (hard negatives)
+- Custom fabrication lots (hard negatives)
+- Compliance-heavy regulated goods (should trigger abstention/review)
+
+**Minimum totals:** 80+ lots for the real go/no-go gate. 50 lots is a smoke floor only. Include at least 10–20% double-annotated cases to measure label noise.
+
+**Temporal specification:** Every gold-set case carries:
+- `case_as_of_at` — the market state date the case represents
+- `label_as_of_at` — when human labels were created/verified
+- `evidence_bundle_hash` — hash of captured marketplace evidence and tariff data
+
+This enables two test lanes:
+1. **Reproducible benchmark lane** — uses captured evidence snapshots; deterministic, regression-safe
+2. **Live smoke lane** — hits current external sources; validates operational viability but not reproducible
+
+#### 5.3.2 Workflow
+
+1. **Load** — Read gold-set corpus from `gold_set_cases` table. Filter by `corpus_set` (gating or challenge or both).
+2. **Run** — Execute full pipeline per lot: extraction → matching → screening-grade cost estimation. In reproducible mode, use captured evidence bundles.
+3. **Measure** — Compare pipeline output against human labels. Compute per-lot precision/recall. Write results to `evaluation_case_results`.
+4. **Report** — Compute aggregate metrics, write to `evaluation_metric_summaries`. Produce structured report with:
    - Per-lot pass/fail against experiment thresholds
-   - Archetype-stratified metrics (recall@k by `matchArchetype` x source)
-   - Aggregate pass/fail for experiments 1–3
+   - Archetype-stratified metrics (recall@k by `matchArchetype` × source)
+   - Per-category slice results
+   - Hard-negative false-positive rates
+   - Decision agreement and abstention correctness
+   - Unknown escape-hatch rates
    - Failure mode breakdown (which stages fail, why)
 
-**Experiment thresholds (from §1.5):**
+#### 5.3.3 Experiment Thresholds
+
+**Headline experiments (global, on gating corpus):**
 
 | # | Experiment | Pass Criteria |
 |---|-----------|--------------|
-| 1 | Extraction quality | >= 80% of lots yield >= 1 usable candidate |
-| 2 | Matching quality | >= 70% of candidates with `matchArchetype` produce >= 1 genuine match |
-| 3 | Margin accuracy | Margin bands agree with human expert on >= 75% of lots (within +/-5pp) |
+| 1 | Extraction quality | ≥80% of gating-corpus lots yield ≥1 usable candidate |
+| 2 | Matching quality | ≥70% of candidates with `matchArchetype` produce ≥1 genuine match |
+| 3 | Margin accuracy | Margin bands agree with human expert on ≥75% of gating-corpus lots (±5pp) |
 
-**Cost:** ~$2–10 per benchmark batch run (model calls for extraction + matching adjudication).
+**Slice floors (prevent easy categories from washing out hard ones):**
+
+| Gate | Threshold | Scope |
+|------|-----------|-------|
+| Per-category experiment 1 | ≥65% | No in-scope category below this |
+| Per-category experiment 2 | ≥55% | No in-scope category below this |
+| Per-category experiment 3 | ≥60% | No in-scope category below this |
+| Per-archetype experiment 2 | ≥50% | No active `matchArchetype` slice with n≥8 below this |
+
+**Hard-negative gates (on challenge corpus):**
+
+| Gate | Threshold | What It Prevents |
+|------|-----------|-----------------|
+| False auto-qualify rate | ≤5% | System auto-qualifying services-only or custom fabrication |
+| False genuine-match rate | ≤10% | System claiming matches on wrong-standard near-misses |
+| Abstention correctness | ≥90% | System must correctly abstain/block on compliance gaps and remedy adjacency |
+
+**Decision-oriented gates (on combined corpus):**
+
+| Gate | Threshold | What It Proves |
+|------|-----------|---------------|
+| Decision agreement | ≥85% | Pipeline auto-qualify/review/reject agrees with expert |
+| Auto-qualify precision | ≥85% | When system says "auto-qualify," expert agrees |
+
+**Unknown escape-hatch caps:**
+
+| Gate | Threshold | What It Prevents |
+|------|-----------|-----------------|
+| `matchArchetype = unknown` rate | ≤20% of gating corpus | System avoiding hard classification |
+| `candidateType = unknown` rate | ≤15% of gating corpus | System avoiding hard classification |
+
+**Cost:** ~$5–15 per benchmark batch run (model calls for extraction + matching adjudication on 80+ lots).
 
 **Test lanes:**
 - **Fast inner loop** (per-save, near-zero cost): extraction parsers, margin math, scoring functions, data model validation
 - **Benchmark batch** (per-milestone, medium cost): full gold-set corpus through pipeline
+
+### 5.3.4 Harness Database Isolation
+
+**Critical:** The evaluation harness database MUST be a separate SQLite file from the live operational database. Since L0 and later layers share table names and row shapes, reusing the harness database as the L1 operational DB would mix gold-set rows with live data. The harness creates its own SQLite file, runs the pipeline against it, and produces metrics. The L1 daemon creates a fresh operational database.
+
+### 5.3.5 Branded Scalar Types (Implementation Note)
+
+The TypeScript `packages/contracts-schema` should use branded types (or equivalent nominal typing) to prevent accidental mixing of money and score representations:
+
+- `Pence` (bigint GBP pence)
+- `MinorUnits` (bigint original-currency minor units)
+- `BpsBounded` (0–10000 confidence/coverage)
+- `BpsSigned` (margins, deltas — may be negative or >10000)
+- `ScopeId` (canonical scope identifier string)
+- `StageRunId` (atomic commit cohort identifier)
+
+These prevent a lot of "wrong type at boundary" bugs without runtime overhead.
 
 ### 5.4 Package Boundary Rules
 
@@ -3680,13 +4078,14 @@ All items must pass before Layer 0 is complete. Experiment 4 (runtime reliabilit
 
 | # | Criterion | Verification |
 |---|----------|-------------|
-| 1 | **Gold-set lot corpus** contains ≥50 curated lots across whitelist categories (office supplies, cleaning products, basic PPE, hand tools, basic furniture, packaging materials) with human labels for product candidates, expected matches, and margin bands | Manual: corpus file count and label coverage audit |
+| 1 | **Gold-set lot corpus** contains ≥80 curated lots: ≥60 gating corpus (office supplies, simple cleaning, hand tools, simple packaging) + ≥20 challenge corpus (PPE, remedy-adjacent furniture/packaging, services-only hard negatives, custom fabrication). Human labels for product candidates, expected matches, margin bands, and expected decisions (auto-qualify/review/reject/abstain). ≥10% double-annotated. Each case has `case_as_of_at` and `evidence_bundle_hash`. | Manual: corpus file count, label coverage audit, double-annotation rate check |
 | 2 | **Bilingual lexicon** seeded for top 30–50 product families with EN/ZH noun aliases, market framing terms, negative terms, unit/pack aliases, and standard/class patterns | Manual: lexicon file review; ≥30 families covered |
 | 3 | **All 5 skills** have complete `SKILL.md` + `result.schema.json` + `checkpoint.schema.json` + `canary.inputs.jsonl` + `golden.assertions.yaml` | Automated: skill linting CI gate validates directory structure and metadata |
 | 4 | **Evaluation harness** runs full gold-set corpus through extraction → matching → screening-grade cost, produces per-lot precision/recall report | Automated: `bun run harness` completes without error and emits metrics report |
-| 5 | **Experiment 1 passes:** ≥80% of gold-set lots yield at least one usable product candidate with correct unit, quantity, and specification | Automated: harness metrics check |
-| 6 | **Experiment 2 passes:** ≥70% of candidates with `matchArchetype` produce at least one genuine match (not a false positive from keyword overlap) | Automated: harness metrics check |
-| 7 | **Experiment 3 passes:** Margin bands agree with human expert assessment on ≥75% of gold-set lots (within ±5pp for screening-grade) | Semi-automated: harness computes bands, human expert reviews a sample |
+| 5 | **Experiment 1 passes:** ≥80% of gating-corpus lots yield at least one usable product candidate. No in-scope category below 65%. | Automated: harness metrics check |
+| 6 | **Experiment 2 passes:** ≥70% of candidates with `matchArchetype` produce at least one genuine match. No in-scope category below 55%. No active archetype slice (n≥8) below 50%. | Automated: harness metrics check |
+| 7 | **Experiment 3 passes:** Margin bands agree with human expert on ≥75% of gating-corpus lots (±5pp). Decision agreement ≥85%. Auto-qualify precision ≥85%. | Semi-automated: harness computes bands, human expert reviews a sample |
+| 7b | **Experiment 3b passes (hard-negative correctness):** False auto-qualify rate ≤5% on challenge corpus. Abstention correctness ≥90% on challenge cases. `matchArchetype=unknown` rate ≤20% on gating corpus. `candidateType=unknown` rate ≤15%. | Automated: harness metrics check |
 | 8 | **All 4 unit test suites pass:** `goods-qualification.test.ts`, `quoteability.test.ts`, `tariff-parsing.test.ts`, `margin-rules.test.ts` | Automated: `bun test` |
 | 9 | **SQLite schema validates:** all push-owned tables have sync tracking columns (`owner_id`, `row_version`, `last_local_seq`, `stage_run_id`), all monetary fields are integer pence (`_pence` suffix), all confidence/percentage fields are integer basis points (`_bps` suffix, 0–10000) | Automated: schema introspection test |
 | 10 | **Each skill's SKILL.md** includes instructions for the agent to write a structured narrative of what it did (a "run manifest") as part of its output — prepares for the formal daemon-managed manifest system in Layer 1 | Manual: review each SKILL.md for narrative instruction block |
@@ -3730,6 +4129,13 @@ Full gold-set corpus through the pipeline:
 | Regulated goods candidate without compliance evidence | `complianceEvidenceTier = absent` prevents automatic match acceptance regardless of confidence scores |
 | Pack-basis mismatch (per-unit vs per-box) | `quoteUsabilityConfidence` penalized; not treated as valid pricing signal |
 | Query returns only accessories | Classified as `accessory_swamp` failure mode; not counted as genuine marketplace presence |
+| **Hard-negative: services-only notice** | Correctly rejected at prequalify_notice phase; NOT auto-qualified |
+| **Hard-negative: custom fabrication lot** | Correctly classified as `custom_or_fabricated`; marketplace search skipped; NOT auto-qualified |
+| **Hard-negative: wrong-standard near-match** (EN 1078 cycling helmet vs EN 397 industrial) | Hard rejected by standards normalization; NOT counted as genuine match |
+| **Hard-negative: remedy-adjacent packaging** (aluminium foil, glass containers) | `customs_branch_divergent` or `trade_remedy_detected` blocker raised; NOT auto-qualified |
+| **Abstention case: PPE without compliance evidence** | `complianceEvidenceTier = absent` prevents auto-match; system correctly routes to review/abstain |
+| **Abstention case: metal furniture with steel shelving** | Trade remedy exposure flagged; system correctly routes to review or blocker |
+| **Sub-penny unit price** (£12.99 / 5000 gloves) | `offerTotalGbpPence = 1299`, `priceBasisQty = 5000` preserves precision; margin computed from offer-total, not truncated per-unit |
 
 ### 6.3 Risks
 
@@ -3832,6 +4238,13 @@ All provisions below are schema or structural decisions made in Layer 0 that exi
 | All future-layer columns nullable from creation | Decision-grade fields on `landed_cost_estimates`, coverage fields on `pipeline_assessments`, etc. | Layers 2–5 | Later layers populate existing columns; never add new columns to existing tables |
 | Run manifest preparation in SKILL.md | Each skill includes instructions for agent to write structured narrative | Layer 1 (daemon-managed manifests) | Skills already produce narrative output; L1 formalizes it |
 | `lotId` required on `product_candidates` | NOT NULL constraint from creation | All layers | Prevents orphaned candidates that can't trace to lot-level qualification |
+| Qualification two-phase model | `prequalify_notice` (notice-grain) and `qualify_lot` (lot-grain) as separate job kinds and stage enum values | Layer 1 (Job Runner handles both) | Avoids forced lot extraction before early rejection of non-goods notices |
+| `pending_operator_intents` reviewed-basis fields | `reviewed_basis_hash`, `reviewed_manifest_hash`, `reviewed_at_stage_run_id`, `reviewed_at`, `superseded_by_intent_id` present from creation | Layer 2 (desktop decision capture) | Desktop writes reviewed-basis metadata from first operator use; L4 CAS flush uses it |
+| Value-weighted coverage metrics | `priced_value_coverage_bps`, `landed_cost_value_coverage_bps`, `net_qualified_value_coverage_bps` on `pipeline_assessments` | Layer 2 (desktop display), Layer 4 (sync projection) | Auto-qualify gate uses value coverage, not lot-count coverage |
+| `product_commodity_codes` as full entity | `id`, `digits`, `source`, `score_bps`, `rank_ordinal`, `description`, `evidence_json` from creation | Layer 5 (multi-source recall and ranking) | L5 customs engine writes multi-source candidate codes with provenance; thin junction table would force schema change |
+| Natural keys for rerun diffing | `notice_lots.lot_key`, `product_candidates.candidate_key` from creation | Layer 1 (stage tracking), Layer 0 (gold-set scoring) | Deterministic keys enable stage-run diffing and evaluation harness comparison |
+| Basis-total pricing on `supplier_quotes` | `offer_total_original_minor`, `offer_total_gbp_pence`, `price_basis_qty`, `price_basis_unit` from creation | Layer 0 (screening-grade), Layer 5 (decision-grade) | Preserves sub-penny precision for bulk-quantity items; margin computed from offer totals, not truncated per-unit |
+| Evaluation tables | `gold_set_cases`, `evaluation_runs`, `evaluation_case_results`, `evaluation_metric_summaries` local-only from creation | Layer 0 (harness only) | Persisted evaluation results enable regression tracking across pipeline iterations |
 
 ### 7.3 Dependencies
 
@@ -3870,3 +4283,31 @@ No Rust dependencies in Layer 0. Rust daemon is introduced in Layer 1. The `Carg
 | **ADR-001:** Skills as primary data retrieval | Skill-based agent scraping via browser automation for all procurement and supplier data | First 5 skills authored with complete directory standard |
 | **ADR-005:** Skill directory standard | SKILL.md + schemas + canary inputs + golden assertions per skill | All 5 skills follow production standard; 8-question authoring guide established |
 | **ADR-006:** Internal landed-cost engine | Build internal engine instead of third-party API | Screening-grade subset implemented: HMRC Tariff API for duty, flat freight, single FX, conservative defaults |
+
+---
+
+## Cross-Domain Notes
+
+These notes flag L0 decisions that require awareness or action in other layers. They are informational — the owning layer doc is authoritative for its own implementation.
+
+<!-- CROSS-DOMAIN NOTE FOR L1: Qualification is two separate job kinds (`prequalify_notice` at notice-grain and `qualify_lot` at lot-grain). The Job Runner must handle both in the pipeline flow: prequalify_notice → acquire_docs → extract_lots → qualify_lot → extract_products. The `prequalify_notice` result has no lotId. The `qualify_lot` result has lotId and addressableValuePence. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L1: `process_stage_heads` has `created_at timestamptz not null default now()` from L0. L1 populates this on first head creation. `bid_workflow_states` has `stage_run_id text` from L0 for pipeline tracking consistency. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L1: Money columns across all push-owned tables use `bigint` (not `integer`) to support framework ceiling values exceeding £21.4M. `row_version` and `last_local_seq` also use `bigint`. The L1 daemon must use 64-bit integers for all pence arithmetic and sequence counters. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L1: `supplier_quotes` has basis-total pricing fields (`offer_total_original_minor`, `offer_total_gbp_pence`, `price_basis_qty`, `price_basis_unit`) for sub-penny unit-price accuracy. Margin calculations should use offer-total values, not per-unit values, to avoid integer truncation on bulk-quantity items. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L1: Natural keys `notice_lots.lot_key` and `product_candidates.candidate_key` exist from L0. L1 must populate these deterministically so stage-run diffing and evaluation harness comparison work correctly. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L2: `pending_operator_intents` has expanded reviewed-basis fields (`reviewed_basis_hash`, `reviewed_manifest_hash`, `reviewed_at_stage_run_id`, `reviewed_at`, `superseded_by_intent_id`). L2 desktop writes these on every operator decision. The `base_remote_revision` defaults to 0 for pre-L4 local-only operation. Latest-per-process coalescing uses `superseded_by_intent_id`. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L2: Auto-qualification coverage floor uses **value-weighted** coverage (`netQualifiedValueCoverageBps >= 5000`), not lot-count coverage. L2 desktop displays both lot-count and value-weighted coverage but the gate logic uses value. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L3: Qualification split means the Validation Policy Engine sees `prequalify_notice` and `qualify_lot` as separate skill/job kinds. Validator overlays may differ per phase. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L4: `product_commodity_codes` is a full entity table (with `id`, `digits`, `source`, `score_bps`, `rank_ordinal`, `description`, `evidence_json`) rather than a thin junction table. L4 sync outbox protocol handles it as a parent-embedded set of `product_candidates` (per constitutional rule 19). No standalone sync tracking columns — synced atomically with the parent candidate. -->
+
+<!-- CROSS-DOMAIN NOTE FOR L4: Push-owned tables do NOT have SQL REFERENCES to local-only tables (constitutional rule 15). Cross-authority references are opaque IDs. The Supabase DDL must not add REFERENCES for columns that point to local-only tables (e.g., `contract_notices.source_id`, `search_attempts.session_id`, `process_stage_status.error_manifest_id`). -->
+
+<!-- CROSS-DOMAIN NOTE FOR L5: `product_commodity_codes` expanded schema supports multi-source recall: each commodity code row carries `source` (fpo, cpv_prior, rule_hint, tariff_keyword, etc.), `digits` (6/8/10), `score_bps`, and `rank_ordinal`. L5 customs engine writes multiple rows per candidate from independent recall sources. Set-replacement semantics per candidate per `stage_run_id`. -->

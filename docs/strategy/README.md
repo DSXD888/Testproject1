@@ -4,26 +4,33 @@
 
 This directory contains the layer decomposition strategy for building the procurement intelligence platform in 7 sequentially-shippable layers (L0-L6).
 
-## Maintained Doc Set (10 files)
+## Maintained Doc Set
+
+**Normative planning (8 files):** These are the authoritative execution specifications.
 
 | File | Purpose |
 |------|---------|
 | `layer-strategy.md` | Cross-layer strategy: design rationale, schema stability matrix, interface contracts, stage scope matrix, testing evolution, milestone mapping, stack sequencing |
 | `layers/layer-0-gold-set-evaluation.md` | L0: Gold set, evaluation harness, full SQLite DDL, screening-grade pipeline, skills standard |
-| `layers/layer-1-thin-local-runner.md` | L1: Rust daemon, PTY/contract execution, process supervision, run manifests, error manifests |
-| `layers/layer-2-single-operator-desktop.md` | L2: Tauri desktop, shared UI, manifest rendering, decision capture, coverage presentation |
-| `layers/layer-3-operational-hardening.md` | L3: Cron, resource arbiter, PTY hardening, worker-validator dry-run, skill promotion |
-| `layers/layer-4-shared-visibility.md` | L4: Sync engine, Supabase schema/RLS, web portal, validation enforcement |
+| `layers/layer-1-thin-local-runner.md` | L1: Rust daemon (17 files), two-lane adapter, session/ctty/reaper, chunked capture, commit fence, IPC protocol, single-database model, stage tracking, run manifests, error manifests |
+| `layers/layer-2-single-operator-desktop.md` | L2: Tauri desktop (16 files), commit fence, ControlPlaneState, 5-state bootstrap, 10 bridge commands, interactive SessionViewer, shared UI (FreshnessBadge, ErrorSummaryList), manifest rendering, decision capture |
+| `layers/layer-3-operational-hardening.md` | L3: Cron, resource arbiter, PTY hardening, worker-validator dry-run, skill promotion, relation resolution with cluster identity, validator health monitoring, trust-state lattice |
+| `layers/layer-4-shared-visibility.md` | L4: Sync engine (fenced writer, command ledger, hi-water pull), Supabase schema/RLS, web portal (viewer-scoped security boundary), validation enforcement with provisional promotion buffer |
 | `layers/layer-5-expanded-commercial-intelligence.md` | L5: Full customs engine, dual FX, freight APIs, multi-source marketplace search |
 | `layers/layer-6-request-pipeline-automation.md` | L6: Bid workflow, portal-specific skills, audit trail |
-| `cross-reference-index.md` | Navigation: "if you're looking for X, it's in file Y, section Z" |
-| `README.md` | This file |
+
+**Navigation aids (no planning authority):**
+
+| File | Purpose |
+|------|---------|
+| `cross-reference-index.md` | Topic lookup: "if you're looking for X, it's in file Y, section Z" |
+| `README.md` | This file — reading order and overview |
 
 ## Layer Summary
 
 | Layer | Name | Milestone | Key Capability | Exit Criteria |
 |-------|------|-----------|----------------|---------------|
-| 0 | Gold Set + Evaluation Harness | M0 | Intelligence thesis validation on curated corpus | Experiments 1-3 pass |
+| 0 | Gold Set + Evaluation Harness | M0 | Intelligence thesis validation on curated corpus (≥80 lots: gating + challenge) | Experiments 1–3b pass (incl. hard-negative correctness) |
 | 1 | Thin Local Runner | M1 | Daemon-managed skill execution with process supervision | 10 batch runs, >=90% success, 0 orphans |
 | 2 | Single-Operator Desktop MVP | M2 | Desktop control panel with live procurement data | Operator runs daily for 1 week |
 | 3 | Operational Hardening | M3 | Cron automation, resource management, dry-run validation | 5 days unattended, >=95% success |
@@ -46,4 +53,4 @@ This directory contains the layer decomposition strategy for building the procur
 
 ## Source Material
 
-The strategy is derived from `docs/research/2026-03-08-public-procurement-intelligence-platform-research.md` (~8,400 lines). The research doc is the historical record; the strategy docs are the execution-grade specifications. Implementation agents should work from the layer docs, not the research doc.
+The strategy is derived from `docs/research/2026-03-08-public-procurement-intelligence-platform-research.md` (~8,403 lines). The research doc is the historical record; the strategy docs are the execution-grade specifications. Implementation agents should work from the layer docs, not the research doc.
