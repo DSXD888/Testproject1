@@ -15,6 +15,7 @@ mod tests {
     use chrono::Utc;
     use nix::unistd::{getpgid, getsid};
     use serde::Deserialize;
+    use std::fs;
     use std::io::Write;
     use std::time::Duration;
 
@@ -85,7 +86,7 @@ mod tests {
 
     #[test]
     fn ut_pty_003_runtime_ids_exist_before_spawned_session_is_returned() -> Result<()> {
-        let mut session = PtySession::spawn(report_command(), SpawnOptions::default())?;
+        let mut session = PtySession::spawn(report_command()?, SpawnOptions::default())?;
         assert!(session.runtime_ids.sid > 0);
         assert!(session.runtime_ids.pid > 0);
         assert!(session.runtime_ids.pgid > 0);
@@ -114,9 +115,48 @@ mod tests {
     }
 
     #[test]
-    fn ut_pty_005_helper_path_is_selected_when_pre_exec_safety_is_unavailable() {
+    fn ut_pty_005_helper_path_is_selected_when_pre_exec_safety_is_unavailable() -> Result<()> {
         assert_eq!(SpawnPath::resolve(false), SpawnPath::HelperBinary);
         assert_eq!(SpawnPath::resolve(true), SpawnPath::PortablePty);
+
+        let temp = tempfile::tempdir()?;
+        let session_root = temp.path().join("isolated-session");
+        let browser_profile_dir = session_root.join(".codex-browser-profile");
+        fs::create_dir_all(&browser_profile_dir)?;
+        let expected_session_root = fs::canonicalize(&session_root)?;
+        let expected_browser_profile_dir = fs::canonicalize(&browser_profile_dir)?;
+
+        let mut session = PtySession::spawn(
+            PtyCommand::new("/bin/sh")
+                .arg("-lc")
+                .arg("printf '%s|%s\\n' \"$PWD\" \"$CODEX_BROWSER_PROFILE_DIR\"")
+                .cwd(&session_root)
+                .env(
+                    "CODEX_BROWSER_PROFILE_DIR",
+                    expected_browser_profile_dir.as_os_str().to_owned(),
+                ),
+            SpawnOptions {
+                spawn_path: SpawnPath::HelperBinary,
+                ..SpawnOptions::default()
+            },
+        )?;
+        let line = session.read_line()?;
+        let status = session.finish()?;
+
+        assert!(status.success());
+        assert_eq!(session.spawn_path, SpawnPath::HelperBinary);
+        assert!(session.runtime_ids.sid > 0);
+        assert!(session.runtime_ids.pid > 0);
+        assert!(session.runtime_ids.pgid > 0);
+        assert_eq!(
+            line.trim_end(),
+            format!(
+                "{}|{}",
+                expected_session_root.display(),
+                expected_browser_profile_dir.display()
+            )
+        );
+        Ok(())
     }
 
     #[test]
@@ -148,21 +188,22 @@ mod tests {
     }
 
     #[test]
-    fn it_pty_019_exec_failure_is_classified_without_runtime_ids() {
+    fn it_pty_019_exec_failure_is_classified_without_runtime_ids() -> Result<()> {
         let result = PtySession::spawn(
             PtyCommand::new("definitely-not-a-real-command-for-pty-bead"),
             SpawnOptions::default(),
         );
         let Err(error) = result else {
-            panic!("spawn should fail");
+            return Err(anyhow::anyhow!("spawn should fail"));
         };
         assert_eq!(error.classification(), "AGENT_RUN_FAILED");
         assert!(error.runtime_ids().is_none());
+        Ok(())
     }
 
     #[test]
     fn it_pty_022_real_child_confirms_terminal_semantics() -> Result<()> {
-        let mut session = PtySession::spawn(report_command(), SpawnOptions::default())?;
+        let mut session = PtySession::spawn(report_command()?, SpawnOptions::default())?;
         let line = session.read_line()?;
         let report: PtyReport = serde_json::from_str(line.trim_end())?;
 
@@ -298,7 +339,7 @@ mod tests {
     #[test]
     fn e2e_pty_017_real_child_capture_creates_artifacts() -> Result<()> {
         let sandbox = ArtifactSandbox::new()?;
-        let mut session = PtySession::spawn(report_command(), SpawnOptions::default())?;
+        let mut session = PtySession::spawn(report_command()?, SpawnOptions::default())?;
         let line = session.read_line()?;
         let mut capture = PtyCapture::new(
             sandbox.root(),
@@ -321,7 +362,7 @@ mod tests {
         let sandbox_a = ArtifactSandbox::new()?;
         let sandbox_b = ArtifactSandbox::new()?;
 
-        let mut session_a = PtySession::spawn(report_command(), SpawnOptions::default())?;
+        let mut session_a = PtySession::spawn(report_command()?, SpawnOptions::default())?;
         let line_a = session_a.read_line()?;
         let report_a: PtyReport = serde_json::from_str(line_a.trim_end())?;
         let mut capture_a = PtyCapture::new(
@@ -334,7 +375,7 @@ mod tests {
         let _ = capture_a.finalize()?;
         let _ = session_a.finish()?;
 
-        let mut session_b = PtySession::spawn(report_command(), SpawnOptions::default())?;
+        let mut session_b = PtySession::spawn(report_command()?, SpawnOptions::default())?;
         let line_b = session_b.read_line()?;
         let report_b: PtyReport = serde_json::from_str(line_b.trim_end())?;
         let mut capture_b = PtyCapture::new(
@@ -404,7 +445,7 @@ mod tests {
 
     #[test]
     fn it_pty_012_nominal_session_reaches_canonical_public_phases() -> Result<()> {
-        let mut session = PtySession::spawn(report_command(), SpawnOptions::default())?;
+        let mut session = PtySession::spawn(report_command()?, SpawnOptions::default())?;
         let _ = session.read_line()?;
         let status = session.finish()?;
         assert!(status.success());
@@ -428,19 +469,20 @@ mod tests {
     }
 
     #[test]
-    fn it_pty_013_pre_spawn_failure_normalizes_without_runtime_ids() {
+    fn it_pty_013_pre_spawn_failure_normalizes_without_runtime_ids() -> Result<()> {
         let result = PtySession::spawn(
             PtyCommand::new("definitely-not-a-real-command-for-pre-spawn-failure"),
             SpawnOptions::default(),
         );
         let Err(error) = result else {
-            panic!("spawn should fail");
+            return Err(anyhow::anyhow!("spawn should fail"));
         };
         assert!(error.runtime_ids().is_none());
         assert_eq!(
             pre_spawn_failure_phases(),
             ["created", "terminating", "exited", "archived"]
         );
+        Ok(())
     }
 
     #[test]
@@ -514,14 +556,8 @@ mod tests {
         );
     }
 
-    fn report_command() -> PtyCommand {
-        PtyCommand::new(
-            ProcessTreeHelper::binary_path()
-                .expect("test_agent binary")
-                .display()
-                .to_string(),
-        )
-        .arg("report-session-semantics")
+    fn report_command() -> Result<PtyCommand> {
+        Ok(PtyCommand::new(ProcessTreeHelper::binary_path()?).arg("report-session-semantics"))
     }
 
     fn echo_command() -> PtyCommand {

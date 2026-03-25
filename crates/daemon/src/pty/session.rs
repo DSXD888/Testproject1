@@ -6,8 +6,11 @@ use nix::unistd::{Pid, getpgid, getsid};
 use portable_pty::{
     Child, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem, SlavePty,
 };
+use std::collections::BTreeMap;
+use std::ffi::{OsStr, OsString};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::fd::RawFd;
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 pub const DEFAULT_PTY_COLS: u16 = 120;
@@ -98,27 +101,47 @@ impl Default for BrowserViewport {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PtyCommand {
-    program: String,
-    args: Vec<String>,
+    program: OsString,
+    args: Vec<OsString>,
+    env: BTreeMap<OsString, OsString>,
+    cwd: Option<PathBuf>,
 }
 
 impl PtyCommand {
-    pub fn new(program: impl Into<String>) -> Self {
+    pub fn new(program: impl Into<OsString>) -> Self {
         Self {
             program: program.into(),
             args: Vec::new(),
+            env: BTreeMap::new(),
+            cwd: None,
         }
     }
 
-    pub fn arg(mut self, arg: impl Into<String>) -> Self {
+    pub fn arg(mut self, arg: impl Into<OsString>) -> Self {
         self.args.push(arg.into());
         self
     }
 
+    pub fn env(mut self, key: impl Into<OsString>, value: impl Into<OsString>) -> Self {
+        self.env.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn cwd(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.cwd = Some(dir.into());
+        self
+    }
+
     fn into_builder(self) -> CommandBuilder {
-        let mut builder = CommandBuilder::new(self.program);
+        let mut builder = CommandBuilder::new(&self.program);
         for arg in self.args {
             builder.arg(arg);
+        }
+        for (key, value) in self.env {
+            builder.env(key, value);
+        }
+        if let Some(cwd) = self.cwd {
+            builder.cwd(cwd);
         }
         builder.set_controlling_tty(true);
         builder
@@ -156,21 +179,18 @@ pub enum PtySessionError {
         detail: String,
         runtime_ids: Option<RuntimeIds>,
     },
-    #[error("AGENT_RUN_FAILED: helper-binary path required for safe PTY spawn")]
-    HelperBinaryRequired,
 }
 
 impl PtySessionError {
     pub const fn classification(&self) -> &'static str {
         match self {
-            Self::AgentRunFailed { .. } | Self::HelperBinaryRequired => "AGENT_RUN_FAILED",
+            Self::AgentRunFailed { .. } => "AGENT_RUN_FAILED",
         }
     }
 
     pub const fn runtime_ids(&self) -> Option<RuntimeIds> {
         match self {
             Self::AgentRunFailed { runtime_ids, .. } => *runtime_ids,
-            Self::HelperBinaryRequired => None,
         }
     }
 }
@@ -250,10 +270,6 @@ pub struct PtySession {
 
 impl PtySession {
     pub fn spawn(command: PtyCommand, options: SpawnOptions) -> Result<Self, PtySessionError> {
-        if options.spawn_path == SpawnPath::HelperBinary {
-            return Err(PtySessionError::HelperBinaryRequired);
-        }
-
         let phase_history = vec![SessionPhase::Created];
         let pair = PtyPairHandle::open(options.geometry)?;
         let (master, slave, master_fd, geometry) = pair.into_parts();
@@ -272,7 +288,7 @@ impl PtySession {
             })?;
 
         let child = slave
-            .spawn_command(command.into_builder())
+            .spawn_command(spawn_command(command, options.spawn_path)?.into_builder())
             .map_err(|error| PtySessionError::AgentRunFailed {
                 detail: format!("failed to spawn PTY child: {error:#}"),
                 runtime_ids: None,
@@ -367,6 +383,80 @@ pub const fn spawn_policy_steps() -> [&'static str; 5] {
         "stdio_redirect",
         "exec",
     ]
+}
+
+fn spawn_command(
+    command: PtyCommand,
+    spawn_path: SpawnPath,
+) -> Result<PtyCommand, PtySessionError> {
+    match spawn_path {
+        SpawnPath::PortablePty => Ok(command),
+        SpawnPath::HelperBinary => helper_wrapped_command(command),
+    }
+}
+
+fn helper_wrapped_command(command: PtyCommand) -> Result<PtyCommand, PtySessionError> {
+    let helper_path = helper_binary_path()?;
+    let PtyCommand {
+        program,
+        args,
+        env,
+        cwd,
+    } = command;
+
+    let mut helper_command = PtyCommand::new(helper_path.into_os_string());
+    helper_command.env = env;
+    helper_command.cwd = cwd;
+    helper_command = helper_command.arg(program);
+    for arg in args {
+        helper_command = helper_command.arg(arg);
+    }
+    Ok(helper_command)
+}
+
+fn helper_binary_path() -> Result<PathBuf, PtySessionError> {
+    let current_executable =
+        std::env::current_exe().map_err(|error| PtySessionError::AgentRunFailed {
+            detail: format!("failed to locate current executable: {error}"),
+            runtime_ids: None,
+        })?;
+    let executable_dir =
+        current_executable
+            .parent()
+            .ok_or_else(|| PtySessionError::AgentRunFailed {
+                detail: "current executable has no parent directory".to_owned(),
+                runtime_ids: None,
+            })?;
+    for candidate_dir in helper_search_dirs(executable_dir) {
+        let candidate = candidate_dir.join(helper_binary_name());
+        if candidate.is_file() {
+            return Ok(candidate);
+        }
+    }
+    Err(PtySessionError::AgentRunFailed {
+        detail: "failed to locate pty_spawn_helper binary".to_owned(),
+        runtime_ids: None,
+    })
+}
+
+fn helper_search_dirs(executable_dir: &Path) -> Vec<PathBuf> {
+    let mut candidates = vec![executable_dir.to_path_buf()];
+    if executable_dir
+        .file_name()
+        .is_some_and(|value| value == OsStr::new("deps"))
+        && let Some(parent_dir) = executable_dir.parent()
+    {
+        candidates.insert(0, parent_dir.to_path_buf());
+    }
+    candidates
+}
+
+const fn helper_binary_name() -> &'static str {
+    if cfg!(windows) {
+        "pty_spawn_helper.exe"
+    } else {
+        "pty_spawn_helper"
+    }
 }
 
 fn record_runtime_ids(pid: u32) -> Result<RuntimeIds, PtySessionError> {
