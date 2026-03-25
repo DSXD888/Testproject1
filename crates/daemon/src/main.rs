@@ -32,6 +32,11 @@ mod pty {
     pub mod capture;
 }
 
+#[allow(dead_code)]
+mod sessions {
+    pub mod reaper;
+}
+
 #[cfg(test)]
 use crate::agents::contracts as contracts_impl;
 #[cfg(test)]
@@ -70,7 +75,9 @@ use errors::manifest::{ErrorCode, ErrorManifestDraft, ErrorManifestStore, ErrorR
 use ipc::descriptor::{
     DaemonDescriptor, LockGuard, RuntimePaths, bind_listener, write_descriptor_atomic,
 };
-use ipc::handshake::{ActiveSessions, HandshakeContext, HealthState};
+use ipc::handshake::{
+    ActiveSessions, HandshakeContext, HealthState, LifecycleFrame, LifecyclePhase,
+};
 use jobs::runner::{
     FreshnessState, JobRunner, ObsoleteJobRequest, allocate_stage_run_id, set_stage_head_freshness,
 };
@@ -79,6 +86,7 @@ use pty::capture::{CaptureConfig, PtyCapture, compressed_payload_sha256};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use sessions::reaper::{CrashRecoveryContext, SessionReaper};
 use sha2::{Digest, Sha256};
 use tracing_subscriber::EnvFilter;
 
@@ -229,6 +237,19 @@ struct RuntimeBootstrap {
     descriptor: DaemonDescriptor,
     state_db: StateDb,
     artifact_root: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+struct PersistedSessionRow {
+    id: String,
+    job_id: Option<String>,
+    skill_path: String,
+    pid: Option<u32>,
+    pgid: Option<i32>,
+    started_at: DateTime<Utc>,
+    status: String,
+    structured_trace: Option<String>,
+    last_checkpoint_seq: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -457,9 +478,10 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
         runtime_paths.state_root(),
         DEFAULT_SCHEMA_EPOCH,
     );
-    write_descriptor_atomic(runtime_paths.descriptor_path(), &descriptor)?;
     fs::create_dir_all(&cli.artifact_root)
         .with_context(|| format!("creating {}", cli.artifact_root.display()))?;
+    reconcile_interrupted_sessions(&state_db, &cli.artifact_root, &descriptor.instance_id)?;
+    write_descriptor_atomic(runtime_paths.descriptor_path(), &descriptor)?;
 
     tracing::info!(
         socket_path = %runtime_paths.socket_path().display(),
@@ -487,12 +509,318 @@ fn serve_handshake_once(runtime: &RuntimeBootstrap) -> Result<()> {
         health_state: HealthState {
             status: "ready".to_owned(),
         },
-        active_sessions: ActiveSessions::default(),
+        active_sessions: load_active_sessions(runtime.state_db.connection())?,
         mutations_allowed: false,
         expected_peer_uid: None,
-        lifecycle_frames: Vec::new(),
+        lifecycle_frames: persisted_lifecycle_frames(runtime.state_db.connection())?,
     };
     ipc::handshake::serve_one(&runtime.listener, &handshake_context)
+}
+
+fn reconcile_interrupted_sessions(
+    state_db: &StateDb,
+    artifact_root: &Path,
+    daemon_instance_id: &str,
+) -> Result<()> {
+    let reaper = SessionReaper::new(artifact_root)?;
+    let interrupted = interrupted_sessions(state_db.connection())?;
+    if interrupted.is_empty() {
+        return Ok(());
+    }
+
+    for session in interrupted {
+        let pgid = session
+            .pgid
+            .ok_or_else(|| anyhow!("interrupted session {} missing pgid", session.id))?;
+        let commit_seq = state_db.current_commit_seq()?;
+        let result = reaper.reconcile_after_crash(
+            &session.id,
+            pgid,
+            session.pid,
+            &CrashRecoveryContext {
+                conn: state_db.connection(),
+                started_at: session.started_at,
+                job_id: session.job_id.as_deref(),
+                process_id: None,
+                skill_path: Some(Path::new(&session.skill_path)),
+                runtime_context: ErrorRuntimeContext {
+                    cli_vendor: Some(CLI_VENDOR.to_owned()),
+                    cli_version: Some(CLI_VERSION.to_owned()),
+                    adapter_version: Some(env!("CARGO_PKG_VERSION").to_owned()),
+                    model_id: None,
+                    config_hash: None,
+                    skill_version: None,
+                    pid: session.pid,
+                    pgid: session.pgid.map(i32::unsigned_abs),
+                    cleanup_verdict: None,
+                    last_valid_checkpoint_sequence: session.last_checkpoint_seq,
+                    daemon_instance_id: Some(daemon_instance_id.to_owned()),
+                    commit_seq: Some(commit_seq),
+                },
+            },
+        )?;
+        mark_session_crash_recovered(
+            state_db.connection(),
+            &session,
+            result.cleanup_outcome.cleanup_verdict.as_str(),
+            &result.error_code,
+        )?;
+    }
+
+    Ok(())
+}
+
+fn interrupted_sessions(conn: &Connection) -> Result<Vec<PersistedSessionRow>> {
+    let mut stmt = conn.prepare(
+        "\
+        SELECT id, job_id, skill_path, pid, pgid, started_at, status, structured_trace,
+               cleanup_verdict, last_checkpoint_seq
+        FROM agent_session_logs
+        WHERE status IN ('spawned', 'active', 'terminating')
+        ORDER BY started_at, id
+        ",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        let pid = row
+            .get::<_, Option<i64>>(3)?
+            .map(u32::try_from)
+            .transpose()
+            .map_err(|error| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    3,
+                    rusqlite::types::Type::Integer,
+                    Box::new(error),
+                )
+            })?;
+        let process_group_id = row
+            .get::<_, Option<i64>>(4)?
+            .map(i32::try_from)
+            .transpose()
+            .map_err(|error| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    4,
+                    rusqlite::types::Type::Integer,
+                    Box::new(error),
+                )
+            })?;
+        let started_at = parse_timestamp(&row.get::<_, String>(5)?).map_err(|error| {
+            rusqlite::Error::FromSqlConversionFailure(
+                5,
+                rusqlite::types::Type::Text,
+                Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    error.to_string(),
+                )),
+            )
+        })?;
+        Ok(PersistedSessionRow {
+            id: row.get(0)?,
+            job_id: row.get(1)?,
+            skill_path: row.get(2)?,
+            pid,
+            pgid: process_group_id,
+            started_at,
+            status: row.get(6)?,
+            structured_trace: row.get(7)?,
+            last_checkpoint_seq: row.get(9)?,
+        })
+    })?;
+    rows.collect::<std::result::Result<Vec<_>, _>>()
+        .context("loading interrupted sessions")
+}
+
+fn load_active_sessions(conn: &Connection) -> Result<ActiveSessions> {
+    let mut stmt = conn.prepare(
+        "\
+        SELECT id, status
+        FROM agent_session_logs
+        WHERE status IN ('created', 'spawned', 'active', 'terminating')
+        ORDER BY started_at, id
+        ",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+    let entries = rows
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("loading active sessions")?;
+    Ok(ActiveSessions {
+        count: entries.len(),
+        ids: entries.iter().map(|(id, _)| id.clone()).collect(),
+        states: entries.into_iter().map(|(_, state)| state).collect(),
+    })
+}
+
+fn persisted_lifecycle_frames(conn: &Connection) -> Result<Vec<LifecycleFrame>> {
+    let mut stmt = conn.prepare(
+        "\
+        SELECT id, status, structured_trace, cleanup_verdict
+        FROM agent_session_logs
+        ORDER BY started_at, id
+        ",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, Option<String>>(2)?,
+            row.get::<_, Option<String>>(3)?,
+        ))
+    })?;
+    let mut seq = 1_u64;
+    let mut frames = Vec::new();
+    for row in rows {
+        let (session_id, status, structured_trace, cleanup_verdict) = row?;
+        for phase in phase_history_from_trace(structured_trace.as_deref(), &status) {
+            let lifecycle_phase = parse_lifecycle_phase(&phase)?;
+            if lifecycle_phase == LifecyclePhase::Reaped && cleanup_verdict.is_none() {
+                continue;
+            }
+            let archive_seq = if lifecycle_phase == LifecyclePhase::Archived {
+                Some(i64::try_from(seq).context("converting lifecycle seq to archive_seq")?)
+            } else {
+                None
+            };
+            frames.push(LifecycleFrame {
+                seq,
+                session_id: session_id.clone(),
+                phase: lifecycle_phase,
+                cleanup_verdict: if lifecycle_phase == LifecyclePhase::Reaped {
+                    cleanup_verdict.clone()
+                } else {
+                    None
+                },
+                archive_seq,
+            });
+            seq += 1;
+        }
+    }
+    Ok(frames)
+}
+
+fn mark_session_crash_recovered(
+    conn: &Connection,
+    session: &PersistedSessionRow,
+    cleanup_verdict: &str,
+    error_code: &str,
+) -> Result<()> {
+    let updated = conn.execute(
+        "\
+        UPDATE agent_session_logs
+        SET status = 'failed',
+            completed_at = ?1,
+            error_type = ?2,
+            error_message = ?3,
+            cleanup_verdict = ?4,
+            structured_trace = ?5
+        WHERE id = ?6
+        ",
+        params![
+            Utc::now().to_rfc3339(),
+            error_code,
+            "daemon restart invalidated the in-flight session; startup crash recovery closed it",
+            cleanup_verdict,
+            crash_recovered_trace(session),
+            session.id,
+        ],
+    )?;
+    ensure!(updated == 1, "missing session row {}", session.id);
+    Ok(())
+}
+
+fn crash_recovered_trace(session: &PersistedSessionRow) -> String {
+    let mut trace = session
+        .structured_trace
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+        .filter(Value::is_object)
+        .unwrap_or_else(|| json!({}));
+    let mut history =
+        phase_history_from_trace(session.structured_trace.as_deref(), &session.status);
+    for phase in ["terminating", "exited", "reaped", "archived"] {
+        if !history.iter().any(|existing| existing == phase) {
+            history.push(phase.to_owned());
+        }
+    }
+    let object = trace
+        .as_object_mut()
+        .expect("trace object filtered above must remain an object");
+    object.insert(
+        "phase_history".to_owned(),
+        Value::Array(history.into_iter().map(Value::String).collect()),
+    );
+    object.insert("crash_recovered".to_owned(), Value::Bool(true));
+    trace.to_string()
+}
+
+fn phase_history_from_trace(structured_trace: Option<&str>, status: &str) -> Vec<String> {
+    structured_trace
+        .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+        .and_then(|value| {
+            value
+                .get("phase_history")
+                .and_then(Value::as_array)
+                .map(|array| {
+                    array
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_owned)
+                        .collect::<Vec<_>>()
+                })
+        })
+        .filter(|history| !history.is_empty())
+        .unwrap_or_else(|| {
+            default_phase_history_for_status(status)
+                .iter()
+                .map(|phase| (*phase).to_owned())
+                .collect()
+        })
+}
+
+fn default_phase_history_for_status(status: &str) -> &'static [&'static str] {
+    match status {
+        "created" => &["created"],
+        "spawned" => &["created", "spawned"],
+        "active" => &["created", "spawned", "active"],
+        "terminating" => &["created", "spawned", "active", "terminating"],
+        "exited" => &["created", "spawned", "active", "terminating", "exited"],
+        "reaped" => &[
+            "created",
+            "spawned",
+            "active",
+            "terminating",
+            "exited",
+            "reaped",
+        ],
+        _ => &[
+            "created",
+            "spawned",
+            "active",
+            "terminating",
+            "exited",
+            "reaped",
+            "archived",
+        ],
+    }
+}
+
+fn parse_lifecycle_phase(raw: &str) -> Result<LifecyclePhase> {
+    match raw {
+        "created" => Ok(LifecyclePhase::Created),
+        "spawned" => Ok(LifecyclePhase::Spawned),
+        "active" => Ok(LifecyclePhase::Active),
+        "terminating" => Ok(LifecyclePhase::Terminating),
+        "exited" => Ok(LifecyclePhase::Exited),
+        "reaped" => Ok(LifecyclePhase::Reaped),
+        "archived" => Ok(LifecyclePhase::Archived),
+        other => Err(anyhow!("unknown lifecycle phase `{other}`")),
+    }
+}
+
+fn parse_timestamp(raw: &str) -> Result<DateTime<Utc>> {
+    Ok(DateTime::parse_from_rfc3339(raw)
+        .with_context(|| format!("parsing timestamp {raw}"))?
+        .with_timezone(&Utc))
 }
 
 fn load_fixture(path: Option<&Path>) -> Result<LiveLoopFixture> {
@@ -2333,14 +2661,20 @@ impl UuidSeed {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use anyhow::Result;
-    use serde_json::Value;
+    use rusqlite::params;
+    use serde_json::{Value, json};
+    use tempfile::tempdir;
 
     use super::jobs::runner::CANONICAL_SCOPE_KINDS;
     use super::{
-        ACTIVE_STAGES, LiveLoopFixture, backtrack_window_seconds, default_fixture,
-        live_loop_surface_names,
+        ACTIVE_STAGES, LifecyclePhase, LiveLoopFixture, SessionDraft, backtrack_window_seconds,
+        default_fixture, insert_session_log, live_loop_surface_names, open_state_db,
+        persisted_lifecycle_frames, reconcile_interrupted_sessions,
     };
+    use crate::db::sqlite::DEFAULT_SCHEMA_EPOCH;
 
     #[test]
     fn default_fixture_is_runnable() {
@@ -2375,6 +2709,191 @@ mod tests {
     #[test]
     fn backtrack_window_is_positive() {
         assert!(backtrack_window_seconds() > 0);
+    }
+
+    #[test]
+    fn persisted_lifecycle_frames_reflect_reaped_and_archived_metadata() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, scope_kind, scope_id, status, input_payload, validation_required,
+              parent_job_id, validation_verdict_id
+            ) VALUES (?1, 'sync_source', 'source', 'fts', 'completed', ?2, 0, NULL, NULL)
+            ",
+            params!["job-history", json!({"source_id": "fts"}).to_string()],
+        )?;
+        insert_session_log(
+            state_db.connection(),
+            &SessionDraft {
+                session_id: "session-history".to_owned(),
+                job_id: "job-history".to_owned(),
+                skill_path: "skills/procurement-ingestion/fts/SKILL.md".to_owned(),
+                skill_version: "1.0.0".to_owned(),
+                execution_mode: "pty".to_owned(),
+                status: "failed".to_owned(),
+                cli_vendor: Some("fixture-cli".to_owned()),
+                cli_version: Some("1.0.0".to_owned()),
+                adapter_version: Some("daemon-test".to_owned()),
+                config_hash: None,
+                pty_session_id: Some("pty-session-history".to_owned()),
+                pid: Some(101),
+                pgid: Some(101),
+                started_at: "2026-03-25T11:00:00Z".to_owned(),
+                completed_at: "2026-03-25T11:00:01Z".to_owned(),
+                terminal_output_path: None,
+                terminal_output_hash: None,
+                terminal_output_bytes: None,
+                terminal_output_tail: None,
+                structured_trace: Some(
+                    json!({
+                        "phase_history": [
+                            "created",
+                            "spawned",
+                            "active",
+                            "terminating",
+                            "exited",
+                            "reaped",
+                            "archived"
+                        ]
+                    })
+                    .to_string(),
+                ),
+                error_type: Some("AGENT_DAEMON_CRASH_DURING_SESSION".to_owned()),
+                error_message: Some("recovered".to_owned()),
+                cleanup_verdict: Some("clean".to_owned()),
+                last_checkpoint_seq: Some(3),
+            },
+        )?;
+
+        let frames = persisted_lifecycle_frames(state_db.connection())?;
+        let phases: Vec<LifecyclePhase> = frames.iter().map(|frame| frame.phase).collect();
+        assert_eq!(
+            phases,
+            vec![
+                LifecyclePhase::Created,
+                LifecyclePhase::Spawned,
+                LifecyclePhase::Active,
+                LifecyclePhase::Terminating,
+                LifecyclePhase::Exited,
+                LifecyclePhase::Reaped,
+                LifecyclePhase::Archived,
+            ]
+        );
+        let reaped = frames
+            .iter()
+            .find(|frame| frame.phase == LifecyclePhase::Reaped)
+            .expect("reaped frame");
+        assert_eq!(reaped.cleanup_verdict.as_deref(), Some("clean"));
+        let archived = frames
+            .iter()
+            .find(|frame| frame.phase == LifecyclePhase::Archived)
+            .expect("archived frame");
+        assert!(archived.archive_seq.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn startup_reconciliation_marks_interrupted_sessions_failed() -> Result<()> {
+        let temp = tempdir()?;
+        let state_root = temp.path().join("state");
+        let artifact_root = temp.path().join("artifacts");
+        fs::create_dir_all(&state_root)?;
+        fs::create_dir_all(&artifact_root)?;
+        let state_db = open_state_db(state_root.join("state.db"), DEFAULT_SCHEMA_EPOCH)?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, scope_kind, scope_id, status, input_payload, validation_required,
+              parent_job_id, validation_verdict_id
+            ) VALUES (?1, 'sync_source', 'source', 'fts', 'running', ?2, 0, NULL, NULL)
+            ",
+            params!["job-crash", json!({"source_id": "fts"}).to_string()],
+        )?;
+        insert_session_log(
+            state_db.connection(),
+            &SessionDraft {
+                session_id: "session-crash".to_owned(),
+                job_id: "job-crash".to_owned(),
+                skill_path: "skills/procurement-ingestion/fts/SKILL.md".to_owned(),
+                skill_version: "1.0.0".to_owned(),
+                execution_mode: "pty".to_owned(),
+                status: "active".to_owned(),
+                cli_vendor: Some("fixture-cli".to_owned()),
+                cli_version: Some("1.0.0".to_owned()),
+                adapter_version: Some("daemon-test".to_owned()),
+                config_hash: None,
+                pty_session_id: Some("pty-session-crash".to_owned()),
+                pid: Some(999_999),
+                pgid: Some(999_999),
+                started_at: "2026-03-25T11:00:00Z".to_owned(),
+                completed_at: "2026-03-25T11:00:01Z".to_owned(),
+                terminal_output_path: None,
+                terminal_output_hash: None,
+                terminal_output_bytes: None,
+                terminal_output_tail: None,
+                structured_trace: None,
+                error_type: None,
+                error_message: None,
+                cleanup_verdict: None,
+                last_checkpoint_seq: Some(4),
+            },
+        )?;
+
+        reconcile_interrupted_sessions(&state_db, &artifact_root, "daemon-instance-test")?;
+
+        let (status, error_type, cleanup_verdict, structured_trace): (
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ) = state_db.connection().query_row(
+            "\
+            SELECT status, error_type, cleanup_verdict, structured_trace
+            FROM agent_session_logs WHERE id = 'session-crash'
+            ",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )?;
+        assert_eq!(status, "failed");
+        assert_eq!(
+            error_type.as_deref(),
+            Some("AGENT_DAEMON_CRASH_DURING_SESSION")
+        );
+        assert_eq!(cleanup_verdict.as_deref(), Some("clean"));
+        let trace: Value = serde_json::from_str(
+            structured_trace
+                .as_deref()
+                .expect("reconciled trace should be present"),
+        )?;
+        assert_eq!(trace["crash_recovered"], Value::Bool(true));
+        assert_eq!(
+            trace["phase_history"],
+            json!([
+                "created",
+                "spawned",
+                "active",
+                "terminating",
+                "exited",
+                "reaped",
+                "archived"
+            ])
+        );
+
+        let frames = persisted_lifecycle_frames(state_db.connection())?;
+        assert!(frames.iter().any(|frame| {
+            frame.session_id == "session-crash"
+                && frame.phase == LifecyclePhase::Reaped
+                && frame.cleanup_verdict.as_deref() == Some("clean")
+        }));
+        assert!(frames.iter().any(|frame| {
+            frame.session_id == "session-crash"
+                && frame.phase == LifecyclePhase::Archived
+                && frame.archive_seq.is_some()
+        }));
+        Ok(())
     }
 }
 

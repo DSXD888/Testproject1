@@ -2,18 +2,33 @@
 
 mod support;
 
+#[allow(dead_code)]
+#[path = "../src/errors/manifest.rs"]
+mod errors_manifest_impl;
+#[allow(dead_code)]
+#[path = "../src/errors/markdown.rs"]
+mod errors_markdown_impl;
 #[path = "../src/sessions/reaper.rs"]
 mod reaper_impl;
 
 #[cfg(unix)]
 mod tests {
     use anyhow::Result;
+    use chrono::{DateTime, Utc};
     use serial_test::serial;
+    use std::path::Path;
     use std::time::Duration;
 
-    use crate::reaper_impl::{CleanupVerdict, CompletionState, SessionReaper};
-    use crate::support::process::ProcessTreeHelper;
+    use crate::errors_manifest_impl::ErrorRuntimeContext;
+    use crate::reaper_impl::{
+        CleanupRequest, CleanupVerdict, CompletionState, CrashRecoveryContext, SessionReaper,
+    };
+    use crate::support::process::{ProcessIsolationGuard, ProcessTreeHelper};
     use crate::support::{self, TestContext};
+
+    fn fixed_started_at() -> Result<DateTime<Utc>> {
+        Ok(DateTime::parse_from_rfc3339("2026-03-25T11:00:00Z")?.with_timezone(&Utc))
+    }
 
     #[test]
     #[serial]
@@ -71,7 +86,14 @@ mod tests {
         let reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
         let child = ProcessTreeHelper::spawn(&["ignore-int-term", "5"])?;
         let pgid = ProcessTreeHelper::process_group(&child)?;
-        let outcome = reaper.cleanup_process_group("session-ladder", pgid, true)?;
+        let outcome = reaper.cleanup_process_group(&CleanupRequest {
+            session_id: "session-ladder".to_owned(),
+            started_at: fixed_started_at()?,
+            process_group_id: pgid,
+            root_pid: Some(child.id()),
+            observed_descendant_pids: Vec::new(),
+            send_pty_interrupt: true,
+        })?;
         assert_eq!(outcome.action_log[..3], ["pty-ctrl-c", "sigint", "sigterm"]);
         Ok(())
     }
@@ -84,7 +106,14 @@ mod tests {
         let mut child = ProcessTreeHelper::spawn(&["sleep", "0"])?;
         let pgid = ProcessTreeHelper::process_group(&child)?;
         let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(1))?;
-        let outcome = reaper.cleanup_process_group("session-clean", pgid, false)?;
+        let outcome = reaper.cleanup_process_group(&CleanupRequest {
+            session_id: "session-clean".to_owned(),
+            started_at: fixed_started_at()?,
+            process_group_id: pgid,
+            root_pid: Some(child.id()),
+            observed_descendant_pids: Vec::new(),
+            send_pty_interrupt: false,
+        })?;
         assert_eq!(outcome.cleanup_verdict, CleanupVerdict::Clean);
         Ok(())
     }
@@ -96,7 +125,14 @@ mod tests {
         let reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
         let child = ProcessTreeHelper::spawn(&["ignore-int-term", "5"])?;
         let pgid = ProcessTreeHelper::process_group(&child)?;
-        let outcome = reaper.cleanup_process_group("session-forced", pgid, false)?;
+        let outcome = reaper.cleanup_process_group(&CleanupRequest {
+            session_id: "session-forced".to_owned(),
+            started_at: fixed_started_at()?,
+            process_group_id: pgid,
+            root_pid: Some(child.id()),
+            observed_descendant_pids: Vec::new(),
+            send_pty_interrupt: false,
+        })?;
         assert_eq!(outcome.cleanup_verdict, CleanupVerdict::Forced);
         Ok(())
     }
@@ -106,8 +142,29 @@ mod tests {
     fn it_rpr_005_cleanup_report_emits_leaked_error_code_when_needed() -> Result<()> {
         let ctx = TestContext::new()?;
         let reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
-        let outcome = reaper.cleanup_process_group("session-leak-probe", 999_999, false)?;
-        assert_eq!(outcome.cleanup_verdict, CleanupVerdict::Clean);
+        let mut guard = ProcessIsolationGuard::new("it_rpr_005");
+        let child = ProcessTreeHelper::spawn(&["sleep", "5"])?;
+        let survivor = ProcessTreeHelper::spawn(&["sleep", "5"])?;
+        let pgid = ProcessTreeHelper::process_group(&child)?;
+        guard.register_pgid(pgid);
+        guard.register_pid(survivor.id());
+        let outcome = reaper.cleanup_process_group(&CleanupRequest {
+            session_id: "session-leak-probe".to_owned(),
+            started_at: fixed_started_at()?,
+            process_group_id: pgid,
+            root_pid: Some(child.id()),
+            observed_descendant_pids: vec![survivor.id()],
+            send_pty_interrupt: false,
+        })?;
+        for pid in &outcome.leaked_pids {
+            guard.register_pid(*pid);
+        }
+        assert_eq!(outcome.cleanup_verdict, CleanupVerdict::Leaked);
+        assert_eq!(
+            outcome.error_code.as_deref(),
+            Some("AGENT_CLEANUP_INCOMPLETE")
+        );
+        assert!(!outcome.leaked_pids.is_empty());
         Ok(())
     }
 
@@ -131,8 +188,19 @@ mod tests {
         let mut child = ProcessTreeHelper::spawn(&["sleep", "0"])?;
         let pgid = ProcessTreeHelper::process_group(&child)?;
         let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(1))?;
-        let outcome = reaper.cleanup_process_group("session-report", pgid, false)?;
-        assert!(outcome.report_path.ends_with("cleanup_report.json"));
+        let outcome = reaper.cleanup_process_group(&CleanupRequest {
+            session_id: "session-report".to_owned(),
+            started_at: fixed_started_at()?,
+            process_group_id: pgid,
+            root_pid: Some(child.id()),
+            observed_descendant_pids: Vec::new(),
+            send_pty_interrupt: false,
+        })?;
+        assert!(
+            outcome
+                .report_path
+                .ends_with("sessions/2026/03/session-report/cleanup_report.json")
+        );
         assert!(outcome.report_path.exists());
         Ok(())
     }
@@ -141,12 +209,74 @@ mod tests {
     #[serial]
     fn it_rpr_008_crash_reconciliation_synthesizes_manifest() -> Result<()> {
         let ctx = TestContext::new()?;
+        let state_db = support::db::TestStateDb::new()?;
         let reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
         let child = ProcessTreeHelper::spawn(&["ignore-int-term", "5"])?;
         let pgid = ProcessTreeHelper::process_group(&child)?;
-        let result = reaper.reconcile_after_crash("session-crash", pgid)?;
+        let started_at = fixed_started_at()?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO agent_session_logs (
+              id, job_id, skill_path, skill_version, execution_mode, cli_vendor, cli_version,
+              adapter_version, config_hash, pty_session_id, pid, pgid, started_at, completed_at,
+              status, terminal_output_path, terminal_output_hash, terminal_output_bytes,
+              terminal_output_tail, structured_trace, error_type, error_message, cleanup_verdict,
+              last_checkpoint_seq
+            ) VALUES (?1, NULL, ?2, ?3, ?4, NULL, NULL, NULL, NULL, NULL, ?5, ?6, ?7, NULL, ?8,
+                      NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?9)
+            ",
+            rusqlite::params![
+                "session-crash",
+                "skills/procurement-ingestion/fts/SKILL.md",
+                "1.0.0",
+                "pty",
+                child.id(),
+                pgid,
+                started_at.to_rfc3339(),
+                "active",
+                3_u32,
+            ],
+        )?;
+        let result = reaper.reconcile_after_crash(
+            "session-crash",
+            pgid,
+            Some(child.id()),
+            &CrashRecoveryContext {
+                conn: state_db.connection(),
+                started_at,
+                job_id: None,
+                process_id: None,
+                skill_path: Some(Path::new("skills/procurement-ingestion/fts/SKILL.md")),
+                runtime_context: ErrorRuntimeContext {
+                    cli_vendor: Some("fixture-cli".to_owned()),
+                    cli_version: Some("1.0.0".to_owned()),
+                    adapter_version: Some("daemon-test".to_owned()),
+                    model_id: None,
+                    config_hash: None,
+                    skill_version: Some("1.0.0".to_owned()),
+                    pid: Some(child.id()),
+                    pgid: Some(pgid.unsigned_abs()),
+                    cleanup_verdict: None,
+                    last_valid_checkpoint_sequence: Some(3),
+                    daemon_instance_id: Some("daemon-test-instance".to_owned()),
+                    commit_seq: Some(0),
+                },
+            },
+        )?;
         assert_eq!(result.error_code, "AGENT_DAEMON_CRASH_DURING_SESSION");
         assert!(result.manifest_path.exists());
+        assert!(
+            result
+                .manifest_path
+                .to_string_lossy()
+                .contains("/error-manifests/2026/03/")
+        );
+        let error_type: String = state_db.connection().query_row(
+            "SELECT error_type FROM error_manifests ORDER BY created_at DESC LIMIT 1",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(error_type, "AGENT_DAEMON_CRASH_DURING_SESSION");
         Ok(())
     }
 
@@ -174,16 +304,32 @@ mod tests {
     fn it_rpr_010_browser_escape_case_records_non_group_descendants() -> Result<()> {
         let ctx = TestContext::new()?;
         let reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
-        let child = ProcessTreeHelper::spawn(&["double-fork-escape", "2"])?;
+        let mut guard = ProcessIsolationGuard::new("it_rpr_010");
+        let child = ProcessTreeHelper::spawn(&["sleep", "2"])?;
+        let survivor = ProcessTreeHelper::spawn(&["sleep", "2"])?;
         let pgid = ProcessTreeHelper::process_group(&child)?;
-        std::thread::sleep(Duration::from_millis(200));
+        guard.register_pgid(pgid);
+        guard.register_pid(survivor.id());
         let before = SessionReaper::process_group_members(pgid)?;
-        let outcome = reaper.cleanup_process_group("session-escape", pgid, false)?;
+        let outcome = reaper.cleanup_process_group(&CleanupRequest {
+            session_id: "session-escape".to_owned(),
+            started_at: fixed_started_at()?,
+            process_group_id: pgid,
+            root_pid: Some(child.id()),
+            observed_descendant_pids: vec![survivor.id()],
+            send_pty_interrupt: false,
+        })?;
+        for pid in &outcome.leaked_pids {
+            guard.register_pid(*pid);
+        }
         assert!(!before.is_empty());
-        assert!(matches!(
-            outcome.cleanup_verdict,
-            CleanupVerdict::Forced | CleanupVerdict::Clean
-        ));
+        assert_eq!(outcome.cleanup_verdict, CleanupVerdict::Leaked);
+        assert!(
+            outcome
+                .leaked_pids
+                .iter()
+                .any(|pid| !before.iter().any(|member| member == pid))
+        );
         Ok(())
     }
 
@@ -211,7 +357,14 @@ mod tests {
             let mut child = ProcessTreeHelper::spawn(&["sleep", "0"])?;
             let pgid = ProcessTreeHelper::process_group(&child)?;
             let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(1))?;
-            let outcome = reaper.cleanup_process_group(&format!("batch-{index}"), pgid, false)?;
+            let outcome = reaper.cleanup_process_group(&CleanupRequest {
+                session_id: format!("batch-{index}"),
+                started_at: fixed_started_at()?,
+                process_group_id: pgid,
+                root_pid: Some(child.id()),
+                observed_descendant_pids: Vec::new(),
+                send_pty_interrupt: false,
+            })?;
             assert_eq!(outcome.cleanup_verdict, CleanupVerdict::Clean);
             assert!(outcome.leaked_pids.is_empty());
         }

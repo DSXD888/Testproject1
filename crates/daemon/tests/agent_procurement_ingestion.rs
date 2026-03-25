@@ -502,7 +502,12 @@ fn e2e_ing_017_basis_hash_mismatch_marks_job_obsolete() -> Result<()> {
     ensure!(!result.success);
 
     let conn = harness.connection()?;
-    ensure!(latest_job_status(&conn)? == "obsolete");
+    let original_status: String = conn.query_row(
+        "SELECT status FROM workflow_jobs WHERE parent_job_id IS NULL ORDER BY created_at DESC LIMIT 1",
+        [],
+        |row| row.get(0),
+    )?;
+    ensure!(original_status == "obsolete");
     let rerun_count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM workflow_jobs WHERE kind = 'sync_source' AND status = 'pending'",
         [],

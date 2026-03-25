@@ -215,15 +215,14 @@ fn fork_grandchild(seconds: u64) -> Result<()> {
 
 fn double_fork_escape(seconds: u64) -> Result<()> {
     let current_exe = std::env::current_exe().context("locating current executable")?;
-    let _detached = Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "setsid '{}' sleep --seconds {} >/dev/null 2>&1 &",
-            current_exe.display(),
-            seconds
-        ))
+    let _detached = Command::new(current_exe)
+        .arg("sleep")
+        .arg(seconds.to_string())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .process_group(0)
         .spawn()
-        .context("spawning detached helper via setsid")?;
+        .context("spawning detached helper in a separate process group")?;
     sleep_for(seconds);
     Ok(())
 }
