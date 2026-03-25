@@ -161,6 +161,7 @@ fn apply_migrations(conn: &Connection, repo_root: &Path, schema_epoch: i64) -> R
 
     apply_sql_file(conn, repo_root, L0_MIGRATION_PATH)?;
     apply_sql_file(conn, repo_root, L1_MIGRATION_PATH)?;
+    ensure_runtime_schema(conn)?;
     conn.pragma_update(None, "user_version", schema_epoch)
         .context("writing PRAGMA user_version")?;
     Ok(())
@@ -173,6 +174,52 @@ fn apply_sql_file(conn: &Connection, repo_root: &Path, relative_path: &str) -> R
     conn.execute_batch(&ddl)
         .with_context(|| format!("applying migration {}", path.display()))?;
     Ok(())
+}
+
+fn ensure_runtime_schema(conn: &Connection) -> Result<()> {
+    ensure_table_columns(
+        conn,
+        "agent_session_logs",
+        &[
+            (
+                "adapter_id",
+                "ALTER TABLE agent_session_logs ADD COLUMN adapter_id TEXT",
+            ),
+            (
+                "sid",
+                "ALTER TABLE agent_session_logs ADD COLUMN sid INTEGER",
+            ),
+            (
+                "exit_code",
+                "ALTER TABLE agent_session_logs ADD COLUMN exit_code INTEGER",
+            ),
+        ],
+    )?;
+    Ok(())
+}
+
+fn ensure_table_columns(conn: &Connection, table: &str, columns: &[(&str, &str)]) -> Result<()> {
+    let existing_columns = table_columns(conn, table)?;
+    for (column_name, alter_sql) in columns {
+        if existing_columns
+            .iter()
+            .any(|existing| existing == column_name)
+        {
+            continue;
+        }
+        conn.execute(alter_sql, [])
+            .with_context(|| format!("adding {column_name} to {table}"))?;
+    }
+    Ok(())
+}
+
+fn table_columns(conn: &Connection, table: &str) -> Result<Vec<String>> {
+    let mut statement = conn
+        .prepare(&format!("PRAGMA table_info({table})"))
+        .with_context(|| format!("preparing table_info query for {table}"))?;
+    let rows = statement.query_map([], |row| row.get::<_, String>(1))?;
+    rows.collect::<std::result::Result<Vec<_>, _>>()
+        .with_context(|| format!("reading column metadata for {table}"))
 }
 
 fn seed_commit_clock(conn: &Connection) -> Result<()> {
@@ -260,4 +307,68 @@ fn repo_root() -> Result<PathBuf> {
                 crate_dir.display()
             )
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::tempdir;
+
+    use super::{DEFAULT_SCHEMA_EPOCH, StateDb};
+
+    #[test]
+    fn open_in_repo_backfills_new_agent_session_log_columns_on_existing_db() -> anyhow::Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let conn = rusqlite::Connection::open(&db_path)?;
+        conn.execute_batch(
+            "\
+            CREATE TABLE agent_session_logs (
+              id TEXT PRIMARY KEY,
+              job_id TEXT REFERENCES workflow_jobs(id),
+              skill_path TEXT NOT NULL,
+              skill_version TEXT,
+              execution_mode TEXT NOT NULL,
+              cli_vendor TEXT,
+              cli_version TEXT,
+              adapter_version TEXT,
+              config_hash TEXT,
+              pty_session_id TEXT,
+              pid INTEGER,
+              pgid INTEGER,
+              started_at TEXT,
+              completed_at TEXT,
+              status TEXT NOT NULL,
+              terminal_output_path TEXT,
+              terminal_output_hash TEXT,
+              terminal_output_bytes INTEGER,
+              terminal_output_tail TEXT,
+              structured_trace TEXT,
+              error_type TEXT,
+              error_message TEXT,
+              cleanup_verdict TEXT,
+              run_manifest_path TEXT,
+              run_manifest_hash TEXT,
+              last_checkpoint_seq INTEGER,
+              created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            ",
+        )?;
+        drop(conn);
+
+        let repo_root = super::repo_root()?;
+        let state_db = StateDb::open_in_repo(
+            &db_path,
+            &repo_root,
+            super::StateDbConfig {
+                schema_epoch: DEFAULT_SCHEMA_EPOCH,
+                ..super::StateDbConfig::default()
+            },
+        )?;
+        let columns: Vec<String> =
+            super::table_columns(state_db.connection(), "agent_session_logs")?;
+        assert!(columns.iter().any(|column| column == "adapter_id"));
+        assert!(columns.iter().any(|column| column == "sid"));
+        assert!(columns.iter().any(|column| column == "exit_code"));
+        Ok(())
+    }
 }

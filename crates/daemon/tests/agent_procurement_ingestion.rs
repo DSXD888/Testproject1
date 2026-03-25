@@ -24,6 +24,14 @@ struct RunResult {
     success: bool,
 }
 
+type RuntimeIdentityRow = (
+    Option<i64>,
+    Option<i64>,
+    Option<i64>,
+    Option<String>,
+    Option<i64>,
+);
+
 impl RunHarness {
     fn new() -> Result<Self> {
         let temp = tempfile::tempdir()?;
@@ -220,13 +228,17 @@ fn e2e_ing_004_live_loop_spawn_records_runtime_identifiers() -> Result<()> {
     ensure!(result.success);
 
     let conn = harness.connection()?;
-    let (process_id, process_group_id): (Option<i64>, Option<i64>) = conn.query_row(
-        "SELECT pid, pgid FROM agent_session_logs WHERE execution_mode = 'pty' LIMIT 1",
+    let (session_id, process_id, process_group_id, adapter_id, exit_code): RuntimeIdentityRow =
+        conn.query_row(
+        "SELECT sid, pid, pgid, adapter_id, exit_code FROM agent_session_logs WHERE execution_mode = 'pty' LIMIT 1",
         [],
-        |row| Ok((row.get(0)?, row.get(1)?)),
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
     )?;
+    ensure!(session_id.unwrap_or_default() > 0);
     ensure!(process_id.unwrap_or_default() > 0);
     ensure!(process_group_id.unwrap_or_default() > 0);
+    ensure!(adapter_id.as_deref() == Some("fixture-pty-adapter"));
+    ensure!(exit_code == Some(0));
     Ok(())
 }
 

@@ -81,7 +81,7 @@ use ipc::handshake::{
 use jobs::runner::{
     FreshnessState, JobRunner, ObsoleteJobRequest, allocate_stage_run_id, set_stage_head_freshness,
 };
-use nix::unistd::{Pid, getpgid};
+use nix::unistd::{Pid, getpgid, getsid};
 use pty::capture::{CaptureConfig, PtyCapture, compressed_payload_sha256};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::{Deserialize, Serialize};
@@ -93,6 +93,8 @@ use tracing_subscriber::EnvFilter;
 const BACKTRACK_WINDOW_SECONDS: u32 = 60;
 const CLI_VENDOR: &str = "fixture-cli";
 const CLI_VERSION: &str = "1.0.0";
+const FIXTURE_PTY_ADAPTER_ID: &str = "fixture-pty-adapter";
+const FIXTURE_CONTRACT_ADAPTER_ID: &str = "fixture-contract-adapter";
 #[cfg(test)]
 const ACTIVE_STAGES: [&str; 12] = [
     "Normalize",
@@ -379,9 +381,11 @@ struct SessionDraft {
     status: String,
     cli_vendor: Option<String>,
     cli_version: Option<String>,
+    adapter_id: Option<String>,
     adapter_version: Option<String>,
     config_hash: Option<String>,
     pty_session_id: Option<String>,
+    sid: Option<u32>,
     pid: Option<u32>,
     pgid: Option<u32>,
     started_at: String,
@@ -393,6 +397,7 @@ struct SessionDraft {
     structured_trace: Option<String>,
     error_type: Option<String>,
     error_message: Option<String>,
+    exit_code: Option<i32>,
     cleanup_verdict: Option<String>,
     last_checkpoint_seq: Option<u32>,
 }
@@ -909,9 +914,11 @@ fn run_fts_live_loop(
             status: "completed".to_owned(),
             cli_vendor: Some(CLI_VENDOR.to_owned()),
             cli_version: Some(CLI_VERSION.to_owned()),
+            adapter_id: Some(FIXTURE_PTY_ADAPTER_ID.to_owned()),
             adapter_version: Some(env!("CARGO_PKG_VERSION").to_owned()),
             config_hash: Some(skill_config_hash(&ingest_skill)),
             pty_session_id: Some(ingest_session_id.clone()),
+            sid: Some(runtime_ids.sid),
             pid: Some(runtime_ids.pid),
             pgid: Some(runtime_ids.pgid),
             started_at: started_at.to_rfc3339(),
@@ -923,6 +930,7 @@ fn run_fts_live_loop(
             structured_trace: Some(ingest_trace),
             error_type: None,
             error_message: None,
+            exit_code: Some(0),
             cleanup_verdict: Some("clean".to_owned()),
             last_checkpoint_seq: Some(1),
         },
@@ -1064,9 +1072,11 @@ fn run_fts_live_loop(
             status: "completed".to_owned(),
             cli_vendor: Some(CLI_VENDOR.to_owned()),
             cli_version: Some(CLI_VERSION.to_owned()),
+            adapter_id: Some(FIXTURE_CONTRACT_ADAPTER_ID.to_owned()),
             adapter_version: Some(env!("CARGO_PKG_VERSION").to_owned()),
             config_hash: Some(skill_config_hash(&manifest_skill)),
             pty_session_id: None,
+            sid: None,
             pid: None,
             pgid: None,
             started_at: contract_started_at.to_rfc3339(),
@@ -1078,6 +1088,7 @@ fn run_fts_live_loop(
             structured_trace: Some(json!({"mode":"contract","validated":true}).to_string()),
             error_type: None,
             error_message: None,
+            exit_code: Some(0),
             cleanup_verdict: Some("clean".to_owned()),
             last_checkpoint_seq: Some(1),
         },
@@ -2187,12 +2198,12 @@ fn insert_session_log(conn: &Connection, draft: &SessionDraft) -> Result<()> {
         "\
         INSERT INTO agent_session_logs (
           id, job_id, skill_path, skill_version, execution_mode, cli_vendor, cli_version,
-          adapter_version, config_hash, pty_session_id, pid, pgid, started_at, completed_at,
-          status, terminal_output_path, terminal_output_hash, terminal_output_bytes,
-          terminal_output_tail, structured_trace, error_type, error_message, cleanup_verdict,
-          last_checkpoint_seq
+          adapter_id, adapter_version, config_hash, pty_session_id, sid, pid, pgid, started_at,
+          completed_at, status, terminal_output_path, terminal_output_hash,
+          terminal_output_bytes, terminal_output_tail, structured_trace, error_type,
+          error_message, exit_code, cleanup_verdict, last_checkpoint_seq
         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15,
-                  ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)
+                  ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)
         ",
         params![
             draft.session_id,
@@ -2202,9 +2213,11 @@ fn insert_session_log(conn: &Connection, draft: &SessionDraft) -> Result<()> {
             draft.execution_mode,
             draft.cli_vendor,
             draft.cli_version,
+            draft.adapter_id,
             draft.adapter_version,
             draft.config_hash,
             draft.pty_session_id,
+            draft.sid,
             draft.pid,
             draft.pgid,
             draft.started_at,
@@ -2217,6 +2230,7 @@ fn insert_session_log(conn: &Connection, draft: &SessionDraft) -> Result<()> {
             draft.structured_trace,
             draft.error_type,
             draft.error_message,
+            draft.exit_code,
             draft.cleanup_verdict,
             draft.last_checkpoint_seq,
         ],
@@ -2409,7 +2423,9 @@ fn current_runtime_ids() -> Result<RuntimeIds> {
     let process_id_handle = Pid::from_raw(process_id_i32);
     let process_group_id =
         getpgid(Some(process_id_handle)).context("reading current process group")?;
+    let session_id = getsid(Some(process_id_handle)).context("reading current session")?;
     Ok(RuntimeIds {
+        sid: u32::try_from(session_id.as_raw()).context("converting sid to u32")?,
         pid: process_id,
         pgid: u32::try_from(process_group_id.as_raw()).context("converting pgid to u32")?,
     })
@@ -2625,6 +2641,7 @@ fn default_transcript_lines() -> Vec<String> {
 
 #[derive(Debug, Clone, Copy)]
 struct RuntimeIds {
+    sid: u32,
     pid: u32,
     pgid: u32,
 }
@@ -2664,17 +2681,85 @@ mod tests {
     use std::fs;
 
     use anyhow::Result;
+    use rusqlite::Connection;
     use rusqlite::params;
     use serde_json::{Value, json};
     use tempfile::tempdir;
 
     use super::jobs::runner::CANONICAL_SCOPE_KINDS;
     use super::{
-        ACTIVE_STAGES, LifecyclePhase, LiveLoopFixture, SessionDraft, backtrack_window_seconds,
-        default_fixture, insert_session_log, live_loop_surface_names, open_state_db,
-        persisted_lifecycle_frames, reconcile_interrupted_sessions,
+        ACTIVE_STAGES, FIXTURE_PTY_ADAPTER_ID, LifecyclePhase, LiveLoopFixture, SessionDraft,
+        backtrack_window_seconds, default_fixture, insert_session_log, live_loop_surface_names,
+        open_state_db, persisted_lifecycle_frames, reconcile_interrupted_sessions,
     };
     use crate::db::sqlite::DEFAULT_SCHEMA_EPOCH;
+
+    type HistoryIdentityRow = (Option<i64>, Option<String>, Option<i64>);
+    type CrashSessionRow = (
+        String,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<i64>,
+        Option<String>,
+        Option<i64>,
+    );
+
+    fn insert_sync_source_job(conn: &Connection, job_id: &str, status: &str) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, scope_kind, scope_id, status, input_payload, validation_required,
+              parent_job_id, validation_verdict_id
+            ) VALUES (?1, 'sync_source', 'source', 'fts', ?2, ?3, 0, NULL, NULL)
+            ",
+            params![job_id, status, json!({"source_id": "fts"}).to_string()],
+        )?;
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn fixture_session_draft(
+        session_id: &str,
+        job_id: &str,
+        status: &str,
+        sid: Option<u32>,
+        process_id: Option<u32>,
+        process_group_id: Option<u32>,
+        completed_at: &str,
+        exit_code: Option<i32>,
+        last_checkpoint_seq: Option<u32>,
+    ) -> SessionDraft {
+        SessionDraft {
+            session_id: session_id.to_owned(),
+            job_id: job_id.to_owned(),
+            skill_path: "skills/procurement-ingestion/fts/SKILL.md".to_owned(),
+            skill_version: "1.0.0".to_owned(),
+            execution_mode: "pty".to_owned(),
+            status: status.to_owned(),
+            cli_vendor: Some("fixture-cli".to_owned()),
+            cli_version: Some("1.0.0".to_owned()),
+            adapter_id: Some(FIXTURE_PTY_ADAPTER_ID.to_owned()),
+            adapter_version: Some("daemon-test".to_owned()),
+            config_hash: None,
+            pty_session_id: Some(format!("pty-{session_id}")),
+            sid,
+            pid: process_id,
+            pgid: process_group_id,
+            started_at: "2026-03-25T11:00:00Z".to_owned(),
+            completed_at: completed_at.to_owned(),
+            terminal_output_path: None,
+            terminal_output_hash: None,
+            terminal_output_bytes: None,
+            terminal_output_tail: None,
+            structured_trace: None,
+            error_type: None,
+            error_message: None,
+            exit_code,
+            cleanup_verdict: None,
+            last_checkpoint_seq,
+        }
+    }
 
     #[test]
     fn default_fixture_is_runnable() {
@@ -2716,57 +2801,44 @@ mod tests {
         let temp = tempdir()?;
         let db_path = temp.path().join("state.db");
         let state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
-        state_db.connection().execute(
-            "\
-            INSERT INTO workflow_jobs (
-              id, kind, scope_kind, scope_id, status, input_payload, validation_required,
-              parent_job_id, validation_verdict_id
-            ) VALUES (?1, 'sync_source', 'source', 'fts', 'completed', ?2, 0, NULL, NULL)
-            ",
-            params!["job-history", json!({"source_id": "fts"}).to_string()],
+        insert_sync_source_job(state_db.connection(), "job-history", "completed")?;
+        let mut session_history = fixture_session_draft(
+            "session-history",
+            "job-history",
+            "failed",
+            Some(101),
+            Some(101),
+            Some(101),
+            "2026-03-25T11:00:01Z",
+            Some(0),
+            Some(3),
+        );
+        session_history.structured_trace = Some(
+            json!({
+                "phase_history": [
+                    "created",
+                    "spawned",
+                    "active",
+                    "terminating",
+                    "exited",
+                    "reaped",
+                    "archived"
+                ]
+            })
+            .to_string(),
+        );
+        session_history.error_type = Some("AGENT_DAEMON_CRASH_DURING_SESSION".to_owned());
+        session_history.error_message = Some("recovered".to_owned());
+        session_history.cleanup_verdict = Some("clean".to_owned());
+        insert_session_log(state_db.connection(), &session_history)?;
+        let (sid, adapter_id, exit_code): HistoryIdentityRow = state_db.connection().query_row(
+            "SELECT sid, adapter_id, exit_code FROM agent_session_logs WHERE id = 'session-history'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )?;
-        insert_session_log(
-            state_db.connection(),
-            &SessionDraft {
-                session_id: "session-history".to_owned(),
-                job_id: "job-history".to_owned(),
-                skill_path: "skills/procurement-ingestion/fts/SKILL.md".to_owned(),
-                skill_version: "1.0.0".to_owned(),
-                execution_mode: "pty".to_owned(),
-                status: "failed".to_owned(),
-                cli_vendor: Some("fixture-cli".to_owned()),
-                cli_version: Some("1.0.0".to_owned()),
-                adapter_version: Some("daemon-test".to_owned()),
-                config_hash: None,
-                pty_session_id: Some("pty-session-history".to_owned()),
-                pid: Some(101),
-                pgid: Some(101),
-                started_at: "2026-03-25T11:00:00Z".to_owned(),
-                completed_at: "2026-03-25T11:00:01Z".to_owned(),
-                terminal_output_path: None,
-                terminal_output_hash: None,
-                terminal_output_bytes: None,
-                terminal_output_tail: None,
-                structured_trace: Some(
-                    json!({
-                        "phase_history": [
-                            "created",
-                            "spawned",
-                            "active",
-                            "terminating",
-                            "exited",
-                            "reaped",
-                            "archived"
-                        ]
-                    })
-                    .to_string(),
-                ),
-                error_type: Some("AGENT_DAEMON_CRASH_DURING_SESSION".to_owned()),
-                error_message: Some("recovered".to_owned()),
-                cleanup_verdict: Some("clean".to_owned()),
-                last_checkpoint_seq: Some(3),
-            },
-        )?;
+        assert_eq!(sid, Some(101));
+        assert_eq!(adapter_id.as_deref(), Some(FIXTURE_PTY_ADAPTER_ID));
+        assert_eq!(exit_code, Some(0));
 
         let frames = persisted_lifecycle_frames(state_db.connection())?;
         let phases: Vec<LifecyclePhase> = frames.iter().map(|frame| frame.phase).collect();
@@ -2803,59 +2875,40 @@ mod tests {
         fs::create_dir_all(&state_root)?;
         fs::create_dir_all(&artifact_root)?;
         let state_db = open_state_db(state_root.join("state.db"), DEFAULT_SCHEMA_EPOCH)?;
-        state_db.connection().execute(
-            "\
-            INSERT INTO workflow_jobs (
-              id, kind, scope_kind, scope_id, status, input_payload, validation_required,
-              parent_job_id, validation_verdict_id
-            ) VALUES (?1, 'sync_source', 'source', 'fts', 'running', ?2, 0, NULL, NULL)
-            ",
-            params!["job-crash", json!({"source_id": "fts"}).to_string()],
-        )?;
-        insert_session_log(
-            state_db.connection(),
-            &SessionDraft {
-                session_id: "session-crash".to_owned(),
-                job_id: "job-crash".to_owned(),
-                skill_path: "skills/procurement-ingestion/fts/SKILL.md".to_owned(),
-                skill_version: "1.0.0".to_owned(),
-                execution_mode: "pty".to_owned(),
-                status: "active".to_owned(),
-                cli_vendor: Some("fixture-cli".to_owned()),
-                cli_version: Some("1.0.0".to_owned()),
-                adapter_version: Some("daemon-test".to_owned()),
-                config_hash: None,
-                pty_session_id: Some("pty-session-crash".to_owned()),
-                pid: Some(999_999),
-                pgid: Some(999_999),
-                started_at: "2026-03-25T11:00:00Z".to_owned(),
-                completed_at: "2026-03-25T11:00:01Z".to_owned(),
-                terminal_output_path: None,
-                terminal_output_hash: None,
-                terminal_output_bytes: None,
-                terminal_output_tail: None,
-                structured_trace: None,
-                error_type: None,
-                error_message: None,
-                cleanup_verdict: None,
-                last_checkpoint_seq: Some(4),
-            },
-        )?;
+        insert_sync_source_job(state_db.connection(), "job-crash", "running")?;
+        let session_crash = fixture_session_draft(
+            "session-crash",
+            "job-crash",
+            "active",
+            Some(999_999),
+            Some(999_999),
+            Some(999_999),
+            "2026-03-25T11:00:01Z",
+            None,
+            Some(4),
+        );
+        insert_session_log(state_db.connection(), &session_crash)?;
 
         reconcile_interrupted_sessions(&state_db, &artifact_root, "daemon-instance-test")?;
 
-        let (status, error_type, cleanup_verdict, structured_trace): (
-            String,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-        ) = state_db.connection().query_row(
+        let (status, error_type, cleanup_verdict, structured_trace, sid, adapter_id, exit_code): CrashSessionRow =
+            state_db.connection().query_row(
             "\
-            SELECT status, error_type, cleanup_verdict, structured_trace
+            SELECT status, error_type, cleanup_verdict, structured_trace, sid, adapter_id, exit_code
             FROM agent_session_logs WHERE id = 'session-crash'
             ",
             [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                ))
+            },
         )?;
         assert_eq!(status, "failed");
         assert_eq!(
@@ -2863,6 +2916,9 @@ mod tests {
             Some("AGENT_DAEMON_CRASH_DURING_SESSION")
         );
         assert_eq!(cleanup_verdict.as_deref(), Some("clean"));
+        assert_eq!(sid, Some(999_999));
+        assert_eq!(adapter_id.as_deref(), Some(FIXTURE_PTY_ADAPTER_ID));
+        assert_eq!(exit_code, None);
         let trace: Value = serde_json::from_str(
             structured_trace
                 .as_deref()
