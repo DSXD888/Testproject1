@@ -22,6 +22,7 @@ use contracts::{
 
 pub const SQLITE_WRITE_FAILED: &str = "SQLITE_WRITE_FAILED";
 pub const JOB_OBSOLETE: &str = "JOB_OBSOLETE";
+const DEFAULT_EXECUTOR_OWNER_ID: &str = "local-owner";
 
 pub const CANONICAL_SCOPE_KINDS: [&str; 6] = [
     "process",
@@ -125,6 +126,7 @@ impl JobRunner {
     }
 
     pub fn claim_next_job(&self, conn: &Connection) -> Result<Option<ClaimedJob>> {
+        touch_executor(conn, &self.executor_id)?;
         let mut statement = conn.prepare(
             "\
             SELECT id, kind, process_id, scope_kind, scope_id, input_payload
@@ -414,6 +416,25 @@ impl JobRunner {
             continuation_job_id: Some(request.rerun_job_id.clone()),
         })
     }
+}
+
+fn touch_executor(conn: &Connection, executor_id: &str) -> Result<()> {
+    conn.execute(
+        "\
+        INSERT INTO executors (
+          id, device_name, status, last_heartbeat_at, owner_id, updated_at
+        ) VALUES (?1, ?2, 'ready', CURRENT_TIMESTAMP, ?3, CURRENT_TIMESTAMP)
+        ON CONFLICT(id) DO UPDATE SET
+          device_name = excluded.device_name,
+          status = excluded.status,
+          owner_id = excluded.owner_id,
+          last_heartbeat_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+        ",
+        params![executor_id, executor_id, DEFAULT_EXECUTOR_OWNER_ID],
+    )
+    .context("touching executor identity")?;
+    Ok(())
 }
 
 pub fn classify_sqlite_write_failed(error: &rusqlite::Error) -> anyhow::Error {

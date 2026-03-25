@@ -666,6 +666,15 @@ mod tests {
             lease_owner.as_deref() == Some("executor-claim"),
             "lease_owner not written from executor id"
         );
+        let executor_count: i64 = state_db.connection().query_row(
+            "SELECT COUNT(*) FROM executors WHERE id = ?1 AND status = 'ready'",
+            params!["executor-claim"],
+            |row| row.get(0),
+        )?;
+        ensure!(
+            executor_count == 1,
+            "executor row was not registered on claim"
+        );
         Ok(())
     }
 
@@ -1653,6 +1662,80 @@ mod tests {
         ensure!(
             rerun_count == 1,
             "basis-hash mismatch did not enqueue rerun"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn e2e_ing_017_additive_stage_preserves_successful_units_when_sibling_fails() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_process(state_db.connection(), "process-additive-mixed")?;
+        seed_job(
+            state_db.connection(),
+            "job-additive-success",
+            Some("process-additive-mixed"),
+            "pending",
+            &json!({"skill":"dummy"}),
+        )?;
+        let mut owned_db = StateDb::open(state_db.db_path())?;
+        let runner = JobRunner::new("executor-additive-mixed");
+        let accepted = ValidationOutcome {
+            disposition: ValidationDisposition::Accepted,
+            error_code: None,
+            error_context_json: None,
+            anomalies: Vec::new(),
+        };
+
+        let _ = runner.persist_success(
+            &mut owned_db,
+            &PersistSuccessRequest {
+                job_id: "job-additive-success".to_owned(),
+                idempotency_key: "ack-additive-success".to_owned(),
+                session_id: "session-additive-mixed".to_owned(),
+                output_payload: json!({"result": "success-a"}),
+                stage: "Gross margin gate".to_owned(),
+                scope_kind: "candidate".to_owned(),
+                scope_id: "candidate-a".to_owned(),
+                stage_run_id: "stage-run-additive-a".to_owned(),
+                process_id: "process-additive-mixed".to_owned(),
+                owner_id: "local-owner".to_owned(),
+            },
+            &accepted,
+        )?;
+
+        owned_db.connection().execute(
+            "\
+            INSERT INTO process_stage_status (
+              id, process_id, stage, scope_kind, scope_id, stage_run_id, state,
+              freshness_state, started_at, completed_at, error_manifest_id,
+              input_revision, output_revision, owner_id
+            ) VALUES (
+              'stage-run-additive-b-failed', 'process-additive-mixed', 'Gross margin gate',
+              'candidate', 'candidate-b', 'stage-run-additive-b', 'failed', 'fresh',
+              '2026-03-25T00:00:00Z', '2026-03-25T00:00:01Z', NULL, 0, 0, 'local-owner'
+            )
+            ",
+            [],
+        )?;
+
+        let success_heads: i64 = owned_db.connection().query_row(
+            "SELECT COUNT(*) FROM process_stage_heads WHERE process_id = ?1 AND stage = ?2",
+            params!["process-additive-mixed", "Gross margin gate"],
+            |row| row.get(0),
+        )?;
+        let failed_status_rows: i64 = owned_db.connection().query_row(
+            "SELECT COUNT(*) FROM process_stage_status WHERE process_id = ?1 AND stage = ?2 AND state = 'failed'",
+            params!["process-additive-mixed", "Gross margin gate"],
+            |row| row.get(0),
+        )?;
+
+        ensure!(
+            success_heads == 1,
+            "successful additive scope head was not preserved"
+        );
+        ensure!(
+            failed_status_rows == 1,
+            "failed additive sibling status row was not recorded"
         );
         Ok(())
     }

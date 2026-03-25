@@ -112,6 +112,7 @@ const BACKTRACK_WINDOW_SECONDS: u32 = 60;
 const CLI_VENDOR: &str = "fixture-cli";
 const CLI_VERSION: &str = "1.0.0";
 const DEFAULT_AGENT_CLI: &str = "claude";
+const LOCAL_EXECUTOR_ID: &str = "local-daemon";
 #[cfg(test)]
 const ACTIVE_STAGES: [&str; 12] = [
     "Normalize",
@@ -597,6 +598,7 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
     fs::create_dir_all(&cli.artifact_root)
         .with_context(|| format!("creating {}", cli.artifact_root.display()))?;
     reconcile_interrupted_sessions(&state_db, &cli.artifact_root, &descriptor.instance_id)?;
+    ensure_local_executor_registered(state_db.connection())?;
     write_descriptor_atomic(runtime_paths.descriptor_path(), &descriptor)?;
 
     tracing::info!(
@@ -613,6 +615,24 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
         state_db,
         artifact_root: cli.artifact_root.clone(),
     })
+}
+
+fn ensure_local_executor_registered(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "\
+        INSERT INTO executors (
+          id, device_name, status, last_heartbeat_at, owner_id, updated_at
+        ) VALUES (?1, ?2, 'ready', CURRENT_TIMESTAMP, ?3, CURRENT_TIMESTAMP)
+        ON CONFLICT(id) DO UPDATE SET
+          device_name = excluded.device_name,
+          status = excluded.status,
+          owner_id = excluded.owner_id,
+          last_heartbeat_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+        ",
+        params![LOCAL_EXECUTOR_ID, LOCAL_EXECUTOR_ID, DEFAULT_OWNER_ID],
+    )?;
+    Ok(())
 }
 
 fn serve_handshake_once(runtime: &RuntimeBootstrap) -> Result<()> {
@@ -1589,7 +1609,7 @@ async fn run_fts_live_loop(
         &fixture,
         ingest_adapter_config.kind,
     )?;
-    let runner = JobRunner::new("local-daemon");
+    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
     let claimed = runner
         .claim_next_job(runtime.state_db.connection())?
         .ok_or_else(|| anyhow!("expected claimed workflow job"))?;
@@ -1701,6 +1721,31 @@ async fn run_fts_live_loop(
                 "notice_count": fixture.notices.len(),
             }),
         );
+    }
+
+    if fixture.basis_hash_mismatch {
+        runner.mark_obsolete_and_enqueue_rerun(
+            &mut runtime.state_db,
+            &ObsoleteJobRequest {
+                job_id: job_id.clone(),
+                idempotency_key: format!("obsolete-{job_id}"),
+                rerun_job_id: format!("rerun-{job_id}"),
+                next_job_kind: "sync_source".to_owned(),
+                process_id: None,
+                scope_kind: Some("source".to_owned()),
+                scope_id: Some("fts".to_owned()),
+                rerun_from_stage: "ingest".to_owned(),
+                expected_input_basis_hash: "expected-basis-hash".to_owned(),
+                actual_input_basis_hash: "actual-basis-hash".to_owned(),
+            },
+        )?;
+        return Ok(LiveLoopReport {
+            summary_line: format!(
+                "FTS live loop obsolete: job_id={} rerun_enqueued=true",
+                claimed.id
+            ),
+            status: "obsolete".to_owned(),
+        });
     }
 
     if let Some(stage_name) = &fixture.set_replacement_failure_stage {
@@ -1942,31 +1987,6 @@ async fn run_fts_live_loop(
             "FPO lookup unavailable; remaining recall sources used",
             json!({"customs_resolution_confidence_bps": 5200}),
         )?;
-    }
-
-    if fixture.basis_hash_mismatch {
-        runner.mark_obsolete_and_enqueue_rerun(
-            &mut runtime.state_db,
-            &ObsoleteJobRequest {
-                job_id: job_id.clone(),
-                idempotency_key: format!("obsolete-{job_id}"),
-                rerun_job_id: format!("rerun-{job_id}"),
-                next_job_kind: "sync_source".to_owned(),
-                process_id: Some(pipeline.process_id.clone()),
-                scope_kind: Some("process".to_owned()),
-                scope_id: Some(pipeline.process_id.clone()),
-                rerun_from_stage: "manifest".to_owned(),
-                expected_input_basis_hash: "expected-basis-hash".to_owned(),
-                actual_input_basis_hash: manifest_computation.decision_basis_hash.clone(),
-            },
-        )?;
-        return Ok(LiveLoopReport {
-            summary_line: format!(
-                "FTS live loop obsolete: job_id={} process_id={} rerun_enqueued=true",
-                claimed.id, pipeline.process_id
-            ),
-            status: "obsolete".to_owned(),
-        });
     }
 
     let manifest_path = write_opportunity_manifest(
