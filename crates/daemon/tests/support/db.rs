@@ -11,6 +11,7 @@ use anyhow::Result;
 use rusqlite::Connection;
 use tempfile::TempDir;
 
+#[allow(unused_imports)]
 pub use sqlite_impl::{DEFAULT_SCHEMA_EPOCH, FTS_SOURCE_ID, StateDb};
 
 pub struct TestStateDb {
