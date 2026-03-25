@@ -1,0 +1,10 @@
+required_frontmatter:
+  - manifest_version
+  - skill_id
+  - skill_version
+required_sections:
+  - Summary
+  - Steps Taken
+  - Decisions Made
+  - Warnings
+  - Evidence

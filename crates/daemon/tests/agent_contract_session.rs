@@ -4,19 +4,27 @@ mod support;
 
 #[path = "../src/agents/adapter.rs"]
 mod adapter_impl;
+#[path = "../src/agents/artifacts.rs"]
+mod artifacts_impl;
 #[path = "../src/agents/contracts.rs"]
 mod contracts_impl;
 #[path = "../src/errors/manifest.rs"]
 mod errors_manifest_impl;
 #[path = "../src/errors/markdown.rs"]
 mod errors_markdown_impl;
+#[path = "../src/prompt/renderer.rs"]
+mod prompt_renderer_impl;
 #[path = "../src/jobs/runner.rs"]
 mod runner_impl;
+#[path = "support/skills.rs"]
+mod skills_support;
 
 #[cfg(unix)]
 mod tests {
     use std::collections::BTreeMap;
     use std::ffi::OsString;
+    use std::fs;
+    use std::path::Path;
     use std::path::PathBuf;
 
     use anyhow::{Result, bail, ensure};
@@ -26,11 +34,17 @@ mod tests {
     use portable_pty::ExitStatus;
     use rusqlite::params;
     use serde_json::json;
+    use sha2::{Digest, Sha256};
 
     use crate::adapter_impl::{
         AdapterParser, AgentAdapter, AuthChallengeKind, CapabilityReport, ControlEvent,
         ExecutionMode, InteractionProfile, LaunchSpec, OutputFrame, ProbeCtx, SkillManifest,
         SpawnRequest, resolve_execution_mode,
+    };
+    use crate::artifacts_impl::{
+        ArtifactStore, DaemonEvidenceAppendix, OutcomeClass, RunManifestDraft,
+        RunManifestFrontmatter, RunNarrative, StoredManifest, persist_run_manifest_metadata,
+        read_contiguous_jsonl_prefix, validate_result_payload,
     };
     use crate::contracts_impl::{
         ERROR_OUTPUT_CONTRACT_INVALID, ERROR_PARTIAL_FAILURE, ERROR_RUN_FAILED,
@@ -41,12 +55,16 @@ mod tests {
     use crate::errors_manifest_impl::{
         ErrorCode, ErrorManifestDraft, ErrorManifestStore, ErrorRuntimeContext,
     };
+    use crate::prompt_renderer_impl::{
+        PromptRenderer, PromptRendererInput, RUN_MANIFEST_INSTRUCTION_BLOCK,
+    };
     use crate::runner_impl::{
         FreshnessState, JOB_OBSOLETE, JobRunner, ObsoleteJobRequest, PersistContinuationRequest,
         PersistSuccessRequest, SQLITE_WRITE_FAILED, StageCommitSemantics, allocate_stage_run_id,
         basis_hash_mismatch, classify_sqlite_write_failed, persist_failed_set_replacement_attempt,
         set_stage_head_freshness, stage_scope_rule,
     };
+    use crate::skills_support::{TestSkillDir, lint_skill_directory};
     use crate::support::TestContext;
     use crate::support::db::{StateDb, TestStateDb};
 
@@ -315,6 +333,23 @@ mod tests {
             session_artifact_path: Some("artifacts/sessions/2026/03/session-123".to_owned()),
             next_debugging_action:
                 "Inspect the session artifacts and rerun after fixing the root cause.".to_owned(),
+        }
+    }
+
+    fn sample_manifest_appendix() -> DaemonEvidenceAppendix {
+        DaemonEvidenceAppendix {
+            observed_url_chain: vec!["file://local-process".to_owned()],
+            observed_page_kind_sequence: vec!["local-data".to_owned()],
+            daemon_observed_fingerprint_state: "matched".to_owned(),
+            daemon_observed_locale: "en-GB".to_owned(),
+            daemon_observed_currency: "GBP".to_owned(),
+            auth_challenge_events: vec!["none".to_owned()],
+            locator_fallback_depth: 0,
+            checkpoint_count: 0,
+            result_item_count: 1,
+            oqg_anomaly_summary: Vec::new(),
+            representative_item_sample: json!({"process_id":"process-123"}),
+            artifact_refs: vec!["manifests/process-123.json".to_owned()],
         }
     }
 
@@ -908,6 +943,224 @@ mod tests {
         ensure!(
             classification == Some(ERROR_RUN_FAILED),
             "non-zero exit should classify as AGENT_RUN_FAILED"
+        );
+        Ok(())
+    }
+
+    fn load_manifest_generation_skill() -> Result<(crate::skills_support::LintedSkill, PathBuf)> {
+        let skill_dir = crate::skills_support::repo_skill_dir("manifest-generation")?;
+        let copied_skill = TestSkillDir::from_fixture(&skill_dir)?;
+        let copied_markdown = copied_skill.read_skill_markdown()?;
+        let rebuilt_skill = TestSkillDir::from_fixture_filtered(&skill_dir, Some("SKILL.md"))?;
+        rebuilt_skill.overwrite("SKILL.md", &copied_markdown)?;
+        let linted = lint_skill_directory(copied_skill.path())?;
+        Ok((linted, skill_dir))
+    }
+
+    fn build_manifest_generation_result_payload(skill_dir: &Path) -> Result<serde_json::Value> {
+        let result_schema: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(skill_dir.join("result.schema.json"))?)?;
+        let basis_input = json!({
+            "process_id": "process-123",
+            "candidate_count": 2,
+            "margin_band": "high"
+        })
+        .to_string();
+        let decision_basis_hash = format!("{:x}", Sha256::digest(basis_input.as_bytes()));
+        let result_payload = json!({
+            "process_id": "process-123",
+            "decisionBasisHash": decision_basis_hash,
+            "manifestMarkdown": "# Opportunity Manifest\n\nStrong opportunity.",
+            "candidate_count": 2
+        });
+        validate_result_payload(&result_schema, &result_payload)?;
+        Ok(result_payload)
+    }
+
+    fn write_manifest_generation_result_artifact(
+        ctx: &TestContext,
+        result_payload: &serde_json::Value,
+    ) -> Result<(ArtifactStore, PathBuf)> {
+        let artifact_store = ArtifactStore::new(&ctx.artifact_root)?;
+        ensure!(
+            artifact_store.root() == ctx.artifact_root.as_path(),
+            "artifact store root mismatch"
+        );
+        let result_artifact_path = ctx.artifact_root.join("manifests").join("process-123.json");
+        fs::create_dir_all(
+            result_artifact_path
+                .parent()
+                .ok_or_else(|| anyhow::anyhow!("missing result artifact parent"))?,
+        )?;
+        fs::write(
+            &result_artifact_path,
+            serde_json::to_string_pretty(result_payload)?,
+        )?;
+        Ok((artifact_store, result_artifact_path))
+    }
+
+    fn verify_manifest_index_reader(ctx: &TestContext) -> Result<()> {
+        let index_path = ctx.artifact_root.join("manifest.index.jsonl");
+        fs::write(
+            &index_path,
+            concat!(
+                "{\"seq\":1,\"path\":\"manifests/process-123.json\"}\n",
+                "{\"seq\":2,\"path\":\"manifests/process-124.json\""
+            ),
+        )?;
+        let contiguous_prefix = read_contiguous_jsonl_prefix(&index_path)?;
+        ensure!(
+            contiguous_prefix.len() == 1,
+            "contiguous prefix reader did not stop at torn line"
+        );
+        Ok(())
+    }
+
+    fn create_manifest_generation_run_manifest(
+        artifact_store: &ArtifactStore,
+        linted: &crate::skills_support::LintedSkill,
+    ) -> Result<StoredManifest> {
+        let stored_manifest = artifact_store.write_run_manifest(
+            &RunManifestDraft {
+                frontmatter: RunManifestFrontmatter {
+                    manifest_version: 1,
+                    skill_id: linted.metadata.skill_id.clone(),
+                    skill_version: linted.metadata.skill_version.clone(),
+                    job_id: "job-manifest".to_owned(),
+                    session_id: "session-manifest".to_owned(),
+                    execution_mode: "contract".to_owned(),
+                    started_at: fixed_started_at()?.to_rfc3339(),
+                    completed_at: fixed_started_at()?.to_rfc3339(),
+                    outcome_class: OutcomeClass::Completed,
+                    items_processed: 1,
+                    items_skipped: 0,
+                    items_failed: 0,
+                    warnings_count: 0,
+                    agent_claimed_pages_visited: 0,
+                    agent_claimed_source_url: "https://local.example/process-123".to_owned(),
+                    agent_claimed_fingerprint_state: "matched".to_owned(),
+                    agent_claimed_locale_state: "en-GB".to_owned(),
+                    agent_claimed_currency_state: "GBP".to_owned(),
+                    agent_narrative_missing: false,
+                },
+                narrative: Some(RunNarrative {
+                    summary: "Generated a deterministic process-scoped opportunity manifest."
+                        .to_owned(),
+                    steps_taken:
+                        "Read local process data, synthesized markdown, and wrote artifacts."
+                            .to_owned(),
+                    decisions_made:
+                        "Used only local pipeline data and emitted a single manifest payload."
+                            .to_owned(),
+                    warnings: "No warnings.".to_owned(),
+                    evidence: "See the result payload and manifest artifact refs.".to_owned(),
+                }),
+                appendix: sample_manifest_appendix(),
+                disagreements: Vec::new(),
+            },
+            fixed_started_at()?,
+        )?;
+
+        let fallback = RunManifestDraft::fallback(
+            RunManifestFrontmatter {
+                manifest_version: 1,
+                skill_id: "manifest-generation".to_owned(),
+                skill_version: "1.0.0".to_owned(),
+                job_id: "job-manifest-fallback".to_owned(),
+                session_id: "session-manifest-fallback".to_owned(),
+                execution_mode: "contract".to_owned(),
+                started_at: fixed_started_at()?.to_rfc3339(),
+                completed_at: fixed_started_at()?.to_rfc3339(),
+                outcome_class: OutcomeClass::BlockedHumanAction,
+                items_processed: 0,
+                items_skipped: 0,
+                items_failed: 1,
+                warnings_count: 1,
+                agent_claimed_pages_visited: 0,
+                agent_claimed_source_url: "https://local.example/process-123".to_owned(),
+                agent_claimed_fingerprint_state: "unknown".to_owned(),
+                agent_claimed_locale_state: "unknown".to_owned(),
+                agent_claimed_currency_state: "unknown".to_owned(),
+                agent_narrative_missing: false,
+            },
+            sample_manifest_appendix(),
+            "agent narrative missing",
+        );
+        ensure!(
+            fallback.frontmatter.agent_narrative_missing,
+            "fallback manifest did not flip agent_narrative_missing"
+        );
+        Ok(stored_manifest)
+    }
+
+    fn load_manifest_generation_manifest_metadata(
+        linted: &crate::skills_support::LintedSkill,
+        stored_manifest: &StoredManifest,
+    ) -> Result<(PathBuf, String)> {
+        let state_db = TestStateDb::new()?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO agent_session_logs (id, skill_path, skill_version, execution_mode, status)
+            VALUES (?1, ?2, ?3, 'contract', 'completed')
+            ",
+            params![
+                "session-manifest",
+                "skills/manifest-generation/SKILL.md",
+                &linted.metadata.skill_version,
+            ],
+        )?;
+        persist_run_manifest_metadata(state_db.connection(), "session-manifest", stored_manifest)?;
+
+        let (manifest_path, manifest_hash): (String, String) = state_db.connection().query_row(
+            "SELECT run_manifest_path, run_manifest_hash FROM agent_session_logs WHERE id = ?1",
+            params!["session-manifest"],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        Ok((PathBuf::from(manifest_path), manifest_hash))
+    }
+
+    #[test]
+    fn e2e_con_013_manifest_generation_skill_completes_in_contract_mode_and_persists_result_artifact_and_run_manifest()
+    -> Result<()> {
+        let (linted, skill_dir) = load_manifest_generation_skill()?;
+        ensure!(
+            linted.metadata.interaction_profile == "headless_contract",
+            "manifest-generation skill must be headless_contract"
+        );
+
+        let rendered_prompt = PromptRenderer::render(&PromptRendererInput {
+            skill_id: linted.metadata.skill_id.clone(),
+            skill_version: linted.metadata.skill_version.clone(),
+            skill_markdown: linted.skill_markdown.clone(),
+            job_id: "job-manifest".to_owned(),
+            session_id: "session-manifest".to_owned(),
+            execution_mode: "contract".to_owned(),
+            job_parameters: json!({"process_id":"process-123"}),
+            resume_token: None,
+            company_profile: None,
+        })?;
+        ensure!(
+            rendered_prompt.contains(RUN_MANIFEST_INSTRUCTION_BLOCK),
+            "rendered prompt missing run-manifest instruction block"
+        );
+
+        let ctx = TestContext::new()?;
+        let result_payload = build_manifest_generation_result_payload(&skill_dir)?;
+        let (artifact_store, result_artifact_path) =
+            write_manifest_generation_result_artifact(&ctx, &result_payload)?;
+        verify_manifest_index_reader(&ctx)?;
+        let stored_manifest = create_manifest_generation_run_manifest(&artifact_store, &linted)?;
+        let (manifest_path, manifest_hash) =
+            load_manifest_generation_manifest_metadata(&linted, &stored_manifest)?;
+
+        ensure!(manifest_path.exists(), "run manifest was not persisted");
+        ensure!(
+            !manifest_hash.is_empty(),
+            "run manifest hash was not persisted"
+        );
+        ensure!(
+            result_artifact_path.exists(),
+            "manifest-generation result artifact was not persisted"
         );
         Ok(())
     }

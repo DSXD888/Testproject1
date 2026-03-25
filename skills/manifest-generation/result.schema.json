@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "process_id",
+    "decisionBasisHash",
+    "manifestMarkdown"
+  ],
+  "properties": {
+    "process_id": {
+      "type": "string"
+    },
+    "decisionBasisHash": {
+      "type": "string"
+    },
+    "manifestMarkdown": {
+      "type": "string"
+    },
+    "candidate_count": {
+      "type": "integer"
+    }
+  }
+}

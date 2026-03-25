@@ -54,12 +54,7 @@ pub struct PromptRendererInput {
 pub struct PromptRenderer;
 
 impl PromptRenderer {
-    #[must_use]
-    pub const fn new() -> Self {
-        Self
-    }
-
-    pub fn render(&self, input: &PromptRendererInput) -> Result<String> {
+    pub fn render(input: &PromptRendererInput) -> Result<String> {
         validate_input(input)?;
 
         let job_parameters = serde_json::to_string_pretty(&input.job_parameters)?;
@@ -71,13 +66,10 @@ impl PromptRenderer {
             .map(|token| format!("## Resume Token\n```json\n{token}\n```\n\n"))
             .unwrap_or_default();
 
-        let company_profile_block = input
-            .company_profile
-            .as_ref()
-            .map(|profile| format!("## Company Profile\n{profile}\n\n"))
-            .unwrap_or_else(|| {
-                "## Company Profile\nNo company profile was provided for this run.\n\n".to_owned()
-            });
+        let company_profile_block = input.company_profile.as_ref().map_or_else(
+            || "## Company Profile\nNo company profile was provided for this run.\n\n".to_owned(),
+            |profile| format!("## Company Profile\n{profile}\n\n"),
+        );
 
         Ok(format!(
             "\
@@ -151,8 +143,7 @@ mod tests {
 
     #[test]
     fn render_includes_skill_parameters_resume_and_manifest_instructions() -> Result<()> {
-        let renderer = PromptRenderer::new();
-        let rendered = renderer.render(&PromptRendererInput {
+        let prompt = PromptRenderer::render(&PromptRendererInput {
             skill_id: "procurement-ingestion/fts".to_owned(),
             skill_version: "1.0.0".to_owned(),
             skill_markdown: "# Skill\nUse this skill.".to_owned(),
@@ -164,10 +155,10 @@ mod tests {
             company_profile: None,
         })?;
 
-        ensure!(rendered.contains("## Bound SKILL.md"));
-        ensure!(rendered.contains("\"notice_id\": \"123\""));
-        ensure!(rendered.contains("\"cursor\": \"next-page\""));
-        ensure!(rendered.contains(RUN_MANIFEST_INSTRUCTION_BLOCK));
+        ensure!(prompt.contains("## Bound SKILL.md"));
+        ensure!(prompt.contains("\"notice_id\": \"123\""));
+        ensure!(prompt.contains("\"cursor\": \"next-page\""));
+        ensure!(prompt.contains(RUN_MANIFEST_INSTRUCTION_BLOCK));
         Ok(())
     }
 }

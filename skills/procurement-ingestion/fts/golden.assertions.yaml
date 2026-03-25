@@ -1,0 +1,6 @@
+expected_fields:
+  - cursor
+  - continuation_required
+  - notices
+minimum_notice_count: 1
+expected_interaction_profile: pty_interactive

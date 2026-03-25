@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "seq",
+    "section_completed"
+  ],
+  "properties": {
+    "seq": {
+      "type": "integer"
+    },
+    "section_completed": {
+      "type": "string"
+    }
+  }
+}
