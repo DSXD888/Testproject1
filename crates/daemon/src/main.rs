@@ -1646,12 +1646,14 @@ async fn run_fts_live_loop(
 
     let ingest_run_manifest = write_run_manifest_for_session(
         runtime,
+        &job_id,
         &ingest_session_id,
         &ingest_skill,
         execution_mode_label(ingest_execution.execution_mode),
         ingest_execution.started_at,
         &fixture,
         u32::try_from(fixture.notices.len()).context("converting notice count to u32")?,
+        None,
         ingest_execution.artifact_refs.clone(),
     )?;
     persist_run_manifest_metadata(
@@ -1851,12 +1853,14 @@ async fn run_fts_live_loop(
 
     let contract_run_manifest = write_run_manifest_for_session(
         runtime,
+        &job_id,
         &contract_session_id,
         &manifest_skill,
         execution_mode_label(contract_execution.execution_mode),
         contract_execution.started_at,
         &fixture,
         manifest_computation.candidate_count,
+        None,
         {
             let mut refs = contract_execution.artifact_refs;
             refs.push(result_artifact_path.to_string_lossy().into_owned());
@@ -2665,6 +2669,38 @@ fn create_error_manifest(
     error_context: Value,
 ) -> Result<String> {
     let store = ErrorManifestStore::new(&runtime.artifact_root)?;
+    let loaded_session_context = session_id
+        .map(|value| {
+            load_session_error_context(
+                runtime.state_db.connection(),
+                &runtime.artifact_root,
+                value,
+                &runtime.descriptor.instance_id,
+                runtime.state_db.current_commit_seq()?,
+            )
+        })
+        .transpose()?
+        .flatten();
+    let (runtime_context, session_artifact_path) = match loaded_session_context {
+        Some(context) => context,
+        None => (
+            ErrorRuntimeContext {
+                cli_vendor: Some(CLI_VENDOR.to_owned()),
+                cli_version: Some(CLI_VERSION.to_owned()),
+                adapter_version: Some(env!("CARGO_PKG_VERSION").to_owned()),
+                model_id: None,
+                config_hash: None,
+                skill_version: None,
+                pid: Some(process::id()),
+                pgid: Some(current_runtime_ids()?.pgid),
+                cleanup_verdict: Some("clean".to_owned()),
+                last_valid_checkpoint_sequence: Some(1),
+                daemon_instance_id: Some(runtime.descriptor.instance_id.clone()),
+                commit_seq: Some(runtime.state_db.current_commit_seq()?),
+            },
+            None,
+        ),
+    };
     let stored =
         store.create(
             runtime.state_db.connection(),
@@ -2678,28 +2714,8 @@ fn create_error_manifest(
                 error_context,
                 skill_path: skill_path.map(|path| path.to_string_lossy().into_owned()),
                 agent_session_id: session_id.map(str::to_owned),
-                runtime_context: ErrorRuntimeContext {
-                    cli_vendor: Some(CLI_VENDOR.to_owned()),
-                    cli_version: Some(CLI_VERSION.to_owned()),
-                    adapter_version: Some(env!("CARGO_PKG_VERSION").to_owned()),
-                    model_id: None,
-                    config_hash: None,
-                    skill_version: None,
-                    pid: Some(process::id()),
-                    pgid: Some(current_runtime_ids()?.pgid),
-                    cleanup_verdict: Some("clean".to_owned()),
-                    last_valid_checkpoint_sequence: Some(1),
-                    daemon_instance_id: Some(runtime.descriptor.instance_id.clone()),
-                    commit_seq: Some(runtime.state_db.current_commit_seq()?),
-                },
-                session_artifact_path: session_id.map(|value| {
-                    runtime
-                        .artifact_root
-                        .join("sessions")
-                        .join(value)
-                        .to_string_lossy()
-                        .into_owned()
-                }),
+                runtime_context,
+                session_artifact_path,
                 next_debugging_action:
                     "Inspect the linked artifacts and rerun after correcting the root cause."
                         .to_owned(),
@@ -2707,6 +2723,77 @@ fn create_error_manifest(
             Utc::now(),
         )?;
     Ok(stored.id)
+}
+
+fn load_session_error_context(
+    conn: &Connection,
+    artifact_root: &Path,
+    session_id: &str,
+    daemon_instance_id: &str,
+    commit_seq: i64,
+) -> Result<Option<(ErrorRuntimeContext, Option<String>)>> {
+    let row = conn
+        .query_row(
+            "\
+            SELECT cli_vendor, cli_version, adapter_version, config_hash, skill_version,
+                   pid, pgid, cleanup_verdict, last_checkpoint_seq, started_at
+            FROM agent_session_logs WHERE id = ?1
+            ",
+            params![session_id],
+            |row| {
+                Ok((
+                    row.get::<_, Option<String>>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<String>>(4)?,
+                    row.get::<_, Option<u32>>(5)?,
+                    row.get::<_, Option<u32>>(6)?,
+                    row.get::<_, Option<String>>(7)?,
+                    row.get::<_, Option<u32>>(8)?,
+                    row.get::<_, String>(9)?,
+                ))
+            },
+        )
+        .optional()?;
+    let Some((
+        cli_vendor,
+        cli_version,
+        adapter_version,
+        config_hash,
+        skill_version,
+        process_id,
+        process_group_id,
+        cleanup_verdict,
+        last_checkpoint_seq,
+        started_at,
+    )) = row
+    else {
+        return Ok(None);
+    };
+
+    let started_at = parse_timestamp(&started_at)?;
+    let session_path = ArtifactStore::new(artifact_root)?
+        .session_dir(session_id, started_at)?
+        .to_string_lossy()
+        .into_owned();
+    Ok(Some((
+        ErrorRuntimeContext {
+            cli_vendor,
+            cli_version,
+            adapter_version,
+            model_id: None,
+            config_hash,
+            skill_version,
+            pid: process_id,
+            pgid: process_group_id,
+            cleanup_verdict,
+            last_valid_checkpoint_sequence: last_checkpoint_seq,
+            daemon_instance_id: Some(daemon_instance_id.to_owned()),
+            commit_seq: Some(commit_seq),
+        },
+        Some(session_path),
+    )))
 }
 
 fn persist_failed_set_replacement_stage(
@@ -2790,91 +2877,100 @@ fn write_opportunity_manifest(
 #[allow(clippy::too_many_arguments)]
 fn write_run_manifest_for_session(
     runtime: &RuntimeBootstrap,
+    job_id: &str,
     session_id: &str,
     skill: &LoadedSkill,
     execution_mode: &str,
     started_at: DateTime<Utc>,
     fixture: &LiveLoopFixture,
     items_processed: u32,
+    agent_narrative: Option<RunNarrative>,
     artifact_refs: Vec<String>,
 ) -> Result<agents::artifacts::StoredManifest> {
     let store = ArtifactStore::new(&runtime.artifact_root)?;
-    store.write_run_manifest(
-        &RunManifestDraft {
-            frontmatter: RunManifestFrontmatter {
-                manifest_version: 1,
-                skill_id: skill.metadata.skill_id.clone(),
-                skill_version: skill.metadata.skill_version.clone(),
-                job_id: format!("job-for-{session_id}"),
-                session_id: session_id.to_owned(),
-                execution_mode: execution_mode.to_owned(),
-                started_at: started_at.to_rfc3339(),
-                completed_at: Utc::now().to_rfc3339(),
-                outcome_class: if fixture.continuation_required {
-                    OutcomeClass::ContinuationRequired
-                } else {
-                    OutcomeClass::Completed
-                },
-                items_processed,
-                items_skipped: 0,
-                items_failed: 0,
-                warnings_count: u32::from(
-                    fixture.goods_classification_low_confidence
-                        || fixture.supplier_match_low_confidence
-                        || fixture.commodity_code_low_confidence
-                        || fixture.revenue_basis_uncertain
-                        || fixture.fpo_access_unavailable,
-                ),
-                agent_claimed_pages_visited: 1,
-                agent_claimed_source_url: fixture.notices.first().map_or_else(
-                    || "https://www.find-tender.service.gov.uk".to_owned(),
-                    |notice| notice.source_url.clone(),
-                ),
-                agent_claimed_fingerprint_state: fixture.fingerprint_state.clone(),
-                agent_claimed_locale_state: fixture.locale_state.clone(),
-                agent_claimed_currency_state: fixture.currency_state.clone(),
-                agent_narrative_missing: false,
-            },
-            narrative: Some(RunNarrative {
-                summary: "Daemon-managed live loop completed using persisted local evidence."
-                    .to_owned(),
-                steps_taken:
-                    "Created job/session rows, persisted pipeline state, validated result contract, and wrote the opportunity manifest."
-                        .to_owned(),
-                decisions_made:
-                    "Used the durable SQLite state as the authority for manifest generation."
-                        .to_owned(),
-                warnings: if items_processed == 0 {
-                    "No notices were processed in this run.".to_owned()
-                } else {
-                    "No blocking warnings.".to_owned()
-                },
-                evidence: "See the attached artifact refs and durable tables for verification."
-                    .to_owned(),
-            }),
-            appendix: DaemonEvidenceAppendix {
-                observed_url_chain: fixture
-                    .notices
-                    .iter()
-                    .map(|notice| notice.source_url.clone())
-                    .collect(),
-                observed_page_kind_sequence: vec!["fts".to_owned(), "notice_list".to_owned()],
-                daemon_observed_fingerprint_state: fixture.fingerprint_state.clone(),
-                daemon_observed_locale: fixture.locale_state.clone(),
-                daemon_observed_currency: fixture.currency_state.clone(),
-                auth_challenge_events: Vec::new(),
-                locator_fallback_depth: 0,
-                checkpoint_count: 1,
-                result_item_count: items_processed,
-                oqg_anomaly_summary: Vec::new(),
-                representative_item_sample: json!({
-                    "notice_id": fixture.notices.first().map(|notice| notice.notice_id.clone()),
-                    "title": fixture.notices.first().map(|notice| notice.title.clone()),
-                }),
-                artifact_refs,
-            },
-            disagreements: Vec::new(),
+    let frontmatter = RunManifestFrontmatter {
+        manifest_version: 1,
+        skill_id: skill.metadata.skill_id.clone(),
+        skill_version: skill.metadata.skill_version.clone(),
+        job_id: job_id.to_owned(),
+        session_id: session_id.to_owned(),
+        execution_mode: execution_mode.to_owned(),
+        started_at: started_at.to_rfc3339(),
+        completed_at: Utc::now().to_rfc3339(),
+        outcome_class: if fixture.continuation_required {
+            OutcomeClass::ContinuationRequired
+        } else {
+            OutcomeClass::Completed
         },
+        items_processed,
+        items_skipped: 0,
+        items_failed: 0,
+        warnings_count: u32::from(
+            fixture.goods_classification_low_confidence
+                || fixture.supplier_match_low_confidence
+                || fixture.commodity_code_low_confidence
+                || fixture.revenue_basis_uncertain
+                || fixture.fpo_access_unavailable,
+        ),
+        agent_claimed_pages_visited: 1,
+        agent_claimed_source_url: fixture.notices.first().map_or_else(
+            || "https://www.find-tender.service.gov.uk".to_owned(),
+            |notice| notice.source_url.clone(),
+        ),
+        agent_claimed_fingerprint_state: fixture.fingerprint_state.clone(),
+        agent_claimed_locale_state: fixture.locale_state.clone(),
+        agent_claimed_currency_state: fixture.currency_state.clone(),
+        agent_narrative_missing: agent_narrative.is_none(),
+    };
+    let appendix = DaemonEvidenceAppendix {
+        observed_url_chain: fixture
+            .notices
+            .iter()
+            .map(|notice| notice.source_url.clone())
+            .collect(),
+        observed_page_kind_sequence: vec!["fts".to_owned(), "notice_list".to_owned()],
+        daemon_observed_fingerprint_state: fixture.fingerprint_state.clone(),
+        daemon_observed_locale: fixture.locale_state.clone(),
+        daemon_observed_currency: fixture.currency_state.clone(),
+        auth_challenge_events: Vec::new(),
+        locator_fallback_depth: 0,
+        checkpoint_count: 1,
+        result_item_count: items_processed,
+        oqg_anomaly_summary: Vec::new(),
+        representative_item_sample: json!({
+            "notice_id": fixture.notices.first().map(|notice| notice.notice_id.clone()),
+            "title": fixture.notices.first().map(|notice| notice.title.clone()),
+        }),
+        artifact_refs,
+    };
+
+    if let Some(narrative) = agent_narrative {
+        let draft = RunManifestDraft {
+            frontmatter,
+            narrative: Some(narrative),
+            appendix: appendix.clone(),
+            disagreements: Vec::new(),
+        };
+        return store
+            .write_run_manifest(&draft, started_at)
+            .or_else(|error| {
+                store.write_run_manifest(
+                    &RunManifestDraft::fallback(
+                        draft.frontmatter,
+                        appendix,
+                        &format!("agent narrative invalid: {error}"),
+                    ),
+                    started_at,
+                )
+            });
+    }
+
+    store.write_run_manifest(
+        &RunManifestDraft::fallback(
+            frontmatter,
+            appendix,
+            "agent narrative missing from live session output",
+        ),
         started_at,
     )
 }
