@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![forbid(unsafe_code)]
 
+use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::thread;
@@ -59,6 +60,7 @@ impl ProcessTreeHelper {
     pub fn command(args: &[&str]) -> Result<Command> {
         let mut command = Command::new(Self::binary_path()?);
         command.args(args);
+        command.process_group(0);
         Ok(command)
     }
 

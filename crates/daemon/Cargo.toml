@@ -30,6 +30,7 @@ zstd = "0.13.3"
 
 [dev-dependencies]
 assert_cmd = "2.0.17"
+serial_test = "3.2.0"
 tempfile = "3.20.0"
 
 [lints]
