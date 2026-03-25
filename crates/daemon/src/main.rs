@@ -87,6 +87,7 @@ async fn main() -> Result<()> {
             active_sessions: ActiveSessions::default(),
             mutations_allowed: false,
             expected_peer_uid: None,
+            lifecycle_frames: Vec::new(),
         };
         ipc::handshake::serve_one(&listener, &handshake_context)?;
     }

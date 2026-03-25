@@ -43,6 +43,7 @@ pub struct HandshakeContext {
     pub active_sessions: ActiveSessions,
     pub mutations_allowed: bool,
     pub expected_peer_uid: Option<u32>,
+    pub lifecycle_frames: Vec<LifecycleFrame>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -53,7 +54,11 @@ pub struct ProtocolRange {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "messageType", rename_all = "camelCase")]
+#[serde(
+    tag = "messageType",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum ClientMessage {
     Hello {
         desktop_version: String,
@@ -67,7 +72,11 @@ pub enum ClientMessage {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "messageType", rename_all = "camelCase")]
+#[serde(
+    tag = "messageType",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum ServerMessage {
     Welcome {
         selected_protocol_version: u32,
@@ -78,6 +87,8 @@ pub enum ServerMessage {
         health_state: HealthState,
         mutations_allowed: bool,
         active_sessions: ActiveSessions,
+        reconnect_outcome: ReconnectOutcome,
+        stream_resume_permitted: bool,
     },
     Rejection {
         code: String,
@@ -86,6 +97,83 @@ pub enum ServerMessage {
         expected_schema_epoch: Option<i64>,
         actual_schema_epoch: Option<i64>,
     },
+    Lifecycle {
+        seq: u64,
+        session_id: String,
+        phase: LifecyclePhase,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        cleanup_verdict: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        archive_seq: Option<i64>,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ReconnectOutcome {
+    FreshConnection,
+    SameDaemonReconnect,
+    DaemonRestartInvalidated,
+}
+
+impl ReconnectOutcome {
+    pub const fn stream_resume_permitted(self) -> bool {
+        matches!(self, Self::SameDaemonReconnect)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum LifecyclePhase {
+    Created,
+    Spawned,
+    Active,
+    Terminating,
+    Exited,
+    Reaped,
+    Archived,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LifecycleFrame {
+    pub seq: u64,
+    pub session_id: String,
+    pub phase: LifecyclePhase,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cleanup_verdict: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub archive_seq: Option<i64>,
+}
+
+impl LifecycleFrame {
+    fn validate(&self) -> Result<()> {
+        if self.phase == LifecyclePhase::Reaped && self.cleanup_verdict.is_none() {
+            bail!(
+                "reaped lifecycle frame {} is missing cleanupVerdict",
+                self.seq
+            );
+        }
+        if self.phase != LifecyclePhase::Reaped && self.cleanup_verdict.is_some() {
+            bail!(
+                "only reaped lifecycle frames may carry cleanupVerdict (seq {})",
+                self.seq
+            );
+        }
+        if self.phase == LifecyclePhase::Archived && self.archive_seq.is_none() {
+            bail!(
+                "archived lifecycle frame {} is missing archiveSeq",
+                self.seq
+            );
+        }
+        if self.phase != LifecyclePhase::Archived && self.archive_seq.is_some() {
+            bail!(
+                "only archived lifecycle frames may carry archiveSeq (seq {})",
+                self.seq
+            );
+        }
+        Ok(())
+    }
 }
 
 pub fn serve_one(listener: &UnixListener, context: &HandshakeContext) -> Result<()> {
@@ -118,6 +206,7 @@ pub fn handle_connection(mut stream: UnixStream, context: &HandshakeContext) -> 
         ClientMessage::Hello {
             supported_protocol_range,
             expected_schema_epoch,
+            last_seen_instance_id,
             ..
         } => {
             if supported_protocol_range.min > context.protocol_version
@@ -153,6 +242,8 @@ pub fn handle_connection(mut stream: UnixStream, context: &HandshakeContext) -> 
                 return Ok(());
             }
 
+            let reconnect_outcome =
+                reconnect_outcome(last_seen_instance_id.as_deref(), &context.instance_id);
             write_message(
                 &mut stream,
                 &ServerMessage::Welcome {
@@ -164,8 +255,15 @@ pub fn handle_connection(mut stream: UnixStream, context: &HandshakeContext) -> 
                     health_state: context.health_state.clone(),
                     mutations_allowed: context.mutations_allowed,
                     active_sessions: context.active_sessions.clone(),
+                    reconnect_outcome,
+                    stream_resume_permitted: reconnect_outcome.stream_resume_permitted(),
                 },
             )?;
+
+            for frame in &context.lifecycle_frames {
+                frame.validate()?;
+                write_message(&mut stream, &ServerMessage::from(frame.clone()))?;
+            }
         }
         ClientMessage::Mutation { .. } => {
             write_message(
@@ -182,6 +280,14 @@ pub fn handle_connection(mut stream: UnixStream, context: &HandshakeContext) -> 
     }
 
     Ok(())
+}
+
+fn reconnect_outcome(last_seen_instance_id: Option<&str>, instance_id: &str) -> ReconnectOutcome {
+    match last_seen_instance_id {
+        None => ReconnectOutcome::FreshConnection,
+        Some(last_seen) if last_seen == instance_id => ReconnectOutcome::SameDaemonReconnect,
+        Some(_) => ReconnectOutcome::DaemonRestartInvalidated,
+    }
 }
 
 fn read_message(stream: &UnixStream) -> Result<ClientMessage> {
@@ -241,4 +347,16 @@ fn peer_uid(stream: &UnixStream) -> Result<u32> {
     Err(anyhow!(
         "peer credential verification is unsupported on this platform"
     ))
+}
+
+impl From<LifecycleFrame> for ServerMessage {
+    fn from(frame: LifecycleFrame) -> Self {
+        Self::Lifecycle {
+            seq: frame.seq,
+            session_id: frame.session_id,
+            phase: frame.phase,
+            cleanup_verdict: frame.cleanup_verdict,
+            archive_seq: frame.archive_seq,
+        }
+    }
 }

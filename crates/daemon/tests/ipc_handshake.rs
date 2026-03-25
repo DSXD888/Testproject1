@@ -9,7 +9,7 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::thread;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail};
 use nix::unistd::Uid;
 use serde_yaml::Value;
 
@@ -22,7 +22,8 @@ use crate::descriptor_impl::{
     DaemonDescriptor, LockGuard, RuntimePaths, bind_listener, write_descriptor_atomic,
 };
 use crate::handshake_impl::{
-    ActiveSessions, ClientMessage, HandshakeContext, HealthState, ProtocolRange, ServerMessage,
+    ActiveSessions, ClientMessage, HandshakeContext, HealthState, LifecycleFrame, LifecyclePhase,
+    ProtocolRange, ReconnectOutcome, ServerMessage,
 };
 use crate::support::db::{DEFAULT_SCHEMA_EPOCH, FTS_SOURCE_ID, TestStateDb};
 
@@ -203,6 +204,8 @@ fn it_ipc_003_successful_handshake_returns_runtime_compatibility() -> Result<()>
             commit_seq,
             mutations_allowed,
             active_sessions,
+            reconnect_outcome,
+            stream_resume_permitted,
             ..
         } => {
             assert_eq!(selected_protocol_version, 1);
@@ -211,8 +214,10 @@ fn it_ipc_003_successful_handshake_returns_runtime_compatibility() -> Result<()>
             assert_eq!(commit_seq, 0);
             assert!(!mutations_allowed);
             assert_eq!(active_sessions.count, 0);
+            assert_eq!(reconnect_outcome, ReconnectOutcome::FreshConnection);
+            assert!(!stream_resume_permitted);
         }
-        other @ ServerMessage::Rejection { .. } => panic!("unexpected response: {other:?}"),
+        other => bail!("unexpected response: {other:?}"),
     }
 
     Ok(())
@@ -240,7 +245,7 @@ fn it_ipc_004_protocol_range_mismatch_is_rejected() -> Result<()> {
                 Some(ProtocolRange { min: 1, max: 1 })
             );
         }
-        other @ ServerMessage::Welcome { .. } => panic!("unexpected response: {other:?}"),
+        other => bail!("unexpected response: {other:?}"),
     }
 
     Ok(())
@@ -267,7 +272,7 @@ fn it_ipc_005_schema_epoch_mismatch_reports_expected_and_actual() -> Result<()> 
             assert_eq!(expected_schema_epoch, Some(DEFAULT_SCHEMA_EPOCH + 1));
             assert_eq!(actual_schema_epoch, Some(DEFAULT_SCHEMA_EPOCH));
         }
-        other @ ServerMessage::Welcome { .. } => panic!("unexpected response: {other:?}"),
+        other => bail!("unexpected response: {other:?}"),
     }
 
     Ok(())
@@ -284,7 +289,77 @@ fn it_ipc_008_socket_accepts_handshake_only() -> Result<()> {
         ServerMessage::Rejection { code, .. } => {
             assert_eq!(code, "mutations_unavailable");
         }
-        other @ ServerMessage::Welcome { .. } => panic!("unexpected response: {other:?}"),
+        other => bail!("unexpected response: {other:?}"),
+    }
+
+    Ok(())
+}
+
+#[test]
+fn it_ipc_006_desktop_restart_while_daemon_stays_alive_allows_resume() -> Result<()> {
+    let setup = HandshakeHarness::new()?;
+    let response = setup.request(&ClientMessage::Hello {
+        desktop_version: "desktop-1.0.0".to_owned(),
+        supported_protocol_range: ProtocolRange { min: 1, max: 1 },
+        expected_schema_epoch: DEFAULT_SCHEMA_EPOCH,
+        last_seen_instance_id: Some(setup.context.instance_id.clone()),
+    })?;
+
+    match response {
+        ServerMessage::Welcome {
+            instance_id,
+            reconnect_outcome,
+            stream_resume_permitted,
+            ..
+        } => {
+            assert_eq!(instance_id, setup.context.instance_id);
+            assert_eq!(reconnect_outcome, ReconnectOutcome::SameDaemonReconnect);
+            assert!(stream_resume_permitted);
+        }
+        other => bail!("unexpected response: {other:?}"),
+    }
+
+    Ok(())
+}
+
+#[test]
+fn it_ipc_007_daemon_restart_changes_instance_id_and_invalidates_resume() -> Result<()> {
+    let mut setup = HandshakeHarness::new()?;
+    let first_instance = setup.context.instance_id.clone();
+    let first_descriptor: DaemonDescriptor =
+        serde_json::from_str(&fs::read_to_string(setup.runtime_paths.descriptor_path())?)?;
+    assert_eq!(first_descriptor.instance_id, first_instance);
+
+    setup.restart_daemon()?;
+    let restarted_instance = setup.context.instance_id.clone();
+    assert_ne!(restarted_instance, first_instance);
+
+    let restarted_descriptor: DaemonDescriptor =
+        serde_json::from_str(&fs::read_to_string(setup.runtime_paths.descriptor_path())?)?;
+    assert_eq!(restarted_descriptor.instance_id, restarted_instance);
+
+    let response = setup.request(&ClientMessage::Hello {
+        desktop_version: "desktop-1.0.0".to_owned(),
+        supported_protocol_range: ProtocolRange { min: 1, max: 1 },
+        expected_schema_epoch: DEFAULT_SCHEMA_EPOCH,
+        last_seen_instance_id: Some(first_instance),
+    })?;
+
+    match response {
+        ServerMessage::Welcome {
+            instance_id,
+            reconnect_outcome,
+            stream_resume_permitted,
+            ..
+        } => {
+            assert_eq!(instance_id, restarted_instance);
+            assert_eq!(
+                reconnect_outcome,
+                ReconnectOutcome::DaemonRestartInvalidated
+            );
+            assert!(!stream_resume_permitted);
+        }
+        other => bail!("unexpected response: {other:?}"),
     }
 
     Ok(())
@@ -305,7 +380,158 @@ fn it_ipc_009_peer_uid_mismatch_is_rejected() -> Result<()> {
         ServerMessage::Rejection { code, .. } => {
             assert_eq!(code, "peer_uid_mismatch");
         }
-        other @ ServerMessage::Welcome { .. } => panic!("unexpected response: {other:?}"),
+        other => bail!("unexpected response: {other:?}"),
+    }
+
+    Ok(())
+}
+
+#[test]
+fn it_ipc_011_archived_and_reaped_lifecycle_frames_carry_terminal_metadata() -> Result<()> {
+    let mut setup = HandshakeHarness::new()?;
+    setup.context.lifecycle_frames = vec![
+        LifecycleFrame {
+            seq: 7,
+            session_id: "session-1".to_owned(),
+            phase: LifecyclePhase::Created,
+            cleanup_verdict: None,
+            archive_seq: None,
+        },
+        LifecycleFrame {
+            seq: 8,
+            session_id: "session-1".to_owned(),
+            phase: LifecyclePhase::Reaped,
+            cleanup_verdict: Some("clean".to_owned()),
+            archive_seq: None,
+        },
+        LifecycleFrame {
+            seq: 9,
+            session_id: "session-1".to_owned(),
+            phase: LifecyclePhase::Archived,
+            cleanup_verdict: None,
+            archive_seq: Some(42),
+        },
+    ];
+
+    let frames = setup.request_frames(&ClientMessage::Hello {
+        desktop_version: "desktop-1.0.0".to_owned(),
+        supported_protocol_range: ProtocolRange { min: 1, max: 1 },
+        expected_schema_epoch: DEFAULT_SCHEMA_EPOCH,
+        last_seen_instance_id: None,
+    })?;
+    assert_eq!(frames.len(), 4);
+
+    match &frames[1] {
+        ServerMessage::Lifecycle {
+            seq,
+            phase,
+            cleanup_verdict,
+            archive_seq,
+            ..
+        } => {
+            assert_eq!(*seq, 7);
+            assert_eq!(*phase, LifecyclePhase::Created);
+            assert_eq!(cleanup_verdict, &None);
+            assert_eq!(archive_seq, &None);
+        }
+        other => bail!("expected lifecycle frame, got {other:?}"),
+    }
+
+    match &frames[2] {
+        ServerMessage::Lifecycle {
+            seq,
+            session_id,
+            phase,
+            cleanup_verdict,
+            archive_seq,
+        } => {
+            assert_eq!(*seq, 8);
+            assert_eq!(session_id, "session-1");
+            assert_eq!(*phase, LifecyclePhase::Reaped);
+            assert_eq!(cleanup_verdict.as_deref(), Some("clean"));
+            assert_eq!(*archive_seq, None);
+        }
+        other => bail!("expected lifecycle frame, got {other:?}"),
+    }
+
+    match &frames[3] {
+        ServerMessage::Lifecycle {
+            seq,
+            session_id,
+            phase,
+            cleanup_verdict,
+            archive_seq,
+        } => {
+            assert_eq!(*seq, 9);
+            assert_eq!(session_id, "session-1");
+            assert_eq!(*phase, LifecyclePhase::Archived);
+            assert_eq!(*cleanup_verdict, None);
+            assert_eq!(*archive_seq, Some(42));
+        }
+        other => bail!("expected lifecycle frame, got {other:?}"),
+    }
+
+    let archived_json = serde_json::to_value(&frames[3])?;
+    assert_eq!(archived_json["messageType"], "lifecycle");
+    assert_eq!(archived_json["phase"], "archived");
+    assert_eq!(archived_json["archiveSeq"], 42);
+
+    let reaped_json = serde_json::to_value(&frames[2])?;
+    assert_eq!(reaped_json["messageType"], "lifecycle");
+    assert_eq!(reaped_json["phase"], "reaped");
+    assert_eq!(reaped_json["cleanupVerdict"], "clean");
+
+    Ok(())
+}
+
+#[test]
+fn it_ipc_012_handshake_distinguishes_same_daemon_reconnect_from_restart() -> Result<()> {
+    let mut setup = HandshakeHarness::new()?;
+    let original_instance = setup.context.instance_id.clone();
+
+    let resumed = setup.request(&ClientMessage::Hello {
+        desktop_version: "desktop-1.0.0".to_owned(),
+        supported_protocol_range: ProtocolRange { min: 1, max: 1 },
+        expected_schema_epoch: DEFAULT_SCHEMA_EPOCH,
+        last_seen_instance_id: Some(original_instance.clone()),
+    })?;
+
+    setup.restart_daemon()?;
+    let restarted_instance = setup.context.instance_id.clone();
+    assert_ne!(restarted_instance, original_instance);
+
+    let invalidated = setup.request(&ClientMessage::Hello {
+        desktop_version: "desktop-1.0.0".to_owned(),
+        supported_protocol_range: ProtocolRange { min: 1, max: 1 },
+        expected_schema_epoch: DEFAULT_SCHEMA_EPOCH,
+        last_seen_instance_id: Some(original_instance),
+    })?;
+
+    match resumed {
+        ServerMessage::Welcome {
+            reconnect_outcome,
+            stream_resume_permitted,
+            ..
+        } => {
+            assert_eq!(reconnect_outcome, ReconnectOutcome::SameDaemonReconnect);
+            assert!(stream_resume_permitted);
+        }
+        other => bail!("expected welcome frame, got {other:?}"),
+    }
+
+    match invalidated {
+        ServerMessage::Welcome {
+            reconnect_outcome,
+            stream_resume_permitted,
+            ..
+        } => {
+            assert_eq!(
+                reconnect_outcome,
+                ReconnectOutcome::DaemonRestartInvalidated
+            );
+            assert!(!stream_resume_permitted);
+        }
+        other => bail!("expected welcome frame, got {other:?}"),
     }
 
     Ok(())
@@ -346,7 +572,8 @@ fn repo_root() -> Result<PathBuf> {
 struct HandshakeHarness {
     _context: support::TestContext,
     context: HandshakeContext,
-    listener: UnixListener,
+    listener: Option<UnixListener>,
+    runtime_paths: RuntimePaths,
     socket_path: PathBuf,
 }
 
@@ -360,10 +587,16 @@ impl HandshakeHarness {
             fs::Permissions::from_mode(0o700),
         )?;
         let listener = bind_listener(&runtime_paths)?;
+        let descriptor = DaemonDescriptor::new(
+            runtime_paths.socket_path(),
+            runtime_paths.state_root(),
+            DEFAULT_SCHEMA_EPOCH,
+        );
+        write_descriptor_atomic(runtime_paths.descriptor_path(), &descriptor)?;
         let context = HandshakeContext {
             protocol_version: 1,
             daemon_version: env!("CARGO_PKG_VERSION").to_owned(),
-            instance_id: "instance-1".to_owned(),
+            instance_id: descriptor.instance_id,
             schema_epoch: DEFAULT_SCHEMA_EPOCH,
             commit_seq: 0,
             health_state: HealthState {
@@ -372,18 +605,33 @@ impl HandshakeHarness {
             active_sessions: ActiveSessions::default(),
             mutations_allowed: false,
             expected_peer_uid: None,
+            lifecycle_frames: Vec::new(),
         };
+
+        let socket_path = runtime_paths.socket_path().to_path_buf();
 
         Ok(Self {
             _context: ctx,
             context,
-            listener,
-            socket_path: runtime_paths.socket_path().to_path_buf(),
+            listener: Some(listener),
+            runtime_paths,
+            socket_path,
         })
     }
 
     fn request(&self, message: &ClientMessage) -> Result<ServerMessage> {
-        let listener = self.listener.try_clone()?;
+        self.request_frames(message)?
+            .into_iter()
+            .next()
+            .ok_or_else(|| anyhow!("daemon closed handshake stream without a response"))
+    }
+
+    fn request_frames(&self, message: &ClientMessage) -> Result<Vec<ServerMessage>> {
+        let listener = self
+            .listener
+            .as_ref()
+            .ok_or_else(|| anyhow!("handshake listener is not active"))?
+            .try_clone()?;
         let context = self.context.clone();
         let handle = thread::spawn(move || handshake_impl::serve_one(&listener, &context));
 
@@ -394,13 +642,33 @@ impl HandshakeHarness {
         client.write_all(b"\n")?;
         client.flush()?;
 
-        let mut reader = BufReader::new(client);
-        let mut response = String::new();
-        reader.read_line(&mut response)?;
+        let reader = BufReader::new(client);
+        let mut frames = Vec::new();
+        for line in reader.lines() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            frames.push(serde_json::from_str(&line).context("parsing handshake response")?);
+        }
 
         handle
             .join()
             .map_err(|_| anyhow!("handshake thread panicked"))??;
-        serde_json::from_str(response.trim_end()).context("parsing handshake response")
+        Ok(frames)
+    }
+
+    fn restart_daemon(&mut self) -> Result<()> {
+        self.listener.take();
+        let listener = bind_listener(&self.runtime_paths)?;
+        let descriptor = DaemonDescriptor::new(
+            self.runtime_paths.socket_path(),
+            self.runtime_paths.state_root(),
+            DEFAULT_SCHEMA_EPOCH,
+        );
+        write_descriptor_atomic(self.runtime_paths.descriptor_path(), &descriptor)?;
+        self.context.instance_id = descriptor.instance_id;
+        self.listener = Some(listener);
+        Ok(())
     }
 }

@@ -1,12 +1,13 @@
 #![forbid(unsafe_code)]
 
 use std::fs::{self, File, OpenOptions};
+use std::io::ErrorKind;
 use std::os::unix::fs::PermissionsExt;
-use std::os::unix::net::UnixListener;
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::process;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use chrono::Utc;
 use fs4::FileExt;
 use serde::{Deserialize, Serialize};
@@ -66,7 +67,7 @@ impl RuntimePaths {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct DaemonDescriptor {
     pub instance_id: String,
@@ -129,7 +130,7 @@ pub fn ensure_runtime_dir(path: &Path) -> Result<()> {
 
 pub fn bind_listener(paths: &RuntimePaths) -> Result<UnixListener> {
     ensure_runtime_dir(paths.runtime_dir())?;
-    cleanup_stale_socket(paths.socket_path())?;
+    cleanup_stale_socket(paths.socket_path(), paths.descriptor_path())?;
     let listener = UnixListener::bind(paths.socket_path())
         .with_context(|| format!("binding {}", paths.socket_path().display()))?;
     Ok(listener)
@@ -148,14 +149,51 @@ pub fn write_descriptor_atomic(path: &Path, descriptor: &DaemonDescriptor) -> Re
     Ok(())
 }
 
-fn cleanup_stale_socket(path: &Path) -> Result<()> {
-    match fs::symlink_metadata(path) {
-        Ok(_) => fs::remove_file(path)
-            .with_context(|| format!("removing stale socket {}", path.display()))?,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+fn cleanup_stale_socket(socket_path: &Path, descriptor_path: &Path) -> Result<()> {
+    match fs::symlink_metadata(socket_path) {
+        Ok(_) => {}
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(()),
         Err(error) => {
-            return Err(error).with_context(|| format!("probing {}", path.display()));
+            return Err(error).with_context(|| format!("probing {}", socket_path.display()));
         }
     }
+
+    match UnixStream::connect(socket_path) {
+        Ok(_) => {
+            let instance_hint = read_descriptor_if_present(descriptor_path)?
+                .map(|descriptor| format!(" for daemon instance {}", descriptor.instance_id))
+                .unwrap_or_default();
+            bail!(
+                "socket {} is already accepting connections{}",
+                socket_path.display(),
+                instance_hint
+            );
+        }
+        Err(error)
+            if matches!(
+                error.kind(),
+                ErrorKind::ConnectionRefused | ErrorKind::NotFound | ErrorKind::ConnectionAborted
+            ) =>
+        {
+            fs::remove_file(socket_path)
+                .with_context(|| format!("removing stale socket {}", socket_path.display()))?;
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return Err(error)
+                .with_context(|| format!("probing live socket {}", socket_path.display()));
+        }
+    }
+
     Ok(())
+}
+
+fn read_descriptor_if_present(path: &Path) -> Result<Option<DaemonDescriptor>> {
+    match fs::read_to_string(path) {
+        Ok(contents) => serde_json::from_str(&contents)
+            .with_context(|| format!("parsing {}", path.display()))
+            .map(Some),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error).with_context(|| format!("reading {}", path.display())),
+    }
 }
