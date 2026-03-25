@@ -6,6 +6,10 @@ mod support;
 mod artifacts_impl;
 #[path = "support/assertions.rs"]
 mod assertions_support;
+#[path = "../src/errors/manifest.rs"]
+mod errors_manifest_impl;
+#[path = "../src/errors/markdown.rs"]
+mod errors_markdown_impl;
 
 #[cfg(unix)]
 mod tests {
@@ -24,6 +28,9 @@ mod tests {
         read_contiguous_jsonl_prefix, validate_result_payload,
     };
     use crate::assertions_support::ManifestAssert;
+    use crate::errors_manifest_impl::{
+        ErrorCode, ErrorManifestDraft, ErrorManifestStore, ErrorRuntimeContext,
+    };
     use crate::support::TestContext;
     use crate::support::db::TestStateDb;
 
@@ -100,6 +107,73 @@ mod tests {
             appendix: sample_appendix(),
             disagreements: Vec::new(),
         }
+    }
+
+    fn sample_runtime_context() -> ErrorRuntimeContext {
+        ErrorRuntimeContext {
+            cli_vendor: Some("codex".to_owned()),
+            cli_version: Some("1.2.3".to_owned()),
+            adapter_version: Some("0.1.0".to_owned()),
+            model_id: Some("gpt-5".to_owned()),
+            config_hash: Some("cfg-123".to_owned()),
+            skill_version: Some("2026.03.25".to_owned()),
+            pid: Some(100),
+            pgid: Some(200),
+            cleanup_verdict: Some("Clean".to_owned()),
+            last_valid_checkpoint_sequence: Some(4),
+            daemon_instance_id: Some("daemon-1".to_owned()),
+            commit_seq: Some(12),
+        }
+    }
+
+    fn sample_error_draft() -> ErrorManifestDraft {
+        ErrorManifestDraft {
+            job_id: Some("job-123".to_owned()),
+            process_id: Some("process-123".to_owned()),
+            pipeline_stage: "qualification".to_owned(),
+            workflow_step: "schema-validate".to_owned(),
+            error_type: ErrorCode::AgentOutputContractInvalid,
+            error_message: "result.schema.json validation failed".to_owned(),
+            error_context: json!({
+                "field": "score_bps",
+                "reason": "missing"
+            }),
+            skill_path: Some("skills/fts/SKILL.md".to_owned()),
+            agent_session_id: Some("session-123".to_owned()),
+            runtime_context: sample_runtime_context(),
+            session_artifact_path: Some("artifacts/sessions/2026/03/session-123".to_owned()),
+            next_debugging_action:
+                "Inspect the result contract and rerun the stage after fixing the schema."
+                    .to_owned(),
+        }
+    }
+
+    fn seed_error_manifest_refs(conn: &rusqlite::Connection) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO procurement_processes (
+              id, current_stage, title, latest_published_at, latest_updated_at, owner_id
+            ) VALUES (?1, 'qualification', 'Process title', '2026-03-25T00:00:00Z',
+                      '2026-03-25T00:00:00Z', 'local-owner')
+            ",
+            params!["process-123"],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, process_id, scope_kind, scope_id, status, input_payload
+            ) VALUES (?1, 'stage-job', ?2, 'notice', 'notice-1', 'failed', '{}')
+            ",
+            params!["job-123", "process-123"],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO agent_session_logs (id, job_id, skill_path, execution_mode, status)
+            VALUES (?1, ?2, 'skills/fts/SKILL.md', 'contract', 'failed')
+            ",
+            params!["session-123", "job-123"],
+        )?;
+        Ok(())
     }
 
     #[test]
@@ -426,6 +500,78 @@ mod tests {
         );
         ensure!(prefix[0]["seq"] == 1, "first committed row missing");
         ensure!(prefix[1]["seq"] == 2, "second committed row missing");
+        Ok(())
+    }
+
+    #[test]
+    fn it_rsl_010_error_manifest_markdown_renders_header_runtime_context_and_resolution_fields()
+    -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let ctx = TestContext::new()?;
+        let store = ErrorManifestStore::new(&ctx.artifact_root)?;
+        seed_error_manifest_refs(state_db.connection())?;
+        let draft = sample_error_draft();
+        let stored = store.create(state_db.connection(), &draft, fixed_started_at()?)?;
+        let markdown = fs::read_to_string(&stored.markdown_path)?;
+
+        ensure!(
+            markdown.contains("# Error Manifest: AGENT_OUTPUT_CONTRACT_INVALID"),
+            "header missing from error manifest markdown"
+        );
+        ensure!(
+            markdown.contains("## Pipeline Summary"),
+            "pipeline summary missing from error manifest markdown"
+        );
+        ensure!(
+            markdown.contains("| cli_vendor | codex |"),
+            "runtime context table missing CLI vendor"
+        );
+        ensure!(
+            markdown.contains("artifacts/sessions/2026/03/session-123"),
+            "linked session artifact path missing"
+        );
+        ensure!(
+            markdown.contains("## Next Debugging Action"),
+            "next debugging action section missing"
+        );
+        ensure!(
+            markdown.contains("resolved: false"),
+            "resolution fields missing from markdown"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn it_rsl_014_resolving_error_manifest_flips_resolved_without_mutating_original_context()
+    -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let ctx = TestContext::new()?;
+        let store = ErrorManifestStore::new(&ctx.artifact_root)?;
+        seed_error_manifest_refs(state_db.connection())?;
+        let draft = sample_error_draft();
+        let stored = store.create(state_db.connection(), &draft, fixed_started_at()?)?;
+
+        ErrorManifestStore::resolve(
+            state_db.connection(),
+            &stored.id,
+            "operator@example.com",
+            fixed_started_at()?,
+        )?;
+        let record = ErrorManifestStore::load_record(state_db.connection(), &stored.id)?;
+
+        ensure!(record.resolved, "resolved flag did not flip");
+        ensure!(
+            record.resolved_by.as_deref() == Some("operator@example.com"),
+            "resolved_by not persisted"
+        );
+        ensure!(
+            record.error_context == draft.error_context,
+            "resolution mutated original failure context"
+        );
+        ensure!(
+            record.markdown_path == stored.markdown_path,
+            "resolution mutated markdown path"
+        );
         Ok(())
     }
 }

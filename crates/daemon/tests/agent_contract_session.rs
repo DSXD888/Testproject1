@@ -6,6 +6,10 @@ mod support;
 mod adapter_impl;
 #[path = "../src/agents/contracts.rs"]
 mod contracts_impl;
+#[path = "../src/errors/manifest.rs"]
+mod errors_manifest_impl;
+#[path = "../src/errors/markdown.rs"]
+mod errors_markdown_impl;
 #[path = "../src/jobs/runner.rs"]
 mod runner_impl;
 
@@ -18,6 +22,7 @@ mod tests {
     use anyhow::{Result, bail, ensure};
     use async_trait::async_trait;
     use bytes::Bytes;
+    use chrono::TimeZone;
     use portable_pty::ExitStatus;
     use rusqlite::params;
     use serde_json::json;
@@ -32,6 +37,9 @@ mod tests {
         ERROR_SUSPECT_OUTPUT, OqgCheckInput, StageValidationWrite, ValidationDisposition,
         ValidationOutcome, classify_terminal_failure, persist_stage_validation,
         persist_validated_checkpoint, validate_final_result,
+    };
+    use crate::errors_manifest_impl::{
+        ErrorCode, ErrorManifestDraft, ErrorManifestStore, ErrorRuntimeContext,
     };
     use crate::runner_impl::{
         FreshnessState, JOB_OBSOLETE, JobRunner, ObsoleteJobRequest, PersistContinuationRequest,
@@ -272,6 +280,51 @@ mod tests {
         }
     }
 
+    fn sample_runtime_context() -> ErrorRuntimeContext {
+        ErrorRuntimeContext {
+            cli_vendor: Some("codex".to_owned()),
+            cli_version: Some("1.2.3".to_owned()),
+            adapter_version: Some("0.1.0".to_owned()),
+            model_id: Some("gpt-5".to_owned()),
+            config_hash: Some("cfg-123".to_owned()),
+            skill_version: Some("2026.03.25".to_owned()),
+            pid: Some(100),
+            pgid: Some(200),
+            cleanup_verdict: Some("Clean".to_owned()),
+            last_valid_checkpoint_sequence: Some(4),
+            daemon_instance_id: Some("daemon-1".to_owned()),
+            commit_seq: Some(12),
+        }
+    }
+
+    fn sample_error_draft(
+        error_type: ErrorCode,
+        error_context: serde_json::Value,
+    ) -> ErrorManifestDraft {
+        ErrorManifestDraft {
+            job_id: Some("job-123".to_owned()),
+            process_id: Some("process-123".to_owned()),
+            pipeline_stage: "qualification".to_owned(),
+            workflow_step: "schema-validate".to_owned(),
+            error_type,
+            error_message: "contract path failed".to_owned(),
+            error_context,
+            skill_path: Some("skills/fts/SKILL.md".to_owned()),
+            agent_session_id: Some("session-123".to_owned()),
+            runtime_context: sample_runtime_context(),
+            session_artifact_path: Some("artifacts/sessions/2026/03/session-123".to_owned()),
+            next_debugging_action:
+                "Inspect the session artifacts and rerun after fixing the root cause.".to_owned(),
+        }
+    }
+
+    fn fixed_started_at() -> Result<chrono::DateTime<chrono::Utc>> {
+        chrono::Utc
+            .with_ymd_and_hms(2026, 3, 25, 3, 0, 0)
+            .single()
+            .ok_or_else(|| anyhow::anyhow!("failed to construct fixed test timestamp"))
+    }
+
     fn seed_job(
         conn: &rusqlite::Connection,
         job_id: &str,
@@ -311,6 +364,26 @@ mod tests {
                 scope_id,
                 current_stage_run_id
             ],
+        )?;
+        Ok(())
+    }
+
+    fn seed_error_manifest_refs(conn: &rusqlite::Connection) -> Result<()> {
+        seed_process(conn, "process-123")?;
+        conn.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, process_id, scope_kind, scope_id, status, input_payload
+            ) VALUES (?1, 'stage-job', ?2, 'notice', 'notice-1', 'failed', '{}')
+            ",
+            params!["job-123", "process-123"],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO agent_session_logs (id, job_id, skill_path, execution_mode, status)
+            VALUES (?1, ?2, 'skills/fts/SKILL.md', 'contract', 'failed')
+            ",
+            params!["session-123", "job-123"],
         )?;
         Ok(())
     }
@@ -684,6 +757,24 @@ mod tests {
             error_context.contains("score_bps"),
             "error context missing failing field details"
         );
+
+        let state_db = TestStateDb::new()?;
+        let ctx = TestContext::new()?;
+        let store = ErrorManifestStore::new(&ctx.artifact_root)?;
+        seed_error_manifest_refs(state_db.connection())?;
+        let stored = store.create(
+            state_db.connection(),
+            &sample_error_draft(
+                ErrorCode::AgentOutputContractInvalid,
+                serde_json::from_str(&error_context)?,
+            ),
+            fixed_started_at()?,
+        )?;
+        let record = ErrorManifestStore::load_record(state_db.connection(), &stored.id)?;
+        ensure!(
+            record.error_type == ErrorCode::AgentOutputContractInvalid,
+            "schema-invalid error manifest classified incorrectly"
+        );
         Ok(())
     }
 
@@ -717,6 +808,31 @@ mod tests {
             "OQG failure classified incorrectly"
         );
 
+        let state_db_for_manifest = TestStateDb::new()?;
+        let ctx = TestContext::new()?;
+        let store = ErrorManifestStore::new(&ctx.artifact_root)?;
+        seed_error_manifest_refs(state_db_for_manifest.connection())?;
+        let error_context = outcome
+            .error_context_json
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("missing OQG error context"))?;
+        let stored_manifest = store.create(
+            state_db_for_manifest.connection(),
+            &sample_error_draft(
+                ErrorCode::AgentSuspectOutput,
+                serde_json::from_str(&error_context)?,
+            ),
+            fixed_started_at()?,
+        )?;
+        let record = ErrorManifestStore::load_record(
+            state_db_for_manifest.connection(),
+            &stored_manifest.id,
+        )?;
+        ensure!(
+            record.error_type == ErrorCode::AgentSuspectOutput,
+            "OQG error manifest classified incorrectly"
+        );
+
         let write = StageValidationWrite {
             process_id: "process-quarantine",
             stage: "pricing",
@@ -747,6 +863,30 @@ mod tests {
             classification == Some(ERROR_PARTIAL_FAILURE),
             "checkpoint-only run should classify as AGENT_PARTIAL_FAILURE"
         );
+
+        let state_db = TestStateDb::new()?;
+        let ctx = TestContext::new()?;
+        let store = ErrorManifestStore::new(&ctx.artifact_root)?;
+        seed_error_manifest_refs(state_db.connection())?;
+        let stored = store.create(
+            state_db.connection(),
+            &sample_error_draft(
+                ErrorCode::AgentPartialFailure,
+                json!({"checkpoint_seq": 1, "cleanup_verdict": "Clean"}),
+            ),
+            fixed_started_at()?,
+        )?;
+        let record = ErrorManifestStore::load_record(state_db.connection(), &stored.id)?;
+        ensure!(
+            record.error_type == ErrorCode::AgentPartialFailure,
+            "partial-failure error manifest classified incorrectly"
+        );
+        ErrorManifestStore::resolve(
+            state_db.connection(),
+            &stored.id,
+            "operator@example.com",
+            fixed_started_at()?,
+        )?;
         Ok(())
     }
 
@@ -1160,7 +1300,7 @@ mod tests {
                 stage: "Gross margin gate".to_owned(),
                 scope_kind: "candidate".to_owned(),
                 scope_id: "candidate-a".to_owned(),
-                stage_run_id: first_run_id.clone(),
+                stage_run_id: first_run_id,
                 process_id: "process-additive".to_owned(),
                 owner_id: "local-owner".to_owned(),
             },
@@ -1176,7 +1316,7 @@ mod tests {
                 stage: "Gross margin gate".to_owned(),
                 scope_kind: "candidate".to_owned(),
                 scope_id: "candidate-b".to_owned(),
-                stage_run_id: second_run_id.clone(),
+                stage_run_id: second_run_id,
                 process_id: "process-additive".to_owned(),
                 owner_id: "local-owner".to_owned(),
             },
