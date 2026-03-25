@@ -8,6 +8,7 @@ use anyhow::{Context, Result, anyhow, bail, ensure};
 use rusqlite::{Connection, Transaction, TransactionBehavior, params};
 use serde_json::json;
 
+#[allow(dead_code)]
 static WRITE_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
 const L0_MIGRATION_PATH: &str = "migrations/0001_sqlite_state_initial.sql";
 const L1_MIGRATION_PATH: &str = "migrations/0003_sqlite_runtime.sql";
@@ -19,6 +20,7 @@ pub const FTS_SOURCE_ID: &str = "fts";
 #[derive(Clone, Debug)]
 pub struct StateDbConfig {
     pub schema_epoch: i64,
+    #[allow(dead_code)]
     pub owner_id: String,
     pub fts_base_url: String,
     pub fts_ocds_api_url: String,
@@ -40,9 +42,11 @@ impl Default for StateDbConfig {
 
 pub struct StateDb {
     conn: Connection,
+    #[allow(dead_code)]
     config: StateDbConfig,
 }
 
+#[allow(dead_code)]
 impl StateDb {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         Self::open_with_config(path, StateDbConfig::default())
@@ -75,14 +79,17 @@ impl StateDb {
         Ok(Self { conn, config })
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     pub fn connection(&self) -> &Connection {
         &self.conn
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     pub fn connection_mut(&mut self) -> &mut Connection {
         &mut self.conn
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     pub fn schema_epoch(&self) -> i64 {
         self.config.schema_epoch
     }
@@ -124,6 +131,7 @@ pub fn open_state_db(path: impl AsRef<Path>, schema_epoch: i64) -> Result<StateD
     StateDb::open_with_config(path, config)
 }
 
+#[allow(dead_code)]
 fn write_mutex() -> &'static Mutex<()> {
     WRITE_MUTEX.get_or_init(|| Mutex::new(()))
 }
@@ -222,6 +230,7 @@ fn run_quick_check(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn increment_commit_clock(tx: &Transaction<'_>) -> Result<i64> {
     let updated = tx
         .execute(
