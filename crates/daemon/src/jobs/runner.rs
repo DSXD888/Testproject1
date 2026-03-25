@@ -5,6 +5,7 @@ use chrono::Utc;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use uuid::Uuid;
 
 #[cfg(not(test))]
 use crate::agents::contracts;
@@ -20,6 +21,36 @@ use contracts::{
 };
 
 pub const SQLITE_WRITE_FAILED: &str = "SQLITE_WRITE_FAILED";
+pub const JOB_OBSOLETE: &str = "JOB_OBSOLETE";
+
+pub const CANONICAL_SCOPE_KINDS: [&str; 6] = [
+    "process",
+    "notice",
+    "lot",
+    "candidate",
+    "candidate_source_pair",
+    "candidate_quote_scenario",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StageCommitSemantics {
+    Precursor,
+    SetReplacement,
+    Additive,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FreshnessState {
+    Fresh,
+    SoftStale,
+    HardInvalid,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StageScopeRule {
+    pub scope_kind: Option<&'static str>,
+    pub commit_semantics: StageCommitSemantics,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClaimedJob {
@@ -64,6 +95,20 @@ pub struct PersistContinuationRequest {
     pub scope_id: Option<String>,
     pub resume_token: Value,
     pub owner_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObsoleteJobRequest {
+    pub job_id: String,
+    pub idempotency_key: String,
+    pub rerun_job_id: String,
+    pub next_job_kind: String,
+    pub process_id: Option<String>,
+    pub scope_kind: Option<String>,
+    pub scope_id: Option<String>,
+    pub rerun_from_stage: String,
+    pub expected_input_basis_hash: String,
+    pub actual_input_basis_hash: String,
 }
 
 #[derive(Debug, Clone)]
@@ -147,6 +192,15 @@ impl JobRunner {
         ensure!(
             outcome.disposition == ValidationDisposition::Accepted,
             "persist_success requires accepted outcome"
+        );
+        ensure!(
+            !request.stage_run_id.is_empty(),
+            "stage_run_id must not be empty"
+        );
+        let stage_rule = validate_stage_scope(&request.stage, &request.scope_kind)?;
+        ensure!(
+            stage_rule.commit_semantics != StageCommitSemantics::Precursor,
+            "ingest precursor stage does not use process_stage_status"
         );
 
         let (predicted_visible_after_seq, visible_after_seq) =
@@ -272,10 +326,242 @@ impl JobRunner {
             continuation_job_id: Some(request.continuation_job_id.clone()),
         })
     }
+
+    pub fn mark_obsolete_and_enqueue_rerun(
+        &self,
+        state_db: &mut StateDb,
+        request: &ObsoleteJobRequest,
+    ) -> Result<MutationAck> {
+        if let Some(existing) = find_existing_ack(
+            state_db.connection(),
+            &request.job_id,
+            &request.idempotency_key,
+        )? {
+            return Ok(existing);
+        }
+
+        ensure!(
+            request.expected_input_basis_hash != request.actual_input_basis_hash,
+            "basis hash mismatch handler requires differing hashes"
+        );
+
+        let (predicted_visible_after_seq, visible_after_seq) =
+            state_db.with_write_transaction(|tx| {
+                let predicted_visible_after_seq = current_commit_seq(tx)? + 1;
+                tx.execute(
+                    "\
+                    INSERT INTO workflow_jobs (
+                      id, kind, process_id, scope_kind, scope_id, parent_job_id,
+                      status, input_payload
+                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', ?7)
+                    ",
+                    params![
+                        request.rerun_job_id,
+                        request.next_job_kind,
+                        request.process_id,
+                        request.scope_kind,
+                        request.scope_id,
+                        request.job_id,
+                        json!({
+                            "rerun_from_stage": request.rerun_from_stage,
+                            "expected_input_basis_hash": request.expected_input_basis_hash,
+                        })
+                        .to_string(),
+                    ],
+                )?;
+
+                let updated = tx.execute(
+                    "\
+                    UPDATE workflow_jobs
+                    SET status = 'obsolete',
+                        last_error = ?1,
+                        completed_at = ?2,
+                        output_payload = ?3
+                    WHERE id = ?4
+                    ",
+                    params![
+                        format!(
+                            "{}: expected {} got {}",
+                            JOB_OBSOLETE,
+                            request.expected_input_basis_hash,
+                            request.actual_input_basis_hash
+                        ),
+                        Utc::now().to_rfc3339(),
+                        json!({
+                            "runner_meta": {
+                                "idempotency_key": request.idempotency_key,
+                                "visible_after_seq": predicted_visible_after_seq,
+                                "executor_id": self.executor_id,
+                                "continuation_job_id": request.rerun_job_id,
+                            }
+                        })
+                        .to_string(),
+                        request.job_id,
+                    ],
+                )?;
+                ensure!(updated == 1, "workflow job missing for {}", request.job_id);
+                Ok(predicted_visible_after_seq)
+            })?;
+
+        ensure!(
+            predicted_visible_after_seq == visible_after_seq,
+            "predicted commit fence diverged from committed fence"
+        );
+
+        Ok(MutationAck {
+            accepted: true,
+            visible_after_seq,
+            continuation_job_id: Some(request.rerun_job_id.clone()),
+        })
+    }
 }
 
 pub fn classify_sqlite_write_failed(error: &rusqlite::Error) -> anyhow::Error {
     anyhow!("{SQLITE_WRITE_FAILED}: {error}")
+}
+
+#[must_use]
+pub fn allocate_stage_run_id() -> String {
+    format!("stage-run-{}", Uuid::new_v4())
+}
+
+pub fn stage_scope_rule(stage: &str) -> Result<StageScopeRule> {
+    let normalized = stage.to_ascii_lowercase();
+    let rule = match normalized.as_str() {
+        "ingest" => StageScopeRule {
+            scope_kind: None,
+            commit_semantics: StageCommitSemantics::Precursor,
+        },
+        "normalize" | "prequalify notice" | "acquire docs" | "extract lots" => StageScopeRule {
+            scope_kind: Some("notice"),
+            commit_semantics: StageCommitSemantics::SetReplacement,
+        },
+        "relate" | "manifest" | "operator decision" | "bid workflow" => StageScopeRule {
+            scope_kind: Some("process"),
+            commit_semantics: StageCommitSemantics::SetReplacement,
+        },
+        "qualify lot" => StageScopeRule {
+            scope_kind: Some("lot"),
+            commit_semantics: StageCommitSemantics::SetReplacement,
+        },
+        "extract products" => StageScopeRule {
+            scope_kind: Some("lot"),
+            commit_semantics: StageCommitSemantics::Additive,
+        },
+        "score quoteability" | "gross margin gate" | "net margin gate" => StageScopeRule {
+            scope_kind: Some("candidate"),
+            commit_semantics: StageCommitSemantics::Additive,
+        },
+        "price-signal match" => StageScopeRule {
+            scope_kind: Some("candidate_source_pair"),
+            commit_semantics: StageCommitSemantics::Additive,
+        },
+        "landed cost" => StageScopeRule {
+            scope_kind: Some("candidate_quote_scenario"),
+            commit_semantics: StageCommitSemantics::Additive,
+        },
+        _ => return Err(anyhow!("unknown stage `{stage}`")),
+    };
+    Ok(rule)
+}
+
+pub fn validate_scope_kind(scope_kind: &str) -> Result<()> {
+    ensure!(
+        CANONICAL_SCOPE_KINDS.contains(&scope_kind),
+        "scope_kind `{scope_kind}` is not canonical"
+    );
+    Ok(())
+}
+
+pub fn validate_stage_scope(stage: &str, scope_kind: &str) -> Result<StageScopeRule> {
+    validate_scope_kind(scope_kind)?;
+    let rule = stage_scope_rule(stage)?;
+    let expected_scope_kind = rule
+        .scope_kind
+        .ok_or_else(|| anyhow!("stage `{stage}` is a precursor and has no scope_kind"))?;
+    ensure!(
+        expected_scope_kind == scope_kind,
+        "stage `{stage}` must use scope_kind `{expected_scope_kind}`"
+    );
+    Ok(rule)
+}
+
+pub fn set_stage_head_freshness(
+    conn: &Connection,
+    process_id: &str,
+    stage: &str,
+    scope_kind: &str,
+    scope_id: &str,
+    freshness_state: FreshnessState,
+) -> Result<()> {
+    let updated = conn.execute(
+        "\
+        UPDATE process_stage_heads
+        SET freshness_state = ?1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE process_id = ?2 AND stage = ?3 AND scope_kind = ?4 AND scope_id = ?5
+        ",
+        params![
+            freshness_state.as_str(),
+            process_id,
+            stage,
+            scope_kind,
+            scope_id,
+        ],
+    )?;
+    ensure!(updated == 1, "stage head missing for freshness update");
+    Ok(())
+}
+
+pub fn persist_failed_set_replacement_attempt(
+    conn: &Connection,
+    write: &StageValidationWrite<'_>,
+    error_manifest_id: Option<&str>,
+) -> Result<()> {
+    let rule = validate_stage_scope(write.stage, write.scope_kind)?;
+    ensure!(
+        rule.commit_semantics == StageCommitSemantics::SetReplacement,
+        "partial-failure helper is only valid for set-replacement stages"
+    );
+
+    conn.execute(
+        "\
+        INSERT INTO process_stage_status (
+          id, process_id, stage, scope_kind, scope_id, stage_run_id, state,
+          freshness_state, started_at, completed_at, error_manifest_id,
+          input_revision, output_revision, owner_id
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'failed', 'fresh', ?7, ?8, ?9, 0, 0, ?10)
+        ",
+        params![
+            format!("{}-failed", write.stage_run_id),
+            write.process_id,
+            write.stage,
+            write.scope_kind,
+            write.scope_id,
+            write.stage_run_id,
+            Utc::now().to_rfc3339(),
+            Utc::now().to_rfc3339(),
+            error_manifest_id,
+            write.owner_id,
+        ],
+    )?;
+    Ok(())
+}
+
+#[must_use]
+pub fn basis_hash_mismatch(expected: &str, actual: &str) -> bool {
+    expected != actual
+}
+
+impl FreshnessState {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Fresh => "fresh",
+            Self::SoftStale => "soft_stale",
+            Self::HardInvalid => "hard_invalid",
+        }
+    }
 }
 
 fn current_commit_seq(conn: &Connection) -> Result<i64> {

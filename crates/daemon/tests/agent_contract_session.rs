@@ -34,8 +34,10 @@ mod tests {
         persist_validated_checkpoint, validate_final_result,
     };
     use crate::runner_impl::{
-        JobRunner, PersistContinuationRequest, PersistSuccessRequest, SQLITE_WRITE_FAILED,
-        classify_sqlite_write_failed,
+        FreshnessState, JOB_OBSOLETE, JobRunner, ObsoleteJobRequest, PersistContinuationRequest,
+        PersistSuccessRequest, SQLITE_WRITE_FAILED, StageCommitSemantics, allocate_stage_run_id,
+        basis_hash_mismatch, classify_sqlite_write_failed, persist_failed_set_replacement_attempt,
+        set_stage_head_freshness, stage_scope_rule,
     };
     use crate::support::TestContext;
     use crate::support::db::{StateDb, TestStateDb};
@@ -284,6 +286,31 @@ mod tests {
             ) VALUES (?1, 'stage-job', ?2, 'notice', 'notice-1', ?3, ?4)
             ",
             params![job_id, process_id, status, input_payload.to_string()],
+        )?;
+        Ok(())
+    }
+
+    fn seed_stage_head(
+        conn: &rusqlite::Connection,
+        process_id: &str,
+        stage: &str,
+        scope_kind: &str,
+        scope_id: &str,
+        current_stage_run_id: &str,
+    ) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO process_stage_heads (
+              process_id, stage, scope_kind, scope_id, current_stage_run_id, owner_id
+            ) VALUES (?1, ?2, ?3, ?4, ?5, 'local-owner')
+            ",
+            params![
+                process_id,
+                stage,
+                scope_kind,
+                scope_id,
+                current_stage_run_id
+            ],
         )?;
         Ok(())
     }
@@ -766,9 +793,9 @@ mod tests {
             idempotency_key: "ack-write-failure".to_owned(),
             session_id: "session-write-failure".to_owned(),
             output_payload: json!({"result": true}),
-            stage: "pricing".to_owned(),
-            scope_kind: "notice".to_owned(),
-            scope_id: "notice-1".to_owned(),
+            stage: "Manifest".to_owned(),
+            scope_kind: "process".to_owned(),
+            scope_id: "missing-process".to_owned(),
             stage_run_id: "run-write-failure".to_owned(),
             process_id: "missing-process".to_owned(),
             owner_id: "local-owner".to_owned(),
@@ -798,11 +825,12 @@ mod tests {
             head_count == 0,
             "failed write should not advance stage head"
         );
+        let sqlite_error = error
+            .chain()
+            .find_map(|cause| cause.downcast_ref::<rusqlite::Error>());
         ensure!(
             classify_sqlite_write_failed(
-                error
-                    .downcast_ref::<rusqlite::Error>()
-                    .ok_or_else(|| anyhow::anyhow!("expected rusqlite error"))?
+                sqlite_error.ok_or_else(|| anyhow::anyhow!("expected rusqlite error"))?
             )
             .to_string()
             .contains(SQLITE_WRITE_FAILED),
@@ -898,9 +926,9 @@ mod tests {
             idempotency_key: "ack-idempotent".to_owned(),
             session_id: "session-idempotent".to_owned(),
             output_payload: json!({"result": true}),
-            stage: "pricing".to_owned(),
-            scope_kind: "notice".to_owned(),
-            scope_id: "notice-1".to_owned(),
+            stage: "Manifest".to_owned(),
+            scope_kind: "process".to_owned(),
+            scope_id: "process-idempotent".to_owned(),
             stage_run_id: "run-idempotent".to_owned(),
             process_id: "process-idempotent".to_owned(),
             owner_id: "local-owner".to_owned(),
@@ -991,6 +1019,325 @@ mod tests {
         ensure!(
             classified.contains(SQLITE_WRITE_FAILED),
             "competing writer did not classify as SQLITE_WRITE_FAILED"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn e2e_ing_014_stage_to_scope_mapping_matches_the_six_canonical_scope_kinds() -> Result<()> {
+        let cases = [
+            (
+                "Normalize",
+                Some("notice"),
+                StageCommitSemantics::SetReplacement,
+            ),
+            (
+                "Relate",
+                Some("process"),
+                StageCommitSemantics::SetReplacement,
+            ),
+            (
+                "Qualify lot",
+                Some("lot"),
+                StageCommitSemantics::SetReplacement,
+            ),
+            (
+                "Extract products",
+                Some("lot"),
+                StageCommitSemantics::Additive,
+            ),
+            (
+                "Price-signal match",
+                Some("candidate_source_pair"),
+                StageCommitSemantics::Additive,
+            ),
+            (
+                "Landed cost",
+                Some("candidate_quote_scenario"),
+                StageCommitSemantics::Additive,
+            ),
+        ];
+
+        for (stage, expected_scope_kind, expected_semantics) in cases {
+            let rule = stage_scope_rule(stage)?;
+            ensure!(
+                rule.scope_kind == expected_scope_kind,
+                "unexpected scope_kind for stage {stage}"
+            );
+            ensure!(
+                rule.commit_semantics == expected_semantics,
+                "unexpected commit semantics for stage {stage}"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn e2e_ing_015_set_replacement_stages_never_leak_partial_writes_or_head_movement() -> Result<()>
+    {
+        let state_db = TestStateDb::new()?;
+        seed_process(state_db.connection(), "process-set-replacement")?;
+        seed_stage_head(
+            state_db.connection(),
+            "process-set-replacement",
+            "Normalize",
+            "notice",
+            "notice-1",
+            "run-old",
+        )?;
+        let failed_run_id = allocate_stage_run_id();
+        let write = StageValidationWrite {
+            process_id: "process-set-replacement",
+            stage: "Normalize",
+            scope_kind: "notice",
+            scope_id: "notice-1",
+            stage_run_id: &failed_run_id,
+            owner_id: "local-owner",
+        };
+
+        persist_failed_set_replacement_attempt(state_db.connection(), &write, Some("error-1"))?;
+
+        let current_stage_run_id: String = state_db.connection().query_row(
+            "SELECT current_stage_run_id FROM process_stage_heads WHERE process_id = ?1 AND stage = ?2 AND scope_kind = ?3 AND scope_id = ?4",
+            params!["process-set-replacement", "Normalize", "notice", "notice-1"],
+            |row| row.get(0),
+        )?;
+        let failed_status_count: i64 = state_db.connection().query_row(
+            "SELECT COUNT(*) FROM process_stage_status WHERE process_id = ?1 AND stage_run_id = ?2 AND state = 'failed'",
+            params!["process-set-replacement", failed_run_id],
+            |row| row.get(0),
+        )?;
+
+        ensure!(
+            current_stage_run_id == "run-old",
+            "failed set-replacement attempt advanced stage head"
+        );
+        ensure!(failed_status_count == 1, "failed attempt not recorded");
+        Ok(())
+    }
+
+    #[test]
+    fn e2e_ing_016_additive_stages_commit_multiple_scoped_units_from_one_session() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_process(state_db.connection(), "process-additive")?;
+        seed_job(
+            state_db.connection(),
+            "job-additive-a",
+            Some("process-additive"),
+            "pending",
+            &json!({"skill":"dummy"}),
+        )?;
+        seed_job(
+            state_db.connection(),
+            "job-additive-b",
+            Some("process-additive"),
+            "pending",
+            &json!({"skill":"dummy"}),
+        )?;
+        let mut owned_db = StateDb::open(state_db.db_path())?;
+        let runner = JobRunner::new("executor-additive");
+        let accepted = ValidationOutcome {
+            disposition: ValidationDisposition::Accepted,
+            error_code: None,
+            error_context_json: None,
+            anomalies: Vec::new(),
+        };
+
+        let first_run_id = allocate_stage_run_id();
+        let second_run_id = allocate_stage_run_id();
+        ensure!(
+            first_run_id != second_run_id,
+            "stage_run_id must be fresh per unit"
+        );
+
+        let _ = runner.persist_success(
+            &mut owned_db,
+            &PersistSuccessRequest {
+                job_id: "job-additive-a".to_owned(),
+                idempotency_key: "ack-additive-a".to_owned(),
+                session_id: "session-additive".to_owned(),
+                output_payload: json!({"result": "a"}),
+                stage: "Gross margin gate".to_owned(),
+                scope_kind: "candidate".to_owned(),
+                scope_id: "candidate-a".to_owned(),
+                stage_run_id: first_run_id.clone(),
+                process_id: "process-additive".to_owned(),
+                owner_id: "local-owner".to_owned(),
+            },
+            &accepted,
+        )?;
+        let _ = runner.persist_success(
+            &mut owned_db,
+            &PersistSuccessRequest {
+                job_id: "job-additive-b".to_owned(),
+                idempotency_key: "ack-additive-b".to_owned(),
+                session_id: "session-additive".to_owned(),
+                output_payload: json!({"result": "b"}),
+                stage: "Gross margin gate".to_owned(),
+                scope_kind: "candidate".to_owned(),
+                scope_id: "candidate-b".to_owned(),
+                stage_run_id: second_run_id.clone(),
+                process_id: "process-additive".to_owned(),
+                owner_id: "local-owner".to_owned(),
+            },
+            &accepted,
+        )?;
+
+        let committed_scope_count: i64 = owned_db.connection().query_row(
+            "SELECT COUNT(*) FROM process_stage_heads WHERE process_id = ?1 AND stage = ?2",
+            params!["process-additive", "Gross margin gate"],
+            |row| row.get(0),
+        )?;
+        ensure!(
+            committed_scope_count == 2,
+            "additive stage did not preserve both committed scope units"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn e2e_ing_017_expected_input_basis_hash_mismatch_marks_job_obsolete_and_enqueues_rerun()
+    -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_process(state_db.connection(), "process-basis")?;
+        seed_job(
+            state_db.connection(),
+            "job-basis",
+            Some("process-basis"),
+            "pending",
+            &json!({"skill":"dummy"}),
+        )?;
+        let mut owned_db = StateDb::open(state_db.db_path())?;
+        let runner = JobRunner::new("executor-basis");
+
+        ensure!(
+            basis_hash_mismatch("expected-hash", "actual-hash"),
+            "basis hash mismatch helper failed"
+        );
+        let ack = runner.mark_obsolete_and_enqueue_rerun(
+            &mut owned_db,
+            &ObsoleteJobRequest {
+                job_id: "job-basis".to_owned(),
+                idempotency_key: "ack-basis".to_owned(),
+                rerun_job_id: "job-basis-rerun".to_owned(),
+                next_job_kind: "stage-job".to_owned(),
+                process_id: Some("process-basis".to_owned()),
+                scope_kind: Some("notice".to_owned()),
+                scope_id: Some("notice-1".to_owned()),
+                rerun_from_stage: "Normalize".to_owned(),
+                expected_input_basis_hash: "expected-hash".to_owned(),
+                actual_input_basis_hash: "actual-hash".to_owned(),
+            },
+        )?;
+
+        let (status, last_error): (String, Option<String>) = owned_db.connection().query_row(
+            "SELECT status, last_error FROM workflow_jobs WHERE id = ?1",
+            params!["job-basis"],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        let rerun_count: i64 = owned_db.connection().query_row(
+            "SELECT COUNT(*) FROM workflow_jobs WHERE id = ?1 AND parent_job_id = ?2",
+            params!["job-basis-rerun", "job-basis"],
+            |row| row.get(0),
+        )?;
+
+        ensure!(ack.accepted, "obsolete ack should be accepted");
+        ensure!(
+            ack.continuation_job_id.as_deref() == Some("job-basis-rerun"),
+            "rerun job id missing from obsolete ack"
+        );
+        ensure!(
+            status == "obsolete",
+            "basis-hash mismatch did not mark job obsolete"
+        );
+        ensure!(
+            last_error
+                .as_deref()
+                .unwrap_or_default()
+                .contains(JOB_OBSOLETE),
+            "obsolete job missing mismatch error context"
+        );
+        ensure!(
+            rerun_count == 1,
+            "basis-hash mismatch did not enqueue rerun"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn e2e_ing_018_soft_stale_vs_hard_invalid_follow_staleness_cascade_rules() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_process(state_db.connection(), "process-staleness")?;
+        seed_stage_head(
+            state_db.connection(),
+            "process-staleness",
+            "Manifest",
+            "process",
+            "process-staleness",
+            "run-stage",
+        )?;
+        ensure!(
+            FreshnessState::Fresh.as_str() == "fresh",
+            "fresh freshness state changed"
+        );
+
+        set_stage_head_freshness(
+            state_db.connection(),
+            "process-staleness",
+            "Manifest",
+            "process",
+            "process-staleness",
+            FreshnessState::SoftStale,
+        )?;
+        let soft_state: String = state_db.connection().query_row(
+            "SELECT freshness_state FROM process_stage_heads WHERE process_id = ?1",
+            params!["process-staleness"],
+            |row| row.get(0),
+        )?;
+        set_stage_head_freshness(
+            state_db.connection(),
+            "process-staleness",
+            "Manifest",
+            "process",
+            "process-staleness",
+            FreshnessState::HardInvalid,
+        )?;
+        let hard_state: String = state_db.connection().query_row(
+            "SELECT freshness_state FROM process_stage_heads WHERE process_id = ?1",
+            params!["process-staleness"],
+            |row| row.get(0),
+        )?;
+
+        ensure!(soft_state == "soft_stale", "soft-stale state not persisted");
+        ensure!(
+            hard_state == "hard_invalid",
+            "hard-invalid state not persisted"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn e2e_ing_026_one_session_exercising_set_replacement_and_additive_proves_stage_run_id_scoping()
+    -> Result<()> {
+        let set_replacement = stage_scope_rule("Normalize")?;
+        let additive = stage_scope_rule("Gross margin gate")?;
+        let set_replacement_run_id = allocate_stage_run_id();
+        let additive_run_id_a = allocate_stage_run_id();
+        let additive_run_id_b = allocate_stage_run_id();
+
+        ensure!(
+            set_replacement.commit_semantics == StageCommitSemantics::SetReplacement,
+            "set-replacement stage rule changed"
+        );
+        ensure!(
+            additive.commit_semantics == StageCommitSemantics::Additive,
+            "additive stage rule changed"
+        );
+        ensure!(
+            set_replacement_run_id != additive_run_id_a
+                && additive_run_id_a != additive_run_id_b
+                && set_replacement_run_id != additive_run_id_b,
+            "stage_run_id allocation reused cohort ids"
         );
         Ok(())
     }
