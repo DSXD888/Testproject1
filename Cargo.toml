@@ -1,0 +1,17 @@
+[workspace]
+members = ["crates/daemon"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+
+[workspace.lints.clippy]
+pedantic = "deny"
+nursery = "deny"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
