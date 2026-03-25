@@ -6,6 +6,8 @@ mod support;
 mod adapter_impl;
 #[path = "../src/agents/contracts.rs"]
 mod contracts_impl;
+#[path = "../src/jobs/runner.rs"]
+mod runner_impl;
 
 #[cfg(unix)]
 mod tests {
@@ -28,11 +30,15 @@ mod tests {
     use crate::contracts_impl::{
         ERROR_OUTPUT_CONTRACT_INVALID, ERROR_PARTIAL_FAILURE, ERROR_RUN_FAILED,
         ERROR_SUSPECT_OUTPUT, OqgCheckInput, StageValidationWrite, ValidationDisposition,
-        classify_terminal_failure, persist_stage_validation, persist_validated_checkpoint,
-        validate_final_result,
+        ValidationOutcome, classify_terminal_failure, persist_stage_validation,
+        persist_validated_checkpoint, validate_final_result,
+    };
+    use crate::runner_impl::{
+        JobRunner, PersistContinuationRequest, PersistSuccessRequest, SQLITE_WRITE_FAILED,
+        classify_sqlite_write_failed,
     };
     use crate::support::TestContext;
-    use crate::support::db::TestStateDb;
+    use crate::support::db::{StateDb, TestStateDb};
 
     struct DummyParser {
         mode: ExecutionMode,
@@ -264,6 +270,24 @@ mod tests {
         }
     }
 
+    fn seed_job(
+        conn: &rusqlite::Connection,
+        job_id: &str,
+        process_id: Option<&str>,
+        status: &str,
+        input_payload: &serde_json::Value,
+    ) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, process_id, scope_kind, scope_id, status, input_payload
+            ) VALUES (?1, 'stage-job', ?2, 'notice', 'notice-1', ?3, ?4)
+            ",
+            params![job_id, process_id, status, input_payload.to_string()],
+        )?;
+        Ok(())
+    }
+
     #[tokio::test]
     async fn ut_con_001_contract_mode_preserves_stdout_and_stderr_separately() -> Result<()> {
         let stdout = OutputFrame::Stdout(Bytes::from_static(b"stdout-frame"));
@@ -476,6 +500,41 @@ mod tests {
     }
 
     #[test]
+    fn it_con_005_claim_next_job_marks_running_and_parses_payload() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_process(state_db.connection(), "process-claim")?;
+        seed_job(
+            state_db.connection(),
+            "job-claim",
+            Some("process-claim"),
+            "pending",
+            &json!({"skill":"dummy","scope":"notice-1"}),
+        )?;
+        let runner = JobRunner::new("executor-claim");
+
+        let claimed = runner
+            .claim_next_job(state_db.connection())?
+            .ok_or_else(|| anyhow::anyhow!("expected a claimable job"))?;
+        let (status, lease_owner): (String, Option<String>) = state_db.connection().query_row(
+            "SELECT status, lease_owner FROM workflow_jobs WHERE id = ?1",
+            params!["job-claim"],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        ensure!(claimed.id == "job-claim", "claimed wrong job");
+        ensure!(
+            claimed.input_payload["scope"] == "notice-1",
+            "claim did not parse input payload"
+        );
+        ensure!(status == "running", "claimed job not marked running");
+        ensure!(
+            lease_owner.as_deref() == Some("executor-claim"),
+            "lease_owner not written from executor id"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn it_con_006_validated_checkpoints_update_last_checkpoint_seq_and_persist_in_order()
     -> Result<()> {
         let ctx = TestContext::new()?;
@@ -682,6 +741,256 @@ mod tests {
         ensure!(
             classification == Some(ERROR_RUN_FAILED),
             "non-zero exit should classify as AGENT_RUN_FAILED"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn it_con_012_sqlite_write_failure_emits_no_new_visible_after_seq_and_advances_no_stage_head()
+    -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_process(state_db.connection(), "process-write-failure")?;
+        seed_job(
+            state_db.connection(),
+            "job-write-failure",
+            Some("process-write-failure"),
+            "pending",
+            &json!({"skill":"dummy"}),
+        )?;
+        let mut owned_db = StateDb::open(state_db.db_path())?;
+        let runner = JobRunner::new("executor-1");
+        let before_commit_seq = owned_db.current_commit_seq()?;
+
+        let request = PersistSuccessRequest {
+            job_id: "job-write-failure".to_owned(),
+            idempotency_key: "ack-write-failure".to_owned(),
+            session_id: "session-write-failure".to_owned(),
+            output_payload: json!({"result": true}),
+            stage: "pricing".to_owned(),
+            scope_kind: "notice".to_owned(),
+            scope_id: "notice-1".to_owned(),
+            stage_run_id: "run-write-failure".to_owned(),
+            process_id: "missing-process".to_owned(),
+            owner_id: "local-owner".to_owned(),
+        };
+        let accepted = ValidationOutcome {
+            disposition: ValidationDisposition::Accepted,
+            error_code: None,
+            error_context_json: None,
+            anomalies: Vec::new(),
+        };
+
+        let error = runner
+            .persist_success(&mut owned_db, &request, &accepted)
+            .expect_err("foreign-key failure should abort write");
+        let after_commit_seq = owned_db.current_commit_seq()?;
+        let head_count: i64 = owned_db.connection().query_row(
+            "SELECT COUNT(*) FROM process_stage_heads WHERE current_stage_run_id = ?1",
+            params!["run-write-failure"],
+            |row| row.get(0),
+        )?;
+
+        ensure!(
+            before_commit_seq == after_commit_seq,
+            "failed write should not advance commit fence"
+        );
+        ensure!(
+            head_count == 0,
+            "failed write should not advance stage head"
+        );
+        ensure!(
+            classify_sqlite_write_failed(
+                error
+                    .downcast_ref::<rusqlite::Error>()
+                    .ok_or_else(|| anyhow::anyhow!("expected rusqlite error"))?
+            )
+            .to_string()
+            .contains(SQLITE_WRITE_FAILED),
+            "write failure was not classified as SQLITE_WRITE_FAILED"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn it_con_015_continuation_required_preserves_committed_work_and_enqueues_follow_on_with_resume_token()
+    -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_process(state_db.connection(), "process-continuation")?;
+        seed_job(
+            state_db.connection(),
+            "job-continuation",
+            Some("process-continuation"),
+            "pending",
+            &json!({"skill":"dummy"}),
+        )?;
+        let mut owned_db = StateDb::open(state_db.db_path())?;
+        let runner = JobRunner::new("executor-1");
+
+        let ack = runner.persist_continuation(
+            &mut owned_db,
+            &PersistContinuationRequest {
+                job_id: "job-continuation".to_owned(),
+                idempotency_key: "ack-continuation".to_owned(),
+                continuation_job_id: "job-continuation-2".to_owned(),
+                continuation_chain_id: "chain-1".to_owned(),
+                next_job_kind: "stage-job".to_owned(),
+                process_id: Some("process-continuation".to_owned()),
+                scope_kind: Some("notice".to_owned()),
+                scope_id: Some("notice-1".to_owned()),
+                resume_token: json!({"cursor":"next-page"}),
+                owner_id: "local-owner".to_owned(),
+            },
+        )?;
+
+        let status: String = owned_db.connection().query_row(
+            "SELECT status FROM workflow_jobs WHERE id = ?1",
+            params!["job-continuation"],
+            |row| row.get(0),
+        )?;
+        let next_input_payload: String = owned_db.connection().query_row(
+            "SELECT input_payload FROM workflow_jobs WHERE id = ?1",
+            params!["job-continuation-2"],
+            |row| row.get(0),
+        )?;
+
+        ensure!(ack.accepted, "continuation ack should be accepted");
+        ensure!(
+            ack.continuation_job_id.as_deref() == Some("job-continuation-2"),
+            "continuation ack missing follow-on job id"
+        );
+        ensure!(
+            ack.visible_after_seq > 0,
+            "continuation ack missing visible_after_seq"
+        );
+        ensure!(
+            status == "completed",
+            "originating job did not persist committed work"
+        );
+        ensure!(
+            next_input_payload.contains("next-page"),
+            "follow-on job missing resume token"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn it_con_017_retrying_lost_mutation_ack_with_same_idempotency_context_returns_original_visible_after_seq_no_duplicates()
+    -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_process(state_db.connection(), "process-idempotent")?;
+        seed_job(
+            state_db.connection(),
+            "job-idempotent",
+            Some("process-idempotent"),
+            "pending",
+            &json!({"skill":"dummy"}),
+        )?;
+        let mut owned_db = StateDb::open(state_db.db_path())?;
+        let runner = JobRunner::new("executor-1");
+        let accepted = ValidationOutcome {
+            disposition: ValidationDisposition::Accepted,
+            error_code: None,
+            error_context_json: None,
+            anomalies: Vec::new(),
+        };
+        let request = PersistSuccessRequest {
+            job_id: "job-idempotent".to_owned(),
+            idempotency_key: "ack-idempotent".to_owned(),
+            session_id: "session-idempotent".to_owned(),
+            output_payload: json!({"result": true}),
+            stage: "pricing".to_owned(),
+            scope_kind: "notice".to_owned(),
+            scope_id: "notice-1".to_owned(),
+            stage_run_id: "run-idempotent".to_owned(),
+            process_id: "process-idempotent".to_owned(),
+            owner_id: "local-owner".to_owned(),
+        };
+
+        let first = runner.persist_success(&mut owned_db, &request, &accepted)?;
+        let second = runner.persist_success(&mut owned_db, &request, &accepted)?;
+        let status_row_count: i64 = owned_db.connection().query_row(
+            "SELECT COUNT(*) FROM process_stage_status WHERE process_id = ?1 AND stage_run_id = ?2",
+            params!["process-idempotent", "run-idempotent"],
+            |row| row.get(0),
+        )?;
+
+        ensure!(
+            first.visible_after_seq == second.visible_after_seq,
+            "idempotent retry returned a different visibleAfterSeq"
+        );
+        ensure!(
+            status_row_count == 1,
+            "idempotent retry duplicated stage writes"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn it_con_018_concurrent_wal_readers_hold_stable_snapshot_and_competing_writer_surfaces_sqlite_write_failed()
+    -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_process(state_db.connection(), "process-wal")?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO process_stage_heads (
+              process_id, stage, scope_kind, scope_id, current_stage_run_id, owner_id
+            ) VALUES (?1, 'pricing', 'notice', 'notice-1', 'run-initial', 'local-owner')
+            ",
+            params!["process-wal"],
+        )?;
+
+        let db_path = state_db.db_path().to_path_buf();
+        let writer = rusqlite::Connection::open(&db_path)?;
+        writer.pragma_update(None, "busy_timeout", 1_000_i64)?;
+        let reader = rusqlite::Connection::open(&db_path)?;
+        let competing_writer = rusqlite::Connection::open(&db_path)?;
+        competing_writer.pragma_update(None, "busy_timeout", 1_i64)?;
+
+        let read_tx = reader.unchecked_transaction()?;
+        let snapshot_before: String = read_tx.query_row(
+            "SELECT current_stage_run_id FROM process_stage_heads WHERE process_id = ?1",
+            params!["process-wal"],
+            |row| row.get(0),
+        )?;
+
+        let write_tx = writer.unchecked_transaction()?;
+        write_tx.execute(
+            "UPDATE process_stage_heads SET current_stage_run_id = 'run-updated' WHERE process_id = ?1",
+            params!["process-wal"],
+        )?;
+
+        let competing_error = competing_writer
+            .execute(
+                "UPDATE process_stage_heads SET current_stage_run_id = 'run-competing' WHERE process_id = ?1",
+                params!["process-wal"],
+            )
+            .expect_err("competing writer should exhaust busy timeout");
+        let classified = classify_sqlite_write_failed(&competing_error).to_string();
+
+        let snapshot_during: String = read_tx.query_row(
+            "SELECT current_stage_run_id FROM process_stage_heads WHERE process_id = ?1",
+            params!["process-wal"],
+            |row| row.get(0),
+        )?;
+        write_tx.commit()?;
+        read_tx.commit()?;
+        let snapshot_after: String = reader.query_row(
+            "SELECT current_stage_run_id FROM process_stage_heads WHERE process_id = ?1",
+            params!["process-wal"],
+            |row| row.get(0),
+        )?;
+
+        ensure!(
+            snapshot_before == "run-initial" && snapshot_during == "run-initial",
+            "reader snapshot was not stable during concurrent write"
+        );
+        ensure!(
+            snapshot_after == "run-updated",
+            "post-commit reader did not observe writer commit"
+        );
+        ensure!(
+            classified.contains(SQLITE_WRITE_FAILED),
+            "competing writer did not classify as SQLITE_WRITE_FAILED"
         );
         Ok(())
     }
