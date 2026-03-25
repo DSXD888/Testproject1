@@ -4,6 +4,8 @@ mod support;
 
 #[path = "support/artifacts.rs"]
 mod artifacts_support;
+#[path = "../src/pty/health.rs"]
+mod health_impl;
 #[path = "../src/pty/session.rs"]
 mod session_impl;
 
@@ -18,6 +20,10 @@ mod tests {
 
     use crate::artifacts_support::{
         ArtifactSandbox, CaptureConfig, PtyCapture, decode_chunk, ensure_contiguous,
+    };
+    use crate::health_impl::{
+        HealthIssue, HostResources, StallTracker, detect_auth_challenge, detect_host_sleep,
+        detect_resource_pressure, pre_spawn_failure_phases,
     };
     use crate::session_impl::{
         BrowserViewport, PtyCommand, PtyGeometry, PtyPairHandle, PtySession, SessionPhase,
@@ -394,6 +400,118 @@ mod tests {
         assert!(process_group_id > 0);
         let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(2))?;
         Ok(())
+    }
+
+    #[test]
+    fn it_pty_012_nominal_session_reaches_canonical_public_phases() -> Result<()> {
+        let mut session = PtySession::spawn(report_command(), SpawnOptions::default())?;
+        let _ = session.read_line()?;
+        let status = session.finish()?;
+        assert!(status.success());
+        assert_eq!(
+            session
+                .phase_history
+                .iter()
+                .map(|phase| phase.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "created",
+                "spawned",
+                "active",
+                "terminating",
+                "exited",
+                "reaped",
+                "archived"
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn it_pty_013_pre_spawn_failure_normalizes_without_runtime_ids() {
+        let result = PtySession::spawn(
+            PtyCommand::new("definitely-not-a-real-command-for-pre-spawn-failure"),
+            SpawnOptions::default(),
+        );
+        let Err(error) = result else {
+            panic!("spawn should fail");
+        };
+        assert!(error.runtime_ids().is_none());
+        assert_eq!(
+            pre_spawn_failure_phases(),
+            ["created", "terminating", "exited", "archived"]
+        );
+    }
+
+    #[test]
+    fn it_pty_014_immediate_exit_still_records_active_before_finish() -> Result<()> {
+        let mut session = PtySession::spawn(
+            PtyCommand::new(ProcessTreeHelper::binary_path()?.display().to_string())
+                .arg("exit-code")
+                .arg("0"),
+            SpawnOptions::default(),
+        )?;
+        let status = session.finish()?;
+        assert!(status.success());
+        assert!(session.phase_history.contains(&SessionPhase::Active));
+        assert_eq!(session.phase_history[2], SessionPhase::Active);
+        Ok(())
+    }
+
+    #[test]
+    fn it_pty_015_no_output_timeout_classifies_stall() -> Result<()> {
+        let mut child = ProcessTreeHelper::spawn(&["silent-stall", "2"])?;
+        let mut tracker = StallTracker::new(Duration::from_millis(100), Duration::from_secs(5));
+        tracker.record_progress(Duration::ZERO);
+        std::thread::sleep(Duration::from_millis(150));
+        assert_eq!(
+            tracker.no_output_issue(Duration::from_millis(150)),
+            Some(HealthIssue::AgentStalled)
+        );
+        let _ = nix::sys::signal::kill(
+            nix::unistd::Pid::from_raw(child.id().cast_signed()),
+            nix::sys::signal::Signal::SIGKILL,
+        );
+        let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(1));
+        Ok(())
+    }
+
+    #[test]
+    fn it_pty_016_auth_sleep_and_resource_signals_classify_expected_health_issues() {
+        let mut tracker = StallTracker::new(Duration::from_secs(5), Duration::from_millis(100));
+        tracker.record_output(Duration::ZERO);
+        assert_eq!(
+            tracker.no_progress_issue(Duration::from_millis(150)),
+            Some(HealthIssue::AgentStalled)
+        );
+        assert_eq!(HealthIssue::AgentStalled.code(), "AGENT_STALLED");
+        assert_eq!(
+            detect_auth_challenge("AUTH CHALLENGE: re-login required"),
+            Some(HealthIssue::AgentAuthChallenge)
+        );
+        assert_eq!(
+            HealthIssue::AgentAuthChallenge.code(),
+            "AGENT_AUTH_CHALLENGE"
+        );
+        assert_eq!(
+            detect_host_sleep(Duration::from_secs(10), Duration::from_secs(5)),
+            Some(HealthIssue::HostSleepInterrupted)
+        );
+        assert_eq!(
+            HealthIssue::HostSleepInterrupted.code(),
+            "HOST_SLEEP_INTERRUPTED"
+        );
+        assert_eq!(
+            detect_resource_pressure(HostResources {
+                cpu_pressure: true,
+                memory_pressure: false,
+            }),
+            Some(HealthIssue::HostResourceExhausted)
+        );
+        assert_eq!(
+            HealthIssue::HostResourceExhausted.code(),
+            "HOST_RESOURCE_EXHAUSTED"
+        );
     }
 
     fn report_command() -> PtyCommand {
