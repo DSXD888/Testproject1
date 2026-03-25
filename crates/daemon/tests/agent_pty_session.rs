@@ -2,15 +2,22 @@
 
 mod support;
 
+#[path = "support/artifacts.rs"]
+mod artifacts_support;
 #[path = "../src/pty/session.rs"]
 mod session_impl;
 
 #[cfg(unix)]
 mod tests {
     use anyhow::Result;
+    use chrono::Utc;
     use nix::unistd::{getpgid, getsid};
     use serde::Deserialize;
+    use std::io::Write;
 
+    use crate::artifacts_support::{
+        ArtifactSandbox, CaptureConfig, PtyCapture, decode_chunk, ensure_contiguous,
+    };
     use crate::session_impl::{
         BrowserViewport, PtyCommand, PtyGeometry, PtyPairHandle, PtySession, SessionPhase,
         SpawnOptions, SpawnPath, spawn_policy_steps,
@@ -167,6 +174,174 @@ mod tests {
         let status = session.finish()?;
         assert!(status.success());
         assert_eq!(session.phase_history.last(), Some(&SessionPhase::Archived));
+        Ok(())
+    }
+
+    #[test]
+    fn it_pty_008_output_is_sequenced_before_capture_consumption() -> Result<()> {
+        let sandbox = ArtifactSandbox::new()?;
+        let mut capture = PtyCapture::new(
+            sandbox.root(),
+            "ordered-capture",
+            Utc::now(),
+            CaptureConfig::default(),
+        )?;
+
+        capture.append(1, b"hello ", Utc::now())?;
+        capture.append(2, b"world\n", Utc::now())?;
+        let _ = capture.finalize()?;
+        let index = sandbox.read_index("ordered-capture")?;
+        ensure_contiguous(&index)?;
+        let chunk_path = sandbox.chunk_paths("ordered-capture")?.remove(0);
+        let payload = decode_chunk(&chunk_path)?;
+        assert_eq!(payload, b"hello world\n");
+        Ok(())
+    }
+
+    #[test]
+    fn it_pty_009_chunk_boundary_rotates_at_threshold() -> Result<()> {
+        let sandbox = ArtifactSandbox::new()?;
+        let mut capture = PtyCapture::new(
+            sandbox.root(),
+            "boundary",
+            Utc::now(),
+            CaptureConfig {
+                compressed_chunk_target_bytes: 16,
+            },
+        )?;
+
+        capture.append(1, b"abcdefghij", Utc::now())?;
+        capture.append(2, b"klmnopqrst", Utc::now())?;
+        let index = capture.finalize()?;
+
+        assert!(index.len() >= 2);
+        ensure_contiguous(&index)?;
+        Ok(())
+    }
+
+    #[test]
+    fn it_pty_010_zero_byte_session_finalizes_without_partial_chunks() -> Result<()> {
+        let sandbox = ArtifactSandbox::new()?;
+        let mut capture = PtyCapture::new(
+            sandbox.root(),
+            "empty",
+            Utc::now(),
+            CaptureConfig::default(),
+        )?;
+
+        let index = capture.finalize()?;
+        assert!(index.is_empty());
+        assert!(sandbox.chunk_paths("empty")?.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn it_pty_011_recovery_truncates_torn_index_line() -> Result<()> {
+        let sandbox = ArtifactSandbox::new()?;
+        let mut capture = PtyCapture::new(
+            sandbox.root(),
+            "recovery",
+            Utc::now(),
+            CaptureConfig::default(),
+        )?;
+        capture.append(1, b"capture\n", Utc::now())?;
+        let paths = capture.paths().clone();
+        let _ = capture.finalize()?;
+
+        std::fs::OpenOptions::new()
+            .append(true)
+            .open(&paths.index_path)?
+            .write_all(b"{\"chunk\":\"broken")?;
+
+        let recovered = crate::artifacts_support::PtyCapture::recover(&paths)?;
+        ensure_contiguous(&recovered)?;
+        assert_eq!(recovered.len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn it_pty_020_hash_matches_durable_chunk_payload() -> Result<()> {
+        let sandbox = ArtifactSandbox::new()?;
+        let mut capture = PtyCapture::new(
+            sandbox.root(),
+            "hashes",
+            Utc::now(),
+            CaptureConfig::default(),
+        )?;
+        capture.append(1, b"hash-me", Utc::now())?;
+        let index = capture.finalize()?;
+        let chunk_path = sandbox.chunk_paths("hashes")?.remove(0);
+        let hash = crate::artifacts_support::compressed_payload_sha256(&chunk_path)?;
+        assert_eq!(index[0].sha256, hash);
+        Ok(())
+    }
+
+    #[test]
+    fn it_pty_021_temp_chunk_never_survives_recovery() -> Result<()> {
+        let sandbox = ArtifactSandbox::new()?;
+        let paths = sandbox.session_paths("temp-cleanup")?;
+        std::fs::write(paths.stream_dir.join("000001.pty.zst.tmp"), b"temp")?;
+        let recovered = crate::artifacts_support::PtyCapture::recover(&paths)?;
+        assert!(recovered.is_empty());
+        assert!(!paths.stream_dir.join("000001.pty.zst.tmp").exists());
+        Ok(())
+    }
+
+    #[test]
+    fn e2e_pty_017_real_child_capture_creates_artifacts() -> Result<()> {
+        let sandbox = ArtifactSandbox::new()?;
+        let mut session = PtySession::spawn(report_command(), SpawnOptions::default())?;
+        let line = session.read_line()?;
+        let mut capture = PtyCapture::new(
+            sandbox.root(),
+            "real-child",
+            Utc::now(),
+            CaptureConfig::default(),
+        )?;
+        capture.append(1, line.as_bytes(), Utc::now())?;
+        let index = capture.finalize()?;
+        let status = session.finish()?;
+
+        assert!(status.success());
+        assert_eq!(index.len(), 1);
+        assert!(!sandbox.chunk_paths("real-child")?.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn e2e_pty_018_transcript_is_reproducible_without_resize() -> Result<()> {
+        let sandbox_a = ArtifactSandbox::new()?;
+        let sandbox_b = ArtifactSandbox::new()?;
+
+        let mut session_a = PtySession::spawn(report_command(), SpawnOptions::default())?;
+        let line_a = session_a.read_line()?;
+        let report_a: PtyReport = serde_json::from_str(line_a.trim_end())?;
+        let mut capture_a = PtyCapture::new(
+            sandbox_a.root(),
+            "repro-a",
+            Utc::now(),
+            CaptureConfig::default(),
+        )?;
+        capture_a.append(1, line_a.as_bytes(), Utc::now())?;
+        let _ = capture_a.finalize()?;
+        let _ = session_a.finish()?;
+
+        let mut session_b = PtySession::spawn(report_command(), SpawnOptions::default())?;
+        let line_b = session_b.read_line()?;
+        let report_b: PtyReport = serde_json::from_str(line_b.trim_end())?;
+        let mut capture_b = PtyCapture::new(
+            sandbox_b.root(),
+            "repro-b",
+            Utc::now(),
+            CaptureConfig::default(),
+        )?;
+        capture_b.append(1, line_b.as_bytes(), Utc::now())?;
+        let _ = capture_b.finalize()?;
+        let _ = session_b.finish()?;
+
+        assert_eq!(report_a.isatty_stdin, report_b.isatty_stdin);
+        assert_eq!(report_a.isatty_stdout, report_b.isatty_stdout);
+        assert_eq!(report_a.isatty_stderr, report_b.isatty_stderr);
         Ok(())
     }
 
