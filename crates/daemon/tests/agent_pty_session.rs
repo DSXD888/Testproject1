@@ -14,6 +14,7 @@ mod tests {
     use nix::unistd::{getpgid, getsid};
     use serde::Deserialize;
     use std::io::Write;
+    use std::time::Duration;
 
     use crate::artifacts_support::{
         ArtifactSandbox, CaptureConfig, PtyCapture, decode_chunk, ensure_contiguous,
@@ -23,6 +24,7 @@ mod tests {
         SpawnOptions, SpawnPath, spawn_policy_steps,
     };
     use crate::support;
+    use crate::support::process::{ProcessIsolationGuard, ProcessTreeHelper};
 
     #[derive(Debug, Deserialize)]
     struct PtyReport {
@@ -345,25 +347,63 @@ mod tests {
         Ok(())
     }
 
-    fn report_command() -> PtyCommand {
-        let script = r#"
-import json
-import os
-import sys
-import time
+    #[test]
+    fn helper_report_session_semantics_mode_runs() -> Result<()> {
+        let output = ProcessTreeHelper::output(&["report-session-semantics"])?;
+        assert!(output.status.success());
+        let report: PtyReport = serde_json::from_slice(&output.stdout)?;
+        assert!(report.pid > 0);
+        assert!(report.pgid > 0);
+        assert!(report.sid > 0);
+        Ok(())
+    }
 
-print(json.dumps({
-  "isatty_stdin": os.isatty(0),
-  "isatty_stdout": os.isatty(1),
-  "isatty_stderr": os.isatty(2),
-  "tty": os.ttyname(0),
-  "pid": os.getpid(),
-  "pgid": os.getpgid(0),
-  "sid": os.getsid(0),
-}), flush=True)
-time.sleep(0.2)
-"#;
-        PtyCommand::new("python3").arg("-c").arg(script)
+    #[test]
+    fn helper_stdout_stderr_mode_runs() -> Result<()> {
+        let output = ProcessTreeHelper::output(&["stdout-stderr"])?;
+        assert!(output.status.success());
+        assert_eq!(String::from_utf8(output.stdout)?.trim_end(), "stdout-frame");
+        assert_eq!(String::from_utf8(output.stderr)?.trim_end(), "stderr-frame");
+        Ok(())
+    }
+
+    #[test]
+    fn helper_ignore_int_term_survives_term_until_killed() -> Result<()> {
+        let mut guard = ProcessIsolationGuard::new("ignore-int-term");
+        let mut child = ProcessTreeHelper::spawn(&["ignore-int-term", "5"])?;
+        guard.register_pid(child.id());
+
+        std::thread::sleep(Duration::from_millis(500));
+
+        nix::sys::signal::kill(
+            nix::unistd::Pid::from_raw(child.id().cast_signed()),
+            nix::sys::signal::Signal::SIGTERM,
+        )?;
+        std::thread::sleep(Duration::from_millis(100));
+        assert!(child.try_wait()?.is_none());
+
+        guard.assert_no_survivors();
+        let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(1));
+        Ok(())
+    }
+
+    #[test]
+    fn helper_process_group_lookup_runs() -> Result<()> {
+        let mut child = ProcessTreeHelper::spawn(&["sleep", "1"])?;
+        let process_group_id = ProcessTreeHelper::process_group(&child)?;
+        assert!(process_group_id > 0);
+        let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(2))?;
+        Ok(())
+    }
+
+    fn report_command() -> PtyCommand {
+        PtyCommand::new(
+            ProcessTreeHelper::binary_path()
+                .expect("test_agent binary")
+                .display()
+                .to_string(),
+        )
+        .arg("report-session-semantics")
     }
 
     fn echo_command() -> PtyCommand {
