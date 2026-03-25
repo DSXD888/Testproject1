@@ -3755,6 +3755,59 @@ mod tests {
         }));
         Ok(())
     }
+
+    #[test]
+    fn open_state_db_backfills_new_agent_session_log_columns_on_existing_db() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let conn = rusqlite::Connection::open(&db_path)?;
+        conn.execute_batch(
+            "\
+            CREATE TABLE agent_session_logs (
+              id TEXT PRIMARY KEY,
+              job_id TEXT REFERENCES workflow_jobs(id),
+              skill_path TEXT NOT NULL,
+              skill_version TEXT,
+              execution_mode TEXT NOT NULL,
+              cli_vendor TEXT,
+              cli_version TEXT,
+              adapter_version TEXT,
+              config_hash TEXT,
+              pty_session_id TEXT,
+              pid INTEGER,
+              pgid INTEGER,
+              started_at TEXT,
+              completed_at TEXT,
+              status TEXT NOT NULL,
+              terminal_output_path TEXT,
+              terminal_output_hash TEXT,
+              terminal_output_bytes INTEGER,
+              terminal_output_tail TEXT,
+              structured_trace TEXT,
+              error_type TEXT,
+              error_message TEXT,
+              cleanup_verdict TEXT,
+              run_manifest_path TEXT,
+              run_manifest_hash TEXT,
+              last_checkpoint_seq INTEGER,
+              created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            ",
+        )?;
+        drop(conn);
+
+        let state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        let mut stmt = state_db
+            .connection()
+            .prepare("PRAGMA table_info(agent_session_logs)")?;
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(1))?
+            .collect::<std::result::Result<_, _>>()?;
+        assert!(columns.iter().any(|column| column == "adapter_id"));
+        assert!(columns.iter().any(|column| column == "sid"));
+        assert!(columns.iter().any(|column| column == "exit_code"));
+        Ok(())
+    }
 }
 
 #[cfg(test)]

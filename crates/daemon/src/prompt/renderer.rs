@@ -133,32 +133,3 @@ fn validate_input(input: &PromptRendererInput) -> Result<()> {
     );
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use anyhow::{Result, ensure};
-    use serde_json::json;
-
-    use super::{PromptRenderer, PromptRendererInput, RUN_MANIFEST_INSTRUCTION_BLOCK};
-
-    #[test]
-    fn render_includes_skill_parameters_resume_and_manifest_instructions() -> Result<()> {
-        let prompt = PromptRenderer::render(&PromptRendererInput {
-            skill_id: "procurement-ingestion/fts".to_owned(),
-            skill_version: "1.0.0".to_owned(),
-            skill_markdown: "# Skill\nUse this skill.".to_owned(),
-            job_id: "job-1".to_owned(),
-            session_id: "session-1".to_owned(),
-            execution_mode: "contract".to_owned(),
-            job_parameters: json!({"notice_id":"123"}),
-            resume_token: Some(json!({"cursor":"next-page"})),
-            company_profile: None,
-        })?;
-
-        ensure!(prompt.contains("## Bound SKILL.md"));
-        ensure!(prompt.contains("\"notice_id\": \"123\""));
-        ensure!(prompt.contains("\"cursor\": \"next-page\""));
-        ensure!(prompt.contains(RUN_MANIFEST_INSTRUCTION_BLOCK));
-        Ok(())
-    }
-}

@@ -14,7 +14,8 @@
 
 **Coverage target:** all `138` unique `L1-FR-*` requirement IDs in the validated L1 spec map to at least one test ID in this document.
 
-**Planned test inventory:** `150` test IDs total
+**Planned test inventory:** `174` total checks
+`168` runnable cargo tests plus `6` static gate IDs
 - `6` static gates
 - `47` unit tests
 - `57` integration tests
@@ -76,8 +77,9 @@
 | Surface | Count | Notes |
 |--------|-------|-------|
 | Static gates | 6 | not tied to a single Rust test file |
-| `agent_pty_session.rs` | 22 | PTY + lifecycle + chunk recovery |
-| `agent_contract_session.rs` | 18 | two-lane contract execution and runner persistence |
+| `main.rs` | 8 | auxiliary bootstrap/runtime assertions that keep fixture + migration helpers honest |
+| `agent_pty_session.rs` | 26 | PTY + lifecycle + chunk recovery + helper smoke assertions |
+| `agent_contract_session.rs` | 27 | two-lane contract execution, runner persistence, and runner-local scope/freshness semantics |
 | `agent_procurement_ingestion.rs` | 26 | live loop, stage tracking, pipeline/error behavior |
 | `adapter_codex.rs` | 11 | Codex adapter trait contract |
 | `adapter_claude.rs` | 11 | Claude adapter trait contract |
@@ -85,7 +87,9 @@
 | `skill_lint.rs` | 8 | CI gate for skill directory correctness |
 | `skill_canary_harness.rs` | 9 | source/browser/contract drift smoke coverage |
 | `session_reaper.rs` | 13 | explicit reap, cleanup verdicts, daemon-crash recovery |
-| `ipc_handshake.rs` | 13 | descriptor, lock, handshake, restart rules, UDS auth |
+| `ipc_handshake.rs` | 14 | descriptor, lock, handshake, restart rules, UDS auth + runtime inventory gate |
+
+Counts above include auxiliary harness/smoke assertions that are intentionally kept runnable even when they are not requirement-bearing TDD IDs. Numbered IDs below are unique and no longer duplicated across files.
 
 ## 7. Static Gates
 
@@ -149,6 +153,22 @@
 | `IT-CON-016` | `T2` | `adapter/contract/P1` | stderr-only contract sessions are preserved on the output lane without semantic loss | `L1-FR-ADAPTER.3`, `L1-FR-ADAPTER.6`, `L1-FR-ADAPTER.14` |
 | `IT-CON-017` | `T2` | `runner/db/P0` | retrying a lost `MutationAck` with the same idempotency context returns the original `visibleAfterSeq` and writes no duplicate stage rows | `L1-FR-RUNNER.2`, `L1-FR-DB.2` |
 | `IT-CON-018` | `T2` | `runner/db/P0` | concurrent WAL readers hold a stable snapshot during a write transaction, and a competing second writer that exhausts `busy_timeout` surfaces `SQLITE_WRITE_FAILED` with no new `visibleAfterSeq`, no `commit_seq` advance, and no stage-head movement | `L1-FR-RUNNER.1`, `L1-FR-RUNNER.2`, `L1-FR-ERRORS.41`, `L1-FR-DB.2`, `L1-FR-DB.3` |
+| `IT-CON-019` | `T2` | `adapter/contracts/P1` | the adapter contract surface (`id`, `probe`, `resolve_mode`, `build_launch_spec`, `parser`) composes end-to-end without vendor-native leakage | `L1-FR-ADAPTER.11`-`L1-FR-ADAPTER.18` |
+| `IT-CON-020` | `T2` | `runner/scopes/P1` | stage-to-scope mapping matches the six canonical scope kinds and commit semantics | `L1-FR-PIPELINE.17`, `L1-FR-PIPELINE.18`, `L1-FR-RUNNER.5` |
+| `IT-CON-021` | `T2` | `runner/scopes/P1` | failed set-replacement attempts do not advance the current stage head and still emit an explicit failed status row | `L1-FR-PIPELINE.19`, `L1-FR-RUNNER.9` |
+| `IT-CON-022` | `T2` | `runner/scopes/P1` | additive stages can persist multiple scope units from one logical session without collapsing them into one head | `L1-FR-PIPELINE.16`, `L1-FR-RUNNER.5` |
+| `IT-CON-023` | `T2` | `runner/freshness/P1` | `expected_input_basis_hash` mismatches mark the current job obsolete and enqueue a rerun with preserved provenance | `L1-FR-PIPELINE.21`, `L1-FR-RUNNER.8` |
+| `IT-CON-024` | `T2` | `runner/scopes/P1` | additive stages preserve successful scope heads even when a sibling scope fails in the same stage family | `L1-FR-PIPELINE.16`, `L1-FR-PIPELINE.19`, `L1-FR-RUNNER.5` |
+| `IT-CON-025` | `T2` | `runner/freshness/P1` | soft-stale and hard-invalid head freshness states persist distinctly on stage heads | `L1-FR-PIPELINE.20`, `L1-FR-PIPELINE.21` |
+| `IT-CON-026` | `T2` | `runner/scopes/P1` | one runner-owned session can prove singular set-replacement cohorts plus multiple additive `stage_run_id` values without reusing failed cohorts | `L1-FR-PIPELINE.16`, `L1-FR-PIPELINE.19`, `L1-FR-PIPELINE.20`, `L1-FR-RUNNER.5`, `L1-FR-RUNNER.9` |
+| `IT-CON-019` | `T2` | `adapter/contracts/P1` | the adapter contract surface (`id`, `probe`, `resolve_mode`, `build_launch_spec`, `parser`) composes end-to-end without vendor-native leakage | `L1-FR-ADAPTER.11`-`L1-FR-ADAPTER.18` |
+| `IT-CON-020` | `T2` | `runner/scopes/P1` | stage-to-scope mapping matches the six canonical scope kinds and commit semantics | `L1-FR-PIPELINE.17`, `L1-FR-PIPELINE.18`, `L1-FR-RUNNER.5` |
+| `IT-CON-021` | `T2` | `runner/scopes/P1` | failed set-replacement attempts do not advance the current stage head and still emit an explicit failed status row | `L1-FR-PIPELINE.19`, `L1-FR-RUNNER.9` |
+| `IT-CON-022` | `T2` | `runner/scopes/P1` | additive stages can persist multiple scope units from one logical session without collapsing them into one head | `L1-FR-PIPELINE.16`, `L1-FR-RUNNER.5` |
+| `IT-CON-023` | `T2` | `runner/freshness/P1` | `expected_input_basis_hash` mismatches mark the current job obsolete and enqueue a rerun with preserved provenance | `L1-FR-PIPELINE.21`, `L1-FR-RUNNER.8` |
+| `IT-CON-024` | `T2` | `runner/scopes/P1` | additive stages preserve successful scope heads even when a sibling scope fails in the same stage family | `L1-FR-PIPELINE.16`, `L1-FR-PIPELINE.19`, `L1-FR-RUNNER.5` |
+| `IT-CON-025` | `T2` | `runner/freshness/P1` | soft-stale and hard-invalid head freshness states persist distinctly on stage heads | `L1-FR-PIPELINE.20`, `L1-FR-PIPELINE.21` |
+| `IT-CON-026` | `T2` | `runner/scopes/P1` | one runner-owned session can prove singular set-replacement cohorts plus multiple additive `stage_run_id` values without reusing failed cohorts | `L1-FR-PIPELINE.16`, `L1-FR-PIPELINE.19`, `L1-FR-PIPELINE.20`, `L1-FR-RUNNER.5`, `L1-FR-RUNNER.9` |
 
 ### 8.3 `agent_procurement_ingestion.rs`
 

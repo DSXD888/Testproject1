@@ -525,7 +525,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn adapter_contract_surface_is_exercised_end_to_end() -> Result<()> {
+    async fn it_con_019_adapter_contract_surface_is_exercised_end_to_end() -> Result<()> {
         let adapter = DummyAdapter;
         ensure!(adapter.id() == "dummy", "unexpected adapter identity");
 
@@ -1426,7 +1426,7 @@ mod tests {
     }
 
     #[test]
-    fn e2e_ing_014_stage_to_scope_mapping_matches_the_six_canonical_scope_kinds() -> Result<()> {
+    fn it_con_020_stage_to_scope_mapping_matches_the_six_canonical_scope_kinds() -> Result<()> {
         let cases = [
             (
                 "Normalize",
@@ -1475,7 +1475,7 @@ mod tests {
     }
 
     #[test]
-    fn e2e_ing_015_set_replacement_stages_never_leak_partial_writes_or_head_movement() -> Result<()>
+    fn it_con_021_set_replacement_stages_never_leak_partial_writes_or_head_movement() -> Result<()>
     {
         let state_db = TestStateDb::new()?;
         seed_process(state_db.connection(), "process-set-replacement")?;
@@ -1519,7 +1519,7 @@ mod tests {
     }
 
     #[test]
-    fn e2e_ing_016_additive_stages_commit_multiple_scoped_units_from_one_session() -> Result<()> {
+    fn it_con_022_additive_stages_commit_multiple_scoped_units_from_one_session() -> Result<()> {
         let state_db = TestStateDb::new()?;
         seed_process(state_db.connection(), "process-additive")?;
         seed_job(
@@ -1598,7 +1598,7 @@ mod tests {
     }
 
     #[test]
-    fn e2e_ing_017_expected_input_basis_hash_mismatch_marks_job_obsolete_and_enqueues_rerun()
+    fn it_con_023_expected_input_basis_hash_mismatch_marks_job_obsolete_and_enqueues_rerun()
     -> Result<()> {
         let state_db = TestStateDb::new()?;
         seed_process(state_db.connection(), "process-basis")?;
@@ -1667,7 +1667,7 @@ mod tests {
     }
 
     #[test]
-    fn e2e_ing_017_additive_stage_preserves_successful_units_when_sibling_fails() -> Result<()> {
+    fn it_con_024_additive_stage_preserves_successful_units_when_sibling_fails() -> Result<()> {
         let state_db = TestStateDb::new()?;
         seed_process(state_db.connection(), "process-additive-mixed")?;
         seed_job(
@@ -1741,7 +1741,7 @@ mod tests {
     }
 
     #[test]
-    fn e2e_ing_018_soft_stale_vs_hard_invalid_follow_staleness_cascade_rules() -> Result<()> {
+    fn it_con_025_soft_stale_vs_hard_invalid_follow_staleness_cascade_rules() -> Result<()> {
         let state_db = TestStateDb::new()?;
         seed_process(state_db.connection(), "process-staleness")?;
         seed_stage_head(
@@ -1793,7 +1793,7 @@ mod tests {
     }
 
     #[test]
-    fn e2e_ing_026_one_session_exercising_set_replacement_and_additive_proves_stage_run_id_scoping()
+    fn it_con_026_one_session_exercising_set_replacement_and_additive_proves_stage_run_id_scoping()
     -> Result<()> {
         let set_replacement = stage_scope_rule("Normalize")?;
         let additive = stage_scope_rule("Gross margin gate")?;

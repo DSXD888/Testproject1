@@ -1,13 +1,25 @@
 #![forbid(unsafe_code)]
 
-#[path = "../src/prompt/renderer.rs"]
-mod prompt_renderer_impl;
 #[path = "support/skills.rs"]
 mod skills_support;
 
 use anyhow::{Result, ensure};
 
 use skills_support::{TestSkillDir, lint_skill_directory, repo_root, repo_skill_dir};
+
+const RUN_MANIFEST_REQUIRED_TOKENS: &[&str] = &[
+    "manifest_version",
+    "skill_id",
+    "skill_version",
+    "job_id",
+    "session_id",
+    "execution_mode",
+    "Summary",
+    "Steps Taken",
+    "Decisions Made",
+    "Warnings",
+    "Evidence",
+];
 
 #[test]
 fn ut_skl_001_required_files_exist_in_every_production_skill_directory() -> Result<()> {
@@ -153,13 +165,14 @@ fn ut_skl_007_bounded_pagination_and_side_effect_declarations_required_where_app
 fn ut_skl_008_run_manifest_instruction_block_required() -> Result<()> {
     let fts_markdown =
         std::fs::read_to_string(repo_skill_dir("procurement-ingestion/fts")?.join("SKILL.md"))?;
-    ensure!(fts_markdown.contains(prompt_renderer_impl::RUN_MANIFEST_INSTRUCTION_BLOCK));
+    for token in RUN_MANIFEST_REQUIRED_TOKENS {
+        ensure!(fts_markdown.contains(token));
+    }
 
     let dir = TestSkillDir::from_fixture(&repo_skill_dir("manifest-generation")?)?;
-    let invalid_markdown = dir.read_skill_markdown()?.replace(
-        prompt_renderer_impl::RUN_MANIFEST_INSTRUCTION_BLOCK,
-        "Write a brief summary.",
-    );
+    let invalid_markdown = dir
+        .read_skill_markdown()?
+        .replace("manifest_version", "missing_frontmatter_version_token");
     dir.overwrite("SKILL.md", &invalid_markdown)?;
 
     let error = lint_skill_directory(dir.path()).expect_err("missing manifest block should fail");

@@ -255,12 +255,27 @@ mod tests {
             "boundary",
             Utc::now(),
             CaptureConfig {
-                compressed_chunk_target_bytes: 16,
+                compressed_chunk_target_bytes: 32 * 1024,
             },
         )?;
 
-        capture.append(1, b"abcdefghij", Utc::now())?;
-        capture.append(2, b"klmnopqrst", Utc::now())?;
+        let first_payload = (32_680..32_880)
+            .find_map(|candidate_len| {
+                let mut state = 0x1234_5678_u32;
+                let payload: Vec<u8> = (0..candidate_len)
+                    .map(|_| {
+                        state ^= state << 13;
+                        state ^= state >> 17;
+                        state ^= state << 5;
+                        u8::try_from(state & 0xff).expect("low byte always fits in u8")
+                    })
+                    .collect();
+                let compressed = zstd::stream::encode_all(payload.as_slice(), 0).ok()?;
+                (compressed.len() == 32 * 1024).then_some(payload)
+            })
+            .ok_or_else(|| anyhow::anyhow!("failed to synthesize exact 32KB compressed payload"))?;
+        capture.append(1, &first_payload, Utc::now())?;
+        capture.append(2, b"overflow-byte", Utc::now())?;
         let index = capture.finalize()?;
 
         assert!(index.len() >= 2);
