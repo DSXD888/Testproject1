@@ -1193,6 +1193,7 @@ L0 §2 is the constitutional schema source and reserves the full logical shape o
 | Process-level validation rollup | L3 | Desktop, web portal, L6 bid readiness | `pipeline_assessments.validation_state` is the coarse process-level projection of underlying trust states and is constrained to `validated`/`flagged`/`unverified`; it is not the same thing as per-output trust state |
 | `packages/contracts-schema` types | L0 | All TypeScript code | Canonical type definitions; changes must be backward-compatible |
 | `packages/ui` frame + slot pattern | L2 | Desktop + web shells | Presentational components; data-fetching hooks are shell-specific |
+| Transport shim (`src/lib/transport.ts`) | L2 | All desktop frontend code | Runtime selects Tauri native bridge (`window.__TAURI_INTERNALS__`) or dev-mode HTTP/WebSocket fallback. All hooks and stores call through the shim, never import `@tauri-apps/api` directly. Dev bridge is Vite middleware (not shipped). |
 | Evaluation harness API | L0 | Gold-set benchmarking | Pipeline runner + metrics computation interface |
 | L5→L6 readiness gate | L5 | L6 bid workflow | Bid workflow CANNOT reach `ready_to_bid` while any L5 blocker is active: `CLASSIFICATION_AMBIGUOUS`, `TARIFF_BRANCH_DIVERGENCE`, `SUPPLEMENTARY_UNIT_MISSING` on required components, `decision_grade = broker_required`, classification freshness expired for expected import window. Quote-role quality gate: opportunities backed only by `domestic_wholesale_floor` or `optimistic_floor` evidence are not bid-ready unless operator explicitly overrides. |
 
@@ -1273,11 +1274,13 @@ These input/output contracts between pipeline stages are established in Layer 0 
 
 Release gates use either real external integrations (live browser sessions, live daemon paths, live sync) or captured evidence bundles / replay artifacts. Mock-only release gates are not sufficient for this architecture because the dominant failure modes are page-shape drift, session semantics, sync ordering, and process supervision.
 
+**Browser-first UI testing (L2+):** From Layer 2 onward, all UI E2E tests run primarily via **Playwright against localhost** in a standard browser, not through the Tauri webview. A dev-only Vite middleware (see L2 §1.8) bridges `invoke()` and `Channel<T>` to the daemon via HTTP/WebSocket, making the React SPA fully functional at `http://localhost:5173`. This enables use of Playwright MCP and Vercel agent browser skills for interactive verification that simulates real human usage. Tauri-specific behaviors (daemon auto-launch, window lifecycle, webview-native edge cases) are verified separately as a smaller Tauri integration tier.
+
 | Layer | Fast Inner Loop | Live Smoke | Benchmark Batch | Release Gate |
 |-------|----------------|------------|-----------------|--------------|
 | L0 | Extraction parsers, margin math, scoring, data model | One skill + one lot through pipeline | Full gold-set corpus vs human labels | All skills, full pipeline, extended corpus |
 | L1 | + Rust unit tests (adapter, PTY) | + Real skill session via daemon | + 10 consecutive batch runs | + Process supervision stress test |
-| L2 | + Desktop integration tests (stores, bridge contracts, render surfaces) | + Desktop E2E flow | + Operator runs daily for 1 week | + Full desktop + pipeline E2E |
+| L2 | + Playwright browser E2E on localhost (primary UI tests) + desktop store/hook unit tests | + Playwright full-flow E2E against live daemon on localhost | + Operator runs daily for 1 week | + Full Playwright suite + Tauri integration verification + agent E2E |
 | L3 | + Validation policy logic, relation scoring, validator canary health | + Cron-triggered skill session | + 5 consecutive days unattended | + All fault injection + replay + validator health tests |
 | L4 | + Sync protocol unit tests, writer fencing, command ledger, redaction boundary | + Push-pull round trip | + Multi-user concurrent access | + Full sync + web portal E2E + provisional promotion |
 | L5 | + Customs classification, measure interaction, FX, freight, evidence tiers | + Multi-source search session, tariff API round-trip | + Decision-grade accuracy vs gold set, conservative-to-actual uplift calibration | + ≥3 categories, ≥2 sources each, measure interaction golden cases |
@@ -1289,11 +1292,11 @@ Release gates use either real external integrations (live browser sessions, live
 |-------|---------------|------------|-------|
 | L0 | 4 | 4 | Intelligence pipeline unit tests |
 | L1 | 10 | 14 | Adapter, PTY, skill linting, canary harness, session reaper, IPC handshake |
-| L2 | 7 | 21 | Agent E2E, desktop E2E, session controls, commit fence |
-| L3 | 18 | 39 | Fault injection, replay, validation, drift, validator canary health, retro-validation |
-| L4 | 4 | 43 | Sync, schema, web E2E, redaction boundary |
-| L5 | 5 | 48 | Customs classification, measure interaction, FX, freight |
-| L6 | 3 | 51 | Bid workflow states, portal side-effects, readiness gate |
+| L2 | 11 | 25 | Playwright browser E2E (6 specs: contracts, decisions, sessions, commit-fence, errors, security), Tauri integration (1 spec), agent E2E (4 Rust tests) |
+| L3 | 18 | 43 | Fault injection, replay, validation, drift, validator canary health, retro-validation |
+| L4 | 4 | 47 | Sync, schema, web E2E, redaction boundary |
+| L5 | 5 | 52 | Customs classification, measure interaction, FX, freight |
+| L6 | 3 | 55 | Bid workflow states, portal side-effects, readiness gate |
 
 ---
 
@@ -1332,7 +1335,7 @@ Layer 0: Skills (SKILL.md playbooks) + TypeScript intelligence
   ↓
 Layer 1: + Thin Rust (daemon binary, PTY, process supervision)
   ↓
-Layer 2: + Desktop UI (Tauri shell) + Shared UI (packages/ui)
+Layer 2: + Desktop UI (Tauri shell) + Shared UI (packages/ui) + Playwright browser E2E (primary UI tests)
   ↓
 Layer 3: + Operational Rust (cron, resource arbiter, validation)
   ↓
@@ -1388,7 +1391,9 @@ For quick reference, when each major component becomes active:
 | Run manifest writer | L1 | Full (with machine-authored fallback) |
 | Error manifest system | L1 | Full |
 | Stage tracking (`stage_run_id` + heads) | L1 | Full |
-| Tauri desktop shell | L2 | Full control panel (16 files) |
+| Tauri desktop shell | L2 | Full control panel (18 files: 16 shipped + 2 dev-only) |
+| Transport shim + dev bridge | L2 | Full (shim shipped; Vite dev bridge is dev/test-only) |
+| Playwright browser E2E on localhost | L2 | Primary UI test surface via dev bridge |
 | QueryService (SQLite reads + commit fence) | L2 | Full |
 | DaemonBridge (10 commands + handshake) | L2 | Full |
 | ControlPlaneState (5-state structured health) | L2 | Full |

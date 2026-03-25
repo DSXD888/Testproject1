@@ -1,0 +1,59 @@
+# L1 Daemon Core — Pipeline Status
+# Generated: 2026-03-25
+
+feature: l1-daemon-core
+status: ready-for-execution
+bead_prefix: testproject1-63g
+
+source_of_truth:
+  spec:
+    path: docs/strategy/layers/layer-1-thin-local-runner.md
+    role: "SOT #1 — WHAT to build (138 L1-FR-* requirement IDs)"
+  tdd:
+    path: docs/pipeline/l1-daemon-core/artifacts/l1-daemon-core-tdd.md
+    role: "SOT #2 — HOW to verify (150 test IDs)"
+  strategy:
+    path: docs/pipeline/l1-daemon-core/artifacts/l1-daemon-core-strategy.md
+    role: "SOT #3 — WHAT ORDER (10 phases, dependency DAG)"
+  bootstrap:
+    path: docs/pipeline/l1-daemon-core/artifacts/l1-daemon-core-bootstrap.md
+    role: "Environment setup, Cargo.toml templates, test workspace layout"
+
+execution_prompts:
+  kickoff:
+    path: docs/pipeline/l1-daemon-core/artifacts/l1-daemon-core-kickoff.md
+    role: "Full agent onboarding — architecture, workflow, quality gates"
+  push:
+    path: docs/pipeline/l1-daemon-core/artifacts/l1-daemon-core-push.md
+    role: "Continuation nudge — re-orient and resume work loop"
+
+supporting_docs:
+  agents_md: AGENTS.md
+  layer_strategy: docs/strategy/layer-strategy.md
+  l0_schema: docs/strategy/layers/layer-0-gold-set-evaluation.md
+  manifest: docs/pipeline/l1-daemon-core/manifest.yaml
+
+beads:
+  total: 23
+  epic: 1
+  tasks: 22
+  ready: 1
+  in_progress: 0
+  completed: 0
+  id_range: "testproject1-63g.1 — testproject1-63g.22"
+  first_ready: "testproject1-63g.1 (L1-01: Workspace Bootstrap)"
+
+tech_stack:
+  language: rust
+  edition: "2024 (nightly)"
+  build: "cargo check --all-targets"
+  lint: "cargo clippy --all-targets -- -D warnings && cargo fmt --check"
+  test: "cargo test"
+  unsafe_policy: "#![forbid(unsafe_code)]"
+
+phases: 10
+production_files: 17
+test_files: 10
+static_gates: 6
+test_ids: 150
+requirement_ids: 138

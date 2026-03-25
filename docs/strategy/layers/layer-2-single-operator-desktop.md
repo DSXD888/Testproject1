@@ -51,7 +51,7 @@ React SPA (Vite)
 | **Mutations/triggers** | `invoke()` -> DaemonBridge -> UDS/pipe -> daemon | Frontend -> Daemon | Trigger ingestion, trigger enrichment, capture decisions |
 | **Live streams** | Daemon -> DaemonBridge -> `Channel<T>` -> React | Daemon -> Frontend | Session terminal output, job progress, daemon health |
 
-**Why not pure HTTP on localhost:** Port discovery/conflicts, auth/token management, extra attack surface, network semantics for a non-networked relationship.
+**Why not pure HTTP on localhost (production):** Port discovery/conflicts, auth/token management, extra attack surface, network semantics for a non-networked relationship. In production, `invoke()` + `Channel<T>` through the Tauri webview is the only transport. A dev-only HTTP fallback exists for browser-based testing — see §1.8.
 
 **Why the Tauri backend is not the daemon:** The daemon is a background scheduler/executor. It must survive UI close, restart independently, and have its own lifecycle. Embedding it makes shutdown, crash recovery, and "app closed but cron still runs" (Layer 3) architecturally unsound.
 
@@ -302,9 +302,64 @@ Three flattened states are insufficient — "daemon reachable but unhealthy" is 
 
 The desktop does NOT require the user to manually start the daemon. Auto-launch on first open is essential for the control-panel promise.
 
-### 1.8 Desktop File Listing
+### 1.8 Dev-Mode Browser Transport (Test-Only)
 
-**`apps/desktop/` — 16 files:**
+Tauri's `invoke()` and `Channel<T>` only work inside the native webview — `window.__TAURI_INTERNALS__` is injected by the Tauri runtime and absent in a plain browser. On macOS (WKWebView), Playwright cannot connect to the webview via CDP either. This makes browser-based testing tools (Playwright MCP, Vercel agent browser skills) unable to interact with the real app.
+
+**Solution:** A dev-only Vite middleware that bridges the gap so the React SPA is fully functional at `http://localhost:5173` in any browser. This is the **primary E2E testing surface** for all UI functionality (see §4).
+
+```text
+Browser (Playwright / any browser)
+  -> http://localhost:5173          Vite dev server serves React SPA
+  -> POST /__tauri_invoke__         Vite middleware proxies to daemon
+       -> QueryService logic        (read-only SQLite, same queries)
+       -> DaemonBridge logic        (UDS/pipe forward, same commands)
+  -> ws://localhost:5173/__ws__     WebSocket relay for live streaming
+       -> daemon event stream       (same SessionFrame / BridgeEvent types)
+```
+
+**Runtime shim (~10 lines, in `src/lib/transport.ts`):**
+
+```typescript
+// Production: Tauri bridge exists, use it directly.
+// Dev browser: bridge absent, fall back to HTTP/WebSocket via Vite middleware.
+export const invoke = window.__TAURI_INTERNALS__?.invoke
+  ?? ((cmd: string, args?: Record<string, unknown>) =>
+    fetch('/__tauri_invoke__', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cmd, args }),
+    }).then(r => r.json()))
+```
+
+All existing hooks (`use-daemon.ts`, `use-control-plane.ts`) and stores (`session-registry.ts`, `session-buffer.ts`) call through this shim instead of importing `@tauri-apps/api` directly. In the Tauri webview, the native bridge is always present and the HTTP path is dead code.
+
+**Channel\<T\> equivalent:** The Vite dev plugin opens a WebSocket at `/__ws__` that relays `SessionFrame` and `BridgeEvent` payloads from the daemon. The `session-registry.ts` store connects via WebSocket when `window.__TAURI_INTERNALS__` is absent, using the same frame types and gap-recovery logic.
+
+**What this enables:**
+- `npm run dev` starts Vite with the middleware plugin active
+- Playwright navigates to `localhost:5173` in a standard Chromium browser
+- Full daemon access: real data, real mutations, real live streaming
+- All UI E2E tests run in a browser — no Tauri build required for iteration
+
+**What this does NOT change:**
+- Production transport remains `invoke()` + `Channel<T>` through the Tauri webview
+- The daemon does not know or care whether commands arrive via Tauri bridge or HTTP middleware — it receives the same UDS messages
+- The dev middleware is not shipped in production builds
+- This is NOT the Layer 4 web viewing portal (which is a separate Next.js app reading from Supabase)
+
+**Security:** The middleware binds to `127.0.0.1` only and is excluded from production builds via Vite's `mode` configuration. It exists solely for local development and testing.
+
+**Dev-mode files (not shipped):**
+
+| File | Purpose |
+|------|---------|
+| `vite-plugin-tauri-dev-bridge.ts` | Vite plugin: HTTP handler for `/__tauri_invoke__` (proxies to daemon via UDS) + WebSocket relay at `/__ws__` |
+| `src/lib/transport.ts` | Runtime shim: selects Tauri native bridge or HTTP fallback based on `window.__TAURI_INTERNALS__` presence |
+
+### 1.9 Desktop File Listing
+
+**`apps/desktop/` — 18 files (16 shipped + 2 dev-only):**
 
 | File | Responsibility |
 |------|---------------|
@@ -324,8 +379,10 @@ The desktop does NOT require the user to manually start the daemon. Auto-launch 
 | `src/hooks/use-daemon.ts` | `useSessionMeta()`, `useSessionTail()`, `useSessionTimeline()` — slice subscriptions via `useSyncExternalStore` |
 | `src/pages/DaemonStatus.tsx` | Daemon operations: instance id/version, socket path, DB path, artifact root, WAL size, startup/recovery info, restart button, open logs/artifacts |
 | `src/hooks/use-control-plane.ts` | `useControlPlaneState()` — daemon health separate from query snapshots; consumed via `useSyncExternalStore` |
+| `src/lib/transport.ts` | **Dev + shipped:** Runtime shim — selects Tauri native bridge or HTTP fallback (see §1.8) |
+| `vite-plugin-tauri-dev-bridge.ts` | **Dev-only (not shipped):** Vite plugin — HTTP proxy for `invoke()` + WebSocket relay for streaming (see §1.8) |
 
-### 1.9 React State Management
+### 1.10 React State Management
 
 **Pattern:** Purpose-built external stores with `useSyncExternalStore()` for slice subscriptions. **Not** TanStack Query for streaming state.
 
@@ -343,7 +400,7 @@ The desktop does NOT require the user to manually start the daemon. Auto-launch 
 - `useSessionTail(sessionId)` — last N lines for terminal view
 - `useSessionTimeline(sessionId)` — structured event timeline for contract mode
 
-### 1.10 Shared UI Components (`packages/ui`)
+### 1.11 Shared UI Components (`packages/ui`)
 
 **Frame + slot composition pattern** (not boolean props):
 
@@ -397,7 +454,7 @@ interface ErrorSummaryListProps {
 - `ErrorSummaryList`: sanitize error messages and context
 - Never render arbitrary embedded HTML from agent text
 
-### 1.11 Manifest Rendering (`packages/manifests`)
+### 1.12 Manifest Rendering (`packages/manifests`)
 
 **2 files:**
 
@@ -410,7 +467,7 @@ The canonical rendering lives here, not in the `manifest-generation` skill. The 
 
 **`decisionBasisHash` ownership:** The hash is daemon-authored from a canonical serialization of operator-relevant fields, NOT computed by the manifest renderer or by a skill. The renderer consumes the already-computed hash. This prevents hash drift across Rust/TS/agent implementations.
 
-### 1.12 New Skill: Contracts Finder Ingestion
+### 1.13 New Skill: Contracts Finder Ingestion
 
 | Attribute | Value |
 |-----------|-------|
@@ -421,7 +478,7 @@ The canonical rendering lives here, not in the `manifest-generation` skill. The 
 | **Licensing** | Aligned with open contracting/publication standards |
 | **Cursor strategy** | Date-based filtering + cursor; rate-limit-aware polling |
 
-### 1.13 What's Stubbed in This Layer
+### 1.14 What's Stubbed in This Layer
 
 | Feature | Layer 2 Stub | Full Implementation |
 |---------|-------------|-------------------|
@@ -435,7 +492,7 @@ The canonical rendering lives here, not in the `manifest-generation` skill. The 
 | Degraded-mode UX | Five-state structured health (full/limited/browse-only/incompatible/recovery) | Layer 4: adds sync-specific states (sync healthy/degraded/offline as distinct dimension) |
 | Web portal | Not present | Layer 4: read-only viewing portal |
 
-### 1.14 Things NOT Implemented in Layer 2
+### 1.15 Things NOT Implemented in Layer 2
 
 - Cron scheduling (Layer 3)
 - Resource arbiter (Layer 3)
@@ -447,7 +504,7 @@ The canonical rendering lives here, not in the `manifest-generation` skill. The 
 - Bid workflow automation (Layer 6)
 - Multi-user / RBAC (not in MVP)
 
-### 1.15 Accessibility
+### 1.16 Accessibility
 
 - Do NOT `aria-live` every transcript line — announce only state transitions ("session stalled", "new opportunities available")
 - Do NOT use color as the only signal for margin/risk or sync health — provide text labels and icons alongside
@@ -756,62 +813,93 @@ All list views use **keyset/cursor pagination** (not offset). Offset causes row 
 
 ## 4. Testing & Acceptance
 
-### 4.1 Definition of Done
+### 4.1 Testing Tiers
 
-| # | Criterion | Verification |
-|---|----------|-------------|
-| 1 | **FTS ingestion skill** scrapes live notices from Find a Tender | Automated: agent E2E test produces notices |
-| 2 | **Contracts Finder ingestion skill** scrapes live notices | Automated: agent E2E test produces notices |
-| 3 | **Notice normalization** produces canonical internal records | Automated: normalized records match expected schema |
-| 4 | **Goods/services classifier** correctly categorizes notices | Automated: unit tests for CPV-based classification |
-| 5 | **Desktop control panel** launches with QueryService + DaemonBridge + bootstrap state machine | Manual: app launches, state machine detects daemon |
-| 6 | **Notice list view** with keyset pagination displays live pipeline output | E2E: Playwright test navigates list, verifies pagination |
-| 7 | **Opportunity detail view** shows margin bands, product candidates, supplier quotes | E2E: Playwright test opens detail, verifies data |
-| 8 | **Decision capture** (reject/watch/approve) persists locally in `pending_operator_intents` with reviewed-basis metadata | E2E: Playwright test captures decision, verifies DB |
-| 9 | **Agent session monitoring** page shows live terminal output via Channel\<T\> streaming | Manual: observe live PTY output during ingestion |
-| 10 | **Coverage metrics** displayed: `pricedCoverageBps`, `netQualifiedCoverageBps` with color thresholds | E2E: verify badges render with correct colors |
-| 11 | **Decision-basis staleness** indicators flag stale decisions | Automated: re-run pipeline, verify staleness flag |
-| 12 | **Single operator** runs daily for 1 week and reports genuine opportunities surfaced | Manual: operator validation over 5-7 working days |
-| 13 | **Desktop auto-launches daemon** if not running; operator never needs manual daemon startup | Manual: close daemon, open desktop, verify daemon starts automatically |
-| 14 | **Stop/input/retry controls** work from desktop: stop active session, send PTY input for auth challenges, retry failed jobs | Manual: exercise each control during live operation |
-| 15 | **Commit fence consistency:** mutation → `visibleAfterSeq` → subsequent query returns updated data | Automated: trigger mutation, poll until `snapshotSeq >= visibleAfterSeq`, verify data |
-| 16 | **Daemon restart detection:** desktop detects daemon restart via `instanceId` mismatch, invalidates state, does not attempt PTY stream resume | Manual: kill daemon during session, verify desktop recovery |
+**Browser-on-localhost via Playwright is the primary UI testing surface.** Testing desktop apps natively requires OS-level interaction (screen capture, mouse simulation — "computer use"), which is slow and fragile. Since Tauri's frontend is a standard React SPA served by Vite on localhost, and the dev-mode transport bridge (§1.8) provides full daemon access in a plain browser, we test UI functionality in a real browser using Playwright. This enables use of Playwright MCP and Vercel agent browser skills for interactive verification that simulates real human usage.
 
-### 4.2 Test Files
+| Tier | Surface | What It Covers | When It Runs |
+|------|---------|---------------|--------------|
+| **1. Browser E2E (primary)** | Playwright against `localhost:5173` via dev bridge | All UI rendering, navigation, pagination, data display, decision capture, session monitoring, coverage metrics, error views, staleness indicators, commit-fence consistency, live streaming via WebSocket, stop/input/retry controls | Every iteration — fast feedback loop, no Tauri build required |
+| **2. Tauri verification** | Full Tauri build, manual + scripted | Desktop-only behaviors: daemon auto-launch on app open, window lifecycle (close UI ≠ kill daemon), browse-only fallback on daemon unavailability, `instanceId` mismatch detection after daemon crash | Before milestone gate — verifies Tauri-specific integration |
+| **3. Agent E2E** | Rust test harness, real daemon + real skills | Skill runtime: PTY spawn, notice extraction, result contract validation, cleanup verdicts, error manifests | CI gate — validates pipeline backend independently of UI |
 
-| File | Type | What It Tests |
-|------|------|--------------|
-| `agent_procurement_ingestion.rs` | Agent E2E | Real FTS skill session: PTY spawn, notice extraction, result contract validation, cleanup verdict |
-| `agent_supplier_enrichment.rs` | Agent E2E | Real eBay enrichment session: search execution, quote extraction, dual confidence scoring |
-| `agent_health_detection.rs` | Agent E2E | Stall detection (no output + no progress), auth challenge detection, cleanup escalation |
-| `agent_error_manifest.rs` | Agent E2E | Error manifest creation on various failure types (skill failed, contract invalid, suspect output) |
-| `apps/desktop/e2e/contracts.spec.ts` | Browser E2E | Desktop control panel: list browsing, detail view, decision capture, session monitoring, error view |
-| `apps/desktop/e2e/session-controls.spec.ts` | Browser E2E | Session stop, PTY input for auth challenges, retry failed jobs, daemon restart detection |
-| `apps/desktop/e2e/commit-fence.spec.ts` | Browser E2E | Mutation → visibleAfterSeq → query reflects change; verify no ghost states |
+**Why browser-first:** Criteria 6-11 and 14-15 in the Definition of Done (§4.2) test UI behavior that has no Tauri dependency — list pagination, detail views, decision capture, coverage badges, session controls, commit-fence consistency. These run faster, more reliably, and with better tooling (Playwright selectors, assertions, screenshots, trace viewer) in a browser than through Tauri's webview. Only criteria 5, 12, 13, and 16 genuinely require the Tauri desktop context.
 
-### 4.3 Test Scenarios
+**Browser E2E workflow:**
 
-| Scenario | Expected Behavior |
-|----------|------------------|
-| Notice with 12 lots | System processes each lot independently; detail view shows per-lot results |
-| Mixed contract with separable goods | Goods-addressable value used for margin computation, not whole contract value |
-| Expired notice | Correctly filtered; not displayed as active opportunity |
-| Agent session crashes mid-run | Error manifest created; operator sees failure context in desktop error view; cleanup verdict is `forced` |
-| Decision on process, then pipeline re-runs | Decision marked stale; warning indicator shown; bid workflow blocked |
-| DPS/Dynamic Market notice | 30-day expiry filter NOT applied; notice remains active |
-| Agent auth challenge during ingestion | `AGENT_AUTH_CHALLENGE` classified; operator alerted via desktop |
-| Daemon unavailable at desktop launch | Bootstrap state machine falls back to browse-only mode with clear banner |
-| Desktop closes and reopens while daemon stays alive and PTY session is active | Desktop reconnects, subscribes from `lastSeq`, stream resumes, no data loss |
-| Daemon crashes while PTY session is active | Desktop detects `instanceId` mismatch, does NOT attempt PTY resume, shows historical artifacts only |
-| Lost `MutationAck` response after DB commit, retried with same idempotency key | Idempotent: returns same ack, no duplicate writes |
-| Slow `SessionViewer` consumer causing gap | `gap` frame emitted, viewer recovers by fetching artifact chunks for missing `seq` range |
-| Long-running QueryService read starving WAL checkpoints | Short-lived read transactions prevent WAL growth; test verifies transaction duration limits |
-| Auth challenge requiring PTY input | Operator can type into `SessionViewer`, input sent to PTY via `send_session_input` |
-| Agent-authored Markdown containing raw HTML / link abuse | ManifestViewer sanitizes HTML, strips dangerous links |
-| ANSI output containing hyperlink/clipboard escape sequences | SessionViewer sanitizes dangerous OSC sequences |
-| Keyset pagination under live updates | Immutable sort key (created_at + id) ensures stable pagination; no row jumping |
+```text
+1. Start daemon (background)
+2. npm run dev                   → Vite + dev bridge plugin on localhost:5173
+3. npx playwright test           → Chromium navigates to localhost:5173
+                                   Full daemon access via HTTP/WebSocket bridge
+                                   Real data, real mutations, real streaming
+```
 
-### 4.4 Risks
+Playwright tests interact with the app exactly as a human operator would — navigating pages, clicking buttons, filling forms, observing live updates. The dev bridge (§1.8) makes this indistinguishable from the Tauri webview experience at the application level.
+
+### 4.2 Definition of Done
+
+| # | Criterion | Verification | Tier |
+|---|----------|-------------|------|
+| 1 | **FTS ingestion skill** scrapes live notices from Find a Tender | Automated: agent E2E test produces notices | 3 |
+| 2 | **Contracts Finder ingestion skill** scrapes live notices | Automated: agent E2E test produces notices | 3 |
+| 3 | **Notice normalization** produces canonical internal records | Automated: normalized records match expected schema | 3 |
+| 4 | **Goods/services classifier** correctly categorizes notices | Automated: unit tests for CPV-based classification | 3 |
+| 5 | **Desktop control panel** launches with QueryService + DaemonBridge + bootstrap state machine | Tauri verification: app launches, state machine detects daemon | 2 |
+| 6 | **Notice list view** with keyset pagination displays live pipeline output | Playwright: navigate list, verify pagination, verify data from real daemon | 1 |
+| 7 | **Opportunity detail view** shows margin bands, product candidates, supplier quotes | Playwright: open detail, verify all data sections render with real pipeline data | 1 |
+| 8 | **Decision capture** (reject/watch/approve) persists locally in `pending_operator_intents` with reviewed-basis metadata | Playwright: capture decision, verify DB state via daemon query | 1 |
+| 9 | **Agent session monitoring** page shows live terminal output via streaming | Playwright: trigger ingestion, navigate to session viewer, verify live output appears via WebSocket stream | 1 |
+| 10 | **Coverage metrics** displayed: `pricedCoverageBps`, `netQualifiedCoverageBps` with color thresholds | Playwright: verify badges render with correct colors and text labels | 1 |
+| 11 | **Decision-basis staleness** indicators flag stale decisions | Playwright: capture decision, trigger re-run, verify staleness indicator appears | 1 |
+| 12 | **Single operator** runs daily for 1 week and reports genuine opportunities surfaced | Manual: operator validation over 5-7 working days (Tauri desktop) | 2 |
+| 13 | **Desktop auto-launches daemon** if not running; operator never needs manual daemon startup | Tauri verification: close daemon, open desktop, verify daemon starts automatically | 2 |
+| 14 | **Stop/input/retry controls** work: stop active session, send PTY input for auth challenges, retry failed jobs | Playwright: exercise each control during live session, verify daemon responds | 1 |
+| 15 | **Commit fence consistency:** mutation → `visibleAfterSeq` → subsequent query returns updated data | Playwright: trigger mutation, poll until `snapshotSeq >= visibleAfterSeq`, verify data | 1 |
+| 16 | **Daemon restart detection:** desktop detects daemon restart via `instanceId` mismatch, invalidates state, does not attempt PTY stream resume | Tauri verification: kill daemon during session, verify desktop recovery | 2 |
+
+### 4.3 Test Files
+
+| File | Type | Tier | What It Tests |
+|------|------|------|--------------|
+| `apps/desktop/e2e/contracts.spec.ts` | Playwright (browser) | 1 | List browsing with keyset pagination, detail view with all data sections, coverage metrics display, pipeline badges, freshness indicators |
+| `apps/desktop/e2e/decisions.spec.ts` | Playwright (browser) | 1 | Decision capture (approve/reject/watch), staleness detection after re-run, reviewed-basis metadata verification |
+| `apps/desktop/e2e/sessions.spec.ts` | Playwright (browser) | 1 | Session list, live terminal output via WebSocket, session stop, PTY input for auth challenges, retry failed jobs |
+| `apps/desktop/e2e/commit-fence.spec.ts` | Playwright (browser) | 1 | Mutation → `visibleAfterSeq` → query reflects change; verify no ghost states |
+| `apps/desktop/e2e/errors.spec.ts` | Playwright (browser) | 1 | Error manifest list, drill-down, resolve action, severity indicators |
+| `apps/desktop/e2e/security.spec.ts` | Playwright (browser) | 1 | Agent-authored Markdown sanitization (ManifestViewer), dangerous link stripping, ANSI escape sanitization (SessionViewer) |
+| `apps/desktop/e2e/tauri-integration.spec.ts` | Tauri-specific | 2 | Daemon auto-launch, window lifecycle (close ≠ kill daemon), browse-only fallback, daemon restart detection via `instanceId` mismatch |
+| `agent_procurement_ingestion.rs` | Agent E2E (Rust) | 3 | Real FTS skill session: PTY spawn, notice extraction, result contract validation, cleanup verdict |
+| `agent_supplier_enrichment.rs` | Agent E2E (Rust) | 3 | Real eBay enrichment session: search execution, quote extraction, dual confidence scoring |
+| `agent_health_detection.rs` | Agent E2E (Rust) | 3 | Stall detection (no output + no progress), auth challenge detection, cleanup escalation |
+| `agent_error_manifest.rs` | Agent E2E (Rust) | 3 | Error manifest creation on various failure types (skill failed, contract invalid, suspect output) |
+
+### 4.4 Test Scenarios
+
+| Scenario | Expected Behavior | Tier |
+|----------|------------------|------|
+| Notice with 12 lots | System processes each lot independently; detail view shows per-lot results | 1 |
+| Mixed contract with separable goods | Goods-addressable value used for margin computation, not whole contract value | 1 |
+| Expired notice | Correctly filtered; not displayed as active opportunity | 1 |
+| Agent session crashes mid-run | Error manifest created; operator sees failure context in error view; cleanup verdict is `forced` | 1 |
+| Decision on process, then pipeline re-runs | Decision marked stale; warning indicator shown; bid workflow blocked | 1 |
+| DPS/Dynamic Market notice | 30-day expiry filter NOT applied; notice remains active | 1 |
+| Agent auth challenge during ingestion | `AGENT_AUTH_CHALLENGE` classified; operator alerted via session view | 1 |
+| Stop active session from UI | Session stop command reaches daemon, session enters terminating state, cleanup verdict rendered | 1 |
+| PTY input for auth challenge | Operator types into SessionViewer, input sent to PTY via `send_session_input`, agent proceeds | 1 |
+| Retry failed job from UI | Retry command creates new job, original job marked, new session appears in session list | 1 |
+| Commit fence: mutation then immediate query | Mutation returns `visibleAfterSeq`; query polls until `snapshotSeq >= visibleAfterSeq`; no ghost state | 1 |
+| Keyset pagination under live updates | Immutable sort key (created_at + id) ensures stable pagination; no row jumping | 1 |
+| Agent-authored Markdown containing raw HTML / link abuse | ManifestViewer sanitizes HTML, strips dangerous links | 1 |
+| ANSI output containing hyperlink/clipboard escape sequences | SessionViewer sanitizes dangerous OSC sequences | 1 |
+| Slow SessionViewer consumer causing gap | `gap` frame emitted, viewer recovers by fetching artifact chunks for missing `seq` range | 1 |
+| Long-running QueryService read starving WAL checkpoints | Short-lived read transactions prevent WAL growth; test verifies transaction duration limits | 1 |
+| Daemon unavailable at desktop launch | Bootstrap state machine falls back to browse-only mode with clear banner | 2 |
+| Desktop closes and reopens while daemon stays alive and PTY session is active | Desktop reconnects, subscribes from `lastSeq`, stream resumes, no data loss | 2 |
+| Daemon crashes while PTY session is active | Desktop detects `instanceId` mismatch, does NOT attempt PTY resume, shows historical artifacts only | 2 |
+| Lost `MutationAck` response after DB commit, retried with same idempotency key | Idempotent: returns same ack, no duplicate writes | 1 |
+
+### 4.5 Risks
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
@@ -820,6 +908,7 @@ All list views use **keyset/cursor pagination** (not offset). Offset causes row 
 | Single-source eBay pricing not representative | High | Medium | Known limitation; Layer 5 adds Alibaba/1688 for wholesale pricing |
 | QueryService read performance on large datasets | Low | Low | SQLite reads are fast; keyset pagination prevents full scans; short-lived read transactions |
 | Desktop-daemon IPC failure | Medium | Medium | Bootstrap state machine detects failure; browse-only fallback; reconnect overlay |
+| Dev bridge transport divergence from Tauri transport | Low | Low | Transport shim is thin (~10 lines); Tier 2 Tauri verification catches any divergence before milestone gate. Both paths produce identical daemon UDS messages. |
 
 ---
 

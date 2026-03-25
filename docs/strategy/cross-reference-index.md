@@ -141,7 +141,8 @@
 
 | Topic | File | Section |
 |-------|------|---------|
-| Desktop architecture (QueryService + DaemonBridge + Channel\<T\>) | `layers/layer-2-single-operator-desktop.md` | §1 |
+| Desktop architecture (QueryService + DaemonBridge + Channel\<T\>) | `layers/layer-2-single-operator-desktop.md` | §1 (§1.3) |
+| Dev-mode browser transport (Vite middleware + transport shim for Playwright testing) | `layers/layer-2-single-operator-desktop.md` | §1 (§1.8) |
 | QueryEnvelope\<T\> interface | `layers/layer-2-single-operator-desktop.md` | §1 (§1.4) |
 | MutationAck interface | `layers/layer-2-single-operator-desktop.md` | §1 (§1.5) |
 | Channel\<T\> streaming (SessionFrame types) | `layers/layer-2-single-operator-desktop.md` | §1 (§1.6) |
@@ -202,7 +203,8 @@
 | Definition of Done (L0, 10+ criteria incl. experiments) | `layers/layer-0-gold-set-evaluation.md` | §6 |
 | L0 test suites (4: qualification, quoteability, tariff, margin) | `layers/layer-0-gold-set-evaluation.md` | §6 (§6.2) |
 | Agent E2E tests | `layers/layer-1-thin-local-runner.md` | §5 |
-| Desktop E2E tests | `layers/layer-2-single-operator-desktop.md` | §4 (§4.2) |
+| Playwright browser E2E tests (primary UI test surface on localhost) | `layers/layer-2-single-operator-desktop.md` | §4 (§4.1, §4.3) |
+| Tauri integration tests (desktop-only behaviors) | `layers/layer-2-single-operator-desktop.md` | §4 (§4.3) |
 | Fault injection + replay tests | `layers/layer-3-operational-hardening.md` | §5 |
 | Validator calibration tests | `layers/layer-3-operational-hardening.md` | §2 (§2.9) |
 | Validator canary health + retro-validation tests | `layers/layer-3-operational-hardening.md` | §5 (§5.2) |

@@ -4,3 +4,6 @@
 *.mcp.json
 opencode.json
 storage.sqlite3*
+
+# bv (beads viewer) local config and caches
+.bv/
