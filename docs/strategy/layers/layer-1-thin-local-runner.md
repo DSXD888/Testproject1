@@ -337,6 +337,8 @@ This separation means PTY stays raw and contract mode stays structured without p
 
 **Session isolation:** Concurrent sessions on the same workstation can contaminate each other through shared CLI config. The daemon must: pin `CODEX_HOME`/`.codex` config paths per session, control working directory per run, record CLI version/model/config hash/skill version/adapter version on every session, use per-session browser profiles for browser-backed flows.
 
+**Adapter selection toggle:** Layer 1 supports an explicit agent-CLI selection toggle with two values: `claude` or `codex`. The daemon keeps a default adapter selection in operator-controlled runtime settings (desktop app and equivalent CLI flags), and each skill may optionally override that default with `agent_cli` in `SKILL.md`. Resolution order is: CLI override -> skill-level `agent_cli` -> daemon default setting -> fallback `claude`.
+
 **L1-FR-ADAPTER.1 — Interaction Profile Selects the Execution Family**
 - AC1: Skills declaring `pty_interactive` require PTY mode.
 - AC2: Skills declaring `headless_contract` require contract mode unless an explicitly documented fallback policy says otherwise.
@@ -389,6 +391,12 @@ This separation means PTY stays raw and contract mode stays structured without p
 - AC2: Each session records CLI version, model, config hash, skill version, and adapter version.
 - AC3: Browser-backed flows use per-session browser profile directories.
 - AC4: Working directory and environment are controlled per run rather than inherited opportunistically from the daemon process.
+
+**L1-FR-ADAPTER.10A — Adapter Selection Is Explicit and Overridable**
+- AC1: Layer 1 maintains a daemon-default agent CLI selection that can be set by operator-facing runtime configuration (desktop app and equivalent CLI flags).
+- AC2: Skills may override the daemon default with optional `agent_cli: claude|codex` metadata in `SKILL.md`.
+- AC3: A CLI flag override takes precedence over both the daemon default and the skill-level override for the current run only.
+- AC4: If no override is present, the daemon falls back to `claude`.
 
 ### 1.8 Process-Group Supervision & Session Semantics
 
@@ -2085,7 +2093,7 @@ A CI gate runs on every commit that touches a skill directory. It validates comp
 | Check | Validation |
 |-------|-----------|
 | `SKILL.md` present | File exists in skill directory root |
-| Required metadata present | `interaction_profile`, `result_schema_version`, `model_profile` fields in SKILL.md |
+| Required metadata present | `interaction_profile`, `result_schema_version`, `model_profile` fields in SKILL.md; optional `agent_cli` may pin `claude` or `codex` per skill |
 | Trigger boundary sections | "Use when", "Do not use when", "Inputs", "Outputs", "Non-goals" sections in SKILL.md |
 | `result.schema.json` present | Valid JSON Schema file |
 | `checkpoint.schema.json` present | Valid JSON Schema file |

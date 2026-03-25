@@ -13,6 +13,8 @@ mod ipc {
 mod agents {
     pub mod adapter;
     pub mod artifacts;
+    pub mod claude;
+    pub mod codex;
     pub mod contracts;
 }
 
@@ -30,6 +32,12 @@ mod jobs {
 #[allow(dead_code)]
 mod pty {
     pub mod capture;
+    pub mod session;
+}
+
+#[allow(dead_code)]
+mod prompt {
+    pub mod renderer;
 }
 
 #[allow(dead_code)]
@@ -37,6 +45,8 @@ mod sessions {
     pub mod reaper;
 }
 
+#[cfg(test)]
+use crate::agents::adapter as adapter_impl;
 #[cfg(test)]
 use crate::agents::contracts as contracts_impl;
 #[cfg(test)]
@@ -52,22 +62,28 @@ mod support {
 }
 
 use std::convert::TryFrom;
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
+use std::process::Stdio;
 
 use agents::adapter::{
-    CapabilityReport, ExecutionMode, InteractionProfile, SkillManifest, resolve_execution_mode,
+    AgentAdapter, CapabilityReport, ControlEvent, ExecutionMode, InteractionProfile, LaunchSpec,
+    OutputFrame, ProbeCtx, SkillManifest, SpawnRequest,
 };
 use agents::artifacts::{
     ArtifactStore, DaemonEvidenceAppendix, OutcomeClass, RunManifestDraft, RunManifestFrontmatter,
     RunNarrative, persist_run_manifest_metadata,
 };
+use agents::claude::ClaudeAdapter;
+use agents::codex::CodexAdapter;
 use agents::contracts::{
     OqgCheckInput, StageValidationWrite, ValidationDisposition, ValidationOutcome,
     persist_stage_validation, validate_final_result,
 };
 use anyhow::{Context, Result, anyhow, bail, ensure};
+use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use db::sqlite::{DEFAULT_OWNER_ID, DEFAULT_SCHEMA_EPOCH, StateDb, open_state_db};
@@ -82,7 +98,9 @@ use jobs::runner::{
     FreshnessState, JobRunner, ObsoleteJobRequest, allocate_stage_run_id, set_stage_head_freshness,
 };
 use nix::unistd::{Pid, getpgid, getsid};
+use prompt::renderer::{PromptRenderer, PromptRendererInput};
 use pty::capture::{CaptureConfig, PtyCapture, compressed_payload_sha256};
+use pty::session::{PtyCommand, PtySession, RuntimeIds as PtyRuntimeIds, SpawnOptions, SpawnPath};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -93,8 +111,7 @@ use tracing_subscriber::EnvFilter;
 const BACKTRACK_WINDOW_SECONDS: u32 = 60;
 const CLI_VENDOR: &str = "fixture-cli";
 const CLI_VERSION: &str = "1.0.0";
-const FIXTURE_PTY_ADAPTER_ID: &str = "fixture-pty-adapter";
-const FIXTURE_CONTRACT_ADAPTER_ID: &str = "fixture-contract-adapter";
+const DEFAULT_AGENT_CLI: &str = "claude";
 #[cfg(test)]
 const ACTIVE_STAGES: [&str; 12] = [
     "Normalize",
@@ -228,9 +245,55 @@ struct Cli {
     #[arg(long)]
     ingest: Option<String>,
 
+    /// Run a bound skill under daemon control.
+    #[arg(long)]
+    skill_path: Option<PathBuf>,
+
+    /// Optional JSON object containing job parameters for `--skill-path`.
+    #[arg(long)]
+    job_parameters_json: Option<String>,
+
+    /// Select the agent CLI adapter to use for this run (`claude` or `codex`).
+    #[arg(long = "agent-cli")]
+    adapter_choice: Option<String>,
+
+    /// Override the selected agent CLI program path.
+    #[arg(long)]
+    agent_cli_program: Option<PathBuf>,
+
     /// Fixture file used by tests to drive deterministic live-loop execution.
     #[arg(long, hide = true)]
     fixture_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AgentCliKind {
+    Claude,
+    Codex,
+}
+
+impl AgentCliKind {
+    fn parse(raw: &str) -> Result<Self> {
+        match raw {
+            "claude" => Ok(Self::Claude),
+            "codex" => Ok(Self::Codex),
+            other => bail!("unsupported agent_cli `{other}`"),
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+            Self::Codex => "codex",
+        }
+    }
+
+    const fn env_key(self) -> &'static str {
+        match self {
+            Self::Claude => "DAEMON_CLAUDE_PROGRAM",
+            Self::Codex => "DAEMON_CODEX_PROGRAM",
+        }
+    }
 }
 
 struct RuntimeBootstrap {
@@ -252,6 +315,12 @@ struct PersistedSessionRow {
     status: String,
     structured_trace: Option<String>,
     last_checkpoint_seq: Option<u32>,
+}
+
+#[derive(Debug, Clone)]
+struct AdapterRuntimeConfig {
+    kind: AgentCliKind,
+    program: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -361,6 +430,8 @@ struct SkillFrontmatter {
     interaction_profile: String,
     result_schema_version: String,
     model_profile: String,
+    #[serde(default)]
+    agent_cli: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -403,6 +474,7 @@ struct SessionDraft {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct CaptureSummary {
     index_path: PathBuf,
     first_chunk_hash: String,
@@ -434,6 +506,29 @@ struct LiveLoopReport {
     status: String,
 }
 
+#[derive(Debug, Clone)]
+struct ExecutedSession {
+    session_id: String,
+    started_at: DateTime<Utc>,
+    execution_mode: ExecutionMode,
+    adapter_id: String,
+    cli_vendor: String,
+    config_hash: String,
+    pty_session_id: Option<String>,
+    runtime_ids: Option<PtyRuntimeIds>,
+    completed_at: String,
+    terminal_output_path: Option<String>,
+    terminal_output_hash: Option<String>,
+    terminal_output_bytes: Option<i64>,
+    terminal_output_tail: Option<String>,
+    structured_trace: String,
+    exit_code: i32,
+    cleanup_verdict: String,
+    last_checkpoint_seq: Option<u32>,
+    result_path: Option<PathBuf>,
+    artifact_refs: Vec<String>,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -453,10 +548,26 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    if let Some(skill_path) = &cli.skill_path {
+        let report = run_bound_skill(
+            &mut runtime,
+            skill_path,
+            parse_job_parameters(cli.job_parameters_json.as_deref())?,
+            &cli,
+        )
+        .await?;
+        if report.status == "completed" {
+            println!("{}", report.summary_line);
+            return Ok(());
+        }
+        eprintln!("{}", report.summary_line);
+        bail!(report.summary_line);
+    }
+
     if let Some(source_id) = &cli.ingest {
         ensure!(source_id == "fts", "only `fts` is supported in Layer 1");
         let fixture = load_fixture(cli.fixture_path.as_deref())?;
-        let report = run_fts_live_loop(&mut runtime, fixture)?;
+        let report = run_fts_live_loop(&mut runtime, fixture, &cli).await?;
         if report.status == "completed" {
             println!("{}", report.summary_line);
             return Ok(());
@@ -520,6 +631,65 @@ fn serve_handshake_once(runtime: &RuntimeBootstrap) -> Result<()> {
         lifecycle_frames: persisted_lifecycle_frames(runtime.state_db.connection())?,
     };
     ipc::handshake::serve_one(&runtime.listener, &handshake_context)
+}
+
+fn adapter_runtime_config(cli: &Cli, skill: &LoadedSkill) -> Result<AdapterRuntimeConfig> {
+    let selected = if let Some(raw) = cli.adapter_choice.as_deref() {
+        AgentCliKind::parse(raw)?
+    } else if let Some(raw) = skill.metadata.agent_cli.as_deref() {
+        AgentCliKind::parse(raw)?
+    } else if let Ok(raw) = std::env::var("DAEMON_AGENT_CLI") {
+        AgentCliKind::parse(raw.trim())?
+    } else {
+        AgentCliKind::parse(DEFAULT_AGENT_CLI)?
+    };
+
+    let program = cli
+        .agent_cli_program
+        .clone()
+        .or_else(|| std::env::var_os(selected.env_key()).map(PathBuf::from));
+
+    Ok(AdapterRuntimeConfig {
+        kind: selected,
+        program,
+    })
+}
+
+fn build_adapter(config: &AdapterRuntimeConfig) -> Box<dyn AgentAdapter> {
+    match config.kind {
+        AgentCliKind::Claude => Box::new(ClaudeAdapter::new(
+            config
+                .program
+                .clone()
+                .unwrap_or_else(|| PathBuf::from(AgentCliKind::Claude.as_str())),
+            std::iter::IntoIterator::into_iter(["1.2.3".to_owned(), "1.2.4".to_owned()]).collect(),
+        )),
+        AgentCliKind::Codex => Box::new(CodexAdapter::new(
+            config
+                .program
+                .clone()
+                .unwrap_or_else(|| PathBuf::from(AgentCliKind::Codex.as_str())),
+            std::iter::IntoIterator::into_iter(["1.2.3".to_owned(), "1.2.4".to_owned()]).collect(),
+        )),
+    }
+}
+
+fn skill_manifest(skill: &LoadedSkill) -> Result<SkillManifest> {
+    let interaction_profile = match skill.metadata.interaction_profile.as_str() {
+        "pty_interactive" => InteractionProfile::PtyRequired,
+        "headless_contract" => InteractionProfile::ContractRequired,
+        other => bail!("unsupported interaction_profile `{other}`"),
+    };
+    Ok(SkillManifest {
+        interaction_profile,
+    })
+}
+
+fn parse_job_parameters(raw: Option<&str>) -> Result<Value> {
+    raw.map_or_else(
+        || Ok(json!({})),
+        |raw| serde_json::from_str(raw).context("parsing --job-parameters-json"),
+    )
 }
 
 fn reconcile_interrupted_sessions(
@@ -839,10 +1009,564 @@ fn load_fixture(path: Option<&Path>) -> Result<LiveLoopFixture> {
     }
 }
 
-#[allow(clippy::too_many_lines, clippy::needless_pass_by_value)]
-fn run_fts_live_loop(
+#[allow(clippy::future_not_send)]
+async fn run_bound_skill(
+    runtime: &mut RuntimeBootstrap,
+    skill_path: &Path,
+    job_parameters: Value,
+    cli: &Cli,
+) -> Result<LiveLoopReport> {
+    let skill = load_skill_from_path(skill_path)?;
+    let adapter_config = adapter_runtime_config(cli, &skill)?;
+    let job_id = create_manual_skill_job(
+        &mut runtime.state_db,
+        &skill,
+        &job_parameters,
+        adapter_config.kind,
+    )?;
+    let session_id = format!("session-manual-{}", sha256_hex(job_id.as_bytes()));
+    let executed =
+        execute_skill_session(runtime, &skill, &job_id, &session_id, &job_parameters, cli).await?;
+    insert_executed_session_log(runtime.state_db.connection(), &skill, &job_id, &executed)?;
+    runtime.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            UPDATE workflow_jobs
+            SET status = 'completed',
+                completed_at = ?1,
+                output_payload = ?2
+            WHERE id = ?3
+            ",
+            params![
+                Utc::now().to_rfc3339(),
+                json!({
+                    "job_id": job_id,
+                    "skill_id": skill.metadata.skill_id,
+                    "execution_mode": execution_mode_label(executed.execution_mode),
+                    "adapter_id": executed.adapter_id,
+                    "session_id": session_id,
+                })
+                .to_string(),
+                job_id,
+            ],
+        )?;
+        Ok(())
+    })?;
+
+    Ok(LiveLoopReport {
+        summary_line: format!(
+            "Skill run completed: job_id={} skill_id={} session_id={} adapter={}",
+            job_id, skill.metadata.skill_id, session_id, executed.adapter_id
+        ),
+        status: "completed".to_owned(),
+    })
+}
+
+#[allow(clippy::future_not_send)]
+async fn execute_skill_session(
+    runtime: &RuntimeBootstrap,
+    skill: &LoadedSkill,
+    job_id: &str,
+    session_id: &str,
+    job_parameters: &Value,
+    cli: &Cli,
+) -> Result<ExecutedSession> {
+    let adapter_config = adapter_runtime_config(cli, skill)?;
+    let adapter = build_adapter(&adapter_config);
+    let probe_ctx = ProbeCtx {
+        working_directory: repo_root()?,
+    };
+    let caps = adapter.probe(&probe_ctx).await?;
+    let mode = adapter.resolve_mode(&skill_manifest(skill)?, &caps)?;
+    let started_at = Utc::now();
+    let session_dir =
+        ArtifactStore::new(&runtime.artifact_root)?.session_dir(session_id, started_at)?;
+    let workdir = session_dir.join("workdir");
+    fs::create_dir_all(&workdir).with_context(|| format!("creating {}", workdir.display()))?;
+    let prompt = PromptRenderer::render(&PromptRendererInput {
+        skill_id: skill.metadata.skill_id.clone(),
+        skill_version: skill.metadata.skill_version.clone(),
+        skill_markdown: skill.skill_markdown.clone(),
+        job_id: job_id.to_owned(),
+        session_id: session_id.to_owned(),
+        execution_mode: execution_mode_label(mode).to_owned(),
+        job_parameters: job_parameters.clone(),
+        resume_token: None,
+        company_profile: None,
+    })?;
+    let request = SpawnRequest {
+        program: adapter_config
+            .program
+            .clone()
+            .unwrap_or_else(|| PathBuf::from(adapter_config.kind.as_str())),
+        args: launch_args_for_skill(&adapter_config, mode, &prompt),
+        env: std::collections::BTreeMap::default(),
+        cwd: workdir,
+    };
+    let launch_spec = adapter.build_launch_spec(&request, mode)?;
+    let config_hash = sha256_hex(
+        format!(
+            "{}:{}",
+            skill_config_hash(skill),
+            launch_spec_hash(&launch_spec)
+        )
+        .as_bytes(),
+    );
+
+    match mode {
+        ExecutionMode::Pty => {
+            execute_pty_skill_session(
+                &runtime.artifact_root,
+                session_id,
+                &caps,
+                adapter.as_ref(),
+                &launch_spec,
+                started_at,
+                config_hash,
+            )
+            .await
+        }
+        ExecutionMode::Contract => {
+            execute_contract_skill_session(
+                session_id,
+                &caps,
+                adapter.as_ref(),
+                &launch_spec,
+                started_at,
+                config_hash,
+            )
+            .await
+        }
+    }
+}
+
+async fn execute_pty_skill_session(
+    artifact_root: &Path,
+    session_id: &str,
+    caps: &CapabilityReport,
+    adapter: &dyn AgentAdapter,
+    launch_spec: &LaunchSpec,
+    started_at: DateTime<Utc>,
+    config_hash: String,
+) -> Result<ExecutedSession> {
+    let mut parser = adapter.parser(ExecutionMode::Pty);
+    let mut session = PtySession::spawn(
+        pty_command_from_launch_spec(launch_spec),
+        SpawnOptions {
+            spawn_path: SpawnPath::resolve(true),
+            ..SpawnOptions::default()
+        },
+    )?;
+    let mut capture = PtyCapture::new(
+        artifact_root,
+        session_id,
+        started_at,
+        CaptureConfig::default(),
+    )?;
+    let mut events = vec![ControlEvent::Started {
+        pid: session.runtime_ids.pid,
+        pgid: session.runtime_ids.pgid,
+        sid: session.runtime_ids.sid,
+        mode: ExecutionMode::Pty,
+    }];
+    let mut seq = 1_u64;
+    let mut last_checkpoint_seq = None;
+    let mut tail = String::new();
+
+    loop {
+        let line = session.read_line()?;
+        if line.is_empty() {
+            break;
+        }
+        tail = line.trim_end().to_owned();
+        capture.append(seq, line.as_bytes(), Utc::now())?;
+        seq += 1;
+        let derived = parser
+            .on_output(&OutputFrame::Pty(Bytes::from(line.clone().into_bytes())))
+            .await?;
+        for event in &derived {
+            if let ControlEvent::Checkpoint { seq, .. } = event {
+                last_checkpoint_seq = Some(*seq);
+            }
+        }
+        events.extend(derived);
+    }
+    let entries = capture.finalize()?;
+    let first_chunk_path = entries
+        .first()
+        .map(|entry| capture.paths().session_root.join(&entry.chunk));
+    let status = session.finish()?;
+    let exit_code = i32::try_from(status.exit_code()).context("converting PTY exit code to i32")?;
+    events.push(ControlEvent::Exited { status });
+    events.extend(parser.finish().await?);
+
+    Ok(ExecutedSession {
+        session_id: session_id.to_owned(),
+        started_at,
+        execution_mode: ExecutionMode::Pty,
+        adapter_id: adapter.id().to_owned(),
+        cli_vendor: adapter.id().to_owned(),
+        config_hash,
+        pty_session_id: Some(session_id.to_owned()),
+        runtime_ids: Some(session.runtime_ids),
+        completed_at: Utc::now().to_rfc3339(),
+        terminal_output_path: Some(capture.paths().index_path.to_string_lossy().into_owned()),
+        terminal_output_hash: first_chunk_path
+            .as_deref()
+            .map(compressed_payload_sha256)
+            .transpose()?,
+        terminal_output_bytes: Some(entries.iter().try_fold(0_i64, |acc, entry| {
+            i64::try_from(entry.byte_length)
+                .map(|value| acc + value)
+                .map_err(|_| anyhow!("stream chunk length exceeded i64 range"))
+        })?),
+        terminal_output_tail: Some(tail),
+        structured_trace: json!({
+            "phase_history": session
+                .phase_history
+                .iter()
+                .map(|phase| phase.as_str())
+                .collect::<Vec<_>>(),
+            "capability_report": {
+                "cli_version": caps.cli_version,
+                "auth_healthy": caps.auth_healthy,
+                "structured_output": caps.structured_output,
+                "pty_viable": caps.pty_viable,
+                "browser_tools": caps.browser_tools,
+                "is_canary": caps.is_canary,
+            },
+            "control_events": events.iter().map(control_event_name).collect::<Vec<_>>(),
+        })
+        .to_string(),
+        exit_code,
+        cleanup_verdict: "clean".to_owned(),
+        last_checkpoint_seq,
+        result_path: None,
+        artifact_refs: entries.iter().map(|entry| entry.chunk.clone()).collect(),
+    })
+}
+
+async fn execute_contract_skill_session(
+    session_id: &str,
+    caps: &CapabilityReport,
+    adapter: &dyn AgentAdapter,
+    launch_spec: &LaunchSpec,
+    started_at: DateTime<Utc>,
+    config_hash: String,
+) -> Result<ExecutedSession> {
+    let mut command = std::process::Command::new(&launch_spec.program);
+    command
+        .args(&launch_spec.args)
+        .envs(launch_spec.env.iter())
+        .current_dir(&launch_spec.cwd)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let child = command.spawn().with_context(|| {
+        format!(
+            "spawning contract session `{}`",
+            launch_spec.program.display()
+        )
+    })?;
+    let runtime_ids = child_runtime_ids(child.id())?;
+    let output = child
+        .wait_with_output()
+        .context("waiting for contract child output")?;
+    let mut parser = adapter.parser(ExecutionMode::Contract);
+    let mut events = vec![ControlEvent::Started {
+        pid: runtime_ids.pid,
+        pgid: runtime_ids.pgid,
+        sid: runtime_ids.sid,
+        mode: ExecutionMode::Contract,
+    }];
+    events.extend(
+        parser
+            .on_output(&OutputFrame::Stdout(Bytes::from(output.stdout.clone())))
+            .await?,
+    );
+    events.extend(
+        parser
+            .on_output(&OutputFrame::Stderr(Bytes::from(output.stderr.clone())))
+            .await?,
+    );
+    events.push(ControlEvent::Exited {
+        status: portable_pty::ExitStatus::from(output.status),
+    });
+    events.extend(parser.finish().await?);
+    let result_path = events.iter().find_map(|event| match event {
+        ControlEvent::FinalResultReady { path } => Some(path.clone()),
+        _ => None,
+    });
+    let last_checkpoint_seq = events.iter().rev().find_map(|event| match event {
+        ControlEvent::Checkpoint { seq, .. } => Some(*seq),
+        _ => None,
+    });
+    let contract_capture = write_contract_output_artifact(
+        &launch_spec.cwd,
+        session_id,
+        started_at,
+        &output.stdout,
+        &output.stderr,
+    )?;
+    let exit_code = output.status.code().unwrap_or(1);
+
+    Ok(ExecutedSession {
+        session_id: session_id.to_owned(),
+        started_at,
+        execution_mode: ExecutionMode::Contract,
+        adapter_id: adapter.id().to_owned(),
+        cli_vendor: adapter.id().to_owned(),
+        config_hash,
+        pty_session_id: None,
+        runtime_ids: Some(runtime_ids),
+        completed_at: Utc::now().to_rfc3339(),
+        terminal_output_path: Some(contract_capture.path.to_string_lossy().into_owned()),
+        terminal_output_hash: Some(contract_capture.sha256),
+        terminal_output_bytes: Some(contract_capture.size_bytes),
+        terminal_output_tail: Some(contract_capture.tail),
+        structured_trace: json!({
+            "phase_history": ["created", "spawned", "active", "terminating", "exited", "reaped", "archived"],
+            "capability_report": {
+                "cli_version": caps.cli_version,
+                "auth_healthy": caps.auth_healthy,
+                "structured_output": caps.structured_output,
+                "pty_viable": caps.pty_viable,
+                "browser_tools": caps.browser_tools,
+                "is_canary": caps.is_canary,
+            },
+            "control_events": events.iter().map(control_event_name).collect::<Vec<_>>(),
+        })
+        .to_string(),
+        exit_code,
+        cleanup_verdict: "clean".to_owned(),
+        last_checkpoint_seq,
+        result_path,
+        artifact_refs: vec![contract_capture.path.to_string_lossy().into_owned()],
+    })
+}
+
+fn load_skill_from_path(path: &Path) -> Result<LoadedSkill> {
+    let skill_md = if path.file_name().is_some_and(|name| name == "SKILL.md") {
+        path.to_path_buf()
+    } else {
+        path.join("SKILL.md")
+    };
+    let skill_root = skill_md
+        .parent()
+        .ok_or_else(|| anyhow!("skill path {} has no parent directory", skill_md.display()))?;
+    let repo = repo_root()?;
+    let relative = skill_md
+        .strip_prefix(&repo)
+        .unwrap_or(&skill_md)
+        .to_string_lossy()
+        .into_owned();
+    load_skill(skill_root, &relative)
+}
+
+fn create_manual_skill_job(
+    state_db: &mut StateDb,
+    skill: &LoadedSkill,
+    job_parameters: &Value,
+    adapter_kind: AgentCliKind,
+) -> Result<String> {
+    let job_id = format!(
+        "job-{}",
+        sha256_hex(&UuidSeed::from_time(Utc::now()).as_bytes())
+    );
+    state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, scope_kind, scope_id, status, input_payload, validation_required,
+              parent_job_id, validation_verdict_id
+            ) VALUES (?1, 'run_skill', 'skill', ?2, 'pending', ?3, 0, NULL, NULL)
+            ",
+            params![
+                job_id,
+                skill.metadata.skill_id,
+                json!({
+                    "skill_binding": {
+                        "path": skill.skill_path,
+                        "version": skill.metadata.skill_version,
+                    },
+                    "agent_cli": adapter_kind.as_str(),
+                    "job_parameters": job_parameters,
+                })
+                .to_string(),
+            ],
+        )?;
+        Ok(())
+    })?;
+    Ok(job_id)
+}
+
+fn insert_executed_session_log(
+    conn: &Connection,
+    skill: &LoadedSkill,
+    job_id: &str,
+    executed: &ExecutedSession,
+) -> Result<()> {
+    insert_session_log(
+        conn,
+        &SessionDraft {
+            session_id: executed.session_id.clone(),
+            job_id: job_id.to_owned(),
+            skill_path: skill.skill_path.to_string_lossy().into_owned(),
+            skill_version: skill.metadata.skill_version.clone(),
+            execution_mode: execution_mode_label(executed.execution_mode).to_owned(),
+            status: "completed".to_owned(),
+            cli_vendor: Some(executed.cli_vendor.clone()),
+            cli_version: None,
+            adapter_id: Some(executed.adapter_id.clone()),
+            adapter_version: Some(env!("CARGO_PKG_VERSION").to_owned()),
+            config_hash: Some(executed.config_hash.clone()),
+            pty_session_id: executed.pty_session_id.clone(),
+            sid: executed.runtime_ids.map(|ids| ids.sid),
+            pid: executed.runtime_ids.map(|ids| ids.pid),
+            pgid: executed.runtime_ids.map(|ids| ids.pgid),
+            started_at: executed.started_at.to_rfc3339(),
+            completed_at: executed.completed_at.clone(),
+            terminal_output_path: executed.terminal_output_path.clone(),
+            terminal_output_hash: executed.terminal_output_hash.clone(),
+            terminal_output_bytes: executed.terminal_output_bytes,
+            terminal_output_tail: executed.terminal_output_tail.clone(),
+            structured_trace: Some(executed.structured_trace.clone()),
+            error_type: None,
+            error_message: None,
+            exit_code: Some(executed.exit_code),
+            cleanup_verdict: Some(executed.cleanup_verdict.clone()),
+            last_checkpoint_seq: executed.last_checkpoint_seq,
+        },
+    )
+}
+
+fn launch_args_for_skill(
+    adapter_config: &AdapterRuntimeConfig,
+    mode: ExecutionMode,
+    prompt: &str,
+) -> Vec<OsString> {
+    match (adapter_config.kind, mode) {
+        (AgentCliKind::Claude, ExecutionMode::Pty | ExecutionMode::Contract) => vec![
+            OsString::from("-p"),
+            OsString::from(prompt),
+            OsString::from("--dangerously-skip-permissions"),
+        ],
+        (AgentCliKind::Codex, ExecutionMode::Pty | ExecutionMode::Contract) => {
+            vec![OsString::from(prompt)]
+        }
+    }
+}
+
+fn pty_command_from_launch_spec(spec: &LaunchSpec) -> PtyCommand {
+    let mut command = PtyCommand::new(spec.program.clone().into_os_string()).cwd(spec.cwd.clone());
+    for (key, value) in &spec.env {
+        command = command.env(key.clone(), value.clone());
+    }
+    for arg in &spec.args {
+        command = command.arg(arg.clone());
+    }
+    command
+}
+
+fn child_runtime_ids(pid: u32) -> Result<PtyRuntimeIds> {
+    let pid_handle = Pid::from_raw(i32::try_from(pid).context("converting child pid to i32")?);
+    let session_id = getsid(Some(pid_handle)).context("reading child session id")?;
+    let process_group_id = getpgid(Some(pid_handle)).context("reading child process group")?;
+    Ok(PtyRuntimeIds {
+        sid: u32::try_from(session_id.as_raw()).context("converting child sid to u32")?,
+        pid,
+        pgid: u32::try_from(process_group_id.as_raw()).context("converting child pgid to u32")?,
+    })
+}
+
+fn launch_spec_hash(spec: &LaunchSpec) -> String {
+    let env_pairs: Vec<String> = spec
+        .env
+        .iter()
+        .map(|(key, value)| format!("{}={}", key.to_string_lossy(), value.to_string_lossy()))
+        .collect();
+    sha256_hex(
+        json!({
+            "program": spec.program,
+            "args": spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect::<Vec<_>>(),
+            "env": env_pairs,
+            "cwd": spec.cwd,
+        })
+        .to_string()
+        .as_bytes(),
+    )
+}
+
+const fn control_event_name(event: &ControlEvent) -> &'static str {
+    match event {
+        ControlEvent::Started { .. } => "started",
+        ControlEvent::Checkpoint { .. } => "checkpoint",
+        ControlEvent::Progress { .. } => "progress",
+        ControlEvent::AuthChallenge { .. } => "auth_challenge",
+        ControlEvent::Warning { .. } => "warning",
+        ControlEvent::FinalResultReady { .. } => "final_result_ready",
+        ControlEvent::Exited { .. } => "exited",
+    }
+}
+
+const fn execution_mode_label(mode: ExecutionMode) -> &'static str {
+    match mode {
+        ExecutionMode::Pty => "pty",
+        ExecutionMode::Contract => "contract",
+    }
+}
+
+struct ContractCapture {
+    path: PathBuf,
+    sha256: String,
+    size_bytes: i64,
+    tail: String,
+}
+
+fn write_contract_output_artifact(
+    workdir: &Path,
+    session_id: &str,
+    started_at: DateTime<Utc>,
+    stdout: &[u8],
+    stderr: &[u8],
+) -> Result<ContractCapture> {
+    let session_dir = workdir
+        .parent()
+        .ok_or_else(|| anyhow!("workdir {} has no parent", workdir.display()))?;
+    let path = session_dir.join("contract-output.log");
+    let mut payload = Vec::new();
+    payload.extend_from_slice(b"--- stdout ---\n");
+    payload.extend_from_slice(stdout);
+    payload.extend_from_slice(b"\n--- stderr ---\n");
+    payload.extend_from_slice(stderr);
+    fs::write(&path, &payload).with_context(|| format!("writing {}", path.display()))?;
+    let _ = (session_id, started_at);
+    Ok(ContractCapture {
+        path,
+        sha256: sha256_hex(&payload),
+        size_bytes: i64::try_from(payload.len()).context("converting contract capture size")?,
+        tail: {
+            let stdout_text = String::from_utf8_lossy(stdout).into_owned();
+            let stderr_text = String::from_utf8_lossy(stderr).into_owned();
+            stdout_text
+                .lines()
+                .last()
+                .or_else(|| stderr_text.lines().last())
+                .unwrap_or_default()
+                .to_owned()
+        },
+    })
+}
+
+#[allow(
+    clippy::too_many_lines,
+    clippy::needless_pass_by_value,
+    clippy::future_not_send
+)]
+async fn run_fts_live_loop(
     runtime: &mut RuntimeBootstrap,
     fixture: LiveLoopFixture,
+    cli: &Cli,
 ) -> Result<LiveLoopReport> {
     let repo_root = repo_root()?;
     let ingest_skill = load_skill(
@@ -858,23 +1582,19 @@ fn run_fts_live_loop(
         seed_cursor_before(&mut runtime.state_db, cursor_before)?;
     }
 
-    let job_id = create_sync_source_job(&mut runtime.state_db, &ingest_skill, &fixture)?;
+    let ingest_adapter_config = adapter_runtime_config(cli, &ingest_skill)?;
+    let job_id = create_sync_source_job(
+        &mut runtime.state_db,
+        &ingest_skill,
+        &fixture,
+        ingest_adapter_config.kind,
+    )?;
     let runner = JobRunner::new("local-daemon");
     let claimed = runner
         .claim_next_job(runtime.state_db.connection())?
         .ok_or_else(|| anyhow!("expected claimed workflow job"))?;
     ensure!(claimed.id == job_id, "claimed unexpected workflow job");
-
-    let ingest_mode = resolve_skill_mode(&ingest_skill)?;
-    ensure!(
-        ingest_mode == ExecutionMode::Pty,
-        "FTS ingestion skill must resolve to PTY"
-    );
-
-    let started_at = Utc::now();
-    let ingest_session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
-    let runtime_ids = current_runtime_ids()?;
-    let capture = if fixture.capture_write_failure {
+    if fixture.capture_write_failure {
         return fail_job_with_code(
             runtime,
             &job_id,
@@ -885,66 +1605,54 @@ fn run_fts_live_loop(
             "capture",
             "pty_capture",
         );
-    } else {
-        capture_transcript(
-            &runtime.artifact_root,
-            &ingest_session_id,
-            started_at,
-            &fixture.pty_transcript_lines,
-        )?
-    };
-
-    let ingest_trace = json!({
-        "fingerprint_state": fixture.fingerprint_state,
-        "locale_state": fixture.locale_state,
-        "currency_state": fixture.currency_state,
-        "phase_history": ["created", "spawned", "active", "terminating", "exited", "reaped", "archived"],
-    })
-    .to_string();
-    let ingest_completed_at = Utc::now().to_rfc3339();
-
-    insert_session_log(
+    }
+    let ingest_session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
+    let mut ingest_execution = execute_skill_session(
+        runtime,
+        &ingest_skill,
+        &job_id,
+        &ingest_session_id,
+        &claimed.input_payload,
+        cli,
+    )
+    .await?;
+    let mut ingest_trace = serde_json::from_str::<Value>(&ingest_execution.structured_trace)
+        .unwrap_or_else(|_| json!({}));
+    if let Some(trace_object) = ingest_trace.as_object_mut() {
+        trace_object.insert(
+            "fingerprint_state".to_owned(),
+            Value::String(fixture.fingerprint_state.clone()),
+        );
+        trace_object.insert(
+            "locale_state".to_owned(),
+            Value::String(fixture.locale_state.clone()),
+        );
+        trace_object.insert(
+            "currency_state".to_owned(),
+            Value::String(fixture.currency_state.clone()),
+        );
+    }
+    ingest_execution.structured_trace = ingest_trace.to_string();
+    ensure!(
+        ingest_execution.execution_mode == ExecutionMode::Pty,
+        "FTS ingestion skill must resolve to PTY"
+    );
+    insert_executed_session_log(
         runtime.state_db.connection(),
-        &SessionDraft {
-            session_id: ingest_session_id.clone(),
-            job_id: job_id.clone(),
-            skill_path: ingest_skill.skill_path.to_string_lossy().into_owned(),
-            skill_version: ingest_skill.metadata.skill_version.clone(),
-            execution_mode: "pty".to_owned(),
-            status: "completed".to_owned(),
-            cli_vendor: Some(CLI_VENDOR.to_owned()),
-            cli_version: Some(CLI_VERSION.to_owned()),
-            adapter_id: Some(FIXTURE_PTY_ADAPTER_ID.to_owned()),
-            adapter_version: Some(env!("CARGO_PKG_VERSION").to_owned()),
-            config_hash: Some(skill_config_hash(&ingest_skill)),
-            pty_session_id: Some(ingest_session_id.clone()),
-            sid: Some(runtime_ids.sid),
-            pid: Some(runtime_ids.pid),
-            pgid: Some(runtime_ids.pgid),
-            started_at: started_at.to_rfc3339(),
-            completed_at: ingest_completed_at,
-            terminal_output_path: Some(capture.index_path.to_string_lossy().into_owned()),
-            terminal_output_hash: Some(capture.first_chunk_hash.clone()),
-            terminal_output_bytes: Some(capture.total_bytes),
-            terminal_output_tail: Some(capture.tail.clone()),
-            structured_trace: Some(ingest_trace),
-            error_type: None,
-            error_message: None,
-            exit_code: Some(0),
-            cleanup_verdict: Some("clean".to_owned()),
-            last_checkpoint_seq: Some(1),
-        },
+        &ingest_skill,
+        &job_id,
+        &ingest_execution,
     )?;
 
     let ingest_run_manifest = write_run_manifest_for_session(
         runtime,
         &ingest_session_id,
         &ingest_skill,
-        "pty",
-        started_at,
+        execution_mode_label(ingest_execution.execution_mode),
+        ingest_execution.started_at,
         &fixture,
         u32::try_from(fixture.notices.len()).context("converting notice count to u32")?,
-        capture.artifact_refs,
+        ingest_execution.artifact_refs.clone(),
     )?;
     persist_run_manifest_metadata(
         runtime.state_db.connection(),
@@ -1060,40 +1768,6 @@ fn run_fts_live_loop(
         "session-contract-{}",
         sha256_hex(format!("{job_id}-manifest").as_bytes())
     );
-    let contract_started_at = Utc::now();
-    insert_session_log(
-        runtime.state_db.connection(),
-        &SessionDraft {
-            session_id: contract_session_id.clone(),
-            job_id: job_id.clone(),
-            skill_path: manifest_skill.skill_path.to_string_lossy().into_owned(),
-            skill_version: manifest_skill.metadata.skill_version.clone(),
-            execution_mode: "contract".to_owned(),
-            status: "completed".to_owned(),
-            cli_vendor: Some(CLI_VENDOR.to_owned()),
-            cli_version: Some(CLI_VERSION.to_owned()),
-            adapter_id: Some(FIXTURE_CONTRACT_ADAPTER_ID.to_owned()),
-            adapter_version: Some(env!("CARGO_PKG_VERSION").to_owned()),
-            config_hash: Some(skill_config_hash(&manifest_skill)),
-            pty_session_id: None,
-            sid: None,
-            pid: None,
-            pgid: None,
-            started_at: contract_started_at.to_rfc3339(),
-            completed_at: Utc::now().to_rfc3339(),
-            terminal_output_path: None,
-            terminal_output_hash: None,
-            terminal_output_bytes: None,
-            terminal_output_tail: None,
-            structured_trace: Some(json!({"mode":"contract","validated":true}).to_string()),
-            error_type: None,
-            error_message: None,
-            exit_code: Some(0),
-            cleanup_verdict: Some("clean".to_owned()),
-            last_checkpoint_seq: Some(1),
-        },
-    )?;
-
     let manifest_computation =
         build_manifest_from_db(runtime.state_db.connection(), &pipeline.process_id)?;
     let mut result_payload = json!({
@@ -1109,15 +1783,42 @@ fn run_fts_live_loop(
             .remove("process_id");
     }
 
-    let result_artifact_path = write_manifest_result_artifact(
-        &runtime.artifact_root,
+    let contract_execution = execute_skill_session(
+        runtime,
+        &manifest_skill,
+        &job_id,
         &contract_session_id,
-        contract_started_at,
-        &result_payload,
+        &json!({"process_id": pipeline.process_id}),
+        cli,
+    )
+    .await?;
+    ensure!(
+        contract_execution.execution_mode == ExecutionMode::Contract,
+        "manifest generation skill must resolve to contract mode"
+    );
+    insert_executed_session_log(
+        runtime.state_db.connection(),
+        &manifest_skill,
+        &job_id,
+        &contract_execution,
     )?;
+
+    let result_artifact_path = match contract_execution.result_path.clone() {
+        Some(path) => path,
+        None => write_manifest_result_artifact(
+            &runtime.artifact_root,
+            &contract_session_id,
+            contract_execution.started_at,
+            &result_payload,
+        )?,
+    };
+    let validated_result_payload = fs::read_to_string(&result_artifact_path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+        .unwrap_or_else(|| result_payload.clone());
     let validation_outcome = validate_final_result(
         &manifest_skill.result_schema,
-        &result_payload,
+        &validated_result_payload,
         &oqg_input(&fixture),
         &result_artifact_path,
     );
@@ -1152,11 +1853,15 @@ fn run_fts_live_loop(
         runtime,
         &contract_session_id,
         &manifest_skill,
-        "contract",
-        contract_started_at,
+        execution_mode_label(contract_execution.execution_mode),
+        contract_execution.started_at,
         &fixture,
         manifest_computation.candidate_count,
-        vec![result_artifact_path.to_string_lossy().into_owned()],
+        {
+            let mut refs = contract_execution.artifact_refs;
+            refs.push(result_artifact_path.to_string_lossy().into_owned());
+            refs
+        },
     )?;
     persist_run_manifest_metadata(
         runtime.state_db.connection(),
@@ -1279,6 +1984,7 @@ fn create_sync_source_job(
     state_db: &mut StateDb,
     ingest_skill: &LoadedSkill,
     fixture: &LiveLoopFixture,
+    agent_cli: AgentCliKind,
 ) -> Result<String> {
     let job_id = format!(
         "job-{}",
@@ -1301,6 +2007,7 @@ fn create_sync_source_job(
                         "path": ingest_skill.skill_path.to_string_lossy(),
                         "version": ingest_skill.metadata.skill_version,
                     },
+                    "agent_cli": agent_cli.as_str(),
                     "cursor_before": fixture.cursor_before,
                     "cursor_after": fixture.cursor_after,
                     "durable_step_surfaces": live_loop_surfaces_json(),
@@ -1311,27 +2018,6 @@ fn create_sync_source_job(
         Ok(())
     })?;
     Ok(job_id)
-}
-
-fn resolve_skill_mode(skill: &LoadedSkill) -> Result<ExecutionMode> {
-    let interaction_profile = match skill.metadata.interaction_profile.as_str() {
-        "pty_interactive" => InteractionProfile::PtyRequired,
-        "headless_contract" => InteractionProfile::ContractRequired,
-        other => bail!("unsupported interaction_profile `{other}`"),
-    };
-    resolve_execution_mode(
-        &SkillManifest {
-            interaction_profile,
-        },
-        &CapabilityReport {
-            cli_version: CLI_VERSION.to_owned(),
-            auth_healthy: true,
-            structured_output: true,
-            pty_viable: true,
-            browser_tools: true,
-            is_canary: false,
-        },
-    )
 }
 
 fn persist_raw_documents_only(state_db: &mut StateDb, fixture: &LiveLoopFixture) -> Result<()> {
@@ -2239,6 +2925,7 @@ fn insert_session_log(conn: &Connection, draft: &SessionDraft) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn capture_transcript(
     artifact_root: &Path,
     session_id: &str,
@@ -2640,6 +3327,7 @@ fn default_transcript_lines() -> Vec<String> {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 struct RuntimeIds {
     sid: u32,
     pid: u32,
@@ -2688,7 +3376,7 @@ mod tests {
 
     use super::jobs::runner::CANONICAL_SCOPE_KINDS;
     use super::{
-        ACTIVE_STAGES, FIXTURE_PTY_ADAPTER_ID, LifecyclePhase, LiveLoopFixture, SessionDraft,
+        ACTIVE_STAGES, DEFAULT_AGENT_CLI, LifecyclePhase, LiveLoopFixture, SessionDraft,
         backtrack_window_seconds, default_fixture, insert_session_log, live_loop_surface_names,
         open_state_db, persisted_lifecycle_frames, reconcile_interrupted_sessions,
     };
@@ -2739,7 +3427,7 @@ mod tests {
             status: status.to_owned(),
             cli_vendor: Some("fixture-cli".to_owned()),
             cli_version: Some("1.0.0".to_owned()),
-            adapter_id: Some(FIXTURE_PTY_ADAPTER_ID.to_owned()),
+            adapter_id: Some(DEFAULT_AGENT_CLI.to_owned()),
             adapter_version: Some("daemon-test".to_owned()),
             config_hash: None,
             pty_session_id: Some(format!("pty-{session_id}")),
@@ -2837,7 +3525,7 @@ mod tests {
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )?;
         assert_eq!(sid, Some(101));
-        assert_eq!(adapter_id.as_deref(), Some(FIXTURE_PTY_ADAPTER_ID));
+        assert_eq!(adapter_id.as_deref(), Some(DEFAULT_AGENT_CLI));
         assert_eq!(exit_code, Some(0));
 
         let frames = persisted_lifecycle_frames(state_db.connection())?;
@@ -2917,7 +3605,7 @@ mod tests {
         );
         assert_eq!(cleanup_verdict.as_deref(), Some("clean"));
         assert_eq!(sid, Some(999_999));
-        assert_eq!(adapter_id.as_deref(), Some(FIXTURE_PTY_ADAPTER_ID));
+        assert_eq!(adapter_id.as_deref(), Some(DEFAULT_AGENT_CLI));
         assert_eq!(exit_code, None);
         let trace: Value = serde_json::from_str(
             structured_trace

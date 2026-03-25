@@ -7,6 +7,7 @@ use anyhow::{Context, Result, ensure};
 use assert_cmd::Command;
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 
 struct RunHarness {
@@ -22,6 +23,12 @@ struct RunResult {
     stdout: String,
     stderr: String,
     success: bool,
+}
+
+struct FakeClaudeCli {
+    program: PathBuf,
+    result_path: PathBuf,
+    checkpoint_path: PathBuf,
 }
 
 type RuntimeIdentityRow = (
@@ -55,10 +62,15 @@ impl RunHarness {
     fn run(&self, fixture: &Value) -> Result<RunResult> {
         fs::write(&self.fixture_path, serde_json::to_vec_pretty(fixture)?)
             .with_context(|| format!("writing {}", self.fixture_path.display()))?;
+        let fake_claude = self.prepare_fake_claude(fixture)?;
 
         let output = Command::cargo_bin("daemon")?
             .arg("--ingest")
             .arg("fts")
+            .arg("--agent-cli")
+            .arg("claude")
+            .arg("--agent-cli-program")
+            .arg(&fake_claude.program)
             .arg("--state-root")
             .arg(&self.state_root)
             .arg("--runtime-dir")
@@ -67,6 +79,11 @@ impl RunHarness {
             .arg(&self.artifact_root)
             .arg("--fixture-path")
             .arg(&self.fixture_path)
+            .env("DAEMON_TEST_CLAUDE_RESULT_PATH", &fake_claude.result_path)
+            .env(
+                "DAEMON_TEST_CLAUDE_CHECKPOINT_PATH",
+                &fake_claude.checkpoint_path,
+            )
             .output()
             .context("running daemon binary")?;
 
@@ -81,6 +98,90 @@ impl RunHarness {
         Connection::open(&self.db_path)
             .with_context(|| format!("opening {}", self.db_path.display()))
     }
+
+    fn prepare_fake_claude(&self, fixture: &Value) -> Result<FakeClaudeCli> {
+        let root = self
+            .state_root
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("state root missing parent"))?;
+        let state_dir = root.join("fake-claude");
+        fs::create_dir_all(&state_dir)?;
+        let probe_json = state_dir.join("probe.json");
+        fs::write(
+            &probe_json,
+            serde_json::to_vec_pretty(&json!({
+                "auth_healthy": true,
+                "structured_output": true,
+                "pty_viable": true,
+                "browser_tools": true
+            }))?,
+        )?;
+        let result_source = state_dir.join("result-source.json");
+        fs::write(
+            &result_source,
+            serde_json::to_vec_pretty(&manifest_result_payload(fixture)?)?,
+        )?;
+        let program = state_dir.join("claude");
+        fs::write(
+            &program,
+            format!(
+                "#!/bin/sh\nset -eu\nstate_dir=\"{}\"\nif [ \"${{1-}}\" = \"--version\" ] || [ \"${{1-}}\" = \"-v\" ]; then\n  printf 'claude 1.2.3\\n'\n  exit 0\nfi\nif [ \"${{1-}}\" = \"probe\" ]; then\n  cat \"$state_dir/probe.json\"\n  exit 0\nfi\nmode=pty\nfor arg in \"$@\"; do\n  if [ \"$arg\" = \"--output-format\" ]; then\n    mode=contract\n    break\n  fi\ndone\nif [ \"$mode\" = contract ]; then\n  cp \"$state_dir/result-source.json\" \"$DAEMON_TEST_CLAUDE_RESULT_PATH\"\n  printf '{{\"event\":\"result\",\"path\":\"%s\"}}\\n' \"$DAEMON_TEST_CLAUDE_RESULT_PATH\"\nelse\n  : > \"$DAEMON_TEST_CLAUDE_CHECKPOINT_PATH\"\n  printf '{{\"event\":\"checkpoint\",\"seq\":1,\"path\":\"%s\"}}\\n' \"$DAEMON_TEST_CLAUDE_CHECKPOINT_PATH\"\nfi\n",
+                state_dir.display()
+            ),
+        )?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&program)?.permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&program, perms)?;
+        }
+        Ok(FakeClaudeCli {
+            program,
+            result_path: self.artifact_root.join("fake-claude-result.json"),
+            checkpoint_path: self.artifact_root.join("fake-claude-checkpoint.json"),
+        })
+    }
+}
+
+fn manifest_result_payload(fixture: &Value) -> Result<Value> {
+    if fixture["notices"].as_array().is_some_and(Vec::is_empty) {
+        return Ok(json!({
+            "process_id": "process-empty",
+            "decisionBasisHash": "empty",
+            "manifestMarkdown": "# Opportunity Manifest\n\n- Process: process-empty\n- Title: Empty batch\n- Candidate count: 0\n",
+            "candidate_count": 0,
+        }));
+    }
+    let process_id = fixture["notices"][0]["processId"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("fixture missing processId"))?;
+    let title = fixture["notices"][0]["title"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("fixture missing title"))?;
+    let candidate_count = fixture["notices"][0]["lots"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("fixture missing lots"))?
+        .iter()
+        .filter_map(|lot| lot["candidateCount"].as_u64())
+        .sum::<u64>();
+    let markdown = format!(
+        "# Opportunity Manifest\n\n- Process: {process_id}\n- Title: {title}\n- Candidate count: {candidate_count}\n"
+    );
+    let decision_basis_hash = format!("{:x}", Sha256::digest(markdown.as_bytes()));
+    let mut payload = json!({
+        "process_id": process_id,
+        "decisionBasisHash": decision_basis_hash,
+        "manifestMarkdown": markdown,
+        "candidate_count": candidate_count,
+    });
+    if fixture["manifestSchemaInvalid"] == json!(true) {
+        payload
+            .as_object_mut()
+            .ok_or_else(|| anyhow::anyhow!("result payload must be object"))?
+            .remove("process_id");
+    }
+    Ok(payload)
 }
 
 fn default_fixture() -> Value {
@@ -202,6 +303,7 @@ fn e2e_ing_002_job_creation_persists_explicit_skill_binding_and_resolved_version
     let payload = job_input_payload(&conn)?;
     ensure!(payload["skill_binding"]["path"] == "skills/procurement-ingestion/fts/SKILL.md");
     ensure!(payload["skill_binding"]["version"] == "1.0.0");
+    ensure!(payload["agent_cli"] == "claude");
     Ok(())
 }
 
@@ -237,7 +339,7 @@ fn e2e_ing_004_live_loop_spawn_records_runtime_identifiers() -> Result<()> {
     ensure!(session_id.unwrap_or_default() > 0);
     ensure!(process_id.unwrap_or_default() > 0);
     ensure!(process_group_id.unwrap_or_default() > 0);
-    ensure!(adapter_id.as_deref() == Some("fixture-pty-adapter"));
+    ensure!(adapter_id.as_deref() == Some("claude"));
     ensure!(exit_code == Some(0));
     Ok(())
 }

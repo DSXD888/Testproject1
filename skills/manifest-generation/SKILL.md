@@ -4,6 +4,7 @@ skill_version: 1.0.0
 interaction_profile: headless_contract
 result_schema_version: 1.0.0
 model_profile: structured_extract_low_cost
+agent_cli: claude
 side_effect_class: none
 maxPages: 0
 maxScrollCycles: 0

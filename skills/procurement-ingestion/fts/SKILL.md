@@ -4,6 +4,7 @@ skill_version: 1.0.0
 interaction_profile: pty_interactive
 result_schema_version: 1.0.0
 model_profile: browse_stable_low_cost
+agent_cli: claude
 side_effect_class: none
 maxPages: 5
 maxScrollCycles: 2

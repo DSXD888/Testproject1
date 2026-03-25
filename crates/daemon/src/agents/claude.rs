@@ -261,7 +261,16 @@ impl AdapterParser for ClaudeParser {
     async fn on_output(&mut self, frame: &OutputFrame) -> Result<Vec<ControlEvent>> {
         match frame {
             OutputFrame::Pty(_) => {
-                bail!("{PROTOCOL_MISMATCH_CODE}: Claude contract parser received PTY bytes")
+                if self.mode != ExecutionMode::Pty {
+                    bail!("{PROTOCOL_MISMATCH_CODE}: Claude contract parser received PTY bytes");
+                }
+                if let OutputFrame::Pty(bytes) = frame {
+                    self.stdout_buffer.extend_from_slice(bytes);
+                }
+                let mut buffer = std::mem::take(&mut self.stdout_buffer);
+                let events = self.process_buffer(&mut buffer, false)?;
+                self.stdout_buffer = buffer;
+                Ok(events)
             }
             OutputFrame::Stdout(bytes) => {
                 self.stdout_buffer.extend_from_slice(bytes);
