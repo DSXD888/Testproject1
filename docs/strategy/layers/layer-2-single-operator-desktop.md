@@ -1848,7 +1848,7 @@ Playwright tests interact with the app exactly as a human operator would — nav
 | 20 | **Stream reconnect and gap recovery** preserve order and expose unresolved loss explicitly | Playwright: drop subscription, induce a gap, replay from `lastSeq`, and verify no silent duplication or silent loss | 1 | `L2-FR-CH.3`, `L2-FR-CH.5`, `L2-FR-CH.9`-`L2-FR-CH.15`, `L2-FR-PAGE.4` |
 | 21 | **Query and mutation contracts** remain explicit under load and retry: short-lived reads, empty states, transport failures, idempotent lost-ack retry | Rust integration + Playwright: exercise read limits, invalid filters/cursors, explicit bridge failures, and retry-after-commit behavior | 3 | `L2-FR-QS.1`, `L2-FR-QS.8`, `L2-FR-PAG.2`, `L2-FR-DB.3`, `L2-FR-DB.14` |
 
-### 4.3 Test Files
+### 4.3 Verification Assets
 
 | File | Type | Tier | What It Tests | Requirement IDs | DoD # |
 |------|------|------|--------------|-----------------|-------|
