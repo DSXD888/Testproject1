@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 
 import { useControlPlaneState, type RuntimeMode } from './hooks/use-control-plane';
+import SessionsPage from './pages/Sessions';
 
 export type AppRoutes =
   | '/'
@@ -130,7 +131,7 @@ function renderRoute(route: RouteDescriptor): ReactElement {
   }
 
   if (route.kind === 'sessions') {
-    return <section data-route="/sessions">Sessions route</section>;
+    return <SessionsPage />;
   }
 
   if (route.kind === 'session-viewer') {
