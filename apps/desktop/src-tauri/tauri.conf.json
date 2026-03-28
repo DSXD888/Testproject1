@@ -1,0 +1,26 @@
+{
+  "productName": "Procurement Intelligence Desktop",
+  "version": "0.1.0",
+  "identifier": "com.procintel.desktop",
+  "build": {
+    "devUrl": "http://127.0.0.1:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "security": {
+      "capabilities": ["default"]
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "Procurement Intelligence Desktop",
+        "width": 1280,
+        "height": 880,
+        "resizable": true
+      }
+    ],
+    "withGlobalTauri": false
+  },
+  "bundle": {},
+  "plugins": {}
+}
