@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@project/ui": ["packages/ui/index.ts"],
+      "@project/ui/*": ["packages/ui/*"],
+      "@project/manifests/*": ["packages/manifests/*"],
+      "@project/intelligence/*": ["packages/intelligence/src/*"],
+      "@project/contracts-schema/*": ["packages/contracts-schema/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "target"]
+}
