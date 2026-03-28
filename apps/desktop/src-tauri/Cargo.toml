@@ -7,10 +7,12 @@ build = "build.rs"
 
 [dependencies]
 anyhow = "1.0.102"
+chrono = { version = "0.4.44", features = ["serde"] }
 rusqlite = { version = "0.32.1", features = ["bundled"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 tauri = { version = "2.10.3" }
+zstd = "0.13.3"
 
 [build-dependencies]
 tauri-build = { version = "2.5.6" }

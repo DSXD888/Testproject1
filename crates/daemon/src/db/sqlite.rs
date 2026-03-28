@@ -12,6 +12,7 @@ use serde_json::json;
 static WRITE_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
 const L0_MIGRATION_PATH: &str = "migrations/0001_sqlite_state_initial.sql";
 const L1_MIGRATION_PATH: &str = "migrations/0003_sqlite_runtime.sql";
+const L2_MIGRATION_PATH: &str = "migrations/0004_l2_pending_operator_intents.sql";
 
 pub const DEFAULT_SCHEMA_EPOCH: i64 = 1;
 pub const DEFAULT_OWNER_ID: &str = "local-owner";
@@ -161,6 +162,7 @@ fn apply_migrations(conn: &Connection, repo_root: &Path, schema_epoch: i64) -> R
 
     apply_sql_file(conn, repo_root, L0_MIGRATION_PATH)?;
     apply_sql_file(conn, repo_root, L1_MIGRATION_PATH)?;
+    apply_sql_file(conn, repo_root, L2_MIGRATION_PATH)?;
     ensure_runtime_schema(conn)?;
     conn.pragma_update(None, "user_version", schema_epoch)
         .context("writing PRAGMA user_version")?;
