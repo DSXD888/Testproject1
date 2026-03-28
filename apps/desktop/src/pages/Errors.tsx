@@ -449,7 +449,7 @@ export function ErrorsPage({
                 );
                 return (
                   <>
-                    <pre>{rawContext.safeText}</pre>
+                    <pre aria-label="Raw error context">{rawContext.safeText}</pre>
                     {rawContext.truncated ? (
                       <p role="status">Raw error context truncated for safe rendering.</p>
                     ) : null}
