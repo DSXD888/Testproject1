@@ -240,33 +240,56 @@ async function installNativeHarness(page: Page, fixture: NativeFixture): Promise
   }, fixture);
 }
 
-test('TAU-INT-001 native bootstrap uses the Tauri invoke path for the queue shell', async ({
+test('TAU-INT-001 Quit UI leaves the daemon-owned runtime surface intact', async ({
   page,
 }) => {
   await installNativeHarness(page, {
     bootstrap: bootstrapFixture('full_control'),
     daemonInfo: daemonInfoFixture(),
     processList: processListEnvelope(),
+    extra: {
+      quit_ui: 'Quit UI requested.',
+    },
   });
 
-  await page.goto('/');
-  await expect(page.getByText('Native harness process')).toBeVisible();
-  await expect(page.locator('.desktop-shell__status-banner')).toContainText('full control');
+  await page.goto('/daemon');
+  await page.getByRole('button', { name: 'Quit UI' }).click();
+  await expect(page.getByText('Quit UI requested.')).toBeVisible();
   await expect(
-    page.evaluate(() => (window as typeof window & { __TAURI_CALLS__?: unknown[] }).__TAURI_CALLS__?.length ?? 0),
-  ).resolves.toBeGreaterThan(0);
+    page.evaluate(
+      () =>
+        (window as typeof window & {
+          __TAURI_CALLS__?: Array<{ cmd: string }>;
+        }).__TAURI_CALLS__?.some((call) => call.cmd === 'quit_ui') ?? false,
+    ),
+  ).resolves.toBe(true);
 });
 
-test('TAU-INT-002 native diagnostics use invoke without the dev bridge', async ({ page }) => {
+test('TAU-INT-002 Stop background daemon and quit is a distinct desktop action', async ({
+  page,
+}) => {
   await installNativeHarness(page, {
     bootstrap: bootstrapFixture('full_control'),
     daemonInfo: daemonInfoFixture('daemon-native-2'),
     processList: processListEnvelope(),
+    extra: {
+      stop_background_daemon_and_quit: 'Stop background daemon and quit requested.',
+    },
   });
 
   await page.goto('/daemon');
-  await expect(page.getByText('daemon-native-2')).toBeVisible();
-  await expect(page.getByText('/tmp/procintel/runtime/daemon.sock')).toBeVisible();
+  await page.getByRole('button', { name: 'Stop background daemon and quit' }).click();
+  await expect(page.getByText('Stop background daemon and quit requested.')).toBeVisible();
+  await expect(
+    page.evaluate(
+      () =>
+        (window as typeof window & {
+          __TAURI_CALLS__?: Array<{ cmd: string }>;
+        }).__TAURI_CALLS__?.some(
+          (call) => call.cmd === 'stop_background_daemon_and_quit',
+        ) ?? false,
+    ),
+  ).resolves.toBe(true);
 });
 
 test('TAU-INT-003 auto-launch bootstrap can still resolve to full control', async ({ page }) => {
