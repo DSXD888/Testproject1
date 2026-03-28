@@ -1,34 +1,33 @@
-import { createElement } from "react";
+import type { ContractCardFrameProps } from '../contract-card-frame';
 
-import type { ContractCardFrameProps } from "../contract-card-frame";
-
-export const contractCardFrameFixture: ContractCardFrameProps = {
+export const contractCardFrameFixture: Omit<
+  ContractCardFrameProps,
+  'rightRail' | 'actions'
+> = {
   summary: {
-    processId: "process-123",
-    title: "Emergency Medical Consumables",
-    buyerName: "NHS Example Trust",
-    publishedDate: "2026-03-28",
-    deadlineDate: "2026-04-21",
-    estimatedValuePence: 245_000_00,
-    lotCount: 3,
-    accessRoute: "open_tender",
-    legalCategory: "goods",
+    processId: 'proc-123',
+    title: 'School furniture refresh',
+    buyerName: 'North Borough Council',
+    publishedDate: '2026-03-20',
+    deadlineDate: '2026-04-03',
+    estimatedValuePence: 125000000,
+    lotCount: 4,
+    accessRoute: 'open',
+    legalCategory: 'goods',
   },
   metrics: {
-    pipelineState: "error",
-    pricedCoverageBps: 6700,
-    netQualifiedCoverageBps: 5400,
-    netQualifiedValueCoverageBps: 4900,
-    grossMarginBps: 3250,
-    netMarginBaseBps: 2110,
-    candidateCount: 8,
-    quotedCandidateCount: 5,
+    pipelineState: 'error',
+    pricedCoverageBps: 7200,
+    netQualifiedCoverageBps: 6100,
+    netQualifiedValueCoverageBps: 5400,
+    grossMarginBps: 1800,
+    netMarginBaseBps: 950,
+    candidateCount: 6,
+    quotedCandidateCount: 3,
   },
   decision: {
-    disposition: "watch",
+    disposition: 'watch',
     isStale: true,
-    decidedAt: "2026-03-28T10:00:00Z",
+    decidedAt: '2026-03-22T10:30:00Z',
   },
-  rightRail: createElement("span", { "data-slot": "right-rail" }, "Fresh"),
-  actions: createElement("button", { type: "button", "data-slot": "actions" }, "Review"),
 };

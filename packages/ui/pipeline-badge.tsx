@@ -1,68 +1,74 @@
-import type { JSX } from "react";
+import type { ReactElement } from 'react';
+
+export type PipelineState =
+  | 'pending'
+  | 'qualifying'
+  | 'enriching'
+  | 'qualified'
+  | 'review'
+  | 'rejected'
+  | 'error';
+
+export type ValidationState = 'unverified' | 'validated' | 'flagged';
 
 export interface PipelineBadgeProps {
-  state:
-    | "pending"
-    | "qualifying"
-    | "enriching"
-    | "qualified"
-    | "review"
-    | "rejected"
-    | "error";
-  validationState?: "unverified" | "validated" | "flagged";
-  size?: "sm" | "md" | "lg";
+  state: PipelineState;
+  validationState?: ValidationState;
+  size?: 'sm' | 'md' | 'lg';
 }
 
-interface BadgeVisual {
-  label: string;
+interface BadgeMeta {
   icon: string;
-  tone: "muted" | "info" | "good" | "warn" | "bad";
+  label: string;
+  tone: 'muted' | 'info' | 'good' | 'warn' | 'bad';
 }
 
-const BADGE_VISUALS: Record<PipelineBadgeProps["state"], BadgeVisual> = {
-  pending: { label: "Pending", icon: "...", tone: "muted" },
-  qualifying: { label: "Qualifying", icon: "Q", tone: "info" },
-  enriching: { label: "Enriching", icon: "E", tone: "info" },
-  qualified: { label: "Qualified", icon: "OK", tone: "good" },
-  review: { label: "Review", icon: "!", tone: "warn" },
-  rejected: { label: "Rejected", icon: "X", tone: "bad" },
-  error: { label: "Error", icon: "!!", tone: "bad" },
+const PIPELINE_META: Record<PipelineState, BadgeMeta> = {
+  pending: { icon: 'PD', label: 'Pending', tone: 'muted' },
+  qualifying: { icon: 'QF', label: 'Qualifying', tone: 'info' },
+  enriching: { icon: 'EN', label: 'Enriching', tone: 'info' },
+  qualified: { icon: 'OK', label: 'Qualified', tone: 'good' },
+  review: { icon: 'RV', label: 'Review', tone: 'warn' },
+  rejected: { icon: 'NO', label: 'Rejected', tone: 'bad' },
+  error: { icon: 'ER', label: 'Error', tone: 'bad' },
 };
 
-const VALIDATION_LABELS: Record<NonNullable<PipelineBadgeProps["validationState"]>, string> = {
-  unverified: "Unverified",
-  validated: "Validated",
-  flagged: "Flagged",
+const VALIDATION_META: Record<Exclude<ValidationState, 'unverified'>, BadgeMeta> = {
+  validated: { icon: 'VD', label: 'Validated', tone: 'good' },
+  flagged: { icon: 'FG', label: 'Flagged', tone: 'warn' },
 };
+
+function renderBadge(meta: BadgeMeta, size: PipelineBadgeProps['size']): ReactElement {
+  return (
+    <span
+      className="pipeline-badge"
+      data-size={size ?? 'md'}
+      data-tone={meta.tone}
+      title={`${meta.label} state`}
+    >
+      <span aria-hidden="true" className="pipeline-badge__icon">
+        {meta.icon}
+      </span>
+      <span className="pipeline-badge__label">{meta.label}</span>
+    </span>
+  );
+}
 
 export function PipelineBadge({
   state,
-  validationState = "unverified",
-  size = "md",
-}: PipelineBadgeProps): JSX.Element {
-  const visual = BADGE_VISUALS[state];
-  const validationLabel =
-    validationState === "unverified" ? null : VALIDATION_LABELS[validationState];
+  validationState = 'unverified',
+  size = 'md',
+}: PipelineBadgeProps): ReactElement {
+  const stateBadge = renderBadge(PIPELINE_META[state], size);
+  const validationBadge =
+    validationState === 'unverified'
+      ? null
+      : renderBadge(VALIDATION_META[validationState], size);
 
   return (
-    <span
-      className={`pipeline-badge pipeline-badge--${visual.tone} pipeline-badge--${size}`}
-      data-state={state}
-      data-tone={visual.tone}
-      title={`Pipeline state: ${visual.label}`}
-    >
-      <span aria-hidden="true" className="pipeline-badge__icon">
-        {visual.icon}
-      </span>
-      <span className="pipeline-badge__label">{visual.label}</span>
-      {validationLabel ? (
-        <span
-          className={`pipeline-badge__validation pipeline-badge__validation--${validationState}`}
-          data-validation-state={validationState}
-        >
-          {validationLabel}
-        </span>
-      ) : null}
+    <span className="pipeline-badge-stack" data-state={state}>
+      {stateBadge}
+      {validationBadge}
     </span>
   );
 }

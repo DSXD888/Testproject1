@@ -1,14 +1,14 @@
 {
   "name": "@project/ui",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": {
-    "build": "bun build ./contract-card-frame.tsx ./pipeline-badge.tsx ./freshness-badge.tsx --outdir ../../target/bun-packages-ui",
-    "test": "bun test ./tests"
-  },
-  "dependencies": {
+  "peerDependencies": {
     "react": "19.2.4",
     "react-dom": "19.2.4"
+  },
+  "scripts": {
+    "build": "bunx tsc --ignoreConfig --jsx react-jsx --module esnext --moduleResolution bundler --target es2022 --lib es2022,dom,dom.iterable --types react,react-dom --noEmit contract-card-frame.tsx pipeline-badge.tsx freshness-badge.tsx fixtures/contract-card-frame.ts fixtures/pipeline-badge.ts fixtures/freshness-badge.ts tests/components.test.tsx",
+    "test": "bunx vitest run tests/components.test.tsx"
   }
 }
