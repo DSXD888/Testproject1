@@ -9,6 +9,10 @@ use crate::ipc::handlers::jobs::{
     JobsHandlerContext, RetryJobParams, TriggerEnrichmentParams, TriggerIngestionParams, retry_job,
     trigger_enrichment, trigger_ingestion,
 };
+use crate::ipc::handlers::sessions::{
+    ResizeSessionParams, SendSessionInputParams, SessionHandlerError, SessionsHandlerContext,
+    StopSessionParams, resize_session, send_session_input, stop_session,
+};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -110,6 +114,33 @@ impl<'a> CommandRouter<'a> {
                     .map_err(|error| BridgeError::busy(error.to_string()))?;
                 Ok(DispatchOutcome::Response(to_value(ack)?))
             }
+            "stop_session" => {
+                let _: &str = required_idempotency_key(idempotency_key, method)?;
+                let params: StopSessionParams = parse_params(params)?;
+                let mut sessions = SessionsHandlerContext {
+                    state_db: self.jobs.state_db,
+                };
+                let ack = stop_session(&mut sessions, &params).map_err(map_session_error)?;
+                Ok(DispatchOutcome::Response(to_value(ack)?))
+            }
+            "send_session_input" => {
+                let _: &str = required_idempotency_key(idempotency_key, method)?;
+                let params: SendSessionInputParams = parse_params(params)?;
+                let sessions = SessionsHandlerContext {
+                    state_db: self.jobs.state_db,
+                };
+                let ack = send_session_input(&sessions, &params).map_err(map_session_error)?;
+                Ok(DispatchOutcome::Response(to_value(ack)?))
+            }
+            "resize_session" => {
+                let _: &str = required_idempotency_key(idempotency_key, method)?;
+                let params: ResizeSessionParams = parse_params(params)?;
+                let sessions = SessionsHandlerContext {
+                    state_db: self.jobs.state_db,
+                };
+                let ack = resize_session(&sessions, &params).map_err(map_session_error)?;
+                Ok(DispatchOutcome::Response(to_value(ack)?))
+            }
             _ => Err(BridgeError::not_found(format!(
                 "unsupported command method `{method}`"
             ))),
@@ -135,4 +166,13 @@ fn required_idempotency_key<'a>(
 ) -> std::result::Result<&'a str, BridgeError> {
     idempotency_key
         .ok_or_else(|| BridgeError::invalid_params(format!("{method} requires idempotencyKey")))
+}
+
+fn map_session_error(error: SessionHandlerError) -> BridgeError {
+    BridgeError {
+        code: error.code,
+        message: error.message,
+        retryable: error.retryable,
+        details: None,
+    }
 }

@@ -10,6 +10,7 @@ mod ipc {
     pub mod handlers {
         pub mod control;
         pub mod jobs;
+        pub mod sessions;
     }
     pub mod handshake;
 }

@@ -14,11 +14,23 @@ mod errors_manifest_impl;
 mod errors_markdown_impl;
 #[path = "../src/prompt/renderer.rs"]
 mod prompt_renderer_impl;
+#[path = "../src/pty/session.rs"]
+#[allow(dead_code)]
+mod pty_session_impl;
 #[path = "../src/jobs/runner.rs"]
 #[allow(dead_code)]
 mod runner_impl;
+#[path = "../src/ipc/handlers/sessions.rs"]
+#[allow(dead_code)]
+mod sessions_handler_impl;
 #[path = "support/skills.rs"]
 mod skills_support;
+
+mod jobs {
+    pub mod runner {
+        pub use crate::runner_impl::*;
+    }
+}
 
 #[cfg(unix)]
 mod tests {
@@ -59,11 +71,16 @@ mod tests {
     use crate::prompt_renderer_impl::{
         PromptRenderer, PromptRendererInput, RUN_MANIFEST_INSTRUCTION_BLOCK,
     };
+    use crate::pty_session_impl::{PtyCommand, PtySession, SpawnOptions};
     use crate::runner_impl::{
         FreshnessState, JOB_OBSOLETE, JobRunner, ObsoleteJobRequest, PersistContinuationRequest,
         PersistSuccessRequest, SQLITE_WRITE_FAILED, StageCommitSemantics, allocate_stage_run_id,
         basis_hash_mismatch, classify_sqlite_write_failed, persist_failed_set_replacement_attempt,
         set_stage_head_freshness, stage_scope_rule,
+    };
+    use crate::sessions_handler_impl::{
+        ResizeSessionParams, SendSessionInputParams, SessionsHandlerContext, StopMode,
+        StopSessionParams, resize_session, send_session_input, stop_session,
     };
     use crate::skills_support::{TestSkillDir, lint_skill_directory};
     use crate::support::TestContext;
@@ -263,6 +280,24 @@ mod tests {
             VALUES (?1, 'skills/example/SKILL.md', 'contract', 'running')
             ",
             params![session_id],
+        )?;
+        Ok(())
+    }
+
+    fn seed_pty_session(
+        conn: &rusqlite::Connection,
+        session_id: &str,
+        status: &str,
+        pty_session_id: Option<&str>,
+        pgid: Option<u32>,
+    ) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO agent_session_logs (
+              id, skill_path, execution_mode, pty_session_id, pgid, status
+            ) VALUES (?1, 'skills/example/SKILL.md', 'pty', ?2, ?3, ?4)
+            ",
+            params![session_id, pty_session_id, pgid, status],
         )?;
         Ok(())
     }
@@ -1423,6 +1458,180 @@ mod tests {
             classified.contains(SQLITE_WRITE_FAILED),
             "competing writer did not classify as SQLITE_WRITE_FAILED"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn it_con_027_stop_session_accepts_graceful_and_marks_session_terminating() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let mut owned_db = StateDb::open(state_db.db_path())?;
+        let mut session =
+            PtySession::spawn(PtyCommand::new("sleep").arg("30"), SpawnOptions::default())?;
+        seed_pty_session(
+            owned_db.connection(),
+            "session-stop-graceful",
+            "active",
+            Some("pty-session-stop-graceful"),
+            Some(session.runtime_ids.pgid),
+        )?;
+
+        let ack = stop_session(
+            &mut SessionsHandlerContext {
+                state_db: &mut owned_db,
+            },
+            &StopSessionParams {
+                session_id: "session-stop-graceful".to_owned(),
+                mode: StopMode::Graceful,
+            },
+        )?;
+
+        let status: String = owned_db.connection().query_row(
+            "SELECT status FROM agent_session_logs WHERE id = 'session-stop-graceful'",
+            [],
+            |row| row.get(0),
+        )?;
+        let _ = session.finish()?;
+
+        ensure!(ack.accepted, "graceful stop should acknowledge");
+        ensure!(
+            ack.visible_after_seq > 0,
+            "graceful stop should return visible_after_seq"
+        );
+        ensure!(
+            status == "terminating",
+            "session should be marked terminating"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn it_con_028_stop_session_accepts_force_mode() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let mut owned_db = StateDb::open(state_db.db_path())?;
+        let mut session = PtySession::spawn(
+            PtyCommand::new("sh")
+                .arg("-c")
+                .arg("trap '' INT TERM; sleep 30"),
+            SpawnOptions::default(),
+        )?;
+        seed_pty_session(
+            owned_db.connection(),
+            "session-stop-force",
+            "active",
+            Some("pty-session-stop-force"),
+            Some(session.runtime_ids.pgid),
+        )?;
+
+        let ack = stop_session(
+            &mut SessionsHandlerContext {
+                state_db: &mut owned_db,
+            },
+            &StopSessionParams {
+                session_id: "session-stop-force".to_owned(),
+                mode: StopMode::Force,
+            },
+        )?;
+
+        let status: String = owned_db.connection().query_row(
+            "SELECT status FROM agent_session_logs WHERE id = 'session-stop-force'",
+            [],
+            |row| row.get(0),
+        )?;
+        let _ = session.finish()?;
+
+        ensure!(ack.accepted, "force stop should acknowledge");
+        ensure!(
+            status == "terminating",
+            "force stop should mark terminating"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn it_con_029_send_session_input_rejects_noninteractive_or_terminal_sessions() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_session(state_db.connection(), "session-contract")?;
+        seed_pty_session(
+            state_db.connection(),
+            "session-terminal",
+            "completed",
+            Some("pty-terminal"),
+            Some(999_001),
+        )?;
+        let mut owned_db = StateDb::open(state_db.db_path())?;
+
+        let noninteractive = send_session_input(
+            &SessionsHandlerContext {
+                state_db: &mut owned_db,
+            },
+            &SendSessionInputParams {
+                session_id: "session-contract".to_owned(),
+                input_utf8: "auth-code".to_owned(),
+            },
+        )
+        .expect_err("contract sessions should reject PTY input");
+        ensure!(noninteractive.code == "not_interactive");
+
+        let terminal = send_session_input(
+            &SessionsHandlerContext {
+                state_db: &mut owned_db,
+            },
+            &SendSessionInputParams {
+                session_id: "session-terminal".to_owned(),
+                input_utf8: "auth-code".to_owned(),
+            },
+        )
+        .expect_err("terminal sessions should reject input");
+        ensure!(terminal.code == "already_terminal");
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_con_030_resize_session_rejects_detached_or_terminal_sessions() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_pty_session(
+            state_db.connection(),
+            "session-detached",
+            "active",
+            None,
+            Some(999_002),
+        )?;
+        seed_pty_session(
+            state_db.connection(),
+            "session-terminal-resize",
+            "failed",
+            Some("pty-terminal"),
+            Some(999_003),
+        )?;
+        let mut owned_db = StateDb::open(state_db.db_path())?;
+
+        let detached = resize_session(
+            &SessionsHandlerContext {
+                state_db: &mut owned_db,
+            },
+            &ResizeSessionParams {
+                session_id: "session-detached".to_owned(),
+                cols: 140,
+                rows: 50,
+            },
+        )
+        .expect_err("detached PTY sessions should reject resize");
+        ensure!(detached.code == "not_interactive");
+
+        let terminal = resize_session(
+            &SessionsHandlerContext {
+                state_db: &mut owned_db,
+            },
+            &ResizeSessionParams {
+                session_id: "session-terminal-resize".to_owned(),
+                cols: 140,
+                rows: 50,
+            },
+        )
+        .expect_err("terminal sessions should reject resize");
+        ensure!(terminal.code == "already_terminal");
+
         Ok(())
     }
 
