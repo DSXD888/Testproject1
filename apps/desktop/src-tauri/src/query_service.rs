@@ -105,7 +105,7 @@ impl QueryService {
                 &ErrorListFilters::default(),
             )?;
 
-            let (coverage, pipeline_basis_hash, pipeline_stage_run_id) =
+            let (coverage, pipeline_basis_hash, pipeline_stage_run_id, pipeline_state) =
                 load_coverage(conn, &canonical_process_id)?;
             let (manifest, manifest_error) = load_manifest(
                 conn,
@@ -131,6 +131,7 @@ impl QueryService {
             Ok(ProcessDetailVm {
                 process_id: process_row.0,
                 canonical_process_id: process_row.1,
+                pipeline_state,
                 notices,
                 lots,
                 candidates,
@@ -467,6 +468,10 @@ pub struct ProcessListItem {
     pub buyer_name: String,
     pub published_at: String,
     pub deadline_at: Option<String>,
+    pub estimated_value_pence: Option<i64>,
+    pub lot_count: i64,
+    pub access_route: String,
+    pub legal_category: String,
     pub pipeline_state: PipelineState,
     pub priced_coverage_bps: Option<i64>,
     pub net_qualified_coverage_bps: Option<i64>,
@@ -491,6 +496,7 @@ pub struct DecisionStatus {
 pub struct ProcessDetailVm {
     pub process_id: String,
     pub canonical_process_id: String,
+    pub pipeline_state: PipelineState,
     pub notices: Vec<ContractNoticeVm>,
     pub lots: Vec<NoticeLotVm>,
     pub candidates: Vec<ProductCandidateVm>,
@@ -763,6 +769,7 @@ struct StreamIndexEntry {
     last_seq: u64,
 }
 
+#[allow(clippy::too_many_lines)]
 fn load_process_list_rows(
     conn: &Connection,
     decisions: &HashMap<String, DecisionRecord>,
@@ -776,6 +783,56 @@ fn load_process_list_rows(
                    COALESCE(p.buyer_name, ''),
                    p.latest_published_at,
                    p.latest_deadline_at,
+                   COALESCE(
+                     (
+                       SELECT SUM(nl.estimated_value_pence)
+                       FROM notice_lots nl
+                       INNER JOIN contract_notices cn ON cn.id = nl.notice_id
+                       WHERE cn.process_id = p.id
+                     ),
+                     (
+                       SELECT MAX(cn.estimated_value_gbp_ex_vat_pence)
+                       FROM contract_notices cn
+                       WHERE cn.process_id = p.id
+                     )
+                   ),
+                   COALESCE(
+                     (
+                       SELECT COUNT(*)
+                       FROM notice_lots nl
+                       INNER JOIN contract_notices cn ON cn.id = nl.notice_id
+                       WHERE cn.process_id = p.id
+                     ),
+                     0
+                   ),
+                   COALESCE(
+                     (
+                       SELECT qr.access_route
+                       FROM qualification_runs qr
+                       WHERE qr.process_id = p.id AND qr.access_route IS NOT NULL
+                       ORDER BY qr.qualified_at DESC, qr.id DESC
+                       LIMIT 1
+                     ),
+                     (
+                       SELECT cn.access_route
+                       FROM contract_notices cn
+                       WHERE cn.process_id = p.id AND cn.access_route IS NOT NULL
+                       ORDER BY cn.published_at DESC, cn.id DESC
+                       LIMIT 1
+                     ),
+                     'unknown'
+                   ),
+                   COALESCE(
+                     (
+                       SELECT CASE
+                         WHEN COUNT(DISTINCT qr.legal_category) > 1 THEN 'mixed'
+                         ELSE MAX(qr.legal_category)
+                       END
+                       FROM qualification_runs qr
+                       WHERE qr.process_id = p.id AND qr.legal_category IS NOT NULL
+                     ),
+                     'unknown'
+                   ),
                    COALESCE(pa.pipeline_state, 'pending'),
                    pa.priced_coverage_bps,
                    pa.net_qualified_coverage_bps,
@@ -801,15 +858,19 @@ fn load_process_list_rows(
                 row.get::<_, String>(3)?,
                 row.get::<_, String>(4)?,
                 row.get::<_, Option<String>>(5)?,
-                row.get::<_, String>(6)?,
-                row.get::<_, Option<i64>>(7)?,
-                row.get::<_, Option<i64>>(8)?,
-                row.get::<_, Option<i64>>(9)?,
-                row.get::<_, Option<i64>>(10)?,
+                row.get::<_, Option<i64>>(6)?,
+                row.get::<_, i64>(7)?,
+                row.get::<_, String>(8)?,
+                row.get::<_, String>(9)?,
+                row.get::<_, String>(10)?,
                 row.get::<_, Option<i64>>(11)?,
-                row.get::<_, i64>(12)?,
-                row.get::<_, i64>(13)?,
-                row.get::<_, Option<String>>(14)?,
+                row.get::<_, Option<i64>>(12)?,
+                row.get::<_, Option<i64>>(13)?,
+                row.get::<_, Option<i64>>(14)?,
+                row.get::<_, Option<i64>>(15)?,
+                row.get::<_, i64>(16)?,
+                row.get::<_, i64>(17)?,
+                row.get::<_, Option<String>>(18)?,
             ))
         })
         .map_err(storage_unreadable)?;
@@ -822,6 +883,10 @@ fn load_process_list_rows(
             buyer_name,
             published_at,
             deadline_at,
+            estimated_value_pence,
+            lot_count,
+            access_route,
+            legal_category,
             pipeline_state,
             priced_coverage_bps,
             net_qualified_coverage_bps,
@@ -840,6 +905,10 @@ fn load_process_list_rows(
             buyer_name,
             published_at,
             deadline_at,
+            estimated_value_pence,
+            lot_count,
+            access_route,
+            legal_category,
             pipeline_state: PipelineState::from_db(&pipeline_state),
             priced_coverage_bps,
             net_qualified_coverage_bps,
@@ -1085,14 +1154,14 @@ fn load_manifest(
 fn load_coverage(
     conn: &Connection,
     process_id: &str,
-) -> Result<(CoverageVm, Option<String>, Option<String>), QueryServiceError> {
+) -> Result<(CoverageVm, Option<String>, Option<String>, PipelineState), QueryServiceError> {
     let row = conn
         .query_row(
             "\
             SELECT priced_coverage_bps, landed_cost_coverage_bps, net_qualified_coverage_bps,
                    priced_value_coverage_bps, landed_cost_value_coverage_bps,
                    net_qualified_value_coverage_bps, unresolved_mandatory_lots,
-                   decision_basis_hash, stage_run_id
+                   decision_basis_hash, stage_run_id, COALESCE(pipeline_state, 'pending')
             FROM pipeline_assessments
             WHERE process_id = ?1
             ",
@@ -1108,6 +1177,7 @@ fn load_coverage(
                     row.get::<_, i64>(6)?,
                     row.get::<_, Option<String>>(7)?,
                     row.get::<_, Option<String>>(8)?,
+                    row.get::<_, String>(9)?,
                 ))
             },
         )
@@ -1127,6 +1197,7 @@ fn load_coverage(
             },
             None,
             None,
+            PipelineState::Pending,
         ));
     };
 
@@ -1142,6 +1213,7 @@ fn load_coverage(
         },
         row.7,
         row.8,
+        PipelineState::from_db(&row.9),
     ))
 }
 
@@ -1212,17 +1284,18 @@ fn load_error_rows(
     process_id: Option<&str>,
     filters: &ErrorListFilters,
 ) -> Result<Vec<ErrorListItem>, QueryServiceError> {
-    let base_select = "\
-        SELECT em.id, em.process_id, em.pipeline_stage, em.error_type, em.error_message,
-               asl.cleanup_verdict, em.skill_path, em.created_at, em.resolved, em.agent_session_id
-        FROM error_manifests em
-        LEFT JOIN agent_session_logs asl ON asl.id = em.agent_session_id
-        ";
     let items = if let Some(process_id) = process_id {
         let mut stmt = conn
-            .prepare(&format!(
-                "{base_select} WHERE em.process_id = ?1 ORDER BY em.created_at DESC, em.id DESC"
-            ))
+            .prepare(
+                "\
+                SELECT em.id, em.process_id, em.pipeline_stage, em.error_type, em.error_message,
+                       asl.cleanup_verdict, em.skill_path, em.created_at, em.resolved, em.agent_session_id
+                FROM error_manifests em
+                LEFT JOIN agent_session_logs asl ON asl.id = em.agent_session_id
+                WHERE em.process_id = ?1
+                ORDER BY em.created_at DESC, em.id DESC
+                ",
+            )
             .map_err(storage_unreadable)?;
         let rows = stmt
             .query_map(params![process_id], map_error_row)
@@ -1231,9 +1304,15 @@ fn load_error_rows(
             .map_err(storage_unreadable)?
     } else {
         let mut stmt = conn
-            .prepare(&format!(
-                "{base_select} ORDER BY em.created_at DESC, em.id DESC"
-            ))
+            .prepare(
+                "\
+                SELECT em.id, em.process_id, em.pipeline_stage, em.error_type, em.error_message,
+                       asl.cleanup_verdict, em.skill_path, em.created_at, em.resolved, em.agent_session_id
+                FROM error_manifests em
+                LEFT JOIN agent_session_logs asl ON asl.id = em.agent_session_id
+                ORDER BY em.created_at DESC, em.id DESC
+                ",
+            )
             .map_err(storage_unreadable)?;
         let rows = stmt
             .query_map([], map_error_row)

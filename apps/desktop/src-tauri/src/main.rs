@@ -15,11 +15,24 @@ use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 
-use crate::daemon_bridge::{DaemonBridge, RestartDaemonParams};
+use crate::daemon_bridge::{
+    BridgeError as DaemonBridgeError, CaptureDecisionParams as BridgeCaptureDecisionParams,
+    DaemonBridge, DecisionDisposition as BridgeDecisionDisposition,
+    MutationAck as BridgeMutationAck, RerunFromErrorParams as BridgeRerunFromErrorParams,
+    ResizeSessionParams as BridgeResizeSessionParams,
+    ResolveErrorParams as BridgeResolveErrorParams, RestartDaemonParams,
+    RetryJobParams as BridgeRetryJobParams, SendSessionInputParams as BridgeSendSessionInputParams,
+    StopSessionParams as BridgeStopSessionParams,
+    TriggerEnrichmentParams as BridgeTriggerEnrichmentParams,
+    TriggerIngestionParams as BridgeTriggerIngestionParams,
+};
 use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
-use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
+use rusqlite::Connection;
+#[cfg(test)]
+use rusqlite::{OptionalExtension, Transaction, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tauri::Manager;
 
 const DESCRIPTOR_FILENAME: &str = "daemon.info.json";
@@ -28,7 +41,6 @@ const STATE_DIRNAME: &str = "state";
 const RUNTIME_DIRNAME: &str = "runtime";
 const ARTIFACT_DIRNAME: &str = "artifacts";
 const STATE_DB_FILENAME: &str = "state.db";
-const L2_DECISION_MIGRATION_PATH: &str = "migrations/0004_l2_pending_operator_intents.sql";
 const EXPECTED_PROTOCOL_VERSION: u32 = 1;
 const EXPECTED_SCHEMA_EPOCH: i64 = 1;
 const DEFAULT_DAEMON_PROGRAM: &str = "daemon";
@@ -42,9 +54,19 @@ fn main() -> Result<()> {
         .invoke_handler(tauri::generate_handler![
             get_bootstrap_snapshot,
             refresh_bootstrap_snapshot,
+            list_processes,
+            get_process_detail,
+            list_sessions,
+            get_session_history,
             list_errors,
             get_daemon_info,
+            trigger_ingestion,
+            trigger_enrichment,
             restart_daemon,
+            retry_job,
+            stop_session,
+            send_session_input,
+            resize_session,
             quit_ui,
             stop_background_daemon_and_quit,
             open_logs,
@@ -96,26 +118,6 @@ struct BootstrapSnapshot {
     launched_daemon: bool,
 }
 
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct DaemonInfoSnapshot {
-    daemon_instance_id: String,
-    daemon_version: String,
-    protocol_version: u32,
-    schema_epoch: i64,
-    socket_path: String,
-    descriptor_path: String,
-    db_path: String,
-    artifact_root: String,
-    wal_bytes: u64,
-    startup_recovery_summary: String,
-    live_available: bool,
-    descriptor_backed: bool,
-    storage: String,
-    daemon: String,
-    control: String,
-}
-
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CaptureDecisionParams {
@@ -124,6 +126,7 @@ struct CaptureDecisionParams {
     reviewed_basis_hash: Option<String>,
     reviewed_manifest_hash: Option<String>,
     reviewed_at_stage_run_id: Option<String>,
+    #[allow(dead_code)]
     decision_note: Option<String>,
     idempotency_key: Option<String>,
 }
@@ -136,6 +139,7 @@ enum DecisionDisposition {
     Watch,
 }
 
+#[cfg(test)]
 impl DecisionDisposition {
     const fn as_str(self) -> &'static str {
         match self {
@@ -146,6 +150,7 @@ impl DecisionDisposition {
     }
 }
 
+#[cfg(test)]
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 struct DecisionMutationAck {
@@ -154,6 +159,7 @@ struct DecisionMutationAck {
     idempotency_key: String,
 }
 
+#[cfg(test)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct DecisionCaptureContext {
     process_id: String,
@@ -162,8 +168,10 @@ struct DecisionCaptureContext {
     reviewed_at_stage_run_id: String,
 }
 
+#[cfg(test)]
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 struct OperatorMutationAck {
     accepted: bool,
     visible_after_seq: i64,
@@ -176,6 +184,12 @@ struct RestartMutationAck {
     accepted: bool,
     visible_after_seq: i64,
     idempotency_key: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct GetProcessDetailParams {
+    process_id: String,
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
@@ -1060,68 +1074,129 @@ fn refresh_bootstrap_snapshot(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
+fn list_processes(
+    app: tauri::AppHandle,
+    cursor: Option<String>,
+    limit: Option<usize>,
+    filters: Option<query_service::ProcessListFilters>,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    serialize_query_result(
+        query_service::QueryService::open(paths.state_db_path(), EXPECTED_SCHEMA_EPOCH).and_then(
+            |service| {
+                service.list_processes(
+                    cursor.as_deref(),
+                    limit.unwrap_or(25),
+                    &filters.unwrap_or_default(),
+                )
+            },
+        ),
+    )
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn get_process_detail(
+    app: tauri::AppHandle,
+    params: GetProcessDetailParams,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    serialize_query_result(
+        query_service::QueryService::open(paths.state_db_path(), EXPECTED_SCHEMA_EPOCH)
+            .and_then(|service| service.get_process_detail(params.process_id.as_str())),
+    )
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn list_sessions(
+    app: tauri::AppHandle,
+    cursor: Option<String>,
+    limit: Option<usize>,
+    filters: Option<query_service::SessionListFilters>,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    serialize_query_result(
+        query_service::QueryService::open(paths.state_db_path(), EXPECTED_SCHEMA_EPOCH).and_then(
+            |service| {
+                service.list_sessions(
+                    cursor.as_deref(),
+                    limit.unwrap_or(25),
+                    &filters.unwrap_or_default(),
+                )
+            },
+        ),
+    )
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn get_session_history(
+    app: tauri::AppHandle,
+    params: query_service::SessionHistoryRequest,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    serialize_query_result(
+        query_service::QueryService::open(paths.state_db_path(), EXPECTED_SCHEMA_EPOCH)
+            .and_then(|service| service.get_session_history(&params)),
+    )
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 fn list_errors(
     app: tauri::AppHandle,
     cursor: Option<String>,
     limit: Option<usize>,
     filters: Option<query_service::ErrorListFilters>,
-) -> std::result::Result<
-    query_service::QueryEnvelope<query_service::KeysetPage<query_service::ErrorListItem>>,
-    String,
-> {
+) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
-    let service = query_service::QueryService::open(paths.state_db_path(), EXPECTED_SCHEMA_EPOCH)
-        .map_err(|error| error.to_string())?;
-    service
-        .list_errors(
-            cursor.as_deref(),
-            limit.unwrap_or(25),
-            &filters.unwrap_or_default(),
-        )
-        .map_err(|error| error.to_string())
+    serialize_query_result(
+        query_service::QueryService::open(paths.state_db_path(), EXPECTED_SCHEMA_EPOCH).and_then(
+            |service| {
+                service.list_errors(
+                    cursor.as_deref(),
+                    limit.unwrap_or(25),
+                    &filters.unwrap_or_default(),
+                )
+            },
+        ),
+    )
 }
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn get_daemon_info(
-    app: tauri::AppHandle,
-    store: tauri::State<'_, BootstrapStore>,
-) -> std::result::Result<DaemonInfoSnapshot, String> {
-    let snapshot = if let Some(snapshot) = store
-        .inner()
-        .snapshot()
-        .map_err(|error| error.to_string())?
-    {
-        snapshot
-    } else {
-        let snapshot = bootstrap_application(&app);
-        store
-            .inner()
-            .replace(snapshot.clone())
-            .map_err(|error| error.to_string())?;
-        snapshot
-    };
+fn get_daemon_info(app: tauri::AppHandle) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
-    let wal_path = PathBuf::from(format!("{}-wal", paths.state_db_path().display()));
-    let wal_bytes = fs::metadata(&wal_path).map_or(0_u64, |metadata| metadata.len());
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.get_daemon_info()
+    }))
+}
 
-    Ok(DaemonInfoSnapshot {
-        daemon_instance_id: snapshot.control_plane.daemon_instance_id.clone(),
-        daemon_version: snapshot.control_plane.daemon_version.clone(),
-        protocol_version: snapshot.control_plane.protocol_version,
-        schema_epoch: snapshot.control_plane.schema_epoch,
-        socket_path: paths.socket_path().display().to_string(),
-        descriptor_path: paths.descriptor_path().display().to_string(),
-        db_path: paths.state_db_path().display().to_string(),
-        artifact_root: paths.artifact_root.display().to_string(),
-        wal_bytes,
-        startup_recovery_summary: snapshot.control_plane.reasons.join("\n"),
-        live_available: snapshot.control_plane.daemon != DaemonState::Unavailable,
-        descriptor_backed: snapshot.control_plane.daemon == DaemonState::Unavailable,
-        storage: storage_label(snapshot.control_plane.storage).to_owned(),
-        daemon: daemon_label(snapshot.control_plane.daemon).to_owned(),
-        control: control_label(snapshot.control_plane.control).to_owned(),
-    })
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn trigger_ingestion(
+    app: tauri::AppHandle,
+    params: BridgeTriggerIngestionParams,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    let idempotency_key = next_idempotency_key("desktop-ingestion");
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.trigger_ingestion(&params, idempotency_key.as_str())
+    }))
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn trigger_enrichment(
+    app: tauri::AppHandle,
+    params: BridgeTriggerEnrichmentParams,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    let idempotency_key = next_idempotency_key("desktop-enrichment");
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.trigger_enrichment(&params, idempotency_key.as_str())
+    }))
 }
 
 #[tauri::command]
@@ -1192,61 +1267,179 @@ fn stop_background_daemon_and_quit(app: tauri::AppHandle) -> std::result::Result
 fn capture_decision(
     app: tauri::AppHandle,
     params: CaptureDecisionParams,
-) -> std::result::Result<DecisionMutationAck, String> {
+) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
-    capture_decision_impl(paths.state_db_path().as_path(), params)
-        .map_err(|error| error.to_string())
+    let idempotency_key = params
+        .idempotency_key
+        .clone()
+        .unwrap_or_else(|| next_idempotency_key("desktop-decision"));
+    let bridge_params = match bridge_capture_decision_params(&params) {
+        Ok(value) => value,
+        Err(error) => return serialize_bridge_result::<BridgeMutationAck>(Err(error)),
+    };
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.capture_decision(&bridge_params, idempotency_key.as_str())
+    }))
 }
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
 fn resolve_error(
     app: tauri::AppHandle,
-    error_manifest_id: String,
-) -> std::result::Result<OperatorMutationAck, String> {
+    params: BridgeResolveErrorParams,
+) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
-    resolve_error_impl(paths.state_db_path().as_path(), error_manifest_id.as_str())
-        .map_err(|error| error.to_string())
+    let idempotency_key = next_idempotency_key("desktop-resolve-error");
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.resolve_error(&params, idempotency_key.as_str())
+    }))
 }
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
 fn rerun_from_error(
     app: tauri::AppHandle,
-    error_manifest_id: String,
-) -> std::result::Result<OperatorMutationAck, String> {
+    params: BridgeRerunFromErrorParams,
+) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
-    rerun_from_error_impl(paths.state_db_path().as_path(), error_manifest_id.as_str())
-        .map_err(|error| error.to_string())
+    let idempotency_key = next_idempotency_key("desktop-rerun-error");
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.rerun_from_error(&params, idempotency_key.as_str())
+    }))
 }
 
-const fn storage_label(value: StorageState) -> &'static str {
-    match value {
-        StorageState::Ready => "ready",
-        StorageState::Repairing => "repairing",
-        StorageState::Unreadable => "unreadable",
-        StorageState::SchemaMismatch => "schema_mismatch",
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn retry_job(
+    app: tauri::AppHandle,
+    params: BridgeRetryJobParams,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    let idempotency_key = next_idempotency_key("desktop-retry-job");
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.retry_job(&params, idempotency_key.as_str())
+    }))
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn stop_session(
+    app: tauri::AppHandle,
+    params: BridgeStopSessionParams,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    let idempotency_key = next_idempotency_key("desktop-stop-session");
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.stop_session(&params, idempotency_key.as_str())
+    }))
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn send_session_input(
+    app: tauri::AppHandle,
+    params: BridgeSendSessionInputParams,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    let idempotency_key = next_idempotency_key("desktop-session-input");
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.send_session_input(&params, idempotency_key.as_str())
+    }))
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn resize_session(
+    app: tauri::AppHandle,
+    params: BridgeResizeSessionParams,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    let idempotency_key = next_idempotency_key("desktop-resize-session");
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.resize_session(&params, idempotency_key.as_str())
+    }))
+}
+
+fn serialize_query_result<T: Serialize>(
+    result: std::result::Result<T, query_service::QueryServiceError>,
+) -> std::result::Result<Value, String> {
+    serialize_command_payload(result)
+}
+
+fn serialize_bridge_result<T: Serialize>(
+    result: std::result::Result<T, DaemonBridgeError>,
+) -> std::result::Result<Value, String> {
+    serialize_command_payload(result)
+}
+
+fn serialize_command_payload<T: Serialize, E: Serialize>(
+    result: std::result::Result<T, E>,
+) -> std::result::Result<Value, String> {
+    match result {
+        Ok(value) => serde_json::to_value(value).map_err(|error| error.to_string()),
+        Err(error) => serde_json::to_value(error).map_err(|error| error.to_string()),
     }
 }
 
-const fn daemon_label(value: DaemonState) -> &'static str {
-    match value {
-        DaemonState::Starting => "starting",
-        DaemonState::Ready => "ready",
-        DaemonState::Degraded => "degraded",
-        DaemonState::Unavailable => "unavailable",
-        DaemonState::Incompatible => "incompatible",
-    }
+fn with_daemon_connection<T, F>(
+    paths: &DesktopPaths,
+    operation: F,
+) -> std::result::Result<T, DaemonBridgeError>
+where
+    F: FnOnce(
+        &mut crate::daemon_bridge::DaemonBridgeConnection,
+    ) -> std::result::Result<T, DaemonBridgeError>,
+{
+    let bridge = DaemonBridge::new(&paths.runtime_dir);
+    let mut connection = bridge.connect()?;
+    operation(&mut connection)
 }
 
-const fn control_label(value: ControlState) -> &'static str {
-    match value {
-        ControlState::Full => "full",
-        ControlState::Limited => "limited",
-        ControlState::ReadOnly => "read_only",
-    }
+fn next_idempotency_key(prefix: &str) -> String {
+    format!(
+        "{prefix}-{}",
+        Utc::now().timestamp_nanos_opt().unwrap_or_default()
+    )
 }
 
+fn bridge_capture_decision_params(
+    params: &CaptureDecisionParams,
+) -> std::result::Result<BridgeCaptureDecisionParams, DaemonBridgeError> {
+    Ok(BridgeCaptureDecisionParams {
+        process_id: params.process_id.clone(),
+        disposition: match params.disposition {
+            DecisionDisposition::Approve => BridgeDecisionDisposition::Approve,
+            DecisionDisposition::Reject => BridgeDecisionDisposition::Reject,
+            DecisionDisposition::Watch => BridgeDecisionDisposition::Watch,
+        },
+        reviewed_basis_hash: required_capture_metadata(
+            params.reviewed_basis_hash.clone(),
+            "reviewedBasisHash",
+        )?,
+        reviewed_manifest_hash: required_capture_metadata(
+            params.reviewed_manifest_hash.clone(),
+            "reviewedManifestHash",
+        )?,
+        reviewed_at_stage_run_id: required_capture_metadata(
+            params.reviewed_at_stage_run_id.clone(),
+            "reviewedAtStageRunId",
+        )?,
+    })
+}
+
+fn required_capture_metadata(
+    value: Option<String>,
+    field_name: &str,
+) -> std::result::Result<String, DaemonBridgeError> {
+    value.ok_or_else(|| DaemonBridgeError {
+        code: "invalid_params".to_owned(),
+        message: format!("capture_decision requires {field_name}"),
+        retryable: false,
+        details: None,
+    })
+}
+
+#[cfg(test)]
 #[allow(clippy::needless_pass_by_value)]
 fn capture_decision_impl(
     db_path: &Path,
@@ -1351,6 +1544,8 @@ fn capture_decision_impl(
     })
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 fn resolve_error_impl(db_path: &Path, error_manifest_id: &str) -> Result<OperatorMutationAck> {
     let mut conn = Connection::open(db_path)
         .with_context(|| format!("opening SQLite database {}", db_path.display()))?;
@@ -1390,6 +1585,8 @@ fn resolve_error_impl(db_path: &Path, error_manifest_id: &str) -> Result<Operato
     })
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 fn rerun_from_error_impl(db_path: &Path, error_manifest_id: &str) -> Result<OperatorMutationAck> {
     let mut conn = Connection::open(db_path)
         .with_context(|| format!("opening SQLite database {}", db_path.display()))?;
@@ -1480,7 +1677,9 @@ fn signal_daemon_stop(pid: u32) -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
 fn ensure_decision_schema(conn: &Connection) -> Result<()> {
+    const L2_DECISION_MIGRATION_PATH: &str = "migrations/0004_l2_pending_operator_intents.sql";
     let path = repo_root()?.join(L2_DECISION_MIGRATION_PATH);
     let ddl = fs::read_to_string(&path)
         .with_context(|| format!("reading migration {}", path.display()))?;
@@ -1489,6 +1688,7 @@ fn ensure_decision_schema(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
 fn existing_decision_receipt(conn: &Connection, idempotency_key: &str) -> Result<Option<i64>> {
     if !table_exists(conn, "pending_operator_intent_receipts")? {
         return Ok(None);
@@ -1503,6 +1703,7 @@ fn existing_decision_receipt(conn: &Connection, idempotency_key: &str) -> Result
     .context("querying pending_operator_intent_receipts")
 }
 
+#[cfg(test)]
 fn decision_capture_context(
     conn: &Connection,
     params: &CaptureDecisionParams,
@@ -1588,6 +1789,7 @@ fn decision_capture_context(
     })
 }
 
+#[cfg(test)]
 fn resolve_process_id_for_decision(
     conn: &Connection,
     requested_process_id: &str,
@@ -1621,6 +1823,7 @@ fn resolve_process_id_for_decision(
     .ok_or_else(|| anyhow!("unknown process `{requested_process_id}`"))
 }
 
+#[cfg(test)]
 fn latest_unsuperseded_intent_id(tx: &Transaction<'_>, process_id: &str) -> Result<Option<String>> {
     tx.query_row(
         "\
@@ -1637,6 +1840,7 @@ fn latest_unsuperseded_intent_id(tx: &Transaction<'_>, process_id: &str) -> Resu
     .context("querying latest unsuperseded decision intent")
 }
 
+#[cfg(test)]
 fn increment_commit_clock_tx(tx: &Transaction<'_>) -> Result<i64> {
     let updated = tx
         .execute(
@@ -1653,6 +1857,7 @@ fn increment_commit_clock_tx(tx: &Transaction<'_>) -> Result<i64> {
     .context("reading committed decision visible_after_seq")
 }
 
+#[cfg(test)]
 fn table_exists(conn: &Connection, table_name: &str) -> Result<bool> {
     conn.query_row(
         "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
@@ -1663,6 +1868,7 @@ fn table_exists(conn: &Connection, table_name: &str) -> Result<bool> {
     .context("checking sqlite table existence")
 }
 
+#[cfg(test)]
 fn repo_root() -> Result<PathBuf> {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     manifest_dir
