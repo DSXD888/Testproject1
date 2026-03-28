@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "."
+  },
+  "include": [
+    "render-opportunity.ts",
+    "opportunity.md.ts"
+  ]
+}
