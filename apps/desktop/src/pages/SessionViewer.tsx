@@ -4,10 +4,8 @@ import type { ReactElement } from 'react';
 import { boundUntrustedText, sanitizeUntrustedText } from '../../../../packages/ui';
 
 import {
-  applySessionFrame,
   loadSessionHistory,
   loadSessionsPage,
-  resolveSessionReplay,
   resizeSession,
   sendSessionInput,
   stopSession,
@@ -88,6 +86,19 @@ function degradeToBrowseOnly(message: string): void {
   });
 }
 
+function frameText(frame: ReturnType<typeof useSessionTimeline>[number]): string {
+  if (frame.kind === 'event') {
+    return sanitizeUntrustedText(JSON.stringify(frame.event));
+  }
+  if (frame.kind === 'gap') {
+    return `gap: ${frame.fromSeq}..${frame.toSeq}`;
+  }
+  if (frame.kind === 'lifecycle') {
+    return `lifecycle: ${sanitizeUntrustedText(frame.state)}`;
+  }
+  return `${frame.kind.toUpperCase()}: ${previewSessionText(String(frame.chunk), TRANSCRIPT_LINE_RENDER_LIMIT).safeText}`;
+}
+
 export function SessionViewer({
   sessionId,
   initialMode,
@@ -116,6 +127,7 @@ export function SessionViewer({
   const [error, setError] = useState<string | null>(null);
   const [snapshotSeq, setSnapshotSeq] = useState(0);
   const [mode, setMode] = useState<ViewerMode>(initialMode ?? 'live');
+  const [history, setHistory] = useState<SessionHistoryChunk | null>(null);
   const [historyState, setHistoryState] = useState<HistoryState>({ status: 'idle' });
   const [commandMessage, setCommandMessage] = useState<string | null>(null);
   const [replayMessage, setReplayMessage] = useState<string | null>(null);
@@ -177,7 +189,7 @@ export function SessionViewer({
     if (meta.session === null || seeded.current) {
       return;
     }
-    seedDevSessionFrames(sessionId).forEach((frame) => applySessionFrame(sessionId, frame));
+    seedDevSessionFrames(sessionId);
     seeded.current = true;
   }, [meta.session, sessionId]);
 
@@ -213,15 +225,9 @@ export function SessionViewer({
       maxBytes: 8192,
     })
       .then((envelope) => {
-        if (envelope.data.availability === 'complete') {
-          resolveSessionReplay(sessionId, gap.fromSeq, gap.toSeq, envelope.data.frames);
-          setReplayMessage(`Replay recovered ${gapKey}.`);
-          setLiveAnnouncement(`Replay recovered ${gapKey}.`);
-        } else {
-          envelope.data.frames.forEach((frame) => applySessionFrame(sessionId, frame));
-          setReplayMessage(`Replay ${envelope.data.availability} for ${gapKey}.`);
-          setLiveAnnouncement(`Replay incomplete for ${gapKey}.`);
-        }
+        setHistory(envelope.data);
+        setReplayMessage(`Replay ${envelope.data.availability} for ${gapKey}.`);
+        setLiveAnnouncement(`Replay ${envelope.data.availability} for ${gapKey}.`);
         setHistoryState({
           status: 'ready',
           availability: envelope.data.availability,
@@ -258,7 +264,7 @@ export function SessionViewer({
       maxBytes: 8192,
     })
       .then((envelope) => {
-        envelope.data.frames.forEach((frame) => applySessionFrame(sessionId, frame));
+        setHistory(envelope.data);
         setHistoryState({
           status: 'ready',
           availability: envelope.data.availability,
@@ -311,6 +317,20 @@ export function SessionViewer({
       return `pty: ${preview.safeText}`;
     });
   }, [timeline]);
+  const historyTranscript = useMemo(() => {
+    const frames = history?.frames.slice(-MAX_TRANSCRIPT_LINES) ?? [];
+    let truncated = false;
+    const lines = frames.map((frame) => {
+      const preview = previewSessionText(frameText(frame), TRANSCRIPT_LINE_RENDER_LIMIT);
+      truncated = truncated || preview.truncated;
+      return `${frame.kind.toUpperCase()}: ${preview.safeText}`;
+    });
+    return {
+      lines,
+      truncated,
+      frameCount: history?.frames.length ?? 0,
+    };
+  }, [history]);
 
   const liveTailPreview = useMemo(
     () => boundUntrustedText(sanitizeSessionText(tail), LIVE_TAIL_RENDER_LIMIT, 120),
@@ -425,7 +445,7 @@ export function SessionViewer({
         toSeq: meta.gapState?.toSeq ?? Math.max(meta.lastSeq, 1),
         maxBytes: 8192,
       });
-      envelope.data.frames.forEach((frame) => applySessionFrame(sessionId, frame));
+      setHistory(envelope.data);
       setHistoryState({
         status: 'ready',
         availability: envelope.data.availability,
@@ -556,16 +576,21 @@ export function SessionViewer({
             </>
           ) : (
             <>
-              {timeline.length > transcriptLines.length ? (
+              {historyTranscript.frameCount > historyTranscript.lines.length ? (
                 <p className="page__status">
-                  Showing the most recent {transcriptLines.length.toLocaleString('en-GB')} transcript
-                  lines.
+                  Showing the most recent {historyTranscript.lines.length.toLocaleString('en-GB')}{' '}
+                  transcript lines.
                 </p>
               ) : null}
+              {historyTranscript.truncated ? (
+                <p className="page__status">Replay frame truncated to safe transcript bounds.</p>
+              ) : null}
               <ol aria-live="off" className="session-viewer__timeline">
-                {transcriptLines.map((line, index) => (
+                {(historyTranscript.lines.length > 0 ? historyTranscript.lines : transcriptLines).map(
+                  (line, index) => (
                   <li key={`${index}-${line}`}>{line}</li>
-                ))}
+                  ),
+                )}
               </ol>
             </>
           )}

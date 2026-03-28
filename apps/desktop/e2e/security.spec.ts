@@ -121,7 +121,10 @@ function sessionHistoryEnvelope(text: string, executionMode: 'pty' | 'stdout' = 
         {
           kind: executionMode,
           seq: 1,
-          text,
+          chunk:
+            executionMode === 'pty'
+              ? Array.from(new TextEncoder().encode(text))
+              : text,
         },
       ],
     },
@@ -303,13 +306,13 @@ test('PW-SEC-006 renders hostile strings as text across detail, error, and sessi
     }
 
     if (body.cmd === 'list_sessions') {
-      await route.fulfill({ json: sessionListEnvelope() });
+      await route.fulfill({ json: sessionListEnvelope('session-sec', 'contract') });
       return;
     }
 
     if (body.cmd === 'get_session_history') {
       await route.fulfill({
-        json: sessionHistoryEnvelope('<blink>terminal</blink>'),
+        json: sessionHistoryEnvelope('<blink>terminal</blink>', 'stdout'),
       });
       return;
     }
@@ -325,7 +328,7 @@ test('PW-SEC-006 renders hostile strings as text across detail, error, and sessi
   await expect(page.getByText('<b>error</b>').first()).toBeVisible();
   await expect(page.locator('b')).toHaveCount(0);
 
-  await page.goto('/sessions/session-sec');
+  await page.goto('/sessions/session-sec?initialMode=history');
   await expect(page.getByText('<blink>terminal</blink>')).toBeVisible();
   await expect(page.locator('blink')).toHaveCount(0);
 });
@@ -335,7 +338,11 @@ test('PW-SEC-007 uses bounded rendering markers for oversized manifest and sessi
 }) => {
   test.slow();
   const largeManifest = `## Summary\n${'0123456789abcdef'.repeat(700_000)}`;
-  const largeReplay = 'line\n'.repeat(100_000);
+  const largeReplayFrames = Array.from({ length: 200 }, (_, index) => ({
+    kind: 'stdout' as const,
+    seq: index + 1,
+    chunk: `line ${index + 1}`,
+  }));
 
   await page.route('**/__tauri_invoke__', async (route) => {
     const body = JSON.parse(route.request().postData() ?? '{}') as InvokeRequest;
@@ -361,7 +368,17 @@ test('PW-SEC-007 uses bounded rendering markers for oversized manifest and sessi
 
     if (body.cmd === 'get_session_history') {
       await route.fulfill({
-        json: sessionHistoryEnvelope(largeReplay, 'stdout'),
+        json: {
+          snapshotSeq: 73,
+          snapshotAt: '2026-03-28T22:10:01Z',
+          data: {
+            sessionId: 'session-sec',
+            firstSeq: 1,
+            lastSeq: largeReplayFrames.length,
+            availability: 'complete',
+            frames: largeReplayFrames,
+          },
+        },
       });
       return;
     }
@@ -373,9 +390,9 @@ test('PW-SEC-007 uses bounded rendering markers for oversized manifest and sessi
   await expect(page.getByRole('heading', { name: 'Manifest' })).toBeVisible();
   await expect(page.getByText('Manifest truncated to the first')).toBeVisible();
 
-  await page.goto('/sessions/session-sec');
-  await expect(page.getByRole('heading', { name: 'Session viewer' })).toBeVisible();
-  await expect(page.getByText('Replay frame truncated to')).toBeVisible();
+  await page.goto('/sessions/session-sec?initialMode=history');
+  await expect(page.getByRole('heading', { name: 'Transcript history' })).toBeVisible();
+  await expect(page.getByText('Showing the most recent')).toBeVisible();
 });
 
 test('PW-SEC-008 neutralizes unicode spoofing controls across surfaces', async ({ page }) => {
@@ -399,13 +416,13 @@ test('PW-SEC-008 neutralizes unicode spoofing controls across surfaces', async (
     }
 
     if (body.cmd === 'list_sessions') {
-      await route.fulfill({ json: sessionListEnvelope() });
+      await route.fulfill({ json: sessionListEnvelope('session-sec', 'contract') });
       return;
     }
 
     if (body.cmd === 'get_session_history') {
       await route.fulfill({
-        json: sessionHistoryEnvelope(`session\u2066spoofed`),
+        json: sessionHistoryEnvelope(`session\u2066spoofed`, 'stdout'),
       });
       return;
     }
@@ -419,6 +436,6 @@ test('PW-SEC-008 neutralizes unicode spoofing controls across surfaces', async (
   await page.goto('/errors');
   await expect(page.getByText('[U+200F]').first()).toBeVisible();
 
-  await page.goto('/sessions/session-sec');
+  await page.goto('/sessions/session-sec?initialMode=history');
   await expect(page.getByText('[U+2066]').first()).toBeVisible();
 });

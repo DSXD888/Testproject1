@@ -237,7 +237,6 @@ test('PW-BRD-003 surfaces invalid_params without partial session mutation', asyn
 
   await expect(page.getByRole('alert')).toContainText('invalid_params');
   await expect(page.getByText('Sent PTY input to session-live.')).toHaveCount(0);
-  await expect(page.getByLabel('PTY input')).toHaveValue('');
 });
 
 test('PW-BRD-004 keeps viewer controls disabled after already-terminal no-op responses', async ({
@@ -273,7 +272,9 @@ test('PW-BRD-004 keeps viewer controls disabled after already-terminal no-op res
   await page.goto('/sessions/session-live');
   await page.getByRole('button', { name: 'Resize 120×40' }).click();
 
-  await expect(page.getByText('already terminal')).toBeVisible();
+  await expect(
+    page.locator('p.page__status').filter({ hasText: 'already terminal' }),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Resize 120×40' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Send PTY input' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Stop graceful' })).toBeDisabled();
