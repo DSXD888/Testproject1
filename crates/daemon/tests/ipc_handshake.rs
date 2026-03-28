@@ -33,6 +33,9 @@ mod jobs_handler_impl;
 #[path = "../src/jobs/runner.rs"]
 #[allow(dead_code)]
 mod runner_impl;
+#[path = "../src/ipc/handlers/sessions.rs"]
+#[allow(dead_code)]
+mod session_handler_impl;
 
 mod db {
     pub mod sqlite {
@@ -61,6 +64,9 @@ mod ipc {
         }
         pub mod jobs {
             pub use crate::jobs_handler_impl::*;
+        }
+        pub mod sessions {
+            pub use crate::session_handler_impl::*;
         }
     }
 }

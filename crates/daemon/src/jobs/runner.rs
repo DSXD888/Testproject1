@@ -85,6 +85,21 @@ pub struct PersistSuccessRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnqueueJobRequest {
+    pub job_id: String,
+    pub kind: String,
+    pub process_id: Option<String>,
+    pub notice_id: Option<String>,
+    pub scope_kind: Option<String>,
+    pub scope_id: Option<String>,
+    pub parent_job_id: Option<String>,
+    pub continuation_chain_id: Option<String>,
+    pub validation_required: bool,
+    pub input_payload: Value,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PersistContinuationRequest {
     pub job_id: String,
     pub idempotency_key: String,
@@ -240,6 +255,64 @@ impl JobRunner {
                     params![Utc::now().to_rfc3339(), stored_payload, request.job_id],
                 )?;
                 ensure!(updated == 1, "workflow job missing for {}", request.job_id);
+                Ok(predicted_visible_after_seq)
+            })?;
+
+        ensure!(
+            predicted_visible_after_seq == visible_after_seq,
+            "predicted commit fence diverged from committed fence"
+        );
+
+        Ok(MutationAck {
+            accepted: true,
+            visible_after_seq,
+            continuation_job_id: None,
+        })
+    }
+
+    pub fn enqueue_job(
+        &self,
+        state_db: &mut StateDb,
+        request: &EnqueueJobRequest,
+    ) -> Result<MutationAck> {
+        if let Some(existing) = find_existing_enqueue_ack(state_db.connection(), request)? {
+            return Ok(existing);
+        }
+
+        let (predicted_visible_after_seq, visible_after_seq) =
+            state_db.with_write_transaction(|tx| {
+                let predicted_visible_after_seq = current_commit_seq(tx)? + 1;
+                let stored_input_payload = json!({
+                    "request": request.input_payload,
+                    "runner_meta": {
+                        "idempotency_key": request.idempotency_key,
+                        "visible_after_seq": predicted_visible_after_seq,
+                        "executor_id": self.executor_id,
+                    }
+                })
+                .to_string();
+
+                tx.execute(
+                    "\
+                    INSERT INTO workflow_jobs (
+                      id, kind, process_id, notice_id, scope_kind, scope_id, parent_job_id,
+                      continuation_chain_id, validation_required, status, input_payload
+                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'pending', ?10)
+                    ",
+                    params![
+                        request.job_id,
+                        request.kind,
+                        request.process_id,
+                        request.notice_id,
+                        request.scope_kind,
+                        request.scope_id,
+                        request.parent_job_id,
+                        request.continuation_chain_id,
+                        i64::from(request.validation_required),
+                        stored_input_payload,
+                    ],
+                )?;
+
                 Ok(predicted_visible_after_seq)
             })?;
 
@@ -637,4 +710,62 @@ fn find_existing_ack(
         visible_after_seq,
         continuation_job_id,
     }))
+}
+
+fn find_existing_enqueue_ack(
+    conn: &Connection,
+    request: &EnqueueJobRequest,
+) -> Result<Option<MutationAck>> {
+    let mut statement = conn.prepare(
+        "\
+        SELECT input_payload
+        FROM workflow_jobs
+        WHERE kind = ?1
+          AND process_id IS ?2
+          AND notice_id IS ?3
+          AND scope_kind IS ?4
+          AND scope_id IS ?5
+          AND parent_job_id IS ?6
+          AND continuation_chain_id IS ?7
+          AND status IN ('pending', 'running', 'retry', 'completed')
+        ORDER BY created_at DESC
+        ",
+    )?;
+    let rows = statement.query_map(
+        params![
+            request.kind,
+            request.process_id,
+            request.notice_id,
+            request.scope_kind,
+            request.scope_id,
+            request.parent_job_id,
+            request.continuation_chain_id,
+        ],
+        |row| row.get::<_, String>(0),
+    )?;
+
+    for row in rows {
+        let raw_payload = row?;
+        let parsed: Value =
+            serde_json::from_str(&raw_payload).context("parsing workflow input payload")?;
+        let Some(meta) = parsed.get("runner_meta").and_then(Value::as_object) else {
+            continue;
+        };
+        if meta.get("idempotency_key").and_then(Value::as_str)
+            != Some(request.idempotency_key.as_str())
+        {
+            continue;
+        }
+        let visible_after_seq = meta
+            .get("visible_after_seq")
+            .and_then(Value::as_i64)
+            .ok_or_else(|| anyhow!("runner_meta missing visible_after_seq"))?;
+        return Ok(Some(MutationAck {
+            accepted: true,
+            visible_after_seq,
+            continuation_job_id: None,
+        }));
+    }
+
+    Ok(None)
 }
