@@ -5,6 +5,7 @@
 opencode.json
 storage.sqlite3*
 target/
+node_modules/
 
 # bv (beads viewer) local config and caches
 .bv/
