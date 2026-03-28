@@ -107,6 +107,9 @@ export function ErrorsPage({
   });
   const [mutationMessage, setMutationMessage] = useState<string | null>(null);
   const [mutationPending, setMutationPending] = useState(false);
+  const [lastMutationKind, setLastMutationKind] = useState<
+    'resolve_error' | 'rerun_from_error' | null
+  >(null);
 
   async function reloadErrorsUntilVisible(visibleAfterSeq: number): Promise<void> {
     for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -142,6 +145,7 @@ export function ErrorsPage({
   ): Promise<void> {
     setMutationPending(true);
     setMutationMessage(null);
+    setLastMutationKind(command);
     try {
       const result = await invoke(command, { errorManifestId });
       if (
@@ -236,8 +240,13 @@ export function ErrorsPage({
         </div>
       </header>
 
+      {mutationMessage ? <p role="status">{mutationMessage}</p> : null}
+
       {errors.length === 0 ? (
         <div className="empty-state" role="status">
+          {lastMutationKind === 'resolve_error' && !mutationMessage ? (
+            <p>Error resolution committed.</p>
+          ) : null}
           <h2>No unresolved errors</h2>
           <p>The operator queue is currently clear.</p>
         </div>
@@ -289,7 +298,6 @@ export function ErrorsPage({
                   Rerun from error
                 </button>
               </div>
-              {mutationMessage ? <p role="status">{mutationMessage}</p> : null}
             </aside>
           ) : null}
         </div>

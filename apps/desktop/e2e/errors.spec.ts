@@ -37,11 +37,11 @@ test('PW-ERR-005 resolve removes the row only after the refetch fence clears', a
     if (body.cmd === 'list_errors') {
       reads += 1;
       await route.fulfill({
-        json:
-          reads === 1
-            ? {
-                data: {
-                  items: [
+          json:
+            reads <= 2
+              ? {
+                  data: {
+                    items: [
                     {
                       errorManifestId: 'err-live-1',
                       processId: 'proc-001',
@@ -57,7 +57,7 @@ test('PW-ERR-005 resolve removes the row only after the refetch fence clears', a
                   nextCursor: null,
                   hasMore: false,
                 },
-                snapshotSeq: reads === 1 ? 200 : 201,
+                snapshotSeq: reads <= 2 ? 200 : 201,
                 snapshotAt: '2026-03-28T21:45:00Z',
               }
             : {
