@@ -37,6 +37,7 @@ const fixtureErrors: Record<string, ErrorSummaryItem[]> = {
       cleanupVerdict: 'leaked',
       severity: 'critical',
       createdAt: '2026-03-28T09:15:00Z',
+      agentSessionId: 'session-live-1',
       resolved: false,
     },
     {
@@ -48,6 +49,7 @@ const fixtureErrors: Record<string, ErrorSummaryItem[]> = {
       cleanupVerdict: null,
       severity: 'warning',
       createdAt: '2026-03-28T08:55:00Z',
+      agentSessionId: 'session-live-2',
       resolved: false,
     },
   ],
@@ -62,14 +64,65 @@ const fixtureErrors: Record<string, ErrorSummaryItem[]> = {
       cleanupVerdict: 'forced',
       severity: 'warning',
       createdAt: '2026-03-28T07:00:00Z',
+      agentSessionId: 'session-hostile-1',
+      resolved: false,
+    },
+  ],
+  severityMatrix: [
+    {
+      errorManifestId: 'err-severity-1',
+      processId: 'proc-100',
+      pipelineStage: 'Enrich',
+      errorType: 'AGENT_DAEMON_CRASH_DURING_SESSION',
+      errorMessage: 'Session daemon crashed before artifact sync.',
+      cleanupVerdict: 'leaked',
+      severity: 'critical',
+      createdAt: '2026-03-28T06:45:00Z',
+      agentSessionId: 'session-critical-1',
+      resolved: false,
+    },
+    {
+      errorManifestId: 'err-severity-2',
+      processId: 'proc-101',
+      pipelineStage: 'Qualify',
+      errorType: 'SOURCE_CHANGED',
+      errorMessage: 'Notice source changed during qualification.',
+      cleanupVerdict: 'clean',
+      severity: 'warning',
+      createdAt: '2026-03-28T06:50:00Z',
+      agentSessionId: 'session-warning-1',
+      resolved: false,
+    },
+    {
+      errorManifestId: 'err-severity-3',
+      processId: 'proc-102',
+      pipelineStage: 'Extract',
+      errorType: 'PIPELINE_QUALITY_GATE_FAILED',
+      errorMessage: 'Quality gate rejected the extracted packet.',
+      cleanupVerdict: 'clean',
+      severity: 'warning',
+      createdAt: '2026-03-28T06:55:00Z',
+      agentSessionId: 'session-warning-2',
       resolved: false,
     },
   ],
 };
 
+function currentFixtureKey(): string | null {
+  return new URLSearchParams(globalThis.location?.search ?? '').get('errorsFixture');
+}
+
 function currentFixture(): ErrorSummaryItem[] {
-  const fixture = new URLSearchParams(globalThis.location?.search ?? '').get('errorsFixture');
-  return fixtureErrors[fixture ?? 'default'] ?? fixtureErrors.default;
+  const fixture = currentFixtureKey();
+  return fixture ? fixtureErrors[fixture] ?? fixtureErrors.default : fixtureErrors.default;
+}
+
+function unresolvedOnly(items: ErrorSummaryItem[]): ErrorSummaryItem[] {
+  return items.filter((item) => !item.resolved);
+}
+
+function humanizeControl(control: ControlPlaneState['control']): string {
+  return control.replace('_', ' ');
 }
 
 function buildManifestMarkdown(error: ErrorSummaryItem): string {
@@ -82,6 +135,7 @@ function buildManifestMarkdown(error: ErrorSummaryItem): string {
     '## Context',
     `- Process: ${error.processId ?? 'No process linked'}`,
     `- Stage: ${error.pipelineStage ?? 'Unscoped'}`,
+    `- Session: ${error.agentSessionId ?? 'No session linked'}`,
     `- Severity: ${error.severity}`,
     `- Cleanup: ${error.cleanupVerdict ?? 'n/a'}`,
   ].join('\n');
@@ -92,9 +146,12 @@ export function ErrorsPage({
 }: {
   controlPlane: ControlPlaneState;
 }): ReactElement {
-  const [errors, setErrors] = useState<ErrorSummaryItem[]>(currentFixture());
+  const fixtureKey = currentFixtureKey();
+  const [errors, setErrors] = useState<ErrorSummaryItem[]>(
+    fixtureKey ? unresolvedOnly(currentFixture()) : [],
+  );
   const [selectedId, setSelectedId] = useState<string | null>(
-    currentFixture()[0]?.errorManifestId ?? null,
+    fixtureKey ? unresolvedOnly(currentFixture())[0]?.errorManifestId ?? null : null,
   );
   const [snapshotMeta, setSnapshotMeta] = useState<{
     snapshotSeq: number;
@@ -125,8 +182,9 @@ export function ErrorsPage({
         'snapshotSeq' in result
       ) {
         const envelope = result as ErrorEnvelope;
-        setErrors(envelope.data.items);
-        setSelectedId(envelope.data.items[0]?.errorManifestId ?? null);
+        const unresolved = unresolvedOnly(envelope.data.items);
+        setErrors(unresolved);
+        setSelectedId(unresolved[0]?.errorManifestId ?? null);
         setSnapshotMeta({
           snapshotSeq: envelope.snapshotSeq,
           snapshotAt: envelope.snapshotAt,
@@ -176,6 +234,19 @@ export function ErrorsPage({
 
   useEffect(() => {
     let cancelled = false;
+    if (fixtureKey) {
+      const fixture = unresolvedOnly(currentFixture());
+      setErrors(fixture);
+      setSelectedId(fixture[0]?.errorManifestId ?? null);
+      setSnapshotMeta({
+        snapshotSeq: 0,
+        snapshotAt: '',
+        source: `fixture:${fixtureKey}`,
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
 
     void invoke('list_errors', {
       cursor: null,
@@ -193,8 +264,9 @@ export function ErrorsPage({
           'snapshotSeq' in result
         ) {
           const envelope = result as ErrorEnvelope;
-          setErrors(envelope.data.items);
-          setSelectedId(envelope.data.items[0]?.errorManifestId ?? null);
+          const unresolved = unresolvedOnly(envelope.data.items);
+          setErrors(unresolved);
+          setSelectedId(unresolved[0]?.errorManifestId ?? null);
           setSnapshotMeta({
             snapshotSeq: envelope.snapshotSeq,
             snapshotAt: envelope.snapshotAt,
@@ -203,20 +275,22 @@ export function ErrorsPage({
           return;
         }
 
-        setErrors(currentFixture());
-        setSelectedId(currentFixture()[0]?.errorManifestId ?? null);
+        const fallback = unresolvedOnly(currentFixture());
+        setErrors(fallback);
+        setSelectedId(fallback[0]?.errorManifestId ?? null);
       })
       .catch(() => {
         if (!cancelled) {
-          setErrors(currentFixture());
-          setSelectedId(currentFixture()[0]?.errorManifestId ?? null);
+          const fallback = unresolvedOnly(currentFixture());
+          setErrors(fallback);
+          setSelectedId(fallback[0]?.errorManifestId ?? null);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [fixtureKey]);
 
   const selectedError = useMemo(
     () => errors.find((error) => error.errorManifestId === selectedId) ?? errors[0] ?? null,
@@ -230,7 +304,7 @@ export function ErrorsPage({
           <p className="eyebrow">Operator queue</p>
           <h1>Errors</h1>
           <p>
-            Unresolved manifests remain readable in {controlPlane.control.replace('_', ' ')} mode.
+            Unresolved manifests remain readable in {humanizeControl(controlPlane.control)} mode.
           </p>
         </div>
         <div className="meta-card">
@@ -277,7 +351,7 @@ export function ErrorsPage({
                 sections={['Summary', 'Context']}
               />
               <h3>Raw context</h3>
-              <pre>{JSON.stringify(selectedError, null, 2)}</pre>
+              <pre aria-label="Raw error context">{JSON.stringify(selectedError, null, 2)}</pre>
               <div className="action-row">
                 <button
                   disabled={mutationPending || controlPlane.control !== 'full'}

@@ -1,17 +1,39 @@
 import { expect, test } from '@playwright/test';
 
 test('PW-ERR-001 lists unresolved manifests with stable severity', async ({ page }) => {
-  await page.goto('/errors');
+  await page.goto('/errors?errorsFixture=default');
 
-  await expect(page.getByRole('heading', { name: 'Errors' })).toBeVisible();
-  await expect(
-    page
-      .getByRole('listitem')
-      .filter({ hasText: 'AGENT_DAEMON_CRASH_DURING_SESSION' })
-      .first(),
-  ).toBeVisible();
-  await expect(page.getByText('Critical', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Process', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Errors', exact: true })).toBeVisible();
+  const errorList = page.locator('.error-summary-list');
+  await expect(errorList).toContainText('AGENT_DAEMON_CRASH_DURING_SESSION');
+  await expect(errorList).toContainText('Critical');
+  await expect(errorList).toContainText('Process');
+  await expect(errorList).toContainText('session-live-1');
+  await expect(errorList.locator('> li')).toHaveCount(2);
+});
+
+test('PW-ERR-002 renders an explicit empty state for an empty unresolved queue', async ({
+  page,
+}) => {
+  await page.goto('/errors?errorsFixture=empty');
+
+  await expect(page.getByRole('heading', { name: 'No unresolved errors' })).toBeVisible();
+  await expect(page.getByText('The operator queue is currently clear.')).toBeVisible();
+  await expect(page.getByRole('listitem')).toHaveCount(0);
+});
+
+test('PW-ERR-003 preserves the severity matrix without synthesizing info rows', async ({
+  page,
+}) => {
+  await page.goto('/errors?errorsFixture=severityMatrix');
+
+  const errorList = page.locator('.error-summary-list');
+  await expect(errorList).toContainText('AGENT_DAEMON_CRASH_DURING_SESSION');
+  await expect(errorList).toContainText('SOURCE_CHANGED');
+  await expect(errorList).toContainText('PIPELINE_QUALITY_GATE_FAILED');
+  await expect(errorList).toContainText('Critical');
+  await expect(errorList).toContainText('Warning');
+  await expect(page.getByText('Info', { exact: true })).toHaveCount(0);
 });
 
 test('PW-ERR-004 keeps drill-down content sanitized', async ({ page }) => {
@@ -20,6 +42,9 @@ test('PW-ERR-004 keeps drill-down content sanitized', async ({ page }) => {
   await page.getByRole('button', { name: 'View details' }).click();
   await expect(page.getByLabel('Error details')).toContainText(
     '<svg onload=payload-run>alert(1)</svg>',
+  );
+  await expect(page.locator('pre[aria-label="Raw error context"]')).toContainText(
+    '"agentSessionId": "session-hostile-1"',
   );
   await expect(page.locator('img')).toHaveCount(0);
 });

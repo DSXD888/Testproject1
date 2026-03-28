@@ -9,6 +9,7 @@ export interface ErrorSummaryItem {
   cleanupVerdict?: 'clean' | 'forced' | 'leaked' | null;
   severity: 'critical' | 'warning' | 'info';
   createdAt: string;
+  agentSessionId?: string | null;
   resolved: boolean;
   resolvedAt?: string;
 }
@@ -69,6 +70,12 @@ export function ErrorSummaryList({
               <dt>Created</dt>
               <dd>{error.createdAt}</dd>
             </div>
+            {error.agentSessionId ? (
+              <div>
+                <dt>Session</dt>
+                <dd>{error.agentSessionId}</dd>
+              </div>
+            ) : null}
             <div>
               <dt>Status</dt>
               <dd>{error.resolved ? `Resolved ${error.resolvedAt ?? ''}`.trim() : 'Open'}</dd>

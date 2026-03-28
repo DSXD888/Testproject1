@@ -5,16 +5,21 @@ import type { ControlPlaneState } from '../hooks/use-control-plane';
 import { invoke } from '../lib/transport';
 
 interface DaemonInfoSnapshot {
-  daemonInstanceId: string;
+  instanceId: string;
   daemonVersion: string;
   protocolVersion: number;
   schemaEpoch: number;
   socketPath: string;
   descriptorPath: string;
-  dbPath: string;
+  stateRoot: string;
+  stateDbPath: string;
   artifactRoot: string;
-  walBytes: number;
-  startupRecoverySummary: string;
+  walBytes: number | null;
+  startedAt: string;
+  startupRecovery: {
+    recoveredInterruptedSessions: number;
+    lastRecoveryAt: string | null;
+  };
   liveAvailable: boolean;
   descriptorBacked: boolean;
   storage: string;
@@ -22,23 +27,34 @@ interface DaemonInfoSnapshot {
   control: string;
 }
 
+function humanizeControl(control: ControlPlaneState['control']): string {
+  return control.replace('_', ' ');
+}
+
+function currentFixtureMode(): string | null {
+  return new URLSearchParams(globalThis.location?.search ?? '').get('daemonFixture');
+}
+
 function fixtureDiagnostics(controlPlane: ControlPlaneState): DaemonInfoSnapshot {
   const descriptorMode = new URLSearchParams(globalThis.location?.search ?? '').get('daemonFixture');
   const liveAvailable = descriptorMode !== 'descriptor';
 
   return {
-    daemonInstanceId: liveAvailable ? controlPlane.daemonInstanceId || 'daemon-dev' : '',
+    instanceId: liveAvailable ? controlPlane.daemonInstanceId || 'daemon-dev' : '',
     daemonVersion: liveAvailable ? controlPlane.daemonVersion || '0.1.0' : '',
     protocolVersion: controlPlane.protocolVersion || 1,
     schemaEpoch: controlPlane.schemaEpoch || 1,
     socketPath: '/tmp/procintel/runtime/daemon.sock',
     descriptorPath: '/tmp/procintel/runtime/daemon.info.json',
-    dbPath: '/tmp/procintel/state/state.db',
+    stateRoot: '/tmp/procintel/state',
+    stateDbPath: '/tmp/procintel/state/state.db',
     artifactRoot: '/tmp/procintel/artifacts',
     walBytes: 16384,
-    startupRecoverySummary: liveAvailable
-      ? 'Daemon handshake succeeded during desktop bootstrap.'
-      : 'Descriptor-backed diagnostics only; live daemon fields are unavailable.',
+    startedAt: '2026-03-28T08:00:00Z',
+    startupRecovery: {
+      recoveredInterruptedSessions: liveAvailable ? 1 : 0,
+      lastRecoveryAt: liveAvailable ? '2026-03-28T07:58:00Z' : null,
+    },
     liveAvailable,
     descriptorBacked: !liveAvailable,
     storage: controlPlane.storage,
@@ -47,30 +63,89 @@ function fixtureDiagnostics(controlPlane: ControlPlaneState): DaemonInfoSnapshot
   };
 }
 
+function normalizeDiagnostics(
+  result: unknown,
+  controlPlane: ControlPlaneState,
+): DaemonInfoSnapshot | null {
+  if (
+    !result ||
+    typeof result !== 'object' ||
+    !('instanceId' in result) ||
+    !('stateDbPath' in result) ||
+    !('startupRecovery' in result)
+  ) {
+    return null;
+  }
+
+  const payload = result as {
+    instanceId: string;
+    daemonVersion: string;
+    protocolVersion: number;
+    schemaEpoch: number;
+    socketPath: string;
+    descriptorPath: string;
+    stateRoot: string;
+    stateDbPath: string;
+    artifactRoot: string;
+    walBytes: number | null;
+    startedAt: string;
+    startupRecovery: {
+      recoveredInterruptedSessions: number;
+      lastRecoveryAt: string | null;
+    };
+  };
+
+  return {
+    ...payload,
+    liveAvailable: true,
+    descriptorBacked: false,
+    storage: controlPlane.storage,
+    daemon: controlPlane.daemon,
+    control: controlPlane.control,
+  };
+}
+
+function startupRecoverySummary(diagnostics: DaemonInfoSnapshot): string {
+  if (!diagnostics.liveAvailable) {
+    return 'Descriptor-backed diagnostics only; live daemon fields are unavailable.';
+  }
+
+  if (diagnostics.startupRecovery.recoveredInterruptedSessions === 0) {
+    return 'Daemon handshake succeeded during desktop bootstrap with no interrupted sessions to recover.';
+  }
+
+  const recovered = diagnostics.startupRecovery.recoveredInterruptedSessions;
+  const lastRecoveryAt = diagnostics.startupRecovery.lastRecoveryAt ?? 'unknown time';
+  return `Recovered ${recovered} interrupted session(s); last recovery at ${lastRecoveryAt}.`;
+}
+
 export function DaemonStatusPage({
   controlPlane,
 }: {
   controlPlane: ControlPlaneState;
 }): ReactElement {
+  const fixtureMode = currentFixtureMode();
   const [diagnostics, setDiagnostics] = useState<DaemonInfoSnapshot>(
     fixtureDiagnostics(controlPlane),
   );
 
   useEffect(() => {
     let cancelled = false;
+    if (fixtureMode) {
+      setDiagnostics(fixtureDiagnostics(controlPlane));
+      return () => {
+        cancelled = true;
+      };
+    }
 
     void invoke('get_daemon_info')
       .then((result) => {
         if (cancelled) {
           return;
         }
-        if (
-          result &&
-          typeof result === 'object' &&
-          'socketPath' in result &&
-          'descriptorPath' in result
-        ) {
-          setDiagnostics(result as DaemonInfoSnapshot);
+        const normalized = normalizeDiagnostics(result, controlPlane);
+        if (normalized) {
+          setDiagnostics(normalized);
           return;
         }
         setDiagnostics(fixtureDiagnostics(controlPlane));
@@ -84,7 +159,7 @@ export function DaemonStatusPage({
     return () => {
       cancelled = true;
     };
-  }, [controlPlane]);
+  }, [controlPlane, fixtureMode]);
 
   return (
     <section className="desktop-page">
@@ -93,7 +168,7 @@ export function DaemonStatusPage({
           <p className="eyebrow">Runtime diagnostics</p>
           <h1>Daemon status</h1>
           <p>
-            Diagnostics remain visible while mutations are gated by {controlPlane.control}.
+            Diagnostics remain visible while mutations are gated by {humanizeControl(controlPlane.control)}.
           </p>
         </div>
         <div className="meta-card">
@@ -112,7 +187,7 @@ export function DaemonStatusPage({
       <dl className="diagnostics-grid">
         <div>
           <dt>Instance ID</dt>
-          <dd>{diagnostics.daemonInstanceId || 'Unavailable'}</dd>
+          <dd>{diagnostics.instanceId || 'Unavailable'}</dd>
         </div>
         <div>
           <dt>Daemon version</dt>
@@ -136,7 +211,7 @@ export function DaemonStatusPage({
         </div>
         <div>
           <dt>DB path</dt>
-          <dd>{diagnostics.dbPath}</dd>
+          <dd>{diagnostics.stateDbPath}</dd>
         </div>
         <div>
           <dt>Artifact root</dt>
@@ -144,7 +219,7 @@ export function DaemonStatusPage({
         </div>
         <div>
           <dt>WAL bytes</dt>
-          <dd>{diagnostics.walBytes}</dd>
+          <dd>{diagnostics.walBytes ?? 'Unavailable'}</dd>
         </div>
         <div>
           <dt>Control mode</dt>
@@ -154,7 +229,7 @@ export function DaemonStatusPage({
 
       <section className="detail-card">
         <h2>Startup and recovery</h2>
-        <p>{diagnostics.startupRecoverySummary}</p>
+        <p>{startupRecoverySummary(diagnostics)}</p>
       </section>
 
       <div className="action-row">
