@@ -100,6 +100,8 @@ function fullDetail(processId: string) {
         basisHash: 'basis-1',
         generatedAt: '2026-03-28T11:00:00Z',
         sections: ['Summary', 'Risks'],
+        artifactHash: 'artifact-1',
+        stageRunId: 'stage-run-1',
       },
       manifestError: null,
       coverage: {

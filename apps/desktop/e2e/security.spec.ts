@@ -32,6 +32,8 @@ function processDetailFixture(overrides: Partial<Record<string, unknown>> = {}) 
         basisHash: 'basis-sec',
         generatedAt: '2026-03-28T20:05:00Z',
         sections: ['Summary'],
+        artifactHash: 'artifact-sec',
+        stageRunId: 'stage-sec',
       },
       manifestError: null,
       coverage: {
@@ -142,6 +144,8 @@ test('PW-SEC-001 renders hostile manifest HTML as inert text nodes', async ({ pa
             basisHash: 'basis-sec-1',
             generatedAt: '2026-03-28T20:05:00Z',
             sections: ['Summary'],
+            artifactHash: 'artifact-sec-1',
+            stageRunId: 'stage-sec-1',
           },
         }),
       });
@@ -171,6 +175,8 @@ test('PW-SEC-002 strips dangerous links in manifest and error drill-down views',
             basisHash: 'basis-sec-2',
             generatedAt: '2026-03-28T20:05:00Z',
             sections: ['Summary'],
+            artifactHash: 'artifact-sec-2',
+            stageRunId: 'stage-sec-2',
           },
         }),
       });
@@ -355,6 +361,8 @@ test('PW-SEC-007 uses bounded rendering markers for oversized manifest and sessi
             basisHash: 'basis-large',
             generatedAt: '2026-03-28T20:05:00Z',
             sections: ['Summary'],
+            artifactHash: 'artifact-large',
+            stageRunId: 'stage-large',
           },
         }),
       });

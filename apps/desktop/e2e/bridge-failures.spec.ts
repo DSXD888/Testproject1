@@ -26,6 +26,8 @@ function detailEnvelope(
         basisHash: 'basis-bridge',
         generatedAt: '2026-03-28T21:55:00Z',
         sections: ['Summary'],
+        artifactHash: 'artifact-bridge',
+        stageRunId: 'stage-bridge',
       },
       manifestError: null,
       coverage: {

@@ -88,6 +88,8 @@ const BASE_INPUT: ManifestInput = {
   pipelineAssessment: {
     decisionBasisHash:
       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    artifactHash: "artifact-aaaaaaaaaaaaaaaa",
+    stageRunId: "stage-run-1",
     generatedAt: "2026-03-28T09:30:00Z",
     recommendation: {
       disposition: "manual-review",

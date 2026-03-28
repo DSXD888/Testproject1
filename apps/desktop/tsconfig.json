@@ -12,9 +12,13 @@
     "src/**/*.tsx",
     "../../packages/ui/**/*.ts",
     "../../packages/ui/**/*.tsx",
+    "../../packages/intelligence/src/**/*.ts",
     "vite-plugin-tauri-dev-bridge.ts",
     "vite.config.ts",
     "vitest.config.ts",
     "playwright.config.ts"
+  ],
+  "exclude": [
+    "../../packages/intelligence/src/**/*.test.ts"
   ]
 }

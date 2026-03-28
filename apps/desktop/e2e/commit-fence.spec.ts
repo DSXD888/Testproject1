@@ -25,6 +25,8 @@ function detailEnvelope(
         basisHash: 'basis-a',
         generatedAt: '2026-03-28T20:00:00Z',
         sections: ['Summary'],
+        artifactHash: 'artifact-a',
+        stageRunId: 'stage-a',
       },
       manifestError: null,
       coverage: {

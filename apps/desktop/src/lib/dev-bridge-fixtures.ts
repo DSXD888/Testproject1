@@ -112,6 +112,7 @@ const processDetail = {
     generatedAt: '2026-03-28T09:00:00Z',
     sections: ['Summary', 'Risks'],
     artifactHash: 'artifact-hash-1',
+    stageRunId: 'stage-run-1',
   },
   coverage: {
     pricedCoverageBps: 8_000,

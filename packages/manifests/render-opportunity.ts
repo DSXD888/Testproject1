@@ -91,6 +91,8 @@ export interface RiskFlag {
 
 export interface PipelineAssessment {
   decisionBasisHash: string;
+  artifactHash?: string | null;
+  stageRunId?: string | null;
   generatedAt?: string | null;
   recommendation?: {
     disposition: RecommendationDisposition;
