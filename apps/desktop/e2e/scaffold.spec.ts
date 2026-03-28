@@ -1,6 +1,8 @@
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-test('placeholder', async () => {
-  test.skip();
-  // Real Layer 2 browser specs land in later beads; this keeps config discovery green.
+test('desktop scaffold boots in browser dev mode', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.getByRole('heading', { name: 'Control limited' })).toBeVisible();
+  await expect(page.getByText('Contracts route')).toBeVisible();
 });
