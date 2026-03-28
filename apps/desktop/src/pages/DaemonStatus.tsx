@@ -144,7 +144,7 @@ export function DaemonStatusPage({
     fixtureDiagnostics(controlPlane),
   );
   const [actionPending, setActionPending] = useState<
-    'restart' | 'logs' | 'artifacts' | null
+    'restart' | 'logs' | 'artifacts' | 'quit' | 'stop_quit' | null
   >(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -225,6 +225,19 @@ export function DaemonStatusPage({
     }
   }
 
+  async function handleQuit(command: 'quit_ui' | 'stop_background_daemon_and_quit'): Promise<void> {
+    setActionPending(command === 'quit_ui' ? 'quit' : 'stop_quit');
+    setActionMessage(null);
+    try {
+      const result = (await invoke(command)) as string;
+      setActionMessage(result);
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : `${command} failed`);
+    } finally {
+      setActionPending(null);
+    }
+  }
+
   return (
     <section className="desktop-page">
       <header className="desktop-page__header">
@@ -298,6 +311,26 @@ export function DaemonStatusPage({
       </section>
 
       <div className="action-row">
+        <button
+          type="button"
+          disabled={actionPending !== null}
+          onClick={() => {
+            void handleQuit('quit_ui');
+          }}
+        >
+          Quit UI
+        </button>
+        {diagnostics.liveAvailable ? (
+          <button
+            type="button"
+            disabled={actionPending !== null}
+            onClick={() => {
+              void handleQuit('stop_background_daemon_and_quit');
+            }}
+          >
+            Stop background daemon and quit
+          </button>
+        ) : null}
         {canRestart ? (
           <button
             type="button"

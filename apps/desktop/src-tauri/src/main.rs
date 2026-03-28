@@ -45,6 +45,8 @@ fn main() -> Result<()> {
             list_errors,
             get_daemon_info,
             restart_daemon,
+            quit_ui,
+            stop_background_daemon_and_quit,
             open_logs,
             open_artifacts,
             capture_decision,
@@ -1168,6 +1170,25 @@ fn open_artifacts(app: tauri::AppHandle) -> std::result::Result<String, String> 
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
+fn quit_ui(app: tauri::AppHandle) -> std::result::Result<String, String> {
+    app.exit(0);
+    Ok("Quit UI requested.".to_owned())
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn stop_background_daemon_and_quit(app: tauri::AppHandle) -> std::result::Result<String, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    let (descriptor, _) = read_descriptor(paths.descriptor_path().as_path());
+    if let Some(descriptor) = descriptor {
+        signal_daemon_stop(descriptor.pid).map_err(|error| error.to_string())?;
+    }
+    app.exit(0);
+    Ok("Stop background daemon and quit requested.".to_owned())
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 fn capture_decision(
     app: tauri::AppHandle,
     params: CaptureDecisionParams,
@@ -1444,6 +1465,18 @@ fn open_path_in_desktop(path: &Path) -> Result<()> {
         .stderr(Stdio::null())
         .spawn()
         .with_context(|| format!("opening {} with {}", path.display(), opener))?;
+    Ok(())
+}
+
+fn signal_daemon_stop(pid: u32) -> Result<()> {
+    Command::new("kill")
+        .arg("-TERM")
+        .arg(pid.to_string())
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .with_context(|| format!("sending TERM to daemon pid {pid}"))?;
     Ok(())
 }
 
