@@ -9,6 +9,7 @@ mod sqlite_impl;
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use query_service_impl::{
@@ -19,6 +20,7 @@ use rusqlite::params;
 use sqlite_impl::{DEFAULT_SCHEMA_EPOCH, StateDb, StateDbConfig};
 
 type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
+static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(1);
 
 struct TestDb {
     root: PathBuf,
@@ -30,7 +32,9 @@ impl TestDb {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |duration| duration.as_nanos());
-        let root = PathBuf::from("/tmp").join(format!("qs-{}-{unique}", std::process::id()));
+        let suffix = NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed);
+        let root =
+            PathBuf::from("/tmp").join(format!("qs-{}-{unique}-{suffix}", std::process::id()));
         fs::create_dir_all(&root)?;
         let db_path = root.join("state.db");
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
