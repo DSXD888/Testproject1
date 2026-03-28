@@ -188,7 +188,14 @@ fn cleanup_stale_socket(socket_path: &Path, descriptor_path: &Path) -> Result<()
     Ok(())
 }
 
-fn read_descriptor_if_present(path: &Path) -> Result<Option<DaemonDescriptor>> {
+#[cfg(test)]
+#[allow(dead_code)]
+pub fn read_descriptor(path: &Path) -> Result<DaemonDescriptor> {
+    read_descriptor_if_present(path)?
+        .ok_or_else(|| anyhow::anyhow!("descriptor {} does not exist", path.display()))
+}
+
+pub fn read_descriptor_if_present(path: &Path) -> Result<Option<DaemonDescriptor>> {
     match fs::read_to_string(path) {
         Ok(contents) => serde_json::from_str(&contents)
             .with_context(|| format!("parsing {}", path.display()))

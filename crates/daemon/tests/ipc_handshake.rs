@@ -11,6 +11,7 @@ use std::thread;
 
 use anyhow::{Context, Result, anyhow, bail};
 use nix::unistd::Uid;
+use serde_json::json;
 use serde_yaml::Value;
 
 #[path = "../src/ipc/descriptor.rs"]
@@ -19,7 +20,8 @@ mod descriptor_impl;
 mod handshake_impl;
 
 use crate::descriptor_impl::{
-    DaemonDescriptor, LockGuard, RuntimePaths, bind_listener, write_descriptor_atomic,
+    DaemonDescriptor, LockGuard, RuntimePaths, bind_listener, read_descriptor,
+    write_descriptor_atomic,
 };
 use crate::handshake_impl::{
     ActiveSessions, ClientMessage, HandshakeContext, HealthState, LifecycleFrame, LifecyclePhase,
@@ -281,15 +283,34 @@ fn it_ipc_005_schema_epoch_mismatch_reports_expected_and_actual() -> Result<()> 
 #[test]
 fn it_ipc_008_socket_accepts_handshake_only() -> Result<()> {
     let setup = HandshakeHarness::new()?;
-    let response = setup.request(&ClientMessage::Mutation {
-        command: "startJob".to_owned(),
-    })?;
+    let responses = [
+        setup.request(&ClientMessage::Mutation {
+            command: "startJob".to_owned(),
+        })?,
+        setup.request(&ClientMessage::Command {
+            request_id: "req-1".to_owned(),
+            method: "get_daemon_info".to_owned(),
+            params: json!({}),
+            idempotency_key: None,
+        })?,
+        setup.request(&ClientMessage::Subscribe {
+            request_id: "req-2".to_owned(),
+            topic: "daemon.health".to_owned(),
+            from_seq: Some(42),
+        })?,
+        setup.request(&ClientMessage::Unsubscribe {
+            request_id: "req-3".to_owned(),
+            topic: "daemon.health".to_owned(),
+        })?,
+    ];
 
-    match response {
-        ServerMessage::Rejection { code, .. } => {
-            assert_eq!(code, "mutations_unavailable");
+    for response in responses {
+        match response {
+            ServerMessage::Rejection { code, .. } => {
+                assert_eq!(code, "mutations_unavailable");
+            }
+            other => bail!("unexpected response: {other:?}"),
         }
-        other => bail!("unexpected response: {other:?}"),
     }
 
     Ok(())
@@ -326,16 +347,14 @@ fn it_ipc_006_desktop_restart_while_daemon_stays_alive_allows_resume() -> Result
 fn it_ipc_007_daemon_restart_changes_instance_id_and_invalidates_resume() -> Result<()> {
     let mut setup = HandshakeHarness::new()?;
     let first_instance = setup.context.instance_id.clone();
-    let first_descriptor: DaemonDescriptor =
-        serde_json::from_str(&fs::read_to_string(setup.runtime_paths.descriptor_path())?)?;
+    let first_descriptor = read_descriptor(setup.runtime_paths.descriptor_path())?;
     assert_eq!(first_descriptor.instance_id, first_instance);
 
     setup.restart_daemon()?;
     let restarted_instance = setup.context.instance_id.clone();
     assert_ne!(restarted_instance, first_instance);
 
-    let restarted_descriptor: DaemonDescriptor =
-        serde_json::from_str(&fs::read_to_string(setup.runtime_paths.descriptor_path())?)?;
+    let restarted_descriptor = read_descriptor(setup.runtime_paths.descriptor_path())?;
     assert_eq!(restarted_descriptor.instance_id, restarted_instance);
 
     let response = setup.request(&ClientMessage::Hello {

@@ -17,6 +17,7 @@ use nix::unistd::Uid;
 ))]
 use nix::unistd::getpeereid;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -65,6 +66,21 @@ pub enum ClientMessage {
         supported_protocol_range: ProtocolRange,
         expected_schema_epoch: i64,
         last_seen_instance_id: Option<String>,
+    },
+    Command {
+        request_id: String,
+        method: String,
+        params: Value,
+        idempotency_key: Option<String>,
+    },
+    Subscribe {
+        request_id: String,
+        topic: String,
+        from_seq: Option<u64>,
+    },
+    Unsubscribe {
+        request_id: String,
+        topic: String,
     },
     Mutation {
         command: String,
@@ -265,12 +281,17 @@ pub fn handle_connection(mut stream: UnixStream, context: &HandshakeContext) -> 
                 write_message(&mut stream, &ServerMessage::from(frame.clone()))?;
             }
         }
-        ClientMessage::Mutation { .. } => {
+        ClientMessage::Command { .. }
+        | ClientMessage::Subscribe { .. }
+        | ClientMessage::Unsubscribe { .. }
+        | ClientMessage::Mutation { .. } => {
             write_message(
                 &mut stream,
                 &ServerMessage::Rejection {
                     code: "mutations_unavailable".to_owned(),
-                    message: "layer 1 only accepts hello/welcome handshake traffic".to_owned(),
+                    message:
+                        "command traffic is unavailable until the layer 2 command router is active"
+                            .to_owned(),
                     supported_protocol_range: None,
                     expected_schema_epoch: None,
                     actual_schema_epoch: None,
