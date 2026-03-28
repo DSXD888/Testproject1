@@ -140,9 +140,21 @@ type NormalizedRiskFlag = {
   detail?: string;
 };
 
-export function renderOpportunityManifest(
+const CONFIDENCE_LABELS: Record<ConfidenceBand, string> = {
+  high: "high",
+  usable: "usable",
+  manual: "manual"
+};
+
+const RECOMMENDATION_LABELS: Record<RecommendationDisposition, string> = {
+  "auto-qualified": "Auto-qualified",
+  "manual-review": "Manual review required",
+  "not-qualified": "Not qualified"
+};
+
+export const renderOpportunityManifest = (
   input: ManifestInput
-): ManifestOutput {
+): ManifestOutput => {
   const sections = OPPORTUNITY_SECTIONS.map((section) => section.id);
   const generatedAt =
     input.pipelineAssessment.generatedAt ??
@@ -187,9 +199,9 @@ export function renderOpportunityManifest(
     blockerCount,
     generatedAt
   };
-}
+};
 
-function renderSummarySection(input: ManifestInput): string {
+const renderSummarySection = (input: ManifestInput): string => {
   const firstNotice = input.notices[0];
   const buyerName = input.process.buyerName ?? firstNotice?.buyerName ?? "Unknown buyer";
   const publishedAt =
@@ -208,9 +220,9 @@ function renderSummarySection(input: ManifestInput): string {
     `- Deadline: ${deadlineAt}`,
     `- Access route: ${accessRoute}`
   ].join("\n");
-}
+};
 
-function renderLotAnalysisSection(lots: ManifestInput["lots"]): string {
+const renderLotAnalysisSection = (lots: ManifestInput["lots"]): string => {
   if (lots.length === 0) {
     return "No lot analysis is available yet. The manifest remains reviewable while lot extraction catches up.";
   }
@@ -232,11 +244,11 @@ function renderLotAnalysisSection(lots: ManifestInput["lots"]): string {
   }
 
   return lines.join("\n");
-}
+};
 
-function renderCandidatesSection(
+const renderCandidatesSection = (
   candidates: ManifestInput["candidates"]
-): string {
+): string => {
   if (candidates.length === 0) {
     return "No product candidates identified yet. This section stays visible so reviewers can distinguish missing data from omitted rendering.";
   }
@@ -265,13 +277,13 @@ function renderCandidatesSection(
   }
 
   return lines.join("\n");
-}
+};
 
-function renderPricingEvidenceSection(
+const renderPricingEvidenceSection = (
   quotes: ManifestInput["quotes"],
   pricingAssessments: ManifestInput["pricingAssessments"],
   candidates: ManifestInput["candidates"]
-): string {
+): string => {
   if (quotes.length === 0 && pricingAssessments.length === 0) {
     return "No pricing evidence is available yet. Quote collection can remain incomplete without removing the pricing section.";
   }
@@ -319,13 +331,13 @@ function renderPricingEvidenceSection(
   }
 
   return lines.join("\n");
-}
+};
 
-function renderMarginEstimateSection(
+const renderMarginEstimateSection = (
   pipelineAssessment: ManifestInput["pipelineAssessment"],
   landedCosts: ManifestInput["landedCosts"],
   candidates: ManifestInput["candidates"]
-): string {
+): string => {
   const grossOutcome = pipelineAssessment.grossMargin?.outcome ?? "review";
   const grossMargin = formatPercent(pipelineAssessment.grossMargin?.basisPoints);
   const band =
@@ -369,20 +381,20 @@ function renderMarginEstimateSection(
   }
 
   return lines.join("\n");
-}
+};
 
-function renderCoverageMetricsSection(
+const renderCoverageMetricsSection = (
   coverage: ManifestInput["coverageMetrics"]
-): string {
+): string => {
   return [
     `- Priced coverage: ${formatPercent(coverage.pricedCoverageBps)}`,
     `- Landed-cost coverage: ${formatPercent(coverage.landedCostCoverageBps)}`,
     `- Net-qualified coverage: ${formatPercent(coverage.netQualifiedCoverageBps)}`,
     `- Unresolved mandatory lots: ${coverage.unresolvedMandatoryLots}`
   ].join("\n");
-}
+};
 
-function renderRiskFlagsSection(flags: NormalizedRiskFlag[]): string {
+const renderRiskFlagsSection = (flags: NormalizedRiskFlag[]): string => {
   if (flags.length === 0) {
     return "No critical blockers are currently flagged.";
   }
@@ -393,11 +405,11 @@ function renderRiskFlagsSection(flags: NormalizedRiskFlag[]): string {
       return `- ${prefix}: ${flag.label}${flag.detail ? ` — ${flag.detail}` : ""}`;
     })
     .join("\n");
-}
+};
 
-function renderRecommendationSection(
+const renderRecommendationSection = (
   pipelineAssessment: ManifestInput["pipelineAssessment"]
-): string {
+): string => {
   const recommendation = pipelineAssessment.recommendation;
   if (!recommendation) {
     return "Manual review required — recommendation is not available yet.";
@@ -405,22 +417,22 @@ function renderRecommendationSection(
 
   const label = formatRecommendation(recommendation.disposition);
   return `- ${label}\n- Reason: ${recommendation.reason}`;
-}
+};
 
-function normalizeRiskFlags(
+const normalizeRiskFlags = (
   flags: readonly RiskFlag[]
-): NormalizedRiskFlag[] {
+): NormalizedRiskFlag[] => {
   return flags.map((flag) => ({
     severity: flag.severity ?? "warning",
     label: flag.label,
     detail: flag.detail ?? undefined
   }));
-}
+};
 
-function renderConfidenceBand(
+const renderConfidenceBand = (
   band: ConfidenceBand | null | undefined,
   basisPoints: number | null | undefined
-): string {
+): string => {
   const resolvedBand =
     band ??
     (basisPoints === null || basisPoints === undefined
@@ -431,32 +443,14 @@ function renderConfidenceBand(
           ? "usable"
           : "manual");
 
-  switch (resolvedBand) {
-    case "high":
-      return "high";
-    case "usable":
-      return "usable";
-    case "manual":
-      return "manual";
-    default:
-      return "not rated";
-  }
-}
+  return resolvedBand ? CONFIDENCE_LABELS[resolvedBand] : "not rated";
+};
 
-function formatRecommendation(
+const formatRecommendation = (
   disposition: RecommendationDisposition
-): string {
-  switch (disposition) {
-    case "auto-qualified":
-      return "Auto-qualified";
-    case "manual-review":
-      return "Manual review required";
-    case "not-qualified":
-      return "Not qualified";
-  }
-}
+): string => RECOMMENDATION_LABELS[disposition];
 
-function formatMoney(value: MoneyLike): string {
+const formatMoney = (value: MoneyLike): string => {
   if (value === null || value === undefined) {
     return "Not available";
   }
@@ -469,9 +463,9 @@ function formatMoney(value: MoneyLike): string {
   return `${sign}£${new Intl.NumberFormat("en-GB").format(pounds)}.${pence
     .toString()
     .padStart(2, "0")}`;
-}
+};
 
-function formatPercent(value: number | null | undefined): string {
+const formatPercent = (value: number | null | undefined): string => {
   if (value === null || value === undefined) {
     return "Not available";
   }
@@ -481,8 +475,8 @@ function formatPercent(value: number | null | undefined): string {
   const whole = Math.floor(absoluteValue / 100);
   const fractional = absoluteValue % 100;
   return `${sign}${whole}.${fractional.toString().padStart(2, "0")}%`;
-}
+};
 
-function escapeCell(value: string): string {
+const escapeCell = (value: string): string => {
   return value.replaceAll("|", "\\|");
-}
+};

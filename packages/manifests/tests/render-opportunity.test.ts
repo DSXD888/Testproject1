@@ -118,9 +118,7 @@ const BASE_INPUT: ManifestInput = {
   }
 };
 
-function cloneInput(): ManifestInput {
-  return structuredClone(BASE_INPUT);
-}
+const cloneInput = (): ManifestInput => structuredClone(BASE_INPUT);
 
 describe("renderOpportunityManifest", () => {
   test("TS-MAN-001 returns all required output fields in the happy path", () => {

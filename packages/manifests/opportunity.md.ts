@@ -14,11 +14,11 @@ export const OPPORTUNITY_SECTIONS: readonly OpportunitySection[] = [
   { id: "recommendation", title: "Recommendation" }
 ] as const;
 
-export function renderOpportunityMarkdown(
+export const renderOpportunityMarkdown = (
   sectionBodies: ReadonlyMap<string, string>
-): string {
+): string => {
   return OPPORTUNITY_SECTIONS.map(({ id, title }) => {
     const body = sectionBodies.get(id)?.trim() ?? "_Section unavailable._";
     return `## ${title}\n\n${body}`;
   }).join("\n\n");
-}
+};
