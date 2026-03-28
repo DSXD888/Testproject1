@@ -41,11 +41,13 @@ struct SkillFrontmatter {
     max_scroll_cycles: Option<u32>,
 }
 
+#[allow(dead_code)]
 pub struct TestSkillDir {
     _temp: TempDir,
     root: PathBuf,
 }
 
+#[allow(dead_code)]
 impl TestSkillDir {
     pub fn from_fixture(source: &Path) -> Result<Self> {
         Self::from_fixture_filtered(source, None)
@@ -298,6 +300,7 @@ fn extract_section<'a>(body: &'a str, title: &str) -> Result<&'a str> {
     Ok(section_body[..end].trim())
 }
 
+#[allow(dead_code)]
 fn copy_dir(source: &Path, destination: &Path, skip_relative: Option<&str>) -> Result<()> {
     fs::create_dir_all(destination)?;
     for entry in fs::read_dir(source)? {

@@ -3,6 +3,8 @@
 #[path = "support/skills.rs"]
 mod skills_support;
 
+use std::collections::BTreeSet;
+
 use anyhow::{Result, ensure};
 
 use skills_support::{TestSkillDir, lint_skill_directory, repo_root, repo_skill_dir};
@@ -24,18 +26,27 @@ const RUN_MANIFEST_REQUIRED_TOKENS: &[&str] = &[
 #[test]
 fn ut_skl_001_required_files_exist_in_every_production_skill_directory() -> Result<()> {
     let fts = lint_skill_directory(&repo_skill_dir("procurement-ingestion/fts")?)?;
+    let contracts_finder =
+        lint_skill_directory(&repo_skill_dir("procurement-ingestion/contracts-finder")?)?;
     let manifest = lint_skill_directory(&repo_skill_dir("manifest-generation")?)?;
-    let procurement_skill_dirs: Vec<_> =
+    let procurement_skill_dirs: BTreeSet<_> =
         std::fs::read_dir(repo_root()?.join("skills/procurement-ingestion"))?
             .filter_map(|entry| entry.ok().map(|value| value.path()))
+            .filter(|path| path.is_dir())
+            .filter_map(|path| {
+                path.file_name()
+                    .and_then(|value| value.to_str())
+                    .map(str::to_owned)
+            })
             .collect();
 
     ensure!(
-        procurement_skill_dirs.len() == 1
-            && procurement_skill_dirs[0].ends_with("procurement-ingestion/fts"),
-        "FTS must be the only active procurement source in Layer 1"
+        procurement_skill_dirs
+            == BTreeSet::from(["contracts-finder".to_owned(), "fts".to_owned(),]),
+        "FTS and Contracts Finder must be the active procurement source skills in Layer 2"
     );
     ensure!(fts.metadata.interaction_profile == "pty_interactive");
+    ensure!(contracts_finder.metadata.interaction_profile == "pty_interactive");
     ensure!(manifest.metadata.interaction_profile == "headless_contract");
     Ok(())
 }
