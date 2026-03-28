@@ -7,9 +7,9 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "(cd packages/ui && bun run build) && bunx tsc --ignoreConfig --jsx react-jsx --module esnext --moduleResolution bundler --target es2022 --lib es2022,dom,dom.iterable --types react,react-dom,vitest/globals,node --noEmit apps/desktop/src/lib/transport.ts apps/desktop/src/lib/transport.test.ts apps/desktop/vite-plugin-tauri-dev-bridge.ts apps/desktop/vite.config.ts apps/desktop/vitest.config.ts apps/desktop/playwright.config.ts",
+    "build": "(cd packages/ui && bun run build) && bunx tsc -p apps/desktop/tsconfig.json --noEmit",
     "lint": "if rg -n '^import .*(@tauri-apps/api|.*apps/desktop|.*crates/daemon|.*supabase|.*transport)' packages/ui; then exit 1; fi",
-    "test": "(cd packages/ui && bun run test) && bunx vitest run apps/desktop/src/lib/transport.test.ts"
+    "test": "(cd packages/ui && bun run test) && bunx vitest run apps/desktop/src/lib/transport.test.ts apps/desktop/src/hooks/use-control-plane.test.tsx apps/desktop/src/App.test.tsx"
   },
   "devDependencies": {
     "@playwright/test": "1.58.2",

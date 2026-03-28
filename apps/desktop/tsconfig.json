@@ -2,17 +2,14 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "rootDir": ".",
-    "types": [
-      "node",
-      "vitest/globals"
-    ]
+    "types": ["node", "react", "react-dom", "vitest/globals"]
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
     "vite.config.ts",
     "vitest.config.ts",
-    "vite-plugin-tauri-dev-bridge.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "vite-plugin-tauri-dev-bridge.ts"
   ]
 }
