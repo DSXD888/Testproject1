@@ -64,6 +64,7 @@ mod support {
 use std::convert::TryFrom;
 use std::ffi::OsString;
 use std::fs;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::process::Stdio;
@@ -238,8 +239,16 @@ struct Cli {
     #[arg(long, default_value = "artifacts")]
     artifact_root: PathBuf,
 
+    /// When enabled, keep serving handshake connections until the daemon exits.
+    #[arg(
+        long,
+        default_value_t = false,
+        conflicts_with_all = ["serve_once", "ingest", "skill_path", "dry_run"]
+    )]
+    serve: bool,
+
     /// When enabled, accept exactly one handshake before exiting.
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = false, conflicts_with = "serve")]
     serve_once: bool,
 
     /// Run the manual live-loop trigger for the declared source id.
@@ -544,6 +553,11 @@ async fn main() -> Result<()> {
 
     let mut runtime = bootstrap_runtime(&cli)?;
 
+    if cli.serve {
+        serve_handshake_service(&runtime)?;
+        return Ok(());
+    }
+
     if cli.serve_once {
         serve_handshake_once(&runtime)?;
         return Ok(());
@@ -636,7 +650,32 @@ fn ensure_local_executor_registered(conn: &Connection) -> Result<()> {
 }
 
 fn serve_handshake_once(runtime: &RuntimeBootstrap) -> Result<()> {
-    let handshake_context = HandshakeContext {
+    let handshake_context = build_handshake_context(runtime)?;
+    ipc::handshake::serve_one(&runtime.listener, &handshake_context)
+}
+
+fn serve_handshake_service(runtime: &RuntimeBootstrap) -> Result<()> {
+    tracing::info!(
+        socket_path = %runtime.descriptor.socket_path,
+        "daemon service accepting repeated desktop connections"
+    );
+
+    loop {
+        let (stream, _) = match runtime.listener.accept() {
+            Ok(connection) => connection,
+            Err(error) if error.kind() == ErrorKind::Interrupted => continue,
+            Err(error) => return Err(error).context("accepting persistent handshake connection"),
+        };
+
+        let handshake_context = build_handshake_context(runtime)?;
+        if let Err(error) = ipc::handshake::handle_connection(stream, &handshake_context) {
+            tracing::warn!(error = %error, "persistent handshake connection failed");
+        }
+    }
+}
+
+fn build_handshake_context(runtime: &RuntimeBootstrap) -> Result<HandshakeContext> {
+    Ok(HandshakeContext {
         protocol_version: runtime.descriptor.protocol_version,
         daemon_version: env!("CARGO_PKG_VERSION").to_owned(),
         instance_id: runtime.descriptor.instance_id.clone(),
@@ -649,8 +688,7 @@ fn serve_handshake_once(runtime: &RuntimeBootstrap) -> Result<()> {
         mutations_allowed: false,
         expected_peer_uid: None,
         lifecycle_frames: persisted_lifecycle_frames(runtime.state_db.connection())?,
-    };
-    ipc::handshake::serve_one(&runtime.listener, &handshake_context)
+    })
 }
 
 fn adapter_runtime_config(cli: &Cli, skill: &LoadedSkill) -> Result<AdapterRuntimeConfig> {
@@ -3485,6 +3523,7 @@ mod tests {
     use std::fs;
 
     use anyhow::Result;
+    use clap::Parser;
     use rusqlite::Connection;
     use rusqlite::params;
     use serde_json::{Value, json};
@@ -3598,6 +3637,12 @@ mod tests {
     #[test]
     fn backtrack_window_is_positive() {
         assert!(backtrack_window_seconds() > 0);
+    }
+
+    #[test]
+    fn persistent_serve_mode_conflicts_with_one_shot_handshake_flag() {
+        let parsed = super::Cli::try_parse_from(["daemon", "--serve", "--serve-once"]);
+        assert!(parsed.is_err());
     }
 
     #[test]
