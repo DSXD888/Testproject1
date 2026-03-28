@@ -1170,9 +1170,9 @@ fn open_artifacts(app: tauri::AppHandle) -> std::result::Result<String, String> 
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn quit_ui(app: tauri::AppHandle) -> std::result::Result<String, String> {
+fn quit_ui(app: tauri::AppHandle) -> String {
     app.exit(0);
-    Ok("Quit UI requested.".to_owned())
+    "Quit UI requested.".to_owned()
 }
 
 #[tauri::command]
