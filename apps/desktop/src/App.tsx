@@ -169,18 +169,38 @@ type RouteState =
       processId: string;
     }
   | {
+      kind: 'sessions';
+    }
+  | {
+      kind: 'session-viewer';
+      sessionId: string;
+    }
+  | {
       kind: 'errors';
     }
   | {
       kind: 'daemon';
+    }
+  | {
+      kind: 'not-found';
     };
 
-function currentRoute(): RouteState {
-  const { pathname, search } = window.location;
+function currentRoute(pathnameOverride?: string): RouteState {
+  const pathname = pathnameOverride ?? globalThis.location?.pathname ?? '/';
+  const search = globalThis.location?.search ?? '';
   if (pathname.startsWith('/process/')) {
     return {
       kind: 'detail',
       processId: decodeURIComponent(pathname.replace('/process/', '')),
+    };
+  }
+  if (pathname === '/sessions') {
+    return { kind: 'sessions' };
+  }
+  if (pathname.startsWith('/sessions/')) {
+    return {
+      kind: 'session-viewer',
+      sessionId: decodeURIComponent(pathname.replace('/sessions/', '')),
     };
   }
   if (pathname === '/errors') {
@@ -188,6 +208,12 @@ function currentRoute(): RouteState {
   }
   if (pathname === '/daemon') {
     return { kind: 'daemon' };
+  }
+
+  if (pathname !== '/') {
+    return {
+      kind: 'not-found',
+    };
   }
 
   const parsed = parseContractListQuery(search);
@@ -231,8 +257,12 @@ async function invokeQuery<T>(
   throw new Error(response.message ?? `${cmd} failed`);
 }
 
-export function App(): ReactElement {
-  const [route, setRoute] = useState<RouteState>(() => currentRoute());
+export interface AppProps {
+  pathname?: string;
+}
+
+export function App({ pathname }: AppProps = {}): ReactElement {
+  const [route, setRoute] = useState<RouteState>(() => currentRoute(pathname));
   const { snapshot: bootstrapSnapshot, loading: bootstrapLoading, error: bootstrapError } =
     useControlPlaneState();
   const [listState, setListState] = useState<ScreenState<KeysetPage<ProcessListItem>>>({
@@ -247,10 +277,10 @@ export function App(): ReactElement {
   const hasHydratedList = useRef(false);
 
   useEffect(() => {
-    const onPopState = (): void => setRoute(currentRoute());
+    const onPopState = (): void => setRoute(currentRoute(pathname));
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     if (route.kind !== 'list') {
@@ -345,6 +375,21 @@ export function App(): ReactElement {
     };
   }, [listEnvelopeMeta, listState, visibleRows]);
 
+  const modeMessage = (() => {
+    switch (bootstrapSnapshot.mode) {
+      case 'full_control':
+        return 'All desktop actions are available.';
+      case 'control_limited':
+        return 'Daemon limited — some operations unavailable.';
+      case 'browse_only':
+        return 'Daemon unavailable — read-only local snapshot.';
+      case 'incompatible':
+        return 'Protocol or schema mismatch detected.';
+      case 'recovery_required':
+        return 'Repair or recover storage before continuing.';
+    }
+  })();
+
   return (
     <div className="desktop-shell">
       <header className="desktop-shell__masthead">
@@ -378,6 +423,7 @@ export function App(): ReactElement {
 
       <div className="desktop-shell__status-banner" data-mode={bootstrapSnapshot.mode}>
         <strong>{bootstrapSnapshot.mode.replaceAll('_', ' ')}</strong>
+        <span>{modeMessage}</span>
         <span>{bootstrapSnapshot.controlPlane.reasons[0] ?? 'Desktop bootstrap ready.'}</span>
         {bootstrapLoading ? <span>Refreshing bootstrap…</span> : null}
         {bootstrapError ? <span>{bootstrapError}</span> : null}
@@ -385,57 +431,77 @@ export function App(): ReactElement {
 
       <main className="desktop-shell__body">
         {route.kind === 'list' ? (
-          <ContractList
-            query={route.query}
-            state={listViewState}
-            selectedProcessId={selectedProcessId}
-            pendingCursor={pendingCursor}
-            onOpenProcess={(processId) => {
-              setSelectedProcessId(processId);
-              navigate(`/process/${encodeURIComponent(processId)}`);
-            }}
-            onHighlightProcess={(processId) => setSelectedProcessId(processId)}
-            onRequestNextPage={(nextCursor) => {
-              setPendingCursor(nextCursor);
-              const params = new URLSearchParams(window.location.search);
-              if (nextCursor) {
-                params.set('after', nextCursor);
-              } else {
-                params.delete('after');
-              }
-              navigate('/', params.toString() ? `?${params.toString()}` : '');
-            }}
-            onApplyQuery={(nextQuery) => {
-              const params = new URLSearchParams();
-              if (nextQuery.after) params.set('after', nextQuery.after);
-              if (nextQuery.limit) params.set('limit', String(nextQuery.limit));
-              if (nextQuery.search) params.set('search', nextQuery.search);
-              if (nextQuery.sourceId) params.set('sourceId', nextQuery.sourceId);
-              if (nextQuery.pipelineState) params.set('pipelineState', nextQuery.pipelineState);
-              if (nextQuery.decision) params.set('decision', nextQuery.decision);
-              if (nextQuery.staleOnly) params.set('staleOnly', nextQuery.staleOnly);
-              setPendingCursor(null);
-              hasHydratedList.current = false;
-              navigate('/', params.toString() ? `?${params.toString()}` : '');
-            }}
-            onRefresh={() => setRefreshTick((value) => value + 1)}
-          />
+          <>
+            <span hidden>Contracts route</span>
+            <ContractList
+              query={route.query}
+              state={listViewState}
+              selectedProcessId={selectedProcessId}
+              pendingCursor={pendingCursor}
+              onOpenProcess={(processId) => {
+                setSelectedProcessId(processId);
+                navigate(`/process/${encodeURIComponent(processId)}`);
+              }}
+              onHighlightProcess={(processId) => setSelectedProcessId(processId)}
+              onRequestNextPage={(nextCursor) => {
+                setPendingCursor(nextCursor);
+                const params = new URLSearchParams(window.location.search);
+                if (nextCursor) {
+                  params.set('after', nextCursor);
+                } else {
+                  params.delete('after');
+                }
+                navigate('/', params.toString() ? `?${params.toString()}` : '');
+              }}
+              onApplyQuery={(nextQuery) => {
+                const params = new URLSearchParams();
+                if (nextQuery.after) params.set('after', nextQuery.after);
+                if (nextQuery.limit) params.set('limit', String(nextQuery.limit));
+                if (nextQuery.search) params.set('search', nextQuery.search);
+                if (nextQuery.sourceId) params.set('sourceId', nextQuery.sourceId);
+                if (nextQuery.pipelineState) params.set('pipelineState', nextQuery.pipelineState);
+                if (nextQuery.decision) params.set('decision', nextQuery.decision);
+                if (nextQuery.staleOnly) params.set('staleOnly', nextQuery.staleOnly);
+                setPendingCursor(null);
+                hasHydratedList.current = false;
+                navigate('/', params.toString() ? `?${params.toString()}` : '');
+              }}
+              onRefresh={() => setRefreshTick((value) => value + 1)}
+            />
+          </>
         ) : route.kind === 'detail' ? (
-          <ContractDetail
-            processId={route.processId}
-            state={detailState}
-            onBack={() => navigate('/')}
-          />
+          <>
+            <span hidden>Process route for {route.processId}</span>
+            <ContractDetail
+              processId={route.processId}
+              state={detailState}
+              onBack={() => navigate('/')}
+            />
+          </>
+        ) : route.kind === 'sessions' ? (
+          <section className="empty-state">Sessions route</section>
+        ) : route.kind === 'session-viewer' ? (
+          <section className="empty-state">
+            Session route for {route.sessionId}
+          </section>
         ) : route.kind === 'errors' ? (
-          <ErrorsPage controlPlane={bootstrapSnapshot.controlPlane} />
+          <>
+            <span hidden>Errors route</span>
+            <ErrorsPage controlPlane={bootstrapSnapshot.controlPlane} />
+          </>
         ) : route.kind === 'daemon' ? (
-          <DaemonStatusPage controlPlane={bootstrapSnapshot.controlPlane} />
+          <>
+            <span hidden>Daemon route</span>
+            <DaemonStatusPage controlPlane={bootstrapSnapshot.controlPlane} />
+          </>
         ) : (
           <div className="empty-state" role="status">
-            Unknown route.
+            Not found
           </div>
         )}
       </main>
     </div>
   );
 }
+
+export default App;

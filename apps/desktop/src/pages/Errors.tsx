@@ -62,7 +62,7 @@ const fixtureErrors: Record<string, ErrorSummaryItem[]> = {
 };
 
 function currentFixture(): ErrorSummaryItem[] {
-  const fixture = new URLSearchParams(window.location.search).get('errorsFixture');
+  const fixture = new URLSearchParams(globalThis.location?.search ?? '').get('errorsFixture');
   return fixtureErrors[fixture ?? 'default'] ?? fixtureErrors.default;
 }
 

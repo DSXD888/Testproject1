@@ -219,8 +219,13 @@ impl Harness {
     fn seed_alias(&mut self, alias_process_id: &str, canonical_process_id: &str) -> Result<()> {
         self.state_db.with_write_transaction(|tx| {
             tx.execute(
-                "INSERT INTO process_aliases (alias_process_id, canonical_process_id, alias_reason) VALUES (?1, ?2, 'merge')",
-                params![alias_process_id, canonical_process_id],
+                "\
+                INSERT INTO process_aliases (
+                  alias_process_id, canonical_process_id, alias_reason, owner_id,
+                  row_version, last_local_seq, updated_at, created_at
+                ) VALUES (?1, ?2, 'merge', ?3, 1, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ",
+                params![alias_process_id, canonical_process_id, DEFAULT_OWNER_ID],
             )?;
             Ok(())
         })?;

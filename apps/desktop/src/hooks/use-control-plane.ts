@@ -2,6 +2,13 @@ import { useEffect, useSyncExternalStore } from 'react';
 
 import { invoke } from '../lib/transport';
 
+export type HumanRuntimeMode =
+  | 'full control'
+  | 'control limited'
+  | 'browse-only'
+  | 'incompatible'
+  | 'recovery required';
+
 export type RuntimeMode =
   | 'full_control'
   | 'control_limited'
@@ -42,6 +49,14 @@ type ControlPlaneStoreState = {
   loading: boolean;
   error: string | null;
 };
+
+export interface ControlPlaneStoreSnapshot {
+  state: ControlPlaneState;
+  mode: HumanRuntimeMode;
+  mutationsEnabled: boolean;
+}
+
+export type UseControlPlaneStateResult = ControlPlaneStoreState & ControlPlaneStoreSnapshot;
 
 const listeners = new Set<() => void>();
 
@@ -109,7 +124,7 @@ function parseBootstrapResult(result: unknown): BootstrapSnapshot | null {
 }
 
 function fixtureSnapshot(): BootstrapSnapshot {
-  const params = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams(globalThis.location?.search ?? '');
   const requestedMode = params.get('mode');
 
   switch (requestedMode) {
@@ -210,12 +225,82 @@ function fixtureSnapshot(): BootstrapSnapshot {
   }
 }
 
-export function useControlPlaneState(): ControlPlaneStoreState {
+export function useControlPlaneState(): UseControlPlaneStateResult {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   useEffect(() => {
     void refreshSnapshot();
   }, []);
 
-  return snapshot;
+  return {
+    ...snapshot,
+    ...controlPlaneStore.getSnapshot(),
+  };
 }
+
+export function deriveRuntimeMode(state: ControlPlaneState): HumanRuntimeMode {
+  if (state.storage === 'repairing' || state.storage === 'unreadable') {
+    return 'recovery required';
+  }
+  if (state.storage === 'schema_mismatch' || state.daemon === 'incompatible') {
+    return 'incompatible';
+  }
+  if (state.daemon === 'unavailable') {
+    return 'browse-only';
+  }
+  if (
+    state.daemon === 'starting' ||
+    state.daemon === 'degraded' ||
+    state.control === 'limited' ||
+    state.control === 'read_only' ||
+    state.load === 'busy' ||
+    state.load === 'saturated'
+  ) {
+    return 'control limited';
+  }
+  return 'full control';
+}
+
+function toRuntimeMode(mode: HumanRuntimeMode): RuntimeMode {
+  switch (mode) {
+    case 'full control':
+      return 'full_control';
+    case 'control limited':
+      return 'control_limited';
+    case 'browse-only':
+      return 'browse_only';
+    case 'incompatible':
+      return 'incompatible';
+    case 'recovery required':
+      return 'recovery_required';
+  }
+}
+
+export const controlPlaneStore = {
+  getSnapshot(): ControlPlaneStoreSnapshot {
+    const currentState = state.snapshot.controlPlane;
+    const mode = deriveRuntimeMode(currentState);
+    return {
+      state: currentState,
+      mode,
+      mutationsEnabled: mode === 'full control',
+    };
+  },
+  subscribe,
+  setState(nextState: ControlPlaneState): void {
+    state.snapshot = {
+      ...state.snapshot,
+      mode: toRuntimeMode(deriveRuntimeMode(nextState)),
+      controlPlane: nextState,
+    };
+    state.loading = false;
+    state.error = null;
+    emitChange();
+  },
+  reset(): void {
+    state.snapshot = fixtureSnapshot();
+    state.loading = false;
+    state.error = null;
+    emitChange();
+  },
+};

@@ -23,7 +23,7 @@ interface DaemonInfoSnapshot {
 }
 
 function fixtureDiagnostics(controlPlane: ControlPlaneState): DaemonInfoSnapshot {
-  const descriptorMode = new URLSearchParams(window.location.search).get('daemonFixture');
+  const descriptorMode = new URLSearchParams(globalThis.location?.search ?? '').get('daemonFixture');
   const liveAvailable = descriptorMode !== 'descriptor';
 
   return {

@@ -14,7 +14,8 @@ use std::thread;
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow};
-use rusqlite::Connection;
+use chrono::Utc;
+use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
@@ -24,6 +25,7 @@ const STATE_DIRNAME: &str = "state";
 const RUNTIME_DIRNAME: &str = "runtime";
 const ARTIFACT_DIRNAME: &str = "artifacts";
 const STATE_DB_FILENAME: &str = "state.db";
+const L2_DECISION_MIGRATION_PATH: &str = "migrations/0004_l2_pending_operator_intents.sql";
 const EXPECTED_PROTOCOL_VERSION: u32 = 1;
 const EXPECTED_SCHEMA_EPOCH: i64 = 1;
 const DEFAULT_DAEMON_PROGRAM: &str = "daemon";
@@ -38,7 +40,8 @@ fn main() -> Result<()> {
             get_bootstrap_snapshot,
             refresh_bootstrap_snapshot,
             list_errors,
-            get_daemon_info
+            get_daemon_info,
+            capture_decision
         ])
         .setup(|app| {
             let snapshot = bootstrap_application(app.handle());
@@ -101,6 +104,52 @@ struct DaemonInfoSnapshot {
     storage: String,
     daemon: String,
     control: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CaptureDecisionParams {
+    process_id: String,
+    disposition: DecisionDisposition,
+    reviewed_basis_hash: Option<String>,
+    reviewed_manifest_hash: Option<String>,
+    reviewed_at_stage_run_id: Option<String>,
+    decision_note: Option<String>,
+    idempotency_key: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum DecisionDisposition {
+    Approve,
+    Reject,
+    Watch,
+}
+
+impl DecisionDisposition {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Approve => "approve",
+            Self::Reject => "reject",
+            Self::Watch => "watch",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct DecisionMutationAck {
+    accepted: bool,
+    visible_after_seq: i64,
+    idempotency_key: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DecisionCaptureContext {
+    process_id: String,
+    reviewed_basis_hash: String,
+    reviewed_manifest_hash: String,
+    reviewed_at_stage_run_id: String,
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
@@ -1049,6 +1098,17 @@ fn get_daemon_info(
     })
 }
 
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn capture_decision(
+    app: tauri::AppHandle,
+    params: CaptureDecisionParams,
+) -> std::result::Result<DecisionMutationAck, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    capture_decision_impl(paths.state_db_path().as_path(), params)
+        .map_err(|error| error.to_string())
+}
+
 const fn storage_label(value: StorageState) -> &'static str {
     match value {
         StorageState::Ready => "ready",
@@ -1073,5 +1133,484 @@ const fn control_label(value: ControlState) -> &'static str {
         ControlState::Full => "full",
         ControlState::Limited => "limited",
         ControlState::ReadOnly => "read_only",
+    }
+}
+
+#[allow(clippy::needless_pass_by_value)]
+fn capture_decision_impl(
+    db_path: &Path,
+    params: CaptureDecisionParams,
+) -> Result<DecisionMutationAck> {
+    let mut conn = Connection::open(db_path)
+        .with_context(|| format!("opening SQLite database {}", db_path.display()))?;
+    conn.execute_batch(
+        "\
+        PRAGMA foreign_keys = ON;\
+        PRAGMA busy_timeout = 5000;\
+        ",
+    )
+    .context("configuring decision-write SQLite pragmas")?;
+    ensure_decision_schema(&conn)?;
+
+    let idempotency_key = params.idempotency_key.clone().unwrap_or_else(|| {
+        format!(
+            "decision-{}-{}",
+            params.process_id,
+            Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        )
+    });
+
+    if let Some(visible_after_seq) = existing_decision_receipt(&conn, idempotency_key.as_str())
+        .context("reading decision receipt")?
+    {
+        return Ok(DecisionMutationAck {
+            accepted: true,
+            visible_after_seq,
+            idempotency_key,
+        });
+    }
+
+    let context = decision_capture_context(&conn, &params)
+        .with_context(|| format!("loading decision context for {}", params.process_id))?;
+    let reviewed_at = Utc::now().to_rfc3339();
+    let intent_id = format!("intent-{idempotency_key}");
+
+    let tx = conn
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .context("starting capture_decision transaction")?;
+    let visible_after_seq = increment_commit_clock_tx(&tx)?;
+    if let Some(previous_intent_id) =
+        latest_unsuperseded_intent_id(&tx, context.process_id.as_str())
+            .context("loading latest unsuperseded decision")?
+    {
+        tx.execute(
+            "\
+            UPDATE pending_operator_intents
+            SET superseded_by_intent_id = ?1
+            WHERE id = ?2 AND superseded_by_intent_id IS NULL
+            ",
+            params![intent_id, previous_intent_id],
+        )
+        .context("superseding previous decision intent")?;
+    }
+
+    tx.execute(
+        "\
+        INSERT INTO pending_operator_intents (
+          id, process_id, desired_disposition, reviewed_basis_hash, reviewed_manifest_hash,
+          reviewed_at_stage_run_id, reviewed_at, base_remote_revision, idempotency_key, status,
+          superseded_by_intent_id, queued_at, decision_note, last_attempt_at, last_error
+        ) VALUES (
+          ?1, ?2, ?3, ?4, ?5,
+          ?6, ?7, 0, ?8, 'queued',
+          NULL, ?7, ?9, NULL, NULL
+        )
+        ",
+        params![
+            intent_id,
+            context.process_id,
+            params.disposition.as_str(),
+            context.reviewed_basis_hash,
+            context.reviewed_manifest_hash,
+            context.reviewed_at_stage_run_id,
+            reviewed_at,
+            idempotency_key,
+            params.decision_note,
+        ],
+    )
+    .context("inserting pending_operator_intents row")?;
+
+    tx.execute(
+        "\
+        INSERT INTO pending_operator_intent_receipts (
+          idempotency_key, intent_id, visible_after_seq
+        ) VALUES (?1, ?2, ?3)
+        ",
+        params![idempotency_key, intent_id, visible_after_seq],
+    )
+    .context("inserting pending_operator_intent_receipts row")?;
+
+    tx.commit()
+        .context("committing capture_decision transaction")?;
+
+    Ok(DecisionMutationAck {
+        accepted: true,
+        visible_after_seq,
+        idempotency_key,
+    })
+}
+
+fn ensure_decision_schema(conn: &Connection) -> Result<()> {
+    let path = repo_root()?.join(L2_DECISION_MIGRATION_PATH);
+    let ddl = fs::read_to_string(&path)
+        .with_context(|| format!("reading migration {}", path.display()))?;
+    conn.execute_batch(&ddl)
+        .with_context(|| format!("applying migration {}", path.display()))?;
+    Ok(())
+}
+
+fn existing_decision_receipt(conn: &Connection, idempotency_key: &str) -> Result<Option<i64>> {
+    if !table_exists(conn, "pending_operator_intent_receipts")? {
+        return Ok(None);
+    }
+
+    conn.query_row(
+        "SELECT visible_after_seq FROM pending_operator_intent_receipts WHERE idempotency_key = ?1",
+        params![idempotency_key],
+        |row| row.get::<_, i64>(0),
+    )
+    .optional()
+    .context("querying pending_operator_intent_receipts")
+}
+
+fn decision_capture_context(
+    conn: &Connection,
+    params: &CaptureDecisionParams,
+) -> Result<DecisionCaptureContext> {
+    let process_id = resolve_process_id_for_decision(conn, params.process_id.as_str())?;
+
+    let assessment = conn
+        .query_row(
+            "\
+            SELECT decision_basis_hash, stage_run_id
+            FROM pipeline_assessments
+            WHERE process_id = ?1
+            ",
+            params![process_id],
+            |row| {
+                Ok((
+                    row.get::<_, Option<String>>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                ))
+            },
+        )
+        .optional()
+        .context("querying pipeline_assessments for decision context")?;
+
+    let manifest = conn
+        .query_row(
+            "\
+            SELECT artifact_hash, stage_run_id
+            FROM manifests
+            WHERE process_id = ?1
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            ",
+            params![process_id],
+            |row| {
+                Ok((
+                    row.get::<_, Option<String>>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                ))
+            },
+        )
+        .optional()
+        .context("querying manifests for decision context")?;
+
+    let reviewed_basis_hash = params
+        .reviewed_basis_hash
+        .clone()
+        .or_else(|| {
+            assessment
+                .as_ref()
+                .and_then(|(basis_hash, _)| basis_hash.clone())
+        })
+        .ok_or_else(|| anyhow!("decision basis hash is unavailable for {process_id}"))?;
+    let reviewed_manifest_hash = params
+        .reviewed_manifest_hash
+        .clone()
+        .or_else(|| {
+            manifest
+                .as_ref()
+                .and_then(|(artifact_hash, _)| artifact_hash.clone())
+        })
+        .ok_or_else(|| anyhow!("reviewed manifest hash is unavailable for {process_id}"))?;
+    let reviewed_at_stage_run_id = params
+        .reviewed_at_stage_run_id
+        .clone()
+        .or_else(|| {
+            manifest
+                .as_ref()
+                .and_then(|(_, stage_run_id)| stage_run_id.clone())
+        })
+        .or_else(|| {
+            assessment
+                .as_ref()
+                .and_then(|(_, stage_run_id)| stage_run_id.clone())
+        })
+        .ok_or_else(|| anyhow!("reviewed stage run id is unavailable for {process_id}"))?;
+
+    Ok(DecisionCaptureContext {
+        process_id,
+        reviewed_basis_hash,
+        reviewed_manifest_hash,
+        reviewed_at_stage_run_id,
+    })
+}
+
+fn resolve_process_id_for_decision(
+    conn: &Connection,
+    requested_process_id: &str,
+) -> Result<String> {
+    if table_exists(conn, "process_aliases")?
+        && let Some(canonical_process_id) = conn
+            .query_row(
+                "SELECT canonical_process_id FROM process_aliases WHERE alias_process_id = ?1",
+                params![requested_process_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .context("querying process_aliases")?
+    {
+        return Ok(canonical_process_id);
+    }
+
+    conn.query_row(
+        "\
+        SELECT id
+        FROM procurement_processes
+        WHERE id = ?1 OR canonical_process_id = ?1
+        ORDER BY CASE WHEN id = ?1 THEN 0 ELSE 1 END
+        LIMIT 1
+        ",
+        params![requested_process_id],
+        |row| row.get::<_, String>(0),
+    )
+    .optional()
+    .context("querying procurement_processes for decision target")?
+    .ok_or_else(|| anyhow!("unknown process `{requested_process_id}`"))
+}
+
+fn latest_unsuperseded_intent_id(tx: &Transaction<'_>, process_id: &str) -> Result<Option<String>> {
+    tx.query_row(
+        "\
+        SELECT id
+        FROM pending_operator_intents
+        WHERE process_id = ?1 AND superseded_by_intent_id IS NULL
+        ORDER BY queued_at DESC, id DESC
+        LIMIT 1
+        ",
+        params![process_id],
+        |row| row.get::<_, String>(0),
+    )
+    .optional()
+    .context("querying latest unsuperseded decision intent")
+}
+
+fn increment_commit_clock_tx(tx: &Transaction<'_>) -> Result<i64> {
+    let updated = tx
+        .execute(
+            "UPDATE commit_clock SET commit_seq = commit_seq + 1 WHERE id = 1",
+            [],
+        )
+        .context("incrementing commit_clock for decision mutation")?;
+    anyhow::ensure!(updated == 1, "commit_clock singleton row missing");
+    tx.query_row(
+        "SELECT commit_seq FROM commit_clock WHERE id = 1",
+        [],
+        |row| row.get::<_, i64>(0),
+    )
+    .context("reading committed decision visible_after_seq")
+}
+
+fn table_exists(conn: &Connection, table_name: &str) -> Result<bool> {
+    conn.query_row(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+        params![table_name],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|count| count == 1)
+    .context("checking sqlite table existence")
+}
+
+fn repo_root() -> Result<PathBuf> {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir
+        .ancestors()
+        .nth(3)
+        .map(Path::to_path_buf)
+        .ok_or_else(|| {
+            anyhow!(
+                "failed to resolve repository root from {}",
+                manifest_dir.display()
+            )
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    fn seeded_db() -> Result<(tempfile::TempDir, PathBuf)> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let conn = Connection::open(&db_path)?;
+        conn.execute_batch(
+            "\
+            PRAGMA foreign_keys = ON;
+            CREATE TABLE procurement_processes (
+              id TEXT PRIMARY KEY,
+              canonical_process_id TEXT
+            );
+            CREATE TABLE pipeline_assessments (
+              process_id TEXT PRIMARY KEY REFERENCES procurement_processes(id),
+              decision_basis_hash TEXT,
+              stage_run_id TEXT
+            );
+            CREATE TABLE manifests (
+              id TEXT PRIMARY KEY,
+              process_id TEXT NOT NULL REFERENCES procurement_processes(id),
+              artifact_hash TEXT,
+              stage_run_id TEXT,
+              created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE commit_clock (
+              id INTEGER PRIMARY KEY CHECK (id = 1),
+              commit_seq INTEGER NOT NULL DEFAULT 0
+            );
+            INSERT INTO commit_clock (id, commit_seq) VALUES (1, 0);
+            INSERT INTO procurement_processes (id, canonical_process_id) VALUES ('process-1', 'process-1');
+            INSERT INTO pipeline_assessments (process_id, decision_basis_hash, stage_run_id)
+            VALUES ('process-1', 'basis-a', 'stage-a');
+            INSERT INTO manifests (id, process_id, artifact_hash, stage_run_id)
+            VALUES ('manifest-1', 'process-1', 'manifest-a', 'stage-a');
+            ",
+        )?;
+        Ok((temp, db_path))
+    }
+
+    #[test]
+    fn capture_decision_persists_required_review_metadata() -> Result<()> {
+        let (_temp, db_path) = seeded_db()?;
+        let ack = capture_decision_impl(
+            db_path.as_path(),
+            CaptureDecisionParams {
+                process_id: "process-1".to_owned(),
+                disposition: DecisionDisposition::Approve,
+                reviewed_basis_hash: None,
+                reviewed_manifest_hash: None,
+                reviewed_at_stage_run_id: None,
+                decision_note: None,
+                idempotency_key: Some("decision-key-1".to_owned()),
+            },
+        )?;
+
+        anyhow::ensure!(ack.accepted);
+        anyhow::ensure!(ack.visible_after_seq == 1);
+
+        let conn = Connection::open(&db_path)?;
+        let row: (String, String, String, String, String, String, String) = conn.query_row(
+            "\
+            SELECT process_id, desired_disposition, reviewed_basis_hash, reviewed_manifest_hash,
+                   reviewed_at_stage_run_id, status, idempotency_key
+            FROM pending_operator_intents
+            WHERE idempotency_key = 'decision-key-1'
+            ",
+            [],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                ))
+            },
+        )?;
+        anyhow::ensure!(row.0 == "process-1");
+        anyhow::ensure!(row.1 == "approve");
+        anyhow::ensure!(row.2 == "basis-a");
+        anyhow::ensure!(row.3 == "manifest-a");
+        anyhow::ensure!(row.4 == "stage-a");
+        anyhow::ensure!(row.5 == "queued");
+        anyhow::ensure!(row.6 == "decision-key-1");
+        Ok(())
+    }
+
+    #[test]
+    fn capture_decision_is_idempotent_for_same_key() -> Result<()> {
+        let (_temp, db_path) = seeded_db()?;
+        let first = capture_decision_impl(
+            db_path.as_path(),
+            CaptureDecisionParams {
+                process_id: "process-1".to_owned(),
+                disposition: DecisionDisposition::Watch,
+                reviewed_basis_hash: None,
+                reviewed_manifest_hash: None,
+                reviewed_at_stage_run_id: None,
+                decision_note: Some("track".to_owned()),
+                idempotency_key: Some("decision-key-2".to_owned()),
+            },
+        )?;
+        let second = capture_decision_impl(
+            db_path.as_path(),
+            CaptureDecisionParams {
+                process_id: "process-1".to_owned(),
+                disposition: DecisionDisposition::Watch,
+                reviewed_basis_hash: None,
+                reviewed_manifest_hash: None,
+                reviewed_at_stage_run_id: None,
+                decision_note: Some("track".to_owned()),
+                idempotency_key: Some("decision-key-2".to_owned()),
+            },
+        )?;
+
+        anyhow::ensure!(first.visible_after_seq == second.visible_after_seq);
+        let conn = Connection::open(&db_path)?;
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM pending_operator_intents WHERE idempotency_key = 'decision-key-2'",
+            [],
+            |row| row.get(0),
+        )?;
+        anyhow::ensure!(count == 1);
+        Ok(())
+    }
+
+    #[test]
+    fn capture_decision_supersedes_previous_unsuperseded_intent() -> Result<()> {
+        let (_temp, db_path) = seeded_db()?;
+        let first = capture_decision_impl(
+            db_path.as_path(),
+            CaptureDecisionParams {
+                process_id: "process-1".to_owned(),
+                disposition: DecisionDisposition::Approve,
+                reviewed_basis_hash: Some("basis-a".to_owned()),
+                reviewed_manifest_hash: Some("manifest-a".to_owned()),
+                reviewed_at_stage_run_id: Some("stage-a".to_owned()),
+                decision_note: None,
+                idempotency_key: Some("decision-key-3".to_owned()),
+            },
+        )?;
+        let second = capture_decision_impl(
+            db_path.as_path(),
+            CaptureDecisionParams {
+                process_id: "process-1".to_owned(),
+                disposition: DecisionDisposition::Reject,
+                reviewed_basis_hash: Some("basis-b".to_owned()),
+                reviewed_manifest_hash: Some("manifest-b".to_owned()),
+                reviewed_at_stage_run_id: Some("stage-b".to_owned()),
+                decision_note: None,
+                idempotency_key: Some("decision-key-4".to_owned()),
+            },
+        )?;
+
+        anyhow::ensure!(second.visible_after_seq > first.visible_after_seq);
+        let conn = Connection::open(&db_path)?;
+        let superseded: Option<String> = conn.query_row(
+            "SELECT superseded_by_intent_id FROM pending_operator_intents WHERE idempotency_key = 'decision-key-3'",
+            [],
+            |row| row.get(0),
+        )?;
+        let latest_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM pending_operator_intents WHERE process_id = 'process-1' AND superseded_by_intent_id IS NULL",
+            [],
+            |row| row.get(0),
+        )?;
+        anyhow::ensure!(superseded.is_some());
+        anyhow::ensure!(latest_count == 1);
+        Ok(())
     }
 }
