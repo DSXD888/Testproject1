@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
-import { invoke } from './lib/transport';
-import { useControlPlaneState } from './hooks/use-control-plane';
+import { coerceBridgeError, invoke, parseBridgeError } from './lib/transport';
+import { controlPlaneStore, useControlPlaneState } from './hooks/use-control-plane';
 import { ContractDetail } from './pages/ContractDetail';
 import { DaemonStatusPage } from './pages/DaemonStatus';
 import {
@@ -160,6 +160,14 @@ type ScreenState<T> =
 
 type DetailState = ScreenState<QueryEnvelope<ProcessDetailVm>>;
 
+type DecisionDisposition = NonNullable<ProcessDecision['disposition']>;
+
+type DecisionMutationAck = {
+  accepted: boolean;
+  visibleAfterSeq: number;
+  idempotencyKey: string;
+};
+
 type RouteState =
   | {
       kind: 'list';
@@ -263,9 +271,24 @@ async function invokeQuery<T>(
   if ('data' in response) {
     return response;
   }
-  throw new Error(response.message ?? `${cmd} failed`);
+  throw parseBridgeError(response) ?? new Error(response.message ?? `${cmd} failed`);
 }
 
+async function invokeMutation<T>(
+  cmd: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
+  const response = (await invoke(cmd, args)) as T | { code?: string; message?: string };
+  if (
+    response &&
+    typeof response === 'object' &&
+    'code' in response &&
+    'message' in response
+  ) {
+    throw parseBridgeError(response) ?? new Error(response.message ?? `${cmd} failed`);
+  }
+  return response as T;
+}
 export interface AppProps {
   pathname?: string;
 }
@@ -283,6 +306,18 @@ export function App({ pathname }: AppProps = {}): ReactElement {
   const [visibleRows, setVisibleRows] = useState<ProcessListItem[]>([]);
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [decisionState, setDecisionState] = useState<{
+    status: 'idle' | 'saving' | 'error';
+    message: string | null;
+    retryable: boolean;
+    pendingDisposition: DecisionDisposition | null;
+  }>({
+    status: 'idle',
+    message: null,
+    retryable: false,
+    pendingDisposition: null,
+  });
+  const decisionRetryKeys = useRef(new Map<string, string>());
   const hasHydratedList = useRef(false);
 
   useEffect(() => {
@@ -384,6 +419,107 @@ export function App({ pathname }: AppProps = {}): ReactElement {
     };
   }, [listEnvelopeMeta, listState, visibleRows]);
 
+  async function reloadDetail(
+    processId: string,
+  ): Promise<QueryEnvelope<ProcessDetailVm>> {
+    return invokeQuery<ProcessDetailVm>('get_process_detail', {
+      processId,
+    });
+  }
+
+  async function waitForDecisionVisibility(
+    processId: string,
+    visibleAfterSeq: number,
+  ): Promise<QueryEnvelope<ProcessDetailVm>> {
+    let latestEnvelope = await reloadDetail(processId);
+    if (latestEnvelope.snapshotSeq >= visibleAfterSeq) {
+      return latestEnvelope;
+    }
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      latestEnvelope = await reloadDetail(processId);
+      if (latestEnvelope.snapshotSeq >= visibleAfterSeq) {
+        return latestEnvelope;
+      }
+    }
+
+    return latestEnvelope;
+  }
+
+  async function handleCaptureDecision(
+    processId: string,
+    disposition: DecisionDisposition,
+  ): Promise<void> {
+    if (detailState.status !== 'ready') {
+      return;
+    }
+
+    setDecisionState({
+      status: 'saving',
+      message: null,
+      retryable: false,
+      pendingDisposition: disposition,
+    });
+    const retryKey = `${processId}:${disposition}`;
+    const idempotencyKey =
+      decisionRetryKeys.current.get(retryKey) ??
+      (globalThis.crypto?.randomUUID?.() ?? `decision-${processId}-${Date.now()}`);
+    decisionRetryKeys.current.set(retryKey, idempotencyKey);
+    try {
+      const currentDetail = detailState.payload.data;
+      const ack = await invokeMutation<DecisionMutationAck>('capture_decision', {
+        processId,
+        disposition,
+        reviewedBasisHash: currentDetail.manifest?.basisHash ?? undefined,
+        reviewedManifestHash: undefined,
+        reviewedAtStageRunId: undefined,
+        idempotencyKey,
+      });
+
+      if (!ack.accepted) {
+        throw new Error('Decision mutation was not accepted');
+      }
+
+      const refreshed = await waitForDecisionVisibility(processId, ack.visibleAfterSeq);
+      setDetailState({ status: 'ready', payload: refreshed });
+      setVisibleRows((rows) =>
+        rows.map((row) =>
+          row.processId === processId
+            ? { ...row, decision: refreshed.data.decision }
+            : row,
+        ),
+      );
+      decisionRetryKeys.current.delete(retryKey);
+      setDecisionState({
+        status: 'idle',
+        message: null,
+        retryable: false,
+        pendingDisposition: null,
+      });
+    } catch (error) {
+      const bridgeError = coerceBridgeError(error, 'Decision capture failed');
+      if (bridgeError.code === 'transport_unavailable') {
+        const current = controlPlaneStore.getSnapshot().state;
+        controlPlaneStore.setState({
+          ...current,
+          daemon: 'unavailable',
+          control: 'read_only',
+          reasons: [
+            `Daemon bridge unavailable during decision capture. ${bridgeError.message}`,
+          ],
+        });
+      }
+      setDecisionState({
+        status: 'error',
+        message:
+          bridgeError.code === 'transport_unavailable'
+            ? 'Decision transport failed before the ack returned. Retry to confirm durable state with the same idempotency key.'
+            : bridgeError.message,
+        retryable: bridgeError.retryable,
+        pendingDisposition: disposition,
+      });
+    }
+  }
   const modeMessage = (() => {
     switch (bootstrapSnapshot.mode) {
       case 'full_control':
@@ -485,10 +621,16 @@ export function App({ pathname }: AppProps = {}): ReactElement {
               processId={route.processId}
               state={detailState}
               onBack={() => navigate('/')}
+              mutationsEnabled={bootstrapSnapshot.mode === 'full_control'}
+              onCaptureDecision={handleCaptureDecision}
+              decisionStatus={decisionState}
             />
           </>
         ) : route.kind === 'sessions' ? (
-          <SessionsPage />
+          <>
+            <span hidden>Sessions route</span>
+            <SessionsPage />
+          </>
         ) : route.kind === 'session-viewer' ? (
           <>
             <span hidden>Session route for {route.sessionId}</span>

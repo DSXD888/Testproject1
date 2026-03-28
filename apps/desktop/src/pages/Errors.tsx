@@ -2,13 +2,20 @@ import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
 import {
+  boundUntrustedText,
   ErrorSummaryList,
   type ErrorSummaryItem,
-} from '../../../../packages/ui/error-summary-list';
-import { ManifestViewer } from '../../../../packages/ui/manifest-viewer';
+  ManifestViewer,
+  sanitizeUntrustedText,
+} from '../../../../packages/ui';
 
-import { invoke } from '../lib/transport';
-import type { ControlPlaneState } from '../hooks/use-control-plane';
+import {
+  coerceBridgeError,
+  invoke,
+  parseBridgeError,
+  type BridgeErrorPayload,
+} from '../lib/transport';
+import { controlPlaneStore, type ControlPlaneState } from '../hooks/use-control-plane';
 
 interface ErrorEnvelope {
   data: {
@@ -141,6 +148,35 @@ function buildManifestMarkdown(error: ErrorSummaryItem): string {
   ].join('\n');
 }
 
+function describeMutationFailure(
+  command: 'resolve_error' | 'rerun_from_error',
+  error: BridgeErrorPayload,
+): string {
+  const action = command === 'rerun_from_error' ? 'Rerun' : 'Resolve';
+  switch (error.code) {
+    case 'transport_unavailable':
+      return `${action} failed because the daemon bridge is unavailable. Desktop switched to browse-only mode.`;
+    case 'conflict':
+      return `${action} blocked by conflict: ${error.message}`;
+    case 'invalid_params':
+      return `${action} rejected (invalid_params): ${error.message}`;
+    case 'busy':
+      return `${action} delayed while the daemon is busy: ${error.message}`;
+    default:
+      return `${action} failed (${error.code}): ${error.message}`;
+  }
+}
+
+function degradeToBrowseOnly(message: string): void {
+  const current = controlPlaneStore.getSnapshot().state;
+  controlPlaneStore.setState({
+    ...current,
+    daemon: 'unavailable',
+    control: 'read_only',
+    reasons: [message],
+  });
+}
+
 export function ErrorsPage({
   controlPlane,
 }: {
@@ -164,6 +200,11 @@ export function ErrorsPage({
   });
   const [mutationMessage, setMutationMessage] = useState<string | null>(null);
   const [mutationPending, setMutationPending] = useState(false);
+  const [queryMessage, setQueryMessage] = useState<string | null>(null);
+  const [retryableMutation, setRetryableMutation] = useState<{
+    command: 'resolve_error' | 'rerun_from_error';
+    errorManifestId: string;
+  } | null>(null);
   const [lastMutationKind, setLastMutationKind] = useState<
     'resolve_error' | 'rerun_from_error' | null
   >(null);
@@ -185,6 +226,7 @@ export function ErrorsPage({
         const unresolved = unresolvedOnly(envelope.data.items);
         setErrors(unresolved);
         setSelectedId(unresolved[0]?.errorManifestId ?? null);
+        setQueryMessage(null);
         setSnapshotMeta({
           snapshotSeq: envelope.snapshotSeq,
           snapshotAt: envelope.snapshotAt,
@@ -203,6 +245,7 @@ export function ErrorsPage({
   ): Promise<void> {
     setMutationPending(true);
     setMutationMessage(null);
+    setRetryableMutation(null);
     setLastMutationKind(command);
     try {
       const result = await invoke(command, { errorManifestId });
@@ -221,12 +264,22 @@ export function ErrorsPage({
         );
         return;
       }
-      if (result && typeof result === 'object' && 'message' in result) {
-        throw new Error(String((result as { message?: string }).message));
+      const bridgeError = parseBridgeError(result);
+      if (bridgeError) {
+        throw bridgeError;
       }
       throw new Error(`${command} failed`);
     } catch (error) {
-      setMutationMessage(error instanceof Error ? error.message : `${command} failed`);
+      const bridgeError = coerceBridgeError(error, `${command} failed`);
+      if (bridgeError.code === 'transport_unavailable') {
+        degradeToBrowseOnly(
+          `Daemon bridge unavailable during ${command.replaceAll('_', ' ')}. ${bridgeError.message}`,
+        );
+      }
+      if (bridgeError.retryable) {
+        setRetryableMutation({ command, errorManifestId });
+      }
+      setMutationMessage(describeMutationFailure(command, bridgeError));
     } finally {
       setMutationPending(false);
     }
@@ -257,6 +310,20 @@ export function ErrorsPage({
         if (cancelled) {
           return;
         }
+        const bridgeError = parseBridgeError(result);
+        if (bridgeError) {
+          if (bridgeError.code === 'transport_unavailable') {
+            degradeToBrowseOnly(
+              `Daemon bridge unavailable while loading errors. ${bridgeError.message}`,
+            );
+          }
+          setErrors(currentFixture());
+          setSelectedId(currentFixture()[0]?.errorManifestId ?? null);
+          setQueryMessage(
+            `Live error queue unavailable (${bridgeError.code}). Showing local fixture data.`,
+          );
+          return;
+        }
         if (
           result &&
           typeof result === 'object' &&
@@ -278,12 +345,22 @@ export function ErrorsPage({
         const fallback = unresolvedOnly(currentFixture());
         setErrors(fallback);
         setSelectedId(fallback[0]?.errorManifestId ?? null);
+        setQueryMessage('Live error queue unavailable. Showing local fixture data.');
       })
-      .catch(() => {
+      .catch((error) => {
         if (!cancelled) {
+          const bridgeError = coerceBridgeError(error, 'list_errors failed');
+          if (bridgeError.code === 'transport_unavailable') {
+            degradeToBrowseOnly(
+              `Daemon bridge unavailable while loading errors. ${bridgeError.message}`,
+            );
+          }
           const fallback = unresolvedOnly(currentFixture());
           setErrors(fallback);
           setSelectedId(fallback[0]?.errorManifestId ?? null);
+          setQueryMessage(
+            `Live error queue unavailable (${bridgeError.code}). Showing local fixture data.`,
+          );
         }
       });
 
@@ -314,7 +391,21 @@ export function ErrorsPage({
         </div>
       </header>
 
+      {queryMessage ? <p role="status">{queryMessage}</p> : null}
       {mutationMessage ? <p role="status">{mutationMessage}</p> : null}
+      {retryableMutation ? (
+        <button
+          onClick={() => {
+            void runErrorMutation(
+              retryableMutation.command,
+              retryableMutation.errorManifestId,
+            );
+          }}
+          type="button"
+        >
+          Retry {retryableMutation.command === 'rerun_from_error' ? 'rerun' : 'resolve'}
+        </button>
+      ) : null}
 
       {errors.length === 0 ? (
         <div className="empty-state" role="status">
@@ -351,7 +442,20 @@ export function ErrorsPage({
                 sections={['Summary', 'Context']}
               />
               <h3>Raw context</h3>
-              <pre aria-label="Raw error context">{JSON.stringify(selectedError, null, 2)}</pre>
+              {(() => {
+                const rawContext = boundUntrustedText(
+                  sanitizeUntrustedText(JSON.stringify(selectedError, null, 2)),
+                  4_000,
+                );
+                return (
+                  <>
+                    <pre>{rawContext.safeText}</pre>
+                    {rawContext.truncated ? (
+                      <p role="status">Raw error context truncated for safe rendering.</p>
+                    ) : null}
+                  </>
+                );
+              })()}
               <div className="action-row">
                 <button
                   disabled={mutationPending || controlPlane.control !== 'full'}

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
+import { boundUntrustedText, sanitizeUntrustedText } from '../../../../packages/ui';
+
 import {
   applySessionFrame,
   loadSessionHistory,
@@ -17,7 +19,13 @@ import {
   type SessionHistoryChunk,
   type SessionHistoryRequest,
 } from '../hooks/use-daemon';
+import { controlPlaneStore } from '../hooks/use-control-plane';
 import { seedDevSessionFrames } from '../lib/dev-bridge-fixtures';
+import {
+  coerceBridgeError,
+  parseBridgeError,
+  type BridgeErrorPayload,
+} from '../lib/transport';
 
 type ViewerMode = 'live' | 'history';
 type HistoryState =
@@ -29,6 +37,56 @@ type HistoryState =
       lastSeq: number;
     }
   | { status: 'error'; message: string };
+
+const OSC8_OPEN_PATTERN = /\u001B\]8;[^;]*;[^\u0007\u001B]*(?:\u0007|\u001B\\)/g;
+const OSC8_CLOSE_PATTERN = /\u001B\]8;;(?:\u0007|\u001B\\)/g;
+const OSC52_PATTERN = /\u001B\]52;[^\u0007\u001B]*(?:\u0007|\u001B\\)/g;
+const LIVE_TAIL_RENDER_LIMIT = 3_000;
+const TRANSCRIPT_LINE_RENDER_LIMIT = 2_500;
+const MAX_TRANSCRIPT_LINES = 120;
+
+function sanitizeSessionText(text: string): string {
+  return sanitizeUntrustedText(
+    text
+      .replace(OSC8_OPEN_PATTERN, '')
+      .replace(OSC8_CLOSE_PATTERN, '')
+      .replace(OSC52_PATTERN, ''),
+  );
+}
+
+function previewSessionText(
+  text: string,
+  maxChars: number,
+): ReturnType<typeof boundUntrustedText> {
+  return boundUntrustedText(sanitizeSessionText(text), maxChars, 80);
+}
+
+function describeCommandFailure(action: string, error: BridgeErrorPayload): string {
+  switch (error.code) {
+    case 'transport_unavailable':
+      return `${action} failed because the daemon bridge is unavailable. Desktop switched to browse-only mode.`;
+    case 'invalid_params':
+      return `${action} rejected (invalid_params): ${error.message}`;
+    case 'already_terminal':
+      return `${action} was ignored because the session is already terminal.`;
+    case 'conflict':
+      return `${action} conflicted: ${error.message}`;
+    case 'busy':
+      return `${action} is waiting for the daemon to clear a busy state: ${error.message}`;
+    default:
+      return `${action} failed (${error.code}): ${error.message}`;
+  }
+}
+
+function degradeToBrowseOnly(message: string): void {
+  const current = controlPlaneStore.getSnapshot().state;
+  controlPlaneStore.setState({
+    ...current,
+    daemon: 'unavailable',
+    control: 'read_only',
+    reasons: [message],
+  });
+}
 
 export function SessionViewer({
   sessionId,
@@ -65,6 +123,10 @@ export function SessionViewer({
     'Monitoring session state changes.',
   );
   const [inputValue, setInputValue] = useState('resume\n');
+  const [inputError, setInputError] = useState<string | null>(null);
+  const [interactionBlocked, setInteractionBlocked] = useState(false);
+  const [retryableCommandLabel, setRetryableCommandLabel] = useState<string | null>(null);
+  const retryCommandRef = useRef<(() => Promise<void>) | null>(null);
   const seeded = useRef(false);
   const handledGap = useRef<string | null>(null);
   const session = meta.session;
@@ -80,26 +142,24 @@ export function SessionViewer({
           return;
         }
         setSnapshotSeq(envelope.snapshotSeq);
-        const session = envelope.data.items.find((item) => item.sessionId === sessionId);
-        if (!session) {
+        const nextSession = envelope.data.items.find((item) => item.sessionId === sessionId);
+        if (!nextSession) {
           setError(`Unknown session ${sessionId}`);
           return;
         }
         if (
           initialMode === undefined &&
-          (session.executionMode === 'contract' ||
-            (session.archiveSeq !== null &&
-              session.archiveSeq !== undefined &&
-              envelope.snapshotSeq >= session.archiveSeq))
+          (nextSession.executionMode === 'contract' ||
+            (nextSession.archiveSeq !== null &&
+              nextSession.archiveSeq !== undefined &&
+              envelope.snapshotSeq >= nextSession.archiveSeq))
         ) {
           setMode('history');
         }
       })
       .catch((loadError) => {
         if (!cancelled) {
-          setError(
-            loadError instanceof Error ? loadError.message : 'Unable to load session.',
-          );
+          setError(loadError instanceof Error ? loadError.message : 'Unable to load session.');
         }
       })
       .finally(() => {
@@ -154,19 +214,12 @@ export function SessionViewer({
     })
       .then((envelope) => {
         if (envelope.data.availability === 'complete') {
-          resolveSessionReplay(
-            sessionId,
-            gap.fromSeq,
-            gap.toSeq,
-            envelope.data.frames,
-          );
+          resolveSessionReplay(sessionId, gap.fromSeq, gap.toSeq, envelope.data.frames);
           setReplayMessage(`Replay recovered ${gapKey}.`);
           setLiveAnnouncement(`Replay recovered ${gapKey}.`);
         } else {
           envelope.data.frames.forEach((frame) => applySessionFrame(sessionId, frame));
-          setReplayMessage(
-            `Replay ${envelope.data.availability} for ${gapKey}.`,
-          );
+          setReplayMessage(`Replay ${envelope.data.availability} for ${gapKey}.`);
           setLiveAnnouncement(`Replay incomplete for ${gapKey}.`);
         }
         setHistoryState({
@@ -225,7 +278,6 @@ export function SessionViewer({
       });
   }, [historyState.status, loadHistory, meta.lastSeq, mode, session, sessionId]);
 
-  const canInteract = session?.executionMode === 'pty' && session.reattachable;
   const authChallenge = useMemo(() => {
     const frame = timeline.find(
       (candidate) =>
@@ -236,21 +288,45 @@ export function SessionViewer({
       : null;
   }, [timeline]);
 
-  const transcriptLines = timeline.map((frame) => {
-    if (frame.kind === 'stdout' || frame.kind === 'stderr') {
-      return `${frame.kind.toUpperCase()}: ${frame.chunk}`;
-    }
-    if (frame.kind === 'gap') {
-      return `gap: ${frame.fromSeq}..${frame.toSeq}`;
-    }
-    if (frame.kind === 'event') {
-      return `${frame.event.type}: ${JSON.stringify(frame.event)}`;
-    }
-    if (frame.kind === 'lifecycle') {
-      return `lifecycle: ${frame.state}`;
-    }
-    return 'pty frame';
-  });
+  const transcriptLines = useMemo(() => {
+    return timeline.slice(-MAX_TRANSCRIPT_LINES).map((frame) => {
+      if (frame.kind === 'stdout' || frame.kind === 'stderr') {
+        const preview = previewSessionText(String(frame.chunk), TRANSCRIPT_LINE_RENDER_LIMIT);
+        return `${frame.kind.toUpperCase()}: ${preview.safeText}`;
+      }
+      if (frame.kind === 'gap') {
+        return `gap: ${frame.fromSeq}..${frame.toSeq}`;
+      }
+      if (frame.kind === 'event') {
+        const preview = previewSessionText(
+          JSON.stringify(frame.event),
+          TRANSCRIPT_LINE_RENDER_LIMIT,
+        );
+        return `${frame.event.type}: ${preview.safeText}`;
+      }
+      if (frame.kind === 'lifecycle') {
+        return `lifecycle: ${sanitizeUntrustedText(frame.state)}`;
+      }
+      const preview = previewSessionText(String(frame.chunk), TRANSCRIPT_LINE_RENDER_LIMIT);
+      return `pty: ${preview.safeText}`;
+    });
+  }, [timeline]);
+
+  const liveTailPreview = useMemo(
+    () => boundUntrustedText(sanitizeSessionText(tail), LIVE_TAIL_RENDER_LIMIT, 120),
+    [tail],
+  );
+
+  const canInteract =
+    session?.executionMode === 'pty' &&
+    session.reattachable &&
+    session.phase === 'active' &&
+    !interactionBlocked;
+  const terminalControlsDisabled =
+    interactionBlocked ||
+    session?.phase === 'exited' ||
+    session?.phase === 'reaped' ||
+    session?.phase === 'archived';
 
   async function awaitVisible(ack: MutationAck): Promise<void> {
     let envelope = await loadSessions({}, 50);
@@ -262,25 +338,112 @@ export function SessionViewer({
     setSnapshotSeq(envelope.snapshotSeq);
   }
 
+  async function runSessionCommand(
+    action: string,
+    runner: () => Promise<MutationAck>,
+    onSuccess: (ack: MutationAck) => Promise<void>,
+    options?: { field?: 'input' },
+  ): Promise<void> {
+    setCommandMessage(null);
+    setInputError(null);
+    setRetryableCommandLabel(null);
+    retryCommandRef.current = null;
+
+    try {
+      const result = (await runner()) as MutationAck | BridgeErrorPayload;
+      const bridgeError = parseBridgeError(result);
+      if (bridgeError) {
+        throw bridgeError;
+      }
+      const ack = result as MutationAck;
+      await onSuccess(ack);
+      setInteractionBlocked(false);
+    } catch (error) {
+      const bridgeError = coerceBridgeError(error, `${action} failed`);
+      if (bridgeError.code === 'transport_unavailable') {
+        degradeToBrowseOnly(
+          `Daemon bridge unavailable during ${action.toLowerCase()}. ${bridgeError.message}`,
+        );
+      }
+      if (bridgeError.code === 'already_terminal') {
+        setInteractionBlocked(true);
+      }
+      if (bridgeError.code === 'invalid_params' && options?.field === 'input') {
+        setInputError(describeCommandFailure(action, bridgeError));
+      }
+      if (bridgeError.retryable) {
+        setRetryableCommandLabel(action);
+        retryCommandRef.current = () => runSessionCommand(action, runner, onSuccess, options);
+      }
+      setCommandMessage(describeCommandFailure(action, bridgeError));
+      setLiveAnnouncement(describeCommandFailure(action, bridgeError));
+    }
+  }
+
   async function requestStop(nextMode: 'graceful' | 'force'): Promise<void> {
-    const ack = await stop(sessionId, nextMode);
-    await awaitVisible(ack);
-    setCommandMessage(`Stop requested (${nextMode}) for ${sessionId}.`);
-    setLiveAnnouncement(`Stop requested for ${sessionId}.`);
+    await runSessionCommand(
+      `Stop ${nextMode}`,
+      () => stop(sessionId, nextMode),
+      async (ack) => {
+        await awaitVisible(ack);
+        setCommandMessage(`Stop requested (${nextMode}) for ${sessionId}.`);
+        setLiveAnnouncement(`Stop requested for ${sessionId}.`);
+      },
+    );
   }
 
   async function requestInput(): Promise<void> {
-    const ack = await sendInput(sessionId, inputValue);
-    await awaitVisible(ack);
-    setCommandMessage(`Sent PTY input to ${sessionId}.`);
-    setLiveAnnouncement(`PTY input sent to ${sessionId}.`);
+    await runSessionCommand(
+      'Send PTY input',
+      () => sendInput(sessionId, inputValue),
+      async (ack) => {
+        await awaitVisible(ack);
+        setCommandMessage(`Sent PTY input to ${sessionId}.`);
+        setLiveAnnouncement(`PTY input sent to ${sessionId}.`);
+      },
+      { field: 'input' },
+    );
   }
 
   async function requestResize(): Promise<void> {
-    const ack = await resize(sessionId, 120, 40);
-    await awaitVisible(ack);
-    setCommandMessage(`Requested 120×40 resize for ${sessionId}.`);
-    setLiveAnnouncement(`Resize requested for ${sessionId}.`);
+    await runSessionCommand(
+      'Resize 120×40',
+      () => resize(sessionId, 120, 40),
+      async (ack) => {
+        await awaitVisible(ack);
+        setCommandMessage(`Requested 120×40 resize for ${sessionId}.`);
+        setLiveAnnouncement(`Resize requested for ${sessionId}.`);
+      },
+    );
+  }
+
+  async function requestReplay(): Promise<void> {
+    try {
+      const envelope = await loadHistory({
+        sessionId,
+        fromSeq: meta.gapState?.fromSeq ?? 1,
+        toSeq: meta.gapState?.toSeq ?? Math.max(meta.lastSeq, 1),
+        maxBytes: 8192,
+      });
+      envelope.data.frames.forEach((frame) => applySessionFrame(sessionId, frame));
+      setHistoryState({
+        status: 'ready',
+        availability: envelope.data.availability,
+        firstSeq: envelope.data.firstSeq,
+        lastSeq: envelope.data.lastSeq,
+      });
+      setReplayMessage(`Replay ${envelope.data.availability} for ${envelope.data.sessionId}.`);
+      setLiveAnnouncement(`Replay ${envelope.data.availability} for ${envelope.data.sessionId}.`);
+    } catch (historyError) {
+      setHistoryState({
+        status: 'error',
+        message:
+          historyError instanceof Error
+            ? historyError.message
+            : 'Replay request failed.',
+      });
+      setReplayMessage('Replay request failed.');
+    }
   }
 
   if (loading) {
@@ -317,7 +480,7 @@ export function SessionViewer({
             Back to sessions
           </button>
           <p className="eyebrow">Session viewer</p>
-          <h1>{session.skillPath}</h1>
+          <h1>{sanitizeUntrustedText(session.skillPath)}</h1>
           <p>
             {session.executionMode} · {session.phase} · snapshot {snapshotSeq}
           </p>
@@ -332,10 +495,10 @@ export function SessionViewer({
       {authChallenge ? (
         <div className="banner banner--warning">
           <strong>Browser auth challenge</strong>
-          <p>{authChallenge.detail}</p>
+          <p>{sanitizeUntrustedText(authChallenge.detail)}</p>
           {authChallenge.intervention?.type === 'reveal_profile_path' ? (
             <p>
-              Reveal profile path: {authChallenge.intervention.profilePath}
+              Reveal profile path: {sanitizeUntrustedText(authChallenge.intervention.profilePath)}
               {' · '}
               {authChallenge.intervention.reattachable
                 ? 'Reattachable after sign-in.'
@@ -354,28 +517,57 @@ export function SessionViewer({
         </div>
       ) : null}
 
-      {commandMessage ? <p className="page__status">{commandMessage}</p> : null}
-      {replayMessage ? <p className="page__status">{replayMessage}</p> : null}
+      {commandMessage ? <p className="page__status">{sanitizeUntrustedText(commandMessage)}</p> : null}
+      {replayMessage ? <p className="page__status">{sanitizeUntrustedText(replayMessage)}</p> : null}
+      {retryableCommandLabel ? (
+        <button
+          onClick={() => {
+            const retry = retryCommandRef.current;
+            if (retry) {
+              void retry();
+            }
+          }}
+          type="button"
+        >
+          Retry {retryableCommandLabel}
+        </button>
+      ) : null}
 
       <div className="session-viewer-grid">
         <article className="detail-card">
           <h2>{mode === 'history' ? 'Transcript history' : 'Live terminal'}</h2>
           {mode === 'live' && session.executionMode === 'pty' ? (
             <>
-              <pre className="session-viewer__terminal">
-                {tail || 'Waiting for PTY output…'}
+              {liveTailPreview.truncated ? (
+                <p className="page__status">
+                  Live terminal output truncated to the latest{' '}
+                  {liveTailPreview.maxChars.toLocaleString('en-GB')} safe characters.
+                </p>
+              ) : null}
+              <pre aria-live="off" className="session-viewer__terminal">
+                {tail ? liveTailPreview.safeText : 'Waiting for PTY output…'}
               </pre>
               <details>
                 <summary>Screen-reader transcript</summary>
-                <pre>{tail || 'No PTY transcript available yet.'}</pre>
+                <pre aria-live="off">
+                  {tail ? liveTailPreview.safeText : 'No PTY transcript available yet.'}
+                </pre>
               </details>
             </>
           ) : (
-            <ol className="session-viewer__timeline">
-              {transcriptLines.map((line, index) => (
-                <li key={`${index}-${line}`}>{line}</li>
-              ))}
-            </ol>
+            <>
+              {timeline.length > transcriptLines.length ? (
+                <p className="page__status">
+                  Showing the most recent {transcriptLines.length.toLocaleString('en-GB')} transcript
+                  lines.
+                </p>
+              ) : null}
+              <ol aria-live="off" className="session-viewer__timeline">
+                {transcriptLines.map((line, index) => (
+                  <li key={`${index}-${line}`}>{line}</li>
+                ))}
+              </ol>
+            </>
           )}
         </article>
 
@@ -383,14 +575,25 @@ export function SessionViewer({
           <h2>Interventions</h2>
           <p>Controls are enabled only for attached PTY sessions.</p>
           <div className="decision-actions">
-            <button type="button" disabled={!canInteract} onClick={() => void requestStop('graceful')}>
-              Stop graceful
+            <button
+              type="button"
+              disabled={terminalControlsDisabled}
+              onClick={() => void requestStop('graceful')}
+            >
+              Stop gracefully
             </button>
-            <button type="button" disabled={!canInteract} onClick={() => void requestStop('force')}>
-              Stop force
+            <button
+              type="button"
+              disabled={terminalControlsDisabled}
+              onClick={() => void requestStop('force')}
+            >
+              Force stop
             </button>
             <button type="button" disabled={!canInteract} onClick={() => void requestResize()}>
-              Resize 120×40
+              Resize PTY
+            </button>
+            <button type="button" onClick={() => void requestReplay()}>
+              Request replay
             </button>
           </div>
           <label className="session-viewer__input">
@@ -401,8 +604,13 @@ export function SessionViewer({
               disabled={!canInteract}
             />
           </label>
-          <button type="button" disabled={!canInteract || inputValue.length === 0} onClick={() => void requestInput()}>
-            Send PTY input
+          {inputError ? <p role="alert">{sanitizeUntrustedText(inputError)}</p> : null}
+          <button
+            type="button"
+            disabled={!canInteract || inputValue.length === 0}
+            onClick={() => void requestInput()}
+          >
+            Send input
           </button>
           {!canInteract ? (
             <p className="page__status">

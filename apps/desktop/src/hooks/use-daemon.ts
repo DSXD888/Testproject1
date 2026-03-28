@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 import { invoke } from '../lib/transport';
+import { parseBridgeError } from '../lib/transport';
 import {
   createSessionRegistry,
   type SessionFrame,
@@ -71,6 +72,31 @@ const sessionTimelineCache = new Map<
   string,
   { sourceFrames: SessionFrame[]; timeline: SessionFrame[] }
 >();
+
+async function invokeDaemonQuery<T>(
+  cmd: string,
+  args?: Record<string, unknown>,
+): Promise<QueryEnvelope<T>> {
+  const response = (await invoke(cmd, args)) as QueryEnvelope<T> | {
+    code?: string;
+    message?: string;
+  };
+  if (response && typeof response === 'object' && 'data' in response && 'snapshotSeq' in response) {
+    return response;
+  }
+  throw parseBridgeError(response) ?? new Error(response.message ?? `${cmd} failed`);
+}
+
+async function invokeDaemonMutation<T>(
+  cmd: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
+  const response = (await invoke(cmd, args)) as T | { code?: string; message?: string };
+  if (response && typeof response === 'object' && 'code' in response && 'message' in response) {
+    throw parseBridgeError(response) ?? new Error(response.message ?? `${cmd} failed`);
+  }
+  return response as T;
+}
 
 function currentDaemonKey(sessionId: string): string | null {
   const daemonInstanceId = sessionRegistryStore.getSnapshot().daemonInstanceId;
@@ -174,39 +200,61 @@ export async function loadSessionsPage(
   filters: SessionListFilters = {},
   limit = 25,
 ): Promise<QueryEnvelope<KeysetPage<SessionPageItem>>> {
-  const envelope = (await invoke('list_sessions', {
+  const envelope = await invokeDaemonQuery<KeysetPage<SessionPageItem>>('list_sessions', {
     limit,
     filters,
-  })) as QueryEnvelope<KeysetPage<SessionPageItem>>;
+  });
   hydrateSessions(envelope.data.items);
   return envelope;
 }
 
 export async function retrySessionJob(jobId: string): Promise<MutationAck> {
-  return (await invoke('retry_job', { jobId })) as MutationAck;
+  return invokeDaemonMutation<MutationAck>('retry_job', { jobId });
 }
 
 export async function loadSessionHistory(
   request: SessionHistoryRequest,
 ): Promise<QueryEnvelope<SessionHistoryChunk>> {
-  return (await invoke('get_session_history', request)) as QueryEnvelope<SessionHistoryChunk>;
+  const envelope = await invokeDaemonQuery<SessionHistoryChunk>('get_session_history', {
+    sessionId: request.sessionId,
+    fromSeq: request.fromSeq,
+    toSeq: request.toSeq,
+    maxBytes: request.maxBytes ?? null,
+  });
+
+  const replayFrames = envelope.data.frames.map((frame) => normalizeSessionFrame(frame));
+  const meta = getMetaSnapshot(request.sessionId);
+  const executionMode = meta.session?.executionMode ?? 'contract';
+  ensureBuffer(request.sessionId, executionMode).mergeReplay(replayFrames);
+  if (meta.gapState) {
+    resolveSessionReplay(
+      request.sessionId,
+      meta.gapState.fromSeq,
+      meta.gapState.toSeq,
+      replayFrames,
+    );
+  }
+  return envelope;
 }
 
 export async function stopSession(
   sessionId: string,
   mode: 'graceful' | 'force',
 ): Promise<MutationAck> {
-  return (await invoke('stop_session', { sessionId, mode })) as MutationAck;
+  return invokeDaemonMutation<MutationAck>('stop_session', {
+    sessionId,
+    mode,
+  });
 }
 
 export async function sendSessionInput(
   sessionId: string,
   inputUtf8: string,
 ): Promise<MutationAck> {
-  return (await invoke('send_session_input', {
+  return invokeDaemonMutation<MutationAck>('send_session_input', {
     sessionId,
     inputUtf8,
-  })) as MutationAck;
+  });
 }
 
 export async function resizeSession(
@@ -214,11 +262,11 @@ export async function resizeSession(
   cols: number,
   rows: number,
 ): Promise<MutationAck> {
-  return (await invoke('resize_session', {
+  return invokeDaemonMutation<MutationAck>('resize_session', {
     sessionId,
     cols,
     rows,
-  })) as MutationAck;
+  });
 }
 
 export function useSessionMeta(sessionId: string): SessionMetaSnapshot {

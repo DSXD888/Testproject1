@@ -84,6 +84,32 @@ describe('packages/ui components', () => {
     expect(clickedSections).toHaveLength(0);
   });
 
+  it('keeps hostile unicode controls visible and bounds oversized payloads', () => {
+    const longManifest = `${'A'.repeat(21_000)}\u202Espoofed`;
+    const markup = renderToStaticMarkup(
+      <ManifestViewer
+        manifestMarkdown={longManifest}
+        manifestVersion="2026.03"
+        basisHash="basis-2"
+        generatedAt="2026-03-28T20:10:00Z"
+      />,
+    );
+    const errorMarkup = renderToStaticMarkup(
+      <ErrorSummaryList
+        errors={[
+          {
+            ...errorSummaryFixture[0],
+            errorMessage: `prefix\u202Espoofed${'B'.repeat(1_500)}`,
+          },
+        ]}
+      />,
+    );
+
+    expect(markup).toContain('Manifest truncated to the first 400 lines / 20,000 characters');
+    expect(errorMarkup).toContain('Error summary truncated for safe preview.');
+    expect(errorMarkup).toContain('[U+202E]');
+  });
+
   it('TS-UI-006 renders typed error rows without requiring resolve actions', () => {
     const readOnlyMarkup = renderToStaticMarkup(
       <ErrorSummaryList errors={errorSummaryFixture} onErrorClick={() => undefined} />,

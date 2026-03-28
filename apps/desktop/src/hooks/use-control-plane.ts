@@ -83,6 +83,16 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+function shouldPreserveCurrentSnapshot(nextSnapshot: BootstrapSnapshot): boolean {
+  const currentReasons = state.snapshot.controlPlane.reasons.join(' ').toLowerCase();
+  return (
+    state.snapshot.controlPlane.daemon === 'unavailable' &&
+    state.snapshot.controlPlane.control === 'read_only' &&
+    currentReasons.includes('bridge unavailable') &&
+    nextSnapshot.mode === 'full_control'
+  );
+}
+
 async function refreshSnapshot(): Promise<void> {
   state.loading = true;
   emitChange();
@@ -90,10 +100,16 @@ async function refreshSnapshot(): Promise<void> {
   try {
     const result = await invoke('get_bootstrap_snapshot');
     const snapshot = parseBootstrapResult(result);
-    state.snapshot = snapshot ?? fixtureSnapshot();
+    const nextSnapshot = snapshot ?? fixtureSnapshot();
+    if (!shouldPreserveCurrentSnapshot(nextSnapshot)) {
+      state.snapshot = nextSnapshot;
+    }
     state.error = snapshot ? null : 'Desktop bridge unavailable; using local fixture.';
   } catch (error) {
-    state.snapshot = fixtureSnapshot();
+    const nextSnapshot = fixtureSnapshot();
+    if (!shouldPreserveCurrentSnapshot(nextSnapshot)) {
+      state.snapshot = nextSnapshot;
+    }
     state.error = error instanceof Error ? error.message : 'Desktop bootstrap failed';
   } finally {
     state.loading = false;

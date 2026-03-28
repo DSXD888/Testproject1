@@ -14,7 +14,10 @@ export {
   type FreshnessBadgeVM,
 } from './freshness-badge';
 export {
+  boundUntrustedText,
   ManifestViewer,
+  sanitizeUntrustedText,
+  type BoundedTextPreview,
   type ManifestViewerProps,
 } from './manifest-viewer';
 export {

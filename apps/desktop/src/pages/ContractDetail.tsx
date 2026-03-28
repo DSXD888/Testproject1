@@ -1,9 +1,11 @@
 import type { ReactElement } from 'react';
 
 import {
+  boundUntrustedText,
   ErrorSummaryList,
   ManifestViewer,
   PipelineBadge,
+  sanitizeUntrustedText,
 } from '../../../../packages/ui';
 
 type DetailState =
@@ -122,6 +124,18 @@ function isAutoQualificationReady(netQualifiedValueCoverageBps: number): boolean
   return netQualifiedValueCoverageBps >= AUTO_QUALIFICATION_VALUE_FLOOR_BPS;
 }
 
+function renderBoundedCopy(
+  value: string | null | undefined,
+  fallback: string,
+  maxChars = 1_200,
+): { text: string; truncated: boolean } {
+  const preview = boundUntrustedText(value ?? fallback, maxChars);
+  return {
+    text: preview.safeText,
+    truncated: preview.truncated,
+  };
+}
+
 export function ContractDetail({
   processId,
   state,
@@ -135,7 +149,12 @@ export function ContractDetail({
   onBack: () => void;
   mutationsEnabled: boolean;
   onCaptureDecision: (processId: string, disposition: 'approve' | 'reject' | 'watch') => Promise<void>;
-  decisionStatus: { status: 'idle' | 'saving' | 'error'; message: string | null };
+  decisionStatus: {
+    status: 'idle' | 'saving' | 'error';
+    message: string | null;
+    retryable: boolean;
+    pendingDisposition: 'approve' | 'reject' | 'watch' | null;
+  };
 }): ReactElement {
   if (state.status !== 'ready') {
     if (state.status === 'error') {
@@ -176,7 +195,7 @@ export function ContractDetail({
             Back to queue
           </button>
           <p className="page__eyebrow">Review packet</p>
-          <h2>{data.canonicalProcessId}</h2>
+          <h2>{sanitizeUntrustedText(data.canonicalProcessId)}</h2>
           <p className="page__lede">
             Snapshot {snapshotSeq} at {snapshotAt}
           </p>
@@ -269,7 +288,23 @@ export function ContractDetail({
             <p role="status">Saving decision…</p>
           ) : null}
           {decisionStatus.status === 'error' && decisionStatus.message ? (
-            <p role="alert">{decisionStatus.message}</p>
+            <p role="alert">{sanitizeUntrustedText(decisionStatus.message)}</p>
+          ) : null}
+          {decisionStatus.status === 'error' &&
+          decisionStatus.retryable &&
+          decisionStatus.pendingDisposition ? (
+            <button
+              onClick={() => {
+                const disposition = decisionStatus.pendingDisposition;
+                if (!disposition) {
+                  return;
+                }
+                void onCaptureDecision(data.processId, disposition);
+              }}
+              type="button"
+            >
+              Retry last decision
+            </button>
           ) : null}
         </article>
       </section>
@@ -280,9 +315,23 @@ export function ContractDetail({
           <ul className="stack-list">
             {data.notices.map((notice) => (
               <li key={notice.noticeId}>
-                <strong>{notice.title}</strong>
-                <p>{notice.buyerName ?? 'Unknown buyer'}</p>
-                <p>{notice.summary ?? 'No summary provided.'}</p>
+                <strong>{sanitizeUntrustedText(notice.title)}</strong>
+                <p>{sanitizeUntrustedText(notice.buyerName ?? 'Unknown buyer')}</p>
+                {(() => {
+                  const summary = renderBoundedCopy(
+                    notice.summary,
+                    'No summary provided.',
+                    800,
+                  );
+                  return (
+                    <>
+                      <p>{summary.text}</p>
+                      {summary.truncated ? (
+                        <p role="status">Notice summary truncated for safe rendering.</p>
+                      ) : null}
+                    </>
+                  );
+                })()}
               </li>
             ))}
           </ul>
@@ -296,8 +345,22 @@ export function ContractDetail({
             <ul className="stack-list">
               {data.lots.map((lot) => (
                 <li key={lot.lotId}>
-                  <strong>{lot.title ?? lot.lotId}</strong>
-                  <p>{lot.description ?? 'No description'}</p>
+                  <strong>{sanitizeUntrustedText(lot.title ?? lot.lotId)}</strong>
+                  {(() => {
+                    const description = renderBoundedCopy(
+                      lot.description,
+                      'No description',
+                      1_000,
+                    );
+                    return (
+                      <>
+                        <p>{description.text}</p>
+                        {description.truncated ? (
+                          <p role="status">Lot description truncated for safe rendering.</p>
+                        ) : null}
+                      </>
+                    );
+                  })()}
                   <p>
                     Estimated value:{' '}
                     {lot.estimatedValuePence === null
@@ -322,8 +385,24 @@ export function ContractDetail({
             <ul className="stack-list">
               {data.candidates.map((candidate) => (
                 <li key={candidate.candidateId}>
-                  <strong>{candidate.name}</strong>
-                  <p>{candidate.specificationText ?? 'No specification text available.'}</p>
+                  <strong>{sanitizeUntrustedText(candidate.name)}</strong>
+                  {(() => {
+                    const specification = renderBoundedCopy(
+                      candidate.specificationText,
+                      'No specification text available.',
+                      1_200,
+                    );
+                    return (
+                      <>
+                        <p>{specification.text}</p>
+                        {specification.truncated ? (
+                          <p role="status">
+                            Candidate specification truncated for safe rendering.
+                          </p>
+                        ) : null}
+                      </>
+                    );
+                  })()}
                   <p>Quoteability: {candidate.quoteabilityScoreBps ?? 0} bps</p>
                 </li>
               ))}
@@ -339,8 +418,8 @@ export function ContractDetail({
             <ul className="stack-list">
               {data.quotes.map((quote) => (
                 <li key={quote.quoteId}>
-                  <strong>{quote.productName}</strong>
-                  <p>{quote.sourceName}</p>
+                  <strong>{sanitizeUntrustedText(quote.productName)}</strong>
+                  <p>{sanitizeUntrustedText(quote.sourceName)}</p>
                   <p>
                     {formatMoney(quote.unitPriceGbpPence)} {quote.currency}
                   </p>
@@ -381,7 +460,9 @@ export function ContractDetail({
             />
           ) : (
             <p className="empty-state">
-              {data.manifestError?.message ?? 'Manifest output is not available yet.'}
+              {sanitizeUntrustedText(
+                data.manifestError?.message ?? 'Manifest output is not available yet.',
+              )}
             </p>
           )}
         </article>

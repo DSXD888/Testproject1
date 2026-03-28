@@ -3,6 +3,13 @@ export interface InvokePayload {
   args?: Record<string, unknown>;
 }
 
+export interface BridgeErrorPayload {
+  code: string;
+  message: string;
+  retryable: boolean;
+  details?: Record<string, unknown> | null;
+}
+
 export type InvokeFn = (
   cmd: string,
   args?: Record<string, unknown>,
@@ -38,6 +45,56 @@ export interface DesktopTransport {
 
 const DEV_INVOKE_PATH = '/__tauri_invoke__';
 const DEV_WS_PATH = '/__ws__';
+
+export function parseBridgeError(value: unknown): BridgeErrorPayload | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.code !== 'string' || typeof candidate.message !== 'string') {
+    return null;
+  }
+
+  return {
+    code: candidate.code,
+    message: candidate.message,
+    retryable:
+      typeof candidate.retryable === 'boolean'
+        ? candidate.retryable
+        : candidate.code === 'transport_unavailable' || candidate.code === 'busy',
+    details:
+      candidate.details && typeof candidate.details === 'object'
+        ? (candidate.details as Record<string, unknown>)
+        : null,
+  };
+}
+
+export function coerceBridgeError(
+  value: unknown,
+  fallbackMessage = 'Desktop bridge unavailable.',
+): BridgeErrorPayload {
+  const bridgeError = parseBridgeError(value);
+  if (bridgeError) {
+    return bridgeError;
+  }
+
+  if (value instanceof Error) {
+    return {
+      code: 'transport_unavailable',
+      message: value.message || fallbackMessage,
+      retryable: true,
+      details: null,
+    };
+  }
+
+  return {
+    code: 'transport_unavailable',
+    message: fallbackMessage,
+    retryable: true,
+    details: null,
+  };
+}
 
 function buildWsUrl(runtime: RuntimeLike, topic: string, fromSeq?: number): string {
   const origin = runtime.location?.origin ?? 'http://127.0.0.1:5173';
