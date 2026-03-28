@@ -1179,20 +1179,8 @@ fn capture_decision_impl(
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .context("starting capture_decision transaction")?;
     let visible_after_seq = increment_commit_clock_tx(&tx)?;
-    if let Some(previous_intent_id) =
-        latest_unsuperseded_intent_id(&tx, context.process_id.as_str())
-            .context("loading latest unsuperseded decision")?
-    {
-        tx.execute(
-            "\
-            UPDATE pending_operator_intents
-            SET superseded_by_intent_id = ?1
-            WHERE id = ?2 AND superseded_by_intent_id IS NULL
-            ",
-            params![intent_id, previous_intent_id],
-        )
-        .context("superseding previous decision intent")?;
-    }
+    let previous_intent_id = latest_unsuperseded_intent_id(&tx, context.process_id.as_str())
+        .context("loading latest unsuperseded decision")?;
 
     tx.execute(
         "\
@@ -1219,6 +1207,18 @@ fn capture_decision_impl(
         ],
     )
     .context("inserting pending_operator_intents row")?;
+
+    if let Some(previous_intent_id) = previous_intent_id {
+        tx.execute(
+            "\
+            UPDATE pending_operator_intents
+            SET superseded_by_intent_id = ?1
+            WHERE id = ?2 AND superseded_by_intent_id IS NULL
+            ",
+            params![intent_id, previous_intent_id],
+        )
+        .context("superseding previous decision intent")?;
+    }
 
     tx.execute(
         "\
