@@ -27,7 +27,7 @@ describe('App shell', () => {
     expect(renderToStaticMarkup(<App pathname="/process/proc-1" />)).toContain(
       'Process route for proc-1',
     );
-    expect(renderToStaticMarkup(<App pathname="/sessions" />)).toContain('Recent sessions');
+    expect(renderToStaticMarkup(<App pathname="/sessions" />)).toContain('Sessions route');
     expect(renderToStaticMarkup(<App pathname="/sessions/session-1" />)).toContain(
       'Session route for session-1',
     );

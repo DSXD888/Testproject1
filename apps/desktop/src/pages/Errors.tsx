@@ -20,6 +20,12 @@ interface ErrorEnvelope {
   snapshotAt: string;
 }
 
+interface OperatorMutationAck {
+  accepted: boolean;
+  visibleAfterSeq: number;
+  jobId?: string;
+}
+
 const fixtureErrors: Record<string, ErrorSummaryItem[]> = {
   default: [
     {
@@ -99,6 +105,70 @@ export function ErrorsPage({
     snapshotAt: '',
     source: 'fixture',
   });
+  const [mutationMessage, setMutationMessage] = useState<string | null>(null);
+  const [mutationPending, setMutationPending] = useState(false);
+
+  async function reloadErrorsUntilVisible(visibleAfterSeq: number): Promise<void> {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const result = await invoke('list_errors', {
+        cursor: null,
+        limit: 25,
+        filters: { resolved: false },
+      });
+      if (
+        result &&
+        typeof result === 'object' &&
+        'data' in result &&
+        'snapshotSeq' in result
+      ) {
+        const envelope = result as ErrorEnvelope;
+        setErrors(envelope.data.items);
+        setSelectedId(envelope.data.items[0]?.errorManifestId ?? null);
+        setSnapshotMeta({
+          snapshotSeq: envelope.snapshotSeq,
+          snapshotAt: envelope.snapshotAt,
+          source: 'query',
+        });
+        if (envelope.snapshotSeq >= visibleAfterSeq) {
+          return;
+        }
+      }
+    }
+  }
+
+  async function runErrorMutation(
+    command: 'resolve_error' | 'rerun_from_error',
+    errorManifestId: string,
+  ): Promise<void> {
+    setMutationPending(true);
+    setMutationMessage(null);
+    try {
+      const result = await invoke(command, { errorManifestId });
+      if (
+        result &&
+        typeof result === 'object' &&
+        'accepted' in result &&
+        'visibleAfterSeq' in result
+      ) {
+        const ack = result as OperatorMutationAck;
+        await reloadErrorsUntilVisible(ack.visibleAfterSeq);
+        setMutationMessage(
+          command === 'rerun_from_error' && ack.jobId
+            ? `Rerun accepted as ${ack.jobId}.`
+            : 'Error resolution committed.',
+        );
+        return;
+      }
+      if (result && typeof result === 'object' && 'message' in result) {
+        throw new Error(String((result as { message?: string }).message));
+      }
+      throw new Error(`${command} failed`);
+    } catch (error) {
+      setMutationMessage(error instanceof Error ? error.message : `${command} failed`);
+    } finally {
+      setMutationPending(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -177,7 +247,13 @@ export function ErrorsPage({
             <ErrorSummaryList
               errors={errors}
               onErrorClick={(errorManifestId) => setSelectedId(errorManifestId)}
-              onResolveClick={null}
+              onResolveClick={
+                controlPlane.control === 'full'
+                  ? (errorManifestId) => {
+                      void runErrorMutation('resolve_error', errorManifestId);
+                    }
+                  : null
+              }
             />
           </div>
 
@@ -193,6 +269,27 @@ export function ErrorsPage({
               />
               <h3>Raw context</h3>
               <pre>{JSON.stringify(selectedError, null, 2)}</pre>
+              <div className="action-row">
+                <button
+                  disabled={mutationPending || controlPlane.control !== 'full'}
+                  onClick={() => {
+                    void runErrorMutation('resolve_error', selectedError.errorManifestId);
+                  }}
+                  type="button"
+                >
+                  Resolve error
+                </button>
+                <button
+                  disabled={mutationPending || controlPlane.control !== 'full'}
+                  onClick={() => {
+                    void runErrorMutation('rerun_from_error', selectedError.errorManifestId);
+                  }}
+                  type="button"
+                >
+                  Rerun from error
+                </button>
+              </div>
+              {mutationMessage ? <p role="status">{mutationMessage}</p> : null}
             </aside>
           ) : null}
         </div>

@@ -14,8 +14,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use daemon_bridge_impl::{
     BridgeError, CaptureDecisionParams, DaemonBridge, DaemonBridgeConfig, DaemonCommandMethod,
-    DaemonInfoSnapshot, DecisionDisposition, GetDaemonInfoParams, MutationAck,
-    TriggerIngestionParams,
+    DaemonInfoSnapshot, DecisionDisposition, GetDaemonInfoParams, LifecyclePhase, MutationAck,
+    StreamOutputKind, StructuredSessionEvent, TriggerIngestionParams, daemon_health_topic,
+    gap_frame, project_lifecycle_frame, project_output_frame, project_structured_event,
+    session_topic,
 };
 use serde_json::{Value, json};
 
@@ -369,4 +371,139 @@ fn rs_dbr_007_closed_method_set_stays_stable() {
     assert!(methods.contains(&"capture_decision"));
     assert!(methods.contains(&"resolve_error"));
     assert!(methods.contains(&"rerun_from_error"));
+}
+
+#[test]
+fn rs_dbr_008_stream_projection_stays_aligned_with_public_frame_contract() -> TestResult {
+    assert_eq!(daemon_health_topic(), "daemon.health");
+    assert_eq!(session_topic("session-1"), "sessions.session-1");
+
+    let pty = project_output_frame(StreamOutputKind::Pty, 7, b"abc", "2026-03-28T20:00:00Z");
+    let stdout = project_output_frame(
+        StreamOutputKind::Stdout,
+        8,
+        b"stdout-frame",
+        "2026-03-28T20:00:01Z",
+    );
+    let stderr = project_output_frame(
+        StreamOutputKind::Stderr,
+        9,
+        b"stderr-frame",
+        "2026-03-28T20:00:02Z",
+    );
+    let auth = project_structured_event(
+        10,
+        StructuredSessionEvent::AuthChallenge {
+            kind: "browser_only".to_owned(),
+            detail: "reveal_profile_path".to_owned(),
+        },
+        "2026-03-28T20:00:03Z",
+    );
+    let gap = gap_frame(11, 14);
+
+    assert_eq!(
+        serde_json::to_value(pty)?["kind"],
+        Value::String("pty".to_owned())
+    );
+    assert_eq!(
+        serde_json::to_value(stdout)?["kind"],
+        Value::String("stdout".to_owned())
+    );
+    assert_eq!(
+        serde_json::to_value(stderr)?["kind"],
+        Value::String("stderr".to_owned())
+    );
+    assert_eq!(
+        serde_json::to_value(auth)?["event"]["type"],
+        Value::String("authChallenge".to_owned())
+    );
+    assert_eq!(
+        serde_json::to_value(gap)?["kind"],
+        Value::String("gap".to_owned())
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rs_dbr_009_commands_only_flow_after_successful_handshake() -> TestResult {
+    let runtime = TempRuntime::new()?;
+    runtime.write_descriptor()?;
+    let listener = UnixListener::bind(runtime.socket_path())?;
+    let server = thread::spawn(
+        move || -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+            let (mut stream, _) = listener.accept()?;
+            let hello = read_client_value(&stream)?;
+            write_server_message(&mut stream, &welcome_message())?;
+            let command = read_client_value(&stream)?;
+            write_server_message(
+                &mut stream,
+                &json!({
+                    "messageType": "error",
+                    "requestId": command["requestId"],
+                    "code": "mutations_unavailable",
+                    "message": "router disabled",
+                    "retryable": false,
+                    "details": null
+                }),
+            )?;
+            Ok(hello)
+        },
+    );
+
+    let mut connection = bridge(&runtime).connect()?;
+    let error = connection
+        .trigger_ingestion(
+            &TriggerIngestionParams {
+                source_id: "fts".to_owned(),
+            },
+            "idem-dr22",
+        )
+        .expect_err("mutation should be refused by handshake-only server");
+    assert_eq!(error.code, "mutations_unavailable");
+
+    let hello = server.join().expect("server should join")?;
+    assert_eq!(hello["messageType"], "hello");
+    Ok(())
+}
+
+#[test]
+fn rs_dbr_010_lifecycle_frames_keep_terminal_metadata_rules() -> TestResult {
+    let ordered = vec![
+        project_lifecycle_frame(1, "session-1", LifecyclePhase::Created, None, None)?,
+        project_lifecycle_frame(2, "session-1", LifecyclePhase::Spawned, None, None)?,
+        project_lifecycle_frame(3, "session-1", LifecyclePhase::Active, None, None)?,
+        project_lifecycle_frame(4, "session-1", LifecyclePhase::Terminating, None, None)?,
+        project_lifecycle_frame(5, "session-1", LifecyclePhase::Exited, None, None)?,
+        project_lifecycle_frame(
+            6,
+            "session-1",
+            LifecyclePhase::Reaped,
+            Some("forced".to_owned()),
+            None,
+        )?,
+        project_lifecycle_frame(7, "session-1", LifecyclePhase::Archived, None, Some(27))?,
+    ];
+
+    let phases: Vec<Value> = ordered
+        .into_iter()
+        .map(serde_json::to_value)
+        .collect::<Result<_, _>>()?;
+    assert_eq!(phases[0]["phase"], "created");
+    assert_eq!(phases[5]["cleanupVerdict"], "forced");
+    assert_eq!(phases[6]["archiveSeq"], 27);
+
+    assert!(project_lifecycle_frame(8, "session-1", LifecyclePhase::Reaped, None, None).is_err());
+    assert!(
+        project_lifecycle_frame(
+            9,
+            "session-1",
+            LifecyclePhase::Active,
+            Some("clean".to_owned()),
+            None,
+        )
+        .is_err()
+    );
+
+    Ok(())
 }

@@ -38,6 +38,26 @@ export type MutationAck = {
   sessionId?: string | null;
 };
 
+export type SessionHistoryRequest = {
+  sessionId: string;
+  fromSeq: number;
+  toSeq: number;
+  maxBytes?: number;
+};
+
+export type SessionHistoryFrame =
+  | { kind: 'pty'; seq: number; text: string }
+  | { kind: 'stdout'; seq: number; text: string }
+  | { kind: 'stderr'; seq: number; text: string };
+
+export type SessionHistoryChunk = {
+  sessionId: string;
+  firstSeq: number;
+  lastSeq: number;
+  availability: 'complete' | 'partial' | 'missing';
+  frames: SessionHistoryFrame[];
+};
+
 export type SessionMetaSnapshot = {
   session: SessionListItem | null;
   lastSeq: number;
@@ -155,6 +175,81 @@ export async function retrySessionJob(jobId: string): Promise<MutationAck> {
   return (await invoke('retry_job', { jobId })) as MutationAck;
 }
 
+function adaptHistoryFrame(frame: SessionHistoryFrame): SessionFrame {
+  if (frame.kind === 'pty') {
+    return {
+      kind: 'pty',
+      seq: frame.seq,
+      chunk: new TextEncoder().encode(frame.text),
+      ts: new Date().toISOString(),
+    };
+  }
+
+  return {
+    kind: frame.kind,
+    seq: frame.seq,
+    chunk: frame.text,
+    ts: new Date().toISOString(),
+  };
+}
+
+export async function loadSessionHistory(
+  request: SessionHistoryRequest,
+): Promise<QueryEnvelope<SessionHistoryChunk>> {
+  const envelope = (await invoke('get_session_history', {
+    sessionId: request.sessionId,
+    fromSeq: request.fromSeq,
+    toSeq: request.toSeq,
+    maxBytes: request.maxBytes ?? null,
+  })) as QueryEnvelope<SessionHistoryChunk>;
+
+  const replayFrames = envelope.data.frames.map(adaptHistoryFrame);
+  const meta = getMetaSnapshot(request.sessionId);
+  const executionMode = meta.session?.executionMode ?? 'contract';
+  ensureBuffer(request.sessionId, executionMode).mergeReplay(replayFrames);
+  if (meta.gapState) {
+    resolveSessionReplay(
+      request.sessionId,
+      meta.gapState.fromSeq,
+      meta.gapState.toSeq,
+      replayFrames,
+    );
+  }
+  return envelope;
+}
+
+export async function stopSession(
+  sessionId: string,
+  mode: 'graceful' | 'force',
+): Promise<MutationAck> {
+  return (await invoke('stop_session', {
+    sessionId,
+    mode,
+  })) as MutationAck;
+}
+
+export async function sendSessionInput(
+  sessionId: string,
+  inputUtf8: string,
+): Promise<MutationAck> {
+  return (await invoke('send_session_input', {
+    sessionId,
+    inputUtf8,
+  })) as MutationAck;
+}
+
+export async function resizeSession(
+  sessionId: string,
+  cols: number,
+  rows: number,
+): Promise<MutationAck> {
+  return (await invoke('resize_session', {
+    sessionId,
+    cols,
+    rows,
+  })) as MutationAck;
+}
+
 export function useSessionMeta(sessionId: string): SessionMetaSnapshot {
   return useSyncExternalStore(
     sessionRegistryStore.subscribe,
@@ -180,7 +275,7 @@ export function useSessionTimeline(sessionId: string): SessionFrame[] {
   const buffer = ensureBuffer(sessionId, executionMode);
   return useSyncExternalStore(
     buffer.subscribe,
-    () => buffer.getSnapshot().frames.filter((frame) => frame.kind !== 'pty'),
-    () => buffer.getSnapshot().frames.filter((frame) => frame.kind !== 'pty'),
+    () => buffer.getSnapshot().frames,
+    () => buffer.getSnapshot().frames,
   );
 }

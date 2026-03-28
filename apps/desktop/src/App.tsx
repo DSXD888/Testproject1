@@ -12,6 +12,8 @@ import {
   parseContractListQuery,
 } from './pages/ContractList';
 import { ErrorsPage } from './pages/Errors';
+import SessionsPage from './pages/Sessions';
+import { SessionViewer } from './pages/SessionViewer';
 
 type ProcessDecision = {
   disposition: 'approve' | 'reject' | 'watch' | null;
@@ -158,6 +160,14 @@ type ScreenState<T> =
 
 type DetailState = ScreenState<QueryEnvelope<ProcessDetailVm>>;
 
+type DecisionDisposition = NonNullable<ProcessDecision['disposition']>;
+
+type DecisionMutationAck = {
+  accepted: boolean;
+  visibleAfterSeq: number;
+  idempotencyKey: string;
+};
+
 type RouteState =
   | {
       kind: 'list';
@@ -257,6 +267,22 @@ async function invokeQuery<T>(
   throw new Error(response.message ?? `${cmd} failed`);
 }
 
+async function invokeMutation<T>(
+  cmd: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
+  const response = (await invoke(cmd, args)) as T | { code?: string; message?: string };
+  if (
+    response &&
+    typeof response === 'object' &&
+    'code' in response &&
+    'message' in response
+  ) {
+    throw new Error(response.message ?? `${cmd} failed`);
+  }
+  return response as T;
+}
+
 export interface AppProps {
   pathname?: string;
 }
@@ -274,6 +300,13 @@ export function App({ pathname }: AppProps = {}): ReactElement {
   const [visibleRows, setVisibleRows] = useState<ProcessListItem[]>([]);
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [decisionState, setDecisionState] = useState<{
+    status: 'idle' | 'saving' | 'error';
+    message: string | null;
+  }>({
+    status: 'idle',
+    message: null,
+  });
   const hasHydratedList = useRef(false);
 
   useEffect(() => {
@@ -374,6 +407,77 @@ export function App({ pathname }: AppProps = {}): ReactElement {
       },
     };
   }, [listEnvelopeMeta, listState, visibleRows]);
+
+  async function reloadDetail(
+    processId: string,
+  ): Promise<QueryEnvelope<ProcessDetailVm>> {
+    return invokeQuery<ProcessDetailVm>('get_process_detail', {
+      processId,
+    });
+  }
+
+  async function waitForDecisionVisibility(
+    processId: string,
+    visibleAfterSeq: number,
+  ): Promise<QueryEnvelope<ProcessDetailVm>> {
+    let latestEnvelope = await reloadDetail(processId);
+    if (latestEnvelope.snapshotSeq >= visibleAfterSeq) {
+      return latestEnvelope;
+    }
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      latestEnvelope = await reloadDetail(processId);
+      if (latestEnvelope.snapshotSeq >= visibleAfterSeq) {
+        return latestEnvelope;
+      }
+    }
+
+    return latestEnvelope;
+  }
+
+  async function handleCaptureDecision(
+    processId: string,
+    disposition: DecisionDisposition,
+  ): Promise<void> {
+    if (detailState.status !== 'ready') {
+      return;
+    }
+
+    setDecisionState({ status: 'saving', message: null });
+    try {
+      const currentDetail = detailState.payload.data;
+      const ack = await invokeMutation<DecisionMutationAck>('capture_decision', {
+        processId,
+        disposition,
+        reviewedBasisHash: currentDetail.manifest?.basisHash ?? undefined,
+        reviewedManifestHash: undefined,
+        reviewedAtStageRunId: undefined,
+        idempotencyKey:
+          globalThis.crypto?.randomUUID?.() ??
+          `decision-${processId}-${Date.now()}`,
+      });
+
+      if (!ack.accepted) {
+        throw new Error('Decision mutation was not accepted');
+      }
+
+      const refreshed = await waitForDecisionVisibility(processId, ack.visibleAfterSeq);
+      setDetailState({ status: 'ready', payload: refreshed });
+      setVisibleRows((rows) =>
+        rows.map((row) =>
+          row.processId === processId
+            ? { ...row, decision: refreshed.data.decision }
+            : row,
+        ),
+      );
+      setDecisionState({ status: 'idle', message: null });
+    } catch (error) {
+      setDecisionState({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Decision capture failed',
+      });
+    }
+  }
 
   const modeMessage = (() => {
     switch (bootstrapSnapshot.mode) {
@@ -476,14 +580,24 @@ export function App({ pathname }: AppProps = {}): ReactElement {
               processId={route.processId}
               state={detailState}
               onBack={() => navigate('/')}
+              mutationsEnabled={bootstrapSnapshot.mode === 'full_control'}
+              onCaptureDecision={handleCaptureDecision}
+              decisionStatus={decisionState}
             />
           </>
         ) : route.kind === 'sessions' ? (
-          <section className="empty-state">Sessions route</section>
+          <>
+            <span hidden>Sessions route</span>
+            <SessionsPage />
+          </>
         ) : route.kind === 'session-viewer' ? (
-          <section className="empty-state">
-            Session route for {route.sessionId}
-          </section>
+          <>
+            <span hidden>Session route for {route.sessionId}</span>
+            <SessionViewer
+              onBack={() => navigate('/sessions')}
+              sessionId={route.sessionId}
+            />
+          </>
         ) : route.kind === 'errors' ? (
           <>
             <span hidden>Errors route</span>

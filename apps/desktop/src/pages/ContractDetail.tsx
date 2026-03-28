@@ -126,10 +126,16 @@ export function ContractDetail({
   processId,
   state,
   onBack,
+  mutationsEnabled,
+  onCaptureDecision,
+  decisionStatus,
 }: {
   processId: string;
   state: DetailState;
   onBack: () => void;
+  mutationsEnabled: boolean;
+  onCaptureDecision: (processId: string, disposition: 'approve' | 'reject' | 'watch') => Promise<void>;
+  decisionStatus: { status: 'idle' | 'saving' | 'error'; message: string | null };
 }): ReactElement {
   if (state.status !== 'ready') {
     if (state.status === 'error') {
@@ -236,17 +242,35 @@ export function ContractDetail({
         <article className="detail-card">
           <h3>Decision controls</h3>
           <div className="decision-actions">
-            <button disabled type="button">
+            <button
+              disabled={!mutationsEnabled || decisionStatus.status === 'saving'}
+              onClick={() => void onCaptureDecision(data.processId, 'approve')}
+              type="button"
+            >
               Approve
             </button>
-            <button disabled type="button">
+            <button
+              disabled={!mutationsEnabled || decisionStatus.status === 'saving'}
+              onClick={() => void onCaptureDecision(data.processId, 'reject')}
+              type="button"
+            >
               Reject
             </button>
-            <button disabled type="button">
+            <button
+              disabled={!mutationsEnabled || decisionStatus.status === 'saving'}
+              onClick={() => void onCaptureDecision(data.processId, 'watch')}
+              type="button"
+            >
               Watch
             </button>
           </div>
           <p>Reviewed at: {data.decision.decidedAt ?? 'Pending operator review'}</p>
+          {decisionStatus.status === 'saving' ? (
+            <p role="status">Saving decision…</p>
+          ) : null}
+          {decisionStatus.status === 'error' && decisionStatus.message ? (
+            <p role="alert">{decisionStatus.message}</p>
+          ) : null}
         </article>
       </section>
 

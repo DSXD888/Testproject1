@@ -21,6 +21,22 @@ impl HealthIssue {
     }
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthIntervention {
+    ReattachPty,
+    RevealProfilePath,
+}
+
+#[allow(dead_code)]
+pub const fn auth_intervention(browser_tools: bool) -> AuthIntervention {
+    if browser_tools {
+        AuthIntervention::RevealProfilePath
+    } else {
+        AuthIntervention::ReattachPty
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StallTracker {
     no_output_timeout: Duration,

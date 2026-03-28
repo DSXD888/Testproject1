@@ -41,7 +41,9 @@ fn main() -> Result<()> {
             refresh_bootstrap_snapshot,
             list_errors,
             get_daemon_info,
-            capture_decision
+            capture_decision,
+            resolve_error,
+            rerun_from_error
         ])
         .setup(|app| {
             let snapshot = bootstrap_application(app.handle());
@@ -150,6 +152,14 @@ struct DecisionCaptureContext {
     reviewed_basis_hash: String,
     reviewed_manifest_hash: String,
     reviewed_at_stage_run_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct OperatorMutationAck {
+    accepted: bool,
+    visible_after_seq: i64,
+    job_id: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
@@ -1109,6 +1119,28 @@ fn capture_decision(
         .map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn resolve_error(
+    app: tauri::AppHandle,
+    error_manifest_id: String,
+) -> std::result::Result<OperatorMutationAck, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    resolve_error_impl(paths.state_db_path().as_path(), error_manifest_id.as_str())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn rerun_from_error(
+    app: tauri::AppHandle,
+    error_manifest_id: String,
+) -> std::result::Result<OperatorMutationAck, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    rerun_from_error_impl(paths.state_db_path().as_path(), error_manifest_id.as_str())
+        .map_err(|error| error.to_string())
+}
+
 const fn storage_label(value: StorageState) -> &'static str {
     match value {
         StorageState::Ready => "ready",
@@ -1237,6 +1269,104 @@ fn capture_decision_impl(
         accepted: true,
         visible_after_seq,
         idempotency_key,
+    })
+}
+
+fn resolve_error_impl(db_path: &Path, error_manifest_id: &str) -> Result<OperatorMutationAck> {
+    let mut conn = Connection::open(db_path)
+        .with_context(|| format!("opening SQLite database {}", db_path.display()))?;
+    conn.execute_batch(
+        "\
+        PRAGMA foreign_keys = ON;\
+        PRAGMA busy_timeout = 5000;\
+        ",
+    )
+    .context("configuring resolve_error SQLite pragmas")?;
+
+    let tx = conn
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .context("starting resolve_error transaction")?;
+    let visible_after_seq = increment_commit_clock_tx(&tx)?;
+    let updated = tx.execute(
+        "\
+        UPDATE error_manifests
+        SET resolved = 1,
+            resolved_at = ?1,
+            resolved_by = 'desktop-operator'
+        WHERE id = ?2
+        ",
+        params![Utc::now().to_rfc3339(), error_manifest_id],
+    )?;
+    anyhow::ensure!(
+        updated == 1,
+        "error manifest missing for {error_manifest_id}"
+    );
+    tx.commit()
+        .context("committing resolve_error transaction")?;
+
+    Ok(OperatorMutationAck {
+        accepted: true,
+        visible_after_seq,
+        job_id: None,
+    })
+}
+
+fn rerun_from_error_impl(db_path: &Path, error_manifest_id: &str) -> Result<OperatorMutationAck> {
+    let mut conn = Connection::open(db_path)
+        .with_context(|| format!("opening SQLite database {}", db_path.display()))?;
+    conn.execute_batch(
+        "\
+        PRAGMA foreign_keys = ON;\
+        PRAGMA busy_timeout = 5000;\
+        ",
+    )
+    .context("configuring rerun_from_error SQLite pragmas")?;
+
+    let tx = conn
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .context("starting rerun_from_error transaction")?;
+    let visible_after_seq = increment_commit_clock_tx(&tx)?;
+    let (process_id, pipeline_stage) = tx
+        .query_row(
+            "\
+            SELECT process_id, pipeline_stage
+            FROM error_manifests
+            WHERE id = ?1
+            ",
+            params![error_manifest_id],
+            |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, String>(1)?)),
+        )
+        .optional()?
+        .ok_or_else(|| anyhow!("error manifest missing for {error_manifest_id}"))?;
+
+    let job_id = format!(
+        "rerun-error-{}",
+        Utc::now().timestamp_nanos_opt().unwrap_or_default()
+    );
+    tx.execute(
+        "\
+        INSERT INTO workflow_jobs (
+          id, kind, process_id, scope_kind, scope_id, status, input_payload, created_at
+        ) VALUES (?1, 'rerun_from_error', ?2, 'process', COALESCE(?2, ?1), 'pending', ?3, ?4)
+        ",
+        params![
+            job_id,
+            process_id,
+            serde_json::json!({
+                "error_manifest_id": error_manifest_id,
+                "pipeline_stage": pipeline_stage,
+            })
+            .to_string(),
+            Utc::now().to_rfc3339(),
+        ],
+    )?;
+    tx.commit()
+        .context("committing rerun_from_error transaction")?;
+
+    Ok(OperatorMutationAck {
+        accepted: true,
+        visible_after_seq,
+        job_id: Some(job_id),
     })
 }
 
