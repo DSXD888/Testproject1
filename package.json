@@ -9,7 +9,7 @@
   "scripts": {
     "build": "(cd packages/ui && bun run build) && bunx tsc -p apps/desktop/tsconfig.json --noEmit",
     "lint": "if rg -n '^import .*(@tauri-apps/api|.*apps/desktop|.*crates/daemon|.*supabase|.*transport)' packages/ui; then exit 1; fi",
-    "test": "(cd packages/ui && bun run test) && bunx vitest run apps/desktop/src/lib/transport.test.ts apps/desktop/src/hooks/use-control-plane.test.tsx apps/desktop/src/App.test.tsx"
+    "test": "(cd packages/ui && bun run test) && (cd apps/desktop && bun run test)"
   },
   "devDependencies": {
     "@playwright/test": "1.58.2",

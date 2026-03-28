@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
     "build": "bunx tsc --noEmit -p tsconfig.json",
     "lint": "bunx tsc --noEmit -p tsconfig.json",
-    "test": "bunx vitest run src/lib/transport.test.ts",
+    "test": "bunx vitest run",
     "e2e": "bunx playwright test",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"

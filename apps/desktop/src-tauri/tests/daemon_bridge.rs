@@ -8,6 +8,7 @@ use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -20,6 +21,8 @@ use serde_json::{Value, json};
 
 type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
+static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
+
 #[derive(Debug, Clone)]
 struct TempRuntime {
     dir: PathBuf,
@@ -27,10 +30,12 @@ struct TempRuntime {
 
 impl TempRuntime {
     fn new() -> std::io::Result<Self> {
-        let unique = SystemTime::now()
+        let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |duration| duration.as_nanos());
-        let dir = PathBuf::from("/tmp").join(format!("pdb-{}-{unique}", std::process::id()));
+        let unique = NEXT_RUNTIME_ID.fetch_add(1, Ordering::Relaxed);
+        let dir =
+            PathBuf::from("/tmp").join(format!("pdb-{}-{timestamp}-{unique}", std::process::id()));
         fs::create_dir_all(&dir)?;
         Ok(Self { dir })
     }
