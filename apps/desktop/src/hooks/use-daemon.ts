@@ -45,25 +45,12 @@ export type SessionHistoryRequest = {
   maxBytes?: number;
 };
 
-<<<<<<< HEAD
-export type SessionHistoryFrame =
-  | { kind: 'pty'; seq: number; text: string }
-  | { kind: 'stdout'; seq: number; text: string }
-  | { kind: 'stderr'; seq: number; text: string };
-
-=======
->>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
 export type SessionHistoryChunk = {
   sessionId: string;
   firstSeq: number;
   lastSeq: number;
-<<<<<<< HEAD
-  availability: 'complete' | 'partial' | 'missing';
-  frames: SessionHistoryFrame[];
-=======
   frames: SessionFrame[];
   availability: 'complete' | 'partial' | 'missing';
->>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
 };
 
 export type SessionMetaSnapshot = {
@@ -199,68 +186,17 @@ export async function retrySessionJob(jobId: string): Promise<MutationAck> {
   return (await invoke('retry_job', { jobId })) as MutationAck;
 }
 
-<<<<<<< HEAD
-function adaptHistoryFrame(frame: SessionHistoryFrame): SessionFrame {
-  if (frame.kind === 'pty') {
-    return {
-      kind: 'pty',
-      seq: frame.seq,
-      chunk: new TextEncoder().encode(frame.text),
-      ts: new Date().toISOString(),
-    };
-  }
-
-  return {
-    kind: frame.kind,
-    seq: frame.seq,
-    chunk: frame.text,
-    ts: new Date().toISOString(),
-  };
-}
-
-export async function loadSessionHistory(
-  request: SessionHistoryRequest,
-): Promise<QueryEnvelope<SessionHistoryChunk>> {
-  const envelope = (await invoke('get_session_history', {
-    sessionId: request.sessionId,
-    fromSeq: request.fromSeq,
-    toSeq: request.toSeq,
-    maxBytes: request.maxBytes ?? null,
-  })) as QueryEnvelope<SessionHistoryChunk>;
-
-  const replayFrames = envelope.data.frames.map(adaptHistoryFrame);
-  const meta = getMetaSnapshot(request.sessionId);
-  const executionMode = meta.session?.executionMode ?? 'contract';
-  ensureBuffer(request.sessionId, executionMode).mergeReplay(replayFrames);
-  if (meta.gapState) {
-    resolveSessionReplay(
-      request.sessionId,
-      meta.gapState.fromSeq,
-      meta.gapState.toSeq,
-      replayFrames,
-    );
-  }
-  return envelope;
-=======
 export async function loadSessionHistory(
   request: SessionHistoryRequest,
 ): Promise<QueryEnvelope<SessionHistoryChunk>> {
   return (await invoke('get_session_history', request)) as QueryEnvelope<SessionHistoryChunk>;
->>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
 }
 
 export async function stopSession(
   sessionId: string,
   mode: 'graceful' | 'force',
 ): Promise<MutationAck> {
-<<<<<<< HEAD
-  return (await invoke('stop_session', {
-    sessionId,
-    mode,
-  })) as MutationAck;
-=======
   return (await invoke('stop_session', { sessionId, mode })) as MutationAck;
->>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
 }
 
 export async function sendSessionInput(
@@ -323,12 +259,7 @@ export function useSessionTimeline(sessionId: string): SessionFrame[] {
   };
   return useSyncExternalStore(
     buffer.subscribe,
-<<<<<<< HEAD
-    () => buffer.getSnapshot().frames,
-    () => buffer.getSnapshot().frames,
-=======
     getTimelineSnapshot,
     getTimelineSnapshot,
->>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
   );
 }
