@@ -9,7 +9,7 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::Duration;
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result};
 use rusqlite::{Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 
@@ -592,6 +592,8 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::ensure;
+
     use super::*;
 
     #[derive(Default)]
