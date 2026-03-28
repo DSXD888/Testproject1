@@ -1,0 +1,11 @@
+{
+  "name": "@project/intelligence",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build ./src/margins/coverage-rollup.ts ./src/qualification/goods-qualification.ts --outdir ../../target/bun-packages-intelligence",
+    "lint": "bun ./scripts/lint.js",
+    "test": "bun test ./src"
+  }
+}
