@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 
 #[allow(dead_code)]
+mod daemon_bridge;
+#[allow(dead_code)]
 mod query_service;
 
 use std::fs;
@@ -13,6 +15,7 @@ use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 
+use crate::daemon_bridge::{DaemonBridge, RestartDaemonParams};
 use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
@@ -41,6 +44,9 @@ fn main() -> Result<()> {
             refresh_bootstrap_snapshot,
             list_errors,
             get_daemon_info,
+            restart_daemon,
+            open_logs,
+            open_artifacts,
             capture_decision,
             resolve_error,
             rerun_from_error
@@ -160,6 +166,14 @@ struct OperatorMutationAck {
     accepted: bool,
     visible_after_seq: i64,
     job_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct RestartMutationAck {
+    accepted: bool,
+    visible_after_seq: i64,
+    idempotency_key: String,
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
@@ -1110,6 +1124,50 @@ fn get_daemon_info(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
+fn restart_daemon(
+    app: tauri::AppHandle,
+    store: tauri::State<'_, BootstrapStore>,
+) -> std::result::Result<RestartMutationAck, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    let bridge = DaemonBridge::new(&paths.runtime_dir);
+    let mut connection = bridge.connect().map_err(|error| error.to_string())?;
+    let idempotency_key = format!(
+        "desktop-restart-{}",
+        Utc::now().timestamp_nanos_opt().unwrap_or_default()
+    );
+    let ack = connection
+        .restart_daemon(&RestartDaemonParams {}, idempotency_key.as_str())
+        .map_err(|error| error.to_string())?;
+    let refreshed = bootstrap_application(&app);
+    store
+        .inner()
+        .replace(refreshed)
+        .map_err(|error| error.to_string())?;
+    Ok(RestartMutationAck {
+        accepted: ack.accepted,
+        visible_after_seq: ack.visible_after_seq,
+        idempotency_key: ack.idempotency_key,
+    })
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn open_logs(app: tauri::AppHandle) -> std::result::Result<String, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    open_path_in_desktop(paths.runtime_dir.as_path()).map_err(|error| error.to_string())?;
+    Ok(paths.runtime_dir.display().to_string())
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn open_artifacts(app: tauri::AppHandle) -> std::result::Result<String, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    open_path_in_desktop(paths.artifact_root.as_path()).map_err(|error| error.to_string())?;
+    Ok(paths.artifact_root.display().to_string())
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 fn capture_decision(
     app: tauri::AppHandle,
     params: CaptureDecisionParams,
@@ -1368,6 +1426,25 @@ fn rerun_from_error_impl(db_path: &Path, error_manifest_id: &str) -> Result<Oper
         visible_after_seq,
         job_id: Some(job_id),
     })
+}
+
+fn open_path_in_desktop(path: &Path) -> Result<()> {
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(target_os = "windows") {
+        "explorer"
+    } else {
+        "xdg-open"
+    };
+
+    Command::new(opener)
+        .arg(path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .with_context(|| format!("opening {} with {}", path.display(), opener))?;
+    Ok(())
 }
 
 fn ensure_decision_schema(conn: &Connection) -> Result<()> {

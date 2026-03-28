@@ -27,6 +27,10 @@ interface DaemonInfoSnapshot {
   control: string;
 }
 
+interface BootstrapSnapshot {
+  controlPlane: ControlPlaneState;
+}
+
 function humanizeControl(control: ControlPlaneState['control']): string {
   return control.replace('_', ' ');
 }
@@ -119,6 +123,17 @@ function startupRecoverySummary(diagnostics: DaemonInfoSnapshot): string {
   return `Recovered ${recovered} interrupted session(s); last recovery at ${lastRecoveryAt}.`;
 }
 
+function restartAllowed(
+  controlPlane: ControlPlaneState,
+  diagnostics: DaemonInfoSnapshot,
+): boolean {
+  return (
+    diagnostics.liveAvailable &&
+    controlPlane.storage === 'ready' &&
+    (controlPlane.control === 'full' || controlPlane.control === 'limited')
+  );
+}
+
 export function DaemonStatusPage({
   controlPlane,
 }: {
@@ -128,6 +143,10 @@ export function DaemonStatusPage({
   const [diagnostics, setDiagnostics] = useState<DaemonInfoSnapshot>(
     fixtureDiagnostics(controlPlane),
   );
+  const [actionPending, setActionPending] = useState<
+    'restart' | 'logs' | 'artifacts' | null
+  >(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,6 +180,51 @@ export function DaemonStatusPage({
     };
   }, [controlPlane, fixtureMode]);
 
+  const canRestart = restartAllowed(controlPlane, diagnostics);
+
+  async function handleRestart(): Promise<void> {
+    setActionPending('restart');
+    setActionMessage(null);
+    try {
+      const result = (await invoke('restart_daemon')) as {
+        accepted: boolean;
+        visibleAfterSeq: number;
+      };
+      const refreshedBootstrap = (await invoke('refresh_bootstrap_snapshot')) as BootstrapSnapshot;
+      const refreshedDiagnostics = await invoke('get_daemon_info');
+      const normalized =
+        normalizeDiagnostics(refreshedDiagnostics, refreshedBootstrap.controlPlane) ??
+        fixtureDiagnostics(refreshedBootstrap.controlPlane);
+      const previousInstanceId = diagnostics.instanceId;
+      setDiagnostics(normalized);
+      setActionMessage(
+        previousInstanceId &&
+          normalized.instanceId &&
+          previousInstanceId !== normalized.instanceId
+          ? `Daemon restarted. Instance changed from ${previousInstanceId} to ${normalized.instanceId}.`
+          : `Restart accepted at visibility fence ${result.visibleAfterSeq}.`,
+      );
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'restart_daemon failed');
+    } finally {
+      setActionPending(null);
+    }
+  }
+
+  async function handleOpen(kind: 'logs' | 'artifacts'): Promise<void> {
+    setActionPending(kind);
+    setActionMessage(null);
+    try {
+      const command = kind === 'logs' ? 'open_logs' : 'open_artifacts';
+      const openedPath = (await invoke(command)) as string;
+      setActionMessage(`Opened ${kind} at ${openedPath}.`);
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : `open_${kind} failed`);
+    } finally {
+      setActionPending(null);
+    }
+  }
+
   return (
     <section className="desktop-page">
       <header className="desktop-page__header">
@@ -183,6 +247,7 @@ export function DaemonStatusPage({
           Live daemon unavailable. Showing descriptor-backed diagnostics only.
         </div>
       ) : null}
+      {actionMessage ? <p role="status">{actionMessage}</p> : null}
 
       <dl className="diagnostics-grid">
         <div>
@@ -233,13 +298,33 @@ export function DaemonStatusPage({
       </section>
 
       <div className="action-row">
-        <button type="button" disabled>
-          Restart daemon
-        </button>
-        <button type="button" disabled>
+        {canRestart ? (
+          <button
+            type="button"
+            disabled={actionPending !== null}
+            onClick={() => {
+              void handleRestart();
+            }}
+          >
+            Restart daemon
+          </button>
+        ) : null}
+        <button
+          type="button"
+          disabled={actionPending !== null}
+          onClick={() => {
+            void handleOpen('logs');
+          }}
+        >
           Open logs
         </button>
-        <button type="button" disabled>
+        <button
+          type="button"
+          disabled={actionPending !== null}
+          onClick={() => {
+            void handleOpen('artifacts');
+          }}
+        >
           Open artifacts
         </button>
       </div>
