@@ -14,10 +14,50 @@ use nix::unistd::Uid;
 use serde_json::json;
 use serde_yaml::Value;
 
+#[path = "../src/ipc/command_router.rs"]
+#[allow(dead_code)]
+mod command_router_impl;
+#[path = "../src/agents/contracts.rs"]
+#[allow(dead_code)]
+mod contracts_impl;
+#[path = "../src/ipc/handlers/control.rs"]
+#[allow(dead_code)]
+mod control_handler_impl;
 #[path = "../src/ipc/descriptor.rs"]
 mod descriptor_impl;
 #[path = "../src/ipc/handshake.rs"]
 mod handshake_impl;
+#[path = "../src/jobs/runner.rs"]
+#[allow(dead_code)]
+mod runner_impl;
+
+mod db {
+    pub mod sqlite {
+        pub use crate::support::db::StateDb;
+    }
+}
+
+mod jobs {
+    pub mod runner {
+        pub use crate::runner_impl::*;
+    }
+}
+
+mod ipc {
+    pub mod command_router {
+        pub use crate::command_router_impl::*;
+    }
+
+    pub mod descriptor {
+        pub use crate::descriptor_impl::*;
+    }
+
+    pub mod handlers {
+        pub mod control {
+            pub use crate::control_handler_impl::*;
+        }
+    }
+}
 
 use crate::descriptor_impl::{
     DaemonDescriptor, LockGuard, RuntimePaths, bind_listener, read_descriptor,
@@ -652,7 +692,7 @@ impl HandshakeHarness {
             .ok_or_else(|| anyhow!("handshake listener is not active"))?
             .try_clone()?;
         let context = self.context.clone();
-        let handle = thread::spawn(move || handshake_impl::serve_one(&listener, &context));
+        let handle = thread::spawn(move || handshake_impl::serve_one(&listener, &context, None));
 
         let mut client = UnixStream::connect(&self.socket_path)
             .with_context(|| format!("connecting to {}", self.socket_path.display()))?;

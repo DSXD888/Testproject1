@@ -5,7 +5,11 @@ mod db {
 }
 
 mod ipc {
+    pub mod command_router;
     pub mod descriptor;
+    pub mod handlers {
+        pub mod control;
+    }
     pub mod handshake;
 }
 
@@ -92,6 +96,7 @@ use errors::manifest::{ErrorCode, ErrorManifestDraft, ErrorManifestStore, ErrorR
 use ipc::descriptor::{
     DaemonDescriptor, LockGuard, RuntimePaths, bind_listener, write_descriptor_atomic,
 };
+use ipc::handlers::control::ControlHandlerContext;
 use ipc::handshake::{
     ActiveSessions, HandshakeContext, HealthState, LifecycleFrame, LifecyclePhase,
 };
@@ -651,7 +656,7 @@ fn ensure_local_executor_registered(conn: &Connection) -> Result<()> {
 
 fn serve_handshake_once(runtime: &RuntimeBootstrap) -> Result<()> {
     let handshake_context = build_handshake_context(runtime)?;
-    ipc::handshake::serve_one(&runtime.listener, &handshake_context)
+    ipc::handshake::serve_one(&runtime.listener, &handshake_context, None)
 }
 
 fn serve_handshake_service(runtime: &RuntimeBootstrap) -> Result<()> {
@@ -668,7 +673,14 @@ fn serve_handshake_service(runtime: &RuntimeBootstrap) -> Result<()> {
         };
 
         let handshake_context = build_handshake_context(runtime)?;
-        if let Err(error) = ipc::handshake::handle_connection(stream, &handshake_context) {
+        let command_router = ipc::command_router::CommandRouter::new(ControlHandlerContext {
+            descriptor: &runtime.descriptor,
+            state_db: &runtime.state_db,
+            artifact_root: &runtime.artifact_root,
+        });
+        if let Err(error) =
+            ipc::handshake::handle_connection(stream, &handshake_context, Some(&command_router))
+        {
             tracing::warn!(error = %error, "persistent handshake connection failed");
         }
     }

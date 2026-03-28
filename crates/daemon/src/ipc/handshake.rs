@@ -19,6 +19,8 @@ use nix::unistd::getpeereid;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::ipc::command_router::{BridgeError, CommandRouter, DispatchOutcome};
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ActiveSessions {
@@ -122,6 +124,19 @@ pub enum ServerMessage {
         #[serde(skip_serializing_if = "Option::is_none")]
         archive_seq: Option<i64>,
     },
+    CommandResponse {
+        request_id: String,
+        payload: Value,
+    },
+    Error {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+        code: String,
+        message: String,
+        retryable: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        details: Option<Value>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -192,14 +207,23 @@ impl LifecycleFrame {
     }
 }
 
-pub fn serve_one(listener: &UnixListener, context: &HandshakeContext) -> Result<()> {
+pub fn serve_one(
+    listener: &UnixListener,
+    context: &HandshakeContext,
+    command_router: Option<&CommandRouter<'_>>,
+) -> Result<()> {
     let (stream, _) = listener
         .accept()
         .context("accepting handshake connection")?;
-    handle_connection(stream, context)
+    handle_connection(stream, context, command_router)
 }
 
-pub fn handle_connection(mut stream: UnixStream, context: &HandshakeContext) -> Result<()> {
+#[allow(clippy::too_many_lines)]
+pub fn handle_connection(
+    mut stream: UnixStream,
+    context: &HandshakeContext,
+    command_router: Option<&CommandRouter<'_>>,
+) -> Result<()> {
     let expected_uid = context
         .expected_peer_uid
         .unwrap_or_else(|| Uid::current().as_raw());
@@ -280,6 +304,75 @@ pub fn handle_connection(mut stream: UnixStream, context: &HandshakeContext) -> 
                 frame.validate()?;
                 write_message(&mut stream, &ServerMessage::from(frame.clone()))?;
             }
+
+            if let Some(router) = command_router {
+                loop {
+                    let message = match read_message(&stream) {
+                        Ok(message) => message,
+                        Err(error) if client_closed(&error) => break,
+                        Err(error) => return Err(error),
+                    };
+
+                    let outcome = match message {
+                        ClientMessage::Command {
+                            request_id,
+                            method,
+                            params,
+                            idempotency_key,
+                        } => handle_command_message(
+                            &mut stream,
+                            router,
+                            request_id,
+                            &method,
+                            params,
+                            idempotency_key.as_deref(),
+                        )?,
+                        ClientMessage::Subscribe { request_id, .. }
+                        | ClientMessage::Unsubscribe { request_id, .. } => {
+                            write_bridge_error(
+                                &mut stream,
+                                Some(request_id),
+                                BridgeError {
+                                    code: "busy".to_owned(),
+                                    message:
+                                        "stream subscriptions remain unavailable until the session router is active"
+                                            .to_owned(),
+                                    retryable: true,
+                                    details: None,
+                                },
+                            )?;
+                            false
+                        }
+                        ClientMessage::Hello { .. } => {
+                            write_bridge_error(
+                                &mut stream,
+                                None,
+                                BridgeError::invalid_params(
+                                    "hello is only valid as the first frame on the socket",
+                                ),
+                            )?;
+                            false
+                        }
+                        ClientMessage::Mutation { .. } => {
+                            write_bridge_error(
+                                &mut stream,
+                                None,
+                                BridgeError {
+                                    code: "mutations_unavailable".to_owned(),
+                                    message: "legacy mutation frames are unsupported once the command router is active".to_owned(),
+                                    retryable: false,
+                                    details: None,
+                                },
+                            )?;
+                            false
+                        }
+                    };
+
+                    if outcome {
+                        break;
+                    }
+                }
+            }
         }
         ClientMessage::Command { .. }
         | ClientMessage::Subscribe { .. }
@@ -301,6 +394,65 @@ pub fn handle_connection(mut stream: UnixStream, context: &HandshakeContext) -> 
     }
 
     Ok(())
+}
+
+fn handle_command_message(
+    stream: &mut UnixStream,
+    router: &CommandRouter<'_>,
+    request_id: String,
+    method: &str,
+    params: Value,
+    idempotency_key: Option<&str>,
+) -> Result<bool> {
+    match router.dispatch(method, params, idempotency_key) {
+        Ok(DispatchOutcome::Response(payload)) => {
+            write_message(
+                stream,
+                &ServerMessage::CommandResponse {
+                    request_id,
+                    payload,
+                },
+            )?;
+            Ok(false)
+        }
+        Ok(DispatchOutcome::DisconnectAfterResponse(payload)) => {
+            write_message(
+                stream,
+                &ServerMessage::CommandResponse {
+                    request_id,
+                    payload,
+                },
+            )?;
+            Ok(true)
+        }
+        Err(error) => {
+            write_bridge_error(stream, Some(request_id), error)?;
+            Ok(false)
+        }
+    }
+}
+
+fn write_bridge_error(
+    stream: &mut UnixStream,
+    request_id: Option<String>,
+    error: BridgeError,
+) -> Result<()> {
+    write_message(
+        stream,
+        &ServerMessage::Error {
+            request_id,
+            code: error.code,
+            message: error.message,
+            retryable: error.retryable,
+            details: error.details,
+        },
+    )
+}
+
+fn client_closed(error: &anyhow::Error) -> bool {
+    error
+        .chain()
+        .any(|cause| cause.to_string().contains("client closed handshake stream"))
 }
 
 fn reconnect_outcome(last_seen_instance_id: Option<&str>, instance_id: &str) -> ReconnectOutcome {
