@@ -9,6 +9,8 @@ mod ipc {
     pub mod descriptor;
     pub mod handlers {
         pub mod control;
+        pub mod decisions;
+        pub mod errors;
         pub mod jobs;
         pub mod sessions;
     }
@@ -98,7 +100,7 @@ use errors::manifest::{ErrorCode, ErrorManifestDraft, ErrorManifestStore, ErrorR
 use ipc::descriptor::{
     DaemonDescriptor, LockGuard, RuntimePaths, bind_listener, write_descriptor_atomic,
 };
-use ipc::handlers::control::ControlHandlerContext;
+use ipc::handlers::control::{ControlHandlerContext, RestartController, RestartPlan};
 use ipc::handlers::jobs::JobsHandlerContext;
 use ipc::handshake::{
     ActiveSessions, HandshakeContext, HealthState, LifecycleFrame, LifecyclePhase,
@@ -122,6 +124,8 @@ const CLI_VENDOR: &str = "fixture-cli";
 const CLI_VERSION: &str = "1.0.0";
 const DEFAULT_AGENT_CLI: &str = "claude";
 const LOCAL_EXECUTOR_ID: &str = "local-daemon";
+const DEFAULT_RESTART_DELAY_MS: u64 = 250;
+const RESTART_DELAY_ENV: &str = "DAEMON_RESTART_DELAY_MS";
 #[cfg(test)]
 const ACTIVE_STAGES: [&str; 12] = [
     "Normalize",
@@ -320,6 +324,7 @@ struct RuntimeBootstrap {
     descriptor: DaemonDescriptor,
     state_db: StateDb,
     artifact_root: PathBuf,
+    restart_controller: RestartController,
 }
 
 #[derive(Debug, Clone)]
@@ -559,6 +564,8 @@ async fn main() -> Result<()> {
         .compact()
         .init();
 
+    maybe_delay_for_restart();
+
     let mut runtime = bootstrap_runtime(&cli)?;
 
     if cli.serve {
@@ -636,6 +643,7 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
         descriptor,
         state_db,
         artifact_root: cli.artifact_root.clone(),
+        restart_controller: RestartController::new(build_restart_plan(cli)?),
     })
 }
 
@@ -658,7 +666,7 @@ fn ensure_local_executor_registered(conn: &Connection) -> Result<()> {
 }
 
 fn serve_handshake_once(runtime: &RuntimeBootstrap) -> Result<()> {
-    let handshake_context = build_handshake_context(runtime)?;
+    let handshake_context = build_handshake_context(runtime, false)?;
     ipc::handshake::serve_one(&runtime.listener, &handshake_context, None)
 }
 
@@ -675,11 +683,12 @@ fn serve_handshake_service(runtime: &mut RuntimeBootstrap) -> Result<()> {
             Err(error) => return Err(error).context("accepting persistent handshake connection"),
         };
 
-        let handshake_context = build_handshake_context(runtime)?;
+        let handshake_context = build_handshake_context(runtime, true)?;
         let mut command_router = ipc::command_router::CommandRouter::new(
             ControlHandlerContext {
                 descriptor: &runtime.descriptor,
                 artifact_root: &runtime.artifact_root,
+                restart_controller: &runtime.restart_controller,
             },
             JobsHandlerContext {
                 state_db: &mut runtime.state_db,
@@ -690,10 +699,17 @@ fn serve_handshake_service(runtime: &mut RuntimeBootstrap) -> Result<()> {
         {
             tracing::warn!(error = %error, "persistent handshake connection failed");
         }
+
+        if runtime.restart_controller.restart_requested() {
+            return Ok(());
+        }
     }
 }
 
-fn build_handshake_context(runtime: &RuntimeBootstrap) -> Result<HandshakeContext> {
+fn build_handshake_context(
+    runtime: &RuntimeBootstrap,
+    command_router_active: bool,
+) -> Result<HandshakeContext> {
     Ok(HandshakeContext {
         protocol_version: runtime.descriptor.protocol_version,
         daemon_version: env!("CARGO_PKG_VERSION").to_owned(),
@@ -704,10 +720,36 @@ fn build_handshake_context(runtime: &RuntimeBootstrap) -> Result<HandshakeContex
             status: "ready".to_owned(),
         },
         active_sessions: load_active_sessions(runtime.state_db.connection())?,
-        mutations_allowed: false,
+        mutations_allowed: command_router_active,
         expected_peer_uid: None,
         lifecycle_frames: persisted_lifecycle_frames(runtime.state_db.connection())?,
     })
+}
+
+fn build_restart_plan(cli: &Cli) -> Result<RestartPlan> {
+    let program = std::env::current_exe().context("locating current daemon executable")?;
+    let args = vec![
+        OsString::from("--serve"),
+        OsString::from("--state-root"),
+        cli.state_root.as_os_str().to_os_string(),
+        OsString::from("--runtime-dir"),
+        cli.runtime_dir.as_os_str().to_os_string(),
+        OsString::from("--artifact-root"),
+        cli.artifact_root.as_os_str().to_os_string(),
+    ];
+    Ok(RestartPlan::new(program, args, DEFAULT_RESTART_DELAY_MS))
+}
+
+fn maybe_delay_for_restart() {
+    let Ok(raw_delay) = std::env::var(RESTART_DELAY_ENV) else {
+        return;
+    };
+    let Ok(delay_ms) = raw_delay.parse::<u64>() else {
+        return;
+    };
+    if delay_ms > 0 {
+        std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+    }
 }
 
 fn adapter_runtime_config(cli: &Cli, skill: &LoadedSkill) -> Result<AdapterRuntimeConfig> {
@@ -3550,9 +3592,10 @@ mod tests {
 
     use super::jobs::runner::CANONICAL_SCOPE_KINDS;
     use super::{
-        ACTIVE_STAGES, DEFAULT_AGENT_CLI, LifecyclePhase, LiveLoopFixture, SessionDraft,
-        backtrack_window_seconds, default_fixture, insert_session_log, live_loop_surface_names,
-        open_state_db, persisted_lifecycle_frames, reconcile_interrupted_sessions,
+        ACTIVE_STAGES, Cli, DEFAULT_AGENT_CLI, LifecyclePhase, LiveLoopFixture, SessionDraft,
+        backtrack_window_seconds, bootstrap_runtime, build_handshake_context, default_fixture,
+        insert_session_log, live_loop_surface_names, open_state_db, persisted_lifecycle_frames,
+        reconcile_interrupted_sessions,
     };
     use crate::db::sqlite::DEFAULT_SCHEMA_EPOCH;
 
@@ -3650,6 +3693,32 @@ mod tests {
             )]),
         ))?;
         assert!(!parsed.cursor_after.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn handshake_context_toggles_mutation_allowance_with_router_mode() -> Result<()> {
+        let temp = tempdir()?;
+        let state_root = temp.path().join("state");
+        let runtime_dir = temp.path().join("runtime");
+        let artifact_root = temp.path().join("artifacts");
+        let cli = Cli::parse_from([
+            "daemon",
+            "--serve",
+            "--state-root",
+            state_root.to_str().expect("utf8 state root"),
+            "--runtime-dir",
+            runtime_dir.to_str().expect("utf8 runtime dir"),
+            "--artifact-root",
+            artifact_root.to_str().expect("utf8 artifact root"),
+        ]);
+        let runtime = bootstrap_runtime(&cli)?;
+
+        let handshake_only = build_handshake_context(&runtime, false)?;
+        let command_router_active = build_handshake_context(&runtime, true)?;
+
+        assert!(!handshake_only.mutations_allowed);
+        assert!(command_router_active.mutations_allowed);
         Ok(())
     }
 
