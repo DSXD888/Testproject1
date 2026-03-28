@@ -605,17 +605,17 @@ export function SessionViewer({
               disabled={terminalControlsDisabled}
               onClick={() => void requestStop('graceful')}
             >
-              Stop gracefully
+              Stop graceful
             </button>
             <button
               type="button"
               disabled={terminalControlsDisabled}
               onClick={() => void requestStop('force')}
             >
-              Force stop
+              Stop force
             </button>
             <button type="button" disabled={!canInteract} onClick={() => void requestResize()}>
-              Resize PTY
+              Resize 120×40
             </button>
             <button type="button" onClick={() => void requestReplay()}>
               Request replay
@@ -635,7 +635,7 @@ export function SessionViewer({
             disabled={!canInteract || inputValue.length === 0}
             onClick={() => void requestInput()}
           >
-            Send input
+            Send PTY input
           </button>
           {!canInteract ? (
             <p className="page__status">

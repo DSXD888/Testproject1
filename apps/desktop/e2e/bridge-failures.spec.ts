@@ -232,7 +232,6 @@ test('PW-BRD-003 surfaces invalid_params without partial session mutation', asyn
   });
 
   await page.goto('/sessions/session-live');
-  await page.getByLabel('PTY input').fill('');
   await page.getByRole('button', { name: 'Send PTY input' }).click();
 
   await expect(page.getByRole('alert')).toContainText('invalid_params');
