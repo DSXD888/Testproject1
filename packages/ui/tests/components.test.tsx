@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
+import * as uiBarrel from '../index';
 import {
   ContractCardFrame,
   type ContractCardFrameProps,
@@ -8,6 +9,7 @@ import {
 import { freshnessBadgeVmFixture } from '../fixtures/freshness-badge';
 import { contractCardFrameFixture } from '../fixtures/contract-card-frame';
 import { errorSummaryFixture } from '../fixtures/error-summary-list';
+import { uiBarrelExportFixture } from '../fixtures/index';
 import { manifestViewerFixture } from '../fixtures/manifest-viewer';
 import {
   flaggedPipelineBadgeFixture,
@@ -100,5 +102,26 @@ describe('packages/ui components', () => {
     expect(readOnlyMarkup).toContain('Critical');
     expect(actionableMarkup).toContain('>Resolve<');
     expect(actionableMarkup).toContain('View details');
+  });
+
+  it('TS-UI-007 re-exports only the shared UI surface from the barrel', () => {
+    for (const exportName of uiBarrelExportFixture) {
+      expect(uiBarrel).toHaveProperty(exportName);
+    }
+
+    expect(uiBarrel).not.toHaveProperty('invoke');
+    expect(uiBarrel).not.toHaveProperty('subscribe');
+  });
+
+  it('TS-UI-008 keeps shared UI tests fixture-driven and backend-agnostic', async () => {
+    expect(contractCardFrameFixture.summary.processId).toBe('proc-123');
+    expect(manifestViewerFixture.sections).toEqual([
+      'Summary',
+      'Risk Blockers',
+      'Recommendation',
+    ]);
+    expect(errorSummaryFixture[0]?.errorManifestId).toBe('err-1');
+    expect(uiBarrel).not.toHaveProperty('invoke');
+    expect(uiBarrel).not.toHaveProperty('subscribe');
   });
 });

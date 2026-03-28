@@ -8,7 +8,7 @@
     "react-dom": "19.2.4"
   },
   "scripts": {
-    "build": "bunx tsc --ignoreConfig --jsx react-jsx --module esnext --moduleResolution bundler --target es2022 --lib es2022,dom,dom.iterable --types react,react-dom --noEmit contract-card-frame.tsx pipeline-badge.tsx freshness-badge.tsx manifest-viewer.tsx error-summary-list.tsx fixtures/contract-card-frame.ts fixtures/pipeline-badge.ts fixtures/freshness-badge.ts fixtures/manifest-viewer.ts fixtures/error-summary-list.ts tests/components.test.tsx",
+    "build": "bunx tsc --ignoreConfig --jsx react-jsx --module esnext --moduleResolution bundler --target es2022 --lib es2022,dom,dom.iterable --types react,react-dom --noEmit index.ts contract-card-frame.tsx pipeline-badge.tsx freshness-badge.tsx manifest-viewer.tsx error-summary-list.tsx fixtures/contract-card-frame.ts fixtures/pipeline-badge.ts fixtures/freshness-badge.ts fixtures/manifest-viewer.ts fixtures/error-summary-list.ts fixtures/index.ts tests/components.test.tsx",
     "test": "bunx vitest run tests/components.test.tsx"
   }
 }
