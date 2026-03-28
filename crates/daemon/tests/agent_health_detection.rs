@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+<<<<<<< HEAD
 #[allow(dead_code)]
 mod support;
 
@@ -40,17 +41,48 @@ mod tests {
     #[test]
     fn ag_hlt_001_stall_detection_surfaces_agent_stalled() {
         let tracker = StallTracker::new(Duration::from_secs(5), Duration::from_secs(10));
+=======
+#[path = "../src/pty/health.rs"]
+mod health_impl;
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use crate::health_impl::{
+        HealthIssue, HostResources, StallTracker, detect_auth_challenge, detect_host_sleep,
+        detect_resource_pressure, pre_spawn_failure_phases,
+    };
+
+    #[test]
+    fn ag_hlt_001_no_output_timeout_classifies_agent_stalled() {
+        let mut tracker = StallTracker::new(Duration::from_secs(5), Duration::from_secs(30));
+        tracker.record_output(Duration::ZERO);
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
         assert_eq!(
             tracker.no_output_issue(Duration::from_secs(6)),
             Some(HealthIssue::AgentStalled),
         );
+<<<<<<< HEAD
         assert_eq!(
             tracker.no_progress_issue(Duration::from_secs(12)),
+=======
+        assert_eq!(HealthIssue::AgentStalled.code(), "AGENT_STALLED");
+    }
+
+    #[test]
+    fn ag_hlt_002_no_progress_timeout_also_classifies_agent_stalled() {
+        let mut tracker = StallTracker::new(Duration::from_secs(30), Duration::from_secs(5));
+        tracker.record_progress(Duration::ZERO);
+        assert_eq!(
+            tracker.no_progress_issue(Duration::from_secs(6)),
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
             Some(HealthIssue::AgentStalled),
         );
     }
 
     #[test]
+<<<<<<< HEAD
     fn ag_hlt_002_auth_challenge_markers_are_detected() {
         assert_eq!(
             detect_auth_challenge("MFA required before continuing"),
@@ -66,10 +98,33 @@ mod tests {
                 memory_pressure: true,
             }),
             Some(HealthIssue::HostResourceExhausted),
+=======
+    fn ag_hlt_003_auth_challenge_markers_surface_browser_or_login_intervention() {
+        assert_eq!(
+            detect_auth_challenge("AUTH CHALLENGE: browser re-login required"),
+            Some(HealthIssue::AgentAuthChallenge),
+        );
+        assert_eq!(
+            HealthIssue::AgentAuthChallenge.code(),
+            "AGENT_AUTH_CHALLENGE",
         );
     }
 
     #[test]
+    fn ag_hlt_004_host_sleep_gaps_surface_sleep_interrupted() {
+        assert_eq!(
+            detect_host_sleep(Duration::from_secs(12), Duration::from_secs(5)),
+            Some(HealthIssue::HostSleepInterrupted),
+        );
+        assert_eq!(
+            HealthIssue::HostSleepInterrupted.code(),
+            "HOST_SLEEP_INTERRUPTED",
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
+        );
+    }
+
+    #[test]
+<<<<<<< HEAD
     fn ag_hlt_003_browser_only_auth_uses_reveal_profile_path_guidance() {
         assert_eq!(auth_intervention(false), AuthIntervention::ReattachPty);
         assert_eq!(auth_intervention(true), AuthIntervention::RevealProfilePath);
@@ -100,6 +155,20 @@ mod tests {
 
     #[test]
     fn ag_hlt_005_pre_active_crash_keeps_canonical_phase_history() {
+=======
+    fn ag_hlt_005_resource_pressure_surfaces_host_resource_exhausted() {
+        assert_eq!(
+            detect_resource_pressure(HostResources {
+                cpu_pressure: true,
+                memory_pressure: false,
+            }),
+            Some(HealthIssue::HostResourceExhausted),
+        );
+        assert_eq!(
+            HealthIssue::HostResourceExhausted.code(),
+            "HOST_RESOURCE_EXHAUSTED",
+        );
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
         assert_eq!(
             pre_spawn_failure_phases(),
             ["created", "terminating", "exited", "archived"],

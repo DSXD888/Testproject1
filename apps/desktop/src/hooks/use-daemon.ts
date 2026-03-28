@@ -45,17 +45,25 @@ export type SessionHistoryRequest = {
   maxBytes?: number;
 };
 
+<<<<<<< HEAD
 export type SessionHistoryFrame =
   | { kind: 'pty'; seq: number; text: string }
   | { kind: 'stdout'; seq: number; text: string }
   | { kind: 'stderr'; seq: number; text: string };
 
+=======
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
 export type SessionHistoryChunk = {
   sessionId: string;
   firstSeq: number;
   lastSeq: number;
+<<<<<<< HEAD
   availability: 'complete' | 'partial' | 'missing';
   frames: SessionHistoryFrame[];
+=======
+  frames: SessionFrame[];
+  availability: 'complete' | 'partial' | 'missing';
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
 };
 
 export type SessionMetaSnapshot = {
@@ -72,6 +80,10 @@ export type SessionPageItem = SessionListItem & {
 const sessionRegistryStore: SessionRegistryApi = createSessionRegistry();
 const sessionBuffers = new Map<string, SessionBufferApi>();
 const sessionMetaCache = new Map<string, SessionMetaSnapshot>();
+const sessionTimelineCache = new Map<
+  string,
+  { sourceFrames: SessionFrame[]; timeline: SessionFrame[] }
+>();
 
 function currentDaemonKey(sessionId: string): string | null {
   const daemonInstanceId = sessionRegistryStore.getSnapshot().daemonInstanceId;
@@ -86,6 +98,16 @@ function ensureBuffer(sessionId: string, executionMode: SessionListItem['executi
   const buffer = createSessionBuffer(executionMode);
   sessionBuffers.set(sessionId, buffer);
   return buffer;
+}
+
+function normalizeSessionFrame(frame: SessionFrame): SessionFrame {
+  if (frame.kind === 'pty' && !(frame.chunk instanceof Uint8Array)) {
+    return {
+      ...frame,
+      chunk: new Uint8Array(frame.chunk),
+    };
+  }
+  return frame;
 }
 
 function getMetaSnapshot(sessionId: string): SessionMetaSnapshot {
@@ -116,6 +138,7 @@ function getMetaSnapshot(sessionId: string): SessionMetaSnapshot {
 export function resetSessionDaemonState(instanceId: string | null = null): void {
   sessionBuffers.clear();
   sessionMetaCache.clear();
+  sessionTimelineCache.clear();
   if (instanceId !== null) {
     sessionRegistryStore.resetForDaemon(instanceId);
   }
@@ -140,8 +163,9 @@ export function hydrateSessions(items: SessionListItem[]): void {
 export function applySessionFrame(sessionId: string, frame: SessionFrame): void {
   const meta = getMetaSnapshot(sessionId).session;
   const executionMode = meta?.executionMode ?? 'contract';
-  ensureBuffer(sessionId, executionMode).appendFrame(frame);
-  sessionRegistryStore.applyStreamFrame(sessionId, frame);
+  const normalized = normalizeSessionFrame(frame);
+  ensureBuffer(sessionId, executionMode).appendFrame(normalized);
+  sessionRegistryStore.applyStreamFrame(sessionId, normalized);
 }
 
 export function resolveSessionReplay(
@@ -154,7 +178,7 @@ export function resolveSessionReplay(
   const executionMode = meta?.executionMode ?? 'contract';
   const buffer = ensureBuffer(sessionId, executionMode);
   if (frames.length > 0) {
-    buffer.mergeReplay(frames);
+    buffer.mergeReplay(frames.map(normalizeSessionFrame));
   }
   sessionRegistryStore.markReplayResolved(sessionId, fromSeq, toSeq);
 }
@@ -175,6 +199,7 @@ export async function retrySessionJob(jobId: string): Promise<MutationAck> {
   return (await invoke('retry_job', { jobId })) as MutationAck;
 }
 
+<<<<<<< HEAD
 function adaptHistoryFrame(frame: SessionHistoryFrame): SessionFrame {
   if (frame.kind === 'pty') {
     return {
@@ -216,16 +241,26 @@ export async function loadSessionHistory(
     );
   }
   return envelope;
+=======
+export async function loadSessionHistory(
+  request: SessionHistoryRequest,
+): Promise<QueryEnvelope<SessionHistoryChunk>> {
+  return (await invoke('get_session_history', request)) as QueryEnvelope<SessionHistoryChunk>;
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
 }
 
 export async function stopSession(
   sessionId: string,
   mode: 'graceful' | 'force',
 ): Promise<MutationAck> {
+<<<<<<< HEAD
   return (await invoke('stop_session', {
     sessionId,
     mode,
   })) as MutationAck;
+=======
+  return (await invoke('stop_session', { sessionId, mode })) as MutationAck;
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
 }
 
 export async function sendSessionInput(
@@ -273,9 +308,27 @@ export function useSessionTimeline(sessionId: string): SessionFrame[] {
   const meta = useSessionMeta(sessionId);
   const executionMode = meta.session?.executionMode ?? 'contract';
   const buffer = ensureBuffer(sessionId, executionMode);
+  const getTimelineSnapshot = (): SessionFrame[] => {
+    const frames = buffer.getSnapshot().frames;
+    const cached = sessionTimelineCache.get(sessionId);
+    if (cached && cached.sourceFrames === frames) {
+      return cached.timeline;
+    }
+    const timeline = frames.filter((frame) => frame.kind !== 'pty');
+    sessionTimelineCache.set(sessionId, {
+      sourceFrames: frames,
+      timeline,
+    });
+    return timeline;
+  };
   return useSyncExternalStore(
     buffer.subscribe,
+<<<<<<< HEAD
     () => buffer.getSnapshot().frames,
     () => buffer.getSnapshot().frames,
+=======
+    getTimelineSnapshot,
+    getTimelineSnapshot,
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
   );
 }

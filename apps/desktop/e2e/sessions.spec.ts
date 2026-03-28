@@ -93,7 +93,18 @@ test.describe('sessions page', () => {
     let listCalls = 0;
     await page.route('**/__tauri_invoke__', async (route) => {
       const request = route.request();
-      const body = request.postDataJSON() as { cmd: string; args?: { filters?: { activeOnly?: boolean; executionModes?: string[] } } };
+      const body = request.postDataJSON() as {
+        cmd: string;
+        args?: {
+          filters?: { activeOnly?: boolean; executionModes?: string[] };
+          jobId?: string;
+          sessionId?: string;
+          fromSeq?: number;
+          toSeq?: number;
+          inputUtf8?: string;
+          mode?: string;
+        };
+      };
       if (body.cmd === 'list_sessions') {
         listCalls += 1;
         const activeOnly = body.args?.filters?.activeOnly ?? false;
@@ -125,6 +136,7 @@ test.describe('sessions page', () => {
       }
 
       if (body.cmd === 'get_session_history') {
+<<<<<<< HEAD
         const sessionId = String(body.args?.sessionId ?? '');
         if (sessionId === 'session-live') {
           await route.fulfill({
@@ -166,6 +178,36 @@ test.describe('sessions page', () => {
                     kind: 'stderr',
                     seq: 2,
                     text: 'Use profile path guidance to continue.',
+=======
+        if (body.args?.sessionId === 'session-live') {
+          await route.fulfill({
+            json: {
+              snapshotSeq: 20,
+              snapshotAt: '2026-03-28T10:00:00Z',
+              data: {
+                sessionId: 'session-live',
+                firstSeq: body.args?.fromSeq ?? 6,
+                lastSeq: body.args?.toSeq ?? 8,
+                availability: 'complete',
+                frames: [
+                  {
+                    seq: 6,
+                    kind: 'pty',
+                    chunk: [82, 101, 99, 111, 118, 101, 114, 101, 100, 32, 102, 114, 97, 109, 101, 32, 115, 105, 120, 10],
+                    ts: '2026-03-28T10:00:06Z',
+                  },
+                  {
+                    seq: 7,
+                    kind: 'pty',
+                    chunk: [82, 101, 99, 111, 118, 101, 114, 101, 100, 32, 102, 114, 97, 109, 101, 32, 115, 101, 118, 101, 110, 10],
+                    ts: '2026-03-28T10:00:07Z',
+                  },
+                  {
+                    seq: 8,
+                    kind: 'pty',
+                    chunk: [82, 101, 99, 111, 118, 101, 114, 101, 100, 32, 102, 114, 97, 109, 101, 32, 101, 105, 103, 104, 116, 10],
+                    ts: '2026-03-28T10:00:08Z',
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
                   },
                 ],
               },
@@ -176,6 +218,7 @@ test.describe('sessions page', () => {
 
         await route.fulfill({
           json: {
+<<<<<<< HEAD
             snapshotSeq: 12,
             snapshotAt: '2026-03-28T10:00:00Z',
             data: {
@@ -184,18 +227,63 @@ test.describe('sessions page', () => {
               lastSeq: 2,
               availability: 'missing',
               frames: [],
+=======
+            snapshotSeq: 20,
+            snapshotAt: '2026-03-28T10:00:00Z',
+            data: {
+              sessionId: body.args?.sessionId ?? 'session-failed',
+              firstSeq: 1,
+              lastSeq: 3,
+              availability: 'complete',
+              frames: [
+                {
+                  seq: 1,
+                  kind: 'stdout',
+                  chunk: 'Contracts Finder session booted.',
+                  ts: '2026-03-28T09:00:00Z',
+                },
+                {
+                  seq: 2,
+                  kind: 'stderr',
+                  chunk: 'MFA required in managed browser.',
+                  ts: '2026-03-28T09:00:10Z',
+                },
+                {
+                  seq: 3,
+                  kind: 'event',
+                  event: {
+                    type: 'finalResultReady',
+                    path: '/tmp/procintel/contracts-finder/result.json',
+                  },
+                  ts: '2026-03-28T09:02:00Z',
+                },
+              ],
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
             },
           },
         });
         return;
       }
 
+<<<<<<< HEAD
       if (body.cmd === 'stop_session' || body.cmd === 'send_session_input' || body.cmd === 'resize_session') {
         await route.fulfill({
           json: {
             accepted: true,
             visibleAfterSeq: 25,
             sessionId: body.args?.['sessionId'] ?? null,
+=======
+      if (
+        body.cmd === 'stop_session' ||
+        body.cmd === 'send_session_input' ||
+        body.cmd === 'resize_session'
+      ) {
+        await route.fulfill({
+          json: {
+            accepted: true,
+            visibleAfterSeq: 20,
+            sessionId: body.args?.sessionId ?? 'session-live',
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
           },
         });
         return;
@@ -241,6 +329,7 @@ test.describe('sessions page', () => {
     await expect(page.getByText('Retry queued for session-live')).toBeVisible();
   });
 
+<<<<<<< HEAD
   test('PW-SES-003 opens PTY sessions in live-terminal mode', async ({ page }) => {
     await page.goto('/sessions/session-live');
     await expect(page.getByRole('heading', { name: 'Session viewer' })).toBeVisible();
@@ -288,5 +377,72 @@ test.describe('sessions page', () => {
     await expect(page.getByText('History availability: partial')).toHaveCount(0);
     await page.getByRole('button', { name: 'Request replay' }).click();
     await expect(page.getByText('Replay partial for session-browser-auth')).toBeVisible();
+=======
+  test('PW-SES-003 renders live PTY monitoring with replay and auth guidance', async ({
+    page,
+  }) => {
+    await page.goto('/sessions/session-live');
+    await expect(page.getByText('Live terminal')).toBeVisible();
+    await expect(page.getByText('Browser auth challenge')).toBeVisible();
+    await expect(page.locator('p.page__status').filter({ hasText: 'Replay recovered 6:8.' })).toBeVisible();
+    await expect(
+      page.locator('pre.session-viewer__terminal').filter({ hasText: 'Recovered frame eight' }),
+    ).toBeVisible();
+  });
+
+  test('PW-SES-004 renders contract sessions in transcript/history mode with input disabled', async ({
+    page,
+  }) => {
+    await page.goto('/sessions/session-failed?initialMode=history');
+    await expect(page.getByText('Transcript history')).toBeVisible();
+    await expect(page.getByText('Contracts Finder session booted.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Send PTY input' })).toBeDisabled();
+  });
+
+  test('PW-SES-006 supports explicit stop controls', async ({ page }) => {
+    await page.goto('/sessions/session-live');
+    await page.getByRole('button', { name: 'Stop graceful' }).click();
+    await expect(page.getByText('Stop requested (graceful) for session-live.')).toBeVisible();
+    await page.getByRole('button', { name: 'Stop force' }).click();
+    await expect(page.getByText('Stop requested (force) for session-live.')).toBeVisible();
+  });
+
+  test('PW-SES-007 sends PTY input for attached sessions', async ({ page }) => {
+    await page.goto('/sessions/session-live');
+    await page.getByLabel('PTY input').fill('resume\n');
+    await page.getByRole('button', { name: 'Send PTY input' }).click();
+    await expect(page.getByText('Sent PTY input to session-live.')).toBeVisible();
+  });
+
+  test('PW-SES-008 resizes attached PTY sessions', async ({ page }) => {
+    await page.goto('/sessions/session-live');
+    await page.getByRole('button', { name: 'Resize 120×40' }).click();
+    await expect(page.getByText('Requested 120×40 resize for session-live.')).toBeVisible();
+  });
+
+  test('PW-SES-009 surfaces replay availability after gap recovery', async ({ page }) => {
+    await page.goto('/sessions/session-live');
+    await expect(
+      page.locator('p.page__status').filter({ hasText: 'Replay recovered 6:8.' }),
+    ).toBeVisible();
+  });
+
+  test('PW-SES-010 archived sessions promote to history mode after the archive fence', async ({
+    page,
+  }) => {
+    await page.goto('/sessions/session-failed');
+    await expect(page.getByText('Viewer mode')).toBeVisible();
+    await expect(page.locator('.meta-card strong').filter({ hasText: 'history' })).toBeVisible();
+  });
+
+  test('PW-SES-012 keeps a plain-text transcript alongside the PTY view', async ({
+    page,
+  }) => {
+    await page.goto('/sessions/session-live');
+    await page.getByText('Screen-reader transcript').click();
+    await expect(
+      page.locator('details pre').filter({ hasText: 'Connecting to supplier portal...' }),
+    ).toBeVisible();
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
   });
 });

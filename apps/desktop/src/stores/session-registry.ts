@@ -4,7 +4,16 @@ export type StructuredSessionEvent =
   | { type: 'started'; pid: number; pgid: number; sid: number; mode: 'pty' | 'contract' }
   | { type: 'checkpoint'; checkpointSeq: number; path: string }
   | { type: 'progress'; completed: number; total?: number }
-  | { type: 'authChallenge'; kind: string; detail: string }
+  | {
+      type: 'authChallenge';
+      kind: string;
+      detail: string;
+      intervention?: {
+        type: 'reveal_profile_path';
+        profilePath: string;
+        reattachable: boolean;
+      };
+    }
   | { type: 'warning'; code: string; detail: string }
   | { type: 'finalResultReady'; path: string }
   | { type: 'exited'; exitCode: number | null };

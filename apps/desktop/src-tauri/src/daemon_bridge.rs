@@ -344,6 +344,80 @@ pub struct StartupRecovery {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum StructuredSessionEvent {
+    Started {
+        pid: u32,
+        pgid: u32,
+        sid: u32,
+        mode: String,
+    },
+    Checkpoint {
+        checkpoint_seq: u32,
+        path: String,
+    },
+    Progress {
+        completed: u32,
+        total: Option<u32>,
+    },
+    AuthChallenge {
+        kind: String,
+        detail: String,
+        intervention: Option<Value>,
+    },
+    Warning {
+        code: String,
+        detail: String,
+    },
+    FinalResultReady {
+        path: String,
+    },
+    Exited {
+        exit_code: Option<i32>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum SessionFrame {
+    Lifecycle {
+        seq: u64,
+        state: String,
+        cleanup_verdict: Option<String>,
+        archive_seq: Option<i64>,
+        ts: String,
+    },
+    Pty {
+        seq: u64,
+        chunk: Vec<u8>,
+        ts: String,
+    },
+    Stdout {
+        seq: u64,
+        chunk: String,
+        ts: String,
+    },
+    Stderr {
+        seq: u64,
+        chunk: String,
+        ts: String,
+    },
+    Event {
+        seq: u64,
+        event: StructuredSessionEvent,
+        ts: String,
+    },
+    Gap {
+        from_seq: u64,
+        to_seq: u64,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GetDaemonInfoParams {}
 
@@ -519,6 +593,14 @@ impl DaemonBridge {
     #[must_use]
     pub const fn with_config(config: DaemonBridgeConfig) -> Self {
         Self { config }
+    }
+
+    pub fn session_frame_from_value(value: Value) -> Result<SessionFrame, BridgeError> {
+        serde_json::from_value(value).map_err(|error| {
+            BridgeError::transport_unavailable(format!(
+                "parsing projected session frame failed: {error}"
+            ))
+        })
     }
 
     pub fn connect(&self) -> Result<DaemonBridgeConnection, BridgeError> {

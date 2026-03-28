@@ -1,3 +1,4 @@
+import type { SessionFrame } from '../stores/session-registry';
 import type { InvokePayload } from './transport';
 
 type DevEnvelope<T> = {
@@ -177,6 +178,159 @@ const daemonInfo = {
   },
 } as const;
 
+const sessionFixtures = [
+  {
+    sessionId: 'session-live',
+    daemonInstanceId: 'daemon-1',
+    skillPath: 'skills/procurement-ingestion/fts/SKILL.md',
+    skillVersion: '1.0.0',
+    executionMode: 'pty',
+    phase: 'active',
+    startedAt: '2026-03-28T09:00:00Z',
+    endedAt: null,
+    durationMs: null,
+    cleanupVerdict: null,
+    errorType: null,
+    exitCode: null,
+    checkpointCount: 2,
+    byteCount: 18,
+    reattachable: true,
+    jobId: 'job-live',
+  },
+  {
+    sessionId: 'session-failed',
+    daemonInstanceId: 'daemon-1',
+    skillPath: 'skills/procurement-ingestion/contracts-finder/SKILL.md',
+    skillVersion: '1.0.0',
+    executionMode: 'contract',
+    phase: 'archived',
+    startedAt: '2026-03-28T08:00:00Z',
+    endedAt: '2026-03-28T08:02:00Z',
+    durationMs: 120_000,
+    cleanupVerdict: 'forced',
+    errorType: 'AGENT_AUTH_CHALLENGE',
+    exitCode: 1,
+    checkpointCount: 1,
+    byteCount: 64,
+    reattachable: false,
+    jobId: 'job-failed',
+    archiveSeq: 40,
+  },
+] as const;
+
+const liveSessionFrames: SessionFrame[] = [
+  {
+    seq: 1,
+    kind: 'event',
+    event: {
+      type: 'started',
+      pid: 1234,
+      pgid: 1234,
+      sid: 1234,
+      mode: 'pty',
+    },
+    ts: '2026-03-28T09:00:00Z',
+  },
+  {
+    seq: 2,
+    kind: 'pty',
+    chunk: new TextEncoder().encode('Connecting to supplier portal...\n'),
+    ts: '2026-03-28T09:00:01Z',
+  },
+  {
+    seq: 3,
+    kind: 'event',
+    event: {
+      type: 'authChallenge',
+      kind: 'mfa',
+      detail: 'Browser sign-in required before the PTY session can continue.',
+      intervention: {
+        type: 'reveal_profile_path',
+        profilePath: '/tmp/procintel/browser-profile',
+        reattachable: true,
+      },
+    },
+    ts: '2026-03-28T09:00:02Z',
+  },
+  {
+    kind: 'gap',
+    fromSeq: 6,
+    toSeq: 8,
+  },
+];
+
+export function seedDevSessionFrames(sessionId: string): SessionFrame[] {
+  if (sessionId === 'session-live') {
+    return liveSessionFrames;
+  }
+  return [];
+}
+
+function sessionHistoryPayload(
+  sessionId: string,
+  fromSeq: number,
+  toSeq: number,
+) {
+  if (sessionId === 'session-live') {
+    return {
+      sessionId,
+      firstSeq: fromSeq,
+      lastSeq: toSeq,
+      availability: 'complete' as const,
+      frames: [
+        {
+          seq: 6,
+          kind: 'pty' as const,
+          chunk: Array.from(new TextEncoder().encode('Recovered frame six\n')),
+          ts: '2026-03-28T09:00:06Z',
+        },
+        {
+          seq: 7,
+          kind: 'pty' as const,
+          chunk: Array.from(new TextEncoder().encode('Recovered frame seven\n')),
+          ts: '2026-03-28T09:00:07Z',
+        },
+        {
+          seq: 8,
+          kind: 'pty' as const,
+          chunk: Array.from(new TextEncoder().encode('Recovered frame eight\n')),
+          ts: '2026-03-28T09:00:08Z',
+        },
+      ],
+    };
+  }
+
+  return {
+    sessionId,
+    firstSeq: 1,
+    lastSeq: 3,
+    availability: 'complete' as const,
+    frames: [
+      {
+        seq: 1,
+        kind: 'stdout' as const,
+        chunk: 'Contracts Finder session booted.',
+        ts: '2026-03-28T08:00:00Z',
+      },
+      {
+        seq: 2,
+        kind: 'stderr' as const,
+        chunk: 'MFA required in managed browser.',
+        ts: '2026-03-28T08:00:10Z',
+      },
+      {
+        seq: 3,
+        kind: 'event' as const,
+        event: {
+          type: 'finalResultReady' as const,
+          path: '/tmp/procintel/contracts-finder/result.json',
+        },
+        ts: '2026-03-28T08:02:00Z',
+      },
+    ],
+  };
+}
+
 function envelope<T>(data: T): DevEnvelope<T> {
   return {
     data,
@@ -229,45 +383,31 @@ export async function handleDevBridgeInvoke(
 
   if (payload.cmd === 'list_sessions') {
     return envelope({
-      items: [
-        {
-          sessionId: 'session-1',
-          daemonInstanceId: 'daemon-1',
-          skillPath: 'skills/procurement-ingestion/fts/SKILL.md',
-          skillVersion: '1.0.0',
-          executionMode: 'pty',
-          phase: 'archived',
-          startedAt: '2026-03-28T09:00:00Z',
-          endedAt: '2026-03-28T09:05:00Z',
-          durationMs: 300_000,
-          cleanupVerdict: 'clean',
-          errorType: null,
-          exitCode: 0,
-          checkpointCount: 2,
-          byteCount: 18,
-          reattachable: false,
-        },
-      ],
+      items: sessionFixtures,
       nextCursor: null,
       hasMore: false,
     });
   }
 
   if (payload.cmd === 'get_session_history') {
-    return envelope({
-      sessionId: 'session-1',
-      firstSeq: 1,
-      lastSeq: 1,
-      availability: 'complete',
-      frames: [
-        {
-          seq: 1,
-          kind: 'pty',
-          chunk: [104, 101, 108, 108, 111, 10],
-          ts: '2026-03-28T09:00:01Z',
-        },
-      ],
-    });
+    const sessionId =
+      (typeof args?.sessionId === 'string' && args.sessionId) || 'session-failed';
+    const fromSeq = typeof args?.fromSeq === 'number' ? args.fromSeq : 1;
+    const toSeq = typeof args?.toSeq === 'number' ? args.toSeq : fromSeq;
+    return envelope(sessionHistoryPayload(sessionId, fromSeq, toSeq));
+  }
+
+  if (
+    payload.cmd === 'stop_session' ||
+    payload.cmd === 'send_session_input' ||
+    payload.cmd === 'resize_session'
+  ) {
+    return {
+      accepted: true,
+      visibleAfterSeq: SNAPSHOT_SEQ,
+      sessionId:
+        (typeof args?.sessionId === 'string' && args.sessionId) || 'session-live',
+    };
   }
 
   return {

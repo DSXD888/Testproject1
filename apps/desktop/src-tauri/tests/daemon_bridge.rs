@@ -14,10 +14,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use daemon_bridge_impl::{
     BridgeError, CaptureDecisionParams, DaemonBridge, DaemonBridgeConfig, DaemonCommandMethod,
+<<<<<<< HEAD
     DaemonInfoSnapshot, DecisionDisposition, GetDaemonInfoParams, LifecyclePhase, MutationAck,
     StreamOutputKind, StructuredSessionEvent, TriggerIngestionParams, daemon_health_topic,
     gap_frame, project_lifecycle_frame, project_output_frame, project_structured_event,
     session_topic,
+=======
+    DaemonInfoSnapshot, DecisionDisposition, GetDaemonInfoParams, MutationAck, SessionFrame,
+    TriggerIngestionParams,
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
 };
 use serde_json::{Value, json};
 
@@ -374,6 +379,7 @@ fn rs_dbr_007_closed_method_set_stays_stable() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn rs_dbr_008_stream_projection_stays_aligned_with_public_frame_contract() -> TestResult {
     assert_eq!(daemon_health_topic(), "daemon.health");
     assert_eq!(session_topic("session-1"), "sessions.session-1");
@@ -464,10 +470,33 @@ fn rs_dbr_009_commands_only_flow_after_successful_handshake() -> TestResult {
 
     let hello = server.join().expect("server should join")?;
     assert_eq!(hello["messageType"], "hello");
+=======
+fn rs_dbr_008_projects_lifecycle_frames_with_archive_metadata() -> TestResult {
+    let frame = DaemonBridge::session_frame_from_value(json!({
+        "kind": "lifecycle",
+        "seq": 11,
+        "state": "archived",
+        "cleanupVerdict": "clean",
+        "archiveSeq": 42,
+        "ts": "2026-03-28T10:00:00Z"
+    }))?;
+
+    assert_eq!(
+        frame,
+        SessionFrame::Lifecycle {
+            seq: 11,
+            state: "archived".to_owned(),
+            cleanup_verdict: Some("clean".to_owned()),
+            archive_seq: Some(42),
+            ts: "2026-03-28T10:00:00Z".to_owned(),
+        },
+    );
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
     Ok(())
 }
 
 #[test]
+<<<<<<< HEAD
 fn rs_dbr_010_lifecycle_frames_keep_terminal_metadata_rules() -> TestResult {
     let ordered = vec![
         project_lifecycle_frame(1, "session-1", LifecyclePhase::Created, None, None)?,
@@ -505,5 +534,55 @@ fn rs_dbr_010_lifecycle_frames_keep_terminal_metadata_rules() -> TestResult {
         .is_err()
     );
 
+=======
+fn rs_dbr_009_projects_auth_challenge_events_without_dropping_intervention() -> TestResult {
+    let frame = DaemonBridge::session_frame_from_value(json!({
+        "kind": "event",
+        "seq": 7,
+        "event": {
+            "type": "authChallenge",
+            "kind": "mfa",
+            "detail": "Browser sign-in required.",
+            "intervention": {
+                "type": "reveal_profile_path",
+                "profilePath": "/tmp/procintel/browser-profile",
+                "reattachable": true
+            }
+        },
+        "ts": "2026-03-28T10:00:07Z"
+    }))?;
+
+    match frame {
+        SessionFrame::Event { event, .. } => {
+            let serialized = serde_json::to_value(event)?;
+            assert_eq!(serialized["type"], "authChallenge");
+            assert_eq!(
+                serialized["intervention"]["profilePath"],
+                "/tmp/procintel/browser-profile",
+            );
+        }
+        other => {
+            return Err(format!("expected event frame, got {other:?}").into());
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn rs_dbr_010_projects_gap_frames_with_exact_ranges() -> TestResult {
+    let frame = DaemonBridge::session_frame_from_value(json!({
+        "kind": "gap",
+        "fromSeq": 100,
+        "toSeq": 150
+    }))?;
+
+    assert_eq!(
+        frame,
+        SessionFrame::Gap {
+            from_seq: 100,
+            to_seq: 150,
+        },
+    );
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
     Ok(())
 }

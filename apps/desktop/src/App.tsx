@@ -13,7 +13,11 @@ import {
 } from './pages/ContractList';
 import { ErrorsPage } from './pages/Errors';
 import SessionsPage from './pages/Sessions';
+<<<<<<< HEAD
 import { SessionViewer } from './pages/SessionViewer';
+=======
+import SessionViewer from './pages/SessionViewer';
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
 
 type ProcessDecision = {
   disposition: 'approve' | 'reject' | 'watch' | null;
@@ -184,6 +188,7 @@ type RouteState =
   | {
       kind: 'session-viewer';
       sessionId: string;
+      initialMode?: 'live' | 'history';
     }
   | {
       kind: 'errors';
@@ -208,9 +213,15 @@ function currentRoute(pathnameOverride?: string): RouteState {
     return { kind: 'sessions' };
   }
   if (pathname.startsWith('/sessions/')) {
+    const params = new URLSearchParams(search);
+    const initialMode = params.get('initialMode');
     return {
       kind: 'session-viewer',
       sessionId: decodeURIComponent(pathname.replace('/sessions/', '')),
+      initialMode:
+        initialMode === 'live' || initialMode === 'history'
+          ? initialMode
+          : undefined,
     };
   }
   if (pathname === '/errors') {
@@ -586,16 +597,26 @@ export function App({ pathname }: AppProps = {}): ReactElement {
             />
           </>
         ) : route.kind === 'sessions' ? (
+<<<<<<< HEAD
           <>
             <span hidden>Sessions route</span>
             <SessionsPage />
           </>
+=======
+          <SessionsPage />
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
         ) : route.kind === 'session-viewer' ? (
           <>
             <span hidden>Session route for {route.sessionId}</span>
             <SessionViewer
+<<<<<<< HEAD
               onBack={() => navigate('/sessions')}
               sessionId={route.sessionId}
+=======
+              sessionId={route.sessionId}
+              initialMode={route.initialMode}
+              onBack={() => navigate('/sessions')}
+>>>>>>> 73a88b6 (testproject1-dr6.22: add session viewer and replay flow)
             />
           </>
         ) : route.kind === 'errors' ? (
