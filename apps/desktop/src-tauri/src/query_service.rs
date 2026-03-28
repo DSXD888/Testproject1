@@ -105,13 +105,28 @@ impl QueryService {
                 &ErrorListFilters::default(),
             )?;
 
-            let (coverage, pipeline_basis_hash) = load_coverage(conn, &canonical_process_id)?;
-            let (manifest, manifest_error) =
-                load_manifest(conn, &canonical_process_id, pipeline_basis_hash.as_deref())?;
+            let (coverage, pipeline_basis_hash, pipeline_stage_run_id) =
+                load_coverage(conn, &canonical_process_id)?;
+            let (manifest, manifest_error) = load_manifest(
+                conn,
+                &canonical_process_id,
+                pipeline_basis_hash.as_deref(),
+                pipeline_stage_run_id.as_deref(),
+            )?;
             let decision = decision_status_for_process(
                 decisions.get(&canonical_process_id),
                 pipeline_basis_hash.as_deref(),
             );
+            let review_metadata = ReviewMetadataVm {
+                basis_hash: pipeline_basis_hash,
+                manifest_hash: manifest
+                    .as_ref()
+                    .and_then(|manifest| manifest.artifact_hash.clone()),
+                stage_run_id: manifest
+                    .as_ref()
+                    .and_then(|manifest| manifest.stage_run_id.clone())
+                    .or(pipeline_stage_run_id),
+            };
 
             Ok(ProcessDetailVm {
                 process_id: process_row.0,
@@ -122,6 +137,7 @@ impl QueryService {
                 quotes,
                 landed_costs,
                 manifest,
+                review_metadata,
                 manifest_error,
                 coverage,
                 decision,
@@ -481,6 +497,7 @@ pub struct ProcessDetailVm {
     pub quotes: Vec<SupplierQuoteVm>,
     pub landed_costs: Vec<LandedCostVm>,
     pub manifest: Option<ManifestVm>,
+    pub review_metadata: ReviewMetadataVm,
     pub manifest_error: Option<QueryServiceError>,
     pub coverage: CoverageVm,
     pub decision: DecisionStatus,
@@ -558,6 +575,8 @@ pub struct ManifestVm {
     pub basis_hash: Option<String>,
     pub generated_at: String,
     pub sections: Vec<String>,
+    pub artifact_hash: Option<String>,
+    pub stage_run_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -570,6 +589,14 @@ pub struct CoverageVm {
     pub landed_cost_value_coverage_bps: i64,
     pub net_qualified_value_coverage_bps: i64,
     pub unresolved_mandatory_lots: i64,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewMetadataVm {
+    pub basis_hash: Option<String>,
+    pub manifest_hash: Option<String>,
+    pub stage_run_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -999,11 +1026,12 @@ fn load_manifest(
     conn: &Connection,
     process_id: &str,
     basis_hash: Option<&str>,
+    pipeline_stage_run_id: Option<&str>,
 ) -> Result<(Option<ManifestVm>, Option<QueryServiceError>), QueryServiceError> {
     let manifest_row = conn
         .query_row(
             "\
-            SELECT markdown, artifact_locator, created_at
+            SELECT markdown, artifact_locator, artifact_hash, stage_run_id, created_at
             FROM manifests
             WHERE process_id = ?1
             ORDER BY created_at DESC, id DESC
@@ -1014,14 +1042,18 @@ fn load_manifest(
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, Option<String>>(1)?,
-                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, String>(4)?,
                 ))
             },
         )
         .optional()
         .map_err(storage_unreadable)?;
 
-    let Some((markdown, artifact_locator, generated_at)) = manifest_row else {
+    let Some((markdown, artifact_locator, artifact_hash, stage_run_id, generated_at)) =
+        manifest_row
+    else {
         return Ok((None, None));
     };
 
@@ -1043,6 +1075,8 @@ fn load_manifest(
                 .lines()
                 .filter_map(|line| line.strip_prefix("## ").map(ToOwned::to_owned))
                 .collect(),
+            artifact_hash,
+            stage_run_id: stage_run_id.or_else(|| pipeline_stage_run_id.map(ToOwned::to_owned)),
         }),
         None,
     ))
@@ -1051,13 +1085,14 @@ fn load_manifest(
 fn load_coverage(
     conn: &Connection,
     process_id: &str,
-) -> Result<(CoverageVm, Option<String>), QueryServiceError> {
+) -> Result<(CoverageVm, Option<String>, Option<String>), QueryServiceError> {
     let row = conn
         .query_row(
             "\
             SELECT priced_coverage_bps, landed_cost_coverage_bps, net_qualified_coverage_bps,
                    priced_value_coverage_bps, landed_cost_value_coverage_bps,
-                   net_qualified_value_coverage_bps, unresolved_mandatory_lots, decision_basis_hash
+                   net_qualified_value_coverage_bps, unresolved_mandatory_lots,
+                   decision_basis_hash, stage_run_id
             FROM pipeline_assessments
             WHERE process_id = ?1
             ",
@@ -1072,6 +1107,7 @@ fn load_coverage(
                     row.get::<_, Option<i64>>(5)?,
                     row.get::<_, i64>(6)?,
                     row.get::<_, Option<String>>(7)?,
+                    row.get::<_, Option<String>>(8)?,
                 ))
             },
         )
@@ -1090,6 +1126,7 @@ fn load_coverage(
                 unresolved_mandatory_lots: 0,
             },
             None,
+            None,
         ));
     };
 
@@ -1104,6 +1141,7 @@ fn load_coverage(
             unresolved_mandatory_lots: row.6,
         },
         row.7,
+        row.8,
     ))
 }
 

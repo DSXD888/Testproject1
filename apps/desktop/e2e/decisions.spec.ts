@@ -41,6 +41,8 @@ function detailEnvelope(
         basisHash,
         generatedAt: '2026-03-28T20:00:00Z',
         sections: ['Summary'],
+        artifactHash: `artifact-${processId}`,
+        stageRunId: `stage-${processId}`,
       },
       manifestError: null,
       coverage: {
@@ -86,6 +88,9 @@ test.describe('decision capture', () => {
       }
 
       if (body.cmd === 'capture_decision') {
+        expect(body.args?.reviewedBasisHash).toBe('basis-a');
+        expect(body.args?.reviewedManifestHash).toBe('artifact-process-1');
+        expect(body.args?.reviewedAtStageRunId).toBe('stage-process-1');
         intents.push({
           id: 'intent-1',
           processId: String(body.args?.processId),
@@ -112,6 +117,57 @@ test.describe('decision capture', () => {
     await expect(page.getByText('Decision: approve')).toBeVisible();
     expect(intents).toHaveLength(1);
     expect(intents[0]?.disposition).toBe('approve');
+  });
+
+  test('decision capture still forwards reviewed metadata when manifest output is unavailable', async ({
+    page,
+  }) => {
+    let captured = false;
+
+    await page.route('**/__tauri_invoke__', async (route) => {
+      const body = JSON.parse(route.request().postData() ?? '{}') as InvokeRequest;
+
+      if (body.cmd === 'get_process_detail') {
+        const detail = detailEnvelope(
+          'process-metadata-only',
+          { disposition: null, isStale: false, decidedAt: null },
+          44,
+        );
+        detail.data.manifest = null;
+        detail.data.reviewMetadata = {
+          basisHash: 'basis-metadata-only',
+          manifestHash: 'artifact-process-metadata-only',
+          stageRunId: 'stage-process-metadata-only',
+        };
+        detail.data.manifestError = {
+          code: 'artifact_unavailable',
+          message: 'manifest markdown unavailable',
+        };
+        await route.fulfill({ json: detail });
+        return;
+      }
+
+      if (body.cmd === 'capture_decision') {
+        captured = true;
+        expect(body.args?.reviewedBasisHash).toBe('basis-metadata-only');
+        expect(body.args?.reviewedManifestHash).toBe('artifact-process-metadata-only');
+        expect(body.args?.reviewedAtStageRunId).toBe('stage-process-metadata-only');
+        await route.fulfill({
+          json: {
+            accepted: true,
+            visibleAfterSeq: 45,
+            idempotencyKey: body.args?.idempotencyKey,
+          },
+        });
+        return;
+      }
+
+      await route.fulfill({ json: { code: 'unhandled', message: body.cmd } });
+    });
+
+    await page.goto('/process/process-metadata-only');
+    await page.getByRole('button', { name: 'Approve' }).click();
+    await expect.poll(() => captured).toBe(true);
   });
 
   test('PW-DEC-002 watch action becomes visible after the fence', async ({ page }) => {

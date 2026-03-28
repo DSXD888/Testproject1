@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 export type CoverageQualificationResult = "pass" | "review" | "reject";
 
 export interface CoverageCandidateInput {
@@ -22,7 +20,7 @@ export interface CoverageInput {
   lots: CoverageLotInput[];
 }
 
-export interface CoverageOutput {
+export interface CoverageMetrics {
   pricedCoverageBps: number;
   landedCostCoverageBps: number;
   netQualifiedCoverageBps: number;
@@ -30,12 +28,19 @@ export interface CoverageOutput {
   landedCostValueCoverageBps: number;
   netQualifiedValueCoverageBps: number;
   unresolvedMandatoryLots: number;
-  decisionBasisHash: string;
 }
+
+export type CoverageOutput = CoverageMetrics;
 
 export interface CoverageThresholdBand {
   tone: "green" | "amber" | "red";
   label: string;
+}
+
+export interface CoverageDecisionSupport {
+  thresholdBand: CoverageThresholdBand;
+  valueWeightedGateReady: boolean;
+  autoQualificationFloorBps: number;
 }
 
 export const AUTO_QUALIFICATION_VALUE_FLOOR_BPS = 5000;
@@ -63,8 +68,25 @@ export function describeCoverageThreshold(
   };
 }
 
-export function isAutoQualificationReady(output: CoverageOutput): boolean {
-  return output.netQualifiedValueCoverageBps >= AUTO_QUALIFICATION_VALUE_FLOOR_BPS;
+export function isAutoQualificationReady(
+  netQualifiedValueCoverageBps: number,
+): boolean {
+  return netQualifiedValueCoverageBps >= AUTO_QUALIFICATION_VALUE_FLOOR_BPS;
+}
+
+export function getCoverageDecisionSupport(
+  metrics: Pick<
+    CoverageMetrics,
+    "netQualifiedCoverageBps" | "netQualifiedValueCoverageBps"
+  >,
+): CoverageDecisionSupport {
+  return {
+    thresholdBand: describeCoverageThreshold(metrics.netQualifiedCoverageBps),
+    valueWeightedGateReady: isAutoQualificationReady(
+      metrics.netQualifiedValueCoverageBps,
+    ),
+    autoQualificationFloorBps: AUTO_QUALIFICATION_VALUE_FLOOR_BPS,
+  };
 }
 
 export function computeCoverageRollup(input: CoverageInput): CoverageOutput {
@@ -126,7 +148,6 @@ export function computeCoverageRollup(input: CoverageInput): CoverageOutput {
       totalQualifyingValuePence,
     ),
     unresolvedMandatoryLots,
-    decisionBasisHash: hashCoverageInput(input),
   };
 }
 
@@ -174,28 +195,4 @@ function toBasisPoints(numerator: number, denominator: number): number {
   }
 
   return Math.round((numerator * 10000) / denominator);
-}
-
-function hashCoverageInput(input: CoverageInput): string {
-  const normalizedLots = input.lots
-    .map((lot) => ({
-      lotId: lot.lotId,
-      qualificationResult: lot.qualificationResult,
-      isMandatory: lot.isMandatory,
-      lotAddressableValuePence: lot.lotAddressableValuePence,
-      candidates: [...lot.candidates]
-        .sort((left, right) => left.candidateId.localeCompare(right.candidateId))
-        .map((candidate) => ({
-          candidateId: candidate.candidateId,
-          hasPricing: candidate.hasPricing,
-          hasLandedCost: candidate.hasLandedCost,
-          passesNetGate: candidate.passesNetGate,
-          candidateValueShareBps: candidate.candidateValueShareBps,
-        })),
-    }))
-    .sort((left, right) => left.lotId.localeCompare(right.lotId));
-
-  return createHash("sha256")
-    .update(JSON.stringify({ lots: normalizedLots }))
-    .digest("hex");
 }

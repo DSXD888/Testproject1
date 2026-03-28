@@ -7,6 +7,10 @@ import {
   PipelineBadge,
   sanitizeUntrustedText,
 } from '../../../../packages/ui';
+import {
+  getCoverageDecisionSupport,
+  type CoverageMetrics,
+} from '../../../../packages/intelligence/src/margins/coverage-rollup';
 
 type DetailState =
   | { status: 'idle' | 'loading' }
@@ -62,17 +66,11 @@ type DetailState =
             basisHash: string | null;
             generatedAt: string;
             sections: string[];
+            artifactHash?: string | null;
+            stageRunId?: string | null;
           } | null;
           manifestError: { code: string; message: string } | null;
-          coverage: {
-            pricedCoverageBps: number;
-            landedCostCoverageBps: number;
-            netQualifiedCoverageBps: number;
-            pricedValueCoverageBps: number;
-            landedCostValueCoverageBps: number;
-            netQualifiedValueCoverageBps: number;
-            unresolvedMandatoryLots: number;
-          };
+          coverage: CoverageMetrics;
           decision: {
             disposition: 'approve' | 'reject' | 'watch' | null;
             isStale: boolean;
@@ -93,8 +91,6 @@ type DetailState =
       };
     };
 
-const AUTO_QUALIFICATION_VALUE_FLOOR_BPS = 5000;
-
 function formatMoney(pence: number): string {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
@@ -106,22 +102,6 @@ function formatMoney(pence: number): string {
 
 function formatBps(bps: number): string {
   return `${(bps / 100).toFixed(2)}%`;
-}
-
-function describeCoverageThreshold(netQualifiedCoverageBps: number): {
-  label: string;
-} {
-  if (netQualifiedCoverageBps >= 7000) {
-    return { label: 'Strong coverage' };
-  }
-  if (netQualifiedCoverageBps >= 3000) {
-    return { label: 'Partial coverage -- review recommended' };
-  }
-  return { label: 'Low coverage -- manual review required' };
-}
-
-function isAutoQualificationReady(netQualifiedValueCoverageBps: number): boolean {
-  return netQualifiedValueCoverageBps >= AUTO_QUALIFICATION_VALUE_FLOOR_BPS;
 }
 
 function renderBoundedCopy(
@@ -182,10 +162,11 @@ export function ContractDetail({
   }
 
   const { data, snapshotSeq, snapshotAt } = state.payload;
-  const coverageBand = describeCoverageThreshold(data.coverage.netQualifiedCoverageBps);
-  const valueGateReady = isAutoQualificationReady(
-    data.coverage.netQualifiedValueCoverageBps,
-  );
+  const {
+    thresholdBand: coverageBand,
+    valueWeightedGateReady,
+    autoQualificationFloorBps,
+  } = getCoverageDecisionSupport(data.coverage);
 
   return (
     <section className="page page--detail">
@@ -247,10 +228,10 @@ export function ContractDetail({
             </div>
             <div>
               <dt>Auto-qualification floor</dt>
-              <dd>{formatBps(AUTO_QUALIFICATION_VALUE_FLOOR_BPS)}</dd>
+              <dd>{formatBps(autoQualificationFloorBps)}</dd>
             </div>
           </dl>
-          {!valueGateReady ? (
+          {!valueWeightedGateReady ? (
             <p className="warning-banner" data-testid="value-weighted-warning">
               Coverage below threshold. Strong lot-count coverage does not override a failed
               value-weighted gate.

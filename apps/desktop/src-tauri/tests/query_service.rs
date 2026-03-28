@@ -134,13 +134,14 @@ impl Harness {
                   priced_coverage_bps, landed_cost_coverage_bps, net_qualified_coverage_bps,
                   priced_value_coverage_bps, landed_cost_value_coverage_bps,
                   net_qualified_value_coverage_bps, unresolved_mandatory_lots,
-                  decision_basis_hash, owner_id
-                ) VALUES (?1, ?2, 1500, 1200, 7000, 6000, 5000, 6500, 5500, 4500, 0, ?3, ?4)
+                  decision_basis_hash, stage_run_id, owner_id
+                ) VALUES (?1, ?2, 1500, 1200, 7000, 6000, 5000, 6500, 5500, 4500, 0, ?3, ?4, ?5)
                 ",
                 params![
                     process_id,
                     pipeline_state,
                     format!("basis-{process_id}"),
+                    format!("stage-{process_id}"),
                     DEFAULT_OWNER_ID,
                 ],
             )?;
@@ -203,11 +204,13 @@ impl Harness {
                 ],
             )?;
             tx.execute(
-                "INSERT INTO manifests (id, process_id, markdown, artifact_locator, owner_id) VALUES (?1, ?2, ?3, 'artifact://manifest', ?4)",
+                "INSERT INTO manifests (id, process_id, markdown, artifact_locator, artifact_hash, stage_run_id, owner_id) VALUES (?1, ?2, ?3, 'artifact://manifest', ?4, ?5, ?6)",
                 params![
                     format!("manifest-{process_id}"),
                     process_id,
                     "# Opportunity\n\n## Summary\ntext\n\n## Risks\ntext",
+                    format!("artifact-{process_id}"),
+                    format!("stage-{process_id}"),
                     DEFAULT_OWNER_ID,
                 ],
             )?;
@@ -428,6 +431,51 @@ fn rs_qs_004_process_detail_resolves_alias_and_returns_empty_arrays() -> Result<
     assert!(detail.data.landed_costs.is_empty());
     assert!(detail.data.errors.is_empty());
     assert!(detail.data.manifest.is_none());
+    assert_eq!(
+        detail.data.review_metadata.basis_hash.as_deref(),
+        Some("basis-process-a")
+    );
+    assert_eq!(
+        detail.data.review_metadata.stage_run_id.as_deref(),
+        Some("stage-process-a")
+    );
+    assert!(detail.data.review_metadata.manifest_hash.is_none());
+    Ok(())
+}
+
+#[test]
+fn rs_qs_004b_process_detail_exposes_authoritative_review_metadata() -> Result<()> {
+    let mut harness = Harness::new()?;
+    harness.seed_process("process-a", "2026-03-25T10:00:00Z", "qualified")?;
+    harness.seed_candidate_and_quote("process-a")?;
+
+    let service = harness.service()?;
+    let detail = service
+        .get_process_detail("process-a")
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+
+    let manifest = detail
+        .data
+        .manifest
+        .expect("manifest metadata should be present");
+    assert_eq!(manifest.basis_hash.as_deref(), Some("basis-process-a"));
+    assert_eq!(
+        manifest.artifact_hash.as_deref(),
+        Some("artifact-process-a")
+    );
+    assert_eq!(manifest.stage_run_id.as_deref(), Some("stage-process-a"));
+    assert_eq!(
+        detail.data.review_metadata.basis_hash.as_deref(),
+        Some("basis-process-a")
+    );
+    assert_eq!(
+        detail.data.review_metadata.manifest_hash.as_deref(),
+        Some("artifact-process-a")
+    );
+    assert_eq!(
+        detail.data.review_metadata.stage_run_id.as_deref(),
+        Some("stage-process-a")
+    );
     Ok(())
 }
 

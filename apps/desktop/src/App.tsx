@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
+import type { CoverageMetrics } from '../../../packages/intelligence/src/margins/coverage-rollup';
+
 import { coerceBridgeError, invoke, parseBridgeError } from './lib/transport';
 import { controlPlaneStore, useControlPlaneState } from './hooks/use-control-plane';
 import { ContractDetail } from './pages/ContractDetail';
@@ -138,17 +140,16 @@ type ProcessDetailVm = {
     basisHash: string | null;
     generatedAt: string;
     sections: string[];
+    artifactHash?: string | null;
+    stageRunId?: string | null;
   } | null;
-  manifestError: { code: string; message: string; retryable: boolean } | null;
-  coverage: {
-    pricedCoverageBps: number;
-    landedCostCoverageBps: number;
-    netQualifiedCoverageBps: number;
-    pricedValueCoverageBps: number;
-    landedCostValueCoverageBps: number;
-    netQualifiedValueCoverageBps: number;
-    unresolvedMandatoryLots: number;
+  reviewMetadata?: {
+    basisHash: string | null;
+    manifestHash: string | null;
+    stageRunId: string | null;
   };
+  manifestError: { code: string; message: string; retryable: boolean } | null;
+  coverage: CoverageMetrics;
   decision: ProcessDecision;
   errors: ErrorItem[];
 };
@@ -467,12 +468,16 @@ export function App({ pathname }: AppProps = {}): ReactElement {
     decisionRetryKeys.current.set(retryKey, idempotencyKey);
     try {
       const currentDetail = detailState.payload.data;
+      const reviewMetadata = currentDetail.reviewMetadata;
       const ack = await invokeMutation<DecisionMutationAck>('capture_decision', {
         processId,
         disposition,
-        reviewedBasisHash: currentDetail.manifest?.basisHash ?? undefined,
-        reviewedManifestHash: undefined,
-        reviewedAtStageRunId: undefined,
+        reviewedBasisHash:
+          reviewMetadata?.basisHash ?? currentDetail.manifest?.basisHash ?? undefined,
+        reviewedManifestHash:
+          reviewMetadata?.manifestHash ?? currentDetail.manifest?.artifactHash ?? undefined,
+        reviewedAtStageRunId:
+          reviewMetadata?.stageRunId ?? currentDetail.manifest?.stageRunId ?? undefined,
         idempotencyKey,
       });
 

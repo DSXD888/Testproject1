@@ -4,6 +4,7 @@ import {
   AUTO_QUALIFICATION_VALUE_FLOOR_BPS,
   computeCoverageRollup,
   describeCoverageThreshold,
+  getCoverageDecisionSupport,
   isAutoQualificationReady,
   type CoverageInput,
 } from "./coverage-rollup";
@@ -111,10 +112,10 @@ describe("computeCoverageRollup", () => {
     expect(output.pricedValueCoverageBps).toBe(6000);
     expect(output.landedCostValueCoverageBps).toBe(6000);
     expect(output.netQualifiedValueCoverageBps).toBe(2000);
-    expect(isAutoQualificationReady(output)).toBe(false);
+    expect(isAutoQualificationReady(output.netQualifiedValueCoverageBps)).toBe(false);
   });
 
-  it("TS-COV-003: maps threshold bands to stable tone and label pairs", () => {
+  it("TS-COV-003: exposes one stable decision-support contract for threshold bands and the value-weighted gate", () => {
     expect(describeCoverageThreshold(7000)).toEqual({
       tone: "green",
       label: "Strong coverage",
@@ -130,6 +131,19 @@ describe("computeCoverageRollup", () => {
     expect(describeCoverageThreshold(2999)).toEqual({
       tone: "red",
       label: "Low coverage -- manual review required",
+    });
+    expect(
+      getCoverageDecisionSupport({
+        netQualifiedCoverageBps: 6999,
+        netQualifiedValueCoverageBps: 4999,
+      }),
+    ).toEqual({
+      thresholdBand: {
+        tone: "amber",
+        label: "Partial coverage -- review recommended",
+      },
+      valueWeightedGateReady: false,
+      autoQualificationFloorBps: AUTO_QUALIFICATION_VALUE_FLOOR_BPS,
     });
   });
 
@@ -244,7 +258,7 @@ describe("computeCoverageRollup", () => {
     );
   });
 
-  it("TS-COV-006: produces a stable basis hash for canonical input and changes it when operator-relevant inputs change", () => {
+  it("TS-COV-006: returns deterministic coverage metrics without authoring a decision basis hash", () => {
     const canonicalInput: CoverageInput = {
       lots: [
         {
@@ -313,7 +327,8 @@ describe("computeCoverageRollup", () => {
     const equivalentOutput = computeCoverageRollup(equivalentInput);
     const changedOutput = computeCoverageRollup(changedInput);
 
-    expect(canonicalOutput.decisionBasisHash).toBe(equivalentOutput.decisionBasisHash);
-    expect(changedOutput.decisionBasisHash).not.toBe(canonicalOutput.decisionBasisHash);
+    expect(canonicalOutput).toEqual(equivalentOutput);
+    expect(changedOutput).not.toEqual(canonicalOutput);
+    expect("decisionBasisHash" in canonicalOutput).toBe(false);
   });
 });
