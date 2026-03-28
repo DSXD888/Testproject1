@@ -15,6 +15,7 @@ mod errors_markdown_impl;
 #[path = "../src/prompt/renderer.rs"]
 mod prompt_renderer_impl;
 #[path = "../src/jobs/runner.rs"]
+#[allow(dead_code)]
 mod runner_impl;
 #[path = "support/skills.rs"]
 mod skills_support;

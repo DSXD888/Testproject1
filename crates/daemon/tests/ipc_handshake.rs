@@ -27,6 +27,9 @@ mod control_handler_impl;
 mod descriptor_impl;
 #[path = "../src/ipc/handshake.rs"]
 mod handshake_impl;
+#[path = "../src/ipc/handlers/jobs.rs"]
+#[allow(dead_code)]
+mod jobs_handler_impl;
 #[path = "../src/jobs/runner.rs"]
 #[allow(dead_code)]
 mod runner_impl;
@@ -55,6 +58,9 @@ mod ipc {
     pub mod handlers {
         pub mod control {
             pub use crate::control_handler_impl::*;
+        }
+        pub mod jobs {
+            pub use crate::jobs_handler_impl::*;
         }
     }
 }

@@ -9,6 +9,7 @@ mod ipc {
     pub mod descriptor;
     pub mod handlers {
         pub mod control;
+        pub mod jobs;
     }
     pub mod handshake;
 }
@@ -97,6 +98,7 @@ use ipc::descriptor::{
     DaemonDescriptor, LockGuard, RuntimePaths, bind_listener, write_descriptor_atomic,
 };
 use ipc::handlers::control::ControlHandlerContext;
+use ipc::handlers::jobs::JobsHandlerContext;
 use ipc::handshake::{
     ActiveSessions, HandshakeContext, HealthState, LifecycleFrame, LifecyclePhase,
 };
@@ -559,7 +561,7 @@ async fn main() -> Result<()> {
     let mut runtime = bootstrap_runtime(&cli)?;
 
     if cli.serve {
-        serve_handshake_service(&runtime)?;
+        serve_handshake_service(&mut runtime)?;
         return Ok(());
     }
 
@@ -659,7 +661,7 @@ fn serve_handshake_once(runtime: &RuntimeBootstrap) -> Result<()> {
     ipc::handshake::serve_one(&runtime.listener, &handshake_context, None)
 }
 
-fn serve_handshake_service(runtime: &RuntimeBootstrap) -> Result<()> {
+fn serve_handshake_service(runtime: &mut RuntimeBootstrap) -> Result<()> {
     tracing::info!(
         socket_path = %runtime.descriptor.socket_path,
         "daemon service accepting repeated desktop connections"
@@ -673,13 +675,17 @@ fn serve_handshake_service(runtime: &RuntimeBootstrap) -> Result<()> {
         };
 
         let handshake_context = build_handshake_context(runtime)?;
-        let command_router = ipc::command_router::CommandRouter::new(ControlHandlerContext {
-            descriptor: &runtime.descriptor,
-            state_db: &runtime.state_db,
-            artifact_root: &runtime.artifact_root,
-        });
+        let mut command_router = ipc::command_router::CommandRouter::new(
+            ControlHandlerContext {
+                descriptor: &runtime.descriptor,
+                artifact_root: &runtime.artifact_root,
+            },
+            JobsHandlerContext {
+                state_db: &mut runtime.state_db,
+            },
+        );
         if let Err(error) =
-            ipc::handshake::handle_connection(stream, &handshake_context, Some(&command_router))
+            ipc::handshake::handle_connection(stream, &handshake_context, Some(&mut command_router))
         {
             tracing::warn!(error = %error, "persistent handshake connection failed");
         }

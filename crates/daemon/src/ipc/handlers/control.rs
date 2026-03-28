@@ -13,7 +13,6 @@ use crate::jobs::runner::MutationAck;
 
 pub struct ControlHandlerContext<'a> {
     pub descriptor: &'a DaemonDescriptor,
-    pub state_db: &'a StateDb,
     pub artifact_root: &'a Path,
 }
 
@@ -41,11 +40,14 @@ pub struct StartupRecovery {
     pub last_recovery_at: Option<String>,
 }
 
-pub fn get_daemon_info(context: &ControlHandlerContext<'_>) -> Result<DaemonInfoSnapshot> {
+pub fn get_daemon_info(
+    context: &ControlHandlerContext<'_>,
+    state_db: &StateDb,
+) -> Result<DaemonInfoSnapshot> {
     let descriptor_path = descriptor_path_from_socket(&context.descriptor.socket_path);
     let state_db_path = state_db_path_from_root(&context.descriptor.state_root);
     let wal_bytes = wal_bytes_for(&state_db_path)?;
-    let startup_recovery = load_startup_recovery(context.state_db)?;
+    let startup_recovery = load_startup_recovery(state_db)?;
 
     Ok(DaemonInfoSnapshot {
         instance_id: context.descriptor.instance_id.clone(),
@@ -63,10 +65,13 @@ pub fn get_daemon_info(context: &ControlHandlerContext<'_>) -> Result<DaemonInfo
     })
 }
 
-pub fn restart_daemon(context: &ControlHandlerContext<'_>) -> Result<MutationAck> {
+pub fn restart_daemon(
+    _context: &ControlHandlerContext<'_>,
+    state_db: &StateDb,
+) -> Result<MutationAck> {
     Ok(MutationAck {
         accepted: true,
-        visible_after_seq: context.state_db.current_commit_seq()?,
+        visible_after_seq: state_db.current_commit_seq()?,
         continuation_job_id: None,
     })
 }

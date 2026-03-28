@@ -210,7 +210,7 @@ impl LifecycleFrame {
 pub fn serve_one(
     listener: &UnixListener,
     context: &HandshakeContext,
-    command_router: Option<&CommandRouter<'_>>,
+    command_router: Option<&mut CommandRouter<'_>>,
 ) -> Result<()> {
     let (stream, _) = listener
         .accept()
@@ -222,7 +222,7 @@ pub fn serve_one(
 pub fn handle_connection(
     mut stream: UnixStream,
     context: &HandshakeContext,
-    command_router: Option<&CommandRouter<'_>>,
+    command_router: Option<&mut CommandRouter<'_>>,
 ) -> Result<()> {
     let expected_uid = context
         .expected_peer_uid
@@ -398,7 +398,7 @@ pub fn handle_connection(
 
 fn handle_command_message(
     stream: &mut UnixStream,
-    router: &CommandRouter<'_>,
+    router: &mut CommandRouter<'_>,
     request_id: String,
     method: &str,
     params: Value,

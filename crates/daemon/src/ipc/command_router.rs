@@ -5,6 +5,10 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use crate::ipc::handlers::control::{ControlHandlerContext, get_daemon_info, restart_daemon};
+use crate::ipc::handlers::jobs::{
+    JobsHandlerContext, RetryJobParams, TriggerEnrichmentParams, TriggerIngestionParams, retry_job,
+    trigger_enrichment, trigger_ingestion,
+};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -52,15 +56,16 @@ pub enum DispatchOutcome {
 
 pub struct CommandRouter<'a> {
     control: ControlHandlerContext<'a>,
+    jobs: JobsHandlerContext<'a>,
 }
 
 impl<'a> CommandRouter<'a> {
-    pub const fn new(control: ControlHandlerContext<'a>) -> Self {
-        Self { control }
+    pub const fn new(control: ControlHandlerContext<'a>, jobs: JobsHandlerContext<'a>) -> Self {
+        Self { control, jobs }
     }
 
     pub fn dispatch(
-        &self,
+        &mut self,
         method: &str,
         params: Value,
         idempotency_key: Option<&str>,
@@ -68,7 +73,7 @@ impl<'a> CommandRouter<'a> {
         match method {
             "get_daemon_info" => {
                 let _: EmptyParams = parse_params(params)?;
-                let snapshot = get_daemon_info(&self.control)
+                let snapshot = get_daemon_info(&self.control, self.jobs.state_db)
                     .map_err(|error| BridgeError::busy(error.to_string()))?;
                 Ok(DispatchOutcome::Response(to_value(snapshot)?))
             }
@@ -80,9 +85,30 @@ impl<'a> CommandRouter<'a> {
                 }
 
                 let _: EmptyParams = parse_params(params)?;
-                let ack = restart_daemon(&self.control)
+                let ack = restart_daemon(&self.control, self.jobs.state_db)
                     .map_err(|error| BridgeError::busy(error.to_string()))?;
                 Ok(DispatchOutcome::DisconnectAfterResponse(to_value(ack)?))
+            }
+            "trigger_ingestion" => {
+                let idempotency_key = required_idempotency_key(idempotency_key, method)?;
+                let params: TriggerIngestionParams = parse_params(params)?;
+                let ack = trigger_ingestion(&mut self.jobs, &params, idempotency_key)
+                    .map_err(|error| BridgeError::busy(error.to_string()))?;
+                Ok(DispatchOutcome::Response(to_value(ack)?))
+            }
+            "trigger_enrichment" => {
+                let idempotency_key = required_idempotency_key(idempotency_key, method)?;
+                let params: TriggerEnrichmentParams = parse_params(params)?;
+                let ack = trigger_enrichment(&mut self.jobs, &params, idempotency_key)
+                    .map_err(|error| BridgeError::busy(error.to_string()))?;
+                Ok(DispatchOutcome::Response(to_value(ack)?))
+            }
+            "retry_job" => {
+                let idempotency_key = required_idempotency_key(idempotency_key, method)?;
+                let params: RetryJobParams = parse_params(params)?;
+                let ack = retry_job(&mut self.jobs, &params, idempotency_key)
+                    .map_err(|error| BridgeError::busy(error.to_string()))?;
+                Ok(DispatchOutcome::Response(to_value(ack)?))
             }
             _ => Err(BridgeError::not_found(format!(
                 "unsupported command method `{method}`"
@@ -101,4 +127,12 @@ fn parse_params<T: DeserializeOwned>(params: Value) -> std::result::Result<T, Br
 
 fn to_value<T: Serialize>(value: T) -> std::result::Result<Value, BridgeError> {
     serde_json::to_value(value).map_err(|error| BridgeError::busy(error.to_string()))
+}
+
+fn required_idempotency_key<'a>(
+    idempotency_key: Option<&'a str>,
+    method: &str,
+) -> std::result::Result<&'a str, BridgeError> {
+    idempotency_key
+        .ok_or_else(|| BridgeError::invalid_params(format!("{method} requires idempotencyKey")))
 }
