@@ -38,24 +38,24 @@ function renderInline(text: string): ReactNode[] {
     const start = match.index ?? 0;
 
     if (start > cursor) {
-      nodes.push(text.slice(cursor, start));
+      nodes.push(<span key={`text-${cursor}`}>{text.slice(cursor, start)}</span>);
     }
 
     if (isSafeUrl(target)) {
       nodes.push(
-        <a href={target} rel="noreferrer" target="_blank">
+        <a href={target} key={`link-${start}`} rel="noreferrer" target="_blank">
           {label}
         </a>,
       );
     } else {
-      nodes.push(label);
+      nodes.push(<span key={`label-${start}`}>{label}</span>);
     }
 
     cursor = start + fullMatch.length;
   }
 
   if (cursor < text.length) {
-    nodes.push(text.slice(cursor));
+    nodes.push(<span key={`tail-${cursor}`}>{text.slice(cursor)}</span>);
   }
 
   return nodes;
@@ -77,7 +77,7 @@ function renderMarkdown(markdown: string, highlightBlockers: boolean): ReactNode
 
   const flushList = (): void => {
     if (listItems.length > 0) {
-      nodes.push(<ul>{listItems}</ul>);
+      nodes.push(<ul key={`list-${nodes.length}`}>{listItems}</ul>);
       listItems = [];
     }
   };
@@ -95,7 +95,7 @@ function renderMarkdown(markdown: string, highlightBlockers: boolean): ReactNode
       const sectionId = slugify(title);
       const blocker = highlightBlockers && /blocker/i.test(title);
       nodes.push(
-        <section data-section={sectionId}>
+        <section data-section={sectionId} key={`section-${sectionId}`}>
           <h2 id={sectionId}>{title}</h2>
           {blocker ? <span data-blocker="true">Blocker</span> : null}
           <button type="button" data-copy-id={sectionId}>
@@ -107,12 +107,12 @@ function renderMarkdown(markdown: string, highlightBlockers: boolean): ReactNode
     }
 
     if (trimmed.startsWith('- ')) {
-      listItems.push(<li>{renderInline(trimmed.slice(2))}</li>);
+      listItems.push(<li key={`item-${listItems.length}`}>{renderInline(trimmed.slice(2))}</li>);
       continue;
     }
 
     flushList();
-    nodes.push(<p>{renderInline(trimmed)}</p>);
+    nodes.push(<p key={`paragraph-${nodes.length}`}>{renderInline(trimmed)}</p>);
   }
 
   flushList();

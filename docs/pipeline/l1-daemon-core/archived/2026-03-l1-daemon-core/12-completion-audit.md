@@ -123,12 +123,26 @@ All must pass with zero warnings.
 
 ---
 
-## Follow-Up Pass
+## Follow-Up Pass (Sub-Optimization)
 
-> After creating all fix beads:
+> After creating all fix beads, send this as a follow-up message in the same session.
 
-1. Re-read the fix beads you created. Are they specific enough? Does each one reference the right spec section and TDD test IDs?
-2. Could an agent implement each fix from the bead description alone?
-3. Is the acceptance criteria concrete — not "fix this" but "add field X of type Y to struct Z"?
-4. Are the fix beads ordered? (Some fixes may depend on other fixes)
-5. Estimate: how many fix beads? If more than 10, something went wrong in the original implementation — flag it.
+ULTRATHINK and verify with fresh eyes:
+
+1. **Re-read the fix beads you created.** Are they specific enough? Does each one reference the right `L1-FR-*` spec section and TDD test IDs? Could an agent implement each fix from the bead description alone?
+
+2. **Open `crates/daemon/src/agents/adapter.rs`** — does every `AgentAdapter` trait method (`probe`, `resolve_mode`, `build_launch_spec`, `parser`) have a corresponding test in BOTH `tests/adapter_codex.rs` and `tests/adapter_claude.rs`? If not, is there a fix bead for the missing coverage?
+
+3. **Open `crates/daemon/src/sessions/reaper.rs`** — does the reaper produce a cleanup verdict for EVERY session lifecycle path? Cross-reference with the 7-phase lifecycle in the spec (§2.4). Are there fix beads for any untested transition?
+
+4. **Open `crates/daemon/src/pty/capture.rs`** — verify chunk boundary behavior is tested. Does the test for exactly 32KB chunks exist? What about 0-byte sessions? Are these covered by fix beads if missing?
+
+5. **Open `crates/daemon/src/errors/manifest.rs`** — cross-reference with the 12 error types in spec §1.9/§4.3. Is every error type exercised by at least one test? Create fix beads for any missing coverage.
+
+6. **Open `crates/daemon/src/jobs/runner.rs`** — verify `stage_run_id` scoping is tested for both set-replacement and additive semantics. Does the test cover partial failure within a stage?
+
+7. **Check the migration** — open `migrations/0003_sqlite_runtime.sql` and verify every table column matches the spec's §2.7/§2.9 schema. Any schema drift = fix bead.
+
+8. **Are the fix beads ordered?** Some fixes may depend on other fixes. Use `br dep add` to establish ordering if needed.
+
+9. **Estimate total fix beads.** If more than 10, something went wrong in the original implementation — flag it to the operator before proceeding to execution.

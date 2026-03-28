@@ -8,7 +8,7 @@
 
 ---
 
-## 1. Project Context
+## 1. Mission + Organization Model
 
 ### What This Project Is
 
@@ -54,9 +54,146 @@ Two capabilities proven at exit:
 - Multi-source marketplace search (Layer 5)
 - PTY hardening beyond basic supervision (Layer 3)
 
+### Organization Model
+
+- **Organization: FLAT** — no team hierarchy. You pick the next ready bead, implement it, and move on.
+- **Coordination: AGENTMAIL-FIRST** — register with AgentMail, check inbox, and announce claims BEFORE touching any code.
+- **Beads are SELF-CONTAINED** — implement each bead from its description alone. Use the spec only as a tiebreaker if the bead is ambiguous.
+
 ---
 
-## 2. Architecture Overview
+## 2. Source of Truth Reading List
+
+Read these IN THIS ORDER before starting implementation:
+
+| # | Document | Path | Role |
+|---|----------|------|------|
+| 1 | **AGENTS.md** | `AGENTS.md` | Coding conventions, toolchain, br workflow, AgentMail coordination, session protocol. **READ FIRST.** |
+| 2 | **Spec (SOT #1)** | `docs/strategy/layers/layer-1-thin-local-runner.md` | WHAT to build — full daemon spec with 138 `L1-FR-*` requirement IDs |
+| 3 | **TDD (SOT #2)** | `docs/pipeline/l1-daemon-core/artifacts/l1-daemon-core-tdd.md` | HOW to verify — 150 test IDs with exact assertions and tier assignments |
+| 4 | **Strategy (SOT #3)** | `docs/pipeline/l1-daemon-core/artifacts/l1-daemon-core-strategy.md` | WHAT ORDER — 10-phase dependency DAG with gate criteria |
+| 5 | **Bootstrap** | `docs/pipeline/l1-daemon-core/artifacts/l1-daemon-core-bootstrap.md` | Environment setup, Cargo.toml templates, test workspace layout |
+| 6 | **L0 Schema** | `docs/strategy/layers/layer-0-gold-set-evaluation.md` §2 | DDL for `0001_sqlite_state_initial.sql` — the schema Layer 1 builds on |
+| 7 | **Layer Strategy** | `docs/strategy/layer-strategy.md` | Cross-layer contracts, schema stability matrix, interface contracts |
+| 8 | **Manifest** | `docs/pipeline/l1-daemon-core/manifest.yaml` | All paths, key types, bead prefix, tech stack summary |
+
+---
+
+## 3. AgentMail Registration
+
+Before doing ANY implementation work, register with AgentMail.
+
+**Project key:** `/Users/alinaaitova/Desktop/Testproject1`
+
+### Option A: Macro (fast — preferred)
+
+```
+macro_start_session(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  program="l1-daemon-executor",
+  model="<your-model>"
+)
+```
+
+### Option B: Granular
+
+```
+ensure_project(human_key="/Users/alinaaitova/Desktop/Testproject1")
+register_agent(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  program="l1-daemon-executor",
+  model="<your-model>",
+  task_description="Implementing L1 daemon core beads"
+)
+```
+
+---
+
+## 4. Situational Awareness (Check Before Picking Work)
+
+EVERY time before picking a bead, check for coordination messages and current state:
+
+```
+fetch_inbox(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  agent_name="<your-name>",
+  include_bodies=true
+)
+```
+
+```
+search_messages(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  query="in_progress OR claimed"
+)
+```
+
+```bash
+br ready --json    # Current work queue — shows beads with no unresolved blockers
+```
+
+**KEY PRINCIPLE:** If another agent has claimed a bead (visible in mail or bead status), DO NOT take it. If inbox has coordination messages, act on them FIRST before picking new work.
+
+---
+
+## 5. Claim Protocol
+
+There are **22 task beads** (L1-01 through L1-22) plus 1 epic container. Bead IDs follow the pattern `testproject1-63g.N`.
+
+### Step 1: Update bead status
+
+```bash
+br update <id> --status=in_progress
+```
+
+### Step 2: Reserve files
+
+```
+file_reservation_paths(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  agent_name="<your-name>",
+  paths=["crates/daemon/src/<target-files>"],
+  ttl_seconds=3600,
+  exclusive=true,
+  reason="br-testproject1-63g.N"
+)
+```
+
+### Step 3: Announce start
+
+```
+send_message(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  sender_name="<your-name>",
+  to=["broadcast"],
+  thread_id="br-testproject1-63g.N",
+  subject="[br-testproject1-63g.N] Claimed: <bead-title>",
+  body="Starting implementation. Files reserved: <list>",
+  ack_required=true
+)
+```
+
+### FILE_RESERVATION_CONFLICT Handling
+
+If `file_reservation_paths` returns `FILE_RESERVATION_CONFLICT`:
+1. Do NOT wait for the reservation to expire
+2. Pick a DIFFERENT ready bead that doesn't conflict
+3. If ALL ready beads conflict, follow the Session Landing Protocol (§9)
+
+---
+
+## 6. Beads ↔ AgentMail Mapping
+
+| Concept | Value |
+|---------|-------|
+| Mail `thread_id` | Bead ID (e.g., `br-testproject1-63g.N`) |
+| Mail subject prefix | `[br-testproject1-63g.N]` |
+| File reservation `reason` | Bead ID (e.g., `br-testproject1-63g.N`) |
+| Commit message prefix | Bead ID |
+
+---
+
+## 7. Architecture Overview
 
 ### Daemon Crate Structure (17 Core Files)
 
@@ -112,7 +249,9 @@ The daemon maintains a monotonic `commit_seq` via the `commit_clock` table. Ever
 
 ---
 
-## 3. Technical Stack
+## 8. Technical Stack + Quality Gates
+
+### Technical Stack
 
 - **Language:** Rust 2024 edition (nightly required — see `rust-toolchain.toml`)
 - **Async runtime:** Tokio (multi-thread)
@@ -124,10 +263,10 @@ The daemon maintains a monotonic `commit_seq` via the `commit_clock` table. Ever
 - **Hashing:** sha2 (SHA-256 for artifact integrity)
 - **Unsafe policy:** `#![forbid(unsafe_code)]` — constitutional constraint, no exceptions
 
-### Build / Lint / Test Commands
+### Quality Gates (Every Bead Must Pass)
 
 ```bash
-# Build gate (must pass before every commit)
+# Build gate
 cargo check --all-targets
 
 # Lint gate (pedantic + nursery enabled at workspace level)
@@ -141,99 +280,6 @@ cargo test
 
 # Combined pre-commit gate
 cargo check --all-targets && cargo clippy --all-targets -- -D warnings && cargo fmt --check && cargo test
-```
-
-### Key Dependencies
-
-| Crate | Version | Purpose |
-|-------|---------|---------|
-| `tokio` | 1 | async runtime (rt-multi-thread, macros, process, signal, sync, time) |
-| `rusqlite` | 0.32 | SQLite with bundled feature |
-| `portable-pty` | 0.8 | PTY pair creation |
-| `nix` | 0.29 | signal, process, term (setsid, waitpid, killpg) |
-| `clap` | 4 | CLI argument parsing (derive) |
-| `zstd` | 0.13 | artifact compression |
-| `anyhow` | 1 | error handling in application code |
-| `serde` / `serde_json` | 1 | serialization |
-| `uuid` | 1 | v4 UUIDs for session/job IDs |
-| `fs4` | 0.8 | file locking (daemon.lock) |
-
----
-
-## 4. Beads Workflow
-
-### Finding Work
-
-```bash
-br ready --json        # Shows beads with no unresolved blockers
-br ready               # Human-readable list
-br show <id>           # Full bead details with dependencies and description
-```
-
-There are **22 task beads** (L1-01 through L1-22) plus 1 epic container. The bead IDs follow the pattern `testproject1-63g.N`. Always pick the highest-priority non-epic bead from `br ready`.
-
-### Claiming Work
-
-```bash
-br update <id> --status=in_progress
-```
-
-Before editing files, reserve them via AgentMail:
-
-```
-macro_start_session(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
-  program="l1-daemon-executor",
-  model="your-model"
-)
-
-file_reservation_paths(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
-  agent_name="your-name",
-  paths=["crates/daemon/src/**"],
-  ttl_seconds=3600,
-  exclusive=true,
-  reason="br-testproject1-63g.N"
-)
-```
-
-Announce start via AgentMail `send_message` with `thread_id="br-testproject1-63g.N"`.
-
-### Completing Work
-
-```bash
-# Close the bead
-br close <id> --reason "Completed: <brief summary>"
-
-# Sync beads to JSONL (no git ops)
-br sync --flush-only
-
-# Commit and push
-git pull --rebase
-git add crates/daemon/ migrations/ skills/ .beads/
-git commit -m "feat(daemon): <description>
-
-br-testproject1-63g.N"
-git push
-```
-
-Release file reservations and announce completion via AgentMail after pushing.
-
-### Key Rules
-
-- Commit messages MUST include `br-testproject1-63g.N` for traceability
-- `br` is non-invasive — it NEVER runs git commands automatically
-- Always `br sync --flush-only && git add .beads/` before committing
-- Never stop to ask what to work on — run `br ready` and pick the next bead
-
----
-
-## 5. Quality Gates
-
-### Per-Bead Gate (Every Bead Must Pass)
-
-```bash
-cargo check --all-targets && cargo clippy --all-targets -- -D warnings && cargo test
 ```
 
 ### Constitutional Constraints
@@ -270,22 +316,135 @@ cargo check --all-targets && cargo clippy --all-targets -- -D warnings && cargo 
 
 ---
 
-## 6. Source of Truth Documents
+## 9. Execution Loop
 
-Read these IN THIS ORDER before starting implementation:
+Follow this cycle for EVERY bead:
 
-| # | Document | Path | Role |
-|---|----------|------|------|
-| 1 | **AGENTS.md** | `AGENTS.md` | Coding conventions, toolchain, br workflow, AgentMail coordination, session protocol. **READ FIRST.** |
-| 2 | **Spec (SOT #1)** | `docs/strategy/layers/layer-1-thin-local-runner.md` | WHAT to build — full daemon spec with 138 `L1-FR-*` requirement IDs |
-| 3 | **TDD (SOT #2)** | `docs/pipeline/l1-daemon-core/artifacts/l1-daemon-core-tdd.md` | HOW to verify — 150 test IDs with exact assertions and tier assignments |
-| 4 | **Strategy (SOT #3)** | `docs/pipeline/l1-daemon-core/artifacts/l1-daemon-core-strategy.md` | WHAT ORDER — 10-phase dependency DAG with gate criteria |
-| 5 | **Bootstrap** | `docs/pipeline/l1-daemon-core/artifacts/l1-daemon-core-bootstrap.md` | Environment setup, Cargo.toml templates, test workspace layout |
-| 6 | **L0 Schema** | `docs/strategy/layers/layer-0-gold-set-evaluation.md` §2 | DDL for `0001_sqlite_state_initial.sql` — the schema Layer 1 builds on |
-| 7 | **Layer Strategy** | `docs/strategy/layer-strategy.md` | Cross-layer contracts, schema stability matrix, interface contracts |
-| 8 | **Manifest** | `docs/pipeline/l1-daemon-core/manifest.yaml` | All paths, key types, bead prefix, tech stack summary |
+### Step 1: Situational Awareness
+```
+fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name="<your-name>", include_bodies=true)
+search_messages(project_key="/Users/alinaaitova/Desktop/Testproject1", query="in_progress OR claimed")
+```
+```bash
+br ready --json
+```
+Pick the highest-priority non-epic bead with ID prefix `testproject1-63g.*`.
 
-### Phase Ordering (From Strategy)
+### Step 2: Claim
+```bash
+br update <id> --status=in_progress
+```
+
+### Step 3: Reserve Files
+```
+file_reservation_paths(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  agent_name="<your-name>",
+  paths=["crates/daemon/src/<target-files>"],
+  ttl_seconds=3600,
+  exclusive=true,
+  reason="br-testproject1-63g.N"
+)
+```
+If `FILE_RESERVATION_CONFLICT` → pick a different bead.
+
+### Step 4: Announce
+```
+send_message(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  sender_name="<your-name>",
+  to=["broadcast"],
+  thread_id="br-testproject1-63g.N",
+  subject="[br-testproject1-63g.N] Claimed: <bead-title>",
+  body="Starting implementation. Files reserved: <list>",
+  ack_required=true
+)
+```
+
+### Step 5: Implement
+1. Read the bead description (`br show <id>`) — it contains spec sections, TDD test IDs, and file targets
+2. Read the relevant spec sections in `docs/strategy/layers/layer-1-thin-local-runner.md`
+3. Read the test specs in `docs/pipeline/l1-daemon-core/artifacts/l1-daemon-core-tdd.md`
+4. Write production code + test code as specified by the bead
+
+### Step 6: Verify
+```bash
+cargo check --all-targets && cargo clippy --all-targets -- -D warnings && cargo fmt --check && cargo test
+```
+Fix all errors before proceeding. No `unsafe` code. No `unwrap()` in production code.
+
+### Step 7: Commit
+```bash
+br close <id> --reason "Completed: <brief summary>"
+br sync --flush-only
+git pull --rebase
+git add crates/daemon/ migrations/ skills/ .beads/
+git commit -m "feat(daemon): <description>
+
+br-testproject1-63g.N"
+git push
+```
+
+### Step 8: Release + Announce Completion
+```
+release_file_reservations(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  agent_name="<your-name>"
+)
+```
+```
+send_message(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  sender_name="<your-name>",
+  to=["broadcast"],
+  thread_id="br-testproject1-63g.N",
+  subject="[br-testproject1-63g.N] Completed: <bead-title>",
+  body="Implementation complete. Files released. Tests passing.",
+  ack_required=false
+)
+```
+
+### Step 9: Loop
+
+Go back to Step 1. Do NOT stop to ask what to work on next. Do NOT wait for permission. Run `br ready` and continue.
+
+---
+
+## 10. Session Landing Protocol
+
+When you are fully blocked (no ready beads, all remaining beads depend on other agents' work):
+
+1. **Push all committed work:**
+   ```bash
+   git pull --rebase && git push
+   ```
+
+2. **Release ALL file reservations:**
+   ```
+   release_file_reservations(
+     project_key="/Users/alinaaitova/Desktop/Testproject1",
+     agent_name="<your-name>"
+   )
+   ```
+
+3. **Announce handoff:**
+   ```
+   send_message(
+     project_key="/Users/alinaaitova/Desktop/Testproject1",
+     sender_name="<your-name>",
+     to=["broadcast"],
+     subject="Session landing — blocked on <bead-ids>",
+     body="Completed: <list of completed beads>. Blocked: <list of blocked beads and why>. All reservations released.",
+     ack_required=false
+   )
+   ```
+
+4. Do NOT leave file reservations active — they block other agents.
+5. Do NOT leave uncommitted work — push everything.
+
+---
+
+## 11. Phase Ordering (From Strategy)
 
 ```
 Phase 1  Workspace + SQLite

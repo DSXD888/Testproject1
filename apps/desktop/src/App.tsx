@@ -1,180 +1,441 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
-import { useControlPlaneState, type RuntimeMode } from './hooks/use-control-plane';
-import SessionsPage from './pages/Sessions';
+import { invoke } from './lib/transport';
+import { useControlPlaneState } from './hooks/use-control-plane';
+import { ContractDetail } from './pages/ContractDetail';
+import { DaemonStatusPage } from './pages/DaemonStatus';
+import {
+  type ContractListPageQuery,
+  ContractList,
+  type ContractListState,
+  parseContractListQuery,
+} from './pages/ContractList';
+import { ErrorsPage } from './pages/Errors';
 
-export type AppRoutes =
-  | '/'
-  | `/process/${string}`
-  | '/sessions'
-  | `/sessions/${string}`
-  | '/errors'
-  | '/daemon';
+type ProcessDecision = {
+  disposition: 'approve' | 'reject' | 'watch' | null;
+  isStale: boolean;
+  decidedAt: string | null;
+};
 
-type RouteDescriptor =
-  | { kind: 'contracts'; label: string }
-  | { kind: 'process-detail'; processId: string; label: string }
-  | { kind: 'sessions'; label: string }
-  | { kind: 'session-viewer'; sessionId: string; label: string }
-  | { kind: 'errors'; label: string }
-  | { kind: 'daemon'; label: string }
-  | { kind: 'not-found'; label: string };
+type ProcessListItem = {
+  processId: string;
+  canonicalProcessId: string;
+  title: string;
+  buyerName: string;
+  publishedAt: string;
+  deadlineAt: string | null;
+  pipelineState:
+    | 'pending'
+    | 'qualifying'
+    | 'enriching'
+    | 'qualified'
+    | 'review'
+    | 'rejected'
+    | 'error';
+  pricedCoverageBps: number | null;
+  netQualifiedCoverageBps: number | null;
+  netQualifiedValueCoverageBps: number | null;
+  grossMarginBps: number | null;
+  netMarginBaseBps: number | null;
+  candidateCount: number;
+  quotedCandidateCount: number;
+  decision: ProcessDecision;
+};
 
-function resolveRoute(pathname: string): RouteDescriptor {
-  if (pathname === '/') {
-    return { kind: 'contracts', label: 'Contracts' };
+type KeysetPage<T> = {
+  items: T[];
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
+type QueryEnvelope<T> = {
+  data: T;
+  snapshotSeq: number;
+  snapshotAt: string;
+};
+
+type NoticeVm = {
+  noticeId: string;
+  sourceId: string;
+  sourceNoticeId: string;
+  title: string;
+  buyerName: string | null;
+  procurementStage: string;
+  summary: string | null;
+  publishedAt: string;
+  deadlineAt: string | null;
+};
+
+type LotVm = {
+  lotId: string;
+  noticeId: string;
+  title: string | null;
+  description: string | null;
+  estimatedValuePence: number | null;
+  deadlineAt: string | null;
+  isBidableSeparately: boolean;
+};
+
+type CandidateVm = {
+  candidateId: string;
+  lotId: string;
+  name: string;
+  candidateType: string;
+  specificationText: string | null;
+  candidateValueShareBps: number | null;
+  quoteabilityScoreBps: number | null;
+};
+
+type QuoteVm = {
+  quoteId: string;
+  productCandidateId: string | null;
+  productName: string;
+  sourceName: string;
+  sourceUrl: string | null;
+  currency: string;
+  unitPriceGbpPence: number;
+  priceSignalRole: string;
+  shipFromCountry: string | null;
+};
+
+type LandedCostVm = {
+  estimateId: string;
+  productCandidateId: string;
+  supplierQuoteId: string;
+  economicLandedCostGbpPence: number;
+  netMarginBaseBps: number;
+  decisionGrade: string;
+  confidenceBps: number;
+};
+
+type ErrorItem = {
+  errorManifestId: string;
+  processId: string | null;
+  pipelineStage: string | null;
+  errorType: string;
+  errorMessage: string;
+  cleanupVerdict: 'clean' | 'forced' | 'leaked' | null;
+  severity: 'critical' | 'warning' | 'info';
+  createdAt: string;
+  resolved: boolean;
+  agentSessionId: string | null;
+};
+
+type ProcessDetailVm = {
+  processId: string;
+  canonicalProcessId: string;
+  notices: NoticeVm[];
+  lots: LotVm[];
+  candidates: CandidateVm[];
+  quotes: QuoteVm[];
+  landedCosts: LandedCostVm[];
+  manifest: {
+    markdown: string;
+    basisHash: string | null;
+    generatedAt: string;
+    sections: string[];
+  } | null;
+  manifestError: { code: string; message: string; retryable: boolean } | null;
+  coverage: {
+    pricedCoverageBps: number;
+    landedCostCoverageBps: number;
+    netQualifiedCoverageBps: number;
+    pricedValueCoverageBps: number;
+    landedCostValueCoverageBps: number;
+    netQualifiedValueCoverageBps: number;
+    unresolvedMandatoryLots: number;
+  };
+  decision: ProcessDecision;
+  errors: ErrorItem[];
+};
+
+type ScreenState<T> =
+  | { status: 'idle' | 'loading' }
+  | { status: 'ready'; payload: T }
+  | { status: 'error'; message: string };
+
+type DetailState = ScreenState<QueryEnvelope<ProcessDetailVm>>;
+
+type RouteState =
+  | {
+      kind: 'list';
+      query: ContractListPageQuery;
+      validationError: string | null;
+    }
+  | {
+      kind: 'detail';
+      processId: string;
+    }
+  | {
+      kind: 'errors';
+    }
+  | {
+      kind: 'daemon';
+    };
+
+function currentRoute(): RouteState {
+  const { pathname, search } = window.location;
+  if (pathname.startsWith('/process/')) {
+    return {
+      kind: 'detail',
+      processId: decodeURIComponent(pathname.replace('/process/', '')),
+    };
   }
-
-  if (pathname === '/sessions') {
-    return { kind: 'sessions', label: 'Sessions' };
-  }
-
   if (pathname === '/errors') {
-    return { kind: 'errors', label: 'Errors' };
+    return { kind: 'errors' };
   }
-
   if (pathname === '/daemon') {
-    return { kind: 'daemon', label: 'Daemon' };
+    return { kind: 'daemon' };
   }
 
-  const processMatch = pathname.match(/^\/process\/(.+)$/);
-  if (processMatch) {
-    return {
-      kind: 'process-detail',
-      processId: processMatch[1] ?? '',
-      label: 'Process detail',
-    };
-  }
-
-  const sessionMatch = pathname.match(/^\/sessions\/(.+)$/);
-  if (sessionMatch) {
-    return {
-      kind: 'session-viewer',
-      sessionId: sessionMatch[1] ?? '',
-      label: 'Session viewer',
-    };
-  }
-
-  return { kind: 'not-found', label: 'Not found' };
-}
-
-function modeBanner(mode: RuntimeMode): { title: string; detail: string } {
-  if (mode === 'full control') {
-    return {
-      title: 'Full control',
-      detail: 'All desktop actions are available.',
-    };
-  }
-
-  if (mode === 'control limited') {
-    return {
-      title: 'Control limited',
-      detail: 'Daemon limited — some operations unavailable.',
-    };
-  }
-
-  if (mode === 'browse-only') {
-    return {
-      title: 'Browse-only',
-      detail: 'Daemon unavailable — read-only local snapshot.',
-    };
-  }
-
-  if (mode === 'incompatible') {
-    return {
-      title: 'Incompatible',
-      detail: 'Protocol or schema mismatch detected.',
-    };
-  }
-
+  const parsed = parseContractListQuery(search);
   return {
-    title: 'Recovery required',
-    detail: 'Storage is unreadable or still repairing.',
+    kind: 'list',
+    query: parsed.query,
+    validationError: parsed.validationError,
   };
 }
 
-function routeCapabilities(mode: RuntimeMode, route: RouteDescriptor): string {
-  if (route.kind === 'not-found') {
-    return 'Unknown route.';
-  }
-
-  if (mode === 'full control') {
-    return 'Mutations enabled.';
-  }
-
-  if (mode === 'control limited') {
-    return 'Mutations may be refused while the daemon is limited.';
-  }
-
-  if (mode === 'browse-only') {
-    return 'Read-only local snapshot. Triggers and live controls are unavailable.';
-  }
-
-  if (mode === 'incompatible') {
-    return 'Restart daemon, update desktop, or switch to browse-only.';
-  }
-
-  return 'Repair or recover storage before continuing.';
+function navigate(pathname: string, search = ''): void {
+  window.history.pushState({}, '', `${pathname}${search}`);
+  window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
-function renderRoute(route: RouteDescriptor): ReactElement {
-  if (route.kind === 'contracts') {
-    return <section data-route="/">Contracts route</section>;
+function mergeVisibleRows(
+  current: ProcessListItem[],
+  next: ProcessListItem[],
+): ProcessListItem[] {
+  if (current.length === 0) {
+    return next;
   }
 
-  if (route.kind === 'process-detail') {
-    return (
-      <section data-route={`/process/${route.processId}`}>
-        Process route for {route.processId}
-      </section>
-    );
-  }
-
-  if (route.kind === 'sessions') {
-    return <SessionsPage />;
-  }
-
-  if (route.kind === 'session-viewer') {
-    return (
-      <section data-route={`/sessions/${route.sessionId}`}>
-        Session route for {route.sessionId}
-      </section>
-    );
-  }
-
-  if (route.kind === 'errors') {
-    return <section data-route="/errors">Errors route</section>;
-  }
-
-  if (route.kind === 'daemon') {
-    return <section data-route="/daemon">Daemon route</section>;
-  }
-
-  return <section data-route="not-found">Not found</section>;
+  const nextById = new Map(next.map((item) => [item.processId, item]));
+  const preserved = current
+    .map((item) => nextById.get(item.processId))
+    .filter((item): item is ProcessListItem => item !== undefined);
+  const preservedIds = new Set(preserved.map((item) => item.processId));
+  const newcomers = next.filter((item) => !preservedIds.has(item.processId));
+  return [...preserved, ...newcomers];
 }
 
-export interface AppProps {
-  pathname?: string;
+async function invokeQuery<T>(
+  cmd: string,
+  args?: Record<string, unknown>,
+): Promise<QueryEnvelope<T>> {
+  const response = (await invoke(cmd, args)) as QueryEnvelope<T> | { code?: string; message?: string };
+  if ('data' in response) {
+    return response;
+  }
+  throw new Error(response.message ?? `${cmd} failed`);
 }
 
-export default function App({ pathname }: AppProps): ReactElement {
-  const controlPlane = useControlPlaneState();
-  const route = resolveRoute(pathname ?? globalThis.location?.pathname ?? '/');
-  const banner = modeBanner(controlPlane.mode);
+export function App(): ReactElement {
+  const [route, setRoute] = useState<RouteState>(() => currentRoute());
+  const { snapshot: bootstrapSnapshot, loading: bootstrapLoading, error: bootstrapError } =
+    useControlPlaneState();
+  const [listState, setListState] = useState<ScreenState<KeysetPage<ProcessListItem>>>({
+    status: 'idle',
+  });
+  const [detailState, setDetailState] = useState<DetailState>({ status: 'idle' });
+  const [listEnvelopeMeta, setListEnvelopeMeta] = useState<{ snapshotSeq: number; snapshotAt: string } | null>(null);
+  const [pendingCursor, setPendingCursor] = useState<string | null>(null);
+  const [visibleRows, setVisibleRows] = useState<ProcessListItem[]>([]);
+  const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const hasHydratedList = useRef(false);
+
+  useEffect(() => {
+    const onPopState = (): void => setRoute(currentRoute());
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (route.kind !== 'list') {
+      return;
+    }
+
+    if (route.validationError) {
+      setListState({ status: 'error', message: route.validationError });
+      setVisibleRows([]);
+      setListEnvelopeMeta(null);
+      return;
+    }
+
+    setListState({ status: 'loading' });
+    void invokeQuery<KeysetPage<ProcessListItem>>('list_processes', {
+      cursor: route.query.after ?? null,
+      limit: route.query.limit,
+      filters: {
+        sourceIds: route.query.sourceId ? [route.query.sourceId] : [],
+        pipelineStates: route.query.pipelineState ? [route.query.pipelineState] : [],
+        decisionDispositions: route.query.decision ? [route.query.decision] : [],
+        staleOnly: route.query.staleOnly === 'true',
+        search: route.query.search ?? null,
+      },
+    })
+      .then((envelope) => {
+        setListEnvelopeMeta({
+          snapshotSeq: envelope.snapshotSeq,
+          snapshotAt: envelope.snapshotAt,
+        });
+        setPendingCursor(null);
+        setVisibleRows((current) => {
+          if (route.query.after) {
+            return envelope.data.items;
+          }
+          if (!hasHydratedList.current) {
+            hasHydratedList.current = true;
+            return envelope.data.items;
+          }
+          return mergeVisibleRows(current, envelope.data.items);
+        });
+        setListState({ status: 'ready', payload: envelope.data });
+        if (selectedProcessId) {
+          requestAnimationFrame(() => {
+            document
+              .querySelector<HTMLButtonElement>(
+                `.contracts-grid__button[data-process-id="${selectedProcessId}"]`,
+              )
+              ?.focus();
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        setListState({
+          status: 'error',
+          message: error instanceof Error ? error.message : 'List query failed',
+        });
+      });
+  }, [refreshTick, route, selectedProcessId]);
+
+  useEffect(() => {
+    if (route.kind !== 'detail') {
+      return;
+    }
+    setDetailState({ status: 'loading' });
+    void invokeQuery<ProcessDetailVm>('get_process_detail', {
+      processId: route.processId,
+    })
+      .then((payload) => setDetailState({ status: 'ready', payload }))
+      .catch((error: unknown) =>
+        setDetailState({
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Detail query failed',
+        }),
+      );
+  }, [route]);
+
+  const listViewState: ContractListState = useMemo(() => {
+    if (listState.status !== 'ready') {
+      return listState;
+    }
+    return {
+      status: 'ready',
+      payload: {
+        ...listState.payload,
+        items: visibleRows,
+        nextCursor: listState.payload.nextCursor,
+        hasMore: listState.payload.hasMore,
+        snapshotSeq: listEnvelopeMeta?.snapshotSeq ?? 0,
+        snapshotAt: listEnvelopeMeta?.snapshotAt ?? '',
+      },
+    };
+  }, [listEnvelopeMeta, listState, visibleRows]);
 
   return (
-    <main data-runtime-mode={controlPlane.mode}>
-      <header>
-        <h1>{banner.title}</h1>
-        <p>{banner.detail}</p>
-        <p>{routeCapabilities(controlPlane.mode, route)}</p>
-        <ul>
-          {controlPlane.state.reasons.map((reason) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
+    <div className="desktop-shell">
+      <header className="desktop-shell__masthead">
+        <div>
+          <p className="desktop-shell__eyebrow">Layer 2 Desktop MVP</p>
+          <h1>Procurement Opportunity Queue</h1>
+        </div>
+        <div className="desktop-shell__toolbar">
+          <button type="button" onClick={() => navigate('/')}>
+            Queue
+          </button>
+          <button type="button" onClick={() => navigate('/errors')}>
+            Errors
+          </button>
+          <button type="button" onClick={() => navigate('/daemon')}>
+            Daemon
+          </button>
+          {route.kind === 'list' ? (
+            <button
+              type="button"
+              onClick={() => {
+                setPendingCursor(null);
+                setRefreshTick((value) => value + 1);
+              }}
+            >
+              Refresh queue
+            </button>
+          ) : null}
+        </div>
       </header>
-      {renderRoute(route)}
-    </main>
+
+      <div className="desktop-shell__status-banner" data-mode={bootstrapSnapshot.mode}>
+        <strong>{bootstrapSnapshot.mode.replaceAll('_', ' ')}</strong>
+        <span>{bootstrapSnapshot.controlPlane.reasons[0] ?? 'Desktop bootstrap ready.'}</span>
+        {bootstrapLoading ? <span>Refreshing bootstrap…</span> : null}
+        {bootstrapError ? <span>{bootstrapError}</span> : null}
+      </div>
+
+      <main className="desktop-shell__body">
+        {route.kind === 'list' ? (
+          <ContractList
+            query={route.query}
+            state={listViewState}
+            selectedProcessId={selectedProcessId}
+            pendingCursor={pendingCursor}
+            onOpenProcess={(processId) => {
+              setSelectedProcessId(processId);
+              navigate(`/process/${encodeURIComponent(processId)}`);
+            }}
+            onHighlightProcess={(processId) => setSelectedProcessId(processId)}
+            onRequestNextPage={(nextCursor) => {
+              setPendingCursor(nextCursor);
+              const params = new URLSearchParams(window.location.search);
+              if (nextCursor) {
+                params.set('after', nextCursor);
+              } else {
+                params.delete('after');
+              }
+              navigate('/', params.toString() ? `?${params.toString()}` : '');
+            }}
+            onApplyQuery={(nextQuery) => {
+              const params = new URLSearchParams();
+              if (nextQuery.after) params.set('after', nextQuery.after);
+              if (nextQuery.limit) params.set('limit', String(nextQuery.limit));
+              if (nextQuery.search) params.set('search', nextQuery.search);
+              if (nextQuery.sourceId) params.set('sourceId', nextQuery.sourceId);
+              if (nextQuery.pipelineState) params.set('pipelineState', nextQuery.pipelineState);
+              if (nextQuery.decision) params.set('decision', nextQuery.decision);
+              if (nextQuery.staleOnly) params.set('staleOnly', nextQuery.staleOnly);
+              setPendingCursor(null);
+              hasHydratedList.current = false;
+              navigate('/', params.toString() ? `?${params.toString()}` : '');
+            }}
+            onRefresh={() => setRefreshTick((value) => value + 1)}
+          />
+        ) : route.kind === 'detail' ? (
+          <ContractDetail
+            processId={route.processId}
+            state={detailState}
+            onBack={() => navigate('/')}
+          />
+        ) : route.kind === 'errors' ? (
+          <ErrorsPage controlPlane={bootstrapSnapshot.controlPlane} />
+        ) : route.kind === 'daemon' ? (
+          <DaemonStatusPage controlPlane={bootstrapSnapshot.controlPlane} />
+        ) : (
+          <div className="empty-state" role="status">
+            Unknown route.
+          </div>
+        )}
+      </main>
+    </div>
   );
 }

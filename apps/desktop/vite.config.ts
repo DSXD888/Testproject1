@@ -1,15 +1,19 @@
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
-import { handleDevBridgeInvoke } from './src/lib/dev-bridge-fixtures';
 import { tauriDevBridge } from './vite-plugin-tauri-dev-bridge';
 
+const packageUiAlias = fileURLToPath(new URL('../../packages/ui/index.ts', import.meta.url));
+
 export default defineConfig(({ mode }) => ({
-  plugins: [
-    react(),
-    mode === 'development'
-      ? tauriDevBridge({ invokeHandler: handleDevBridgeInvoke })
-      : undefined,
-  ].filter(Boolean),
+  plugins: [react(), mode === 'development' ? tauriDevBridge() : undefined].filter(
+    Boolean,
+  ),
+  resolve: {
+    alias: {
+      '@project/ui': packageUiAlias,
+    },
+  },
   server: {
     host: '127.0.0.1',
     port: 5173,

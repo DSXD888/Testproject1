@@ -1,14 +1,17 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
 
-import App from './App';
+import { App } from './App';
+import './styles.css';
 
-const container = document.getElementById('root');
+const rootElement = document.getElementById('root');
 
-if (container) {
-  createRoot(container).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  );
+if (!rootElement) {
+  throw new Error('desktop root element is missing');
 }
+
+ReactDOM.createRoot(rootElement).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);

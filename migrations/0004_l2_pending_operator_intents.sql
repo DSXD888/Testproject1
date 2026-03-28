@@ -1,20 +1,10 @@
 PRAGMA foreign_keys = ON;
 
-CREATE TABLE IF NOT EXISTS process_aliases (
-  alias_process_id TEXT PRIMARY KEY,
-  canonical_process_id TEXT NOT NULL REFERENCES procurement_processes(id),
-  alias_reason TEXT NOT NULL DEFAULT 'merged_same_process',
-  owner_id TEXT NOT NULL DEFAULT 'local-owner',
-  row_version INTEGER NOT NULL DEFAULT 1,
-  last_local_seq INTEGER,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE IF NOT EXISTS pending_operator_intents (
   id TEXT PRIMARY KEY,
   process_id TEXT NOT NULL REFERENCES procurement_processes(id),
   desired_disposition TEXT NOT NULL,
+  decision_note TEXT,
   reviewed_basis_hash TEXT NOT NULL,
   reviewed_manifest_hash TEXT NOT NULL,
   reviewed_at_stage_run_id TEXT NOT NULL,
@@ -28,6 +18,17 @@ CREATE TABLE IF NOT EXISTS pending_operator_intents (
   last_error TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CHECK (desired_disposition IN ('approve', 'reject', 'watch'))
+);
+
+CREATE TABLE IF NOT EXISTS process_aliases (
+  alias_process_id TEXT PRIMARY KEY,
+  canonical_process_id TEXT NOT NULL REFERENCES procurement_processes(id),
+  alias_reason TEXT NOT NULL DEFAULT 'merged_same_process',
+  owner_id TEXT NOT NULL,
+  row_version INTEGER NOT NULL DEFAULT 1,
+  last_local_seq INTEGER,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_process_aliases_canonical
