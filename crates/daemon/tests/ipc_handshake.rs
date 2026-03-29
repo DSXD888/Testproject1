@@ -840,8 +840,7 @@ impl HandshakeHarness {
             .as_ref()
             .ok_or_else(|| anyhow!("handshake listener is not active"))?
             .try_clone()?;
-        let mut context = self.context.clone();
-        context.mutations_allowed = true;
+        let context = self.context.clone();
         let handle = thread::spawn(move || handshake_impl::serve_one(&listener, &context, None));
 
         let mut client = UnixStream::connect(&self.socket_path)
