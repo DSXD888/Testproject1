@@ -62,7 +62,70 @@ export interface SessionRegistryApi {
   canPromoteHistorical(sessionId: string, snapshotSeq: number): boolean;
 }
 
-const persistedLastSeqByCompositeKey = new Map<string, number>();
+type AnchorStorage = Pick<Storage, 'getItem' | 'setItem'>;
+
+const ANCHOR_STORAGE_KEY = 'procintel.sessionAnchors.v1';
+const inMemoryAnchors = new Map<string, number>();
+
+function defaultAnchorStorage(): AnchorStorage | null {
+  if (typeof globalThis === 'undefined' || !('localStorage' in globalThis)) {
+    return null;
+  }
+
+  const storage = globalThis.localStorage;
+  if (!storage) {
+    return null;
+  }
+
+  try {
+    storage.getItem(ANCHOR_STORAGE_KEY);
+    return storage;
+  } catch {
+    return null;
+  }
+}
+
+function readPersistedAnchors(storage: AnchorStorage | null): Map<string, number> {
+  if (!storage) {
+    return new Map(inMemoryAnchors);
+  }
+
+  try {
+    const raw = storage.getItem(ANCHOR_STORAGE_KEY);
+    if (!raw) {
+      return new Map();
+    }
+
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    return new Map(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, number] => typeof entry[1] === 'number',
+      ),
+    );
+  } catch {
+    return new Map();
+  }
+}
+
+function writePersistedAnchors(
+  storage: AnchorStorage | null,
+  anchors: Map<string, number>,
+): void {
+  if (!storage) {
+    inMemoryAnchors.clear();
+    anchors.forEach((value, key) => inMemoryAnchors.set(key, value));
+    return;
+  }
+
+  try {
+    storage.setItem(
+      ANCHOR_STORAGE_KEY,
+      JSON.stringify(Object.fromEntries(anchors.entries())),
+    );
+  } catch {
+    // Ignore persistence failures and keep runtime memory authoritative.
+  }
+}
 
 function sessionKey(daemonInstanceId: string, sessionId: string): string {
   return `${daemonInstanceId}:${sessionId}`;
@@ -83,7 +146,9 @@ function hasSequence(frame: SessionFrame): frame is Exclude<SessionFrame, { kind
 
 export function createSessionRegistry(
   initialDaemonInstanceId: string | null = null,
+  storage: AnchorStorage | null = defaultAnchorStorage(),
 ): SessionRegistryApi {
+  const persistedAnchors = readPersistedAnchors(storage);
   let state: SessionRegistryState = {
     daemonInstanceId: initialDaemonInstanceId,
     sessions: {},
@@ -126,7 +191,7 @@ export function createSessionRegistry(
         archiveSeq: session.archiveSeq ?? prior?.archiveSeq ?? null,
       };
       if (nextState.lastSeqBySession[key] === undefined) {
-        const persisted = persistedLastSeqByCompositeKey.get(key);
+        const persisted = persistedAnchors.get(key);
         if (persisted !== undefined) {
           nextState.lastSeqBySession[key] = persisted;
         }
@@ -158,7 +223,8 @@ export function createSessionRegistry(
       }
 
       nextState.lastSeqBySession[key] = frame.seq;
-      persistedLastSeqByCompositeKey.set(key, frame.seq);
+      persistedAnchors.set(key, frame.seq);
+      writePersistedAnchors(storage, persistedAnchors);
       if (frame.kind === 'lifecycle' && frame.state === 'archived' && frame.archiveSeq !== undefined) {
         const session = nextState.sessions[key];
         if (session) {

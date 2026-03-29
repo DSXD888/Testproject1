@@ -61,4 +61,27 @@ describe('useControlPlaneState', () => {
     expect(markup).toContain('browse-only');
     controlPlaneStore.reset();
   });
+
+  it('applies health events without replacing unrelated handshake fields', () => {
+    controlPlaneStore.applyBootstrapSnapshot({
+      mode: 'full_control',
+      controlPlane: makeState({ daemonInstanceId: 'daemon-a', reasons: ['Healthy'] }),
+      descriptor: null,
+      launchedDaemon: false,
+    });
+
+    controlPlaneStore.applyHealthEvent({
+      daemon: 'degraded',
+      load: 'busy',
+      reasons: ['Heartbeat overdue'],
+    });
+
+    const snapshot = controlPlaneStore.getSnapshot();
+    expect(snapshot.state.daemonInstanceId).toBe('daemon-a');
+    expect(snapshot.state.daemon).toBe('degraded');
+    expect(snapshot.state.load).toBe('busy');
+    expect(snapshot.state.reasons).toEqual(['Heartbeat overdue']);
+    expect(snapshot.mode).toBe('control limited');
+    controlPlaneStore.reset();
+  });
 });

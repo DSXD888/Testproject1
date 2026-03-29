@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 
 import { invoke } from '../lib/transport';
+import { subscribe as subscribeTransport } from '../lib/transport';
 
 export type HumanRuntimeMode =
   | 'full control'
@@ -58,6 +59,18 @@ export interface ControlPlaneStoreSnapshot {
 
 export type UseControlPlaneStateResult = ControlPlaneStoreState & ControlPlaneStoreSnapshot;
 
+export interface ControlPlaneHealthEvent {
+  daemon?: ControlPlaneState['daemon'];
+  control?: ControlPlaneState['control'];
+  load?: ControlPlaneState['load'];
+  storage?: ControlPlaneState['storage'];
+  reasons?: string[];
+  daemonInstanceId?: string;
+  daemonVersion?: string;
+  protocolVersion?: number;
+  schemaEpoch?: number;
+}
+
 const listeners = new Set<() => void>();
 
 function bootstrapPendingSnapshot(): BootstrapSnapshot {
@@ -112,6 +125,15 @@ function shouldPreserveCurrentSnapshot(nextSnapshot: BootstrapSnapshot): boolean
   );
 }
 
+function applyBootstrapSnapshot(snapshot: BootstrapSnapshot): void {
+  if (!shouldPreserveCurrentSnapshot(snapshot)) {
+    state.snapshot = snapshot;
+  }
+  state.loading = false;
+  state.error = null;
+  emitChange();
+}
+
 async function refreshSnapshot(): Promise<void> {
   state.loading = true;
   emitChange();
@@ -119,13 +141,13 @@ async function refreshSnapshot(): Promise<void> {
   try {
     const result = await invoke('get_bootstrap_snapshot');
     const snapshot = parseBootstrapResult(result);
-    if (snapshot && !shouldPreserveCurrentSnapshot(snapshot)) {
-      state.snapshot = snapshot;
+    if (snapshot) {
+      applyBootstrapSnapshot(snapshot);
+      return;
     }
-    state.error = snapshot ? null : 'Desktop bootstrap returned an unexpected payload.';
+    state.error = 'Desktop bootstrap returned an unexpected payload.';
   } catch (error) {
     state.error = error instanceof Error ? error.message : 'Desktop bootstrap failed';
-  } finally {
     state.loading = false;
     emitChange();
   }
@@ -149,6 +171,20 @@ export function useControlPlaneState(): UseControlPlaneStateResult {
 
   useEffect(() => {
     void refreshSnapshot();
+
+    const unsubscribe = subscribeTransport<ControlPlaneHealthEvent>(
+      'daemon.health',
+      undefined,
+      (event) => {
+        if (!event || typeof event !== 'object') {
+          return;
+        }
+
+        controlPlaneStore.applyHealthEvent(event);
+      },
+    );
+
+    return unsubscribe;
   }, []);
 
   return {
@@ -206,6 +242,29 @@ export const controlPlaneStore = {
     };
   },
   subscribe,
+  applyBootstrapSnapshot,
+  applyHealthEvent(event: ControlPlaneHealthEvent): void {
+    const current = state.snapshot.controlPlane;
+    const nextState: ControlPlaneState = {
+      daemonInstanceId: event.daemonInstanceId ?? current.daemonInstanceId,
+      daemonVersion: event.daemonVersion ?? current.daemonVersion,
+      protocolVersion: event.protocolVersion ?? current.protocolVersion,
+      schemaEpoch: event.schemaEpoch ?? current.schemaEpoch,
+      storage: event.storage ?? current.storage,
+      daemon: event.daemon ?? current.daemon,
+      control: event.control ?? current.control,
+      load: event.load ?? current.load,
+      reasons: event.reasons ?? current.reasons,
+    };
+    state.snapshot = {
+      ...state.snapshot,
+      mode: toRuntimeMode(deriveRuntimeMode(nextState)),
+      controlPlane: nextState,
+    };
+    state.loading = false;
+    state.error = null;
+    emitChange();
+  },
   setState(nextState: ControlPlaneState): void {
     state.snapshot = {
       ...state.snapshot,

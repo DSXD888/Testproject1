@@ -6,6 +6,18 @@ import {
   type SessionListItem,
 } from './session-registry';
 
+function createMemoryStorage() {
+  const values = new Map<string, string>();
+  return {
+    getItem(key: string): string | null {
+      return values.get(key) ?? null;
+    },
+    setItem(key: string, value: string): void {
+      values.set(key, value);
+    },
+  };
+}
+
 function makeSession(sessionId: string, daemonInstanceId = 'daemon-a'): SessionListItem {
   return {
     sessionId,
@@ -88,7 +100,8 @@ describe('session registry', () => {
   });
 
   it('TS-REG-005 preserves anchors across same-daemon reset and clears them on daemon change', () => {
-    const registry = createSessionRegistry('daemon-a');
+    const storage = createMemoryStorage();
+    const registry = createSessionRegistry('daemon-a', storage);
     registry.applySessionMeta(makeSession('session-1'));
     registry.applyStreamFrame('session-1', {
       seq: 9,
@@ -102,5 +115,9 @@ describe('session registry', () => {
 
     registry.resetForDaemon('daemon-b');
     expect(registry.getSnapshot().lastSeqBySession['daemon-a:session-1']).toBeUndefined();
+
+    const reopened = createSessionRegistry('daemon-a', storage);
+    reopened.applySessionMeta(makeSession('session-1'));
+    expect(reopened.getSnapshot().lastSeqBySession['daemon-a:session-1']).toBe(9);
   });
 });
