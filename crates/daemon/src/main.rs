@@ -552,6 +552,16 @@ struct ExecutedSession {
     artifact_refs: Vec<String>,
 }
 
+struct LivePtyRegistration<'a> {
+    session_id: &'a str,
+}
+
+impl Drop for LivePtyRegistration<'_> {
+    fn drop(&mut self) {
+        crate::ipc::handlers::sessions::unregister_live_pty_session(self.session_id);
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -1276,6 +1286,8 @@ async fn execute_pty_skill_session(
             ..SpawnOptions::default()
         },
     )?;
+    crate::ipc::handlers::sessions::register_live_pty_session(session_id, session.live_control());
+    let _live_pty_registration = LivePtyRegistration { session_id };
     let mut capture = PtyCapture::new(
         artifact_root,
         session_id,

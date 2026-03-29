@@ -32,6 +32,12 @@ mod jobs {
     }
 }
 
+mod pty {
+    pub mod session {
+        pub use crate::pty_session_impl::*;
+    }
+}
+
 #[cfg(unix)]
 mod tests {
     use std::collections::BTreeMap;
@@ -44,6 +50,8 @@ mod tests {
     use async_trait::async_trait;
     use bytes::Bytes;
     use chrono::TimeZone;
+    use nix::sys::signal::{Signal, kill};
+    use nix::unistd::Pid;
     use portable_pty::ExitStatus;
     use rusqlite::params;
     use serde_json::json;
@@ -80,7 +88,8 @@ mod tests {
     };
     use crate::sessions_handler_impl::{
         ResizeSessionParams, SendSessionInputParams, SessionsHandlerContext, StopMode,
-        StopSessionParams, resize_session, send_session_input, stop_session,
+        StopSessionParams, register_live_pty_session, resize_session, send_session_input,
+        stop_session, unregister_live_pty_session,
     };
     use crate::skills_support::{TestSkillDir, lint_skill_directory};
     use crate::support::TestContext;
@@ -1588,6 +1597,45 @@ mod tests {
     }
 
     #[test]
+    fn it_con_029b_send_session_input_accepts_live_attached_pty_sessions() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let mut session = PtySession::spawn(PtyCommand::new("/bin/cat"), SpawnOptions::default())?;
+        let pgid = session.runtime_ids.pgid;
+        let process_group_id = i32::try_from(pgid)?;
+        seed_pty_session(
+            state_db.connection(),
+            "session-live-input",
+            "active",
+            Some("pty-live-input"),
+            Some(pgid),
+        )?;
+        register_live_pty_session("pty-live-input", session.live_control());
+        let mut owned_db = StateDb::open(state_db.db_path())?;
+
+        let ack = send_session_input(
+            &SessionsHandlerContext {
+                state_db: &mut owned_db,
+            },
+            &SendSessionInputParams {
+                session_id: "session-live-input".to_owned(),
+                input_utf8: "resume\n".to_owned(),
+            },
+        )?;
+
+        let echoed = session.read_line()?;
+        unregister_live_pty_session("pty-live-input");
+        let _ = kill(Pid::from_raw(-process_group_id), Signal::SIGKILL);
+        let _ = session.finish();
+
+        ensure!(ack.accepted, "live PTY sessions should acknowledge input");
+        ensure!(
+            echoed.contains("resume"),
+            "live PTY control should reach the running session"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn it_con_030_resize_session_rejects_detached_or_terminal_sessions() -> Result<()> {
         let state_db = TestStateDb::new()?;
         seed_pty_session(
@@ -1632,6 +1680,41 @@ mod tests {
         .expect_err("terminal sessions should reject resize");
         ensure!(terminal.code == "already_terminal");
 
+        Ok(())
+    }
+
+    #[test]
+    fn it_con_030b_resize_session_accepts_live_attached_pty_sessions() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let mut session = PtySession::spawn(PtyCommand::new("/bin/cat"), SpawnOptions::default())?;
+        let pgid = session.runtime_ids.pgid;
+        let process_group_id = i32::try_from(pgid)?;
+        seed_pty_session(
+            state_db.connection(),
+            "session-live-resize",
+            "active",
+            Some("pty-live-resize"),
+            Some(pgid),
+        )?;
+        register_live_pty_session("pty-live-resize", session.live_control());
+        let mut owned_db = StateDb::open(state_db.db_path())?;
+
+        let ack = resize_session(
+            &SessionsHandlerContext {
+                state_db: &mut owned_db,
+            },
+            &ResizeSessionParams {
+                session_id: "session-live-resize".to_owned(),
+                cols: 140,
+                rows: 50,
+            },
+        )?;
+
+        unregister_live_pty_session("pty-live-resize");
+        let _ = kill(Pid::from_raw(-process_group_id), Signal::SIGKILL);
+        let _ = session.finish();
+
+        ensure!(ack.accepted, "live PTY sessions should acknowledge resize");
         Ok(())
     }
 

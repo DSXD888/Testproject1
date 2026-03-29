@@ -11,6 +11,7 @@ use std::ffi::{OsStr, OsString};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::fd::RawFd;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
 pub const DEFAULT_PTY_COLS: u16 = 120;
@@ -258,14 +259,32 @@ impl PtyPairHandle {
 pub struct PtySession {
     child: Box<dyn Child + Send + Sync>,
     reader: BufReader<Box<dyn Read + Send>>,
-    writer: Box<dyn Write + Send>,
-    master: Box<dyn MasterPty + Send>,
+    writer: Arc<Mutex<Box<dyn Write + Send>>>,
+    master: Arc<Mutex<Box<dyn MasterPty + Send>>>,
     pub runtime_ids: RuntimeIds,
     pub geometry: PtyGeometry,
     pub browser_viewport: BrowserViewport,
     pub spawn_path: SpawnPath,
     pub phase_history: Vec<SessionPhase>,
     pub master_fd: Option<RawFd>,
+}
+
+#[cfg_attr(test, allow(dead_code))]
+#[derive(Clone)]
+pub struct LivePtyControl {
+    writer: Arc<Mutex<Box<dyn Write + Send>>>,
+    master: Arc<Mutex<Box<dyn MasterPty + Send>>>,
+}
+
+#[cfg_attr(test, allow(dead_code))]
+impl LivePtyControl {
+    pub fn write_input(&self, input: impl AsRef<[u8]>) -> Result<(), PtySessionError> {
+        write_to_pty(&self.writer, input.as_ref(), None)
+    }
+
+    pub fn resize(&self, cols: u16, rows: u16) -> Result<(), PtySessionError> {
+        resize_pty(&self.master, cols, rows, None)
+    }
 }
 
 impl PtySession {
@@ -286,6 +305,8 @@ impl PtySession {
                 detail: format!("failed to take PTY writer: {error:#}"),
                 runtime_ids: None,
             })?;
+        let master = Arc::new(Mutex::new(master));
+        let writer = Arc::new(Mutex::new(writer));
 
         let child = slave
             .spawn_command(spawn_command(command, options.spawn_path)?.into_builder())
@@ -320,20 +341,8 @@ impl PtySession {
         })
     }
 
-    pub fn write_input(&mut self, input: impl AsRef<[u8]>) -> Result<(), PtySessionError> {
-        self.writer
-            .write_all(input.as_ref())
-            .map_err(|error| PtySessionError::AgentRunFailed {
-                detail: format!("failed writing to PTY: {error}"),
-                runtime_ids: Some(self.runtime_ids),
-            })?;
-        self.writer
-            .flush()
-            .map_err(|error| PtySessionError::AgentRunFailed {
-                detail: format!("failed flushing PTY writer: {error}"),
-                runtime_ids: Some(self.runtime_ids),
-            })?;
-        Ok(())
+    pub fn write_input(&self, input: impl AsRef<[u8]>) -> Result<(), PtySessionError> {
+        write_to_pty(&self.writer, input.as_ref(), Some(self.runtime_ids))
     }
 
     pub fn read_line(&mut self) -> Result<String, PtySessionError> {
@@ -348,15 +357,18 @@ impl PtySession {
     }
 
     pub fn resize(&mut self, cols: u16, rows: u16) -> Result<(), PtySessionError> {
-        let next_geometry = PtyGeometry::new(cols, rows);
-        self.master
-            .resize(next_geometry.to_pty_size())
-            .map_err(|error| PtySessionError::AgentRunFailed {
-                detail: format!("failed resizing PTY: {error:#}"),
-                runtime_ids: Some(self.runtime_ids),
-            })?;
-        self.geometry = next_geometry;
+        resize_pty(&self.master, cols, rows, Some(self.runtime_ids))?;
+        self.geometry = PtyGeometry::new(cols, rows);
         Ok(())
+    }
+
+    #[cfg_attr(test, allow(dead_code))]
+    #[must_use]
+    pub fn live_control(&self) -> LivePtyControl {
+        LivePtyControl {
+            writer: Arc::clone(&self.writer),
+            master: Arc::clone(&self.master),
+        }
     }
 
     pub fn finish(&mut self) -> Result<portable_pty::ExitStatus, PtySessionError> {
@@ -373,6 +385,52 @@ impl PtySession {
         self.phase_history.push(SessionPhase::Archived);
         Ok(status)
     }
+}
+
+fn write_to_pty(
+    writer: &Arc<Mutex<Box<dyn Write + Send>>>,
+    input: &[u8],
+    runtime_ids: Option<RuntimeIds>,
+) -> Result<(), PtySessionError> {
+    let mut writer = writer.lock().map_err(|_| PtySessionError::AgentRunFailed {
+        detail: "PTY writer lock poisoned".to_owned(),
+        runtime_ids,
+    })?;
+    writer
+        .write_all(input)
+        .map_err(|error| PtySessionError::AgentRunFailed {
+            detail: format!("failed writing to PTY: {error}"),
+            runtime_ids,
+        })?;
+    writer
+        .flush()
+        .map_err(|error| PtySessionError::AgentRunFailed {
+            detail: format!("failed flushing PTY writer: {error}"),
+            runtime_ids,
+        })?;
+    drop(writer);
+    Ok(())
+}
+
+fn resize_pty(
+    master: &Arc<Mutex<Box<dyn MasterPty + Send>>>,
+    cols: u16,
+    rows: u16,
+    runtime_ids: Option<RuntimeIds>,
+) -> Result<(), PtySessionError> {
+    let next_geometry = PtyGeometry::new(cols, rows);
+    master
+        .lock()
+        .map_err(|_| PtySessionError::AgentRunFailed {
+            detail: "PTY master lock poisoned".to_owned(),
+            runtime_ids,
+        })?
+        .resize(next_geometry.to_pty_size())
+        .map_err(|error| PtySessionError::AgentRunFailed {
+            detail: format!("failed resizing PTY: {error:#}"),
+            runtime_ids,
+        })?;
+    Ok(())
 }
 
 pub const fn spawn_policy_steps() -> [&'static str; 5] {

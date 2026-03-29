@@ -5,11 +5,14 @@ use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
 use rusqlite::{OptionalExtension, params};
 use serde::Deserialize;
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
 use thiserror::Error;
 
 #[cfg(not(test))]
 use crate::db::sqlite::StateDb;
 use crate::jobs::runner::MutationAck;
+use crate::pty::session::{LivePtyControl, PtySessionError};
 #[cfg(test)]
 use crate::support::db::StateDb;
 
@@ -60,6 +63,23 @@ struct SessionControlRow {
     execution_mode: String,
     pty_session_id: Option<String>,
     pgid: Option<i32>,
+}
+
+fn live_pty_registry() -> &'static Mutex<HashMap<String, LivePtyControl>> {
+    static LIVE_PTY_SESSIONS: OnceLock<Mutex<HashMap<String, LivePtyControl>>> = OnceLock::new();
+    LIVE_PTY_SESSIONS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+pub fn register_live_pty_session(session_id: &str, control: LivePtyControl) {
+    if let Ok(mut registry) = live_pty_registry().lock() {
+        registry.insert(session_id.to_owned(), control);
+    }
+}
+
+pub fn unregister_live_pty_session(session_id: &str) {
+    if let Ok(mut registry) = live_pty_registry().lock() {
+        registry.remove(session_id);
+    }
 }
 
 pub fn stop_session(
@@ -120,13 +140,45 @@ pub fn send_session_input(
     params: &SendSessionInputParams,
 ) -> std::result::Result<MutationAck, SessionHandlerError> {
     let session = require_interactive_pty_session(context.state_db, &params.session_id)?;
-    let _ = session;
-    let _ = params.input_utf8.as_str();
+    let Some(pty_session_id) = session.pty_session_id.as_ref() else {
+        return Err(SessionHandlerError {
+            code: "not_interactive".to_owned(),
+            message: format!(
+                "session `{}` is not an attached PTY session",
+                params.session_id
+            ),
+            retryable: false,
+        });
+    };
+    let control = live_pty_registry()
+        .lock()
+        .map_err(|_| SessionHandlerError {
+            code: "busy".to_owned(),
+            message: "live PTY registry lock poisoned".to_owned(),
+            retryable: true,
+        })?
+        .get(pty_session_id)
+        .cloned()
+        .ok_or_else(|| SessionHandlerError {
+            code: "not_interactive".to_owned(),
+            message: format!(
+                "session `{}` is not currently attached to a live PTY",
+                params.session_id
+            ),
+            retryable: false,
+        })?;
 
-    Err(SessionHandlerError {
-        code: "not_interactive".to_owned(),
-        message: "live PTY attachment is not available through the command surface yet".to_owned(),
-        retryable: false,
+    control
+        .write_input(params.input_utf8.as_bytes())
+        .map_err(|error| map_pty_error(&error))?;
+
+    Ok(MutationAck {
+        accepted: true,
+        visible_after_seq: context
+            .state_db
+            .current_commit_seq()
+            .map_err(map_internal_error)?,
+        continuation_job_id: None,
     })
 }
 
@@ -142,12 +194,45 @@ pub fn resize_session(
         });
     }
     let session = require_interactive_pty_session(context.state_db, &params.session_id)?;
-    let _ = session;
+    let Some(pty_session_id) = session.pty_session_id.as_ref() else {
+        return Err(SessionHandlerError {
+            code: "not_interactive".to_owned(),
+            message: format!(
+                "session `{}` is not an attached PTY session",
+                params.session_id
+            ),
+            retryable: false,
+        });
+    };
+    let control = live_pty_registry()
+        .lock()
+        .map_err(|_| SessionHandlerError {
+            code: "busy".to_owned(),
+            message: "live PTY registry lock poisoned".to_owned(),
+            retryable: true,
+        })?
+        .get(pty_session_id)
+        .cloned()
+        .ok_or_else(|| SessionHandlerError {
+            code: "not_interactive".to_owned(),
+            message: format!(
+                "session `{}` is not currently attached to a live PTY",
+                params.session_id
+            ),
+            retryable: false,
+        })?;
 
-    Err(SessionHandlerError {
-        code: "not_interactive".to_owned(),
-        message: "live PTY attachment is not available through the command surface yet".to_owned(),
-        retryable: false,
+    control
+        .resize(params.cols, params.rows)
+        .map_err(|error| map_pty_error(&error))?;
+
+    Ok(MutationAck {
+        accepted: true,
+        visible_after_seq: context
+            .state_db
+            .current_commit_seq()
+            .map_err(map_internal_error)?,
+        continuation_job_id: None,
     })
 }
 
@@ -221,6 +306,14 @@ fn is_terminal_status(status: &str) -> bool {
 
 #[allow(clippy::needless_pass_by_value)]
 fn map_internal_error(error: anyhow::Error) -> SessionHandlerError {
+    SessionHandlerError {
+        code: "busy".to_owned(),
+        message: error.to_string(),
+        retryable: true,
+    }
+}
+
+fn map_pty_error(error: &PtySessionError) -> SessionHandlerError {
     SessionHandlerError {
         code: "busy".to_owned(),
         message: error.to_string(),

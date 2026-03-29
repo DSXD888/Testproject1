@@ -4,6 +4,7 @@ mod support;
 
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
+use std::net::Shutdown;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
@@ -42,6 +43,9 @@ mod handshake_impl;
 #[path = "../src/ipc/handlers/jobs.rs"]
 #[allow(dead_code)]
 mod jobs_handler_impl;
+#[path = "../src/pty/session.rs"]
+#[allow(dead_code)]
+mod pty_session_impl;
 #[path = "../src/jobs/runner.rs"]
 #[allow(dead_code)]
 mod runner_impl;
@@ -58,6 +62,12 @@ mod db {
 mod jobs {
     pub mod runner {
         pub use crate::runner_impl::*;
+    }
+}
+
+mod pty {
+    pub mod session {
+        pub use crate::pty_session_impl::*;
     }
 }
 
@@ -97,7 +107,7 @@ use crate::handshake_impl::{
     ActiveSessions, ClientMessage, HandshakeContext, HealthState, LifecycleFrame, LifecyclePhase,
     ProtocolRange, ReconnectOutcome, ServerMessage,
 };
-use crate::support::db::{DEFAULT_SCHEMA_EPOCH, FTS_SOURCE_ID, TestStateDb};
+use crate::support::db::{DEFAULT_SCHEMA_EPOCH, FTS_SOURCE_ID, StateDb, TestStateDb};
 
 #[test]
 fn ci_core_004_runtime_inventory_matches_manifest() -> Result<()> {
@@ -387,6 +397,115 @@ fn it_ipc_008_socket_accepts_handshake_only() -> Result<()> {
 }
 
 #[test]
+fn it_ipc_014_router_active_accepts_subscribe_and_emits_initial_health_payload() -> Result<()> {
+    let setup = HandshakeHarness::new()?;
+    let frames = setup.request_frames_with_router(&[
+        ClientMessage::Hello {
+            desktop_version: "desktop-1.0.0".to_owned(),
+            supported_protocol_range: ProtocolRange { min: 1, max: 1 },
+            expected_schema_epoch: DEFAULT_SCHEMA_EPOCH,
+            last_seen_instance_id: None,
+        },
+        ClientMessage::Subscribe {
+            request_id: "req-health".to_owned(),
+            topic: "daemon.health".to_owned(),
+            from_seq: None,
+        },
+        ClientMessage::Unsubscribe {
+            request_id: "req-unsub".to_owned(),
+            topic: "daemon.health".to_owned(),
+        },
+    ])?;
+
+    assert!(matches!(
+        frames.first(),
+        Some(ServerMessage::Welcome { .. })
+    ));
+    assert!(matches!(
+        frames.get(1),
+        Some(ServerMessage::CommandResponse { request_id, payload })
+            if request_id == "req-health" && payload == &serde_json::Value::Null
+    ));
+    assert!(matches!(
+        frames.get(2),
+        Some(ServerMessage::TopicEvent { topic, payload })
+            if topic == "daemon.health"
+                && payload["daemon"] == "ready"
+                && payload["control"] == "full"
+    ));
+    assert!(matches!(
+        frames.get(3),
+        Some(ServerMessage::CommandResponse { request_id, payload })
+            if request_id == "req-unsub" && payload == &serde_json::Value::Null
+    ));
+
+    Ok(())
+}
+
+#[test]
+fn it_ipc_014_router_accepts_supported_subscriptions() -> Result<()> {
+    let mut setup = HandshakeHarness::new()?;
+    setup.context.mutations_allowed = true;
+    setup.context.lifecycle_frames = vec![LifecycleFrame {
+        seq: 5,
+        session_id: "session-1".to_owned(),
+        phase: LifecyclePhase::Active,
+        cleanup_verdict: None,
+        archive_seq: None,
+    }];
+
+    let responses = setup.request_frames_with_router(&[
+        ClientMessage::Hello {
+            desktop_version: "desktop-1.0.0".to_owned(),
+            supported_protocol_range: ProtocolRange { min: 1, max: 1 },
+            expected_schema_epoch: DEFAULT_SCHEMA_EPOCH,
+            last_seen_instance_id: None,
+        },
+        ClientMessage::Subscribe {
+            request_id: "req-health".to_owned(),
+            topic: "daemon.health".to_owned(),
+            from_seq: None,
+        },
+        ClientMessage::Subscribe {
+            request_id: "req-session".to_owned(),
+            topic: "session.stream.session-1".to_owned(),
+            from_seq: Some(4),
+        },
+        ClientMessage::Unsubscribe {
+            request_id: "req-unsub".to_owned(),
+            topic: "session.stream.session-1".to_owned(),
+        },
+    ])?;
+
+    assert!(matches!(
+        responses.first(),
+        Some(ServerMessage::Welcome { .. })
+    ));
+    assert!(responses.iter().any(|response| {
+        matches!(
+            response,
+            ServerMessage::CommandResponse { request_id, payload }
+                if request_id == "req-health" && *payload == serde_json::Value::Null
+        )
+    }));
+    assert!(responses.iter().any(|response| {
+        matches!(
+            response,
+            ServerMessage::CommandResponse { request_id, payload }
+                if request_id == "req-session" && *payload == serde_json::Value::Null
+        )
+    }));
+    assert!(responses.iter().any(|response| {
+        matches!(
+            response,
+            ServerMessage::CommandResponse { request_id, payload }
+                if request_id == "req-unsub" && *payload == serde_json::Value::Null
+        )
+    }));
+    Ok(())
+}
+
+#[test]
 fn it_ipc_006_desktop_restart_while_daemon_stays_alive_allows_resume() -> Result<()> {
     let setup = HandshakeHarness::new()?;
     let response = setup.request(&ClientMessage::Hello {
@@ -659,7 +778,7 @@ fn repo_root() -> Result<PathBuf> {
 }
 
 struct HandshakeHarness {
-    _context: support::TestContext,
+    test_context: support::TestContext,
     context: HandshakeContext,
     listener: Option<UnixListener>,
     runtime_paths: RuntimePaths,
@@ -700,7 +819,7 @@ impl HandshakeHarness {
         let socket_path = runtime_paths.socket_path().to_path_buf();
 
         Ok(Self {
-            _context: ctx,
+            test_context: ctx,
             context,
             listener: Some(listener),
             runtime_paths,
@@ -721,7 +840,8 @@ impl HandshakeHarness {
             .as_ref()
             .ok_or_else(|| anyhow!("handshake listener is not active"))?
             .try_clone()?;
-        let context = self.context.clone();
+        let mut context = self.context.clone();
+        context.mutations_allowed = true;
         let handle = thread::spawn(move || handshake_impl::serve_one(&listener, &context, None));
 
         let mut client = UnixStream::connect(&self.socket_path)
@@ -747,6 +867,64 @@ impl HandshakeHarness {
         Ok(frames)
     }
 
+    fn request_frames_with_router(&self, messages: &[ClientMessage]) -> Result<Vec<ServerMessage>> {
+        let listener = self
+            .listener
+            .as_ref()
+            .ok_or_else(|| anyhow!("handshake listener is not active"))?
+            .try_clone()?;
+        let context = HandshakeContext {
+            mutations_allowed: true,
+            ..self.context.clone()
+        };
+        let socket_path = self.socket_path.clone();
+        let descriptor = DaemonDescriptor::new(
+            self.runtime_paths.socket_path(),
+            self.runtime_paths.state_root(),
+            DEFAULT_SCHEMA_EPOCH,
+        );
+        let artifact_root = self.test_context.artifact_root.clone();
+        let handle = thread::spawn(move || -> Result<()> {
+            let test_db = TestStateDb::new()?;
+            let mut state_db = StateDb::open(test_db.db_path())?;
+            let restart_controller = control_handler_impl::RestartController::new(
+                control_handler_impl::RestartPlan::new(PathBuf::from("/bin/true"), Vec::new(), 0),
+            );
+            let mut router = command_router_impl::CommandRouter::new(
+                control_handler_impl::ControlHandlerContext {
+                    descriptor: &descriptor,
+                    artifact_root: &artifact_root,
+                    restart_controller: &restart_controller,
+                },
+                jobs_handler_impl::JobsHandlerContext {
+                    state_db: &mut state_db,
+                },
+            );
+            handshake_impl::serve_one(&listener, &context, Some(&mut router))
+        });
+
+        let mut client = UnixStream::connect(&socket_path)
+            .with_context(|| format!("connecting to {}", socket_path.display()))?;
+        let reader_stream = client.try_clone()?;
+        reader_stream.set_read_timeout(Some(std::time::Duration::from_millis(25)))?;
+        let mut reader = BufReader::new(reader_stream);
+        let mut frames = Vec::new();
+        for message in messages {
+            let payload = serde_json::to_string(message)?;
+            client.write_all(payload.as_bytes())?;
+            client.write_all(b"\n")?;
+            client.flush()?;
+            drain_available_frames(&mut reader, &mut frames)?;
+        }
+        client.shutdown(Shutdown::Write)?;
+        drain_remaining_frames(reader, &mut frames)?;
+
+        handle
+            .join()
+            .map_err(|_| anyhow!("handshake thread panicked"))??;
+        Ok(frames)
+    }
+
     fn restart_daemon(&mut self) -> Result<()> {
         self.listener.take();
         let listener = bind_listener(&self.runtime_paths)?;
@@ -760,4 +938,46 @@ impl HandshakeHarness {
         self.listener = Some(listener);
         Ok(())
     }
+}
+
+fn drain_available_frames(
+    reader: &mut BufReader<UnixStream>,
+    frames: &mut Vec<ServerMessage>,
+) -> Result<()> {
+    loop {
+        let mut line = String::new();
+        match reader.read_line(&mut line) {
+            Ok(0) => break,
+            Ok(_) => {
+                if line.trim().is_empty() {
+                    continue;
+                }
+                frames.push(serde_json::from_str(&line).context("parsing handshake response")?);
+            }
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) =>
+            {
+                break;
+            }
+            Err(error) => return Err(error).context("reading handshake response"),
+        }
+    }
+    Ok(())
+}
+
+fn drain_remaining_frames(
+    reader: BufReader<UnixStream>,
+    frames: &mut Vec<ServerMessage>,
+) -> Result<()> {
+    for line in reader.lines() {
+        let line = line?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        frames.push(serde_json::from_str(&line).context("parsing handshake response")?);
+    }
+    Ok(())
 }

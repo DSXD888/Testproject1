@@ -17,7 +17,7 @@ use nix::unistd::Uid;
 ))]
 use nix::unistd::getpeereid;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::ipc::command_router::{BridgeError, CommandRouter, DispatchOutcome};
 
@@ -137,6 +137,10 @@ pub enum ServerMessage {
         #[serde(skip_serializing_if = "Option::is_none")]
         details: Option<Value>,
     },
+    TopicEvent {
+        topic: String,
+        payload: Value,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -241,7 +245,11 @@ pub fn handle_connection(
         return Ok(());
     }
 
-    let client_message = read_message(&stream)?;
+    let reader_stream = stream
+        .try_clone()
+        .context("cloning handshake stream for reads")?;
+    let mut reader = BufReader::new(reader_stream);
+    let client_message = read_message(&mut reader)?;
     match client_message {
         ClientMessage::Hello {
             supported_protocol_range,
@@ -307,7 +315,7 @@ pub fn handle_connection(
 
             if let Some(router) = command_router {
                 loop {
-                    let message = match read_message(&stream) {
+                    let message = match read_message(&mut reader) {
                         Ok(message) => message,
                         Err(error) if client_closed(&error) => break,
                         Err(error) => return Err(error),
@@ -327,20 +335,22 @@ pub fn handle_connection(
                             params,
                             idempotency_key.as_deref(),
                         )?,
-                        ClientMessage::Subscribe { request_id, .. }
-                        | ClientMessage::Unsubscribe { request_id, .. } => {
-                            write_bridge_error(
+                        ClientMessage::Subscribe {
+                            request_id,
+                            topic,
+                            from_seq,
+                        } => {
+                            handle_subscription_message(
                                 &mut stream,
-                                Some(request_id),
-                                BridgeError {
-                                    code: "busy".to_owned(),
-                                    message:
-                                        "stream subscriptions remain unavailable until the session router is active"
-                                            .to_owned(),
-                                    retryable: true,
-                                    details: None,
-                                },
+                                context,
+                                request_id,
+                                &topic,
+                                from_seq,
                             )?;
+                            false
+                        }
+                        ClientMessage::Unsubscribe { request_id, topic } => {
+                            handle_unsubscription_message(&mut stream, request_id, &topic)?;
                             false
                         }
                         ClientMessage::Hello { .. } => {
@@ -432,6 +442,123 @@ fn handle_command_message(
     }
 }
 
+fn handle_subscription_message(
+    stream: &mut UnixStream,
+    context: &HandshakeContext,
+    request_id: String,
+    topic: &str,
+    from_seq: Option<u64>,
+) -> Result<()> {
+    if !supported_subscription_topic(topic) {
+        write_bridge_error(
+            stream,
+            Some(request_id),
+            BridgeError::invalid_params(format!("unsupported subscription topic `{topic}`")),
+        )?;
+        return Ok(());
+    }
+
+    write_message(
+        stream,
+        &ServerMessage::CommandResponse {
+            request_id,
+            payload: Value::Null,
+        },
+    )?;
+
+    if topic == "daemon.health" {
+        write_message(
+            stream,
+            &ServerMessage::TopicEvent {
+                topic: topic.to_owned(),
+                payload: json!({
+                    "daemon": context.health_state.status,
+                    "control": if context.mutations_allowed { "full" } else { "read_only" },
+                    "load": "normal",
+                    "reasons": Vec::<String>::new(),
+                    "daemonInstanceId": context.instance_id,
+                    "daemonVersion": context.daemon_version,
+                    "protocolVersion": context.protocol_version,
+                    "schemaEpoch": context.schema_epoch,
+                }),
+            },
+        )?;
+        return Ok(());
+    }
+
+    let session_id = topic
+        .strip_prefix("session.meta.")
+        .or_else(|| topic.strip_prefix("session.stream."));
+    let min_seq = from_seq.unwrap_or(0);
+    for frame in context.lifecycle_frames.iter().filter(|frame| {
+        frame.seq > min_seq
+            && session_id.is_none_or(|expected_session_id| frame.session_id == expected_session_id)
+    }) {
+        frame.validate()?;
+        write_message(
+            stream,
+            &ServerMessage::TopicEvent {
+                topic: topic.to_owned(),
+                payload: json!({
+                    "sessionId": frame.session_id,
+                    "frame": {
+                        "kind": "lifecycle",
+                        "seq": frame.seq,
+                        "state": lifecycle_phase_label(frame.phase),
+                        "cleanupVerdict": frame.cleanup_verdict,
+                        "archiveSeq": frame.archive_seq,
+                        "ts": Value::Null,
+                    },
+                }),
+            },
+        )?;
+    }
+
+    Ok(())
+}
+
+fn handle_unsubscription_message(
+    stream: &mut UnixStream,
+    request_id: String,
+    topic: &str,
+) -> Result<()> {
+    if !supported_subscription_topic(topic) {
+        write_bridge_error(
+            stream,
+            Some(request_id),
+            BridgeError::invalid_params(format!("unsupported subscription topic `{topic}`")),
+        )?;
+        return Ok(());
+    }
+
+    write_message(
+        stream,
+        &ServerMessage::CommandResponse {
+            request_id,
+            payload: Value::Null,
+        },
+    )
+}
+
+fn supported_subscription_topic(topic: &str) -> bool {
+    topic == "daemon.health"
+        || topic == "sessions"
+        || topic.starts_with("session.meta.")
+        || topic.starts_with("session.stream.")
+}
+
+const fn lifecycle_phase_label(phase: LifecyclePhase) -> &'static str {
+    match phase {
+        LifecyclePhase::Created => "created",
+        LifecyclePhase::Spawned => "spawned",
+        LifecyclePhase::Active => "active",
+        LifecyclePhase::Terminating => "terminating",
+        LifecyclePhase::Exited => "exited",
+        LifecyclePhase::Reaped => "reaped",
+        LifecyclePhase::Archived => "archived",
+    }
+}
+
 fn write_bridge_error(
     stream: &mut UnixStream,
     request_id: Option<String>,
@@ -463,8 +590,10 @@ fn reconnect_outcome(last_seen_instance_id: Option<&str>, instance_id: &str) -> 
     }
 }
 
-fn read_message(stream: &UnixStream) -> Result<ClientMessage> {
-    let mut reader = BufReader::new(stream);
+fn read_message<R>(reader: &mut R) -> Result<ClientMessage>
+where
+    R: BufRead,
+{
     let mut buffer = String::new();
     let bytes = reader
         .read_line(&mut buffer)
