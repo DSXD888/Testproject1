@@ -710,7 +710,7 @@ impl DaemonBridgeConnection {
                         details,
                     });
                 }
-                DaemonWireResponse::Lifecycle { .. } => {}
+                DaemonWireResponse::Lifecycle { .. } | DaemonWireResponse::TopicEvent { .. } => {}
                 DaemonWireResponse::CommandResponse {
                     request_id: response_id,
                     ..
@@ -810,6 +810,10 @@ enum DaemonWireResponse {
         retryable: bool,
         details: Option<Value>,
     },
+    TopicEvent {
+        topic: String,
+        payload: Value,
+    },
 }
 
 impl DaemonWireResponse {
@@ -820,6 +824,7 @@ impl DaemonWireResponse {
             Self::Lifecycle { .. } => "lifecycle",
             Self::CommandResponse { .. } => "commandResponse",
             Self::Error { .. } => "error",
+            Self::TopicEvent { .. } => "topicEvent",
         }
     }
 }

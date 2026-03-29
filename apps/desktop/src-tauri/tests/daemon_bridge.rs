@@ -359,6 +359,59 @@ fn rs_dbr_006_lifecycle_frames_do_not_poison_command_responses() -> TestResult {
 }
 
 #[test]
+fn rs_dbr_006b_topic_events_do_not_poison_command_responses() -> TestResult {
+    let runtime = TempRuntime::new()?;
+    runtime.write_descriptor()?;
+    let listener = UnixListener::bind(runtime.socket_path())?;
+    let server = thread::spawn(
+        move || -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let (mut stream, _) = listener.accept()?;
+            let _hello = read_client_value(&stream)?;
+            write_server_message(&mut stream, &welcome_message())?;
+            write_server_message(
+                &mut stream,
+                &json!({
+                    "messageType": "topicEvent",
+                    "topic": "daemon.health",
+                    "payload": {
+                        "status": "degraded"
+                    }
+                }),
+            )?;
+            let command = read_client_value(&stream)?;
+            write_server_message(
+                &mut stream,
+                &json!({
+                    "messageType": "commandResponse",
+                    "requestId": command["requestId"],
+                    "payload": {
+                        "accepted": true,
+                        "visible_after_seq": 21,
+                        "continuation_job_id": null
+                    }
+                }),
+            )?;
+            Ok(())
+        },
+    );
+
+    let mut connection = bridge(&runtime).connect()?;
+    let ack = connection.capture_decision(
+        &CaptureDecisionParams {
+            process_id: "proc-1".to_owned(),
+            disposition: DecisionDisposition::Watch,
+            reviewed_basis_hash: "basis-1".to_owned(),
+            reviewed_manifest_hash: "manifest-1".to_owned(),
+            reviewed_at_stage_run_id: "stage-1".to_owned(),
+        },
+        "idem-topic",
+    )?;
+    assert_eq!(ack.visible_after_seq, 21);
+    server.join().expect("server should join")?;
+    Ok(())
+}
+
+#[test]
 fn rs_dbr_007_closed_method_set_stays_stable() {
     let methods = DaemonCommandMethod::ALL
         .iter()
