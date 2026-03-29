@@ -4,6 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Result, anyhow, ensure};
+use chrono::{Duration as ChronoDuration, Utc};
 use rusqlite::{Connection, params};
 use tempfile::TempDir;
 
@@ -15,7 +16,7 @@ mod sqlite_impl;
 
 use query_service_impl::{
     CleanupVerdictVm, ErrorSeverity, ExecutionModeVm, PipelineState, ProcessListFilters,
-    QueryService, QueryServiceErrorCode, ReplayAvailability, SessionHistoryRequest,
+    QueryService, QueryServiceErrorCode, ReplayAvailability, SessionFrame, SessionHistoryRequest,
     SessionListFilters, SessionPhaseVm,
 };
 use sqlite_impl::{DEFAULT_OWNER_ID, DEFAULT_SCHEMA_EPOCH, StateDb, StateDbConfig};
@@ -31,7 +32,7 @@ struct Harness {
 impl Harness {
     fn new() -> Result<Self> {
         let temp = tempfile::tempdir()?;
-        let db_path = temp.path().join("state.db");
+        let db_path = temp.path().join("state").join("state.db");
         let artifact_root = temp.path().join("artifacts");
         let runtime_root = temp.path().join("runtime");
         fs::create_dir_all(&artifact_root)?;
@@ -75,6 +76,24 @@ impl Harness {
         published_at: &str,
         pipeline_state: &str,
     ) -> Result<()> {
+        let deadline_at = (Utc::now() + ChronoDuration::days(90)).to_rfc3339();
+        self.seed_process_with_notice(
+            process_id,
+            published_at,
+            &deadline_at,
+            pipeline_state,
+            "public_web",
+        )
+    }
+
+    fn seed_process_with_notice(
+        &mut self,
+        process_id: &str,
+        published_at: &str,
+        deadline_at: &str,
+        pipeline_state: &str,
+        access_route: &str,
+    ) -> Result<()> {
         let notice_id = format!("notice-{process_id}");
         let lot_id = format!("lot-{process_id}");
         let raw_document_id = format!("raw-{process_id}");
@@ -97,7 +116,7 @@ impl Harness {
                     process_id,
                     format!("Buyer {process_id}"),
                     format!("Process {process_id}"),
-                    "2026-04-30T10:00:00Z",
+                    deadline_at,
                     published_at,
                     DEFAULT_OWNER_ID,
                 ],
@@ -106,9 +125,9 @@ impl Harness {
                 "\
                 INSERT INTO contract_notices (
                   id, process_id, source_id, source_notice_id, raw_document_id, ocid, title,
-                  summary, buyer_name, procurement_stage, deadline_at, published_at,
+                  summary, buyer_name, procurement_stage, access_route, deadline_at, published_at,
                   source_updated_at, normalized_payload, owner_id
-                ) VALUES (?1, ?2, 'fts', ?3, ?4, ?5, ?6, 'summary', ?7, 'tender', ?8, ?9, ?9, '{}', ?10)
+                ) VALUES (?1, ?2, 'fts', ?3, ?4, ?5, ?6, 'summary', ?7, 'tender', ?8, ?9, ?10, ?10, '{}', ?11)
                 ",
                 params![
                     notice_id,
@@ -118,13 +137,14 @@ impl Harness {
                     format!("ocid-{process_id}"),
                     format!("Notice {process_id}"),
                     format!("Buyer {process_id}"),
-                    "2026-04-30T10:00:00Z",
+                    access_route,
+                    deadline_at,
                     published_at,
                     DEFAULT_OWNER_ID,
                 ],
             )?;
             tx.execute(
-                "INSERT INTO notice_lots (id, notice_id, lot_key, title, description, owner_id) VALUES (?1, ?2, 'lot-key', 'Lot title', 'Lot description', ?3)",
+                "INSERT INTO notice_lots (id, notice_id, lot_key, title, description, estimated_value_pence, owner_id) VALUES (?1, ?2, 'lot-key', 'Lot title', 'Lot description', 1250000, ?3)",
                 params![lot_id, notice_id, DEFAULT_OWNER_ID],
             )?;
             tx.execute(
@@ -165,6 +185,22 @@ impl Harness {
                 ) VALUES (?1, ?2, ?3, ?4, 'Steel widget', 'good', 'direct', 'widget', 5000, 8800, ?5)
                 ",
                 params![candidate_id, process_id, notice_id, lot_id, DEFAULT_OWNER_ID],
+            )?;
+            tx.execute(
+                "\
+                INSERT INTO qualification_runs (
+                  id, process_id, notice_id, lot_id, expiry_qualified, goods_qualified,
+                  goods_confidence_bps, legal_category, addressable_value_pence, access_route,
+                  qualification_basis, rationale, owner_id
+                ) VALUES (?1, ?2, ?3, ?4, 1, 1, 9000, 'goods', 1250000, 'public_web', 'fixture', 'Qualified for list summary', ?5)
+                ",
+                params![
+                    format!("qualification-{process_id}"),
+                    process_id,
+                    notice_id,
+                    lot_id,
+                    DEFAULT_OWNER_ID,
+                ],
             )?;
             tx.execute(
                 "\
@@ -377,6 +413,93 @@ fn rs_qs_002_process_list_returns_snapshot_page() -> Result<()> {
     assert_eq!(envelope.data.items[0].pipeline_state, PipelineState::Review);
     assert_eq!(envelope.data.items[0].candidate_count, 1);
     assert_eq!(envelope.data.items[0].quoted_candidate_count, 1);
+    assert_eq!(
+        envelope.data.items[0].estimated_value_pence,
+        Some(1_250_000)
+    );
+    assert_eq!(envelope.data.items[0].lot_count, 1);
+    assert_eq!(envelope.data.items[0].access_route, "public_web");
+    assert_eq!(envelope.data.items[0].legal_category, "goods");
+    Ok(())
+}
+
+#[test]
+fn rs_qs_002b_process_list_uses_keyset_pagination() -> Result<()> {
+    let mut harness = Harness::new()?;
+    for index in 0..27 {
+        harness.seed_process(
+            &format!("process-{index:02}"),
+            &format!("2026-03-{:02}T10:00:00Z", 27 - index),
+            "qualified",
+        )?;
+    }
+
+    let service = harness.service()?;
+    let first_page = service
+        .list_processes(None, 25, &ProcessListFilters::default())
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+    assert_eq!(first_page.data.items.len(), 25);
+    assert!(first_page.data.has_more);
+    assert!(first_page.data.next_cursor.is_some());
+
+    let second_page = service
+        .list_processes(
+            first_page.data.next_cursor.as_deref(),
+            25,
+            &ProcessListFilters::default(),
+        )
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+    assert_eq!(second_page.data.items.len(), 2);
+    assert!(!second_page.data.has_more);
+
+    let first_ids = first_page
+        .data
+        .items
+        .iter()
+        .map(|item| item.process_id.clone())
+        .collect::<Vec<_>>();
+    let second_ids = second_page
+        .data
+        .items
+        .iter()
+        .map(|item| item.process_id.clone())
+        .collect::<Vec<_>>();
+    assert!(second_ids.iter().all(|id| !first_ids.contains(id)));
+    Ok(())
+}
+
+#[test]
+fn rs_qs_002c_process_list_filters_expiring_non_dps_but_keeps_dynamic_market() -> Result<()> {
+    let mut harness = Harness::new()?;
+    let soon_deadline = (Utc::now() + ChronoDuration::days(5)).to_rfc3339();
+    harness.seed_process_with_notice(
+        "process-expired",
+        "2026-03-28T10:00:00Z",
+        &soon_deadline,
+        "review",
+        "public_web",
+    )?;
+    harness.seed_process_with_notice(
+        "process-dps",
+        "2026-03-28T11:00:00Z",
+        &soon_deadline,
+        "review",
+        "dynamic_market",
+    )?;
+
+    let service = harness.service()?;
+    let envelope = service
+        .list_processes(None, 25, &ProcessListFilters::default())
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+
+    let visible_ids = envelope
+        .data
+        .items
+        .iter()
+        .map(|item| item.process_id.as_str())
+        .collect::<Vec<_>>();
+    assert!(visible_ids.contains(&"process-dps"));
+    assert!(!visible_ids.contains(&"process-expired"));
     Ok(())
 }
 
@@ -458,6 +581,7 @@ fn rs_qs_004b_process_detail_exposes_authoritative_review_metadata() -> Result<(
         .data
         .manifest
         .expect("manifest metadata should be present");
+    assert_eq!(detail.data.pipeline_state, PipelineState::Qualified);
     assert_eq!(manifest.basis_hash.as_deref(), Some("basis-process-a"));
     assert_eq!(
         manifest.artifact_hash.as_deref(),
@@ -524,6 +648,7 @@ fn rs_qs_005_session_list_returns_canonical_metadata() -> Result<()> {
     assert_eq!(sessions.data.items[0].daemon_instance_id, "daemon-1");
     assert!(sessions.data.items[0].reattachable);
     assert_eq!(sessions.data.items[1].phase, SessionPhaseVm::Spawned);
+    assert_eq!(sessions.data.items[1].daemon_instance_id, "daemon-1");
     assert_eq!(
         sessions.data.items[1].error_type.as_deref(),
         Some("AGENT_RUN_FAILED")
@@ -653,7 +778,15 @@ fn rs_qs_008_history_replay_reports_complete_partial_and_missing() -> Result<()>
         })
         .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
     assert_eq!(complete.data.availability, ReplayAvailability::Complete);
-    assert_eq!(complete.data.frames.len(), 2);
+    assert_eq!(complete.data.frames.len(), 6);
+    assert!(matches!(
+        &complete.data.frames[0],
+        SessionFrame::Pty { seq: 10, chunk, .. } if String::from_utf8_lossy(chunk) == "line-10\n"
+    ));
+    assert!(matches!(
+        &complete.data.frames[5],
+        SessionFrame::Pty { seq: 15, chunk, .. } if String::from_utf8_lossy(chunk) == "line-15\n"
+    ));
 
     let partial = service
         .get_session_history(&SessionHistoryRequest {
@@ -664,6 +797,13 @@ fn rs_qs_008_history_replay_reports_complete_partial_and_missing() -> Result<()>
         })
         .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
     assert_eq!(partial.data.availability, ReplayAvailability::Partial);
+    assert!(matches!(
+        partial.data.frames.last(),
+        Some(SessionFrame::Gap {
+            from_seq: 16,
+            to_seq: 20
+        })
+    ));
 
     let missing = service
         .get_session_history(&SessionHistoryRequest {

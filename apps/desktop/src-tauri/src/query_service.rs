@@ -27,10 +27,7 @@ impl QueryService {
         expected_schema_epoch: i64,
     ) -> Result<Self, QueryServiceError> {
         let db_path = db_path.into();
-        let runtime_dir = db_path
-            .parent()
-            .unwrap_or_else(|| Path::new("."))
-            .join("runtime");
+        let runtime_dir = runtime_dir_for_db(&db_path);
         let conn = Self::open_read_connection(&db_path, expected_schema_epoch)?;
         Ok(Self {
             db_path,
@@ -56,17 +53,7 @@ impl QueryService {
         let limit = validate_limit(limit)?;
 
         self.with_snapshot(|conn| {
-            let decisions = latest_decisions(conn)?;
-            let process_sources = process_sources(conn)?;
-            let mut items = load_process_list_rows(conn, &decisions)?;
-
-            items.retain(|item| {
-                process_matches_filters(item, filters, process_sources.get(&item.process_id))
-            });
-            items = apply_cursor(items, cursor.as_ref(), |item| {
-                CursorToken::new(&item.published_at, &item.process_id)
-            });
-
+            let items = load_process_list_rows(conn, cursor.as_ref(), limit, filters)?;
             Ok(build_page(items, limit, |item| {
                 CursorToken::new(&item.published_at, &item.process_id)
             }))
@@ -102,6 +89,8 @@ impl QueryService {
             let errors = load_error_rows(
                 conn,
                 Some(&canonical_process_id),
+                None,
+                MAX_PAGE_LIMIT,
                 &ErrorListFilters::default(),
             )?;
 
@@ -158,12 +147,8 @@ impl QueryService {
         let limit = validate_limit(limit)?;
 
         self.with_snapshot(|conn| {
-            let mut items = load_session_rows(conn, &self.runtime_dir)?;
-            items.retain(|item| session_matches_filters(item, filters));
-            items = apply_cursor(items, cursor.as_ref(), |item| {
-                CursorToken::new(item.started_at.as_deref().unwrap_or(""), &item.session_id)
-            });
-
+            let items =
+                load_session_rows(conn, &self.runtime_dir, cursor.as_ref(), limit, filters)?;
             Ok(build_page(items, limit, |item| {
                 CursorToken::new(item.started_at.as_deref().unwrap_or(""), &item.session_id)
             }))
@@ -181,12 +166,7 @@ impl QueryService {
         let limit = validate_limit(limit)?;
 
         self.with_snapshot(|conn| {
-            let mut items = load_error_rows(conn, None, filters)?;
-            items.retain(|item| error_matches_filters(item, filters));
-            items = apply_cursor(items, cursor.as_ref(), |item| {
-                CursorToken::new(&item.created_at, &item.error_manifest_id)
-            });
-
+            let items = load_error_rows(conn, None, cursor.as_ref(), limit, filters)?;
             Ok(build_page(items, limit, |item| {
                 CursorToken::new(&item.created_at, &item.error_manifest_id)
             }))
@@ -311,18 +291,6 @@ impl PipelineState {
             _ => Self::Error,
         }
     }
-
-    const fn as_filter_value(self) -> &'static str {
-        match self {
-            Self::Pending => "pending",
-            Self::Qualifying => "qualifying",
-            Self::Enriching => "enriching",
-            Self::Qualified => "qualified",
-            Self::Review => "review",
-            Self::Rejected => "rejected",
-            Self::Error => "error",
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -337,13 +305,6 @@ impl ExecutionModeVm {
         match value {
             "pty" => Self::Pty,
             _ => Self::Contract,
-        }
-    }
-
-    const fn as_filter_value(self) -> &'static str {
-        match self {
-            Self::Pty => "pty",
-            Self::Contract => "contract",
         }
     }
 }
@@ -370,18 +331,6 @@ impl SessionPhaseVm {
             "reaped" => Self::Reaped,
             "archived" => Self::Archived,
             _ => Self::Exited,
-        }
-    }
-
-    const fn as_filter_value(self) -> &'static str {
-        match self {
-            Self::Created => "created",
-            Self::Spawned => "spawned",
-            Self::Active => "active",
-            Self::Terminating => "terminating",
-            Self::Exited => "exited",
-            Self::Reaped => "reaped",
-            Self::Archived => "archived",
         }
     }
 }
@@ -413,15 +362,7 @@ pub enum ErrorSeverity {
     Info,
 }
 
-impl ErrorSeverity {
-    const fn as_filter_value(self) -> &'static str {
-        match self {
-            Self::Critical => "critical",
-            Self::Warning => "warning",
-            Self::Info => "info",
-        }
-    }
-}
+impl ErrorSeverity {}
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -688,14 +629,80 @@ pub enum ReplayAvailability {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum StructuredSessionEvent {
+    Started {
+        pid: u32,
+        pgid: u32,
+        sid: u32,
+        mode: String,
+    },
+    Checkpoint {
+        checkpoint_seq: u32,
+        path: String,
+    },
+    Progress {
+        completed: u32,
+        total: Option<u32>,
+    },
+    AuthChallenge {
+        kind: String,
+        detail: String,
+        intervention: Option<serde_json::Value>,
+    },
+    Warning {
+        code: String,
+        detail: String,
+    },
+    FinalResultReady {
+        path: String,
+    },
+    Exited {
+        exit_code: Option<i32>,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(
     tag = "kind",
     rename_all = "snake_case",
     rename_all_fields = "camelCase"
 )]
 pub enum SessionFrame {
-    Pty { seq: u64, text: String },
-    Stdout { seq: u64, text: String },
-    Stderr { seq: u64, text: String },
+    Lifecycle {
+        seq: u64,
+        state: String,
+        cleanup_verdict: Option<String>,
+        archive_seq: Option<i64>,
+        ts: String,
+    },
+    Pty {
+        seq: u64,
+        chunk: Vec<u8>,
+        ts: String,
+    },
+    Stdout {
+        seq: u64,
+        chunk: String,
+        ts: String,
+    },
+    Stderr {
+        seq: u64,
+        chunk: String,
+        ts: String,
+    },
+    Event {
+        seq: u64,
+        event: StructuredSessionEvent,
+        ts: String,
+    },
+    Gap {
+        from_seq: u64,
+        to_seq: u64,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -772,107 +779,216 @@ struct StreamIndexEntry {
 #[allow(clippy::too_many_lines)]
 fn load_process_list_rows(
     conn: &Connection,
-    decisions: &HashMap<String, DecisionRecord>,
+    cursor: Option<&CursorToken>,
+    limit: usize,
+    filters: &ProcessListFilters,
 ) -> Result<Vec<ProcessListItem>, QueryServiceError> {
+    let source_ids = json_filter_values(&filters.source_ids)?;
+    let pipeline_states = json_filter_values(&filters.pipeline_states)?;
+    let decision_dispositions = json_filter_values(&filters.decision_dispositions)?;
+    let fetch_limit = i64::try_from(limit + 1)
+        .map_err(|_| QueryServiceError::invalid_filter("limit exceeds supported range"))?;
     let mut stmt = conn
         .prepare(
             "\
-            SELECT p.id,
-                   COALESCE(p.canonical_process_id, p.id),
-                   p.title,
-                   COALESCE(p.buyer_name, ''),
-                   p.latest_published_at,
-                   p.latest_deadline_at,
-                   COALESCE(
+            WITH process_rows AS (
+              SELECT p.id AS process_id,
+                     COALESCE(p.canonical_process_id, p.id) AS canonical_process_id,
+                     p.title,
+                     COALESCE(p.buyer_name, '') AS buyer_name,
+                     p.latest_published_at AS published_at,
+                     p.latest_deadline_at AS deadline_at,
+                     COALESCE(
+                       (
+                         SELECT SUM(nl.estimated_value_pence)
+                         FROM notice_lots nl
+                         INNER JOIN contract_notices cn ON cn.id = nl.notice_id
+                         WHERE cn.process_id = p.id
+                       ),
+                       (
+                         SELECT MAX(cn.estimated_value_gbp_ex_vat_pence)
+                         FROM contract_notices cn
+                         WHERE cn.process_id = p.id
+                       )
+                     ) AS estimated_value_pence,
+                     COALESCE(
+                       (
+                         SELECT COUNT(*)
+                         FROM notice_lots nl
+                         INNER JOIN contract_notices cn ON cn.id = nl.notice_id
+                         WHERE cn.process_id = p.id
+                       ),
+                       0
+                     ) AS lot_count,
+                     COALESCE(
+                       (
+                         SELECT qr.access_route
+                         FROM qualification_runs qr
+                         WHERE qr.process_id = p.id AND qr.access_route IS NOT NULL
+                         ORDER BY qr.qualified_at DESC, qr.id DESC
+                         LIMIT 1
+                       ),
+                       (
+                         SELECT cn.access_route
+                         FROM contract_notices cn
+                         WHERE cn.process_id = p.id AND cn.access_route IS NOT NULL
+                         ORDER BY cn.published_at DESC, cn.id DESC
+                         LIMIT 1
+                       ),
+                       'unknown'
+                     ) AS access_route,
+                     COALESCE(
+                       (
+                         SELECT CASE
+                           WHEN COUNT(DISTINCT qr.legal_category) > 1 THEN 'mixed'
+                           ELSE MAX(qr.legal_category)
+                         END
+                         FROM qualification_runs qr
+                         WHERE qr.process_id = p.id AND qr.legal_category IS NOT NULL
+                       ),
+                       'unknown'
+                     ) AS legal_category,
+                     COALESCE(pa.pipeline_state, 'pending') AS pipeline_state,
+                     pa.priced_coverage_bps,
+                     pa.net_qualified_coverage_bps,
+                     pa.net_qualified_value_coverage_bps,
+                     pa.gross_margin_bps,
+                     pa.net_margin_bps,
+                     COALESCE((SELECT COUNT(*) FROM product_candidates pc WHERE pc.process_id = p.id), 0) AS candidate_count,
+                     COALESCE((SELECT COUNT(*) FROM supplier_quotes sq WHERE sq.process_id = p.id), 0) AS quoted_candidate_count,
+                     pa.decision_basis_hash,
                      (
-                       SELECT SUM(nl.estimated_value_pence)
-                       FROM notice_lots nl
-                       INNER JOIN contract_notices cn ON cn.id = nl.notice_id
-                       WHERE cn.process_id = p.id
-                     ),
-                     (
-                       SELECT MAX(cn.estimated_value_gbp_ex_vat_pence)
-                       FROM contract_notices cn
-                       WHERE cn.process_id = p.id
-                     )
-                   ),
-                   COALESCE(
-                     (
-                       SELECT COUNT(*)
-                       FROM notice_lots nl
-                       INNER JOIN contract_notices cn ON cn.id = nl.notice_id
-                       WHERE cn.process_id = p.id
-                     ),
-                     0
-                   ),
-                   COALESCE(
-                     (
-                       SELECT qr.access_route
-                       FROM qualification_runs qr
-                       WHERE qr.process_id = p.id AND qr.access_route IS NOT NULL
-                       ORDER BY qr.qualified_at DESC, qr.id DESC
+                       SELECT poi.desired_disposition
+                       FROM pending_operator_intents poi
+                       WHERE poi.process_id = p.id AND poi.superseded_by_intent_id IS NULL
+                       ORDER BY poi.queued_at DESC, poi.id DESC
                        LIMIT 1
-                     ),
+                     ) AS decision_disposition,
                      (
-                       SELECT cn.access_route
-                       FROM contract_notices cn
-                       WHERE cn.process_id = p.id AND cn.access_route IS NOT NULL
-                       ORDER BY cn.published_at DESC, cn.id DESC
+                       SELECT poi.reviewed_basis_hash
+                       FROM pending_operator_intents poi
+                       WHERE poi.process_id = p.id AND poi.superseded_by_intent_id IS NULL
+                       ORDER BY poi.queued_at DESC, poi.id DESC
                        LIMIT 1
-                     ),
-                     'unknown'
-                   ),
-                   COALESCE(
+                     ) AS decision_reviewed_basis_hash,
                      (
-                       SELECT CASE
-                         WHEN COUNT(DISTINCT qr.legal_category) > 1 THEN 'mixed'
-                         ELSE MAX(qr.legal_category)
-                       END
-                       FROM qualification_runs qr
-                       WHERE qr.process_id = p.id AND qr.legal_category IS NOT NULL
-                     ),
-                     'unknown'
-                   ),
-                   COALESCE(pa.pipeline_state, 'pending'),
-                   pa.priced_coverage_bps,
-                   pa.net_qualified_coverage_bps,
-                   pa.net_qualified_value_coverage_bps,
-                   pa.gross_margin_bps,
-                   pa.net_margin_bps,
-                   COALESCE((SELECT COUNT(*) FROM product_candidates pc WHERE pc.process_id = p.id), 0),
-                   COALESCE((SELECT COUNT(*) FROM supplier_quotes sq WHERE sq.process_id = p.id), 0),
-                   pa.decision_basis_hash
-            FROM procurement_processes p
-            LEFT JOIN pipeline_assessments pa ON pa.process_id = p.id
-            ORDER BY p.latest_published_at DESC, p.id DESC
+                       SELECT poi.reviewed_at
+                       FROM pending_operator_intents poi
+                       WHERE poi.process_id = p.id AND poi.superseded_by_intent_id IS NULL
+                       ORDER BY poi.queued_at DESC, poi.id DESC
+                       LIMIT 1
+                     ) AS decision_decided_at
+              FROM procurement_processes p
+              LEFT JOIN pipeline_assessments pa ON pa.process_id = p.id
+            )
+            SELECT process_id,
+                   canonical_process_id,
+                   title,
+                   buyer_name,
+                   published_at,
+                   deadline_at,
+                   estimated_value_pence,
+                   lot_count,
+                   access_route,
+                   legal_category,
+                   pipeline_state,
+                   priced_coverage_bps,
+                   net_qualified_coverage_bps,
+                   net_qualified_value_coverage_bps,
+                   gross_margin_bps,
+                   net_margin_bps,
+                   candidate_count,
+                   quoted_candidate_count,
+                   decision_disposition,
+                   decision_reviewed_basis_hash,
+                   decision_decided_at,
+                   decision_basis_hash
+            FROM process_rows
+            WHERE (
+                    json_array_length(?1) = 0
+                    OR EXISTS (
+                      SELECT 1
+                      FROM contract_notices cn
+                      WHERE cn.process_id = process_rows.process_id
+                        AND cn.source_id IN (SELECT value FROM json_each(?1))
+                    )
+                  )
+              AND (
+                    json_array_length(?2) = 0
+                    OR pipeline_state IN (SELECT value FROM json_each(?2))
+                  )
+              AND (
+                    json_array_length(?3) = 0
+                    OR decision_disposition IN (SELECT value FROM json_each(?3))
+                  )
+              AND (
+                    ?4 = 0
+                    OR (
+                      decision_reviewed_basis_hash IS NOT NULL
+                      AND decision_basis_hash IS NOT NULL
+                      AND decision_reviewed_basis_hash <> decision_basis_hash
+                    )
+                  )
+              AND (
+                    ?5 IS NULL
+                    OR lower(title) LIKE '%' || lower(?5) || '%'
+                    OR lower(buyer_name) LIKE '%' || lower(?5) || '%'
+                  )
+              AND (
+                    access_route = 'dynamic_market'
+                    OR deadline_at IS NULL
+                    OR datetime(deadline_at) >= datetime('now', '+30 days')
+                  )
+              AND (
+                    ?6 IS NULL
+                    OR published_at < ?6
+                    OR (published_at = ?6 AND process_id < ?7)
+                  )
+            ORDER BY published_at DESC, process_id DESC
+            LIMIT ?8
             ",
         )
         .map_err(storage_unreadable)?;
 
     let rows = stmt
-        .query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, String>(4)?,
-                row.get::<_, Option<String>>(5)?,
-                row.get::<_, Option<i64>>(6)?,
-                row.get::<_, i64>(7)?,
-                row.get::<_, String>(8)?,
-                row.get::<_, String>(9)?,
-                row.get::<_, String>(10)?,
-                row.get::<_, Option<i64>>(11)?,
-                row.get::<_, Option<i64>>(12)?,
-                row.get::<_, Option<i64>>(13)?,
-                row.get::<_, Option<i64>>(14)?,
-                row.get::<_, Option<i64>>(15)?,
-                row.get::<_, i64>(16)?,
-                row.get::<_, i64>(17)?,
-                row.get::<_, Option<String>>(18)?,
-            ))
-        })
+        .query_map(
+            params![
+                source_ids,
+                pipeline_states,
+                decision_dispositions,
+                i64::from(filters.stale_only),
+                filters.search,
+                cursor.map(|value| value.sort_at.as_str()),
+                cursor.map(|value| value.stable_id.as_str()),
+                fetch_limit,
+            ],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, Option<String>>(5)?,
+                    row.get::<_, Option<i64>>(6)?,
+                    row.get::<_, i64>(7)?,
+                    row.get::<_, String>(8)?,
+                    row.get::<_, String>(9)?,
+                    row.get::<_, String>(10)?,
+                    row.get::<_, Option<i64>>(11)?,
+                    row.get::<_, Option<i64>>(12)?,
+                    row.get::<_, Option<i64>>(13)?,
+                    row.get::<_, Option<i64>>(14)?,
+                    row.get::<_, Option<i64>>(15)?,
+                    row.get::<_, i64>(16)?,
+                    row.get::<_, i64>(17)?,
+                    row.get::<_, Option<String>>(18)?,
+                    row.get::<_, Option<String>>(19)?,
+                    row.get::<_, Option<String>>(20)?,
+                    row.get::<_, Option<String>>(21)?,
+                ))
+            },
+        )
         .map_err(storage_unreadable)?;
 
     rows.map(|row| {
@@ -895,11 +1011,14 @@ fn load_process_list_rows(
             net_margin_base_bps,
             candidate_count,
             quoted_candidate_count,
+            decision_disposition,
+            decision_reviewed_basis_hash,
+            decision_decided_at,
             decision_basis_hash,
         ) = row.map_err(storage_unreadable)?;
 
         Ok(ProcessListItem {
-            process_id: process_id.clone(),
+            process_id,
             canonical_process_id,
             title,
             buyer_name,
@@ -917,10 +1036,14 @@ fn load_process_list_rows(
             net_margin_base_bps,
             candidate_count,
             quoted_candidate_count,
-            decision: decision_status_for_process(
-                decisions.get(&process_id),
-                decision_basis_hash.as_deref(),
-            ),
+            decision: DecisionStatus {
+                disposition: decision_disposition,
+                is_stale: matches!(
+                    (&decision_reviewed_basis_hash, &decision_basis_hash),
+                    (Some(reviewed), Some(current)) if reviewed != current
+                ),
+                decided_at: decision_decided_at,
+            },
         })
     })
     .collect()
@@ -1217,63 +1340,133 @@ fn load_coverage(
     ))
 }
 
+#[allow(clippy::too_many_lines)]
 fn load_session_rows(
     conn: &Connection,
     runtime_dir: &Path,
+    cursor: Option<&CursorToken>,
+    limit: usize,
+    filters: &SessionListFilters,
 ) -> Result<Vec<SessionListItem>, QueryServiceError> {
+    let phases = json_filter_values(&filters.phases)?;
+    let execution_modes = json_filter_values(&filters.execution_modes)?;
+    let fetch_limit = i64::try_from(limit + 1)
+        .map_err(|_| QueryServiceError::invalid_filter("limit exceeds supported range"))?;
+    let descriptor_instance_id = current_descriptor_instance_id(runtime_dir);
     let mut stmt = conn
         .prepare(
             "\
-            SELECT id, skill_path, skill_version, execution_mode, status, started_at, completed_at,
-                   CASE
-                     WHEN started_at IS NOT NULL AND completed_at IS NOT NULL
-                     THEN CAST((julianday(completed_at) - julianday(started_at)) * 86400000 AS INTEGER)
-                     ELSE NULL
-                   END AS duration_ms,
-                   cleanup_verdict, error_type, exit_code,
-                   COALESCE(last_checkpoint_seq, 0), COALESCE(terminal_output_bytes, 0),
-                   structured_trace
-            FROM agent_session_logs
-            ORDER BY started_at DESC, id DESC
+            WITH session_rows AS (
+              SELECT id,
+                     skill_path,
+                     skill_version,
+                     execution_mode,
+                     status,
+                     started_at,
+                     completed_at,
+                     CASE
+                       WHEN started_at IS NOT NULL AND completed_at IS NOT NULL
+                       THEN CAST((julianday(completed_at) - julianday(started_at)) * 86400000 AS INTEGER)
+                       ELSE NULL
+                     END AS duration_ms,
+                     cleanup_verdict,
+                     error_type,
+                     exit_code,
+                     COALESCE(last_checkpoint_seq, 0) AS checkpoint_count,
+                     COALESCE(terminal_output_bytes, 0) AS byte_count,
+                     structured_trace,
+                     COALESCE(json_extract(structured_trace, '$.daemon_instance_id'), '') AS raw_daemon_instance_id,
+                     COALESCE(
+                       json_extract(structured_trace, '$.phase_history[#-1]'),
+                       CASE status
+                         WHEN 'created' THEN 'created'
+                         WHEN 'spawned' THEN 'spawned'
+                         WHEN 'active' THEN 'active'
+                         WHEN 'terminating' THEN 'terminating'
+                         WHEN 'exited' THEN 'exited'
+                         WHEN 'reaped' THEN 'reaped'
+                         ELSE 'archived'
+                       END
+                     ) AS session_phase
+              FROM agent_session_logs
+            )
+            SELECT id, skill_path, skill_version, execution_mode, started_at, completed_at,
+                   duration_ms, cleanup_verdict, error_type, exit_code, checkpoint_count,
+                   byte_count, raw_daemon_instance_id, session_phase
+            FROM session_rows
+            WHERE (
+                    json_array_length(?1) = 0
+                    OR session_phase IN (SELECT value FROM json_each(?1))
+                  )
+              AND (
+                    json_array_length(?2) = 0
+                    OR execution_mode IN (SELECT value FROM json_each(?2))
+                  )
+              AND (
+                    ?3 = 0
+                    OR session_phase IN ('created', 'spawned', 'active', 'terminating')
+                  )
+              AND (
+                    ?4 IS NULL
+                    OR lower(id) LIKE '%' || lower(?4) || '%'
+                    OR lower(skill_path) LIKE '%' || lower(?4) || '%'
+                  )
+              AND (
+                    ?5 IS NULL
+                    OR COALESCE(started_at, '') < ?5
+                    OR (COALESCE(started_at, '') = ?5 AND id < ?6)
+                  )
+            ORDER BY COALESCE(started_at, '') DESC, id DESC
+            LIMIT ?7
             ",
         )
         .map_err(storage_unreadable)?;
     let rows = stmt
-        .query_map([], |row| {
-            let phase = row.get::<_, String>(4)?;
-            let structured_trace = row.get::<_, Option<String>>(13)?;
-            let execution_mode = ExecutionModeVm::from_db(&row.get::<_, String>(3)?);
-            let session_phase = canonical_phase(structured_trace.as_deref(), &phase);
-            Ok(SessionListItem {
-                session_id: row.get(0)?,
-                daemon_instance_id: structured_trace
-                    .as_deref()
-                    .and_then(trace_daemon_instance_id)
-                    .or_else(|| current_descriptor_instance_id(runtime_dir))
-                    .unwrap_or_default(),
-                skill_path: row.get(1)?,
-                skill_version: row.get(2)?,
-                execution_mode,
-                phase: session_phase,
-                started_at: row.get(5)?,
-                ended_at: row.get(6)?,
-                duration_ms: row.get(7)?,
-                cleanup_verdict: row
-                    .get::<_, Option<String>>(8)?
-                    .and_then(|value| CleanupVerdictVm::from_db(&value)),
-                error_type: row.get(9)?,
-                exit_code: row.get(10)?,
-                checkpoint_count: row.get(11)?,
-                byte_count: row.get(12)?,
-                reattachable: matches!(
-                    session_phase,
-                    SessionPhaseVm::Created
-                        | SessionPhaseVm::Spawned
-                        | SessionPhaseVm::Active
-                        | SessionPhaseVm::Terminating
-                ) && execution_mode == ExecutionModeVm::Pty,
-            })
-        })
+        .query_map(
+            params![
+                phases,
+                execution_modes,
+                i64::from(filters.active_only),
+                filters.search,
+                cursor.map(|value| value.sort_at.as_str()),
+                cursor.map(|value| value.stable_id.as_str()),
+                fetch_limit,
+            ],
+            |row| {
+                let execution_mode = ExecutionModeVm::from_db(&row.get::<_, String>(3)?);
+                let session_phase = SessionPhaseVm::from_db(&row.get::<_, String>(13)?);
+                let raw_daemon_instance_id: String = row.get(12)?;
+                Ok(SessionListItem {
+                    session_id: row.get(0)?,
+                    daemon_instance_id: if raw_daemon_instance_id.is_empty() {
+                        descriptor_instance_id.clone().unwrap_or_default()
+                    } else {
+                        raw_daemon_instance_id
+                    },
+                    skill_path: row.get(1)?,
+                    skill_version: row.get(2)?,
+                    execution_mode,
+                    phase: session_phase,
+                    started_at: row.get(4)?,
+                    ended_at: row.get(5)?,
+                    duration_ms: row.get(6)?,
+                    cleanup_verdict: row
+                        .get::<_, Option<String>>(7)?
+                        .and_then(|value| CleanupVerdictVm::from_db(&value)),
+                    error_type: row.get(8)?,
+                    exit_code: row.get(9)?,
+                    checkpoint_count: row.get(10)?,
+                    byte_count: row.get(11)?,
+                    reattachable: matches!(
+                        session_phase,
+                        SessionPhaseVm::Created
+                            | SessionPhaseVm::Spawned
+                            | SessionPhaseVm::Active
+                            | SessionPhaseVm::Terminating
+                    ) && execution_mode == ExecutionModeVm::Pty,
+                })
+            },
+        )
         .map_err(storage_unreadable)?;
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(storage_unreadable)
@@ -1282,87 +1475,127 @@ fn load_session_rows(
 fn load_error_rows(
     conn: &Connection,
     process_id: Option<&str>,
+    cursor: Option<&CursorToken>,
+    limit: usize,
     filters: &ErrorListFilters,
 ) -> Result<Vec<ErrorListItem>, QueryServiceError> {
-    let items = if let Some(process_id) = process_id {
-        let mut stmt = conn
-            .prepare(
-                "\
-                SELECT em.id, em.process_id, em.pipeline_stage, em.error_type, em.error_message,
-                       asl.cleanup_verdict, em.skill_path, em.created_at, em.resolved, em.agent_session_id
-                FROM error_manifests em
-                LEFT JOIN agent_session_logs asl ON asl.id = em.agent_session_id
-                WHERE em.process_id = ?1
-                ORDER BY em.created_at DESC, em.id DESC
-                ",
+    let severities = json_filter_values(&filters.severities)?;
+    let pipeline_stages = json_filter_values(&filters.pipeline_stages)?;
+    let fetch_limit = i64::try_from(limit + 1)
+        .map_err(|_| QueryServiceError::invalid_filter("limit exceeds supported range"))?;
+    let mut stmt = conn
+        .prepare(
+            "\
+            WITH error_rows AS (
+              SELECT em.id,
+                     em.process_id,
+                     em.pipeline_stage,
+                     em.error_type,
+                     em.error_message,
+                     asl.cleanup_verdict,
+                     em.skill_path,
+                     em.created_at,
+                     em.resolved,
+                     em.agent_session_id,
+                     CASE
+                       WHEN asl.cleanup_verdict = 'leaked'
+                         OR em.error_type IN (
+                           'AGENT_CLEANUP_INCOMPLETE',
+                           'AGENT_DAEMON_CRASH_DURING_SESSION',
+                           'HOST_RESOURCE_EXHAUSTED',
+                           'DAEMON_STARTUP_FAILED'
+                         )
+                       THEN 'critical'
+                       WHEN em.error_type LIKE 'AGENT_%'
+                         OR em.error_type LIKE 'SOURCE_%'
+                         OR em.error_type IN (
+                           'HOST_SLEEP_INTERRUPTED',
+                           'AUTH_STATE_STALE',
+                           'PAGE_SHAPE_DRIFT',
+                           'LOCALE_OR_CURRENCY_DRIFT',
+                           'NOTICE_PARSE_FAILED',
+                           'GOODS_CLASSIFICATION_LOW_CONFIDENCE',
+                           'SUPPLIER_MATCH_LOW_CONFIDENCE',
+                           'COMMODITY_CODE_LOW_CONFIDENCE',
+                           'REVENUE_BASIS_UNCERTAIN',
+                           'FPO_ACCESS_UNAVAILABLE',
+                           'SQLITE_WRITE_FAILED'
+                         )
+                       THEN 'warning'
+                       ELSE 'info'
+                     END AS severity
+              FROM error_manifests em
+              LEFT JOIN agent_session_logs asl ON asl.id = em.agent_session_id
             )
-            .map_err(storage_unreadable)?;
-        let rows = stmt
-            .query_map(params![process_id], map_error_row)
-            .map_err(storage_unreadable)?;
-        rows.collect::<Result<Vec<_>, _>>()
-            .map_err(storage_unreadable)?
-    } else {
-        let mut stmt = conn
-            .prepare(
-                "\
-                SELECT em.id, em.process_id, em.pipeline_stage, em.error_type, em.error_message,
-                       asl.cleanup_verdict, em.skill_path, em.created_at, em.resolved, em.agent_session_id
-                FROM error_manifests em
-                LEFT JOIN agent_session_logs asl ON asl.id = em.agent_session_id
-                ORDER BY em.created_at DESC, em.id DESC
-                ",
-            )
-            .map_err(storage_unreadable)?;
-        let rows = stmt
-            .query_map([], map_error_row)
-            .map_err(storage_unreadable)?;
-        rows.collect::<Result<Vec<_>, _>>()
-            .map_err(storage_unreadable)?
-    };
-    Ok(items
-        .into_iter()
-        .filter(|item| error_matches_filters(item, filters))
-        .collect())
+            SELECT id, process_id, pipeline_stage, error_type, error_message, cleanup_verdict,
+                   skill_path, created_at, resolved, agent_session_id, severity
+            FROM error_rows
+            WHERE (?1 IS NULL OR process_id = ?1)
+              AND (?2 IS NULL OR resolved = ?2)
+              AND (
+                    json_array_length(?3) = 0
+                    OR severity IN (SELECT value FROM json_each(?3))
+                  )
+              AND (
+                    json_array_length(?4) = 0
+                    OR pipeline_stage IN (SELECT value FROM json_each(?4))
+                  )
+              AND (
+                    ?5 IS NULL
+                    OR lower(error_type) LIKE '%' || lower(?5) || '%'
+                    OR lower(error_message) LIKE '%' || lower(?5) || '%'
+                  )
+              AND (
+                    ?6 IS NULL
+                    OR created_at < ?6
+                    OR (created_at = ?6 AND id < ?7)
+                  )
+            ORDER BY created_at DESC, id DESC
+            LIMIT ?8
+            ",
+        )
+        .map_err(storage_unreadable)?;
+    let rows = stmt
+        .query_map(
+            params![
+                process_id,
+                filters.resolved.map(i64::from),
+                severities,
+                pipeline_stages,
+                filters.search,
+                cursor.map(|value| value.sort_at.as_str()),
+                cursor.map(|value| value.stable_id.as_str()),
+                fetch_limit,
+            ],
+            map_error_row,
+        )
+        .map_err(storage_unreadable)?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(storage_unreadable)
 }
 
 fn map_error_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ErrorListItem> {
-    let error_type: String = row.get(3)?;
     let cleanup_verdict: Option<String> = row.get(5)?;
+    let severity: String = row.get(10)?;
     Ok(ErrorListItem {
         error_manifest_id: row.get(0)?,
         process_id: row.get(1)?,
         pipeline_stage: row.get(2)?,
-        error_type: error_type.clone(),
+        error_type: row.get(3)?,
         error_message: row.get(4)?,
         cleanup_verdict: cleanup_verdict
             .as_deref()
             .and_then(CleanupVerdictVm::from_db),
-        severity: derive_severity(&error_type, cleanup_verdict.as_deref()),
+        severity: match severity.as_str() {
+            "critical" => ErrorSeverity::Critical,
+            "warning" => ErrorSeverity::Warning,
+            _ => ErrorSeverity::Info,
+        },
         skill_path: row.get(6)?,
         created_at: row.get(7)?,
         resolved: row.get::<_, i64>(8)? == 1,
         agent_session_id: row.get(9)?,
     })
-}
-
-fn process_sources(
-    conn: &Connection,
-) -> Result<HashMap<String, HashSet<String>>, QueryServiceError> {
-    let mut stmt = conn
-        .prepare("SELECT process_id, source_id FROM contract_notices")
-        .map_err(storage_unreadable)?;
-    let rows = stmt
-        .query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })
-        .map_err(storage_unreadable)?;
-    let mut map = HashMap::<String, HashSet<String>>::new();
-    for row in rows {
-        let (process_id, source_id) = row.map_err(storage_unreadable)?;
-        map.entry(process_id).or_default().insert(source_id);
-    }
-    Ok(map)
 }
 
 fn latest_decisions(
@@ -1483,15 +1716,24 @@ fn read_pty_history(
                 chunk_path.display()
             ))
         })?;
-        for seq in entry.first_seq.max(request.from_seq)..=entry.last_seq.min(request.to_seq) {
-            covered.insert(seq);
+        let chunk_frames = decode_pty_chunk_frames(&decoded, entry.first_seq, entry.last_seq);
+        for frame in chunk_frames {
+            let SessionFrame::Pty { seq, .. } = &frame else {
+                continue;
+            };
+            if *seq < request.from_seq || *seq > request.to_seq {
+                continue;
+            }
+            covered.insert(*seq);
+            frames.push(frame);
         }
-        frames.push(SessionFrame::Pty {
-            seq: entry.first_seq,
-            text: String::from_utf8_lossy(&decoded).into_owned(),
-        });
     }
 
+    frames.extend(gap_frames_for_range(
+        &covered,
+        request.from_seq,
+        request.to_seq,
+    ));
     limit_history_payload(&mut frames, request.max_bytes);
 
     Ok(SessionHistoryChunk {
@@ -1521,19 +1763,26 @@ fn read_contract_history(
         if request.from_seq <= 1 && request.to_seq >= 1 && !stdout_text.is_empty() {
             frames.push(SessionFrame::Stdout {
                 seq: 1,
-                text: stdout_text.to_owned(),
+                chunk: stdout_text.to_owned(),
+                ts: String::new(),
             });
             covered.insert(1);
         }
         if request.from_seq <= 2 && request.to_seq >= 2 && !stderr_text.is_empty() {
             frames.push(SessionFrame::Stderr {
                 seq: 2,
-                text: stderr_text.to_owned(),
+                chunk: stderr_text.to_owned(),
+                ts: String::new(),
             });
             covered.insert(2);
         }
     }
 
+    frames.extend(gap_frames_for_range(
+        &covered,
+        request.from_seq,
+        request.to_seq,
+    ));
     limit_history_payload(&mut frames, request.max_bytes);
 
     Ok(SessionHistoryChunk {
@@ -1560,9 +1809,11 @@ fn limit_history_payload(frames: &mut Vec<SessionFrame>, max_bytes: Option<usize
     let mut used = 0usize;
     frames.retain(|frame| {
         let next = match frame {
-            SessionFrame::Pty { text, .. }
-            | SessionFrame::Stdout { text, .. }
-            | SessionFrame::Stderr { text, .. } => text.len(),
+            SessionFrame::Pty { chunk, .. } => chunk.len(),
+            SessionFrame::Stdout { chunk, .. } | SessionFrame::Stderr { chunk, .. } => chunk.len(),
+            SessionFrame::Lifecycle { .. }
+            | SessionFrame::Event { .. }
+            | SessionFrame::Gap { .. } => 0,
         };
         if used + next > max_bytes {
             return false;
@@ -1570,6 +1821,67 @@ fn limit_history_payload(frames: &mut Vec<SessionFrame>, max_bytes: Option<usize
         used += next;
         true
     });
+}
+
+fn decode_pty_chunk_frames(decoded: &[u8], first_seq: u64, last_seq: u64) -> Vec<SessionFrame> {
+    split_pty_frames(decoded)
+        .into_iter()
+        .take(usize::try_from(last_seq.saturating_sub(first_seq) + 1).unwrap_or(usize::MAX))
+        .enumerate()
+        .map(|(offset, chunk)| SessionFrame::Pty {
+            seq: first_seq + u64::try_from(offset).unwrap_or(0),
+            chunk,
+            ts: String::new(),
+        })
+        .collect()
+}
+
+fn split_pty_frames(decoded: &[u8]) -> Vec<Vec<u8>> {
+    let mut frames = Vec::new();
+    let mut start = 0usize;
+    for (index, byte) in decoded.iter().enumerate() {
+        if *byte != b'\n' {
+            continue;
+        }
+        if start <= index {
+            frames.push(decoded[start..=index].to_vec());
+        }
+        start = index + 1;
+    }
+    if start < decoded.len() {
+        frames.push(decoded[start..].to_vec());
+    }
+    frames
+        .into_iter()
+        .filter(|frame| !frame.is_empty())
+        .collect()
+}
+
+fn gap_frames_for_range(covered: &BTreeSet<u64>, from_seq: u64, to_seq: u64) -> Vec<SessionFrame> {
+    let mut gaps = Vec::new();
+    let mut gap_start: Option<u64> = None;
+    for seq in from_seq..=to_seq {
+        if covered.contains(&seq) {
+            if let Some(start) = gap_start.take() {
+                gaps.push(SessionFrame::Gap {
+                    from_seq: start,
+                    to_seq: seq.saturating_sub(1),
+                });
+            }
+            continue;
+        }
+        gap_start.get_or_insert(seq);
+    }
+    if let Some(start) = gap_start {
+        gaps.push(SessionFrame::Gap {
+            from_seq: start,
+            to_seq,
+        });
+    }
+    if covered.is_empty() {
+        return Vec::new();
+    }
+    gaps
 }
 
 fn availability_for_range(
@@ -1585,138 +1897,6 @@ fn availability_for_range(
         return ReplayAvailability::Complete;
     }
     ReplayAvailability::Partial
-}
-
-fn process_matches_filters(
-    item: &ProcessListItem,
-    filters: &ProcessListFilters,
-    source_ids: Option<&HashSet<String>>,
-) -> bool {
-    if !filters.source_ids.is_empty() {
-        let Some(source_ids) = source_ids else {
-            return false;
-        };
-        if !filters
-            .source_ids
-            .iter()
-            .any(|source_id| source_ids.contains(source_id))
-        {
-            return false;
-        }
-    }
-
-    if !filters.pipeline_states.is_empty()
-        && !filters
-            .pipeline_states
-            .iter()
-            .any(|state| *state == item.pipeline_state.as_filter_value())
-    {
-        return false;
-    }
-
-    if !filters.decision_dispositions.is_empty() {
-        let Some(disposition) = &item.decision.disposition else {
-            return false;
-        };
-        if !filters
-            .decision_dispositions
-            .iter()
-            .any(|candidate| candidate == disposition)
-        {
-            return false;
-        }
-    }
-
-    if filters.stale_only && !item.decision.is_stale {
-        return false;
-    }
-
-    if let Some(search) = &filters.search {
-        let needle = search.to_lowercase();
-        if !item.title.to_lowercase().contains(&needle)
-            && !item.buyer_name.to_lowercase().contains(&needle)
-        {
-            return false;
-        }
-    }
-
-    true
-}
-
-fn session_matches_filters(item: &SessionListItem, filters: &SessionListFilters) -> bool {
-    if !filters.phases.is_empty()
-        && !filters
-            .phases
-            .iter()
-            .any(|phase| *phase == item.phase.as_filter_value())
-    {
-        return false;
-    }
-    if !filters.execution_modes.is_empty()
-        && !filters
-            .execution_modes
-            .iter()
-            .any(|mode| *mode == item.execution_mode.as_filter_value())
-    {
-        return false;
-    }
-    if filters.active_only
-        && !matches!(
-            item.phase,
-            SessionPhaseVm::Created
-                | SessionPhaseVm::Spawned
-                | SessionPhaseVm::Active
-                | SessionPhaseVm::Terminating
-        )
-    {
-        return false;
-    }
-    if let Some(search) = &filters.search {
-        let needle = search.to_lowercase();
-        if !item.session_id.to_lowercase().contains(&needle)
-            && !item.skill_path.to_lowercase().contains(&needle)
-        {
-            return false;
-        }
-    }
-    true
-}
-
-fn error_matches_filters(item: &ErrorListItem, filters: &ErrorListFilters) -> bool {
-    if let Some(resolved) = filters.resolved
-        && item.resolved != resolved
-    {
-        return false;
-    }
-    if !filters.severities.is_empty()
-        && !filters
-            .severities
-            .iter()
-            .any(|severity| *severity == item.severity.as_filter_value())
-    {
-        return false;
-    }
-    if !filters.pipeline_stages.is_empty() {
-        let Some(stage) = &item.pipeline_stage else {
-            return false;
-        };
-        if !filters
-            .pipeline_stages
-            .iter()
-            .any(|candidate| candidate == stage)
-        {
-            return false;
-        }
-    }
-    if let Some(search) = &filters.search {
-        let needle = search.to_lowercase();
-        if !item.error_type.to_lowercase().contains(&needle)
-            && !item.error_message.to_lowercase().contains(&needle)
-        {
-            return false;
-        }
-    }
-    true
 }
 
 fn validate_process_filters(filters: &ProcessListFilters) -> Result<(), QueryServiceError> {
@@ -1806,23 +1986,6 @@ fn decode_cursor(cursor: Option<&str>) -> Result<Option<CursorToken>, QueryServi
         .transpose()
 }
 
-fn apply_cursor<T, F>(items: Vec<T>, cursor: Option<&CursorToken>, key: F) -> Vec<T>
-where
-    F: Fn(&T) -> CursorToken,
-{
-    let Some(cursor) = cursor else {
-        return items;
-    };
-    items
-        .into_iter()
-        .filter(|item| {
-            let cursor_key = key(item);
-            cursor_key.sort_at < cursor.sort_at
-                || (cursor_key.sort_at == cursor.sort_at && cursor_key.stable_id < cursor.stable_id)
-        })
-        .collect()
-}
-
 fn build_page<T, F>(mut items: Vec<T>, limit: usize, key: F) -> KeysetPage<T>
 where
     F: Fn(&T) -> CursorToken,
@@ -1868,120 +2031,14 @@ fn decision_status_for_process(
     }
 }
 
-fn canonical_phase(structured_trace: Option<&str>, status: &str) -> SessionPhaseVm {
-    phase_history(structured_trace, status)
-        .last()
-        .map_or(SessionPhaseVm::Archived, |value| {
-            SessionPhaseVm::from_db(value)
-        })
-}
-
-fn phase_history(structured_trace: Option<&str>, status: &str) -> Vec<String> {
-    structured_trace
-        .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
-        .and_then(|value| {
-            value
-                .get("phase_history")
-                .and_then(serde_json::Value::as_array)
-                .map(|items| {
-                    items
-                        .iter()
-                        .filter_map(serde_json::Value::as_str)
-                        .map(ToOwned::to_owned)
-                        .collect::<Vec<_>>()
-                })
-        })
-        .filter(|history| !history.is_empty())
-        .unwrap_or_else(|| default_phase_history(status))
-}
-
-fn default_phase_history(status: &str) -> Vec<String> {
-    match status {
-        "created" => vec!["created".to_owned()],
-        "spawned" => vec!["created".to_owned(), "spawned".to_owned()],
-        "active" => vec![
-            "created".to_owned(),
-            "spawned".to_owned(),
-            "active".to_owned(),
-        ],
-        "terminating" => vec![
-            "created".to_owned(),
-            "spawned".to_owned(),
-            "active".to_owned(),
-            "terminating".to_owned(),
-        ],
-        "exited" => vec![
-            "created".to_owned(),
-            "spawned".to_owned(),
-            "active".to_owned(),
-            "terminating".to_owned(),
-            "exited".to_owned(),
-        ],
-        "reaped" => vec![
-            "created".to_owned(),
-            "spawned".to_owned(),
-            "active".to_owned(),
-            "terminating".to_owned(),
-            "exited".to_owned(),
-            "reaped".to_owned(),
-        ],
-        _ => vec![
-            "created".to_owned(),
-            "spawned".to_owned(),
-            "active".to_owned(),
-            "terminating".to_owned(),
-            "exited".to_owned(),
-            "reaped".to_owned(),
-            "archived".to_owned(),
-        ],
+fn runtime_dir_for_db(db_path: &Path) -> PathBuf {
+    let parent = db_path.parent().unwrap_or_else(|| Path::new("."));
+    let db_name = db_path.file_name().and_then(|value| value.to_str());
+    let parent_name = parent.file_name().and_then(|value| value.to_str());
+    if db_name == Some("state.db") && parent_name == Some("state") {
+        return parent.parent().unwrap_or(parent).join("runtime");
     }
-}
-
-fn derive_severity(error_type: &str, cleanup_verdict: Option<&str>) -> ErrorSeverity {
-    if cleanup_verdict == Some("leaked")
-        || matches!(
-            error_type,
-            "AGENT_CLEANUP_INCOMPLETE"
-                | "AGENT_DAEMON_CRASH_DURING_SESSION"
-                | "HOST_RESOURCE_EXHAUSTED"
-                | "DAEMON_STARTUP_FAILED"
-        )
-    {
-        return ErrorSeverity::Critical;
-    }
-
-    if error_type.starts_with("AGENT_")
-        || matches!(
-            error_type,
-            "HOST_SLEEP_INTERRUPTED"
-                | "AUTH_STATE_STALE"
-                | "PAGE_SHAPE_DRIFT"
-                | "LOCALE_OR_CURRENCY_DRIFT"
-                | "NOTICE_PARSE_FAILED"
-                | "GOODS_CLASSIFICATION_LOW_CONFIDENCE"
-                | "SUPPLIER_MATCH_LOW_CONFIDENCE"
-                | "COMMODITY_CODE_LOW_CONFIDENCE"
-                | "REVENUE_BASIS_UNCERTAIN"
-                | "FPO_ACCESS_UNAVAILABLE"
-                | "SQLITE_WRITE_FAILED"
-        )
-        || error_type.starts_with("SOURCE_")
-    {
-        return ErrorSeverity::Warning;
-    }
-
-    ErrorSeverity::Info
-}
-
-fn trace_daemon_instance_id(structured_trace: &str) -> Option<String> {
-    serde_json::from_str::<serde_json::Value>(structured_trace)
-        .ok()
-        .and_then(|value| {
-            value
-                .get("daemon_instance_id")
-                .and_then(serde_json::Value::as_str)
-                .map(ToOwned::to_owned)
-        })
+    parent.join("runtime")
 }
 
 fn current_descriptor_instance_id(runtime_dir: &Path) -> Option<String> {
@@ -1992,6 +2049,12 @@ fn current_descriptor_instance_id(runtime_dir: &Path) -> Option<String> {
         .get("instanceId")
         .and_then(serde_json::Value::as_str)
         .map(ToOwned::to_owned)
+}
+
+fn json_filter_values(values: &[String]) -> Result<String, QueryServiceError> {
+    serde_json::to_string(values).map_err(|error| {
+        QueryServiceError::invalid_filter(format!("filter encoding failed: {error}"))
+    })
 }
 
 fn validate_storage(
