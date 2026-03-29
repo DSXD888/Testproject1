@@ -46,6 +46,9 @@ export interface DesktopTransport {
 
 const DEV_INVOKE_PATH = '/__tauri_invoke__';
 const DEV_WS_PATH = '/__ws__';
+let tauriEventModulePromise:
+  | Promise<typeof import('@tauri-apps/api/event')>
+  | null = null;
 
 export function parseBridgeError(value: unknown): BridgeErrorPayload | null {
   if (!value || typeof value !== 'object') {
@@ -113,6 +116,60 @@ function buildWsUrl(runtime: RuntimeLike, topic: string, fromSeq?: number): stri
   return url.toString();
 }
 
+async function loadTauriEventModule(): Promise<typeof import('@tauri-apps/api/event')> {
+  tauriEventModulePromise ??= import('@tauri-apps/api/event');
+  return tauriEventModulePromise;
+}
+
+function subscribeViaNativeTauriEvents<T>(
+  runtime: RuntimeLike,
+  topic: string,
+  fromSeq: number | undefined,
+  onEvent: SubscribeHandler<T>,
+): Unsubscribe {
+  const nativeInvoke = runtime.__TAURI_INTERNALS__?.invoke;
+  if (!nativeInvoke) {
+    return () => undefined;
+  }
+
+  let active = true;
+  let unlisten: Unsubscribe | null = null;
+
+  void (async () => {
+    const { listen } = await loadTauriEventModule();
+    const detach = await listen<T>(topic, (event) => {
+      onEvent(event.payload);
+    });
+
+    if (!active) {
+      detach();
+      return;
+    }
+
+    unlisten = detach;
+
+    try {
+      await nativeInvoke('subscribe_topic', {
+        topic,
+        fromSeq,
+      });
+    } catch {
+      detach();
+      unlisten = null;
+    }
+  })();
+
+  return () => {
+    active = false;
+    void nativeInvoke('unsubscribe_topic', {
+      topic,
+      fromSeq,
+    }).catch(() => undefined);
+    unlisten?.();
+    unlisten = null;
+  };
+}
+
 export function createTransport(runtime: RuntimeLike): DesktopTransport {
   if (runtime.__TAURI_INTERNALS__?.invoke) {
     return {
@@ -123,7 +180,7 @@ export function createTransport(runtime: RuntimeLike): DesktopTransport {
         onEvent: SubscribeHandler<T>,
       ) =>
         runtime.__TAURI_INTERNALS__?.subscribe?.(topic, fromSeq, onEvent) ??
-        (() => undefined),
+        subscribeViaNativeTauriEvents(runtime, topic, fromSeq, onEvent),
     };
   }
 

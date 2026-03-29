@@ -5,20 +5,23 @@ mod daemon_bridge;
 #[allow(dead_code)]
 mod query_service;
 
+use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::{Mutex, OnceLock};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 
 use crate::daemon_bridge::{
     BridgeError as DaemonBridgeError, CaptureDecisionParams as BridgeCaptureDecisionParams,
     DaemonBridge, DecisionDisposition as BridgeDecisionDisposition,
-    MutationAck as BridgeMutationAck, RerunFromErrorParams as BridgeRerunFromErrorParams,
+    MutationAck as BridgeMutationAck, NativeSubscriptionEvent,
+    RerunFromErrorParams as BridgeRerunFromErrorParams,
     ResizeSessionParams as BridgeResizeSessionParams,
     ResolveErrorParams as BridgeResolveErrorParams, RestartDaemonParams,
     RetryJobParams as BridgeRetryJobParams, SendSessionInputParams as BridgeSendSessionInputParams,
@@ -32,8 +35,8 @@ use rusqlite::Connection;
 #[cfg(test)]
 use rusqlite::{OptionalExtension, Transaction, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use tauri::Manager;
+use serde_json::{Value, json};
+use tauri::{Emitter, Manager};
 
 const DESCRIPTOR_FILENAME: &str = "daemon.info.json";
 const SOCKET_FILENAME: &str = "daemon.sock";
@@ -45,12 +48,14 @@ const EXPECTED_PROTOCOL_VERSION: u32 = 1;
 const EXPECTED_SCHEMA_EPOCH: i64 = 1;
 const DEFAULT_DAEMON_PROGRAM: &str = "daemon";
 const HANDSHAKE_RETRY_BACKOFF_MS: [u64; 6] = [150, 300, 600, 1_000, 1_500, 2_000];
+const NATIVE_SUBSCRIPTION_POLL_MS: u64 = 250;
 
 static LAUNCH_GUARD: OnceLock<Mutex<bool>> = OnceLock::new();
 
 fn main() -> Result<()> {
     tauri::Builder::default()
         .manage(BootstrapStore::default())
+        .manage(NativeSubscriptionStore::default())
         .invoke_handler(tauri::generate_handler![
             get_bootstrap_snapshot,
             refresh_bootstrap_snapshot,
@@ -67,6 +72,8 @@ fn main() -> Result<()> {
             stop_session,
             send_session_input,
             resize_session,
+            subscribe_topic,
+            unsubscribe_topic,
             quit_ui,
             stop_background_daemon_and_quit,
             open_logs,
@@ -107,6 +114,42 @@ impl BootstrapStore {
             .map(|guard| guard.clone())
             .map_err(|_| anyhow!("bootstrap store lock poisoned"))
     }
+}
+
+#[derive(Default)]
+struct NativeSubscriptionStore(Mutex<HashMap<String, NativeSubscriptionHandle>>);
+
+struct NativeSubscriptionHandle {
+    stop: Arc<AtomicBool>,
+}
+
+impl NativeSubscriptionStore {
+    fn replace(
+        &self,
+        topic: String,
+        handle: NativeSubscriptionHandle,
+    ) -> Result<Option<NativeSubscriptionHandle>> {
+        let mut guard = self
+            .0
+            .lock()
+            .map_err(|_| anyhow!("native subscription store lock poisoned"))?;
+        Ok(guard.insert(topic, handle))
+    }
+
+    fn remove(&self, topic: &str) -> Result<Option<NativeSubscriptionHandle>> {
+        let mut guard = self
+            .0
+            .lock()
+            .map_err(|_| anyhow!("native subscription store lock poisoned"))?;
+        Ok(guard.remove(topic))
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct TopicSubscriptionParams {
+    topic: String,
+    from_seq: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -1245,6 +1288,54 @@ fn open_artifacts(app: tauri::AppHandle) -> std::result::Result<String, String> 
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
+fn subscribe_topic(
+    app: tauri::AppHandle,
+    params: TopicSubscriptionParams,
+    store: tauri::State<'_, NativeSubscriptionStore>,
+) -> std::result::Result<(), String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    let topic = params.topic.clone();
+    let stop = Arc::new(AtomicBool::new(false));
+
+    if let Some(existing) = store
+        .inner()
+        .replace(
+            topic.clone(),
+            NativeSubscriptionHandle {
+                stop: Arc::clone(&stop),
+            },
+        )
+        .map_err(|error| error.to_string())?
+    {
+        existing.stop.store(true, Ordering::Relaxed);
+    }
+
+    thread::spawn(move || {
+        run_native_subscription_loop(app, paths, topic, params.from_seq, stop);
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn unsubscribe_topic(
+    params: TopicSubscriptionParams,
+    store: tauri::State<'_, NativeSubscriptionStore>,
+) -> std::result::Result<(), String> {
+    if let Some(existing) = store
+        .inner()
+        .remove(params.topic.as_str())
+        .map_err(|error| error.to_string())?
+    {
+        existing.stop.store(true, Ordering::Relaxed);
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 fn quit_ui(app: tauri::AppHandle) -> String {
     app.exit(0);
     "Quit UI requested.".to_owned()
@@ -1379,6 +1470,68 @@ fn serialize_command_payload<T: Serialize, E: Serialize>(
         Ok(value) => serde_json::to_value(value).map_err(|error| error.to_string()),
         Err(error) => serde_json::to_value(error).map_err(|error| error.to_string()),
     }
+}
+
+#[allow(clippy::needless_pass_by_value)]
+fn run_native_subscription_loop(
+    app: tauri::AppHandle,
+    paths: DesktopPaths,
+    topic: String,
+    from_seq: Option<u64>,
+    stop: Arc<AtomicBool>,
+) {
+    let bridge = DaemonBridge::new(&paths.runtime_dir);
+    let Ok(mut connection) = bridge.connect() else {
+        return;
+    };
+
+    if connection
+        .set_read_timeout(Some(Duration::from_millis(NATIVE_SUBSCRIPTION_POLL_MS)))
+        .is_err()
+    {
+        return;
+    }
+
+    if connection.subscribe(topic.as_str(), from_seq).is_err() {
+        return;
+    }
+
+    while !stop.load(Ordering::Relaxed) {
+        match connection.read_subscription_event() {
+            Ok(Some(NativeSubscriptionEvent::Topic {
+                topic: emitted_topic,
+                payload,
+            })) => {
+                let _ = app.emit(emitted_topic.as_str(), payload);
+            }
+            Ok(Some(NativeSubscriptionEvent::Lifecycle {
+                seq,
+                session_id,
+                state,
+                cleanup_verdict,
+                archive_seq,
+            })) => {
+                let _ = app.emit(
+                    topic.as_str(),
+                    json!({
+                        "sessionId": session_id,
+                        "frame": {
+                            "kind": "lifecycle",
+                            "seq": seq,
+                            "state": state,
+                            "cleanupVerdict": cleanup_verdict,
+                            "archiveSeq": archive_seq,
+                            "ts": Utc::now().to_rfc3339(),
+                        },
+                    }),
+                );
+            }
+            Ok(None) => {}
+            Err(_) => break,
+        }
+    }
+
+    let _ = connection.unsubscribe(topic.as_str());
 }
 
 fn with_daemon_connection<T, F>(

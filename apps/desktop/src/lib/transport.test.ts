@@ -6,6 +6,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { createTransport, devBridgePaths } from './transport';
 import { tauriDevBridge } from '../../vite-plugin-tauri-dev-bridge';
 
+const tauriUnlisten = vi.fn();
+const tauriListen = vi.fn(async (_event: string, _handler: (event: { payload: unknown }) => void) => tauriUnlisten);
+
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: tauriListen,
+}));
+
 class MockWebSocket {
   static instances: MockWebSocket[] = [];
 
@@ -70,6 +77,37 @@ describe('transport shim', () => {
     expect(MockWebSocket.instances.at(-1)?.url).toContain('/__ws__?topic=sessions&fromSeq=7');
     unsubscribe();
     expect(MockWebSocket.instances.at(-1)?.closed).toBe(true);
+  });
+
+  it('TS-TRN-002b uses Tauri event subscriptions when native invoke exists without a native subscribe helper', async () => {
+    const invoke = vi.fn().mockResolvedValue(undefined);
+    const fetch = vi.fn();
+
+    const transport = createTransport({
+      __TAURI_INTERNALS__: { invoke },
+      fetch,
+      WebSocket: MockWebSocket as unknown as typeof WebSocket,
+      location: { origin: 'http://127.0.0.1:5173', search: '' },
+    });
+
+    const unsubscribe = transport.subscribe('daemon.health', undefined, () => undefined);
+    await vi.dynamicImportSettled();
+
+    expect(tauriListen).toHaveBeenCalledWith('daemon.health', expect.any(Function));
+    expect(invoke).toHaveBeenCalledWith('subscribe_topic', {
+      topic: 'daemon.health',
+      fromSeq: undefined,
+    });
+
+    unsubscribe();
+    await Promise.resolve();
+
+    expect(invoke).toHaveBeenCalledWith('unsubscribe_topic', {
+      topic: 'daemon.health',
+      fromSeq: undefined,
+    });
+    expect(tauriUnlisten).toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('TS-TRN-003 keeps runtime bridge selection centralized in transport.ts', async () => {

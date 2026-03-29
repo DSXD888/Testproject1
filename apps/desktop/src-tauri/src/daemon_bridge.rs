@@ -6,6 +6,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -75,6 +76,15 @@ impl BridgeError {
     fn transport_unavailable(message: impl Into<String>) -> Self {
         Self {
             code: "transport_unavailable".to_owned(),
+            message: message.into(),
+            retryable: true,
+            details: None,
+        }
+    }
+
+    fn transport_timeout(message: impl Into<String>) -> Self {
+        Self {
+            code: "transport_timeout".to_owned(),
             message: message.into(),
             retryable: true,
             details: None,
@@ -226,6 +236,21 @@ pub enum SessionFrame {
     Gap {
         from_seq: u64,
         to_seq: u64,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NativeSubscriptionEvent {
+    Topic {
+        topic: String,
+        payload: Value,
+    },
+    Lifecycle {
+        seq: u64,
+        session_id: String,
+        state: String,
+        cleanup_verdict: Option<String>,
+        archive_seq: Option<i64>,
     },
 }
 
@@ -455,6 +480,53 @@ impl DaemonBridgeConnection {
     #[must_use]
     pub const fn welcome(&self) -> &DaemonWireWelcome {
         &self.welcome
+    }
+
+    pub fn set_read_timeout(&self, timeout: Option<Duration>) -> Result<(), BridgeError> {
+        self.stream.set_read_timeout(timeout).map_err(|error| {
+            BridgeError::transport_unavailable(format!(
+                "configuring daemon bridge read timeout failed: {error}"
+            ))
+        })
+    }
+
+    pub fn read_subscription_event(&self) -> Result<Option<NativeSubscriptionEvent>, BridgeError> {
+        match read_frame(&self.stream) {
+            Ok(DaemonWireResponse::TopicEvent { topic, payload }) => {
+                Ok(Some(NativeSubscriptionEvent::Topic { topic, payload }))
+            }
+            Ok(DaemonWireResponse::Lifecycle {
+                seq,
+                session_id,
+                phase,
+                cleanup_verdict,
+                archive_seq,
+            }) => Ok(Some(NativeSubscriptionEvent::Lifecycle {
+                seq,
+                session_id,
+                state: phase,
+                cleanup_verdict,
+                archive_seq,
+            })),
+            Ok(DaemonWireResponse::Error {
+                request_id: None,
+                code,
+                message,
+                retryable,
+                details,
+            }) => Err(BridgeError {
+                code,
+                message,
+                retryable,
+                details,
+            }),
+            Ok(frame) => Err(BridgeError::transport_unavailable(format!(
+                "received unexpected frame `{}` while awaiting subscription event",
+                frame.message_type()
+            ))),
+            Err(error) if error.code == "transport_timeout" => Ok(None),
+            Err(error) => Err(error),
+        }
     }
 
     pub fn get_daemon_info(&mut self) -> Result<DaemonInfoSnapshot, BridgeError> {
@@ -897,6 +969,13 @@ fn read_frame(stream: &UnixStream) -> Result<DaemonWireResponse, BridgeError> {
     let mut reader = BufReader::new(stream);
     let mut buffer = String::new();
     let bytes = reader.read_line(&mut buffer).map_err(|error| {
+        if matches!(
+            error.kind(),
+            std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+        ) {
+            return BridgeError::transport_timeout("reading daemon wire frame timed out");
+        }
+
         BridgeError::transport_unavailable(format!("reading daemon wire frame failed: {error}"))
     })?;
     if bytes == 0 {
