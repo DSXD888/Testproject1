@@ -19,7 +19,13 @@ type SessionFixture = {
   jobId?: string | null;
 };
 
-function makeSessions(activeOnly: boolean, executionMode: string, snapshotSeq: number): SessionFixture[] {
+function makeSessions(
+  activeOnly: boolean,
+  executionMode: string,
+  phase: string | undefined,
+  search: string | undefined,
+  snapshotSeq: number,
+): SessionFixture[] {
   const all: SessionFixture[] = [
     {
       sessionId: 'session-live',
@@ -66,6 +72,16 @@ function makeSessions(activeOnly: boolean, executionMode: string, snapshotSeq: n
     if (executionMode !== 'all' && session.executionMode !== executionMode) {
       return false;
     }
+    if (phase && session.phase !== phase) {
+      return false;
+    }
+    if (
+      search &&
+      !session.sessionId.toLowerCase().includes(search) &&
+      !session.skillPath.toLowerCase().includes(search)
+    ) {
+      return false;
+    }
     return true;
   });
 }
@@ -91,13 +107,18 @@ test.describe('sessions page', () => {
         listCalls += 1;
         const activeOnly = body.args?.filters?.activeOnly ?? false;
         const executionMode = body.args?.filters?.executionModes?.[0] ?? 'all';
+        const phase = body.args?.filters?.phases?.[0];
+        const search =
+          typeof body.args?.filters?.search === 'string'
+            ? body.args.filters.search.toLowerCase()
+            : undefined;
         const snapshotSeq = listCalls > 2 ? 20 : 10;
         await route.fulfill({
           json: {
             snapshotSeq,
             snapshotAt: '2026-03-28T10:00:00Z',
             data: {
-              items: makeSessions(activeOnly, executionMode, snapshotSeq),
+              items: makeSessions(activeOnly, executionMode, phase, search, snapshotSeq),
               nextCursor: null,
               hasMore: false,
             },
@@ -207,7 +228,7 @@ test.describe('sessions page', () => {
         return;
       }
 
-      await route.fulfill({ json: { ok: false, code: 'unexpected_command' } });
+      await route.fallback();
     });
   });
 
@@ -237,6 +258,15 @@ test.describe('sessions page', () => {
     await page.getByLabel('Active only').check();
     await expect(page.locator('[data-session-id="session-live"]')).toBeVisible();
     await expect(page.locator('[data-session-id="session-failed"]')).toHaveCount(0);
+  });
+
+  test('sessions page supports phase-filtered views without opening every transcript', async ({
+    page,
+  }) => {
+    await page.goto('/sessions');
+    await page.getByLabel('Phase').selectOption('exited');
+    await expect(page.locator('[data-session-id="session-failed"]')).toBeVisible();
+    await expect(page.locator('[data-session-id="session-live"]')).toHaveCount(0);
   });
 
   test('PW-SES-011 retry waits for the visibility fence before reporting success', async ({

@@ -35,34 +35,27 @@ function humanizeControl(control: ControlPlaneState['control']): string {
   return control.replace('_', ' ');
 }
 
-function currentFixtureMode(): string | null {
-  return new URLSearchParams(globalThis.location?.search ?? '').get('daemonFixture');
-}
-
-function fixtureDiagnostics(controlPlane: ControlPlaneState): DaemonInfoSnapshot {
-  const descriptorMode = new URLSearchParams(globalThis.location?.search ?? '').get('daemonFixture');
-  const liveAvailable = descriptorMode !== 'descriptor';
-
+function placeholderDiagnostics(controlPlane: ControlPlaneState): DaemonInfoSnapshot {
   return {
-    instanceId: liveAvailable ? controlPlane.daemonInstanceId || 'daemon-dev' : '',
-    daemonVersion: liveAvailable ? controlPlane.daemonVersion || '0.1.0' : '',
+    instanceId: controlPlane.daemonInstanceId,
+    daemonVersion: controlPlane.daemonVersion,
     protocolVersion: controlPlane.protocolVersion || 1,
     schemaEpoch: controlPlane.schemaEpoch || 1,
-    socketPath: '/tmp/procintel/runtime/daemon.sock',
-    descriptorPath: '/tmp/procintel/runtime/daemon.info.json',
-    stateRoot: '/tmp/procintel/state',
-    stateDbPath: '/tmp/procintel/state/state.db',
-    artifactRoot: '/tmp/procintel/artifacts',
-    walBytes: 16384,
-    startedAt: '2026-03-28T08:00:00Z',
+    socketPath: 'Unavailable',
+    descriptorPath: 'Unavailable',
+    stateRoot: 'Unavailable',
+    stateDbPath: 'Unavailable',
+    artifactRoot: 'Unavailable',
+    walBytes: null,
+    startedAt: '',
     startupRecovery: {
-      recoveredInterruptedSessions: liveAvailable ? 1 : 0,
-      lastRecoveryAt: liveAvailable ? '2026-03-28T07:58:00Z' : null,
+      recoveredInterruptedSessions: 0,
+      lastRecoveryAt: null,
     },
-    liveAvailable,
-    descriptorBacked: !liveAvailable,
+    liveAvailable: false,
+    descriptorBacked: true,
     storage: controlPlane.storage,
-    daemon: liveAvailable ? controlPlane.daemon : 'unavailable',
+    daemon: controlPlane.daemon,
     control: controlPlane.control,
   };
 }
@@ -97,15 +90,24 @@ function normalizeDiagnostics(
       recoveredInterruptedSessions: number;
       lastRecoveryAt: string | null;
     };
+    liveAvailable?: boolean;
+    descriptorBacked?: boolean;
+    storage?: string;
+    daemon?: string;
+    control?: string;
   };
 
   return {
     ...payload,
-    liveAvailable: true,
-    descriptorBacked: false,
-    storage: controlPlane.storage,
-    daemon: controlPlane.daemon,
-    control: controlPlane.control,
+    liveAvailable:
+      typeof payload.liveAvailable === 'boolean' ? payload.liveAvailable : true,
+    descriptorBacked:
+      typeof payload.descriptorBacked === 'boolean'
+        ? payload.descriptorBacked
+        : false,
+    storage: typeof payload.storage === 'string' ? payload.storage : controlPlane.storage,
+    daemon: typeof payload.daemon === 'string' ? payload.daemon : controlPlane.daemon,
+    control: typeof payload.control === 'string' ? payload.control : controlPlane.control,
   };
 }
 
@@ -128,8 +130,9 @@ function restartAllowed(
   diagnostics: DaemonInfoSnapshot,
 ): boolean {
   return (
-    diagnostics.liveAvailable &&
     controlPlane.storage === 'ready' &&
+    !diagnostics.descriptorBacked &&
+    diagnostics.daemon !== 'incompatible' &&
     (controlPlane.control === 'full' || controlPlane.control === 'limited')
   );
 }
@@ -139,9 +142,8 @@ export function DaemonStatusPage({
 }: {
   controlPlane: ControlPlaneState;
 }): ReactElement {
-  const fixtureMode = currentFixtureMode();
   const [diagnostics, setDiagnostics] = useState<DaemonInfoSnapshot>(
-    fixtureDiagnostics(controlPlane),
+    placeholderDiagnostics(controlPlane),
   );
   const [actionPending, setActionPending] = useState<
     'restart' | 'logs' | 'artifacts' | 'quit' | 'stop_quit' | null
@@ -150,12 +152,6 @@ export function DaemonStatusPage({
 
   useEffect(() => {
     let cancelled = false;
-    if (fixtureMode) {
-      setDiagnostics(fixtureDiagnostics(controlPlane));
-      return () => {
-        cancelled = true;
-      };
-    }
 
     void invoke('get_daemon_info')
       .then((result) => {
@@ -167,18 +163,18 @@ export function DaemonStatusPage({
           setDiagnostics(normalized);
           return;
         }
-        setDiagnostics(fixtureDiagnostics(controlPlane));
+        setDiagnostics(placeholderDiagnostics(controlPlane));
       })
       .catch(() => {
         if (!cancelled) {
-          setDiagnostics(fixtureDiagnostics(controlPlane));
+          setDiagnostics(placeholderDiagnostics(controlPlane));
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [controlPlane, fixtureMode]);
+  }, [controlPlane]);
 
   const canRestart = restartAllowed(controlPlane, diagnostics);
 
@@ -194,7 +190,7 @@ export function DaemonStatusPage({
       const refreshedDiagnostics = await invoke('get_daemon_info');
       const normalized =
         normalizeDiagnostics(refreshedDiagnostics, refreshedBootstrap.controlPlane) ??
-        fixtureDiagnostics(refreshedBootstrap.controlPlane);
+        placeholderDiagnostics(refreshedBootstrap.controlPlane);
       const previousInstanceId = diagnostics.instanceId;
       setDiagnostics(normalized);
       setActionMessage(

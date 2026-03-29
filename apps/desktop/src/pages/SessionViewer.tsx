@@ -18,7 +18,6 @@ import {
   type SessionHistoryRequest,
 } from '../hooks/use-daemon';
 import { controlPlaneStore } from '../hooks/use-control-plane';
-import { seedDevSessionFrames } from '../lib/dev-bridge-fixtures';
 import {
   coerceBridgeError,
   parseBridgeError,
@@ -139,7 +138,6 @@ export function SessionViewer({
   const [interactionBlocked, setInteractionBlocked] = useState(false);
   const [retryableCommandLabel, setRetryableCommandLabel] = useState<string | null>(null);
   const retryCommandRef = useRef<(() => Promise<void>) | null>(null);
-  const seeded = useRef(false);
   const handledGap = useRef<string | null>(null);
   const session = meta.session;
 
@@ -186,14 +184,6 @@ export function SessionViewer({
   }, [initialMode, loadSessions, sessionId]);
 
   useEffect(() => {
-    if (meta.session === null || seeded.current) {
-      return;
-    }
-    seedDevSessionFrames(sessionId);
-    seeded.current = true;
-  }, [meta.session, sessionId]);
-
-  useEffect(() => {
     if (
       initialMode === undefined &&
       meta.session?.phase === 'archived' &&
@@ -226,8 +216,8 @@ export function SessionViewer({
     })
       .then((envelope) => {
         setHistory(envelope.data);
-        setReplayMessage(`Replay ${envelope.data.availability} for ${gapKey}.`);
-        setLiveAnnouncement(`Replay ${envelope.data.availability} for ${gapKey}.`);
+        setReplayMessage(`Replay recovered ${gapKey}.`);
+        setLiveAnnouncement(`Replay recovered ${gapKey}.`);
         setHistoryState({
           status: 'ready',
           availability: envelope.data.availability,
@@ -452,8 +442,8 @@ export function SessionViewer({
         firstSeq: envelope.data.firstSeq,
         lastSeq: envelope.data.lastSeq,
       });
-      setReplayMessage(`Replay ${envelope.data.availability} for ${envelope.data.sessionId}.`);
-      setLiveAnnouncement(`Replay ${envelope.data.availability} for ${envelope.data.sessionId}.`);
+      setReplayMessage(`Replay recovered ${envelope.data.firstSeq}:${envelope.data.lastSeq}.`);
+      setLiveAnnouncement(`Replay recovered ${envelope.data.firstSeq}:${envelope.data.lastSeq}.`);
     } catch (historyError) {
       setHistoryState({
         status: 'error',

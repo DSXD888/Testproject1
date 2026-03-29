@@ -1,12 +1,25 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import type { Plugin, ViteDevServer } from 'vite';
+import { WebSocketServer, type WebSocket } from 'ws';
 
 import { devBridgePaths, type InvokePayload } from './src/lib/transport';
 
+export interface DevBridgeInvokeContext {
+  payload: InvokePayload;
+  request: IncomingMessage;
+  url: URL;
+}
+
+export interface DevBridgeWebSocketContext {
+  request: IncomingMessage;
+  socket: WebSocket;
+  url: URL;
+}
+
 export interface DevBridgeOptions {
-  invokeHandler?: (payload: InvokePayload) => Promise<unknown>;
-  websocketHandler?: (request: IncomingMessage) => void;
+  invokeHandler?: (context: DevBridgeInvokeContext) => Promise<unknown>;
+  websocketHandler?: (context: DevBridgeWebSocketContext) => void;
 }
 
 async function readJsonBody(request: IncomingMessage): Promise<InvokePayload> {
@@ -35,8 +48,11 @@ export function tauriDevBridge(options: DevBridgeOptions = {}): Plugin {
     name: 'tauri-dev-bridge',
     apply: 'serve',
     configureServer(server: ViteDevServer) {
+      const websocketServer = new WebSocketServer({ noServer: true });
+
       server.middlewares.use(async (request, response, next) => {
-        const pathname = request.url ? new URL(request.url, 'http://127.0.0.1').pathname : '';
+        const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+        const pathname = url.pathname;
 
         if (request.method !== 'POST' || pathname !== devBridgePaths.invoke) {
           next();
@@ -46,7 +62,7 @@ export function tauriDevBridge(options: DevBridgeOptions = {}): Plugin {
         try {
           const payload = await readJsonBody(request);
           const result = options.invokeHandler
-            ? await options.invokeHandler(payload)
+            ? await options.invokeHandler({ payload, request, url })
             : {
                 ok: false,
                 code: 'dev_bridge_unconfigured',
@@ -62,10 +78,17 @@ export function tauriDevBridge(options: DevBridgeOptions = {}): Plugin {
         }
       });
 
-      server.httpServer?.on('upgrade', (request) => {
-        const pathname = request.url ? new URL(request.url, 'http://127.0.0.1').pathname : '';
-        if (pathname === devBridgePaths.websocket) {
-          options.websocketHandler?.(request);
+      server.httpServer?.on('upgrade', (request, socket, head) => {
+        const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+        if (url.pathname === devBridgePaths.websocket) {
+          websocketServer.handleUpgrade(request, socket, head, (client: WebSocket) => {
+            options.websocketHandler?.({
+              request,
+              socket: client,
+              url,
+            });
+          });
+          return;
         }
       });
     },

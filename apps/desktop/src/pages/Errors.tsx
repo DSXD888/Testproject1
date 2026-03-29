@@ -33,99 +33,23 @@ interface OperatorMutationAck {
   jobId?: string;
 }
 
-const fixtureErrors: Record<string, ErrorSummaryItem[]> = {
-  default: [
-    {
-      errorManifestId: 'err-live-1',
-      processId: 'proc-001',
-      pipelineStage: 'Enrich',
-      errorType: 'AGENT_DAEMON_CRASH_DURING_SESSION',
-      errorMessage: 'Daemon crash interrupted the supplier enrichment session.',
-      cleanupVerdict: 'leaked',
-      severity: 'critical',
-      createdAt: '2026-03-28T09:15:00Z',
-      agentSessionId: 'session-live-1',
-      resolved: false,
-    },
-    {
-      errorManifestId: 'err-live-2',
-      processId: 'proc-002',
-      pipelineStage: 'Qualify',
-      errorType: 'SOURCE_CHANGED',
-      errorMessage: 'Notice page changed between qualification retries.',
-      cleanupVerdict: null,
-      severity: 'warning',
-      createdAt: '2026-03-28T08:55:00Z',
-      agentSessionId: 'session-live-2',
-      resolved: false,
-    },
-  ],
-  empty: [],
-  hostile: [
-    {
-      errorManifestId: 'err-hostile-1',
-      processId: 'proc-003',
-      pipelineStage: 'Extract',
-      errorType: 'AGENT_SKILL_FAILED',
-      errorMessage: '<svg onload=payload-run>alert(1)</svg>',
-      cleanupVerdict: 'forced',
-      severity: 'warning',
-      createdAt: '2026-03-28T07:00:00Z',
-      agentSessionId: 'session-hostile-1',
-      resolved: false,
-    },
-  ],
-  severityMatrix: [
-    {
-      errorManifestId: 'err-severity-1',
-      processId: 'proc-100',
-      pipelineStage: 'Enrich',
-      errorType: 'AGENT_DAEMON_CRASH_DURING_SESSION',
-      errorMessage: 'Session daemon crashed before artifact sync.',
-      cleanupVerdict: 'leaked',
-      severity: 'critical',
-      createdAt: '2026-03-28T06:45:00Z',
-      agentSessionId: 'session-critical-1',
-      resolved: false,
-    },
-    {
-      errorManifestId: 'err-severity-2',
-      processId: 'proc-101',
-      pipelineStage: 'Qualify',
-      errorType: 'SOURCE_CHANGED',
-      errorMessage: 'Notice source changed during qualification.',
-      cleanupVerdict: 'clean',
-      severity: 'warning',
-      createdAt: '2026-03-28T06:50:00Z',
-      agentSessionId: 'session-warning-1',
-      resolved: false,
-    },
-    {
-      errorManifestId: 'err-severity-3',
-      processId: 'proc-102',
-      pipelineStage: 'Extract',
-      errorType: 'PIPELINE_QUALITY_GATE_FAILED',
-      errorMessage: 'Quality gate rejected the extracted packet.',
-      cleanupVerdict: 'clean',
-      severity: 'warning',
-      createdAt: '2026-03-28T06:55:00Z',
-      agentSessionId: 'session-warning-2',
-      resolved: false,
-    },
-  ],
+type ErrorFilterState = {
+  severity: 'all' | 'critical' | 'warning' | 'info';
+  pipelineStage: string;
+  search: string;
 };
-
-function currentFixtureKey(): string | null {
-  return new URLSearchParams(globalThis.location?.search ?? '').get('errorsFixture');
-}
-
-function currentFixture(): ErrorSummaryItem[] {
-  const fixture = currentFixtureKey();
-  return fixture ? fixtureErrors[fixture] ?? fixtureErrors.default : fixtureErrors.default;
-}
 
 function unresolvedOnly(items: ErrorSummaryItem[]): ErrorSummaryItem[] {
   return items.filter((item) => !item.resolved);
+}
+
+function buildErrorQueryFilters(filters: ErrorFilterState): Record<string, unknown> {
+  return {
+    resolved: false,
+    severities: filters.severity === 'all' ? [] : [filters.severity],
+    pipelineStages: filters.pipelineStage.trim() ? [filters.pipelineStage.trim()] : [],
+    search: filters.search.trim() ? filters.search.trim() : null,
+  };
 }
 
 function humanizeControl(control: ControlPlaneState['control']): string {
@@ -182,13 +106,13 @@ export function ErrorsPage({
 }: {
   controlPlane: ControlPlaneState;
 }): ReactElement {
-  const fixtureKey = currentFixtureKey();
-  const [errors, setErrors] = useState<ErrorSummaryItem[]>(
-    fixtureKey ? unresolvedOnly(currentFixture()) : [],
-  );
-  const [selectedId, setSelectedId] = useState<string | null>(
-    fixtureKey ? unresolvedOnly(currentFixture())[0]?.errorManifestId ?? null : null,
-  );
+  const [filters, setFilters] = useState<ErrorFilterState>({
+    severity: 'all',
+    pipelineStage: '',
+    search: '',
+  });
+  const [errors, setErrors] = useState<ErrorSummaryItem[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [snapshotMeta, setSnapshotMeta] = useState<{
     snapshotSeq: number;
     snapshotAt: string;
@@ -196,7 +120,7 @@ export function ErrorsPage({
   }>({
     snapshotSeq: 0,
     snapshotAt: '',
-    source: 'fixture',
+    source: 'query',
   });
   const [mutationMessage, setMutationMessage] = useState<string | null>(null);
   const [mutationPending, setMutationPending] = useState(false);
@@ -214,7 +138,7 @@ export function ErrorsPage({
       const result = await invoke('list_errors', {
         cursor: null,
         limit: 25,
-        filters: { resolved: false },
+        filters: buildErrorQueryFilters(filters),
       });
       if (
         result &&
@@ -287,24 +211,11 @@ export function ErrorsPage({
 
   useEffect(() => {
     let cancelled = false;
-    if (fixtureKey) {
-      const fixture = unresolvedOnly(currentFixture());
-      setErrors(fixture);
-      setSelectedId(fixture[0]?.errorManifestId ?? null);
-      setSnapshotMeta({
-        snapshotSeq: 0,
-        snapshotAt: '',
-        source: `fixture:${fixtureKey}`,
-      });
-      return () => {
-        cancelled = true;
-      };
-    }
 
     void invoke('list_errors', {
       cursor: null,
       limit: 25,
-      filters: { resolved: false },
+      filters: buildErrorQueryFilters(filters),
     })
       .then((result) => {
         if (cancelled) {
@@ -317,10 +228,10 @@ export function ErrorsPage({
               `Daemon bridge unavailable while loading errors. ${bridgeError.message}`,
             );
           }
-          setErrors(currentFixture());
-          setSelectedId(currentFixture()[0]?.errorManifestId ?? null);
+          setErrors([]);
+          setSelectedId(null);
           setQueryMessage(
-            `Live error queue unavailable (${bridgeError.code}). Showing local fixture data.`,
+            `Live error queue unavailable (${bridgeError.code}).`,
           );
           return;
         }
@@ -342,10 +253,9 @@ export function ErrorsPage({
           return;
         }
 
-        const fallback = unresolvedOnly(currentFixture());
-        setErrors(fallback);
-        setSelectedId(fallback[0]?.errorManifestId ?? null);
-        setQueryMessage('Live error queue unavailable. Showing local fixture data.');
+        setErrors([]);
+        setSelectedId(null);
+        setQueryMessage('Live error queue unavailable.');
       })
       .catch((error) => {
         if (!cancelled) {
@@ -355,11 +265,10 @@ export function ErrorsPage({
               `Daemon bridge unavailable while loading errors. ${bridgeError.message}`,
             );
           }
-          const fallback = unresolvedOnly(currentFixture());
-          setErrors(fallback);
-          setSelectedId(fallback[0]?.errorManifestId ?? null);
+          setErrors([]);
+          setSelectedId(null);
           setQueryMessage(
-            `Live error queue unavailable (${bridgeError.code}). Showing local fixture data.`,
+            `Live error queue unavailable (${bridgeError.code}).`,
           );
         }
       });
@@ -367,7 +276,7 @@ export function ErrorsPage({
     return () => {
       cancelled = true;
     };
-  }, [fixtureKey]);
+  }, [filters]);
 
   const selectedError = useMemo(
     () => errors.find((error) => error.errorManifestId === selectedId) ?? errors[0] ?? null,
@@ -390,6 +299,56 @@ export function ErrorsPage({
           <span>Seq {snapshotMeta.snapshotSeq}</span>
         </div>
       </header>
+
+      <form className="filters-panel" onSubmit={(event) => event.preventDefault()}>
+        <label>
+          Severity
+          <select
+            value={filters.severity}
+            onChange={(event) => {
+              const nextSeverity = event.currentTarget.value as ErrorFilterState['severity'];
+              setFilters((current) => ({
+                ...current,
+                severity: nextSeverity,
+              }));
+            }}
+          >
+            <option value="all">All</option>
+            <option value="critical">Critical</option>
+            <option value="warning">Warning</option>
+            <option value="info">Info</option>
+          </select>
+        </label>
+        <label>
+          Pipeline stage
+          <input
+            value={filters.pipelineStage}
+            onChange={(event) => {
+              const nextPipelineStage = event.currentTarget.value;
+              setFilters((current) => ({
+                ...current,
+                pipelineStage: nextPipelineStage,
+              }));
+            }}
+            placeholder="Enrich"
+          />
+        </label>
+        <label>
+          Search
+          <input
+            type="search"
+            value={filters.search}
+            onChange={(event) => {
+              const nextSearch = event.currentTarget.value;
+              setFilters((current) => ({
+                ...current,
+                search: nextSearch,
+              }));
+            }}
+            placeholder="Error type or message"
+          />
+        </label>
+      </form>
 
       {queryMessage ? <p role="status">{queryMessage}</p> : null}
       {mutationMessage ? <p role="status">{mutationMessage}</p> : null}

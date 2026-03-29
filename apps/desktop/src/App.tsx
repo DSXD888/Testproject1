@@ -30,6 +30,10 @@ type ProcessListItem = {
   buyerName: string;
   publishedAt: string;
   deadlineAt: string | null;
+  estimatedValuePence: number | null;
+  lotCount: number;
+  accessRoute: string;
+  legalCategory: 'goods' | 'services' | 'works' | 'mixed' | 'unknown';
   pipelineState:
     | 'pending'
     | 'qualifying'
@@ -130,6 +134,7 @@ type ErrorItem = {
 type ProcessDetailVm = {
   processId: string;
   canonicalProcessId: string;
+  pipelineState: ProcessListItem['pipelineState'];
   notices: NoticeVm[];
   lots: LotVm[];
   candidates: CandidateVm[];
@@ -157,7 +162,7 @@ type ProcessDetailVm = {
 type ScreenState<T> =
   | { status: 'idle' | 'loading' }
   | { status: 'ready'; payload: T }
-  | { status: 'error'; message: string };
+  | { status: 'error'; message: string; code?: string };
 
 type DetailState = ScreenState<QueryEnvelope<ProcessDetailVm>>;
 
@@ -168,6 +173,14 @@ type DecisionMutationAck = {
   visibleAfterSeq: number;
   idempotencyKey: string;
 };
+
+type PageMutationAck = {
+  accepted: boolean;
+  visibleAfterSeq: number;
+  jobId?: string | null;
+};
+
+type DetailActionKind = 'trigger_ingestion' | 'trigger_enrichment';
 
 type RouteState =
   | {
@@ -318,6 +331,15 @@ export function App({ pathname }: AppProps = {}): ReactElement {
     retryable: false,
     pendingDisposition: null,
   });
+  const [detailActionState, setDetailActionState] = useState<{
+    status: 'idle' | 'running' | 'error' | 'success';
+    message: string | null;
+    pendingAction: DetailActionKind | null;
+  }>({
+    status: 'idle',
+    message: null,
+    pendingAction: null,
+  });
   const decisionRetryKeys = useRef(new Map<string, string>());
   const hasHydratedList = useRef(false);
 
@@ -391,16 +413,23 @@ export function App({ pathname }: AppProps = {}): ReactElement {
       return;
     }
     setDetailState({ status: 'loading' });
+    setDetailActionState({ status: 'idle', message: null, pendingAction: null });
     void invokeQuery<ProcessDetailVm>('get_process_detail', {
       processId: route.processId,
     })
       .then((payload) => setDetailState({ status: 'ready', payload }))
-      .catch((error: unknown) =>
+      .catch((error: unknown) => {
+        const bridgeError = parseBridgeError(error);
         setDetailState({
           status: 'error',
-          message: error instanceof Error ? error.message : 'Detail query failed',
-        }),
-      );
+          code: bridgeError?.code,
+          message:
+            bridgeError?.code === 'not_found'
+              ? `No review packet exists for ${route.processId}.`
+              : bridgeError?.message ??
+                (error instanceof Error ? error.message : 'Detail query failed'),
+        });
+      });
   }, [route]);
 
   const listViewState: ContractListState = useMemo(() => {
@@ -428,7 +457,7 @@ export function App({ pathname }: AppProps = {}): ReactElement {
     });
   }
 
-  async function waitForDecisionVisibility(
+  async function waitForDetailVisibility(
     processId: string,
     visibleAfterSeq: number,
   ): Promise<QueryEnvelope<ProcessDetailVm>> {
@@ -485,7 +514,7 @@ export function App({ pathname }: AppProps = {}): ReactElement {
         throw new Error('Decision mutation was not accepted');
       }
 
-      const refreshed = await waitForDecisionVisibility(processId, ack.visibleAfterSeq);
+      const refreshed = await waitForDetailVisibility(processId, ack.visibleAfterSeq);
       setDetailState({ status: 'ready', payload: refreshed });
       setVisibleRows((rows) =>
         rows.map((row) =>
@@ -524,6 +553,83 @@ export function App({ pathname }: AppProps = {}): ReactElement {
         pendingDisposition: disposition,
       });
     }
+  }
+
+  async function handleDetailMutation(
+    kind: DetailActionKind,
+    args: Record<string, unknown>,
+    successMessage: (ack: PageMutationAck) => string,
+  ): Promise<void> {
+    if (detailState.status !== 'ready') {
+      return;
+    }
+
+    setDetailActionState({
+      status: 'running',
+      message: null,
+      pendingAction: kind,
+    });
+
+    try {
+      const ack = await invokeMutation<PageMutationAck>(kind, args);
+      if (!ack.accepted) {
+        throw new Error(`${kind} was not accepted`);
+      }
+
+      const refreshed = await waitForDetailVisibility(
+        detailState.payload.data.processId,
+        ack.visibleAfterSeq,
+      );
+      setDetailState({ status: 'ready', payload: refreshed });
+      setDetailActionState({
+        status: 'success',
+        message: successMessage(ack),
+        pendingAction: null,
+      });
+    } catch (error) {
+      const bridgeError = coerceBridgeError(
+        error,
+        `${kind.replaceAll('_', ' ')} failed`,
+      );
+      if (bridgeError.code === 'transport_unavailable') {
+        const current = controlPlaneStore.getSnapshot().state;
+        controlPlaneStore.setState({
+          ...current,
+          daemon: 'unavailable',
+          control: 'read_only',
+          reasons: [
+            `Daemon bridge unavailable during ${kind.replaceAll('_', ' ')}. ${bridgeError.message}`,
+          ],
+        });
+      }
+      setDetailActionState({
+        status: 'error',
+        message: bridgeError.message,
+        pendingAction: null,
+      });
+    }
+  }
+
+  async function handleTriggerIngestion(sourceId: string): Promise<void> {
+    return handleDetailMutation(
+      'trigger_ingestion',
+      { sourceId },
+      (ack) =>
+        ack.jobId
+          ? `Source ingestion accepted as ${ack.jobId}.`
+          : 'Source ingestion accepted.',
+    );
+  }
+
+  async function handleTriggerEnrichment(processId: string): Promise<void> {
+    return handleDetailMutation(
+      'trigger_enrichment',
+      { processId },
+      (ack) =>
+        ack.jobId
+          ? `Enrichment rerun accepted as ${ack.jobId}.`
+          : `Enrichment rerun accepted for ${processId}.`,
+    );
   }
   const modeMessage = (() => {
     switch (bootstrapSnapshot.mode) {
@@ -572,7 +678,7 @@ export function App({ pathname }: AppProps = {}): ReactElement {
       </header>
 
       <div className="desktop-shell__status-banner" data-mode={bootstrapSnapshot.mode}>
-        <strong>{bootstrapSnapshot.mode.replaceAll('_', ' ')}</strong>
+        <h2>{bootstrapSnapshot.mode.replaceAll('_', ' ')}</h2>
         <span>{modeMessage}</span>
         <span>{bootstrapSnapshot.controlPlane.reasons[0] ?? 'Desktop bootstrap ready.'}</span>
         {bootstrapLoading ? <span>Refreshing bootstrap…</span> : null}
@@ -628,7 +734,10 @@ export function App({ pathname }: AppProps = {}): ReactElement {
               onBack={() => navigate('/')}
               mutationsEnabled={bootstrapSnapshot.mode === 'full_control'}
               onCaptureDecision={handleCaptureDecision}
+              onTriggerEnrichment={handleTriggerEnrichment}
+              onTriggerIngestion={handleTriggerIngestion}
               decisionStatus={decisionState}
+              actionStatus={detailActionState}
             />
           </>
         ) : route.kind === 'sessions' ? (

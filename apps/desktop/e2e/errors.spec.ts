@@ -33,7 +33,22 @@ test('PW-ERR-003 preserves the severity matrix without synthesizing info rows', 
   await expect(errorList).toContainText('PIPELINE_QUALITY_GATE_FAILED');
   await expect(errorList).toContainText('Critical');
   await expect(errorList).toContainText('Warning');
-  await expect(page.getByText('Info', { exact: true })).toHaveCount(0);
+  await expect(errorList.getByText('Info', { exact: true })).toHaveCount(0);
+});
+
+test('errors page supports severity and stage filters from the documented query surface', async ({
+  page,
+}) => {
+  await page.goto('/errors?errorsFixture=severityMatrix');
+
+  await page.getByLabel('Severity').selectOption('critical');
+  await expect(page.locator('.error-summary-list > li')).toHaveCount(1);
+  await expect(page.locator('.error-summary-list')).toContainText(
+    'AGENT_DAEMON_CRASH_DURING_SESSION',
+  );
+
+  await page.getByLabel('Pipeline stage').fill('Qualify');
+  await expect(page.locator('.error-summary-list > li')).toHaveCount(0);
 });
 
 test('PW-ERR-004 keeps drill-down content sanitized', async ({ page }) => {

@@ -60,7 +60,26 @@ export type UseControlPlaneStateResult = ControlPlaneStoreState & ControlPlaneSt
 
 const listeners = new Set<() => void>();
 
-const defaultSnapshot = fixtureSnapshot();
+function bootstrapPendingSnapshot(): BootstrapSnapshot {
+  return {
+    mode: 'control_limited',
+    controlPlane: {
+      daemonInstanceId: '',
+      daemonVersion: '',
+      protocolVersion: 1,
+      schemaEpoch: 1,
+      storage: 'ready',
+      daemon: 'starting',
+      control: 'limited',
+      load: 'busy',
+      reasons: ['Loading desktop bootstrap.'],
+    },
+    descriptor: null,
+    launchedDaemon: false,
+  };
+}
+
+const defaultSnapshot = bootstrapPendingSnapshot();
 
 const state: ControlPlaneStoreState = {
   snapshot: defaultSnapshot,
@@ -100,16 +119,11 @@ async function refreshSnapshot(): Promise<void> {
   try {
     const result = await invoke('get_bootstrap_snapshot');
     const snapshot = parseBootstrapResult(result);
-    const nextSnapshot = snapshot ?? fixtureSnapshot();
-    if (!shouldPreserveCurrentSnapshot(nextSnapshot)) {
-      state.snapshot = nextSnapshot;
+    if (snapshot && !shouldPreserveCurrentSnapshot(snapshot)) {
+      state.snapshot = snapshot;
     }
-    state.error = snapshot ? null : 'Desktop bridge unavailable; using local fixture.';
+    state.error = snapshot ? null : 'Desktop bootstrap returned an unexpected payload.';
   } catch (error) {
-    const nextSnapshot = fixtureSnapshot();
-    if (!shouldPreserveCurrentSnapshot(nextSnapshot)) {
-      state.snapshot = nextSnapshot;
-    }
     state.error = error instanceof Error ? error.message : 'Desktop bootstrap failed';
   } finally {
     state.loading = false;
@@ -127,118 +141,7 @@ function parseBootstrapResult(result: unknown): BootstrapSnapshot | null {
     return result as BootstrapSnapshot;
   }
 
-  if (
-    result &&
-    typeof result === 'object' &&
-    'code' in result &&
-    (result as { code?: string }).code === 'dev_bridge_unconfigured'
-  ) {
-    return null;
-  }
-
   return null;
-}
-
-function fixtureSnapshot(): BootstrapSnapshot {
-  const params = new URLSearchParams(globalThis.location?.search ?? '');
-  const requestedMode = params.get('mode');
-
-  switch (requestedMode) {
-    case 'browse-only':
-      return {
-        mode: 'browse_only',
-        controlPlane: {
-          daemonInstanceId: '',
-          daemonVersion: '',
-          protocolVersion: 1,
-          schemaEpoch: 1,
-          storage: 'ready',
-          daemon: 'unavailable',
-          control: 'read_only',
-          load: 'normal',
-          reasons: ['Daemon unavailable. Local snapshot is read-only.'],
-        },
-        descriptor: null,
-        launchedDaemon: false,
-      };
-    case 'control-limited':
-      return {
-        mode: 'control_limited',
-        controlPlane: {
-          daemonInstanceId: 'daemon-limited',
-          daemonVersion: '0.1.0',
-          protocolVersion: 1,
-          schemaEpoch: 1,
-          storage: 'ready',
-          daemon: 'degraded',
-          control: 'limited',
-          load: 'busy',
-          reasons: ['Daemon is degraded. Some actions are unavailable.'],
-        },
-        descriptor: null,
-        launchedDaemon: false,
-      };
-    case 'incompatible':
-      return {
-        mode: 'incompatible',
-        controlPlane: {
-          daemonInstanceId: '',
-          daemonVersion: '',
-          protocolVersion: 1,
-          schemaEpoch: 1,
-          storage: 'schema_mismatch',
-          daemon: 'incompatible',
-          control: 'read_only',
-          load: 'normal',
-          reasons: ['Desktop and daemon are incompatible.'],
-        },
-        descriptor: null,
-        launchedDaemon: false,
-      };
-    case 'recovery':
-      return {
-        mode: 'recovery_required',
-        controlPlane: {
-          daemonInstanceId: '',
-          daemonVersion: '',
-          protocolVersion: 1,
-          schemaEpoch: 1,
-          storage: 'repairing',
-          daemon: 'unavailable',
-          control: 'read_only',
-          load: 'normal',
-          reasons: ['Storage recovery is required.'],
-        },
-        descriptor: null,
-        launchedDaemon: false,
-      };
-    default:
-      return {
-        mode: 'full_control',
-        controlPlane: {
-          daemonInstanceId: 'daemon-dev',
-          daemonVersion: '0.1.0',
-          protocolVersion: 1,
-          schemaEpoch: 1,
-          storage: 'ready',
-          daemon: 'ready',
-          control: 'full',
-          load: 'normal',
-          reasons: ['Desktop dev fixture is active.'],
-        },
-        descriptor: {
-          instanceId: 'daemon-dev',
-          pid: 1,
-          socketPath: '/tmp/daemon.sock',
-          protocolVersion: 1,
-          schemaEpoch: 1,
-          stateRoot: '/tmp/state',
-          startedAt: '2026-03-28T12:00:00Z',
-          ready: true,
-        },
-        launchedDaemon: false,
-      };
-  }
 }
 
 export function useControlPlaneState(): UseControlPlaneStateResult {
@@ -314,7 +217,7 @@ export const controlPlaneStore = {
     emitChange();
   },
   reset(): void {
-    state.snapshot = fixtureSnapshot();
+    state.snapshot = bootstrapPendingSnapshot();
     state.loading = false;
     state.error = null;
     emitChange();

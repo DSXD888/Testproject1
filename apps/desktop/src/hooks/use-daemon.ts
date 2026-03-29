@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 
 import { invoke } from '../lib/transport';
 import { parseBridgeError } from '../lib/transport';
+import { subscribe as subscribeTransport } from '../lib/transport';
 import {
   createSessionRegistry,
   type SessionFrame,
@@ -72,6 +73,12 @@ const sessionTimelineCache = new Map<
   string,
   { sourceFrames: SessionFrame[]; timeline: SessionFrame[] }
 >();
+let sessionStreamUnsubscribe: (() => void) | null = null;
+
+type SessionStreamEvent = {
+  sessionId: string;
+  frame: SessionFrame;
+};
 
 async function invokeDaemonQuery<T>(
   cmd: string,
@@ -148,7 +155,45 @@ function getMetaSnapshot(sessionId: string): SessionMetaSnapshot {
   return nextSnapshot;
 }
 
+function canOpenSessionStream(): boolean {
+  return typeof window !== 'undefined';
+}
+
+function isSessionStreamEvent(value: unknown): value is SessionStreamEvent {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.sessionId === 'string' &&
+    !!candidate.frame &&
+    typeof candidate.frame === 'object' &&
+    typeof (candidate.frame as Record<string, unknown>).kind === 'string'
+  );
+}
+
+function ensureSessionStreamSubscription(): void {
+  if (!canOpenSessionStream() || sessionStreamUnsubscribe) {
+    return;
+  }
+
+  sessionStreamUnsubscribe = subscribeTransport<SessionStreamEvent>(
+    'sessions',
+    undefined,
+    (event) => {
+      if (!isSessionStreamEvent(event)) {
+        return;
+      }
+
+      applySessionFrame(event.sessionId, event.frame);
+    },
+  );
+}
+
 export function resetSessionDaemonState(instanceId: string | null = null): void {
+  sessionStreamUnsubscribe?.();
+  sessionStreamUnsubscribe = null;
   sessionBuffers.clear();
   sessionMetaCache.clear();
   sessionTimelineCache.clear();
@@ -171,6 +216,7 @@ export function hydrateSessions(items: SessionListItem[]): void {
     sessionRegistryStore.applySessionMeta(session);
     ensureBuffer(session.sessionId, session.executionMode);
   });
+  ensureSessionStreamSubscription();
 }
 
 export function applySessionFrame(sessionId: string, frame: SessionFrame): void {
