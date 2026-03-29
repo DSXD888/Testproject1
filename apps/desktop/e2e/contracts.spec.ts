@@ -25,6 +25,10 @@ function makeProcess(processId: string, overrides: Partial<Record<string, unknow
     buyerName: `Buyer ${processId}`,
     publishedAt: '2026-03-28T08:00:00Z',
     deadlineAt: '2026-04-30T12:00:00Z',
+    estimatedValuePence: 1250000,
+    lotCount: 2,
+    accessRoute: 'public_web',
+    legalCategory: 'goods',
     pipelineState: 'review',
     pricedCoverageBps: 7000,
     netQualifiedCoverageBps: 5000,
@@ -47,9 +51,11 @@ function fullDetail(processId: string) {
     data: {
       processId,
       canonicalProcessId: processId,
+      pipelineState: 'qualified',
       notices: [
         {
           noticeId: 'notice-1',
+          sourceId: 'fts',
           title: 'Steel widgets',
           buyerName: 'Buyer A',
           publishedAt: '2026-03-28T08:00:00Z',
@@ -139,6 +145,7 @@ function fullDetail(processId: string) {
 
 test.describe('contracts pages', () => {
   test.beforeEach(async ({ page }) => {
+    let detailSnapshotSeq = 57;
     await page.route('**/__tauri_invoke__', async (route) => {
       let body: InvokeRequest;
       try {
@@ -221,6 +228,7 @@ test.describe('contracts pages', () => {
         if (processId === 'zero-lots') {
           const detail = fullDetail(processId);
           detail.data.lots = [];
+          detail.snapshotSeq = detailSnapshotSeq;
           await route.fulfill({ json: detail });
           return;
         }
@@ -238,11 +246,38 @@ test.describe('contracts pages', () => {
             landedCostValueCoverageBps: 0,
             netQualifiedValueCoverageBps: 0,
           };
+          detail.snapshotSeq = detailSnapshotSeq;
           await route.fulfill({ json: detail });
           return;
         }
 
-        await route.fulfill({ json: fullDetail(processId) });
+        const detail = fullDetail(processId);
+        detail.snapshotSeq = detailSnapshotSeq;
+        await route.fulfill({ json: detail });
+        return;
+      }
+
+      if (body.cmd === 'trigger_enrichment') {
+        detailSnapshotSeq = 58;
+        await route.fulfill({
+          json: {
+            accepted: true,
+            visibleAfterSeq: 58,
+            jobId: `enrich-${String(body.args?.processId ?? 'unknown')}`,
+          },
+        });
+        return;
+      }
+
+      if (body.cmd === 'trigger_ingestion') {
+        detailSnapshotSeq = 58;
+        await route.fulfill({
+          json: {
+            accepted: true,
+            visibleAfterSeq: 58,
+            jobId: `ingest-${String(body.args?.sourceId ?? 'unknown')}`,
+          },
+        });
         return;
       }
 
@@ -262,6 +297,8 @@ test.describe('contracts pages', () => {
     await expect(page.getByTestId('contract-row').first()).toContainText('Process process-1');
     await expect(page.getByTestId('contract-row').first()).toContainText('Buyer process-1');
     await expect(page.getByTestId('contract-row').first()).toContainText('Decision: watch');
+    await expect(page.getByTestId('contract-row').first()).toContainText('public_web');
+    await expect(page.getByTestId('contract-row').first()).toContainText('goods');
   });
 
   test('PW-CON-002 empty query shows explicit empty state', async ({ page }) => {
@@ -302,6 +339,7 @@ test.describe('contracts pages', () => {
   test('PW-CON-007 detail page renders the full review packet', async ({ page }) => {
     await page.goto('/process/process-1');
     await expect(page.getByText('Review packet')).toBeVisible();
+    await expect(page.locator('.detail-header__rail')).toContainText('Qualified');
     await expect(page.getByText('Steel widgets')).toBeVisible();
     await expect(page.getByText('Lot 1')).toBeVisible();
     await expect(page.getByText('Galvanised steel')).toBeVisible();
@@ -309,6 +347,7 @@ test.describe('contracts pages', () => {
     await expect(page.getByText('£17.20')).toBeVisible();
     await expect(page.getByText('Cleanup incomplete')).toBeVisible();
   });
+
 
   test('PW-CON-008 zero-lot process shows explicit empty-state copy', async ({ page }) => {
     await page.goto('/process/zero-lots');

@@ -87,7 +87,7 @@ export function ContractCardFrame({
           </p>
         </div>
         <div className="contract-card-frame__header-rail">
-          <PipelineBadge state={metrics.pipelineState} />
+          <PipelineBadge state={metrics.pipelineState ?? 'pending'} />
           {rightRail}
         </div>
       </header>

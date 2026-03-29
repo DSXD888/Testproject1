@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import type { ChangeEvent, ReactElement } from 'react';
 
 import {
@@ -14,6 +14,10 @@ type ProcessRow = {
   buyerName: string;
   publishedAt: string;
   deadlineAt: string | null;
+  estimatedValuePence: number | null;
+  lotCount: number;
+  accessRoute: string;
+  legalCategory: 'goods' | 'services' | 'works' | 'mixed' | 'unknown';
   pipelineState:
     | 'pending'
     | 'qualifying'
@@ -183,10 +187,22 @@ export function ContractList({
   onRefresh: () => void;
 }): ReactElement {
   const searchId = useId();
+  const sourceIdInputId = useId();
   const [draftSearch, setDraftSearch] = useState(query.search ?? '');
+  const [draftSourceId, setDraftSourceId] = useState(query.sourceId ?? '');
+  const [draftLimit, setDraftLimit] = useState<25 | 50>(query.limit ?? 25);
   const [draftPipeline, setDraftPipeline] = useState(query.pipelineState ?? '');
   const [draftDecision, setDraftDecision] = useState(query.decision ?? '');
   const [draftStaleOnly, setDraftStaleOnly] = useState(query.staleOnly === 'true');
+
+  useEffect(() => {
+    setDraftSearch(query.search ?? '');
+    setDraftSourceId(query.sourceId ?? '');
+    setDraftLimit(query.limit ?? 25);
+    setDraftPipeline(query.pipelineState ?? '');
+    setDraftDecision(query.decision ?? '');
+    setDraftStaleOnly(query.staleOnly === 'true');
+  }, [query]);
 
   const statusLabel = useMemo(() => {
     if (state.status !== 'ready') {
@@ -215,8 +231,9 @@ export function ContractList({
         onSubmit={(event) => {
           event.preventDefault();
           onApplyQuery({
-            limit: query.limit ?? 25,
+            limit: draftLimit,
             search: draftSearch || undefined,
+            sourceId: draftSourceId || undefined,
             pipelineState: draftPipeline
               ? (draftPipeline as ContractListPageQuery['pipelineState'])
               : undefined,
@@ -236,6 +253,25 @@ export function ContractList({
             placeholder="Buyer or title"
           />
         </label>
+        <label htmlFor={sourceIdInputId}>
+          Source ID
+          <input
+            id={sourceIdInputId}
+            value={draftSourceId}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => setDraftSourceId(event.target.value)}
+            placeholder="fts"
+          />
+        </label>
+        <label>
+          Page size
+          <select
+            value={String(draftLimit)}
+            onChange={(event) => setDraftLimit(Number(event.target.value) as 25 | 50)}
+          >
+            <option value="25">25</option>
+            <option value="50">50</option>
+          </select>
+        </label>
         <label>
           Pipeline
           <select
@@ -243,8 +279,12 @@ export function ContractList({
             onChange={(event) => setDraftPipeline(event.target.value)}
           >
             <option value="">All</option>
+            <option value="pending">Pending</option>
+            <option value="qualifying">Qualifying</option>
+            <option value="enriching">Enriching</option>
             <option value="qualified">Qualified</option>
             <option value="review">Review</option>
+            <option value="rejected">Rejected</option>
             <option value="error">Error</option>
           </select>
         </label>
@@ -312,10 +352,10 @@ export function ContractList({
                       buyerName: item.buyerName,
                       publishedDate: formatDate(item.publishedAt),
                       deadlineDate: formatDate(item.deadlineAt),
-                      estimatedValuePence: null,
-                      lotCount: item.candidateCount > 0 ? 1 : 0,
-                      accessRoute: 'Query snapshot',
-                      legalCategory: 'unknown',
+                      estimatedValuePence: item.estimatedValuePence,
+                      lotCount: item.lotCount,
+                      accessRoute: item.accessRoute,
+                      legalCategory: item.legalCategory,
                     }}
                     metrics={{
                       pipelineState: item.pipelineState,

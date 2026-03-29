@@ -52,6 +52,7 @@ type BootstrapMode =
 const SNAPSHOT_AT = '2026-03-28T20:00:00Z';
 const SNAPSHOT_SEQ = 42;
 const SESSION_STREAM_INTERVAL_MS = 20;
+let restartScenarioCommitted = false;
 
 const processListItem = {
   processId: 'proc-1',
@@ -384,7 +385,10 @@ function requestedMode(params: URLSearchParams): BootstrapMode {
 }
 
 function bootstrapSnapshotForRequest(request: IncomingMessage) {
-  const mode = requestedMode(requestSearchParams(request));
+  const params = requestSearchParams(request);
+  const mode = requestedMode(params);
+  const restartScenario = params.get('daemonFixture') === 'restart';
+  const restartGeneration = restartScenario && restartScenarioCommitted ? 2 : 1;
 
   switch (mode) {
     case 'browse_only':
@@ -443,18 +447,20 @@ function bootstrapSnapshotForRequest(request: IncomingMessage) {
       return {
         mode: 'control_limited' as const,
         controlPlane: {
-          daemonInstanceId: 'daemon-dev',
+          daemonInstanceId: restartScenario ? `daemon-${restartGeneration}` : 'daemon-dev',
           daemonVersion: '0.1.0',
           protocolVersion: 1,
           schemaEpoch: 1,
           storage: 'ready' as const,
-          daemon: 'degraded' as const,
-          control: 'limited' as const,
-          load: 'busy' as const,
-          reasons: ['Browser dev bridge is active. Some actions are unavailable.'],
+          daemon: restartScenario ? ('ready' as const) : ('degraded' as const),
+          control: restartScenario ? ('full' as const) : ('limited' as const),
+          load: restartScenario ? ('normal' as const) : ('busy' as const),
+          reasons: restartScenario
+            ? ['Daemon restarted cleanly.']
+            : ['Browser dev bridge is active. Some actions are unavailable.'],
         },
         descriptor: {
-          instanceId: 'daemon-dev',
+          instanceId: restartScenario ? `daemon-${restartGeneration}` : 'daemon-dev',
           pid: 1,
           socketPath: '/tmp/procintel/runtime/daemon.sock',
           protocolVersion: 1,
@@ -471,6 +477,8 @@ function bootstrapSnapshotForRequest(request: IncomingMessage) {
 function daemonInfoForRequest(request: IncomingMessage) {
   const params = requestSearchParams(request);
   const bootstrap = bootstrapSnapshotForRequest(request);
+  const restartScenario = params.get('daemonFixture') === 'restart';
+  const restartGeneration = restartScenario && restartScenarioCommitted ? 2 : 1;
   const descriptorRequested = params.get('daemonFixture') === 'descriptor';
   const liveAvailable =
     !descriptorRequested &&
@@ -479,7 +487,10 @@ function daemonInfoForRequest(request: IncomingMessage) {
     bootstrap.mode !== 'recovery_required';
 
   return {
-    instanceId: liveAvailable ? bootstrap.controlPlane.daemonInstanceId || 'daemon-dev' : '',
+    instanceId: liveAvailable
+      ? bootstrap.controlPlane.daemonInstanceId ||
+        (restartScenario ? `daemon-${restartGeneration}` : 'daemon-dev')
+      : '',
     daemonVersion: liveAvailable ? bootstrap.controlPlane.daemonVersion || '0.1.0' : '',
     protocolVersion: bootstrap.controlPlane.protocolVersion,
     schemaEpoch: bootstrap.controlPlane.schemaEpoch,
@@ -708,11 +719,16 @@ export async function handleDevBridgeInvoke({
   request,
 }: DevBridgeInvokeContext): Promise<unknown> {
   const args = payload.args;
+  const params = requestSearchParams(request);
+  const restartScenario = params.get('daemonFixture') === 'restart';
 
   if (
     payload.cmd === 'get_bootstrap_snapshot' ||
     payload.cmd === 'refresh_bootstrap_snapshot'
   ) {
+    if (payload.cmd === 'get_bootstrap_snapshot' && !restartScenario) {
+      restartScenarioCommitted = false;
+    }
     return bootstrapSnapshotForRequest(request);
   }
 
@@ -814,6 +830,13 @@ export async function handleDevBridgeInvoke({
   }
 
   if (payload.cmd === 'restart_daemon') {
+    if (restartScenario) {
+      restartScenarioCommitted = true;
+      return {
+        accepted: true,
+        visibleAfterSeq: 90,
+      };
+    }
     return {
       accepted: true,
       visibleAfterSeq: SNAPSHOT_SEQ,

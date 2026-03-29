@@ -14,7 +14,7 @@ import {
 
 type DetailState =
   | { status: 'idle' | 'loading' }
-  | { status: 'error'; message: string }
+  | { status: 'error'; message: string; code?: string }
   | {
       status: 'ready';
       payload: {
@@ -23,8 +23,17 @@ type DetailState =
         data: {
           processId: string;
           canonicalProcessId: string;
+          pipelineState:
+            | 'pending'
+            | 'qualifying'
+            | 'enriching'
+            | 'qualified'
+            | 'review'
+            | 'rejected'
+            | 'error';
           notices: Array<{
             noticeId: string;
+            sourceId: string;
             title: string;
             buyerName: string | null;
             publishedAt: string;
@@ -122,18 +131,28 @@ export function ContractDetail({
   onBack,
   mutationsEnabled,
   onCaptureDecision,
+  onTriggerEnrichment,
+  onTriggerIngestion,
   decisionStatus,
+  actionStatus,
 }: {
   processId: string;
   state: DetailState;
   onBack: () => void;
   mutationsEnabled: boolean;
   onCaptureDecision: (processId: string, disposition: 'approve' | 'reject' | 'watch') => Promise<void>;
+  onTriggerEnrichment: (processId: string) => Promise<void>;
+  onTriggerIngestion: (sourceId: string) => Promise<void>;
   decisionStatus: {
     status: 'idle' | 'saving' | 'error';
     message: string | null;
     retryable: boolean;
     pendingDisposition: 'approve' | 'reject' | 'watch' | null;
+  };
+  actionStatus: {
+    status: 'idle' | 'running' | 'error' | 'success';
+    message: string | null;
+    pendingAction: 'trigger_ingestion' | 'trigger_enrichment' | null;
   };
 }): ReactElement {
   if (state.status !== 'ready') {
@@ -144,7 +163,7 @@ export function ContractDetail({
             Back to queue
           </button>
           <div className="empty-state" role="alert">
-            <strong>Detail view unavailable.</strong>
+            <strong>{state.code === 'not_found' ? 'Process not found.' : 'Detail view unavailable.'}</strong>
             <p>{state.message}</p>
           </div>
         </section>
@@ -162,6 +181,7 @@ export function ContractDetail({
   }
 
   const { data, snapshotSeq, snapshotAt } = state.payload;
+  const sourceIds = Array.from(new Set(data.notices.map((notice) => notice.sourceId)));
   const {
     thresholdBand: coverageBand,
     valueWeightedGateReady,
@@ -182,7 +202,7 @@ export function ContractDetail({
           </p>
         </div>
         <div className="detail-header__rail">
-          <PipelineBadge state="review" />
+          <PipelineBadge state={data.pipelineState ?? 'pending'} />
           <div className="decision-pill" data-stale={data.decision.isStale}>
             Decision: {data.decision.disposition ?? 'none'}
             {data.decision.isStale ? ' • stale' : ''}
@@ -243,6 +263,31 @@ export function ContractDetail({
           <h3>Decision controls</h3>
           <div className="decision-actions">
             <button
+              disabled={
+                !mutationsEnabled ||
+                actionStatus.pendingAction === 'trigger_enrichment'
+              }
+              onClick={() => void onTriggerEnrichment(data.processId)}
+              type="button"
+            >
+              Rerun enrichment
+            </button>
+            {sourceIds.map((sourceId) => (
+              <button
+                disabled={
+                  !mutationsEnabled ||
+                  actionStatus.pendingAction === 'trigger_ingestion'
+                }
+                key={sourceId}
+                onClick={() => void onTriggerIngestion(sourceId)}
+                type="button"
+              >
+                Run {sourceId} ingestion
+              </button>
+            ))}
+          </div>
+          <div className="decision-actions">
+            <button
               disabled={!mutationsEnabled || decisionStatus.status === 'saving'}
               onClick={() => void onCaptureDecision(data.processId, 'approve')}
               type="button"
@@ -268,8 +313,20 @@ export function ContractDetail({
           {decisionStatus.status === 'saving' ? (
             <p role="status">Saving decision…</p>
           ) : null}
+          {actionStatus.status === 'running' ? (
+            <p role="status">
+              {actionStatus.pendingAction === 'trigger_ingestion'
+                ? 'Triggering source ingestion…'
+                : 'Triggering enrichment rerun…'}
+            </p>
+          ) : null}
           {decisionStatus.status === 'error' && decisionStatus.message ? (
             <p role="alert">{sanitizeUntrustedText(decisionStatus.message)}</p>
+          ) : null}
+          {actionStatus.message ? (
+            <p role={actionStatus.status === 'error' ? 'alert' : 'status'}>
+              {sanitizeUntrustedText(actionStatus.message)}
+            </p>
           ) : null}
           {decisionStatus.status === 'error' &&
           decisionStatus.retryable &&

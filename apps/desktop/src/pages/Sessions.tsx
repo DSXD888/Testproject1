@@ -25,10 +25,14 @@ const DEFAULT_LIMIT = 25;
 function createFilters(
   activeOnly: boolean,
   executionMode: 'all' | 'pty' | 'contract',
+  phase: SessionPageItem['phase'] | 'all',
+  search: string,
 ): SessionListFilters {
   return {
     activeOnly,
     executionModes: executionMode === 'all' ? undefined : [executionMode],
+    phases: phase === 'all' ? undefined : [phase],
+    search: search.trim() ? search.trim() : undefined,
   };
 }
 
@@ -58,8 +62,14 @@ function SessionRow({ sessionId }: { sessionId: string }): ReactElement | null {
       <h3>{session.skillPath}</h3>
       <p>{phaseTone(session.phase)}</p>
       <p>{session.executionMode}</p>
+      <p>Started {session.startedAt ?? 'Unknown start'}</p>
+      <p>Ended {session.endedAt ?? 'In progress'}</p>
+      <p>Duration {session.durationMs === null ? 'Live' : `${session.durationMs} ms`}</p>
       <p>{session.errorType ?? 'No error'}</p>
       <p>{session.cleanupVerdict ?? 'No cleanup verdict'}</p>
+      <p>Exit code {session.exitCode ?? 'n/a'}</p>
+      <p>Checkpoints {session.checkpointCount}</p>
+      <p>Bytes {session.byteCount}</p>
       <p>Last seq {meta.lastSeq}</p>
       <a href={`/sessions/${session.sessionId}`}>Open session</a>
     </article>
@@ -72,13 +82,15 @@ export function SessionsPage({
 }: SessionsPageProps): ReactElement {
   const [activeOnly, setActiveOnly] = useState(false);
   const [executionMode, setExecutionMode] = useState<'all' | 'pty' | 'contract'>('all');
+  const [phase, setPhase] = useState<SessionPageItem['phase'] | 'all'>('all');
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState<KeysetPage<SessionPageItem> | null>(null);
   const [snapshotSeq, setSnapshotSeq] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
 
-  const filters = createFilters(activeOnly, executionMode);
+  const filters = createFilters(activeOnly, executionMode, phase, search);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,7 +120,7 @@ export function SessionsPage({
     return () => {
       cancelled = true;
     };
-  }, [activeOnly, executionMode, loadSessions]);
+  }, [activeOnly, executionMode, loadSessions, phase, search]);
 
   async function retryFirstRetryable(): Promise<void> {
     const retryable = page?.items.find((session) => session.jobId);
@@ -157,6 +169,35 @@ export function SessionsPage({
           <option value="pty">PTY</option>
           <option value="contract">Contract</option>
         </select>
+      </label>
+      <label>
+        Phase
+        <select
+          value={phase}
+          onChange={(event) =>
+            setPhase(
+              event.currentTarget.value as SessionPageItem['phase'] | 'all',
+            )
+          }
+        >
+          <option value="all">All</option>
+          <option value="created">Created</option>
+          <option value="spawned">Spawned</option>
+          <option value="active">Active</option>
+          <option value="terminating">Terminating</option>
+          <option value="exited">Exited</option>
+          <option value="reaped">Reaped</option>
+          <option value="archived">Archived</option>
+        </select>
+      </label>
+      <label>
+        Search
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.currentTarget.value)}
+          placeholder="Session ID or skill path"
+          type="search"
+        />
       </label>
       <button type="button" onClick={() => void retryFirstRetryable()}>
         Retry first failed job
