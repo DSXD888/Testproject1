@@ -908,7 +908,31 @@ export function handleDevBridgeWebSocket({
   socket,
   url,
 }: DevBridgeWebSocketContext): void {
-  if (url.searchParams.get('topic') !== 'sessions') {
+  const topic = url.searchParams.get('topic');
+
+  if (topic === 'daemon.health') {
+    globalThis.setTimeout(() => {
+      if (socket.readyState !== 1) {
+        return;
+      }
+
+      socket.send(
+        JSON.stringify({
+          daemon: 'degraded',
+          control: 'limited',
+          load: 'busy',
+          reasons: ['Browser dev bridge is active. Some actions are unavailable.'],
+          daemonInstanceId: 'daemon-dev',
+          daemonVersion: '0.1.0',
+          protocolVersion: 1,
+          schemaEpoch: 1,
+        }),
+      );
+    }, 0);
+    return;
+  }
+
+  if (topic !== 'sessions') {
     socket.close();
     return;
   }
