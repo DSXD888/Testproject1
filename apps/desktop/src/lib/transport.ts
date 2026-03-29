@@ -29,9 +29,10 @@ export interface NativeTransportInternals {
 
 export interface RuntimeLike {
   __TAURI_INTERNALS__?: NativeTransportInternals;
+  __DEV_BRIDGE_CALLS__?: Array<{ cmd: string; args?: Record<string, unknown> }>;
   fetch: typeof fetch;
   WebSocket: typeof WebSocket;
-  location?: Pick<Location, 'origin'>;
+  location?: Pick<Location, 'origin' | 'search'>;
 }
 
 export interface DesktopTransport {
@@ -101,6 +102,11 @@ function buildWsUrl(runtime: RuntimeLike, topic: string, fromSeq?: number): stri
   const url = new URL(DEV_WS_PATH, origin);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   url.searchParams.set('topic', topic);
+  const pageParams = new URLSearchParams(runtime.location?.search ?? '');
+  const mode = pageParams.get('mode');
+  if (mode) {
+    url.searchParams.set('mode', mode);
+  }
   if (fromSeq !== undefined) {
     url.searchParams.set('fromSeq', String(fromSeq));
   }
@@ -123,9 +129,14 @@ export function createTransport(runtime: RuntimeLike): DesktopTransport {
 
   return {
     invoke: async (cmd, args) => {
+      runtime.__DEV_BRIDGE_CALLS__ ??= [];
+      runtime.__DEV_BRIDGE_CALLS__.push({ cmd, args });
       const response = await runtime.fetch(DEV_INVOKE_PATH, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Dev-Page-Search': runtime.location?.search ?? '',
+        },
         body: JSON.stringify({ cmd, args }),
       });
       return response.json();

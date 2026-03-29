@@ -31,7 +31,7 @@ describe('transport shim', () => {
       __TAURI_INTERNALS__: { invoke, subscribe },
       fetch,
       WebSocket: MockWebSocket as unknown as typeof WebSocket,
-      location: { origin: 'http://127.0.0.1:5173' },
+      location: { origin: 'http://127.0.0.1:5173', search: '' },
     });
 
     await transport.invoke('list_processes', { limit: 10 });
@@ -50,7 +50,7 @@ describe('transport shim', () => {
     const transport = createTransport({
       fetch,
       WebSocket: MockWebSocket as unknown as typeof WebSocket,
-      location: { origin: 'http://127.0.0.1:5173' },
+      location: { origin: 'http://127.0.0.1:5173', search: '' },
     });
 
     await transport.invoke('capture_decision', { processId: 'proc-1' });
@@ -58,7 +58,10 @@ describe('transport shim', () => {
 
     expect(fetch).toHaveBeenCalledWith(devBridgePaths.invoke, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Dev-Page-Search': '',
+      },
       body: JSON.stringify({
         cmd: 'capture_decision',
         args: { processId: 'proc-1' },

@@ -1,384 +1,100 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
-type InvokeRequest = {
+type DevBridgeCall = {
   cmd: string;
   args?: Record<string, unknown>;
 };
 
-type DecisionDisposition = 'approve' | 'reject' | 'watch' | null;
+async function bridgeCalls(page: Page): Promise<DevBridgeCall[]> {
+  return page.evaluate(() => {
+    return (
+      (window as typeof window & {
+        __DEV_BRIDGE_CALLS__?: Array<{ cmd: string; args?: Record<string, unknown> }>;
+      }).__DEV_BRIDGE_CALLS__ ?? []
+    );
+  });
+}
 
-type DecisionIntent = {
-  id: string;
-  processId: string;
-  disposition: Exclude<DecisionDisposition, null>;
-  idempotencyKey: string;
-  supersededByIntentId: string | null;
-};
-
-function detailEnvelope(
-  processId: string,
-  decision: {
-    disposition: DecisionDisposition;
-    isStale: boolean;
-    decidedAt: string | null;
-  },
-  snapshotSeq: number,
-  basisHash = 'basis-a',
-) {
-  return {
-    snapshotSeq,
-    snapshotAt: '2026-03-28T21:00:00Z',
-    data: {
-      processId,
-      canonicalProcessId: processId,
-      notices: [],
-      lots: [],
-      candidates: [],
-      quotes: [],
-      landedCosts: [],
-      manifest: {
-        markdown: '## Summary\nDecision review packet',
-        basisHash,
-        generatedAt: '2026-03-28T20:00:00Z',
-        sections: ['Summary'],
-        artifactHash: `artifact-${processId}`,
-        stageRunId: `stage-${processId}`,
-      },
-      manifestError: null,
-      coverage: {
-        pricedCoverageBps: 7000,
-        landedCostCoverageBps: 6500,
-        netQualifiedCoverageBps: 6200,
-        pricedValueCoverageBps: 7100,
-        landedCostValueCoverageBps: 6100,
-        netQualifiedValueCoverageBps: 5200,
-        unresolvedMandatoryLots: 0,
-      },
-      decision,
-      errors: [],
-    },
-  };
+async function decisionCalls(page: Page): Promise<DevBridgeCall[]> {
+  return (await bridgeCalls(page)).filter((call) => call.cmd === 'capture_decision');
 }
 
 test.describe('decision capture', () => {
   test('PW-DEC-001 approve persists after the commit fence clears', async ({ page }) => {
-    const intents: DecisionIntent[] = [];
-    let detailReads = 0;
-
-    await page.route('**/__tauri_invoke__', async (route) => {
-      const body = JSON.parse(route.request().postData() ?? '{}') as InvokeRequest;
-
-      if (body.cmd === 'get_process_detail') {
-        detailReads += 1;
-        await route.fulfill({
-          json:
-            detailReads === 1
-              ? detailEnvelope('process-1', { disposition: null, isStale: false, decidedAt: null }, 40)
-              : detailEnvelope(
-                  'process-1',
-                  {
-                    disposition: 'approve',
-                    isStale: false,
-                    decidedAt: '2026-03-28T21:00:00Z',
-                  },
-                  41,
-                ),
-        });
-        return;
-      }
-
-      if (body.cmd === 'capture_decision') {
-        expect(body.args?.reviewedBasisHash).toBe('basis-a');
-        expect(body.args?.reviewedManifestHash).toBe('artifact-process-1');
-        expect(body.args?.reviewedAtStageRunId).toBe('stage-process-1');
-        intents.push({
-          id: 'intent-1',
-          processId: String(body.args?.processId),
-          disposition: String(body.args?.disposition) as 'approve',
-          idempotencyKey: String(body.args?.idempotencyKey),
-          supersededByIntentId: null,
-        });
-        await route.fulfill({
-          json: {
-            accepted: true,
-            visibleAfterSeq: 41,
-            idempotencyKey: body.args?.idempotencyKey,
-          },
-        });
-        return;
-      }
-
-      await route.fulfill({ json: { code: 'unhandled', message: body.cmd } });
-    });
-
-    await page.goto('/process/process-1');
+    await page.goto('/process/process-1?decisionFixture=approve-after-fence&mode=full-control');
     await page.getByRole('button', { name: 'Approve' }).click();
 
     await expect(page.getByText('Decision: approve')).toBeVisible();
-    expect(intents).toHaveLength(1);
-    expect(intents[0]?.disposition).toBe('approve');
+    const calls = await decisionCalls(page);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.args?.reviewedBasisHash).toBe('basis-a');
+    expect(calls[0]?.args?.reviewedManifestHash).toBe('artifact-process-1');
+    expect(calls[0]?.args?.reviewedAtStageRunId).toBe('stage-process-1');
   });
 
   test('decision capture still forwards reviewed metadata when manifest output is unavailable', async ({
     page,
   }) => {
-    let captured = false;
-
-    await page.route('**/__tauri_invoke__', async (route) => {
-      const body = JSON.parse(route.request().postData() ?? '{}') as InvokeRequest;
-
-      if (body.cmd === 'get_process_detail') {
-        const detail = detailEnvelope(
-          'process-metadata-only',
-          { disposition: null, isStale: false, decidedAt: null },
-          44,
-        );
-        detail.data.manifest = null;
-        detail.data.reviewMetadata = {
-          basisHash: 'basis-metadata-only',
-          manifestHash: 'artifact-process-metadata-only',
-          stageRunId: 'stage-process-metadata-only',
-        };
-        detail.data.manifestError = {
-          code: 'artifact_unavailable',
-          message: 'manifest markdown unavailable',
-        };
-        await route.fulfill({ json: detail });
-        return;
-      }
-
-      if (body.cmd === 'capture_decision') {
-        captured = true;
-        expect(body.args?.reviewedBasisHash).toBe('basis-metadata-only');
-        expect(body.args?.reviewedManifestHash).toBe('artifact-process-metadata-only');
-        expect(body.args?.reviewedAtStageRunId).toBe('stage-process-metadata-only');
-        await route.fulfill({
-          json: {
-            accepted: true,
-            visibleAfterSeq: 45,
-            idempotencyKey: body.args?.idempotencyKey,
-          },
-        });
-        return;
-      }
-
-      await route.fulfill({ json: { code: 'unhandled', message: body.cmd } });
-    });
-
-    await page.goto('/process/process-metadata-only');
+    await page.goto(
+      '/process/process-metadata-only?decisionFixture=metadata-only&mode=full-control',
+    );
     await page.getByRole('button', { name: 'Approve' }).click();
-    await expect.poll(() => captured).toBe(true);
+
+    await expect
+      .poll(async () => {
+        const calls = await decisionCalls(page);
+        return calls.at(-1)?.args;
+      })
+      .toMatchObject({
+        reviewedBasisHash: 'basis-metadata-only',
+        reviewedManifestHash: 'artifact-process-metadata-only',
+        reviewedAtStageRunId: 'stage-process-metadata-only',
+      });
   });
 
   test('PW-DEC-002 watch action becomes visible after the fence', async ({ page }) => {
-    let detailReads = 0;
-
-    await page.route('**/__tauri_invoke__', async (route) => {
-      const body = JSON.parse(route.request().postData() ?? '{}') as InvokeRequest;
-      if (body.cmd === 'get_process_detail') {
-        detailReads += 1;
-        await route.fulfill({
-          json:
-            detailReads === 1
-              ? detailEnvelope('process-1', { disposition: null, isStale: false, decidedAt: null }, 55)
-              : detailEnvelope(
-                  'process-1',
-                  {
-                    disposition: 'watch',
-                    isStale: false,
-                    decidedAt: '2026-03-28T21:02:00Z',
-                  },
-                  56,
-                ),
-        });
-        return;
-      }
-      if (body.cmd === 'capture_decision') {
-        await route.fulfill({
-          json: {
-            accepted: true,
-            visibleAfterSeq: 56,
-            idempotencyKey: body.args?.idempotencyKey,
-          },
-        });
-        return;
-      }
-      await route.fulfill({ json: { code: 'unhandled', message: body.cmd } });
-    });
-
-    await page.goto('/process/process-1');
+    await page.goto('/process/process-1?decisionFixture=watch-after-fence&mode=full-control');
     await page.getByRole('button', { name: 'Watch' }).click();
 
     await expect(page.getByText('Decision: watch')).toBeVisible();
   });
 
   test('PW-DEC-003 newer decisions supersede older intents', async ({ page }) => {
-    const intents: DecisionIntent[] = [];
-    let detailReads = 0;
-
-    await page.route('**/__tauri_invoke__', async (route) => {
-      const body = JSON.parse(route.request().postData() ?? '{}') as InvokeRequest;
-      if (body.cmd === 'get_process_detail') {
-        detailReads += 1;
-        const disposition = detailReads >= 3 ? 'reject' : null;
-        await route.fulfill({
-          json: detailEnvelope(
-            'process-1',
-            { disposition, isStale: false, decidedAt: disposition ? '2026-03-28T21:03:00Z' : null },
-            detailReads >= 3 ? 72 : 70,
-          ),
-        });
-        return;
-      }
-      if (body.cmd === 'capture_decision') {
-        const intentId = `intent-${intents.length + 1}`;
-        if (intents.length > 0) {
-          intents[intents.length - 1]!.supersededByIntentId = intentId;
-        }
-        intents.push({
-          id: intentId,
-          processId: 'process-1',
-          disposition: String(body.args?.disposition) as 'approve' | 'reject',
-          idempotencyKey: String(body.args?.idempotencyKey),
-          supersededByIntentId: null,
-        });
-        await route.fulfill({
-          json: {
-            accepted: true,
-            visibleAfterSeq: intents.length === 1 ? 71 : 72,
-            idempotencyKey: body.args?.idempotencyKey,
-          },
-        });
-        return;
-      }
-      await route.fulfill({ json: { code: 'unhandled', message: body.cmd } });
-    });
-
-    await page.goto('/process/process-1');
+    await page.goto('/process/process-1?decisionFixture=supersede&mode=full-control');
     await page.getByRole('button', { name: 'Approve' }).click();
     await page.getByRole('button', { name: 'Reject' }).click();
 
     await expect(page.getByText('Decision: reject')).toBeVisible();
-    expect(intents).toHaveLength(2);
-    expect(intents[0]?.supersededByIntentId).toBe('intent-2');
+    const calls = await decisionCalls(page);
+    expect(calls).toHaveLength(2);
+    expect(calls[0]?.args?.disposition).toBe('approve');
+    expect(calls[1]?.args?.disposition).toBe('reject');
+    expect(calls[0]?.args?.idempotencyKey).not.toBe(calls[1]?.args?.idempotencyKey);
   });
 
   test('PW-DEC-004 reaffirming the same disposition still writes a new intent', async ({ page }) => {
-    const keys: string[] = [];
-    let detailReads = 0;
-
-    await page.route('**/__tauri_invoke__', async (route) => {
-      const body = JSON.parse(route.request().postData() ?? '{}') as InvokeRequest;
-      if (body.cmd === 'get_process_detail') {
-        detailReads += 1;
-        await route.fulfill({
-          json: detailEnvelope(
-            'process-1',
-            {
-              disposition: detailReads === 1 ? 'watch' : 'watch',
-              isStale: false,
-              decidedAt: detailReads === 1 ? '2026-03-28T20:55:00Z' : '2026-03-28T21:04:00Z',
-            },
-            detailReads === 1 ? 80 : 81,
-          ),
-        });
-        return;
-      }
-      if (body.cmd === 'capture_decision') {
-        keys.push(String(body.args?.idempotencyKey));
-        await route.fulfill({
-          json: {
-            accepted: true,
-            visibleAfterSeq: 81,
-            idempotencyKey: body.args?.idempotencyKey,
-          },
-        });
-        return;
-      }
-      await route.fulfill({ json: { code: 'unhandled', message: body.cmd } });
-    });
-
-    await page.goto('/process/process-1');
+    await page.goto('/process/process-1?decisionFixture=reaffirm-watch&mode=full-control');
     await page.getByRole('button', { name: 'Watch' }).click();
 
     await expect(page.getByText('Decision: watch')).toBeVisible();
-    expect(keys).toHaveLength(1);
-    expect(keys[0]).toBeTruthy();
+    const calls = await decisionCalls(page);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.args?.idempotencyKey).toBeTruthy();
   });
 
   test('PW-DEC-005 stale decisions surface when the basis hash changes', async ({ page }) => {
-    await page.route('**/__tauri_invoke__', async (route) => {
-      const body = JSON.parse(route.request().postData() ?? '{}') as InvokeRequest;
-      if (body.cmd === 'get_process_detail') {
-        await route.fulfill({
-          json: detailEnvelope(
-            'process-stale',
-            {
-              disposition: 'watch',
-              isStale: true,
-              decidedAt: '2026-03-28T20:00:00Z',
-            },
-            91,
-            'basis-b',
-          ),
-        });
-        return;
-      }
-      await route.fulfill({ json: { code: 'unhandled', message: body.cmd } });
-    });
-
-    await page.goto('/process/process-stale');
+    await page.goto('/process/process-stale?decisionFixture=stale&mode=full-control');
     await expect(page.getByText('Decision: watch • stale')).toBeVisible();
   });
 
   test('PW-DEC-006 same-hash reruns do not mark the decision stale', async ({ page }) => {
-    await page.route('**/__tauri_invoke__', async (route) => {
-      const body = JSON.parse(route.request().postData() ?? '{}') as InvokeRequest;
-      if (body.cmd === 'get_process_detail') {
-        await route.fulfill({
-          json: detailEnvelope(
-            'process-fresh',
-            {
-              disposition: 'watch',
-              isStale: false,
-              decidedAt: '2026-03-28T20:00:00Z',
-            },
-            92,
-            'basis-a',
-          ),
-        });
-        return;
-      }
-      await route.fulfill({ json: { code: 'unhandled', message: body.cmd } });
-    });
-
-    await page.goto('/process/process-fresh');
+    await page.goto('/process/process-fresh?decisionFixture=fresh&mode=full-control');
     await expect(page.getByText('Decision: watch')).toBeVisible();
     await expect(page.getByText('stale')).toHaveCount(0);
   });
 
   test('PW-DEC-007 mutation failure stays explicit and does not fake success', async ({ page }) => {
-    await page.route('**/__tauri_invoke__', async (route) => {
-      const body = JSON.parse(route.request().postData() ?? '{}') as InvokeRequest;
-      if (body.cmd === 'get_process_detail') {
-        await route.fulfill({
-          json: detailEnvelope('process-1', { disposition: null, isStale: false, decidedAt: null }, 100),
-        });
-        return;
-      }
-      if (body.cmd === 'capture_decision') {
-        await route.fulfill({
-          json: {
-            code: 'storage_unreadable',
-            message: 'decision write failed',
-          },
-        });
-        return;
-      }
-      await route.fulfill({ json: { code: 'unhandled', message: body.cmd } });
-    });
-
-    await page.goto('/process/process-1');
+    await page.goto('/process/process-1?decisionFixture=mutation-failure&mode=full-control');
     await page.getByRole('button', { name: 'Approve' }).click();
 
     await expect(page.getByRole('alert')).toContainText('decision write failed');
@@ -386,50 +102,7 @@ test.describe('decision capture', () => {
   });
 
   test('PW-DEC-008 the old decision remains visible until the fence clears', async ({ page }) => {
-    let detailReads = 0;
-
-    await page.route('**/__tauri_invoke__', async (route) => {
-      const body = JSON.parse(route.request().postData() ?? '{}') as InvokeRequest;
-      if (body.cmd === 'get_process_detail') {
-        detailReads += 1;
-        await route.fulfill({
-          json:
-            detailReads <= 2
-              ? detailEnvelope(
-                  'process-1',
-                  {
-                    disposition: 'watch',
-                    isStale: false,
-                    decidedAt: '2026-03-28T20:00:00Z',
-                  },
-                  110,
-                )
-              : detailEnvelope(
-                  'process-1',
-                  {
-                    disposition: 'approve',
-                    isStale: false,
-                    decidedAt: '2026-03-28T21:10:00Z',
-                  },
-                  112,
-                ),
-        });
-        return;
-      }
-      if (body.cmd === 'capture_decision') {
-        await route.fulfill({
-          json: {
-            accepted: true,
-            visibleAfterSeq: 112,
-            idempotencyKey: body.args?.idempotencyKey,
-          },
-        });
-        return;
-      }
-      await route.fulfill({ json: { code: 'unhandled', message: body.cmd } });
-    });
-
-    await page.goto('/process/process-1');
+    await page.goto('/process/process-1?decisionFixture=delayed-fence-decisions&mode=full-control');
     await expect(page.getByText('Decision: watch')).toBeVisible();
     await page.getByRole('button', { name: 'Approve' }).click();
     await expect(page.getByText('Decision: approve')).toBeVisible();

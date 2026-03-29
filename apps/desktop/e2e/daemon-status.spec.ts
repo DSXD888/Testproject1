@@ -24,8 +24,10 @@ test('PW-DGN-003 restarts the daemon only when restart is allowed and shows the 
   await page.goto('/daemon?daemonFixture=restart&mode=control-limited');
   await expect(page.getByRole('button', { name: 'Restart daemon' })).toBeVisible();
   await page.getByRole('button', { name: 'Restart daemon' }).click();
-  await expect(page.getByText('Restart accepted at visibility fence 90.')).toBeVisible();
-  await expect(page.getByText('daemon-2')).toBeVisible();
+  await expect(
+    page.getByText('Daemon restarted. Instance changed from daemon-1 to daemon-2.'),
+  ).toBeVisible();
+  await expect(page.getByText('daemon-2', { exact: true })).toBeVisible();
 });
 
 test('PW-DGN-002 and PW-DGN-004 keep descriptor-backed diagnostics readable while gating restart', async ({

@@ -94,7 +94,7 @@ function bootstrapPendingSnapshot(): BootstrapSnapshot {
 
 const defaultSnapshot = bootstrapPendingSnapshot();
 
-const state: ControlPlaneStoreState = {
+let state: ControlPlaneStoreState = {
   snapshot: defaultSnapshot,
   loading: true,
   error: null,
@@ -126,16 +126,19 @@ function shouldPreserveCurrentSnapshot(nextSnapshot: BootstrapSnapshot): boolean
 }
 
 function applyBootstrapSnapshot(snapshot: BootstrapSnapshot): void {
-  if (!shouldPreserveCurrentSnapshot(snapshot)) {
-    state.snapshot = snapshot;
-  }
-  state.loading = false;
-  state.error = null;
+  state = {
+    snapshot: shouldPreserveCurrentSnapshot(snapshot) ? state.snapshot : snapshot,
+    loading: false,
+    error: null,
+  };
   emitChange();
 }
 
 async function refreshSnapshot(): Promise<void> {
-  state.loading = true;
+  state = {
+    ...state,
+    loading: true,
+  };
   emitChange();
 
   try {
@@ -145,10 +148,18 @@ async function refreshSnapshot(): Promise<void> {
       applyBootstrapSnapshot(snapshot);
       return;
     }
-    state.error = 'Desktop bootstrap returned an unexpected payload.';
+    state = {
+      ...state,
+      loading: false,
+      error: 'Desktop bootstrap returned an unexpected payload.',
+    };
+    emitChange();
   } catch (error) {
-    state.error = error instanceof Error ? error.message : 'Desktop bootstrap failed';
-    state.loading = false;
+    state = {
+      ...state,
+      error: error instanceof Error ? error.message : 'Desktop bootstrap failed',
+      loading: false,
+    };
     emitChange();
   }
 }
@@ -256,29 +267,35 @@ export const controlPlaneStore = {
       load: event.load ?? current.load,
       reasons: event.reasons ?? current.reasons,
     };
-    state.snapshot = {
-      ...state.snapshot,
-      mode: toRuntimeMode(deriveRuntimeMode(nextState)),
-      controlPlane: nextState,
+    state = {
+      snapshot: {
+        ...state.snapshot,
+        mode: toRuntimeMode(deriveRuntimeMode(nextState)),
+        controlPlane: nextState,
+      },
+      loading: false,
+      error: null,
     };
-    state.loading = false;
-    state.error = null;
     emitChange();
   },
   setState(nextState: ControlPlaneState): void {
-    state.snapshot = {
-      ...state.snapshot,
-      mode: toRuntimeMode(deriveRuntimeMode(nextState)),
-      controlPlane: nextState,
+    state = {
+      snapshot: {
+        ...state.snapshot,
+        mode: toRuntimeMode(deriveRuntimeMode(nextState)),
+        controlPlane: nextState,
+      },
+      loading: false,
+      error: null,
     };
-    state.loading = false;
-    state.error = null;
     emitChange();
   },
   reset(): void {
-    state.snapshot = bootstrapPendingSnapshot();
-    state.loading = false;
-    state.error = null;
+    state = {
+      snapshot: bootstrapPendingSnapshot(),
+      loading: false,
+      error: null,
+    };
     emitChange();
   },
 };

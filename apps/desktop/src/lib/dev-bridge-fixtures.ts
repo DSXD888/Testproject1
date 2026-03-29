@@ -42,6 +42,8 @@ type ErrorFixtureItem = {
   agentSessionId: string | null;
 };
 
+type DecisionDisposition = 'approve' | 'reject' | 'watch' | null;
+
 type BootstrapMode =
   | 'full_control'
   | 'control_limited'
@@ -54,47 +56,146 @@ const SNAPSHOT_SEQ = 42;
 const SESSION_STREAM_INTERVAL_MS = 20;
 let restartScenarioCommitted = false;
 
-const processListItem = {
-  processId: 'proc-1',
-  canonicalProcessId: 'proc-1',
-  title: 'Disposable glove framework',
-  buyerName: 'North Borough Council',
-  publishedAt: '2026-03-28T09:00:00Z',
-  deadlineAt: '2026-04-01T10:00:00Z',
-  estimatedValuePence: 250_000,
-  lotCount: 1,
-  accessRoute: 'public_web',
-  legalCategory: 'goods',
-  pipelineState: 'review',
-  pricedCoverageBps: 8_000,
-  netQualifiedCoverageBps: 7_000,
-  netQualifiedValueCoverageBps: 7_100,
-  grossMarginBps: 2_500,
-  netMarginBaseBps: 2_000,
-  candidateCount: 1,
-  quotedCandidateCount: 1,
-  decision: {
-    disposition: 'watch',
-    isStale: false,
-    decidedAt: '2026-03-28T09:30:00Z',
-  },
-} as const;
+function makeProcessSummary(
+  processId: string,
+  overrides: Partial<Record<string, unknown>> = {},
+) {
+  return {
+    processId,
+    canonicalProcessId: processId,
+    title: `Process ${processId}`,
+    buyerName: `Buyer ${processId}`,
+    publishedAt: '2026-03-28T08:00:00Z',
+    deadlineAt: '2026-04-30T12:00:00Z',
+    estimatedValuePence: 1_250_000,
+    lotCount: 2,
+    accessRoute: 'public_web',
+    legalCategory: 'goods',
+    pipelineState: 'review',
+    pricedCoverageBps: 7_000,
+    netQualifiedCoverageBps: 5_000,
+    netQualifiedValueCoverageBps: 4_500,
+    grossMarginBps: 2_400,
+    netMarginBaseBps: 1_800,
+    candidateCount: 2,
+    quotedCandidateCount: 1,
+    decision: {
+      disposition: 'watch',
+      isStale: false,
+      decidedAt: '2026-03-28T09:30:00Z',
+    },
+    ...overrides,
+  };
+}
 
-const processDetail = {
-  processId: 'proc-1',
-  canonicalProcessId: 'proc-1',
-  pipelineState: 'qualified',
+type ProcessDetailFixture = {
+  processId: string;
+  canonicalProcessId: string;
+  pipelineState: string;
+  notices: Array<{
+    noticeId: string;
+    sourceId: string;
+    sourceNoticeId: string;
+    title: string;
+    buyerName: string | null;
+    procurementStage: string;
+    summary: string | null;
+    deadlineAt: string | null;
+    publishedAt: string;
+  }>;
+  lots: Array<{
+    lotId: string;
+    noticeId: string;
+    title: string | null;
+    description: string | null;
+    estimatedValuePence: number | null;
+    deadlineAt: string | null;
+    isBidableSeparately: boolean;
+  }>;
+  candidates: Array<{
+    candidateId: string;
+    lotId: string;
+    name: string;
+    candidateType: string;
+    specificationText: string | null;
+    quoteabilityScoreBps: number | null;
+  }>;
+  quotes: Array<{
+    quoteId: string;
+    productCandidateId: string | null;
+    productName: string;
+    sourceName: string;
+    sourceUrl: string | null;
+    unitPriceGbpPence: number;
+    currency: string;
+  }>;
+  landedCosts: Array<{
+    estimateId: string;
+    productCandidateId: string;
+    supplierQuoteId: string;
+    economicLandedCostGbpPence: number;
+    netMarginBaseBps: number;
+    decisionGrade: string;
+    confidenceBps: number;
+  }>;
+  manifest: {
+    markdown: string;
+    basisHash: string;
+    generatedAt: string;
+    sections: string[];
+    artifactHash: string;
+    stageRunId: string;
+  } | null;
+  reviewMetadata: {
+    basisHash: string;
+    manifestHash: string;
+    stageRunId: string;
+  };
+  manifestError: { code: string; message: string } | null;
+  coverage: {
+    pricedCoverageBps: number;
+    landedCostCoverageBps: number;
+    netQualifiedCoverageBps: number;
+    pricedValueCoverageBps: number;
+    landedCostValueCoverageBps: number;
+    netQualifiedValueCoverageBps: number;
+    unresolvedMandatoryLots: number;
+  };
+  decision: {
+    disposition: DecisionDisposition;
+    isStale: boolean;
+    decidedAt: string | null;
+  };
+  errors: Array<{
+    errorManifestId: string;
+    processId: string | null;
+    pipelineStage: string | null;
+    errorType: string;
+    errorMessage: string;
+    cleanupVerdict: 'clean' | 'forced' | 'leaked' | null;
+    severity: 'critical' | 'warning' | 'info';
+    createdAt: string;
+    resolved: boolean;
+    agentSessionId: string | null;
+  }>;
+};
+
+function makeProcessDetail(processId: string): ProcessDetailFixture {
+  return {
+    processId,
+    canonicalProcessId: processId,
+    pipelineState: 'qualified',
   notices: [
     {
       noticeId: 'notice-1',
       sourceId: 'fts',
       sourceNoticeId: 'source-1',
-      title: 'Disposable glove framework',
-      buyerName: 'North Borough Council',
+      title: 'Steel widgets',
+      buyerName: 'Buyer A',
       procurementStage: 'tender',
-      summary: 'Framework renewal for disposable gloves.',
-      deadlineAt: '2026-04-01T10:00:00Z',
-      publishedAt: '2026-03-28T09:00:00Z',
+      summary: 'Procurement summary',
+      deadlineAt: '2026-04-30T12:00:00Z',
+      publishedAt: '2026-03-28T08:00:00Z',
     },
   ],
   lots: [
@@ -102,86 +203,88 @@ const processDetail = {
       lotId: 'lot-1',
       noticeId: 'notice-1',
       title: 'Lot 1',
-      description: 'Core PPE',
-      estimatedValuePence: 250_000,
-      deadlineAt: '2026-04-01T10:00:00Z',
+      description: 'Lot description',
+      estimatedValuePence: 1_250_000,
+      deadlineAt: '2026-04-30T12:00:00Z',
       isBidableSeparately: true,
     },
   ],
   candidates: [
     {
-      candidateId: 'cand-1',
+      candidateId: 'candidate-1',
       lotId: 'lot-1',
-      name: 'Disposable gloves',
-      candidateType: 'product',
-      specificationText: 'Core nitrile gloves for frontline staff.',
-      quoteabilityScoreBps: 8_100,
-      candidateValueShareBps: 9_000,
+      name: 'Widget',
+      candidateType: 'good',
+      specificationText: 'Galvanised steel',
+      quoteabilityScoreBps: 8_800,
     },
   ],
   quotes: [
     {
       quoteId: 'quote-1',
-      productCandidateId: 'cand-1',
-      productName: 'Disposable gloves',
+      productCandidateId: 'candidate-1',
+      productName: 'Widget',
       sourceName: 'Supplier A',
-      sourceUrl: 'https://example.test/quote/1',
+      sourceUrl: 'https://example.test/quote',
       unitPriceGbpPence: 1_200,
       currency: 'GBP',
-      priceSignalRole: 'primary',
-      shipFromCountry: 'GB',
     },
   ],
   landedCosts: [
     {
       estimateId: 'landed-1',
-      productCandidateId: 'cand-1',
+      productCandidateId: 'candidate-1',
       supplierQuoteId: 'quote-1',
-      economicLandedCostGbpPence: 1_450,
-      netMarginBaseBps: 2_000,
+      economicLandedCostGbpPence: 1_720,
+      netMarginBaseBps: 3_150,
       decisionGrade: 'screening',
-      confidenceBps: 7_600,
+      confidenceBps: 8_500,
     },
   ],
   manifest: {
-    markdown: '# Summary\n\n## Risks\n\nText',
+    markdown: '## Summary\nStrong fit\n\n## Risks\nMonitor freight.',
     basisHash: 'basis-1',
-    generatedAt: '2026-03-28T09:00:00Z',
+    generatedAt: '2026-03-28T11:00:00Z',
     sections: ['Summary', 'Risks'],
-    artifactHash: 'artifact-hash-1',
+    artifactHash: 'artifact-1',
     stageRunId: 'stage-run-1',
   },
   reviewMetadata: {
     basisHash: 'basis-1',
-    manifestHash: 'artifact-hash-1',
+    manifestHash: 'artifact-1',
     stageRunId: 'stage-run-1',
   },
   manifestError: null,
   coverage: {
-    pricedCoverageBps: 8_000,
-    landedCostCoverageBps: 7_500,
-    netQualifiedCoverageBps: 7_000,
-    pricedValueCoverageBps: 8_200,
-    landedCostValueCoverageBps: 7_600,
-    netQualifiedValueCoverageBps: 7_100,
-    unresolvedMandatoryLots: 0,
+    pricedCoverageBps: 7_000,
+    landedCostCoverageBps: 6_500,
+    netQualifiedCoverageBps: 6_200,
+    pricedValueCoverageBps: 7_100,
+    landedCostValueCoverageBps: 6_100,
+    netQualifiedValueCoverageBps: 4_200,
+    unresolvedMandatoryLots: 1,
   },
-  decision: processListItem.decision,
+  decision: {
+    disposition: 'watch',
+    isStale: true,
+    decidedAt: '2026-03-28T09:30:00Z',
+  },
   errors: [
     {
       errorManifestId: 'error-1',
-      processId: 'proc-1',
-      pipelineStage: 'qualify',
+      processId,
+      pipelineStage: 'manifest',
       errorType: 'AGENT_CLEANUP_INCOMPLETE',
-      errorMessage: 'cleanup issue',
-      cleanupVerdict: 'clean',
+      errorMessage: 'Cleanup incomplete',
+      cleanupVerdict: 'leaked',
       severity: 'critical',
-      createdAt: '2026-03-28T09:10:00Z',
+      createdAt: '2026-03-28T11:05:00Z',
       resolved: false,
-      agentSessionId: 'session-1',
+      agentSessionId: null,
     },
   ],
-} as const;
+  };
+}
 
 const errorFixtures: Record<string, ErrorFixtureItem[]> = {
   default: [
@@ -263,7 +366,481 @@ const errorFixtures: Record<string, ErrorFixtureItem[]> = {
       resolved: false,
     },
   ],
+  resolveFence: [
+    {
+      errorManifestId: 'err-live-1',
+      processId: 'proc-001',
+      pipelineStage: 'Enrich',
+      errorType: 'AGENT_DAEMON_CRASH_DURING_SESSION',
+      errorMessage: 'Daemon crash interrupted the supplier enrichment session.',
+      cleanupVerdict: 'leaked',
+      severity: 'critical',
+      createdAt: '2026-03-28T09:15:00Z',
+      agentSessionId: 'session-live-1',
+      resolved: false,
+    },
+  ],
+  rerunFence: [
+    {
+      errorManifestId: 'err-live-1',
+      processId: 'proc-001',
+      pipelineStage: 'Enrich',
+      errorType: 'AGENT_DAEMON_CRASH_DURING_SESSION',
+      errorMessage: 'Daemon crash interrupted the supplier enrichment session.',
+      cleanupVerdict: 'leaked',
+      severity: 'critical',
+      createdAt: '2026-03-28T09:15:00Z',
+      agentSessionId: 'session-live-1',
+      resolved: false,
+    },
+  ],
 };
+
+const errorFixtureState = new Map<
+  string,
+  { resolveReadsAfterAck: number; resolveRequested: boolean }
+>();
+const bridgeScenarioState = new Map<
+  string,
+  { rerunCalls: number; decisionCalls: number; detailReads: number; acknowledged: boolean }
+>();
+
+type DecisionFixtureState = {
+  snapshotSeq: number;
+  basisHash: string;
+  decision: {
+    disposition: DecisionDisposition;
+    isStale: boolean;
+    decidedAt: string | null;
+  };
+  manifestMode: 'normal' | 'metadata-only';
+  reviewMetadata?: {
+    basisHash: string;
+    manifestHash: string;
+    stageRunId: string;
+  };
+  delayedTransition?: {
+    remainingReads: number;
+    nextSnapshotSeq: number;
+    nextDecision: DecisionFixtureState['decision'];
+    nextBasisHash?: string;
+  };
+};
+
+const decisionFixtureState = new Map<string, DecisionFixtureState>();
+
+function cloneDecisionState(state: DecisionFixtureState): DecisionFixtureState {
+  return {
+    snapshotSeq: state.snapshotSeq,
+    basisHash: state.basisHash,
+    decision: { ...state.decision },
+    manifestMode: state.manifestMode,
+    reviewMetadata: state.reviewMetadata ? { ...state.reviewMetadata } : undefined,
+    delayedTransition: state.delayedTransition
+      ? { ...state.delayedTransition, nextDecision: { ...state.delayedTransition.nextDecision } }
+      : undefined,
+  };
+}
+
+function baseDecisionState(overrides: Partial<DecisionFixtureState>): DecisionFixtureState {
+  return {
+    snapshotSeq: 40,
+    basisHash: 'basis-a',
+    decision: {
+      disposition: null,
+      isStale: false,
+      decidedAt: null,
+    },
+    manifestMode: 'normal',
+    ...overrides,
+  };
+}
+
+function decisionFixtureKey(request: IncomingMessage): string | null {
+  return requestSearchParams(request).get('decisionFixture');
+}
+
+function bridgeFixtureKey(request: IncomingMessage): string | null {
+  return requestSearchParams(request).get('bridgeFixture');
+}
+
+function securityFixtureKey(request: IncomingMessage): string | null {
+  return requestSearchParams(request).get('securityFixture');
+}
+
+function currentBridgeScenarioState(request: IncomingMessage) {
+  const key = bridgeFixtureKey(request);
+  if (!key) {
+    return null;
+  }
+
+  const existing = bridgeScenarioState.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  const created = {
+    rerunCalls: 0,
+    decisionCalls: 0,
+    detailReads: 0,
+    acknowledged: false,
+  };
+  bridgeScenarioState.set(key, created);
+  return created;
+}
+
+function currentDecisionFixtureState(request: IncomingMessage): DecisionFixtureState | null {
+  const key = decisionFixtureKey(request);
+  if (!key) {
+    return null;
+  }
+
+  const existing = decisionFixtureState.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  const created = (() => {
+    switch (key) {
+      case 'metadata-only':
+        return baseDecisionState({
+          snapshotSeq: 44,
+          manifestMode: 'metadata-only',
+          reviewMetadata: {
+            basisHash: 'basis-metadata-only',
+            manifestHash: 'artifact-process-metadata-only',
+            stageRunId: 'stage-process-metadata-only',
+          },
+        });
+      case 'watch-after-fence':
+        return baseDecisionState({ snapshotSeq: 55 });
+      case 'supersede':
+        return baseDecisionState({ snapshotSeq: 70 });
+      case 'reaffirm-watch':
+        return baseDecisionState({
+          snapshotSeq: 80,
+          decision: {
+            disposition: 'watch',
+            isStale: false,
+            decidedAt: '2026-03-28T20:55:00Z',
+          },
+        });
+      case 'stale':
+        return baseDecisionState({
+          snapshotSeq: 91,
+          basisHash: 'basis-b',
+          decision: {
+            disposition: 'watch',
+            isStale: true,
+            decidedAt: '2026-03-28T20:00:00Z',
+          },
+        });
+      case 'fresh':
+        return baseDecisionState({
+          snapshotSeq: 92,
+          decision: {
+            disposition: 'watch',
+            isStale: false,
+            decidedAt: '2026-03-28T20:00:00Z',
+          },
+        });
+      case 'mutation-failure':
+        return baseDecisionState({ snapshotSeq: 100 });
+      case 'rollback-failure':
+        return baseDecisionState({
+          snapshotSeq: 130,
+          decision: {
+            disposition: 'watch',
+            isStale: false,
+            decidedAt: '2026-03-28T21:15:00Z',
+          },
+        });
+      case 'delayed-fence':
+      case 'delayed-fence-commit':
+      case 'delayed-fence-decisions':
+        return baseDecisionState({
+          snapshotSeq: 110,
+          decision: {
+            disposition: 'watch',
+            isStale: false,
+            decidedAt: '2026-03-28T20:00:00Z',
+          },
+        });
+      case 'approve-after-fence':
+      default:
+        return baseDecisionState({ snapshotSeq: 40 });
+    }
+  })();
+
+  decisionFixtureState.set(key, created);
+  return created;
+}
+
+function decisionDetailEnvelope(
+  processId: string,
+  state: DecisionFixtureState,
+) {
+  const data = makeProcessDetail(processId);
+  const manifest = data.manifest;
+  if (!manifest) {
+    throw new Error('decision detail fixture requires a manifest baseline');
+  }
+  data.manifest = {
+    markdown: manifest.markdown,
+    basisHash: state.basisHash,
+    generatedAt: manifest.generatedAt,
+    sections: manifest.sections,
+    artifactHash: `artifact-${processId}`,
+    stageRunId: `stage-${processId}`,
+  };
+  data.reviewMetadata = {
+    basisHash: state.basisHash,
+    manifestHash: `artifact-${processId}`,
+    stageRunId: `stage-${processId}`,
+  };
+  data.decision = { ...state.decision };
+
+  if (state.manifestMode === 'metadata-only' && state.reviewMetadata) {
+    data.manifest = null;
+    data.reviewMetadata = state.reviewMetadata;
+    data.manifestError = {
+      code: 'artifact_unavailable',
+      message: 'manifest markdown unavailable',
+    };
+  }
+
+  return {
+    snapshotSeq: state.snapshotSeq,
+    snapshotAt: '2026-03-28T21:00:00Z',
+    data,
+  };
+}
+
+function securityProcessDetail(request: IncomingMessage) {
+  const fixtureKey = securityFixtureKey(request);
+  if (!fixtureKey) {
+    return null;
+  }
+
+  const detail = makeProcessDetail('process-sec');
+  const manifest = detail.manifest;
+  if (!manifest) {
+    throw new Error('security detail fixture requires a manifest baseline');
+  }
+  detail.canonicalProcessId = 'process-sec';
+
+  switch (fixtureKey) {
+    case 'manifest-html':
+      detail.manifest = {
+        generatedAt: manifest.generatedAt,
+        sections: manifest.sections,
+        markdown: '## Summary\n<img src=x onerror=payload-run>\n<svg onload=payload-run></svg>',
+        basisHash: 'basis-sec-1',
+        artifactHash: 'artifact-sec-1',
+        stageRunId: 'stage-sec-1',
+      };
+      return envelope(detail);
+    case 'dangerous-links':
+      detail.manifest = {
+        generatedAt: manifest.generatedAt,
+        sections: manifest.sections,
+        markdown:
+          '## Summary\n[safe](https://example.test)\n[bad](javascript:alert(1))\n[worse](data:text/html,<script>alert(1)</script>)',
+        basisHash: 'basis-sec-2',
+        artifactHash: 'artifact-sec-2',
+        stageRunId: 'stage-sec-2',
+      };
+      return envelope(detail);
+    case 'hostile-strings':
+      detail.notices = [
+        {
+          noticeId: 'notice-1',
+          sourceId: 'fts',
+          sourceNoticeId: 'source-1',
+          title: '<marquee>notice</marquee>',
+          buyerName: '<b>buyer</b>',
+          publishedAt: '2026-03-28T20:00:00Z',
+          deadlineAt: null,
+          procurementStage: 'tender',
+          summary: '<script>summary</script>',
+        },
+      ];
+      detail.candidates = [
+        {
+          candidateId: 'candidate-1',
+          lotId: 'lot-1',
+          name: '<script>candidate</script>',
+          candidateType: 'good',
+          specificationText: '<blink>specification</blink>',
+          quoteabilityScoreBps: 5_000,
+        },
+      ];
+      return envelope(detail);
+    case 'large-payload':
+      detail.manifest = {
+        generatedAt: manifest.generatedAt,
+        sections: manifest.sections,
+        markdown: `## Summary\n${'0123456789abcdef'.repeat(700_000)}`,
+        basisHash: 'basis-large',
+        artifactHash: 'artifact-large',
+        stageRunId: 'stage-large',
+      };
+      return envelope(detail);
+    case 'unicode-spoof':
+      detail.canonicalProcessId = 'safe\u202Ecod.exe';
+      return envelope(detail);
+    default:
+      return envelope(detail);
+  }
+}
+
+function securityErrorEnvelope(request: IncomingMessage) {
+  const fixtureKey = securityFixtureKey(request);
+  if (!fixtureKey) {
+    return null;
+  }
+
+  switch (fixtureKey) {
+    case 'dangerous-links':
+      return errorEnvelope('[danger](javascript:alert(1)) and [safe](https://example.test)');
+    case 'error-html':
+      return errorEnvelope('<img src=x onerror=payload-run>');
+    case 'hostile-strings':
+      return errorEnvelope('<b>error</b>', '<i>TYPE</i>');
+    case 'unicode-spoof':
+      return errorEnvelope('warn\u200Fhidden');
+    default:
+      return null;
+  }
+}
+
+function errorEnvelope(errorMessage: string, errorType = 'AGENT_SKILL_FAILED') {
+  return envelope({
+    items: [
+      {
+        errorManifestId: 'err-sec-1',
+        processId: 'process-sec',
+        pipelineStage: 'extract',
+        errorType,
+        errorMessage,
+        cleanupVerdict: 'forced' as const,
+        severity: 'warning' as const,
+        createdAt: '2026-03-28T22:08:00Z',
+        resolved: false,
+        agentSessionId: null,
+      },
+    ],
+    nextCursor: null,
+    hasMore: false,
+  });
+}
+
+function securitySessionListEnvelope(request: IncomingMessage) {
+  const fixtureKey = securityFixtureKey(request);
+  if (!fixtureKey) {
+    return null;
+  }
+
+  switch (fixtureKey) {
+    case 'osc8':
+    case 'osc52':
+    case 'hostile-strings':
+    case 'large-payload':
+    case 'unicode-spoof':
+      return envelope({
+        items: [
+          {
+            ...sessionFixtures[1],
+            sessionId: 'session-sec',
+            executionMode: 'contract',
+            phase: 'exited',
+            reattachable: false,
+          },
+        ],
+        nextCursor: null,
+        hasMore: false,
+      });
+    default:
+      return null;
+  }
+}
+
+function securitySessionHistoryEnvelope(request: IncomingMessage) {
+  const fixtureKey = securityFixtureKey(request);
+  if (!fixtureKey) {
+    return null;
+  }
+
+  switch (fixtureKey) {
+    case 'osc8':
+      return envelope(
+        sessionHistoryPayload(
+          'session-sec',
+          1,
+          1,
+          `start \u001b]8;;https://evil.test/hidden\u0007trusted label\u001b]8;;\u0007 end`,
+          'stdout',
+        ),
+      );
+    case 'osc52':
+      return envelope(
+        sessionHistoryPayload(
+          'session-sec',
+          1,
+          1,
+          `clipboard \u001b]52;c;YmFkLXNlY3JldA==\u0007 should not leak`,
+          'stdout',
+        ),
+      );
+    case 'hostile-strings':
+      return envelope(sessionHistoryPayload('session-sec', 1, 1, '<blink>terminal</blink>', 'stdout'));
+    case 'large-payload':
+      return {
+        snapshotSeq: 73,
+        snapshotAt: '2026-03-28T22:10:01Z',
+        data: {
+          sessionId: 'session-sec',
+          firstSeq: 1,
+          lastSeq: 200,
+          availability: 'complete',
+          frames: Array.from({ length: 200 }, (_, index) => ({
+            kind: 'stdout' as const,
+            seq: index + 1,
+            chunk: `line ${index + 1}`,
+          })),
+        },
+      };
+    case 'unicode-spoof':
+      return envelope(sessionHistoryPayload('session-sec', 1, 1, 'session\u2066spoofed', 'stdout'));
+    default:
+      return null;
+  }
+}
+
+function advanceDecisionFixtureRead(
+  request: IncomingMessage,
+  processId: string,
+) {
+  const state = currentDecisionFixtureState(request);
+  if (!state) {
+    return null;
+  }
+
+  if (state.delayedTransition) {
+    if (state.delayedTransition.remainingReads <= 0) {
+      state.snapshotSeq = state.delayedTransition.nextSnapshotSeq;
+      state.decision = { ...state.delayedTransition.nextDecision };
+      if (state.delayedTransition.nextBasisHash) {
+        state.basisHash = state.delayedTransition.nextBasisHash;
+      }
+      state.delayedTransition = undefined;
+    } else {
+      state.delayedTransition.remainingReads -= 1;
+    }
+  }
+
+  return decisionDetailEnvelope(processId, cloneDecisionState(state));
+}
 
 const sessionFixtures = [
   {
@@ -355,6 +932,11 @@ function envelope<T>(data: T): DevEnvelope<T> {
 }
 
 function requestSearchParams(request: IncomingMessage): URLSearchParams {
+  const explicitSearch = request.headers['x-dev-page-search'];
+  if (typeof explicitSearch === 'string' && explicitSearch.length > 0) {
+    return new URLSearchParams(explicitSearch);
+  }
+
   const referer = request.headers.referer;
   if (typeof referer !== 'string') {
     return new URLSearchParams();
@@ -371,6 +953,8 @@ function requestedMode(params: URLSearchParams): BootstrapMode {
   const requestedMode = params.get('mode');
 
   switch (requestedMode) {
+    case 'full-control':
+      return 'full_control';
     case 'browse-only':
       return 'browse_only';
     case 'control-limited':
@@ -384,8 +968,7 @@ function requestedMode(params: URLSearchParams): BootstrapMode {
   }
 }
 
-function bootstrapSnapshotForRequest(request: IncomingMessage) {
-  const params = requestSearchParams(request);
+function bootstrapSnapshotForParams(params: URLSearchParams) {
   const mode = requestedMode(params);
   const restartScenario = params.get('daemonFixture') === 'restart';
   const restartGeneration = restartScenario && restartScenarioCommitted ? 2 : 1;
@@ -443,19 +1026,32 @@ function bootstrapSnapshotForRequest(request: IncomingMessage) {
         launchedDaemon: false,
       };
     case 'control_limited':
+    case 'full_control':
     default:
       return {
-        mode: 'control_limited' as const,
+        mode,
         controlPlane: {
           daemonInstanceId: restartScenario ? `daemon-${restartGeneration}` : 'daemon-dev',
           daemonVersion: '0.1.0',
           protocolVersion: 1,
           schemaEpoch: 1,
           storage: 'ready' as const,
-          daemon: restartScenario ? ('ready' as const) : ('degraded' as const),
-          control: restartScenario ? ('full' as const) : ('limited' as const),
-          load: restartScenario ? ('normal' as const) : ('busy' as const),
-          reasons: restartScenario
+          daemon:
+            mode === 'full_control' || restartScenario
+              ? ('ready' as const)
+              : ('degraded' as const),
+          control:
+            mode === 'full_control' || restartScenario
+              ? ('full' as const)
+              : ('limited' as const),
+          load:
+            mode === 'full_control' || restartScenario
+              ? ('normal' as const)
+              : ('busy' as const),
+          reasons:
+            mode === 'full_control'
+              ? ['Browser dev bridge is active.']
+              : restartScenario
             ? ['Daemon restarted cleanly.']
             : ['Browser dev bridge is active. Some actions are unavailable.'],
         },
@@ -472,6 +1068,10 @@ function bootstrapSnapshotForRequest(request: IncomingMessage) {
         launchedDaemon: false,
       };
   }
+}
+
+function bootstrapSnapshotForRequest(request: IncomingMessage) {
+  return bootstrapSnapshotForParams(requestSearchParams(request));
 }
 
 function daemonInfoForRequest(request: IncomingMessage) {
@@ -515,6 +1115,17 @@ function daemonInfoForRequest(request: IncomingMessage) {
 
 function errorsForRequest(request: IncomingMessage): ErrorFixtureItem[] {
   const fixtureKey = requestSearchParams(request).get('errorsFixture') ?? 'default';
+  if (fixtureKey === 'resolveFence') {
+    const state =
+      errorFixtureState.get(fixtureKey) ??
+      { resolveReadsAfterAck: 0, resolveRequested: false };
+    errorFixtureState.set(fixtureKey, state);
+    if (!state.resolveRequested) {
+      return errorFixtures.resolveFence;
+    }
+    state.resolveReadsAfterAck += 1;
+    return state.resolveReadsAfterAck >= 2 ? [] : errorFixtures.resolveFence;
+  }
   return errorFixtures[fixtureKey] ?? errorFixtures.default;
 }
 
@@ -625,6 +1236,8 @@ function sessionHistoryPayload(
   sessionId: string,
   fromSeq: number,
   toSeq: number,
+  contractText?: string,
+  contractMode: 'pty' | 'stdout' = 'pty',
 ) {
   if (sessionId === 'session-live') {
     return {
@@ -658,31 +1271,43 @@ function sessionHistoryPayload(
   return {
     sessionId,
     firstSeq: 1,
-    lastSeq: 3,
+    lastSeq: contractText ? 1 : 3,
     availability: 'complete' as const,
-    frames: [
-      {
-        seq: 1,
-        kind: 'stdout' as const,
-        chunk: 'Contracts Finder session booted.',
-        ts: '2026-03-28T08:00:00Z',
-      },
-      {
-        seq: 2,
-        kind: 'stderr' as const,
-        chunk: 'MFA required in managed browser.',
-        ts: '2026-03-28T08:00:10Z',
-      },
-      {
-        seq: 3,
-        kind: 'event' as const,
-        event: {
-          type: 'finalResultReady' as const,
-          path: '/tmp/procintel/contracts-finder/result.json',
-        },
-        ts: '2026-03-28T08:02:00Z',
-      },
-    ],
+    frames: contractText
+      ? [
+          {
+            seq: 1,
+            kind: contractMode,
+            chunk:
+              contractMode === 'pty'
+                ? Array.from(new TextEncoder().encode(contractText))
+                : contractText,
+            ts: '2026-03-28T08:00:00Z',
+          },
+        ]
+      : [
+          {
+            seq: 1,
+            kind: 'stdout' as const,
+            chunk: 'Contracts Finder session booted.',
+            ts: '2026-03-28T08:00:00Z',
+          },
+          {
+            seq: 2,
+            kind: 'stderr' as const,
+            chunk: 'MFA required in managed browser.',
+            ts: '2026-03-28T08:00:10Z',
+          },
+          {
+            seq: 3,
+            kind: 'event' as const,
+            event: {
+              type: 'finalResultReady' as const,
+              path: '/tmp/procintel/contracts-finder/result.json',
+            },
+            ts: '2026-03-28T08:02:00Z',
+          },
+        ],
   };
 }
 
@@ -754,34 +1379,219 @@ export async function handleDevBridgeInvoke({
 
     const visible =
       (sourceIds.length === 0 || sourceIds.includes('fts')) &&
-      (pipelineStates.length === 0 || pipelineStates.includes(processListItem.pipelineState)) &&
+      (pipelineStates.length === 0 || pipelineStates.includes('review')) &&
       (decisionDispositions.length === 0 ||
-        decisionDispositions.includes(processListItem.decision.disposition ?? '')) &&
-      (!staleOnly || processListItem.decision.isStale) &&
+        decisionDispositions.includes('watch')) &&
+      (!staleOnly || true) &&
       (!search ||
-        processListItem.title.toLowerCase().includes(search) ||
-        processListItem.buyerName.toLowerCase().includes(search));
+        'Process process-1'.toLowerCase().includes(search) ||
+        'Buyer process-1'.toLowerCase().includes(search));
 
-    return envelope<DevKeysetPage<typeof processListItem>>({
-      items: visible ? [processListItem] : [],
-      nextCursor: null,
-      hasMore: false,
+    if (sourceIds.includes('empty')) {
+      return envelope({
+        items: [],
+        nextCursor: null,
+        hasMore: false,
+      });
+    }
+
+    if (args?.cursor === 'cursor-page-2') {
+      return envelope({
+        items: Array.from({ length: 10 }, (_, index) =>
+          makeProcessSummary(`process-${index + 26}`),
+        ),
+        nextCursor: null,
+        hasMore: false,
+      });
+    }
+
+    return envelope({
+      items: visible
+        ? Array.from({ length: 25 }, (_, index) =>
+            makeProcessSummary(`process-${index + 1}`),
+          )
+        : [],
+      nextCursor: 'cursor-page-2',
+      hasMore: true,
     });
   }
 
   if (payload.cmd === 'get_process_detail') {
     const processId = processIdFromArgs(args);
-    if (processId !== 'proc-1') {
+    const securityDetail = securityProcessDetail(request);
+    if (securityDetail) {
+      return securityDetail;
+    }
+    const bridgeFixture = bridgeFixtureKey(request);
+    const bridgeState = currentBridgeScenarioState(request);
+    if (bridgeFixture === 'decision-ack-lost' && bridgeState) {
+      bridgeState.detailReads += 1;
       return {
-        code: 'not_found',
-        message: `unknown process ${processId}`,
-        retryable: false,
+        snapshotSeq:
+          bridgeState.acknowledged && bridgeState.detailReads >= 2 ? 81 : 80,
+        snapshotAt: '2026-03-28T22:00:00Z',
+        data: {
+          ...makeProcessDetail(processId),
+          decision:
+            bridgeState.acknowledged && bridgeState.detailReads >= 2
+              ? {
+                  disposition: 'approve',
+                  isStale: false,
+                  decidedAt: '2026-03-28T21:59:00Z',
+                }
+              : {
+                  disposition: null,
+                  isStale: false,
+                  decidedAt: null,
+                },
+          manifest: {
+            ...makeProcessDetail(processId).manifest,
+            basisHash: 'basis-bridge',
+            artifactHash: 'artifact-bridge',
+            stageRunId: 'stage-bridge',
+          },
+          reviewMetadata: {
+            basisHash: 'basis-bridge',
+            manifestHash: 'artifact-bridge',
+            stageRunId: 'stage-bridge',
+          },
+        },
       };
     }
-    return envelope(processDetail);
+    const decisionFixture = advanceDecisionFixtureRead(request, processId);
+    if (decisionFixture) {
+      return decisionFixture;
+    }
+    if (processId === 'zero-lots') {
+      const detail = makeProcessDetail(processId);
+      detail.lots = [];
+      return envelope(detail);
+    }
+    if (processId === 'no-candidates') {
+      const detail = makeProcessDetail(processId);
+      detail.candidates = [];
+      detail.quotes = [];
+      detail.landedCosts = [];
+      detail.coverage = {
+        ...detail.coverage,
+        pricedCoverageBps: 0,
+        landedCostCoverageBps: 0,
+        netQualifiedCoverageBps: 0,
+        pricedValueCoverageBps: 0,
+        landedCostValueCoverageBps: 0,
+        netQualifiedValueCoverageBps: 0,
+      };
+      return envelope(detail);
+    }
+    return envelope(makeProcessDetail(processId));
   }
 
   if (payload.cmd === 'capture_decision') {
+    const bridgeFixture = bridgeFixtureKey(request);
+    const bridgeState = currentBridgeScenarioState(request);
+    if (bridgeFixture === 'decision-ack-lost' && bridgeState) {
+      bridgeState.decisionCalls += 1;
+      if (bridgeState.decisionCalls === 1) {
+        return {
+          code: 'transport_unavailable',
+          message: 'ack lost after commit',
+          retryable: true,
+        };
+      }
+      bridgeState.acknowledged = true;
+      return {
+        accepted: true,
+        visibleAfterSeq: 81,
+        idempotencyKey:
+          (typeof args?.idempotencyKey === 'string' && args.idempotencyKey) ||
+          'dev-bridge-decision',
+      };
+    }
+    const decisionFixture = currentDecisionFixtureState(request);
+    if (decisionFixture) {
+      const disposition =
+        typeof args?.disposition === 'string'
+          ? (args.disposition as Exclude<DecisionDisposition, null>)
+          : 'watch';
+      const idempotencyKey =
+        (typeof args?.idempotencyKey === 'string' && args.idempotencyKey) ||
+        'dev-bridge-decision';
+      const processId =
+        (typeof args?.processId === 'string' && args.processId) || 'process-1';
+      if (decisionFixtureKey(request) === 'mutation-failure') {
+        return {
+          code: 'storage_unreadable',
+          message: 'decision write failed',
+          retryable: false,
+        };
+      }
+      if (decisionFixtureKey(request) === 'rollback-failure') {
+        return {
+          code: 'storage_unreadable',
+          message: 'rollback prevented decision persistence',
+          retryable: false,
+        };
+      }
+
+      const nextDecision = {
+        disposition,
+        isStale: false,
+        decidedAt:
+          disposition === 'watch' && decisionFixture.snapshotSeq === 80
+            ? '2026-03-28T21:04:00Z'
+            : disposition === 'watch'
+              ? '2026-03-28T21:02:00Z'
+              : disposition === 'reject'
+                ? '2026-03-28T21:03:00Z'
+                : '2026-03-28T21:00:00Z',
+      };
+      let visibleAfterSeq = decisionFixture.snapshotSeq;
+
+      switch (decisionFixtureKey(request)) {
+        case 'watch-after-fence':
+          decisionFixture.snapshotSeq = 56;
+          decisionFixture.decision = nextDecision;
+          visibleAfterSeq = 56;
+          break;
+        case 'supersede':
+          decisionFixture.snapshotSeq = disposition === 'approve' ? 71 : 72;
+          decisionFixture.decision = nextDecision;
+          visibleAfterSeq = decisionFixture.snapshotSeq;
+          break;
+        case 'reaffirm-watch':
+          decisionFixture.snapshotSeq = 81;
+          decisionFixture.decision = nextDecision;
+          visibleAfterSeq = 81;
+          break;
+        case 'delayed-fence':
+        case 'delayed-fence-commit':
+        case 'delayed-fence-decisions':
+          decisionFixture.delayedTransition = {
+            remainingReads: 1,
+            nextSnapshotSeq: 112,
+            nextDecision,
+          };
+          visibleAfterSeq = 112;
+          break;
+        case 'metadata-only':
+          decisionFixture.snapshotSeq = 45;
+          visibleAfterSeq = 45;
+          break;
+        case 'approve-after-fence':
+        default:
+          decisionFixture.snapshotSeq = 41;
+          decisionFixture.decision = nextDecision;
+          visibleAfterSeq = 41;
+          break;
+      }
+
+      return {
+        accepted: true,
+        visibleAfterSeq,
+        idempotencyKey,
+        processId,
+      };
+    }
     return {
       accepted: true,
       visibleAfterSeq: SNAPSHOT_SEQ,
@@ -803,6 +1613,22 @@ export async function handleDevBridgeInvoke({
   }
 
   if (payload.cmd === 'list_errors') {
+    const securityErrors = securityErrorEnvelope(request);
+    if (securityErrors) {
+      return securityErrors;
+    }
+    const bridgeFixture = bridgeFixtureKey(request);
+    if (
+      bridgeFixture === 'resolve-transport' ||
+      bridgeFixture === 'rerun-conflict-then-busy' ||
+      bridgeFixture === 'rerun-reservation-conflict'
+    ) {
+      return envelope({
+        items: errorFixtures.default,
+        nextCursor: null,
+        hasMore: false,
+      });
+    }
     return envelope({
       items: filteredErrors(request, payload),
       nextCursor: null,
@@ -811,6 +1637,26 @@ export async function handleDevBridgeInvoke({
   }
 
   if (payload.cmd === 'resolve_error') {
+    if (bridgeFixtureKey(request) === 'resolve-transport') {
+      return {
+        code: 'transport_unavailable',
+        message: 'socket /tmp/procintel/daemon.sock unreachable',
+        retryable: true,
+      };
+    }
+    const fixtureKey = requestSearchParams(request).get('errorsFixture') ?? 'default';
+    if (fixtureKey === 'resolveFence') {
+      const state =
+        errorFixtureState.get(fixtureKey) ??
+        { resolveReadsAfterAck: 0, resolveRequested: false };
+      state.resolveRequested = true;
+      state.resolveReadsAfterAck = 0;
+      errorFixtureState.set(fixtureKey, state);
+      return {
+        accepted: true,
+        visibleAfterSeq: 201,
+      };
+    }
     return {
       accepted: true,
       visibleAfterSeq: SNAPSHOT_SEQ,
@@ -818,6 +1664,36 @@ export async function handleDevBridgeInvoke({
   }
 
   if (payload.cmd === 'rerun_from_error') {
+    const bridgeFixture = bridgeFixtureKey(request);
+    const bridgeState = currentBridgeScenarioState(request);
+    if (bridgeFixture === 'rerun-conflict-then-busy' && bridgeState) {
+      bridgeState.rerunCalls += 1;
+      return bridgeState.rerunCalls === 1
+        ? {
+            code: 'conflict',
+            message: 'job is not rerunnable because another operator holds the reservation',
+            retryable: false,
+          }
+        : {
+            code: 'busy',
+            message: 'retry once the daemon job queue clears',
+            retryable: true,
+          };
+    }
+    if (bridgeFixture === 'rerun-reservation-conflict') {
+      return {
+        code: 'conflict',
+        message: 'downstream Agent Mail file_reservation_paths conflict blocked the rerun',
+        retryable: false,
+      };
+    }
+    if (requestSearchParams(request).get('errorsFixture') === 'rerunFence') {
+      return {
+        accepted: true,
+        visibleAfterSeq: 301,
+        jobId: 'rerun-job-1',
+      };
+    }
     return {
       accepted: true,
       visibleAfterSeq: SNAPSHOT_SEQ,
@@ -860,6 +1736,23 @@ export async function handleDevBridgeInvoke({
   }
 
   if (payload.cmd === 'list_sessions') {
+    const securitySessions = securitySessionListEnvelope(request);
+    if (securitySessions) {
+      return securitySessions;
+    }
+    const bridgeFixture = bridgeFixtureKey(request);
+    if (bridgeFixture === 'session-list') {
+      return envelope({
+        items: [
+          {
+            ...sessionFixtures[0],
+            sessionId: 'session-live',
+          },
+        ],
+        nextCursor: null,
+        hasMore: false,
+      });
+    }
     return envelope({
       items: sessionListItems(payload),
       nextCursor: null,
@@ -877,6 +1770,17 @@ export async function handleDevBridgeInvoke({
   }
 
   if (payload.cmd === 'get_session_history') {
+    const securityHistory = securitySessionHistoryEnvelope(request);
+    if (securityHistory) {
+      return securityHistory;
+    }
+    const bridgeFixture = bridgeFixtureKey(request);
+    if (bridgeFixture === 'session-input-invalid') {
+      return envelope(sessionHistoryPayload('session-live', 1, 1));
+    }
+    if (bridgeFixture === 'session-resize-terminal') {
+      return envelope(sessionHistoryPayload('session-live', 1, 1));
+    }
     const sessionId =
       (typeof args?.sessionId === 'string' && args.sessionId) || 'session-failed';
     const fromSeq = typeof args?.fromSeq === 'number' ? args.fromSeq : 1;
@@ -889,6 +1793,20 @@ export async function handleDevBridgeInvoke({
     payload.cmd === 'send_session_input' ||
     payload.cmd === 'resize_session'
   ) {
+    if (payload.cmd === 'send_session_input' && bridgeFixtureKey(request) === 'session-input-invalid') {
+      return {
+        code: 'invalid_params',
+        message: 'inputUtf8 must be a non-empty string',
+        retryable: false,
+      };
+    }
+    if (payload.cmd === 'resize_session' && bridgeFixtureKey(request) === 'session-resize-terminal') {
+      return {
+        code: 'already_terminal',
+        message: 'session is already archived',
+        retryable: false,
+      };
+    }
     return {
       accepted: true,
       visibleAfterSeq: SNAPSHOT_SEQ,
@@ -905,12 +1823,14 @@ export async function handleDevBridgeInvoke({
 }
 
 export function handleDevBridgeWebSocket({
+  request,
   socket,
   url,
 }: DevBridgeWebSocketContext): void {
   const topic = url.searchParams.get('topic');
 
   if (topic === 'daemon.health') {
+    const bootstrap = bootstrapSnapshotForParams(url.searchParams);
     globalThis.setTimeout(() => {
       if (socket.readyState !== 1) {
         return;
@@ -918,14 +1838,14 @@ export function handleDevBridgeWebSocket({
 
       socket.send(
         JSON.stringify({
-          daemon: 'degraded',
-          control: 'limited',
-          load: 'busy',
-          reasons: ['Browser dev bridge is active. Some actions are unavailable.'],
-          daemonInstanceId: 'daemon-dev',
-          daemonVersion: '0.1.0',
-          protocolVersion: 1,
-          schemaEpoch: 1,
+          daemon: bootstrap.controlPlane.daemon,
+          control: bootstrap.controlPlane.control,
+          load: bootstrap.controlPlane.load,
+          reasons: bootstrap.controlPlane.reasons,
+          daemonInstanceId: bootstrap.controlPlane.daemonInstanceId,
+          daemonVersion: bootstrap.controlPlane.daemonVersion,
+          protocolVersion: bootstrap.controlPlane.protocolVersion,
+          schemaEpoch: bootstrap.controlPlane.schemaEpoch,
         }),
       );
     }, 0);
