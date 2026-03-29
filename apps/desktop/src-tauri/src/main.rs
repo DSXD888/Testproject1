@@ -87,7 +87,7 @@ pub fn configure_builder<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri
             rerun_from_error
         ])
         .setup(|app| {
-            let snapshot = bootstrap_application(app.handle());
+            let snapshot = bootstrap_application(app.handle(), None);
             app.state::<BootstrapStore>().replace(snapshot)?;
             Ok(())
         })
@@ -121,6 +121,18 @@ impl BootstrapStore {
             .lock()
             .map(|guard| guard.clone())
             .map_err(|_| anyhow!("bootstrap store lock poisoned"))
+    }
+
+    fn last_seen_instance_id(&self) -> Result<Option<String>> {
+        self.snapshot().map(|snapshot| {
+            snapshot.and_then(|snapshot| {
+                if snapshot.control_plane.daemon_instance_id.is_empty() {
+                    None
+                } else {
+                    Some(snapshot.control_plane.daemon_instance_id)
+                }
+            })
+        })
     }
 }
 
@@ -545,9 +557,12 @@ enum HandshakeFailure {
     Incompatible(String),
 }
 
-fn bootstrap_application<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> BootstrapSnapshot {
+fn bootstrap_application<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    last_seen_instance_id: Option<&str>,
+) -> BootstrapSnapshot {
     match DesktopPaths::from_handle(app) {
-        Ok(paths) => run_startup_sequence(&paths),
+        Ok(paths) => run_startup_sequence(&paths, last_seen_instance_id),
         Err(error) => BootstrapSnapshot {
             mode: BootstrapMode::RecoveryRequired,
             control_plane: ControlPlaneState {
@@ -569,7 +584,10 @@ fn bootstrap_application<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Bootst
     }
 }
 
-fn run_startup_sequence(paths: &DesktopPaths) -> BootstrapSnapshot {
+fn run_startup_sequence(
+    paths: &DesktopPaths,
+    last_seen_instance_id: Option<&str>,
+) -> BootstrapSnapshot {
     let storage = inspect_storage(paths);
     let (descriptor, descriptor_reasons) = read_descriptor(paths.descriptor_path().as_path());
     let mut reasons = storage.reasons.clone();
@@ -592,7 +610,7 @@ fn run_startup_sequence(paths: &DesktopPaths) -> BootstrapSnapshot {
         );
     }
 
-    match try_handshake(paths, descriptor.as_ref()) {
+    match try_handshake(paths, descriptor.as_ref(), last_seen_instance_id) {
         Ok(welcome) => {
             return snapshot_from_welcome(storage.state, descriptor, welcome, reasons, false);
         }
@@ -631,7 +649,14 @@ fn run_startup_sequence(paths: &DesktopPaths) -> BootstrapSnapshot {
         }
     };
 
-    finish_handshake_retries(paths, storage.state, descriptor, reasons, launched_daemon)
+    finish_handshake_retries(
+        paths,
+        storage.state,
+        descriptor,
+        reasons,
+        launched_daemon,
+        last_seen_instance_id,
+    )
 }
 
 fn inspect_storage(paths: &DesktopPaths) -> StorageInspection {
@@ -765,6 +790,7 @@ fn read_descriptor(path: &Path) -> (Option<DaemonDescriptorSnapshot>, Vec<String
 fn try_handshake(
     paths: &DesktopPaths,
     descriptor: Option<&DaemonDescriptorSnapshot>,
+    last_seen_instance_id: Option<&str>,
 ) -> std::result::Result<ServerWelcome, HandshakeFailure> {
     let socket_path = descriptor
         .map(|value| PathBuf::from(&value.socket_path))
@@ -782,7 +808,7 @@ fn try_handshake(
 
     #[cfg(unix)]
     {
-        let frame = read_handshake_frame(socket_path.as_path())?;
+        let frame = read_handshake_frame(socket_path.as_path(), last_seen_instance_id)?;
         parse_handshake_frame(frame)
     }
 
@@ -790,6 +816,7 @@ fn try_handshake(
     {
         let _ = paths;
         let _ = descriptor;
+        let _ = last_seen_instance_id;
         Err(HandshakeFailure::Unavailable(
             "Layer 2 desktop bootstrap currently expects Unix-domain daemon transport; named-pipe support is not implemented yet."
                 .to_owned(),
@@ -1032,6 +1059,7 @@ struct ServerWelcome {
 #[cfg(unix)]
 fn read_handshake_frame(
     socket_path: &Path,
+    last_seen_instance_id: Option<&str>,
 ) -> std::result::Result<ServerMessage, HandshakeFailure> {
     let mut stream = UnixStream::connect(socket_path).map_err(|error| {
         HandshakeFailure::Unavailable(format!(
@@ -1046,7 +1074,7 @@ fn read_handshake_frame(
             max: EXPECTED_PROTOCOL_VERSION,
         },
         expected_schema_epoch: EXPECTED_SCHEMA_EPOCH,
-        last_seen_instance_id: None,
+        last_seen_instance_id: last_seen_instance_id.map(str::to_owned),
     })
     .map_err(|error| {
         HandshakeFailure::Unavailable(format!("Serializing desktop hello failed: {error}"))
@@ -1170,6 +1198,7 @@ fn finish_handshake_retries(
     mut descriptor: Option<DaemonDescriptorSnapshot>,
     mut reasons: Vec<String>,
     launched_daemon: bool,
+    last_seen_instance_id: Option<&str>,
 ) -> BootstrapSnapshot {
     for backoff_ms in HANDSHAKE_RETRY_BACKOFF_MS {
         thread::park_timeout(Duration::from_millis(backoff_ms));
@@ -1177,7 +1206,7 @@ fn finish_handshake_retries(
             read_descriptor(paths.descriptor_path().as_path());
         reasons.extend(descriptor_reasons);
         let retry_descriptor = fresh_descriptor.as_ref().or(descriptor.as_ref());
-        match try_handshake(paths, retry_descriptor) {
+        match try_handshake(paths, retry_descriptor, last_seen_instance_id) {
             Ok(welcome) => {
                 reasons.push(format!(
                     "Daemon handshake succeeded after auto-launch retry ({backoff_ms} ms backoff)."
@@ -1233,7 +1262,11 @@ fn get_bootstrap_snapshot<R: tauri::Runtime>(
         return Ok(snapshot);
     }
 
-    let snapshot = bootstrap_application(&app);
+    let last_seen_instance_id = store
+        .inner()
+        .last_seen_instance_id()
+        .map_err(|error| error.to_string())?;
+    let snapshot = bootstrap_application(&app, last_seen_instance_id.as_deref());
     store
         .inner()
         .replace(snapshot.clone())
@@ -1248,7 +1281,11 @@ fn refresh_bootstrap_snapshot<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     store: tauri::State<'_, BootstrapStore>,
 ) -> std::result::Result<BootstrapSnapshot, String> {
-    let snapshot = bootstrap_application(&app);
+    let last_seen_instance_id = store
+        .inner()
+        .last_seen_instance_id()
+        .map_err(|error| error.to_string())?;
+    let snapshot = bootstrap_application(&app, last_seen_instance_id.as_deref());
     store
         .inner()
         .replace(snapshot.clone())
@@ -1401,7 +1438,11 @@ fn restart_daemon<R: tauri::Runtime>(
     let ack = connection
         .restart_daemon(&RestartDaemonParams {}, idempotency_key.as_str())
         .map_err(|error| error.to_string())?;
-    let refreshed = bootstrap_application(&app);
+    let last_seen_instance_id = store
+        .inner()
+        .last_seen_instance_id()
+        .map_err(|error| error.to_string())?;
+    let refreshed = bootstrap_application(&app, last_seen_instance_id.as_deref());
     store
         .inner()
         .replace(refreshed)

@@ -46,6 +46,21 @@ export interface DesktopTransport {
 
 const DEV_INVOKE_PATH = '/__tauri_invoke__';
 const DEV_WS_PATH = '/__ws__';
+const TAURI_PARAMS_WRAPPED_COMMANDS = new Set([
+  'get_process_detail',
+  'get_session_history',
+  'trigger_ingestion',
+  'trigger_enrichment',
+  'capture_decision',
+  'resolve_error',
+  'rerun_from_error',
+  'retry_job',
+  'stop_session',
+  'send_session_input',
+  'resize_session',
+  'subscribe_topic',
+  'unsubscribe_topic',
+]);
 let tauriEventModulePromise:
   | Promise<typeof import('@tauri-apps/api/event')>
   | null = null;
@@ -121,6 +136,21 @@ async function loadTauriEventModule(): Promise<typeof import('@tauri-apps/api/ev
   return tauriEventModulePromise;
 }
 
+function shapeNativeInvokeArgs(
+  cmd: string,
+  args: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!args) {
+    return args;
+  }
+
+  if (TAURI_PARAMS_WRAPPED_COMMANDS.has(cmd)) {
+    return { params: args };
+  }
+
+  return args;
+}
+
 function subscribeViaNativeTauriEvents<T>(
   runtime: RuntimeLike,
   topic: string,
@@ -149,10 +179,10 @@ function subscribeViaNativeTauriEvents<T>(
     unlisten = detach;
 
     try {
-      await nativeInvoke('subscribe_topic', {
+      await nativeInvoke('subscribe_topic', shapeNativeInvokeArgs('subscribe_topic', {
         topic,
         fromSeq,
-      });
+      }));
     } catch {
       detach();
       unlisten = null;
@@ -161,25 +191,29 @@ function subscribeViaNativeTauriEvents<T>(
 
   return () => {
     active = false;
-    void nativeInvoke('unsubscribe_topic', {
-      topic,
-      fromSeq,
-    }).catch(() => undefined);
+    void nativeInvoke(
+      'unsubscribe_topic',
+      shapeNativeInvokeArgs('unsubscribe_topic', {
+        topic,
+        fromSeq,
+      }),
+    ).catch(() => undefined);
     unlisten?.();
     unlisten = null;
   };
 }
 
 export function createTransport(runtime: RuntimeLike): DesktopTransport {
-  if (runtime.__TAURI_INTERNALS__?.invoke) {
+  const nativeInternals = runtime.__TAURI_INTERNALS__;
+  if (nativeInternals?.invoke) {
     return {
-      invoke: runtime.__TAURI_INTERNALS__.invoke,
+      invoke: (cmd, args) => nativeInternals.invoke(cmd, shapeNativeInvokeArgs(cmd, args)),
       subscribe: <T = unknown>(
         topic: string,
         fromSeq: number | undefined,
         onEvent: SubscribeHandler<T>,
       ) =>
-        runtime.__TAURI_INTERNALS__?.subscribe?.(topic, fromSeq, onEvent) ??
+        nativeInternals.subscribe?.(topic, fromSeq, onEvent) ??
         subscribeViaNativeTauriEvents(runtime, topic, fromSeq, onEvent),
     };
   }

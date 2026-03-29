@@ -2,6 +2,7 @@
 
 mod support;
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::io::{BufRead, Write};
 use std::os::unix::net::UnixListener;
@@ -47,6 +48,102 @@ fn build_harness() -> Result<(tempfile::TempDir, desktop_main::TestRuntimeHarnes
     let temp = tempdir()?;
     let runtime = desktop_main::TestRuntimeHarness::new(temp.path().to_path_buf());
     Ok((temp, runtime))
+}
+
+fn write_custom_descriptor(
+    runtime: &desktop_main::TestRuntimeHarness,
+    instance_id: &str,
+    pid: u32,
+) -> Result<()> {
+    fs::create_dir_all(runtime.runtime_dir())?;
+    fs::write(
+        runtime.descriptor_path(),
+        serde_json::to_vec(&json!({
+            "instanceId": instance_id,
+            "pid": pid,
+            "socketPath": runtime.socket_path().display().to_string(),
+            "protocolVersion": 1,
+            "schemaEpoch": 1,
+            "stateRoot": runtime.state_root().display().to_string(),
+            "startedAt": "2026-03-29T12:00:00Z",
+            "ready": true
+        }))?,
+    )?;
+    Ok(())
+}
+
+fn welcome_with_reconnect(
+    instance_id: &str,
+    reconnect_outcome: &str,
+    stream_resume_permitted: bool,
+) -> Value {
+    json!({
+        "messageType": "welcome",
+        "selectedProtocolVersion": 1,
+        "daemonVersion": "1.2.3",
+        "instanceId": instance_id,
+        "schemaEpoch": 1,
+        "commitSeq": 77,
+        "healthState": { "status": "ready" },
+        "mutationsAllowed": true,
+        "activeSessions": {
+          "count": 1,
+          "ids": ["session-live"],
+          "states": ["active"]
+        },
+        "reconnectOutcome": reconnect_outcome,
+        "streamResumePermitted": stream_resume_permitted
+    })
+}
+
+fn spawn_welcome_server(
+    runtime: &desktop_main::TestRuntimeHarness,
+    welcomes: Vec<Value>,
+) -> Result<thread::JoinHandle<Result<()>>> {
+    let _ = fs::remove_file(runtime.socket_path());
+    write_custom_descriptor(
+        runtime,
+        welcomes
+            .first()
+            .and_then(|value| value.get("instanceId"))
+            .and_then(Value::as_str)
+            .unwrap_or("daemon-native"),
+        4242,
+    )?;
+    let listener = UnixListener::bind(runtime.socket_path())?;
+    Ok(thread::spawn(move || -> Result<()> {
+        for welcome in welcomes {
+            let (mut stream, _) = listener.accept()?;
+            let mut reader = std::io::BufReader::new(stream.try_clone()?);
+            let mut hello = String::new();
+            let _ = reader.read_line(&mut hello)?;
+            let payload = serde_json::to_string(&welcome)?;
+            stream.write_all(payload.as_bytes())?;
+            stream.write_all(b"\n")?;
+            stream.flush()?;
+        }
+        Ok(())
+    }))
+}
+
+fn reasons(snapshot: &Value) -> Vec<String> {
+    snapshot["controlPlane"]["reasons"]
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn top_level_keys(value: &Value) -> BTreeSet<String> {
+    value
+        .as_object()
+        .map(|object| object.keys().cloned().collect())
+        .unwrap_or_default()
 }
 
 #[test]
@@ -153,7 +250,7 @@ fn tau_int_003_startup_autolaunch_reaches_full_control_from_native_bootstrap() -
 }
 
 #[test]
-fn tau_int_004_005_006_007_cover_native_bootstrap_modes() -> Result<()> {
+fn tau_int_004_storage_ready_daemon_unavailable_maps_to_browse_only() -> Result<()> {
     let _guard = TEST_MUTEX
         .get_or_init(|| Mutex::new(()))
         .lock()
@@ -161,33 +258,66 @@ fn tau_int_004_005_006_007_cover_native_bootstrap_modes() -> Result<()> {
     let _reset = TestStateReset::new()?;
 
     blocked_launch()?;
-    let (_browse_temp, browse_runtime) = build_harness()?;
-    let browse = NativeAppHarness::build(&browse_runtime)?
-        .invoke_value("get_bootstrap_snapshot", Value::Null)?;
-    anyhow::ensure!(json_mode(&browse) == Some("browse_only"));
+    let (_temp, runtime) = build_harness()?;
+    let snapshot =
+        NativeAppHarness::build(&runtime)?.invoke_value("get_bootstrap_snapshot", Value::Null)?;
+    anyhow::ensure!(json_mode(&snapshot) == Some("browse_only"));
+    Ok(())
+}
 
-    let (_mismatch_temp, mismatch_runtime) = build_harness()?;
-    fs::create_dir_all(mismatch_runtime.state_root())?;
-    let mismatch_db = mismatch_runtime.state_root().join("state.db");
+#[test]
+fn tau_int_005_schema_mismatch_maps_to_incompatible() -> Result<()> {
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
+    let _reset = TestStateReset::new()?;
+    blocked_launch()?;
+
+    let (_temp, runtime) = build_harness()?;
+    fs::create_dir_all(runtime.state_root())?;
+    let mismatch_db = runtime.state_root().join("state.db");
     let mismatch_conn = Connection::open(&mismatch_db)?;
     mismatch_conn.pragma_update(None, "user_version", 99_i64)?;
-    let mismatch = NativeAppHarness::build(&mismatch_runtime)?
-        .invoke_value("get_bootstrap_snapshot", Value::Null)?;
+    let mismatch =
+        NativeAppHarness::build(&runtime)?.invoke_value("get_bootstrap_snapshot", Value::Null)?;
     anyhow::ensure!(json_mode(&mismatch) == Some("incompatible"));
+    Ok(())
+}
 
-    let (_recovery_temp, recovery_runtime) = build_harness()?;
-    fs::write(recovery_runtime.state_root(), "not-a-directory")?;
-    let recovery = NativeAppHarness::build(&recovery_runtime)?
-        .invoke_value("get_bootstrap_snapshot", Value::Null)?;
+#[test]
+fn tau_int_006_unreadable_storage_maps_to_recovery_required() -> Result<()> {
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
+    let _reset = TestStateReset::new()?;
+    blocked_launch()?;
+
+    let (_temp, runtime) = build_harness()?;
+    fs::write(runtime.state_root(), "not-a-directory")?;
+    let recovery =
+        NativeAppHarness::build(&runtime)?.invoke_value("get_bootstrap_snapshot", Value::Null)?;
     anyhow::ensure!(json_mode(&recovery) == Some("recovery_required"));
+    Ok(())
+}
 
-    let (_limited_temp, limited_runtime) = build_harness()?;
+#[test]
+fn tau_int_007_degraded_daemon_maps_to_control_limited() -> Result<()> {
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
+    let _reset = TestStateReset::new()?;
+    blocked_launch()?;
+
+    let (_temp, runtime) = build_harness()?;
     let _server = DaemonServer::start(
-        &limited_runtime,
+        &runtime,
         welcome_message("daemon-limited", "degraded", 1, false),
     )?;
-    let limited = NativeAppHarness::build(&limited_runtime)?
-        .invoke_value("get_bootstrap_snapshot", Value::Null)?;
+    let limited =
+        NativeAppHarness::build(&runtime)?.invoke_value("get_bootstrap_snapshot", Value::Null)?;
     anyhow::ensure!(json_mode(&limited) == Some("control_limited"));
 
     Ok(())
@@ -239,6 +369,143 @@ fn tau_int_008_mode_matrix_stays_total_and_non_overlapping_in_native_bootstrap()
     anyhow::ensure!(modes.contains(&"recovery_required"));
     anyhow::ensure!(modes.contains(&"control_limited"));
     anyhow::ensure!(modes.len() == 4);
+    Ok(())
+}
+
+#[test]
+fn tau_int_009_same_daemon_reconnect_retains_instance_id() -> Result<()> {
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
+    let _reset = TestStateReset::new()?;
+    blocked_launch()?;
+
+    let (_temp, runtime) = build_harness()?;
+    let join = spawn_welcome_server(
+        &runtime,
+        vec![
+            welcome_with_reconnect("daemon-same", "freshConnection", false),
+            welcome_with_reconnect("daemon-same", "sameDaemonReconnect", true),
+        ],
+    )?;
+
+    let app = NativeAppHarness::build(&runtime)?;
+    let first = app.invoke_value("get_bootstrap_snapshot", Value::Null)?;
+    let second = app.invoke_value("refresh_bootstrap_snapshot", Value::Null)?;
+
+    anyhow::ensure!(first["controlPlane"]["daemonInstanceId"] == json!("daemon-same"));
+    anyhow::ensure!(second["controlPlane"]["daemonInstanceId"] == json!("daemon-same"));
+    anyhow::ensure!(
+        !reasons(&second)
+            .iter()
+            .any(|reason| reason.contains("invalidated stream resume"))
+    );
+    anyhow::ensure!(
+        !reasons(&second)
+            .iter()
+            .any(|reason| reason.contains("not currently permitted"))
+    );
+    join.join()
+        .map_err(|_| anyhow!("same-daemon reconnect server panicked"))??;
+    Ok(())
+}
+
+#[test]
+fn tau_int_010_changed_instance_ids_invalidate_live_resume() -> Result<()> {
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
+    let _reset = TestStateReset::new()?;
+    blocked_launch()?;
+
+    let (_temp, runtime) = build_harness()?;
+    let join = spawn_welcome_server(
+        &runtime,
+        vec![
+            welcome_with_reconnect("daemon-old", "freshConnection", false),
+            welcome_with_reconnect("daemon-new", "daemonRestartInvalidated", false),
+        ],
+    )?;
+
+    let app = NativeAppHarness::build(&runtime)?;
+    let first = app.invoke_value("get_bootstrap_snapshot", Value::Null)?;
+    let second = app.invoke_value("refresh_bootstrap_snapshot", Value::Null)?;
+
+    anyhow::ensure!(first["controlPlane"]["daemonInstanceId"] == json!("daemon-old"));
+    anyhow::ensure!(second["controlPlane"]["daemonInstanceId"] == json!("daemon-new"));
+    anyhow::ensure!(
+        reasons(&second)
+            .iter()
+            .any(|reason| reason.contains("invalidated stream resume"))
+    );
+    join.join()
+        .map_err(|_| anyhow!("restart-invalidated reconnect server panicked"))??;
+    Ok(())
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn tau_int_011_native_payload_shapes_match_app_contracts() -> Result<()> {
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
+    let _reset = TestStateReset::new()?;
+    blocked_launch()?;
+
+    let (_temp, runtime) = build_harness()?;
+    let app = NativeAppHarness::build(&runtime)?;
+
+    let bootstrap_join = spawn_welcome_server(
+        &runtime,
+        vec![welcome_with_reconnect(
+            "daemon-parity",
+            "freshConnection",
+            false,
+        )],
+    )?;
+    let bootstrap = app.invoke_value("get_bootstrap_snapshot", Value::Null)?;
+    bootstrap_join
+        .join()
+        .map_err(|_| anyhow!("bootstrap parity server panicked"))??;
+
+    let stream_payload = json!({
+        "sessionId": "session-live",
+        "frame": {
+            "kind": "lifecycle",
+            "seq": 7,
+            "state": "active",
+            "cleanupVerdict": null,
+            "archiveSeq": null,
+            "ts": "2026-03-29T12:00:07Z"
+        }
+    });
+    anyhow::ensure!(
+        top_level_keys(&bootstrap)
+            == BTreeSet::from([
+                "controlPlane".to_owned(),
+                "descriptor".to_owned(),
+                "launchedDaemon".to_owned(),
+                "mode".to_owned(),
+            ])
+    );
+    anyhow::ensure!(
+        top_level_keys(&stream_payload)
+            == BTreeSet::from(["frame".to_owned(), "sessionId".to_owned()])
+    );
+    anyhow::ensure!(
+        top_level_keys(&stream_payload["frame"])
+            == BTreeSet::from([
+                "archiveSeq".to_owned(),
+                "cleanupVerdict".to_owned(),
+                "kind".to_owned(),
+                "seq".to_owned(),
+                "state".to_owned(),
+                "ts".to_owned(),
+            ])
+    );
     Ok(())
 }
 

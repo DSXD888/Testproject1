@@ -42,9 +42,13 @@ describe('transport shim', () => {
     });
 
     await transport.invoke('list_processes', { limit: 10 });
+    await transport.invoke('capture_decision', { processId: 'proc-1' });
     transport.subscribe('sessions', 12, () => undefined);
 
     expect(invoke).toHaveBeenCalledWith('list_processes', { limit: 10 });
+    expect(invoke).toHaveBeenCalledWith('capture_decision', {
+      params: { processId: 'proc-1' },
+    });
     expect(subscribe).toHaveBeenCalledWith('sessions', 12, expect.any(Function));
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -95,16 +99,20 @@ describe('transport shim', () => {
 
     expect(tauriListen).toHaveBeenCalledWith('daemon.health', expect.any(Function));
     expect(invoke).toHaveBeenCalledWith('subscribe_topic', {
-      topic: 'daemon.health',
-      fromSeq: undefined,
+      params: {
+        topic: 'daemon.health',
+        fromSeq: undefined,
+      },
     });
 
     unsubscribe();
     await Promise.resolve();
 
     expect(invoke).toHaveBeenCalledWith('unsubscribe_topic', {
-      topic: 'daemon.health',
-      fromSeq: undefined,
+      params: {
+        topic: 'daemon.health',
+        fromSeq: undefined,
+      },
     });
     expect(tauriUnlisten).toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
