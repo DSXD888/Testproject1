@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 
-use crate::daemon_bridge::{
+use self::daemon_bridge::{
     BridgeError as DaemonBridgeError, CaptureDecisionParams as BridgeCaptureDecisionParams,
     DaemonBridge, DecisionDisposition as BridgeDecisionDisposition,
     MutationAck as BridgeMutationAck, NativeSubscriptionEvent,
@@ -51,9 +51,13 @@ const HANDSHAKE_RETRY_BACKOFF_MS: [u64; 6] = [150, 300, 600, 1_000, 1_500, 2_000
 const NATIVE_SUBSCRIPTION_POLL_MS: u64 = 250;
 
 static LAUNCH_GUARD: OnceLock<Mutex<bool>> = OnceLock::new();
+#[cfg(test)]
+type TestDaemonLaunchHook = Arc<dyn Fn(&Path, &Path, &Path) -> Result<()> + Send + Sync>;
+#[cfg(test)]
+static TEST_DAEMON_LAUNCH_HOOK: OnceLock<Mutex<Option<TestDaemonLaunchHook>>> = OnceLock::new();
 
-fn main() -> Result<()> {
-    tauri::Builder::default()
+pub fn configure_builder<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    builder
         .manage(BootstrapStore::default())
         .manage(NativeSubscriptionStore::default())
         .invoke_handler(tauri::generate_handler![
@@ -87,6 +91,10 @@ fn main() -> Result<()> {
             app.state::<BootstrapStore>().replace(snapshot)?;
             Ok(())
         })
+}
+
+fn main() -> Result<()> {
+    configure_builder(tauri::Builder::default())
         .run(tauri::generate_context!())
         .context("running desktop shell")?;
 
@@ -150,6 +158,110 @@ impl NativeSubscriptionStore {
 struct TopicSubscriptionParams {
     topic: String,
     from_seq: Option<u64>,
+}
+
+#[cfg(test)]
+#[derive(Clone, Debug)]
+pub struct TestRuntimeHarness {
+    base_dir: PathBuf,
+    exit_codes: Arc<Mutex<Vec<i32>>>,
+    stopped_pids: Arc<Mutex<Vec<u32>>>,
+}
+
+#[cfg(test)]
+#[allow(clippy::must_use_candidate, clippy::missing_errors_doc)]
+impl TestRuntimeHarness {
+    pub fn new(base_dir: PathBuf) -> Self {
+        Self {
+            base_dir,
+            exit_codes: Arc::new(Mutex::new(Vec::new())),
+            stopped_pids: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    pub fn base_dir(&self) -> &Path {
+        &self.base_dir
+    }
+
+    pub fn state_root(&self) -> PathBuf {
+        self.base_dir.join(STATE_DIRNAME)
+    }
+
+    pub fn runtime_dir(&self) -> PathBuf {
+        self.base_dir.join(RUNTIME_DIRNAME)
+    }
+
+    pub fn artifact_root(&self) -> PathBuf {
+        self.base_dir.join(ARTIFACT_DIRNAME)
+    }
+
+    pub fn descriptor_path(&self) -> PathBuf {
+        self.runtime_dir().join(DESCRIPTOR_FILENAME)
+    }
+
+    pub fn socket_path(&self) -> PathBuf {
+        self.runtime_dir().join(SOCKET_FILENAME)
+    }
+
+    pub fn exit_codes(&self) -> Result<Vec<i32>> {
+        self.exit_codes
+            .lock()
+            .map(|codes| codes.clone())
+            .map_err(|_| anyhow!("test runtime exit-code lock poisoned"))
+    }
+
+    pub fn stopped_pids(&self) -> Result<Vec<u32>> {
+        self.stopped_pids
+            .lock()
+            .map(|pids| pids.clone())
+            .map_err(|_| anyhow!("test runtime stop-pid lock poisoned"))
+    }
+
+    fn record_exit(&self, code: i32) -> Result<()> {
+        self.exit_codes
+            .lock()
+            .map_err(|_| anyhow!("test runtime exit-code lock poisoned"))?
+            .push(code);
+        Ok(())
+    }
+
+    fn record_stopped_pid(&self, pid: u32) -> Result<()> {
+        self.stopped_pids
+            .lock()
+            .map_err(|_| anyhow!("test runtime stop-pid lock poisoned"))?
+            .push(pid);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::missing_errors_doc)]
+pub fn reset_test_runtime_state() -> Result<()> {
+    if let Some(guard) = LAUNCH_GUARD.get() {
+        *guard
+            .lock()
+            .map_err(|_| anyhow!("desktop daemon launch guard is poisoned"))? = false;
+    }
+
+    let hook = TEST_DAEMON_LAUNCH_HOOK.get_or_init(|| Mutex::new(None));
+    *hook
+        .lock()
+        .map_err(|_| anyhow!("test daemon launch hook lock poisoned"))? = None;
+
+    Ok(())
+}
+
+#[cfg(test)]
+#[allow(clippy::missing_errors_doc)]
+pub fn set_test_daemon_launch_hook<F>(hook: F) -> Result<()>
+where
+    F: Fn(&Path, &Path, &Path) -> Result<()> + Send + Sync + 'static,
+{
+    let slot = TEST_DAEMON_LAUNCH_HOOK.get_or_init(|| Mutex::new(None));
+    *slot
+        .lock()
+        .map_err(|_| anyhow!("test daemon launch hook lock poisoned"))? = Some(Arc::new(hook));
+    Ok(())
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -309,15 +421,25 @@ struct DesktopPaths {
 
 impl DesktopPaths {
     fn from_handle<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<Self> {
+        #[cfg(test)]
+        if let Some(harness) = app.try_state::<TestRuntimeHarness>() {
+            return Ok(Self::from_base_dir(harness.base_dir()));
+        }
+
         let base_dir = app
             .path()
             .app_local_data_dir()
             .context("resolving app-local data directory")?;
-        Ok(Self {
+        Ok(Self::from_base_dir(base_dir))
+    }
+
+    fn from_base_dir(base_dir: impl Into<PathBuf>) -> Self {
+        let base_dir = base_dir.into();
+        Self {
             state_root: base_dir.join(STATE_DIRNAME),
             runtime_dir: base_dir.join(RUNTIME_DIRNAME),
             artifact_root: base_dir.join(ARTIFACT_DIRNAME),
-        })
+        }
     }
 
     fn state_db_path(&self) -> PathBuf {
@@ -688,6 +810,25 @@ fn launch_detached_daemon(paths: &DesktopPaths) -> Result<bool> {
         .with_context(|| format!("creating {}", paths.runtime_dir.display()))?;
     fs::create_dir_all(&paths.artifact_root)
         .with_context(|| format!("creating {}", paths.artifact_root.display()))?;
+
+    #[cfg(test)]
+    {
+        let hook = TEST_DAEMON_LAUNCH_HOOK.get_or_init(|| Mutex::new(None));
+        let hook = hook
+            .lock()
+            .map_err(|_| anyhow!("test daemon launch hook lock poisoned"))?
+            .clone();
+        if let Some(hook) = hook {
+            hook(
+                paths.state_root.as_path(),
+                paths.runtime_dir.as_path(),
+                paths.artifact_root.as_path(),
+            )?;
+            *launched = true;
+            drop(launched);
+            return Ok(true);
+        }
+    }
 
     spawn_daemon_process(paths).context("spawning detached daemon process")?;
     *launched = true;
@@ -1080,8 +1221,8 @@ fn finish_handshake_retries(
 #[tauri::command]
 #[allow(dead_code)]
 #[allow(clippy::needless_pass_by_value)]
-fn get_bootstrap_snapshot(
-    app: tauri::AppHandle,
+fn get_bootstrap_snapshot<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     store: tauri::State<'_, BootstrapStore>,
 ) -> std::result::Result<BootstrapSnapshot, String> {
     if let Some(snapshot) = store
@@ -1103,8 +1244,8 @@ fn get_bootstrap_snapshot(
 #[tauri::command]
 #[allow(dead_code)]
 #[allow(clippy::needless_pass_by_value)]
-fn refresh_bootstrap_snapshot(
-    app: tauri::AppHandle,
+fn refresh_bootstrap_snapshot<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     store: tauri::State<'_, BootstrapStore>,
 ) -> std::result::Result<BootstrapSnapshot, String> {
     let snapshot = bootstrap_application(&app);
@@ -1117,8 +1258,8 @@ fn refresh_bootstrap_snapshot(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn list_processes(
-    app: tauri::AppHandle,
+fn list_processes<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     cursor: Option<String>,
     limit: Option<usize>,
     filters: Option<query_service::ProcessListFilters>,
@@ -1139,8 +1280,8 @@ fn list_processes(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn get_process_detail(
-    app: tauri::AppHandle,
+fn get_process_detail<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     params: GetProcessDetailParams,
 ) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
@@ -1152,8 +1293,8 @@ fn get_process_detail(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn list_sessions(
-    app: tauri::AppHandle,
+fn list_sessions<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     cursor: Option<String>,
     limit: Option<usize>,
     filters: Option<query_service::SessionListFilters>,
@@ -1174,8 +1315,8 @@ fn list_sessions(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn get_session_history(
-    app: tauri::AppHandle,
+fn get_session_history<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     params: query_service::SessionHistoryRequest,
 ) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
@@ -1187,8 +1328,8 @@ fn get_session_history(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn list_errors(
-    app: tauri::AppHandle,
+fn list_errors<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     cursor: Option<String>,
     limit: Option<usize>,
     filters: Option<query_service::ErrorListFilters>,
@@ -1209,7 +1350,9 @@ fn list_errors(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn get_daemon_info(app: tauri::AppHandle) -> std::result::Result<Value, String> {
+fn get_daemon_info<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
     serialize_bridge_result(with_daemon_connection(&paths, |connection| {
         connection.get_daemon_info()
@@ -1218,8 +1361,8 @@ fn get_daemon_info(app: tauri::AppHandle) -> std::result::Result<Value, String> 
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn trigger_ingestion(
-    app: tauri::AppHandle,
+fn trigger_ingestion<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     params: BridgeTriggerIngestionParams,
 ) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
@@ -1231,8 +1374,8 @@ fn trigger_ingestion(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn trigger_enrichment(
-    app: tauri::AppHandle,
+fn trigger_enrichment<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     params: BridgeTriggerEnrichmentParams,
 ) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
@@ -1244,8 +1387,8 @@ fn trigger_enrichment(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn restart_daemon(
-    app: tauri::AppHandle,
+fn restart_daemon<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     store: tauri::State<'_, BootstrapStore>,
 ) -> std::result::Result<RestartMutationAck, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
@@ -1272,7 +1415,7 @@ fn restart_daemon(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn open_logs(app: tauri::AppHandle) -> std::result::Result<String, String> {
+fn open_logs<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> std::result::Result<String, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
     open_path_in_desktop(paths.runtime_dir.as_path()).map_err(|error| error.to_string())?;
     Ok(paths.runtime_dir.display().to_string())
@@ -1280,7 +1423,9 @@ fn open_logs(app: tauri::AppHandle) -> std::result::Result<String, String> {
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn open_artifacts(app: tauri::AppHandle) -> std::result::Result<String, String> {
+fn open_artifacts<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> std::result::Result<String, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
     open_path_in_desktop(paths.artifact_root.as_path()).map_err(|error| error.to_string())?;
     Ok(paths.artifact_root.display().to_string())
@@ -1288,8 +1433,8 @@ fn open_artifacts(app: tauri::AppHandle) -> std::result::Result<String, String> 
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn subscribe_topic(
-    app: tauri::AppHandle,
+fn subscribe_topic<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     params: TopicSubscriptionParams,
     store: tauri::State<'_, NativeSubscriptionStore>,
 ) -> std::result::Result<(), String> {
@@ -1336,27 +1481,52 @@ fn unsubscribe_topic(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn quit_ui(app: tauri::AppHandle) -> String {
+fn quit_ui<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> String {
+    #[cfg(test)]
+    if let Some(harness) = app.try_state::<TestRuntimeHarness>() {
+        let _ = harness.record_exit(0);
+        return "Quit UI requested.".to_owned();
+    }
+
     app.exit(0);
     "Quit UI requested.".to_owned()
 }
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn stop_background_daemon_and_quit(app: tauri::AppHandle) -> std::result::Result<String, String> {
+fn stop_background_daemon_and_quit<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> std::result::Result<String, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
     let (descriptor, _) = read_descriptor(paths.descriptor_path().as_path());
     if let Some(descriptor) = descriptor {
+        #[cfg(test)]
+        if let Some(harness) = app.try_state::<TestRuntimeHarness>() {
+            harness
+                .record_stopped_pid(descriptor.pid)
+                .map_err(|error| error.to_string())?;
+        } else {
+            signal_daemon_stop(descriptor.pid).map_err(|error| error.to_string())?;
+        }
+
+        #[cfg(not(test))]
         signal_daemon_stop(descriptor.pid).map_err(|error| error.to_string())?;
     }
+
+    #[cfg(test)]
+    if let Some(harness) = app.try_state::<TestRuntimeHarness>() {
+        harness.record_exit(0).map_err(|error| error.to_string())?;
+        return Ok("Stop background daemon and quit requested.".to_owned());
+    }
+
     app.exit(0);
     Ok("Stop background daemon and quit requested.".to_owned())
 }
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn capture_decision(
-    app: tauri::AppHandle,
+fn capture_decision<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     params: CaptureDecisionParams,
 ) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
@@ -1375,8 +1545,8 @@ fn capture_decision(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn resolve_error(
-    app: tauri::AppHandle,
+fn resolve_error<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     params: BridgeResolveErrorParams,
 ) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
@@ -1388,8 +1558,8 @@ fn resolve_error(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn rerun_from_error(
-    app: tauri::AppHandle,
+fn rerun_from_error<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     params: BridgeRerunFromErrorParams,
 ) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
@@ -1401,8 +1571,8 @@ fn rerun_from_error(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn retry_job(
-    app: tauri::AppHandle,
+fn retry_job<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     params: BridgeRetryJobParams,
 ) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
@@ -1414,8 +1584,8 @@ fn retry_job(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn stop_session(
-    app: tauri::AppHandle,
+fn stop_session<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     params: BridgeStopSessionParams,
 ) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
@@ -1427,8 +1597,8 @@ fn stop_session(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn send_session_input(
-    app: tauri::AppHandle,
+fn send_session_input<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     params: BridgeSendSessionInputParams,
 ) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
@@ -1440,8 +1610,8 @@ fn send_session_input(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-fn resize_session(
-    app: tauri::AppHandle,
+fn resize_session<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     params: BridgeResizeSessionParams,
 ) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
@@ -1473,8 +1643,8 @@ fn serialize_command_payload<T: Serialize, E: Serialize>(
 }
 
 #[allow(clippy::needless_pass_by_value)]
-fn run_native_subscription_loop(
-    app: tauri::AppHandle,
+fn run_native_subscription_loop<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     paths: DesktopPaths,
     topic: String,
     from_seq: Option<u64>,
@@ -1540,7 +1710,7 @@ fn with_daemon_connection<T, F>(
 ) -> std::result::Result<T, DaemonBridgeError>
 where
     F: FnOnce(
-        &mut crate::daemon_bridge::DaemonBridgeConnection,
+        &mut daemon_bridge::DaemonBridgeConnection,
     ) -> std::result::Result<T, DaemonBridgeError>,
 {
     let bridge = DaemonBridge::new(&paths.runtime_dir);
