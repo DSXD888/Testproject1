@@ -481,6 +481,8 @@ Critical assertions the support module must expose helpers for:
 - scratch artifact root assertions
 - coarse process `validation_state` mapping assertions
 - retroactive backlog ordering assertions
+- exact `RunManifestFrontmatter` key parity assertions
+- exact `DaemonEvidenceAppendix` key parity assertions
 
 ### 9.4 `crates/daemon/tests/support/telemetry.rs`
 
@@ -491,6 +493,19 @@ Must provide:
 - `TelemetryProbe::transition_health_state(...)`
 - `TelemetryProbe::blackout_incidents()`
 - `TelemetryProbe::operational_status_snapshot()`
+
+### 9.5 `crates/daemon/tests/support/status_router.rs`
+
+Must provide:
+
+- `OperationalStatusHarness::dispatch("get_cron_status", params)`
+- `OperationalStatusHarness::dispatch("get_source_health_status", params)`
+- `OperationalStatusHarness::dispatch("get_validation_status", params)`
+- `OperationalStatusHarness::dispatch("get_resource_arbiter_status", params)`
+- `assert_read_only_status_call(method)` proving unchanged `commit_seq`
+- `assert_invalid_params(method, params)` proving `BridgeError::invalid_params`
+
+The bootstrap should implement these as explicit `CommandRouter` dispatch tests, not as generic stringly typed smoke checks hidden inside another harness.
 
 ## 10. Fixture And Corpus Bootstrap
 
@@ -625,4 +640,5 @@ Additional requirements:
 - Keep the 18 spec-declared test files intact. The three additive files exist to avoid burying schema, renderer, and operational-status coverage in unrelated suites.
 - The bootstrap assumes the existing `test_agent` helper binary continues to be the one real process helper surface. Extend it rather than creating many tiny binaries.
 - The packages/manifests renderer test is important because the Layer 3 spec names that shared library explicitly even though the current Rust daemon still owns the authoritative local error-manifest store.
-- The command-router operational status tests are intentionally included as a control-plane hardening guard even though the validated spec stops short of naming the exact method strings.
+- As of the current checked-in [`manifest.rs`](/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/errors/manifest.rs), `ErrorCode` defines `28` variants, not `29`; the inventory-parity test should assert the exact current list and then separately prove the Layer 3 logical canary classes map onto that existing enum.
+- The command-router operational status tests should name the exact method strings: `get_cron_status`, `get_source_health_status`, `get_validation_status`, and `get_resource_arbiter_status`.

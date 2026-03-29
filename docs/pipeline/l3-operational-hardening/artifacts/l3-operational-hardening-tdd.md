@@ -28,9 +28,9 @@
 
 **Coverage target:** all `98` unique `L3-FR-*` requirement IDs in the validated Layer 3 spec map to at least one stable test ID in this document.
 
-**Planned inventory:** `184` total checks
+**Planned inventory:** `191` total checks
 - `8` static CI gates
-- `176` runnable tests
+- `183` runnable tests
 - `18` spec-predeclared new files from Layer 3 §5.2
 - `3` additive auxiliary files required to close schema, shared-library, and operational-status coverage gaps without hiding them inside unrelated containers
 
@@ -107,13 +107,13 @@
 | Surface | Count | Notes |
 |--------|-------|-------|
 | Static gates | 8 | repository-level commands, inventory, and drift guards |
-| Fault injection | 4 files / 31 tests | exactly the 4 files predeclared in Layer 3 §5.2 |
+| Fault injection | 4 files / 33 tests | exactly the 4 files predeclared in Layer 3 §5.2 |
 | Deterministic replay | 2 files / 12 tests | exactly the 2 files predeclared in Layer 3 §5.2 |
 | Scheduling & jobs | 2 files / 19 tests | exactly the 2 files predeclared in Layer 3 §5.2 |
 | Skill lifecycle | 3 files / 21 tests | exactly the 3 files predeclared in Layer 3 §5.2 |
 | Validation | 6 files / 59 tests | exactly the 6 files predeclared in Layer 3 §5.2 |
 | Relations | 1 file / 12 tests | exactly the 1 file predeclared in Layer 3 §5.2 |
-| Additive auxiliary coverage | 3 files / 22 tests | required to cover schema activation, shared error-manifest renderer, and operational-status surfaces not named directly in §5.2 |
+| Additive auxiliary coverage | 3 files / 27 tests | required to cover schema activation, shared error-manifest renderer, manifest-key parity, enum inventories, and operational-status surfaces not named directly in §5.2 |
 
 ## 7. Static CI Gates
 
@@ -168,6 +168,8 @@
 | `L3-T-fault_host_events-006` | `T2` | `CronSchedulerHarness`, `SourceHealthFixture` | a source with `circuit_state = open` or active cooldown suppresses normal catchup/cron jobs and admits only `source-health/*` or `auth-refresh/*` jobs | `L3-FR-1.5.2`, `L3-FR-3.5.2`, `L3-FR-3.5.3` |
 | `L3-T-fault_host_events-007` | `T1` | `TelemetryProbe` | sleep and resource pressure reuse the existing `HealthIssue` surface and do not introduce a second host-health enum | `L3-FR-1.7.1` |
 | `L3-T-fault_host_events-008` | `T1` | `TelemetryProbe` | when sleep/resource classifications are present, `StallTracker` output does not misclassify the same event as `AGENT_STALLED`; health precedence remains explicit and deterministic | `L3-FR-1.7.1` |
+| `L3-T-fault_host_events-009` | `T1` | `TelemetryProbe` | the complete `HealthIssue` inventory remains `AgentStalled`, `AgentAuthChallenge`, `HostSleepInterrupted`, and `HostResourceExhausted`, and each variant’s `.code()` value matches the daemon contract exactly | `L3-FR-1.7.1` |
+| `L3-T-fault_host_events-010` | `T1` | `TelemetryProbe` | `detect_auth_challenge`, `detect_host_sleep`, and `detect_resource_pressure` can all emit their own `HealthIssue` values without being collapsed into `AgentStalled`; `StallTracker` stays a separate no-output/no-progress surface | `L3-FR-1.7.1` |
 
 ### 8.4 `fault_partial_failure.rs`
 
@@ -399,8 +401,13 @@
 | `L3-T-observability_telemetry-006` | `T1` | `TelemetryProbe` | all 8 validation telemetry metrics emit only on verdict persistence, canary completion, or health-state transition; missing persistence counts as failure | `L3-FR-4.6.1` |
 | `L3-T-observability_telemetry-007` | `T2` | `ManifestAssert`, `ArtifactSandbox`, `TelemetryProbe` | a 3 AM failure drill-down can traverse verdict -> manifest -> forensic bytes -> structured trace entirely through explicit IDs and refs | `L3-FR-4.4.1`-`L3-FR-4.4.3` |
 | `L3-T-observability_telemetry-008` | `T1` | `ManifestAssert` | every `RunManifestFrontmatter` field, every core `DaemonEvidenceAppendix` field, and every L3 appendix addition has at least one direct assertion-bearing test in the suite | `L3-FR-2.1.2`, `L3-FR-2.1.4`, `L3-FR-2.2.1` |
-| `L3-T-observability_telemetry-009` | `T1` | enum inventory fixture | the logical source-health/error mappings use the current `ErrorCode` inventory and do not invent hidden top-level codes; the full current enum remains asserted by name | `L3-FR-3.4.1` |
-| `L3-T-observability_telemetry-010` | `T2` | `OperationalStatusHarness` | typed command-router status methods for cron, source health, validation, and resource arbiter reject invalid params and return read-only operational snapshots without mutating runtime state | supporting invariant for Layer 3 operational visibility |
+| `L3-T-observability_telemetry-009` | `T1` | `ManifestAssert` | `RunManifestFrontmatter` key parity is asserted by exact field name against the current struct: `manifest_version`, `skill_id`, `skill_version`, `job_id`, `session_id`, `execution_mode`, `started_at`, `completed_at`, `outcome_class`, `items_processed`, `items_skipped`, `items_failed`, `warnings_count`, `agent_claimed_pages_visited`, `agent_claimed_source_url`, `agent_claimed_fingerprint_state`, `agent_claimed_locale_state`, `agent_claimed_currency_state`, and `agent_narrative_missing` | `L3-FR-2.1.2` |
+| `L3-T-observability_telemetry-010` | `T1` | `ManifestAssert` | core `DaemonEvidenceAppendix` key parity is asserted by exact field name against the current struct: `observed_url_chain`, `observed_page_kind_sequence`, `daemon_observed_fingerprint_state`, `daemon_observed_locale`, `daemon_observed_currency`, `auth_challenge_events`, `locator_fallback_depth`, `checkpoint_count`, `result_item_count`, `oqg_anomaly_summary`, `representative_item_sample`, and `artifact_refs` | `L3-FR-2.1.4` |
+| `L3-T-observability_telemetry-011` | `T1` | `ManifestAssert` | Layer 3 appendix additions are asserted by exact field name and absence-handling contract: `basis_sufficiency`, `page_fingerprint_hash`, `auth_challenge_detected`, `extraction_fill_rate_bps`, `checkpoint_count`, `byte_count_compressed`, `validator_rubric_hash`, and `drift_delta_json` | `L3-FR-2.2.1`, `L3-FR-2.2.2` |
+| `L3-T-observability_telemetry-012` | `T1` | enum inventory fixture | the current checked-in `ErrorCode` inventory contains exactly `28` variants, their `as_str()` values are asserted by name, and Layer 3 logical canary classes are verified to map onto that existing enum rather than inventing hidden top-level codes | `L3-FR-3.4.1`, `L3-FR-1.8.1` |
+| `L3-T-observability_telemetry-013` | `T2` | `OperationalStatusHarness` | `get_cron_status` dispatches through `CommandRouter`, rejects invalid params, and returns a read-only snapshot of cron definitions / next-run state without mutating `commit_seq` | `L3-FR-1.3.1`, `L3-FR-4.4.1` |
+| `L3-T-observability_telemetry-014` | `T2` | `OperationalStatusHarness` | `get_source_health_status` returns source health, cooldown, and breaker state from `source_runtime_state` as a read-only status surface and rejects malformed params | `L3-FR-3.4.2`, `L3-FR-4.1.2`, `L3-FR-4.4.1` |
+| `L3-T-observability_telemetry-015` | `T2` | `OperationalStatusHarness` | `get_validation_status` and `get_resource_arbiter_status` each dispatch through `CommandRouter`, expose health/telemetry or quota snapshots without mutating runtime state, and reject invalid params with `invalid_params` rather than silent defaults | `L3-FR-1.4.5`, `L3-FR-2.7.4`, `L3-FR-4.5.1`, `L3-FR-4.6.1` |
 
 ### 8.21 `render-error-manifest.test.ts`
 
@@ -435,16 +442,16 @@
 | `L3-FR-1.5.1` | `L3-T-cron_scheduler-001`, `003`, `004` | UT + IT | Covered |
 | `L3-FR-1.5.2` | `L3-T-cron_scheduler-006`, `007`, `008`, `009`, `L3-T-fault_host_events-005`, `006` | IT | Covered |
 | `L3-FR-1.6.1` | `L3-T-fault_process_cleanup-001`, `003`, `006`, `008`, `L3-T-fault_pty_edge_cases-001`-`008` | IT | Covered |
-| `L3-FR-1.7.1` | `L3-T-fault_host_events-001`-`008` | UT + IT | Covered |
-| `L3-FR-1.8.1` | `CI-L3-004`, `L3-T-render_error_manifest-001`-`004`, `L3-T-resolve_process_relations-001`-`012` | Static + UT | Covered |
+| `L3-FR-1.7.1` | `L3-T-fault_host_events-001`-`010` | UT + IT | Covered |
+| `L3-FR-1.8.1` | `CI-L3-004`, `L3-T-render_error_manifest-001`-`004`, `L3-T-resolve_process_relations-001`-`012`, `L3-T-observability_telemetry-012` | Static + UT | Covered |
 | `L3-FR-1.9.1` | `CI-L3-005`, `L3-T-skill_golden_journeys-007` | Static + UT | Covered |
 | `L3-FR-2.1.1` | `L3-T-validation_executor-012` | IT | Covered |
-| `L3-FR-2.1.2` | `L3-T-observability_telemetry-008` | UT | Covered |
+| `L3-FR-2.1.2` | `L3-T-observability_telemetry-008`, `009` | UT | Covered |
 | `L3-FR-2.1.3` | `L3-T-validation_executor-012`, `L3-T-observability_telemetry-008` | IT + UT | Covered |
-| `L3-FR-2.1.4` | `L3-T-replay_pty_sessions-006`, `L3-T-validation_executor-012`, `L3-T-observability_telemetry-008` | T2 + T3 | Covered |
+| `L3-FR-2.1.4` | `L3-T-replay_pty_sessions-006`, `L3-T-validation_executor-012`, `L3-T-observability_telemetry-008`, `010` | T2 + T3 | Covered |
 | `L3-FR-2.1.5` | `L3-T-validation_executor-012`, `L3-T-observability_telemetry-008` | IT + UT | Covered |
-| `L3-FR-2.2.1` | `L3-T-validation_executor-012`, `L3-T-observability_telemetry-008` | IT + UT | Covered |
-| `L3-FR-2.2.2` | `L3-T-validation_executor-003`, `L3-T-validation_dry_run-006` | IT | Covered |
+| `L3-FR-2.2.1` | `L3-T-validation_executor-012`, `L3-T-observability_telemetry-008`, `011` | IT + UT | Covered |
+| `L3-FR-2.2.2` | `L3-T-validation_executor-003`, `L3-T-validation_dry_run-006`, `L3-T-observability_telemetry-011` | IT | Covered |
 | `L3-FR-2.3.1` | `L3-T-validation_policy-001` | UT | Covered |
 | `L3-FR-2.3.2` | `L3-T-validation_policy-002` | UT | Covered |
 | `L3-FR-2.3.3` | `L3-T-validation_policy-003` | UT | Covered |
@@ -483,8 +490,8 @@
 | `L3-FR-3.2.1` | `L3-T-skill_shadow_compare-005` | T1 | Covered |
 | `L3-FR-3.2.2` | `L3-T-validation_policy-007`, `014`, `L3-T-skill_shadow_compare-004`, `005` | T1 | Covered |
 | `L3-FR-3.3.1` | `L3-T-skill_golden_journeys-007`, `008` | UT + T3 | Covered |
-| `L3-FR-3.4.1` | `L3-T-skill_golden_journeys-008`, `L3-T-skill_drift_monitor-001`, `L3-T-render_error_manifest-002`, `L3-T-observability_telemetry-009` | T1 + T2 + T3 | Covered |
-| `L3-FR-3.4.2` | `L3-T-skill_drift_monitor-002`, `L3-T-cron_scheduler-009` | T2 | Covered |
+| `L3-FR-3.4.1` | `L3-T-skill_golden_journeys-008`, `L3-T-skill_drift_monitor-001`, `L3-T-render_error_manifest-002`, `L3-T-observability_telemetry-012` | T1 + T2 + T3 | Covered |
+| `L3-FR-3.4.2` | `L3-T-skill_drift_monitor-002`, `L3-T-cron_scheduler-009`, `L3-T-observability_telemetry-014` | T2 | Covered |
 | `L3-FR-3.5.1` | `L3-T-skill_drift_monitor-003` | T2 | Covered |
 | `L3-FR-3.5.2` | `L3-T-cron_scheduler-009`, `L3-T-skill_drift_monitor-003` | T2 | Covered |
 | `L3-FR-3.5.3` | `L3-T-cron_scheduler-009`, `L3-T-skill_drift_monitor-003` | T2 | Covered |
@@ -507,11 +514,11 @@
 | `L3-FR-4.1.5` | `L3-T-resolve_process_relations-010`, `011`, `L3-T-schema_activation-006` | T1 + T2 | Covered |
 | `L3-FR-4.2.1` | `L3-T-validation_executor-005`, `L3-T-schema_activation-003`, `007` | T2 | Covered |
 | `L3-FR-4.3.1` | `CI-L3-005`, `L3-T-schema_activation-008` | Static + T2 | Covered |
-| `L3-FR-4.4.1` | `L3-T-fault_process_cleanup-004`, `007`, `L3-T-replay_pty_sessions-001`, `003`, `L3-T-replay_contract_sessions-002`, `L3-T-observability_telemetry-001`, `007` | T2 + T3 | Covered |
+| `L3-FR-4.4.1` | `L3-T-fault_process_cleanup-004`, `007`, `L3-T-replay_pty_sessions-001`, `003`, `L3-T-replay_contract_sessions-002`, `L3-T-observability_telemetry-001`, `007`, `013`, `014` | T2 + T3 | Covered |
 | `L3-FR-4.4.2` | `L3-T-replay_pty_sessions-001`, `005`, `L3-T-replay_contract_sessions-001`, `L3-T-observability_telemetry-002` | T2 + T3 | Covered |
 | `L3-FR-4.4.3` | `L3-T-replay_pty_sessions-003`, `004`, `006`, `L3-T-replay_contract_sessions-004`, `005`, `006`, `L3-T-observability_telemetry-003`, `004`, `007` | T2 + T3 | Covered |
-| `L3-FR-4.5.1` | `L3-T-skill_shadow_compare-007`, `L3-T-skill_drift_monitor-006`, `L3-T-observability_telemetry-005`, `010` | T1 + T2 | Covered |
-| `L3-FR-4.6.1` | `L3-T-validation_canary_health-002`, `007`, `L3-T-validation_retro_backlog-006`, `L3-T-observability_telemetry-006`, `010` | T1 + T2 + T3 | Covered |
+| `L3-FR-4.5.1` | `L3-T-skill_shadow_compare-007`, `L3-T-skill_drift_monitor-006`, `L3-T-observability_telemetry-005`, `015` | T1 + T2 | Covered |
+| `L3-FR-4.6.1` | `L3-T-validation_canary_health-002`, `007`, `L3-T-validation_retro_backlog-006`, `L3-T-observability_telemetry-006`, `015` | T1 + T2 + T3 | Covered |
 | `L3-FR-4.6.2` | `L3-T-validation_canary_health-003`-`008` | T2 + T3 | Covered |
 
 ## 10. Coverage Summary
@@ -522,8 +529,8 @@
 | Requirements with at least one test | `98` |
 | Coverage percentage | `100%` |
 | Static gates | `8` |
-| Runnable tests | `176` |
-| Total checks | `184` |
+| Runnable tests | `183` |
+| Total checks | `191` |
 | Spec-predeclared new files covered | `18 / 18` |
 | Additive auxiliary files | `3` |
 | Orphan requirements | `0` |
@@ -533,4 +540,4 @@
 
 - The validation subsystem is intentionally over-represented in the inventory because it is the highest-risk Layer 3 surface and the spec explicitly expects a mode/trigger/verdict matrix rather than spot checks.
 - If implementation planning insists on the exact cumulative file count from `layer-strategy.md` §11, fold `schema_activation.rs`, `observability_telemetry.rs`, and `render-error-manifest.test.ts` into neighboring files only after preserving every test ID and assertion in this document. They are separate here because hiding these surfaces inside other files would obscure critical coverage.
-- `L3-T-observability_telemetry-010` is a supporting-invariant test for the new operational-status IPC surfaces the control plane will need. It is intentionally not mapped to a validated `L3-FR-*` requirement because the Layer 3 spec implies the visibility need without naming the exact command methods.
+- The follow-up audit tightened four surfaces that were previously too implicit: exact run-manifest key parity, exact `ErrorCode` inventory parity, `HealthIssue`/`StallTracker` interaction coverage, and concrete `CommandRouter` status methods (`get_cron_status`, `get_source_health_status`, `get_validation_status`, `get_resource_arbiter_status`).
