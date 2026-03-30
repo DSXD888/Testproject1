@@ -30,6 +30,10 @@ mod tests {
         Ok(DateTime::parse_from_rfc3339("2026-03-25T11:00:00Z")?.with_timezone(&Utc))
     }
 
+    fn wait_for_signal_ignoring_helper() {
+        std::thread::sleep(Duration::from_millis(200));
+    }
+
     #[test]
     #[serial]
     fn it_rpr_001_waitpid_drain_associates_pid_with_session() -> Result<()> {
@@ -85,6 +89,7 @@ mod tests {
         let ctx = TestContext::new()?;
         let reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
         let child = ProcessTreeHelper::spawn(&["ignore-int-term", "5"])?;
+        wait_for_signal_ignoring_helper();
         let pgid = ProcessTreeHelper::process_group(&child)?;
         let outcome = reaper.cleanup_process_group(&CleanupRequest {
             session_id: "session-ladder".to_owned(),
@@ -139,6 +144,7 @@ mod tests {
         let ctx = TestContext::new()?;
         let reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
         let child = ProcessTreeHelper::spawn(&["ignore-int-term", "5"])?;
+        wait_for_signal_ignoring_helper();
         let pgid = ProcessTreeHelper::process_group(&child)?;
         let outcome = reaper.cleanup_process_group(&CleanupRequest {
             session_id: "session-forced".to_owned(),
@@ -227,6 +233,7 @@ mod tests {
         let state_db = support::db::TestStateDb::new()?;
         let reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
         let child = ProcessTreeHelper::spawn(&["ignore-int-term", "5"])?;
+        wait_for_signal_ignoring_helper();
         let pgid = ProcessTreeHelper::process_group(&child)?;
         let started_at = fixed_started_at()?;
         state_db.connection().execute(

@@ -130,13 +130,13 @@ fn sleep_for(seconds: u64) {
 }
 
 fn ignore_int_term(seconds: u64) -> Result<()> {
-    let error = Command::new("sh")
+    let error = Command::new("python3")
         .arg("-c")
         .arg(format!(
-            "trap '' INT TERM; end=$((SECONDS+{seconds})); while [ $SECONDS -lt $end ]; do sleep 1; done"
+            "import signal, time; signal.signal(signal.SIGINT, signal.SIG_IGN); signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep({seconds})"
         ))
         .exec();
-    Err(anyhow!("exec shell for ignore-int-term failed: {error}"))
+    Err(anyhow!("exec python for ignore-int-term failed: {error}"))
 }
 
 fn emit_jsonl_good() -> Result<()> {
