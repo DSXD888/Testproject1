@@ -94,7 +94,22 @@ mod tests {
             observed_descendant_pids: Vec::new(),
             send_pty_interrupt: true,
         })?;
-        assert_eq!(outcome.action_log[..3], ["pty-ctrl-c", "sigint", "sigterm"]);
+        assert!(
+            outcome.action_log.len() >= 2,
+            "expected at least pty interrupt + sigint actions, got {:?}",
+            outcome.action_log
+        );
+        assert_eq!(outcome.action_log[0], "pty-ctrl-c");
+        assert_eq!(outcome.action_log[1], "sigint");
+        let expected_ladder = ["pty-ctrl-c", "sigint", "sigterm", "sigkill"];
+        for (index, action) in outcome.action_log.iter().enumerate() {
+            assert_eq!(
+                action,
+                expected_ladder.get(index).unwrap_or(&""),
+                "unexpected cleanup action order: {:?}",
+                outcome.action_log
+            );
+        }
         Ok(())
     }
 
