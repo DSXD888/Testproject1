@@ -73,6 +73,7 @@ mod sources {
 
 #[allow(dead_code)]
 mod validation {
+    pub mod executor;
     pub mod manifest_writer;
     pub mod policy;
 }
@@ -136,8 +137,9 @@ use ipc::handshake::{
     ActiveSessions, HandshakeContext, HealthState, LifecycleFrame, LifecyclePhase,
 };
 use jobs::runner::{
-    FreshnessState, JobLeaseHeartbeat, JobRunner, ObsoleteJobRequest, allocate_stage_run_id,
-    set_stage_head_freshness, start_job_lease_heartbeat,
+    EnqueuedValidatorJob, FreshnessState, JobLeaseHeartbeat, JobRunner, ObsoleteJobRequest,
+    ValidatorEnqueueRequest, allocate_stage_run_id, set_stage_head_freshness,
+    start_job_lease_heartbeat,
 };
 use nix::unistd::{Pid, getpgid, getsid};
 use prompt::renderer::{PromptRenderer, PromptRendererInput};
@@ -156,6 +158,7 @@ use tracing::forensic::{
 };
 use tracing::structured::{StructuredTrace, TraceIdentity, parse_phase_history};
 use tracing_subscriber::EnvFilter;
+use validation::executor::VALIDATOR_JOB_KIND;
 use validation::manifest_writer::{ManifestWriteRequest, write_hybrid_run_manifest};
 
 const BACKTRACK_WINDOW_SECONDS: u32 = 60;
@@ -1414,6 +1417,21 @@ async fn execute_skill_session(
     }
 
     result
+}
+
+#[allow(dead_code)]
+fn enqueue_validator_followup(
+    runtime: &mut RuntimeBootstrap,
+    runner: &JobRunner,
+    mut request: ValidatorEnqueueRequest,
+) -> Result<EnqueuedValidatorJob> {
+    if request.idempotency_key.is_none() {
+        request.idempotency_key = Some(format!(
+            "{VALIDATOR_JOB_KIND}:{}:{}",
+            request.worker_job_id, request.run_manifest_hash
+        ));
+    }
+    runner.enqueue_validation_sub_job(&repo_root()?, &mut runtime.state_db, &request)
 }
 
 fn claimed_job_lease_heartbeat(

@@ -353,14 +353,6 @@ pub fn decide_validator_verdict(
             queue_retroactive_backlog: false,
             validation_marker: None,
         },
-        ValidatorVerdict::Flagged => ValidationHandlingDecision {
-            trust_state: ValidationTrustState::Flagged,
-            process_validation_state: ProcessValidationState::Flagged,
-            advance_worker: true,
-            quarantine_worker: false,
-            queue_retroactive_backlog: false,
-            validation_marker: Some(VALIDATION_FLAGGED),
-        },
         ValidatorVerdict::Rejected if mode.enforcement_active && contract.enforcement_eligible => {
             ValidationHandlingDecision {
                 trust_state: ValidationTrustState::Suspect,
@@ -379,7 +371,7 @@ pub fn decide_validator_verdict(
             queue_retroactive_backlog: false,
             validation_marker: Some(VALIDATION_FLAGGED),
         },
-        ValidatorVerdict::Rejected => ValidationHandlingDecision {
+        ValidatorVerdict::Flagged | ValidatorVerdict::Rejected => ValidationHandlingDecision {
             trust_state: ValidationTrustState::Flagged,
             process_validation_state: ProcessValidationState::Flagged,
             advance_worker: true,
@@ -470,7 +462,7 @@ pub fn persist_validation_verdict(
         .filter(|issue| issue.category == "identity")
         .count();
 
-    let (_, visible_after_seq) = state_db.with_write_transaction(|tx| {
+    let ((), visible_after_seq) = state_db.with_write_transaction(|tx| {
         tx.execute(
             "\
             INSERT INTO validation_verdicts (

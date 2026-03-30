@@ -1,5 +1,12 @@
 #![forbid(unsafe_code)]
 
+#[cfg(not(test))]
+use crate::validation::executor as validation_executor;
+#[cfg(test)]
+#[allow(clippy::duplicate_mod)]
+#[path = "../validation/executor.rs"]
+mod validation_executor;
+
 #[allow(clippy::duplicate_mod)]
 #[cfg(test)]
 #[path = "claim.rs"]
@@ -7,7 +14,7 @@ mod claim;
 #[cfg(not(test))]
 use crate::jobs::claim;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, ensure};
 use chrono::{DateTime, Utc};
@@ -34,6 +41,10 @@ pub const JOB_OBSOLETE: &str = "JOB_OBSOLETE";
 const DEFAULT_EXECUTOR_OWNER_ID: &str = "local-owner";
 
 pub use claim::JobLeaseHeartbeat;
+pub use validation_executor::{
+    EnqueuedValidatorJob, PersistValidationVerdictRequest, PersistedValidationVerdict,
+    ValidatorEnqueueRequest,
+};
 
 pub const CANONICAL_SCOPE_KINDS: [&str; 6] = [
     "process",
@@ -295,6 +306,24 @@ impl JobRunner {
             visible_after_seq,
             continuation_job_id: None,
         })
+    }
+
+    pub fn enqueue_validation_sub_job(
+        &self,
+        repo_root: &Path,
+        state_db: &mut StateDb,
+        request: &ValidatorEnqueueRequest,
+    ) -> Result<EnqueuedValidatorJob> {
+        validation_executor::enqueue_validator_sub_job(repo_root, state_db, self, request)
+    }
+
+    pub fn persist_validation_verdict(
+        &self,
+        state_db: &mut StateDb,
+        request: &PersistValidationVerdictRequest,
+    ) -> Result<PersistedValidationVerdict> {
+        let _ = &self.executor_id;
+        validation_executor::persist_validation_verdict(state_db, request)
     }
 
     pub fn persist_continuation(
