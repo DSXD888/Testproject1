@@ -71,6 +71,11 @@ mod sources {
     pub mod registry;
 }
 
+#[allow(dead_code)]
+mod validation {
+    pub mod manifest_writer;
+}
+
 #[cfg(test)]
 use crate::agents::adapter as adapter_impl;
 #[cfg(test)]
@@ -106,8 +111,8 @@ use agents::arbiter::{
     ResourceBudgets, ResourceLease, SourceKind, SourceLaneRequest,
 };
 use agents::artifacts::{
-    ArtifactStore, DaemonEvidenceAppendix, OutcomeClass, RunManifestDraft, RunManifestFrontmatter,
-    RunNarrative, persist_run_manifest_metadata,
+    ArtifactStore, DaemonEvidenceAppendix, OutcomeClass, RunManifestFrontmatter, RunNarrative,
+    persist_run_manifest_metadata,
 };
 use agents::claude::ClaudeAdapter;
 use agents::codex::CodexAdapter;
@@ -150,6 +155,7 @@ use tracing::forensic::{
 };
 use tracing::structured::{StructuredTrace, TraceIdentity, parse_phase_history};
 use tracing_subscriber::EnvFilter;
+use validation::manifest_writer::{ManifestWriteRequest, write_hybrid_run_manifest};
 
 const BACKTRACK_WINDOW_SECONDS: u32 = 60;
 const CLI_VENDOR: &str = "fixture-cli";
@@ -3330,7 +3336,6 @@ fn write_run_manifest_for_session(
     agent_narrative: Option<RunNarrative>,
     artifact_refs: Vec<String>,
 ) -> Result<agents::artifacts::StoredManifest> {
-    let store = ArtifactStore::new(&runtime.artifact_root)?;
     let frontmatter = RunManifestFrontmatter {
         manifest_version: 1,
         skill_id: skill.metadata.skill_id.clone(),
@@ -3394,35 +3399,15 @@ fn write_run_manifest_for_session(
         artifact_refs,
     };
 
-    if let Some(narrative) = agent_narrative {
-        let draft = RunManifestDraft {
-            frontmatter,
-            narrative: Some(narrative),
-            appendix: appendix.clone(),
-            disagreements: Vec::new(),
-        };
-        return store
-            .write_run_manifest(&draft, started_at)
-            .or_else(|error| {
-                store.write_run_manifest(
-                    &RunManifestDraft::fallback(
-                        draft.frontmatter,
-                        appendix,
-                        &format!("agent narrative invalid: {error}"),
-                    ),
-                    started_at,
-                )
-            });
-    }
-
-    store.write_run_manifest(
-        &RunManifestDraft::fallback(
-            frontmatter,
-            appendix,
-            "agent narrative missing from live session output",
-        ),
+    write_hybrid_run_manifest(ManifestWriteRequest {
+        artifact_root: &runtime.artifact_root,
         started_at,
-    )
+        frontmatter,
+        narrative: agent_narrative,
+        appendix,
+        disagreements: Vec::new(),
+        missing_narrative_reason: "agent narrative missing from live session output",
+    })
 }
 
 fn insert_session_log(conn: &Connection, draft: &SessionDraft) -> Result<()> {
