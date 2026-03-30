@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+#[path = "claim.rs"]
+mod claim;
+
 use anyhow::{Context, Result, anyhow, ensure};
 use chrono::Utc;
 use rusqlite::{Connection, OptionalExtension, params};
@@ -142,54 +145,7 @@ impl JobRunner {
 
     pub fn claim_next_job(&self, conn: &Connection) -> Result<Option<ClaimedJob>> {
         touch_executor(conn, &self.executor_id)?;
-        let mut statement = conn.prepare(
-            "\
-            SELECT id, kind, process_id, scope_kind, scope_id, input_payload
-            FROM workflow_jobs
-            WHERE status IN ('pending', 'retry')
-            ORDER BY COALESCE(scheduled_for, created_at), created_at
-            LIMIT 1
-            ",
-        )?;
-
-        let job = statement
-            .query_row([], |row| {
-                let payload: String = row.get(5)?;
-                let parsed = serde_json::from_str::<Value>(&payload).map_err(|error| {
-                    rusqlite::Error::FromSqlConversionFailure(
-                        payload.len(),
-                        rusqlite::types::Type::Text,
-                        Box::new(error),
-                    )
-                })?;
-                Ok(ClaimedJob {
-                    id: row.get(0)?,
-                    kind: row.get(1)?,
-                    process_id: row.get(2)?,
-                    scope_kind: row.get(3)?,
-                    scope_id: row.get(4)?,
-                    input_payload: parsed,
-                })
-            })
-            .optional()
-            .context("claiming next workflow job")?;
-
-        if let Some(job) = &job {
-            conn.execute(
-                "\
-                UPDATE workflow_jobs
-                SET status = 'running',
-                    lease_owner = ?1,
-                    started_at = ?2,
-                    attempt_count = attempt_count + 1
-                WHERE id = ?3
-                ",
-                params![self.executor_id, Utc::now().to_rfc3339(), job.id],
-            )
-            .context("marking workflow job running")?;
-        }
-
-        Ok(job)
+        claim::claim_next_job(conn, &self.executor_id).context("claiming next workflow job")
     }
 
     pub fn persist_success(
