@@ -9,6 +9,9 @@ mod errors_manifest_impl;
 #[path = "../src/errors/markdown.rs"]
 #[allow(dead_code)]
 mod errors_markdown_impl;
+#[path = "../src/pty/health.rs"]
+#[allow(dead_code)]
+mod health_impl;
 
 mod tests {
     use anyhow::{Result, ensure};
@@ -17,6 +20,7 @@ mod tests {
 
     use crate::artifacts_impl::{DaemonEvidenceAppendix, OutcomeClass, RunManifestFrontmatter};
     use crate::errors_manifest_impl::ErrorCode;
+    use crate::health_impl::HealthIssue;
 
     fn sample_frontmatter(outcome_class: OutcomeClass) -> RunManifestFrontmatter {
         RunManifestFrontmatter {
@@ -122,6 +126,13 @@ mod tests {
         ]
     }
 
+    fn health_issue_inventory() -> Vec<&'static str> {
+        HealthIssue::inventory()
+            .into_iter()
+            .map(HealthIssue::code)
+            .collect()
+    }
+
     #[test]
     fn l3_t_observability_telemetry_012_error_code_inventory_is_exact_and_canary_classes_map_onto_it()
     -> Result<()> {
@@ -202,6 +213,14 @@ mod tests {
         ))?)?;
         let appendix_keys = yaml_keys(&serde_yaml::to_value(sample_appendix())?)?;
 
+        ensure!(
+            frontmatter_keys.len() == 19,
+            "frontmatter inventory should assert every current RunManifestFrontmatter field"
+        );
+        ensure!(
+            appendix_keys.len() == 19,
+            "appendix inventory should assert every current DaemonEvidenceAppendix field"
+        );
         ensure!(
             frontmatter_keys.contains(&"agent_narrative_missing".to_owned()),
             "frontmatter inventory is missing explicit fallback flag coverage"
@@ -331,6 +350,35 @@ mod tests {
         ensure!(
             yaml.contains("drift_delta_json: null"),
             "explicit absence should serialize for drift_delta_json"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn ci_l3_007_manifest_error_code_and_health_issue_inventory_have_explicit_name_level_coverage()
+    -> Result<()> {
+        let error_codes = error_inventory();
+        let health_issues = health_issue_inventory();
+
+        ensure!(
+            health_issues
+                == vec![
+                    "AGENT_STALLED",
+                    "AGENT_AUTH_CHALLENGE",
+                    "HOST_SLEEP_INTERRUPTED",
+                    "HOST_RESOURCE_EXHAUSTED",
+                ],
+            "CI-L3-007 expected exact HealthIssue inventory"
+        );
+        ensure!(
+            health_issues
+                .iter()
+                .all(|health_issue| error_codes.contains(health_issue)),
+            "CI-L3-007 every HealthIssue code should map to the ErrorCode inventory"
+        );
+        ensure!(
+            error_codes.len() == 28,
+            "CI-L3-007 expected exact ErrorCode inventory coverage count"
         );
         Ok(())
     }
