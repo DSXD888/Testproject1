@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bunx tsc --noEmit -p tsconfig.json",
-    "lint": "bunx tsc --noEmit -p tsconfig.json",
-    "test": "bun test tests/render-opportunity.test.ts"
+    "build": "bun build ./render-opportunity.ts ./render-error-manifest.ts --outdir ../../target/bun-packages-manifests",
+    "lint": "bunx tsc --noEmit -p tsconfig.json && bun build ./render-opportunity.ts ./render-error-manifest.ts --outdir ../../target/bun-packages-manifests-lint",
+    "test": "bun test tests/render-opportunity.test.ts tests/render-error-manifest.test.ts"
   }
 }

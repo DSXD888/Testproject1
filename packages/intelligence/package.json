@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun build ./src/margins/coverage-rollup.ts ./src/qualification/goods-qualification.ts --outdir ../../target/bun-packages-intelligence",
+    "build": "bun build ./src/margins/coverage-rollup.ts ./src/qualification/goods-qualification.ts ./src/relations/resolve-process-relations.ts --outdir ../../target/bun-packages-intelligence",
     "lint": "bun ./scripts/lint.js",
     "test": "bun test ./src"
   }
