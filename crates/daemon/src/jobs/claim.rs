@@ -22,7 +22,7 @@ pub struct JobLeaseHeartbeat {
 
 impl JobLeaseHeartbeat {
     #[must_use]
-    pub fn start(state_db_path: PathBuf, job_id: String) -> Self {
+    pub fn start(state_db_path: PathBuf, job_id: String, lease_owner: String) -> Self {
         let (stop_tx, stop_rx) = mpsc::channel();
         let join_handle = thread::spawn(move || {
             loop {
@@ -31,7 +31,7 @@ impl JobLeaseHeartbeat {
                 {
                     Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
                     Err(mpsc::RecvTimeoutError::Timeout) => {
-                        let _ = renew_job_lease(&state_db_path, &job_id, Utc::now());
+                        let _ = renew_job_lease(&state_db_path, &job_id, &lease_owner, Utc::now());
                     }
                 }
             }
@@ -184,9 +184,20 @@ fn apply_claim(
     Ok(())
 }
 
-fn renew_job_lease(state_db_path: &Path, job_id: &str, now: DateTime<Utc>) -> Result<()> {
+fn renew_job_lease(
+    state_db_path: &Path,
+    job_id: &str,
+    lease_owner: &str,
+    now: DateTime<Utc>,
+) -> Result<()> {
     let conn = Connection::open(state_db_path)
         .with_context(|| format!("opening SQLite database {}", state_db_path.display()))?;
+    conn.busy_timeout(Duration::from_secs(5)).with_context(|| {
+        format!(
+            "configuring SQLite busy timeout for {}",
+            state_db_path.display()
+        )
+    })?;
     conn.execute(
         "\
         UPDATE workflow_jobs
@@ -194,10 +205,10 @@ fn renew_job_lease(state_db_path: &Path, job_id: &str, now: DateTime<Utc>) -> Re
         WHERE id = ?2
           AND status = 'running'
           AND completed_at IS NULL
-          AND lease_owner IS NOT NULL
+          AND lease_owner = ?3
           AND lease_expires_at IS NOT NULL
         ",
-        params![lease_deadline(now).to_rfc3339(), job_id],
+        params![lease_deadline(now).to_rfc3339(), job_id, lease_owner],
     )
     .with_context(|| format!("renewing workflow job lease for {job_id}"))?;
     Ok(())

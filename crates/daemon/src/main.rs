@@ -1275,12 +1275,12 @@ fn claimed_job_lease_heartbeat(
     runtime: &RuntimeBootstrap,
     job_id: &str,
 ) -> Result<Option<JobLeaseHeartbeat>> {
-    let is_claimed = runtime
+    let lease_owner = runtime
         .state_db
         .connection()
         .query_row(
             "\
-            SELECT 1
+            SELECT lease_owner
             FROM workflow_jobs
             WHERE id = ?1
               AND status = 'running'
@@ -1288,18 +1288,18 @@ fn claimed_job_lease_heartbeat(
               AND completed_at IS NULL
             ",
             params![job_id],
-            |row| row.get::<_, i64>(0),
+            |row| row.get::<_, String>(0),
         )
-        .optional()?
-        .is_some();
-    if !is_claimed {
+        .optional()?;
+    let Some(lease_owner) = lease_owner else {
         return Ok(None);
-    }
+    };
 
     let state_db_path = Path::new(&runtime.descriptor.state_root).join("state.db");
     Ok(Some(start_job_lease_heartbeat(
         state_db_path,
         job_id.to_owned(),
+        lease_owner,
     )))
 }
 

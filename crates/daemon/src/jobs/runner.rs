@@ -455,8 +455,9 @@ impl JobRunner {
 pub fn start_job_lease_heartbeat(
     state_db_path: PathBuf,
     job_id: impl Into<String>,
+    lease_owner: impl Into<String>,
 ) -> JobLeaseHeartbeat {
-    JobLeaseHeartbeat::start(state_db_path, job_id.into())
+    JobLeaseHeartbeat::start(state_db_path, job_id.into(), lease_owner.into())
 }
 
 fn touch_executor(conn: &Connection, executor_id: &str) -> Result<()> {
