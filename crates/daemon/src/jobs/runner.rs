@@ -10,7 +10,7 @@ use crate::jobs::claim;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, anyhow, ensure};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -106,6 +106,7 @@ pub struct EnqueueJobRequest {
     pub parent_job_id: Option<String>,
     pub continuation_chain_id: Option<String>,
     pub validation_required: bool,
+    pub scheduled_for: Option<DateTime<Utc>>,
     pub input_payload: Value,
     pub idempotency_key: String,
 }
@@ -260,8 +261,9 @@ impl JobRunner {
                     "\
                     INSERT INTO workflow_jobs (
                       id, kind, process_id, notice_id, scope_kind, scope_id, parent_job_id,
-                      continuation_chain_id, validation_required, status, input_payload
-                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'pending', ?10)
+                      continuation_chain_id, validation_required, status, scheduled_for,
+                      input_payload
+                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'pending', ?10, ?11)
                     ",
                     params![
                         request.job_id,
@@ -273,6 +275,9 @@ impl JobRunner {
                         request.parent_job_id,
                         request.continuation_chain_id,
                         i64::from(request.validation_required),
+                        request
+                            .scheduled_for
+                            .map(|scheduled_for| scheduled_for.to_rfc3339()),
                         stored_input_payload,
                     ],
                 )?;

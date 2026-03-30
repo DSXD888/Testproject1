@@ -74,7 +74,7 @@ impl CronScheduler {
     }
 
     #[must_use]
-    pub fn definitions(&self) -> &BTreeMap<String, CronJobDefinition> {
+    pub const fn definitions(&self) -> &BTreeMap<String, CronJobDefinition> {
         &self.definitions
     }
 
@@ -108,10 +108,7 @@ impl CronScheduler {
             let registered_source = registry.get(&definition.source_id).ok_or_else(|| {
                 anyhow!("unknown source registry entry `{}`", definition.source_id)
             })?;
-            if self
-                .suppression_reason(registered_source, definition, now)
-                .is_some()
-            {
+            if Self::suppression_reason(registered_source, definition, now).is_some() {
                 continue;
             }
 
@@ -141,7 +138,6 @@ impl CronScheduler {
     }
 
     pub fn suppression_reason(
-        &self,
         source: &RegisteredSource,
         definition: &CronJobDefinition,
         now: DateTime<Utc>,
@@ -248,6 +244,7 @@ fn build_enqueue_request(
         parent_job_id: None,
         continuation_chain_id: None,
         validation_required: false,
+        scheduled_for: Some(scheduled_for),
         input_payload: serde_json::json!({
             "source_id": definition.source_id,
             "skill_id": definition.skill_id,

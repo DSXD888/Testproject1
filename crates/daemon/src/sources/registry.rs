@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
@@ -124,7 +124,7 @@ impl Default for SourcePolicy {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceDefinition {
     pub source_id: String,
     pub kind: SourceKind,
@@ -138,7 +138,7 @@ pub struct SourceDefinition {
     pub default_health_state: HealthState,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourceRuntimeState {
     pub source_id: String,
     pub last_health_state: HealthState,
@@ -154,13 +154,13 @@ pub struct SourceRuntimeState {
     pub created_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegisteredSource {
     pub definition: SourceDefinition,
     pub runtime_state: SourceRuntimeState,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SourceRegistry {
     sources: BTreeMap<String, RegisteredSource>,
 }
@@ -189,7 +189,7 @@ impl SourceRegistry {
             let kind = SourceKind::parse(&raw_kind)?;
             let config = serde_json::from_str::<Value>(&config_json)
                 .with_context(|| format!("parsing sources.config for {source_id}"))?;
-            let definition = Self::definition_for_row(&source_id, kind, enabled != 0, config);
+            let definition = definition_for_row(&source_id, kind, enabled != 0, config);
             let runtime_state = load_runtime_state(conn, &source_id, &definition)?;
             sources.insert(
                 source_id.clone(),
@@ -204,7 +204,7 @@ impl SourceRegistry {
     }
 
     #[must_use]
-    pub fn sources(&self) -> &BTreeMap<String, RegisteredSource> {
+    pub const fn sources(&self) -> &BTreeMap<String, RegisteredSource> {
         &self.sources
     }
 
@@ -401,7 +401,7 @@ pub fn persist_runtime_state(
             runtime_state.circuit_opened_at.map(|value| value.to_rfc3339()),
             runtime_state.cooldown_until.map(|value| value.to_rfc3339()),
             runtime_state.last_canary_at.map(|value| value.to_rfc3339()),
-            runtime_state.last_canary_result.map(|value| value.as_str()),
+            runtime_state.last_canary_result.map(CanaryResult::as_str),
             runtime_state.last_error_code,
             runtime_state.updated_at.map(|value| value.to_rfc3339()),
             runtime_state.created_at.map(|value| value.to_rfc3339()),
@@ -496,8 +496,12 @@ fn parse_timestamp(raw: &str) -> Result<DateTime<Utc>> {
     Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc))
 }
 
-fn to_sql_error(error: anyhow::Error) -> rusqlite::Error {
-    rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(error))
+fn to_sql_error(error: impl std::fmt::Display) -> rusqlite::Error {
+    rusqlite::Error::FromSqlConversionFailure(
+        0,
+        rusqlite::types::Type::Text,
+        Box::new(std::io::Error::other(error.to_string())),
+    )
 }
 
 fn builtin_definitions() -> BTreeMap<String, SourceDefinition> {
@@ -602,7 +606,7 @@ fn definition_for_row(
     config: Value,
 ) -> SourceDefinition {
     let mut definition =
-        SourceRegistry::builtin_definition(source_id).unwrap_or(SourceDefinition {
+        SourceRegistry::builtin_definition(source_id).unwrap_or_else(|| SourceDefinition {
             source_id: source_id.to_owned(),
             kind,
             enabled,
@@ -621,7 +625,7 @@ fn definition_for_row(
 }
 
 impl HealthState {
-    fn as_str(self) -> &'static str {
+    const fn as_str(self) -> &'static str {
         match self {
             Self::Unknown => "unknown",
             Self::Green => "green",
@@ -632,7 +636,7 @@ impl HealthState {
 }
 
 impl CircuitState {
-    fn as_str(self) -> &'static str {
+    const fn as_str(self) -> &'static str {
         match self {
             Self::Closed => "closed",
             Self::HalfOpen => "half_open",
@@ -642,7 +646,7 @@ impl CircuitState {
 }
 
 impl CanaryResult {
-    fn as_str(self) -> &'static str {
+    const fn as_str(self) -> &'static str {
         match self {
             Self::Passed => "passed",
             Self::Failed => "failed",

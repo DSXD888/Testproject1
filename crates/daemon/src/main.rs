@@ -51,8 +51,18 @@ mod prompt {
 }
 
 #[allow(dead_code)]
+mod scheduler {
+    pub mod cron;
+}
+
+#[allow(dead_code)]
 mod sessions {
     pub mod reaper;
+}
+
+#[allow(dead_code)]
+mod sources {
+    pub mod registry;
 }
 
 #[cfg(test)]
@@ -71,6 +81,7 @@ mod support {
     }
 }
 
+use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::ffi::OsString;
 use std::fs;
@@ -121,10 +132,12 @@ use prompt::renderer::{PromptRenderer, PromptRendererInput};
 use pty::capture::{CaptureConfig, PtyCapture, compressed_payload_sha256};
 use pty::session::{PtyCommand, PtySession, RuntimeIds as PtyRuntimeIds, SpawnOptions, SpawnPath};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
+use scheduler::cron::CronScheduler;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sessions::reaper::{CrashRecoveryContext, SessionReaper};
 use sha2::{Digest, Sha256};
+use sources::registry::SourceRegistry;
 use tracing_subscriber::EnvFilter;
 
 const BACKTRACK_WINDOW_SECONDS: u32 = 60;
@@ -671,7 +684,7 @@ async fn main() -> Result<()> {
 fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
     let runtime_paths = RuntimePaths::new(cli.state_root.clone(), cli.runtime_dir.clone());
     let lock_guard = LockGuard::acquire(&runtime_paths)?;
-    let state_db = open_state_db(runtime_paths.state_db_path(), DEFAULT_SCHEMA_EPOCH)?;
+    let mut state_db = open_state_db(runtime_paths.state_db_path(), DEFAULT_SCHEMA_EPOCH)?;
     let listener = bind_listener(&runtime_paths)?;
     let descriptor = DaemonDescriptor::new(
         runtime_paths.socket_path(),
@@ -682,6 +695,7 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
         .with_context(|| format!("creating {}", cli.artifact_root.display()))?;
     reconcile_interrupted_sessions(&state_db, &cli.artifact_root, &descriptor.instance_id)?;
     ensure_local_executor_registered(state_db.connection())?;
+    enqueue_startup_cron_jobs(&mut state_db, Utc::now())?;
     write_descriptor_atomic(runtime_paths.descriptor_path(), &descriptor)?;
 
     tracing::info!(
@@ -700,6 +714,105 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
         resource_arbiter: Mutex::new(ResourceArbiter::new(ResourceBudgets::default())),
         restart_controller: RestartController::new(build_restart_plan(cli)?),
     })
+}
+
+fn enqueue_startup_cron_jobs(state_db: &mut StateDb, now: DateTime<Utc>) -> Result<()> {
+    let source_registry = SourceRegistry::load(state_db.connection())
+        .context("loading source registry during daemon bootstrap")?;
+    let mut cron_scheduler = CronScheduler::from_registry(&source_registry);
+    cron_scheduler
+        .refresh_next_run_at(now)
+        .context("refreshing cron scheduler definitions during daemon bootstrap")?;
+    seed_cron_scheduler_from_history(state_db.connection(), &mut cron_scheduler)
+        .context("seeding cron scheduler from workflow history")?;
+
+    let dispatches = cron_scheduler
+        .dispatch_due_jobs(&source_registry, now)
+        .context("collecting due cron jobs during daemon bootstrap")?;
+    if dispatches.is_empty() {
+        return Ok(());
+    }
+
+    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+    let mut enqueued = 0_usize;
+    for dispatch in dispatches {
+        let scheduled_for = dispatch.enqueue_request.scheduled_for.ok_or_else(|| {
+            anyhow!(
+                "cron dispatch {} missing scheduled_for",
+                dispatch.definition_key
+            )
+        })?;
+        runner
+            .enqueue_job(state_db, &dispatch.enqueue_request)
+            .with_context(|| format!("enqueuing cron root {}", dispatch.definition_key))?;
+        cron_scheduler
+            .record_enqueued(&dispatch.definition_key, scheduled_for)
+            .with_context(|| format!("recording cron enqueue for {}", dispatch.definition_key))?;
+        enqueued += 1;
+    }
+
+    tracing::info!(enqueued, "queued overdue cron jobs during daemon bootstrap");
+    Ok(())
+}
+
+fn seed_cron_scheduler_from_history(
+    conn: &Connection,
+    cron_scheduler: &mut CronScheduler,
+) -> Result<()> {
+    let mut latest_by_definition = BTreeMap::new();
+    let mut statement = conn.prepare(
+        "\
+        SELECT scheduled_for, input_payload
+        FROM workflow_jobs
+        WHERE scheduled_for IS NOT NULL
+        ORDER BY datetime(scheduled_for)
+        ",
+    )?;
+    let rows = statement.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+
+    for row in rows {
+        let (scheduled_for_raw, input_payload_raw) = row?;
+        let scheduled_for = DateTime::parse_from_rfc3339(&scheduled_for_raw)
+            .with_context(|| format!("parsing scheduled_for timestamp `{scheduled_for_raw}`"))?
+            .with_timezone(&Utc);
+        let input_payload = serde_json::from_str::<Value>(&input_payload_raw)
+            .context("parsing workflow job input payload during cron bootstrap")?;
+        let Some(definition_key) = cron_definition_key_from_payload(&input_payload) else {
+            continue;
+        };
+
+        latest_by_definition
+            .entry(definition_key)
+            .and_modify(|seen: &mut DateTime<Utc>| {
+                if scheduled_for > *seen {
+                    *seen = scheduled_for;
+                }
+            })
+            .or_insert(scheduled_for);
+    }
+
+    for (definition_key, scheduled_for) in latest_by_definition {
+        if cron_scheduler.definitions().contains_key(&definition_key) {
+            cron_scheduler
+                .record_enqueued(&definition_key, scheduled_for)
+                .with_context(|| format!("restoring cron definition {definition_key}"))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn cron_definition_key_from_payload(input_payload: &Value) -> Option<String> {
+    let request = input_payload.get("request")?;
+    if let Some(schedule_key) = request.get("schedule_key").and_then(Value::as_str) {
+        return Some(schedule_key.to_owned());
+    }
+
+    let source_id = request.get("source_id").and_then(Value::as_str)?;
+    let skill_id = request.get("skill_id").and_then(Value::as_str)?;
+    Some(format!("{source_id}::{skill_id}"))
 }
 
 fn ensure_local_executor_registered(conn: &Connection) -> Result<()> {

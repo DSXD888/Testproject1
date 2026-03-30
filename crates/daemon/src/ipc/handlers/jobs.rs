@@ -76,6 +76,7 @@ pub fn trigger_ingestion(
                 parent_job_id: None,
                 continuation_chain_id: None,
                 validation_required: false,
+                scheduled_for: None,
                 input_payload: json!({
                     "source_id": params.source_id,
                     "trigger": "desktop_command",
@@ -118,6 +119,7 @@ pub fn trigger_enrichment(
                 parent_job_id: None,
                 continuation_chain_id: None,
                 validation_required: false,
+                scheduled_for: None,
                 input_payload: json!({
                     "process_id": params.process_id,
                     "trigger": "desktop_command",
@@ -171,6 +173,7 @@ pub fn retry_job(
                 parent_job_id: Some(params.job_id.clone()),
                 continuation_chain_id: row.continuation_chain_id,
                 validation_required: row.validation_required,
+                scheduled_for: None,
                 input_payload: row.input_payload,
                 idempotency_key: idempotency_key.to_owned(),
             },

@@ -116,6 +116,7 @@ pub fn rerun_from_error(
                 parent_job_id: record.job_id.clone(),
                 continuation_chain_id: None,
                 validation_required: false,
+                scheduled_for: None,
                 input_payload: serde_json::json!({
                     "error_manifest_id": params.error_manifest_id,
                     "pipeline_stage": record.pipeline_stage,
