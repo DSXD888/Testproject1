@@ -77,6 +77,7 @@ export interface RelationHeuristicOverrides
 export interface ProcurementProcessIdentity {
   id: string;
   canonicalProcessId?: string | null;
+  canonicalCreatedAt?: string | null;
   canonicalOcid?: string | null;
   createdAt?: string | null;
   buyerName?: string | null;
@@ -514,7 +515,7 @@ function detectRelationBlockers(
     leftCanonicalOcid &&
     rightCanonicalOcid &&
     leftCanonicalOcid === rightCanonicalOcid &&
-    !buyersCompatible(left, right)
+    hasContradictoryBuyerIdentity(left, right)
   ) {
     blockers.add("buyer_mismatch");
   }
@@ -586,8 +587,8 @@ function chooseCanonicalSurvivor(
     return leftCanonical;
   }
 
-  const leftCreatedAt = parseTimestamp(left.createdAt);
-  const rightCreatedAt = parseTimestamp(right.createdAt);
+  const leftCreatedAt = parseTimestamp(left.canonicalCreatedAt ?? left.createdAt);
+  const rightCreatedAt = parseTimestamp(right.canonicalCreatedAt ?? right.createdAt);
   if (leftCreatedAt !== null && rightCreatedAt !== null) {
     if (leftCreatedAt < rightCreatedAt) {
       return leftCanonical;
@@ -792,11 +793,27 @@ function computeValueProximity(
   return smaller / larger;
 }
 
-function buyersCompatible(
+function hasContradictoryBuyerIdentity(
   left: ProcurementProcessIdentity,
   right: ProcurementProcessIdentity,
 ): boolean {
-  return computeBuyerMatch(left, right) >= 1;
+  const leftBuyerIdentifier = normalizeIdentifier(left.buyerIdentifier);
+  const rightBuyerIdentifier = normalizeIdentifier(right.buyerIdentifier);
+  if (
+    leftBuyerIdentifier &&
+    rightBuyerIdentifier &&
+    leftBuyerIdentifier !== rightBuyerIdentifier
+  ) {
+    return true;
+  }
+
+  const leftBuyerName = normalizeIdentifier(left.buyerName);
+  const rightBuyerName = normalizeIdentifier(right.buyerName);
+  if (leftBuyerName && rightBuyerName && leftBuyerName !== rightBuyerName) {
+    return true;
+  }
+
+  return false;
 }
 
 function hasFrameworkCallOffMismatch(
