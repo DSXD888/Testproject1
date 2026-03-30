@@ -1,0 +1,91 @@
+feature: l3-operational-hardening
+created: "2026-03-29"
+source_doc: docs/strategy/layers/layer-3-operational-hardening.md
+source_type: layer
+entry_point: batch-1-validate
+
+paths:
+  spec: docs/strategy/layers/layer-3-operational-hardening.md
+  tdd: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-tdd.md
+  bootstrap: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-bootstrap.md
+  strategy: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-strategy.md
+  kickoff: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-kickoff.md
+  push: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-push.md
+  status: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-status.yaml
+
+bead_prefix: l3
+bead_cli: br
+
+tech_stack:
+  language: "mixed (rust + typescript)"
+  rust:
+    build_cmd: "cargo check --all-targets"
+    test_cmd: "cargo test"
+    lint_cmd: "cargo clippy --all-targets -- -D warnings && cargo fmt --check"
+    test_framework: "cargo test (#[test], #[tokio::test])"
+  typescript:
+    build_cmd: "bun run build"
+    test_cmd: "bun run test"
+    lint_cmd: "bun run lint"
+    test_framework: "vitest (unit), playwright (e2e)"
+
+quality_gates:
+  build: "cargo check --all-targets && bun run build"
+  test: "cargo test && bun run test"
+  lint: "cargo clippy --all-targets -- -D warnings && cargo fmt --check && bun run lint"
+  ubs: "ubs $(git diff --name-only --cached)"
+
+handoff_dir: docs/pipeline/l3-operational-hardening
+
+key_files:
+  daemon_main: crates/daemon/src/main.rs
+  job_runner: crates/daemon/src/jobs/runner.rs
+  session_reaper: crates/daemon/src/sessions/reaper.rs
+  pty_session: crates/daemon/src/pty/session.rs
+  pty_capture: crates/daemon/src/pty/capture.rs
+  pty_health: crates/daemon/src/pty/health.rs
+  artifacts: crates/daemon/src/agents/artifacts.rs
+  contracts: crates/daemon/src/agents/contracts.rs
+  adapter: crates/daemon/src/agents/adapter.rs
+  error_manifest: crates/daemon/src/errors/manifest.rs
+  sqlite: crates/daemon/src/db/sqlite.rs
+  ipc_router: crates/daemon/src/ipc/command_router.rs
+  ipc_handshake: crates/daemon/src/ipc/handshake.rs
+  intelligence_qualification: packages/intelligence/src/qualification/goods-qualification.ts
+  manifests_render: packages/manifests/render-opportunity.ts
+
+new_daemon_modules:
+  - scheduler/cron.rs
+  - sources/registry.rs
+  - jobs/claim.rs
+  - pty/reaper.rs  # extends existing sessions/reaper.rs
+  - pty/hardening.rs
+  - agents/arbiter.rs
+  - db/checkpoints.rs
+  - tracing/structured.rs
+  - tracing/forensic.rs
+  - validation/policy.rs
+  - validation/executor.rs
+  - validation/manifest_writer.rs
+
+new_ts_modules:
+  - packages/intelligence/src/relations/resolve-process-relations.ts
+  - packages/manifests/render-error-manifest.ts
+  - packages/manifests/error.md.ts
+
+new_db_tables:
+  - validation_verdicts (local-only)
+  - source_runtime_state (local-only)
+  - listing_evidence (local-only)
+  - process_relations (push-owned)
+  - process_aliases (push-owned)
+
+new_skills:
+  - skills/auth-refresh/alibaba/
+  - skills/auth-refresh/1688/
+  - skills/source-health/fts/
+  - skills/source-health/alibaba/
+  - skills/validation/base/ (6 files)
+
+test_files_new: 18
+test_files_cumulative: 38

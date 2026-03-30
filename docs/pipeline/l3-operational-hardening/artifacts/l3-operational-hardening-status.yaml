@@ -1,0 +1,48 @@
+# L3 Operational Hardening — Pipeline Status
+
+feature: l3-operational-hardening
+status: ready
+bead_prefix: l3
+bead_id_pattern: "testproject1-hmw.*"
+
+source_of_truth:
+  spec:
+    path: docs/strategy/layers/layer-3-operational-hardening.md
+    role: "SOT #1 — WHAT to build (L3-FR-* requirement IDs)"
+  tdd:
+    path: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-tdd.md
+    role: "SOT #2 — HOW to verify (L3-T-* test IDs, 21 test files)"
+  strategy:
+    path: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-strategy.md
+    role: "SOT #3 — WHAT ORDER (6 phases, phase dependency DAG)"
+  bootstrap:
+    path: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-bootstrap.md
+    role: "Environment setup — migration scaffold, skill directories, fixture families"
+
+execution_prompts:
+  kickoff:
+    path: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-kickoff.md
+    role: "Full agent onboarding"
+  push:
+    path: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-push.md
+    role: "Continuation nudge"
+
+beads:
+  total: 36
+  tasks: 36
+  fix_beads: 0
+  completed: 0
+  phases:
+    p1_schema_claim_admission: 5
+    p2_scheduler_registry_health: 5
+    p3_pty_reliability_evidence: 5
+    p4_manifest_validation_dryrun: 10
+    p5_relations_error_packages: 4
+    p6_promotion_status_unattended: 7
+
+tech_stack:
+  rust: "2024 (nightly) — daemon modules, migration, skill scaffolds"
+  typescript: "Bun — packages/intelligence (relations), packages/manifests (error renderer)"
+  test: "cargo test + bun test"
+
+exit_criteria: "System runs unattended 5 consecutive days with >=95% skill success rate"

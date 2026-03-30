@@ -28,9 +28,9 @@
 
 **Coverage target:** all `98` unique `L3-FR-*` requirement IDs in the validated Layer 3 spec map to at least one stable test ID in this document.
 
-**Planned inventory:** `191` total checks
+**Planned inventory:** `196` total checks
 - `8` static CI gates
-- `183` runnable tests
+- `188` runnable tests
 - `18` spec-predeclared new files from Layer 3 §5.2
 - `3` additive auxiliary files required to close schema, shared-library, and operational-status coverage gaps without hiding them inside unrelated containers
 
@@ -53,6 +53,7 @@
 - Shared-library coverage is mandatory: the relation engine and error-manifest renderer each require direct package-level tests, not only downstream daemon smoke tests.
 - Keep `agent_claimed_*` and `daemon_observed_*` assertions separate in manifest tests. Tests that collapse them into one field are invalid.
 - No `.skip`, `#[ignore]`, `test.todo`, empty test bodies, existence-only assertions, vague “works correctly” checks, or false-positive-prone snapshot-only approvals.
+- Stable test IDs must appear verbatim in each Rust test name or Vitest case name so mixed-tier files can be filtered by test ID without ad hoc naming.
 - Per-commit CI means cumulative `T1 + T2` must stay under five minutes on a standard hosted runner.
 - `#![forbid(unsafe_code)]` remains mandatory for all Rust production and test code.
 - Run `ubs` on the changed files before landing the implementation that satisfies this TDD.
@@ -79,28 +80,30 @@
 
 **Tier allocation rule:** any test that spawns real validator sub-jobs, waits for canary cadence, or exercises crash-recovery/replay beyond smoke scope belongs in `T3` or `T4`, never `T1`.
 
+**Mixed-file rule:** mixed-tier files are allowed, but any test using `ValidatorHarness` is `T3` by default; per-tier runners must filter by stable test ID or else schedule the whole file in the higher lane.
+
 ## 5. Shared Test Infrastructure
 
-| Harness / Fixture | Scope | Purpose |
-|------------------|-------|---------|
-| `TestStateDb` | `T1` / `T2` / `T3` | Reuses the existing L1 temp-file SQLite bootstrap with L0/L1/L2 migrations, then applies the L3 migration under test |
-| `ArtifactSandbox` | `T2` / `T3` | Creates per-test artifact roots, scratch roots, chunk stores, run-manifest paths, and recovery probes |
-| `PtySessionHarness` | `T2` / `T3` | Reuses the L1 PTY harness for real PTY spawn/drain/phase capture and extends it with L3 hardening assertions |
-| `ContractSessionHarness` | `T2` / `T3` | Reuses the L1 contract harness for validator/result-contract sessions and bounded prompt payload assertions |
-| `DaemonHarness` | `T2` / `T3` / `T4` | Boots the daemon with temp runtime roots, artifact roots, UDS descriptors, skill roots, and seeded source/runtime rows |
-| `TestSkillDir` | `T1` / `T2` / `T3` | Materializes valid and invalid Layer 3 skill directory variants, including validator/base and source-health/auth-refresh folders |
-| `ProcessTreeHelper` | `T2` / `T3` | Runs helper modes for sleep, stubborn children, split stdout/stderr, auth challenge, forked descendants, crash-after-checkpoint, and PTY semantics |
-| `ProcessIsolationGuard` | `T2` / `T3` | Ensures unique temp roots and zero surviving descendants after every real-process test; serializes only when shared signal surfaces require it |
-| `ManifestAssert` | `T1` / `T2` / `T3` | Parses YAML frontmatter, appendix blocks, disagreement sections, and manifest file-size limits using the existing L1 helper |
-| `CronSchedulerHarness` | `T1` / `T2` | Seeds cron definitions, frozen skill bindings, source runtime state, and explicit clock instants; verifies enqueued `workflow_jobs` rows and `next_run_at` transitions |
-| `ResourceArbiterFixture` | `T1` / `T2` | Seeds `browser_slots`, `agent_slots`, and `source_lanes`; tracks structured grant/deny/release events and effective ceilings after skill-local lowering |
-| `SourceHealthFixture` | `T2` / `T3` | Produces passed/failed/timed-out canary outcomes, challenge windows, cooldown timestamps, and logical canary classifications mapped to existing `ErrorCode` values |
-| `ValidationPolicyFixture` | `T1` | Feeds policy mode, promotion stage, trigger inventory, risk signals, behavior versions, and recent verdict history into the policy engine |
-| `ValidatorHarness` | `T2` / `T3` | Spawns real validator sub-jobs through the Job Runner with bounded manifests, rubric hashes, drift deltas, and synthetic verdict payloads |
-| `CircuitBreakerFixture` | `T1` / `T2` | Drives explicit `closed -> half_open -> open` state transitions with persisted timestamps and stale-write conflict checks |
-| `RelationScoringFixture` | `T1` | Produces deterministic notice-pair feature vectors, hard blockers, heuristic scores, and canonical-root tie-breakers for Vitest |
-| `TelemetryProbe` | `T1` / `T2` / `T3` | Captures skill-level and validation-level metric emissions plus health-state transitions at their declared update points |
-| `OperationalStatusHarness` | `T2` | Exercises typed IPC status commands for cron, source health, validation, and resource arbiter visibility without mutating runtime state |
+| Harness / Fixture | Scope | Purpose | Setup Requirements |
+|------------------|-------|---------|--------------------|
+| `TestStateDb` | `T1` / `T2` / `T3` | Reuses the existing L1 temp-file SQLite bootstrap with L0/L1/L2 migrations, then applies the L3 migration under test | temp-file `state.db`, repo-root migration access including `0005_l3_operational_hardening.sql`, WAL enabled, optional competing reader/writer handles for transactional assertions |
+| `ArtifactSandbox` | `T2` / `T3` | Creates per-test artifact roots, scratch roots, chunk stores, run-manifest paths, and recovery probes | unique temp artifact root, per-test scratch subroot, zstd chunk/index directories, deterministic cleanup check at teardown |
+| `PtySessionHarness` | `T2` / `T3` | Reuses the L1 PTY harness for real PTY spawn/drain/phase capture and extends it with L3 hardening assertions | real PTY pair, `PtyGeometry` defaults, helper modes for fd inventory, post-slave-close `EIO`, geometry reporting, and coalesced child-exit bursts |
+| `ContractSessionHarness` | `T2` / `T3` | Reuses the L1 contract harness for validator/result-contract sessions and bounded prompt payload assertions | real stdout/stderr capture, contract helper modes for malformed/truncated payloads, temp artifact/result roots, seeded schema fixtures |
+| `DaemonHarness` | `T2` / `T3` / `T4` | Boots the daemon with temp runtime roots, artifact roots, UDS descriptors, skill roots, and seeded source/runtime rows | temp runtime/state/artifact roots, seeded `sources` plus `source_runtime_state`, helper-skill filesystem, read-only `CommandRouter` context where needed |
+| `TestSkillDir` | `T1` / `T2` / `T3` | Materializes valid and invalid Layer 3 skill directory variants, including validator/base and source-health/auth-refresh folders | scratch skill root containing all four operational skill directories plus `skills/validation/base/` with rubric, canary, and golden files |
+| `ProcessTreeHelper` | `T2` / `T3` | Runs helper modes for sleep, stubborn children, split stdout/stderr, auth challenge, forked descendants, crash-after-checkpoint, and PTY semantics | extend the existing `test_agent` helper with `fd_inventory`, `pty_geometry_report`, `exit_burst`, `forked_descendants`, `double_fork_escape`, and `crash_after_checkpoint` modes |
+| `ProcessIsolationGuard` | `T2` / `T3` | Ensures unique temp roots and zero surviving descendants after every real-process test; serializes only when shared signal surfaces require it | per-test temp-root uniqueness, survivor scan on PGID and descendant PIDs, serial execution switch for shared signal surfaces |
+| `ManifestAssert` | `T1` / `T2` / `T3` | Parses YAML frontmatter, appendix blocks, disagreement sections, and manifest file-size limits using the existing L1 helper | manifest corpus fixtures, exact field-name inventories from `RunManifestFrontmatter` and `DaemonEvidenceAppendix`, size-budget and disagreement-section assertions |
+| `CronSchedulerHarness` | `T1` / `T2` | Seeds cron definitions, frozen skill bindings, source runtime state, and explicit clock instants; verifies enqueued `workflow_jobs` rows and `next_run_at` transitions | frozen `DateTime<Utc>` clock, Europe/London DST fixture, seeded cron definitions, temp-file DB, and `EnqueueJobRequest` inspection helpers |
+| `ResourceArbiterFixture` | `T1` / `T2` | Seeds `browser_slots`, `agent_slots`, and `source_lanes`; tracks structured grant/deny/release events and effective ceilings after skill-local lowering | seeded quota config, named source lanes, explicit job kind/source metadata, captured grant/deny/release event log |
+| `SourceHealthFixture` | `T2` / `T3` | Produces passed/failed/timed-out canary outcomes, challenge windows, cooldown timestamps, and logical canary classifications mapped to existing `ErrorCode` values | source-health JSON fixtures, seeded `source_runtime_state` rows, canary timestamps, challenge-window counters, and logical-class-to-`ErrorCode` mapping table |
+| `ValidationPolicyFixture` | `T1` | Feeds policy mode, promotion stage, trigger inventory, risk signals, behavior versions, and recent verdict history into the policy engine | explicit trigger inputs for `fill_rate_drop > threshold` and `operator_requested`, behavior-version metadata, recent verdict/trust history, and expected reason-key assertions |
+| `ValidatorHarness` | `T3` | Spawns real validator sub-jobs through the Job Runner with bounded manifests, rubric hashes, drift deltas, and synthetic verdict payloads | real `JobRunner`, temp `skills/validation/base/`, scratch artifact root, `EnqueueJobRequest` capture, synthetic verdict/result contracts, and persisted `validation_verdicts` linkage checks |
+| `CircuitBreakerFixture` | `T1` / `T2` | Drives explicit `closed -> half_open -> open` state transitions with persisted timestamps and stale-write conflict checks | temp-file `source_runtime_state`, monotonic test clock, stale-write race helper, explicit challenge-class failure sequences |
+| `RelationScoringFixture` | `T1` | Produces deterministic notice-pair feature vectors, hard blockers, heuristic scores, and canonical-root tie-breakers for Vitest | TS notice-pair fixtures for exact-match, blocker-first, same-OCID buyer mismatch, `0.75/0.94/0.95` boundary buckets, and transitive-cluster root resolution |
+| `TelemetryProbe` | `T1` / `T2` / `T3` | Captures skill-level and validation-level metric emissions plus health-state transitions at their declared update points | metric sink with threshold tables, blackout-incident collector, `null` / `not_applicable` filtering, and commit-seq snapshot helper |
+| `OperationalStatusHarness` | `T2` | Exercises typed IPC status commands for cron, source health, validation, and resource arbiter visibility without mutating runtime state | real `CommandRouter`, seeded cron/source-health/validation/resource snapshots, before/after `commit_seq` assertions, and `BridgeError::invalid_params` helpers |
 
 ## 6. Planned File Inventory
 
@@ -111,8 +114,8 @@
 | Deterministic replay | 2 files / 12 tests | exactly the 2 files predeclared in Layer 3 §5.2 |
 | Scheduling & jobs | 2 files / 19 tests | exactly the 2 files predeclared in Layer 3 §5.2 |
 | Skill lifecycle | 3 files / 21 tests | exactly the 3 files predeclared in Layer 3 §5.2 |
-| Validation | 6 files / 59 tests | exactly the 6 files predeclared in Layer 3 §5.2 |
-| Relations | 1 file / 12 tests | exactly the 1 file predeclared in Layer 3 §5.2 |
+| Validation | 6 files / 61 tests | exactly the 6 files predeclared in Layer 3 §5.2 |
+| Relations | 1 file / 15 tests | exactly the 1 file predeclared in Layer 3 §5.2 |
 | Additive auxiliary coverage | 3 files / 27 tests | required to cover schema activation, shared error-manifest renderer, manifest-key parity, enum inventories, and operational-status surfaces not named directly in §5.2 |
 
 ## 7. Static CI Gates
@@ -126,7 +129,7 @@
 | `CI-L3-005` | `T1` | repository inventory | module inventory matches the 12 new Layer 3 daemon surfaces, `migrations/0005_l3_operational_hardening.sql` exists, the 18 predeclared test files exist, additive files are present, and the Layer 3 skill filesystem inventory matches the spec | `L3-FR-1.3.1`-`L3-FR-1.3.12`, `L3-FR-1.9.1`, `L3-FR-4.1.1`-`L3-FR-4.3.1` |
 | `CI-L3-006` | `T1` | repository policy | all new Rust files keep `#![forbid(unsafe_code)]`, no `#[ignore]`/`.skip`/`test.todo` markers exist in Layer 3 Rust or TS test surfaces | supporting invariant |
 | `CI-L3-007` | `T1` | inventory report | manifest-field parity, `ErrorCode` inventory, and `HealthIssue` inventory each map to explicit TDD tests; no core field or enum variant is left uncovered by name | supporting invariant |
-| `CI-L3-008` | `T1` | coverage report | every `L3-FR-*` requirement has at least one test ID, every test ID is unique, and the declared `T1 + T2` budget stays under five minutes | supporting invariant |
+| `CI-L3-008` | `T1` | coverage report | every `L3-FR-*` requirement has at least one requirement-bearing test ID, every requirement-bearing test ID is unique, and the declared `T1 + T2` budget stays under five minutes | supporting invariant |
 
 ## 8. Detailed Test Catalog
 
@@ -175,12 +178,12 @@
 
 | Test ID | Tier | Fixtures | Exact Assertions | Requirements |
 |--------|------|----------|------------------|-------------|
-| `L3-T-fault_partial_failure-001` | `T2` | `TestStateDb`, `ValidatorHarness` | a valid checkpoint followed by crash preserves `last_checkpoint_seq`, records partial-failure state, and never upgrades the job to success without a final validated result | `L3-FR-1.3.7`, `L3-FR-2.5.1` |
+| `L3-T-fault_partial_failure-001` | `T3` | `TestStateDb`, `ValidatorHarness` | a valid checkpoint followed by crash preserves `last_checkpoint_seq`, records partial-failure state, and never upgrades the job to success without a final validated result | `L3-FR-1.3.7`, `L3-FR-2.5.1` |
 | `L3-T-fault_partial_failure-002` | `T2` | `TestStateDb` | out-of-order checkpoint replay is rejected without advancing checkpoint state or stage-head state; the persisted checkpoint reference remains the last durable valid one | `L3-FR-1.3.7` |
 | `L3-T-fault_partial_failure-003` | `T2` | `TestStateDb` | a continuation segment that crashes leaves the continuation chain open and prevents final stage-head closure until the chain is completed or explicitly failed | `L3-FR-2.5.2` |
 | `L3-T-fault_partial_failure-004` | `T2` | `TestStateDb` | additive partial commits preserve successful sibling scope rows while failed siblings remain explicit failures; no set-replacement head is advanced from a mixed-success additive run | `L3-FR-2.5.1`, `L3-FR-2.5.2` |
 | `L3-T-fault_partial_failure-005` | `T2` | `ContractSessionHarness`, `TestStateDb` | a schema-invalid final result mid-stream fails the worker path, emits explicit contract-invalid context, and spawns no semantic validator sub-job | `L3-FR-1.3.7`, `L3-FR-2.4.4` |
-| `L3-T-fault_partial_failure-006` | `T2` | `ValidatorHarness`, `TestStateDb` | a rendered-but-unpersisted semantic verdict is treated as validator failure: the worker advances fail-open, receives no `validation_verdict_id`, and the backlog records the missed validation | `L3-FR-2.4.4`, `L3-FR-2.7.1` |
+| `L3-T-fault_partial_failure-006` | `T3` | `ValidatorHarness`, `TestStateDb` | a rendered-but-unpersisted semantic verdict is treated as validator failure: the worker advances fail-open, receives no `validation_verdict_id`, and the backlog records the missed validation | `L3-FR-2.4.4`, `L3-FR-2.7.1` |
 | `L3-T-fault_partial_failure-007` | `T2` | `ArtifactSandbox`, `TestStateDb` | `db/checkpoints.rs` validates checkpoint schema before persisting the checkpoint artifact and refuses malformed checkpoint payloads without writing a broken reference into `workflow_jobs` | `L3-FR-1.3.7` |
 
 ### 8.5 `replay_pty_sessions.rs`
@@ -281,57 +284,59 @@
 | `L3-T-validation_policy-005` | `T1` | `ValidationPolicyFixture` | source health amber/red forces effective sample probability `1.0` | `L3-FR-2.3.4` |
 | `L3-T-validation_policy-006` | `T1` | `ValidationPolicyFixture` | fingerprint unknown/no baseline forces effective sample probability `1.0` | `L3-FR-2.3.4` |
 | `L3-T-validation_policy-007` | `T1` | `ValidationPolicyFixture` | first run after a worker behavior-version change forces validation regardless of the nominal sample rate | `L3-FR-2.3.4`, `L3-FR-3.2.2` |
-| `L3-T-validation_policy-008` | `T1` | `ValidationPolicyFixture` | continuation chain length greater than `1` or high locator fallback depth forces validation at `1.0` probability | `L3-FR-2.3.4` |
-| `L3-T-validation_policy-009` | `T1` | `ValidationPolicyFixture` | low recent `basis_sufficiency` or same-slice validator error spikes force validation in sample mode | `L3-FR-2.3.4` |
-| `L3-T-validation_policy-010` | `T1` | `ValidationPolicyFixture` | high-value opportunity or `suspect_output_in_last_5` forces validation in sample mode | `L3-FR-2.3.4` |
+| `L3-T-validation_policy-008` | `T1` | `ValidationPolicyFixture` | subcase A with `continuation_chain_length = 2` and subcase B with locator fallback depth above the configured threshold each force `validation_required = true` and persist the exact reason key that fired | `L3-FR-2.3.4` |
+| `L3-T-validation_policy-009` | `T1` | `ValidationPolicyFixture` | subcase A with recent `basis_sufficiency = low` and subcase B with same-slice validator error spikes each force validation in sample mode with explicit structured reason data | `L3-FR-2.3.4` |
+| `L3-T-validation_policy-010` | `T1` | `ValidationPolicyFixture` | subcase A for `high_value_opportunity` and subcase B for `suspect_output_in_last_5` each force validation in sample mode and retain the triggering key/value in the decision reason | `L3-FR-2.3.4` |
 | `L3-T-validation_policy-011` | `T1` | `ValidationPolicyFixture` | `validation_policy: trigger` validates only when one of the declared trigger conditions fires | `L3-FR-2.3.5` |
 | `L3-T-validation_policy-012` | `T1` | `ValidationPolicyFixture` | `validation_policy: skip` suppresses semantic validation but still runs OQG, while global override triggers can still force validation | `L3-FR-2.3.6` |
 | `L3-T-validation_policy-013` | `T1` | `ValidationPolicyFixture` | trigger evaluation persists enough structured reason data to prove exactly why validation did or did not run | `L3-FR-2.3.7` |
 | `L3-T-validation_policy-014` | `T1` | `ValidationPolicyFixture` | the enforcement-readiness slice key is exactly `worker skill x source x worker behavior version x validator behavior version`; cosmetic edits do not reset readiness | `L3-FR-2.3.8`, `L3-FR-3.2.2` |
 | `L3-T-validation_policy-015` | `T1` | `ValidationPolicyFixture` | demotion triggers immediately return a slice to dry-run/flag-only and block re-promotion until calibration gates are re-met | `L3-FR-2.3.9` |
 | `L3-T-validation_policy-016` | `T1` | `ValidationPolicyFixture` | bootstrap, calibrating, signature-limited, and full-slice enforcement ladder phases use the exact validation rates and gate semantics declared in the spec | `L3-FR-2.3.10` |
+| `L3-T-validation_policy-017` | `T1` | `ValidationPolicyFixture` | `fill_rate_drop > threshold` in trigger mode forces validation and records the breached fill-rate delta in structured decision reasons instead of a generic “triggered” flag | `L3-FR-2.3.5`, `L3-FR-2.3.7` |
+| `L3-T-validation_policy-018` | `T1` | `ValidationPolicyFixture` | `operator_requested` forces validation even when skill metadata declares `validation_policy: skip`; the persisted reason captures the override source rather than silently treating it as ordinary sampling | `L3-FR-2.3.6`, `L3-FR-2.3.7` |
 
 ### 8.13 `validation_executor.rs`
 
 | Test ID | Tier | Fixtures | Exact Assertions | Requirements |
 |--------|------|----------|------------------|-------------|
-| `L3-T-validation_executor-001` | `T2` | `ValidatorHarness`, `TestStateDb` | validator sub-jobs enqueue through `EnqueueJobRequest` with `parent_job_id` linked to the worker job and continuation-chain identity preserved when present | `L3-FR-2.4.1`, `L3-FR-2.5.2` |
-| `L3-T-validation_executor-002` | `T2` | `ValidatorHarness` | validator jobs use `headless_contract`, `structured_extract_low_cost`, and the base validator skill only; they never request browser slots or source lanes | `L3-FR-1.4.5`, `L3-FR-2.4.3` |
-| `L3-T-validation_executor-003` | `T2` | `ValidatorHarness`, `ManifestAssert` | kickoff prompt composition includes manifest, rubric hash, structured drift deltas, OQG signals, and anomaly-stratified sample while excluding raw forensic bytes, internal reasoning, and the full result contract | `L3-FR-2.4.2` |
-| `L3-T-validation_executor-004` | `T2` | `ValidatorHarness` | the validator result contract must contain `verdict`, `basis_sufficiency`, `enforcement_eligible`, `confidence_bps`, `issues`, and `summary`; missing any required field is a schema-invalid validator failure | `L3-FR-2.4.4` |
-| `L3-T-validation_executor-005` | `T2` | `ValidatorHarness`, `TestStateDb` | an `approved` verdict persists one `validation_verdicts` row plus the worker-job linkage atomically in the same SQLite transaction | `L3-FR-2.4.4`, `L3-FR-4.1.1`, `L3-FR-4.2.1` |
-| `L3-T-validation_executor-006` | `T2` | `ValidatorHarness`, `TestStateDb` | `flagged` and `basis_sufficiency: low` do not create a new worker `ValidationDisposition`; they persist trust-state/validation metadata while the worker output remains accepted | `L3-FR-2.4.4` |
-| `L3-T-validation_executor-007` | `T2` | `ValidatorHarness`, `TestStateDb` | in Layer 3 dry-run, `rejected + enforcement_eligible` persists the verdict but still advances the worker path and does not quarantine authoritative rows | `L3-FR-2.4.4`, `L3-FR-2.6.1` |
-| `L3-T-validation_executor-008` | `T2` | `ValidatorHarness`, `TestStateDb` | an unknown verdict string triggers fail-open handling, produces a validator error manifest, and leaves the worker result `unverified` | `L3-FR-2.4.4`, `L3-FR-2.7.1` |
-| `L3-T-validation_executor-009` | `T2` | `ValidatorHarness`, `TestStateDb` | a schema-invalid validator payload triggers fail-open handling and never silently coerces to `approved`, `rejected`, or `flagged` | `L3-FR-2.4.4`, `L3-FR-2.7.1` |
-| `L3-T-validation_executor-010` | `T2` | `ValidatorHarness`, `TestStateDb` | a rendered-but-unpersisted verdict is treated as validator failure, not as a silent success; the worker row receives no `validation_verdict_id` | `L3-FR-2.4.4`, `L3-FR-2.7.1` |
-| `L3-T-validation_executor-011` | `T2` | `ValidatorHarness`, `TestStateDb` | continuation segments are validated independently but the final chain-close stage head remains blocked until all segments are validated or dry-run-cleared | `L3-FR-2.5.2` |
+| `L3-T-validation_executor-001` | `T3` | `ValidatorHarness`, `TestStateDb` | validator sub-jobs enqueue through `EnqueueJobRequest` with `parent_job_id` linked to the worker job and continuation-chain identity preserved when present | `L3-FR-2.4.1`, `L3-FR-2.5.2` |
+| `L3-T-validation_executor-002` | `T3` | `ValidatorHarness` | validator jobs use `headless_contract`, `structured_extract_low_cost`, and the base validator skill only; they never request browser slots or source lanes | `L3-FR-1.4.5`, `L3-FR-2.4.3` |
+| `L3-T-validation_executor-003` | `T3` | `ValidatorHarness`, `ManifestAssert` | the kickoff packet contains `run_manifest_path`, `run_manifest_hash`, `validator_rubric_hash`, `drift_delta_json`, `oqg_anomaly_summary`, and `representative_item_sample`; it omits raw forensic bytes, worker internal reasoning, and any full `result.json` payload | `L3-FR-2.4.2` |
+| `L3-T-validation_executor-004` | `T3` | `ValidatorHarness` | the validator result contract must contain `verdict`, `basis_sufficiency`, `enforcement_eligible`, `confidence_bps`, `issues`, and `summary`; missing any required field is a schema-invalid validator failure | `L3-FR-2.4.4` |
+| `L3-T-validation_executor-005` | `T3` | `ValidatorHarness`, `TestStateDb` | an `approved` verdict persists one `validation_verdicts.id` row and updates the worker job’s `validation_verdict_id` in the same SQLite transaction | `L3-FR-2.4.4`, `L3-FR-4.1.1`, `L3-FR-4.2.1` |
+| `L3-T-validation_executor-006` | `T3` | `ValidatorHarness`, `TestStateDb` | `flagged` and `basis_sufficiency: low` do not create a new worker `ValidationDisposition`; they persist trust-state/validation metadata while the worker output remains accepted | `L3-FR-2.4.4` |
+| `L3-T-validation_executor-007` | `T3` | `ValidatorHarness`, `TestStateDb` | in Layer 3 dry-run, `rejected + enforcement_eligible` persists the verdict but still advances the worker path and does not quarantine authoritative rows | `L3-FR-2.4.4`, `L3-FR-2.6.1` |
+| `L3-T-validation_executor-008` | `T3` | `ValidatorHarness`, `TestStateDb` | an unknown verdict string triggers fail-open handling, produces a validator error manifest, and leaves the worker result `unverified` | `L3-FR-2.4.4`, `L3-FR-2.7.1` |
+| `L3-T-validation_executor-009` | `T3` | `ValidatorHarness`, `TestStateDb` | a schema-invalid validator payload triggers fail-open handling and never silently coerces to `approved`, `rejected`, or `flagged` | `L3-FR-2.4.4`, `L3-FR-2.7.1` |
+| `L3-T-validation_executor-010` | `T3` | `ValidatorHarness`, `TestStateDb` | a rendered-but-unpersisted verdict is treated as validator failure, not as a silent success; the worker row receives no `validation_verdict_id` | `L3-FR-2.4.4`, `L3-FR-2.7.1` |
+| `L3-T-validation_executor-011` | `T3` | `ValidatorHarness`, `TestStateDb` | continuation segments are validated independently but the final chain-close stage head remains blocked until all segments are validated or dry-run-cleared | `L3-FR-2.5.2` |
 | `L3-T-validation_executor-012` | `T2` | `ManifestAssert`, `ArtifactSandbox` | the run-manifest writer extends `RunManifestFrontmatter` and `DaemonEvidenceAppendix` with the L3 appendix additions and still emits a fallback machine-authored manifest when the agent narrative is missing | `L3-FR-1.3.12`, `L3-FR-2.1.1`-`L3-FR-2.2.2` |
 
 ### 8.14 `validation_dry_run.rs`
 
 | Test ID | Tier | Fixtures | Exact Assertions | Requirements |
 |--------|------|----------|------------------|-------------|
-| `L3-T-validation_dry_run-001` | `T2` | `ValidatorHarness`, `TestStateDb` | a dry-run rejected verdict does not advance authoritative stage heads; the worker stage head matches the non-validation success path exactly | `L3-FR-2.6.1` |
-| `L3-T-validation_dry_run-002` | `T2` | `ValidatorHarness`, `TestStateDb` | dry-run verdicts create no outbox rows or sync-visible side effects | `L3-FR-2.6.1` |
-| `L3-T-validation_dry_run-003` | `T2` | `ArtifactSandbox`, `ValidatorHarness` | dry-run artifacts are written under `artifacts/scratch/<run_id>/` and never under production session artifact paths | `L3-FR-2.6.1` |
-| `L3-T-validation_dry_run-004` | `T2` | `ValidatorHarness`, `TestStateDb` | approval, rejection, and flagging all insert `validation_verdicts` rows while the worker pipeline continues regardless of verdict class | `L3-FR-2.6.1` |
-| `L3-T-validation_dry_run-005` | `T2` | `ValidatorHarness`, `TestStateDb` | worker `visibleAfterSeq` and authoritative stage progression remain identical whether dry-run validation approves, rejects, flags, or is skipped | `L3-FR-2.6.1` |
-| `L3-T-validation_dry_run-006` | `T2` | `ValidatorHarness`, `ManifestAssert` | missing OQG signals or drift deltas explicitly lower `basis_sufficiency` or keep the result `unverified`; missing inputs never imply a clean semantic run | `L3-FR-2.2.2`, `L3-FR-2.7.1` |
-| `L3-T-validation_dry_run-007` | `T2` | `ValidatorHarness`, `TestStateDb` | validator crash/timeout sets `VALIDATION_SKIPPED_VALIDATOR_ERROR`, emits a validator error manifest, and queues a retroactive backlog item while the worker result advances | `L3-FR-2.7.1` |
-| `L3-T-validation_dry_run-008` | `T2` | `ValidatorHarness`, `TestStateDb` | a host-sleep-interrupted validator sub-job is handled as validator failure and never blocks or silently certifies the worker result | `L3-FR-2.7.1` |
-| `L3-T-validation_dry_run-009` | `T2` | `ValidatorHarness`, `TestStateDb` | per-output trust states map to coarse `pipeline_assessments.validation_state` exactly as specified: all verified -> `validated`, any flagged/suspect -> `flagged`, skipped/low-basis/fail-open -> `unverified` | `L3-FR-2.7.2`, `L3-FR-2.7.3` |
-| `L3-T-validation_dry_run-010` | `T2` | `ValidatorHarness`, `TestStateDb` | dry-run corpus accumulation preserves provenance tags for `clean real`, `weird-but-valid`, and `mutated bad` cases used by later calibration | `L3-FR-2.6.2`, `L3-FR-2.9.1` |
+| `L3-T-validation_dry_run-001` | `T3` | `ValidatorHarness`, `TestStateDb` | a dry-run rejected verdict does not advance authoritative stage heads; the worker stage head matches the non-validation success path exactly | `L3-FR-2.6.1` |
+| `L3-T-validation_dry_run-002` | `T3` | `ValidatorHarness`, `TestStateDb` | dry-run verdicts create no outbox rows or sync-visible side effects | `L3-FR-2.6.1` |
+| `L3-T-validation_dry_run-003` | `T3` | `ArtifactSandbox`, `ValidatorHarness` | dry-run artifacts are written under `artifacts/scratch/<run_id>/` and never under production session artifact paths | `L3-FR-2.6.1` |
+| `L3-T-validation_dry_run-004` | `T3` | `ValidatorHarness`, `TestStateDb` | approval, rejection, and flagging all insert `validation_verdicts` rows while the worker pipeline continues regardless of verdict class | `L3-FR-2.6.1` |
+| `L3-T-validation_dry_run-005` | `T3` | `ValidatorHarness`, `TestStateDb` | worker `visibleAfterSeq` and authoritative stage progression remain identical whether dry-run validation approves, rejects, flags, or is skipped | `L3-FR-2.6.1` |
+| `L3-T-validation_dry_run-006` | `T3` | `ValidatorHarness`, `ManifestAssert` | missing OQG signals or drift deltas explicitly lower `basis_sufficiency` or keep the result `unverified`; missing inputs never imply a clean semantic run | `L3-FR-2.2.2`, `L3-FR-2.7.1` |
+| `L3-T-validation_dry_run-007` | `T3` | `ValidatorHarness`, `TestStateDb` | validator crash/timeout sets `VALIDATION_SKIPPED_VALIDATOR_ERROR`, emits a validator error manifest, and queues a retroactive backlog item while the worker result advances | `L3-FR-2.7.1` |
+| `L3-T-validation_dry_run-008` | `T3` | `ValidatorHarness`, `TestStateDb` | a host-sleep-interrupted validator sub-job is handled as validator failure and never blocks or silently certifies the worker result | `L3-FR-2.7.1` |
+| `L3-T-validation_dry_run-009` | `T3` | `ValidatorHarness`, `TestStateDb` | per-output trust states map to coarse `pipeline_assessments.validation_state` exactly as specified: all verified -> `validated`, any flagged/suspect -> `flagged`, skipped/low-basis/fail-open -> `unverified` | `L3-FR-2.7.2`, `L3-FR-2.7.3` |
+| `L3-T-validation_dry_run-010` | `T3` | `ValidatorHarness`, `TestStateDb` | dry-run corpus accumulation preserves provenance tags for `clean real`, `weird-but-valid`, and `mutated bad` cases used by later calibration | `L3-FR-2.6.2`, `L3-FR-2.9.1` |
 
 ### 8.15 `validation_golden_verdicts.rs`
 
 | Test ID | Tier | Fixtures | Exact Assertions | Requirements |
 |--------|------|----------|------------------|-------------|
 | `L3-T-validation_golden_verdicts-001` | `T1` | `TestSkillDir` | `skills/validation/base/` contains `SKILL.md`, `result.schema.json`, `checkpoint.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`, `validator-rubric.yaml`, and `references/manifest-corpus-index.md` | `L3-FR-2.8.1` |
-| `L3-T-validation_golden_verdicts-002` | `T2` | `ValidatorHarness` | a clean-real manifest with complete appendix evidence is approved with non-low `basis_sufficiency` | `L3-FR-2.8.2`, `L3-FR-2.9.1` |
-| `L3-T-validation_golden_verdicts-003` | `T2` | `ValidatorHarness` | a mutated-bad manifest is rejected and includes explicit issue categories plus evidence refs from manifest or daemon appendix anchors | `L3-FR-2.8.2`, `L3-FR-2.9.1` |
-| `L3-T-validation_golden_verdicts-004` | `T2` | `ValidatorHarness` | a weird-but-valid or ambiguous manifest is flagged or low-basis rather than rejected as a false positive | `L3-FR-2.8.2`, `L3-FR-2.9.1` |
-| `L3-T-validation_golden_verdicts-005` | `T2` | `ValidatorHarness` | thin appendix evidence yields `basis_sufficiency: low`; the base validator does not guess domain semantics from missing data | `L3-FR-2.8.2` |
+| `L3-T-validation_golden_verdicts-002` | `T3` | `ValidatorHarness` | a clean-real manifest with complete appendix evidence is approved with non-low `basis_sufficiency` | `L3-FR-2.8.2`, `L3-FR-2.9.1` |
+| `L3-T-validation_golden_verdicts-003` | `T3` | `ValidatorHarness` | a mutated-bad manifest is rejected and includes explicit issue categories plus evidence refs from manifest or daemon appendix anchors | `L3-FR-2.8.2`, `L3-FR-2.9.1` |
+| `L3-T-validation_golden_verdicts-004` | `T3` | `ValidatorHarness` | a weird-but-valid or ambiguous manifest is flagged or low-basis rather than rejected as a false positive | `L3-FR-2.8.2`, `L3-FR-2.9.1` |
+| `L3-T-validation_golden_verdicts-005` | `T3` | `ValidatorHarness` | thin appendix evidence yields `basis_sufficiency: low`; the base validator does not guess domain semantics from missing data | `L3-FR-2.8.2` |
 | `L3-T-validation_golden_verdicts-006` | `T3` | `ValidatorHarness` | the cross-model audit subset records comparison outcomes against a different model family and surfaces divergences explicitly rather than overwriting the primary calibration judgment | `L3-FR-2.9.2` |
 | `L3-T-validation_golden_verdicts-007` | `T1` | calibration report fixture | calibration reports compute and assert the numerical targets: `>=90%` mutated-bad catch rate, `>=95%` clean-real approval, false positives `<5%`, and Wilson-bound precision at `95%` confidence | `L3-FR-2.9.2` |
 
@@ -340,10 +345,10 @@
 | Test ID | Tier | Fixtures | Exact Assertions | Requirements |
 |--------|------|----------|------------------|-------------|
 | `L3-T-validation_canary_health-001` | `T3` | `ValidatorHarness`, `TestSkillDir` | synthetic canaries run every `15-30` minutes through the same executor, model family, schema path, and base validator skill used in production | `L3-FR-2.7.5` |
-| `L3-T-validation_canary_health-002` | `T2` | `TelemetryProbe`, `ValidatorHarness` | canary pass-rate metrics update only when canary verdicts are actually persisted; missing persistence counts as execution failure | `L3-FR-4.6.1` |
+| `L3-T-validation_canary_health-002` | `T3` | `TelemetryProbe`, `ValidatorHarness` | canary pass-rate metrics update only when canary verdicts are actually persisted; missing persistence counts as execution failure | `L3-FR-4.6.1` |
 | `L3-T-validation_canary_health-003` | `T2` | `TelemetryProbe` | validator execution failure rate above `2000` bps over one hour transitions subsystem health to `degraded` | `L3-FR-2.7.4`, `L3-FR-4.6.2` |
 | `L3-T-validation_canary_health-004` | `T2` | `TelemetryProbe` | validator execution failure rate above `5000` bps over one hour transitions subsystem health to `blind` | `L3-FR-2.7.4`, `L3-FR-4.6.2` |
-| `L3-T-validation_canary_health-005` | `T2` | `ValidatorHarness`, `TelemetryProbe` | any canary misclassification can force `degraded` or `blind` immediately and creates a blackout incident record with affected time window | `L3-FR-2.7.4`, `L3-FR-2.7.5`, `L3-FR-4.6.2` |
+| `L3-T-validation_canary_health-005` | `T3` | `ValidatorHarness`, `TelemetryProbe` | any canary misclassification can force `degraded` or `blind` immediately and creates a blackout incident record with affected time window | `L3-FR-2.7.4`, `L3-FR-2.7.5`, `L3-FR-4.6.2` |
 | `L3-T-validation_canary_health-006` | `T2` | `ValidationPolicyFixture`, `TelemetryProbe` | entering `blind` auto-demotes every affected enforcement-ready slice back to dry-run/flag-only status | `L3-FR-2.7.4`, `L3-FR-2.7.5` |
 | `L3-T-validation_canary_health-007` | `T1` | `TelemetryProbe` | validation telemetry records approval, rejection, flag, cost, operator override, execution failure, canary pass, and health-state metrics with the declared thresholds and enum values | `L3-FR-4.6.1`, `L3-FR-4.6.2` |
 | `L3-T-validation_canary_health-008` | `T3` | `TelemetryProbe`, `DaemonHarness` | the operator morning queue aggregates a single validation blackout incident with trust-debt counts instead of one alert per missed validator run | `L3-FR-2.7.4`, `L3-FR-4.6.2` |
@@ -352,8 +357,8 @@
 
 | Test ID | Tier | Fixtures | Exact Assertions | Requirements |
 |--------|------|----------|------------------|-------------|
-| `L3-T-validation_retro_backlog-001` | `T2` | `ValidatorHarness`, `TestStateDb` | every fail-open pass-through creates one retroactive backlog item with worker identity, trust state, and priority inputs | `L3-FR-2.7.1` |
-| `L3-T-validation_retro_backlog-002` | `T2` | `ValidatorHarness`, `TestStateDb` | backlog priority ordering is exactly `high-value -> operator-reviewed -> enforcement slices -> recent outputs` | `L3-FR-2.7.5` |
+| `L3-T-validation_retro_backlog-001` | `T3` | `ValidatorHarness`, `TestStateDb` | every fail-open pass-through creates one retroactive backlog item with worker identity, trust state, and priority inputs | `L3-FR-2.7.1` |
+| `L3-T-validation_retro_backlog-002` | `T3` | `ValidatorHarness`, `TestStateDb` | backlog priority ordering is exactly `high-value -> operator-reviewed -> enforcement slices -> recent outputs` | `L3-FR-2.7.5` |
 | `L3-T-validation_retro_backlog-003` | `T3` | `ValidatorHarness`, `TestStateDb` | validator recovery drains backlog items in priority order and persists retro verdicts without skipping earlier higher-priority items | `L3-FR-2.7.5` |
 | `L3-T-validation_retro_backlog-004` | `T3` | `ValidatorHarness`, `TestStateDb` | a retroactive rejection marks underlying outputs `suspect`, flags process rollups, and marks affected decisions stale | `L3-FR-2.7.5` |
 | `L3-T-validation_retro_backlog-005` | `T2` | `TestStateDb` | backlog items do not silently expire; high-value and operator-reviewed items remain queued until explicit audited resolution | `L3-FR-2.7.5` |
@@ -367,14 +372,17 @@
 | `L3-T-resolve_process_relations-002` | `T1` | `RelationScoringFixture.linkedNoticeChain` | explicit related-notice chains with plausible chronology classify as `merged_same_process` | `L3-FR-3.6.1` |
 | `L3-T-resolve_process_relations-003` | `T1` | `RelationScoringFixture.frameworkCallOff` | framework-establishment versus call-off pairs classify as `related_not_merged` and keep separate process identities | `L3-FR-3.6.2` |
 | `L3-T-resolve_process_relations-004` | `T1` | `RelationScoringFixture.conflictingReferences` | conflicting exact reference numbers hard-block merge even when soft similarity is otherwise high | `L3-FR-3.6.3`, `L3-FR-3.6.5` |
-| `L3-T-resolve_process_relations-005` | `T1` | `RelationScoringFixture.differentLotStructure` | clearly different lot/value/reference structures with the same buyer classify as non-merge (`possible_duplicate` or `separate`), never auto-merge | `L3-FR-3.6.3`, `L3-FR-3.6.5` |
+| `L3-T-resolve_process_relations-005` | `T1` | `RelationScoringFixture.differentLotStructure` | same-buyer pairs with incompatible lot/value/reference structure classify as `separate`; hard blockers suppress merge and no `process_relations` row is written | `L3-FR-3.6.3`, `L3-FR-3.6.4`, `L3-FR-3.6.5`, `L3-FR-4.1.4` |
 | `L3-T-resolve_process_relations-006` | `T1` | `RelationScoringFixture.highScoreNoBlocker` | heuristic score `>= 0.95` with no blocker classifies as `merged_same_process` | `L3-FR-3.6.5` |
-| `L3-T-resolve_process_relations-007` | `T1` | `RelationScoringFixture.midScore` | heuristic scores from `0.75` to `0.94` classify as `related_not_merged` or `possible_duplicate` and create an operator-review-worthy relation edge | `L3-FR-3.6.2`, `L3-FR-3.6.3`, `L3-FR-3.6.5` |
+| `L3-T-resolve_process_relations-007` | `T1` | `RelationScoringFixture.midScorePossibleDuplicate` | non-exact pairs with score `0.84` and no explicit relation semantics classify as `possible_duplicate` and persist a non-merge relation edge for operator review | `L3-FR-3.6.3`, `L3-FR-3.6.5`, `L3-FR-4.1.4` |
 | `L3-T-resolve_process_relations-008` | `T1` | `RelationScoringFixture.lowScore` | heuristic scores below `0.75` classify as `separate` and write no relation row | `L3-FR-3.6.4`, `L3-FR-4.1.4` |
 | `L3-T-resolve_process_relations-009` | `T1` | `RelationScoringFixture.evidenceReplay` | decision evidence persists blocker hits, feature vector, `relation_model_version = 1`, and threshold bucket so the same pair replays to the same classification | `L3-FR-3.6.5`, `L3-FR-4.1.4` |
 | `L3-T-resolve_process_relations-010` | `T1` | `RelationScoringFixture.transitiveRoots` | overlapping merges resolve both inputs to their canonical roots first and pick the survivor deterministically by earliest `created_at` then UUID | `L3-FR-3.6.6`, `L3-FR-4.1.5` |
 | `L3-T-resolve_process_relations-011` | `T1` | `RelationScoringFixture.lateMerge` | a late merge marks existing operator intents/decisions stale only when such decisions exist and recomputes manifest/assessment at cluster scope | `L3-FR-3.6.7`, `L3-FR-4.1.5` |
 | `L3-T-resolve_process_relations-012` | `T1` | `RelationScoringFixture.clusterVisibility` | `related_not_merged` and `possible_duplicate` clusters remain visible with trust-aware cache-sharing hints and without destructive auto-merge | `L3-FR-3.6.8`, `L3-FR-4.1.4` |
+| `L3-T-resolve_process_relations-013` | `T1` | `RelationScoringFixture.midScoreRelated` | planning/tender or framework-continuation pairs with score in the `0.75-0.94` bucket and no hard blocker classify as `related_not_merged` and keep separate authoritative process identities | `L3-FR-3.6.2`, `L3-FR-3.6.5`, `L3-FR-4.1.4` |
+| `L3-T-resolve_process_relations-014` | `T1` | `RelationScoringFixture.sameOcidBuyerMismatch` | contradictory buyer identity acts as a hard blocker even when the pair shares an OCID; classification stays `possible_duplicate` and the persisted evidence records the `buyer_mismatch` blocker explicitly | `L3-FR-3.6.3`, `L3-FR-3.6.5`, `L3-FR-4.1.4` |
+| `L3-T-resolve_process_relations-015` | `T1` | `RelationScoringFixture.thresholdBoundaries` | otherwise-identical fixtures prove the boundary exactly: score `0.9499` stays `possible_duplicate` while score `0.9500` merges as `merged_same_process`, and the stored threshold bucket matches the observed score | `L3-FR-3.6.1`, `L3-FR-3.6.3`, `L3-FR-3.6.5`, `L3-FR-4.1.4` |
 
 ### 8.19 `schema_activation.rs`
 
@@ -420,6 +428,8 @@
 
 ## 9. Coverage Matrix
 
+Coverage accounting below is requirement-bearing only. `CI-L3-002`, `CI-L3-003`, `CI-L3-006`, `CI-L3-007`, and `CI-L3-008` remain mandatory invariant gates, but they are excluded from orphan requirement-bearing test counts because they enforce release policy rather than a single `L3-FR-*` row.
+
 | Spec Requirement | Test ID(s) | Test Type | Status |
 |------------------|-----------|-----------|--------|
 | `L3-FR-1.3.1` | `CI-L3-001`, `L3-T-cron_scheduler-001`, `L3-T-cron_scheduler-003`, `L3-T-cron_scheduler-006` | Static + UT + IT | Covered |
@@ -441,9 +451,9 @@
 | `L3-FR-1.4.5` | `L3-T-job_claim-007`, `009`, `L3-T-validation_executor-002` | IT | Covered |
 | `L3-FR-1.5.1` | `L3-T-cron_scheduler-001`, `003`, `004` | UT + IT | Covered |
 | `L3-FR-1.5.2` | `L3-T-cron_scheduler-006`, `007`, `008`, `009`, `L3-T-fault_host_events-005`, `006` | IT | Covered |
-| `L3-FR-1.6.1` | `L3-T-fault_process_cleanup-001`, `003`, `006`, `008`, `L3-T-fault_pty_edge_cases-001`-`008` | IT | Covered |
+| `L3-FR-1.6.1` | `L3-T-fault_process_cleanup-001`, `003`, `006`, `008`, `L3-T-fault_pty_edge_cases-001`-`008` | T2 + T3 | Covered |
 | `L3-FR-1.7.1` | `L3-T-fault_host_events-001`-`010` | UT + IT | Covered |
-| `L3-FR-1.8.1` | `CI-L3-004`, `L3-T-render_error_manifest-001`-`004`, `L3-T-resolve_process_relations-001`-`012`, `L3-T-observability_telemetry-012` | Static + UT | Covered |
+| `L3-FR-1.8.1` | `CI-L3-004`, `L3-T-render_error_manifest-001`-`004`, `L3-T-resolve_process_relations-001`-`015`, `L3-T-observability_telemetry-012` | Static + UT | Covered |
 | `L3-FR-1.9.1` | `CI-L3-005`, `L3-T-skill_golden_journeys-007` | Static + UT | Covered |
 | `L3-FR-2.1.1` | `L3-T-validation_executor-012` | IT | Covered |
 | `L3-FR-2.1.2` | `L3-T-observability_telemetry-008`, `009` | UT | Covered |
@@ -451,33 +461,33 @@
 | `L3-FR-2.1.4` | `L3-T-replay_pty_sessions-006`, `L3-T-validation_executor-012`, `L3-T-observability_telemetry-008`, `010` | T2 + T3 | Covered |
 | `L3-FR-2.1.5` | `L3-T-validation_executor-012`, `L3-T-observability_telemetry-008` | IT + UT | Covered |
 | `L3-FR-2.2.1` | `L3-T-validation_executor-012`, `L3-T-observability_telemetry-008`, `011` | IT + UT | Covered |
-| `L3-FR-2.2.2` | `L3-T-validation_executor-003`, `L3-T-validation_dry_run-006`, `L3-T-observability_telemetry-011` | IT | Covered |
+| `L3-FR-2.2.2` | `L3-T-validation_executor-003`, `L3-T-validation_dry_run-006`, `L3-T-observability_telemetry-011` | T1 + T3 | Covered |
 | `L3-FR-2.3.1` | `L3-T-validation_policy-001` | UT | Covered |
 | `L3-FR-2.3.2` | `L3-T-validation_policy-002` | UT | Covered |
 | `L3-FR-2.3.3` | `L3-T-validation_policy-003` | UT | Covered |
 | `L3-FR-2.3.4` | `L3-T-validation_policy-004`-`010` | UT | Covered |
-| `L3-FR-2.3.5` | `L3-T-validation_policy-011` | UT | Covered |
-| `L3-FR-2.3.6` | `L3-T-validation_policy-012` | UT | Covered |
-| `L3-FR-2.3.7` | `L3-T-validation_policy-013` | UT | Covered |
+| `L3-FR-2.3.5` | `L3-T-validation_policy-011`, `017` | UT | Covered |
+| `L3-FR-2.3.6` | `L3-T-validation_policy-012`, `018` | UT | Covered |
+| `L3-FR-2.3.7` | `L3-T-validation_policy-013`, `017`, `018` | UT | Covered |
 | `L3-FR-2.3.8` | `L3-T-validation_policy-014`, `L3-T-skill_shadow_compare-004`, `005` | UT | Covered |
 | `L3-FR-2.3.9` | `L3-T-validation_policy-015`, `L3-T-validation_canary_health-006` | UT + IT | Covered |
 | `L3-FR-2.3.10` | `L3-T-validation_policy-016` | UT | Covered |
-| `L3-FR-2.4.1` | `L3-T-validation_executor-001`, `L3-T-replay_contract_sessions-003` | IT | Covered |
-| `L3-FR-2.4.2` | `L3-T-validation_executor-003`, `L3-T-replay_contract_sessions-004` | IT + T3 | Covered |
-| `L3-FR-2.4.3` | `L3-T-validation_executor-002` | IT | Covered |
-| `L3-FR-2.4.4` | `L3-T-fault_partial_failure-005`, `006`, `L3-T-validation_executor-004`-`010` | IT | Covered |
-| `L3-FR-2.5.1` | `L3-T-fault_partial_failure-001`, `004` | IT | Covered |
-| `L3-FR-2.5.2` | `L3-T-fault_partial_failure-003`, `004`, `L3-T-validation_executor-001`, `011` | IT | Covered |
-| `L3-FR-2.6.1` | `L3-T-validation_dry_run-001`-`005`, `L3-T-validation_executor-007` | IT | Covered |
-| `L3-FR-2.6.2` | `L3-T-validation_dry_run-010` | IT | Covered |
-| `L3-FR-2.7.1` | `L3-T-fault_partial_failure-006`, `L3-T-validation_executor-008`-`010`, `L3-T-validation_dry_run-006`-`008`, `L3-T-validation_retro_backlog-001` | IT | Covered |
-| `L3-FR-2.7.2` | `L3-T-validation_dry_run-009` | IT | Covered |
-| `L3-FR-2.7.3` | `L3-T-validation_dry_run-009` | IT | Covered |
+| `L3-FR-2.4.1` | `L3-T-validation_executor-001`, `L3-T-replay_contract_sessions-003` | IT + T3 | Covered |
+| `L3-FR-2.4.2` | `L3-T-validation_executor-003`, `L3-T-replay_contract_sessions-004` | T3 | Covered |
+| `L3-FR-2.4.3` | `L3-T-validation_executor-002` | T3 | Covered |
+| `L3-FR-2.4.4` | `L3-T-fault_partial_failure-005`, `006`, `L3-T-validation_executor-004`-`010` | IT + T3 | Covered |
+| `L3-FR-2.5.1` | `L3-T-fault_partial_failure-001`, `004` | T2 + T3 | Covered |
+| `L3-FR-2.5.2` | `L3-T-fault_partial_failure-003`, `004`, `L3-T-validation_executor-001`, `011` | T2 + T3 | Covered |
+| `L3-FR-2.6.1` | `L3-T-validation_dry_run-001`-`005`, `L3-T-validation_executor-007` | T3 | Covered |
+| `L3-FR-2.6.2` | `L3-T-validation_dry_run-010` | T3 | Covered |
+| `L3-FR-2.7.1` | `L3-T-fault_partial_failure-006`, `L3-T-validation_executor-008`-`010`, `L3-T-validation_dry_run-006`-`008`, `L3-T-validation_retro_backlog-001` | T3 | Covered |
+| `L3-FR-2.7.2` | `L3-T-validation_dry_run-009` | T3 | Covered |
+| `L3-FR-2.7.3` | `L3-T-validation_dry_run-009` | T3 | Covered |
 | `L3-FR-2.7.4` | `L3-T-validation_canary_health-003`-`008` | T2 + T3 | Covered |
 | `L3-FR-2.7.5` | `L3-T-validation_canary_health-001`, `005`, `006`, `008`, `L3-T-validation_retro_backlog-002`-`006` | T2 + T3 | Covered |
 | `L3-FR-2.8.1` | `L3-T-skill_golden_journeys-007`, `L3-T-validation_golden_verdicts-001` | UT | Covered |
-| `L3-FR-2.8.2` | `L3-T-validation_golden_verdicts-002`-`005` | T2 | Covered |
-| `L3-FR-2.9.1` | `L3-T-validation_dry_run-010`, `L3-T-validation_golden_verdicts-002`-`004` | IT + T2 | Covered |
+| `L3-FR-2.8.2` | `L3-T-validation_golden_verdicts-002`-`005` | T3 | Covered |
+| `L3-FR-2.9.1` | `L3-T-validation_dry_run-010`, `L3-T-validation_golden_verdicts-002`-`004` | T3 | Covered |
 | `L3-FR-2.9.2` | `L3-T-validation_golden_verdicts-006`, `007` | T1 + T3 | Covered |
 | `L3-FR-2.9.3` | `L3-T-validation_golden_verdicts-007`, `L3-T-validation_policy-014`, `015` | UT + T1 | Covered |
 | `L3-FR-3.1.1` | `L3-T-skill_golden_journeys-001` | T3 | Covered |
@@ -497,20 +507,20 @@
 | `L3-FR-3.5.3` | `L3-T-cron_scheduler-009`, `L3-T-skill_drift_monitor-003` | T2 | Covered |
 | `L3-FR-3.5.4` | `L3-T-skill_drift_monitor-003`, `004` | T2 | Covered |
 | `L3-FR-3.6.1` | `L3-T-resolve_process_relations-001`, `002` | T1 | Covered |
-| `L3-FR-3.6.2` | `L3-T-resolve_process_relations-003`, `007` | T1 | Covered |
-| `L3-FR-3.6.3` | `L3-T-resolve_process_relations-004`, `005`, `007` | T1 | Covered |
-| `L3-FR-3.6.4` | `L3-T-resolve_process_relations-008` | T1 | Covered |
-| `L3-FR-3.6.5` | `L3-T-resolve_process_relations-004`-`009` | T1 | Covered |
+| `L3-FR-3.6.2` | `L3-T-resolve_process_relations-003`, `013` | T1 | Covered |
+| `L3-FR-3.6.3` | `L3-T-resolve_process_relations-004`, `005`, `007`, `014`, `015` | T1 | Covered |
+| `L3-FR-3.6.4` | `L3-T-resolve_process_relations-005`, `008` | T1 | Covered |
+| `L3-FR-3.6.5` | `L3-T-resolve_process_relations-004`, `005`, `006`, `007`, `009`, `013`, `014`, `015` | T1 | Covered |
 | `L3-FR-3.6.6` | `L3-T-resolve_process_relations-010` | T1 | Covered |
 | `L3-FR-3.6.7` | `L3-T-resolve_process_relations-011` | T1 | Covered |
 | `L3-FR-3.6.8` | `L3-T-resolve_process_relations-012` | T1 | Covered |
 | `L3-FR-3.7.1` | `L3-T-skill_drift_monitor-005` | T1 | Covered |
 | `L3-FR-3.8.1` | `L3-T-skill_golden_journeys-008` | T3 | Covered |
 | `L3-FR-3.8.2` | `L3-T-skill_golden_journeys-008` | T3 | Covered |
-| `L3-FR-4.1.1` | `L3-T-validation_executor-005`, `L3-T-schema_activation-001`, `003` | T2 | Covered |
+| `L3-FR-4.1.1` | `L3-T-validation_executor-005`, `L3-T-schema_activation-001`, `003` | T2 + T3 | Covered |
 | `L3-FR-4.1.2` | `L3-T-cron_scheduler-009`, `L3-T-skill_drift_monitor-002`, `004`, `L3-T-schema_activation-002` | T2 | Covered |
 | `L3-FR-4.1.3` | `L3-T-schema_activation-004` | T2 | Covered |
-| `L3-FR-4.1.4` | `L3-T-resolve_process_relations-008`, `009`, `012`, `L3-T-schema_activation-005` | T1 + T2 | Covered |
+| `L3-FR-4.1.4` | `L3-T-resolve_process_relations-005`, `007`, `008`, `009`, `012`, `013`, `014`, `015`, `L3-T-schema_activation-005` | T1 + T2 | Covered |
 | `L3-FR-4.1.5` | `L3-T-resolve_process_relations-010`, `011`, `L3-T-schema_activation-006` | T1 + T2 | Covered |
 | `L3-FR-4.2.1` | `L3-T-validation_executor-005`, `L3-T-schema_activation-003`, `007` | T2 | Covered |
 | `L3-FR-4.3.1` | `CI-L3-005`, `L3-T-schema_activation-008` | Static + T2 | Covered |
@@ -526,14 +536,17 @@
 | Metric | Value |
 |--------|-------|
 | Unique requirements in spec | `98` |
-| Requirements with at least one test | `98` |
+| Requirements with at least one requirement-bearing test | `98` |
 | Coverage percentage | `100%` |
 | Static gates | `8` |
-| Runnable tests | `183` |
-| Total checks | `191` |
+| Runnable tests | `188` |
+| Total checks | `196` |
+| Requirement-bearing checks | `191` |
+| Invariant-only release gates | `5` |
 | Spec-predeclared new files covered | `18 / 18` |
 | Additive auxiliary files | `3` |
 | Orphan requirements | `0` |
+| Orphan requirement-bearing tests | `0` |
 | Duplicate test IDs | `0` |
 
 ## 11. Notes For Strategy / Beads
@@ -541,3 +554,4 @@
 - The validation subsystem is intentionally over-represented in the inventory because it is the highest-risk Layer 3 surface and the spec explicitly expects a mode/trigger/verdict matrix rather than spot checks.
 - If implementation planning insists on the exact cumulative file count from `layer-strategy.md` §11, fold `schema_activation.rs`, `observability_telemetry.rs`, and `render-error-manifest.test.ts` into neighboring files only after preserving every test ID and assertion in this document. They are separate here because hiding these surfaces inside other files would obscure critical coverage.
 - The follow-up audit tightened four surfaces that were previously too implicit: exact run-manifest key parity, exact `ErrorCode` inventory parity, `HealthIssue`/`StallTracker` interaction coverage, and concrete `CommandRouter` status methods (`get_cron_status`, `get_source_health_status`, `get_validation_status`, `get_resource_arbiter_status`).
+- The single predeclared relation-resolution Vitest file remains acceptable only if it carries explicit blocker, threshold-boundary, and cluster-identity fixtures; umbrella “mid score” assertions are not specific enough for this layer.

@@ -9,3 +9,12 @@ node_modules/
 
 # bv (beads viewer) local config and caches
 .bv/
+
+# Build artifacts
+apps/desktop/dist/
+test-results/
+apps/desktop/test-results/
+*.tsbuildinfo
+
+# Claude Code worktree backups
+.claude/worktree-backups/

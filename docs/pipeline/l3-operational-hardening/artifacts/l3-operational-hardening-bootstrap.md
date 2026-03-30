@@ -15,7 +15,7 @@ Layer 3 is not greenfield. The bootstrap extends the existing Layer 1 and Layer 
 |---------|-------------------|--------------------------|
 | 1. Cron scheduler runs with explicit skill binding | `scheduler/cron.rs`, `CronSchedulerHarness` | `L3-T-cron_scheduler-001`-`010`; `cargo test -p daemon --test cron_scheduler` |
 | 2. Batched unattended ingestion respects quotas and catchup | `ResourceArbiterFixture`, `SourceHealthFixture`, `DaemonHarness` | `L3-T-job_claim-006`-`009`; `L3-T-fault_host_events-003`-`006` |
-| 3. Relation resolution classifies all four outcomes correctly | `packages/intelligence/src/relations/resolve-process-relations.ts` | `L3-T-resolve_process_relations-001`-`012`; `bun test packages/intelligence/src/relations/resolve-process-relations.test.ts` |
+| 3. Relation resolution classifies all four outcomes correctly | `packages/intelligence/src/relations/resolve-process-relations.ts` | `L3-T-resolve_process_relations-001`-`015`; `bun test packages/intelligence/src/relations/resolve-process-relations.test.ts` |
 | 4. PTY hardening is reliable under real process conditions | `PtySessionHarness`, `ProcessTreeHelper`, `SessionReaper` | `L3-T-fault_process_cleanup-*`, `L3-T-fault_pty_edge_cases-*` |
 | 5. Host sleep/wake and pressure are first-class runtime conditions | `TelemetryProbe`, `ResourceArbiterFixture` | `L3-T-fault_host_events-*` |
 | 6. Typed quotas are enforced and auditable | `agents/arbiter.rs`, `jobs/claim.rs` | `L3-T-job_claim-006`-`009` |
@@ -101,7 +101,6 @@ else
 fi
 
 tmp_root="$(mktemp -d)"
-trap 'rm -rf "$tmp_root"' EXIT
 touch "$tmp_root/probe" || fail 'temp filesystem is not writable'
 pass 'temp filesystem writable'
 
@@ -211,6 +210,16 @@ The migration must also activate existing forward-compatible columns:
 - `workflow_jobs.validation_verdict_id`
 - `agent_session_logs.run_manifest_path`
 - `agent_session_logs.run_manifest_hash`
+
+Minimum activation skeleton:
+
+```sql
+alter table workflow_jobs add column parent_job_id text references workflow_jobs(id);
+alter table workflow_jobs add column validation_required integer not null default 0;
+alter table workflow_jobs add column validation_verdict_id text references validation_verdicts(id);
+alter table agent_session_logs add column run_manifest_path text;
+alter table agent_session_logs add column run_manifest_hash text;
+```
 
 ### 6.3 Minimum SQL Skeleton
 
@@ -327,6 +336,8 @@ After the migration runs, `schema_activation.rs` must prove:
 
 Create these directories:
 
+Layer 3 introduces five skill roots in total: four operational skill directories plus one validator base directory. The remaining validator assets are files under `skills/validation/base/`, not separate skill roots.
+
 ```text
 skills/
   auth-refresh/
@@ -402,6 +413,8 @@ side_effect_class: read_only
 
 ## 8. Test Workspace Layout
 
+`docs/strategy/layer-strategy.md` §11 still counts Layer 3 as `18` new test-file containers and `43` cumulative across Layers 0-3. This bootstrap preserves those 18 spec-declared containers and additionally names the auxiliary support surfaces needed to execute the TDD. If strict file-count parity with the strategy table becomes mandatory, fold auxiliary coverage back into neighboring containers without dropping any test IDs or assertions.
+
 ```text
 crates/daemon/tests/
   support/
@@ -413,8 +426,10 @@ crates/daemon/tests/
     assertions.rs
     cron.rs
     resources.rs
+    source_health.rs
     validation.rs
     telemetry.rs
+    status_router.rs
   fault_process_cleanup.rs
   fault_pty_edge_cases.rs
   fault_host_events.rs
@@ -437,7 +452,7 @@ crates/daemon/tests/
 
 packages/intelligence/src/relations/
   resolve-process-relations.ts
-  resolve-process-relations.test.ts
+  resolve-process-relations.test.ts   # owns the in-file `RelationScoringFixture` namespace
 
 packages/manifests/tests/
   render-error-manifest.test.ts
@@ -484,7 +499,24 @@ Critical assertions the support module must expose helpers for:
 - exact `RunManifestFrontmatter` key parity assertions
 - exact `DaemonEvidenceAppendix` key parity assertions
 
-### 9.4 `crates/daemon/tests/support/telemetry.rs`
+### 9.4 `crates/daemon/tests/support/source_health.rs`
+
+Must provide:
+
+- `SourceHealthFixture::from_fixture(name)`
+- `SourceHealthFixture::seed_runtime_state(source_id, state)`
+- `SourceHealthFixture::run_canary(source_id, outcome_kind)`
+- `CircuitBreakerFixture::transition(source_id, event, observed_at)`
+- `CircuitBreakerFixture::assert_state(source_id, expected_state, expected_last_error_code)`
+
+Critical assertions the support module must expose helpers for:
+
+- six-check canary classification to logical source-health classes
+- mapping logical source-health classes onto existing `ErrorCode` values plus structured context
+- persisted `source_runtime_state` row shape and stale-write timestamp precedence
+- breaker threshold defaults (`N=3`, `2h` cooldown) plus `closed -> half_open -> open` transitions
+
+### 9.5 `crates/daemon/tests/support/telemetry.rs`
 
 Must provide:
 
@@ -494,7 +526,7 @@ Must provide:
 - `TelemetryProbe::blackout_incidents()`
 - `TelemetryProbe::operational_status_snapshot()`
 
-### 9.5 `crates/daemon/tests/support/status_router.rs`
+### 9.6 `crates/daemon/tests/support/status_router.rs`
 
 Must provide:
 
@@ -507,6 +539,17 @@ Must provide:
 
 The bootstrap should implement these as explicit `CommandRouter` dispatch tests, not as generic stringly typed smoke checks hidden inside another harness.
 
+### 9.7 `packages/intelligence/src/relations/resolve-process-relations.test.ts`
+
+The single predeclared Vitest file must own a `RelationScoringFixture` namespace (in-file or imported from a sibling local helper) that provides:
+
+- exact-match fixtures: same OCID, linked notice chain
+- blocker fixtures: conflicting references, same-OCID buyer mismatch, incompatible lot/value structure
+- score-boundary fixtures: `0.7499`, `0.7500`, `0.9499`, `0.9500`
+- cluster fixtures: transitive roots, late merge, visible non-merge clusters
+
+The file stays singular to match the Layer 3 spec, but it must be internally segmented by fixture family so boundary and blocker cases do not get hidden inside one vague “mid score” assertion.
+
 ## 10. Fixture And Corpus Bootstrap
 
 Create these fixture families:
@@ -517,7 +560,9 @@ Create these fixture families:
 | `fixtures/manifests/weird-valid/*.md` | unusual-but-correct validator corpus |
 | `fixtures/manifests/mutated-bad/*.md` | known-bad validator corpus |
 | `fixtures/cron/europe-london-dst.json` | spring-forward and fall-back schedule cases |
+| `fixtures/pty/*.json` | fd-inventory, geometry-report, and coalesced-exit expectations for PTY hardening tests |
 | `fixtures/source-health/*.json` | canary pass/fail/timeout payloads and breaker windows |
+| `fixtures/validation/policy-triggers.json` | explicit `fill_rate_drop` and `operator_requested` trigger cases |
 | `fixtures/relations/*.json` | deterministic notice pairs and transitive cluster cases |
 | `fixtures/status/*.json` | cron/source-health/validation/resource status snapshots for IPC tests |
 
@@ -574,7 +619,30 @@ insert or ignore into source_runtime_state (
   ('1688', 'unknown', 'closed', 0);
 ```
 
+Default operational settings that the bootstrap must seed explicitly:
+
+- `browser_slots = 2`
+- `agent_slots = 4`
+- procurement `source_lanes = 1/source`; supplier `source_lanes = 2/source`
+- source-health cadence `30 minutes`
+- validator canary cadence `15-30 minutes`
+- breaker open threshold `N = 3` challenge-class failures within the configured window
+- breaker cooldown `2 hours`
+- headless PTY geometry `120x40`
+
 ## 12. Command Matrix
+
+Use stable test IDs to filter mixed-tier files. If a lane runs whole files instead of per-test filters, schedule the file in the higher lane so no `ValidatorHarness` path leaks into `T2`.
+
+Mixed-tier files that still require exact-ID filtering or later file-splitting if strict cadence is enforced include:
+
+- `fault_partial_failure.rs`
+- `observability_telemetry.rs`
+- `skill_golden_journeys.rs`
+- `skill_shadow_compare.rs`
+- `validation_golden_verdicts.rs`
+- `validation_canary_health.rs`
+- `validation_retro_backlog.rs`
 
 | Lane | Command |
 |------|---------|
@@ -582,12 +650,11 @@ insert or ignore into source_runtime_state (
 | Static | `cargo clippy --all-targets -- -D warnings` |
 | Static | `cargo fmt --check` |
 | Static | `bun run test` |
-| `T1` | `cargo test -p daemon --test validation_policy --test schema_activation --test observability_telemetry -- --nocapture` |
+| `T1` | `cargo test -p daemon --test validation_policy -- --nocapture` |
 | `T1` | `bun test packages/intelligence/src/relations/resolve-process-relations.test.ts` |
 | `T1` | `bun test packages/manifests/tests/render-error-manifest.test.ts` |
-| `T2` | `cargo test -p daemon --test cron_scheduler --test job_claim --test validation_dry_run --test fault_pty_edge_cases -- --nocapture` |
-| `T2` | `cargo test -p daemon --test fault_host_events --test fault_partial_failure -- --nocapture` |
-| `T3` | `cargo test -p daemon --features test-support --test validation_executor --test validation_canary_health --test validation_retro_backlog -- --nocapture` |
+| `T2` | `cargo test -p daemon --test cron_scheduler --test job_claim --test fault_pty_edge_cases --test fault_host_events --test schema_activation --test observability_telemetry -- --nocapture` |
+| `T3` | `cargo test -p daemon --features test-support --test fault_process_cleanup --test fault_partial_failure --test validation_executor --test validation_dry_run --test validation_golden_verdicts --test validation_canary_health --test validation_retro_backlog -- --nocapture` |
 | `T3` | `cargo test -p daemon --features test-support --test replay_pty_sessions --test replay_contract_sessions --test skill_golden_journeys --test skill_shadow_compare --test skill_drift_monitor -- --nocapture` |
 | `T4` | live cron-triggered source-health / auth-refresh smoke on a networked runner |
 | Manual Gate | five-day unattended run diary + zero-orphan verification + verdict-to-bytes drill-down |
@@ -638,7 +705,7 @@ Additional requirements:
 ## 16. Notes For Implementation
 
 - Keep the 18 spec-declared test files intact. The three additive files exist to avoid burying schema, renderer, and operational-status coverage in unrelated suites.
-- The bootstrap assumes the existing `test_agent` helper binary continues to be the one real process helper surface. Extend it rather than creating many tiny binaries.
+- The bootstrap assumes the existing `test_agent` helper binary continues to be the one real process helper surface. Extend it rather than creating many tiny binaries, and add explicit modes for fd inventory, PTY geometry reporting, coalesced exit bursts, and post-slave-close `EIO`.
 - The packages/manifests renderer test is important because the Layer 3 spec names that shared library explicitly even though the current Rust daemon still owns the authoritative local error-manifest store.
 - As of the current checked-in [`manifest.rs`](/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/errors/manifest.rs), `ErrorCode` defines `28` variants, not `29`; the inventory-parity test should assert the exact current list and then separately prove the Layer 3 logical canary classes map onto that existing enum.
 - The command-router operational status tests should name the exact method strings: `get_cron_status`, `get_source_health_status`, `get_validation_status`, and `get_resource_arbiter_status`.

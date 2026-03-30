@@ -34,6 +34,7 @@
 | Basis-total pricing on `supplier_quotes` (offer_total fields for sub-penny accuracy) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.2) |
 | `product_commodity_codes` expanded entity (digits, source, score, rank for L5 multi-source recall) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.9) |
 | "All columns from creation" scope clarification (what it does and doesn't prevent) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.2.1) |
+| L3 schema-activation reconciliation note (repo migration drift vs constitutional shape) | `layers/layer-3-operational-hardening.md` | §4 (§4.1) |
 | Branded scalar types recommendation (`Pence`, `MinorUnits`, `BpsBounded`, `BpsSigned`) | `layers/layer-0-gold-set-evaluation.md` | §5 (§5.3.5) |
 | Harness DB isolation (separate SQLite from operational DB) | `layers/layer-0-gold-set-evaluation.md` | §5 (§5.3.4) |
 | New L3 tables (`validation_verdicts`, `source_runtime_state`, `listing_evidence`, `process_relations`, `process_aliases`) | `layers/layer-3-operational-hardening.md` | §4 |
@@ -80,10 +81,12 @@
 | Ingestion flow (end-to-end live loop) | `layers/layer-1-thin-local-runner.md` | §1 (§1.6) |
 | Cron scheduler (explicit skill binding) | `layers/layer-3-operational-hardening.md` | §1 (§1.5) |
 | Resource arbiter (typed quotas) | `layers/layer-3-operational-hardening.md` | §1 (§1.4) |
+| Resource admission/release semantics + validator resource consumption | `layers/layer-3-operational-hardening.md` | §1 (§1.4) |
 | PTY hardening (fd hygiene, EIO, geometry) | `layers/layer-3-operational-hardening.md` | §1 (§1.6) |
 | Skill promotion flow (draft -> stable) | `layers/layer-3-operational-hardening.md` | §3 |
 | Source-health canaries, auth-refresh skills | `layers/layer-3-operational-hardening.md` | §1 (§1.9) |
 | Cluster identity (`canonical_process_id`) + late merge | `layers/layer-3-operational-hardening.md` | §3 (§3.6) |
+| Four-layer observability model + retention/correlation | `layers/layer-3-operational-hardening.md` | §4 (§4.4) |
 | Artifact store (chunked storage layout, stream.index.jsonl, run manifest format) | `layers/layer-1-thin-local-runner.md` | §2 (§2.5) |
 | Single-database model (`state.db`, commit_clock) | `layers/layer-1-thin-local-runner.md` | §2 (§2.7) |
 | Job Runner (stage_run_id scoping) | `layers/layer-1-thin-local-runner.md` | §2 (§2.6) |
@@ -100,6 +103,8 @@
 | Validator health states (healthy/degraded/blind) | `layers/layer-3-operational-hardening.md` | §2 (§2.7) |
 | Retroactive validation backlog | `layers/layer-3-operational-hardening.md` | §2 (§2.7) |
 | Synthetic validator canaries | `layers/layer-3-operational-hardening.md` | §2 (§2.7) |
+| Unknown-verdict / invalid-verdict fail-open handling | `layers/layer-3-operational-hardening.md` | §2 (§2.4), §2 (§2.7) |
+| Transactional validator verdict persistence | `layers/layer-3-operational-hardening.md` | §2 (§2.4) |
 | Calibration timeline formula (per-slice) | `layers/layer-3-operational-hardening.md` | §2 (§2.9) |
 | Behavior version vs raw version | `layers/layer-3-operational-hardening.md` | §3 (§3.2) |
 | Process-level `validation_state` mapping from finer-grained trust states | `layers/layer-3-operational-hardening.md` | §2 (§2.7) |
@@ -213,7 +218,7 @@
 | L5 customs test files (5: classification, measure interaction, FX, freight, FPO) | `layers/layer-5-expanded-commercial-intelligence.md` | §3 (§3.2) |
 | L6 bid workflow test files (3: states, side-effects, readiness gate) | `layers/layer-6-request-pipeline-automation.md` | §2 (§2.2) |
 | No mock-only release gates (real sessions, real portals/APIs, or captured evidence bundles) | `layer-strategy.md` | §11 |
-| Testing evolution (all layers, cumulative 4→51) | `layer-strategy.md` | §11 |
+| Testing evolution (all layers, cumulative 4→55) | `layer-strategy.md` | §11 |
 
 ### Open Questions
 
