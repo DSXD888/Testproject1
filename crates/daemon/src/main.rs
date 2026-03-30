@@ -637,6 +637,7 @@ struct LiveValidationExecution {
     validator_job_id: Option<String>,
     validation_verdict_id: Option<String>,
     trust_state: jobs::runner::ValidationTrustState,
+    run_scoped_validation_rejection_rate_bps: Option<u32>,
     process_validation_state: ProcessValidationState,
     validation_marker: Option<&'static str>,
     validation_telemetry: ValidationStatusSnapshot,
@@ -2262,11 +2263,8 @@ fn build_skill_run_telemetry(
     } else {
         10_000
     };
-    let validation_rejection_rate_bps = live_validation.and_then(|validation| {
-        validation.validation_required.then_some(u32::from(
-            validation.validation_telemetry.validator_rejection_rate_bps,
-        ))
-    });
+    let validation_rejection_rate_bps =
+        live_validation.and_then(|validation| validation.run_scoped_validation_rejection_rate_bps);
 
     let telemetry = compute_skill_telemetry(&SkillTelemetryWindow {
         successful_runs: u32::from(executed.exit_code == 0),
@@ -2373,6 +2371,7 @@ fn run_live_semantic_validation(
             validator_job_id: None,
             validation_verdict_id: None,
             trust_state: jobs::runner::ValidationTrustState::Unverified,
+            run_scoped_validation_rejection_rate_bps: None,
             process_validation_state: ProcessValidationState::Unverified,
             validation_marker: None,
             validation_telemetry: build_validation_status_snapshot(runtime.state_db.connection())?,
@@ -2429,6 +2428,7 @@ fn run_live_semantic_validation(
             validator_job_id: Some(enqueued.job_id),
             validation_verdict_id: None,
             trust_state: failure.trust_state,
+            run_scoped_validation_rejection_rate_bps: None,
             process_validation_state: failure.process_validation_state,
             validation_marker: failure.validation_marker,
             validation_telemetry: build_validation_status_snapshot(runtime.state_db.connection())?,
@@ -2482,6 +2482,7 @@ fn run_live_semantic_validation(
             validator_job_id: Some(enqueued.job_id),
             validation_verdict_id: None,
             trust_state: failure.trust_state,
+            run_scoped_validation_rejection_rate_bps: None,
             process_validation_state: failure.process_validation_state,
             validation_marker: failure.validation_marker,
             validation_telemetry: build_validation_status_snapshot(runtime.state_db.connection())?,
@@ -2502,11 +2503,18 @@ fn run_live_semantic_validation(
             enforcement_active: false,
         },
     );
+    let run_scoped_validation_rejection_rate_bps =
+        if matches!(persisted.contract.verdict, ValidatorVerdict::Rejected) {
+            Some(10_000)
+        } else {
+            Some(0)
+        };
     Ok(LiveValidationExecution {
         validation_required: true,
         validator_job_id: Some(enqueued.job_id),
         validation_verdict_id: Some(persisted.verdict_id),
         trust_state: decision.trust_state,
+        run_scoped_validation_rejection_rate_bps,
         process_validation_state: decision.process_validation_state,
         validation_marker: decision.validation_marker,
         validation_telemetry: build_validation_status_snapshot(runtime.state_db.connection())?,
@@ -5390,11 +5398,12 @@ mod tests {
             validator_job_id: Some("validator-job".to_owned()),
             validation_verdict_id: Some("verdict-id".to_owned()),
             trust_state: super::jobs::runner::ValidationTrustState::Verified,
+            run_scoped_validation_rejection_rate_bps: Some(0),
             process_validation_state: ProcessValidationState::Validated,
             validation_marker: None,
             validation_telemetry: ValidationStatusSnapshot {
                 validator_approval_rate_bps: 10_000,
-                validator_rejection_rate_bps: 0,
+                validator_rejection_rate_bps: 10_000,
                 validator_flag_rate_bps: 0,
                 validator_cost_per_run_pence: 0,
                 operator_override_rate_bps: 0,
