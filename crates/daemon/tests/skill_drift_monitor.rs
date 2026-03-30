@@ -155,8 +155,23 @@ mod tests {
         ensure!(state_db.db_path().ends_with("state.db"));
         seed_source(state_db.connection(), "fts", "procurement")?;
         seed_source(state_db.connection(), "alibaba", "supplier")?;
+        seed_source(state_db.connection(), "contracts-finder", "procurement")?;
         let registry = SourceRegistry::load(state_db.connection())?;
-        for source_id in ["fts", "alibaba"] {
+        for (source_id, result, health_state, last_error_code) in [
+            ("fts", CanaryResult::Passed, HealthState::Green, None),
+            (
+                "alibaba",
+                CanaryResult::Failed,
+                HealthState::Red,
+                Some("SOURCE_SOFT_BLOCKED"),
+            ),
+            (
+                "contracts-finder",
+                CanaryResult::TimedOut,
+                HealthState::Red,
+                Some("HOST_SLEEP_INTERRUPTED"),
+            ),
+        ] {
             let registered = registry
                 .get(source_id)
                 .ok_or_else(|| anyhow!("missing source {source_id}"))?;
@@ -172,27 +187,52 @@ mod tests {
                 .with_canary_outcome(
                     &registered.definition,
                     observed_at,
-                    CanaryResult::Passed,
-                    HealthState::Green,
-                    None,
+                    result,
+                    health_state,
+                    last_error_code.map(str::to_owned),
                 )
                 .ok_or_else(|| anyhow!("missing canary outcome for {source_id}"))?;
             persist_runtime_state(state_db.connection(), &next)?;
         }
 
         let mut statement = state_db.connection().prepare(
-            "SELECT source_id, last_canary_result FROM source_runtime_state ORDER BY source_id",
+            "\
+            SELECT source_id, last_health_state, last_canary_result, last_error_code
+            FROM source_runtime_state
+            ORDER BY source_id
+            ",
         )?;
         let rows = statement.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, Option<String>>(3)?,
+            ))
         })?;
         let observed = rows.collect::<std::result::Result<Vec<_>, _>>()?;
 
         ensure!(
             observed
                 == vec![
-                    ("alibaba".to_owned(), Some("passed".to_owned())),
-                    ("fts".to_owned(), Some("passed".to_owned())),
+                    (
+                        "alibaba".to_owned(),
+                        "red".to_owned(),
+                        Some("failed".to_owned()),
+                        Some("SOURCE_SOFT_BLOCKED".to_owned()),
+                    ),
+                    (
+                        "contracts-finder".to_owned(),
+                        "red".to_owned(),
+                        Some("timed_out".to_owned()),
+                        Some("HOST_SLEEP_INTERRUPTED".to_owned()),
+                    ),
+                    (
+                        "fts".to_owned(),
+                        "green".to_owned(),
+                        Some("passed".to_owned()),
+                        None,
+                    ),
                 ],
             "L3-T-skill_drift_monitor-002 expected explicit persisted canary outcomes"
         );
@@ -245,6 +285,43 @@ mod tests {
             third.cooldown_until == Some(base + Duration::minutes(140)),
             "L3-T-skill_drift_monitor-003 expected 120-minute cooldown"
         );
+        for (offset_minutes, result, expected_error_code) in [
+            (5, CanaryResult::Failed, "SOURCE_SOFT_BLOCKED"),
+            (10, CanaryResult::TimedOut, "HOST_SLEEP_INTERRUPTED"),
+        ] {
+            let observed_at = third
+                .cooldown_until
+                .ok_or_else(|| anyhow!("missing cooldown for recovery canary"))?
+                + Duration::minutes(offset_minutes);
+            let reopened = third
+                .with_canary_outcome(
+                    &registered.definition,
+                    observed_at,
+                    result,
+                    HealthState::Red,
+                    Some(expected_error_code.to_owned()),
+                )
+                .ok_or_else(|| anyhow!("recovery canary outcome missing"))?;
+
+            ensure!(
+                reopened.circuit_state == CircuitState::Open,
+                "L3-T-skill_drift_monitor-003 expected failed recovery canary to reopen circuit"
+            );
+            ensure!(
+                reopened.circuit_opened_at == Some(observed_at),
+                "L3-T-skill_drift_monitor-003 expected fresh circuit_opened_at after recovery failure"
+            );
+            ensure!(
+                reopened.cooldown_until == Some(observed_at + Duration::minutes(120)),
+                "L3-T-skill_drift_monitor-003 expected fresh cooldown after recovery failure"
+            );
+            ensure!(
+                reopened.last_health_state == HealthState::Red
+                    && reopened.last_canary_result == Some(result)
+                    && reopened.last_error_code.as_deref() == Some(expected_error_code),
+                "L3-T-skill_drift_monitor-003 expected recovery failure metadata persistence"
+            );
+        }
         Ok(())
     }
 

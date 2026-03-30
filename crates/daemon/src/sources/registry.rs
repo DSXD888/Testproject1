@@ -295,7 +295,7 @@ impl SourceRuntimeState {
     #[must_use]
     pub fn with_canary_outcome(
         &self,
-        _definition: &SourceDefinition,
+        definition: &SourceDefinition,
         observed_at: DateTime<Utc>,
         result: CanaryResult,
         health_state: HealthState,
@@ -315,6 +315,12 @@ impl SourceRuntimeState {
         next.last_error_code = last_error_code;
         next.updated_at = Some(observed_at);
 
+        let is_recovery_canary = self.circuit_state == CircuitState::HalfOpen
+            || (self.circuit_state == CircuitState::Open
+                && self
+                    .cooldown_until
+                    .is_some_and(|cooldown_until| cooldown_until <= observed_at));
+
         match result {
             CanaryResult::Passed => {
                 next.circuit_state = CircuitState::Closed;
@@ -324,7 +330,14 @@ impl SourceRuntimeState {
                 next.cooldown_until = None;
             }
             CanaryResult::Failed | CanaryResult::TimedOut => {
-                next.circuit_state = CircuitState::HalfOpen;
+                if is_recovery_canary {
+                    next.circuit_state = CircuitState::Open;
+                    next.circuit_opened_at = Some(observed_at);
+                    next.cooldown_until =
+                        Some(observed_at + Duration::minutes(definition.policy.cooldown_minutes));
+                } else {
+                    next.circuit_state = CircuitState::HalfOpen;
+                }
             }
         }
 

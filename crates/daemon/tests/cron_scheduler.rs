@@ -58,8 +58,8 @@ mod tests {
     use crate::runner_impl::JobRunner;
     use crate::skills_support::{lint_skill_directory, repo_skill_dir};
     use crate::sources_impl::{
-        CircuitState, DEFAULT_SOURCE_SKILL_VERSION, SourceJobClass, SourceRegistry,
-        SourceRuntimeState, persist_runtime_state,
+        CanaryResult, CircuitState, DEFAULT_SOURCE_SKILL_VERSION, HealthState, SourceJobClass,
+        SourceRegistry, SourceRuntimeState, persist_runtime_state,
     };
 
     fn ts(
@@ -212,8 +212,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_cron_scheduler_004_scheduler_binding_stays_frozen_even_when_skill_frontmatter_differs()
-    -> Result<()> {
+    fn l3_t_cron_scheduler_004_scheduler_binding_matches_on_disk_frozen_frontmatter() -> Result<()>
+    {
         let state_db = TestStateDb::new()?;
         seed_source(state_db.connection(), "fts", "procurement")?;
         let registry = reload_registry(&state_db)?;
@@ -228,8 +228,8 @@ mod tests {
             "L3-T-cron_scheduler-004 expected registry to freeze DEFAULT_SOURCE_SKILL_VERSION"
         );
         ensure!(
-            binding.skill_version != on_disk_skill_version,
-            "L3-T-cron_scheduler-004 expected checked-in skill frontmatter drift to remain visible"
+            binding.skill_version == on_disk_skill_version,
+            "L3-T-cron_scheduler-004 expected checked-in skill frontmatter to stay aligned with the frozen binding"
         );
         Ok(())
     }
@@ -415,20 +415,37 @@ mod tests {
         let definition = &source.definition;
         let base = fresh_timestamp(&source.runtime_state);
 
-        let runtime_state = SourceRuntimeState {
-            source_id: "fts".to_owned(),
-            last_health_state: definition.default_health_state,
-            circuit_state: CircuitState::Open,
-            challenge_event_count: definition.policy.challenge_threshold,
-            challenge_window_started_at: Some(base),
-            circuit_opened_at: Some(base),
-            cooldown_until: Some(base + Duration::hours(2)),
-            last_canary_at: Some(base),
-            last_canary_result: None,
-            last_error_code: Some("SOURCE_SOFT_BLOCKED".to_owned()),
-            updated_at: Some(base),
-            created_at: Some(base),
-        };
+        let opened = source
+            .runtime_state
+            .with_challenge_failure(definition, base, "AGENT_AUTH_CHALLENGE")
+            .and_then(|state| {
+                state.with_challenge_failure(
+                    definition,
+                    base + Duration::minutes(10),
+                    "SOURCE_SOFT_BLOCKED",
+                )
+            })
+            .and_then(|state| {
+                state.with_challenge_failure(
+                    definition,
+                    base + Duration::minutes(20),
+                    "SOURCE_CAPTCHA_BLOCKED",
+                )
+            })
+            .ok_or_else(|| anyhow!("failed to build open breaker state"))?;
+        let recovery_at = opened
+            .cooldown_until
+            .ok_or_else(|| anyhow!("missing cooldown for recovery path"))?
+            + Duration::minutes(5);
+        let runtime_state = opened
+            .with_canary_outcome(
+                definition,
+                recovery_at,
+                CanaryResult::Failed,
+                HealthState::Red,
+                Some("SOURCE_SOFT_BLOCKED".to_owned()),
+            )
+            .ok_or_else(|| anyhow!("missing failed recovery canary outcome"))?;
         persist_runtime_state(state_db.connection(), &runtime_state)?;
 
         let reloaded = reload_registry(&state_db)?;
@@ -436,8 +453,25 @@ mod tests {
             .get("fts")
             .ok_or_else(|| anyhow!("missing FTS source"))?;
         ensure!(
-            !source.allows_job_class(SourceJobClass::Production, base + Duration::minutes(30)),
-            "L3-T-cron_scheduler-009 expected production suppression while circuit is open"
+            source.effective_circuit_state(recovery_at) == CircuitState::Open,
+            "L3-T-cron_scheduler-009 expected failed recovery canary to reopen circuit"
+        );
+        ensure!(
+            !source.allows_job_class(SourceJobClass::Production, recovery_at),
+            "L3-T-cron_scheduler-009 expected production suppression during fresh cooldown"
+        );
+        let mut scheduler = CronScheduler::from_registry(&reloaded);
+        scheduler.record_enqueued(
+            "fts::procurement-ingestion/fts",
+            recovery_at - Duration::days(1),
+        )?;
+        scheduler.record_enqueued("fts::source-health/fts", recovery_at - Duration::days(1))?;
+        let dispatches = scheduler.dispatch_due_jobs(&reloaded, recovery_at)?;
+        ensure!(
+            dispatches
+                .iter()
+                .all(|dispatch| dispatch.definition.source_id != "fts"),
+            "L3-T-cron_scheduler-009 expected reopened circuit to suppress all FTS dispatches during fresh cooldown"
         );
         Ok(())
     }
