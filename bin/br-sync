@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# br-sync — wrapper around `br sync --flush-only` that normalizes timestamps.
+#
+# WHY: br has a bug where some UPDATE code paths write SQLite's
+#      CURRENT_TIMESTAMP format ("YYYY-MM-DD HH:MM:SS") into updated_at
+#      instead of ISO 8601 ("YYYY-MM-DDTHH:MM:SSZ"). The export writes
+#      the value as-is to JSONL, then the import rejects it as invalid JSON.
+#      This wrapper normalizes timestamps immediately after export so no
+#      downstream reader ever sees the bad format.
+#
+# USAGE: bin/br-sync          (replaces `br sync --flush-only`)
+
+set -euo pipefail
+
+JSONL=".beads/issues.jsonl"
+
+# 1. Run the real sync
+br sync --flush-only "$@"
+
+# 2. Normalize any non-ISO timestamps in the exported JSONL
+if [ -f "$JSONL" ]; then
+  python3 -c "
+import json, re, sys
+
+path = '$JSONL'
+with open(path) as f:
+    lines = f.readlines()
+
+# Pattern: datetime WITHOUT a T separator (SQLite CURRENT_TIMESTAMP format)
+# e.g. '2026-03-30 08:56:53' -> '2026-03-30T08:56:53Z'
+ts_re = re.compile(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$')
+ts_fields = ('created_at', 'updated_at', 'closed_at')
+
+fixed = 0
+output = []
+for i, line in enumerate(lines):
+    line_s = line.strip()
+    if not line_s:
+        output.append(line)
+        continue
+    obj = json.loads(line_s)
+    changed = False
+    for field in ts_fields:
+        val = obj.get(field)
+        if val and ts_re.match(val):
+            obj[field] = val.replace(' ', 'T') + 'Z'
+            changed = True
+            fixed += 1
+    if changed:
+        output.append(json.dumps(obj, ensure_ascii=False, separators=(', ', ': ')) + '\n')
+    else:
+        output.append(line)
+
+if fixed:
+    with open(path, 'w') as f:
+        f.writelines(output)
+    print(f'br-sync: normalized {fixed} non-ISO timestamp(s) in {path}', file=sys.stderr)
+"
+fi

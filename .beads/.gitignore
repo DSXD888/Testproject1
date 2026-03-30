@@ -38,3 +38,10 @@ redirect
 
 # bv (beads viewer) lock file
 .bv.lock
+
+# Recovery and backup artifacts
+.br_recovery/
+*.corrupted
+*.corrupt_*
+*.pre_*_backup_*
+*.bak_*
