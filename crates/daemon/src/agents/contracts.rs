@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+#[path = "../db/checkpoints.rs"]
+mod checkpoint_store;
+
 use std::path::Path;
 
 use anyhow::{Context, Result, anyhow, ensure};
@@ -97,40 +100,12 @@ pub fn persist_validated_checkpoint(
     session_id: &str,
     next_seq: u32,
 ) -> Result<u32> {
-    let last_checkpoint_seq: Option<u32> = conn
-        .query_row(
-            "SELECT last_checkpoint_seq FROM agent_session_logs WHERE id = ?1",
-            params![session_id],
-            |row| row.get(0),
-        )
-        .optional()
-        .context("loading prior checkpoint sequence")?
-        .flatten();
-    ensure!(
-        last_checkpoint_seq.is_some()
-            || conn
-                .query_row(
-                    "SELECT COUNT(*) FROM agent_session_logs WHERE id = ?1",
-                    params![session_id],
-                    |row| row.get::<_, i64>(0),
-                )
-                .context("checking agent_session_logs row existence")?
-                == 1,
-        "agent_session_logs row missing for {session_id}"
-    );
+    let last_checkpoint_seq = checkpoint_store::load_last_checkpoint_seq(conn, session_id)
+        .with_context(|| format!("loading prior checkpoint sequence for session `{session_id}`"))?;
 
     validate_checkpoint_sequence(last_checkpoint_seq, next_seq)?;
-    let updated = conn
-        .execute(
-            "UPDATE agent_session_logs SET last_checkpoint_seq = ?1 WHERE id = ?2",
-            params![next_seq, session_id],
-        )
-        .context("persisting checkpoint sequence")?;
-    ensure!(
-        updated == 1,
-        "agent_session_logs row missing for {session_id}"
-    );
-    Ok(next_seq)
+    checkpoint_store::persist_checkpoint_sequence(conn, session_id, next_seq)
+        .with_context(|| format!("persisting checkpoint sequence for session `{session_id}`"))
 }
 
 pub fn evaluate_oqg(input: &OqgCheckInput) -> Vec<String> {
