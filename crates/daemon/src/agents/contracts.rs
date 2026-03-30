@@ -7,7 +7,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result, anyhow, ensure};
 use chrono::Utc;
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 

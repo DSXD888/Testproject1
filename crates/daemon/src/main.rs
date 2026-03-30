@@ -74,6 +74,7 @@ mod sources {
 #[allow(dead_code)]
 mod validation {
     pub mod manifest_writer;
+    pub mod policy;
 }
 
 #[cfg(test)]

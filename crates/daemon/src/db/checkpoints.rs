@@ -7,9 +7,10 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, anyhow, ensure};
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, params};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredCheckpointArtifact {
     pub seq: u32,
@@ -53,6 +54,7 @@ pub fn persist_checkpoint_sequence(
     Ok(next_seq)
 }
 
+#[allow(dead_code)]
 pub fn persist_checkpoint_artifact(
     conn: &Connection,
     artifact_root: &Path,
@@ -93,6 +95,7 @@ pub fn persist_checkpoint_artifact(
     })
 }
 
+#[allow(dead_code)]
 fn validate_checkpoint_payload(schema: &Value, payload: &Value) -> Result<()> {
     let payload_object = payload
         .as_object()
@@ -127,6 +130,7 @@ fn validate_checkpoint_payload(schema: &Value, payload: &Value) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn persist_checkpoint_reference(
     conn: &Connection,
     session_id: &str,
@@ -155,7 +159,7 @@ fn persist_checkpoint_reference(
         .as_deref()
         .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
         .filter(Value::is_object)
-        .unwrap_or_else(|| Value::Object(Default::default()));
+        .unwrap_or_else(|| Value::Object(Map::default()));
 
     let object = payload
         .as_object_mut()
@@ -177,6 +181,7 @@ fn persist_checkpoint_reference(
     Ok(())
 }
 
+#[allow(dead_code)]
 fn checkpoint_session_dir(
     artifact_root: &Path,
     session_id: &str,
@@ -205,6 +210,7 @@ fn session_exists(conn: &Connection, session_id: &str) -> Result<bool> {
     Ok(count == 1)
 }
 
+#[allow(dead_code)]
 fn value_matches_type(value: &Value, expected_type: &str) -> bool {
     match expected_type {
         "string" => value.is_string(),
@@ -218,6 +224,7 @@ fn value_matches_type(value: &Value, expected_type: &str) -> bool {
     }
 }
 
+#[allow(dead_code)]
 fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     format!("{digest:x}")
