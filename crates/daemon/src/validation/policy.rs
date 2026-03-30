@@ -607,7 +607,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_001_schema_invalid_outputs_never_spawn_semantic_validation() {
+    fn ut_validation_policy_001_schema_invalid_outputs_never_spawn_semantic_validation() {
         let mut ctx = context();
         ctx.schema_valid = false;
 
@@ -624,7 +624,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_002_pre_stable_stages_force_validation() {
+    fn ut_validation_policy_002_pre_stable_stages_force_validation() {
         for stage in [
             SkillPromotionStage::Draft,
             SkillPromotionStage::Candidate,
@@ -647,7 +647,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_003_policy_always_validates_every_eligible_run() {
+    fn ut_validation_policy_003_policy_always_validates_every_eligible_run() {
         let decision =
             evaluate_validation_policy(&config(ValidationPolicyMode::Always), &context());
 
@@ -665,7 +665,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_004_sample_uses_max_rate_and_records_reason() {
+    fn ut_validation_policy_004_sample_uses_max_rate_and_records_reason() {
         let mut ctx = context();
         ctx.base_risk_multiplier_bps = 4_000;
         ctx.sample_roll_bps = Some(3_000);
@@ -683,7 +683,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_005_source_health_amber_or_red_forces_validation() {
+    fn ut_validation_policy_005_source_health_amber_or_red_forces_validation() {
         for state in [SourceHealthState::Amber, SourceHealthState::Red] {
             let mut ctx = context();
             ctx.source_health = state;
@@ -701,7 +701,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_006_unknown_fingerprint_forces_validation() {
+    fn ut_validation_policy_006_unknown_fingerprint_forces_validation() {
         let mut ctx = context();
         ctx.page_fingerprint_unknown = true;
 
@@ -717,7 +717,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_007_first_run_after_behavior_change_forces_validation() {
+    fn ut_validation_policy_007_first_run_after_behavior_change_forces_validation() {
         let mut ctx = context();
         ctx.first_run_after_worker_version_change = true;
 
@@ -732,7 +732,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_008_continuation_and_locator_fallback_force_validation() {
+    fn ut_validation_policy_008_continuation_and_locator_fallback_force_validation() {
         let mut chain_ctx = context();
         chain_ctx.continuation_chain_length = 2;
         let chain_decision =
@@ -759,7 +759,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_009_low_basis_and_validator_error_spike_force_validation() {
+    fn ut_validation_policy_009_low_basis_and_validator_error_spike_force_validation() {
         let mut low_basis_ctx = context();
         low_basis_ctx.recent_basis_sufficiency = Some(BasisSufficiency::Low);
         let low_basis_decision =
@@ -786,7 +786,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_010_high_value_and_suspect_output_force_validation() {
+    fn ut_validation_policy_010_high_value_and_suspect_output_force_validation() {
         let mut high_value_ctx = context();
         high_value_ctx.high_value_opportunity = true;
         let high_value_decision =
@@ -813,7 +813,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_011_trigger_mode_validates_only_on_declared_triggers() {
+    fn ut_validation_policy_011_trigger_mode_validates_only_on_declared_triggers() {
         let no_trigger =
             evaluate_validation_policy(&config(ValidationPolicyMode::Trigger), &context());
         assert!(!no_trigger.validation_required);
@@ -831,7 +831,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_012_skip_mode_keeps_oqg_and_allows_overrides() {
+    fn ut_validation_policy_012_skip_mode_keeps_oqg_and_allows_overrides() {
         let skipped = evaluate_validation_policy(&config(ValidationPolicyMode::Skip), &context());
         assert!(!skipped.validation_required);
         assert!(skipped.oqg_required);
@@ -845,7 +845,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_013_trigger_reasons_are_structured() {
+    fn ut_validation_policy_013_trigger_reasons_are_structured() {
         let mut ctx = context();
         ctx.fill_rate_drop_bps = Some(700);
 
@@ -861,7 +861,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_014_slice_key_is_exact_and_cosmetic_edits_do_not_reset() {
+    fn ut_validation_policy_014_slice_key_is_exact_and_cosmetic_edits_do_not_reset() {
         let cfg = config(ValidationPolicyMode::Sample);
         let decision = evaluate_validation_policy(&cfg, &context());
 
@@ -878,7 +878,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_015_demotion_is_immediate() {
+    fn ut_validation_policy_015_demotion_is_immediate() {
         let mut ctx = context();
         ctx.calibration_thresholds_met = true;
         ctx.operator_override_spike = true;
@@ -895,7 +895,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_016_dry_run_ladder_uses_exact_rates() {
+    fn ut_validation_policy_016_dry_run_ladder_uses_exact_rates() {
         let bootstrap = derive_dry_run_phase(&context());
         assert_eq!(bootstrap, DryRunLadderPhase::Bootstrap);
         assert_eq!(bootstrap.validation_rate_bps(false), FULL_VALIDATION_BPS);
@@ -926,7 +926,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_017_fill_rate_drop_trigger_records_delta() {
+    fn ut_validation_policy_017_fill_rate_drop_trigger_records_delta() {
         let mut ctx = context();
         ctx.fill_rate_drop_bps = Some(900);
 
@@ -942,7 +942,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_validation_policy_018_operator_requested_forces_validation_even_in_skip_mode() {
+    fn ut_validation_policy_018_operator_requested_forces_validation_even_in_skip_mode() {
         let mut ctx = context();
         ctx.operator_requested = true;
 

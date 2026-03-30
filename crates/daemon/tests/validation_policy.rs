@@ -8,6 +8,8 @@ mod support;
 
 mod tests {
     use std::collections::BTreeSet;
+    use std::fs;
+    use std::path::PathBuf;
 
     use anyhow::{Result, anyhow, ensure};
 
@@ -22,6 +24,12 @@ mod tests {
         ValidationPolicyMode as FixtureValidationPolicyMode,
         ValidationTrigger as FixtureValidationTrigger,
     };
+
+    fn manifest_root() -> Result<PathBuf> {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .canonicalize()
+            .map_err(Into::into)
+    }
 
     fn config(mode: ValidationPolicyMode) -> ValidationPolicyConfig {
         ValidationPolicyConfig {
@@ -387,6 +395,32 @@ mod tests {
                 .trigger_hits
                 .contains(&FixtureValidationTrigger::OperatorRequested)
         );
+        Ok(())
+    }
+
+    #[test]
+    fn ci_l3_008_validation_policy_requirement_ids_have_one_authoritative_home() -> Result<()> {
+        let crate_root = manifest_root()?;
+        let unit_source = fs::read_to_string(crate_root.join("src/validation/policy.rs"))?;
+        let integration_source = fs::read_to_string(crate_root.join("tests/validation_policy.rs"))?;
+
+        for id in 1..=18 {
+            let public_name = format!("fn l3_t_validation_policy_{id:03}_");
+            let internal_name = format!("fn ut_validation_policy_{id:03}_");
+            ensure!(
+                unit_source.matches(&public_name).count() == 0,
+                "CI-L3-008 duplicate public id still present in src/validation/policy.rs: {public_name}"
+            );
+            ensure!(
+                unit_source.matches(&internal_name).count() == 1,
+                "CI-L3-008 expected one internal unit-test home in src/validation/policy.rs: {internal_name}"
+            );
+            ensure!(
+                integration_source.matches(&public_name).count() == 1,
+                "CI-L3-008 expected one authoritative public test home in tests/validation_policy.rs: {public_name}"
+            );
+        }
+
         Ok(())
     }
 }
