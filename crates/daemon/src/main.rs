@@ -2232,6 +2232,19 @@ fn executed_session_duration_ms(executed: &ExecutedSession) -> Result<u64> {
     u64::try_from(duration_ms).context("converting executed session duration to u64")
 }
 
+fn auth_challenge_rate_bps(executed: &ExecutedSession) -> Result<u32> {
+    let trace = StructuredTrace::parse(&executed.structured_trace)?;
+    Ok(
+        if trace.protocol_events.iter().any(|record| {
+            record.event == tracing::structured::StructuredProtocolEventKind::AuthChallenge
+        }) {
+            10_000
+        } else {
+            0
+        },
+    )
+}
+
 fn build_skill_run_telemetry(
     skill: &LoadedSkill,
     executed: &ExecutedSession,
@@ -2259,13 +2272,13 @@ fn build_skill_run_telemetry(
         successful_runs: u32::from(executed.exit_code == 0),
         total_runs: 1,
         durations_ms: vec![executed_session_duration_ms(executed)?],
-        cost_per_run_pence: Some(12),
-        token_count: Some(1_024),
+        cost_per_run_pence: None,
+        token_count: None,
         checkpoint_count: Some(executed.last_checkpoint_seq.unwrap_or(0)),
-        retry_count: Some(0),
+        retry_count: None,
         extraction_fill_rate_bps: Some(extraction_fill_rate_bps),
         page_fingerprint_delta_bps: Some(page_fingerprint_delta_bps),
-        auth_challenge_rate_bps: Some(0),
+        auth_challenge_rate_bps: Some(auth_challenge_rate_bps(executed)?),
         listing_match_rate_bps: None,
         validation_rejection_rate_bps,
         drift_score_bps: Some(if fixture.source_changed {
@@ -5059,13 +5072,16 @@ mod tests {
     use super::jobs::runner::CANONICAL_SCOPE_KINDS;
     use super::tracing::structured::{StructuredControlEventKind, StructuredTrace, TraceIdentity};
     use super::{
-        ACTIVE_STAGES, Cli, DEFAULT_AGENT_CLI, LifecyclePhase, LiveLoopFixture, PtyRuntimeIds,
-        SessionDraft, append_runtime_control_records, backtrack_window_seconds, bootstrap_runtime,
-        build_handshake_context, default_fixture, insert_session_log, live_loop_surface_names,
-        observe_host_health, open_state_db, persisted_lifecycle_frames,
-        reconcile_interrupted_sessions,
+        ACTIVE_STAGES, Cli, ControlEvent, DEFAULT_AGENT_CLI, ExecutedSession, LifecyclePhase,
+        LiveLoopFixture, LiveValidationExecution, LoadedSkill, ProcessValidationState,
+        PtyRuntimeIds, SessionDraft, SkillFrontmatter, SkillPromotionStageMetadata,
+        ValidationStatusSnapshot, append_runtime_control_records, backtrack_window_seconds,
+        bootstrap_runtime, build_handshake_context, build_skill_run_telemetry, default_fixture,
+        insert_session_log, live_loop_surface_names, observe_host_health, open_state_db,
+        persisted_lifecycle_frames, reconcile_interrupted_sessions,
     };
     use crate::db::sqlite::DEFAULT_SCHEMA_EPOCH;
+    use chrono::Utc;
 
     type HistoryIdentityRow = (Option<i64>, Option<String>, Option<i64>);
     type CrashSessionRow = (
@@ -5307,6 +5323,98 @@ mod tests {
                 .iter()
                 .any(|record| { record.event == StructuredControlEventKind::CleanupVerdict })
         );
+        Ok(())
+    }
+
+    #[test]
+    fn build_skill_run_telemetry_prefers_runtime_evidence_over_placeholders() -> Result<()> {
+        let fixture = default_fixture();
+        let skill = LoadedSkill {
+            skill_path: "skills/manifest-generation/SKILL.md".into(),
+            skill_markdown:
+                "---\nskill_id: manifest-generation\nskill_version: 2026.03.30\ninteraction_profile: contract_required\nresult_schema_version: 1.0.0\nmodel_profile: structured_extract_low_cost\n---\nbody"
+                    .to_owned(),
+            metadata: SkillFrontmatter {
+                skill_id: "manifest-generation".to_owned(),
+                skill_version: "2026.03.30".to_owned(),
+                interaction_profile: "contract_required".to_owned(),
+                result_schema_version: "1.0.0".to_owned(),
+                checkpoint_schema_version: None,
+                validator_overlay_version: Some("2026.03.30-1".to_owned()),
+                model_profile: "structured_extract_low_cost".to_owned(),
+                agent_cli: None,
+                source_structure_version: None,
+                worker_behavior_version: None,
+                validator_behavior_version: None,
+                promotion_stage: SkillPromotionStageMetadata::Stable,
+                version_change_affects_behavior: true,
+                gate_a_family_key: None,
+                gate_a_family_prequalified: false,
+                gate_b_exact_slice_key: None,
+                gate_b_exact_slice_ready: false,
+            },
+            result_schema: json!({}),
+        };
+        let mut trace = StructuredTrace::new(ExecutionMode::Contract, ["created", "active"]);
+        trace.extend_from_adapter_events(
+            &TraceIdentity::new("job-123", "session-123"),
+            &[ControlEvent::AuthChallenge {
+                kind: super::agents::adapter::AuthChallengeKind::ReLogin,
+                detail: "reauth".to_owned(),
+            }],
+        );
+        let executed = ExecutedSession {
+            session_id: "session-123".to_owned(),
+            started_at: chrono::DateTime::parse_from_rfc3339("2026-03-30T10:00:00Z")?
+                .with_timezone(&Utc),
+            execution_mode: ExecutionMode::Contract,
+            adapter_id: DEFAULT_AGENT_CLI.to_owned(),
+            cli_vendor: DEFAULT_AGENT_CLI.to_owned(),
+            config_hash: "cfg".to_owned(),
+            pty_session_id: None,
+            runtime_ids: None,
+            completed_at: "2026-03-30T10:00:02Z".to_owned(),
+            terminal_output_path: None,
+            terminal_output_hash: None,
+            terminal_output_bytes: None,
+            terminal_output_tail: None,
+            structured_trace: trace.to_json_string()?,
+            exit_code: 0,
+            cleanup_verdict: "clean".to_owned(),
+            last_checkpoint_seq: None,
+            result_path: None,
+            artifact_refs: Vec::new(),
+        };
+        let live_validation = LiveValidationExecution {
+            validation_required: true,
+            validator_job_id: Some("validator-job".to_owned()),
+            validation_verdict_id: Some("verdict-id".to_owned()),
+            trust_state: super::jobs::runner::ValidationTrustState::Verified,
+            process_validation_state: ProcessValidationState::Validated,
+            validation_marker: None,
+            validation_telemetry: ValidationStatusSnapshot {
+                validator_approval_rate_bps: 10_000,
+                validator_rejection_rate_bps: 0,
+                validator_flag_rate_bps: 0,
+                validator_cost_per_run_pence: 0,
+                operator_override_rate_bps: 0,
+                validator_execution_failure_rate_bps: 0,
+                validator_canary_pass_rate_bps: 10_000,
+                validator_health_state: "healthy".to_owned(),
+                pending_backlog_count: 0,
+                pending_canary_count: 0,
+                validator_job_count: 1,
+            },
+        };
+
+        let telemetry =
+            build_skill_run_telemetry(&skill, &executed, &fixture, Some(&live_validation))?;
+
+        assert_eq!(telemetry.telemetry.cost_per_run_pence, None);
+        assert_eq!(telemetry.telemetry.token_count, None);
+        assert_eq!(telemetry.telemetry.retry_count, None);
+        assert_eq!(telemetry.telemetry.auth_challenge_rate_bps, Some(10_000));
+        assert_eq!(telemetry.telemetry.validation_rejection_rate_bps, Some(0));
         Ok(())
     }
 
