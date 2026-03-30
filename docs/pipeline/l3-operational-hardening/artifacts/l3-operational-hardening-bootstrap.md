@@ -363,18 +363,36 @@ canary.inputs.jsonl
 golden.assertions.yaml
 ```
 
-Required frontmatter for `SKILL.md`:
+Required frontmatter for `auth-refresh/*/SKILL.md`:
 
 ```yaml
 skill_id: auth-refresh/alibaba
 skill_version: 2026.03.30-1
 interaction_profile: pty_interactive
-result_schema_version: 1.0
-model_profile: browser_interactive
-side_effect_class: read_only
+result_schema_version: 1.0.0
+checkpoint_schema_version: 1.0.0
+validator_overlay_version: 2026.03.30-1
+model_profile: browse_stable_low_cost
+side_effect_class: local_state
 ```
 
-Use `source-health/*` frontmatter similarly, with `skill_id` and `interaction_profile: pty_interactive`.
+Required frontmatter for `source-health/*/SKILL.md`:
+
+```yaml
+skill_id: source-health/fts
+skill_version: 2026.03.30-1
+interaction_profile: pty_interactive
+result_schema_version: 1.0.0
+checkpoint_schema_version: 1.0.0
+validator_overlay_version: 2026.03.30-1
+model_profile: browse_stable_low_cost
+side_effect_class: none
+```
+
+For stable operational skills, derive `worker_behavior_version` as
+`<skill_id>@<skill_version>+<result_schema_version>` and `gate_b_exact_slice_key` as
+`<skill_id>::<source_scope>::<worker_behavior_version>::<validator_overlay_version>` so the on-disk
+frontmatter stays identical to the frozen registry binding the scheduler enqueues.
 
 ### 7.3 Required Files For `skills/validation/base/`
 

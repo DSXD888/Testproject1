@@ -1,6 +1,6 @@
 ---
 skill_id: auth-refresh/alibaba
-skill_version: 1.0.0
+skill_version: 2026.03.30-1
 interaction_profile: pty_interactive
 result_schema_version: 1.0.0
 checkpoint_schema_version: 1.0.0
@@ -9,12 +9,12 @@ model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: local_state
 promotion_stage: stable
-worker_behavior_version: auth-refresh/alibaba@1.0.0+1.0.0
+worker_behavior_version: auth-refresh/alibaba@2026.03.30-1+1.0.0
 validator_behavior_version: 2026.03.30-1
 version_change_affects_behavior: true
 gate_a_family_key: auth-refresh
 gate_a_family_prequalified: false
-gate_b_exact_slice_key: auth-refresh/alibaba::alibaba::auth-refresh/alibaba@1.0.0+1.0.0::2026.03.30-1
+gate_b_exact_slice_key: auth-refresh/alibaba::alibaba::auth-refresh/alibaba@2026.03.30-1+1.0.0::2026.03.30-1
 gate_b_exact_slice_ready: false
 maxPages: 2
 maxScrollCycles: 1

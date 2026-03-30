@@ -29,7 +29,7 @@ mod tests {
         evaluate_validation_policy,
     };
     use crate::skills_support::{TestSkillDir, lint_skill_directory, repo_root, repo_skill_dir};
-    use crate::sources_impl::{PromotionStage, SourceRegistry};
+    use crate::sources_impl::{DEFAULT_SOURCE_SKILL_VERSION, PromotionStage, SourceRegistry};
 
     struct ManualSkillHarness {
         _temp: TempDir,
@@ -518,6 +518,40 @@ mod tests {
                 .interaction_profile
                 == "pty_interactive"
         );
+        for (relative, scope, expected_side_effect_class) in [
+            ("auth-refresh/alibaba", "alibaba", "local_state"),
+            ("auth-refresh/1688", "1688", "local_state"),
+            ("source-health/fts", "fts", "none"),
+            ("source-health/alibaba", "alibaba", "none"),
+        ] {
+            let linted = lint_skill_directory(&repo_skill_dir(relative)?)?;
+            let expected_worker_behavior_version =
+                format!("{relative}@{DEFAULT_SOURCE_SKILL_VERSION}+1.0.0");
+            let expected_slice_key =
+                format!("{relative}::{scope}::{expected_worker_behavior_version}::2026.03.30-1");
+            ensure!(
+                linted.metadata.skill_version == DEFAULT_SOURCE_SKILL_VERSION,
+                "{relative} must stay on the registry-bound stable version"
+            );
+            ensure!(
+                linted.metadata.model_profile == "browse_stable_low_cost",
+                "{relative} must stay on the browser low-cost profile"
+            );
+            ensure!(
+                linted.metadata.side_effect_class == expected_side_effect_class,
+                "{relative} must keep the expected side-effect classification"
+            );
+            ensure!(
+                linted.metadata.worker_behavior_version.as_deref()
+                    == Some(expected_worker_behavior_version.as_str()),
+                "{relative} must derive worker_behavior_version from skill_version + result_schema_version"
+            );
+            ensure!(
+                linted.metadata.gate_b_exact_slice_key.as_deref()
+                    == Some(expected_slice_key.as_str()),
+                "{relative} must keep its exact-slice binding aligned with the worker behavior version"
+            );
+        }
         Ok(())
     }
 

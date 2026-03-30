@@ -2,12 +2,16 @@
 
 #[path = "support/skills.rs"]
 mod skills_support;
+#[path = "../src/sources/registry.rs"]
+#[allow(dead_code)]
+mod sources_impl;
 
 use std::collections::BTreeSet;
 
 use anyhow::{Result, ensure};
 
 use skills_support::{TestSkillDir, lint_skill_directory, repo_root, repo_skill_dir};
+use sources_impl::DEFAULT_SOURCE_SKILL_VERSION;
 
 const RUN_MANIFEST_REQUIRED_TOKENS: &[&str] = &[
     "manifest_version",
@@ -193,20 +197,87 @@ fn ut_skl_008_run_manifest_instruction_block_required() -> Result<()> {
 
 #[test]
 fn ut_skl_009_l3_promotion_metadata_is_visible_in_linted_operational_skills() -> Result<()> {
+    let auth_refresh_alibaba = lint_skill_directory(&repo_skill_dir("auth-refresh/alibaba")?)?;
+    ensure!(auth_refresh_alibaba.metadata.skill_version == DEFAULT_SOURCE_SKILL_VERSION);
+    ensure!(auth_refresh_alibaba.metadata.interaction_profile == "pty_interactive");
+    ensure!(auth_refresh_alibaba.metadata.model_profile == "browse_stable_low_cost");
+    ensure!(auth_refresh_alibaba.metadata.side_effect_class == "local_state");
+    ensure!(auth_refresh_alibaba.metadata.promotion_stage.as_deref() == Some("stable"));
+    ensure!(
+        auth_refresh_alibaba
+            .metadata
+            .worker_behavior_version
+            .as_deref()
+            == Some("auth-refresh/alibaba@2026.03.30-1+1.0.0")
+    );
+    ensure!(
+        auth_refresh_alibaba
+            .metadata
+            .gate_b_exact_slice_key
+            .as_deref()
+            == Some(
+                "auth-refresh/alibaba::alibaba::auth-refresh/alibaba@2026.03.30-1+1.0.0::2026.03.30-1"
+            )
+    );
+
+    let auth_refresh_1688 = lint_skill_directory(&repo_skill_dir("auth-refresh/1688")?)?;
+    ensure!(auth_refresh_1688.metadata.skill_version == DEFAULT_SOURCE_SKILL_VERSION);
+    ensure!(auth_refresh_1688.metadata.interaction_profile == "pty_interactive");
+    ensure!(auth_refresh_1688.metadata.model_profile == "browse_stable_low_cost");
+    ensure!(auth_refresh_1688.metadata.side_effect_class == "local_state");
+    ensure!(auth_refresh_1688.metadata.promotion_stage.as_deref() == Some("stable"));
+    ensure!(
+        auth_refresh_1688
+            .metadata
+            .worker_behavior_version
+            .as_deref()
+            == Some("auth-refresh/1688@2026.03.30-1+1.0.0")
+    );
+    ensure!(
+        auth_refresh_1688.metadata.gate_b_exact_slice_key.as_deref()
+            == Some("auth-refresh/1688::1688::auth-refresh/1688@2026.03.30-1+1.0.0::2026.03.30-1")
+    );
+
     let source_health = lint_skill_directory(&repo_skill_dir("source-health/fts")?)?;
+    ensure!(source_health.metadata.skill_version == DEFAULT_SOURCE_SKILL_VERSION);
     ensure!(source_health.metadata.promotion_stage.as_deref() == Some("stable"));
+    ensure!(source_health.metadata.model_profile == "browse_stable_low_cost");
+    ensure!(source_health.metadata.side_effect_class == "none");
     ensure!(source_health.metadata.source_structure_version.as_deref() == Some("fts-2026-03-30"));
     ensure!(
         source_health.metadata.worker_behavior_version.as_deref()
-            == Some("source-health/fts@1.0.0+1.0.0")
+            == Some("source-health/fts@2026.03.30-1+1.0.0")
     );
     ensure!(source_health.metadata.validator_overlay_version.as_deref() == Some("2026.03.30-1"));
     ensure!(source_health.metadata.gate_a_family_key.as_deref() == Some("source-health"));
     ensure!(
         source_health.metadata.gate_b_exact_slice_key.as_deref()
-            == Some("source-health/fts::fts::source-health/fts@1.0.0+1.0.0::2026.03.30-1")
+            == Some("source-health/fts::fts::source-health/fts@2026.03.30-1+1.0.0::2026.03.30-1")
     );
     ensure!(!source_health.metadata.gate_b_exact_slice_ready);
+
+    let source_health_alibaba = lint_skill_directory(&repo_skill_dir("source-health/alibaba")?)?;
+    ensure!(source_health_alibaba.metadata.skill_version == DEFAULT_SOURCE_SKILL_VERSION);
+    ensure!(source_health_alibaba.metadata.interaction_profile == "pty_interactive");
+    ensure!(source_health_alibaba.metadata.model_profile == "browse_stable_low_cost");
+    ensure!(source_health_alibaba.metadata.side_effect_class == "none");
+    ensure!(source_health_alibaba.metadata.promotion_stage.as_deref() == Some("stable"));
+    ensure!(
+        source_health_alibaba
+            .metadata
+            .worker_behavior_version
+            .as_deref()
+            == Some("source-health/alibaba@2026.03.30-1+1.0.0")
+    );
+    ensure!(
+        source_health_alibaba
+            .metadata
+            .gate_b_exact_slice_key
+            .as_deref()
+            == Some(
+                "source-health/alibaba::alibaba::source-health/alibaba@2026.03.30-1+1.0.0::2026.03.30-1"
+            )
+    );
 
     let validator = lint_skill_directory(&repo_skill_dir("validation/base")?)?;
     ensure!(validator.metadata.promotion_stage.as_deref() == Some("stable"));
@@ -225,11 +296,11 @@ fn ut_skl_010_non_behavior_affecting_changes_require_explicit_behavior_identity(
     let invalid_markdown = dir
         .read_skill_markdown()?
         .replace(
-            "worker_behavior_version: source-health/fts@1.0.0+1.0.0\n",
+            "worker_behavior_version: source-health/fts@2026.03.30-1+1.0.0\n",
             "",
         )
         .replace(
-            "gate_b_exact_slice_key: source-health/fts::fts::source-health/fts@1.0.0+1.0.0::2026.03.30-1\n",
+            "gate_b_exact_slice_key: source-health/fts::fts::source-health/fts@2026.03.30-1+1.0.0::2026.03.30-1\n",
             "",
         )
         .replace("version_change_affects_behavior: true\n", "version_change_affects_behavior: false\n");
