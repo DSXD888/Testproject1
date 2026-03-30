@@ -1,14 +1,16 @@
 #![forbid(unsafe_code)]
 
+#[path = "hardening.rs"]
+mod hardening;
+
 use anyhow::Result;
-use nix::fcntl::{FcntlArg, FdFlag, fcntl};
 use nix::unistd::{Pid, getpgid, getsid};
 use portable_pty::{
     Child, CommandBuilder, MasterPty, NativePtySystem, PtySize, PtySystem, SlavePty,
 };
 use std::collections::BTreeMap;
 use std::ffi::{OsStr, OsString};
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufReader, Read, Write};
 use std::os::fd::RawFd;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -159,7 +161,7 @@ pub struct SpawnOptions {
 impl Default for SpawnOptions {
     fn default() -> Self {
         Self {
-            geometry: PtyGeometry::default(),
+            geometry: hardening::default_headless_geometry(),
             browser_viewport: BrowserViewport::default(),
             spawn_path: SpawnPath::resolve(true),
         }
@@ -205,6 +207,7 @@ pub struct PtyPairHandle {
 
 impl PtyPairHandle {
     pub fn open(geometry: PtyGeometry) -> Result<Self, PtySessionError> {
+        let geometry = hardening::normalize_headless_geometry(geometry);
         let pty_system = NativePtySystem::default();
         let pair = pty_system
             .openpty(geometry.to_pty_size())
@@ -231,17 +234,7 @@ impl PtyPairHandle {
     }
 
     pub fn master_has_cloexec(&self) -> Result<bool, PtySessionError> {
-        let Some(master_fd) = self.master_fd else {
-            return Ok(false);
-        };
-        let flags = fcntl(master_fd, FcntlArg::F_GETFD).map_err(|error| {
-            PtySessionError::AgentRunFailed {
-                detail: format!("failed to inspect master fd flags: {error}"),
-                runtime_ids: None,
-            }
-        })?;
-        let fd_flags = FdFlag::from_bits_truncate(flags);
-        Ok(fd_flags.contains(FdFlag::FD_CLOEXEC))
+        hardening::master_has_cloexec(self.master_fd, None)
     }
 
     fn into_parts(
@@ -283,7 +276,8 @@ impl LivePtyControl {
     }
 
     pub fn resize(&self, cols: u16, rows: u16) -> Result<(), PtySessionError> {
-        resize_pty(&self.master, cols, rows, None)
+        let _ = hardening::resize_for_operator(&self.master, cols, rows, None)?;
+        Ok(())
     }
 }
 
@@ -306,6 +300,7 @@ impl PtySession {
                 runtime_ids: None,
             })?;
         let master = Arc::new(Mutex::new(master));
+        hardening::apply_spawn_geometry(&master, geometry)?;
         let writer = Arc::new(Mutex::new(writer));
 
         let child = slave
@@ -346,19 +341,12 @@ impl PtySession {
     }
 
     pub fn read_line(&mut self) -> Result<String, PtySessionError> {
-        let mut buffer = String::new();
-        self.reader
-            .read_line(&mut buffer)
-            .map_err(|error| PtySessionError::AgentRunFailed {
-                detail: format!("failed reading PTY output: {error}"),
-                runtime_ids: Some(self.runtime_ids),
-            })?;
-        Ok(buffer)
+        hardening::read_line(&mut self.reader, self.runtime_ids)
     }
 
     pub fn resize(&mut self, cols: u16, rows: u16) -> Result<(), PtySessionError> {
-        resize_pty(&self.master, cols, rows, Some(self.runtime_ids))?;
-        self.geometry = PtyGeometry::new(cols, rows);
+        self.geometry =
+            hardening::resize_for_operator(&self.master, cols, rows, Some(self.runtime_ids))?;
         Ok(())
     }
 
@@ -409,27 +397,6 @@ fn write_to_pty(
             runtime_ids,
         })?;
     drop(writer);
-    Ok(())
-}
-
-fn resize_pty(
-    master: &Arc<Mutex<Box<dyn MasterPty + Send>>>,
-    cols: u16,
-    rows: u16,
-    runtime_ids: Option<RuntimeIds>,
-) -> Result<(), PtySessionError> {
-    let next_geometry = PtyGeometry::new(cols, rows);
-    master
-        .lock()
-        .map_err(|_| PtySessionError::AgentRunFailed {
-            detail: "PTY master lock poisoned".to_owned(),
-            runtime_ids,
-        })?
-        .resize(next_geometry.to_pty_size())
-        .map_err(|error| PtySessionError::AgentRunFailed {
-            detail: format!("failed resizing PTY: {error:#}"),
-            runtime_ids,
-        })?;
     Ok(())
 }
 
