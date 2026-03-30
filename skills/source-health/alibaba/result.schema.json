@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "source_id",
+    "health_state",
+    "checks"
+  ],
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "const": "alibaba"
+    },
+    "health_state": {
+      "type": "string"
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "reachability",
+        "fingerprint",
+        "auth_state",
+        "locale",
+        "challenge_rate",
+        "minimal_extraction"
+      ],
+      "properties": {
+        "reachability": { "type": "string" },
+        "fingerprint": { "type": "string" },
+        "auth_state": { "type": "string" },
+        "locale": { "type": "string" },
+        "challenge_rate": { "type": "string" },
+        "minimal_extraction": { "type": "string" }
+      }
+    },
+    "sample_item_count": {
+      "type": "integer"
+    },
+    "failure_classification": {
+      "type": "string"
+    }
+  }
+}

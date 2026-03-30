@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::thread;
 use std::time::Duration;
 
 #[cfg(not(test))]
@@ -118,6 +117,24 @@ pub struct CompletionState {
     pub verdict_recorded: bool,
 }
 
+impl CompletionState {
+    pub const fn next_unmet_requirement(self) -> Option<&'static str> {
+        if !self.child_exit_observed {
+            Some("child_exit_observed")
+        } else if !self.pty_drained {
+            Some("pty_drained")
+        } else if !self.descendants_clean {
+            Some("descendants_clean")
+        } else if !self.result_validated {
+            Some("result_validated")
+        } else if !self.verdict_recorded {
+            Some("verdict_recorded")
+        } else {
+            None
+        }
+    }
+}
+
 impl SessionReaper {
     #[allow(dead_code)]
     pub fn new(artifact_root: &Path) -> Result<Self> {
@@ -180,16 +197,7 @@ impl SessionReaper {
         if request.send_pty_interrupt {
             action_log.push("pty-ctrl-c".to_owned());
         }
-        let mut observed_descendants = request.observed_descendant_pids.clone();
-        observed_descendants.extend(
-            request
-                .root_pid
-                .map(Self::descendant_pids)
-                .transpose()?
-                .unwrap_or_default(),
-        );
-        observed_descendants.sort_unstable();
-        observed_descendants.dedup();
+        let observed_descendants = Self::cleanup_targets(request)?;
 
         if Self::scan_survivors(request.process_group_id, &observed_descendants)?.is_empty() {
             return self.write_cleanup_outcome(
@@ -383,11 +391,21 @@ impl SessionReaper {
     }
 
     pub const fn completion_gate(state: CompletionState) -> bool {
-        state.child_exit_observed
-            && state.pty_drained
-            && state.descendants_clean
-            && state.result_validated
-            && state.verdict_recorded
+        state.next_unmet_requirement().is_none()
+    }
+
+    fn cleanup_targets(request: &CleanupRequest) -> Result<Vec<u32>> {
+        let mut observed_descendants = request.observed_descendant_pids.clone();
+        observed_descendants.extend(
+            request
+                .root_pid
+                .map(Self::descendant_pids)
+                .transpose()?
+                .unwrap_or_default(),
+        );
+        observed_descendants.sort_unstable();
+        observed_descendants.dedup();
+        Ok(observed_descendants)
     }
 
     fn poll_for_survivors(
@@ -401,7 +419,7 @@ impl SessionReaper {
             if survivors.is_empty() || started.elapsed() >= timeout {
                 return Ok(survivors);
             }
-            thread::sleep(Duration::from_millis(25));
+            std::thread::park_timeout(Duration::from_millis(25));
         }
     }
 
@@ -482,13 +500,7 @@ impl SessionReaper {
         Ok(CleanupOutcome {
             cleanup_verdict,
             action_log: action_log.to_vec(),
-            leaked_pids: payload["leakedPids"]
-                .as_array()
-                .expect("leaked pids array")
-                .iter()
-                .filter_map(serde_json::Value::as_u64)
-                .filter_map(|pid| u32::try_from(pid).ok())
-                .collect(),
+            leaked_pids: leaked_pids.to_vec(),
             report_path,
             error_code,
         })

@@ -1,0 +1,9 @@
+expected_interaction_profile: pty_interactive
+expected_side_effect_class: local_state
+required_result_fields:
+  - source_id
+  - authenticated
+  - auth_state_handle
+  - challenge_detected
+  - locale_state
+  - currency_state

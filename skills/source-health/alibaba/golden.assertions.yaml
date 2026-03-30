@@ -1,0 +1,12 @@
+expected_interaction_profile: pty_interactive
+required_checks:
+  - reachability
+  - fingerprint
+  - auth_state
+  - locale
+  - challenge_rate
+  - minimal_extraction
+required_result_fields:
+  - source_id
+  - health_state
+  - checks

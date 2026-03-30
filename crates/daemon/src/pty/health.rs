@@ -19,6 +19,16 @@ impl HealthIssue {
             Self::HostResourceExhausted => "HOST_RESOURCE_EXHAUSTED",
         }
     }
+
+    #[allow(dead_code)]
+    pub const fn inventory() -> [Self; 4] {
+        [
+            Self::AgentStalled,
+            Self::AgentAuthChallenge,
+            Self::HostSleepInterrupted,
+            Self::HostResourceExhausted,
+        ]
+    }
 }
 
 #[allow(dead_code)]
@@ -116,6 +126,24 @@ pub const fn detect_resource_pressure(resources: HostResources) -> Option<Health
         Some(HealthIssue::HostResourceExhausted)
     } else {
         None
+    }
+}
+
+#[allow(dead_code)]
+pub const fn resolve_health_issue(
+    stall_issue: Option<HealthIssue>,
+    auth_issue: Option<HealthIssue>,
+    sleep_issue: Option<HealthIssue>,
+    resource_issue: Option<HealthIssue>,
+) -> Option<HealthIssue> {
+    if let Some(issue) = sleep_issue {
+        Some(issue)
+    } else if let Some(issue) = resource_issue {
+        Some(issue)
+    } else if let Some(issue) = auth_issue {
+        Some(issue)
+    } else {
+        stall_issue
     }
 }
 

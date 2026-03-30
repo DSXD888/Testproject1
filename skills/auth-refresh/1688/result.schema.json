@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "source_id",
+    "authenticated",
+    "auth_state_handle",
+    "challenge_detected",
+    "locale_state",
+    "currency_state"
+  ],
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "const": "1688"
+    },
+    "authenticated": {
+      "type": "boolean"
+    },
+    "auth_state_handle": {
+      "type": "string"
+    },
+    "challenge_detected": {
+      "type": "boolean"
+    },
+    "locale_state": {
+      "type": "string"
+    },
+    "currency_state": {
+      "type": "string"
+    },
+    "expires_at": {
+      "type": "string"
+    }
+  }
+}
