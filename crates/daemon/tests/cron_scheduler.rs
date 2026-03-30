@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::duplicate_mod)]
 
 #[path = "../src/agents/arbiter.rs"]
 #[allow(dead_code)]
@@ -19,6 +20,14 @@ mod skills_support;
 #[path = "../src/sources/registry.rs"]
 #[allow(dead_code)]
 mod sources_impl;
+mod support {
+    pub mod db {
+        pub use crate::db_support::*;
+    }
+
+    #[path = "cron.rs"]
+    pub mod cron;
+}
 
 mod agents {
     pub mod arbiter {
@@ -29,12 +38,6 @@ mod agents {
 mod jobs {
     pub mod runner {
         pub use crate::runner_impl::*;
-    }
-}
-
-mod support {
-    pub mod db {
-        pub use crate::db_support::*;
     }
 }
 
@@ -61,6 +64,7 @@ mod tests {
         CanaryResult, CircuitState, DEFAULT_SOURCE_SKILL_VERSION, HealthState, SourceJobClass,
         SourceRegistry, SourceRuntimeState, persist_runtime_state,
     };
+    use crate::support::cron::CronSchedulerHarness;
 
     fn ts(
         year: i32,
@@ -147,6 +151,28 @@ mod tests {
             definitions["alibaba::source-health/alibaba"].next_run_at
                 == Some(ts(2026, 3, 25, 4, 30, 0)?),
             "L3-T-cron_scheduler-001 unexpected Alibaba canary schedule"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn cron_support_harness_runs_due_sweep_for_seeded_definition() -> Result<()> {
+        let mut harness = CronSchedulerHarness::new(ts(2026, 3, 25, 4, 20, 0)?)?;
+        harness.seed_definition(
+            "fts",
+            "procurement-ingestion/fts",
+            DEFAULT_SOURCE_SKILL_VERSION,
+            "0 15 4 * * *",
+            true,
+        )?;
+
+        let dispatches = harness.run_due_sweep()?;
+        ensure!(
+            dispatches.iter().any(|dispatch| {
+                dispatch.definition_key == "fts::procurement-ingestion/fts"
+                    && dispatch.skill_version == DEFAULT_SOURCE_SKILL_VERSION
+            }),
+            "cron support harness should surface the seeded due definition"
         );
         Ok(())
     }

@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::duplicate_mod)]
 
 use std::fs;
 use std::path::{Path, PathBuf};

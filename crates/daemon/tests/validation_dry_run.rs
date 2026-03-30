@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::duplicate_mod)]
 
 #[path = "../src/agents/contracts.rs"]
 #[allow(dead_code)]
@@ -12,16 +13,18 @@ mod executor_impl;
 #[path = "../src/jobs/runner.rs"]
 #[allow(dead_code)]
 mod runner_impl;
+mod support {
+    pub mod db {
+        pub use crate::db_support::*;
+    }
+
+    #[path = "validation.rs"]
+    pub mod validation;
+}
 
 mod jobs {
     pub mod runner {
         pub use crate::runner_impl::*;
-    }
-}
-
-mod support {
-    pub mod db {
-        pub use crate::db_support::*;
     }
 }
 
@@ -33,7 +36,6 @@ mod tests {
     use serde_json::json;
 
     use crate::contracts_impl::{ValidationDisposition, ValidationOutcome};
-    use crate::db_support::StateDb;
     use crate::executor_impl::{
         self, PersistValidationVerdictRequest, ValidationHandlingMode, ValidationTrustState,
         ValidatorBasisSufficiency, ValidatorEnqueueRequest, ValidatorIssue,
@@ -42,6 +44,10 @@ mod tests {
         rollup_process_validation_state,
     };
     use crate::runner_impl::{JobRunner, PersistSuccessRequest};
+    use crate::support::db::StateDb;
+    use crate::support::validation::{
+        DaemonEvidenceAppendix, OutcomeClass, RunManifestFrontmatter, ValidatorHarness,
+    };
 
     fn repo_root() -> Result<PathBuf> {
         Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -401,6 +407,70 @@ mod tests {
                 enqueue_validator_sub_job(&repo_root()?, &mut state_db, &runner, &request)?;
             ensure!(enqueued.kickoff_packet.corpus_provenance_tag.as_deref() == Some(tag));
         }
+        Ok(())
+    }
+
+    #[test]
+    fn validation_support_harness_tracks_linkage_scratch_roots_and_key_parity() -> Result<()> {
+        let harness = ValidatorHarness::new()?;
+        harness.seed_process("process-support")?;
+        harness.seed_job("worker-support")?;
+        harness.set_validation_required("worker-support", true)?;
+        harness.assert_validation_required("worker-support", true)?;
+        harness.link_validation_verdict(
+            "worker-support",
+            "validator-support",
+            "verdict-support",
+        )?;
+        harness.assert_validation_linkage("worker-support", "verdict-support")?;
+
+        let scratch_root = harness.scratch_root("run-support")?;
+        harness.assert_scratch_root("run-support", &scratch_root)?;
+        harness.set_process_validation_state("process-support", "validated")?;
+        harness.assert_process_validation_state("process-support", "validated")?;
+
+        ValidatorHarness::assert_frontmatter_key_parity(&RunManifestFrontmatter {
+            manifest_version: 1,
+            skill_id: "skill/fts-ingestion".to_owned(),
+            skill_version: "2026.03.30".to_owned(),
+            job_id: "job-123".to_owned(),
+            session_id: "session-123".to_owned(),
+            execution_mode: "contract".to_owned(),
+            started_at: "2026-03-30T15:00:00Z".to_owned(),
+            completed_at: "2026-03-30T15:01:00Z".to_owned(),
+            outcome_class: OutcomeClass::Failed,
+            items_processed: 10,
+            items_skipped: 1,
+            items_failed: 0,
+            warnings_count: 1,
+            agent_claimed_pages_visited: 4,
+            agent_claimed_source_url: "https://www.find-tender.service.gov.uk".to_owned(),
+            agent_claimed_fingerprint_state: "matched".to_owned(),
+            agent_claimed_locale_state: "en-GB".to_owned(),
+            agent_claimed_currency_state: "GBP".to_owned(),
+            agent_narrative_missing: false,
+        })?;
+        ValidatorHarness::assert_appendix_key_parity(&DaemonEvidenceAppendix {
+            observed_url_chain: vec!["https://www.find-tender.service.gov.uk".to_owned()],
+            observed_page_kind_sequence: vec!["listing".to_owned()],
+            daemon_observed_fingerprint_state: "matched".to_owned(),
+            daemon_observed_locale: "en-GB".to_owned(),
+            daemon_observed_currency: "GBP".to_owned(),
+            auth_challenge_events: vec!["none".to_owned()],
+            locator_fallback_depth: 0,
+            basis_sufficiency: "high".to_owned(),
+            page_fingerprint_hash: Some("fingerprint-sha256".to_owned()),
+            auth_challenge_detected: false,
+            extraction_fill_rate_bps: Some(9_250),
+            checkpoint_count: 1,
+            byte_count_compressed: Some(1_024),
+            validator_rubric_hash: Some("rubric-sha256".to_owned()),
+            drift_delta_json: json!({"fingerprint_delta_bps": 125}),
+            result_item_count: 1,
+            oqg_anomaly_summary: vec!["duplicate_rate:none".to_owned()],
+            representative_item_sample: json!({"item":"sample"}),
+            artifact_refs: vec!["results/result.json".to_owned()],
+        })?;
         Ok(())
     }
 }

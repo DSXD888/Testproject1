@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::duplicate_mod)]
 
 #[path = "../src/agents/contracts.rs"]
 #[allow(dead_code)]
@@ -12,16 +13,18 @@ mod executor_impl;
 #[path = "../src/jobs/runner.rs"]
 #[allow(dead_code)]
 mod runner_impl;
+mod support {
+    pub mod db {
+        pub use crate::db_support::*;
+    }
+
+    #[path = "validation.rs"]
+    pub mod validation;
+}
 
 mod jobs {
     pub mod runner {
         pub use crate::runner_impl::*;
-    }
-}
-
-mod support {
-    pub mod db {
-        pub use crate::db_support::*;
     }
 }
 
@@ -42,6 +45,7 @@ mod tests {
         load_pending_retroactive_backlog, persist_validation_verdict, retroactive_recovery_summary,
     };
     use crate::runner_impl::JobRunner;
+    use crate::support::validation::RetroBacklogFixture;
 
     fn repo_root() -> Result<PathBuf> {
         Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -110,12 +114,18 @@ mod tests {
         operator_reviewed: bool,
         enforcement_ready: bool,
     ) -> RetroactiveBacklogMetadata {
-        RetroactiveBacklogMetadata {
-            high_value_opportunity: high_value,
+        let spec = RetroBacklogFixture::metadata(
+            observed_at,
+            high_value,
             operator_reviewed,
             enforcement_ready,
+        );
+        RetroactiveBacklogMetadata {
+            high_value_opportunity: spec.high_value_opportunity,
+            operator_reviewed: spec.operator_reviewed,
+            enforcement_ready: spec.enforcement_ready,
             trust_state: ValidationTrustState::Unverified,
-            observed_at: observed_at.to_owned(),
+            observed_at: spec.observed_at,
         }
     }
 
@@ -290,14 +300,10 @@ mod tests {
             .iter()
             .map(|item| item.worker_job_id.clone())
             .collect::<Vec<_>>();
-        ensure!(
-            ids == vec![
-                "worker-hv".to_owned(),
-                "worker-op".to_owned(),
-                "worker-enf".to_owned(),
-                "worker-recent".to_owned(),
-            ]
-        );
+        RetroBacklogFixture::assert_priority_order(
+            &ids,
+            &["worker-hv", "worker-op", "worker-enf", "worker-recent"],
+        )?;
         Ok(())
     }
 

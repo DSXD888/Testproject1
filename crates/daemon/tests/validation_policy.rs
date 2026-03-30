@@ -1,8 +1,10 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::duplicate_mod)]
 
 #[path = "../src/validation/policy.rs"]
 #[allow(dead_code)]
 mod policy_impl;
+mod support;
 
 mod tests {
     use std::collections::BTreeSet;
@@ -14,6 +16,11 @@ mod tests {
         DryRunLadderPhase, FULL_VALIDATION_BPS, SkillPromotionStage, SourceHealthState,
         ValidationPolicyConfig, ValidationPolicyContext, ValidationPolicyMode, ValidationSliceKey,
         ValidationTrigger, derive_dry_run_phase, evaluate_validation_policy,
+    };
+    use crate::support::validation::{
+        SourceHealthState as FixtureSourceHealthState, ValidationPolicyFixture,
+        ValidationPolicyMode as FixtureValidationPolicyMode,
+        ValidationTrigger as FixtureValidationTrigger,
     };
 
     fn config(mode: ValidationPolicyMode) -> ValidationPolicyConfig {
@@ -364,6 +371,22 @@ mod tests {
 
         ensure!(decision.validation_required);
         ensure!(detail["source"] == "operator_requested");
+        Ok(())
+    }
+
+    #[test]
+    fn validation_policy_support_fixture_applies_runtime_like_inputs() -> Result<()> {
+        let fixture = ValidationPolicyFixture::sample(FixtureValidationPolicyMode::Skip)
+            .with_operator_requested()
+            .with_source_health(FixtureSourceHealthState::Amber);
+        let decision = fixture.evaluate();
+
+        ensure!(decision.validation_required);
+        ensure!(
+            decision
+                .trigger_hits
+                .contains(&FixtureValidationTrigger::OperatorRequested)
+        );
         Ok(())
     }
 }

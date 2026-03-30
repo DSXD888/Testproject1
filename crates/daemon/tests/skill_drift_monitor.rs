@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::duplicate_mod)]
 
 #[path = "support/db.rs"]
 mod db_support;
@@ -13,6 +14,7 @@ mod skills_support;
 #[path = "../src/sources/registry.rs"]
 #[allow(dead_code)]
 mod sources_impl;
+mod support;
 
 mod tests {
     use std::fs;
@@ -29,6 +31,10 @@ mod tests {
         CanaryResult, CircuitState, DEFAULT_BREAKER_CHALLENGE_THRESHOLD,
         DEFAULT_BREAKER_COOLDOWN_MINUTES, DEFAULT_SOURCE_HEALTH_CADENCE_MINUTES, HealthState,
         SourceRegistry, SourceRuntimeState, persist_runtime_state,
+    };
+    use crate::support::source_health::{
+        CanaryOutcomeKind, CanaryResult as FixtureCanaryResult, CircuitBreakerFixture,
+        CircuitEvent, CircuitState as FixtureCircuitState, SourceHealthFixture,
     };
 
     fn seed_source(conn: &Connection, source_id: &str, kind: &str) -> Result<()> {
@@ -459,6 +465,37 @@ mod tests {
                 "L3-T-skill_drift_monitor-006 expected no synthetic zero default for {relative}"
             );
         }
+        Ok(())
+    }
+
+    #[test]
+    fn source_health_support_fixtures_cover_runtime_and_breaker_paths() -> Result<()> {
+        let canary_fixture = SourceHealthFixture::from_fixture("fts")?;
+        let canary_state = canary_fixture.run_canary(
+            "fts",
+            CanaryOutcomeKind::Failed("SOURCE_SOFT_BLOCKED".to_owned()),
+        )?;
+        ensure!(canary_state.last_canary_result == Some(FixtureCanaryResult::Failed));
+        ensure!(canary_state.last_error_code.as_deref() == Some("SOURCE_SOFT_BLOCKED"));
+
+        let breaker_fixture = CircuitBreakerFixture::from_fixture("alibaba")?;
+        let base = Utc::now();
+        for (offset_minutes, error_code) in [
+            (0, "AGENT_AUTH_CHALLENGE"),
+            (10, "SOURCE_SOFT_BLOCKED"),
+            (20, "SOURCE_CAPTCHA_BLOCKED"),
+        ] {
+            let _ = breaker_fixture.transition(
+                "alibaba",
+                CircuitEvent::ChallengeFailure(error_code.to_owned()),
+                base + Duration::minutes(offset_minutes),
+            )?;
+        }
+        breaker_fixture.assert_state(
+            "alibaba",
+            FixtureCircuitState::Open,
+            Some("SOURCE_CAPTCHA_BLOCKED"),
+        )?;
         Ok(())
     }
 }

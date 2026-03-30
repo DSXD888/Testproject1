@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::duplicate_mod)]
 
 #[path = "../src/agents/adapter.rs"]
 #[allow(dead_code)]
@@ -29,6 +30,7 @@ mod runner_impl;
 #[path = "../src/tracing/structured.rs"]
 #[allow(dead_code)]
 mod structured_impl;
+mod support;
 
 mod agents {
     pub mod adapter {
@@ -93,12 +95,6 @@ mod jobs {
     }
 }
 
-mod support {
-    pub mod db {
-        pub use crate::db_support::*;
-    }
-}
-
 mod tests {
     use anyhow::{Result, ensure};
     use serde_json::Value as JsonValue;
@@ -121,6 +117,7 @@ mod tests {
         CONTROL_PROTOCOL_RETENTION_DAYS, StructuredControlEventKind, StructuredControlEventRecord,
         StructuredProtocolEventKind, StructuredTrace, TraceIdentity, trace_contains_artifact_ref,
     };
+    use crate::support::telemetry::TelemetryProbe;
 
     fn sample_frontmatter(outcome_class: OutcomeClass) -> RunManifestFrontmatter {
         RunManifestFrontmatter {
@@ -233,6 +230,7 @@ mod tests {
             .collect()
     }
 
+    #[allow(dead_code)]
     fn sample_cron_status() -> CronStatusSnapshot {
         CronStatusSnapshot {
             definitions: vec![CronDefinitionStatus {
@@ -248,6 +246,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     fn sample_source_health_status() -> SourceHealthStatusSnapshot {
         SourceHealthStatusSnapshot {
             sources: vec![SourceHealthStatusEntry {
@@ -263,6 +262,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     fn sample_validation_status() -> ValidationStatusSnapshot {
         ValidationStatusSnapshot {
             validator_approval_rate_bps: 10_000,
@@ -279,6 +279,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     fn sample_resource_arbiter_status() -> ResourceArbiterStatusSnapshot {
         ResourceArbiterStatusSnapshot {
             browser_slots_limit: 2,
@@ -880,7 +881,8 @@ mod tests {
 
     #[test]
     fn cron_status_snapshot_contract_is_read_only_and_explicit() -> Result<()> {
-        let value = serde_json::to_value(sample_cron_status())?;
+        let probe = TelemetryProbe::default();
+        let value = serde_json::to_value(probe.operational_status_snapshot().cron)?;
         ensure!(value["definitions"].is_array());
         ensure!(value["definitions"][0]["definitionKey"] == "fts::procurement-ingestion/fts");
         ensure!(value["definitions"][0]["nextRunAt"] == "2026-03-31T04:15:00Z");
@@ -889,7 +891,8 @@ mod tests {
 
     #[test]
     fn source_health_snapshot_contract_carries_breaker_state() -> Result<()> {
-        let value = serde_json::to_value(sample_source_health_status())?;
+        let probe = TelemetryProbe::default();
+        let value = serde_json::to_value(probe.operational_status_snapshot().source_health)?;
         ensure!(value["sources"][0]["sourceId"] == "fts");
         ensure!(value["sources"][0]["healthState"] == "green");
         ensure!(value["sources"][0]["circuitState"] == "closed");
@@ -899,12 +902,14 @@ mod tests {
 
     #[test]
     fn validation_and_arbiter_snapshot_contracts_are_explicit() -> Result<()> {
-        let validation = serde_json::to_value(sample_validation_status())?;
+        let probe = TelemetryProbe::default();
+        let snapshot = probe.operational_status_snapshot();
+        let validation = serde_json::to_value(snapshot.validation)?;
         ensure!(validation["validatorHealthState"] == "healthy");
         ensure!(validation["validatorJobCount"] == 3);
         ensure!(validation["pendingBacklogCount"] == 0);
 
-        let arbiter = serde_json::to_value(sample_resource_arbiter_status())?;
+        let arbiter = serde_json::to_value(snapshot.resource_arbiter)?;
         ensure!(arbiter["browserSlotsLimit"] == 2);
         ensure!(arbiter["browserSlotsInUse"] == 1);
         ensure!(arbiter["recentEvents"][0]["kind"] == "grant");

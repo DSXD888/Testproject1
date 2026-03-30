@@ -1,7 +1,14 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::duplicate_mod)]
 
+pub mod cron;
 pub mod db;
 pub mod process;
+pub mod resources;
+pub mod source_health;
+pub mod status_router;
+pub mod telemetry;
+pub mod validation;
 
 use std::path::PathBuf;
 

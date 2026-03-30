@@ -1,7 +1,9 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::duplicate_mod)]
 
 #[path = "../src/agents/arbiter.rs"]
 mod arbiter_impl;
+mod support;
 
 mod tests {
     use anyhow::{Result, anyhow, ensure};
@@ -10,6 +12,7 @@ mod tests {
         AdmissionPriority, AdmissionRequest, ArbiterDecision, ArbiterEventKind, DenialReason,
         ReleaseCause, ResourceArbiter, ResourceBudgets, SourceKind, SourceLaneRequest,
     };
+    use crate::support::resources::{AdmissionOutcome, ResourceArbiterFixture};
 
     fn browser_request(job_id: &str, source_id: &str) -> AdmissionRequest {
         AdmissionRequest {
@@ -199,6 +202,32 @@ mod tests {
             .ok_or_else(|| anyhow!("L3-T-job_claim-009 expected release event"))?;
         ensure!(last_event.kind == ArbiterEventKind::Release);
         ensure!(last_event.job_id == "job-cap-1");
+        Ok(())
+    }
+
+    #[test]
+    fn resource_support_fixture_captures_grant_deny_release_events() -> Result<()> {
+        let mut fixture = ResourceArbiterFixture::with_defaults(2, 4);
+        fixture.seed_source_lane("fts", 1);
+
+        let first = fixture.admit("procurement_ingestion", "fts", true, false);
+        let second = fixture.admit("procurement_ingestion", "fts", true, false);
+
+        let granted_job_id = match first {
+            AdmissionOutcome::Granted(job_id) => job_id,
+            AdmissionOutcome::Denied(reason) => {
+                return Err(anyhow!(
+                    "resource support fixture unexpectedly denied first request: {reason}"
+                ));
+            }
+        };
+        ensure!(matches!(second, AdmissionOutcome::Denied(_)));
+
+        fixture.release(&granted_job_id)?;
+        let events = fixture.captured_events();
+        ensure!(events.iter().any(|event| event.kind == "grant"));
+        ensure!(events.iter().any(|event| event.kind == "deny"));
+        ensure!(events.iter().any(|event| event.kind == "release"));
         Ok(())
     }
 }

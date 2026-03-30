@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::duplicate_mod)]
 
 #[path = "../src/agents/contracts.rs"]
 #[allow(dead_code)]
@@ -16,16 +17,18 @@ mod policy_impl;
 #[path = "../src/jobs/runner.rs"]
 #[allow(dead_code)]
 mod runner_impl;
+mod support {
+    pub mod db {
+        pub use crate::db_support::*;
+    }
+
+    #[path = "validation.rs"]
+    pub mod validation;
+}
 
 mod jobs {
     pub mod runner {
         pub use crate::runner_impl::*;
-    }
-}
-
-mod support {
-    pub mod db {
-        pub use crate::db_support::*;
     }
 }
 
@@ -38,7 +41,6 @@ mod tests {
     use rusqlite::{Connection, params};
     use serde_json::json;
 
-    use crate::db_support::StateDb;
     use crate::executor_impl::VALIDATOR_JOB_KIND;
     use crate::executor_impl::{
         ValidationBlackoutIncident, ValidationCanaryCase, ValidationHealthState,
@@ -53,6 +55,8 @@ mod tests {
         evaluate_validation_policy_with_blind_demotion,
     };
     use crate::runner_impl::JobRunner;
+    use crate::support::db::StateDb;
+    use crate::support::validation::SyntheticCanaryFixture;
 
     fn repo_root() -> Result<PathBuf> {
         Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -108,7 +112,7 @@ mod tests {
             drift_delta_json: json!({"fingerprint_delta_bps": 125}),
             oqg_anomaly_summary: vec!["duplicate_rate:low".to_owned()],
             representative_item_sample: json!({"process_id":"process-001","item":"sample"}),
-            corpus_provenance_tag: Some("clean_real".to_owned()),
+            corpus_provenance_tag: Some(SyntheticCanaryFixture::corpus_tag().to_owned()),
             purpose: ValidatorJobPurpose::LiveValidation,
             canary_case: None,
             retroactive_backlog: None,
@@ -117,7 +121,7 @@ mod tests {
 
     fn known_good_case() -> ValidationCanaryCase {
         ValidationCanaryCase {
-            case_id: "known-good".to_owned(),
+            case_id: SyntheticCanaryFixture::known_good_case_id().to_owned(),
             expected_verdict: Some(ValidatorVerdict::Approved),
             expected_basis_sufficiency: ValidatorBasisSufficiency::High,
         }
@@ -125,7 +129,7 @@ mod tests {
 
     fn known_bad_case() -> ValidationCanaryCase {
         ValidationCanaryCase {
-            case_id: "known-bad".to_owned(),
+            case_id: SyntheticCanaryFixture::known_bad_case_id().to_owned(),
             expected_verdict: Some(ValidatorVerdict::Rejected),
             expected_basis_sufficiency: ValidatorBasisSufficiency::High,
         }
@@ -133,7 +137,7 @@ mod tests {
 
     fn insufficient_basis_case() -> ValidationCanaryCase {
         ValidationCanaryCase {
-            case_id: "known-insufficient-basis".to_owned(),
+            case_id: SyntheticCanaryFixture::insufficient_basis_case_id().to_owned(),
             expected_verdict: None,
             expected_basis_sufficiency: ValidatorBasisSufficiency::Low,
         }
