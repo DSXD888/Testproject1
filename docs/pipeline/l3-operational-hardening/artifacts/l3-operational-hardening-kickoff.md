@@ -32,8 +32,8 @@ Layer 3 builds on **Layer 0** (SQLite schema, intelligence pipeline, gold set, e
 ```
 macro_start_session(
   project_key="/Users/alinaaitova/Desktop/Testproject1",
-  program="claude-code",
-  model="claude-opus-4-6",
+  program="l3-hardening-executor",
+  model="<your-model>",
   task_description="L3 Operational Hardening implementation"
 )
 ```
@@ -43,8 +43,9 @@ macro_start_session(
 ensure_project(human_key="/Users/alinaaitova/Desktop/Testproject1")
 register_agent(
   project_key="/Users/alinaaitova/Desktop/Testproject1",
-  program="claude-code",
-  model="claude-opus-4-6"
+  program="l3-hardening-executor",
+  model="<your-model>",
+  task_description="L3 Operational Hardening implementation"
 )
 ```
 

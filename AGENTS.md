@@ -177,8 +177,6 @@ If you aren't 100% sure how to use a third-party library, **SEARCH ONLINE** to f
 
 A mail-like layer that lets coding agents coordinate asynchronously via MCP tools and resources. Provides identities, inbox/outbox, searchable threads, and advisory file reservations with human-auditable artifacts in Git.
 
-**First action in every session:** Run `macro_start_session(project_key="/Users/alinaaitova/Desktop/Testproject1", program="claude-code", model="claude-opus-4-6", task_description="<your task>")` before any other work. No exceptions. You are invisible to the swarm until you register.
-
 ### Why It's Useful
 
 - **Prevents conflicts:** Explicit file reservations (leases) for files/globs
