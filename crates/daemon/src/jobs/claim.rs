@@ -1,5 +1,10 @@
 #![forbid(unsafe_code)]
 
+use std::path::{Path, PathBuf};
+use std::sync::mpsc;
+use std::thread::{self, JoinHandle};
+use std::time::Duration;
+
 use anyhow::{Context, Result, ensure};
 use chrono::{DateTime, TimeDelta, Utc};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
@@ -8,6 +13,51 @@ use serde_json::Value;
 use super::ClaimedJob;
 
 const DEFAULT_WORKFLOW_JOB_LEASE_SECONDS: i64 = 300;
+const DEFAULT_WORKFLOW_JOB_HEARTBEAT_SECONDS: u64 = 60;
+
+pub struct JobLeaseHeartbeat {
+    stop_tx: Option<mpsc::Sender<()>>,
+    join_handle: Option<JoinHandle<()>>,
+}
+
+impl JobLeaseHeartbeat {
+    #[must_use]
+    pub fn start(state_db_path: PathBuf, job_id: String) -> Self {
+        let (stop_tx, stop_rx) = mpsc::channel();
+        let join_handle = thread::spawn(move || {
+            loop {
+                match stop_rx
+                    .recv_timeout(Duration::from_secs(DEFAULT_WORKFLOW_JOB_HEARTBEAT_SECONDS))
+                {
+                    Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                    Err(mpsc::RecvTimeoutError::Timeout) => {
+                        let _ = renew_job_lease(&state_db_path, &job_id, Utc::now());
+                    }
+                }
+            }
+        });
+
+        Self {
+            stop_tx: Some(stop_tx),
+            join_handle: Some(join_handle),
+        }
+    }
+
+    fn stop(&mut self) {
+        if let Some(stop_tx) = self.stop_tx.take() {
+            let _ = stop_tx.send(());
+        }
+        if let Some(join_handle) = self.join_handle.take() {
+            let _ = join_handle.join();
+        }
+    }
+}
+
+impl Drop for JobLeaseHeartbeat {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ClaimableJobRow {
@@ -131,6 +181,25 @@ fn apply_claim(
         updated == 1,
         "workflow job {job_id} was not claimed atomically"
     );
+    Ok(())
+}
+
+fn renew_job_lease(state_db_path: &Path, job_id: &str, now: DateTime<Utc>) -> Result<()> {
+    let conn = Connection::open(state_db_path)
+        .with_context(|| format!("opening SQLite database {}", state_db_path.display()))?;
+    conn.execute(
+        "\
+        UPDATE workflow_jobs
+        SET lease_expires_at = ?1
+        WHERE id = ?2
+          AND status = 'running'
+          AND completed_at IS NULL
+          AND lease_owner IS NOT NULL
+          AND lease_expires_at IS NOT NULL
+        ",
+        params![lease_deadline(now).to_rfc3339(), job_id],
+    )
+    .with_context(|| format!("renewing workflow job lease for {job_id}"))?;
     Ok(())
 }
 

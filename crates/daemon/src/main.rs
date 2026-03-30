@@ -106,7 +106,8 @@ use ipc::handshake::{
     ActiveSessions, HandshakeContext, HealthState, LifecycleFrame, LifecyclePhase,
 };
 use jobs::runner::{
-    FreshnessState, JobRunner, ObsoleteJobRequest, allocate_stage_run_id, set_stage_head_freshness,
+    FreshnessState, JobLeaseHeartbeat, JobRunner, ObsoleteJobRequest, allocate_stage_run_id,
+    set_stage_head_freshness, start_job_lease_heartbeat,
 };
 use nix::unistd::{Pid, getpgid, getsid};
 use prompt::renderer::{PromptRenderer, PromptRendererInput};
@@ -1241,6 +1242,7 @@ async fn execute_skill_session(
         )
         .as_bytes(),
     );
+    let _lease_heartbeat = claimed_job_lease_heartbeat(runtime, job_id)?;
 
     match mode {
         ExecutionMode::Pty => {
@@ -1267,6 +1269,38 @@ async fn execute_skill_session(
             .await
         }
     }
+}
+
+fn claimed_job_lease_heartbeat(
+    runtime: &RuntimeBootstrap,
+    job_id: &str,
+) -> Result<Option<JobLeaseHeartbeat>> {
+    let is_claimed = runtime
+        .state_db
+        .connection()
+        .query_row(
+            "\
+            SELECT 1
+            FROM workflow_jobs
+            WHERE id = ?1
+              AND status = 'running'
+              AND lease_owner IS NOT NULL
+              AND completed_at IS NULL
+            ",
+            params![job_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()?
+        .is_some();
+    if !is_claimed {
+        return Ok(None);
+    }
+
+    let state_db_path = Path::new(&runtime.descriptor.state_root).join("state.db");
+    Ok(Some(start_job_lease_heartbeat(
+        state_db_path,
+        job_id.to_owned(),
+    )))
 }
 
 async fn execute_pty_skill_session(

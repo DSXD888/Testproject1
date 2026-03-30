@@ -3,6 +3,8 @@
 #[path = "claim.rs"]
 mod claim;
 
+use std::path::PathBuf;
+
 use anyhow::{Context, Result, anyhow, ensure};
 use chrono::Utc;
 use rusqlite::{Connection, OptionalExtension, params};
@@ -26,6 +28,8 @@ use contracts::{
 pub const SQLITE_WRITE_FAILED: &str = "SQLITE_WRITE_FAILED";
 pub const JOB_OBSOLETE: &str = "JOB_OBSOLETE";
 const DEFAULT_EXECUTOR_OWNER_ID: &str = "local-owner";
+
+pub use claim::JobLeaseHeartbeat;
 
 pub const CANONICAL_SCOPE_KINDS: [&str; 6] = [
     "process",
@@ -445,6 +449,14 @@ impl JobRunner {
             continuation_job_id: Some(request.rerun_job_id.clone()),
         })
     }
+}
+
+#[must_use]
+pub fn start_job_lease_heartbeat(
+    state_db_path: PathBuf,
+    job_id: impl Into<String>,
+) -> JobLeaseHeartbeat {
+    JobLeaseHeartbeat::start(state_db_path, job_id.into())
 }
 
 fn touch_executor(conn: &Connection, executor_id: &str) -> Result<()> {
