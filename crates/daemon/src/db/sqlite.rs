@@ -439,15 +439,16 @@ fn increment_commit_clock(tx: &Transaction<'_>) -> Result<i64> {
 }
 
 fn repo_root() -> Result<PathBuf> {
-    let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    crate_dir
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir
         .ancestors()
-        .nth(2)
+        .find(|candidate| candidate.join(L0_MIGRATION_PATH).is_file())
         .map(Path::to_path_buf)
         .ok_or_else(|| {
             anyhow!(
-                "failed to resolve repository root from {}",
-                crate_dir.display()
+                "failed to resolve repository root from {} using {}",
+                manifest_dir.display(),
+                L0_MIGRATION_PATH
             )
         })
 }
