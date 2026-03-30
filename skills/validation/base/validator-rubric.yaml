@@ -1,0 +1,47 @@
+rubric_version: 2026.03.30-1
+scope: generic_run_manifest_quality
+decision_axes:
+  - manifest_completeness
+  - agent_vs_daemon_agreement
+  - result_sample_consistency
+  - narrative_plausibility
+  - basis_sufficiency
+  - drift_delta_review
+
+verdict_rules:
+  approved:
+    requires:
+      - no_critical_disagreements
+      - appendix_evidence_sufficient
+      - narrative_sections_non_empty
+  rejected:
+    triggers:
+      - critical_identity_conflict
+      - critical_consistency_failure
+      - impossible_narrative_claim
+  flagged:
+    triggers:
+      - appendix_evidence_thin
+      - weird_but_valid_case
+      - unresolved_minor_disagreement
+
+basis_sufficiency_rules:
+  high:
+    requires:
+      - appendix_has_fingerprint_hash
+      - appendix_has_result_sample
+      - appendix_has_drift_delta
+  medium:
+    requires:
+      - appendix_has_partial_machine_evidence
+  low:
+    triggers:
+      - missing_appendix_evidence
+      - no_baseline_or_unknown_fingerprint
+      - insufficient_oqg_context
+
+excluded_concerns:
+  - domain_specific_business_scoring
+  - schema_validation_already_done_by_oqg
+  - raw_forensic_byte_replay
+  - enforcement_decision_side_effects

@@ -1,0 +1,29 @@
+cases:
+  - case_id: clean-real-001
+    expected_verdict: approved
+    expected_basis_sufficiency: high
+    required_issue_categories: []
+    provenance: clean-real
+  - case_id: mutated-bad-001
+    expected_verdict: rejected
+    expected_basis_sufficiency: high
+    required_issue_categories:
+      - consistency
+      - plausibility
+    provenance: mutated-bad
+  - case_id: weird-but-valid-001
+    expected_verdict: flagged
+    expected_basis_sufficiency: low
+    required_issue_categories:
+      - observation
+    provenance: weird-but-valid
+
+calibration_targets:
+  mutated_bad_catch_rate_min_bps: 9000
+  clean_real_approval_min_bps: 9500
+  false_positive_rate_max_bps: 500
+  wilson_confidence_bps: 9500
+
+cross_model_audit:
+  required: true
+  comparison_model_family: alternate-validator-family

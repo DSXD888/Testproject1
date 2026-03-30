@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "verdict",
+    "basis_sufficiency",
+    "enforcement_eligible",
+    "confidence_bps",
+    "issues",
+    "summary"
+  ],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["approved", "rejected", "flagged"]
+    },
+    "basis_sufficiency": {
+      "type": "string",
+      "enum": ["high", "medium", "low"]
+    },
+    "enforcement_eligible": {
+      "type": "boolean"
+    },
+    "confidence_bps": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "severity",
+          "category",
+          "description",
+          "evidence_refs"
+        ],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "major", "minor", "observation"]
+          },
+          "category": {
+            "type": "string",
+            "enum": ["identity", "completeness", "plausibility", "consistency", "freshness"]
+          },
+          "description": {
+            "type": "string"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "string"
+    }
+  }
+}
