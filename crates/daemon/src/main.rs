@@ -1063,6 +1063,7 @@ fn serve_handshake_service(runtime: &mut RuntimeBootstrap) -> Result<()> {
             JobsHandlerContext {
                 state_db: &mut runtime.state_db,
             },
+            handshake_context.operational_status.clone(),
         );
         if let Err(error) =
             ipc::handshake::handle_connection(stream, &handshake_context, Some(&mut command_router))

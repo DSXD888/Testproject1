@@ -76,6 +76,10 @@ mod ipc {
         pub use crate::command_router_impl::*;
     }
 
+    pub mod handshake {
+        pub use crate::handshake_impl::*;
+    }
+
     pub mod descriptor {
         pub use crate::descriptor_impl::*;
     }
@@ -104,8 +108,10 @@ use crate::descriptor_impl::{
     write_descriptor_atomic,
 };
 use crate::handshake_impl::{
-    ActiveSessions, ClientMessage, HandshakeContext, HealthState, LifecycleFrame, LifecyclePhase,
-    OperationalStatusSnapshot, ProtocolRange, ReconnectOutcome, ServerMessage,
+    ActiveSessions, ClientMessage, CronDefinitionStatus, CronStatusSnapshot, HandshakeContext,
+    HealthState, LifecycleFrame, LifecyclePhase, OperationalStatusSnapshot, ProtocolRange,
+    ReconnectOutcome, ResourceArbiterEventSnapshot, ResourceArbiterStatusSnapshot, ServerMessage,
+    SourceHealthStatusEntry, SourceHealthStatusSnapshot, ValidationStatusSnapshot,
 };
 use crate::support::db::{DEFAULT_SCHEMA_EPOCH, FTS_SOURCE_ID, StateDb, TestStateDb};
 
@@ -532,6 +538,167 @@ fn it_ipc_014_router_accepts_supported_subscriptions() -> Result<()> {
 }
 
 #[test]
+fn l3_t_observability_telemetry_013_get_cron_status_dispatches_read_only_snapshot() -> Result<()> {
+    let mut setup = HandshakeHarness::new()?;
+    setup.context.mutations_allowed = true;
+    setup.context.commit_seq = 41;
+    setup.context.operational_status = sample_operational_status();
+
+    let responses = setup.request_frames_with_router(&[
+        ClientMessage::Hello {
+            desktop_version: "desktop-1.0.0".to_owned(),
+            supported_protocol_range: ProtocolRange { min: 1, max: 1 },
+            expected_schema_epoch: DEFAULT_SCHEMA_EPOCH,
+            last_seen_instance_id: None,
+        },
+        ClientMessage::Command {
+            request_id: "req-cron".to_owned(),
+            method: "get_cron_status".to_owned(),
+            params: json!({}),
+            idempotency_key: None,
+        },
+        ClientMessage::Command {
+            request_id: "req-cron-bad".to_owned(),
+            method: "get_cron_status".to_owned(),
+            params: json!({"unexpected": true}),
+            idempotency_key: None,
+        },
+    ])?;
+
+    assert!(matches!(
+        responses.first(),
+        Some(ServerMessage::Welcome { commit_seq, .. }) if *commit_seq == 41
+    ));
+    assert!(responses.iter().any(|response| {
+        matches!(
+            response,
+            ServerMessage::CommandResponse { request_id, payload }
+                if request_id == "req-cron"
+                    && payload["definitions"][0]["definitionKey"] == "fts::procurement-ingestion/fts"
+                    && payload["definitions"][0]["nextRunAt"] == "2026-03-31T04:15:00Z"
+        )
+    }));
+    assert!(responses.iter().any(|response| {
+        matches!(
+            response,
+            ServerMessage::Error { request_id, code, .. }
+                if request_id.as_deref() == Some("req-cron-bad") && code == "invalid_params"
+        )
+    }));
+    Ok(())
+}
+
+#[test]
+fn l3_t_observability_telemetry_014_get_source_health_status_returns_read_only_breaker_snapshot()
+-> Result<()> {
+    let mut setup = HandshakeHarness::new()?;
+    setup.context.mutations_allowed = true;
+    setup.context.operational_status = sample_operational_status();
+
+    let responses = setup.request_frames_with_router(&[
+        ClientMessage::Hello {
+            desktop_version: "desktop-1.0.0".to_owned(),
+            supported_protocol_range: ProtocolRange { min: 1, max: 1 },
+            expected_schema_epoch: DEFAULT_SCHEMA_EPOCH,
+            last_seen_instance_id: None,
+        },
+        ClientMessage::Command {
+            request_id: "req-source".to_owned(),
+            method: "get_source_health_status".to_owned(),
+            params: json!({"source_id": "fts"}),
+            idempotency_key: None,
+        },
+        ClientMessage::Command {
+            request_id: "req-source-bad".to_owned(),
+            method: "get_source_health_status".to_owned(),
+            params: json!({"unexpected": true}),
+            idempotency_key: None,
+        },
+    ])?;
+
+    assert!(responses.iter().any(|response| {
+        matches!(
+            response,
+            ServerMessage::CommandResponse { request_id, payload }
+                if request_id == "req-source"
+                    && payload["sources"][0]["sourceId"] == "fts"
+                    && payload["sources"][0]["healthState"] == "green"
+                    && payload["sources"][0]["circuitState"] == "closed"
+        )
+    }));
+    assert!(responses.iter().any(|response| {
+        matches!(
+            response,
+            ServerMessage::Error { request_id, code, .. }
+                if request_id.as_deref() == Some("req-source-bad") && code == "invalid_params"
+        )
+    }));
+    Ok(())
+}
+
+#[test]
+fn l3_t_observability_telemetry_015_validation_and_arbiter_status_dispatch_read_only_snapshots()
+-> Result<()> {
+    let mut setup = HandshakeHarness::new()?;
+    setup.context.mutations_allowed = true;
+    setup.context.operational_status = sample_operational_status();
+
+    let responses = setup.request_frames_with_router(&[
+        ClientMessage::Hello {
+            desktop_version: "desktop-1.0.0".to_owned(),
+            supported_protocol_range: ProtocolRange { min: 1, max: 1 },
+            expected_schema_epoch: DEFAULT_SCHEMA_EPOCH,
+            last_seen_instance_id: None,
+        },
+        ClientMessage::Command {
+            request_id: "req-validation".to_owned(),
+            method: "get_validation_status".to_owned(),
+            params: json!({}),
+            idempotency_key: None,
+        },
+        ClientMessage::Command {
+            request_id: "req-arbiter".to_owned(),
+            method: "get_resource_arbiter_status".to_owned(),
+            params: json!({}),
+            idempotency_key: None,
+        },
+        ClientMessage::Command {
+            request_id: "req-arbiter-bad".to_owned(),
+            method: "get_resource_arbiter_status".to_owned(),
+            params: json!({"unexpected": true}),
+            idempotency_key: None,
+        },
+    ])?;
+
+    assert!(responses.iter().any(|response| {
+        matches!(
+            response,
+            ServerMessage::CommandResponse { request_id, payload }
+                if request_id == "req-validation"
+                    && payload["validatorHealthState"] == "healthy"
+                    && payload["validatorJobCount"] == 3
+        )
+    }));
+    assert!(responses.iter().any(|response| {
+        matches!(
+            response,
+            ServerMessage::CommandResponse { request_id, payload }
+                if request_id == "req-arbiter"
+                    && payload["browserSlotsLimit"] == 2
+                    && payload["recentEvents"][0]["kind"] == "grant"
+        )
+    }));
+    assert!(responses.iter().any(|response| {
+        matches!(
+            response,
+            ServerMessage::Error { request_id, code, .. }
+                if request_id.as_deref() == Some("req-arbiter-bad") && code == "invalid_params"
+        )
+    }));
+    Ok(())
+}
+
+#[test]
 fn it_ipc_006_desktop_restart_while_daemon_stays_alive_allows_resume() -> Result<()> {
     let setup = HandshakeHarness::new()?;
     let response = setup.request(&ClientMessage::Hello {
@@ -803,6 +970,73 @@ fn repo_root() -> Result<PathBuf> {
         })
 }
 
+fn sample_operational_status() -> OperationalStatusSnapshot {
+    OperationalStatusSnapshot {
+        cron: CronStatusSnapshot {
+            definitions: vec![CronDefinitionStatus {
+                definition_key: "fts::procurement-ingestion/fts".to_owned(),
+                source_id: "fts".to_owned(),
+                skill_id: "procurement-ingestion/fts".to_owned(),
+                skill_version: "2026.03.30-1".to_owned(),
+                cron_expression: "0 15 4 * * *".to_owned(),
+                enabled: true,
+                last_run_at: Some("2026-03-30T04:15:00Z".to_owned()),
+                next_run_at: Some("2026-03-31T04:15:00Z".to_owned()),
+            }],
+        },
+        source_health: SourceHealthStatusSnapshot {
+            sources: vec![SourceHealthStatusEntry {
+                source_id: "fts".to_owned(),
+                health_state: "green".to_owned(),
+                circuit_state: "closed".to_owned(),
+                production_allowed: true,
+                cooldown_until: None,
+                last_canary_at: Some("2026-03-30T04:00:00Z".to_owned()),
+                last_canary_result: Some("passed".to_owned()),
+                last_error_code: None,
+            }],
+        },
+        validation: ValidationStatusSnapshot {
+            validator_approval_rate_bps: 10_000,
+            validator_rejection_rate_bps: 0,
+            validator_flag_rate_bps: 0,
+            validator_cost_per_run_pence: 12,
+            operator_override_rate_bps: 0,
+            validator_execution_failure_rate_bps: 0,
+            validator_canary_pass_rate_bps: 10_000,
+            validator_health_state: "healthy".to_owned(),
+            pending_backlog_count: 0,
+            pending_canary_count: 0,
+            validator_job_count: 3,
+        },
+        resource_arbiter: ResourceArbiterStatusSnapshot {
+            browser_slots_limit: 2,
+            browser_slots_in_use: 1,
+            agent_slots_limit: 4,
+            agent_slots_in_use: 2,
+            procurement_source_lane_limit: 1,
+            supplier_source_lane_limit: 2,
+            source_lanes_in_use: std::collections::BTreeMap::from([("fts".to_owned(), 1)]),
+            concurrency_in_use: std::collections::BTreeMap::from([(
+                "procurement-ingestion/fts".to_owned(),
+                1,
+            )]),
+            recent_events: vec![ResourceArbiterEventSnapshot {
+                kind: "grant".to_owned(),
+                job_id: "job-123".to_owned(),
+                session_id: Some("session-123".to_owned()),
+                priority: "procurement_ingestion".to_owned(),
+                denial_reason: None,
+                release_cause: None,
+                browser_slots_in_use: 1,
+                agent_slots_in_use: 2,
+                source_lane_key: Some("fts".to_owned()),
+                source_lane_in_use: Some(1),
+            }],
+        },
+    }
+}
+
 struct HandshakeHarness {
     test_context: support::TestContext,
     context: HandshakeContext,
@@ -925,6 +1159,7 @@ impl HandshakeHarness {
                 jobs_handler_impl::JobsHandlerContext {
                     state_db: &mut state_db,
                 },
+                context.operational_status.clone(),
             );
             handshake_impl::serve_one(&listener, &context, Some(&mut router))
         });

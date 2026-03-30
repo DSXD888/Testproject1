@@ -517,8 +517,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_observability_telemetry_013_cron_status_snapshot_contract_is_read_only_and_explicit()
-    -> Result<()> {
+    fn cron_status_snapshot_contract_is_read_only_and_explicit() -> Result<()> {
         let value = serde_json::to_value(sample_cron_status())?;
         ensure!(value["definitions"].is_array());
         ensure!(value["definitions"][0]["definitionKey"] == "fts::procurement-ingestion/fts");
@@ -527,8 +526,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_observability_telemetry_014_source_health_snapshot_contract_carries_breaker_state()
-    -> Result<()> {
+    fn source_health_snapshot_contract_carries_breaker_state() -> Result<()> {
         let value = serde_json::to_value(sample_source_health_status())?;
         ensure!(value["sources"][0]["sourceId"] == "fts");
         ensure!(value["sources"][0]["healthState"] == "green");
@@ -538,8 +536,7 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_observability_telemetry_015_validation_and_arbiter_snapshot_contracts_are_explicit()
-    -> Result<()> {
+    fn validation_and_arbiter_snapshot_contracts_are_explicit() -> Result<()> {
         let validation = serde_json::to_value(sample_validation_status())?;
         ensure!(validation["validatorHealthState"] == "healthy");
         ensure!(validation["validatorJobCount"] == 3);
