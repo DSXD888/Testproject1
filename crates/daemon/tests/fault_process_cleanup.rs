@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::duplicate_mod)]
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(clippy::all)]

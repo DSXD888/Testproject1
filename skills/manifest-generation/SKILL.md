@@ -3,6 +3,17 @@ skill_id: manifest-generation
 skill_version: 1.0.0
 interaction_profile: headless_contract
 result_schema_version: 1.0.0
+validation_policy: always
+validation_sample_rate: 10000
+validation_triggers:
+  - fill_rate_drop
+  - first_run_after_version_change
+  - suspect_output_in_last_five
+  - operator_requested
+  - source_health_amber_or_red
+  - page_fingerprint_unknown
+  - continuation_chain_length_gt_one
+  - high_value_opportunity
 model_profile: structured_extract_low_cost
 agent_cli: claude
 side_effect_class: none

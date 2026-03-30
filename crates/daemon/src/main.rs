@@ -166,7 +166,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sessions::reaper::{CrashRecoveryContext, SessionReaper};
 use sha2::{Digest, Sha256};
-use sources::registry::SourceRegistry;
+use sources::registry::{HealthState as RuntimeHealthState, SourceRegistry};
 use tracing::forensic::{
     ForensicCaptureSummary, ForensicIdentity, ForensicPtyCapture, capture_contract_output,
     summarize_contract_capture,
@@ -497,6 +497,10 @@ struct LiveLoopFixture {
     validator_rejected: bool,
     #[serde(default)]
     validator_low_basis: bool,
+    #[serde(default = "default_extraction_fill_rate_bps")]
+    extraction_fill_rate_bps: u16,
+    #[serde(default)]
+    operator_requested: bool,
     #[serde(default)]
     basis_hash_mismatch: bool,
     #[serde(default)]
@@ -546,6 +550,12 @@ struct SkillFrontmatter {
     worker_behavior_version: Option<String>,
     #[serde(default)]
     validator_behavior_version: Option<String>,
+    #[serde(default)]
+    validation_policy: Option<ValidationPolicyMode>,
+    #[serde(default)]
+    validation_sample_rate: Option<u16>,
+    #[serde(default)]
+    validation_triggers: Option<BTreeSet<ValidationTrigger>>,
     #[serde(default = "default_skill_promotion_stage")]
     promotion_stage: SkillPromotionStageMetadata,
     #[serde(default = "default_version_change_affects_behavior")]
@@ -705,6 +715,21 @@ struct ExecutedSession {
 }
 
 impl SkillFrontmatter {
+    fn validation_policy_mode(&self) -> ValidationPolicyMode {
+        self.validation_policy
+            .unwrap_or(ValidationPolicyMode::Always)
+    }
+
+    fn validation_sample_rate_bps(&self) -> u16 {
+        self.validation_sample_rate.unwrap_or(10_000).min(10_000)
+    }
+
+    fn validation_triggers(&self) -> BTreeSet<ValidationTrigger> {
+        self.validation_triggers
+            .clone()
+            .unwrap_or_else(default_live_validation_triggers)
+    }
+
     fn checkpoint_schema_version(&self) -> String {
         self.checkpoint_schema_version
             .clone()
@@ -766,6 +791,19 @@ impl SkillFrontmatter {
 
 const fn default_skill_promotion_stage() -> SkillPromotionStageMetadata {
     SkillPromotionStageMetadata::Stable
+}
+
+fn default_live_validation_triggers() -> BTreeSet<ValidationTrigger> {
+    BTreeSet::from([
+        ValidationTrigger::FillRateDrop,
+        ValidationTrigger::FirstRunAfterVersionChange,
+        ValidationTrigger::SuspectOutputInLastFive,
+        ValidationTrigger::OperatorRequested,
+        ValidationTrigger::SourceHealthAmberOrRed,
+        ValidationTrigger::PageFingerprintUnknown,
+        ValidationTrigger::ContinuationChainLengthGtOne,
+        ValidationTrigger::HighValueOpportunity,
+    ])
 }
 
 const fn default_version_change_affects_behavior() -> bool {
@@ -1971,23 +2009,221 @@ fn enqueue_retroactive_validation(
     runner.enqueue_retroactive_backlog_job(&repo_root()?, &mut runtime.state_db, request, backlog)
 }
 
-fn build_live_validation_policy_config(skill: &LoadedSkill) -> ValidationPolicyConfig {
+fn load_live_validation_job_parameters(conn: &Connection, worker_job_id: &str) -> Result<Value> {
+    let raw_payload: String = conn
+        .query_row(
+            "SELECT input_payload FROM workflow_jobs WHERE id = ?1",
+            params![worker_job_id],
+            |row| row.get(0),
+        )
+        .with_context(|| format!("loading workflow job input payload for {worker_job_id}"))?;
+    let payload = serde_json::from_str::<Value>(&raw_payload)
+        .with_context(|| format!("parsing workflow job input payload for {worker_job_id}"))?;
+    Ok(payload.get("request").cloned().unwrap_or(payload))
+}
+
+fn live_validation_source_id(skill: &LoadedSkill, worker_job_parameters: &Value) -> String {
+    worker_job_parameters
+        .get("source_id")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .or_else(|| registry_source_id_for_skill(&skill.metadata.skill_id).map(str::to_owned))
+        .unwrap_or_else(|| skill_source_scope(&skill.metadata.skill_id))
+}
+
+fn load_live_source_health(conn: &Connection, source_id: &str) -> Result<PolicyHealthState> {
+    let registry = SourceRegistry::load(conn)
+        .context("loading source registry for validation policy context")?;
+    Ok(
+        match registry
+            .get(source_id)
+            .map(|source| source.runtime_state.last_health_state)
+        {
+            Some(RuntimeHealthState::Amber) => PolicyHealthState::Amber,
+            Some(RuntimeHealthState::Red) => PolicyHealthState::Red,
+            _ => PolicyHealthState::Green,
+        },
+    )
+}
+
+fn load_run_manifest_appendix(
+    manifest_path: &Path,
+) -> Result<agents::artifacts::DaemonEvidenceAppendix> {
+    let markdown = fs::read_to_string(manifest_path)
+        .with_context(|| format!("reading {}", manifest_path.display()))?;
+    let marker = "## Daemon Evidence Appendix\n```yaml\n";
+    let start = markdown
+        .find(marker)
+        .ok_or_else(|| anyhow!("run manifest missing daemon evidence appendix"))?
+        + marker.len();
+    let end = markdown[start..]
+        .find("\n```")
+        .ok_or_else(|| anyhow!("run manifest daemon evidence appendix missing closing fence"))?
+        + start;
+    serde_yaml::from_str(&markdown[start..end]).with_context(|| {
+        format!(
+            "parsing daemon evidence appendix from {}",
+            manifest_path.display()
+        )
+    })
+}
+
+fn recent_completed_live_outputs(
+    conn: &Connection,
+    source_id: &str,
+    exclude_job_id: &str,
+    limit: usize,
+) -> Result<Vec<Value>> {
+    let mut statement = conn.prepare(
+        "\
+        SELECT id, output_payload
+        FROM workflow_jobs
+        WHERE parent_job_id IS NULL
+          AND status = 'completed'
+          AND output_payload IS NOT NULL
+        ORDER BY rowid DESC
+        ",
+    )?;
+    let rows = statement.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+
+    let mut outputs = Vec::new();
+    for row in rows {
+        let (job_id, raw_payload) = row?;
+        if job_id == exclude_job_id {
+            continue;
+        }
+        let payload = serde_json::from_str::<Value>(&raw_payload)
+            .with_context(|| format!("parsing completed workflow output payload for {job_id}"))?;
+        if payload.get("source_id").and_then(Value::as_str) != Some(source_id) {
+            continue;
+        }
+        outputs.push(payload);
+        if outputs.len() == limit {
+            break;
+        }
+    }
+
+    Ok(outputs)
+}
+
+fn recent_skill_telemetry_entry<'a>(payload: &'a Value, skill_id: &str) -> Option<&'a Value> {
+    payload
+        .get("skill_telemetry")
+        .and_then(Value::as_array)?
+        .iter()
+        .find(|entry| entry.get("skill_id").and_then(Value::as_str) == Some(skill_id))
+}
+
+fn recent_fill_rate_baseline_bps(outputs: &[Value], skill_id: &str) -> Option<u16> {
+    let fill_rates = outputs
+        .iter()
+        .filter_map(|payload| recent_skill_telemetry_entry(payload, skill_id))
+        .filter_map(|entry| {
+            entry["telemetry"]["extraction_fill_rate_bps"]
+                .as_u64()
+                .and_then(|value| u16::try_from(value).ok())
+        })
+        .collect::<Vec<_>>();
+    if fill_rates.is_empty() {
+        return None;
+    }
+
+    let sum = fill_rates
+        .iter()
+        .fold(0_u32, |acc, value| acc.saturating_add(u32::from(*value)));
+    let average = sum / u32::try_from(fill_rates.len()).ok()?;
+    u16::try_from(average).ok()
+}
+
+fn previous_worker_behavior_version(outputs: &[Value], skill_id: &str) -> Option<String> {
+    outputs
+        .iter()
+        .filter_map(|payload| recent_skill_telemetry_entry(payload, skill_id))
+        .find_map(|entry| {
+            entry
+                .get("worker_behavior_version")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+}
+
+fn suspect_output_count_last_five(outputs: &[Value]) -> u8 {
+    let count = outputs
+        .iter()
+        .take(5)
+        .filter(|payload| {
+            matches!(
+                payload.get("trust_state").and_then(Value::as_str),
+                Some("suspect" | "flagged")
+            )
+        })
+        .count();
+    u8::try_from(count).unwrap_or(u8::MAX)
+}
+
+fn parse_policy_basis_sufficiency(raw: &str) -> Option<PolicyBasisSufficiency> {
+    match raw {
+        "high" => Some(PolicyBasisSufficiency::High),
+        "medium" => Some(PolicyBasisSufficiency::Medium),
+        "low" => Some(PolicyBasisSufficiency::Low),
+        _ => None,
+    }
+}
+
+fn recent_basis_sufficiency_for_source(
+    conn: &Connection,
+    source_id: &str,
+    exclude_job_id: &str,
+) -> Result<Option<PolicyBasisSufficiency>> {
+    let mut statement = conn.prepare(
+        "\
+        SELECT worker_job_id, basis_sufficiency
+        FROM validation_verdicts
+        ORDER BY datetime(verdict_rendered_at) DESC, rowid DESC
+        ",
+    )?;
+    let rows = statement.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+
+    for row in rows {
+        let (worker_job_id, basis_sufficiency) = row?;
+        if worker_job_id == exclude_job_id {
+            continue;
+        }
+        let worker_job_parameters = load_live_validation_job_parameters(conn, &worker_job_id)?;
+        if worker_job_parameters
+            .get("source_id")
+            .and_then(Value::as_str)
+            != Some(source_id)
+        {
+            continue;
+        }
+        return Ok(parse_policy_basis_sufficiency(&basis_sufficiency));
+    }
+
+    Ok(None)
+}
+
+fn deterministic_sample_roll_bps(worker_job_id: &str) -> u16 {
+    let digest = Sha256::digest(worker_job_id.as_bytes());
+    let sample = u16::from_be_bytes([digest[0], digest[1]]);
+    sample % 10_000
+}
+
+fn build_live_validation_policy_config(
+    skill: &LoadedSkill,
+    worker_job_parameters: &Value,
+) -> ValidationPolicyConfig {
     let worker_behavior_version = skill.metadata.worker_behavior_version();
     ValidationPolicyConfig {
         worker_skill_id: skill.metadata.skill_id.clone(),
-        source_id: skill_source_scope(&skill.metadata.skill_id),
-        validation_policy: ValidationPolicyMode::Always,
-        validation_sample_rate: 10_000,
-        validation_triggers: BTreeSet::from([
-            ValidationTrigger::FillRateDrop,
-            ValidationTrigger::FirstRunAfterVersionChange,
-            ValidationTrigger::SuspectOutputInLastFive,
-            ValidationTrigger::OperatorRequested,
-            ValidationTrigger::SourceHealthAmberOrRed,
-            ValidationTrigger::PageFingerprintUnknown,
-            ValidationTrigger::ContinuationChainLengthGtOne,
-            ValidationTrigger::HighValueOpportunity,
-        ]),
+        source_id: live_validation_source_id(skill, worker_job_parameters),
+        validation_policy: skill.metadata.validation_policy_mode(),
+        validation_sample_rate: skill.metadata.validation_sample_rate_bps(),
+        validation_triggers: skill.metadata.validation_triggers(),
         worker_behavior_version: worker_behavior_version.clone(),
         validator_behavior_version: skill.metadata.validator_behavior_version(),
         validator_overlay_compatible_versions: BTreeSet::from([worker_behavior_version]),
@@ -2008,35 +2244,66 @@ const fn live_policy_promotion_stage(
 }
 
 fn build_live_validation_policy_context(
+    conn: &Connection,
+    worker_job_id: &str,
     skill: &LoadedSkill,
+    stored_manifest: &agents::artifacts::StoredManifest,
     fixture: &LiveLoopFixture,
-) -> ValidationPolicyContext {
-    ValidationPolicyContext {
-        schema_valid: !fixture.manifest_schema_invalid,
+) -> Result<ValidationPolicyContext> {
+    let worker_job_parameters = load_live_validation_job_parameters(conn, worker_job_id)?;
+    let source_id = live_validation_source_id(skill, &worker_job_parameters);
+    let recent_outputs = recent_completed_live_outputs(conn, &source_id, worker_job_id, 5)?;
+    let manifest_appendix = load_run_manifest_appendix(&stored_manifest.path)?;
+    let current_fill_rate_bps = manifest_appendix
+        .extraction_fill_rate_bps
+        .and_then(|value| u16::try_from(value).ok());
+    let previous_behavior_version =
+        previous_worker_behavior_version(&recent_outputs, &skill.metadata.skill_id);
+    let fill_rate_drop_bps = current_fill_rate_bps
+        .zip(recent_fill_rate_baseline_bps(
+            &recent_outputs,
+            &skill.metadata.skill_id,
+        ))
+        .and_then(|(current, baseline)| baseline.checked_sub(current))
+        .filter(|drop| *drop > 0);
+
+    Ok(ValidationPolicyContext {
+        schema_valid: true,
         promotion_stage: live_policy_promotion_stage(skill.metadata.promotion_stage),
-        source_health: PolicyHealthState::Green,
-        page_fingerprint_unknown: fixture.fingerprint_state != "matched",
-        first_run_after_worker_version_change: false,
-        validator_error_spike_same_slice: false,
+        source_health: load_live_source_health(conn, &source_id)?,
+        page_fingerprint_unknown: manifest_appendix.daemon_observed_fingerprint_state != "matched",
+        first_run_after_worker_version_change: previous_behavior_version
+            .is_some_and(|previous| previous != skill.metadata.worker_behavior_version()),
+        validator_error_spike_same_slice: build_validation_status_snapshot(conn)?
+            .validator_execution_failure_rate_bps
+            > 2_000,
         continuation_chain_length: if fixture.continuation_required { 2 } else { 1 },
-        locator_fallback_depth: 0,
+        locator_fallback_depth: manifest_appendix.locator_fallback_depth,
         locator_fallback_depth_threshold: 1,
-        recent_basis_sufficiency: Some(PolicyBasisSufficiency::High),
+        recent_basis_sufficiency: recent_basis_sufficiency_for_source(
+            conn,
+            &source_id,
+            worker_job_id,
+        )?,
         high_value_opportunity: false,
-        suspect_output_count_last_five: 0,
-        operator_requested: false,
-        fill_rate_drop_bps: None,
+        suspect_output_count_last_five: suspect_output_count_last_five(&recent_outputs),
+        operator_requested: worker_job_parameters
+            .get("operator_requested")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        fill_rate_drop_bps,
         fill_rate_drop_threshold_bps: 500,
-        sample_roll_bps: Some(0),
+        sample_roll_bps: Some(deterministic_sample_roll_bps(worker_job_id)),
         base_risk_multiplier_bps: 0,
-        calibration_thresholds_met: false,
+        calibration_thresholds_met: skill.metadata.gate_a_family_prequalified
+            && skill.metadata.gate_b_exact_slice_ready,
         operator_override_spike: false,
         challenge_bank_regressed: false,
         anomaly_conditioned_error_spike: false,
-        signature_limited_ready: false,
-        full_slice_enforcement_ready: false,
-        bootstrap_completed_runs: 0,
-    }
+        signature_limited_ready: skill.metadata.gate_a_family_prequalified,
+        full_slice_enforcement_ready: skill.metadata.gate_b_exact_slice_ready,
+        bootstrap_completed_runs: u32::try_from(recent_outputs.len()).unwrap_or(u32::MAX),
+    })
 }
 
 fn update_job_validation_required(
@@ -2261,7 +2528,7 @@ fn build_skill_run_telemetry(
     let extraction_fill_rate_bps = if fixture.source_changed || fixture.notice_parse_failed {
         4_000
     } else {
-        10_000
+        u32::from(fixture.extraction_fill_rate_bps)
     };
     let validation_rejection_rate_bps =
         live_validation.and_then(|validation| validation.run_scoped_validation_rejection_rate_bps);
@@ -2361,8 +2628,16 @@ fn run_live_semantic_validation(
     fixture: &LiveLoopFixture,
     items_processed: u32,
 ) -> Result<LiveValidationExecution> {
-    let policy_config = build_live_validation_policy_config(skill);
-    let policy_context = build_live_validation_policy_context(skill, fixture);
+    let worker_job_parameters =
+        load_live_validation_job_parameters(runtime.state_db.connection(), worker_job_id)?;
+    let policy_config = build_live_validation_policy_config(skill, &worker_job_parameters);
+    let policy_context = build_live_validation_policy_context(
+        runtime.state_db.connection(),
+        worker_job_id,
+        skill,
+        stored_manifest,
+        fixture,
+    )?;
     let policy_decision = evaluate_validation_policy(&policy_config, &policy_context);
 
     if !policy_decision.validation_required {
@@ -3591,6 +3866,7 @@ fn create_sync_source_job(
                     "trigger": "manual_cli",
                     "skill_binding": skill_binding_payload(ingest_skill),
                     "agent_cli": agent_cli.as_str(),
+                    "operator_requested": fixture.operator_requested,
                     "cursor_before": fixture.cursor_before,
                     "cursor_after": fixture.cursor_after,
                     "durable_step_surfaces": live_loop_surfaces_json(),
@@ -4540,7 +4816,7 @@ fn write_run_manifest_for_session(
         basis_sufficiency: "high".to_owned(),
         page_fingerprint_hash: Some(sha256_hex(fixture.fingerprint_state.as_bytes())),
         auth_challenge_detected: false,
-        extraction_fill_rate_bps: Some(10_000),
+        extraction_fill_rate_bps: Some(u32::from(fixture.extraction_fill_rate_bps)),
         checkpoint_count: 1,
         byte_count_compressed: None,
         validator_rubric_hash: None,
@@ -4932,6 +5208,8 @@ fn default_fixture() -> LiveLoopFixture {
         validator_flagged: false,
         validator_rejected: false,
         validator_low_basis: false,
+        extraction_fill_rate_bps: default_extraction_fill_rate_bps(),
+        operator_requested: false,
         basis_hash_mismatch: false,
         goods_classification_low_confidence: false,
         supplier_match_low_confidence: false,
@@ -4947,6 +5225,10 @@ fn default_fixture() -> LiveLoopFixture {
         hard_invalid_targets: Vec::new(),
         notices: default_notices(),
     }
+}
+
+const fn default_extraction_fill_rate_bps() -> u16 {
+    10_000
 }
 
 const fn default_host_sleep_threshold_ms() -> u64 {
@@ -5064,6 +5346,7 @@ impl UuidSeed {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
     use std::fs;
 
     use anyhow::Result;
@@ -5077,16 +5360,20 @@ mod tests {
     use super::agents::arbiter::{
         AdmissionPriority, AdmissionRequest, ArbiterDecision, ResourceArbiter, ResourceBudgets,
     };
-    use super::jobs::runner::CANONICAL_SCOPE_KINDS;
+    use super::jobs::runner::{CANONICAL_SCOPE_KINDS, JobRunner};
     use super::tracing::structured::{StructuredControlEventKind, StructuredTrace, TraceIdentity};
     use super::{
-        ACTIVE_STAGES, Cli, ControlEvent, DEFAULT_AGENT_CLI, ExecutedSession, LifecyclePhase,
-        LiveLoopFixture, LiveValidationExecution, LoadedSkill, ProcessValidationState,
-        PtyRuntimeIds, SessionDraft, SkillFrontmatter, SkillPromotionStageMetadata,
-        ValidationStatusSnapshot, append_runtime_control_records, backtrack_window_seconds,
-        bootstrap_runtime, build_handshake_context, build_skill_run_telemetry, default_fixture,
-        insert_session_log, live_loop_surface_names, observe_host_health, open_state_db,
-        persisted_lifecycle_frames, reconcile_interrupted_sessions,
+        ACTIVE_STAGES, Cli, ControlEvent, DEFAULT_AGENT_CLI, ExecutedSession, LOCAL_EXECUTOR_ID,
+        LifecyclePhase, LiveLoopFixture, LiveValidationExecution, LoadedSkill,
+        PolicyBasisSufficiency, ProcessValidationState, PtyRuntimeIds, SessionDraft,
+        SkillFrontmatter, SkillPromotionStageMetadata, ValidationPolicyMode,
+        ValidationStatusSnapshot, ValidationTrigger, append_runtime_control_records,
+        backtrack_window_seconds, bootstrap_runtime, build_handshake_context,
+        build_live_validation_policy_config, build_live_validation_policy_context,
+        build_skill_run_telemetry, default_fixture, evaluate_validation_policy, insert_session_log,
+        live_loop_surface_names, load_live_validation_job_parameters, observe_host_health,
+        open_state_db, persisted_lifecycle_frames, reconcile_interrupted_sessions,
+        run_live_semantic_validation, write_run_manifest_for_session,
     };
     use crate::db::sqlite::DEFAULT_SCHEMA_EPOCH;
     use chrono::Utc;
@@ -5111,6 +5398,181 @@ mod tests {
             ) VALUES (?1, 'sync_source', 'source', 'fts', ?2, ?3, 0, NULL, NULL)
             ",
             params![job_id, status, json!({"source_id": "fts"}).to_string()],
+        )?;
+        Ok(())
+    }
+
+    fn bootstrap_validation_runtime() -> Result<(tempfile::TempDir, super::RuntimeBootstrap)> {
+        let temp = tempdir()?;
+        let state_root = temp.path().join("state");
+        let runtime_dir = temp.path().join("runtime");
+        let artifact_root = temp.path().join("artifacts");
+        let cli = Cli::parse_from([
+            "daemon",
+            "--serve",
+            "--state-root",
+            state_root.to_str().expect("utf8 state root"),
+            "--runtime-dir",
+            runtime_dir.to_str().expect("utf8 runtime dir"),
+            "--artifact-root",
+            artifact_root.to_str().expect("utf8 artifact root"),
+        ]);
+        let runtime = bootstrap_runtime(&cli)?;
+        Ok((temp, runtime))
+    }
+
+    fn live_validation_test_skill(
+        validation_policy: ValidationPolicyMode,
+        validation_sample_rate: u16,
+        validation_triggers: BTreeSet<ValidationTrigger>,
+        worker_behavior_version: Option<&str>,
+    ) -> LoadedSkill {
+        LoadedSkill {
+            skill_path: "skills/manifest-generation/SKILL.md".into(),
+            skill_markdown: String::new(),
+            metadata: SkillFrontmatter {
+                skill_id: "manifest-generation".to_owned(),
+                skill_version: "1.0.0".to_owned(),
+                interaction_profile: "headless_contract".to_owned(),
+                result_schema_version: "1.0.0".to_owned(),
+                checkpoint_schema_version: None,
+                validator_overlay_version: Some("2026.03.30-1".to_owned()),
+                model_profile: "structured_extract_low_cost".to_owned(),
+                agent_cli: Some(DEFAULT_AGENT_CLI.to_owned()),
+                source_structure_version: None,
+                worker_behavior_version: worker_behavior_version.map(str::to_owned),
+                validator_behavior_version: None,
+                validation_policy: Some(validation_policy),
+                validation_sample_rate: Some(validation_sample_rate),
+                validation_triggers: Some(validation_triggers),
+                promotion_stage: SkillPromotionStageMetadata::Stable,
+                version_change_affects_behavior: true,
+                gate_a_family_key: None,
+                gate_a_family_prequalified: true,
+                gate_b_exact_slice_key: None,
+                gate_b_exact_slice_ready: true,
+            },
+            result_schema: json!({}),
+        }
+    }
+
+    fn insert_live_validation_worker_job(
+        conn: &Connection,
+        job_id: &str,
+        source_id: &str,
+        operator_requested: bool,
+    ) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, scope_kind, scope_id, status, input_payload, validation_required,
+              parent_job_id, validation_verdict_id
+            ) VALUES (?1, 'sync_source', 'source', ?2, 'pending', ?3, 0, NULL, NULL)
+            ",
+            params![
+                job_id,
+                source_id,
+                json!({
+                    "source_id": source_id,
+                    "operator_requested": operator_requested,
+                })
+                .to_string(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn seed_process(conn: &Connection, process_id: &str) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO procurement_processes (
+              id, current_stage, title, latest_published_at, latest_updated_at, owner_id
+            ) VALUES (?1, 'manifest', 'Process title', '2026-03-30T00:00:00Z',
+                      '2026-03-30T00:00:00Z', 'local-owner')
+            ",
+            params![process_id],
+        )?;
+        Ok(())
+    }
+
+    fn set_source_health(conn: &Connection, source_id: &str, health_state: &str) -> Result<()> {
+        conn.execute(
+            "UPDATE source_runtime_state SET last_health_state = ?1 WHERE source_id = ?2",
+            params![health_state, source_id],
+        )?;
+        Ok(())
+    }
+
+    fn seed_completed_live_output(
+        conn: &Connection,
+        job_id: &str,
+        source_id: &str,
+        skill_id: &str,
+        worker_behavior_version: &str,
+        trust_state: &str,
+        fill_rate_bps: u16,
+    ) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, scope_kind, scope_id, status, input_payload, output_payload,
+              validation_required, parent_job_id, validation_verdict_id
+            ) VALUES (?1, 'sync_source', 'source', ?2, 'completed', ?3, ?4, 1, NULL, NULL)
+            ",
+            params![
+                job_id,
+                source_id,
+                json!({"source_id": source_id}).to_string(),
+                json!({
+                    "source_id": source_id,
+                    "trust_state": trust_state,
+                    "skill_telemetry": [{
+                        "skill_id": skill_id,
+                        "worker_behavior_version": worker_behavior_version,
+                        "validator_behavior_version": "2026.03.30-1",
+                        "telemetry": {
+                            "extraction_fill_rate_bps": fill_rate_bps,
+                        },
+                    }],
+                })
+                .to_string(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn seed_validation_verdict_row(
+        conn: &Connection,
+        worker_job_id: &str,
+        basis_sufficiency: &str,
+    ) -> Result<()> {
+        let validator_job_id = format!("validator-{worker_job_id}");
+        conn.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, scope_kind, scope_id, status, input_payload, validation_required,
+              parent_job_id, validation_verdict_id
+            ) VALUES (?1, 'semantic_validate', 'process', 'process-fts-001', 'completed', '{}', 0, ?2, NULL)
+            ",
+            params![validator_job_id, worker_job_id],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO validation_verdicts (
+              id, worker_job_id, validator_job_id, validator_skill_path, verdict, summary,
+              basis_sufficiency, run_manifest_hash, verdict_rendered_at
+            ) VALUES (?1, ?2, ?3, ?4, 'approved', ?5, ?6, ?7, ?8)
+            ",
+            params![
+                format!("verdict-{worker_job_id}"),
+                worker_job_id,
+                validator_job_id,
+                "skills/validation/base/SKILL.md",
+                "seeded verdict",
+                basis_sufficiency,
+                format!("hash-{worker_job_id}"),
+                "2026-03-30T12:00:00Z",
+            ],
         )?;
         Ok(())
     }
@@ -5354,6 +5816,9 @@ mod tests {
                 source_structure_version: None,
                 worker_behavior_version: None,
                 validator_behavior_version: None,
+                validation_policy: None,
+                validation_sample_rate: None,
+                validation_triggers: None,
                 promotion_stage: SkillPromotionStageMetadata::Stable,
                 version_change_affects_behavior: true,
                 gate_a_family_key: None,
@@ -5424,6 +5889,274 @@ mod tests {
         assert_eq!(telemetry.telemetry.retry_count, None);
         assert_eq!(telemetry.telemetry.auth_challenge_rate_bps, Some(10_000));
         assert_eq!(telemetry.telemetry.validation_rejection_rate_bps, Some(0));
+        Ok(())
+    }
+
+    #[test]
+    fn live_validation_skip_mode_without_trigger_skips_validator_enqueue() -> Result<()> {
+        let (_temp, mut runtime) = bootstrap_validation_runtime()?;
+        let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+        let skill = live_validation_test_skill(
+            ValidationPolicyMode::Skip,
+            0,
+            BTreeSet::from([ValidationTrigger::OperatorRequested]),
+            None,
+        );
+        let fixture = default_fixture();
+        insert_live_validation_worker_job(
+            runtime.state_db.connection(),
+            "worker-skip",
+            "fts",
+            false,
+        )?;
+        set_source_health(runtime.state_db.connection(), "fts", "green")?;
+        let stored_manifest = write_run_manifest_for_session(
+            &runtime,
+            "worker-skip",
+            "session-skip",
+            &skill,
+            "contract",
+            Utc::now(),
+            &fixture,
+            3,
+            None,
+            Vec::new(),
+        )?;
+
+        let execution = run_live_semantic_validation(
+            &mut runtime,
+            &runner,
+            "worker-skip",
+            "session-skip",
+            "process-fts-001",
+            &skill,
+            &stored_manifest,
+            &fixture,
+            3,
+        )?;
+
+        let (validation_required, validator_jobs): (i64, i64) = runtime
+            .state_db
+            .connection()
+            .query_row(
+                "\
+                SELECT validation_required,
+                       (SELECT COUNT(*) FROM workflow_jobs WHERE kind = 'semantic_validate' AND parent_job_id = ?1)
+                FROM workflow_jobs
+                WHERE id = ?1
+                ",
+                params!["worker-skip"],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+
+        assert!(!execution.validation_required);
+        assert_eq!(validation_required, 0);
+        assert_eq!(validator_jobs, 0);
+        assert!(execution.validation_verdict_id.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn live_validation_skip_mode_honors_operator_requested_override() -> Result<()> {
+        let (_temp, mut runtime) = bootstrap_validation_runtime()?;
+        let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+        let skill = live_validation_test_skill(
+            ValidationPolicyMode::Skip,
+            0,
+            BTreeSet::from([ValidationTrigger::OperatorRequested]),
+            None,
+        );
+        let fixture = default_fixture();
+        insert_live_validation_worker_job(
+            runtime.state_db.connection(),
+            "worker-override",
+            "fts",
+            true,
+        )?;
+        seed_process(runtime.state_db.connection(), "process-fts-001")?;
+        set_source_health(runtime.state_db.connection(), "fts", "green")?;
+        let stored_manifest = write_run_manifest_for_session(
+            &runtime,
+            "worker-override",
+            "session-override",
+            &skill,
+            "contract",
+            Utc::now(),
+            &fixture,
+            3,
+            None,
+            Vec::new(),
+        )?;
+
+        let execution = run_live_semantic_validation(
+            &mut runtime,
+            &runner,
+            "worker-override",
+            "session-override",
+            "process-fts-001",
+            &skill,
+            &stored_manifest,
+            &fixture,
+            3,
+        )?;
+
+        let (validation_required, validator_jobs): (i64, i64) = runtime
+            .state_db
+            .connection()
+            .query_row(
+                "\
+                SELECT validation_required,
+                       (SELECT COUNT(*) FROM workflow_jobs WHERE kind = 'semantic_validate' AND parent_job_id = ?1)
+                FROM workflow_jobs
+                WHERE id = ?1
+                ",
+                params!["worker-override"],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+
+        assert!(execution.validation_required);
+        assert_eq!(validation_required, 1);
+        assert_eq!(validator_jobs, 1);
+        assert!(execution.validation_verdict_id.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn live_validation_sample_mode_amber_source_health_forces_full_probability() -> Result<()> {
+        let (_temp, mut runtime) = bootstrap_validation_runtime()?;
+        let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+        let skill = live_validation_test_skill(
+            ValidationPolicyMode::Sample,
+            250,
+            BTreeSet::from([ValidationTrigger::SourceHealthAmberOrRed]),
+            None,
+        );
+        let fixture = default_fixture();
+        insert_live_validation_worker_job(
+            runtime.state_db.connection(),
+            "worker-amber",
+            "fts",
+            false,
+        )?;
+        seed_process(runtime.state_db.connection(), "process-fts-001")?;
+        set_source_health(runtime.state_db.connection(), "fts", "amber")?;
+        let stored_manifest = write_run_manifest_for_session(
+            &runtime,
+            "worker-amber",
+            "session-amber",
+            &skill,
+            "contract",
+            Utc::now(),
+            &fixture,
+            3,
+            None,
+            Vec::new(),
+        )?;
+        let worker_job_parameters =
+            load_live_validation_job_parameters(runtime.state_db.connection(), "worker-amber")?;
+        let policy_config = build_live_validation_policy_config(&skill, &worker_job_parameters);
+        let policy_context = build_live_validation_policy_context(
+            runtime.state_db.connection(),
+            "worker-amber",
+            &skill,
+            &stored_manifest,
+            &fixture,
+        )?;
+        let policy_decision = evaluate_validation_policy(&policy_config, &policy_context);
+
+        assert!(policy_decision.validation_required);
+        assert_eq!(policy_decision.effective_validation_probability_bps, 10_000);
+
+        let execution = run_live_semantic_validation(
+            &mut runtime,
+            &runner,
+            "worker-amber",
+            "session-amber",
+            "process-fts-001",
+            &skill,
+            &stored_manifest,
+            &fixture,
+            3,
+        )?;
+
+        assert!(execution.validation_required);
+        Ok(())
+    }
+
+    #[test]
+    fn live_validation_context_derives_history_signals_from_persisted_runtime_state() -> Result<()>
+    {
+        let (_temp, runtime) = bootstrap_validation_runtime()?;
+        let skill = live_validation_test_skill(
+            ValidationPolicyMode::Sample,
+            250,
+            BTreeSet::from([
+                ValidationTrigger::FillRateDrop,
+                ValidationTrigger::FirstRunAfterVersionChange,
+                ValidationTrigger::SuspectOutputInLastFive,
+            ]),
+            Some("manifest-generation@2026.03.31-1+1.0.0"),
+        );
+        let mut fixture = default_fixture();
+        fixture.extraction_fill_rate_bps = 8_000;
+
+        insert_live_validation_worker_job(
+            runtime.state_db.connection(),
+            "worker-history",
+            "fts",
+            false,
+        )?;
+        seed_completed_live_output(
+            runtime.state_db.connection(),
+            "worker-history-old-1",
+            "fts",
+            &skill.metadata.skill_id,
+            "manifest-generation@2026.03.30-1+1.0.0",
+            "suspect",
+            9_500,
+        )?;
+        seed_validation_verdict_row(runtime.state_db.connection(), "worker-history-old-1", "low")?;
+        seed_completed_live_output(
+            runtime.state_db.connection(),
+            "worker-history-old-2",
+            "fts",
+            &skill.metadata.skill_id,
+            "manifest-generation@2026.03.30-1+1.0.0",
+            "verified",
+            10_000,
+        )?;
+        let stored_manifest = write_run_manifest_for_session(
+            &runtime,
+            "worker-history",
+            "session-history",
+            &skill,
+            "contract",
+            Utc::now(),
+            &fixture,
+            3,
+            None,
+            Vec::new(),
+        )?;
+        let worker_job_parameters =
+            load_live_validation_job_parameters(runtime.state_db.connection(), "worker-history")?;
+        let policy_config = build_live_validation_policy_config(&skill, &worker_job_parameters);
+        let policy_context = build_live_validation_policy_context(
+            runtime.state_db.connection(),
+            "worker-history",
+            &skill,
+            &stored_manifest,
+            &fixture,
+        )?;
+        let policy_decision = evaluate_validation_policy(&policy_config, &policy_context);
+
+        assert!(policy_context.first_run_after_worker_version_change);
+        assert_eq!(
+            policy_context.recent_basis_sufficiency,
+            Some(PolicyBasisSufficiency::Low)
+        );
+        assert_eq!(policy_context.suspect_output_count_last_five, 1);
+        assert_eq!(policy_context.fill_rate_drop_bps, Some(1_750));
+        assert!(policy_decision.validation_required);
         Ok(())
     }
 
