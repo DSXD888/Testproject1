@@ -73,6 +73,7 @@ impl TraceIdentity {
     }
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CapabilitySnapshot {
     pub cli_version: String,
@@ -109,7 +110,7 @@ impl Default for RetentionPolicy {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StructuredControlEventRecord {
     pub seq: u64,
     pub event: StructuredControlEventKind,
@@ -120,7 +121,7 @@ pub struct StructuredControlEventRecord {
     pub details: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StructuredProtocolEventRecord {
     pub seq: u64,
     pub event: StructuredProtocolEventKind,
@@ -131,7 +132,7 @@ pub struct StructuredProtocolEventRecord {
     pub details: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StructuredTrace {
     pub schema_version: u32,
     pub execution_mode: String,
@@ -179,7 +180,7 @@ impl StructuredTrace {
     }
 
     #[must_use]
-    pub fn mark_crash_recovered(mut self) -> Self {
+    pub const fn mark_crash_recovered(mut self) -> Self {
         self.crash_recovered = true;
         self
     }
@@ -195,11 +196,10 @@ impl StructuredTrace {
     }
 
     pub fn push_protocol_record(&mut self, record: StructuredProtocolEventRecord) {
-        self.control_events
-            .push(legacy_protocol_event_name(&record.event).to_owned());
         self.protocol_events.push(record);
     }
 
+    #[allow(clippy::too_many_lines)]
     pub fn extend_from_adapter_events(
         &mut self,
         identity: &TraceIdentity,
@@ -350,7 +350,6 @@ pub fn parse_phase_history(raw: Option<&str>, fallback_status: &str) -> Vec<Stri
 
 pub fn default_phase_history_for_status(status: &str) -> Vec<String> {
     match status {
-        "created" => vec!["created".to_owned()],
         "spawned" => vec!["created".to_owned(), "spawned".to_owned()],
         "active" => vec![
             "created".to_owned(),
@@ -438,19 +437,6 @@ const fn legacy_control_event_name(event: &StructuredControlEventKind) -> &'stat
     }
 }
 
-const fn legacy_protocol_event_name(event: &StructuredProtocolEventKind) -> &'static str {
-    match event {
-        StructuredProtocolEventKind::AdapterStarted => "adapter_started",
-        StructuredProtocolEventKind::Checkpoint => "checkpoint",
-        StructuredProtocolEventKind::Progress => "progress",
-        StructuredProtocolEventKind::AuthChallenge => "auth_challenge",
-        StructuredProtocolEventKind::Warning => "warning",
-        StructuredProtocolEventKind::FinalResultReady => "final_result_ready",
-        StructuredProtocolEventKind::ResultContractReady => "result_contract_ready",
-        StructuredProtocolEventKind::ParserError => "parser_error",
-    }
-}
-
 const fn auth_challenge_kind_label(kind: &AuthChallengeKind) -> &'static str {
     match kind {
         AuthChallengeKind::ReLogin => "re_login",
@@ -461,6 +447,7 @@ const fn auth_challenge_kind_label(kind: &AuthChallengeKind) -> &'static str {
     }
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
 const fn is_false(value: &bool) -> bool {
     !*value
 }

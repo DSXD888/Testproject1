@@ -61,6 +61,12 @@ mod sessions {
 }
 
 #[allow(dead_code)]
+mod tracing {
+    pub mod forensic;
+    pub mod structured;
+}
+
+#[allow(dead_code)]
 mod sources {
     pub mod registry;
 }
@@ -138,6 +144,11 @@ use serde_json::{Value, json};
 use sessions::reaper::{CrashRecoveryContext, SessionReaper};
 use sha2::{Digest, Sha256};
 use sources::registry::SourceRegistry;
+use tracing::forensic::{
+    ForensicCaptureSummary, ForensicIdentity, ForensicPtyCapture, capture_contract_output,
+    summarize_contract_capture,
+};
+use tracing::structured::{StructuredTrace, TraceIdentity, parse_phase_history};
 use tracing_subscriber::EnvFilter;
 
 const BACKTRACK_WINDOW_SECONDS: u32 = 60;
@@ -675,7 +686,7 @@ async fn main() -> Result<()> {
     }
 
     if cli.dry_run {
-        tracing::info!("dry-run bootstrap completed");
+        ::tracing::info!("dry-run bootstrap completed");
     }
 
     Ok(())
@@ -698,7 +709,7 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
     enqueue_startup_cron_jobs(&mut state_db, Utc::now())?;
     write_descriptor_atomic(runtime_paths.descriptor_path(), &descriptor)?;
 
-    tracing::info!(
+    ::tracing::info!(
         socket_path = %runtime_paths.socket_path().display(),
         state_db = %runtime_paths.state_db_path().display(),
         artifact_root = %cli.artifact_root.display(),
@@ -751,7 +762,7 @@ fn enqueue_startup_cron_jobs(state_db: &mut StateDb, now: DateTime<Utc>) -> Resu
         enqueued += 1;
     }
 
-    tracing::info!(enqueued, "queued overdue cron jobs during daemon bootstrap");
+    ::tracing::info!(enqueued, "queued overdue cron jobs during daemon bootstrap");
     Ok(())
 }
 
@@ -839,7 +850,7 @@ fn serve_handshake_once(runtime: &RuntimeBootstrap) -> Result<()> {
 }
 
 fn serve_handshake_service(runtime: &mut RuntimeBootstrap) -> Result<()> {
-    tracing::info!(
+    ::tracing::info!(
         socket_path = %runtime.descriptor.socket_path,
         "daemon service accepting repeated desktop connections"
     );
@@ -865,7 +876,7 @@ fn serve_handshake_service(runtime: &mut RuntimeBootstrap) -> Result<()> {
         if let Err(error) =
             ipc::handshake::handle_connection(stream, &handshake_context, Some(&mut command_router))
         {
-            tracing::warn!(error = %error, "persistent handshake connection failed");
+            ::tracing::warn!(error = %error, "persistent handshake connection failed");
         }
 
         if runtime.restart_controller.restart_requested() {
@@ -1216,54 +1227,7 @@ fn crash_recovered_trace(session: &PersistedSessionRow) -> String {
 }
 
 fn phase_history_from_trace(structured_trace: Option<&str>, status: &str) -> Vec<String> {
-    structured_trace
-        .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
-        .and_then(|value| {
-            value
-                .get("phase_history")
-                .and_then(Value::as_array)
-                .map(|array| {
-                    array
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .map(str::to_owned)
-                        .collect::<Vec<_>>()
-                })
-        })
-        .filter(|history| !history.is_empty())
-        .unwrap_or_else(|| {
-            default_phase_history_for_status(status)
-                .iter()
-                .map(|phase| (*phase).to_owned())
-                .collect()
-        })
-}
-
-fn default_phase_history_for_status(status: &str) -> &'static [&'static str] {
-    match status {
-        "created" => &["created"],
-        "spawned" => &["created", "spawned"],
-        "active" => &["created", "spawned", "active"],
-        "terminating" => &["created", "spawned", "active", "terminating"],
-        "exited" => &["created", "spawned", "active", "terminating", "exited"],
-        "reaped" => &[
-            "created",
-            "spawned",
-            "active",
-            "terminating",
-            "exited",
-            "reaped",
-        ],
-        _ => &[
-            "created",
-            "spawned",
-            "active",
-            "terminating",
-            "exited",
-            "reaped",
-            "archived",
-        ],
-    }
+    parse_phase_history(structured_trace, status)
 }
 
 fn parse_lifecycle_phase(raw: &str) -> Result<LifecyclePhase> {
@@ -1399,6 +1363,8 @@ async fn execute_skill_session(
         )
         .as_bytes(),
     );
+    let trace_identity = trace_identity_for(job_id, session_id, job_parameters);
+    let forensic_identity = forensic_identity_for(job_id, session_id, job_parameters);
     let _lease_heartbeat = claimed_job_lease_heartbeat(runtime, job_id)?;
     let mut resource_lease =
         claimed_job_resource_lease(runtime, skill, job_id, session_id, mode, job_parameters)?;
@@ -1407,6 +1373,8 @@ async fn execute_skill_session(
         ExecutionMode::Pty => {
             execute_pty_skill_session(
                 &runtime.artifact_root,
+                trace_identity.clone(),
+                forensic_identity.clone(),
                 session_id,
                 &caps,
                 adapter.as_ref(),
@@ -1418,6 +1386,9 @@ async fn execute_skill_session(
         }
         ExecutionMode::Contract => {
             execute_contract_skill_session(
+                &runtime.artifact_root,
+                trace_identity,
+                forensic_identity,
                 session_id,
                 &caps,
                 adapter.as_ref(),
@@ -1552,8 +1523,91 @@ fn source_lane_request(skill: &LoadedSkill, job_parameters: &Value) -> Option<So
     })
 }
 
+fn process_id_from_job_parameters(job_parameters: &Value) -> Option<String> {
+    job_parameters
+        .get("process_id")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            job_parameters
+                .get("job_parameters")
+                .and_then(|value| value.get("process_id"))
+                .and_then(Value::as_str)
+        })
+        .or_else(|| {
+            job_parameters
+                .get("request")
+                .and_then(|value| value.get("process_id"))
+                .and_then(Value::as_str)
+        })
+        .map(str::to_owned)
+}
+
+fn trace_identity_for(job_id: &str, session_id: &str, job_parameters: &Value) -> TraceIdentity {
+    let mut identity = TraceIdentity::new(job_id, session_id);
+    if let Some(process_id) = process_id_from_job_parameters(job_parameters) {
+        identity = identity.with_process_id(process_id);
+    }
+    identity
+}
+
+fn forensic_identity_for(
+    job_id: &str,
+    session_id: &str,
+    job_parameters: &Value,
+) -> ForensicIdentity {
+    let mut identity = ForensicIdentity::new(session_id).with_job_id(job_id);
+    if let Some(process_id) = process_id_from_job_parameters(job_parameters) {
+        identity = identity.with_process_id(process_id);
+    }
+    identity
+}
+
+fn build_structured_trace(
+    identity: &TraceIdentity,
+    execution_mode: ExecutionMode,
+    phase_history: impl IntoIterator<Item = impl Into<String>>,
+    caps: &CapabilityReport,
+    events: &[ControlEvent],
+    forensic_summary: &ForensicCaptureSummary,
+) -> Result<String> {
+    let mut trace =
+        StructuredTrace::new(execution_mode, phase_history).with_capability_report(caps);
+    trace.extend_from_adapter_events(identity, events);
+    trace.insert_metadata(
+        "forensic_artifact_refs",
+        serde_json::to_value(&forensic_summary.artifact_refs)
+            .context("serializing forensic artifact refs")?,
+    );
+    trace.insert_metadata(
+        "forensic_root_path",
+        Value::String(forensic_summary.root_path.to_string_lossy().into_owned()),
+    );
+    trace.insert_metadata(
+        "forensic_terminal_output_path",
+        Value::String(
+            forensic_summary
+                .terminal_output_path
+                .to_string_lossy()
+                .into_owned(),
+        ),
+    );
+    trace.insert_metadata(
+        "forensic_terminal_output_hash",
+        Value::String(forensic_summary.terminal_output_hash.clone()),
+    );
+    trace.insert_metadata(
+        "forensic_retention",
+        serde_json::to_value(forensic_summary.retention)
+            .context("serializing forensic retention")?,
+    );
+    trace.to_json_string()
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 async fn execute_pty_skill_session(
     artifact_root: &Path,
+    identity: TraceIdentity,
+    forensic_identity: ForensicIdentity,
     session_id: &str,
     caps: &CapabilityReport,
     adapter: &dyn AgentAdapter,
@@ -1571,9 +1625,9 @@ async fn execute_pty_skill_session(
     )?;
     crate::ipc::handlers::sessions::register_live_pty_session(session_id, session.live_control());
     let _live_pty_registration = LivePtyRegistration { session_id };
-    let mut capture = PtyCapture::new(
+    let mut capture = ForensicPtyCapture::new(
         artifact_root,
-        session_id,
+        forensic_identity,
         started_at,
         CaptureConfig::default(),
     )?;
@@ -1605,14 +1659,32 @@ async fn execute_pty_skill_session(
         }
         events.extend(derived);
     }
-    let entries = capture.finalize()?;
-    let first_chunk_path = entries
-        .first()
-        .map(|entry| capture.paths().session_root.join(&entry.chunk));
     let status = session.finish()?;
     let exit_code = i32::try_from(status.exit_code()).context("converting PTY exit code to i32")?;
     events.push(ControlEvent::Exited { status });
     events.extend(parser.finish().await?);
+    let phase_history = session
+        .phase_history
+        .iter()
+        .map(|phase| phase.as_str())
+        .collect::<Vec<_>>();
+    let forensic_summary = capture.finalize(tail.clone())?;
+    let terminal_output_bytes =
+        forensic_summary
+            .artifact_refs
+            .iter()
+            .try_fold(0_i64, |acc, artifact_ref| {
+                acc.checked_add(artifact_ref.size_bytes)
+                    .ok_or_else(|| anyhow!("forensic artifact sizes exceeded i64 range"))
+            })?;
+    let structured_trace = build_structured_trace(
+        &identity,
+        ExecutionMode::Pty,
+        phase_history,
+        caps,
+        &events,
+        &forensic_summary,
+    )?;
 
     Ok(ExecutedSession {
         session_id: session_id.to_owned(),
@@ -1624,43 +1696,33 @@ async fn execute_pty_skill_session(
         pty_session_id: Some(session_id.to_owned()),
         runtime_ids: Some(session.runtime_ids),
         completed_at: Utc::now().to_rfc3339(),
-        terminal_output_path: Some(capture.paths().index_path.to_string_lossy().into_owned()),
-        terminal_output_hash: first_chunk_path
-            .as_deref()
-            .map(compressed_payload_sha256)
-            .transpose()?,
-        terminal_output_bytes: Some(entries.iter().try_fold(0_i64, |acc, entry| {
-            i64::try_from(entry.byte_length)
-                .map(|value| acc + value)
-                .map_err(|_| anyhow!("stream chunk length exceeded i64 range"))
-        })?),
-        terminal_output_tail: Some(tail),
-        structured_trace: json!({
-            "phase_history": session
-                .phase_history
-                .iter()
-                .map(|phase| phase.as_str())
-                .collect::<Vec<_>>(),
-            "capability_report": {
-                "cli_version": caps.cli_version,
-                "auth_healthy": caps.auth_healthy,
-                "structured_output": caps.structured_output,
-                "pty_viable": caps.pty_viable,
-                "browser_tools": caps.browser_tools,
-                "is_canary": caps.is_canary,
-            },
-            "control_events": events.iter().map(control_event_name).collect::<Vec<_>>(),
-        })
-        .to_string(),
+        terminal_output_path: Some(
+            forensic_summary
+                .terminal_output_path
+                .to_string_lossy()
+                .into_owned(),
+        ),
+        terminal_output_hash: Some(forensic_summary.terminal_output_hash.clone()),
+        terminal_output_bytes: Some(terminal_output_bytes),
+        terminal_output_tail: Some(forensic_summary.tail.clone()),
+        structured_trace,
         exit_code,
         cleanup_verdict: "clean".to_owned(),
         last_checkpoint_seq,
         result_path: None,
-        artifact_refs: entries.iter().map(|entry| entry.chunk.clone()).collect(),
+        artifact_refs: forensic_summary
+            .artifact_refs
+            .iter()
+            .map(|artifact_ref| artifact_ref.path.clone())
+            .collect(),
     })
 }
 
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 async fn execute_contract_skill_session(
+    artifact_root: &Path,
+    identity: TraceIdentity,
+    forensic_identity: ForensicIdentity,
     session_id: &str,
     caps: &CapabilityReport,
     adapter: &dyn AgentAdapter,
@@ -1715,14 +1777,38 @@ async fn execute_contract_skill_session(
         ControlEvent::Checkpoint { seq, .. } => Some(*seq),
         _ => None,
     });
-    let contract_capture = write_contract_output_artifact(
-        &launch_spec.cwd,
-        session_id,
+    let forensic_summary = summarize_contract_capture(capture_contract_output(
+        artifact_root,
+        forensic_identity,
         started_at,
         &output.stdout,
         &output.stderr,
-    )?;
+    )?);
     let exit_code = output.status.code().unwrap_or(1);
+    let terminal_output_bytes =
+        forensic_summary
+            .artifact_refs
+            .iter()
+            .try_fold(0_i64, |acc, artifact_ref| {
+                acc.checked_add(artifact_ref.size_bytes)
+                    .ok_or_else(|| anyhow!("forensic artifact sizes exceeded i64 range"))
+            })?;
+    let structured_trace = build_structured_trace(
+        &identity,
+        ExecutionMode::Contract,
+        [
+            "created",
+            "spawned",
+            "active",
+            "terminating",
+            "exited",
+            "reaped",
+            "archived",
+        ],
+        caps,
+        &events,
+        &forensic_summary,
+    )?;
 
     Ok(ExecutedSession {
         session_id: session_id.to_owned(),
@@ -1734,28 +1820,25 @@ async fn execute_contract_skill_session(
         pty_session_id: None,
         runtime_ids: Some(runtime_ids),
         completed_at: Utc::now().to_rfc3339(),
-        terminal_output_path: Some(contract_capture.path.to_string_lossy().into_owned()),
-        terminal_output_hash: Some(contract_capture.sha256),
-        terminal_output_bytes: Some(contract_capture.size_bytes),
-        terminal_output_tail: Some(contract_capture.tail),
-        structured_trace: json!({
-            "phase_history": ["created", "spawned", "active", "terminating", "exited", "reaped", "archived"],
-            "capability_report": {
-                "cli_version": caps.cli_version,
-                "auth_healthy": caps.auth_healthy,
-                "structured_output": caps.structured_output,
-                "pty_viable": caps.pty_viable,
-                "browser_tools": caps.browser_tools,
-                "is_canary": caps.is_canary,
-            },
-            "control_events": events.iter().map(control_event_name).collect::<Vec<_>>(),
-        })
-        .to_string(),
+        terminal_output_path: Some(
+            forensic_summary
+                .terminal_output_path
+                .to_string_lossy()
+                .into_owned(),
+        ),
+        terminal_output_hash: Some(forensic_summary.terminal_output_hash.clone()),
+        terminal_output_bytes: Some(terminal_output_bytes),
+        terminal_output_tail: Some(forensic_summary.tail.clone()),
+        structured_trace,
         exit_code,
         cleanup_verdict: "clean".to_owned(),
         last_checkpoint_seq,
         result_path,
-        artifact_refs: vec![contract_capture.path.to_string_lossy().into_owned()],
+        artifact_refs: forensic_summary
+            .artifact_refs
+            .iter()
+            .map(|artifact_ref| artifact_ref.path.clone())
+            .collect(),
     })
 }
 
@@ -1911,65 +1994,11 @@ fn launch_spec_hash(spec: &LaunchSpec) -> String {
     )
 }
 
-const fn control_event_name(event: &ControlEvent) -> &'static str {
-    match event {
-        ControlEvent::Started { .. } => "started",
-        ControlEvent::Checkpoint { .. } => "checkpoint",
-        ControlEvent::Progress { .. } => "progress",
-        ControlEvent::AuthChallenge { .. } => "auth_challenge",
-        ControlEvent::Warning { .. } => "warning",
-        ControlEvent::FinalResultReady { .. } => "final_result_ready",
-        ControlEvent::Exited { .. } => "exited",
-    }
-}
-
 const fn execution_mode_label(mode: ExecutionMode) -> &'static str {
     match mode {
         ExecutionMode::Pty => "pty",
         ExecutionMode::Contract => "contract",
     }
-}
-
-struct ContractCapture {
-    path: PathBuf,
-    sha256: String,
-    size_bytes: i64,
-    tail: String,
-}
-
-fn write_contract_output_artifact(
-    workdir: &Path,
-    session_id: &str,
-    started_at: DateTime<Utc>,
-    stdout: &[u8],
-    stderr: &[u8],
-) -> Result<ContractCapture> {
-    let session_dir = workdir
-        .parent()
-        .ok_or_else(|| anyhow!("workdir {} has no parent", workdir.display()))?;
-    let path = session_dir.join("contract-output.log");
-    let mut payload = Vec::new();
-    payload.extend_from_slice(b"--- stdout ---\n");
-    payload.extend_from_slice(stdout);
-    payload.extend_from_slice(b"\n--- stderr ---\n");
-    payload.extend_from_slice(stderr);
-    fs::write(&path, &payload).with_context(|| format!("writing {}", path.display()))?;
-    let _ = (session_id, started_at);
-    Ok(ContractCapture {
-        path,
-        sha256: sha256_hex(&payload),
-        size_bytes: i64::try_from(payload.len()).context("converting contract capture size")?,
-        tail: {
-            let stdout_text = String::from_utf8_lossy(stdout).into_owned();
-            let stderr_text = String::from_utf8_lossy(stderr).into_owned();
-            stdout_text
-                .lines()
-                .last()
-                .or_else(|| stderr_text.lines().last())
-                .unwrap_or_default()
-                .to_owned()
-        },
-    })
 }
 
 #[allow(

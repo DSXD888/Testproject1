@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 
 use crate::pty::capture::{
     CaptureConfig, CapturePaths, PtyCapture, StreamIndexEntry, compressed_payload_sha256,
-    decode_chunk, ensure_contiguous, read_stream_index,
+    decode_chunk, ensure_contiguous,
 };
 
 pub const FORENSIC_BYTES_RETENTION_DAYS: u32 = 14;
@@ -219,8 +219,8 @@ pub fn capture_contract_output(
         session_root,
         index_hash: sha256_hex(&serialized_index),
         index_path,
-        stdout_ref: build_contract_ref(&stdout_artifact, ForensicArtifactKind::ContractStdout)?,
-        stderr_ref: build_contract_ref(&stderr_artifact, ForensicArtifactKind::ContractStderr)?,
+        stdout_ref: build_contract_ref(&stdout_artifact, ForensicArtifactKind::ContractStdout),
+        stderr_ref: build_contract_ref(&stderr_artifact, ForensicArtifactKind::ContractStderr),
         retention,
         tail: tail_from_lanes(stdout, stderr),
     })
@@ -281,8 +281,8 @@ pub fn contract_capture_retention_metadata(index_path: &Path) -> Result<Forensic
         terminal_output_path: index_path.to_path_buf(),
         terminal_output_hash: index_hash,
         artifact_refs: vec![
-            build_contract_ref(&index.stdout, ForensicArtifactKind::ContractStdout)?,
-            build_contract_ref(&index.stderr, ForensicArtifactKind::ContractStderr)?,
+            build_contract_ref(&index.stdout, ForensicArtifactKind::ContractStdout),
+            build_contract_ref(&index.stderr, ForensicArtifactKind::ContractStderr),
         ],
         tail: tail_from_lanes(
             &decode_contract_lane(session_root, &index.stdout.path)?,
@@ -329,14 +329,14 @@ fn summarize_pty_capture(
 fn build_contract_ref(
     artifact: &ContractLaneArtifact,
     kind: ForensicArtifactKind,
-) -> Result<ForensicArtifactRef> {
-    Ok(ForensicArtifactRef {
+) -> ForensicArtifactRef {
+    ForensicArtifactRef {
         mode: ForensicMode::Contract,
         kind,
         path: artifact.path.to_string_lossy().into_owned(),
         sha256: artifact.sha256.clone(),
         size_bytes: artifact.size_bytes,
-    })
+    }
 }
 
 fn decode_contract_lane(session_root: &Path, relative_path: &Path) -> Result<Vec<u8>> {
