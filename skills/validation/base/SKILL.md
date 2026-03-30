@@ -3,9 +3,19 @@ skill_id: validation/base
 skill_version: 2026.03.30-1
 interaction_profile: headless_contract
 result_schema_version: 1.0
+checkpoint_schema_version: 1.0
+validator_overlay_version: 2026.03.30-1
 model_profile: structured_extract_low_cost
 agent_cli: claude
 side_effect_class: read_only
+promotion_stage: stable
+worker_behavior_version: validation/base@2026.03.30-1+1.0
+validator_behavior_version: 2026.03.30-1
+version_change_affects_behavior: true
+gate_a_family_key: validation
+gate_a_family_prequalified: false
+gate_b_exact_slice_key: validation/base::global::validation/base@2026.03.30-1+1.0::2026.03.30-1
+gate_b_exact_slice_ready: false
 ---
 
 # validation/base

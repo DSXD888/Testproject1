@@ -495,9 +495,43 @@ struct SkillFrontmatter {
     skill_version: String,
     interaction_profile: String,
     result_schema_version: String,
+    #[serde(default)]
+    checkpoint_schema_version: Option<String>,
+    #[serde(default)]
+    validator_overlay_version: Option<String>,
     model_profile: String,
     #[serde(default)]
     agent_cli: Option<String>,
+    #[serde(default)]
+    source_structure_version: Option<String>,
+    #[serde(default)]
+    worker_behavior_version: Option<String>,
+    #[serde(default)]
+    validator_behavior_version: Option<String>,
+    #[serde(default = "default_skill_promotion_stage")]
+    promotion_stage: SkillPromotionStageMetadata,
+    #[serde(default = "default_version_change_affects_behavior")]
+    version_change_affects_behavior: bool,
+    #[serde(default)]
+    gate_a_family_key: Option<String>,
+    #[serde(default)]
+    gate_a_family_prequalified: bool,
+    #[serde(default)]
+    gate_b_exact_slice_key: Option<String>,
+    #[serde(default)]
+    gate_b_exact_slice_ready: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+enum SkillPromotionStageMetadata {
+    Draft,
+    Candidate,
+    Canary,
+    Shadow,
+    #[default]
+    Stable,
+    Rollback,
 }
 
 #[derive(Debug, Clone)]
@@ -593,6 +627,101 @@ struct ExecutedSession {
     last_checkpoint_seq: Option<u32>,
     result_path: Option<PathBuf>,
     artifact_refs: Vec<String>,
+}
+
+impl SkillFrontmatter {
+    fn checkpoint_schema_version(&self) -> String {
+        self.checkpoint_schema_version
+            .clone()
+            .unwrap_or_else(|| self.result_schema_version.clone())
+    }
+
+    fn validator_overlay_version(&self) -> String {
+        self.validator_overlay_version
+            .clone()
+            .unwrap_or_else(|| "2026.03.30-1".to_owned())
+    }
+
+    fn worker_behavior_version(&self) -> String {
+        self.worker_behavior_version.clone().unwrap_or_else(|| {
+            format!(
+                "{}@{}+{}",
+                self.skill_id, self.skill_version, self.result_schema_version
+            )
+        })
+    }
+
+    fn validator_behavior_version(&self) -> String {
+        self.validator_behavior_version
+            .clone()
+            .unwrap_or_else(|| self.validator_overlay_version())
+    }
+
+    fn gate_a_family_key(&self) -> String {
+        self.gate_a_family_key
+            .clone()
+            .unwrap_or_else(|| skill_family_key(&self.skill_id))
+    }
+
+    fn gate_b_exact_slice_key(&self) -> String {
+        self.gate_b_exact_slice_key.clone().unwrap_or_else(|| {
+            format!(
+                "{}::{}::{}::{}",
+                self.skill_id,
+                skill_source_scope(&self.skill_id),
+                self.worker_behavior_version(),
+                self.validator_behavior_version()
+            )
+        })
+    }
+}
+
+const fn default_skill_promotion_stage() -> SkillPromotionStageMetadata {
+    SkillPromotionStageMetadata::Stable
+}
+
+const fn default_version_change_affects_behavior() -> bool {
+    true
+}
+
+fn skill_family_key(skill_id: &str) -> String {
+    skill_id
+        .split_once('/')
+        .map_or_else(|| skill_id.to_owned(), |(family, _)| family.to_owned())
+}
+
+fn skill_source_scope(skill_id: &str) -> String {
+    skill_id
+        .rsplit_once('/')
+        .map_or_else(|| "global".to_owned(), |(_, scope)| scope.to_owned())
+}
+
+fn skill_binding_payload(skill: &LoadedSkill) -> Value {
+    json!({
+        "path": skill.skill_path.to_string_lossy(),
+        "version": skill.metadata.skill_version,
+        "version_dimensions": {
+            "skill_version": skill.metadata.skill_version,
+            "result_schema_version": skill.metadata.result_schema_version,
+            "checkpoint_schema_version": skill.metadata.checkpoint_schema_version(),
+            "validator_overlay_version": skill.metadata.validator_overlay_version(),
+            "source_structure_version": skill.metadata.source_structure_version,
+        },
+        "promotion": {
+            "stage": skill.metadata.promotion_stage,
+        },
+        "behavior": {
+            "worker_behavior_version": skill.metadata.worker_behavior_version(),
+            "validator_behavior_version": skill.metadata.validator_behavior_version(),
+            "version_change_affects_behavior": skill.metadata.version_change_affects_behavior,
+        },
+        "calibration": {
+            "gate_a_family_key": skill.metadata.gate_a_family_key(),
+            "gate_a_family_prequalified": skill.metadata.gate_a_family_prequalified,
+            "gate_b_exact_slice_key": skill.metadata.gate_b_exact_slice_key(),
+            "gate_b_exact_slice_ready": skill.metadata.gate_b_exact_slice_ready,
+        },
+    })
 }
 
 struct LivePtyRegistration<'a> {
@@ -1907,10 +2036,7 @@ fn create_manual_skill_job(
                 job_id,
                 skill.metadata.skill_id,
                 json!({
-                    "skill_binding": {
-                        "path": skill.skill_path,
-                        "version": skill.metadata.skill_version,
-                    },
+                    "skill_binding": skill_binding_payload(skill),
                     "agent_cli": adapter_kind.as_str(),
                     "job_parameters": job_parameters,
                 })
@@ -2475,10 +2601,7 @@ fn create_sync_source_job(
                 json!({
                     "source_id": "fts",
                     "trigger": "manual_cli",
-                    "skill_binding": {
-                        "path": ingest_skill.skill_path.to_string_lossy(),
-                        "version": ingest_skill.metadata.skill_version,
-                    },
+                    "skill_binding": skill_binding_payload(ingest_skill),
                     "agent_cli": agent_cli.as_str(),
                     "cursor_before": fixture.cursor_before,
                     "cursor_after": fixture.cursor_after,
@@ -3672,7 +3795,7 @@ fn skill_config_hash(skill: &LoadedSkill) -> String {
     sha256_hex(
         json!({
             "skill_markdown": skill.skill_markdown,
-            "result_schema_version": skill.metadata.result_schema_version,
+            "skill_binding": skill_binding_payload(skill),
             "model_profile": skill.metadata.model_profile,
         })
         .to_string()

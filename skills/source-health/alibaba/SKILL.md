@@ -3,9 +3,20 @@ skill_id: source-health/alibaba
 skill_version: 1.0.0
 interaction_profile: pty_interactive
 result_schema_version: 1.0.0
+checkpoint_schema_version: 1.0.0
+validator_overlay_version: 2026.03.30-1
+source_structure_version: alibaba-2026-03-30
 model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: none
+promotion_stage: stable
+worker_behavior_version: source-health/alibaba@1.0.0+1.0.0
+validator_behavior_version: 2026.03.30-1
+version_change_affects_behavior: true
+gate_a_family_key: source-health
+gate_a_family_prequalified: false
+gate_b_exact_slice_key: source-health/alibaba::alibaba::source-health/alibaba@1.0.0+1.0.0::2026.03.30-1
+gate_b_exact_slice_ready: false
 maxPages: 1
 maxScrollCycles: 0
 ---

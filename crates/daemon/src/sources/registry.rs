@@ -13,6 +13,9 @@ pub const DEFAULT_BREAKER_CHALLENGE_THRESHOLD: u32 = 3;
 pub const DEFAULT_BREAKER_CHALLENGE_WINDOW_MINUTES: i64 = 60;
 pub const DEFAULT_BREAKER_COOLDOWN_MINUTES: i64 = 120;
 pub const DEFAULT_SOURCE_SKILL_VERSION: &str = "2026.03.30-1";
+pub const DEFAULT_VALIDATOR_OVERLAY_VERSION: &str = "2026.03.30-1";
+pub const DEFAULT_BINDING_RESULT_SCHEMA_VERSION: &str = "1.0.0";
+pub const DEFAULT_BINDING_CHECKPOINT_SCHEMA_VERSION: &str = "1.0.0";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -97,12 +100,51 @@ pub enum SourceJobClass {
     AuthRefresh,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum PromotionStage {
+    Draft,
+    Candidate,
+    Canary,
+    Shadow,
+    #[default]
+    Stable,
+    Rollback,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillVersionDimensions {
+    pub skill: String,
+    pub result_schema: String,
+    pub checkpoint_schema: String,
+    pub validator_overlay: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillBehaviorVersions {
+    pub worker_behavior_version: String,
+    pub validator_behavior_version: String,
+    pub version_change_affects_behavior: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CalibrationReadiness {
+    pub family_key: String,
+    pub family_prequalified: bool,
+    pub exact_slice_key: String,
+    pub exact_slice_ready: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SkillBinding {
     pub skill_id: String,
     pub skill_version: String,
     pub cron_expression: Option<String>,
     pub enabled: bool,
+    pub version_dimensions: SkillVersionDimensions,
+    pub promotion_stage: PromotionStage,
+    pub behavior_versions: SkillBehaviorVersions,
+    pub calibration: CalibrationReadiness,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -129,7 +171,7 @@ pub struct SourceDefinition {
     pub source_id: String,
     pub kind: SourceKind,
     pub enabled: bool,
-    pub version_tag: String,
+    pub source_structure_version: String,
     pub config: Value,
     pub production_binding: Option<SkillBinding>,
     pub canary_binding: Option<SkillBinding>,
@@ -512,20 +554,22 @@ fn builtin_definitions() -> BTreeMap<String, SourceDefinition> {
             source_id: "fts".to_owned(),
             kind: SourceKind::Procurement,
             enabled: true,
-            version_tag: DEFAULT_SOURCE_SKILL_VERSION.to_owned(),
+            source_structure_version: "fts-2026-03-30".to_owned(),
             config: json!({}),
-            production_binding: Some(SkillBinding {
-                skill_id: "procurement-ingestion/fts".to_owned(),
-                skill_version: DEFAULT_SOURCE_SKILL_VERSION.to_owned(),
-                cron_expression: Some("0 15 4 * * *".to_owned()),
-                enabled: true,
-            }),
-            canary_binding: Some(SkillBinding {
-                skill_id: "source-health/fts".to_owned(),
-                skill_version: DEFAULT_SOURCE_SKILL_VERSION.to_owned(),
-                cron_expression: Some("0 */30 * * * *".to_owned()),
-                enabled: true,
-            }),
+            production_binding: Some(stable_binding(
+                "procurement-ingestion/fts",
+                DEFAULT_SOURCE_SKILL_VERSION,
+                Some("0 15 4 * * *"),
+                "procurement-ingestion",
+                "fts",
+            )),
+            canary_binding: Some(stable_binding(
+                "source-health/fts",
+                DEFAULT_SOURCE_SKILL_VERSION,
+                Some("0 */30 * * * *"),
+                "source-health",
+                "fts",
+            )),
             auth_refresh_binding: None,
             policy: SourcePolicy::default(),
             default_health_state: HealthState::Green,
@@ -537,14 +581,15 @@ fn builtin_definitions() -> BTreeMap<String, SourceDefinition> {
             source_id: "contracts-finder".to_owned(),
             kind: SourceKind::Procurement,
             enabled: true,
-            version_tag: DEFAULT_SOURCE_SKILL_VERSION.to_owned(),
+            source_structure_version: "contracts-finder-2026-03-30".to_owned(),
             config: json!({}),
-            production_binding: Some(SkillBinding {
-                skill_id: "procurement-ingestion/contracts-finder".to_owned(),
-                skill_version: DEFAULT_SOURCE_SKILL_VERSION.to_owned(),
-                cron_expression: Some("0 45 4 * * *".to_owned()),
-                enabled: true,
-            }),
+            production_binding: Some(stable_binding(
+                "procurement-ingestion/contracts-finder",
+                DEFAULT_SOURCE_SKILL_VERSION,
+                Some("0 45 4 * * *"),
+                "procurement-ingestion",
+                "contracts-finder",
+            )),
             canary_binding: None,
             auth_refresh_binding: None,
             policy: SourcePolicy::default(),
@@ -557,21 +602,23 @@ fn builtin_definitions() -> BTreeMap<String, SourceDefinition> {
             source_id: "alibaba".to_owned(),
             kind: SourceKind::Supplier,
             enabled: true,
-            version_tag: DEFAULT_SOURCE_SKILL_VERSION.to_owned(),
+            source_structure_version: "alibaba-2026-03-30".to_owned(),
             config: json!({}),
             production_binding: None,
-            canary_binding: Some(SkillBinding {
-                skill_id: "source-health/alibaba".to_owned(),
-                skill_version: DEFAULT_SOURCE_SKILL_VERSION.to_owned(),
-                cron_expression: Some("0 */30 * * * *".to_owned()),
-                enabled: true,
-            }),
-            auth_refresh_binding: Some(SkillBinding {
-                skill_id: "auth-refresh/alibaba".to_owned(),
-                skill_version: DEFAULT_SOURCE_SKILL_VERSION.to_owned(),
-                cron_expression: None,
-                enabled: true,
-            }),
+            canary_binding: Some(stable_binding(
+                "source-health/alibaba",
+                DEFAULT_SOURCE_SKILL_VERSION,
+                Some("0 */30 * * * *"),
+                "source-health",
+                "alibaba",
+            )),
+            auth_refresh_binding: Some(stable_binding(
+                "auth-refresh/alibaba",
+                DEFAULT_SOURCE_SKILL_VERSION,
+                None,
+                "auth-refresh",
+                "alibaba",
+            )),
             policy: SourcePolicy::default(),
             default_health_state: HealthState::Unknown,
         },
@@ -582,16 +629,17 @@ fn builtin_definitions() -> BTreeMap<String, SourceDefinition> {
             source_id: "1688".to_owned(),
             kind: SourceKind::Supplier,
             enabled: true,
-            version_tag: DEFAULT_SOURCE_SKILL_VERSION.to_owned(),
+            source_structure_version: "1688-2026-03-30".to_owned(),
             config: json!({}),
             production_binding: None,
             canary_binding: None,
-            auth_refresh_binding: Some(SkillBinding {
-                skill_id: "auth-refresh/1688".to_owned(),
-                skill_version: DEFAULT_SOURCE_SKILL_VERSION.to_owned(),
-                cron_expression: None,
-                enabled: true,
-            }),
+            auth_refresh_binding: Some(stable_binding(
+                "auth-refresh/1688",
+                DEFAULT_SOURCE_SKILL_VERSION,
+                None,
+                "auth-refresh",
+                "1688",
+            )),
             policy: SourcePolicy::default(),
             default_health_state: HealthState::Unknown,
         },
@@ -610,7 +658,7 @@ fn definition_for_row(
             source_id: source_id.to_owned(),
             kind,
             enabled,
-            version_tag: DEFAULT_SOURCE_SKILL_VERSION.to_owned(),
+            source_structure_version: format!("{source_id}-untracked"),
             config: json!({}),
             production_binding: None,
             canary_binding: None,
@@ -622,6 +670,44 @@ fn definition_for_row(
     definition.enabled = enabled;
     definition.config = config;
     definition
+}
+
+fn stable_binding(
+    skill_id: &str,
+    skill_version: &str,
+    cron_expression: Option<&str>,
+    gate_a_family_key: &str,
+    source_scope: &str,
+) -> SkillBinding {
+    let worker_behavior_version =
+        format!("{skill_id}@{skill_version}+{DEFAULT_BINDING_RESULT_SCHEMA_VERSION}");
+    let validator_behavior_version = DEFAULT_VALIDATOR_OVERLAY_VERSION.to_owned();
+    SkillBinding {
+        skill_id: skill_id.to_owned(),
+        skill_version: skill_version.to_owned(),
+        cron_expression: cron_expression.map(str::to_owned),
+        enabled: true,
+        version_dimensions: SkillVersionDimensions {
+            skill: skill_version.to_owned(),
+            result_schema: DEFAULT_BINDING_RESULT_SCHEMA_VERSION.to_owned(),
+            checkpoint_schema: DEFAULT_BINDING_CHECKPOINT_SCHEMA_VERSION.to_owned(),
+            validator_overlay: DEFAULT_VALIDATOR_OVERLAY_VERSION.to_owned(),
+        },
+        promotion_stage: PromotionStage::Stable,
+        behavior_versions: SkillBehaviorVersions {
+            worker_behavior_version: worker_behavior_version.clone(),
+            validator_behavior_version: validator_behavior_version.clone(),
+            version_change_affects_behavior: true,
+        },
+        calibration: CalibrationReadiness {
+            family_key: gate_a_family_key.to_owned(),
+            family_prequalified: false,
+            exact_slice_key: format!(
+                "{skill_id}::{source_scope}::{worker_behavior_version}::{validator_behavior_version}"
+            ),
+            exact_slice_ready: false,
+        },
+    }
 }
 
 impl HealthState {
