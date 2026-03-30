@@ -117,6 +117,8 @@ use agents::artifacts::{
     persist_run_manifest_metadata,
 };
 use agents::claude::ClaudeAdapter;
+use std::collections::BTreeSet;
+
 use agents::codex::CodexAdapter;
 use agents::contracts::{
     OqgCheckInput, StageValidationWrite, ValidationDisposition, ValidationOutcome,
@@ -138,7 +140,10 @@ use ipc::handshake::{
 };
 use jobs::runner::{
     EnqueuedValidatorJob, FreshnessState, JobLeaseHeartbeat, JobRunner, ObsoleteJobRequest,
-    ValidatorEnqueueRequest, allocate_stage_run_id, set_stage_head_freshness,
+    PersistValidationVerdictRequest, ProcessValidationState, RetroactiveBacklogMetadata,
+    VALIDATION_SKIPPED_VALIDATOR_ERROR, VALIDATOR_JOB_KIND, ValidationHandlingMode,
+    ValidatorBasisSufficiency, ValidatorEnqueueRequest, ValidatorVerdict, allocate_stage_run_id,
+    decide_validator_failure, decide_validator_verdict, set_stage_head_freshness,
     start_job_lease_heartbeat,
 };
 use nix::unistd::{Pid, getpgid, getsid};
@@ -158,8 +163,12 @@ use tracing::forensic::{
 };
 use tracing::structured::{StructuredTrace, TraceIdentity, parse_phase_history};
 use tracing_subscriber::EnvFilter;
-use validation::executor::VALIDATOR_JOB_KIND;
 use validation::manifest_writer::{ManifestWriteRequest, write_hybrid_run_manifest};
+use validation::policy::{
+    BasisSufficiency as PolicyBasisSufficiency, SkillPromotionStage as PolicySkillPromotionStage,
+    SourceHealthState as PolicyHealthState, ValidationPolicyConfig, ValidationPolicyContext,
+    ValidationPolicyMode, ValidationTrigger, evaluate_validation_policy,
+};
 
 const BACKTRACK_WINDOW_SECONDS: u32 = 60;
 const CLI_VENDOR: &str = "fixture-cli";
@@ -468,6 +477,14 @@ struct LiveLoopFixture {
     #[serde(default)]
     manifest_oqg_suspect: bool,
     #[serde(default)]
+    validator_fail_open: bool,
+    #[serde(default)]
+    validator_flagged: bool,
+    #[serde(default)]
+    validator_rejected: bool,
+    #[serde(default)]
+    validator_low_basis: bool,
+    #[serde(default)]
     basis_hash_mismatch: bool,
     #[serde(default)]
     goods_classification_low_confidence: bool,
@@ -591,6 +608,15 @@ struct PipelinePersistence {
     gross_margin_bps: i64,
     net_margin_bps: i64,
     manifest_stage_run_id: String,
+}
+
+#[derive(Debug, Clone)]
+struct LiveValidationExecution {
+    validation_required: bool,
+    validator_job_id: Option<String>,
+    validation_verdict_id: Option<String>,
+    process_validation_state: ProcessValidationState,
+    validation_marker: Option<&'static str>,
 }
 
 #[derive(Debug, Clone)]
@@ -1617,6 +1643,345 @@ fn enqueue_retroactive_validation(
     runner.enqueue_retroactive_backlog_job(&repo_root()?, &mut runtime.state_db, request, backlog)
 }
 
+fn build_live_validation_policy_config(skill: &LoadedSkill) -> ValidationPolicyConfig {
+    let worker_behavior_version = skill.metadata.worker_behavior_version();
+    ValidationPolicyConfig {
+        worker_skill_id: skill.metadata.skill_id.clone(),
+        source_id: skill_source_scope(&skill.metadata.skill_id),
+        validation_policy: ValidationPolicyMode::Always,
+        validation_sample_rate: 10_000,
+        validation_triggers: BTreeSet::from([
+            ValidationTrigger::FillRateDrop,
+            ValidationTrigger::FirstRunAfterVersionChange,
+            ValidationTrigger::SuspectOutputInLastFive,
+            ValidationTrigger::OperatorRequested,
+            ValidationTrigger::SourceHealthAmberOrRed,
+            ValidationTrigger::PageFingerprintUnknown,
+            ValidationTrigger::ContinuationChainLengthGtOne,
+            ValidationTrigger::HighValueOpportunity,
+        ]),
+        worker_behavior_version: worker_behavior_version.clone(),
+        validator_behavior_version: skill.metadata.validator_behavior_version(),
+        validator_overlay_compatible_versions: BTreeSet::from([worker_behavior_version]),
+    }
+}
+
+const fn live_policy_promotion_stage(
+    stage: SkillPromotionStageMetadata,
+) -> PolicySkillPromotionStage {
+    match stage {
+        SkillPromotionStageMetadata::Draft => PolicySkillPromotionStage::Draft,
+        SkillPromotionStageMetadata::Candidate => PolicySkillPromotionStage::Candidate,
+        SkillPromotionStageMetadata::Canary => PolicySkillPromotionStage::Canary,
+        SkillPromotionStageMetadata::Shadow => PolicySkillPromotionStage::Shadow,
+        SkillPromotionStageMetadata::Stable => PolicySkillPromotionStage::Stable,
+        SkillPromotionStageMetadata::Rollback => PolicySkillPromotionStage::Rollback,
+    }
+}
+
+fn build_live_validation_policy_context(
+    skill: &LoadedSkill,
+    fixture: &LiveLoopFixture,
+) -> ValidationPolicyContext {
+    ValidationPolicyContext {
+        schema_valid: !fixture.manifest_schema_invalid,
+        promotion_stage: live_policy_promotion_stage(skill.metadata.promotion_stage),
+        source_health: PolicyHealthState::Green,
+        page_fingerprint_unknown: fixture.fingerprint_state != "matched",
+        first_run_after_worker_version_change: false,
+        validator_error_spike_same_slice: false,
+        continuation_chain_length: if fixture.continuation_required { 2 } else { 1 },
+        locator_fallback_depth: 0,
+        locator_fallback_depth_threshold: 1,
+        recent_basis_sufficiency: Some(PolicyBasisSufficiency::High),
+        high_value_opportunity: false,
+        suspect_output_count_last_five: 0,
+        operator_requested: false,
+        fill_rate_drop_bps: None,
+        fill_rate_drop_threshold_bps: 500,
+        sample_roll_bps: Some(0),
+        base_risk_multiplier_bps: 0,
+        calibration_thresholds_met: false,
+        operator_override_spike: false,
+        challenge_bank_regressed: false,
+        anomaly_conditioned_error_spike: false,
+        signature_limited_ready: false,
+        full_slice_enforcement_ready: false,
+        bootstrap_completed_runs: 0,
+    }
+}
+
+fn update_job_validation_required(
+    state_db: &mut StateDb,
+    job_id: &str,
+    validation_required: bool,
+) -> Result<()> {
+    state_db.with_write_transaction(|tx| {
+        let updated = tx.execute(
+            "UPDATE workflow_jobs SET validation_required = ?1 WHERE id = ?2",
+            params![i64::from(validation_required), job_id],
+        )?;
+        ensure!(
+            updated == 1,
+            "workflow job missing for validation flag: {job_id}"
+        );
+        Ok(())
+    })?;
+    Ok(())
+}
+
+fn complete_validator_job(
+    state_db: &mut StateDb,
+    validator_job_id: &str,
+    status: &str,
+    output_payload: &Value,
+    last_error: Option<&str>,
+) -> Result<()> {
+    state_db.with_write_transaction(|tx| {
+        let updated = tx.execute(
+            "\
+            UPDATE workflow_jobs
+            SET status = ?1,
+                completed_at = ?2,
+                output_payload = ?3,
+                last_error = ?4
+            WHERE id = ?5
+            ",
+            params![
+                status,
+                Utc::now().to_rfc3339(),
+                output_payload.to_string(),
+                last_error,
+                validator_job_id,
+            ],
+        )?;
+        ensure!(
+            updated == 1,
+            "validator workflow job missing for completion: {validator_job_id}"
+        );
+        Ok(())
+    })?;
+    Ok(())
+}
+
+fn merge_review_reason(existing: Option<&str>, validation_marker: Option<&str>) -> Option<String> {
+    match (existing, validation_marker) {
+        (None, None) => None,
+        (Some(reason), None) => Some(reason.to_owned()),
+        (None, Some(marker)) => Some(marker.to_owned()),
+        (Some(reason), Some(marker)) if reason.split(',').any(|item| item == marker) => {
+            Some(reason.to_owned())
+        }
+        (Some(reason), Some(marker)) => Some(format!("{reason},{marker}")),
+    }
+}
+
+fn build_live_validator_payload(fixture: &LiveLoopFixture) -> Value {
+    let (verdict, confidence_bps, enforcement_eligible, issues, summary) =
+        if fixture.validator_rejected {
+            (
+                ValidatorVerdict::Rejected.as_str(),
+                9_200_u16,
+                true,
+                vec![json!({
+                    "severity": "major",
+                    "category": "consistency",
+                    "description": "Fixture requested semantic rejection.",
+                    "evidence_refs": ["run-manifest.md#Evidence"],
+                })],
+                "Fixture requested a rejected semantic validation verdict.",
+            )
+        } else if fixture.validator_flagged {
+            (
+                ValidatorVerdict::Flagged.as_str(),
+                7_400_u16,
+                false,
+                vec![json!({
+                    "severity": "observation",
+                    "category": "completeness",
+                    "description": "Fixture requested a flagged semantic validation verdict.",
+                    "evidence_refs": ["run-manifest.md#Warnings"],
+                })],
+                "Fixture requested a flagged semantic validation verdict.",
+            )
+        } else {
+            (
+                ValidatorVerdict::Approved.as_str(),
+                9_800_u16,
+                true,
+                Vec::new(),
+                "Semantic validation approved the worker output.",
+            )
+        };
+
+    json!({
+        "verdict": verdict,
+        "basis_sufficiency": if fixture.validator_low_basis {
+            ValidatorBasisSufficiency::Low.as_str()
+        } else {
+            ValidatorBasisSufficiency::High.as_str()
+        },
+        "enforcement_eligible": enforcement_eligible,
+        "confidence_bps": confidence_bps,
+        "issues": issues,
+        "summary": summary,
+    })
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn run_live_semantic_validation(
+    runtime: &mut RuntimeBootstrap,
+    runner: &JobRunner,
+    worker_job_id: &str,
+    worker_session_id: &str,
+    process_id: &str,
+    skill: &LoadedSkill,
+    stored_manifest: &agents::artifacts::StoredManifest,
+    fixture: &LiveLoopFixture,
+    items_processed: u32,
+) -> Result<LiveValidationExecution> {
+    let policy_config = build_live_validation_policy_config(skill);
+    let policy_context = build_live_validation_policy_context(skill, fixture);
+    let policy_decision = evaluate_validation_policy(&policy_config, &policy_context);
+
+    if !policy_decision.validation_required {
+        return Ok(LiveValidationExecution {
+            validation_required: false,
+            validator_job_id: None,
+            validation_verdict_id: None,
+            process_validation_state: ProcessValidationState::Unverified,
+            validation_marker: None,
+        });
+    }
+
+    update_job_validation_required(&mut runtime.state_db, worker_job_id, true)?;
+    let request = ValidatorEnqueueRequest {
+        validator_job_id: None,
+        idempotency_key: None,
+        worker_job_id: worker_job_id.to_owned(),
+        worker_session_id: Some(worker_session_id.to_owned()),
+        process_id: Some(process_id.to_owned()),
+        scope_kind: Some("process".to_owned()),
+        scope_id: Some(process_id.to_owned()),
+        continuation_chain_id: None,
+        run_manifest_path: stored_manifest.path.clone(),
+        run_manifest_hash: stored_manifest.sha256.clone(),
+        drift_delta_json: Value::Null,
+        oqg_anomaly_summary: Vec::new(),
+        representative_item_sample: json!({
+            "process_id": process_id,
+            "items_processed": items_processed,
+        }),
+        corpus_provenance_tag: None,
+        purpose: jobs::runner::ValidatorJobPurpose::LiveValidation,
+        canary_case: None,
+        retroactive_backlog: None,
+    };
+    let enqueued = enqueue_validator_followup(runtime, runner, request.clone())?;
+
+    if fixture.validator_fail_open {
+        complete_validator_job(
+            &mut runtime.state_db,
+            &enqueued.job_id,
+            "failed",
+            &json!({"error": VALIDATION_SKIPPED_VALIDATOR_ERROR}),
+            Some(VALIDATION_SKIPPED_VALIDATOR_ERROR),
+        )?;
+        let failure = decide_validator_failure();
+        let backlog = RetroactiveBacklogMetadata {
+            trust_state: failure.trust_state,
+            high_value_opportunity: false,
+            operator_reviewed: false,
+            enforcement_ready: false,
+            observed_at: Utc::now().to_rfc3339(),
+        };
+        let mut backlog_request = request;
+        backlog_request.validator_job_id = None;
+        backlog_request.idempotency_key = None;
+        let _ = enqueue_retroactive_validation(runtime, runner, backlog_request, backlog)?;
+        return Ok(LiveValidationExecution {
+            validation_required: true,
+            validator_job_id: Some(enqueued.job_id),
+            validation_verdict_id: None,
+            process_validation_state: failure.process_validation_state,
+            validation_marker: failure.validation_marker,
+        });
+    }
+
+    let verdict_payload = build_live_validator_payload(fixture);
+    let Ok(persisted) = runner.persist_validation_verdict(
+        &mut runtime.state_db,
+        &PersistValidationVerdictRequest {
+            verdict_id: format!("verdict-{}", sha256_hex(enqueued.job_id.as_bytes())),
+            worker_job_id: worker_job_id.to_owned(),
+            worker_session_id: Some(worker_session_id.to_owned()),
+            validator_job_id: enqueued.job_id.clone(),
+            validator_session_id: None,
+            run_manifest_hash: stored_manifest.sha256.clone(),
+            validator_skill: enqueued.skill.clone(),
+            payload: verdict_payload.clone(),
+            oqg_signals_summary: Some(json!({"status":"clean"})),
+            incident_signature: None,
+            quality_assessment_json: None,
+            skill_improvement_suggestions_json: None,
+            override_verdict: None,
+            override_reason: None,
+            override_by: None,
+            override_at: None,
+            verdict_rendered_at: Some(Utc::now().to_rfc3339()),
+        },
+    ) else {
+        complete_validator_job(
+            &mut runtime.state_db,
+            &enqueued.job_id,
+            "failed",
+            &json!({"error": VALIDATION_SKIPPED_VALIDATOR_ERROR}),
+            Some(VALIDATION_SKIPPED_VALIDATOR_ERROR),
+        )?;
+        let failure = decide_validator_failure();
+        let backlog = RetroactiveBacklogMetadata {
+            trust_state: failure.trust_state,
+            high_value_opportunity: false,
+            operator_reviewed: false,
+            enforcement_ready: false,
+            observed_at: Utc::now().to_rfc3339(),
+        };
+        let mut backlog_request = request;
+        backlog_request.validator_job_id = None;
+        backlog_request.idempotency_key = None;
+        let _ = enqueue_retroactive_validation(runtime, runner, backlog_request, backlog)?;
+        return Ok(LiveValidationExecution {
+            validation_required: true,
+            validator_job_id: Some(enqueued.job_id),
+            validation_verdict_id: None,
+            process_validation_state: failure.process_validation_state,
+            validation_marker: failure.validation_marker,
+        });
+    };
+
+    complete_validator_job(
+        &mut runtime.state_db,
+        &enqueued.job_id,
+        "completed",
+        &verdict_payload,
+        None,
+    )?;
+    let decision = decide_validator_verdict(
+        &persisted.contract,
+        ValidationHandlingMode {
+            dry_run: true,
+            enforcement_active: false,
+        },
+    );
+    Ok(LiveValidationExecution {
+        validation_required: true,
+        validator_job_id: Some(enqueued.job_id),
+        validation_verdict_id: Some(persisted.verdict_id),
+        process_validation_state: decision.process_validation_state,
+        validation_marker: decision.validation_marker,
+    })
+}
+
 fn claimed_job_lease_heartbeat(
     runtime: &RuntimeBootstrap,
     job_id: &str,
@@ -2545,6 +2910,17 @@ async fn run_fts_live_loop(
         &contract_session_id,
         &contract_run_manifest,
     )?;
+    let live_validation = run_live_semantic_validation(
+        runtime,
+        &runner,
+        &job_id,
+        &contract_session_id,
+        &pipeline.process_id,
+        &manifest_skill,
+        &contract_run_manifest,
+        &fixture,
+        manifest_computation.candidate_count,
+    )?;
 
     if fixture.goods_classification_low_confidence {
         let _ = create_error_manifest(
@@ -2629,6 +3005,7 @@ async fn run_fts_live_loop(
         &manifest_computation,
         &manifest_path,
         fixture.notices.len(),
+        &live_validation,
     )
 }
 
@@ -3051,7 +3428,17 @@ fn finalize_success(
     manifest: &ManifestComputation,
     manifest_path: &Path,
     notices_ingested: usize,
+    live_validation: &LiveValidationExecution,
 ) -> Result<LiveLoopReport> {
+    let review_required = pipeline.review_required
+        || live_validation.process_validation_state != ProcessValidationState::Validated;
+    let review_reason = merge_review_reason(
+        pipeline.review_reason.as_deref(),
+        live_validation.validation_marker,
+    );
+    let review_reason_for_summary = review_reason.clone();
+    let validation_verdict_id = live_validation.validation_verdict_id.clone();
+    let validator_job_id = live_validation.validator_job_id.clone();
     let summary_payload = json!({
         "job_id": job_id,
         "source_id": "fts",
@@ -3059,8 +3446,13 @@ fn finalize_success(
         "notices_ingested": notices_ingested,
         "candidate_count": manifest.candidate_count,
         "manifest_path": manifest_path.to_string_lossy(),
-        "review_required": pipeline.review_required,
-        "review_reason": pipeline.review_reason,
+        "review_required": review_required,
+        "review_reason": review_reason_for_summary,
+        "validation_required": live_validation.validation_required,
+        "validation_state": live_validation.process_validation_state.as_str(),
+        "validation_verdict_id": validation_verdict_id,
+        "validator_job_id": validator_job_id,
+        "validation_marker": live_validation.validation_marker,
         "durable_step_surfaces": live_loop_surfaces_json(),
     });
 
@@ -3090,7 +3482,7 @@ fn finalize_success(
               process_id, pipeline_state, review_required, validation_state, gross_margin_bps,
               net_margin_bps, review_stage, review_reason, decision_basis_hash, owner_id,
               last_local_seq, stage_run_id
-            ) VALUES (?1, 'manifest_ready', ?2, 'unverified', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+            ) VALUES (?1, 'manifest_ready', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
             ON CONFLICT(process_id) DO UPDATE SET
               pipeline_state = excluded.pipeline_state,
               review_required = excluded.review_required,
@@ -3107,15 +3499,16 @@ fn finalize_success(
             ",
             params![
                 pipeline.process_id,
-                i64::from(pipeline.review_required),
+                i64::from(review_required),
+                live_validation.process_validation_state.as_str(),
                 pipeline.gross_margin_bps,
                 pipeline.net_margin_bps,
-                if pipeline.review_required {
+                if review_required {
                     Some("manifest".to_owned())
                 } else {
                     None::<String>
                 },
-                pipeline.review_reason,
+                review_reason,
                 manifest.decision_basis_hash,
                 DEFAULT_OWNER_ID,
                 committed_seq,
@@ -3969,6 +4362,10 @@ fn default_fixture() -> LiveLoopFixture {
         sqlite_write_failure: false,
         manifest_schema_invalid: false,
         manifest_oqg_suspect: false,
+        validator_fail_open: false,
+        validator_flagged: false,
+        validator_rejected: false,
+        validator_low_basis: false,
         basis_hash_mismatch: false,
         goods_classification_low_confidence: false,
         supplier_match_low_confidence: false,

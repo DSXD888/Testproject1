@@ -44,9 +44,12 @@ pub use claim::JobLeaseHeartbeat;
 #[allow(unused_imports)]
 pub use validation_executor::{
     EnqueuedValidatorJob, PersistValidationVerdictRequest, PersistedValidationVerdict,
-    RetroactiveBacklogItem, RetroactiveBacklogMetadata, ValidationBlackoutIncident,
-    ValidationCanaryCase, ValidationHealthState, ValidationTelemetrySnapshot,
-    ValidationTelemetryWindow, ValidatorEnqueueRequest, ValidatorJobPurpose,
+    ProcessValidationState, RetroactiveBacklogItem, RetroactiveBacklogMetadata,
+    VALIDATION_SKIPPED_VALIDATOR_ERROR, VALIDATOR_JOB_KIND, ValidationBlackoutIncident,
+    ValidationCanaryCase, ValidationHandlingMode, ValidationHealthState,
+    ValidationTelemetrySnapshot, ValidationTelemetryWindow, ValidationTrustState,
+    ValidatorBasisSufficiency, ValidatorEnqueueRequest, ValidatorJobPurpose, ValidatorVerdict,
+    decide_validator_failure, decide_validator_verdict,
 };
 
 pub const CANONICAL_SCOPE_KINDS: [&str; 6] = [

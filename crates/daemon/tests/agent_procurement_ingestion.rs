@@ -240,7 +240,7 @@ fn set_field(fixture: &mut Value, key: &str, value: Value) -> Result<()> {
 
 fn job_input_payload(conn: &Connection) -> Result<Value> {
     let payload: String = conn.query_row(
-        "SELECT input_payload FROM workflow_jobs ORDER BY created_at DESC LIMIT 1",
+        "SELECT input_payload FROM workflow_jobs WHERE parent_job_id IS NULL ORDER BY created_at DESC LIMIT 1",
         [],
         |row| row.get(0),
     )?;
@@ -249,7 +249,7 @@ fn job_input_payload(conn: &Connection) -> Result<Value> {
 
 fn job_output_payload(conn: &Connection) -> Result<Value> {
     let payload: String = conn.query_row(
-        "SELECT output_payload FROM workflow_jobs ORDER BY created_at DESC LIMIT 1",
+        "SELECT output_payload FROM workflow_jobs WHERE parent_job_id IS NULL ORDER BY created_at DESC LIMIT 1",
         [],
         |row| row.get(0),
     )?;
@@ -258,7 +258,7 @@ fn job_output_payload(conn: &Connection) -> Result<Value> {
 
 fn latest_job_status(conn: &Connection) -> Result<String> {
     conn.query_row(
-        "SELECT status FROM workflow_jobs ORDER BY created_at DESC LIMIT 1",
+        "SELECT status FROM workflow_jobs WHERE parent_job_id IS NULL ORDER BY created_at DESC LIMIT 1",
         [],
         |row| row.get(0),
     )
@@ -284,7 +284,7 @@ fn e2e_ing_001_manual_cli_trigger_creates_sync_source_job_under_daemon_control()
 
     let conn = harness.connection()?;
     let (kind, status): (String, String) = conn.query_row(
-        "SELECT kind, status FROM workflow_jobs ORDER BY created_at DESC LIMIT 1",
+        "SELECT kind, status FROM workflow_jobs WHERE parent_job_id IS NULL ORDER BY created_at DESC LIMIT 1",
         [],
         |row| Ok((row.get(0)?, row.get(1)?)),
     )?;
@@ -665,30 +665,37 @@ fn e2e_ing_018_soft_stale_vs_hard_invalid_follow_cascade_rules() -> Result<()> {
 }
 
 #[test]
-fn e2e_ing_019_reserved_forward_compat_columns_stay_reserved() -> Result<()> {
+fn e2e_ing_019_live_validation_marks_worker_row_and_links_verdict() -> Result<()> {
     let harness = RunHarness::new()?;
     let result = harness.run(&default_fixture())?;
     ensure!(result.success);
 
     let conn = harness.connection()?;
-    let (parent_job_id, validation_required, validation_verdict_id): (
+    let (job_id, parent_job_id, validation_required, validation_verdict_id): (
+        String,
         Option<String>,
         i64,
         Option<String>,
     ) = conn.query_row(
-        "SELECT parent_job_id, validation_required, validation_verdict_id FROM workflow_jobs ORDER BY created_at DESC LIMIT 1",
+        "SELECT id, parent_job_id, validation_required, validation_verdict_id FROM workflow_jobs WHERE parent_job_id IS NULL ORDER BY created_at DESC LIMIT 1",
         [],
-        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
     )?;
     let validation_state: String = conn.query_row(
         "SELECT validation_state FROM pipeline_assessments WHERE process_id = 'process-fts-001'",
         [],
         |row| row.get(0),
     )?;
+    let validator_job_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM workflow_jobs WHERE kind = 'semantic_validate' AND parent_job_id = ?1",
+        [job_id],
+        |row| row.get(0),
+    )?;
     ensure!(parent_job_id.is_none());
-    ensure!(validation_required == 0);
-    ensure!(validation_verdict_id.is_none());
-    ensure!(validation_state == "unverified");
+    ensure!(validation_required == 1);
+    ensure!(validation_verdict_id.is_some());
+    ensure!(validation_state == "validated");
+    ensure!(validator_job_count >= 1);
     Ok(())
 }
 
@@ -906,5 +913,51 @@ fn e2e_ing_026_one_session_proves_set_replacement_and_additive_scoping() -> Resu
     ensure!(normalize_rows == 2);
     ensure!(normalize_stage_runs == 2);
     ensure!(additive_rows == 3);
+    Ok(())
+}
+
+#[test]
+fn e2e_ing_027_validator_fail_open_keeps_worker_completed_and_queues_backlog() -> Result<()> {
+    let harness = RunHarness::new()?;
+    let mut fixture = default_fixture();
+    set_field(&mut fixture, "validatorFailOpen", json!(true))?;
+    let result = harness.run(&fixture)?;
+    ensure!(result.success);
+
+    let conn = harness.connection()?;
+    let (job_id, status, validation_required, validation_verdict_id): (
+        String,
+        String,
+        i64,
+        Option<String>,
+    ) = conn.query_row(
+        "SELECT id, status, validation_required, validation_verdict_id FROM workflow_jobs WHERE parent_job_id IS NULL ORDER BY created_at DESC LIMIT 1",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    )?;
+    let validation_state: String = conn.query_row(
+        "SELECT validation_state FROM pipeline_assessments WHERE process_id = 'process-fts-001'",
+        [],
+        |row| row.get(0),
+    )?;
+    let output = job_output_payload(&conn)?;
+    let failed_validator_jobs: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM workflow_jobs WHERE kind = 'semantic_validate' AND status = 'failed' AND parent_job_id = ?1",
+        [&job_id],
+        |row| row.get(0),
+    )?;
+    let pending_backlog_jobs: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM workflow_jobs WHERE kind = 'semantic_validate' AND status = 'pending' AND parent_job_id = ?1",
+        [&job_id],
+        |row| row.get(0),
+    )?;
+
+    ensure!(status == "completed");
+    ensure!(validation_required == 1);
+    ensure!(validation_verdict_id.is_none());
+    ensure!(validation_state == "unverified");
+    ensure!(output["validation_marker"] == "VALIDATION_SKIPPED_VALIDATOR_ERROR");
+    ensure!(failed_validator_jobs >= 1);
+    ensure!(pending_backlog_jobs >= 1);
     Ok(())
 }
