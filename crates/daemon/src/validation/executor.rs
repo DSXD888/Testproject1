@@ -4,7 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, ensure};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -110,6 +110,9 @@ impl ValidatorSkillBundle {
 pub struct ValidatorKickoffPacket {
     pub worker_job_id: String,
     pub worker_session_id: Option<String>,
+    pub process_id: Option<String>,
+    pub scope_kind: Option<String>,
+    pub scope_id: Option<String>,
     pub run_manifest_path: String,
     pub run_manifest_hash: String,
     pub validator_rubric_hash: String,
@@ -117,6 +120,9 @@ pub struct ValidatorKickoffPacket {
     pub oqg_anomaly_summary: Vec<String>,
     pub representative_item_sample: Value,
     pub corpus_provenance_tag: Option<String>,
+    pub purpose: ValidatorJobPurpose,
+    pub canary_case: Option<ValidationCanaryCase>,
+    pub retroactive_backlog: Option<RetroactiveBacklogMetadata>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,6 +141,18 @@ pub struct ValidatorEnqueueRequest {
     pub oqg_anomaly_summary: Vec<String>,
     pub representative_item_sample: Value,
     pub corpus_provenance_tag: Option<String>,
+    pub purpose: ValidatorJobPurpose,
+    pub canary_case: Option<ValidationCanaryCase>,
+    pub retroactive_backlog: Option<RetroactiveBacklogMetadata>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ValidatorJobPurpose {
+    #[default]
+    LiveValidation,
+    SyntheticCanary,
+    RetroactiveBacklog,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -153,6 +171,9 @@ pub fn build_validator_kickoff_packet(
     ValidatorKickoffPacket {
         worker_job_id: request.worker_job_id.clone(),
         worker_session_id: request.worker_session_id.clone(),
+        process_id: request.process_id.clone(),
+        scope_kind: request.scope_kind.clone(),
+        scope_id: request.scope_id.clone(),
         run_manifest_path: request.run_manifest_path.to_string_lossy().into_owned(),
         run_manifest_hash: request.run_manifest_hash.clone(),
         validator_rubric_hash: skill.validator_rubric_hash.clone(),
@@ -160,6 +181,9 @@ pub fn build_validator_kickoff_packet(
         oqg_anomaly_summary: request.oqg_anomaly_summary.clone(),
         representative_item_sample: request.representative_item_sample.clone(),
         corpus_provenance_tag: request.corpus_provenance_tag.clone(),
+        purpose: request.purpose,
+        canary_case: request.canary_case.clone(),
+        retroactive_backlog: request.retroactive_backlog.clone(),
     }
 }
 
@@ -265,6 +289,13 @@ pub struct ValidatorIssue {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValidationCanaryCase {
+    pub case_id: String,
+    pub expected_verdict: Option<ValidatorVerdict>,
+    pub expected_basis_sufficiency: ValidatorBasisSufficiency,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ValidatorResultContract {
     pub verdict: ValidatorVerdict,
     pub basis_sufficiency: ValidatorBasisSufficiency,
@@ -274,7 +305,28 @@ pub struct ValidatorResultContract {
     pub summary: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ValidationHealthState {
+    #[default]
+    Healthy,
+    Degraded,
+    Blind,
+}
+
+impl ValidationHealthState {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Healthy => "healthy",
+            Self::Degraded => "degraded",
+            Self::Blind => "blind",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ValidationTrustState {
     Verified,
     Flagged,
@@ -294,7 +346,32 @@ impl ValidationTrustState {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RetroactiveBacklogMetadata {
+    pub high_value_opportunity: bool,
+    pub operator_reviewed: bool,
+    pub enforcement_ready: bool,
+    pub trust_state: ValidationTrustState,
+    pub observed_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RetroactiveBacklogItem {
+    pub backlog_job_id: String,
+    pub worker_job_id: String,
+    pub worker_session_id: Option<String>,
+    pub process_id: Option<String>,
+    pub scope_kind: Option<String>,
+    pub scope_id: Option<String>,
+    pub trust_state: ValidationTrustState,
+    pub high_value_opportunity: bool,
+    pub operator_reviewed: bool,
+    pub enforcement_ready: bool,
+    pub observed_at: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ProcessValidationState {
     Validated,
     Flagged,
@@ -326,6 +403,43 @@ pub struct ValidationHandlingDecision {
     pub quarantine_worker: bool,
     pub queue_retroactive_backlog: bool,
     pub validation_marker: Option<&'static str>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct ValidationTelemetryWindow {
+    pub validation_attempt_count: u32,
+    pub approved_count: u32,
+    pub rejected_count: u32,
+    pub flagged_count: u32,
+    pub total_cost_pence: u32,
+    pub operator_override_count: u32,
+    pub execution_failure_count: u32,
+    pub canary_run_count: u32,
+    pub canary_success_count: u32,
+    pub timeout_spike: bool,
+    pub basis_insufficiency_spike: bool,
+    pub provider_unavailable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValidationTelemetrySnapshot {
+    pub validator_approval_rate_bps: u16,
+    pub validator_rejection_rate_bps: u16,
+    pub validator_flag_rate_bps: u16,
+    pub validator_cost_per_run_pence: u32,
+    pub operator_override_rate_bps: u16,
+    pub validator_execution_failure_rate_bps: u16,
+    pub validator_canary_pass_rate_bps: u16,
+    pub validator_health_state: ValidationHealthState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValidationBlackoutIncident {
+    pub health_state: ValidationHealthState,
+    pub affected_window_start: String,
+    pub affected_window_end: String,
+    pub reason: String,
+    pub trust_debt_count: u32,
 }
 
 #[must_use]
@@ -395,6 +509,118 @@ pub const fn decide_validator_failure() -> ValidationHandlingDecision {
 }
 
 #[must_use]
+pub fn compute_validation_telemetry(
+    window: &ValidationTelemetryWindow,
+    canary_override: Option<ValidationHealthState>,
+) -> ValidationTelemetrySnapshot {
+    let validated_count = window
+        .approved_count
+        .saturating_add(window.rejected_count)
+        .saturating_add(window.flagged_count);
+    let health_state = derive_validation_health_state(window, canary_override);
+
+    ValidationTelemetrySnapshot {
+        validator_approval_rate_bps: basis_points(window.approved_count, validated_count),
+        validator_rejection_rate_bps: basis_points(window.rejected_count, validated_count),
+        validator_flag_rate_bps: basis_points(window.flagged_count, validated_count),
+        validator_cost_per_run_pence: window
+            .total_cost_pence
+            .checked_div(validated_count)
+            .unwrap_or(0),
+        operator_override_rate_bps: basis_points(
+            window.operator_override_count,
+            window.rejected_count,
+        ),
+        validator_execution_failure_rate_bps: basis_points(
+            window.execution_failure_count,
+            window.validation_attempt_count,
+        ),
+        validator_canary_pass_rate_bps: basis_points(
+            window.canary_success_count,
+            window.canary_run_count,
+        ),
+        validator_health_state: health_state,
+    }
+}
+
+#[must_use]
+pub fn derive_validation_health_state(
+    window: &ValidationTelemetryWindow,
+    canary_override: Option<ValidationHealthState>,
+) -> ValidationHealthState {
+    if matches!(canary_override, Some(ValidationHealthState::Blind)) || window.provider_unavailable
+    {
+        return ValidationHealthState::Blind;
+    }
+
+    let execution_failure_rate_bps = basis_points(
+        window.execution_failure_count,
+        window.validation_attempt_count,
+    );
+    if execution_failure_rate_bps > 5_000 {
+        return ValidationHealthState::Blind;
+    }
+
+    if matches!(canary_override, Some(ValidationHealthState::Degraded))
+        || execution_failure_rate_bps > 2_000
+        || window.timeout_spike
+        || window.basis_insufficiency_spike
+    {
+        return ValidationHealthState::Degraded;
+    }
+
+    ValidationHealthState::Healthy
+}
+
+#[must_use]
+pub fn canary_health_override(
+    canary_case: &ValidationCanaryCase,
+    contract: &ValidatorResultContract,
+) -> Option<ValidationHealthState> {
+    if contract.basis_sufficiency != canary_case.expected_basis_sufficiency {
+        return Some(ValidationHealthState::Degraded);
+    }
+
+    match canary_case.expected_verdict {
+        Some(expected) if contract.verdict != expected => {
+            if expected == ValidatorVerdict::Rejected
+                && contract.verdict == ValidatorVerdict::Approved
+            {
+                Some(ValidationHealthState::Blind)
+            } else {
+                Some(ValidationHealthState::Degraded)
+            }
+        }
+        None if contract.basis_sufficiency != ValidatorBasisSufficiency::Low => {
+            Some(ValidationHealthState::Degraded)
+        }
+        _ => None,
+    }
+}
+
+#[must_use]
+pub fn blackout_incident_for_transition(
+    previous: ValidationHealthState,
+    next: ValidationHealthState,
+    affected_window_start: DateTime<Utc>,
+    affected_window_end: DateTime<Utc>,
+    reason: impl Into<String>,
+    trust_debt_count: u32,
+) -> Option<ValidationBlackoutIncident> {
+    if previous == ValidationHealthState::Blind || next != ValidationHealthState::Blind {
+        return None;
+    }
+
+    Some(ValidationBlackoutIncident {
+        health_state: next,
+        affected_window_start: affected_window_start.to_rfc3339(),
+        affected_window_end: affected_window_end.to_rfc3339(),
+        reason: reason.into(),
+        trust_debt_count,
+    })
+}
+
+#[must_use]
 pub fn rollup_process_validation_state(
     trust_states: impl IntoIterator<Item = ValidationTrustState>,
 ) -> ProcessValidationState {
@@ -415,6 +641,228 @@ pub fn rollup_process_validation_state(
         ProcessValidationState::Unverified
     } else {
         ProcessValidationState::Validated
+    }
+}
+
+pub fn enqueue_retroactive_backlog_job(
+    repo_root: &Path,
+    state_db: &mut StateDb,
+    runner: &JobRunner,
+    mut request: ValidatorEnqueueRequest,
+    backlog: RetroactiveBacklogMetadata,
+) -> Result<EnqueuedValidatorJob> {
+    request.purpose = ValidatorJobPurpose::RetroactiveBacklog;
+    request.retroactive_backlog = Some(backlog);
+    enqueue_validator_sub_job(repo_root, state_db, runner, &request)
+}
+
+pub fn enqueue_validation_canary_job(
+    repo_root: &Path,
+    state_db: &mut StateDb,
+    runner: &JobRunner,
+    mut request: ValidatorEnqueueRequest,
+    canary_case: ValidationCanaryCase,
+) -> Result<EnqueuedValidatorJob> {
+    request.purpose = ValidatorJobPurpose::SyntheticCanary;
+    request.canary_case = Some(canary_case);
+    enqueue_validator_sub_job(repo_root, state_db, runner, &request)
+}
+
+pub fn load_pending_retroactive_backlog(
+    conn: &rusqlite::Connection,
+) -> Result<Vec<RetroactiveBacklogItem>> {
+    let mut statement = conn.prepare(
+        "\
+        SELECT id, input_payload
+        FROM workflow_jobs
+        WHERE kind = ?1
+          AND status = 'pending'
+        ",
+    )?;
+    let rows = statement.query_map(rusqlite::params![VALIDATOR_JOB_KIND], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+
+    let mut items = Vec::new();
+    for row in rows {
+        let (job_id, raw_payload) = row?;
+        let payload: Value =
+            serde_json::from_str(&raw_payload).context("parsing workflow_jobs.input_payload")?;
+        let request = payload
+            .get("request")
+            .ok_or_else(|| anyhow!("workflow job missing request wrapper"))?;
+        let packet = request
+            .get("validator_packet")
+            .ok_or_else(|| anyhow!("workflow job missing validator_packet"))?;
+        let purpose: ValidatorJobPurpose = serde_json::from_value(
+            packet
+                .get("purpose")
+                .cloned()
+                .unwrap_or_else(|| json!("live_validation")),
+        )
+        .context("parsing validator purpose")?;
+        if purpose != ValidatorJobPurpose::RetroactiveBacklog {
+            continue;
+        }
+        let backlog: RetroactiveBacklogMetadata = serde_json::from_value(
+            packet
+                .get("retroactive_backlog")
+                .cloned()
+                .ok_or_else(|| anyhow!("retroactive backlog job missing backlog metadata"))?,
+        )
+        .context("parsing retroactive backlog metadata")?;
+        items.push(RetroactiveBacklogItem {
+            backlog_job_id: job_id,
+            worker_job_id: packet
+                .get("worker_job_id")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("retroactive backlog missing worker_job_id"))?
+                .to_owned(),
+            worker_session_id: packet
+                .get("worker_session_id")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+            process_id: packet
+                .get("process_id")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+            scope_kind: packet
+                .get("scope_kind")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+            scope_id: packet
+                .get("scope_id")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+            trust_state: backlog.trust_state,
+            high_value_opportunity: backlog.high_value_opportunity,
+            operator_reviewed: backlog.operator_reviewed,
+            enforcement_ready: backlog.enforcement_ready,
+            observed_at: backlog.observed_at,
+        });
+    }
+
+    sort_retroactive_backlog(&mut items);
+    Ok(items)
+}
+
+pub fn sort_retroactive_backlog(items: &mut [RetroactiveBacklogItem]) {
+    items.sort_by(|left, right| {
+        retroactive_backlog_rank(left)
+            .cmp(&retroactive_backlog_rank(right))
+            .then_with(|| right.observed_at.cmp(&left.observed_at))
+            .then_with(|| left.backlog_job_id.cmp(&right.backlog_job_id))
+    });
+}
+
+pub fn apply_retroactive_validation_consequences(
+    state_db: &mut StateDb,
+    worker_job_id: &str,
+    process_id: &str,
+    decision: &ValidationHandlingDecision,
+    verdict_id: &str,
+) -> Result<()> {
+    let trust_state = decision.trust_state.as_str();
+    let process_state = decision.process_validation_state.as_str();
+    let retro_basis_hash = format!("retro-validation:{verdict_id}");
+    let review_reason = decision
+        .validation_marker
+        .unwrap_or(VALIDATION_FLAGGED)
+        .to_owned();
+
+    let ((), _visible_after_seq) = state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "UPDATE listing_evidence SET trust_state = ?1 WHERE source_job_id = ?2",
+            rusqlite::params![trust_state, worker_job_id],
+        )?;
+        tx.execute(
+            "\
+            UPDATE pipeline_assessments
+            SET validation_state = ?1,
+                review_required = 1,
+                review_stage = 'manifest',
+                review_reason = ?2,
+                decision_basis_hash = ?3,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE process_id = ?4
+            ",
+            rusqlite::params![process_state, review_reason, retro_basis_hash, process_id],
+        )?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
+pub fn drain_retroactive_backlog<F>(
+    state_db: &mut StateDb,
+    mut items: Vec<RetroactiveBacklogItem>,
+    mut handle_item: F,
+) -> Result<Vec<String>>
+where
+    F: FnMut(&RetroactiveBacklogItem) -> Result<Value>,
+{
+    sort_retroactive_backlog(&mut items);
+    let mut drained_ids = Vec::with_capacity(items.len());
+    for item in items {
+        let payload = handle_item(&item)?;
+        mark_retroactive_backlog_job_completed(state_db, &item.backlog_job_id, &payload)?;
+        drained_ids.push(item.backlog_job_id);
+    }
+    Ok(drained_ids)
+}
+
+#[must_use]
+pub fn retroactive_recovery_summary(processed_count: u32, issue_count: u32) -> String {
+    format!("validated retroactively: {processed_count} runs processed, {issue_count} issues found")
+}
+
+fn mark_retroactive_backlog_job_completed(
+    state_db: &mut StateDb,
+    backlog_job_id: &str,
+    output_payload: &Value,
+) -> Result<()> {
+    let (updated, _visible_after_seq) = state_db.with_write_transaction(|tx| {
+        let updated = tx.execute(
+            "\
+            UPDATE workflow_jobs
+            SET status = 'completed',
+                completed_at = ?1,
+                output_payload = ?2
+            WHERE id = ?3
+            ",
+            rusqlite::params![
+                Utc::now().to_rfc3339(),
+                output_payload.to_string(),
+                backlog_job_id,
+            ],
+        )?;
+        Ok(updated)
+    })?;
+    ensure!(
+        updated == 1,
+        "retroactive backlog job missing for completion: {backlog_job_id}"
+    );
+    Ok(())
+}
+
+fn basis_points(numerator: u32, denominator: u32) -> u16 {
+    if denominator == 0 {
+        return 0;
+    }
+
+    let scaled = numerator.saturating_mul(10_000) / denominator;
+    u16::try_from(scaled.min(10_000)).expect("basis points are capped to fit in u16")
+}
+
+const fn retroactive_backlog_rank(item: &RetroactiveBacklogItem) -> u8 {
+    if item.high_value_opportunity {
+        0
+    } else if item.operator_reviewed {
+        1
+    } else if item.enforcement_ready {
+        2
+    } else {
+        3
     }
 }
 

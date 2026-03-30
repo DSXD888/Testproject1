@@ -338,6 +338,30 @@ pub fn evaluate_validation_policy(
 }
 
 #[must_use]
+pub fn apply_validator_blind_demotion(
+    context: &ValidationPolicyContext,
+) -> ValidationPolicyContext {
+    let mut adjusted = context.clone();
+    adjusted.signature_limited_ready = false;
+    adjusted.full_slice_enforcement_ready = false;
+    adjusted.anomaly_conditioned_error_spike = true;
+    adjusted
+}
+
+#[must_use]
+pub fn evaluate_validation_policy_with_blind_demotion(
+    config: &ValidationPolicyConfig,
+    context: &ValidationPolicyContext,
+    validator_is_blind: bool,
+) -> ValidationDecision {
+    if validator_is_blind {
+        evaluate_validation_policy(config, &apply_validator_blind_demotion(context))
+    } else {
+        evaluate_validation_policy(config, context)
+    }
+}
+
+#[must_use]
 pub fn evaluate_enforcement_eligibility(
     config: &ValidationPolicyConfig,
     context: &ValidationPolicyContext,

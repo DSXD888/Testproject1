@@ -141,6 +141,9 @@ mod tests {
             oqg_anomaly_summary: vec!["duplicate_rate:none".to_owned()],
             representative_item_sample: json!({"item":"sample"}),
             corpus_provenance_tag: Some("clean_real".to_owned()),
+            purpose: executor_impl::ValidatorJobPurpose::LiveValidation,
+            canary_case: None,
+            retroactive_backlog: None,
         }
     }
 

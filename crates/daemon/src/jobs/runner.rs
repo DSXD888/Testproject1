@@ -41,9 +41,12 @@ pub const JOB_OBSOLETE: &str = "JOB_OBSOLETE";
 const DEFAULT_EXECUTOR_OWNER_ID: &str = "local-owner";
 
 pub use claim::JobLeaseHeartbeat;
+#[allow(unused_imports)]
 pub use validation_executor::{
     EnqueuedValidatorJob, PersistValidationVerdictRequest, PersistedValidationVerdict,
-    ValidatorEnqueueRequest,
+    RetroactiveBacklogItem, RetroactiveBacklogMetadata, ValidationBlackoutIncident,
+    ValidationCanaryCase, ValidationHealthState, ValidationTelemetrySnapshot,
+    ValidationTelemetryWindow, ValidatorEnqueueRequest, ValidatorJobPurpose,
 };
 
 pub const CANONICAL_SCOPE_KINDS: [&str; 6] = [
@@ -324,6 +327,34 @@ impl JobRunner {
     ) -> Result<PersistedValidationVerdict> {
         let _ = &self.executor_id;
         validation_executor::persist_validation_verdict(state_db, request)
+    }
+
+    pub fn enqueue_retroactive_backlog_job(
+        &self,
+        repo_root: &Path,
+        state_db: &mut StateDb,
+        request: ValidatorEnqueueRequest,
+        backlog: RetroactiveBacklogMetadata,
+    ) -> Result<EnqueuedValidatorJob> {
+        validation_executor::enqueue_retroactive_backlog_job(
+            repo_root, state_db, self, request, backlog,
+        )
+    }
+
+    pub fn enqueue_validation_canary_job(
+        &self,
+        repo_root: &Path,
+        state_db: &mut StateDb,
+        request: ValidatorEnqueueRequest,
+        canary_case: ValidationCanaryCase,
+    ) -> Result<EnqueuedValidatorJob> {
+        validation_executor::enqueue_validation_canary_job(
+            repo_root,
+            state_db,
+            self,
+            request,
+            canary_case,
+        )
     }
 
     pub fn persist_continuation(

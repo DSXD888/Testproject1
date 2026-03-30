@@ -1563,6 +1563,38 @@ fn enqueue_validator_followup(
     runner.enqueue_validation_sub_job(&repo_root()?, &mut runtime.state_db, &request)
 }
 
+#[allow(dead_code)]
+fn enqueue_validation_canary(
+    runtime: &mut RuntimeBootstrap,
+    runner: &JobRunner,
+    mut request: ValidatorEnqueueRequest,
+    canary_case: jobs::runner::ValidationCanaryCase,
+) -> Result<EnqueuedValidatorJob> {
+    if request.idempotency_key.is_none() {
+        request.idempotency_key = Some(format!(
+            "{VALIDATOR_JOB_KIND}:canary:{}:{}",
+            request.worker_job_id, canary_case.case_id
+        ));
+    }
+    runner.enqueue_validation_canary_job(&repo_root()?, &mut runtime.state_db, request, canary_case)
+}
+
+#[allow(dead_code)]
+fn enqueue_retroactive_validation(
+    runtime: &mut RuntimeBootstrap,
+    runner: &JobRunner,
+    mut request: ValidatorEnqueueRequest,
+    backlog: jobs::runner::RetroactiveBacklogMetadata,
+) -> Result<EnqueuedValidatorJob> {
+    if request.idempotency_key.is_none() {
+        request.idempotency_key = Some(format!(
+            "{VALIDATOR_JOB_KIND}:retroactive:{}:{}",
+            request.worker_job_id, backlog.observed_at
+        ));
+    }
+    runner.enqueue_retroactive_backlog_job(&repo_root()?, &mut runtime.state_db, request, backlog)
+}
+
 fn claimed_job_lease_heartbeat(
     runtime: &RuntimeBootstrap,
     job_id: &str,
