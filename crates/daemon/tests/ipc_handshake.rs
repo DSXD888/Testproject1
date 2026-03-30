@@ -449,9 +449,11 @@ fn it_ipc_014_router_active_accepts_subscribe_and_emits_initial_health_payload()
         },
     ])?;
 
-    assert!(frames.iter().any(|response| {
-        matches!(response, ServerMessage::Welcome { .. })
-    }));
+    assert!(
+        frames
+            .iter()
+            .any(|response| { matches!(response, ServerMessage::Welcome { .. }) })
+    );
     assert!(matches!(
         frames.get(1),
         Some(ServerMessage::CommandResponse { request_id, payload })
