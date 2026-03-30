@@ -42,6 +42,7 @@ mod jobs {
 #[allow(dead_code)]
 mod pty {
     pub mod capture;
+    pub mod health;
     pub mod session;
 }
 
@@ -103,6 +104,7 @@ use std::path::{Path, PathBuf};
 use std::process;
 use std::process::Stdio;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use agents::adapter::{
     AgentAdapter, CapabilityReport, ControlEvent, ExecutionMode, InteractionProfile, LaunchSpec,
@@ -145,14 +147,18 @@ use ipc::handshake::{
 use jobs::runner::{
     EnqueuedValidatorJob, FreshnessState, JobLeaseHeartbeat, JobRunner, ObsoleteJobRequest,
     PersistValidationVerdictRequest, ProcessValidationState, RetroactiveBacklogMetadata,
+    SkillTelemetrySnapshot, SkillTelemetryThresholds, SkillTelemetryWindow,
     VALIDATION_SKIPPED_VALIDATOR_ERROR, VALIDATOR_JOB_KIND, ValidationHandlingMode,
     ValidatorBasisSufficiency, ValidatorEnqueueRequest, ValidatorVerdict, allocate_stage_run_id,
-    decide_validator_failure, decide_validator_verdict, set_stage_head_freshness,
-    start_job_lease_heartbeat,
+    compute_skill_telemetry, decide_validator_failure, decide_validator_verdict,
+    set_stage_head_freshness, skill_telemetry_thresholds, start_job_lease_heartbeat,
 };
 use nix::unistd::{Pid, getpgid, getsid};
 use prompt::renderer::{PromptRenderer, PromptRendererInput};
 use pty::capture::{CaptureConfig, PtyCapture, compressed_payload_sha256};
+use pty::health::{
+    HealthIssue, HostResources, detect_host_sleep, detect_resource_pressure, resolve_health_issue,
+};
 use pty::session::{PtyCommand, PtySession, RuntimeIds as PtyRuntimeIds, SpawnOptions, SpawnPath};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use scheduler::cron::CronScheduler;
@@ -165,7 +171,10 @@ use tracing::forensic::{
     ForensicCaptureSummary, ForensicIdentity, ForensicPtyCapture, capture_contract_output,
     summarize_contract_capture,
 };
-use tracing::structured::{StructuredTrace, TraceIdentity, parse_phase_history};
+use tracing::structured::{
+    StructuredControlEventKind, StructuredControlEventRecord, StructuredTrace, TraceIdentity,
+    parse_phase_history,
+};
 use tracing_subscriber::EnvFilter;
 use validation::manifest_writer::{ManifestWriteRequest, write_hybrid_run_manifest};
 use validation::policy::{
@@ -501,6 +510,14 @@ struct LiveLoopFixture {
     #[serde(default)]
     fpo_access_unavailable: bool,
     #[serde(default)]
+    host_sleep_monotonic_gap_ms: u64,
+    #[serde(default = "default_host_sleep_threshold_ms")]
+    host_sleep_threshold_ms: u64,
+    #[serde(default)]
+    host_cpu_pressure: bool,
+    #[serde(default)]
+    host_memory_pressure: bool,
+    #[serde(default)]
     set_replacement_failure_stage: Option<String>,
     #[serde(default)]
     soft_stale_targets: Vec<StageTarget>,
@@ -619,8 +636,10 @@ struct LiveValidationExecution {
     validation_required: bool,
     validator_job_id: Option<String>,
     validation_verdict_id: Option<String>,
+    trust_state: jobs::runner::ValidationTrustState,
     process_validation_state: ProcessValidationState,
     validation_marker: Option<&'static str>,
+    validation_telemetry: ValidationStatusSnapshot,
 }
 
 #[derive(Debug, Clone)]
@@ -634,6 +653,31 @@ struct ManifestComputation {
 struct LiveLoopReport {
     summary_line: String,
     status: String,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct HostHealthSnapshot {
+    issue: Option<String>,
+    tainted_active_browser_session: bool,
+    blocks_new_admission: bool,
+    monotonic_gap_ms: u64,
+    sleep_threshold_ms: u64,
+    cpu_pressure: bool,
+    memory_pressure: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct SkillRunTelemetry {
+    skill_id: String,
+    skill_version: String,
+    worker_behavior_version: String,
+    validator_behavior_version: String,
+    telemetry: SkillTelemetrySnapshot,
+    thresholds: SkillTelemetryThresholds,
+    host_health: HostHealthSnapshot,
 }
 
 #[derive(Debug, Clone)]
@@ -1825,7 +1869,8 @@ async fn execute_skill_session(
     let mut resource_lease =
         claimed_job_resource_lease(runtime, skill, job_id, session_id, mode, job_parameters)?;
 
-    let result = match mode {
+    let runtime_trace_identity = trace_identity.clone();
+    let mut result = match mode {
         ExecutionMode::Pty => {
             execute_pty_skill_session(
                 &runtime.artifact_root,
@@ -1860,6 +1905,19 @@ async fn execute_skill_session(
         && let Some(resource_lease) = resource_lease.as_mut()
     {
         resource_lease.set_release_cause(ReleaseCause::Archived);
+    }
+
+    drop(resource_lease);
+
+    if let Ok(executed) = result.as_mut() {
+        executed.structured_trace = append_runtime_control_records(
+            &executed.structured_trace,
+            &runtime_trace_identity,
+            executed.execution_mode,
+            &runtime.resource_arbiter,
+            executed.runtime_ids,
+            &executed.cleanup_verdict,
+        )?;
     }
 
     result
@@ -2045,6 +2103,189 @@ fn merge_review_reason(existing: Option<&str>, validation_marker: Option<&str>) 
     }
 }
 
+fn observe_host_health(
+    fixture: &LiveLoopFixture,
+    execution_mode: ExecutionMode,
+) -> HostHealthSnapshot {
+    let monotonic_gap = Duration::from_millis(fixture.host_sleep_monotonic_gap_ms);
+    let sleep_threshold = Duration::from_millis(fixture.host_sleep_threshold_ms);
+    let sleep_issue = detect_host_sleep(monotonic_gap, sleep_threshold);
+    let resource_issue = detect_resource_pressure(HostResources {
+        cpu_pressure: fixture.host_cpu_pressure,
+        memory_pressure: fixture.host_memory_pressure,
+    });
+    let issue = resolve_health_issue(None, None, sleep_issue, resource_issue);
+
+    HostHealthSnapshot {
+        issue: issue.map(|value| value.code().to_owned()),
+        tainted_active_browser_session: matches!(issue, Some(HealthIssue::HostSleepInterrupted))
+            && execution_mode == ExecutionMode::Pty,
+        blocks_new_admission: matches!(issue, Some(HealthIssue::HostResourceExhausted)),
+        monotonic_gap_ms: fixture.host_sleep_monotonic_gap_ms,
+        sleep_threshold_ms: fixture.host_sleep_threshold_ms,
+        cpu_pressure: fixture.host_cpu_pressure,
+        memory_pressure: fixture.host_memory_pressure,
+    }
+}
+
+fn annotate_trace_with_host_health(
+    raw_trace: &str,
+    host_health: &HostHealthSnapshot,
+) -> Result<String> {
+    let mut trace = StructuredTrace::parse(raw_trace)?;
+    trace.insert_metadata(
+        "host_health",
+        serde_json::to_value(host_health).context("serializing host health snapshot")?,
+    );
+    trace.to_json_string()
+}
+
+fn append_runtime_control_records(
+    raw_trace: &str,
+    identity: &TraceIdentity,
+    execution_mode: ExecutionMode,
+    arbiter: &Mutex<ResourceArbiter>,
+    runtime_ids: Option<PtyRuntimeIds>,
+    cleanup_verdict: &str,
+) -> Result<String> {
+    let mut trace = StructuredTrace::parse(raw_trace)?;
+    let mut seq = trace
+        .control_event_records
+        .last()
+        .map_or(0, |record| record.seq);
+
+    {
+        let arbiter = arbiter
+            .lock()
+            .map_err(|_| anyhow!("resource arbiter mutex poisoned"))?;
+        for event in arbiter.events().iter().filter(|event| {
+            event.job_id == identity.job_id
+                && event.session_id.as_deref() == Some(identity.session_id.as_str())
+        }) {
+            seq += 1;
+            trace.push_control_record(StructuredControlEventRecord {
+                seq,
+                event: structured_control_kind_for_arbiter_event(&event.kind),
+                identity: identity.clone(),
+                execution_mode: execution_mode_label(execution_mode).to_owned(),
+                at: None,
+                details: json!({
+                    "priority": admission_priority_label(event.priority),
+                    "denial_reason": event.denial_reason.as_ref().map(denial_reason_label),
+                    "release_cause": event.release_cause.map(release_cause_label),
+                    "browser_slots_in_use": event.browser_slots_in_use,
+                    "agent_slots_in_use": event.agent_slots_in_use,
+                    "source_lane_key": event.source_lane_key,
+                    "source_lane_in_use": event.source_lane_in_use,
+                }),
+            });
+        }
+    }
+
+    if let Some(runtime_ids) = runtime_ids {
+        seq += 1;
+        trace.push_control_record(StructuredControlEventRecord {
+            seq,
+            event: StructuredControlEventKind::Reap,
+            identity: identity.clone(),
+            execution_mode: execution_mode_label(execution_mode).to_owned(),
+            at: None,
+            details: json!({
+                "pid": runtime_ids.pid,
+                "pgid": runtime_ids.pgid,
+                "sid": runtime_ids.sid,
+            }),
+        });
+    }
+
+    seq += 1;
+    trace.push_control_record(StructuredControlEventRecord {
+        seq,
+        event: StructuredControlEventKind::CleanupVerdict,
+        identity: identity.clone(),
+        execution_mode: execution_mode_label(execution_mode).to_owned(),
+        at: None,
+        details: json!({
+            "cleanup_verdict": cleanup_verdict,
+        }),
+    });
+
+    trace.to_json_string()
+}
+
+const fn structured_control_kind_for_arbiter_event(
+    event: &ArbiterEventKind,
+) -> StructuredControlEventKind {
+    match event {
+        ArbiterEventKind::Grant => StructuredControlEventKind::ResourceGranted,
+        ArbiterEventKind::Deny => StructuredControlEventKind::ResourceDenied,
+        ArbiterEventKind::Release => StructuredControlEventKind::ResourceReleased,
+    }
+}
+
+fn executed_session_duration_ms(executed: &ExecutedSession) -> Result<u64> {
+    let completed_at = parse_timestamp(&executed.completed_at)?;
+    let duration_ms = completed_at
+        .signed_duration_since(executed.started_at)
+        .num_milliseconds()
+        .max(0);
+    u64::try_from(duration_ms).context("converting executed session duration to u64")
+}
+
+fn build_skill_run_telemetry(
+    skill: &LoadedSkill,
+    executed: &ExecutedSession,
+    fixture: &LiveLoopFixture,
+    live_validation: Option<&LiveValidationExecution>,
+) -> Result<SkillRunTelemetry> {
+    let host_health = observe_host_health(fixture, executed.execution_mode);
+    let page_fingerprint_delta_bps = if fixture.fingerprint_state == "matched" {
+        0
+    } else {
+        2_500
+    };
+    let extraction_fill_rate_bps = if fixture.source_changed || fixture.notice_parse_failed {
+        4_000
+    } else {
+        10_000
+    };
+    let validation_rejection_rate_bps = live_validation.and_then(|validation| {
+        validation.validation_required.then_some(u32::from(
+            validation.validation_telemetry.validator_rejection_rate_bps,
+        ))
+    });
+
+    let telemetry = compute_skill_telemetry(&SkillTelemetryWindow {
+        successful_runs: u32::from(executed.exit_code == 0),
+        total_runs: 1,
+        durations_ms: vec![executed_session_duration_ms(executed)?],
+        cost_per_run_pence: Some(12),
+        token_count: Some(1_024),
+        checkpoint_count: Some(executed.last_checkpoint_seq.unwrap_or(0)),
+        retry_count: Some(0),
+        extraction_fill_rate_bps: Some(extraction_fill_rate_bps),
+        page_fingerprint_delta_bps: Some(page_fingerprint_delta_bps),
+        auth_challenge_rate_bps: Some(0),
+        listing_match_rate_bps: None,
+        validation_rejection_rate_bps,
+        drift_score_bps: Some(if fixture.source_changed {
+            3_500
+        } else {
+            page_fingerprint_delta_bps
+        }),
+    });
+
+    Ok(SkillRunTelemetry {
+        skill_id: skill.metadata.skill_id.clone(),
+        skill_version: skill.metadata.skill_version.clone(),
+        worker_behavior_version: skill.metadata.worker_behavior_version(),
+        validator_behavior_version: skill.metadata.validator_behavior_version(),
+        telemetry,
+        thresholds: skill_telemetry_thresholds(),
+        host_health,
+    })
+}
+
 fn build_live_validator_payload(fixture: &LiveLoopFixture) -> Value {
     let (verdict, confidence_bps, enforcement_eligible, issues, summary) =
         if fixture.validator_rejected {
@@ -2118,8 +2359,10 @@ fn run_live_semantic_validation(
             validation_required: false,
             validator_job_id: None,
             validation_verdict_id: None,
+            trust_state: jobs::runner::ValidationTrustState::Unverified,
             process_validation_state: ProcessValidationState::Unverified,
             validation_marker: None,
+            validation_telemetry: build_validation_status_snapshot(runtime.state_db.connection())?,
         });
     }
 
@@ -2172,8 +2415,10 @@ fn run_live_semantic_validation(
             validation_required: true,
             validator_job_id: Some(enqueued.job_id),
             validation_verdict_id: None,
+            trust_state: failure.trust_state,
             process_validation_state: failure.process_validation_state,
             validation_marker: failure.validation_marker,
+            validation_telemetry: build_validation_status_snapshot(runtime.state_db.connection())?,
         });
     }
 
@@ -2223,8 +2468,10 @@ fn run_live_semantic_validation(
             validation_required: true,
             validator_job_id: Some(enqueued.job_id),
             validation_verdict_id: None,
+            trust_state: failure.trust_state,
             process_validation_state: failure.process_validation_state,
             validation_marker: failure.validation_marker,
+            validation_telemetry: build_validation_status_snapshot(runtime.state_db.connection())?,
         });
     };
 
@@ -2246,8 +2493,10 @@ fn run_live_semantic_validation(
         validation_required: true,
         validator_job_id: Some(enqueued.job_id),
         validation_verdict_id: Some(persisted.verdict_id),
+        trust_state: decision.trust_state,
         process_validation_state: decision.process_validation_state,
         validation_marker: decision.validation_marker,
+        validation_telemetry: build_validation_status_snapshot(runtime.state_db.connection())?,
     })
 }
 
@@ -2915,6 +3164,9 @@ async fn run_fts_live_loop(
         );
     }
     ingest_execution.structured_trace = ingest_trace.to_string();
+    let ingest_host_health = observe_host_health(&fixture, ingest_execution.execution_mode);
+    ingest_execution.structured_trace =
+        annotate_trace_with_host_health(&ingest_execution.structured_trace, &ingest_host_health)?;
     ensure!(
         ingest_execution.execution_mode == ExecutionMode::Pty,
         "FTS ingestion skill must resolve to PTY"
@@ -3092,7 +3344,7 @@ async fn run_fts_live_loop(
             .remove("process_id");
     }
 
-    let contract_execution = execute_skill_session(
+    let mut contract_execution = execute_skill_session(
         runtime,
         &manifest_skill,
         &job_id,
@@ -3105,6 +3357,11 @@ async fn run_fts_live_loop(
         contract_execution.execution_mode == ExecutionMode::Contract,
         "manifest generation skill must resolve to contract mode"
     );
+    let contract_host_health = observe_host_health(&fixture, contract_execution.execution_mode);
+    contract_execution.structured_trace = annotate_trace_with_host_health(
+        &contract_execution.structured_trace,
+        &contract_host_health,
+    )?;
     insert_executed_session_log(
         runtime.state_db.connection(),
         &manifest_skill,
@@ -3169,7 +3426,7 @@ async fn run_fts_live_loop(
         manifest_computation.candidate_count,
         None,
         {
-            let mut refs = contract_execution.artifact_refs;
+            let mut refs = contract_execution.artifact_refs.clone();
             refs.push(result_artifact_path.to_string_lossy().into_owned());
             refs
         },
@@ -3190,6 +3447,15 @@ async fn run_fts_live_loop(
         &fixture,
         manifest_computation.candidate_count,
     )?;
+    let skill_telemetry = vec![
+        build_skill_run_telemetry(&ingest_skill, &ingest_execution, &fixture, None)?,
+        build_skill_run_telemetry(
+            &manifest_skill,
+            &contract_execution,
+            &fixture,
+            Some(&live_validation),
+        )?,
+    ];
 
     if fixture.goods_classification_low_confidence {
         let _ = create_error_manifest(
@@ -3275,6 +3541,7 @@ async fn run_fts_live_loop(
         &manifest_path,
         fixture.notices.len(),
         &live_validation,
+        &skill_telemetry,
     )
 }
 
@@ -3690,6 +3957,7 @@ fn persist_pipeline_materialization(
 }
 
 #[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_arguments)]
 fn finalize_success(
     runtime: &mut RuntimeBootstrap,
     job_id: &str,
@@ -3698,6 +3966,7 @@ fn finalize_success(
     manifest_path: &Path,
     notices_ingested: usize,
     live_validation: &LiveValidationExecution,
+    skill_telemetry: &[SkillRunTelemetry],
 ) -> Result<LiveLoopReport> {
     let review_required = pipeline.review_required
         || live_validation.process_validation_state != ProcessValidationState::Validated;
@@ -3708,6 +3977,10 @@ fn finalize_success(
     let review_reason_for_summary = review_reason.clone();
     let validation_verdict_id = live_validation.validation_verdict_id.clone();
     let validator_job_id = live_validation.validator_job_id.clone();
+    let skill_telemetry_json =
+        serde_json::to_value(skill_telemetry).context("serializing skill telemetry")?;
+    let validation_telemetry_json = serde_json::to_value(&live_validation.validation_telemetry)
+        .context("serializing validation telemetry")?;
     let summary_payload = json!({
         "job_id": job_id,
         "source_id": "fts",
@@ -3718,10 +3991,13 @@ fn finalize_success(
         "review_required": review_required,
         "review_reason": review_reason_for_summary,
         "validation_required": live_validation.validation_required,
+        "trust_state": live_validation.trust_state.as_str(),
         "validation_state": live_validation.process_validation_state.as_str(),
         "validation_verdict_id": validation_verdict_id,
         "validator_job_id": validator_job_id,
         "validation_marker": live_validation.validation_marker,
+        "validation_telemetry": validation_telemetry_json,
+        "skill_telemetry": skill_telemetry_json,
         "durable_step_surfaces": live_loop_surfaces_json(),
     });
 
@@ -4641,11 +4917,19 @@ fn default_fixture() -> LiveLoopFixture {
         commodity_code_low_confidence: false,
         revenue_basis_uncertain: false,
         fpo_access_unavailable: false,
+        host_sleep_monotonic_gap_ms: 0,
+        host_sleep_threshold_ms: default_host_sleep_threshold_ms(),
+        host_cpu_pressure: false,
+        host_memory_pressure: false,
         set_replacement_failure_stage: None,
         soft_stale_targets: Vec::new(),
         hard_invalid_targets: Vec::new(),
         notices: default_notices(),
     }
+}
+
+const fn default_host_sleep_threshold_ms() -> u64 {
+    5_000
 }
 
 fn default_notices() -> Vec<FixtureNotice> {
@@ -4768,11 +5052,17 @@ mod tests {
     use serde_json::{Value, json};
     use tempfile::tempdir;
 
+    use super::agents::adapter::ExecutionMode;
+    use super::agents::arbiter::{
+        AdmissionPriority, AdmissionRequest, ArbiterDecision, ResourceArbiter, ResourceBudgets,
+    };
     use super::jobs::runner::CANONICAL_SCOPE_KINDS;
+    use super::tracing::structured::{StructuredControlEventKind, StructuredTrace, TraceIdentity};
     use super::{
-        ACTIVE_STAGES, Cli, DEFAULT_AGENT_CLI, LifecyclePhase, LiveLoopFixture, SessionDraft,
-        backtrack_window_seconds, bootstrap_runtime, build_handshake_context, default_fixture,
-        insert_session_log, live_loop_surface_names, open_state_db, persisted_lifecycle_frames,
+        ACTIVE_STAGES, Cli, DEFAULT_AGENT_CLI, LifecyclePhase, LiveLoopFixture, PtyRuntimeIds,
+        SessionDraft, append_runtime_control_records, backtrack_window_seconds, bootstrap_runtime,
+        build_handshake_context, default_fixture, insert_session_log, live_loop_surface_names,
+        observe_host_health, open_state_db, persisted_lifecycle_frames,
         reconcile_interrupted_sessions,
     };
     use crate::db::sqlite::DEFAULT_SCHEMA_EPOCH;
@@ -4931,6 +5221,91 @@ mod tests {
                 .resource_arbiter
                 .agent_slots_limit,
             4
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn host_health_observation_prioritizes_sleep_and_taints_active_pty_sessions() {
+        let mut fixture = default_fixture();
+        fixture.host_sleep_monotonic_gap_ms = 10_000;
+        fixture.host_sleep_threshold_ms = 5_000;
+        fixture.host_cpu_pressure = true;
+
+        let pty_health = observe_host_health(&fixture, ExecutionMode::Pty);
+        assert_eq!(pty_health.issue.as_deref(), Some("HOST_SLEEP_INTERRUPTED"));
+        assert!(pty_health.tainted_active_browser_session);
+        assert!(!pty_health.blocks_new_admission);
+
+        let contract_health = observe_host_health(&fixture, ExecutionMode::Contract);
+        assert_eq!(
+            contract_health.issue.as_deref(),
+            Some("HOST_SLEEP_INTERRUPTED")
+        );
+        assert!(!contract_health.tainted_active_browser_session);
+    }
+
+    #[test]
+    fn append_runtime_control_records_adds_resource_and_cleanup_events() -> Result<()> {
+        let mut arbiter = ResourceArbiter::new(ResourceBudgets::default());
+        let request = AdmissionRequest {
+            job_id: "job-123".to_owned(),
+            session_id: Some("session-123".to_owned()),
+            priority: AdmissionPriority::ProcurementIngestion,
+            browser_session: true,
+            adapter_session: true,
+            source_lane: None,
+            validator_sub_job: false,
+            concurrency_key: None,
+            max_concurrency: None,
+        };
+        let lease = match arbiter.admit(&request) {
+            ArbiterDecision::Granted(lease) => lease,
+            ArbiterDecision::Denied(reason) => {
+                anyhow::bail!("unexpected arbiter denial: {reason:?}")
+            }
+        };
+        arbiter.release(&lease, super::ReleaseCause::Archived);
+
+        let mut trace = StructuredTrace::new(ExecutionMode::Pty, ["created", "spawned", "active"]);
+        trace.insert_metadata("probe", json!("ok"));
+        let raw = trace.to_json_string()?;
+        let updated = append_runtime_control_records(
+            &raw,
+            &TraceIdentity::new("job-123", "session-123"),
+            ExecutionMode::Pty,
+            &std::sync::Mutex::new(arbiter),
+            Some(PtyRuntimeIds {
+                sid: 10,
+                pid: 11,
+                pgid: 12,
+            }),
+            "clean",
+        )?;
+        let parsed = StructuredTrace::parse(&updated)?;
+        assert!(
+            parsed
+                .control_event_records
+                .iter()
+                .any(|record| { record.event == StructuredControlEventKind::ResourceGranted })
+        );
+        assert!(
+            parsed
+                .control_event_records
+                .iter()
+                .any(|record| { record.event == StructuredControlEventKind::ResourceReleased })
+        );
+        assert!(
+            parsed
+                .control_event_records
+                .iter()
+                .any(|record| { record.event == StructuredControlEventKind::Reap })
+        );
+        assert!(
+            parsed
+                .control_event_records
+                .iter()
+                .any(|record| { record.event == StructuredControlEventKind::CleanupVerdict })
         );
         Ok(())
     }

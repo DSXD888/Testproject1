@@ -52,6 +52,55 @@ pub use validation_executor::{
     decide_validator_failure, decide_validator_verdict,
 };
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct SkillTelemetryWindow {
+    pub successful_runs: u32,
+    pub total_runs: u32,
+    pub durations_ms: Vec<u64>,
+    pub cost_per_run_pence: Option<u32>,
+    pub token_count: Option<u32>,
+    pub checkpoint_count: Option<u32>,
+    pub retry_count: Option<u32>,
+    pub extraction_fill_rate_bps: Option<u32>,
+    pub page_fingerprint_delta_bps: Option<u32>,
+    pub auth_challenge_rate_bps: Option<u32>,
+    pub listing_match_rate_bps: Option<u32>,
+    pub validation_rejection_rate_bps: Option<u32>,
+    pub drift_score_bps: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SkillTelemetrySnapshot {
+    pub success_rate: Option<f64>,
+    pub median_duration_ms: Option<u64>,
+    pub p95_duration_ms: Option<u64>,
+    pub cost_per_run_pence: Option<u32>,
+    pub token_count: Option<u32>,
+    pub checkpoint_count: Option<u32>,
+    pub retry_count: Option<u32>,
+    pub extraction_fill_rate_bps: Option<u32>,
+    pub page_fingerprint_delta_bps: Option<u32>,
+    pub auth_challenge_rate_bps: Option<u32>,
+    pub listing_match_rate_bps: Option<u32>,
+    pub validation_rejection_rate_bps: Option<u32>,
+    pub drift_score_bps: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SkillTelemetryThresholds {
+    pub success_rate_min: f64,
+    pub median_duration_baseline_multiplier: u32,
+    pub p95_duration_baseline_multiplier: u32,
+    pub cost_per_run_baseline_multiplier: u32,
+    pub retry_count_average_max: u32,
+    pub extraction_fill_rate_min_bps: u32,
+    pub page_fingerprint_delta_max_bps: u32,
+    pub auth_challenge_rate_max_bps: u32,
+    pub listing_match_rate_min_bps: u32,
+    pub validation_rejection_rate_max_bps: u32,
+    pub drift_score_max_bps: u32,
+}
+
 pub const CANONICAL_SCOPE_KINDS: [&str; 6] = [
     "process",
     "notice",
@@ -556,6 +605,67 @@ pub fn classify_sqlite_write_failed(error: &rusqlite::Error) -> anyhow::Error {
 }
 
 #[must_use]
+pub fn compute_skill_telemetry(window: &SkillTelemetryWindow) -> SkillTelemetrySnapshot {
+    SkillTelemetrySnapshot {
+        success_rate: if window.total_runs == 0 {
+            None
+        } else {
+            Some(f64::from(window.successful_runs) / f64::from(window.total_runs))
+        },
+        median_duration_ms: percentile_duration_ms(&window.durations_ms, 1, 2),
+        p95_duration_ms: percentile_duration_ms(&window.durations_ms, 95, 100),
+        cost_per_run_pence: window.cost_per_run_pence,
+        token_count: window.token_count,
+        checkpoint_count: window.checkpoint_count,
+        retry_count: window.retry_count,
+        extraction_fill_rate_bps: window.extraction_fill_rate_bps,
+        page_fingerprint_delta_bps: window.page_fingerprint_delta_bps,
+        auth_challenge_rate_bps: window.auth_challenge_rate_bps,
+        listing_match_rate_bps: window.listing_match_rate_bps,
+        validation_rejection_rate_bps: window.validation_rejection_rate_bps,
+        drift_score_bps: window.drift_score_bps,
+    }
+}
+
+#[must_use]
+pub const fn skill_telemetry_thresholds() -> SkillTelemetryThresholds {
+    SkillTelemetryThresholds {
+        success_rate_min: 0.90,
+        median_duration_baseline_multiplier: 2,
+        p95_duration_baseline_multiplier: 3,
+        cost_per_run_baseline_multiplier: 2,
+        retry_count_average_max: 2,
+        extraction_fill_rate_min_bps: 7_000,
+        page_fingerprint_delta_max_bps: 2_000,
+        auth_challenge_rate_max_bps: 1_000,
+        listing_match_rate_min_bps: 5_000,
+        validation_rejection_rate_max_bps: 2_000,
+        drift_score_max_bps: 3_000,
+    }
+}
+
+fn percentile_duration_ms(
+    durations_ms: &[u64],
+    numerator: usize,
+    denominator: usize,
+) -> Option<u64> {
+    if durations_ms.is_empty() {
+        return None;
+    }
+
+    let mut sorted = durations_ms.to_vec();
+    sorted.sort_unstable();
+    let len = sorted.len();
+    let max_index = len.saturating_sub(1);
+    let rank = max_index
+        .saturating_mul(numerator)
+        .saturating_add(denominator.saturating_sub(1))
+        / denominator;
+    let index = rank.min(max_index);
+    sorted.get(index).copied()
+}
+
+#[must_use]
 pub fn allocate_stage_run_id() -> String {
     format!("stage-run-{}", Uuid::new_v4())
 }
@@ -809,4 +919,50 @@ fn find_existing_enqueue_ack(
     }
 
     Ok(None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{SkillTelemetryWindow, compute_skill_telemetry, skill_telemetry_thresholds};
+
+    #[test]
+    fn skill_telemetry_snapshot_preserves_non_applicable_metrics_as_none() {
+        let snapshot = compute_skill_telemetry(&SkillTelemetryWindow {
+            successful_runs: 1,
+            total_runs: 1,
+            durations_ms: vec![1_200],
+            cost_per_run_pence: Some(12),
+            token_count: Some(1_024),
+            checkpoint_count: Some(1),
+            retry_count: Some(0),
+            extraction_fill_rate_bps: Some(10_000),
+            page_fingerprint_delta_bps: Some(0),
+            auth_challenge_rate_bps: Some(0),
+            listing_match_rate_bps: None,
+            validation_rejection_rate_bps: None,
+            drift_score_bps: Some(0),
+        });
+
+        assert_eq!(snapshot.success_rate, Some(1.0));
+        assert_eq!(snapshot.median_duration_ms, Some(1_200));
+        assert_eq!(snapshot.p95_duration_ms, Some(1_200));
+        assert_eq!(snapshot.listing_match_rate_bps, None);
+        assert_eq!(snapshot.validation_rejection_rate_bps, None);
+    }
+
+    #[test]
+    fn skill_telemetry_thresholds_match_layer3_spec_table() {
+        let thresholds = skill_telemetry_thresholds();
+        assert!((thresholds.success_rate_min - 0.90).abs() < f64::EPSILON);
+        assert_eq!(thresholds.median_duration_baseline_multiplier, 2);
+        assert_eq!(thresholds.p95_duration_baseline_multiplier, 3);
+        assert_eq!(thresholds.cost_per_run_baseline_multiplier, 2);
+        assert_eq!(thresholds.retry_count_average_max, 2);
+        assert_eq!(thresholds.extraction_fill_rate_min_bps, 7_000);
+        assert_eq!(thresholds.page_fingerprint_delta_max_bps, 2_000);
+        assert_eq!(thresholds.auth_challenge_rate_max_bps, 1_000);
+        assert_eq!(thresholds.listing_match_rate_min_bps, 5_000);
+        assert_eq!(thresholds.validation_rejection_rate_max_bps, 2_000);
+        assert_eq!(thresholds.drift_score_max_bps, 3_000);
+    }
 }
