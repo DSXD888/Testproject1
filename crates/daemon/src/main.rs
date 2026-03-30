@@ -20,6 +20,7 @@ mod ipc {
 #[allow(dead_code)]
 mod agents {
     pub mod adapter;
+    pub mod arbiter;
     pub mod artifacts;
     pub mod claude;
     pub mod codex;
@@ -34,6 +35,7 @@ mod errors {
 
 #[allow(dead_code)]
 mod jobs {
+    pub mod claim;
     pub mod runner;
 }
 
@@ -76,10 +78,15 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::process::Stdio;
+use std::sync::Mutex;
 
 use agents::adapter::{
     AgentAdapter, CapabilityReport, ControlEvent, ExecutionMode, InteractionProfile, LaunchSpec,
     OutputFrame, ProbeCtx, SkillManifest, SpawnRequest,
+};
+use agents::arbiter::{
+    AdmissionPriority, AdmissionRequest, ArbiterDecision, ReleaseCause, ResourceArbiter,
+    ResourceBudgets, ResourceLease, SourceKind, SourceLaneRequest,
 };
 use agents::artifacts::{
     ArtifactStore, DaemonEvidenceAppendix, OutcomeClass, RunManifestDraft, RunManifestFrontmatter,
@@ -325,6 +332,7 @@ struct RuntimeBootstrap {
     descriptor: DaemonDescriptor,
     state_db: StateDb,
     artifact_root: PathBuf,
+    resource_arbiter: Mutex<ResourceArbiter>,
     restart_controller: RestartController,
 }
 
@@ -563,6 +571,41 @@ impl Drop for LivePtyRegistration<'_> {
     }
 }
 
+struct ResourceLeaseGuard<'a> {
+    arbiter: &'a Mutex<ResourceArbiter>,
+    lease: Option<ResourceLease>,
+    release_cause: ReleaseCause,
+}
+
+impl<'a> ResourceLeaseGuard<'a> {
+    const fn new(
+        arbiter: &'a Mutex<ResourceArbiter>,
+        lease: ResourceLease,
+        release_cause: ReleaseCause,
+    ) -> Self {
+        Self {
+            arbiter,
+            lease: Some(lease),
+            release_cause,
+        }
+    }
+
+    const fn set_release_cause(&mut self, release_cause: ReleaseCause) {
+        self.release_cause = release_cause;
+    }
+}
+
+impl Drop for ResourceLeaseGuard<'_> {
+    fn drop(&mut self) {
+        let Some(lease) = self.lease.take() else {
+            return;
+        };
+        if let Ok(mut arbiter) = self.arbiter.lock() {
+            arbiter.release(&lease, self.release_cause);
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -654,6 +697,7 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
         descriptor,
         state_db,
         artifact_root: cli.artifact_root.clone(),
+        resource_arbiter: Mutex::new(ResourceArbiter::new(ResourceBudgets::default())),
         restart_controller: RestartController::new(build_restart_plan(cli)?),
     })
 }
@@ -1243,8 +1287,10 @@ async fn execute_skill_session(
         .as_bytes(),
     );
     let _lease_heartbeat = claimed_job_lease_heartbeat(runtime, job_id)?;
+    let mut resource_lease =
+        claimed_job_resource_lease(runtime, skill, job_id, session_id, mode, job_parameters)?;
 
-    match mode {
+    let result = match mode {
         ExecutionMode::Pty => {
             execute_pty_skill_session(
                 &runtime.artifact_root,
@@ -1268,7 +1314,15 @@ async fn execute_skill_session(
             )
             .await
         }
+    };
+
+    if result.is_ok()
+        && let Some(resource_lease) = resource_lease.as_mut()
+    {
+        resource_lease.set_release_cause(ReleaseCause::Archived);
     }
+
+    result
 }
 
 fn claimed_job_lease_heartbeat(
@@ -1301,6 +1355,88 @@ fn claimed_job_lease_heartbeat(
         job_id.to_owned(),
         lease_owner,
     )))
+}
+
+fn claimed_job_resource_lease<'a>(
+    runtime: &'a RuntimeBootstrap,
+    skill: &LoadedSkill,
+    job_id: &str,
+    session_id: &str,
+    mode: ExecutionMode,
+    job_parameters: &Value,
+) -> Result<Option<ResourceLeaseGuard<'a>>> {
+    let source_lane = source_lane_request(skill, job_parameters);
+    let request = AdmissionRequest {
+        job_id: job_id.to_owned(),
+        session_id: Some(session_id.to_owned()),
+        priority: admission_priority(skill),
+        browser_session: matches!(mode, ExecutionMode::Pty),
+        adapter_session: true,
+        source_lane,
+        validator_sub_job: false,
+        concurrency_key: Some(skill.metadata.skill_id.clone()),
+        max_concurrency: None,
+    };
+
+    let lease = {
+        let mut arbiter = runtime
+            .resource_arbiter
+            .lock()
+            .map_err(|_| anyhow!("resource arbiter mutex poisoned"))?;
+        match arbiter.admit(&request) {
+            ArbiterDecision::Granted(lease) => lease,
+            ArbiterDecision::Denied(reason) => {
+                bail!("resource arbiter denied admission for job {job_id}: {reason:?}");
+            }
+        }
+    };
+
+    Ok(Some(ResourceLeaseGuard::new(
+        &runtime.resource_arbiter,
+        lease,
+        ReleaseCause::PreSpawnFailure,
+    )))
+}
+
+fn admission_priority(skill: &LoadedSkill) -> AdmissionPriority {
+    let skill_id = skill.metadata.skill_id.as_str();
+    if skill_id.contains("auth-refresh") || skill_id.contains("source-health") {
+        AdmissionPriority::AuthRefreshOrHealthProbe
+    } else if skill_id.contains("supplier") || skill_id.contains("enrichment") {
+        AdmissionPriority::SupplierEnrichment
+    } else if skill_id.contains("manifest") {
+        AdmissionPriority::ManifestGeneration
+    } else if skill_id.contains("bid") {
+        AdmissionPriority::BidAutomation
+    } else if skill_id.contains("qualification") {
+        AdmissionPriority::Qualification
+    } else {
+        AdmissionPriority::ProcurementIngestion
+    }
+}
+
+fn source_lane_request(skill: &LoadedSkill, job_parameters: &Value) -> Option<SourceLaneRequest> {
+    let source_id = job_parameters
+        .get("source_id")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .or_else(|| {
+            let skill_id = skill.metadata.skill_id.as_str();
+            ["fts", "contracts-finder", "alibaba", "1688"]
+                .into_iter()
+                .find(|candidate| skill_id.contains(candidate))
+                .map(str::to_owned)
+        })?;
+
+    let source_kind = match source_id.as_str() {
+        "alibaba" | "1688" => SourceKind::Supplier,
+        _ => SourceKind::Procurement,
+    };
+
+    Some(SourceLaneRequest {
+        source_id,
+        source_kind,
+    })
 }
 
 async fn execute_pty_skill_session(

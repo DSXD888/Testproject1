@@ -10,7 +10,7 @@ use chrono::{DateTime, TimeDelta, Utc};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use serde_json::Value;
 
-use super::ClaimedJob;
+use crate::jobs::runner::ClaimedJob;
 
 const DEFAULT_WORKFLOW_JOB_LEASE_SECONDS: i64 = 300;
 const DEFAULT_WORKFLOW_JOB_HEARTBEAT_SECONDS: u64 = 60;

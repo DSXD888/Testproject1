@@ -1,7 +1,11 @@
 #![forbid(unsafe_code)]
 
+#[allow(clippy::duplicate_mod)]
+#[cfg(test)]
 #[path = "claim.rs"]
 mod claim;
+#[cfg(not(test))]
+use crate::jobs::claim;
 
 use std::path::PathBuf;
 

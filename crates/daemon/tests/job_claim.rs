@@ -9,6 +9,12 @@ mod db_support;
 #[allow(dead_code)]
 mod runner_impl;
 
+mod jobs {
+    pub mod runner {
+        pub use crate::runner_impl::*;
+    }
+}
+
 mod support {
     pub mod db {
         pub use crate::db_support::*;
