@@ -644,10 +644,14 @@ impl SkillFrontmatter {
 
     fn worker_behavior_version(&self) -> String {
         self.worker_behavior_version.clone().unwrap_or_else(|| {
-            format!(
-                "{}@{}+{}",
-                self.skill_id, self.skill_version, self.result_schema_version
-            )
+            if self.version_change_affects_behavior {
+                format!(
+                    "{}@{}+{}",
+                    self.skill_id, self.skill_version, self.result_schema_version
+                )
+            } else {
+                format!("{}@schema+{}", self.skill_id, self.result_schema_version)
+            }
         })
     }
 
@@ -674,6 +678,15 @@ impl SkillFrontmatter {
             )
         })
     }
+
+    fn source_structure_version(&self) -> Option<String> {
+        registry_source_id_for_skill(&self.skill_id)
+            .and_then(|source_id| {
+                SourceRegistry::builtin_definition(source_id)
+                    .map(|definition| definition.source_structure_version)
+            })
+            .or_else(|| self.source_structure_version.clone())
+    }
 }
 
 const fn default_skill_promotion_stage() -> SkillPromotionStageMetadata {
@@ -696,6 +709,14 @@ fn skill_source_scope(skill_id: &str) -> String {
         .map_or_else(|| "global".to_owned(), |(_, scope)| scope.to_owned())
 }
 
+fn registry_source_id_for_skill(skill_id: &str) -> Option<&str> {
+    let (family, scope) = skill_id.split_once('/')?;
+    match family {
+        "procurement-ingestion" | "source-health" | "auth-refresh" => Some(scope),
+        _ => None,
+    }
+}
+
 fn skill_binding_payload(skill: &LoadedSkill) -> Value {
     json!({
         "path": skill.skill_path.to_string_lossy(),
@@ -705,7 +726,7 @@ fn skill_binding_payload(skill: &LoadedSkill) -> Value {
             "result_schema_version": skill.metadata.result_schema_version,
             "checkpoint_schema_version": skill.metadata.checkpoint_schema_version(),
             "validator_overlay_version": skill.metadata.validator_overlay_version(),
-            "source_structure_version": skill.metadata.source_structure_version,
+            "source_structure_version": skill.metadata.source_structure_version(),
         },
         "promotion": {
             "stage": skill.metadata.promotion_stage,
@@ -720,6 +741,7 @@ fn skill_binding_payload(skill: &LoadedSkill) -> Value {
             "gate_a_family_prequalified": skill.metadata.gate_a_family_prequalified,
             "gate_b_exact_slice_key": skill.metadata.gate_b_exact_slice_key(),
             "gate_b_exact_slice_ready": skill.metadata.gate_b_exact_slice_ready,
+            "gate_b_preserved_by_non_behavior_affecting_bump": !skill.metadata.version_change_affects_behavior,
         },
     })
 }

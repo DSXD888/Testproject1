@@ -190,3 +190,57 @@ fn ut_skl_008_run_manifest_instruction_block_required() -> Result<()> {
     ensure!(error.to_string().contains("run-manifest instructions"));
     Ok(())
 }
+
+#[test]
+fn ut_skl_009_l3_promotion_metadata_is_visible_in_linted_operational_skills() -> Result<()> {
+    let source_health = lint_skill_directory(&repo_skill_dir("source-health/fts")?)?;
+    ensure!(source_health.metadata.promotion_stage.as_deref() == Some("stable"));
+    ensure!(source_health.metadata.source_structure_version.as_deref() == Some("fts-2026-03-30"));
+    ensure!(
+        source_health.metadata.worker_behavior_version.as_deref()
+            == Some("source-health/fts@1.0.0+1.0.0")
+    );
+    ensure!(source_health.metadata.validator_overlay_version.as_deref() == Some("2026.03.30-1"));
+    ensure!(source_health.metadata.gate_a_family_key.as_deref() == Some("source-health"));
+    ensure!(
+        source_health.metadata.gate_b_exact_slice_key.as_deref()
+            == Some("source-health/fts::fts::source-health/fts@1.0.0+1.0.0::2026.03.30-1")
+    );
+    ensure!(!source_health.metadata.gate_b_exact_slice_ready);
+
+    let validator = lint_skill_directory(&repo_skill_dir("validation/base")?)?;
+    ensure!(validator.metadata.promotion_stage.as_deref() == Some("stable"));
+    ensure!(validator.metadata.validator_overlay_version.as_deref() == Some("2026.03.30-1"));
+    ensure!(
+        validator.metadata.worker_behavior_version.as_deref()
+            == Some("validation/base@2026.03.30-1+1.0")
+    );
+    ensure!(validator.metadata.gate_a_family_key.as_deref() == Some("validation"));
+    Ok(())
+}
+
+#[test]
+fn ut_skl_010_non_behavior_affecting_changes_require_explicit_behavior_identity() -> Result<()> {
+    let dir = TestSkillDir::from_fixture(&repo_skill_dir("source-health/fts")?)?;
+    let invalid_markdown = dir
+        .read_skill_markdown()?
+        .replace(
+            "worker_behavior_version: source-health/fts@1.0.0+1.0.0\n",
+            "",
+        )
+        .replace(
+            "gate_b_exact_slice_key: source-health/fts::fts::source-health/fts@1.0.0+1.0.0::2026.03.30-1\n",
+            "",
+        )
+        .replace("version_change_affects_behavior: true\n", "version_change_affects_behavior: false\n");
+    dir.overwrite("SKILL.md", &invalid_markdown)?;
+
+    let error = lint_skill_directory(dir.path())
+        .expect_err("non-behavior-affecting metadata without pinned behavior identity should fail");
+    let error_text = error.to_string();
+    ensure!(
+        error_text.contains("worker_behavior_version")
+            || error_text.contains("gate_b_exact_slice_key")
+    );
+    Ok(())
+}

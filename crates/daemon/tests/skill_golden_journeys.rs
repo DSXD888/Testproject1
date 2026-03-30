@@ -16,19 +16,19 @@ mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
 
-    use anyhow::{anyhow, ensure, Context, Result};
+    use anyhow::{Context, Result, anyhow, ensure};
     use assert_cmd::Command;
-    use rusqlite::{params, Connection};
-    use serde_json::{json, Value};
+    use rusqlite::{Connection, params};
+    use serde_json::{Value, json};
     use serde_yaml::{Mapping, Value as YamlValue};
     use tempfile::TempDir;
 
     use crate::db_support::TestStateDb;
     use crate::policy_impl::{
-        evaluate_validation_policy, SkillPromotionStage, ValidationPolicyConfig,
-        ValidationPolicyContext, ValidationPolicyMode,
+        SkillPromotionStage, ValidationPolicyConfig, ValidationPolicyContext, ValidationPolicyMode,
+        evaluate_validation_policy,
     };
-    use crate::skills_support::{lint_skill_directory, repo_root, repo_skill_dir, TestSkillDir};
+    use crate::skills_support::{TestSkillDir, lint_skill_directory, repo_root, repo_skill_dir};
     use crate::sources_impl::{PromotionStage, SourceRegistry};
 
     struct ManualSkillHarness {
@@ -308,8 +308,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_golden_journeys_001_draft_skills_run_manual_only_without_authoritative_mutation(
-    ) -> Result<()> {
+    fn l3_t_skill_golden_journeys_001_draft_skills_run_manual_only_without_authoritative_mutation()
+    -> Result<()> {
         let skill_dir = TestSkillDir::from_fixture(&repo_skill_dir("manifest-generation")?)?;
         install_manifest_generation_lifecycle_metadata(&skill_dir, "draft")?;
         lint_skill_directory(skill_dir.path())?;
@@ -351,8 +351,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_golden_journeys_002_candidate_stage_forces_validation_and_keeps_worker_state_non_authoritative(
-    ) -> Result<()> {
+    fn l3_t_skill_golden_journeys_002_candidate_stage_forces_validation_and_keeps_worker_state_non_authoritative()
+    -> Result<()> {
         let skill_dir = TestSkillDir::from_fixture(&repo_skill_dir("manifest-generation")?)?;
         install_manifest_generation_lifecycle_metadata(&skill_dir, "candidate")?;
         lint_skill_directory(skill_dir.path())?;
@@ -394,8 +394,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_golden_journeys_003_canary_requires_bounded_traffic_and_stable_comparison_data(
-    ) -> Result<()> {
+    fn l3_t_skill_golden_journeys_003_canary_requires_bounded_traffic_and_stable_comparison_data()
+    -> Result<()> {
         let good = CanaryPlan {
             traffic_share_bps: 500,
             shard_count: 0,
@@ -417,8 +417,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_golden_journeys_004_shadow_requires_full_traffic_while_stable_stays_authoritative(
-    ) -> Result<()> {
+    fn l3_t_skill_golden_journeys_004_shadow_requires_full_traffic_while_stable_stays_authoritative()
+    -> Result<()> {
         let good = ShadowPlan {
             full_traffic: true,
             stable_authoritative: true,
@@ -436,8 +436,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_golden_journeys_005_stable_is_registry_default_and_rollback_rebinds_prior_stable(
-    ) -> Result<()> {
+    fn l3_t_skill_golden_journeys_005_stable_is_registry_default_and_rollback_rebinds_prior_stable()
+    -> Result<()> {
         let state_db = TestStateDb::new()?;
         seed_source(state_db.connection(), "fts", "procurement")?;
         let registry = SourceRegistry::load(state_db.connection())?;
@@ -455,8 +455,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_golden_journeys_006_stage_skips_are_rejected_and_validator_thresholds_gate_promotion(
-    ) -> Result<()> {
+    fn l3_t_skill_golden_journeys_006_stage_skips_are_rejected_and_validator_thresholds_gate_promotion()
+    -> Result<()> {
         ensure!(!transition_allowed(
             JourneyStage::Draft,
             JourneyStage::Shadow,
@@ -476,8 +476,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_golden_journeys_007_layer3_inventory_contains_operational_families_and_validator(
-    ) -> Result<()> {
+    fn l3_t_skill_golden_journeys_007_layer3_inventory_contains_operational_families_and_validator()
+    -> Result<()> {
         let auth_refresh_dirs = fs::read_dir(repo_root()?.join("skills/auth-refresh"))?
             .filter_map(|entry| entry.ok().map(|value| value.path()))
             .filter(|path| path.is_dir())
@@ -522,8 +522,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_golden_journeys_008_auth_refresh_and_source_health_roles_stay_explicit(
-    ) -> Result<()> {
+    fn l3_t_skill_golden_journeys_008_auth_refresh_and_source_health_roles_stay_explicit()
+    -> Result<()> {
         for relative in ["auth-refresh/alibaba", "auth-refresh/1688"] {
             let linted = lint_skill_directory(&repo_skill_dir(relative)?)?;
             let outputs = section(&linted.skill_markdown, "Outputs")?;

@@ -34,15 +34,38 @@ struct ValidatorSkillFrontmatter {
     skill_version: String,
     interaction_profile: String,
     result_schema_version: String,
+    #[serde(default)]
+    checkpoint_schema_version: Option<String>,
+    #[serde(default)]
+    validator_overlay_version: Option<String>,
     model_profile: String,
     #[serde(default)]
     agent_cli: Option<String>,
+    #[serde(default)]
+    source_structure_version: Option<String>,
+    #[serde(default)]
+    worker_behavior_version: Option<String>,
+    #[serde(default)]
+    validator_behavior_version: Option<String>,
+    #[serde(default = "default_version_change_affects_behavior")]
+    version_change_affects_behavior: bool,
+    #[serde(default)]
+    promotion_stage: Option<String>,
+    #[serde(default)]
+    gate_a_family_key: Option<String>,
+    #[serde(default)]
+    gate_a_family_prequalified: bool,
+    #[serde(default)]
+    gate_b_exact_slice_key: Option<String>,
+    #[serde(default)]
+    gate_b_exact_slice_ready: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidatorSkillBundle {
     pub skill_path: String,
     pub skill_version: String,
+    pub result_schema_version: String,
     pub interaction_profile: String,
     pub model_profile: String,
     pub agent_cli: String,
@@ -50,6 +73,17 @@ pub struct ValidatorSkillBundle {
     pub result_schema: Value,
     pub validator_rubric_path: String,
     pub validator_rubric_hash: String,
+    pub checkpoint_schema_version: String,
+    pub validator_overlay_version: String,
+    pub source_structure_version: Option<String>,
+    pub promotion_stage: String,
+    pub worker_behavior_version: String,
+    pub validator_behavior_version: String,
+    pub version_change_affects_behavior: bool,
+    pub gate_a_family_key: String,
+    pub gate_a_family_prequalified: bool,
+    pub gate_b_exact_slice_key: String,
+    pub gate_b_exact_slice_ready: bool,
 }
 
 impl ValidatorSkillBundle {
@@ -92,18 +126,93 @@ impl ValidatorSkillBundle {
 
         Ok(Self {
             skill_path: VALIDATOR_SKILL_PATH.to_owned(),
-            skill_version: frontmatter.skill_version,
-            interaction_profile: frontmatter.interaction_profile,
-            model_profile: frontmatter.model_profile,
+            skill_version: frontmatter.skill_version.clone(),
+            result_schema_version: frontmatter.result_schema_version.clone(),
+            interaction_profile: frontmatter.interaction_profile.clone(),
+            model_profile: frontmatter.model_profile.clone(),
             agent_cli: frontmatter
                 .agent_cli
+                .clone()
                 .unwrap_or_else(|| DEFAULT_AGENT_CLI.to_owned()),
             result_schema_path: VALIDATOR_RESULT_SCHEMA_PATH.to_owned(),
             result_schema,
             validator_rubric_path: VALIDATOR_RUBRIC_PATH.to_owned(),
             validator_rubric_hash: sha256_hex(&validator_rubric),
+            checkpoint_schema_version: frontmatter.checkpoint_schema_version().to_owned(),
+            validator_overlay_version: frontmatter.validator_overlay_version().to_owned(),
+            source_structure_version: frontmatter.source_structure_version.clone(),
+            promotion_stage: frontmatter.promotion_stage(),
+            worker_behavior_version: frontmatter.worker_behavior_version(),
+            validator_behavior_version: frontmatter.validator_behavior_version(),
+            version_change_affects_behavior: frontmatter.version_change_affects_behavior,
+            gate_a_family_key: frontmatter.gate_a_family_key(),
+            gate_a_family_prequalified: frontmatter.gate_a_family_prequalified,
+            gate_b_exact_slice_key: frontmatter.gate_b_exact_slice_key(),
+            gate_b_exact_slice_ready: frontmatter.gate_b_exact_slice_ready,
         })
     }
+}
+
+impl ValidatorSkillFrontmatter {
+    fn checkpoint_schema_version(&self) -> &str {
+        self.checkpoint_schema_version
+            .as_deref()
+            .unwrap_or(&self.result_schema_version)
+    }
+
+    fn validator_overlay_version(&self) -> &str {
+        self.validator_overlay_version
+            .as_deref()
+            .unwrap_or("2026.03.30-1")
+    }
+
+    fn promotion_stage(&self) -> String {
+        self.promotion_stage
+            .clone()
+            .unwrap_or_else(|| "stable".to_owned())
+    }
+
+    fn worker_behavior_version(&self) -> String {
+        self.worker_behavior_version.clone().unwrap_or_else(|| {
+            if self.version_change_affects_behavior {
+                format!(
+                    "{}@{}+{}",
+                    self.skill_id, self.skill_version, self.result_schema_version
+                )
+            } else {
+                format!("{}@schema+{}", self.skill_id, self.result_schema_version)
+            }
+        })
+    }
+
+    fn validator_behavior_version(&self) -> String {
+        self.validator_behavior_version
+            .clone()
+            .unwrap_or_else(|| self.validator_overlay_version().to_owned())
+    }
+
+    fn gate_a_family_key(&self) -> String {
+        self.gate_a_family_key.clone().unwrap_or_else(|| {
+            self.skill_id
+                .split_once('/')
+                .map_or_else(|| self.skill_id.clone(), |(family, _)| family.to_owned())
+        })
+    }
+
+    fn gate_b_exact_slice_key(&self) -> String {
+        self.gate_b_exact_slice_key.clone().unwrap_or_else(|| {
+            format!(
+                "{}::global::{}::{}",
+                self.skill_id,
+                self.worker_behavior_version(),
+                self.validator_behavior_version()
+            )
+        })
+    }
+}
+
+const fn default_version_change_affects_behavior() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -221,6 +330,27 @@ pub fn enqueue_validator_sub_job(
             "skill_binding": {
                 "path": skill.skill_path,
                 "version": skill.skill_version,
+                "version_dimensions": {
+                    "skill_version": skill.skill_version,
+                    "result_schema_version": skill.result_schema_version,
+                    "checkpoint_schema_version": skill.checkpoint_schema_version,
+                    "validator_overlay_version": skill.validator_overlay_version,
+                    "source_structure_version": skill.source_structure_version,
+                },
+                "promotion": {
+                    "stage": skill.promotion_stage,
+                },
+                "behavior": {
+                    "worker_behavior_version": skill.worker_behavior_version,
+                    "validator_behavior_version": skill.validator_behavior_version,
+                    "version_change_affects_behavior": skill.version_change_affects_behavior,
+                },
+                "calibration": {
+                    "gate_a_family_key": skill.gate_a_family_key,
+                    "gate_a_family_prequalified": skill.gate_a_family_prequalified,
+                    "gate_b_exact_slice_key": skill.gate_b_exact_slice_key,
+                    "gate_b_exact_slice_ready": skill.gate_b_exact_slice_ready,
+                },
             },
             "agent_cli": skill.agent_cli,
             "execution_profile": {

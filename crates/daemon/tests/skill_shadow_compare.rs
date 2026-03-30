@@ -5,12 +5,12 @@
 mod skills_support;
 
 mod tests {
-    use anyhow::{anyhow, ensure, Context, Result};
+    use anyhow::{Context, Result, anyhow, ensure};
     use serde::Deserialize;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use serde_yaml::{Mapping, Value as YamlValue};
 
-    use crate::skills_support::{repo_skill_dir, TestSkillDir};
+    use crate::skills_support::{TestSkillDir, repo_skill_dir};
 
     #[allow(dead_code)]
     #[derive(Debug, Clone, Deserialize)]
@@ -136,8 +136,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_shadow_compare_001_canary_exit_requires_twenty_bounded_runs_and_no_gold_regression(
-    ) -> Result<()> {
+    fn l3_t_skill_shadow_compare_001_canary_exit_requires_twenty_bounded_runs_and_no_gold_regression()
+    -> Result<()> {
         let good = CanaryExitInputs {
             bounded_runs: 20,
             metrics_within_tolerance: true,
@@ -155,8 +155,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_shadow_compare_002_shadow_exit_requires_fifty_paired_runs_with_quality_in_range(
-    ) -> Result<()> {
+    fn l3_t_skill_shadow_compare_002_shadow_exit_requires_fifty_paired_runs_with_quality_in_range()
+    -> Result<()> {
         let good = ShadowExitInputs {
             paired_runs: 50,
             quality_within_tolerance: true,
@@ -172,8 +172,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_shadow_compare_003_validator_gate_blocks_promotion_even_when_fill_rate_looks_good(
-    ) -> Result<()> {
+    fn l3_t_skill_shadow_compare_003_validator_gate_blocks_promotion_even_when_fill_rate_looks_good()
+    -> Result<()> {
         let fill_rate_candidate_looks_good = 9_700_u16;
         let fill_rate_stable = 9_600_u16;
         ensure!(fill_rate_candidate_looks_good >= fill_rate_stable);
@@ -187,8 +187,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_shadow_compare_004_cosmetic_edits_can_keep_behavior_version_and_slice_readiness_stable(
-    ) -> Result<()> {
+    fn l3_t_skill_shadow_compare_004_cosmetic_edits_can_keep_behavior_version_and_slice_readiness_stable()
+    -> Result<()> {
         let baseline = parse_frontmatter(&std::fs::read_to_string(
             repo_skill_dir("source-health/fts")?.join("SKILL.md"),
         )?)?;
@@ -229,8 +229,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_shadow_compare_005_behavior_affecting_or_schema_changes_bump_slice_identity_and_reset_gate_b(
-    ) -> Result<()> {
+    fn l3_t_skill_shadow_compare_005_behavior_affecting_or_schema_changes_bump_slice_identity_and_reset_gate_b()
+    -> Result<()> {
         let baseline = parse_frontmatter(&std::fs::read_to_string(
             repo_skill_dir("source-health/fts")?.join("SKILL.md"),
         )?)?;
@@ -275,8 +275,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_shadow_compare_006_rollback_rebinds_prior_stable_without_mutating_history(
-    ) -> Result<()> {
+    fn l3_t_skill_shadow_compare_006_rollback_rebinds_prior_stable_without_mutating_history()
+    -> Result<()> {
         let record = RollbackRecord {
             failed_stable_version: "2026.03.30-2".to_owned(),
             prior_stable_version: "2026.03.30-1".to_owned(),
@@ -291,8 +291,8 @@ mod tests {
     }
 
     #[test]
-    fn l3_t_skill_shadow_compare_007_shadow_metrics_surface_fill_duplicate_cost_and_validator_rates(
-    ) -> Result<()> {
+    fn l3_t_skill_shadow_compare_007_shadow_metrics_surface_fill_duplicate_cost_and_validator_rates()
+    -> Result<()> {
         let payload = comparison_metrics_payload(&ComparisonMetricsSnapshot {
             stable_fill_rate_bps: 9_600,
             candidate_fill_rate_bps: 9_650,

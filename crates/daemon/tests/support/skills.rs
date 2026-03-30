@@ -15,8 +15,19 @@ pub struct LintedSkillMetadata {
     pub skill_version: String,
     pub interaction_profile: String,
     pub result_schema_version: String,
+    pub checkpoint_schema_version: Option<String>,
+    pub validator_overlay_version: Option<String>,
     pub model_profile: String,
     pub side_effect_class: String,
+    pub source_structure_version: Option<String>,
+    pub promotion_stage: Option<String>,
+    pub worker_behavior_version: Option<String>,
+    pub validator_behavior_version: Option<String>,
+    pub version_change_affects_behavior: bool,
+    pub gate_a_family_key: Option<String>,
+    pub gate_a_family_prequalified: bool,
+    pub gate_b_exact_slice_key: Option<String>,
+    pub gate_b_exact_slice_ready: bool,
     pub max_pages: Option<u32>,
     pub max_scroll_cycles: Option<u32>,
 }
@@ -33,8 +44,24 @@ struct SkillFrontmatter {
     skill_version: Option<String>,
     interaction_profile: Option<String>,
     result_schema_version: Option<String>,
+    checkpoint_schema_version: Option<String>,
+    validator_overlay_version: Option<String>,
     model_profile: Option<String>,
     side_effect_class: Option<String>,
+    source_structure_version: Option<String>,
+    promotion_stage: Option<String>,
+    worker_behavior_version: Option<String>,
+    validator_behavior_version: Option<String>,
+    #[serde(default = "default_version_change_affects_behavior")]
+    version_change_affects_behavior: bool,
+    #[serde(default)]
+    gate_a_family_key: Option<String>,
+    #[serde(default)]
+    gate_a_family_prequalified: bool,
+    #[serde(default)]
+    gate_b_exact_slice_key: Option<String>,
+    #[serde(default)]
+    gate_b_exact_slice_ready: bool,
     #[serde(rename = "maxPages")]
     max_pages: Option<u32>,
     #[serde(rename = "maxScrollCycles")]
@@ -120,16 +147,83 @@ fn validate_metadata(frontmatter: SkillFrontmatter) -> Result<LintedSkillMetadat
     let interaction_profile = required(frontmatter.interaction_profile, "interaction_profile")?;
     let result_schema_version =
         required(frontmatter.result_schema_version, "result_schema_version")?;
+    let checkpoint_schema_version = optional_required(
+        frontmatter.checkpoint_schema_version,
+        "checkpoint_schema_version",
+    )?;
+    let validator_overlay_version = optional_required(
+        frontmatter.validator_overlay_version,
+        "validator_overlay_version",
+    )?;
     let model_profile = required(frontmatter.model_profile, "model_profile")?;
     let side_effect_class = required(frontmatter.side_effect_class, "side_effect_class")?;
+    let source_structure_version = optional_required(
+        frontmatter.source_structure_version,
+        "source_structure_version",
+    )?;
+    let promotion_stage = optional_required(frontmatter.promotion_stage, "promotion_stage")?;
+    if let Some(stage) = promotion_stage.as_deref() {
+        ensure!(
+            matches!(
+                stage,
+                "draft" | "candidate" | "canary" | "shadow" | "stable" | "rollback"
+            ),
+            "metadata field `promotion_stage` has unsupported value `{stage}`",
+        );
+    }
+    let worker_behavior_version = optional_required(
+        frontmatter.worker_behavior_version,
+        "worker_behavior_version",
+    )?;
+    let validator_behavior_version = optional_required(
+        frontmatter.validator_behavior_version,
+        "validator_behavior_version",
+    )?;
+    let gate_a_family_key = optional_required(frontmatter.gate_a_family_key, "gate_a_family_key")?;
+    let gate_b_exact_slice_key =
+        optional_required(frontmatter.gate_b_exact_slice_key, "gate_b_exact_slice_key")?;
+
+    if frontmatter.gate_a_family_prequalified {
+        ensure!(
+            gate_a_family_key.is_some(),
+            "gate_a_family_prequalified requires `gate_a_family_key`",
+        );
+    }
+    if frontmatter.gate_b_exact_slice_ready {
+        ensure!(
+            gate_b_exact_slice_key.is_some(),
+            "gate_b_exact_slice_ready requires `gate_b_exact_slice_key`",
+        );
+    }
+    if !frontmatter.version_change_affects_behavior {
+        ensure!(
+            worker_behavior_version.is_some(),
+            "version_change_affects_behavior=false requires `worker_behavior_version`",
+        );
+        ensure!(
+            gate_b_exact_slice_key.is_some(),
+            "version_change_affects_behavior=false requires `gate_b_exact_slice_key`",
+        );
+    }
 
     Ok(LintedSkillMetadata {
         skill_id,
         skill_version,
         interaction_profile,
         result_schema_version,
+        checkpoint_schema_version,
+        validator_overlay_version,
         model_profile,
         side_effect_class,
+        source_structure_version,
+        promotion_stage,
+        worker_behavior_version,
+        validator_behavior_version,
+        version_change_affects_behavior: frontmatter.version_change_affects_behavior,
+        gate_a_family_key,
+        gate_a_family_prequalified: frontmatter.gate_a_family_prequalified,
+        gate_b_exact_slice_key,
+        gate_b_exact_slice_ready: frontmatter.gate_b_exact_slice_ready,
         max_pages: frontmatter.max_pages,
         max_scroll_cycles: frontmatter.max_scroll_cycles,
     })
@@ -277,6 +371,22 @@ fn required(value: Option<String>, field: &str) -> Result<String> {
         "metadata field `{field}` is empty"
     );
     Ok(value)
+}
+
+fn optional_required(value: Option<String>, field: &str) -> Result<Option<String>> {
+    value
+        .map(|value| {
+            ensure!(
+                !value.trim().is_empty(),
+                "metadata field `{field}` is empty"
+            );
+            Ok(value)
+        })
+        .transpose()
+}
+
+const fn default_version_change_affects_behavior() -> bool {
+    true
 }
 
 fn split_frontmatter(markdown: &str) -> Result<(SkillFrontmatter, &str)> {
