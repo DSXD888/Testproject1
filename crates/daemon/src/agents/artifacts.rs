@@ -22,6 +22,8 @@ pub enum OutcomeClass {
     ContinuationRequired,
     DegradedCompleted,
     BlockedHumanAction,
+    SuspectOutput,
+    Failed,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -65,7 +67,14 @@ pub struct DaemonEvidenceAppendix {
     pub daemon_observed_currency: String,
     pub auth_challenge_events: Vec<String>,
     pub locator_fallback_depth: u32,
+    pub basis_sufficiency: String,
+    pub page_fingerprint_hash: Option<String>,
+    pub auth_challenge_detected: bool,
+    pub extraction_fill_rate_bps: Option<u32>,
     pub checkpoint_count: u32,
+    pub byte_count_compressed: Option<u64>,
+    pub validator_rubric_hash: Option<String>,
+    pub drift_delta_json: Value,
     pub result_item_count: u32,
     pub oqg_anomaly_summary: Vec<String>,
     pub representative_item_sample: Value,
@@ -374,6 +383,10 @@ fn validate_appendix(appendix: &DaemonEvidenceAppendix) -> Result<()> {
     ensure!(
         !appendix.daemon_observed_currency.is_empty(),
         "daemon_observed_currency must not be empty"
+    );
+    ensure!(
+        !appendix.basis_sufficiency.trim().is_empty(),
+        "basis_sufficiency must not be empty"
     );
     Ok(())
 }

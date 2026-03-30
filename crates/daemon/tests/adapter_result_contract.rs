@@ -86,7 +86,17 @@ mod tests {
             daemon_observed_currency: "GBP".to_owned(),
             auth_challenge_events: vec!["none".to_owned()],
             locator_fallback_depth: 2,
+            basis_sufficiency: "medium".to_owned(),
+            page_fingerprint_hash: Some("fingerprint-sha256".to_owned()),
+            auth_challenge_detected: false,
+            extraction_fill_rate_bps: Some(9_250),
             checkpoint_count: 3,
+            byte_count_compressed: Some(4_096),
+            validator_rubric_hash: Some("rubric-sha256".to_owned()),
+            drift_delta_json: json!({
+                "fingerprint_delta_bps": 125,
+                "layout_shift": "minor"
+            }),
             result_item_count: 12,
             oqg_anomaly_summary: vec!["duplicate_rate:low".to_owned()],
             representative_item_sample: json!({
@@ -361,6 +371,22 @@ mod tests {
     }
 
     #[test]
+    fn ut_rsl_008_suspect_output_and_failed_outcomes_serialize_distinctly() -> Result<()> {
+        let suspect_yaml = serde_yaml::to_string(&sample_frontmatter(OutcomeClass::SuspectOutput))?;
+        ensure!(
+            suspect_yaml.contains("outcome_class: suspect_output"),
+            "suspect_output outcome was not serialized distinctly"
+        );
+
+        let failed_yaml = serde_yaml::to_string(&sample_frontmatter(OutcomeClass::Failed))?;
+        ensure!(
+            failed_yaml.contains("outcome_class: failed"),
+            "failed outcome was not serialized distinctly"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn it_rsl_008_daemon_synthesizes_fallback_manifest_when_narrative_missing() -> Result<()> {
         let ctx = TestContext::new()?;
         let store = ArtifactStore::new(&ctx.artifact_root)?;
@@ -462,6 +488,34 @@ mod tests {
         let appendix: DaemonEvidenceAppendix = manifest.appendix_yaml()?;
 
         ensure!(appendix.checkpoint_count == 3, "checkpoint count missing");
+        ensure!(
+            appendix.basis_sufficiency == "medium",
+            "basis sufficiency missing"
+        );
+        ensure!(
+            appendix.page_fingerprint_hash.as_deref() == Some("fingerprint-sha256"),
+            "page fingerprint hash missing"
+        );
+        ensure!(
+            !appendix.auth_challenge_detected,
+            "auth challenge flag missing"
+        );
+        ensure!(
+            appendix.extraction_fill_rate_bps == Some(9_250),
+            "fill rate missing"
+        );
+        ensure!(
+            appendix.byte_count_compressed == Some(4_096),
+            "byte_count_compressed missing"
+        );
+        ensure!(
+            appendix.validator_rubric_hash.as_deref() == Some("rubric-sha256"),
+            "validator rubric hash missing"
+        );
+        ensure!(
+            appendix.drift_delta_json["fingerprint_delta_bps"] == 125,
+            "drift delta missing"
+        );
         ensure!(appendix.result_item_count == 12, "result count missing");
         ensure!(
             appendix.oqg_anomaly_summary == vec!["duplicate_rate:low".to_owned()],

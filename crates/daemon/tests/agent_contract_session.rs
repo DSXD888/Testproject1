@@ -390,7 +390,17 @@ mod tests {
             daemon_observed_currency: "GBP".to_owned(),
             auth_challenge_events: vec!["none".to_owned()],
             locator_fallback_depth: 0,
+            basis_sufficiency: "high".to_owned(),
+            page_fingerprint_hash: Some("process-fingerprint-sha256".to_owned()),
+            auth_challenge_detected: false,
+            extraction_fill_rate_bps: Some(10_000),
             checkpoint_count: 0,
+            byte_count_compressed: Some(2_048),
+            validator_rubric_hash: Some("validator-rubric-sha256".to_owned()),
+            drift_delta_json: json!({
+                "layout_delta_bps": 0,
+                "note": "stable"
+            }),
             result_item_count: 1,
             oqg_anomaly_summary: Vec::new(),
             representative_item_sample: json!({"process_id":"process-123"}),
