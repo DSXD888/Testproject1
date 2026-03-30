@@ -344,7 +344,7 @@ mod tests {
     #[test]
     fn l3_t_validation_dry_run_007_validator_failure_sets_skip_marker_and_backlog() -> Result<()> {
         let failure = decide_validator_failure();
-        ensure!(failure.validation_marker.as_deref() == Some("VALIDATION_SKIPPED_VALIDATOR_ERROR"));
+        ensure!(failure.validation_marker == Some("VALIDATION_SKIPPED_VALIDATOR_ERROR"));
         ensure!(failure.queue_retroactive_backlog);
         Ok(())
     }
