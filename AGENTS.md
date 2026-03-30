@@ -226,9 +226,7 @@ A mail-like layer that lets coding agents coordinate asynchronously via MCP tool
 
 Beads provides a lightweight, dependency-aware issue database and CLI (`br` - beads_rust) for selecting "ready work," setting priorities, and tracking status. It complements MCP Agent Mail's messaging and file reservations.
 
-**Important:** `br` is non-invasive—it NEVER runs git commands automatically. You must manually commit changes after syncing.
-
-**Important:** Always use `bin/br-sync` instead of `br sync --flush-only`. The wrapper normalizes timestamps after export to work around a `br` bug where some UPDATE paths write non-ISO timestamps that break all subsequent `br` reads. See `bin/br-sync` header comment for details.
+**Important:** `br` is non-invasive—it NEVER runs git commands automatically. You must manually commit changes after `br sync --flush-only`.
 
 ### Conventions
 
@@ -258,7 +256,7 @@ Beads provides a lightweight, dependency-aware issue database and CLI (`br` - be
 5. **Complete and release:**
    ```bash
    br close 123 --reason "Completed"
-   bin/br-sync            # Export to JSONL + normalize timestamps
+   br sync --flush-only  # Export to JSONL (no git operations)
    ```
    ```
    release_file_reservations(project_key, agent_name, paths=["src/**"])
@@ -508,9 +506,7 @@ Returns structured results with file paths, line ranges, and extracted code snip
 
 This project uses [beads_rust](https://github.com/Dicklesworthstone/beads_rust) (`br`) for issue tracking. Issues are stored in `.beads/` and tracked in git.
 
-**Important:** `br` is non-invasive—it NEVER executes git commands. After `bin/br-sync`, you must manually run `git add .beads/ && git commit`.
-
-**Important:** Always use `bin/br-sync` instead of raw `br sync --flush-only`. The wrapper normalizes a `br` timestamp bug that otherwise bricks all `br` commands for every agent in the repo.
+**Important:** `br` is non-invasive—it NEVER executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
 
 ### Essential Commands
 
@@ -526,7 +522,7 @@ br create --title="..." --type=task --priority=2
 br update <id> --status=in_progress
 br close <id> --reason "Completed"
 br close <id1> <id2>  # Close multiple issues at once
-bin/br-sync           # Export to JSONL + normalize timestamps
+br sync --flush-only  # Export to JSONL (NO git operations)
 ```
 
 ### Workflow Pattern
@@ -535,7 +531,7 @@ bin/br-sync           # Export to JSONL + normalize timestamps
 2. **Claim**: Use `br update <id> --status=in_progress`
 3. **Work**: Implement the task
 4. **Complete**: Use `br close <id>`
-5. **Sync**: Run `bin/br-sync` then manually commit
+5. **Sync**: Run `br sync --flush-only` then manually commit
 
 ### Key Concepts
 
@@ -551,7 +547,7 @@ bin/br-sync           # Export to JSONL + normalize timestamps
 ```bash
 git status              # Check what changed
 git add <files>         # Stage code changes
-bin/br-sync             # Export beads to JSONL (normalizes timestamps)
+br sync --flush-only    # Export beads to JSONL
 git add .beads/         # Stage beads changes
 git commit -m "..."     # Commit everything together
 git push                # Push to remote
@@ -563,7 +559,7 @@ git push                # Push to remote
 - Update status as you work (in_progress → closed)
 - Create new issues with `br create` when you discover tasks
 - Use descriptive titles and set appropriate priority/type
-- Always `bin/br-sync && git add .beads/` before ending session
+- Always `br sync --flush-only && git add .beads/` before ending session
 
 ---
 
@@ -579,7 +575,7 @@ git push                # Push to remote
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
-   bin/br-sync             # Export beads to JSONL (normalizes timestamps)
+   br sync --flush-only    # Export beads to JSONL (no git ops)
    git add .beads/         # Stage beads changes
    git add <other files>   # Stage code changes
    git commit -m "..."     # Commit everything
