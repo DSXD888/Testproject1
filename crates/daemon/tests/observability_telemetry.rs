@@ -9,9 +9,63 @@ mod errors_manifest_impl;
 #[path = "../src/errors/markdown.rs"]
 #[allow(dead_code)]
 mod errors_markdown_impl;
+#[path = "../src/ipc/handshake.rs"]
+#[allow(dead_code)]
+mod handshake_impl;
 #[path = "../src/pty/health.rs"]
 #[allow(dead_code)]
 mod health_impl;
+
+mod ipc {
+    pub mod command_router {
+        use serde_json::Value;
+
+        #[allow(dead_code)]
+        #[derive(Debug, Clone)]
+        pub struct BridgeError {
+            pub code: String,
+            pub message: String,
+            pub retryable: bool,
+            pub details: Option<Value>,
+        }
+
+        impl BridgeError {
+            pub fn invalid_params(message: impl Into<String>) -> Self {
+                Self {
+                    code: "invalid_params".to_owned(),
+                    message: message.into(),
+                    retryable: false,
+                    details: None,
+                }
+            }
+        }
+
+        #[allow(dead_code)]
+        pub enum DispatchOutcome {
+            Response(Value),
+            DisconnectAfterResponse(Value),
+        }
+
+        #[derive(Default)]
+        pub struct CommandRouter<'a> {
+            _marker: std::marker::PhantomData<&'a ()>,
+        }
+
+        impl CommandRouter<'_> {
+            #[allow(clippy::unused_self, clippy::needless_pass_by_ref_mut)]
+            pub fn dispatch(
+                &mut self,
+                _method: &str,
+                _params: Value,
+                _idempotency_key: Option<&str>,
+            ) -> std::result::Result<DispatchOutcome, BridgeError> {
+                Err(BridgeError::invalid_params(
+                    "command router stub should not be invoked in observability tests",
+                ))
+            }
+        }
+    }
+}
 
 mod tests {
     use anyhow::{Result, ensure};
@@ -20,6 +74,11 @@ mod tests {
 
     use crate::artifacts_impl::{DaemonEvidenceAppendix, OutcomeClass, RunManifestFrontmatter};
     use crate::errors_manifest_impl::ErrorCode;
+    use crate::handshake_impl::{
+        CronDefinitionStatus, CronStatusSnapshot, ResourceArbiterEventSnapshot,
+        ResourceArbiterStatusSnapshot, SourceHealthStatusEntry, SourceHealthStatusSnapshot,
+        ValidationStatusSnapshot,
+    };
     use crate::health_impl::HealthIssue;
 
     fn sample_frontmatter(outcome_class: OutcomeClass) -> RunManifestFrontmatter {
@@ -131,6 +190,80 @@ mod tests {
             .into_iter()
             .map(HealthIssue::code)
             .collect()
+    }
+
+    fn sample_cron_status() -> CronStatusSnapshot {
+        CronStatusSnapshot {
+            definitions: vec![CronDefinitionStatus {
+                definition_key: "fts::procurement-ingestion/fts".to_owned(),
+                source_id: "fts".to_owned(),
+                skill_id: "procurement-ingestion/fts".to_owned(),
+                skill_version: "2026.03.30-1".to_owned(),
+                cron_expression: "0 15 4 * * *".to_owned(),
+                enabled: true,
+                last_run_at: Some("2026-03-30T04:15:00Z".to_owned()),
+                next_run_at: Some("2026-03-31T04:15:00Z".to_owned()),
+            }],
+        }
+    }
+
+    fn sample_source_health_status() -> SourceHealthStatusSnapshot {
+        SourceHealthStatusSnapshot {
+            sources: vec![SourceHealthStatusEntry {
+                source_id: "fts".to_owned(),
+                health_state: "green".to_owned(),
+                circuit_state: "closed".to_owned(),
+                production_allowed: true,
+                cooldown_until: None,
+                last_canary_at: Some("2026-03-30T04:00:00Z".to_owned()),
+                last_canary_result: Some("passed".to_owned()),
+                last_error_code: None,
+            }],
+        }
+    }
+
+    fn sample_validation_status() -> ValidationStatusSnapshot {
+        ValidationStatusSnapshot {
+            validator_approval_rate_bps: 10_000,
+            validator_rejection_rate_bps: 0,
+            validator_flag_rate_bps: 0,
+            validator_cost_per_run_pence: 12,
+            operator_override_rate_bps: 0,
+            validator_execution_failure_rate_bps: 0,
+            validator_canary_pass_rate_bps: 10_000,
+            validator_health_state: "healthy".to_owned(),
+            pending_backlog_count: 0,
+            pending_canary_count: 0,
+            validator_job_count: 3,
+        }
+    }
+
+    fn sample_resource_arbiter_status() -> ResourceArbiterStatusSnapshot {
+        ResourceArbiterStatusSnapshot {
+            browser_slots_limit: 2,
+            browser_slots_in_use: 1,
+            agent_slots_limit: 4,
+            agent_slots_in_use: 2,
+            procurement_source_lane_limit: 1,
+            supplier_source_lane_limit: 2,
+            source_lanes_in_use: std::collections::BTreeMap::from([("fts".to_owned(), 1)]),
+            concurrency_in_use: std::collections::BTreeMap::from([(
+                "procurement-ingestion/fts".to_owned(),
+                1,
+            )]),
+            recent_events: vec![ResourceArbiterEventSnapshot {
+                kind: "grant".to_owned(),
+                job_id: "job-123".to_owned(),
+                session_id: Some("session-123".to_owned()),
+                priority: "procurement_ingestion".to_owned(),
+                denial_reason: None,
+                release_cause: None,
+                browser_slots_in_use: 1,
+                agent_slots_in_use: 2,
+                source_lane_key: Some("fts".to_owned()),
+                source_lane_in_use: Some(1),
+            }],
+        }
     }
 
     #[test]
@@ -380,6 +513,43 @@ mod tests {
             error_codes.len() == 28,
             "CI-L3-007 expected exact ErrorCode inventory coverage count"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_observability_telemetry_013_cron_status_snapshot_contract_is_read_only_and_explicit()
+    -> Result<()> {
+        let value = serde_json::to_value(sample_cron_status())?;
+        ensure!(value["definitions"].is_array());
+        ensure!(value["definitions"][0]["definitionKey"] == "fts::procurement-ingestion/fts");
+        ensure!(value["definitions"][0]["nextRunAt"] == "2026-03-31T04:15:00Z");
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_observability_telemetry_014_source_health_snapshot_contract_carries_breaker_state()
+    -> Result<()> {
+        let value = serde_json::to_value(sample_source_health_status())?;
+        ensure!(value["sources"][0]["sourceId"] == "fts");
+        ensure!(value["sources"][0]["healthState"] == "green");
+        ensure!(value["sources"][0]["circuitState"] == "closed");
+        ensure!(value["sources"][0]["productionAllowed"] == true);
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_observability_telemetry_015_validation_and_arbiter_snapshot_contracts_are_explicit()
+    -> Result<()> {
+        let validation = serde_json::to_value(sample_validation_status())?;
+        ensure!(validation["validatorHealthState"] == "healthy");
+        ensure!(validation["validatorJobCount"] == 3);
+        ensure!(validation["pendingBacklogCount"] == 0);
+
+        let arbiter = serde_json::to_value(sample_resource_arbiter_status())?;
+        ensure!(arbiter["browserSlotsLimit"] == 2);
+        ensure!(arbiter["browserSlotsInUse"] == 1);
+        ensure!(arbiter["recentEvents"][0]["kind"] == "grant");
+        ensure!(arbiter["recentEvents"][0]["priority"] == "procurement_ingestion");
         Ok(())
     }
 }

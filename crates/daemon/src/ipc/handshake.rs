@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 
@@ -44,9 +45,102 @@ pub struct HandshakeContext {
     pub commit_seq: i64,
     pub health_state: HealthState,
     pub active_sessions: ActiveSessions,
+    pub operational_status: OperationalStatusSnapshot,
     pub mutations_allowed: bool,
     pub expected_peer_uid: Option<u32>,
     pub lifecycle_frames: Vec<LifecycleFrame>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CronDefinitionStatus {
+    pub definition_key: String,
+    pub source_id: String,
+    pub skill_id: String,
+    pub skill_version: String,
+    pub cron_expression: String,
+    pub enabled: bool,
+    pub last_run_at: Option<String>,
+    pub next_run_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CronStatusSnapshot {
+    pub definitions: Vec<CronDefinitionStatus>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceHealthStatusEntry {
+    pub source_id: String,
+    pub health_state: String,
+    pub circuit_state: String,
+    pub production_allowed: bool,
+    pub cooldown_until: Option<String>,
+    pub last_canary_at: Option<String>,
+    pub last_canary_result: Option<String>,
+    pub last_error_code: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceHealthStatusSnapshot {
+    pub sources: Vec<SourceHealthStatusEntry>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidationStatusSnapshot {
+    pub validator_approval_rate_bps: u16,
+    pub validator_rejection_rate_bps: u16,
+    pub validator_flag_rate_bps: u16,
+    pub validator_cost_per_run_pence: u32,
+    pub operator_override_rate_bps: u16,
+    pub validator_execution_failure_rate_bps: u16,
+    pub validator_canary_pass_rate_bps: u16,
+    pub validator_health_state: String,
+    pub pending_backlog_count: u32,
+    pub pending_canary_count: u32,
+    pub validator_job_count: u32,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceArbiterEventSnapshot {
+    pub kind: String,
+    pub job_id: String,
+    pub session_id: Option<String>,
+    pub priority: String,
+    pub denial_reason: Option<String>,
+    pub release_cause: Option<String>,
+    pub browser_slots_in_use: u32,
+    pub agent_slots_in_use: u32,
+    pub source_lane_key: Option<String>,
+    pub source_lane_in_use: Option<u32>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceArbiterStatusSnapshot {
+    pub browser_slots_limit: u32,
+    pub browser_slots_in_use: u32,
+    pub agent_slots_limit: u32,
+    pub agent_slots_in_use: u32,
+    pub procurement_source_lane_limit: u32,
+    pub supplier_source_lane_limit: u32,
+    pub source_lanes_in_use: BTreeMap<String, u32>,
+    pub concurrency_in_use: BTreeMap<String, u32>,
+    pub recent_events: Vec<ResourceArbiterEventSnapshot>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct OperationalStatusSnapshot {
+    pub cron: CronStatusSnapshot,
+    pub source_health: SourceHealthStatusSnapshot,
+    pub validation: ValidationStatusSnapshot,
+    pub resource_arbiter: ResourceArbiterStatusSnapshot,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -105,6 +199,7 @@ pub enum ServerMessage {
         health_state: HealthState,
         mutations_allowed: bool,
         active_sessions: ActiveSessions,
+        operational_status: Box<OperationalStatusSnapshot>,
         reconnect_outcome: ReconnectOutcome,
         stream_resume_permitted: bool,
     },
@@ -303,6 +398,7 @@ pub fn handle_connection(
                     health_state: context.health_state.clone(),
                     mutations_allowed: context.mutations_allowed,
                     active_sessions: context.active_sessions.clone(),
+                    operational_status: Box::new(context.operational_status.clone()),
                     reconnect_outcome,
                     stream_resume_permitted: reconnect_outcome.stream_resume_permitted(),
                 },

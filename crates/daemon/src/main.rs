@@ -109,8 +109,9 @@ use agents::adapter::{
     OutputFrame, ProbeCtx, SkillManifest, SpawnRequest,
 };
 use agents::arbiter::{
-    AdmissionPriority, AdmissionRequest, ArbiterDecision, ReleaseCause, ResourceArbiter,
-    ResourceBudgets, ResourceLease, SourceKind, SourceLaneRequest,
+    AdmissionPriority, AdmissionRequest, ArbiterDecision, ArbiterEvent, ArbiterEventKind,
+    DenialReason, ReleaseCause, ResourceArbiter, ResourceBudgets, ResourceLease, SourceKind,
+    SourceLaneRequest,
 };
 use agents::artifacts::{
     ArtifactStore, DaemonEvidenceAppendix, OutcomeClass, RunManifestFrontmatter, RunNarrative,
@@ -136,7 +137,10 @@ use ipc::descriptor::{
 use ipc::handlers::control::{ControlHandlerContext, RestartController, RestartPlan};
 use ipc::handlers::jobs::JobsHandlerContext;
 use ipc::handshake::{
-    ActiveSessions, HandshakeContext, HealthState, LifecycleFrame, LifecyclePhase,
+    ActiveSessions, CronDefinitionStatus, CronStatusSnapshot, HandshakeContext, HealthState,
+    LifecycleFrame, LifecyclePhase, OperationalStatusSnapshot, ResourceArbiterEventSnapshot,
+    ResourceArbiterStatusSnapshot, SourceHealthStatusEntry, SourceHealthStatusSnapshot,
+    ValidationStatusSnapshot,
 };
 use jobs::runner::{
     EnqueuedValidatorJob, FreshnessState, JobLeaseHeartbeat, JobRunner, ObsoleteJobRequest,
@@ -1076,6 +1080,7 @@ fn build_handshake_context(
     runtime: &RuntimeBootstrap,
     command_router_active: bool,
 ) -> Result<HandshakeContext> {
+    let operational_status = build_operational_status_snapshot(runtime)?;
     Ok(HandshakeContext {
         protocol_version: runtime.descriptor.protocol_version,
         daemon_version: env!("CARGO_PKG_VERSION").to_owned(),
@@ -1086,10 +1091,273 @@ fn build_handshake_context(
             status: "ready".to_owned(),
         },
         active_sessions: load_active_sessions(runtime.state_db.connection())?,
+        operational_status,
         mutations_allowed: command_router_active,
         expected_peer_uid: None,
         lifecycle_frames: persisted_lifecycle_frames(runtime.state_db.connection())?,
     })
+}
+
+fn build_operational_status_snapshot(
+    runtime: &RuntimeBootstrap,
+) -> Result<OperationalStatusSnapshot> {
+    let now = Utc::now();
+    Ok(OperationalStatusSnapshot {
+        cron: build_cron_status_snapshot(runtime.state_db.connection(), now)?,
+        source_health: build_source_health_status_snapshot(runtime.state_db.connection(), now)?,
+        validation: build_validation_status_snapshot(runtime.state_db.connection())?,
+        resource_arbiter: build_resource_arbiter_status_snapshot(&runtime.resource_arbiter)?,
+    })
+}
+
+fn build_cron_status_snapshot(conn: &Connection, now: DateTime<Utc>) -> Result<CronStatusSnapshot> {
+    let registry = SourceRegistry::load(conn).context("loading source registry for cron status")?;
+    let mut scheduler = CronScheduler::from_registry(&registry);
+    scheduler
+        .refresh_next_run_at(now)
+        .context("refreshing cron definitions for status snapshot")?;
+    seed_cron_scheduler_from_history(conn, &mut scheduler)
+        .context("seeding cron status snapshot from history")?;
+
+    let definitions = scheduler
+        .definitions()
+        .iter()
+        .map(|(definition_key, definition)| CronDefinitionStatus {
+            definition_key: definition_key.clone(),
+            source_id: definition.source_id.clone(),
+            skill_id: definition.skill_id.clone(),
+            skill_version: definition.skill_version.clone(),
+            cron_expression: definition.cron_expression.clone(),
+            enabled: definition.enabled,
+            last_run_at: definition.last_run_at.map(|value| value.to_rfc3339()),
+            next_run_at: definition.next_run_at.map(|value| value.to_rfc3339()),
+        })
+        .collect();
+
+    Ok(CronStatusSnapshot { definitions })
+}
+
+fn build_source_health_status_snapshot(
+    conn: &Connection,
+    now: DateTime<Utc>,
+) -> Result<SourceHealthStatusSnapshot> {
+    let registry =
+        SourceRegistry::load(conn).context("loading source registry for source health snapshot")?;
+    let mut sources = Vec::new();
+    for registered in registry.sources().values() {
+        sources.push(SourceHealthStatusEntry {
+            source_id: registered.definition.source_id.clone(),
+            health_state: enum_label(registered.runtime_state.last_health_state)?,
+            circuit_state: enum_label(registered.effective_circuit_state(now))?,
+            production_allowed: registered
+                .allows_job_class(sources::registry::SourceJobClass::Production, now),
+            cooldown_until: registered
+                .runtime_state
+                .cooldown_until
+                .map(|value| value.to_rfc3339()),
+            last_canary_at: registered
+                .runtime_state
+                .last_canary_at
+                .map(|value| value.to_rfc3339()),
+            last_canary_result: registered
+                .runtime_state
+                .last_canary_result
+                .map(enum_label)
+                .transpose()?,
+            last_error_code: registered.runtime_state.last_error_code.clone(),
+        });
+    }
+    Ok(SourceHealthStatusSnapshot { sources })
+}
+
+fn build_validation_status_snapshot(conn: &Connection) -> Result<ValidationStatusSnapshot> {
+    let mut window = validation::executor::ValidationTelemetryWindow::default();
+    let mut validator_job_count = 0_u32;
+    let mut pending_backlog_count = 0_u32;
+    let mut pending_canary_count = 0_u32;
+
+    let mut verdict_statement = conn.prepare(
+        "\
+        SELECT verdict, override_verdict
+        FROM validation_verdicts
+        ",
+    )?;
+    let verdict_rows = verdict_statement.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+    })?;
+    for row in verdict_rows {
+        let (verdict, override_verdict) = row?;
+        match verdict.as_str() {
+            "approved" => window.approved_count += 1,
+            "rejected" => window.rejected_count += 1,
+            "flagged" => window.flagged_count += 1,
+            _ => {}
+        }
+        if override_verdict.is_some() {
+            window.operator_override_count += 1;
+        }
+    }
+
+    let mut job_statement = conn.prepare(
+        "\
+        SELECT status, input_payload
+        FROM workflow_jobs
+        WHERE kind = ?1
+        ",
+    )?;
+    let job_rows = job_statement.query_map(params![VALIDATOR_JOB_KIND], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+    for row in job_rows {
+        let (status, raw_payload) = row?;
+        validator_job_count += 1;
+        if matches!(status.as_str(), "completed" | "failed") {
+            window.validation_attempt_count += 1;
+        }
+        if status == "failed" {
+            window.execution_failure_count += 1;
+        }
+
+        let payload = serde_json::from_str::<Value>(&raw_payload)
+            .context("parsing validator workflow input payload for status snapshot")?;
+        let request = payload.get("request").unwrap_or(&payload);
+        let packet = request.get("validator_packet").unwrap_or(request);
+        let purpose = packet
+            .get("purpose")
+            .and_then(Value::as_str)
+            .unwrap_or("live_validation");
+        if purpose == "retroactive_backlog" && matches!(status.as_str(), "pending" | "retry") {
+            pending_backlog_count += 1;
+        }
+        if purpose == "synthetic_canary" {
+            if matches!(status.as_str(), "completed" | "failed") {
+                window.canary_run_count += 1;
+            }
+            if matches!(status.as_str(), "pending" | "retry") {
+                pending_canary_count += 1;
+            }
+        }
+    }
+
+    let telemetry = validation::executor::compute_validation_telemetry(&window, None);
+    Ok(ValidationStatusSnapshot {
+        validator_approval_rate_bps: telemetry.validator_approval_rate_bps,
+        validator_rejection_rate_bps: telemetry.validator_rejection_rate_bps,
+        validator_flag_rate_bps: telemetry.validator_flag_rate_bps,
+        validator_cost_per_run_pence: telemetry.validator_cost_per_run_pence,
+        operator_override_rate_bps: telemetry.operator_override_rate_bps,
+        validator_execution_failure_rate_bps: telemetry.validator_execution_failure_rate_bps,
+        validator_canary_pass_rate_bps: telemetry.validator_canary_pass_rate_bps,
+        validator_health_state: telemetry.validator_health_state.as_str().to_owned(),
+        pending_backlog_count,
+        pending_canary_count,
+        validator_job_count,
+    })
+}
+
+fn build_resource_arbiter_status_snapshot(
+    arbiter: &Mutex<ResourceArbiter>,
+) -> Result<ResourceArbiterStatusSnapshot> {
+    let (budgets, snapshot, recent_events) = {
+        let arbiter = arbiter
+            .lock()
+            .map_err(|_| anyhow!("resource arbiter mutex poisoned"))?;
+        let budgets = arbiter.budgets();
+        let snapshot = arbiter.snapshot();
+        let recent_events = arbiter
+            .events()
+            .iter()
+            .rev()
+            .take(10)
+            .map(resource_arbiter_event_snapshot)
+            .collect::<Vec<_>>();
+        drop(arbiter);
+        (budgets, snapshot, recent_events)
+    };
+
+    Ok(ResourceArbiterStatusSnapshot {
+        browser_slots_limit: budgets.browser_slots,
+        browser_slots_in_use: snapshot.browser_slots,
+        agent_slots_limit: budgets.agent_slots,
+        agent_slots_in_use: snapshot.agent_slots,
+        procurement_source_lane_limit: budgets.procurement_source_lanes,
+        supplier_source_lane_limit: budgets.supplier_source_lanes,
+        source_lanes_in_use: snapshot.source_lanes,
+        concurrency_in_use: snapshot.concurrency,
+        recent_events,
+    })
+}
+
+fn resource_arbiter_event_snapshot(event: &ArbiterEvent) -> ResourceArbiterEventSnapshot {
+    ResourceArbiterEventSnapshot {
+        kind: arbiter_event_kind_label(&event.kind).to_owned(),
+        job_id: event.job_id.clone(),
+        session_id: event.session_id.clone(),
+        priority: admission_priority_label(event.priority).to_owned(),
+        denial_reason: event.denial_reason.as_ref().map(denial_reason_label),
+        release_cause: event
+            .release_cause
+            .map(release_cause_label)
+            .map(str::to_owned),
+        browser_slots_in_use: event.browser_slots_in_use,
+        agent_slots_in_use: event.agent_slots_in_use,
+        source_lane_key: event.source_lane_key.clone(),
+        source_lane_in_use: event.source_lane_in_use,
+    }
+}
+
+fn enum_label<T: Serialize>(value: T) -> Result<String> {
+    serde_json::to_value(value)
+        .context("serializing enum label")?
+        .as_str()
+        .map(str::to_owned)
+        .ok_or_else(|| anyhow!("serialized enum label was not a string"))
+}
+
+const fn arbiter_event_kind_label(kind: &ArbiterEventKind) -> &'static str {
+    match kind {
+        ArbiterEventKind::Grant => "grant",
+        ArbiterEventKind::Deny => "deny",
+        ArbiterEventKind::Release => "release",
+    }
+}
+
+const fn admission_priority_label(priority: AdmissionPriority) -> &'static str {
+    match priority {
+        AdmissionPriority::ProcurementIngestion => "procurement_ingestion",
+        AdmissionPriority::AuthRefreshOrHealthProbe => "auth_refresh_or_health_probe",
+        AdmissionPriority::Qualification => "qualification",
+        AdmissionPriority::SupplierEnrichment => "supplier_enrichment",
+        AdmissionPriority::ManifestGeneration => "manifest_generation",
+        AdmissionPriority::BidAutomation => "bid_automation",
+    }
+}
+
+fn denial_reason_label(reason: &DenialReason) -> String {
+    match reason {
+        DenialReason::BrowserSlotsExhausted { limit, in_use } => {
+            format!("browser_slots_exhausted:{in_use}/{limit}")
+        }
+        DenialReason::AgentSlotsExhausted { limit, in_use } => {
+            format!("agent_slots_exhausted:{in_use}/{limit}")
+        }
+        DenialReason::SourceLaneExhausted {
+            source_id,
+            limit,
+            in_use,
+        } => format!("source_lane_exhausted:{source_id}:{in_use}/{limit}"),
+        DenialReason::SkillConcurrencyCapReached { key, limit, in_use } => {
+            format!("skill_concurrency_cap_reached:{key}:{in_use}/{limit}")
+        }
+    }
+}
+
+const fn release_cause_label(cause: ReleaseCause) -> &'static str {
+    match cause {
+        ReleaseCause::PreSpawnFailure => "pre_spawn_failure",
+        ReleaseCause::Reaped => "reaped",
+        ReleaseCause::Archived => "archived",
+    }
 }
 
 fn build_restart_plan(cli: &Cli) -> Result<RestartPlan> {
@@ -4628,6 +4896,41 @@ mod tests {
 
         assert!(!handshake_only.mutations_allowed);
         assert!(command_router_active.mutations_allowed);
+        assert!(
+            !handshake_only
+                .operational_status
+                .cron
+                .definitions
+                .is_empty()
+        );
+        assert!(
+            !handshake_only
+                .operational_status
+                .source_health
+                .sources
+                .is_empty()
+        );
+        assert_eq!(
+            handshake_only
+                .operational_status
+                .validation
+                .validator_job_count,
+            0
+        );
+        assert_eq!(
+            handshake_only
+                .operational_status
+                .resource_arbiter
+                .browser_slots_limit,
+            2
+        );
+        assert_eq!(
+            handshake_only
+                .operational_status
+                .resource_arbiter
+                .agent_slots_limit,
+            4
+        );
         Ok(())
     }
 

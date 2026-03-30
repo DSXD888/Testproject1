@@ -105,7 +105,7 @@ use crate::descriptor_impl::{
 };
 use crate::handshake_impl::{
     ActiveSessions, ClientMessage, HandshakeContext, HealthState, LifecycleFrame, LifecyclePhase,
-    ProtocolRange, ReconnectOutcome, ServerMessage,
+    OperationalStatusSnapshot, ProtocolRange, ReconnectOutcome, ServerMessage,
 };
 use crate::support::db::{DEFAULT_SCHEMA_EPOCH, FTS_SOURCE_ID, StateDb, TestStateDb};
 
@@ -307,6 +307,7 @@ fn it_ipc_003_successful_handshake_returns_runtime_compatibility() -> Result<()>
             commit_seq,
             mutations_allowed,
             active_sessions,
+            operational_status,
             reconnect_outcome,
             stream_resume_permitted,
             ..
@@ -317,6 +318,10 @@ fn it_ipc_003_successful_handshake_returns_runtime_compatibility() -> Result<()>
             assert_eq!(commit_seq, 0);
             assert!(!mutations_allowed);
             assert_eq!(active_sessions.count, 0);
+            assert!(operational_status.cron.definitions.is_empty());
+            assert!(operational_status.source_health.sources.is_empty());
+            assert_eq!(operational_status.validation.validator_job_count, 0);
+            assert_eq!(operational_status.resource_arbiter.browser_slots_limit, 0);
             assert_eq!(reconnect_outcome, ReconnectOutcome::FreshConnection);
             assert!(!stream_resume_permitted);
         }
@@ -832,6 +837,7 @@ impl HandshakeHarness {
                 status: "ready".to_owned(),
             },
             active_sessions: ActiveSessions::default(),
+            operational_status: OperationalStatusSnapshot::default(),
             mutations_allowed: false,
             expected_peer_uid: None,
             lifecycle_frames: Vec::new(),
