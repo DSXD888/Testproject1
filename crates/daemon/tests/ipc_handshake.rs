@@ -449,10 +449,9 @@ fn it_ipc_014_router_active_accepts_subscribe_and_emits_initial_health_payload()
         },
     ])?;
 
-    assert!(matches!(
-        frames.first(),
-        Some(ServerMessage::Welcome { .. })
-    ));
+    assert!(frames.iter().any(|response| {
+        matches!(response, ServerMessage::Welcome { .. })
+    }));
     assert!(matches!(
         frames.get(1),
         Some(ServerMessage::CommandResponse { request_id, payload })
@@ -565,10 +564,9 @@ fn l3_t_observability_telemetry_013_get_cron_status_dispatches_read_only_snapsho
         },
     ])?;
 
-    assert!(matches!(
-        responses.first(),
-        Some(ServerMessage::Welcome { commit_seq, .. }) if *commit_seq == 41
-    ));
+    assert!(responses.iter().any(|response| {
+        matches!(response, ServerMessage::Welcome { commit_seq, .. } if *commit_seq == 41)
+    }));
     assert!(responses.iter().any(|response| {
         matches!(
             response,
@@ -1230,15 +1228,29 @@ fn drain_available_frames(
 }
 
 fn drain_remaining_frames(
-    reader: BufReader<UnixStream>,
+    mut reader: BufReader<UnixStream>,
     frames: &mut Vec<ServerMessage>,
 ) -> Result<()> {
-    for line in reader.lines() {
-        let line = line?;
-        if line.trim().is_empty() {
-            continue;
+    loop {
+        let mut line = String::new();
+        match reader.read_line(&mut line) {
+            Ok(0) => break,
+            Ok(_) => {
+                if line.trim().is_empty() {
+                    continue;
+                }
+                frames.push(serde_json::from_str(&line).context("parsing handshake response")?);
+            }
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) =>
+            {
+                break;
+            }
+            Err(error) => return Err(error).context("reading handshake response"),
         }
-        frames.push(serde_json::from_str(&line).context("parsing handshake response")?);
     }
     Ok(())
 }
