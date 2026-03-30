@@ -13,8 +13,13 @@ mod validation_executor;
 mod claim;
 #[cfg(not(test))]
 use crate::jobs::claim;
+#[cfg(not(test))]
+use crate::pty::health::{
+    HostResources, detect_host_sleep, detect_resource_pressure, resolve_health_issue,
+};
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, ensure};
 use chrono::{DateTime, Utc};
@@ -31,6 +36,12 @@ use crate::contracts_impl as contracts;
 use crate::db::sqlite::StateDb;
 #[cfg(test)]
 use crate::support::db::StateDb;
+#[cfg(test)]
+#[allow(clippy::duplicate_mod)]
+#[path = "../pty/health.rs"]
+mod health;
+#[cfg(test)]
+use health::{HostResources, detect_host_sleep, detect_resource_pressure, resolve_health_issue};
 
 use contracts::{
     StageValidationWrite, ValidationDisposition, ValidationOutcome, persist_stage_validation,
@@ -99,6 +110,18 @@ pub struct SkillTelemetryThresholds {
     pub listing_match_rate_min_bps: u32,
     pub validation_rejection_rate_max_bps: u32,
     pub drift_score_max_bps: u32,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HostHealthObservation {
+    pub issue: Option<String>,
+    pub tainted_active_browser_session: bool,
+    pub blocks_new_admission: bool,
+    pub monotonic_gap_ms: u64,
+    pub sleep_threshold_ms: u64,
+    pub cpu_pressure: bool,
+    pub memory_pressure: bool,
 }
 
 pub const CANONICAL_SCOPE_KINDS: [&str; 6] = [
@@ -641,6 +664,33 @@ pub const fn skill_telemetry_thresholds() -> SkillTelemetryThresholds {
         listing_match_rate_min_bps: 5_000,
         validation_rejection_rate_max_bps: 2_000,
         drift_score_max_bps: 3_000,
+    }
+}
+
+#[must_use]
+pub fn evaluate_host_health(
+    monotonic_gap: Duration,
+    sleep_threshold: Duration,
+    cpu_pressure: bool,
+    memory_pressure: bool,
+    browser_driven_pty_session: bool,
+) -> HostHealthObservation {
+    let resources = HostResources {
+        cpu_pressure,
+        memory_pressure,
+    };
+    let sleep_issue = detect_host_sleep(monotonic_gap, sleep_threshold);
+    let resource_issue = detect_resource_pressure(resources);
+    let issue = resolve_health_issue(None, None, sleep_issue, resource_issue);
+
+    HostHealthObservation {
+        issue: issue.map(|value| value.code().to_owned()),
+        tainted_active_browser_session: sleep_issue.is_some() && browser_driven_pty_session,
+        blocks_new_admission: resource_issue.is_some(),
+        monotonic_gap_ms: u64::try_from(monotonic_gap.as_millis()).unwrap_or(u64::MAX),
+        sleep_threshold_ms: u64::try_from(sleep_threshold.as_millis()).unwrap_or(u64::MAX),
+        cpu_pressure: resources.cpu_pressure,
+        memory_pressure: resources.memory_pressure,
     }
 }
 

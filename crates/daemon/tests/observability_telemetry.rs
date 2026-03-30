@@ -1,8 +1,16 @@
 #![forbid(unsafe_code)]
 
+#[path = "../src/agents/adapter.rs"]
+#[allow(dead_code)]
+mod adapter_impl;
 #[path = "../src/agents/artifacts.rs"]
 #[allow(dead_code)]
 mod artifacts_impl;
+#[path = "../src/agents/contracts.rs"]
+#[allow(dead_code)]
+mod contracts_impl;
+#[path = "support/db.rs"]
+mod db_support;
 #[path = "../src/errors/manifest.rs"]
 #[allow(dead_code)]
 mod errors_manifest_impl;
@@ -15,6 +23,18 @@ mod handshake_impl;
 #[path = "../src/pty/health.rs"]
 #[allow(dead_code)]
 mod health_impl;
+#[path = "../src/jobs/runner.rs"]
+#[allow(dead_code)]
+mod runner_impl;
+#[path = "../src/tracing/structured.rs"]
+#[allow(dead_code)]
+mod structured_impl;
+
+mod agents {
+    pub mod adapter {
+        pub use crate::adapter_impl::*;
+    }
+}
 
 mod ipc {
     pub mod command_router {
@@ -67,11 +87,25 @@ mod ipc {
     }
 }
 
+mod jobs {
+    pub mod runner {
+        pub use crate::runner_impl::*;
+    }
+}
+
+mod support {
+    pub mod db {
+        pub use crate::db_support::*;
+    }
+}
+
 mod tests {
     use anyhow::{Result, ensure};
     use serde_json::Value as JsonValue;
     use serde_yaml::Value as YamlValue;
+    use tempfile::tempdir;
 
+    use crate::adapter_impl::{ControlEvent, ExecutionMode};
     use crate::artifacts_impl::{DaemonEvidenceAppendix, OutcomeClass, RunManifestFrontmatter};
     use crate::errors_manifest_impl::ErrorCode;
     use crate::handshake_impl::{
@@ -80,6 +114,13 @@ mod tests {
         ValidationStatusSnapshot,
     };
     use crate::health_impl::HealthIssue;
+    use crate::runner_impl::{
+        SkillTelemetryWindow, compute_skill_telemetry, skill_telemetry_thresholds,
+    };
+    use crate::structured_impl::{
+        CONTROL_PROTOCOL_RETENTION_DAYS, StructuredControlEventKind, StructuredControlEventRecord,
+        StructuredProtocolEventKind, StructuredTrace, TraceIdentity, trace_contains_artifact_ref,
+    };
 
     fn sample_frontmatter(outcome_class: OutcomeClass) -> RunManifestFrontmatter {
         RunManifestFrontmatter {
@@ -264,6 +305,327 @@ mod tests {
                 source_lane_in_use: Some(1),
             }],
         }
+    }
+
+    fn sample_identity() -> TraceIdentity {
+        TraceIdentity::new("job-123", "session-123")
+            .with_process_id("process-123")
+            .with_run_manifest_hash("manifest-hash-123")
+    }
+
+    fn sample_control_trace() -> StructuredTrace {
+        let identity = sample_identity();
+        let mut trace = StructuredTrace::new(
+            ExecutionMode::Pty,
+            [
+                "created",
+                "spawned",
+                "active",
+                "terminating",
+                "exited",
+                "reaped",
+                "archived",
+            ],
+        );
+        trace.push_control_record(StructuredControlEventRecord {
+            seq: 1,
+            event: StructuredControlEventKind::ResourceGranted,
+            identity: identity.clone(),
+            execution_mode: "pty".to_owned(),
+            at: None,
+            details: serde_json::json!({"browser_slots_in_use": 1}),
+        });
+        trace.push_control_record(StructuredControlEventRecord {
+            seq: 2,
+            event: StructuredControlEventKind::ResourceDenied,
+            identity: identity.clone(),
+            execution_mode: "pty".to_owned(),
+            at: None,
+            details: serde_json::json!({"denial_reason": "source_lane_exhausted:fts:1/1"}),
+        });
+        trace.push_control_record(StructuredControlEventRecord {
+            seq: 3,
+            event: StructuredControlEventKind::ResourceReleased,
+            identity: identity.clone(),
+            execution_mode: "pty".to_owned(),
+            at: None,
+            details: serde_json::json!({"release_cause": "archived"}),
+        });
+        trace.push_control_record(StructuredControlEventRecord {
+            seq: 4,
+            event: StructuredControlEventKind::CircuitTransition,
+            identity: identity.clone(),
+            execution_mode: "pty".to_owned(),
+            at: None,
+            details: serde_json::json!({"source_id": "fts", "state": "half_open"}),
+        });
+        trace.push_control_record(StructuredControlEventRecord {
+            seq: 5,
+            event: StructuredControlEventKind::Spawn,
+            identity: identity.clone(),
+            execution_mode: "pty".to_owned(),
+            at: None,
+            details: serde_json::json!({"pid": 10, "pgid": 11, "sid": 12}),
+        });
+        trace.push_control_record(StructuredControlEventRecord {
+            seq: 6,
+            event: StructuredControlEventKind::Signal,
+            identity: identity.clone(),
+            execution_mode: "pty".to_owned(),
+            at: None,
+            details: serde_json::json!({"signal": "SIGTERM"}),
+        });
+        trace.push_control_record(StructuredControlEventRecord {
+            seq: 7,
+            event: StructuredControlEventKind::Exit,
+            identity: identity.clone(),
+            execution_mode: "pty".to_owned(),
+            at: None,
+            details: serde_json::json!({"success": true, "exit_code": 0}),
+        });
+        trace.push_control_record(StructuredControlEventRecord {
+            seq: 8,
+            event: StructuredControlEventKind::Reap,
+            identity: identity.clone(),
+            execution_mode: "pty".to_owned(),
+            at: None,
+            details: serde_json::json!({"pid": 10, "pgid": 11, "sid": 12}),
+        });
+        trace.push_control_record(StructuredControlEventRecord {
+            seq: 9,
+            event: StructuredControlEventKind::CleanupVerdict,
+            identity,
+            execution_mode: "pty".to_owned(),
+            at: None,
+            details: serde_json::json!({"cleanup_verdict": "clean"}),
+        });
+        trace
+    }
+
+    #[test]
+    fn l3_t_observability_telemetry_001_control_events_cover_runtime_and_resource_activity()
+    -> Result<()> {
+        let trace = sample_control_trace();
+        let control_kinds = trace
+            .control_event_records
+            .iter()
+            .map(|record| &record.event)
+            .collect::<Vec<_>>();
+
+        ensure!(
+            control_kinds.contains(&&StructuredControlEventKind::ResourceGranted)
+                && control_kinds.contains(&&StructuredControlEventKind::ResourceDenied)
+                && control_kinds.contains(&&StructuredControlEventKind::ResourceReleased)
+                && control_kinds.contains(&&StructuredControlEventKind::CircuitTransition)
+                && control_kinds.contains(&&StructuredControlEventKind::Spawn)
+                && control_kinds.contains(&&StructuredControlEventKind::Signal)
+                && control_kinds.contains(&&StructuredControlEventKind::Exit)
+                && control_kinds.contains(&&StructuredControlEventKind::Reap)
+                && control_kinds.contains(&&StructuredControlEventKind::CleanupVerdict),
+            "L3-T-observability_telemetry-001 expected the full control-event inventory"
+        );
+        ensure!(
+            trace.control_event_records.iter().all(|record| {
+                record.identity.job_id == "job-123" && record.identity.session_id == "session-123"
+            }),
+            "L3-T-observability_telemetry-001 expected explicit job/session keys on every control record"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_observability_telemetry_002_protocol_events_cover_pty_and_contract_sessions()
+    -> Result<()> {
+        let identity = sample_identity();
+        let mut pty_trace = StructuredTrace::new(ExecutionMode::Pty, ["created", "active"]);
+        let pty_events = vec![
+            ControlEvent::Started {
+                pid: 10,
+                pgid: 11,
+                sid: 12,
+                mode: ExecutionMode::Pty,
+            },
+            ControlEvent::Checkpoint {
+                seq: 1,
+                path: "checkpoints/pty.json".into(),
+            },
+            ControlEvent::Warning {
+                code: "AUTH_CHALLENGE".to_owned(),
+                detail: "reauth required".to_owned(),
+            },
+            ControlEvent::FinalResultReady {
+                path: "results/pty.json".into(),
+            },
+            ControlEvent::Exited {
+                status: portable_pty::ExitStatus::with_exit_code(0),
+            },
+        ];
+        pty_trace.extend_from_adapter_events(&identity, &pty_events);
+
+        let mut contract_trace =
+            StructuredTrace::new(ExecutionMode::Contract, ["created", "active"]);
+        let contract_events = vec![
+            ControlEvent::Started {
+                pid: 20,
+                pgid: 21,
+                sid: 22,
+                mode: ExecutionMode::Contract,
+            },
+            ControlEvent::Progress {
+                completed: 1,
+                total: Some(2),
+            },
+            ControlEvent::FinalResultReady {
+                path: "results/contract.json".into(),
+            },
+            ControlEvent::Exited {
+                status: portable_pty::ExitStatus::with_exit_code(0),
+            },
+        ];
+        contract_trace.extend_from_adapter_events(&identity, &contract_events);
+
+        ensure!(
+            pty_trace
+                .protocol_events
+                .iter()
+                .any(|record| record.event == StructuredProtocolEventKind::Checkpoint)
+                && pty_trace
+                    .protocol_events
+                    .iter()
+                    .any(|record| record.event == StructuredProtocolEventKind::Warning)
+                && contract_trace
+                    .protocol_events
+                    .iter()
+                    .any(|record| record.event == StructuredProtocolEventKind::Progress)
+                && contract_trace
+                    .protocol_events
+                    .iter()
+                    .any(|record| record.event == StructuredProtocolEventKind::FinalResultReady),
+            "L3-T-observability_telemetry-002 expected protocol events from both execution modes"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_observability_telemetry_003_joinability_survives_without_transcript_scraping()
+    -> Result<()> {
+        let temp = tempdir()?;
+        let artifact_path = temp.path().join("terminal-output.jsonl.gz");
+        std::fs::write(&artifact_path, b"trace-bytes")?;
+
+        let trace = sample_control_trace();
+        let raw = trace.to_json_string()?;
+        let trace_contains_path = trace_contains_artifact_ref(&raw, &artifact_path)?;
+        let identity = sample_identity();
+
+        ensure!(identity.process_id.as_deref() == Some("process-123"));
+        ensure!(
+            identity.run_manifest_hash.as_deref() == Some("manifest-hash-123"),
+            "L3-T-observability_telemetry-003 expected run_manifest_hash join key"
+        );
+        ensure!(
+            !trace_contains_path,
+            "fixture trace should not contain the temp path before explicit metadata insertion"
+        );
+
+        let mut trace_with_refs = trace;
+        trace_with_refs.insert_metadata(
+            "artifact_refs",
+            serde_json::json!([artifact_path.to_string_lossy().to_string()]),
+        );
+        let raw_with_refs = trace_with_refs.to_json_string()?;
+        ensure!(trace_contains_artifact_ref(&raw_with_refs, &artifact_path)?);
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_observability_telemetry_004_retention_configuration_matches_layer3_minima() {
+        let trace = StructuredTrace::new(ExecutionMode::Contract, ["created"]);
+        let retention = trace.retention_policy.expect("retention policy");
+        assert_eq!(
+            retention.control_protocol_days,
+            CONTROL_PROTOCOL_RETENTION_DAYS
+        );
+        assert!(!sample_appendix().artifact_refs.is_empty());
+        assert!(!sample_frontmatter(OutcomeClass::Completed).agent_narrative_missing);
+    }
+
+    #[test]
+    fn l3_t_observability_telemetry_005_skill_telemetry_emits_all_thirteen_metrics() {
+        let telemetry = compute_skill_telemetry(&SkillTelemetryWindow {
+            successful_runs: 9,
+            total_runs: 10,
+            durations_ms: vec![1_000, 1_500, 1_250, 1_750],
+            cost_per_run_pence: Some(12),
+            token_count: Some(1_024),
+            checkpoint_count: Some(2),
+            retry_count: Some(1),
+            extraction_fill_rate_bps: Some(9_100),
+            page_fingerprint_delta_bps: Some(125),
+            auth_challenge_rate_bps: Some(0),
+            listing_match_rate_bps: None,
+            validation_rejection_rate_bps: Some(0),
+            drift_score_bps: Some(125),
+        });
+        let thresholds = skill_telemetry_thresholds();
+
+        assert_eq!(telemetry.success_rate, Some(0.9));
+        assert_eq!(telemetry.median_duration_ms, Some(1_500));
+        assert_eq!(telemetry.p95_duration_ms, Some(1_750));
+        assert_eq!(telemetry.cost_per_run_pence, Some(12));
+        assert_eq!(telemetry.token_count, Some(1_024));
+        assert_eq!(telemetry.checkpoint_count, Some(2));
+        assert_eq!(telemetry.retry_count, Some(1));
+        assert_eq!(telemetry.extraction_fill_rate_bps, Some(9_100));
+        assert_eq!(telemetry.page_fingerprint_delta_bps, Some(125));
+        assert_eq!(telemetry.auth_challenge_rate_bps, Some(0));
+        assert_eq!(telemetry.listing_match_rate_bps, None);
+        assert_eq!(telemetry.validation_rejection_rate_bps, Some(0));
+        assert_eq!(telemetry.drift_score_bps, Some(125));
+        assert_eq!(thresholds.drift_score_max_bps, 3_000);
+    }
+
+    #[test]
+    fn l3_t_observability_telemetry_006_validation_telemetry_emits_only_declared_metrics() {
+        let telemetry = crate::handshake_impl::ValidationStatusSnapshot {
+            validator_approval_rate_bps: 5_000,
+            validator_rejection_rate_bps: 2_500,
+            validator_flag_rate_bps: 2_500,
+            validator_cost_per_run_pence: 12,
+            operator_override_rate_bps: 1_000,
+            validator_execution_failure_rate_bps: 2_500,
+            validator_canary_pass_rate_bps: 10_000,
+            validator_health_state: "degraded".to_owned(),
+            pending_backlog_count: 4,
+            pending_canary_count: 1,
+            validator_job_count: 8,
+        };
+
+        assert_eq!(telemetry.validator_health_state, "degraded");
+        assert_eq!(telemetry.validator_execution_failure_rate_bps, 2_500);
+        assert_eq!(telemetry.validator_canary_pass_rate_bps, 10_000);
+        assert_eq!(telemetry.pending_backlog_count, 4);
+    }
+
+    #[test]
+    fn l3_t_observability_telemetry_007_three_am_drilldown_stays_id_based() -> Result<()> {
+        let trace = sample_control_trace();
+        let raw = trace.to_json_string()?;
+        let appendix = sample_appendix();
+        let frontmatter = sample_frontmatter(OutcomeClass::Completed);
+
+        ensure!(frontmatter.job_id == "job-123");
+        ensure!(frontmatter.session_id == "session-123");
+        ensure!(
+            appendix
+                .artifact_refs
+                .contains(&"results/result.json".to_owned())
+        );
+        ensure!(
+            raw.contains("manifest-hash-123") && raw.contains("process-123"),
+            "L3-T-observability_telemetry-007 expected explicit join keys in the trace payload"
+        );
+        Ok(())
     }
 
     #[test]
