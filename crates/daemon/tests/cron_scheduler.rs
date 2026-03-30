@@ -1,0 +1,506 @@
+#![forbid(unsafe_code)]
+
+#[path = "../src/agents/arbiter.rs"]
+#[allow(dead_code)]
+mod arbiter_impl;
+#[path = "../src/agents/contracts.rs"]
+#[allow(dead_code)]
+mod contracts_impl;
+#[path = "../src/scheduler/cron.rs"]
+#[allow(dead_code)]
+mod cron_impl;
+#[path = "support/db.rs"]
+mod db_support;
+#[path = "../src/jobs/runner.rs"]
+#[allow(dead_code)]
+mod runner_impl;
+#[path = "support/skills.rs"]
+mod skills_support;
+#[path = "../src/sources/registry.rs"]
+#[allow(dead_code)]
+mod sources_impl;
+
+mod agents {
+    pub mod arbiter {
+        pub use crate::arbiter_impl::*;
+    }
+}
+
+mod jobs {
+    pub mod runner {
+        pub use crate::runner_impl::*;
+    }
+}
+
+mod support {
+    pub mod db {
+        pub use crate::db_support::*;
+    }
+}
+
+mod sources {
+    pub mod registry {
+        pub use crate::sources_impl::*;
+    }
+}
+
+mod tests {
+    use std::str::FromStr;
+
+    use anyhow::{Context, Result, anyhow, ensure};
+    use chrono::{DateTime, Duration, TimeZone, Utc};
+    use cron::Schedule;
+    use rusqlite::{Connection, params};
+    use serde_json::Value;
+
+    use crate::cron_impl::CronScheduler;
+    use crate::db_support::{StateDb, TestStateDb};
+    use crate::runner_impl::JobRunner;
+    use crate::skills_support::{lint_skill_directory, repo_skill_dir};
+    use crate::sources_impl::{
+        CircuitState, DEFAULT_SOURCE_SKILL_VERSION, SourceJobClass, SourceRegistry,
+        SourceRuntimeState, persist_runtime_state,
+    };
+
+    fn ts(
+        year: i32,
+        month: u32,
+        day: u32,
+        hour: u32,
+        minute: u32,
+        second: u32,
+    ) -> Result<DateTime<Utc>> {
+        Utc.with_ymd_and_hms(year, month, day, hour, minute, second)
+            .single()
+            .ok_or_else(|| anyhow!("invalid timestamp"))
+    }
+
+    fn seed_source(conn: &Connection, source_id: &str, kind: &str) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT OR IGNORE INTO sources (id, kind, enabled, config)
+            VALUES (?1, ?2, 1, '{}')
+            ",
+            params![source_id, kind],
+        )?;
+        Ok(())
+    }
+
+    fn seed_builtin_sources(state_db: &TestStateDb) -> Result<()> {
+        seed_source(state_db.connection(), "fts", "procurement")?;
+        seed_source(state_db.connection(), "contracts-finder", "procurement")?;
+        seed_source(state_db.connection(), "alibaba", "supplier")?;
+        Ok(())
+    }
+
+    fn source_health_skill_version(relative: &str) -> Result<String> {
+        let skill = lint_skill_directory(&repo_skill_dir(relative)?)?;
+        Ok(skill.metadata.skill_version)
+    }
+
+    fn reload_registry(state_db: &TestStateDb) -> Result<SourceRegistry> {
+        SourceRegistry::load(state_db.connection())
+    }
+
+    fn fresh_timestamp(runtime_state: &SourceRuntimeState) -> DateTime<Utc> {
+        [
+            runtime_state.last_canary_at,
+            runtime_state.updated_at,
+            runtime_state.circuit_opened_at,
+            runtime_state.created_at,
+        ]
+        .into_iter()
+        .flatten()
+        .max()
+        .unwrap_or_else(Utc::now)
+            + Duration::minutes(5)
+    }
+
+    #[test]
+    fn l3_t_cron_scheduler_001_valid_cron_expression_computes_expected_next_run_at() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_builtin_sources(&state_db)?;
+        let registry = reload_registry(&state_db)?;
+        let mut scheduler = CronScheduler::from_registry(&registry);
+        scheduler.refresh_next_run_at(ts(2026, 3, 25, 4, 10, 0)?)?;
+
+        let definitions = scheduler.definitions();
+        ensure!(
+            definitions.len() == 4,
+            "L3-T-cron_scheduler-001 expected four cron-backed definitions"
+        );
+        ensure!(
+            definitions["fts::procurement-ingestion/fts"].next_run_at
+                == Some(ts(2026, 3, 25, 4, 15, 0)?),
+            "L3-T-cron_scheduler-001 unexpected FTS production schedule"
+        );
+        ensure!(
+            definitions["fts::source-health/fts"].next_run_at == Some(ts(2026, 3, 25, 4, 30, 0)?),
+            "L3-T-cron_scheduler-001 unexpected FTS canary schedule"
+        );
+        ensure!(
+            definitions["contracts-finder::procurement-ingestion/contracts-finder"].next_run_at
+                == Some(ts(2026, 3, 25, 4, 45, 0)?),
+            "L3-T-cron_scheduler-001 unexpected Contracts Finder schedule"
+        );
+        ensure!(
+            definitions["alibaba::source-health/alibaba"].next_run_at
+                == Some(ts(2026, 3, 25, 4, 30, 0)?),
+            "L3-T-cron_scheduler-001 unexpected Alibaba canary schedule"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_cron_scheduler_002_invalid_cron_expression_is_rejected_explicitly() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let error = Schedule::from_str("not-a-cron")
+            .with_context(|| "parsing cron expression `not-a-cron` for source `broken-source`")
+            .expect_err("L3-T-cron_scheduler-002 expected invalid cron failure");
+        ensure!(
+            error
+                .to_string()
+                .contains("parsing cron expression `not-a-cron` for source `broken-source`"),
+            "L3-T-cron_scheduler-002 missing explicit parse context: {error:#}"
+        );
+
+        let job_rows: i64 =
+            state_db
+                .connection()
+                .query_row("SELECT COUNT(*) FROM workflow_jobs", [], |row| row.get(0))?;
+        ensure!(
+            job_rows == 0,
+            "L3-T-cron_scheduler-002 expected no runnable job rows to be created"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_cron_scheduler_003_dispatch_freezes_skill_binding_and_root_enqueue_shape() -> Result<()>
+    {
+        let state_db = TestStateDb::new()?;
+        seed_source(state_db.connection(), "fts", "procurement")?;
+        let registry = reload_registry(&state_db)?;
+        let mut scheduler = CronScheduler::from_registry(&registry);
+        scheduler.record_enqueued("fts::procurement-ingestion/fts", ts(2026, 3, 24, 4, 15, 0)?)?;
+
+        let dispatches = scheduler.dispatch_due_jobs(&registry, ts(2026, 3, 25, 4, 20, 0)?)?;
+        let dispatch = dispatches
+            .into_iter()
+            .find(|candidate| candidate.definition.skill_id == "procurement-ingestion/fts")
+            .ok_or_else(|| anyhow!("L3-T-cron_scheduler-003 expected FTS production dispatch"))?;
+
+        ensure!(dispatch.enqueue_request.parent_job_id.is_none());
+        ensure!(dispatch.enqueue_request.process_id.is_none());
+        ensure!(dispatch.enqueue_request.scope_kind.as_deref() == Some("source"));
+        ensure!(dispatch.enqueue_request.scope_id.as_deref() == Some("fts"));
+        ensure!(dispatch.enqueue_request.kind == "sync_source");
+        ensure!(!dispatch.enqueue_request.validation_required);
+        ensure!(
+            dispatch.enqueue_request.scheduled_for == Some(ts(2026, 3, 25, 4, 15, 0)?),
+            "L3-T-cron_scheduler-003 expected frozen scheduled_for"
+        );
+        ensure!(dispatch.enqueue_request.input_payload["skill_id"] == "procurement-ingestion/fts");
+        ensure!(
+            dispatch.enqueue_request.input_payload["skill_version"] == DEFAULT_SOURCE_SKILL_VERSION
+        );
+        ensure!(
+            dispatch.enqueue_request.input_payload["schedule_key"]
+                == "fts::procurement-ingestion/fts"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_cron_scheduler_004_scheduler_binding_stays_frozen_even_when_skill_frontmatter_differs()
+    -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_source(state_db.connection(), "fts", "procurement")?;
+        let registry = reload_registry(&state_db)?;
+        let on_disk_skill_version = source_health_skill_version("source-health/fts")?;
+        let binding = registry
+            .get("fts")
+            .and_then(|source| source.definition.canary_binding.as_ref())
+            .ok_or_else(|| anyhow!("L3-T-cron_scheduler-004 expected FTS canary binding"))?;
+
+        ensure!(
+            binding.skill_version == DEFAULT_SOURCE_SKILL_VERSION,
+            "L3-T-cron_scheduler-004 expected registry to freeze DEFAULT_SOURCE_SKILL_VERSION"
+        );
+        ensure!(
+            binding.skill_version != on_disk_skill_version,
+            "L3-T-cron_scheduler-004 expected checked-in skill frontmatter drift to remain visible"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_cron_scheduler_005_enqueue_job_persists_scheduled_for_and_frozen_payload() -> Result<()>
+    {
+        let state_db = TestStateDb::new()?;
+        seed_source(state_db.connection(), "fts", "procurement")?;
+        let registry = reload_registry(&state_db)?;
+        let mut scheduler = CronScheduler::from_registry(&registry);
+        scheduler.record_enqueued("fts::procurement-ingestion/fts", ts(2026, 3, 24, 4, 15, 0)?)?;
+
+        let dispatch = scheduler
+            .dispatch_due_jobs(&registry, ts(2026, 3, 25, 4, 20, 0)?)?
+            .into_iter()
+            .find(|candidate| candidate.definition.skill_id == "procurement-ingestion/fts")
+            .ok_or_else(|| anyhow!("L3-T-cron_scheduler-005 expected FTS production dispatch"))?;
+
+        let mut writable_db = StateDb::open(state_db.db_path())?;
+        JobRunner::new("cron-test-executor")
+            .enqueue_job(&mut writable_db, &dispatch.enqueue_request)?;
+
+        let (scheduled_for, parent_job_id, stored_payload): (
+            Option<String>,
+            Option<String>,
+            String,
+        ) = writable_db.connection().query_row(
+            "\
+                SELECT scheduled_for, parent_job_id, input_payload
+                FROM workflow_jobs
+                WHERE id = ?1
+                ",
+            params![dispatch.enqueue_request.job_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+        let payload: Value = serde_json::from_str(&stored_payload)?;
+
+        ensure!(parent_job_id.is_none());
+        ensure!(
+            scheduled_for.as_deref() == Some("2026-03-25T04:15:00+00:00"),
+            "L3-T-cron_scheduler-005 expected scheduled_for to persist exactly"
+        );
+        ensure!(payload["request"]["skill_version"] == DEFAULT_SOURCE_SKILL_VERSION);
+        ensure!(payload["request"]["schedule_key"] == "fts::procurement-ingestion/fts");
+        ensure!(payload["runner_meta"]["executor_id"] == "cron-test-executor");
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_cron_scheduler_006_startup_catchup_dispatches_due_jobs_in_priority_order() -> Result<()>
+    {
+        let state_db = TestStateDb::new()?;
+        seed_builtin_sources(&state_db)?;
+        let registry = reload_registry(&state_db)?;
+        let mut scheduler = CronScheduler::from_registry(&registry);
+
+        scheduler.record_enqueued("fts::procurement-ingestion/fts", ts(2026, 3, 24, 4, 15, 0)?)?;
+        scheduler.record_enqueued("fts::source-health/fts", ts(2026, 3, 25, 4, 0, 0)?)?;
+        scheduler.record_enqueued(
+            "contracts-finder::procurement-ingestion/contracts-finder",
+            ts(2026, 3, 24, 4, 45, 0)?,
+        )?;
+
+        let dispatches = scheduler.dispatch_due_jobs(&registry, ts(2026, 3, 25, 5, 0, 0)?)?;
+        let ordered_keys = dispatches
+            .iter()
+            .map(|dispatch| dispatch.definition_key.as_str())
+            .collect::<Vec<_>>();
+
+        ensure!(
+            ordered_keys
+                == vec![
+                    "fts::procurement-ingestion/fts",
+                    "contracts-finder::procurement-ingestion/contracts-finder",
+                    "fts::source-health/fts",
+                ],
+            "L3-T-cron_scheduler-006 unexpected catchup order: {ordered_keys:?}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_cron_scheduler_007_half_open_sources_only_schedule_canary_health_work() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_source(state_db.connection(), "fts", "procurement")?;
+        let registry = reload_registry(&state_db)?;
+        let source = registry
+            .get("fts")
+            .ok_or_else(|| anyhow!("missing FTS source"))?;
+        let definition = &source.definition;
+        let observed_at = fresh_timestamp(&source.runtime_state);
+
+        let runtime_state = SourceRuntimeState {
+            source_id: "fts".to_owned(),
+            last_health_state: definition.default_health_state,
+            circuit_state: CircuitState::HalfOpen,
+            challenge_event_count: 1,
+            challenge_window_started_at: Some(observed_at),
+            circuit_opened_at: None,
+            cooldown_until: None,
+            last_canary_at: Some(observed_at),
+            last_canary_result: None,
+            last_error_code: Some("AGENT_AUTH_CHALLENGE".to_owned()),
+            updated_at: Some(observed_at),
+            created_at: Some(observed_at),
+        };
+        persist_runtime_state(state_db.connection(), &runtime_state)?;
+
+        let reloaded = reload_registry(&state_db)?;
+        let mut scheduler = CronScheduler::from_registry(&reloaded);
+        scheduler.record_enqueued("fts::procurement-ingestion/fts", ts(2026, 3, 24, 4, 15, 0)?)?;
+        scheduler.record_enqueued("fts::source-health/fts", ts(2026, 3, 25, 4, 0, 0)?)?;
+
+        let dispatches = scheduler.dispatch_due_jobs(&reloaded, ts(2026, 3, 25, 5, 0, 0)?)?;
+        let dispatch_keys = dispatches
+            .iter()
+            .map(|dispatch| dispatch.definition_key.as_str())
+            .collect::<Vec<_>>();
+
+        ensure!(
+            dispatch_keys == vec!["fts::source-health/fts"],
+            "L3-T-cron_scheduler-007 expected only source-health dispatch in half-open mode"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_cron_scheduler_008_cooldown_expiry_promotes_sources_to_half_open_recovery() -> Result<()>
+    {
+        let state_db = TestStateDb::new()?;
+        seed_source(state_db.connection(), "fts", "procurement")?;
+        let registry = reload_registry(&state_db)?;
+        let source = registry
+            .get("fts")
+            .ok_or_else(|| anyhow!("missing FTS source"))?;
+        let definition = &source.definition;
+        let base = fresh_timestamp(&source.runtime_state);
+        let now = base + Duration::minutes(30);
+        let runtime_state = SourceRuntimeState {
+            source_id: "fts".to_owned(),
+            last_health_state: definition.default_health_state,
+            circuit_state: CircuitState::Open,
+            challenge_event_count: definition.policy.challenge_threshold,
+            challenge_window_started_at: Some(base - Duration::minutes(30)),
+            circuit_opened_at: Some(base - Duration::minutes(30)),
+            cooldown_until: Some(base),
+            last_canary_at: Some(base),
+            last_canary_result: None,
+            last_error_code: Some("SOURCE_SOFT_BLOCKED".to_owned()),
+            updated_at: Some(base),
+            created_at: Some(base - Duration::minutes(30)),
+        };
+        persist_runtime_state(state_db.connection(), &runtime_state)?;
+
+        let reloaded = reload_registry(&state_db)?;
+        let source = reloaded
+            .get("fts")
+            .ok_or_else(|| anyhow!("missing FTS source"))?;
+        ensure!(
+            source.effective_circuit_state(now) == CircuitState::HalfOpen,
+            "L3-T-cron_scheduler-008 expected cooldown expiry to move source into half-open"
+        );
+        ensure!(
+            source.allows_job_class(SourceJobClass::SourceHealth, now),
+            "L3-T-cron_scheduler-008 expected source-health jobs after cooldown expiry"
+        );
+        ensure!(
+            !source.allows_job_class(SourceJobClass::Production, now),
+            "L3-T-cron_scheduler-008 expected production work to stay suppressed in half-open"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_cron_scheduler_009_open_circuits_suppress_production_dispatches() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        seed_source(state_db.connection(), "fts", "procurement")?;
+        let registry = reload_registry(&state_db)?;
+        let source = registry
+            .get("fts")
+            .ok_or_else(|| anyhow!("missing FTS source"))?;
+        let definition = &source.definition;
+        let base = fresh_timestamp(&source.runtime_state);
+
+        let runtime_state = SourceRuntimeState {
+            source_id: "fts".to_owned(),
+            last_health_state: definition.default_health_state,
+            circuit_state: CircuitState::Open,
+            challenge_event_count: definition.policy.challenge_threshold,
+            challenge_window_started_at: Some(base),
+            circuit_opened_at: Some(base),
+            cooldown_until: Some(base + Duration::hours(2)),
+            last_canary_at: Some(base),
+            last_canary_result: None,
+            last_error_code: Some("SOURCE_SOFT_BLOCKED".to_owned()),
+            updated_at: Some(base),
+            created_at: Some(base),
+        };
+        persist_runtime_state(state_db.connection(), &runtime_state)?;
+
+        let reloaded = reload_registry(&state_db)?;
+        let source = reloaded
+            .get("fts")
+            .ok_or_else(|| anyhow!("missing FTS source"))?;
+        ensure!(
+            !source.allows_job_class(SourceJobClass::Production, base + Duration::minutes(30)),
+            "L3-T-cron_scheduler-009 expected production suppression while circuit is open"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn l3_t_cron_scheduler_010_runtime_state_writes_do_not_mutate_source_definitions() -> Result<()>
+    {
+        let state_db = TestStateDb::new()?;
+        seed_source(state_db.connection(), "alibaba", "supplier")?;
+
+        let original_enabled: i64 = state_db.connection().query_row(
+            "SELECT enabled FROM sources WHERE id = 'alibaba'",
+            [],
+            |row| row.get(0),
+        )?;
+        let original_config: String = state_db.connection().query_row(
+            "SELECT config FROM sources WHERE id = 'alibaba'",
+            [],
+            |row| row.get(0),
+        )?;
+
+        let registry = reload_registry(&state_db)?;
+        let definition = &registry
+            .get("alibaba")
+            .ok_or_else(|| anyhow!("missing Alibaba source"))?
+            .definition;
+        let runtime_state = SourceRuntimeState {
+            source_id: "alibaba".to_owned(),
+            last_health_state: definition.default_health_state,
+            circuit_state: CircuitState::Open,
+            challenge_event_count: definition.policy.challenge_threshold,
+            challenge_window_started_at: Some(ts(2026, 3, 25, 4, 0, 0)?),
+            circuit_opened_at: Some(ts(2026, 3, 25, 4, 0, 0)?),
+            cooldown_until: Some(ts(2026, 3, 25, 6, 0, 0)?),
+            last_canary_at: Some(ts(2026, 3, 25, 4, 0, 0)?),
+            last_canary_result: None,
+            last_error_code: Some("AGENT_AUTH_CHALLENGE".to_owned()),
+            updated_at: Some(ts(2026, 3, 25, 4, 0, 0)?),
+            created_at: Some(ts(2026, 3, 25, 4, 0, 0)?),
+        };
+        persist_runtime_state(state_db.connection(), &runtime_state)?;
+
+        let reloaded = reload_registry(&state_db)?;
+        let reloaded_source = reloaded
+            .get("alibaba")
+            .ok_or_else(|| anyhow!("missing Alibaba source"))?;
+        let current_enabled: i64 = state_db.connection().query_row(
+            "SELECT enabled FROM sources WHERE id = 'alibaba'",
+            [],
+            |row| row.get(0),
+        )?;
+        let current_config: String = state_db.connection().query_row(
+            "SELECT config FROM sources WHERE id = 'alibaba'",
+            [],
+            |row| row.get(0),
+        )?;
+
+        ensure!(original_enabled == current_enabled);
+        ensure!(original_config == current_config);
+        ensure!(
+            reloaded_source.runtime_state.circuit_state == CircuitState::Open,
+            "L3-T-cron_scheduler-010 expected runtime state to load from source_runtime_state"
+        );
+        Ok(())
+    }
+}

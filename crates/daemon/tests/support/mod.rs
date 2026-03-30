@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use tempfile::TempDir;
 
+#[allow(dead_code)]
 pub struct TestContext {
     pub temp: TempDir,
     pub state_root: PathBuf,
@@ -15,6 +16,7 @@ pub struct TestContext {
     pub db_path: PathBuf,
 }
 
+#[allow(dead_code)]
 impl TestContext {
     pub fn new() -> anyhow::Result<Self> {
         let temp = tempfile::tempdir()?;

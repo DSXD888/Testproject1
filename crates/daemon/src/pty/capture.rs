@@ -41,6 +41,13 @@ pub struct CapturePaths {
 }
 
 impl CapturePaths {
+    /// Builds the artifact paths for a session-scoped capture stream and ensures the stream
+    /// directory exists.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the session path cannot be constructed or the capture directory
+    /// cannot be created.
     pub fn for_session(artifact_root: &Path, session_id: &str, now: DateTime<Utc>) -> Result<Self> {
         let session_root = artifact_root
             .join("sessions")
@@ -77,6 +84,12 @@ pub struct PtyCapture {
 }
 
 impl PtyCapture {
+    /// Creates a new PTY capture writer rooted at the given artifact directory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the capture paths cannot be created or the index file cannot be
+    /// initialized.
     pub fn new(
         artifact_root: &Path,
         session_id: &str,
@@ -100,6 +113,11 @@ impl PtyCapture {
         })
     }
 
+    /// Appends a sequence-framed PTY payload to the current compressed capture chunk.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when compression sizing or chunk flushing fails.
     pub fn append(&mut self, seq: u64, bytes: &[u8], wall_ts: DateTime<Utc>) -> Result<()> {
         if self.first_seq.is_none() {
             self.first_seq = Some(seq);
@@ -116,6 +134,12 @@ impl PtyCapture {
         Ok(())
     }
 
+    /// Finalizes the capture stream and returns the durable stream index.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the trailing chunk cannot be flushed or the stream index cannot be
+    /// read back from disk.
     pub fn finalize(&mut self) -> Result<Vec<StreamIndexEntry>> {
         if !self.buffer.is_empty() {
             self.flush_current()?;
@@ -123,10 +147,17 @@ impl PtyCapture {
         read_stream_index(&self.paths.index_path)
     }
 
+    #[must_use]
     pub const fn paths(&self) -> &CapturePaths {
         &self.paths
     }
 
+    /// Recovers the durable contiguous prefix of a PTY capture after an interrupted write.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the capture directory cannot be inspected or the index cannot be
+    /// rebuilt.
     pub fn recover(paths: &CapturePaths) -> Result<Vec<StreamIndexEntry>> {
         truncate_torn_index_line(&paths.index_path)?;
 
@@ -206,6 +237,11 @@ impl PtyCapture {
     }
 }
 
+/// Reads and deserializes the JSONL stream index for a PTY capture session.
+///
+/// # Errors
+///
+/// Returns an error when the index file cannot be read or one of its lines cannot be parsed.
 pub fn read_stream_index(path: &Path) -> Result<Vec<StreamIndexEntry>> {
     if !path.exists() {
         return Ok(Vec::new());
@@ -219,6 +255,12 @@ pub fn read_stream_index(path: &Path) -> Result<Vec<StreamIndexEntry>> {
         .collect()
 }
 
+/// Appends a single stream-index entry to the JSONL index file.
+///
+/// # Errors
+///
+/// Returns an error when the index entry cannot be serialized or the index file cannot be
+/// rewritten.
 pub fn append_stream_index(path: &Path, entry: &StreamIndexEntry) -> Result<()> {
     let mut existing = fs::read_to_string(path).unwrap_or_default();
     existing.push_str(&serde_json::to_string(entry).context("serializing stream index entry")?);
@@ -313,16 +355,31 @@ fn longest_contiguous_prefix(entries: Vec<StreamIndexEntry>) -> Vec<StreamIndexE
     prefix
 }
 
+/// Computes the SHA-256 hash of a compressed capture payload.
+///
+/// # Errors
+///
+/// Returns an error when the payload cannot be read from disk.
 pub fn compressed_payload_sha256(path: &Path) -> Result<String> {
     let bytes = fs::read(path).with_context(|| format!("reading {}", path.display()))?;
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 
+/// Decodes a zstd-compressed capture chunk back into its raw PTY payload.
+///
+/// # Errors
+///
+/// Returns an error when the chunk cannot be read or decompressed.
 pub fn decode_chunk(path: &Path) -> Result<Vec<u8>> {
     let bytes = fs::read(path).with_context(|| format!("reading {}", path.display()))?;
     zstd::stream::decode_all(bytes.as_slice()).context("decoding zstd chunk")
 }
 
+/// Verifies that a stream index describes one contiguous sequence range with no gaps.
+///
+/// # Errors
+///
+/// Returns an error when a non-contiguous gap is detected in the stream index.
 pub fn ensure_contiguous(entries: &[StreamIndexEntry]) -> Result<()> {
     let mut expected = None;
     for entry in entries {

@@ -107,6 +107,12 @@ pub enum InteractionProfile {
     ContractPreferred { allow_pty_fallback: bool },
 }
 
+/// Resolves the execution mode permitted by the skill manifest and adapter capabilities.
+///
+/// # Errors
+///
+/// Returns an error when the skill's declared interaction policy cannot be satisfied by
+/// the probed adapter capabilities.
 pub fn resolve_execution_mode(
     skill: &SkillManifest,
     caps: &CapabilityReport,
@@ -142,11 +148,26 @@ pub fn resolve_execution_mode(
 pub trait AgentAdapter: Send + Sync {
     fn id(&self) -> &'static str;
 
+    /// Probes the adapter for the capabilities relevant to skill execution.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the adapter cannot determine its current capability report.
     async fn probe(&self, ctx: &ProbeCtx) -> Result<CapabilityReport>;
 
+    /// Resolves the effective execution mode for a skill under the current adapter capabilities.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the skill cannot be executed under its declared interaction policy.
     fn resolve_mode(&self, skill: &SkillManifest, caps: &CapabilityReport)
     -> Result<ExecutionMode>;
 
+    /// Builds the launch specification required to execute a skill invocation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the adapter cannot translate the spawn request into a launch spec.
     fn build_launch_spec(&self, req: &SpawnRequest, mode: ExecutionMode) -> Result<LaunchSpec>;
 
     fn parser(&self, mode: ExecutionMode) -> Box<dyn AdapterParser>;

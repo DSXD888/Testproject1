@@ -8,16 +8,19 @@ use tempfile::TempDir;
 #[path = "../../src/pty/capture.rs"]
 mod capture_impl;
 
+#[allow(unused_imports)]
 pub use capture_impl::{
     CaptureConfig, CapturePaths, PtyCapture, StreamIndexEntry, compressed_payload_sha256,
     decode_chunk, ensure_contiguous, read_stream_index,
 };
 
+#[allow(dead_code)]
 pub struct ArtifactSandbox {
     _temp: TempDir,
     root: PathBuf,
 }
 
+#[allow(dead_code)]
 impl ArtifactSandbox {
     pub fn new() -> Result<Self> {
         let temp = tempfile::tempdir()?;

@@ -14,12 +14,14 @@ use tempfile::TempDir;
 #[allow(unused_imports)]
 pub use sqlite_impl::{DEFAULT_SCHEMA_EPOCH, FTS_SOURCE_ID, StateDb};
 
+#[allow(dead_code)]
 pub struct TestStateDb {
     _temp: TempDir,
     db_path: PathBuf,
     state_db: StateDb,
 }
 
+#[allow(dead_code)]
 impl TestStateDb {
     pub fn new() -> Result<Self> {
         let temp = tempfile::tempdir()?;
