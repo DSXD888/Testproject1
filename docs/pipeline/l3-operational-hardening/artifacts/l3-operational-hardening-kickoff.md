@@ -18,39 +18,13 @@ Layer 3 builds on **Layer 0** (SQLite schema, intelligence pipeline, gold set, e
 
 **Organization: FLAT.** No team hierarchy. Pick the next ready bead, implement it, move on. Never ask "what should I work on next?" — run `br ready` and pick the highest-priority unblocked task.
 
-**Coordination: AGENTMAIL-FIRST.** Before touching ANY code: register with AgentMail, check inbox, announce which bead you're claiming, reserve the files you'll edit. This prevents conflicts and keeps the swarm coherent.
-
 **Beads are SELF-CONTAINED.** Each bead has full file paths, type definitions, test specs, acceptance criteria, and dependency info. Implement from the bead alone. The spec is only needed as a tiebreaker.
 
 ---
 
-## 2. Source of Truth Reading List (MANDATORY)
+## 2. AgentMail Registration (DO THIS FIRST)
 
-Read these IN THIS ORDER before writing any code:
-
-1. **`AGENTS.md`** — **READ FULLY** — coding conventions, toolchain (`br` not `bd`, Bun not npm), git rules, AgentMail, beads workflow, session protocol, UBS bug scanner
-2. **Spec (SOT #1)** — `docs/strategy/layers/layer-3-operational-hardening.md` — **READ FULLY** — 12 daemon module surfaces, resource arbiter typed quotas, cron scheduler explicit skill binding, PTY hardening bundle, worker-validator dry-run system, skill promotion 6-stage flow, source health and circuit breaker, relation resolution, outcome classes, fail-open semantics, trust-state lattice, calibration corpora
-3. **TDD (SOT #2)** — `docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-tdd.md` — **SKIM** — 21 test files, T1-T4 lanes plus Manual Gate, test ID pattern `L3-T-{suite}-{NNN}`
-4. **Strategy (SOT #3)** — `docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-strategy.md` — **SKIM** — 6 phases, 36 beads, phase ordering DAG, gate criteria per phase
-5. **Bootstrap** — `docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-bootstrap.md` — **SKIM** — environment prerequisites, migration scaffold, skill directory scaffold, test workspace layout, fixture families, command matrix
-6. **Key codebase files** (study for integration surface):
-   - `crates/daemon/src/main.rs` — daemon entry, module declarations, `bootstrap_runtime()`, ~131K
-   - `crates/daemon/src/jobs/runner.rs` — JobRunner central type, `claim_next_job`, `enqueue_job`, `persist_success`, ~25K
-   - `crates/daemon/src/sessions/reaper.rs` — SessionReaper, CleanupVerdict, ~17K
-   - `crates/daemon/src/agents/artifacts.rs` — RunManifestFrontmatter, DaemonEvidenceAppendix, ArtifactStore, ~15K
-   - `crates/daemon/src/agents/contracts.rs` — ValidationDisposition, OQG signals, checkpoint sequencing, ~9.2K
-   - `crates/daemon/src/errors/manifest.rs` — ErrorCode enum (28 variants), ~14K
-   - `crates/daemon/src/pty/session.rs` — SessionPhase (7 phases), PtyCommand, SpawnOptions, ~15K
-   - `crates/daemon/src/agents/adapter.rs` — AgentAdapter trait, ControlEvent, ExecutionMode, ~3.7K
-   - `crates/daemon/src/db/sqlite.rs` — StateDb, commit_clock, `with_write_transaction`, ~9.3K
-   - `crates/daemon/src/ipc/command_router.rs` — IPC dispatch, manual-trigger command boundary, ~9.2K
-   - `crates/daemon/Cargo.toml` — current dependencies (Phase 1 adds `cron` + `sysinfo`)
-   - `packages/intelligence/src/qualification/goods-qualification.ts` — TS pattern reference
-   - `packages/manifests/render-opportunity.ts` — TS rendering pattern reference
-
----
-
-## 3. AgentMail Registration
+**STOP. Register with AgentMail NOW, before reading anything else.** This makes you visible to the swarm and prevents conflicts. Everything else waits until you have your `agent_name`.
 
 **Project key:** `/Users/alinaaitova/Desktop/Testproject1`
 
@@ -75,6 +49,32 @@ register_agent(
 ```
 
 After registration you will receive your `agent_name`. Use it for all subsequent calls.
+
+---
+
+## 3. Source of Truth Reading List (MANDATORY)
+
+Read these IN THIS ORDER before writing any code:
+
+1. **`AGENTS.md`** — **READ FULLY** — coding conventions, toolchain (`br` not `bd`, Bun not npm), git rules, AgentMail, beads workflow, session protocol, UBS bug scanner
+2. **Spec (SOT #1)** — `docs/strategy/layers/layer-3-operational-hardening.md` — **READ FULLY** — 12 daemon module surfaces, resource arbiter typed quotas, cron scheduler explicit skill binding, PTY hardening bundle, worker-validator dry-run system, skill promotion 6-stage flow, source health and circuit breaker, relation resolution, outcome classes, fail-open semantics, trust-state lattice, calibration corpora
+3. **TDD (SOT #2)** — `docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-tdd.md` — **SKIM** — 21 test files, T1-T4 lanes plus Manual Gate, test ID pattern `L3-T-{suite}-{NNN}`
+4. **Strategy (SOT #3)** — `docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-strategy.md` — **SKIM** — 6 phases, 36 beads, phase ordering DAG, gate criteria per phase
+5. **Bootstrap** — `docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-bootstrap.md` — **SKIM** — environment prerequisites, migration scaffold, skill directory scaffold, test workspace layout, fixture families, command matrix
+6. **Key codebase files** (study for integration surface):
+   - `crates/daemon/src/main.rs` — daemon entry, module declarations, `bootstrap_runtime()`, ~131K
+   - `crates/daemon/src/jobs/runner.rs` — JobRunner central type, `claim_next_job`, `enqueue_job`, `persist_success`, ~25K
+   - `crates/daemon/src/sessions/reaper.rs` — SessionReaper, CleanupVerdict, ~17K
+   - `crates/daemon/src/agents/artifacts.rs` — RunManifestFrontmatter, DaemonEvidenceAppendix, ArtifactStore, ~15K
+   - `crates/daemon/src/agents/contracts.rs` — ValidationDisposition, OQG signals, checkpoint sequencing, ~9.2K
+   - `crates/daemon/src/errors/manifest.rs` — ErrorCode enum (28 variants), ~14K
+   - `crates/daemon/src/pty/session.rs` — SessionPhase (7 phases), PtyCommand, SpawnOptions, ~15K
+   - `crates/daemon/src/agents/adapter.rs` — AgentAdapter trait, ControlEvent, ExecutionMode, ~3.7K
+   - `crates/daemon/src/db/sqlite.rs` — StateDb, commit_clock, `with_write_transaction`, ~9.3K
+   - `crates/daemon/src/ipc/command_router.rs` — IPC dispatch, manual-trigger command boundary, ~9.2K
+   - `crates/daemon/Cargo.toml` — current dependencies (Phase 1 adds `cron` + `sysinfo`)
+   - `packages/intelligence/src/qualification/goods-qualification.ts` — TS pattern reference
+   - `packages/manifests/render-opportunity.ts` — TS rendering pattern reference
 
 ---
 
