@@ -182,7 +182,12 @@ fn it_ipc_013_state_db_bootstrap_uses_one_database() -> Result<()> {
 
     let expected_tables = [
         "sources",
+        "source_runtime_state",
         "workflow_jobs",
+        "validation_verdicts",
+        "listing_evidence",
+        "process_relations",
+        "process_aliases",
         "process_stage_status",
         "process_stage_heads",
         "agent_session_logs",
@@ -201,6 +206,22 @@ fn it_ipc_013_state_db_bootstrap_uses_one_database() -> Result<()> {
         )?;
         assert_eq!(exists, 1, "expected table {table_name} to exist");
     }
+
+    let mut source_runtime_state_columns =
+        conn.prepare("PRAGMA table_info(source_runtime_state)")?;
+    let source_runtime_state_columns = source_runtime_state_columns
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    assert!(
+        source_runtime_state_columns
+            .iter()
+            .any(|column| column == "circuit_state")
+    );
+    assert!(
+        source_runtime_state_columns
+            .iter()
+            .any(|column| column == "last_canary_result")
+    );
 
     let sibling_entries: Vec<String> =
         fs::read_dir(state_db.db_path().parent().ok_or_else(|| {
