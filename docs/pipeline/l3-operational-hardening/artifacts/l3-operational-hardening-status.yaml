@@ -1,9 +1,20 @@
 # L3 Operational Hardening — Pipeline Status
 
 feature: l3-operational-hardening
-status: ready
+status: complete
+completed: "2026-03-31"
+spec: docs/strategy/layers/layer-3-operational-hardening.md
+tdd: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-tdd.md
+strategy: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-strategy.md
 bead_prefix: l3
 bead_id_pattern: "testproject1-hmw.*"
+total_beads: 42
+task_beads: 36
+fix_beads: 6
+audit_iterations: 2
+exit_criteria_met: true
+unattended_days: 5
+skill_success_rate_bps: 9500
 
 source_of_truth:
   spec:
@@ -27,22 +38,4 @@ execution_prompts:
     path: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-push.md
     role: "Continuation nudge"
 
-beads:
-  total: 36
-  tasks: 36
-  fix_beads: 0
-  completed: 0
-  phases:
-    p1_schema_claim_admission: 5
-    p2_scheduler_registry_health: 5
-    p3_pty_reliability_evidence: 5
-    p4_manifest_validation_dryrun: 10
-    p5_relations_error_packages: 4
-    p6_promotion_status_unattended: 7
-
-tech_stack:
-  rust: "2024 (nightly) — daemon modules, migration, skill scaffolds"
-  typescript: "Bun — packages/intelligence (relations), packages/manifests (error renderer)"
-  test: "cargo test + bun test"
-
-exit_criteria: "System runs unattended 5 consecutive days with >=95% skill success rate"
+archived: docs/pipeline/l3-operational-hardening/archived/2026-l3-operational-hardening/
