@@ -1046,6 +1046,8 @@ struct StructuralExtractionJobRequest {
     wall_clock_timeout_secs: Option<u64>,
     #[serde(default)]
     processing_strategy: Option<String>,
+    #[serde(default)]
+    chunk_plan: Option<SemanticChunkPlanRequest>,
 }
 
 #[allow(dead_code)]
@@ -1065,6 +1067,14 @@ struct SemanticExtractionJobRequest {
     target_domain: Option<String>,
     #[serde(default)]
     stage_run_id: Option<String>,
+    #[serde(default)]
+    chunk_plan_hash: Option<String>,
+    #[serde(default)]
+    chunk_index: Option<usize>,
+    #[serde(default)]
+    merge_job: bool,
+    #[serde(default)]
+    merge_chunk_indices: Vec<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -1075,6 +1085,21 @@ struct StructuralExtractionDispatchOutcome {
     expected_overlays: Vec<String>,
     enqueued_semantic_job_ids: Vec<String>,
     cache_hit: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SemanticChunkRequest {
+    chunk_index: usize,
+    page_start: u32,
+    page_end: u32,
+    section_refs: Vec<String>,
+    markdown: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SemanticChunkPlanRequest {
+    plan_hash: String,
+    chunks: Vec<SemanticChunkRequest>,
 }
 
 #[allow(clippy::future_not_send)]
@@ -1566,6 +1591,7 @@ fn load_pdf_extraction_skill(skill_id: &str) -> Result<LoadedSkill> {
     load_skill(&skill_root, skill_id)
 }
 
+#[allow(clippy::too_many_lines)]
 fn enqueue_semantic_child_jobs(
     runtime: &mut RuntimeBootstrap,
     runner: &JobRunner,
@@ -1575,7 +1601,7 @@ fn enqueue_semantic_child_jobs(
     stage_run_id: &str,
     expected_overlays: &[String],
 ) -> Result<Vec<String>> {
-    let mut job_ids = Vec::with_capacity(expected_overlays.len());
+    let mut job_ids = Vec::new();
     let scope_id = request
         .notice_id
         .clone()
@@ -1584,39 +1610,123 @@ fn enqueue_semantic_child_jobs(
     for skill_id in expected_overlays {
         let job_id = format!("job-{}", Uuid::new_v4());
         let target_domain = target_domain_for_overlay(skill_id);
-        runner.enqueue_job(
-            &mut runtime.state_db,
-            &EnqueueJobRequest {
-                job_id: job_id.clone(),
-                kind: "extract_document_semantics".to_owned(),
-                process_id: Some(request.process_id.clone()),
-                notice_id: request.notice_id.clone(),
-                scope_kind: Some("notice".to_owned()),
-                scope_id: Some(scope_id.clone()),
-                parent_job_id: Some(claimed.id.clone()),
-                continuation_chain_id: None,
-                validation_required: false,
-                scheduled_for: None,
-                input_payload: json!({
-                    "request": {
-                        "document_extraction_id": document_extraction_id,
-                        "process_id": request.process_id,
-                        "notice_id": request.notice_id,
-                        "document_set_id": request.document_set_id,
-                        "raw_document_id": request.raw_document_id,
-                        "skill_id": skill_id,
-                        "extraction_scope": "full_document",
-                        "target_domain": target_domain,
-                        "stage_run_id": stage_run_id,
-                    }
-                }),
-                idempotency_key: format!(
-                    "extract_document_structure::{}::{}",
-                    claimed.id, skill_id
-                ),
-            },
-        )?;
-        job_ids.push(job_id);
+        if let Some(plan) = request.chunk_plan.as_ref() {
+            for chunk in &plan.chunks {
+                let chunk_job_id = format!("job-{}", Uuid::new_v4());
+                runner.enqueue_job(
+                    &mut runtime.state_db,
+                    &EnqueueJobRequest {
+                        job_id: chunk_job_id.clone(),
+                        kind: "extract_document_semantics".to_owned(),
+                        process_id: Some(request.process_id.clone()),
+                        notice_id: request.notice_id.clone(),
+                        scope_kind: Some("notice".to_owned()),
+                        scope_id: Some(scope_id.clone()),
+                        parent_job_id: Some(claimed.id.clone()),
+                        continuation_chain_id: None,
+                        validation_required: false,
+                        scheduled_for: None,
+                        input_payload: json!({
+                            "request": {
+                                "document_extraction_id": document_extraction_id,
+                                "process_id": request.process_id,
+                                "notice_id": request.notice_id,
+                                "document_set_id": request.document_set_id,
+                                "raw_document_id": request.raw_document_id,
+                                "skill_id": skill_id,
+                                "extraction_scope": format!("chunk:{}:{}", plan.plan_hash, chunk.chunk_index),
+                                "target_domain": target_domain,
+                                "stage_run_id": stage_run_id,
+                                "chunk_plan_hash": plan.plan_hash,
+                                "chunk_index": chunk.chunk_index,
+                            }
+                        }),
+                        idempotency_key: format!(
+                            "extract_document_structure::{}::{}::chunk::{}",
+                            claimed.id, skill_id, chunk.chunk_index
+                        ),
+                    },
+                )?;
+                job_ids.push(chunk_job_id);
+            }
+
+            let merge_job_id = format!("job-{}", Uuid::new_v4());
+            let merge_chunk_indices = plan
+                .chunks
+                .iter()
+                .map(|chunk| chunk.chunk_index)
+                .collect::<Vec<_>>();
+            runner.enqueue_job(
+                &mut runtime.state_db,
+                &EnqueueJobRequest {
+                    job_id: merge_job_id.clone(),
+                    kind: "extract_document_semantics".to_owned(),
+                    process_id: Some(request.process_id.clone()),
+                    notice_id: request.notice_id.clone(),
+                    scope_kind: Some("notice".to_owned()),
+                    scope_id: Some(scope_id.clone()),
+                    parent_job_id: Some(claimed.id.clone()),
+                    continuation_chain_id: None,
+                    validation_required: false,
+                    scheduled_for: None,
+                    input_payload: json!({
+                        "request": {
+                            "document_extraction_id": document_extraction_id,
+                            "process_id": request.process_id,
+                            "notice_id": request.notice_id,
+                            "document_set_id": request.document_set_id,
+                            "raw_document_id": request.raw_document_id,
+                            "skill_id": skill_id,
+                            "extraction_scope": format!("chunk_merged:{}", plan.plan_hash),
+                            "target_domain": target_domain,
+                            "stage_run_id": stage_run_id,
+                            "chunk_plan_hash": plan.plan_hash,
+                            "merge_job": true,
+                            "merge_chunk_indices": merge_chunk_indices,
+                        }
+                    }),
+                    idempotency_key: format!(
+                        "extract_document_structure::{}::{}::merge::{}",
+                        claimed.id, skill_id, plan.plan_hash
+                    ),
+                },
+            )?;
+            job_ids.push(merge_job_id);
+        } else {
+            runner.enqueue_job(
+                &mut runtime.state_db,
+                &EnqueueJobRequest {
+                    job_id: job_id.clone(),
+                    kind: "extract_document_semantics".to_owned(),
+                    process_id: Some(request.process_id.clone()),
+                    notice_id: request.notice_id.clone(),
+                    scope_kind: Some("notice".to_owned()),
+                    scope_id: Some(scope_id.clone()),
+                    parent_job_id: Some(claimed.id.clone()),
+                    continuation_chain_id: None,
+                    validation_required: false,
+                    scheduled_for: None,
+                    input_payload: json!({
+                        "request": {
+                            "document_extraction_id": document_extraction_id,
+                            "process_id": request.process_id,
+                            "notice_id": request.notice_id,
+                            "document_set_id": request.document_set_id,
+                            "raw_document_id": request.raw_document_id,
+                            "skill_id": skill_id,
+                            "extraction_scope": "full_document",
+                            "target_domain": target_domain,
+                            "stage_run_id": stage_run_id,
+                        }
+                    }),
+                    idempotency_key: format!(
+                        "extract_document_structure::{}::{}",
+                        claimed.id, skill_id
+                    ),
+                },
+            )?;
+            job_ids.push(job_id);
+        }
     }
 
     Ok(job_ids)

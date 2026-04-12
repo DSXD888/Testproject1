@@ -45,6 +45,7 @@ struct ExtractJobSpec<'a> {
     document_set_id: Option<&'a str>,
     document_role: Option<&'a str>,
     expected_overlays: &'a [&'a str],
+    chunk_plan: Option<Value>,
 }
 
 impl CascadeHarness {
@@ -240,6 +241,7 @@ with open(args.output, "w", encoding="utf-8") as handle:
                         "document_role": spec.document_role,
                         "extraction_policy_version": "2026.04.12",
                         "expected_overlays": spec.expected_overlays,
+                        "chunk_plan": spec.chunk_plan.clone(),
                     }
                 })
                 .to_string(),
@@ -390,6 +392,21 @@ fn latest_semantic_row(
     .context("loading latest document_semantic_extractions row")
 }
 
+fn child_extraction_scopes(conn: &Connection, parent_job_id: &str) -> Result<Vec<String>> {
+    let mut statement = conn.prepare(
+        "\
+        SELECT json_extract(input_payload, '$.request.request.extraction_scope')
+        FROM workflow_jobs
+        WHERE parent_job_id = ?1
+          AND kind = 'extract_document_semantics'
+        ORDER BY created_at, id
+        ",
+    )?;
+    let rows = statement.query_map(params![parent_job_id], |row| row.get::<_, String>(0))?;
+    rows.collect::<std::result::Result<Vec<_>, _>>()
+        .context("loading semantic child extraction scopes")
+}
+
 fn latest_document_extraction(
     conn: &Connection,
 ) -> Result<(String, Option<String>, Option<String>, String)> {
@@ -421,6 +438,7 @@ fn test_cascade_happy_path() -> Result<()> {
         document_set_id: Some("docset-1"),
         document_role: Some("technical_specification"),
         expected_overlays: &["pdf-extraction/tender-specification"],
+        chunk_plan: None,
     })?;
 
     let run = harness.run_next_job()?;
@@ -464,6 +482,7 @@ fn test_cascade_no_overlays() -> Result<()> {
         document_set_id: Some("docset-2"),
         document_role: Some("administrative"),
         expected_overlays: &[],
+        chunk_plan: None,
     })?;
 
     let run = harness.run_next_job()?;
@@ -490,6 +509,7 @@ fn test_cascade_standalone_entry() -> Result<()> {
         document_set_id: None,
         document_role: Some("administrative"),
         expected_overlays: &[],
+        chunk_plan: None,
     })?;
 
     let run = harness.run_next_job()?;
@@ -521,6 +541,7 @@ fn test_cascade_parent_child_linkage() -> Result<()> {
             "pdf-extraction/tender-specification",
             "pdf-extraction/pricing-schedule",
         ],
+        chunk_plan: None,
     })?;
 
     let run = harness.run_next_job()?;
@@ -575,6 +596,7 @@ fn test_cascade_semantic_persistence_happy_path() -> Result<()> {
         document_set_id: Some("docset-semantic-run"),
         document_role: Some("technical_specification"),
         expected_overlays: &["pdf-extraction/tender-specification"],
+        chunk_plan: None,
     })?;
 
     let structural = harness.run_next_job()?;
@@ -605,5 +627,53 @@ fn test_cascade_semantic_persistence_happy_path() -> Result<()> {
         |row| row.get(0),
     )?;
     ensure!(semantic_state == "complete");
+    Ok(())
+}
+
+#[test]
+fn test_cascade_chunk_plan_enqueues_merge_job_when_budget_exceeded() -> Result<()> {
+    let harness = CascadeHarness::new()?;
+    harness.seed_process("proc-chunk")?;
+    harness.seed_raw_document("raw-chunk")?;
+    harness.seed_notice("proc-chunk", "notice-chunk", "raw-chunk")?;
+    harness.seed_document_set("proc-chunk", "notice-chunk", "docset-chunk")?;
+    harness.seed_extract_job(&ExtractJobSpec {
+        job_id: "job-struct-chunk",
+        process_id: "proc-chunk",
+        raw_document_id: "raw-chunk",
+        notice_id: Some("notice-chunk"),
+        document_set_id: Some("docset-chunk"),
+        document_role: Some("technical_specification"),
+        expected_overlays: &["pdf-extraction/tender-specification"],
+        chunk_plan: Some(json!({
+            "plan_hash": "plan-123",
+            "chunks": [
+                {
+                    "chunk_index": 0,
+                    "page_start": 1,
+                    "page_end": 2,
+                    "section_refs": ["lot-1"],
+                    "markdown": "# Chunk 0"
+                },
+                {
+                    "chunk_index": 1,
+                    "page_start": 3,
+                    "page_end": 4,
+                    "section_refs": ["lot-2"],
+                    "markdown": "# Chunk 1"
+                }
+            ]
+        })),
+    })?;
+
+    let run = harness.run_next_job()?;
+    ensure!(run.success, "stderr: {}", run.stderr);
+
+    let conn = harness.connection()?;
+    let scopes = child_extraction_scopes(&conn, "job-struct-chunk")?;
+    ensure!(scopes.len() == 3);
+    ensure!(scopes.iter().any(|scope| scope == "chunk:plan-123:0"));
+    ensure!(scopes.iter().any(|scope| scope == "chunk:plan-123:1"));
+    ensure!(scopes.iter().any(|scope| scope == "chunk_merged:plan-123"));
     Ok(())
 }
