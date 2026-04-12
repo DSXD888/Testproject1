@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "extracted_entities",
+    "document_classification",
+    "extraction_warnings",
+    "extraction_metadata"
+  ],
+  "properties": {
+    "extracted_entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "entity_type",
+          "entity_key",
+          "summary",
+          "confidence_bps",
+          "evidence_anchors"
+        ],
+        "properties": {
+          "entity_type": {
+            "type": "string"
+          },
+          "entity_key": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "confidence_bps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "evidence_anchors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "page_ref",
+                "anchor_text"
+              ],
+              "properties": {
+                "page_ref": {
+                  "type": "string"
+                },
+                "anchor_text": {
+                  "type": "string"
+                },
+                "section_ref": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "attributes": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "document_classification": {
+      "type": "object",
+      "required": [
+        "document_role",
+        "classification_confidence_bps",
+        "target_domain"
+      ],
+      "properties": {
+        "document_role": {
+          "type": "string"
+        },
+        "classification_confidence_bps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "target_domain": {
+          "type": "string"
+        },
+        "routing_rationale": {
+          "type": "string"
+        }
+      }
+    },
+    "extraction_warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "extraction_metadata": {
+      "type": "object",
+      "required": [
+        "target_domain",
+        "extraction_scope",
+        "source_markdown_hash",
+        "policy_version"
+      ],
+      "properties": {
+        "target_domain": {
+          "type": "string"
+        },
+        "extraction_scope": {
+          "type": "string"
+        },
+        "source_markdown_hash": {
+          "type": "string"
+        },
+        "policy_version": {
+          "type": "string"
+        },
+        "items_examined": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

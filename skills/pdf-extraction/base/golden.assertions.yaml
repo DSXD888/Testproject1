@@ -1,0 +1,24 @@
+cases:
+  - case_id: technical-spec-base-001
+    expected_document_role: technical_specification
+    min_extracted_entities: 1
+    require_evidence_anchors: true
+    required_metadata_fields:
+      - target_domain
+      - extraction_scope
+      - source_markdown_hash
+      - policy_version
+  - case_id: mixed-pack-base-002
+    expected_document_role: mixed_tender_pack
+    min_extracted_entities: 1
+    require_evidence_anchors: true
+    required_metadata_fields:
+      - target_domain
+      - extraction_scope
+      - source_markdown_hash
+      - policy_version
+
+global_assertions:
+  classification_must_be_non_empty: true
+  extraction_warnings_must_be_array: true
+  evidence_anchors_required_for_each_entity: true
