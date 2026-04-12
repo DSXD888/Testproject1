@@ -53,6 +53,7 @@ mod prompt {
 
 #[allow(dead_code)]
 mod pdf {
+    pub mod chunking;
     pub mod engine;
     pub mod policy;
 }
