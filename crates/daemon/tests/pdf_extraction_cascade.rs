@@ -10,9 +10,10 @@ use anyhow::{Context, Result, anyhow, ensure};
 use assert_cmd::Command;
 use rusqlite::{Connection, params};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 
-use crate::support::db::StateDb;
+use crate::support::db::{DocumentExtractionSeed, StateDb, seed_document_extraction};
 use crate::support::pdf::{sample_docling_output, sample_pdf_bytes, sample_semantic_result};
 
 struct CascadeHarness {
@@ -175,6 +176,16 @@ with open(args.output, "w", encoding="utf-8") as handle:
         notice_id: &str,
         document_set_id: &str,
     ) -> Result<()> {
+        self.seed_document_set_with_documents(process_id, notice_id, document_set_id, &[])
+    }
+
+    fn seed_document_set_with_documents(
+        &self,
+        process_id: &str,
+        notice_id: &str,
+        document_set_id: &str,
+        document_ids: &[&str],
+    ) -> Result<()> {
         let conn = self.connection()?;
         conn.execute(
             "\
@@ -189,7 +200,13 @@ with open(args.output, "w", encoding="utf-8") as handle:
                 notice_id,
                 format!("hash-{document_set_id}"),
                 json!([]).to_string(),
-                json!([]).to_string(),
+                json!(
+                    document_ids
+                        .iter()
+                        .map(|raw_document_id| json!({"raw_document_id": raw_document_id}))
+                        .collect::<Vec<_>>()
+                )
+                .to_string(),
             ],
         )?;
         Ok(())
@@ -207,6 +224,106 @@ with open(args.output, "w", encoding="utf-8") as handle:
                 raw_document_id,
                 self.pdf_path.to_string_lossy(),
                 json!({"source_url": "https://example.test/sample.pdf"}).to_string(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn overwrite_pdf_bytes(&self, bytes: &[u8]) -> Result<()> {
+        fs::write(&self.pdf_path, bytes)
+            .with_context(|| format!("writing {}", self.pdf_path.display()))
+    }
+
+    fn configure_docling_runtime(&self, version: &str) -> Result<()> {
+        let docling_module = self.pythonpath_root.join("docling.py");
+        fs::write(&docling_module, format!("__version__ = '{version}'\n"))
+            .with_context(|| format!("writing {}", docling_module.display()))?;
+
+        let mut payload = sample_docling_output();
+        payload
+            .get_mut("metadata")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| anyhow!("sample Docling output missing metadata object"))?
+            .insert(
+                "docling_version".to_owned(),
+                Value::String(version.to_owned()),
+            );
+        let payload = serde_json::to_string(&payload)?;
+        fs::write(
+            &self.wrapper_path,
+            format!(
+                r#"#!/usr/bin/env python3
+import argparse
+import json
+
+PAYLOAD = json.loads(r'''{payload}''')
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--input")
+parser.add_argument("--output")
+parser.add_argument("--strategy")
+parser.add_argument("--timeout")
+parser.add_argument("--version", action="store_true")
+args = parser.parse_args()
+
+if args.version:
+    print("{version}")
+    raise SystemExit(0)
+
+with open(args.output, "w", encoding="utf-8") as handle:
+    json.dump(PAYLOAD, handle, indent=2)
+"#
+            ),
+        )
+        .with_context(|| format!("writing {}", self.wrapper_path.display()))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&self.wrapper_path)?.permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&self.wrapper_path, perms)?;
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn seed_existing_document_extraction(
+        &self,
+        extraction_id: &str,
+        raw_document_id: &str,
+        process_id: &str,
+        notice_id: &str,
+        document_set_id: &str,
+        source_content_hash: &str,
+        engine_version: &str,
+        semantic_extraction_state: &str,
+    ) -> Result<()> {
+        let conn = self.connection()?;
+        seed_document_extraction(
+            &conn,
+            &DocumentExtractionSeed {
+                id: extraction_id,
+                raw_document_id,
+                process_id,
+                notice_id: Some(notice_id),
+                document_set_id: Some(document_set_id),
+                source_content_hash,
+                document_role: Some("technical_specification"),
+                semantic_extraction_state,
+            },
+        )?;
+        conn.execute(
+            "\
+            UPDATE document_extractions
+            SET extraction_engine_version = ?2,
+                expected_overlays_json = ?3,
+                extraction_policy_version = '2026.04.12'
+            WHERE id = ?1
+            ",
+            params![
+                extraction_id,
+                engine_version,
+                json!(["pdf-extraction/tender-specification"]).to_string(),
             ],
         )?;
         Ok(())
@@ -421,6 +538,15 @@ fn latest_document_extraction(
         |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
     )
     .context("loading latest document_extractions row")
+}
+
+fn document_set_extraction_state(conn: &Connection, document_set_id: &str) -> Result<String> {
+    conn.query_row(
+        "SELECT extraction_state FROM tender_document_sets WHERE id = ?1",
+        params![document_set_id],
+        |row| row.get(0),
+    )
+    .context("loading tender_document_sets.extraction_state")
 }
 
 #[test]
@@ -675,5 +801,234 @@ fn test_cascade_chunk_plan_enqueues_merge_job_when_budget_exceeded() -> Result<(
     ensure!(scopes.iter().any(|scope| scope == "chunk:plan-123:0"));
     ensure!(scopes.iter().any(|scope| scope == "chunk:plan-123:1"));
     ensure!(scopes.iter().any(|scope| scope == "chunk_merged:plan-123"));
+    Ok(())
+}
+
+#[test]
+fn test_soft_stale_content_hash_change() -> Result<()> {
+    let harness = CascadeHarness::new()?;
+    harness.seed_process("proc-stale-hash")?;
+    harness.seed_raw_document("raw-stale-hash")?;
+    harness.seed_notice("proc-stale-hash", "notice-stale-hash", "raw-stale-hash")?;
+    harness.seed_document_set("proc-stale-hash", "notice-stale-hash", "docset-stale-hash")?;
+
+    let original_bytes = sample_pdf_bytes();
+    let original_hash = format!("{:x}", Sha256::digest(&original_bytes));
+    harness.seed_existing_document_extraction(
+        "extract-old-hash",
+        "raw-stale-hash",
+        "proc-stale-hash",
+        "notice-stale-hash",
+        "docset-stale-hash",
+        &original_hash,
+        "2.85.0",
+        "complete",
+    )?;
+
+    let mut updated_bytes = original_bytes;
+    updated_bytes.extend_from_slice(b"%updated-content\n");
+    harness.overwrite_pdf_bytes(&updated_bytes)?;
+
+    harness.seed_extract_job(&ExtractJobSpec {
+        job_id: "job-struct-stale-hash",
+        process_id: "proc-stale-hash",
+        raw_document_id: "raw-stale-hash",
+        notice_id: Some("notice-stale-hash"),
+        document_set_id: Some("docset-stale-hash"),
+        document_role: Some("technical_specification"),
+        expected_overlays: &["pdf-extraction/tender-specification"],
+        chunk_plan: None,
+    })?;
+
+    let run = harness.run_next_job()?;
+    ensure!(run.success, "stderr: {}", run.stderr);
+
+    let conn = harness.connection()?;
+    let output = job_output(&conn, "job-struct-stale-hash")?;
+    ensure!(output["result"]["freshness_state"] == Value::String("soft_stale".to_owned()));
+    ensure!(
+        output["result"]["freshness_reason"] == Value::String("content_hash_change".to_owned())
+    );
+    let hard_invalidated = output["result"]["hard_invalidated_extraction_ids"]
+        .as_array()
+        .ok_or_else(|| anyhow!("missing hard_invalidated_extraction_ids"))?;
+    ensure!(
+        hard_invalidated.contains(&Value::String("extract-old-hash".to_owned())),
+        "superseded extraction id missing from hard-invalid list"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_soft_stale_engine_upgrade() -> Result<()> {
+    let harness = CascadeHarness::new()?;
+    harness.seed_process("proc-stale-engine")?;
+    harness.seed_raw_document("raw-stale-engine")?;
+    harness.seed_notice(
+        "proc-stale-engine",
+        "notice-stale-engine",
+        "raw-stale-engine",
+    )?;
+    harness.seed_document_set(
+        "proc-stale-engine",
+        "notice-stale-engine",
+        "docset-stale-engine",
+    )?;
+
+    let source_hash = format!("{:x}", Sha256::digest(sample_pdf_bytes()));
+    harness.seed_existing_document_extraction(
+        "extract-old-engine",
+        "raw-stale-engine",
+        "proc-stale-engine",
+        "notice-stale-engine",
+        "docset-stale-engine",
+        &source_hash,
+        "2.84.0",
+        "complete",
+    )?;
+    harness.configure_docling_runtime("2.86.0")?;
+
+    harness.seed_extract_job(&ExtractJobSpec {
+        job_id: "job-struct-stale-engine",
+        process_id: "proc-stale-engine",
+        raw_document_id: "raw-stale-engine",
+        notice_id: Some("notice-stale-engine"),
+        document_set_id: Some("docset-stale-engine"),
+        document_role: Some("technical_specification"),
+        expected_overlays: &["pdf-extraction/tender-specification"],
+        chunk_plan: None,
+    })?;
+
+    let run = harness.run_next_job()?;
+    ensure!(run.success, "stderr: {}", run.stderr);
+
+    let conn = harness.connection()?;
+    let output = job_output(&conn, "job-struct-stale-engine")?;
+    ensure!(output["result"]["freshness_state"] == Value::String("soft_stale".to_owned()));
+    ensure!(output["result"]["freshness_reason"] == Value::String("engine_upgrade".to_owned()));
+    Ok(())
+}
+
+#[test]
+fn test_hard_invalid_superseded() -> Result<()> {
+    let harness = CascadeHarness::new()?;
+    harness.seed_process("proc-hard-invalid")?;
+    harness.seed_raw_document("raw-hard-invalid")?;
+    harness.seed_notice(
+        "proc-hard-invalid",
+        "notice-hard-invalid",
+        "raw-hard-invalid",
+    )?;
+    harness.seed_document_set(
+        "proc-hard-invalid",
+        "notice-hard-invalid",
+        "docset-hard-invalid",
+    )?;
+
+    let original_bytes = sample_pdf_bytes();
+    let original_hash = format!("{:x}", Sha256::digest(&original_bytes));
+    harness.seed_existing_document_extraction(
+        "extract-hard-invalid-old",
+        "raw-hard-invalid",
+        "proc-hard-invalid",
+        "notice-hard-invalid",
+        "docset-hard-invalid",
+        &original_hash,
+        "2.85.0",
+        "complete",
+    )?;
+
+    let mut updated_bytes = original_bytes;
+    updated_bytes.extend_from_slice(b"%superseded\n");
+    harness.overwrite_pdf_bytes(&updated_bytes)?;
+
+    harness.seed_extract_job(&ExtractJobSpec {
+        job_id: "job-struct-hard-invalid",
+        process_id: "proc-hard-invalid",
+        raw_document_id: "raw-hard-invalid",
+        notice_id: Some("notice-hard-invalid"),
+        document_set_id: Some("docset-hard-invalid"),
+        document_role: Some("technical_specification"),
+        expected_overlays: &["pdf-extraction/tender-specification"],
+        chunk_plan: None,
+    })?;
+
+    let run = harness.run_next_job()?;
+    ensure!(run.success, "stderr: {}", run.stderr);
+
+    let conn = harness.connection()?;
+    let output = job_output(&conn, "job-struct-hard-invalid")?;
+    let new_extraction_id = output["result"]["document_extraction_id"]
+        .as_str()
+        .ok_or_else(|| anyhow!("missing document_extraction_id"))?;
+    let (is_current, superseded_by): (i64, Option<String>) = conn.query_row(
+        "SELECT is_current, superseded_by_extraction_id FROM document_extractions WHERE id = ?1",
+        params!["extract-hard-invalid-old"],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+    ensure!(is_current == 0);
+    ensure!(superseded_by.as_deref() == Some(new_extraction_id));
+    Ok(())
+}
+
+#[test]
+fn test_extraction_state_rollup() -> Result<()> {
+    let harness = CascadeHarness::new()?;
+    harness.seed_process("proc-rollup")?;
+    harness.seed_raw_document("raw-rollup-1")?;
+    harness.seed_raw_document("raw-rollup-2")?;
+    harness.seed_notice("proc-rollup", "notice-rollup", "raw-rollup-1")?;
+    harness.seed_document_set_with_documents(
+        "proc-rollup",
+        "notice-rollup",
+        "docset-rollup",
+        &["raw-rollup-1", "raw-rollup-2"],
+    )?;
+
+    harness.seed_extract_job(&ExtractJobSpec {
+        job_id: "job-struct-rollup-1",
+        process_id: "proc-rollup",
+        raw_document_id: "raw-rollup-1",
+        notice_id: Some("notice-rollup"),
+        document_set_id: Some("docset-rollup"),
+        document_role: Some("technical_specification"),
+        expected_overlays: &["pdf-extraction/tender-specification"],
+        chunk_plan: None,
+    })?;
+
+    let structural_first = harness.run_next_job()?;
+    ensure!(
+        structural_first.success,
+        "stderr: {}",
+        structural_first.stderr
+    );
+
+    let conn = harness.connection()?;
+    ensure!(document_set_extraction_state(&conn, "docset-rollup")? == "partial");
+
+    let semantic = harness.run_next_job_with_claude_result(&sample_semantic_result(
+        "pdf-extraction/tender-specification",
+    ))?;
+    ensure!(semantic.success, "stderr: {}", semantic.stderr);
+    ensure!(document_set_extraction_state(&conn, "docset-rollup")? == "partial");
+
+    harness.seed_extract_job(&ExtractJobSpec {
+        job_id: "job-struct-rollup-2",
+        process_id: "proc-rollup",
+        raw_document_id: "raw-rollup-2",
+        notice_id: Some("notice-rollup"),
+        document_set_id: Some("docset-rollup"),
+        document_role: Some("administrative"),
+        expected_overlays: &[],
+        chunk_plan: None,
+    })?;
+
+    let structural_second = harness.run_next_job()?;
+    ensure!(
+        structural_second.success,
+        "stderr: {}",
+        structural_second.stderr
+    );
+    ensure!(document_set_extraction_state(&conn, "docset-rollup")? == "complete");
     Ok(())
 }

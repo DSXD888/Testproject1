@@ -1087,6 +1087,24 @@ struct StructuralExtractionDispatchOutcome {
     expected_overlays: Vec<String>,
     enqueued_semantic_job_ids: Vec<String>,
     cache_hit: bool,
+    freshness_state: String,
+    freshness_reason: Option<String>,
+    hard_invalidated_extraction_ids: Vec<String>,
+    document_set_extraction_state: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct StructuralFreshnessAssessment {
+    freshness_state: String,
+    freshness_reason: Option<String>,
+    hard_invalidated_extraction_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+struct SemanticPersistenceOutcome {
+    semantic_extraction_state: String,
+    downstream_refresh_required: bool,
+    document_set_extraction_state: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1227,6 +1245,15 @@ async fn run_extract_document_structure_job(
                 .clone_from(&semantic_extraction_state);
             LOCAL_EXECUTOR_ID.clone_into(&mut row.owner_id);
             persist_structural_extraction(runtime.state_db.connection(), &row)?;
+            let freshness = assess_structural_freshness(
+                runtime.state_db.connection(),
+                &request.raw_document_id,
+                &row.extraction_id,
+            )?;
+            let document_set_extraction_state = update_document_set_extraction_state(
+                runtime.state_db.connection(),
+                request.document_set_id.as_deref(),
+            )?;
             let enqueued_semantic_job_ids = enqueue_semantic_child_jobs(
                 runtime,
                 runner,
@@ -1243,6 +1270,10 @@ async fn run_extract_document_structure_job(
                 expected_overlays,
                 enqueued_semantic_job_ids,
                 cache_hit: true,
+                freshness_state: freshness.freshness_state,
+                freshness_reason: freshness.freshness_reason,
+                hard_invalidated_extraction_ids: freshness.hard_invalidated_extraction_ids,
+                document_set_extraction_state,
             }
         } else {
             let extraction = engine
@@ -1326,6 +1357,15 @@ async fn run_extract_document_structure_job(
                 stage_run_id,
             };
             persist_structural_extraction(runtime.state_db.connection(), &row)?;
+            let freshness = assess_structural_freshness(
+                runtime.state_db.connection(),
+                &request.raw_document_id,
+                &row.extraction_id,
+            )?;
+            let document_set_extraction_state = update_document_set_extraction_state(
+                runtime.state_db.connection(),
+                request.document_set_id.as_deref(),
+            )?;
             let enqueued_semantic_job_ids = enqueue_semantic_child_jobs(
                 runtime,
                 runner,
@@ -1342,6 +1382,10 @@ async fn run_extract_document_structure_job(
                 expected_overlays,
                 enqueued_semantic_job_ids,
                 cache_hit: false,
+                freshness_state: freshness.freshness_state,
+                freshness_reason: freshness.freshness_reason,
+                hard_invalidated_extraction_ids: freshness.hard_invalidated_extraction_ids,
+                document_set_extraction_state,
             }
         };
 
@@ -1363,6 +1407,10 @@ async fn run_extract_document_structure_job(
                     "semantic_extraction_state": outcome.semantic_extraction_state,
                     "semantic_child_job_ids": outcome.enqueued_semantic_job_ids,
                     "stage_run_id": outcome.stage_run_id,
+                    "freshness_state": outcome.freshness_state,
+                    "freshness_reason": outcome.freshness_reason,
+                    "hard_invalidated_extraction_ids": outcome.hard_invalidated_extraction_ids,
+                    "document_set_extraction_state": outcome.document_set_extraction_state,
                 }),
                 stage: "acquire docs".to_owned(),
                 scope_kind: "notice".to_owned(),
@@ -1438,7 +1486,7 @@ async fn run_extract_document_semantics_job(
         let result_json: Value =
             serde_json::from_str(&result_text).context("parsing semantic extraction result JSON")?;
 
-        persist_extraction_from_agent_output(
+        let persistence = persist_extraction_from_agent_output(
             &mut runtime.state_db,
             &request.document_extraction_id,
             &request.process_id,
@@ -1453,11 +1501,6 @@ async fn run_extract_document_semantics_job(
             .clone()
             .or_else(|| request.raw_document_id.clone())
             .unwrap_or_else(|| request.document_extraction_id.clone());
-        let semantic_extraction_state: String = runtime.state_db.connection().query_row(
-            "SELECT semantic_extraction_state FROM document_extractions WHERE id = ?1",
-            params![request.document_extraction_id],
-            |row| row.get(0),
-        )?;
         let stage_run_id = format!(
             "{}-{}",
             request
@@ -1478,8 +1521,9 @@ async fn run_extract_document_semantics_job(
                     "skill_id": skill.metadata.skill_id,
                     "target_domain": target_domain,
                     "extraction_scope": request.extraction_scope,
-                    "semantic_extraction_state": semantic_extraction_state,
-                    "downstream_refresh_required": target_domain != "generic",
+                    "semantic_extraction_state": persistence.semantic_extraction_state,
+                    "downstream_refresh_required": persistence.downstream_refresh_required,
+                    "document_set_extraction_state": persistence.document_set_extraction_state,
                 }),
                 stage: "acquire docs".to_owned(),
                 scope_kind: "notice".to_owned(),
@@ -3182,7 +3226,7 @@ fn update_job_validation_required(
     job_id: &str,
     validation_required: bool,
 ) -> Result<()> {
-    state_db.with_write_transaction(|tx| {
+    let ((), _) = state_db.with_write_transaction(|tx| {
         let updated = tx.execute(
             "UPDATE workflow_jobs SET validation_required = ?1 WHERE id = ?2",
             params![i64::from(validation_required), job_id],
@@ -3203,7 +3247,7 @@ fn complete_validator_job(
     output_payload: &Value,
     last_error: Option<&str>,
 ) -> Result<()> {
-    state_db.with_write_transaction(|tx| {
+    let ((), _) = state_db.with_write_transaction(|tx| {
         let updated = tx.execute(
             "\
             UPDATE workflow_jobs
@@ -4144,7 +4188,7 @@ fn create_manual_skill_job(
         "job-{}",
         sha256_hex(&UuidSeed::from_time(Utc::now()).as_bytes())
     );
-    state_db.with_write_transaction(|tx| {
+    let ((), _) = state_db.with_write_transaction(|tx| {
         tx.execute(
             "\
             INSERT INTO workflow_jobs (
@@ -4950,7 +4994,7 @@ fn create_sync_source_job(
         "job-{}",
         sha256_hex(&UuidSeed::from_time(Utc::now()).as_bytes())
     );
-    state_db.with_write_transaction(|tx| {
+    let ((), _) = state_db.with_write_transaction(|tx| {
         tx.execute(
             "\
             INSERT INTO workflow_jobs (
@@ -5641,7 +5685,7 @@ fn persist_extraction_from_agent_output(
     job_id: &str,
     session_id: &str,
     result_json: &Value,
-) -> Result<()> {
+) -> Result<SemanticPersistenceOutcome> {
     let skill_id = skill.metadata.skill_id.as_str();
     let target_domain = target_domain_for_overlay(skill_id).to_owned();
     let extraction_scope = required_string_at(
@@ -5670,9 +5714,15 @@ fn persist_extraction_from_agent_output(
     let extracted_data_json = result_json.to_string();
     let semantic_extraction_id = format!("semantic-{}", Uuid::new_v4());
 
-    state_db.with_write_transaction(|tx| {
+    let (outcome, _) = state_db.with_write_transaction(|tx| {
         let visible_after_seq = next_commit_seq(tx)?;
         let context = load_document_extraction_context(tx, document_extraction_id)?;
+        let previous_semantic = load_current_semantic_snapshot(
+            tx,
+            document_extraction_id,
+            skill_id,
+            &extraction_scope,
+        )?;
         let written_entity_refs = persist_semantic_domain_writes(
             tx,
             &SemanticDomainWriteContext {
@@ -5773,10 +5823,25 @@ fn persist_extraction_from_agent_output(
             ",
             params![aggregate_state, document_extraction_id],
         )?;
-        Ok(())
-    })?;
+        let document_set_extraction_state =
+            update_document_set_extraction_state(tx, context.document_set_id.as_deref())?;
+        let downstream_refresh_required = authoritative_data_changed(
+            &target_domain,
+            previous_semantic.as_ref(),
+            result_json,
+            &written_entity_refs,
+        )?;
+        if downstream_refresh_required {
+            mark_downstream_refresh_targets(tx, process_id, context.notice_id.as_deref())?;
+        }
 
-    Ok(())
+        Ok(SemanticPersistenceOutcome {
+            semantic_extraction_state: aggregate_state,
+            downstream_refresh_required,
+            document_set_extraction_state,
+        })
+    })?;
+    Ok(outcome)
 }
 
 #[cfg(test)]
@@ -5799,13 +5864,20 @@ pub(crate) fn persist_extraction_from_agent_output_for_test(
         job_id,
         session_id,
         result_json,
-    )
+    )?;
+    Ok(())
 }
 
 struct DocumentExtractionContext {
     notice_id: Option<String>,
+    document_set_id: Option<String>,
     expected_overlays: Vec<String>,
     stage_run_id: String,
+}
+
+struct CurrentSemanticSnapshot {
+    extracted_data_json: String,
+    written_entity_refs_json: String,
 }
 
 struct SemanticDomainWriteContext<'a> {
@@ -5821,25 +5893,287 @@ fn load_document_extraction_context(
     tx: &Transaction<'_>,
     document_extraction_id: &str,
 ) -> Result<DocumentExtractionContext> {
-    let (notice_id, expected_overlays_json, stage_run_id): (
+    let (notice_id, document_set_id, expected_overlays_json, stage_run_id): (
+        Option<String>,
         Option<String>,
         String,
         Option<String>,
     ) = tx.query_row(
         "\
-        SELECT notice_id, expected_overlays_json, stage_run_id
+        SELECT notice_id, document_set_id, expected_overlays_json, stage_run_id
         FROM document_extractions
         WHERE id = ?1
         ",
         params![document_extraction_id],
-        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
     )?;
     let expected_overlays = serde_json::from_str::<Vec<String>>(&expected_overlays_json)
         .context("parsing document_extractions.expected_overlays_json")?;
     Ok(DocumentExtractionContext {
         notice_id,
+        document_set_id,
         expected_overlays,
         stage_run_id: stage_run_id.unwrap_or_else(allocate_stage_run_id),
+    })
+}
+
+fn load_current_semantic_snapshot(
+    tx: &Transaction<'_>,
+    document_extraction_id: &str,
+    skill_id: &str,
+    extraction_scope: &str,
+) -> Result<Option<CurrentSemanticSnapshot>> {
+    tx.query_row(
+        "\
+        SELECT extracted_data_json, COALESCE(written_entity_refs_json, '[]')
+        FROM document_semantic_extractions
+        WHERE document_extraction_id = ?1
+          AND skill_id = ?2
+          AND extraction_scope = ?3
+          AND is_current = 1
+        LIMIT 1
+        ",
+        params![document_extraction_id, skill_id, extraction_scope],
+        |row| {
+            Ok(CurrentSemanticSnapshot {
+                extracted_data_json: row.get(0)?,
+                written_entity_refs_json: row.get(1)?,
+            })
+        },
+    )
+    .optional()
+    .context("loading current semantic extraction snapshot")
+}
+
+fn authoritative_data_changed(
+    target_domain: &str,
+    previous: Option<&CurrentSemanticSnapshot>,
+    result_json: &Value,
+    written_entity_refs: &[Value],
+) -> Result<bool> {
+    if target_domain == "generic" || written_entity_refs.is_empty() {
+        return Ok(false);
+    }
+    let Some(previous) = previous else {
+        return Ok(true);
+    };
+
+    let previous_result: Value = serde_json::from_str(&previous.extracted_data_json)
+        .context("parsing prior semantic extracted_data_json")?;
+    if previous_result != *result_json {
+        return Ok(true);
+    }
+
+    let previous_refs: Vec<Value> = serde_json::from_str(&previous.written_entity_refs_json)
+        .context("parsing prior semantic written_entity_refs_json")?;
+    Ok(previous_refs != written_entity_refs)
+}
+
+fn mark_downstream_refresh_targets(
+    tx: &Transaction<'_>,
+    process_id: &str,
+    notice_id: Option<&str>,
+) -> Result<()> {
+    let Some(notice_id) = notice_id else {
+        return Ok(());
+    };
+
+    try_set_stage_head_freshness(
+        tx,
+        process_id,
+        "Extract lots",
+        "notice",
+        notice_id,
+        FreshnessState::SoftStale,
+    )?;
+
+    let mut statement = tx.prepare(
+        "\
+        SELECT id
+        FROM notice_lots
+        WHERE notice_id = ?1
+        ",
+    )?;
+    let lot_ids = statement
+        .query_map(params![notice_id], |row| row.get::<_, String>(0))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    for lot_id in lot_ids {
+        try_set_stage_head_freshness(
+            tx,
+            process_id,
+            "Extract products",
+            "lot",
+            &lot_id,
+            FreshnessState::SoftStale,
+        )?;
+    }
+    Ok(())
+}
+
+fn try_set_stage_head_freshness(
+    conn: &Connection,
+    process_id: &str,
+    stage: &str,
+    scope_kind: &str,
+    scope_id: &str,
+    freshness_state: FreshnessState,
+) -> Result<()> {
+    conn.execute(
+        "\
+        UPDATE process_stage_heads
+        SET freshness_state = ?1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE process_id = ?2
+          AND stage = ?3
+          AND scope_kind = ?4
+          AND scope_id = ?5
+        ",
+        params![
+            freshness_state.as_str(),
+            process_id,
+            stage,
+            scope_kind,
+            scope_id,
+        ],
+    )?;
+    Ok(())
+}
+
+fn update_document_set_extraction_state(
+    conn: &Connection,
+    document_set_id: Option<&str>,
+) -> Result<Option<String>> {
+    let Some(document_set_id) = document_set_id else {
+        return Ok(None);
+    };
+    let extraction_state = recompute_document_set_extraction_state(conn, document_set_id)?;
+    conn.execute(
+        "\
+        UPDATE tender_document_sets
+        SET extraction_state = ?1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?2
+        ",
+        params![extraction_state, document_set_id],
+    )?;
+    Ok(Some(extraction_state))
+}
+
+fn recompute_document_set_extraction_state(
+    conn: &Connection,
+    document_set_id: &str,
+) -> Result<String> {
+    let documents_json: String = conn.query_row(
+        "SELECT documents_json FROM tender_document_sets WHERE id = ?1",
+        params![document_set_id],
+        |row| row.get(0),
+    )?;
+    let expected_document_count = serde_json::from_str::<Vec<Value>>(&documents_json)
+        .map(|entries| entries.len())
+        .unwrap_or_default();
+
+    let mut statement = conn.prepare(
+        "\
+        SELECT semantic_extraction_state
+        FROM document_extractions
+        WHERE document_set_id = ?1
+          AND is_current = 1
+        ",
+    )?;
+    let states = statement
+        .query_map(params![document_set_id], |row| row.get::<_, String>(0))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    if states.is_empty() {
+        return Ok("none".to_owned());
+    }
+    if states.iter().any(|state| state == "failed") {
+        return Ok("failed".to_owned());
+    }
+    if states
+        .iter()
+        .all(|state| matches!(state.as_str(), "complete" | "skipped"))
+        && (expected_document_count == 0 || states.len() >= expected_document_count)
+    {
+        return Ok("complete".to_owned());
+    }
+    Ok("partial".to_owned())
+}
+
+fn assess_structural_freshness(
+    conn: &Connection,
+    raw_document_id: &str,
+    document_extraction_id: &str,
+) -> Result<StructuralFreshnessAssessment> {
+    let (source_content_hash, extraction_engine_version): (String, String) = conn.query_row(
+        "\
+        SELECT source_content_hash, extraction_engine_version
+        FROM document_extractions
+        WHERE id = ?1
+        ",
+        params![document_extraction_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+
+    let mut hard_invalid_statement = conn.prepare(
+        "\
+        SELECT id
+        FROM document_extractions
+        WHERE raw_document_id = ?1
+          AND superseded_by_extraction_id = ?2
+          AND source_content_hash <> ?3
+        ORDER BY created_at, id
+        ",
+    )?;
+    let hard_invalidated_extraction_ids = hard_invalid_statement
+        .query_map(
+            params![raw_document_id, document_extraction_id, source_content_hash],
+            |row| row.get::<_, String>(0),
+        )?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    if !hard_invalidated_extraction_ids.is_empty() {
+        return Ok(StructuralFreshnessAssessment {
+            freshness_state: "soft_stale".to_owned(),
+            freshness_reason: Some("content_hash_change".to_owned()),
+            hard_invalidated_extraction_ids,
+        });
+    }
+
+    let engine_upgrade_detected: Option<String> = conn
+        .query_row(
+            "\
+            SELECT id
+            FROM document_extractions
+            WHERE raw_document_id = ?1
+              AND id <> ?2
+              AND is_current = 1
+              AND source_content_hash = ?3
+              AND extraction_engine_version <> ?4
+            LIMIT 1
+            ",
+            params![
+                raw_document_id,
+                document_extraction_id,
+                source_content_hash,
+                extraction_engine_version,
+            ],
+            |row| row.get(0),
+        )
+        .optional()?;
+
+    if engine_upgrade_detected.is_some() {
+        return Ok(StructuralFreshnessAssessment {
+            freshness_state: "soft_stale".to_owned(),
+            freshness_reason: Some("engine_upgrade".to_owned()),
+            hard_invalidated_extraction_ids,
+        });
+    }
+
+    Ok(StructuralFreshnessAssessment {
+        freshness_state: "fresh".to_owned(),
+        freshness_reason: None,
+        hard_invalidated_extraction_ids,
     })
 }
 

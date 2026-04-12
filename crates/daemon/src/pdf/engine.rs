@@ -433,6 +433,8 @@ pub fn persist_structural_extraction(
 ) -> Result<()> {
     let tx = Transaction::new_unchecked(conn, TransactionBehavior::Immediate)
         .context("starting structural extraction persistence transaction")?;
+    tx.execute("PRAGMA defer_foreign_keys = ON", [])
+        .context("deferring structural extraction foreign-key checks")?;
     supersede_current_structural_row(&tx, row)?;
     insert_structural_extraction_row(&tx, row)?;
     tx.commit()
