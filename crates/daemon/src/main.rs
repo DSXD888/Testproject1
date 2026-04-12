@@ -54,6 +54,7 @@ mod prompt {
 #[allow(dead_code)]
 mod pdf {
     pub mod engine;
+    pub mod policy;
 }
 
 #[allow(dead_code)]
@@ -165,6 +166,7 @@ use pdf::engine::{
     ProcessingStrategy, clone_reused_extraction, compute_source_hash, lookup_reusable_extraction,
     persist_structural_extraction,
 };
+use pdf::policy::{resolve_document_role, resolve_extraction_policy};
 use prompt::renderer::{PromptRenderer, PromptRendererInput};
 use pty::capture::{CaptureConfig, PtyCapture, compressed_payload_sha256};
 use pty::health::{
@@ -1165,6 +1167,10 @@ async fn run_extract_document_structure_job(
             fs::read(&source_path).with_context(|| format!("reading {}", source_path.display()))?;
         let source_content_hash = compute_source_hash(&source_bytes);
         let engine_version = probe_docling_runtime_version()?;
+        let source_filename = source_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(str::to_owned);
         let stage_run_id = request
             .stage_run_id
             .clone()
@@ -1176,12 +1182,27 @@ async fn run_extract_document_structure_job(
             &engine_version,
             processing_strategy,
         )? {
-            let resolved_document_role = request
-                .document_role
-                .clone()
-                .or_else(|| existing.document_role.clone());
-            let expected_overlays =
-                resolve_expected_overlays(resolved_document_role.as_deref(), &request.expected_overlays);
+            let tables_json: Value = serde_json::from_str(&existing.extracted_tables_json)
+                .context("parsing cached structural tables_json")?;
+            let resolved_role = resolve_document_role(
+                load_notice_document_type(
+                    runtime.state_db.connection(),
+                    request.notice_id.as_deref(),
+                )?
+                .as_deref()
+                .or(request.document_role.as_deref()),
+                source_filename.as_deref(),
+                &existing.extracted_markdown,
+                &tables_json,
+            );
+            let mut resolved_policy =
+                resolve_extraction_policy(&resolved_role, &existing.extracted_markdown, &tables_json);
+            if !request.expected_overlays.is_empty() {
+                resolved_policy
+                    .expected_overlays
+                    .clone_from(&request.expected_overlays);
+            }
+            let expected_overlays = resolved_policy.expected_overlays;
             let semantic_extraction_state = if expected_overlays.is_empty() {
                 "skipped".to_owned()
             } else {
@@ -1195,11 +1216,11 @@ async fn run_extract_document_structure_job(
                 request.document_set_id.as_deref(),
                 &stage_run_id,
             );
-            row.document_role = resolved_document_role;
+            row.document_role = Some(resolved_role.as_str().to_owned());
             row.extraction_policy_version = request
                 .extraction_policy_version
                 .clone()
-                .unwrap_or(existing.extraction_policy_version);
+                .unwrap_or(resolved_policy.extraction_policy_version);
             row.expected_overlays_json = serde_json::to_string(&expected_overlays)
                 .context("serializing expected overlays for cache hit")?;
             row.semantic_extraction_state
@@ -1232,12 +1253,28 @@ async fn run_extract_document_structure_job(
                     processing_strategy,
                 })
                 .await?;
-            let resolved_document_role = request
-                .document_role
-                .clone()
-                .or_else(|| extraction.metadata_json.get("document_role").and_then(Value::as_str).map(str::to_owned));
-            let expected_overlays =
-                resolve_expected_overlays(resolved_document_role.as_deref(), &request.expected_overlays);
+            let mut resolved_policy = resolve_extraction_policy(
+                &resolve_document_role(
+                    load_notice_document_type(
+                        runtime.state_db.connection(),
+                        request.notice_id.as_deref(),
+                    )?
+                    .as_deref()
+                    .or(request.document_role.as_deref()),
+                    source_filename.as_deref(),
+                    &extraction.extracted_markdown,
+                    &extraction.tables_json,
+                ),
+                &extraction.extracted_markdown,
+                &extraction.tables_json,
+            );
+            if !request.expected_overlays.is_empty() {
+                resolved_policy
+                    .expected_overlays
+                    .clone_from(&request.expected_overlays);
+            }
+            let resolved_document_role = Some(resolved_policy.document_role.as_str().to_owned());
+            let expected_overlays = resolved_policy.expected_overlays;
             let semantic_extraction_state = if expected_overlays.is_empty() {
                 "skipped".to_owned()
             } else {
@@ -1267,7 +1304,7 @@ async fn run_extract_document_structure_job(
                 extraction_policy_version: request
                     .extraction_policy_version
                     .clone()
-                    .unwrap_or_else(|| "2026.04.12".to_owned()),
+                    .unwrap_or(resolved_policy.extraction_policy_version),
                 expected_overlays_json: serde_json::to_string(&expected_overlays)
                     .context("serializing expected overlays for cache miss")?,
                 extracted_markdown: extraction.extracted_markdown,
@@ -1369,7 +1406,7 @@ async fn run_extract_document_structure_job(
     }
 }
 
-#[allow(clippy::future_not_send)]
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
 async fn run_extract_document_semantics_job(
     runtime: &mut RuntimeBootstrap,
     runner: &JobRunner,
@@ -1527,6 +1564,29 @@ fn default_docling_artifacts_path() -> Result<PathBuf> {
     Ok(PathBuf::from(home).join(".cache/docling/models"))
 }
 
+fn load_notice_document_type(conn: &Connection, notice_id: Option<&str>) -> Result<Option<String>> {
+    let Some(notice_id) = notice_id else {
+        return Ok(None);
+    };
+    let payload: Option<String> = conn
+        .query_row(
+            "SELECT normalized_payload FROM contract_notices WHERE id = ?1",
+            params![notice_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    let Some(payload) = payload else {
+        return Ok(None);
+    };
+    let value: Value = serde_json::from_str(&payload)
+        .with_context(|| format!("parsing normalized_payload for {notice_id}"))?;
+    Ok(value
+        .get("documentType")
+        .or_else(|| value.get("document_type"))
+        .and_then(Value::as_str)
+        .map(str::to_owned))
+}
+
 fn probe_docling_runtime_version() -> Result<String> {
     let output = process::Command::new("python3")
         .arg("-c")
@@ -1567,21 +1627,6 @@ fn load_raw_document_source_path(conn: &Connection, raw_document_id: &str) -> Re
         path.display()
     );
     Ok(path)
-}
-
-fn resolve_expected_overlays(document_role: Option<&str>, explicit: &[String]) -> Vec<String> {
-    if !explicit.is_empty() {
-        return explicit.to_vec();
-    }
-
-    match document_role.unwrap_or_default() {
-        "technical_specification" | "invitation_to_tender" | "statement_of_requirements" => {
-            vec!["pdf-extraction/tender-specification".to_owned()]
-        }
-        "pricing_schedule" => vec!["pdf-extraction/pricing-schedule".to_owned()],
-        "boq" | "bill_of_quantities" => vec!["pdf-extraction/bill-of-quantities".to_owned()],
-        _ => Vec::new(),
-    }
 }
 
 fn target_domain_for_overlay(skill_id: &str) -> &'static str {
