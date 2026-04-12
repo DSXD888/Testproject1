@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "lots",
+    "product_requirement_seeds",
+    "field_confidences",
+    "extraction_confidence_bps",
+    "warnings",
+    "evidence_anchors",
+    "extraction_metadata"
+  ],
+  "properties": {
+    "lots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "lot_number",
+          "title",
+          "description",
+          "requirements",
+          "evaluation_criteria",
+          "cpv_codes",
+          "product_requirements",
+          "technical_standards",
+          "evidence_anchor"
+        ],
+        "properties": {
+          "lot_number": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "requirements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evaluation_criteria": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "criterion",
+                "summary"
+              ],
+              "properties": {
+                "criterion": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "weighting_text": {
+                  "type": "string"
+                },
+                "evidence_anchor": {
+                  "$ref": "#/$defs/evidenceAnchor"
+                }
+              }
+            }
+          },
+          "cpv_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "product_requirements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "seed_key",
+                "summary",
+                "requirement_type",
+                "evidence_anchor"
+              ],
+              "properties": {
+                "seed_key": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "requirement_type": {
+                  "type": "string"
+                },
+                "technical_attributes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "quantity_hint": {
+                  "type": "string"
+                },
+                "evidence_anchor": {
+                  "$ref": "#/$defs/evidenceAnchor"
+                }
+              }
+            }
+          },
+          "technical_standards": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "standard_ref",
+                "evidence_anchor"
+              ],
+              "properties": {
+                "standard_ref": {
+                  "type": "string"
+                },
+                "context": {
+                  "type": "string"
+                },
+                "evidence_anchor": {
+                  "$ref": "#/$defs/evidenceAnchor"
+                }
+              }
+            }
+          },
+          "evidence_anchor": {
+            "$ref": "#/$defs/evidenceAnchor"
+          }
+        }
+      }
+    },
+    "product_requirement_seeds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "seed_key",
+          "lot_number",
+          "candidate_name",
+          "summary",
+          "requirements",
+          "evidence_anchor"
+        ],
+        "properties": {
+          "seed_key": {
+            "type": "string"
+          },
+          "lot_number": {
+            "type": "string"
+          },
+          "candidate_name": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "requirements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "technical_standards": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cpv_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence_anchor": {
+            "$ref": "#/$defs/evidenceAnchor"
+          }
+        }
+      }
+    },
+    "field_confidences": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000
+      }
+    },
+    "extraction_confidence_bps": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "evidence_anchors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidenceAnchor"
+      }
+    },
+    "extraction_metadata": {
+      "type": "object",
+      "required": [
+        "target_domain",
+        "extraction_scope",
+        "source_markdown_hash",
+        "policy_version"
+      ],
+      "properties": {
+        "target_domain": {
+          "type": "string",
+          "const": "lots"
+        },
+        "extraction_scope": {
+          "type": "string"
+        },
+        "source_markdown_hash": {
+          "type": "string"
+        },
+        "policy_version": {
+          "type": "string"
+        },
+        "document_role": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "evidenceAnchor": {
+      "type": "object",
+      "required": [
+        "page_ref",
+        "anchor_text"
+      ],
+      "properties": {
+        "page_ref": {
+          "type": "string"
+        },
+        "anchor_text": {
+          "type": "string"
+        },
+        "section_ref": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

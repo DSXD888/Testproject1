@@ -1,0 +1,17 @@
+cases:
+  - case_id: born-digital-tender-spec-001
+    min_lot_count: 1
+    require_evidence_anchors: true
+    require_product_requirement_seeds: true
+    require_standard_refs_when_present: true
+  - case_id: mixed-pack-tender-spec-002
+    min_lot_count: 1
+    require_evidence_anchors: true
+    require_product_requirement_seeds: true
+    require_standard_refs_when_present: true
+
+global_assertions:
+  target_domain_must_equal: lots
+  warnings_must_be_array: true
+  lot_outputs_must_be_non_empty: true
+  standards_require_evidence_anchors: true
