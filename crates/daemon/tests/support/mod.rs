@@ -3,6 +3,7 @@
 
 pub mod cron;
 pub mod db;
+pub mod pdf;
 pub mod process;
 pub mod resources;
 pub mod source_health;
