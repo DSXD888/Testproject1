@@ -6,7 +6,7 @@ mod skills_support;
 
 use std::fs;
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 
 use skills_support::repo_skill_dir;
