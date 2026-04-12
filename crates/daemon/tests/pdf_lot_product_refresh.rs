@@ -151,6 +151,58 @@ impl LotRefreshHarness {
         Ok(())
     }
 
+    fn seed_notice_payload_raw_document(&self, notice_id: &str) -> Result<()> {
+        let conn = self.connection()?;
+        conn.execute(
+            "\
+            INSERT INTO raw_documents (
+              id, source_id, content_type, storage_path, payload_json, metadata
+            ) VALUES (?1, 'fts', 'application/json', NULL, ?2, ?3)
+            ",
+            params![
+                format!("raw-{notice_id}"),
+                json!({
+                    "tender": {
+                        "classification": {
+                            "id": "39150000"
+                        }
+                    }
+                })
+                .to_string(),
+                json!({"fixture": "notice-only"}).to_string(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn seed_document_set_state(
+        &self,
+        process_id: &str,
+        notice_id: &str,
+        document_set_id: &str,
+        completeness_state: &str,
+    ) -> Result<()> {
+        let conn = self.connection()?;
+        conn.execute(
+            "\
+            INSERT INTO tender_document_sets (
+              id, process_id, notice_id, document_set_hash, completeness_state, document_roles_json,
+              documents_json, acquired_at, owner_id, extraction_state
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '2026-04-12T00:00:00Z', 'local-owner', 'none')
+            ",
+            params![
+                document_set_id,
+                process_id,
+                notice_id,
+                format!("hash-{document_set_id}"),
+                completeness_state,
+                json!([]).to_string(),
+                json!([]).to_string(),
+            ],
+        )?;
+        Ok(())
+    }
+
     fn seed_document_extraction(
         &self,
         extraction_id: &str,
@@ -341,6 +393,24 @@ impl LotRefreshHarness {
             success: output.status.success(),
         })
     }
+
+    fn run_pipeline(&self, source_id: &str) -> Result<RunResult> {
+        let output = Command::cargo_bin("daemon")?
+            .arg("--pipeline")
+            .arg(source_id)
+            .arg("--state-root")
+            .arg(&self.state_root)
+            .arg("--runtime-dir")
+            .arg(&self.runtime_root)
+            .arg("--artifact-root")
+            .arg(&self.artifact_root)
+            .output()
+            .context("running daemon --pipeline for notice-only fallback")?;
+        Ok(RunResult {
+            stderr: String::from_utf8(output.stderr).context("decoding stderr")?,
+            success: output.status.success(),
+        })
+    }
 }
 
 fn job_output(conn: &Connection, job_id: &str) -> Result<Value> {
@@ -377,6 +447,24 @@ fn lot_id_for_extraction(document_extraction_id: &str) -> String {
 
 fn candidate_id_for_extraction(document_extraction_id: &str) -> String {
     format!("{document_extraction_id}-candidate-cabinet-std-01")
+}
+
+fn qualification_basis(conn: &Connection, qualification_id: &str) -> Result<String> {
+    conn.query_row(
+        "SELECT qualification_basis FROM qualification_runs WHERE id = ?1",
+        params![qualification_id],
+        |row| row.get(0),
+    )
+    .context("reading qualification_runs.qualification_basis")
+}
+
+fn document_set_extraction_state(conn: &Connection, document_set_id: &str) -> Result<String> {
+    conn.query_row(
+        "SELECT extraction_state FROM tender_document_sets WHERE id = ?1",
+        params![document_set_id],
+        |row| row.get(0),
+    )
+    .context("reading tender_document_sets.extraction_state")
 }
 
 #[test]
@@ -522,6 +610,39 @@ fn test_no_trigger_on_identical() -> Result<()> {
             "lot",
             &lot_id_for_extraction("extract-refresh-same"),
         )? == "fresh"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_fallback_to_notice_text() -> Result<()> {
+    let harness = LotRefreshHarness::new()?;
+    harness.seed_process("proc-notice-only")?;
+    harness.seed_notice("proc-notice-only", "notice-notice-only", "raw-no-pdf-doc")?;
+    harness.seed_notice_payload_raw_document("notice-notice-only")?;
+    harness.seed_document_set_state(
+        "proc-notice-only",
+        "notice-notice-only",
+        "docset-notice-only",
+        "none",
+    )?;
+    harness.seed_stage_head(
+        "proc-notice-only",
+        "Normalize",
+        "notice",
+        "notice-notice-only",
+    )?;
+
+    let run = harness.run_pipeline("fts")?;
+    ensure!(run.success, "stderr: {}", run.stderr);
+
+    let conn = harness.connection()?;
+    ensure!(qualification_basis(&conn, "qual-notice-notice-only")? == "notice_only");
+    ensure!(document_set_extraction_state(&conn, "docset-notice-only")? == "none");
+    ensure!(
+        conn.query_row::<i64, _, _>("SELECT COUNT(*) FROM document_extractions", [], |row| row
+            .get(0),)?
+            == 0
     );
     Ok(())
 }

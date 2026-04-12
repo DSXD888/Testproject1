@@ -186,19 +186,37 @@ with open(args.output, "w", encoding="utf-8") as handle:
         document_set_id: &str,
         document_ids: &[&str],
     ) -> Result<()> {
+        self.seed_document_set_with_state_and_documents(
+            process_id,
+            notice_id,
+            document_set_id,
+            "complete",
+            document_ids,
+        )
+    }
+
+    fn seed_document_set_with_state_and_documents(
+        &self,
+        process_id: &str,
+        notice_id: &str,
+        document_set_id: &str,
+        completeness_state: &str,
+        document_ids: &[&str],
+    ) -> Result<()> {
         let conn = self.connection()?;
         conn.execute(
             "\
             INSERT INTO tender_document_sets (
               id, process_id, notice_id, document_set_hash, completeness_state, document_roles_json,
-              documents_json, acquired_at, owner_id
-            ) VALUES (?1, ?2, ?3, ?4, 'complete', ?5, ?6, '2026-04-12T00:00:00Z', 'local-owner')
+              documents_json, acquired_at, owner_id, extraction_state
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '2026-04-12T00:00:00Z', 'local-owner', 'none')
             ",
             params![
                 document_set_id,
                 process_id,
                 notice_id,
                 format!("hash-{document_set_id}"),
+                completeness_state,
                 json!([]).to_string(),
                 json!(
                     document_ids
@@ -549,6 +567,15 @@ fn document_set_extraction_state(conn: &Connection, document_set_id: &str) -> Re
     .context("loading tender_document_sets.extraction_state")
 }
 
+fn job_count(conn: &Connection, kind: &str) -> Result<i64> {
+    conn.query_row(
+        "SELECT COUNT(*) FROM workflow_jobs WHERE kind = ?1",
+        params![kind],
+        |row| row.get(0),
+    )
+    .context("counting workflow_jobs by kind")
+}
+
 #[test]
 fn test_cascade_happy_path() -> Result<()> {
     let harness = CascadeHarness::new()?;
@@ -805,6 +832,32 @@ fn test_cascade_chunk_plan_enqueues_merge_job_when_budget_exceeded() -> Result<(
 }
 
 #[test]
+fn test_no_pdf_graceful_skip() -> Result<()> {
+    let harness = CascadeHarness::new()?;
+    harness.seed_process("proc-no-pdf")?;
+    harness.seed_notice("proc-no-pdf", "notice-no-pdf", "raw-no-pdf")?;
+    harness.seed_document_set_with_state_and_documents(
+        "proc-no-pdf",
+        "notice-no-pdf",
+        "docset-no-pdf",
+        "none",
+        &[],
+    )?;
+
+    let conn = harness.connection()?;
+    ensure!(document_set_extraction_state(&conn, "docset-no-pdf")? == "none");
+    ensure!(job_count(&conn, "extract_document_structure")? == 0);
+    ensure!(
+        conn.query_row::<i64, _, _>(
+            "SELECT COUNT(*) FROM document_extractions WHERE document_set_id = ?1",
+            params!["docset-no-pdf"],
+            |row| row.get(0),
+        )? == 0
+    );
+    Ok(())
+}
+
+#[test]
 fn test_soft_stale_content_hash_change() -> Result<()> {
     let harness = CascadeHarness::new()?;
     harness.seed_process("proc-stale-hash")?;
@@ -1030,5 +1083,50 @@ fn test_extraction_state_rollup() -> Result<()> {
         structural_second.stderr
     );
     ensure!(document_set_extraction_state(&conn, "docset-rollup")? == "complete");
+    Ok(())
+}
+
+#[test]
+fn test_partial_document_set_only_enqueues_available_raw_documents() -> Result<()> {
+    let harness = CascadeHarness::new()?;
+    harness.seed_process("proc-partial-set")?;
+    harness.seed_raw_document("raw-partial-available")?;
+    harness.seed_notice(
+        "proc-partial-set",
+        "notice-partial-set",
+        "raw-partial-available",
+    )?;
+    harness.seed_document_set_with_state_and_documents(
+        "proc-partial-set",
+        "notice-partial-set",
+        "docset-partial-set",
+        "partial",
+        &["raw-partial-available", "raw-partial-missing"],
+    )?;
+    harness.seed_extract_job(&ExtractJobSpec {
+        job_id: "job-struct-partial-set",
+        process_id: "proc-partial-set",
+        raw_document_id: "raw-partial-available",
+        notice_id: Some("notice-partial-set"),
+        document_set_id: Some("docset-partial-set"),
+        document_role: Some("technical_specification"),
+        expected_overlays: &["pdf-extraction/tender-specification"],
+        chunk_plan: None,
+    })?;
+
+    let structural = harness.run_next_job()?;
+    ensure!(structural.success, "stderr: {}", structural.stderr);
+
+    let conn = harness.connection()?;
+    let output = job_output(&conn, "job-struct-partial-set")?;
+    ensure!(
+        output["result"]["document_set_extraction_state"] == Value::String("partial".to_owned())
+    );
+
+    let semantic = harness.run_next_job_with_claude_result(&sample_semantic_result(
+        "pdf-extraction/tender-specification",
+    ))?;
+    ensure!(semantic.success, "stderr: {}", semantic.stderr);
+    ensure!(document_set_extraction_state(&conn, "docset-partial-set")? == "complete");
     Ok(())
 }

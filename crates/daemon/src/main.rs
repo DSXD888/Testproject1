@@ -6063,26 +6063,36 @@ fn recompute_document_set_extraction_state(
     conn: &Connection,
     document_set_id: &str,
 ) -> Result<String> {
-    let documents_json: String = conn.query_row(
-        "SELECT documents_json FROM tender_document_sets WHERE id = ?1",
-        params![document_set_id],
-        |row| row.get(0),
-    )?;
-    let expected_document_count = serde_json::from_str::<Vec<Value>>(&documents_json)
-        .map(|entries| entries.len())
-        .unwrap_or_default();
+    let document_set_inputs = load_document_set_extractable_pdf_inputs(conn, document_set_id)?;
+    if document_set_inputs.completeness_state == "none"
+        || document_set_inputs.extractable_raw_document_ids.is_empty()
+    {
+        return Ok("none".to_owned());
+    }
 
+    let expected_document_count = document_set_inputs.extractable_raw_document_ids.len();
     let mut statement = conn.prepare(
         "\
-        SELECT semantic_extraction_state
+        SELECT raw_document_id, semantic_extraction_state
         FROM document_extractions
         WHERE document_set_id = ?1
           AND is_current = 1
         ",
     )?;
     let states = statement
-        .query_map(params![document_set_id], |row| row.get::<_, String>(0))?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+        .query_map(params![document_set_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter_map(|(raw_document_id, state)| {
+            document_set_inputs
+                .extractable_raw_document_ids
+                .iter()
+                .any(|expected| expected == &raw_document_id)
+                .then_some(state)
+        })
+        .collect::<Vec<_>>();
 
     if states.is_empty() {
         return Ok("none".to_owned());
@@ -6093,11 +6103,90 @@ fn recompute_document_set_extraction_state(
     if states
         .iter()
         .all(|state| matches!(state.as_str(), "complete" | "skipped"))
-        && (expected_document_count == 0 || states.len() >= expected_document_count)
+        && states.len() >= expected_document_count
     {
         return Ok("complete".to_owned());
     }
     Ok("partial".to_owned())
+}
+
+struct DocumentSetExtractablePdfInputs {
+    completeness_state: String,
+    extractable_raw_document_ids: Vec<String>,
+}
+
+fn load_document_set_extractable_pdf_inputs(
+    conn: &Connection,
+    document_set_id: &str,
+) -> Result<DocumentSetExtractablePdfInputs> {
+    let (completeness_state, documents_json): (String, String) = conn.query_row(
+        "\
+        SELECT completeness_state, documents_json
+        FROM tender_document_sets
+        WHERE id = ?1
+        ",
+        params![document_set_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+
+    if completeness_state == "none" {
+        return Ok(DocumentSetExtractablePdfInputs {
+            completeness_state,
+            extractable_raw_document_ids: Vec::new(),
+        });
+    }
+
+    let extractable_raw_document_ids = serde_json::from_str::<Vec<Value>>(&documents_json)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|entry| {
+            entry
+                .get("raw_document_id")
+                .or_else(|| entry.get("id"))
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+        .filter_map(|raw_document_id| {
+            load_extractable_pdf_storage_path(conn, &raw_document_id)
+                .transpose()
+                .map(|maybe_path| maybe_path.map(|_| raw_document_id))
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(DocumentSetExtractablePdfInputs {
+        completeness_state,
+        extractable_raw_document_ids,
+    })
+}
+
+fn load_extractable_pdf_storage_path(
+    conn: &Connection,
+    raw_document_id: &str,
+) -> Result<Option<PathBuf>> {
+    let row: Option<(String, Option<String>)> = conn
+        .query_row(
+            "SELECT content_type, storage_path FROM raw_documents WHERE id = ?1",
+            params![raw_document_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?;
+
+    let Some((content_type, storage_path)) = row else {
+        return Ok(None);
+    };
+    let Some(storage_path) = storage_path else {
+        return Ok(None);
+    };
+    if content_type != "application/pdf" {
+        return Ok(None);
+    }
+
+    let path = PathBuf::from(storage_path);
+    if path.is_file() {
+        Ok(Some(path))
+    } else {
+        Ok(None)
+    }
 }
 
 fn assess_structural_freshness(
