@@ -257,6 +257,15 @@ fn semantic_state(conn: &Connection, document_extraction_id: &str) -> Result<Str
     .context("reading semantic_extraction_state")
 }
 
+fn workflow_job_status(conn: &Connection, job_id: &str) -> Result<String> {
+    conn.query_row(
+        "SELECT status FROM workflow_jobs WHERE id = ?1",
+        params![job_id],
+        |row| row.get(0),
+    )
+    .context("reading workflow_jobs.status")
+}
+
 #[test]
 fn test_tender_spec_contract_maps_to_single_lots_target_domain() -> Result<()> {
     let schema = tender_spec_schema()?;
@@ -411,6 +420,11 @@ fn test_semantic_result_persistence() -> Result<()> {
 }
 
 #[test]
+fn test_semantic_extraction_happy_path() -> Result<()> {
+    test_semantic_result_persistence()
+}
+
+#[test]
 fn test_semantic_aggregate_state_update() -> Result<()> {
     let harness = SemanticHarness::new()?;
     harness.seed_process("proc-aggregate")?;
@@ -556,5 +570,114 @@ fn test_semantic_written_entity_refs_track_domain_writes() -> Result<()> {
     )?;
     ensure!(lot_count >= 1);
     ensure!(candidate_count >= 1);
+    Ok(())
+}
+
+#[test]
+fn test_contract_validation_runs_before_persistence() -> Result<()> {
+    let harness = SemanticHarness::new()?;
+    harness.seed_process("proc-invalid")?;
+    harness.seed_notice("proc-invalid", "notice-invalid", "raw-invalid")?;
+    harness.seed_document_extraction(
+        "extract-invalid",
+        "raw-invalid",
+        "proc-invalid",
+        "notice-invalid",
+        &["pdf-extraction/tender-specification"],
+    )?;
+    harness.seed_semantic_job(
+        "job-invalid",
+        "proc-invalid",
+        "extract-invalid",
+        "notice-invalid",
+        "pdf-extraction/tender-specification",
+    )?;
+
+    let invalid_payload = serde_json::json!({
+        "lots": [],
+        "warnings": [],
+        "evidence_anchors": [],
+        "extraction_metadata": {
+            "extraction_scope": "full_document"
+        }
+    });
+    let run = harness.run_next_job(&invalid_payload)?;
+    ensure!(!run.success, "invalid semantic payload should fail");
+
+    let conn = harness.connection()?;
+    ensure!(workflow_job_status(&conn, "job-invalid")? == "failed");
+    let semantic_rows: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM document_semantic_extractions WHERE document_extraction_id = ?1",
+        params!["extract-invalid"],
+        |row| row.get(0),
+    )?;
+    let lot_rows: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM notice_lots WHERE notice_id = ?1",
+        params!["notice-invalid"],
+        |row| row.get(0),
+    )?;
+    let candidate_rows: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM product_candidates WHERE process_id = ?1",
+        params!["proc-invalid"],
+        |row| row.get(0),
+    )?;
+    ensure!(semantic_rows == 0);
+    ensure!(lot_rows == 0);
+    ensure!(candidate_rows == 0);
+    Ok(())
+}
+
+#[test]
+fn test_written_entity_refs_track_notice_lot_and_product_candidate_writes() -> Result<()> {
+    test_semantic_written_entity_refs_track_domain_writes()
+}
+
+#[test]
+fn test_tender_spec_payload_persists_as_target_domain_lots_but_still_writes_candidate_seeds()
+-> Result<()> {
+    let harness = SemanticHarness::new()?;
+    harness.seed_process("proc-target-domain")?;
+    harness.seed_notice(
+        "proc-target-domain",
+        "notice-target-domain",
+        "raw-target-domain",
+    )?;
+    harness.seed_document_extraction(
+        "extract-target-domain",
+        "raw-target-domain",
+        "proc-target-domain",
+        "notice-target-domain",
+        &["pdf-extraction/tender-specification"],
+    )?;
+    harness.seed_semantic_job(
+        "job-target-domain",
+        "proc-target-domain",
+        "extract-target-domain",
+        "notice-target-domain",
+        "pdf-extraction/tender-specification",
+    )?;
+
+    let run = harness.run_next_job(&sample_semantic_result(
+        "pdf-extraction/tender-specification",
+    ))?;
+    ensure!(run.success, "stderr: {}", run.stderr);
+
+    let conn = harness.connection()?;
+    let (_, skill_id, target_domain, _) = latest_semantic_row(&conn)?;
+    ensure!(skill_id == "pdf-extraction/tender-specification");
+    ensure!(target_domain == "lots");
+
+    let lot_rows: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM notice_lots WHERE notice_id = ?1",
+        params!["notice-target-domain"],
+        |row| row.get(0),
+    )?;
+    let candidate_rows: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM product_candidates WHERE process_id = ?1",
+        params!["proc-target-domain"],
+        |row| row.get(0),
+    )?;
+    ensure!(lot_rows >= 1);
+    ensure!(candidate_rows >= 1);
     Ok(())
 }
