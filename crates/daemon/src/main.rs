@@ -52,6 +52,11 @@ mod prompt {
 }
 
 #[allow(dead_code)]
+mod pdf {
+    pub mod engine;
+}
+
+#[allow(dead_code)]
 mod scheduler {
     pub mod cron;
 }
@@ -319,7 +324,7 @@ struct Cli {
     #[arg(
         long,
         default_value_t = false,
-        conflicts_with_all = ["serve_once", "ingest", "skill_path", "dry_run"]
+        conflicts_with_all = ["serve_once", "ingest", "skill_path", "dry_run", "pipeline"]
     )]
     serve: bool,
 
@@ -350,6 +355,10 @@ struct Cli {
     /// Fixture file used by tests to drive deterministic live-loop execution.
     #[arg(long, hide = true)]
     fixture_path: Option<PathBuf>,
+
+    /// Run deterministic pipeline stages on already-ingested data for the given source.
+    #[arg(long)]
+    pipeline: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -947,16 +956,26 @@ async fn main() -> Result<()> {
     }
 
     if let Some(source_id) = &cli.ingest {
-        ensure!(source_id == "fts", "only `fts` is supported in Layer 1");
-        let fixture = load_fixture(cli.fixture_path.as_deref())?;
-        let report = run_fts_live_loop(&mut runtime, fixture, &cli).await?;
+        let report = match source_id.as_str() {
+            "fts" => {
+                let fixture = load_fixture(cli.fixture_path.as_deref())?;
+                run_fts_live_loop(&mut runtime, fixture, &cli).await?
+            }
+            "contracts-finder" => run_contracts_finder_live_loop(&mut runtime, &cli).await?,
+            other => bail!("unsupported source: {other}"),
+        };
         if report.status == "completed" {
             println!("{}", report.summary_line);
             return Ok(());
         }
-
         eprintln!("{}", report.summary_line);
         bail!(report.summary_line);
+    }
+
+    if let Some(source_id) = &cli.pipeline {
+        let report = run_deterministic_pipeline(&mut runtime, source_id)?;
+        println!("{}", report.summary_line);
+        return Ok(());
     }
 
     if cli.dry_run {
@@ -1818,6 +1837,31 @@ async fn run_bound_skill(
     let executed =
         execute_skill_session(runtime, &skill, &job_id, &session_id, &job_parameters, cli).await?;
     insert_executed_session_log(runtime.state_db.connection(), &skill, &job_id, &executed)?;
+
+    if skill
+        .metadata
+        .skill_id
+        .starts_with("procurement-ingestion/")
+        && let Some(ref result_path) = executed.result_path
+    {
+        let result_text = fs::read_to_string(result_path).with_context(|| {
+            format!(
+                "reading agent result contract from {}",
+                result_path.display()
+            )
+        })?;
+        let result_json: Value =
+            serde_json::from_str(&result_text).context("parsing agent result contract JSON")?;
+        let source_id = skill
+            .metadata
+            .skill_id
+            .strip_prefix("procurement-ingestion/")
+            .unwrap_or("unknown");
+        let persisted_count =
+            persist_ingestion_from_agent_output(&mut runtime.state_db, source_id, &result_json)?;
+        eprintln!("Persisted {persisted_count} notices from agent output for source {source_id}");
+    }
+
     runtime.state_db.with_write_transaction(|tx| {
         tx.execute(
             "\
@@ -3073,6 +3117,22 @@ async fn execute_pty_skill_session(
         &forensic_summary,
     )?;
 
+    // In PTY mode, look for result.json written by the agent in the workdir.
+    let result_path = events
+        .iter()
+        .find_map(|event| match event {
+            ControlEvent::FinalResultReady { path } => Some(path.clone()),
+            _ => None,
+        })
+        .or_else(|| {
+            let candidate = launch_spec.cwd.join("result.json");
+            if candidate.exists() {
+                Some(candidate)
+            } else {
+                None
+            }
+        });
+
     Ok(ExecutedSession {
         session_id: session_id.to_owned(),
         started_at,
@@ -3096,7 +3156,7 @@ async fn execute_pty_skill_session(
         exit_code,
         cleanup_verdict: "clean".to_owned(),
         last_checkpoint_seq,
-        result_path: None,
+        result_path,
         artifact_refs: forensic_summary
             .artifact_refs
             .iter()
@@ -3383,6 +3443,218 @@ const fn execution_mode_label(mode: ExecutionMode) -> &'static str {
         ExecutionMode::Pty => "pty",
         ExecutionMode::Contract => "contract",
     }
+}
+
+#[allow(clippy::too_many_lines, clippy::future_not_send)]
+async fn run_contracts_finder_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+) -> Result<LiveLoopReport> {
+    let repo_root = repo_root()?;
+    let ingest_skill = load_skill(
+        &repo_root.join("skills/procurement-ingestion/contracts-finder"),
+        "skills/procurement-ingestion/contracts-finder/SKILL.md",
+    )?;
+
+    // Read existing cursor from source_cursors table.
+    let existing_cursor: Option<String> = runtime
+        .state_db
+        .connection()
+        .query_row(
+            "SELECT cursor_value FROM source_cursors \
+             WHERE source_id = 'contracts-finder' AND cursor_key = 'notice_cursor'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+
+    // Extract publishedFrom from cursor JSON if present.
+    let published_from: Option<String> = existing_cursor.as_deref().and_then(|raw| {
+        serde_json::from_str::<Value>(raw).ok().and_then(|v| {
+            v.get("cursor_after")
+                .and_then(Value::as_str)
+                .map(String::from)
+        })
+    });
+
+    let job_parameters = json!({
+        "source_id": "contracts-finder",
+        "publishedFrom": published_from,
+        "limit": 100,
+        "stages": "tender,award",
+    });
+
+    // Create sync_source job.
+    let adapter_config = adapter_runtime_config(cli, &ingest_skill)?;
+    let job_id = format!(
+        "job-{}",
+        sha256_hex(&UuidSeed::from_time(Utc::now()).as_bytes())
+    );
+    runtime.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, scope_kind, scope_id, status, input_payload, validation_required,
+              parent_job_id, validation_verdict_id
+            ) VALUES (?1, 'sync_source', 'source', 'contracts-finder', 'pending', ?2, 0, NULL, NULL)
+            ",
+            params![
+                job_id,
+                json!({
+                    "source_id": "contracts-finder",
+                    "trigger": "manual_cli",
+                    "skill_binding": skill_binding_payload(&ingest_skill),
+                    "agent_cli": adapter_config.kind.as_str(),
+                    "job_parameters": job_parameters,
+                    "durable_step_surfaces": live_loop_surfaces_json(),
+                })
+                .to_string(),
+            ],
+        )?;
+        Ok(())
+    })?;
+
+    // Claim job.
+    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+    let claimed = runner
+        .claim_next_job(runtime.state_db.connection())?
+        .ok_or_else(|| anyhow!("expected claimed workflow job for contracts-finder"))?;
+    ensure!(claimed.id == job_id, "claimed unexpected workflow job");
+
+    // Execute PTY skill session.
+    let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
+    let executed = execute_skill_session(
+        runtime,
+        &ingest_skill,
+        &job_id,
+        &session_id,
+        &job_parameters,
+        cli,
+    )
+    .await?;
+
+    ensure!(
+        executed.execution_mode == ExecutionMode::Pty,
+        "contracts-finder ingestion skill must resolve to PTY"
+    );
+
+    insert_executed_session_log(
+        runtime.state_db.connection(),
+        &ingest_skill,
+        &job_id,
+        &executed,
+    )?;
+
+    // Read and parse the agent's result contract.
+    let result_path = match executed.result_path.as_ref() {
+        Some(path) => path.clone(),
+        None => {
+            return fail_job(
+                runtime,
+                &job_id,
+                "contracts-finder skill did not produce a result contract",
+                json!({"error_code": "AGENT_RUN_FAILED"}),
+            );
+        }
+    };
+    let result_text = fs::read_to_string(&result_path)
+        .with_context(|| format!("reading result contract from {}", result_path.display()))?;
+    let result_json: Value =
+        serde_json::from_str(&result_text).context("parsing agent result contract JSON")?;
+
+    // Persist ingestion data via the generic persistence function.
+    let persisted_count = persist_ingestion_from_agent_output(
+        &mut runtime.state_db,
+        "contracts-finder",
+        &result_json,
+    )?;
+
+    // Check continuation state from agent result.
+    let continuation_required = result_json
+        .get("continuation_required")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let result_cursor = result_json
+        .get("cursor")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+
+    // Enqueue a continuation job if the agent signals more pages.
+    if continuation_required && !result_cursor.is_empty() {
+        let continuation_job_id = format!(
+            "job-{}",
+            sha256_hex(
+                &UuidSeed::from_time(Utc::now() + chrono::Duration::milliseconds(1)).as_bytes()
+            )
+        );
+        runtime.state_db.with_write_transaction(|tx| {
+            tx.execute(
+                "\
+                INSERT INTO workflow_jobs (
+                  id, kind, scope_kind, scope_id, status, input_payload, validation_required,
+                  parent_job_id, validation_verdict_id
+                ) VALUES (?1, 'sync_source', 'source', 'contracts-finder', 'pending', ?2, 0, ?3, NULL)
+                ",
+                params![
+                    continuation_job_id,
+                    json!({
+                        "source_id": "contracts-finder",
+                        "trigger": "continuation",
+                        "skill_binding": skill_binding_payload(&ingest_skill),
+                        "agent_cli": adapter_config.kind.as_str(),
+                        "job_parameters": {
+                            "source_id": "contracts-finder",
+                            "publishedFrom": result_cursor,
+                            "limit": 100,
+                            "stages": "tender,award",
+                        },
+                        "continuation_chain_id": job_id,
+                        "durable_step_surfaces": live_loop_surfaces_json(),
+                    })
+                    .to_string(),
+                    job_id,
+                ],
+            )?;
+            Ok(())
+        })?;
+        ::tracing::info!(
+            continuation_job_id = %continuation_job_id,
+            cursor = %result_cursor,
+            "enqueued contracts-finder continuation job"
+        );
+    }
+
+    // Finalize the job.
+    let summary_payload = json!({
+        "job_id": job_id,
+        "source_id": "contracts-finder",
+        "notices_ingested": persisted_count,
+        "continuation_required": continuation_required,
+        "continuation_cursor": result_cursor,
+        "session_id": session_id,
+        "durable_step_surfaces": live_loop_surfaces_json(),
+    });
+
+    runtime.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            UPDATE workflow_jobs
+            SET status = 'completed',
+                completed_at = ?1,
+                output_payload = ?2
+            WHERE id = ?3
+            ",
+            params![Utc::now().to_rfc3339(), summary_payload.to_string(), job_id],
+        )?;
+        Ok(())
+    })?;
+
+    Ok(LiveLoopReport {
+        summary_line: format!(
+            "contracts-finder live loop completed: job_id={job_id} notices={persisted_count} continuation={continuation_required}",
+        ),
+        status: "completed".to_owned(),
+    })
 }
 
 #[allow(
@@ -4254,6 +4526,276 @@ fn persist_pipeline_materialization(
 }
 
 #[allow(clippy::too_many_lines)]
+fn persist_ingestion_from_agent_output(
+    state_db: &mut StateDb,
+    source_id: &str,
+    result_json: &Value,
+) -> Result<usize> {
+    let notices = result_json
+        .get("notices")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("result contract missing notices array"))?;
+    let cursor = result_json
+        .get("cursor")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+
+    if notices.is_empty() {
+        return Ok(0);
+    }
+
+    let stage_run_id = allocate_stage_run_id();
+
+    let (persisted_count, _) = state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        let mut count = 0_usize;
+
+        for notice in notices {
+            let notice_id = notice
+                .get("notice_id")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("notice missing notice_id"))?;
+            let source_notice_id = notice
+                .get("source_notice_id")
+                .and_then(Value::as_str)
+                .unwrap_or(notice_id);
+            let ocid = notice.get("ocid").and_then(Value::as_str).unwrap_or("");
+            let title = notice
+                .get("title")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("notice missing title"))?;
+            let summary = notice.get("summary").and_then(Value::as_str);
+            let buyer_name = notice.get("buyer_name").and_then(Value::as_str);
+            let procurement_stage = notice
+                .get("procurement_stage")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
+            let main_category = notice.get("main_category").and_then(Value::as_str);
+            // Awarded contracts have historical deadlines that are always in the past.
+            // The queue page filters out processes with past deadlines, so clear the
+            // deadline for awards so they remain visible.
+            let deadline_at = notice
+                .get("deadline_at")
+                .and_then(Value::as_str)
+                .filter(|_| procurement_stage != "awarded");
+            let published_at = notice
+                .get("published_at")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("notice missing published_at"))?;
+            let source_updated_at = notice
+                .get("source_updated_at")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("notice missing source_updated_at"))?;
+            let estimated_value_low_pence = notice
+                .get("estimated_value_low_pence")
+                .and_then(Value::as_i64);
+            let estimated_value_currency = notice
+                .get("estimated_value_currency")
+                .and_then(Value::as_str);
+            let access_route = notice
+                .get("access_route")
+                .and_then(Value::as_str)
+                .unwrap_or("public_web");
+            let source_url = notice
+                .get("source_url")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let raw_release_json = notice
+                .get("raw_release_json")
+                .and_then(Value::as_str)
+                .unwrap_or("{}");
+
+            let raw_doc_id = format!("raw-{notice_id}");
+            let process_id = format!("proc-{ocid}");
+
+            tx.execute(
+                "\
+                INSERT INTO raw_documents (
+                  id, source_id, content_type, source_url, payload_json, metadata, created_at
+                ) VALUES (?1, ?2, 'application/json', ?3, ?4, ?5, CURRENT_TIMESTAMP)
+                ON CONFLICT(id) DO UPDATE SET
+                  payload_json = excluded.payload_json,
+                  source_url = excluded.source_url
+                ",
+                params![
+                    raw_doc_id,
+                    source_id,
+                    source_url,
+                    raw_release_json,
+                    json!({"last_local_seq": visible_after_seq}).to_string(),
+                ],
+            )?;
+
+            tx.execute(
+                "\
+                INSERT INTO procurement_processes (
+                  id, canonical_ocid, primary_notice_id, current_stage, buyer_name, title,
+                  latest_deadline_at, latest_published_at, latest_updated_at,
+                  owner_id, row_version, last_local_seq, stage_run_id
+                ) VALUES (?1, ?2, ?3, 'normalize', ?4, ?5, ?6, ?7, ?8, ?9, 1, ?10, ?11)
+                ON CONFLICT(id) DO UPDATE SET
+                  latest_published_at = CASE
+                    WHEN excluded.latest_published_at > procurement_processes.latest_published_at
+                    THEN excluded.latest_published_at
+                    ELSE procurement_processes.latest_published_at
+                  END,
+                  latest_updated_at = CASE
+                    WHEN excluded.latest_updated_at > procurement_processes.latest_updated_at
+                    THEN excluded.latest_updated_at
+                    ELSE procurement_processes.latest_updated_at
+                  END,
+                  latest_deadline_at = COALESCE(excluded.latest_deadline_at, procurement_processes.latest_deadline_at),
+                  row_version = procurement_processes.row_version + 1,
+                  last_local_seq = excluded.last_local_seq,
+                  stage_run_id = excluded.stage_run_id,
+                  updated_at = CURRENT_TIMESTAMP
+                ",
+                params![
+                    process_id,
+                    ocid,
+                    notice_id,
+                    buyer_name,
+                    title,
+                    deadline_at,
+                    published_at,
+                    source_updated_at,
+                    LOCAL_EXECUTOR_ID,
+                    visible_after_seq,
+                    stage_run_id,
+                ],
+            )?;
+
+            tx.execute(
+                "\
+                INSERT INTO contract_notices (
+                  id, process_id, source_id, source_notice_id, raw_document_id, ocid, title,
+                  summary, buyer_name, procurement_stage, access_route, deadline_at, published_at,
+                  source_updated_at, main_category, estimated_value_original_minor,
+                  estimated_value_currency, normalized_payload,
+                  owner_id, row_version, last_local_seq, stage_run_id
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16,
+                          ?17, ?18, ?19, 1, ?20, ?21)
+                ON CONFLICT(source_id, source_notice_id) DO UPDATE SET
+                  title = excluded.title,
+                  summary = excluded.summary,
+                  buyer_name = excluded.buyer_name,
+                  procurement_stage = excluded.procurement_stage,
+                  deadline_at = excluded.deadline_at,
+                  source_updated_at = excluded.source_updated_at,
+                  normalized_payload = excluded.normalized_payload,
+                  row_version = contract_notices.row_version + 1,
+                  last_local_seq = excluded.last_local_seq,
+                  stage_run_id = excluded.stage_run_id,
+                  updated_at = CURRENT_TIMESTAMP
+                ",
+                params![
+                    notice_id,
+                    process_id,
+                    source_id,
+                    source_notice_id,
+                    raw_doc_id,
+                    ocid,
+                    title,
+                    summary,
+                    buyer_name,
+                    procurement_stage,
+                    access_route,
+                    deadline_at,
+                    published_at,
+                    source_updated_at,
+                    main_category,
+                    estimated_value_low_pence,
+                    estimated_value_currency,
+                    raw_release_json,
+                    LOCAL_EXECUTOR_ID,
+                    visible_after_seq,
+                    stage_run_id,
+                ],
+            )?;
+
+            persist_stage(
+                tx,
+                &process_id,
+                "Normalize",
+                "notice",
+                notice_id,
+                &stage_run_id,
+            )?;
+
+            if let Some(lots) = notice.get("lots").and_then(Value::as_array) {
+                for lot in lots {
+                    let lot_id = lot
+                        .get("lot_id")
+                        .and_then(Value::as_str)
+                        .unwrap_or_else(|| {
+                            lot.get("source_lot_id")
+                                .and_then(Value::as_str)
+                                .unwrap_or("unknown")
+                        });
+                    let source_lot_id = lot.get("source_lot_id").and_then(Value::as_str);
+                    let lot_title = lot.get("title").and_then(Value::as_str);
+                    let lot_description = lot.get("description").and_then(Value::as_str);
+                    let lot_value_pence = lot
+                        .get("estimated_value_pence")
+                        .and_then(Value::as_i64);
+                    let lot_deadline = lot.get("deadline_at").and_then(Value::as_str);
+
+                    tx.execute(
+                        "\
+                        INSERT INTO notice_lots (
+                          id, notice_id, source_lot_id, title, description,
+                          estimated_value_pence, deadline_at,
+                          owner_id, row_version, last_local_seq, stage_run_id
+                        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, ?10)
+                        ON CONFLICT(id) DO UPDATE SET
+                          title = excluded.title,
+                          description = excluded.description,
+                          estimated_value_pence = excluded.estimated_value_pence,
+                          deadline_at = excluded.deadline_at,
+                          row_version = notice_lots.row_version + 1,
+                          last_local_seq = excluded.last_local_seq,
+                          stage_run_id = excluded.stage_run_id,
+                          updated_at = CURRENT_TIMESTAMP
+                        ",
+                        params![
+                            lot_id,
+                            notice_id,
+                            source_lot_id,
+                            lot_title,
+                            lot_description,
+                            lot_value_pence,
+                            lot_deadline,
+                            LOCAL_EXECUTOR_ID,
+                            visible_after_seq,
+                            stage_run_id,
+                        ],
+                    )?;
+                }
+            }
+
+            count += 1;
+        }
+
+        if !cursor.is_empty() {
+            tx.execute(
+                "\
+                INSERT INTO source_cursors (source_id, cursor_key, cursor_value, updated_at)
+                VALUES (?1, 'notice_cursor', ?2, CURRENT_TIMESTAMP)
+                ON CONFLICT(source_id, cursor_key) DO UPDATE SET
+                  cursor_value = excluded.cursor_value,
+                  updated_at = excluded.updated_at
+                ",
+                params![source_id, cursor],
+            )?;
+        }
+
+        Ok(count)
+    })?;
+
+    Ok(persisted_count)
+}
+
+#[allow(clippy::too_many_lines)]
 #[allow(clippy::too_many_arguments)]
 fn finalize_success(
     runtime: &mut RuntimeBootstrap,
@@ -5023,6 +5565,497 @@ fn insert_raw_document(
         ],
     )?;
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Deterministic pipeline stages — run on already-ingested data
+// ---------------------------------------------------------------------------
+
+fn run_deterministic_pipeline(
+    runtime: &mut RuntimeBootstrap,
+    source_id: &str,
+) -> Result<LiveLoopReport> {
+    ::tracing::info!(source_id, "running deterministic pipeline stages");
+
+    let lots_created = run_extract_lots_stage(&mut runtime.state_db, source_id)?;
+    ::tracing::info!(lots_created, "extract-lots stage complete");
+
+    let prequalified = run_prequalify_stage(&mut runtime.state_db, source_id)?;
+    ::tracing::info!(prequalified, "prequalify-notice stage complete");
+
+    let lots_qualified = run_qualify_lot_stage(&mut runtime.state_db)?;
+    ::tracing::info!(lots_qualified, "qualify-lot stage complete");
+
+    let relations_found = run_relate_stage(&mut runtime.state_db)?;
+    ::tracing::info!(relations_found, "relate stage complete");
+
+    Ok(LiveLoopReport {
+        summary_line: format!(
+            "deterministic pipeline complete: lots_created={lots_created} \
+             prequalified={prequalified} lots_qualified={lots_qualified} \
+             relations={relations_found}"
+        ),
+        status: "completed".to_owned(),
+    })
+}
+
+/// Stage: Extract Lots — create implicit single lots for notices without explicit lots.
+#[allow(clippy::type_complexity)]
+fn run_extract_lots_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize> {
+    // Find notices that have NO lots yet.
+    let notice_rows: Vec<(String, String, String, Option<String>, Option<i64>)> = {
+        let conn = state_db.connection();
+        let mut stmt = conn.prepare(
+            "SELECT cn.id, cn.process_id, cn.title, cn.deadline_at,
+                    cn.estimated_value_original_minor
+             FROM contract_notices cn
+             WHERE cn.source_id = ?1
+               AND NOT EXISTS (
+                 SELECT 1 FROM notice_lots nl WHERE nl.notice_id = cn.id
+               )",
+        )?;
+        stmt.query_map(params![source_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<String>>(3)?,
+                row.get::<_, Option<i64>>(4)?,
+            ))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+
+    if notice_rows.is_empty() {
+        return Ok(0);
+    }
+
+    let stage_run_id = allocate_stage_run_id();
+    let (count, _) = state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        let mut created = 0_usize;
+
+        for (notice_id, process_id, title, deadline_at, value_pence) in &notice_rows {
+            let lot_id = format!("{notice_id}-lot-implicit");
+            tx.execute(
+                "INSERT INTO notice_lots (
+                   id, notice_id, source_lot_id, lot_key, lot_number, title,
+                   description, estimated_value_pence, deadline_at, is_bidable_separately,
+                   owner_id, row_version, last_local_seq, stage_run_id
+                 ) VALUES (?1, ?2, 'implicit', 'implicit-0', 1, ?3, NULL, ?4, ?5, 1,
+                           ?6, 1, ?7, ?8)
+                 ON CONFLICT(id) DO NOTHING",
+                params![
+                    lot_id,
+                    notice_id,
+                    title,
+                    value_pence,
+                    deadline_at,
+                    LOCAL_EXECUTOR_ID,
+                    visible_after_seq,
+                    stage_run_id,
+                ],
+            )?;
+
+            persist_stage(
+                tx,
+                process_id,
+                "extract lots",
+                "notice",
+                notice_id,
+                &stage_run_id,
+            )?;
+            created += 1;
+        }
+        Ok(created)
+    })?;
+
+    Ok(count)
+}
+
+/// Stage: Prequalify Notice — classify goods/services using CPV codes from raw OCDS payloads.
+#[allow(clippy::too_many_lines, clippy::type_complexity)]
+fn run_prequalify_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize> {
+    // Find notices that have Normalize succeeded but no prequalify stage head.
+    // Also join the first lot for FK compliance in qualification_runs.
+    #[allow(clippy::type_complexity)]
+    let notice_rows: Vec<(
+        String,
+        String,
+        String,
+        Option<String>,
+        Option<i64>,
+        Option<String>,
+        String,
+    )> = {
+        let conn = state_db.connection();
+        let mut stmt = conn.prepare(
+            "SELECT cn.id, cn.process_id, cn.title, cn.deadline_at,
+                    cn.estimated_value_original_minor,
+                    rd.payload_json,
+                    (SELECT nl.id FROM notice_lots nl WHERE nl.notice_id = cn.id LIMIT 1) as lot_id
+             FROM contract_notices cn
+             JOIN raw_documents rd ON rd.id = ('raw-' || cn.id)
+             WHERE cn.source_id = ?1
+               AND EXISTS (
+                 SELECT 1 FROM process_stage_heads h
+                 WHERE h.process_id = cn.process_id
+                   AND h.stage = 'Normalize'
+                   AND h.scope_kind = 'notice'
+               )
+               AND NOT EXISTS (
+                 SELECT 1 FROM process_stage_heads h
+                 WHERE h.process_id = cn.process_id
+                   AND h.stage = 'prequalify notice'
+                   AND h.scope_kind = 'notice'
+                   AND h.scope_id = cn.id
+               )",
+        )?;
+        stmt.query_map(params![source_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<String>>(3)?,
+                row.get::<_, Option<i64>>(4)?,
+                row.get::<_, Option<String>>(5)?,
+                row.get::<_, String>(6)?,
+            ))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+
+    if notice_rows.is_empty() {
+        return Ok(0);
+    }
+
+    let stage_run_id = allocate_stage_run_id();
+    let (count, _) = state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        let mut qualified_count = 0_usize;
+
+        for (notice_id, process_id, _title, deadline_at, value_pence, payload_json, lot_id) in
+            &notice_rows
+        {
+            let cpv_division = payload_json
+                .as_deref()
+                .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+                .and_then(|doc| {
+                    doc.get("tender")
+                        .and_then(|t| t.get("classification"))
+                        .and_then(|c| c.get("id"))
+                        .and_then(Value::as_str)
+                        .and_then(|code| code.chars().take(2).collect::<String>().parse::<u32>().ok())
+                });
+
+            // CPV classification per EU procurement vocabulary:
+            // Divisions 03-09: agriculture, mining, energy products (goods)
+            // Divisions 14-44: manufactured goods
+            // Division 45: construction works
+            // Divisions 48-49: software packages and transport (goods/mixed)
+            // Divisions 50-98: services
+            let legal_category = match cpv_division {
+                Some(d) if (3..=44).contains(&d) => "goods",
+                Some(45) => "works",
+                Some(d) if (48..=49).contains(&d) => "goods",
+                Some(d) if (50..=98).contains(&d) => "services",
+                _ => "unknown",
+            };
+
+            let goods_density_score_bps: i64 = match legal_category {
+                "goods" => 8500,
+                "mixed" => 6000,
+                "works" => 3000,
+                "services" => 1500,
+                _ => 4500,
+            };
+
+            let expiry_qualified = deadline_at
+                .as_deref()
+                .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
+                .is_none_or(|deadline| {
+                    let remaining = deadline.signed_duration_since(Utc::now());
+                    remaining.num_days() >= 0
+                });
+
+            let goods_qualified = legal_category == "goods" || legal_category == "mixed";
+
+            let qualification_result = if !expiry_qualified {
+                "reject"
+            } else if goods_qualified && goods_density_score_bps >= 6000 {
+                "pass"
+            } else if goods_qualified || legal_category == "unknown" {
+                "review"
+            } else {
+                "reject"
+            };
+
+            let addressable_value = if legal_category == "goods" {
+                *value_pence
+            } else {
+                None
+            };
+
+            let rationale = format!(
+                "CPV division {}: legal_category={legal_category}, density={goods_density_score_bps}bps, \
+                 expiry={expiry_qualified}, result={qualification_result}",
+                cpv_division.map_or_else(|| "unknown".to_owned(), |d| d.to_string()),
+            );
+
+            let qual_id = format!("qual-{notice_id}");
+
+            tx.execute(
+                "INSERT INTO qualification_runs (
+                   id, process_id, notice_id, lot_id, expiry_qualified, goods_qualified,
+                   goods_confidence_bps, legal_category, goods_density_score_bps,
+                   qualification_basis, addressable_value_pence, rationale,
+                   owner_id, row_version, last_local_seq, stage_run_id
+                 ) VALUES (?1, ?2, ?3, ?14, ?4, ?5, ?6, ?7, ?8, 'notice_only', ?9, ?10,
+                           ?11, 1, ?12, ?13)
+                 ON CONFLICT(id) DO UPDATE SET
+                   goods_qualified = excluded.goods_qualified,
+                   goods_confidence_bps = excluded.goods_confidence_bps,
+                   legal_category = excluded.legal_category,
+                   rationale = excluded.rationale,
+                   row_version = qualification_runs.row_version + 1,
+                   updated_at = CURRENT_TIMESTAMP",
+                params![
+                    qual_id,
+                    process_id,
+                    notice_id,
+                    i32::from(expiry_qualified),
+                    i32::from(goods_qualified),
+                    goods_density_score_bps,
+                    legal_category,
+                    goods_density_score_bps,
+                    addressable_value,
+                    rationale,
+                    LOCAL_EXECUTOR_ID,
+                    visible_after_seq,
+                    stage_run_id,
+                    lot_id,
+                ],
+            )?;
+
+            persist_stage(
+                tx,
+                process_id,
+                "prequalify notice",
+                "notice",
+                notice_id,
+                &stage_run_id,
+            )?;
+
+            qualified_count += 1;
+        }
+        Ok(qualified_count)
+    })?;
+
+    Ok(count)
+}
+
+/// Stage: Qualify Lot — per-lot qualification inheriting from notice-level prequalification.
+fn run_qualify_lot_stage(state_db: &mut StateDb) -> Result<usize> {
+    // Find lots whose notice has been prequalified but the lot itself hasn't been qualified.
+    let lot_rows: Vec<(String, String, String, String, Option<i64>)> = {
+        let conn = state_db.connection();
+        let mut stmt = conn.prepare(
+            "SELECT nl.id, nl.notice_id, cn.process_id, cn.id as cn_id,
+                    nl.estimated_value_pence
+             FROM notice_lots nl
+             JOIN contract_notices cn ON cn.id = nl.notice_id
+             WHERE EXISTS (
+               SELECT 1 FROM process_stage_heads h
+               WHERE h.process_id = cn.process_id
+                 AND h.stage = 'prequalify notice'
+                 AND h.scope_kind = 'notice'
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM process_stage_heads h
+               WHERE h.process_id = cn.process_id
+                 AND h.stage = 'qualify lot'
+                 AND h.scope_kind = 'lot'
+                 AND h.scope_id = nl.id
+             )",
+        )?;
+        stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, Option<i64>>(4)?,
+            ))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+
+    if lot_rows.is_empty() {
+        return Ok(0);
+    }
+
+    let stage_run_id = allocate_stage_run_id();
+    let (count, _) = state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        let mut qualified = 0_usize;
+
+        for (lot_id, notice_id, process_id, _cn_id, lot_value) in &lot_rows {
+            // Inherit from notice-level qualification.
+            let parent_qual: Option<(i32, i32, i64, String)> = tx
+                .query_row(
+                    "SELECT expiry_qualified, goods_qualified, goods_confidence_bps, legal_category
+                     FROM qualification_runs
+                     WHERE notice_id = ?1
+                     ORDER BY created_at DESC LIMIT 1",
+                    params![notice_id],
+                    |row| {
+                        Ok((
+                            row.get::<_, i32>(0)?,
+                            row.get::<_, i32>(1)?,
+                            row.get::<_, i64>(2)?,
+                            row.get::<_, String>(3)?,
+                        ))
+                    },
+                )
+                .optional()?;
+
+            let (expiry_q, goods_q, confidence, category) =
+                parent_qual.unwrap_or_else(|| (1, 0, 4500, "unknown".to_owned()));
+
+            let qual_id = format!("qual-lot-{lot_id}");
+            let rationale = format!(
+                "Inherited from notice {notice_id}: category={category}, confidence={confidence}bps"
+            );
+
+            tx.execute(
+                "INSERT INTO qualification_runs (
+                   id, process_id, notice_id, lot_id, expiry_qualified, goods_qualified,
+                   goods_confidence_bps, legal_category, qualification_basis,
+                   addressable_value_pence, rationale,
+                   owner_id, row_version, last_local_seq, stage_run_id
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'lot_level', ?9, ?10,
+                           ?11, 1, ?12, ?13)
+                 ON CONFLICT(id) DO NOTHING",
+                params![
+                    qual_id,
+                    process_id,
+                    notice_id,
+                    lot_id,
+                    expiry_q,
+                    goods_q,
+                    confidence,
+                    category,
+                    lot_value,
+                    rationale,
+                    LOCAL_EXECUTOR_ID,
+                    visible_after_seq,
+                    stage_run_id,
+                ],
+            )?;
+
+            persist_stage(tx, process_id, "qualify lot", "lot", lot_id, &stage_run_id)?;
+            qualified += 1;
+        }
+        Ok(qualified)
+    })?;
+
+    Ok(count)
+}
+
+/// Stage: Relate — detect duplicate/related processes using OCID matching and title similarity.
+fn run_relate_stage(state_db: &mut StateDb) -> Result<usize> {
+    // Find processes that haven't been through relation resolution.
+    let process_rows: Vec<(String, String, Option<String>, Option<String>)> = {
+        let conn = state_db.connection();
+        let mut stmt = conn.prepare(
+            "SELECT p.id, p.title, p.canonical_ocid, p.buyer_name
+             FROM procurement_processes p
+             WHERE NOT EXISTS (
+               SELECT 1 FROM process_stage_heads h
+               WHERE h.process_id = p.id
+                 AND h.stage = 'relate'
+                 AND h.scope_kind = 'process'
+             )",
+        )?;
+        stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, Option<String>>(3)?,
+            ))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+
+    if process_rows.is_empty() {
+        return Ok(0);
+    }
+
+    // Find OCID-based duplicates: processes sharing the same canonical_ocid.
+    let mut ocid_groups: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    for (process_id, _title, ocid, _buyer) in &process_rows {
+        if let Some(oid) = ocid.as_deref().filter(|o| !o.is_empty()) {
+            ocid_groups
+                .entry(oid.to_owned())
+                .or_default()
+                .push(process_id.clone());
+        }
+    }
+
+    let stage_run_id = allocate_stage_run_id();
+    let (relations_count, _) = state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        let mut relations = 0_usize;
+
+        // Create relations for processes sharing the same OCID.
+        for (ocid, group) in &ocid_groups {
+            if group.len() < 2 {
+                continue;
+            }
+            for i in 0..group.len() {
+                for j in (i + 1)..group.len() {
+                    let rel_id = format!("rel-{}-{}", &group[i], &group[j]);
+                    tx.execute(
+                        "INSERT INTO process_relations (
+                           id, process_id_a, process_id_b, relation_type,
+                           confidence_bps, evidence,
+                           owner_id, row_version, last_local_seq, stage_run_id
+                         ) VALUES (?1, ?2, ?3, 'merged_same_process', 10000, ?4,
+                                   ?5, 1, ?6, ?7)
+                         ON CONFLICT(id) DO NOTHING",
+                        params![
+                            rel_id,
+                            group[i],
+                            group[j],
+                            json!({"rule": "same_ocid", "ocid": ocid}).to_string(),
+                            LOCAL_EXECUTOR_ID,
+                            visible_after_seq,
+                            stage_run_id,
+                        ],
+                    )?;
+                    relations += 1;
+                }
+            }
+        }
+
+        // Mark all processes as having completed the relate stage.
+        for (process_id, _title, _ocid, _buyer) in &process_rows {
+            persist_stage(
+                tx,
+                process_id,
+                "relate",
+                "process",
+                process_id,
+                &stage_run_id,
+            )?;
+        }
+
+        Ok(relations)
+    })?;
+
+    Ok(relations_count)
 }
 
 fn persist_stage(
