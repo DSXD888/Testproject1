@@ -15,6 +15,7 @@ const L0_MIGRATION_PATH: &str = "migrations/0001_sqlite_state_initial.sql";
 const L1_MIGRATION_PATH: &str = "migrations/0003_sqlite_runtime.sql";
 const L2_MIGRATION_PATH: &str = "migrations/0004_l2_pending_operator_intents.sql";
 const L3_MIGRATION_PATH: &str = "migrations/0005_l3_operational_hardening.sql";
+const L_PDF_MIGRATION_PATH: &str = "migrations/0006_pdf_extraction_toolkit.sql";
 const MIGRATION_LOG_TABLE: &str = "schema_migrations";
 const PRE_L3_SCHEMA_EPOCH: i64 = 1;
 const MIGRATIONS: &[(&str, i64, &str)] = &[
@@ -34,9 +35,10 @@ const MIGRATIONS: &[(&str, i64, &str)] = &[
         L2_MIGRATION_PATH,
     ),
     ("0005_l3_operational_hardening", 2, L3_MIGRATION_PATH),
+    ("0006_pdf_extraction_toolkit", 3, L_PDF_MIGRATION_PATH),
 ];
 
-pub const DEFAULT_SCHEMA_EPOCH: i64 = 2;
+pub const DEFAULT_SCHEMA_EPOCH: i64 = 3;
 pub const DEFAULT_OWNER_ID: &str = "local-owner";
 pub const FTS_SOURCE_ID: &str = "fts";
 
@@ -405,6 +407,27 @@ fn seed_sources(conn: &Connection, config: &StateDbConfig) -> Result<()> {
         params![FTS_SOURCE_ID],
     )
     .context("seeding FTS source runtime state")?;
+
+    conn.execute(
+        "\
+        INSERT INTO sources (id, kind, enabled, config)
+        VALUES ('contracts-finder', 'procurement', 1, '{}')
+        ON CONFLICT(id) DO UPDATE SET
+          kind = excluded.kind,
+          enabled = excluded.enabled
+        ",
+        [],
+    )
+    .context("seeding contracts-finder source definition")?;
+
+    conn.execute(
+        "\
+        INSERT OR IGNORE INTO source_runtime_state (source_id, last_health_state)
+        VALUES ('contracts-finder', 'unknown')
+        ",
+        [],
+    )
+    .context("seeding contracts-finder source runtime state")?;
 
     Ok(())
 }
