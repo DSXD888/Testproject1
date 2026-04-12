@@ -136,7 +136,7 @@ Adjust `paths` to match the bead's file list. Use glob patterns for the director
 send_message(
   project_key="/Users/alinaaitova/Desktop/Testproject1",
   sender_name="<your-name>",
-  to=["broadcast"],
+  to=["<peers>"],  # from list_contacts — NEVER "broadcast"
   thread_id="<bead-id>",
   subject="[<bead-id>] Claimed: <bead-title>",
   body_md="Starting implementation of <bead-title>. Files reserved: <list>.",
@@ -317,7 +317,7 @@ When fully blocked (no ready `l3-*` beads and nothing in-progress):
    send_message(
      project_key="/Users/alinaaitova/Desktop/Testproject1",
      sender_name="<your-name>",
-     to=["broadcast"],
+     to=["<peers>"],  # from list_contacts — NEVER "broadcast"
      subject="Session handoff: <your-name> signing off",
      body_md="## Completed\n- <list beads completed>\n## In Progress\n- <any partial work>\n## Notes\n- <context for next agent>",
      importance="normal"

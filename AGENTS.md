@@ -198,7 +198,11 @@ A mail-like layer that lets coding agents coordinate asynchronously via MCP tool
 
 3. **Communicate with threads:**
    ```
-   send_message(..., thread_id="FEAT-123")
+   # Discover peers first — Agent Mail has NO broadcast
+   list_contacts(project_key, agent_name)  # → ["BlueLake", "RedPeak"]
+   send_message(project_key, sender_name=<your-name>,
+     to=["BlueLake", "RedPeak"],  # explicit list — NEVER "broadcast"
+     thread_id="FEAT-123", subject="...", body_md="...")
    fetch_inbox(project_key, agent_name)
    acknowledge_message(project_key, agent_name, message_id)
    ```
@@ -248,7 +252,10 @@ Beads provides a lightweight, dependency-aware issue database and CLI (`br` - be
 
 3. **Announce start (Mail):**
    ```
-   send_message(..., thread_id="br-123", subject="[br-123] Start: <title>", ack_required=true)
+   # Discover peers via list_contacts — NEVER use "broadcast"
+   send_message(project_key, sender_name=<your-name>,
+     to=["<peers>"],  # explicit agent names from list_contacts
+     thread_id="br-123", subject="[br-123] Start: <title>", ack_required=true)
    ```
 
 4. **Work and update:** Reply in-thread with progress

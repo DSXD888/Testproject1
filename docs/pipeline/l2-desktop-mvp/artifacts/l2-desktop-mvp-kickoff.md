@@ -211,7 +211,7 @@ file_reservation_paths(
 send_message(
   project_key="/Users/alinaaitova/Desktop/Testproject1",
   sender_name="<your-name>",
-  to=["broadcast"],
+  to=["<peers>"],  # from list_contacts — NEVER "broadcast"
   thread_id="<bead-id>",
   subject="[<bead-id>] Claimed: <title>",
   body_md="Starting work on <bead-id>. Editing:\n- <file list>\n\nExpected duration: ~1-2 hours.",
@@ -428,7 +428,7 @@ release_file_reservations(
 send_message(
   project_key="/Users/alinaaitova/Desktop/Testproject1",
   sender_name="<your-name>",
-  to=["broadcast"],
+  to=["<peers>"],  # from list_contacts — NEVER "broadcast"
   subject="Session handoff: <your-name> signing off",
   body_md="## Completed\n- <beads done>\n\n## In Progress\n- None (all pushed)\n\n## Notes for next agent\n- <any context>",
   importance="normal"

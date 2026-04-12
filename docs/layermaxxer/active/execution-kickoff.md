@@ -216,11 +216,11 @@ Send a message announcing you are starting work on this bead:
 ```
 send_message(
   project_key="/Users/alinaaitova/Desktop/Testproject1",
-  from_agent="your-name",
-  to_agent="broadcast",
+  sender_name="your-name",
+  to=["<peers>"],  # from list_contacts — NEVER "broadcast"
   thread_id="br-{bead-id}",
   subject="[br-{bead-id}] Start: {bead title}",
-  body="Claiming bead {bead-id}. Target: {target file} {section}. Reserved files: {paths}.",
+  body_md="Claiming bead {bead-id}. Target: {target file} {section}. Reserved files: {paths}.",
   ack_required=true
 )
 ```
@@ -242,11 +242,11 @@ After closing a bead and pushing, you MUST:
    ```
    send_message(
      project_key="/Users/alinaaitova/Desktop/Testproject1",
-     from_agent="your-name",
-     to_agent="broadcast",
+     sender_name="your-name",
+     to=["<peers>"],  # from list_contacts — NEVER "broadcast"
      thread_id="br-{bead-id}",
      subject="[br-{bead-id}] Completed: {bead title}",
-     body="Produced {section} in {target file}. {brief summary of content produced}. File reservation released."
+     body_md="Produced {section} in {target file}. {brief summary of content produced}. File reservation released."
    )
    ```
 
@@ -354,11 +354,11 @@ release_file_reservations(
 ```
 send_message(
   project_key="/Users/alinaaitova/Desktop/Testproject1",
-  from_agent="your-name",
-  to_agent="broadcast",
+  sender_name="your-name",
+  to=["<peers>"],  # from list_contacts — NEVER "broadcast"
   thread_id="br-{bead-id}",
   subject="[br-{bead-id}] Completed: {title}",
-  body="Produced {section} in {target file}. {brief summary}. File reservation released."
+  body_md="Produced {section} in {target file}. {brief summary}. File reservation released."
 )
 ```
 
@@ -424,11 +424,11 @@ When ending a work session, execute ALL steps. Do NOT skip Agent Mail steps.
    ```
    send_message(
      project_key="/Users/alinaaitova/Desktop/Testproject1",
-     from_agent="your-name",
-     to_agent="broadcast",
+     sender_name="your-name",
+     to=["<peers>"],  # from list_contacts — NEVER "broadcast"
      thread_id="session-end",
      subject="[session-end] {your-name} signing off",
-     body="Completed beads: {list}. In-progress beads: {list}. All file reservations released."
+     body_md="Completed beads: {list}. In-progress beads: {list}. All file reservations released."
    )
    ```
 

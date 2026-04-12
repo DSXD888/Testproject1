@@ -26,7 +26,7 @@ Then:
 4. **Claim it:**
    - `br update <id> --status=in_progress`
    - `file_reservation_paths(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name="<your-name>", paths=[<files from bead>], ttl_seconds=3600, exclusive=true, reason="<bead-id>")`
-   - `send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name="<your-name>", to=["broadcast"], thread_id="<bead-id>", subject="[<bead-id>] Claimed: <title>", ack_required=true)`
+   - `send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name="<your-name>", to=["<peers>"], thread_id="<bead-id>", subject="[<bead-id>] Claimed: <title>", ack_required=true)`  # from list_contacts — NEVER "broadcast"
 
 5. **Read the bead** — `br show <id>`. It's self-contained. Implement from the bead alone. Each bead has full file paths, type definitions, test specs, and acceptance criteria. Only consult the spec (`docs/strategy/layers/layer-2-single-operator-desktop.md`) as a tiebreaker.
 
@@ -61,5 +61,5 @@ If fully blocked (no ready `l2-*` beads and nothing in-progress): run QA checks 
 
 ```
 release_file_reservations(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name="<your-name>")
-send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name="<your-name>", to=["broadcast"], subject="Session handoff: <your-name> signing off", body_md="## Completed\n- ...\n## Notes\n- ...", importance="normal")
+send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name="<your-name>", to=["<peers>"], subject="Session handoff: <your-name> signing off", body_md="## Completed\n- ...\n## Notes\n- ...", importance="normal")  # from list_contacts — NEVER "broadcast"
 ```

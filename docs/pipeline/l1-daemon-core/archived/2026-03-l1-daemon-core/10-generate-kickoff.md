@@ -126,10 +126,10 @@ file_reservation_paths(
 send_message(
   project_key="/Users/alinaaitova/Desktop/Testproject1",
   sender_name="<your-name>",
-  to=["broadcast"],
+  to=["<peers>"],  # from list_contacts — NEVER "broadcast"
   thread_id="br-testproject1-63g.N",
   subject="[br-testproject1-63g.N] Claimed: <bead-title>",
-  body="Starting implementation. Files reserved: <list>",
+  body_md="Starting implementation. Files reserved: <list>",
   ack_required=true
 )
 ```

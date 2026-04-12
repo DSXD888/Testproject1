@@ -110,7 +110,7 @@ Ordered list with READ/SKIM/REFERENCE annotations:
 ### 7. Claim Protocol (announce + reserve)
 - `br update <id> --status=in_progress`
 - `file_reservation_paths(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name="<your-name>", paths=[...], ttl_seconds=3600, exclusive=true, reason="<bead-id>")`
-- `send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name="<your-name>", to=["broadcast"], thread_id="<bead-id>", subject="[<bead-id>] Claimed: ...", ack_required=true)`
+- `send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name="<your-name>", to=["<peers>"], thread_id="<bead-id>", subject="[<bead-id>] Claimed: ...", ack_required=true)`  # from list_contacts — NEVER "broadcast"
 - FILE_RESERVATION_CONFLICT handling: pick a different ready bead
 
 ### 8. Beads ↔ AgentMail Mapping

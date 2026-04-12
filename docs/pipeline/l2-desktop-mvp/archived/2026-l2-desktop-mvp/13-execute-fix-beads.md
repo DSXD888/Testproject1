@@ -59,7 +59,7 @@ search_messages(
    send_message(
      project_key="/Users/alinaaitova/Desktop/Testproject1",
      sender_name="<your-name>",
-     to=["broadcast"],
+     to=["<peers>"],  # from list_contacts — NEVER "broadcast"
      thread_id="<fix-bead-id>",
      subject="[<fix-bead-id>] Claimed: <fix-description>",
      ack_required=true
@@ -108,7 +108,7 @@ search_messages(
     send_message(
       project_key="/Users/alinaaitova/Desktop/Testproject1",
       sender_name="<your-name>",
-      to=["broadcast"],
+      to=["<peers>"],  # from list_contacts — NEVER "broadcast"
       thread_id="<fix-bead-id>",
       subject="[<fix-bead-id>] Complete: <fix-description>",
       ack_required=false

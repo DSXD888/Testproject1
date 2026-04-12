@@ -165,10 +165,10 @@ file_reservation_paths(
 send_message(
   project_key="/Users/alinaaitova/Desktop/Testproject1",
   sender_name="<your-name>",
-  to=["broadcast"],
+  to=["<peers>"],  # from list_contacts — NEVER "broadcast"
   thread_id="br-testproject1-63g.N",
   subject="[br-testproject1-63g.N] Claimed: <bead-title>",
-  body="Starting implementation. Files reserved: <list>",
+  body_md="Starting implementation. Files reserved: <list>",
   ack_required=true
 )
 ```
@@ -353,10 +353,10 @@ If `FILE_RESERVATION_CONFLICT` → pick a different bead.
 send_message(
   project_key="/Users/alinaaitova/Desktop/Testproject1",
   sender_name="<your-name>",
-  to=["broadcast"],
+  to=["<peers>"],  # from list_contacts — NEVER "broadcast"
   thread_id="br-testproject1-63g.N",
   subject="[br-testproject1-63g.N] Claimed: <bead-title>",
-  body="Starting implementation. Files reserved: <list>",
+  body_md="Starting implementation. Files reserved: <list>",
   ack_required=true
 )
 ```
@@ -396,10 +396,10 @@ release_file_reservations(
 send_message(
   project_key="/Users/alinaaitova/Desktop/Testproject1",
   sender_name="<your-name>",
-  to=["broadcast"],
+  to=["<peers>"],  # from list_contacts — NEVER "broadcast"
   thread_id="br-testproject1-63g.N",
   subject="[br-testproject1-63g.N] Completed: <bead-title>",
-  body="Implementation complete. Files released. Tests passing.",
+  body_md="Implementation complete. Files released. Tests passing.",
   ack_required=false
 )
 ```
@@ -432,9 +432,9 @@ When you are fully blocked (no ready beads, all remaining beads depend on other 
    send_message(
      project_key="/Users/alinaaitova/Desktop/Testproject1",
      sender_name="<your-name>",
-     to=["broadcast"],
+     to=["<peers>"],  # from list_contacts — NEVER "broadcast"
      subject="Session landing — blocked on <bead-ids>",
-     body="Completed: <list of completed beads>. Blocked: <list of blocked beads and why>. All reservations released.",
+     body_md="Completed: <list of completed beads>. Blocked: <list of blocked beads and why>. All reservations released.",
      ack_required=false
    )
    ```
