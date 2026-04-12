@@ -1,0 +1,27 @@
+cases:
+  - case_id: pricing-schedule-001
+    expected_target_domain: pricing
+    min_line_items: 2
+    require_currency: true
+    require_evidence_anchor_per_line_item: true
+    required_metadata_fields:
+      - target_domain
+      - extraction_scope
+      - source_markdown_hash
+      - policy_version
+  - case_id: pricing-schedule-002
+    expected_target_domain: pricing
+    min_line_items: 2
+    require_currency: true
+    require_evidence_anchor_per_line_item: true
+    require_repeated_header_normalization: true
+    required_metadata_fields:
+      - target_domain
+      - extraction_scope
+      - source_markdown_hash
+      - policy_version
+
+global_assertions:
+  pricing_summary_currency_must_be_non_empty: true
+  evidence_anchors_required_for_each_line_item: true
+  repeated_header_cases_must_mark_normalization: true
