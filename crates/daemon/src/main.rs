@@ -1416,6 +1416,11 @@ async fn run_extract_document_semantics_job(
             .clone()
             .or_else(|| request.raw_document_id.clone())
             .unwrap_or_else(|| request.document_extraction_id.clone());
+        let semantic_extraction_state: String = runtime.state_db.connection().query_row(
+            "SELECT semantic_extraction_state FROM document_extractions WHERE id = ?1",
+            params![request.document_extraction_id],
+            |row| row.get(0),
+        )?;
         let stage_run_id = format!(
             "{}-{}",
             request
@@ -1436,6 +1441,8 @@ async fn run_extract_document_semantics_job(
                     "skill_id": skill.metadata.skill_id,
                     "target_domain": target_domain,
                     "extraction_scope": request.extraction_scope,
+                    "semantic_extraction_state": semantic_extraction_state,
+                    "downstream_refresh_required": target_domain != "generic",
                 }),
                 stage: "acquire docs".to_owned(),
                 scope_kind: "notice".to_owned(),
