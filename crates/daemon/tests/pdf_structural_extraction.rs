@@ -8,15 +8,20 @@ mod support;
 mod engine_impl;
 
 mod tests {
-    use std::fs;
-
     use anyhow::{Context, Result, ensure};
     use rusqlite::{OptionalExtension, params};
+    use serde_json::Value;
+    use serial_test::serial;
+    use sha2::{Digest, Sha256};
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use std::path::{Path, PathBuf};
     use tempfile::tempdir;
 
     use crate::engine_impl::{
-        PersistStructuralExtractionRow, ProcessingStrategy, clone_reused_extraction,
-        compute_source_hash, lookup_reusable_extraction, persist_structural_extraction,
+        EngineConfig, PdfExtractionEngine, PdfInput, PersistStructuralExtractionRow,
+        ProcessingStrategy, clone_reused_extraction, compute_source_hash,
+        lookup_reusable_extraction, persist_structural_extraction,
     };
     use crate::support::db::{
         DocumentExtractionSeed, TestStateDb, assert_current_document_extraction,
@@ -71,6 +76,429 @@ mod tests {
             owner_id: "local-owner".to_owned(),
             stage_run_id: stage_run_id.to_owned(),
         })
+    }
+
+    fn success_wrapper_payload() -> Value {
+        let mut payload = sample_docling_output();
+        payload["metadata"]["docling_version"] = serde_json::Value::String("2.85.0".to_owned());
+        payload
+    }
+
+    struct CurrentDirGuard {
+        prior_dir: PathBuf,
+    }
+
+    impl CurrentDirGuard {
+        fn install(path: &Path) -> Result<Self> {
+            let prior_dir = std::env::current_dir().context("reading current directory")?;
+            std::env::set_current_dir(path)
+                .with_context(|| format!("switching current directory to {}", path.display()))?;
+            Ok(Self { prior_dir })
+        }
+    }
+
+    impl Drop for CurrentDirGuard {
+        fn drop(&mut self) {
+            let _ = std::env::set_current_dir(&self.prior_dir);
+        }
+    }
+
+    fn write_executable(path: &Path, contents: &str) -> Result<()> {
+        fs::write(path, contents).with_context(|| format!("writing {}", path.display()))?;
+        let mut permissions = fs::metadata(path)
+            .with_context(|| format!("reading metadata for {}", path.display()))?
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(path, permissions)
+            .with_context(|| format!("marking {} executable", path.display()))?;
+        Ok(())
+    }
+
+    fn write_probe_docling_module(dir: &Path) -> Result<PathBuf> {
+        let docling_path = dir.join("docling.py");
+        fs::write(&docling_path, "__version__ = '2.85.0'\n")
+            .with_context(|| format!("writing {}", docling_path.display()))?;
+        Ok(docling_path)
+    }
+
+    fn write_success_wrapper(dir: &Path, payload_path: &Path) -> Result<PathBuf> {
+        let wrapper_path = dir.join("docling-wrapper");
+        let contents = format!(
+            concat!(
+                "#!/usr/bin/env python3\n",
+                "import pathlib\n",
+                "import shutil\n",
+                "import sys\n",
+                "\n",
+                "def main() -> int:\n",
+                "    output_path = None\n",
+                "    args = iter(sys.argv[1:])\n",
+                "    for arg in args:\n",
+                "        if arg == '--output':\n",
+                "            output_path = next(args)\n",
+                "        elif arg in ('--input', '--strategy', '--timeout'):\n",
+                "            next(args)\n",
+                "    if output_path is None:\n",
+                "        raise SystemExit('missing --output')\n",
+                "    shutil.copyfile(pathlib.Path(r'{}'), pathlib.Path(output_path))\n",
+                "    print('mock-docling-stdout')\n",
+                "    print('mock-docling-stderr', file=sys.stderr)\n",
+                "    return 0\n",
+                "\n",
+                "if __name__ == '__main__':\n",
+                "    raise SystemExit(main())\n"
+            ),
+            payload_path.display()
+        );
+        write_executable(&wrapper_path, &contents)?;
+        Ok(wrapper_path)
+    }
+
+    fn write_timeout_wrapper(dir: &Path) -> Result<PathBuf> {
+        let wrapper_path = dir.join("docling-wrapper-timeout");
+        let contents = "#!/usr/bin/env python3\nimport time\n\ntime.sleep(5)\n";
+        write_executable(&wrapper_path, contents)?;
+        Ok(wrapper_path)
+    }
+
+    fn write_failing_wrapper(dir: &Path, exit_code: i32, stderr: &str) -> Result<PathBuf> {
+        let wrapper_path = dir.join(format!("docling-wrapper-fail-{exit_code}"));
+        let contents = format!(
+            "#!/usr/bin/env python3\n\
+import sys\n\
+print({stderr:?}, file=sys.stderr)\n\
+raise SystemExit({exit_code})\n"
+        );
+        write_executable(&wrapper_path, &contents)?;
+        Ok(wrapper_path)
+    }
+
+    fn write_pdf(path: &Path) -> Result<()> {
+        fs::write(path, sample_pdf_bytes())
+            .with_context(|| format!("writing sample pdf {}", path.display()))?;
+        Ok(())
+    }
+
+    fn write_encrypted_pdf(path: &Path) -> Result<()> {
+        fs::write(
+            path,
+            b"%PDF-1.4\n1 0 obj\n<< /Encrypt 2 0 R >>\nendobj\n%%EOF\n",
+        )
+        .with_context(|| format!("writing encrypted sample pdf {}", path.display()))?;
+        Ok(())
+    }
+
+    const fn build_engine_config(wrapper_path: PathBuf, artifacts_dir: PathBuf) -> EngineConfig {
+        EngineConfig {
+            docling_wrapper_path: wrapper_path,
+            model_artifacts_path: artifacts_dir,
+            document_timeout_secs: 1,
+            wall_clock_timeout_secs: 1,
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_health_probe_available() -> Result<()> {
+        let temp = tempdir()?;
+        let payload_path = temp.path().join("payload.json");
+        fs::write(
+            &payload_path,
+            serde_json::to_vec_pretty(&success_wrapper_payload())?,
+        )?;
+        let wrapper_path = write_success_wrapper(temp.path(), &payload_path)?;
+        let artifacts_dir = temp.path().join("artifacts");
+        fs::create_dir_all(&artifacts_dir)?;
+        let _dir_guard = CurrentDirGuard::install(temp.path())?;
+        write_probe_docling_module(temp.path())?;
+
+        let engine = PdfExtractionEngine::new(build_engine_config(wrapper_path, artifacts_dir));
+        ensure!(engine.is_available()?);
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
+    fn test_health_probe_unavailable() -> Result<()> {
+        let temp = tempdir()?;
+        let artifacts_dir = temp.path().join("artifacts");
+        fs::create_dir_all(&artifacts_dir)?;
+        let _dir_guard = CurrentDirGuard::install(temp.path())?;
+        write_probe_docling_module(temp.path())?;
+
+        let engine = PdfExtractionEngine::new(build_engine_config(
+            temp.path().join("missing-wrapper"),
+            artifacts_dir,
+        ));
+        ensure!(!engine.is_available()?);
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_extract_success() -> Result<()> {
+        let temp = tempdir()?;
+        let pdf_path = temp.path().join("sample.pdf");
+        let payload_path = temp.path().join("payload.json");
+        let artifacts_dir = temp.path().join("artifacts");
+        write_pdf(&pdf_path)?;
+        fs::write(
+            &payload_path,
+            serde_json::to_vec_pretty(&success_wrapper_payload())?,
+        )?;
+        fs::create_dir_all(&artifacts_dir)?;
+        let wrapper_path = write_success_wrapper(temp.path(), &payload_path)?;
+        let _dir_guard = CurrentDirGuard::install(temp.path())?;
+        write_probe_docling_module(temp.path())?;
+
+        let engine = PdfExtractionEngine::new(build_engine_config(wrapper_path, artifacts_dir));
+        let result = engine
+            .extract(PdfInput {
+                raw_document_id: Some("raw-success".to_owned()),
+                source_path: pdf_path,
+                page_range: None,
+                processing_strategy: ProcessingStrategy::Standard,
+            })
+            .await?;
+
+        ensure!(result.page_count == 1);
+        ensure!(result.engine_version == "2.85.0");
+        ensure!(result.processing_strategy == ProcessingStrategy::Standard);
+        ensure!(result.extracted_markdown.contains("Tender specification"));
+        ensure!(result.source_hash == compute_source_hash(&sample_pdf_bytes()));
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_extract_timeout() -> Result<()> {
+        let temp = tempdir()?;
+        let pdf_path = temp.path().join("sample.pdf");
+        let artifacts_dir = temp.path().join("artifacts");
+        write_pdf(&pdf_path)?;
+        fs::create_dir_all(&artifacts_dir)?;
+        let wrapper_path = write_timeout_wrapper(temp.path())?;
+        let _dir_guard = CurrentDirGuard::install(temp.path())?;
+        write_probe_docling_module(temp.path())?;
+
+        let engine = PdfExtractionEngine::new(build_engine_config(wrapper_path, artifacts_dir));
+        let error = engine
+            .extract(PdfInput {
+                raw_document_id: Some("raw-timeout".to_owned()),
+                source_path: pdf_path,
+                page_range: None,
+                processing_strategy: ProcessingStrategy::Standard,
+            })
+            .await
+            .expect_err("timeout wrapper should fail");
+        ensure!(error.to_string().contains("timed out"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_timeout_handling() -> Result<()> {
+        let temp = tempdir()?;
+        let pdf_path = temp.path().join("sample.pdf");
+        let artifacts_dir = temp.path().join("artifacts");
+        write_pdf(&pdf_path)?;
+        fs::create_dir_all(&artifacts_dir)?;
+        let wrapper_path = write_timeout_wrapper(temp.path())?;
+        let _dir_guard = CurrentDirGuard::install(temp.path())?;
+        write_probe_docling_module(temp.path())?;
+
+        let engine = PdfExtractionEngine::new(build_engine_config(wrapper_path, artifacts_dir));
+        let error = engine
+            .extract(PdfInput {
+                raw_document_id: Some("raw-timeout-code".to_owned()),
+                source_path: pdf_path,
+                page_range: None,
+                processing_strategy: ProcessingStrategy::Standard,
+            })
+            .await
+            .expect_err("timeout wrapper should fail");
+        ensure!(error.to_string().contains("EXTRACTION_TIMEOUT"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_extract_batch() -> Result<()> {
+        let temp = tempdir()?;
+        let pdf_a = temp.path().join("sample-a.pdf");
+        let pdf_b = temp.path().join("sample-b.pdf");
+        let payload_path = temp.path().join("payload.json");
+        let artifacts_dir = temp.path().join("artifacts");
+        write_pdf(&pdf_a)?;
+        write_pdf(&pdf_b)?;
+        fs::write(
+            &payload_path,
+            serde_json::to_vec_pretty(&success_wrapper_payload())?,
+        )?;
+        fs::create_dir_all(&artifacts_dir)?;
+        let wrapper_path = write_success_wrapper(temp.path(), &payload_path)?;
+        let _dir_guard = CurrentDirGuard::install(temp.path())?;
+        write_probe_docling_module(temp.path())?;
+
+        let engine = PdfExtractionEngine::new(build_engine_config(wrapper_path, artifacts_dir));
+        let results = engine
+            .extract_batch(vec![
+                PdfInput {
+                    raw_document_id: Some("raw-batch-a".to_owned()),
+                    source_path: pdf_a,
+                    page_range: None,
+                    processing_strategy: ProcessingStrategy::Standard,
+                },
+                PdfInput {
+                    raw_document_id: Some("raw-batch-b".to_owned()),
+                    source_path: pdf_b,
+                    page_range: None,
+                    processing_strategy: ProcessingStrategy::FastTableStructure,
+                },
+            ])
+            .await;
+
+        ensure!(results.len() == 2);
+        ensure!(results.iter().all(Result::is_ok));
+        ensure!(results[1].as_ref().ok().is_some_and(
+            |result| result.processing_strategy == ProcessingStrategy::FastTableStructure
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn test_content_hash_computation() -> Result<()> {
+        let pdf_bytes = sample_pdf_bytes();
+        let expected = format!("{:x}", Sha256::digest(&pdf_bytes));
+        ensure!(compute_source_hash(&pdf_bytes) == expected);
+        ensure!(compute_source_hash(b"different") != expected);
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_encrypted_pdf_detection() -> Result<()> {
+        let temp = tempdir()?;
+        let pdf_path = temp.path().join("encrypted.pdf");
+        write_encrypted_pdf(&pdf_path)?;
+        let engine = PdfExtractionEngine::new(build_engine_config(
+            temp.path().join("missing-wrapper"),
+            temp.path().join("missing-artifacts"),
+        ));
+
+        let error = engine
+            .extract(PdfInput {
+                raw_document_id: Some("raw-encrypted".to_owned()),
+                source_path: pdf_path,
+                page_range: None,
+                processing_strategy: ProcessingStrategy::Standard,
+            })
+            .await
+            .expect_err("encrypted pdf should fail early");
+        ensure!(error.to_string().contains("EXTRACTION_ENCRYPTED_PDF"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_empty_pdf_handling() -> Result<()> {
+        let temp = tempdir()?;
+        let pdf_path = temp.path().join("empty.pdf");
+        fs::write(&pdf_path, b"")?;
+        let engine = PdfExtractionEngine::new(build_engine_config(
+            temp.path().join("missing-wrapper"),
+            temp.path().join("missing-artifacts"),
+        ));
+
+        let error = engine
+            .extract(PdfInput {
+                raw_document_id: Some("raw-empty".to_owned()),
+                source_path: pdf_path,
+                page_range: None,
+                processing_strategy: ProcessingStrategy::Standard,
+            })
+            .await
+            .expect_err("empty pdf should fail early");
+        ensure!(error.to_string().contains("EXTRACTION_EMPTY_PDF"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_engine_unavailable() -> Result<()> {
+        let temp = tempdir()?;
+        let pdf_path = temp.path().join("sample.pdf");
+        let artifacts_dir = temp.path().join("artifacts");
+        write_pdf(&pdf_path)?;
+        fs::create_dir_all(&artifacts_dir)?;
+        let wrapper_path = write_success_wrapper(temp.path(), &temp.path().join("payload.json"))?;
+        let _dir_guard = CurrentDirGuard::install(temp.path())?;
+        // Intentionally do not provide a local docling.py probe module.
+
+        let engine = PdfExtractionEngine::new(build_engine_config(wrapper_path, artifacts_dir));
+        let error = engine
+            .extract(PdfInput {
+                raw_document_id: Some("raw-engine-unavailable".to_owned()),
+                source_path: pdf_path,
+                page_range: None,
+                processing_strategy: ProcessingStrategy::Standard,
+            })
+            .await
+            .expect_err("missing docling runtime should fail");
+        ensure!(error.to_string().contains("EXTRACTION_ENGINE_UNAVAILABLE"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_corrupt_pdf_error() -> Result<()> {
+        let temp = tempdir()?;
+        let pdf_path = temp.path().join("sample.pdf");
+        let artifacts_dir = temp.path().join("artifacts");
+        write_pdf(&pdf_path)?;
+        fs::create_dir_all(&artifacts_dir)?;
+        let wrapper_path = write_failing_wrapper(temp.path(), 1, "corrupt fixture")?;
+        let _dir_guard = CurrentDirGuard::install(temp.path())?;
+        write_probe_docling_module(temp.path())?;
+
+        let engine = PdfExtractionEngine::new(build_engine_config(wrapper_path, artifacts_dir));
+        let error = engine
+            .extract(PdfInput {
+                raw_document_id: Some("raw-corrupt".to_owned()),
+                source_path: pdf_path,
+                page_range: None,
+                processing_strategy: ProcessingStrategy::Standard,
+            })
+            .await
+            .expect_err("non-zero wrapper exit should fail");
+        ensure!(error.to_string().contains("EXTRACTION_CORRUPT_PDF"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_oom_detection() -> Result<()> {
+        let temp = tempdir()?;
+        let pdf_path = temp.path().join("sample.pdf");
+        let artifacts_dir = temp.path().join("artifacts");
+        write_pdf(&pdf_path)?;
+        fs::create_dir_all(&artifacts_dir)?;
+        let wrapper_path = write_failing_wrapper(temp.path(), 137, "oom fixture")?;
+        let _dir_guard = CurrentDirGuard::install(temp.path())?;
+        write_probe_docling_module(temp.path())?;
+
+        let engine = PdfExtractionEngine::new(build_engine_config(wrapper_path, artifacts_dir));
+        let error = engine
+            .extract(PdfInput {
+                raw_document_id: Some("raw-oom".to_owned()),
+                source_path: pdf_path,
+                page_range: None,
+                processing_strategy: ProcessingStrategy::Standard,
+            })
+            .await
+            .expect_err("oom-style wrapper exit should fail");
+        ensure!(error.to_string().contains("EXTRACTION_OOM"));
+        Ok(())
     }
 
     #[test]
