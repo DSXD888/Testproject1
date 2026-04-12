@@ -6,13 +6,19 @@ mod skills_support;
 
 use std::fs;
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 
-use skills_support::repo_skill_dir;
+use skills_support::{lint_skill_directory, repo_skill_dir};
 
 fn tender_spec_schema() -> Result<Value> {
     let path = repo_skill_dir("pdf-extraction/tender-specification")?.join("result.schema.json");
+    let raw = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    serde_json::from_str(&raw).with_context(|| format!("parsing {}", path.display()))
+}
+
+fn boq_schema() -> Result<Value> {
+    let path = repo_skill_dir("pdf-extraction/bill-of-quantities")?.join("result.schema.json");
     let raw = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
     serde_json::from_str(&raw).with_context(|| format!("parsing {}", path.display()))
 }
@@ -61,5 +67,78 @@ fn test_tender_spec_contract_carries_semantic_persistence_fields() -> Result<()>
             "tender-spec schema missing required persistence field {field}"
         );
     }
+    Ok(())
+}
+
+#[test]
+fn test_boq_skill_package_lints() -> Result<()> {
+    let linted = lint_skill_directory(&repo_skill_dir("pdf-extraction/bill-of-quantities")?)?;
+    ensure!(
+        linted.metadata.skill_id == "pdf-extraction/bill-of-quantities",
+        "unexpected BoQ skill id"
+    );
+    ensure!(
+        linted.metadata.interaction_profile == "headless_contract",
+        "BoQ overlay must stay in contract mode"
+    );
+    ensure!(
+        linted.metadata.model_profile == "structured_extract_low_cost",
+        "BoQ overlay must stay on the low-cost structured model tier"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_boq_contract_maps_to_quantities_target_domain() -> Result<()> {
+    let schema = boq_schema()?;
+    let extraction_metadata = &schema["properties"]["extraction_metadata"];
+    let target_domain = &extraction_metadata["properties"]["target_domain"];
+
+    ensure!(
+        target_domain["const"] == Value::String("quantities".to_owned()),
+        "BoQ semantic rows must persist with target_domain=quantities"
+    );
+
+    let required = extraction_metadata["required"]
+        .as_array()
+        .context("extraction_metadata.required missing")?;
+    ensure!(
+        required.contains(&Value::String("extraction_scope".to_owned())),
+        "BoQ extraction metadata must expose extraction_scope"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_boq_contract_requires_merge_safe_identity_fields() -> Result<()> {
+    let schema = boq_schema()?;
+    let item_required = schema["properties"]["items"]["items"]["required"]
+        .as_array()
+        .context("items required array missing")?;
+    let summary_required = schema["properties"]["summary"]["required"]
+        .as_array()
+        .context("summary required array missing")?;
+
+    for field in [
+        "item_key",
+        "item_ref",
+        "section_ref",
+        "continuation_of_item_key",
+        "evidence_anchor",
+    ] {
+        ensure!(
+            item_required.contains(&Value::String(field.to_owned())),
+            "BoQ schema missing merge-safe item field {field}"
+        );
+    }
+
+    ensure!(
+        summary_required.contains(&Value::String("item_count".to_owned())),
+        "BoQ summary must expose item_count"
+    );
+    ensure!(
+        summary_required.contains(&Value::String("total_value_pence".to_owned())),
+        "BoQ summary must expose total_value_pence"
+    );
     Ok(())
 }

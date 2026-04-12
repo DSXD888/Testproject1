@@ -1,0 +1,17 @@
+cases:
+  - case_id: boq-multipage-001
+    min_item_count: 2
+    require_deterministic_item_keys: true
+    require_continuation_links: true
+    require_evidence_anchors: true
+  - case_id: boq-fragmented-002
+    min_item_count: 1
+    require_deterministic_item_keys: true
+    require_continuation_links: true
+    require_evidence_anchors: true
+
+global_assertions:
+  target_domain_must_equal: quantities
+  warnings_must_be_array: true
+  item_keys_must_be_non_empty: true
+  continuation_links_must_be_explicit_when_rows_split: true

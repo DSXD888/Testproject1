@@ -41,6 +41,17 @@ agent_cli: claude\n\
 side_effect_class: none\n\
 ---\n";
 
+const EXPECTED_BOQ_SKILL_FRONTMATTER: &str = "\
+---\n\
+skill_id: pdf-extraction/bill-of-quantities\n\
+skill_version: 1.0.0\n\
+interaction_profile: headless_contract\n\
+result_schema_version: 1.0.0\n\
+model_profile: structured_extract_low_cost\n\
+agent_cli: claude\n\
+side_effect_class: none\n\
+---\n";
+
 fn lint_base_skill() -> Result<skills_support::LintedSkill> {
     lint_skill_directory(&repo_skill_dir("pdf-extraction/base")?)
 }
@@ -53,6 +64,10 @@ fn lint_pricing_schedule_skill() -> Result<skills_support::LintedSkill> {
     lint_skill_directory(&repo_skill_dir("pdf-extraction/pricing-schedule")?)
 }
 
+fn lint_boq_skill() -> Result<skills_support::LintedSkill> {
+    lint_skill_directory(&repo_skill_dir("pdf-extraction/bill-of-quantities")?)
+}
+
 fn tender_spec_schema() -> Result<Value> {
     let schema_path =
         repo_skill_dir("pdf-extraction/tender-specification")?.join("result.schema.json");
@@ -62,6 +77,13 @@ fn tender_spec_schema() -> Result<Value> {
 
 fn pricing_schedule_schema() -> Result<Value> {
     let schema_path = repo_skill_dir("pdf-extraction/pricing-schedule")?.join("result.schema.json");
+    let schema = std::fs::read_to_string(&schema_path)?;
+    Ok(serde_json::from_str(&schema)?)
+}
+
+fn boq_schema() -> Result<Value> {
+    let schema_path =
+        repo_skill_dir("pdf-extraction/bill-of-quantities")?.join("result.schema.json");
     let schema = std::fs::read_to_string(&schema_path)?;
     Ok(serde_json::from_str(&schema)?)
 }
@@ -223,6 +245,50 @@ fn test_pricing_schedule_schema_requires_line_item_evidence() -> Result<()> {
         schema["properties"]["extraction_metadata"]["properties"]["target_domain"]["const"]
             == Value::String("pricing".to_owned()),
         "pricing-schedule extraction metadata must pin target_domain to pricing"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_boq_skill_lint() -> Result<()> {
+    let linted = lint_boq_skill()?;
+    ensure!(
+        linted
+            .skill_markdown
+            .starts_with(EXPECTED_BOQ_SKILL_FRONTMATTER),
+        "bill-of-quantities frontmatter drifted from the bead contract"
+    );
+    ensure!(linted.metadata.skill_id == "pdf-extraction/bill-of-quantities");
+    ensure!(linted.metadata.interaction_profile == "headless_contract");
+    ensure!(linted.metadata.model_profile == "structured_extract_low_cost");
+    ensure!(linted.metadata.side_effect_class == "none");
+    Ok(())
+}
+
+#[test]
+fn test_boq_schema_requires_chunk_merge_keys() -> Result<()> {
+    let schema = boq_schema()?;
+    let item_required = schema["properties"]["items"]["items"]["required"]
+        .as_array()
+        .ok_or_else(|| anyhow!("items required array missing"))?;
+
+    for field in [
+        "item_key",
+        "item_ref",
+        "section_ref",
+        "continuation_of_item_key",
+        "evidence_anchor",
+    ] {
+        ensure!(
+            item_required.contains(&Value::String(field.to_owned())),
+            "BoQ schema missing merge-safe field {field}"
+        );
+    }
+
+    ensure!(
+        schema["properties"]["extraction_metadata"]["properties"]["target_domain"]["const"]
+            == Value::String("quantities".to_owned()),
+        "BoQ extraction metadata must pin target_domain to quantities"
     );
     Ok(())
 }
