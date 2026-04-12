@@ -5,8 +5,11 @@
 mod support;
 
 mod tests {
+    use std::fs;
+    use std::path::PathBuf;
+
     use anyhow::{Result, ensure};
-    use rusqlite::{Connection, params};
+    use rusqlite::{Connection, OptionalExtension, params};
     use serde_json::json;
     use tempfile::tempdir;
 
@@ -37,6 +40,49 @@ mod tests {
         Ok(rows.collect::<std::result::Result<Vec<_>, _>>()?)
     }
 
+    fn index_sql(conn: &Connection, index_name: &str) -> Result<Option<String>> {
+        conn.query_row(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?1",
+            [index_name],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(Into::into)
+    }
+
+    fn repo_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    }
+
+    fn apply_migration(conn: &Connection, relative_path: &str) -> Result<()> {
+        let ddl = fs::read_to_string(repo_root().join(relative_path))?;
+        conn.execute_batch(&ddl)?;
+        Ok(())
+    }
+
+    fn seed_applied_migrations(
+        conn: &Connection,
+        migration_ids: &[&str],
+        schema_epoch: i64,
+    ) -> Result<()> {
+        conn.execute_batch(
+            "\
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+              id TEXT PRIMARY KEY,
+              applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            ",
+        )?;
+        for migration_id in migration_ids {
+            conn.execute(
+                "INSERT OR IGNORE INTO schema_migrations (id) VALUES (?1)",
+                [*migration_id],
+            )?;
+        }
+        conn.pragma_update(None, "user_version", schema_epoch)?;
+        Ok(())
+    }
+
     fn seed_process(conn: &Connection, process_id: &str) -> Result<()> {
         conn.execute(
             "\
@@ -46,6 +92,103 @@ mod tests {
                       '2026-03-25T00:00:00Z', 'local-owner')
             ",
             params![process_id],
+        )?;
+        Ok(())
+    }
+
+    fn seed_notice(conn: &Connection, process_id: &str, notice_id: &str) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO contract_notices (
+              id, process_id, source_id, source_notice_id, raw_document_id, title,
+              procurement_stage, published_at, source_updated_at, normalized_payload, owner_id
+            ) VALUES (?1, ?2, 'fts', ?3, ?4, 'Notice title', 'tender',
+                      '2026-03-25T00:00:00Z', '2026-03-25T00:00:00Z', '{}', 'local-owner')
+            ",
+            params![
+                notice_id,
+                process_id,
+                format!("source-{notice_id}"),
+                format!("raw-{notice_id}")
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn seed_document_set(
+        conn: &Connection,
+        document_set_id: &str,
+        process_id: &str,
+        notice_id: &str,
+    ) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO tender_document_sets (
+              id, process_id, notice_id, document_set_hash, completeness_state, document_roles_json,
+              documents_json, acquired_at, owner_id
+            ) VALUES (?1, ?2, ?3, ?4, 'complete', ?5, ?6, '2026-03-25T00:00:00Z', 'local-owner')
+            ",
+            params![
+                document_set_id,
+                process_id,
+                notice_id,
+                format!("hash-{document_set_id}"),
+                json!([]).to_string(),
+                json!([]).to_string(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn insert_document_extraction(
+        conn: &Connection,
+        extraction_id: &str,
+        raw_document_id: &str,
+        process_id: &str,
+        notice_id: &str,
+        document_set_id: &str,
+        is_current: i64,
+    ) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO document_extractions (
+              id, raw_document_id, process_id, notice_id, document_set_id, source_content_hash,
+              extraction_engine, extraction_engine_version, processing_strategy, is_current,
+              page_count, extraction_policy_version, expected_overlays_json, extracted_markdown,
+              extracted_sections_json, extracted_tables_json, extracted_metadata_json, table_count,
+              section_count, owner_id
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'docling', '2.85.0', 'standard', ?7,
+                      3, '2026.04.12', ?8, ?9, ?10, ?11, ?12, 1, 2, 'local-owner')
+            ",
+            params![
+                extraction_id,
+                raw_document_id,
+                process_id,
+                notice_id,
+                document_set_id,
+                format!("hash-{extraction_id}"),
+                is_current,
+                json!(["pdf-extraction/tender-specification"]).to_string(),
+                "# Extracted markdown",
+                json!([
+                    {
+                        "heading": "Section 1",
+                        "page_start": 1
+                    }
+                ])
+                .to_string(),
+                json!([
+                    {
+                        "title": "Pricing table",
+                        "page": 2
+                    }
+                ])
+                .to_string(),
+                json!({
+                    "source": "test-fixture"
+                })
+                .to_string(),
+            ],
         )?;
         Ok(())
     }
@@ -564,6 +707,349 @@ mod tests {
             }
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn pdf_t_schema_activation_001_fresh_db_creates_pdf_extraction_tables_and_indexes() -> Result<()>
+    {
+        let state_db = TestStateDb::new()?;
+        let conn = state_db.connection();
+
+        for table_name in ["document_extractions", "document_semantic_extractions"] {
+            ensure!(
+                table_exists(conn, table_name)?,
+                "PDF-T-schema_activation-001 missing table {table_name}"
+            );
+        }
+
+        for index_name in [
+            "idx_doc_extraction_current",
+            "idx_doc_extraction_hash_lookup",
+            "idx_doc_extraction_process",
+            "idx_doc_extraction_semantic_state",
+            "idx_doc_semantic_extraction",
+            "idx_doc_semantic_process",
+            "idx_doc_semantic_current",
+        ] {
+            ensure!(
+                index_sql(conn, index_name)?.is_some(),
+                "PDF-T-schema_activation-001 missing index {index_name}"
+            );
+        }
+
+        let doc_extraction_current =
+            index_sql(conn, "idx_doc_extraction_current")?.unwrap_or_default();
+        ensure!(
+            doc_extraction_current.contains("CREATE UNIQUE INDEX"),
+            "PDF-T-schema_activation-001 current document extraction index must be unique"
+        );
+        ensure!(
+            doc_extraction_current.contains("WHERE is_current = 1"),
+            "PDF-T-schema_activation-001 current document extraction index must be partial"
+        );
+
+        let semantic_state_index =
+            index_sql(conn, "idx_doc_extraction_semantic_state")?.unwrap_or_default();
+        ensure!(
+            semantic_state_index
+                .contains("WHERE semantic_extraction_state IN ('pending', 'failed')"),
+            "PDF-T-schema_activation-001 semantic state index must target pending/failed rows"
+        );
+
+        let semantic_current = index_sql(conn, "idx_doc_semantic_current")?.unwrap_or_default();
+        ensure!(
+            semantic_current.contains("CREATE UNIQUE INDEX"),
+            "PDF-T-schema_activation-001 current semantic extraction index must be unique"
+        );
+        ensure!(
+            semantic_current.contains("WHERE is_current = 1"),
+            "PDF-T-schema_activation-001 current semantic extraction index must be partial"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn pdf_t_schema_activation_002_upgrade_path_applies_0006_cleanly() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let conn = Connection::open(&db_path)?;
+
+        for migration_path in [
+            "migrations/0001_sqlite_state_initial.sql",
+            "migrations/0003_sqlite_runtime.sql",
+            "migrations/0004_l2_pending_operator_intents.sql",
+            "migrations/0005_l3_operational_hardening.sql",
+        ] {
+            apply_migration(&conn, migration_path)?;
+        }
+        seed_applied_migrations(
+            &conn,
+            &[
+                "0001_sqlite_state_initial",
+                "0003_sqlite_runtime",
+                "0004_l2_pending_operator_intents",
+                "0005_l3_operational_hardening",
+            ],
+            2,
+        )?;
+        drop(conn);
+
+        let state_db = StateDb::open(&db_path)?;
+        let conn = state_db.connection();
+        let tender_document_columns = table_columns(conn, "tender_document_sets")?;
+        let pdf_migration_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM schema_migrations WHERE id = '0006_pdf_extraction_toolkit'",
+            [],
+            |row| row.get(0),
+        )?;
+
+        ensure!(
+            table_exists(conn, "document_extractions")?,
+            "PDF-T-schema_activation-002 expected document_extractions after upgrade"
+        );
+        ensure!(
+            table_exists(conn, "document_semantic_extractions")?,
+            "PDF-T-schema_activation-002 expected document_semantic_extractions after upgrade"
+        );
+        ensure!(
+            tender_document_columns
+                .iter()
+                .any(|column| column == "extraction_state"),
+            "PDF-T-schema_activation-002 expected extraction_state after upgrade"
+        );
+        ensure!(
+            pdf_migration_count == 1,
+            "PDF-T-schema_activation-002 expected 0006 migration log entry"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn pdf_t_schema_activation_003_document_extractions_columns_match_contract() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let columns = table_columns(state_db.connection(), "document_extractions")?;
+        let expected = vec![
+            "id",
+            "raw_document_id",
+            "process_id",
+            "notice_id",
+            "document_set_id",
+            "source_content_hash",
+            "extraction_engine",
+            "extraction_engine_version",
+            "processing_strategy",
+            "is_current",
+            "superseded_by_extraction_id",
+            "page_count",
+            "document_title",
+            "document_language",
+            "document_role",
+            "extraction_policy_version",
+            "expected_overlays_json",
+            "extracted_markdown",
+            "extracted_sections_json",
+            "extracted_tables_json",
+            "extracted_metadata_json",
+            "table_count",
+            "section_count",
+            "image_count",
+            "has_ocr_content",
+            "empty_page_count",
+            "quality_warnings_json",
+            "semantic_extraction_state",
+            "owner_id",
+            "row_version",
+            "last_local_seq",
+            "stage_run_id",
+            "updated_at",
+            "created_at",
+        ];
+
+        ensure!(
+            columns == expected,
+            "PDF-T-schema_activation-003 document_extractions columns diverged from contract"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn pdf_t_schema_activation_004_document_semantic_extractions_columns_match_contract()
+    -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let columns = table_columns(state_db.connection(), "document_semantic_extractions")?;
+        let expected = vec![
+            "id",
+            "document_extraction_id",
+            "process_id",
+            "skill_id",
+            "skill_version",
+            "job_id",
+            "session_id",
+            "extraction_scope",
+            "target_domain",
+            "is_current",
+            "superseded_by_semantic_extraction_id",
+            "extracted_data_json",
+            "field_confidences_json",
+            "extraction_confidence_bps",
+            "warnings_json",
+            "evidence_anchors_json",
+            "written_entity_refs_json",
+            "owner_id",
+            "row_version",
+            "last_local_seq",
+            "stage_run_id",
+            "updated_at",
+            "created_at",
+        ];
+
+        ensure!(
+            columns == expected,
+            "PDF-T-schema_activation-004 document_semantic_extractions columns diverged from contract"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn pdf_t_schema_activation_005_tender_document_sets_has_extraction_state_default_none()
+    -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let conn = state_db.connection();
+        seed_process(conn, "process-doc-set")?;
+        seed_notice(conn, "process-doc-set", "notice-doc-set")?;
+        seed_document_set(
+            conn,
+            "document-set-default",
+            "process-doc-set",
+            "notice-doc-set",
+        )?;
+
+        let extraction_state: String = conn.query_row(
+            "SELECT extraction_state FROM tender_document_sets WHERE id = ?1",
+            params!["document-set-default"],
+            |row| row.get(0),
+        )?;
+        ensure!(
+            extraction_state == "none",
+            "PDF-T-schema_activation-005 expected extraction_state default to none"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn pdf_t_schema_activation_006_document_extractions_current_index_is_unique() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let conn = state_db.connection();
+        seed_process(conn, "process-current")?;
+        seed_notice(conn, "process-current", "notice-current")?;
+        seed_document_set(
+            conn,
+            "document-set-current",
+            "process-current",
+            "notice-current",
+        )?;
+        insert_document_extraction(
+            conn,
+            "document-extraction-1",
+            "raw-document-current",
+            "process-current",
+            "notice-current",
+            "document-set-current",
+            1,
+        )?;
+
+        let duplicate = insert_document_extraction(
+            conn,
+            "document-extraction-2",
+            "raw-document-current",
+            "process-current",
+            "notice-current",
+            "document-set-current",
+            1,
+        );
+        ensure!(
+            duplicate.is_err(),
+            "PDF-T-schema_activation-006 expected duplicate current extraction to fail"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn pdf_t_schema_activation_007_document_extractions_has_no_fk_to_raw_documents() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let foreign_keys = foreign_key_targets(state_db.connection(), "document_extractions")?;
+        ensure!(
+            foreign_keys
+                .iter()
+                .all(|(from, target)| !(from == "raw_document_id" && target == "raw_documents")),
+            "PDF-T-schema_activation-007 document_extractions must not reference raw_documents"
+        );
+        ensure!(
+            foreign_keys
+                .iter()
+                .all(|(_, target)| target != "raw_documents"),
+            "PDF-T-schema_activation-007 document_extractions must not target raw_documents"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn pdf_t_schema_activation_008_document_semantic_extractions_has_no_fk_to_workflow_jobs_or_agent_session_logs()
+    -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let foreign_keys =
+            foreign_key_targets(state_db.connection(), "document_semantic_extractions")?;
+        ensure!(
+            foreign_keys
+                .iter()
+                .all(|(from, target)| !(from == "job_id" && target == "workflow_jobs")),
+            "PDF-T-schema_activation-008 document_semantic_extractions must not reference workflow_jobs"
+        );
+        ensure!(
+            foreign_keys
+                .iter()
+                .all(|(from, target)| !(from == "session_id" && target == "agent_session_logs")),
+            "PDF-T-schema_activation-008 document_semantic_extractions must not reference agent_session_logs"
+        );
+        ensure!(
+            foreign_keys
+                .iter()
+                .all(|(_, target)| target != "workflow_jobs" && target != "agent_session_logs"),
+            "PDF-T-schema_activation-008 document_semantic_extractions must not target local-only tables"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn pdf_t_schema_activation_009_default_schema_epoch_is_3() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let user_version: i64 =
+            state_db
+                .connection()
+                .pragma_query_value(None, "user_version", |row| row.get(0))?;
+        ensure!(
+            crate::support::db::DEFAULT_SCHEMA_EPOCH == 3,
+            "PDF-T-schema_activation-009 expected DEFAULT_SCHEMA_EPOCH to be 3"
+        );
+        ensure!(
+            user_version == 3,
+            "PDF-T-schema_activation-009 expected user_version to be 3"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn pdf_t_schema_activation_010_raw_documents_still_has_no_page_count_column() -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let raw_document_columns = table_columns(state_db.connection(), "raw_documents")?;
+        ensure!(
+            !raw_document_columns
+                .iter()
+                .any(|column| column == "page_count"),
+            "PDF-T-schema_activation-010 raw_documents must not grow a page_count column"
+        );
         Ok(())
     }
 }
