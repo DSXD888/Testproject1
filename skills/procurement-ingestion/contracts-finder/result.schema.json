@@ -19,23 +19,44 @@
         "type": "object",
         "required": [
           "notice_id",
+          "source_notice_id",
           "source_url",
           "title",
           "published_at",
           "source_updated_at",
           "ocid",
-          "language",
-          "stage"
+          "procurement_stage"
         ],
         "properties": {
           "notice_id": {
             "type": "string"
           },
+          "source_notice_id": {
+            "type": "string"
+          },
           "source_url": {
+            "type": "string"
+          },
+          "ocid": {
             "type": "string"
           },
           "title": {
             "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "buyer_name": {
+            "type": "string"
+          },
+          "procurement_stage": {
+            "type": "string"
+          },
+          "main_category": {
+            "type": "string"
+          },
+          "deadline_at": {
+            "type": ["string", "null"]
           },
           "published_at": {
             "type": "string"
@@ -43,17 +64,107 @@
           "source_updated_at": {
             "type": "string"
           },
-          "ocid": {
+          "estimated_value_low_pence": {
+            "type": ["integer", "null"]
+          },
+          "estimated_value_high_pence": {
+            "type": ["integer", "null"]
+          },
+          "estimated_value_currency": {
+            "type": ["string", "null"]
+          },
+          "access_route": {
             "type": "string"
           },
-          "language": {
+          "procurement_method": {
+            "type": ["string", "null"]
+          },
+          "raw_release_json": {
             "type": "string"
           },
-          "currency": {
-            "type": "string"
+          "lots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "lot_id": {
+                  "type": "string"
+                },
+                "source_lot_id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": ["string", "null"]
+                },
+                "description": {
+                  "type": ["string", "null"]
+                },
+                "estimated_value_pence": {
+                  "type": ["integer", "null"]
+                },
+                "deadline_at": {
+                  "type": ["string", "null"]
+                }
+              }
+            }
           },
-          "stage": {
-            "type": "string"
+          "buyer": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": ["string", "null"]
+              },
+              "identifier_scheme": {
+                "type": ["string", "null"]
+              },
+              "identifier_id": {
+                "type": ["string", "null"]
+              },
+              "contact_name": {
+                "type": ["string", "null"]
+              },
+              "contact_email": {
+                "type": ["string", "null"]
+              },
+              "contact_telephone": {
+                "type": ["string", "null"]
+              },
+              "address_locality": {
+                "type": ["string", "null"]
+              },
+              "address_region": {
+                "type": ["string", "null"]
+              },
+              "address_postal_code": {
+                "type": ["string", "null"]
+              }
+            }
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "document_type": {
+                  "type": ["string", "null"]
+                },
+                "url": {
+                  "type": ["string", "null"]
+                },
+                "description": {
+                  "type": ["string", "null"]
+                }
+              }
+            }
+          },
+          "cpv_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }

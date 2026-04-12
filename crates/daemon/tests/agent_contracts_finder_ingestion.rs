@@ -167,7 +167,7 @@ fn ag_cf_001_skill_directory_contains_the_full_contracts_finder_skill_package() 
 
     ensure!(linted.metadata.skill_id == "procurement-ingestion/contracts-finder");
     ensure!(linted.metadata.interaction_profile == "pty_interactive");
-    ensure!(linted.metadata.max_pages == Some(5));
+    ensure!(linted.metadata.max_pages == Some(10));
     ensure!(linted.metadata.max_scroll_cycles == Some(2));
     Ok(())
 }

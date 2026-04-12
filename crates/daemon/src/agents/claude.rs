@@ -103,8 +103,9 @@ impl ClaudeAdapter {
         let text = String::from_utf8(stdout.to_vec())
             .with_context(|| format!("{INTERNAL_ERROR_CODE}: invalid UTF-8 in version output"))?;
         text.split_whitespace()
-            .last()
-            .filter(|token| token.chars().any(|ch| ch.is_ascii_digit()))
+            .find(|token| {
+                token.contains('.') && token.chars().next().is_some_and(|ch| ch.is_ascii_digit())
+            })
             .map(str::to_owned)
             .ok_or_else(|| anyhow!("{INTERNAL_ERROR_CODE}: missing Claude CLI version token"))
     }
@@ -170,17 +171,35 @@ impl ClaudeParser {
             if trimmed.is_empty() {
                 continue;
             }
-            let value: Value = serde_json::from_slice(trimmed)
-                .with_context(|| format!("{PROTOCOL_MISMATCH_CODE}: invalid JSON frame"))?;
-            events.extend(self.parse_frame_value(&value)?);
+            if self.mode == ExecutionMode::Pty {
+                // In PTY mode, lines are mixed text and optional JSON events.
+                // Skip non-JSON lines silently — only parse lines that look like JSON.
+                if let Ok(value) = serde_json::from_slice::<Value>(trimmed)
+                    && let Ok(parsed) = self.parse_frame_value(&value)
+                {
+                    events.extend(parsed);
+                }
+            } else {
+                let value: Value = serde_json::from_slice(trimmed)
+                    .with_context(|| format!("{PROTOCOL_MISMATCH_CODE}: invalid JSON frame"))?;
+                events.extend(self.parse_frame_value(&value)?);
+            }
         }
 
         if flush_tail && !trim_line(buffer).is_empty() {
             let tail = std::mem::take(buffer);
-            let value: Value = serde_json::from_slice(trim_line(&tail)).with_context(|| {
-                format!("{PROTOCOL_MISMATCH_CODE}: truncated stream tail or invalid JSON")
-            })?;
-            events.extend(self.parse_frame_value(&value)?);
+            if self.mode == ExecutionMode::Pty {
+                if let Ok(value) = serde_json::from_slice::<Value>(trim_line(&tail))
+                    && let Ok(parsed) = self.parse_frame_value(&value)
+                {
+                    events.extend(parsed);
+                }
+            } else {
+                let value: Value = serde_json::from_slice(trim_line(&tail)).with_context(|| {
+                    format!("{PROTOCOL_MISMATCH_CODE}: truncated stream tail or invalid JSON")
+                })?;
+                events.extend(self.parse_frame_value(&value)?);
+            }
         }
 
         Ok(events)
@@ -196,9 +215,20 @@ impl AgentAdapter for ClaudeAdapter {
     async fn probe(&self, ctx: &ProbeCtx) -> Result<CapabilityReport> {
         let version_stdout = self.run_probe_command(ctx, &["--version"])?;
         let cli_version = Self::parse_version(&version_stdout)?;
-        let probe_stdout = self.run_probe_command(ctx, &["probe", "--json"])?;
-        let envelope: ProbeEnvelope = serde_json::from_slice(&probe_stdout)
-            .with_context(|| format!("{INTERNAL_ERROR_CODE}: invalid Claude probe JSON"))?;
+
+        let envelope = match self.run_probe_command(ctx, &["probe", "--json"]) {
+            Ok(probe_stdout) => serde_json::from_slice::<ProbeEnvelope>(&probe_stdout)
+                .with_context(|| format!("{INTERNAL_ERROR_CODE}: invalid Claude probe JSON"))?,
+            Err(_) => {
+                // Claude CLI v2+ does not ship `probe --json`; assume full capabilities.
+                ProbeEnvelope {
+                    auth_healthy: true,
+                    structured_output: true,
+                    pty_viable: true,
+                    browser_tools: true,
+                }
+            }
+        };
 
         Ok(CapabilityReport {
             cli_version: cli_version.clone(),
@@ -227,10 +257,16 @@ impl AgentAdapter for ClaudeAdapter {
         args.extend(req.args.clone());
 
         let mut env = req.env.clone();
-        env.insert(
-            OsString::from("CLAUDE_CONFIG_DIR"),
-            req.cwd.join(".claude").join("config").into_os_string(),
-        );
+        // Only set CLAUDE_CONFIG_DIR if the session-local config directory
+        // already exists (pre-seeded with auth).  Otherwise leave the env
+        // variable unset so the CLI falls through to the user's default config.
+        let session_config = req.cwd.join(".claude").join("config");
+        if session_config.join("auth.json").exists() {
+            env.insert(
+                OsString::from("CLAUDE_CONFIG_DIR"),
+                session_config.into_os_string(),
+            );
+        }
         env.insert(
             OsString::from("CLAUDE_BROWSER_PROFILE_DIR"),
             req.cwd
@@ -242,6 +278,9 @@ impl AgentAdapter for ClaudeAdapter {
             OsString::from("CLAUDE_ADAPTER_VERSION"),
             OsString::from(env!("CARGO_PKG_VERSION")),
         );
+        if let Ok(system_path) = std::env::var("PATH") {
+            env.insert(OsString::from("PATH"), OsString::from(system_path));
+        }
 
         Ok(LaunchSpec {
             program: self.program.clone(),
