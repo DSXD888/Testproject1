@@ -723,6 +723,21 @@ fn test_cascade_parent_child_linkage() -> Result<()> {
         |row| row.get(0),
     )?;
     ensure!(linked_count == 2);
+    let continuation_link_count: i64 = conn.query_row(
+        "\
+        SELECT COUNT(*)
+        FROM workflow_jobs
+        WHERE parent_job_id = ?1
+          AND kind = 'extract_document_semantics'
+          AND continuation_chain_id IS NOT NULL
+        ",
+        params!["job-struct-3"],
+        |row| row.get(0),
+    )?;
+    ensure!(
+        continuation_link_count == 0,
+        "cross-skill cascade must not use continuation_chain_id"
+    );
     Ok(())
 }
 
@@ -828,6 +843,49 @@ fn test_cascade_chunk_plan_enqueues_merge_job_when_budget_exceeded() -> Result<(
     ensure!(scopes.iter().any(|scope| scope == "chunk:plan-123:0"));
     ensure!(scopes.iter().any(|scope| scope == "chunk:plan-123:1"));
     ensure!(scopes.iter().any(|scope| scope == "chunk_merged:plan-123"));
+    Ok(())
+}
+
+#[test]
+fn test_cascade_structural_failure() -> Result<()> {
+    let harness = CascadeHarness::new()?;
+    harness.seed_process("proc-struct-fail")?;
+    harness.seed_raw_document("raw-struct-fail")?;
+    harness.seed_notice("proc-struct-fail", "notice-struct-fail", "raw-struct-fail")?;
+    harness.seed_document_set(
+        "proc-struct-fail",
+        "notice-struct-fail",
+        "docset-struct-fail",
+    )?;
+    harness.overwrite_pdf_bytes(b"")?;
+    harness.seed_extract_job(&ExtractJobSpec {
+        job_id: "job-struct-fail",
+        process_id: "proc-struct-fail",
+        raw_document_id: "raw-struct-fail",
+        notice_id: Some("notice-struct-fail"),
+        document_set_id: Some("docset-struct-fail"),
+        document_role: Some("technical_specification"),
+        expected_overlays: &["pdf-extraction/tender-specification"],
+        chunk_plan: None,
+    })?;
+
+    let run = harness.run_next_job()?;
+    ensure!(!run.success, "structural failure should fail the worker");
+    ensure!(
+        run.stderr.contains("EXTRACTION_EMPTY_PDF"),
+        "stderr: {}",
+        run.stderr
+    );
+
+    let conn = harness.connection()?;
+    ensure!(job_status(&conn, "job-struct-fail")? == "failed");
+    ensure!(child_job_count(&conn, "job-struct-fail")? == 0);
+    let extraction_rows: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM document_extractions WHERE process_id = ?1",
+        params!["proc-struct-fail"],
+        |row| row.get(0),
+    )?;
+    ensure!(extraction_rows == 0);
     Ok(())
 }
 
@@ -1128,5 +1186,21 @@ fn test_partial_document_set_only_enqueues_available_raw_documents() -> Result<(
     ))?;
     ensure!(semantic.success, "stderr: {}", semantic.stderr);
     ensure!(document_set_extraction_state(&conn, "docset-partial-set")? == "complete");
+    Ok(())
+}
+
+#[test]
+fn test_procurement_ingestion_regression() -> Result<()> {
+    let main_rs_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/main.rs");
+    let main_rs = fs::read_to_string(&main_rs_path)
+        .with_context(|| format!("reading {}", main_rs_path.display()))?;
+    ensure!(
+        main_rs.contains(".starts_with(\"procurement-ingestion/\")"),
+        "manual skill runner lost procurement-ingestion persistence branch"
+    );
+    ensure!(
+        main_rs.contains(".starts_with(\"pdf-extraction/\")"),
+        "manual skill runner lost pdf-extraction persistence branch"
+    );
     Ok(())
 }
