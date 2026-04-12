@@ -20,6 +20,12 @@ use crate::errors_markdown_impl as markdown;
 pub enum ErrorCode {
     SourceChanged,
     NoticeParseFailed,
+    ExtractionEncryptedPdf,
+    ExtractionEmptyPdf,
+    ExtractionCorruptPdf,
+    ExtractionEngineUnavailable,
+    ExtractionTimeout,
+    ExtractionOom,
     GoodsClassificationLowConfidence,
     SupplierMatchLowConfidence,
     CommodityCodeLowConfidence,
@@ -54,6 +60,12 @@ impl ErrorCode {
         match self {
             Self::SourceChanged => "SOURCE_CHANGED",
             Self::NoticeParseFailed => "NOTICE_PARSE_FAILED",
+            Self::ExtractionEncryptedPdf => "EXTRACTION_ENCRYPTED_PDF",
+            Self::ExtractionEmptyPdf => "EXTRACTION_EMPTY_PDF",
+            Self::ExtractionCorruptPdf => "EXTRACTION_CORRUPT_PDF",
+            Self::ExtractionEngineUnavailable => "EXTRACTION_ENGINE_UNAVAILABLE",
+            Self::ExtractionTimeout => "EXTRACTION_TIMEOUT",
+            Self::ExtractionOom => "EXTRACTION_OOM",
             Self::GoodsClassificationLowConfidence => "GOODS_CLASSIFICATION_LOW_CONFIDENCE",
             Self::SupplierMatchLowConfidence => "SUPPLIER_MATCH_LOW_CONFIDENCE",
             Self::CommodityCodeLowConfidence => "COMMODITY_CODE_LOW_CONFIDENCE",
@@ -332,10 +344,16 @@ fn write_markdown(path: &Path, markdown: &str) -> Result<()> {
     Ok(())
 }
 
-fn parse_error_code(raw: &str) -> Result<ErrorCode> {
+pub fn parse_error_code(raw: &str) -> Result<ErrorCode> {
     let code = match raw {
         "SOURCE_CHANGED" => ErrorCode::SourceChanged,
         "NOTICE_PARSE_FAILED" => ErrorCode::NoticeParseFailed,
+        "EXTRACTION_ENCRYPTED_PDF" => ErrorCode::ExtractionEncryptedPdf,
+        "EXTRACTION_EMPTY_PDF" => ErrorCode::ExtractionEmptyPdf,
+        "EXTRACTION_CORRUPT_PDF" => ErrorCode::ExtractionCorruptPdf,
+        "EXTRACTION_ENGINE_UNAVAILABLE" => ErrorCode::ExtractionEngineUnavailable,
+        "EXTRACTION_TIMEOUT" => ErrorCode::ExtractionTimeout,
+        "EXTRACTION_OOM" => ErrorCode::ExtractionOom,
         "GOODS_CLASSIFICATION_LOW_CONFIDENCE" => ErrorCode::GoodsClassificationLowConfidence,
         "SUPPLIER_MATCH_LOW_CONFIDENCE" => ErrorCode::SupplierMatchLowConfidence,
         "COMMODITY_CODE_LOW_CONFIDENCE" => ErrorCode::CommodityCodeLowConfidence,

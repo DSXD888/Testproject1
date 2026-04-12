@@ -52,6 +52,12 @@ mod tests {
         vec![
             ErrorCode::SourceChanged.as_str(),
             ErrorCode::NoticeParseFailed.as_str(),
+            ErrorCode::ExtractionEncryptedPdf.as_str(),
+            ErrorCode::ExtractionEmptyPdf.as_str(),
+            ErrorCode::ExtractionCorruptPdf.as_str(),
+            ErrorCode::ExtractionEngineUnavailable.as_str(),
+            ErrorCode::ExtractionTimeout.as_str(),
+            ErrorCode::ExtractionOom.as_str(),
             ErrorCode::GoodsClassificationLowConfidence.as_str(),
             ErrorCode::SupplierMatchLowConfidence.as_str(),
             ErrorCode::CommodityCodeLowConfidence.as_str(),

@@ -194,6 +194,12 @@ mod tests {
         vec![
             ErrorCode::SourceChanged.as_str(),
             ErrorCode::NoticeParseFailed.as_str(),
+            ErrorCode::ExtractionEncryptedPdf.as_str(),
+            ErrorCode::ExtractionEmptyPdf.as_str(),
+            ErrorCode::ExtractionCorruptPdf.as_str(),
+            ErrorCode::ExtractionEngineUnavailable.as_str(),
+            ErrorCode::ExtractionTimeout.as_str(),
+            ErrorCode::ExtractionOom.as_str(),
             ErrorCode::GoodsClassificationLowConfidence.as_str(),
             ErrorCode::SupplierMatchLowConfidence.as_str(),
             ErrorCode::CommodityCodeLowConfidence.as_str(),
@@ -636,6 +642,12 @@ mod tests {
         let expected = vec![
             "SOURCE_CHANGED",
             "NOTICE_PARSE_FAILED",
+            "EXTRACTION_ENCRYPTED_PDF",
+            "EXTRACTION_EMPTY_PDF",
+            "EXTRACTION_CORRUPT_PDF",
+            "EXTRACTION_ENGINE_UNAVAILABLE",
+            "EXTRACTION_TIMEOUT",
+            "EXTRACTION_OOM",
             "GOODS_CLASSIFICATION_LOW_CONFIDENCE",
             "SUPPLIER_MATCH_LOW_CONFIDENCE",
             "COMMODITY_CODE_LOW_CONFIDENCE",
@@ -668,8 +680,8 @@ mod tests {
             "L3-T-observability_telemetry-012 expected exact ErrorCode inventory"
         );
         ensure!(
-            inventory.len() == 28,
-            "L3-T-observability_telemetry-012 expected exactly 28 error codes"
+            inventory.len() == 34,
+            "L3-T-observability_telemetry-012 expected exactly 34 error codes"
         );
 
         let logical_canary_mapping = vec![
@@ -873,9 +885,21 @@ mod tests {
             "CI-L3-007 every HealthIssue code should map to the ErrorCode inventory"
         );
         ensure!(
-            error_codes.len() == 28,
+            error_codes.len() == 34,
             "CI-L3-007 expected exact ErrorCode inventory coverage count"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_error_code_roundtrip() -> Result<()> {
+        for code in error_inventory() {
+            let parsed = crate::errors_manifest_impl::parse_error_code(code)?;
+            ensure!(
+                parsed.as_str() == code,
+                "expected roundtrip for error code `{code}`"
+            );
+        }
         Ok(())
     }
 

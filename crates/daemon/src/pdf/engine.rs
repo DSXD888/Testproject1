@@ -3,6 +3,7 @@
 use std::ffi::OsString;
 use std::fs;
 use std::io::ErrorKind;
+use std::os::unix::process::ExitStatusExt;
 use std::path::PathBuf;
 use std::process::{Command as StdCommand, Stdio};
 
@@ -16,6 +17,13 @@ use tokio::fs::{self as tokio_fs, File};
 use tokio::process::{Child, Command};
 use tokio::time::{Duration, timeout};
 use uuid::Uuid;
+
+const EXTRACTION_ENCRYPTED_PDF: &str = "EXTRACTION_ENCRYPTED_PDF";
+const EXTRACTION_EMPTY_PDF: &str = "EXTRACTION_EMPTY_PDF";
+const EXTRACTION_CORRUPT_PDF: &str = "EXTRACTION_CORRUPT_PDF";
+const EXTRACTION_ENGINE_UNAVAILABLE: &str = "EXTRACTION_ENGINE_UNAVAILABLE";
+const EXTRACTION_TIMEOUT: &str = "EXTRACTION_TIMEOUT";
+const EXTRACTION_OOM: &str = "EXTRACTION_OOM";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProcessingStrategy {
@@ -140,6 +148,10 @@ impl PdfExtractionEngine {
     }
 
     pub async fn extract(&self, input: PdfInput) -> Result<ExtractionResult> {
+        let source_bytes = tokio_fs::read(&input.source_path)
+            .await
+            .with_context(|| format!("reading PDF bytes from {}", input.source_path.display()))?;
+        validate_source_pdf_bytes(&source_bytes)?;
         self.ensure_runtime_ready()?;
 
         let scratch_dir = scratch_dir();
@@ -191,10 +203,13 @@ impl PdfExtractionEngine {
             status.context("waiting for Docling wrapper")?
         } else {
             terminate_process_group(&mut child, Duration::from_secs(5)).await?;
-            bail!(
-                "Docling wrapper timed out after {}s; stderr captured at {}",
-                self.config.wall_clock_timeout_secs,
-                stderr_path.display()
+            return extraction_error(
+                EXTRACTION_TIMEOUT,
+                &format!(
+                    "Docling wrapper timed out after {}s; stderr captured at {}",
+                    self.config.wall_clock_timeout_secs,
+                    stderr_path.display()
+                ),
             );
         };
 
@@ -202,16 +217,17 @@ impl PdfExtractionEngine {
             let stderr = tokio_fs::read_to_string(&stderr_path)
                 .await
                 .unwrap_or_default();
-            bail!(
-                "Docling wrapper failed with status {:?}: {}",
-                status.code(),
-                stderr.trim()
+            let code = classify_failed_wrapper_status(status, stderr.trim());
+            return extraction_error(
+                code,
+                &format!(
+                    "Docling wrapper failed with status {:?}: {}",
+                    status.code(),
+                    stderr.trim()
+                ),
             );
         }
 
-        let source_bytes = tokio_fs::read(&input.source_path)
-            .await
-            .with_context(|| format!("reading PDF bytes from {}", input.source_path.display()))?;
         let source_hash = compute_source_hash(&source_bytes);
 
         let output_text = tokio_fs::read_to_string(&output_path)
@@ -220,7 +236,9 @@ impl PdfExtractionEngine {
         let payload: Value =
             serde_json::from_str(&output_text).context("parsing Docling wrapper JSON output")?;
 
-        parse_extraction_result(&payload, source_hash, input.processing_strategy)
+        let result = parse_extraction_result(&payload, source_hash, input.processing_strategy)?;
+        validate_extraction_result(&result)?;
+        Ok(result)
     }
 
     pub async fn extract_batch(&self, inputs: Vec<PdfInput>) -> Vec<Result<ExtractionResult>> {
@@ -271,19 +289,28 @@ impl PdfExtractionEngine {
 
     fn ensure_runtime_ready(&self) -> Result<()> {
         if !self.wrapper_exists()? {
-            bail!(
-                "Docling wrapper script is unavailable at {}",
-                self.config.docling_wrapper_path.display()
+            return extraction_error(
+                EXTRACTION_ENGINE_UNAVAILABLE,
+                &format!(
+                    "Docling wrapper script is unavailable at {}",
+                    self.config.docling_wrapper_path.display()
+                ),
             );
         }
         if !self.artifacts_dir_exists()? {
-            bail!(
-                "Docling model artifacts directory is unavailable at {}",
-                self.config.model_artifacts_path.display()
+            return extraction_error(
+                EXTRACTION_ENGINE_UNAVAILABLE,
+                &format!(
+                    "Docling model artifacts directory is unavailable at {}",
+                    self.config.model_artifacts_path.display()
+                ),
             );
         }
         if Self::probe_docling_version()?.is_none() {
-            bail!("Docling runtime probe failed or docling is not installed");
+            return extraction_error(
+                EXTRACTION_ENGINE_UNAVAILABLE,
+                "Docling runtime probe failed or docling is not installed",
+            );
         }
         Ok(())
     }
@@ -301,6 +328,40 @@ fn scratch_dir() -> PathBuf {
     let mut dir = std::env::temp_dir();
     dir.push(OsString::from(format!("daemon-pdf-{}", Uuid::new_v4())));
     dir
+}
+
+fn extraction_error<T>(code: &str, detail: &str) -> Result<T> {
+    bail!("{code}: {detail}");
+}
+
+fn validate_source_pdf_bytes(bytes: &[u8]) -> Result<()> {
+    if bytes.is_empty() || bytes.iter().all(u8::is_ascii_whitespace) {
+        return extraction_error(EXTRACTION_EMPTY_PDF, "input PDF bytes are empty");
+    }
+    if is_encrypted_pdf(bytes) {
+        return extraction_error(
+            EXTRACTION_ENCRYPTED_PDF,
+            "input PDF appears to be encrypted",
+        );
+    }
+    Ok(())
+}
+
+fn is_encrypted_pdf(bytes: &[u8]) -> bool {
+    bytes
+        .windows("/Encrypt".len())
+        .any(|window| window == b"/Encrypt")
+}
+
+fn classify_failed_wrapper_status(status: std::process::ExitStatus, stderr: &str) -> &'static str {
+    if status.code() == Some(137) || status.signal() == Some(9) {
+        return EXTRACTION_OOM;
+    }
+    if stderr.contains("No such file or directory") || stderr.contains("docling import unavailable")
+    {
+        return EXTRACTION_ENGINE_UNAVAILABLE;
+    }
+    EXTRACTION_CORRUPT_PDF
 }
 
 #[must_use]
@@ -580,6 +641,22 @@ fn parse_extraction_result(
         engine_version,
         processing_strategy,
     })
+}
+
+fn validate_extraction_result(result: &ExtractionResult) -> Result<()> {
+    let zero_metrics = result.page_count == 0
+        || (result.quality.table_count == 0
+            && result.quality.section_count == 0
+            && result.quality.image_count == 0
+            && result.quality.empty_page_count == 0
+            && result.extracted_markdown.trim().is_empty());
+    if zero_metrics {
+        return extraction_error(
+            EXTRACTION_EMPTY_PDF,
+            "Docling returned zero extraction metrics for the input PDF",
+        );
+    }
+    Ok(())
 }
 
 async fn terminate_process_group(child: &mut Child, grace_period: Duration) -> Result<()> {
