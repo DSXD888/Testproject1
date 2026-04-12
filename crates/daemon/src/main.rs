@@ -1275,7 +1275,7 @@ async fn run_extract_document_structure_job(
             )?;
             StructuralExtractionDispatchOutcome {
                 document_extraction_id: row.extraction_id,
-                stage_run_id: row.stage_run_id.clone(),
+                stage_run_id: row.stage_run_id,
                 semantic_extraction_state,
                 expected_overlays,
                 enqueued_semantic_job_ids,

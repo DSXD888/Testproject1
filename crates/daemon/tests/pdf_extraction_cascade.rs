@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use tempfile::TempDir;
 
 use crate::support::db::StateDb;
-use crate::support::pdf::{sample_docling_output, sample_pdf_bytes};
+use crate::support::pdf::{sample_docling_output, sample_pdf_bytes, sample_semantic_result};
 
 struct CascadeHarness {
     _temp: TempDir,
@@ -31,6 +31,10 @@ struct RunResult {
     stdout: String,
     stderr: String,
     success: bool,
+}
+
+struct FakeClaudeCli {
+    program: PathBuf,
 }
 
 struct ExtractJobSpec<'a> {
@@ -264,6 +268,61 @@ with open(args.output, "w", encoding="utf-8") as handle:
         })
     }
 
+    fn prepare_fake_claude(&self, result_payload: &Value) -> Result<FakeClaudeCli> {
+        let state_dir = self.state_root.join("fake-claude");
+        fs::create_dir_all(&state_dir)?;
+        let probe_json = state_dir.join("probe.json");
+        fs::write(
+            &probe_json,
+            serde_json::to_vec_pretty(&json!({
+                "auth_healthy": true,
+                "structured_output": true,
+                "pty_viable": true,
+                "browser_tools": true
+            }))?,
+        )?;
+        let result_source = state_dir.join("result-source.json");
+        fs::write(&result_source, serde_json::to_vec_pretty(result_payload)?)?;
+        let program = state_dir.join("claude");
+        fs::write(
+            &program,
+            format!(
+                "#!/bin/sh\nset -eu\nstate_dir=\"{}\"\nif [ \"${{1-}}\" = \"--version\" ] || [ \"${{1-}}\" = \"-v\" ]; then\n  printf 'claude 1.2.3\\n'\n  exit 0\nfi\nif [ \"${{1-}}\" = \"probe\" ]; then\n  cat \"$state_dir/probe.json\"\n  exit 0\nfi\nmode=pty\nfor arg in \"$@\"; do\n  if [ \"$arg\" = \"--output-format\" ]; then\n    mode=contract\n    break\n  fi\ndone\nif [ \"$mode\" = contract ]; then\n  cp \"$state_dir/result-source.json\" \"$PWD/result.json\"\n  printf '{{\"event\":\"result\",\"path\":\"%s/result.json\"}}\\n' \"$PWD\"\nelse\n  printf 'unexpected pty mode\\n' >&2\n  exit 1\nfi\n",
+                state_dir.display()
+            ),
+        )?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&program)?.permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&program, perms)?;
+        }
+        Ok(FakeClaudeCli { program })
+    }
+
+    fn run_next_job_with_claude_result(&self, result_payload: &Value) -> Result<RunResult> {
+        let fake_claude = self.prepare_fake_claude(result_payload)?;
+        let output = Command::cargo_bin("daemon")?
+            .arg("--run-next-job")
+            .arg("--state-root")
+            .arg(&self.state_root)
+            .arg("--runtime-dir")
+            .arg(&self.runtime_root)
+            .arg("--artifact-root")
+            .arg(&self.artifact_root)
+            .env("PYTHONPATH", &self.pythonpath_root)
+            .env("DAEMON_CLAUDE_PROGRAM", &fake_claude.program)
+            .output()
+            .context("running daemon --run-next-job with fake Claude")?;
+
+        Ok(RunResult {
+            stdout: String::from_utf8(output.stdout).context("decoding stdout")?,
+            stderr: String::from_utf8(output.stderr).context("decoding stderr")?,
+            success: output.status.success(),
+        })
+    }
+
     fn connection(&self) -> Result<Connection> {
         Connection::open(&self.db_path)
             .with_context(|| format!("opening {}", self.db_path.display()))
@@ -295,6 +354,40 @@ fn child_job_count(conn: &Connection, parent_job_id: &str) -> Result<i64> {
         |row| row.get(0),
     )
     .context("counting semantic child jobs")
+}
+
+fn latest_semantic_job_id(conn: &Connection, parent_job_id: &str) -> Result<String> {
+    conn.query_row(
+        "\
+        SELECT id
+        FROM workflow_jobs
+        WHERE parent_job_id = ?1
+          AND kind = 'extract_document_semantics'
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+        ",
+        params![parent_job_id],
+        |row| row.get(0),
+    )
+    .context("loading latest semantic child job id")
+}
+
+fn latest_semantic_row(
+    conn: &Connection,
+    document_extraction_id: &str,
+) -> Result<(String, String, String)> {
+    conn.query_row(
+        "\
+        SELECT skill_id, target_domain, extraction_scope
+        FROM document_semantic_extractions
+        WHERE document_extraction_id = ?1
+        ORDER BY rowid DESC
+        LIMIT 1
+        ",
+        params![document_extraction_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    )
+    .context("loading latest document_semantic_extractions row")
 }
 
 fn latest_document_extraction(
@@ -456,5 +549,61 @@ fn test_cascade_parent_child_linkage() -> Result<()> {
         |row| row.get(0),
     )?;
     ensure!(linked_count == 2);
+    Ok(())
+}
+
+#[test]
+fn test_cascade_semantic_persistence_happy_path() -> Result<()> {
+    let harness = CascadeHarness::new()?;
+    harness.seed_process("proc-semantic-run")?;
+    harness.seed_raw_document("raw-semantic-run")?;
+    harness.seed_notice(
+        "proc-semantic-run",
+        "notice-semantic-run",
+        "raw-semantic-run",
+    )?;
+    harness.seed_document_set(
+        "proc-semantic-run",
+        "notice-semantic-run",
+        "docset-semantic-run",
+    )?;
+    harness.seed_extract_job(&ExtractJobSpec {
+        job_id: "job-struct-semantic",
+        process_id: "proc-semantic-run",
+        raw_document_id: "raw-semantic-run",
+        notice_id: Some("notice-semantic-run"),
+        document_set_id: Some("docset-semantic-run"),
+        document_role: Some("technical_specification"),
+        expected_overlays: &["pdf-extraction/tender-specification"],
+    })?;
+
+    let structural = harness.run_next_job()?;
+    ensure!(structural.success, "stderr: {}", structural.stderr);
+
+    let semantic = harness.run_next_job_with_claude_result(&sample_semantic_result(
+        "pdf-extraction/tender-specification",
+    ))?;
+    ensure!(semantic.success, "stderr: {}", semantic.stderr);
+
+    let conn = harness.connection()?;
+    let semantic_job_id = latest_semantic_job_id(&conn, "job-struct-semantic")?;
+    ensure!(job_status(&conn, &semantic_job_id)? == "completed");
+
+    let output = job_output(&conn, "job-struct-semantic")?;
+    let document_extraction_id = output["result"]["document_extraction_id"]
+        .as_str()
+        .ok_or_else(|| anyhow!("missing document_extraction_id"))?;
+    let (skill_id, target_domain, extraction_scope) =
+        latest_semantic_row(&conn, document_extraction_id)?;
+    ensure!(skill_id == "pdf-extraction/tender-specification");
+    ensure!(target_domain == "lots");
+    ensure!(extraction_scope == "full_document");
+
+    let semantic_state: String = conn.query_row(
+        "SELECT semantic_extraction_state FROM document_extractions WHERE id = ?1",
+        params![document_extraction_id],
+        |row| row.get(0),
+    )?;
+    ensure!(semantic_state == "complete");
     Ok(())
 }
