@@ -176,7 +176,7 @@ use pty::session::{PtyCommand, PtySession, RuntimeIds as PtyRuntimeIds, SpawnOpt
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use scheduler::cron::CronScheduler;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 use sessions::reaper::{CrashRecoveryContext, SessionReaper};
 use sha2::{Digest, Sha256};
 use sources::registry::{HealthState as RuntimeHealthState, SourceRegistry};
@@ -6272,35 +6272,56 @@ fn persist_semantic_domain_writes(
     context: &SemanticDomainWriteContext<'_>,
     result_json: &Value,
 ) -> Result<Vec<Value>> {
-    if context.skill_id != "pdf-extraction/tender-specification" {
-        return Ok(Vec::new());
-    }
     let Some(notice_id) = context.notice_id else {
         return Ok(Vec::new());
     };
 
+    match context.skill_id {
+        "pdf-extraction/tender-specification" => {
+            persist_tender_spec_domain_writes(tx, context, notice_id, result_json)
+        }
+        "pdf-extraction/pricing-schedule" => {
+            persist_pricing_overlay_domain_writes(tx, context, notice_id, result_json)
+        }
+        "pdf-extraction/bill-of-quantities" => {
+            persist_quantity_overlay_domain_writes(tx, context, notice_id, result_json)
+        }
+        _ => Ok(Vec::new()),
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn persist_tender_spec_domain_writes(
+    tx: &Transaction<'_>,
+    context: &SemanticDomainWriteContext<'_>,
+    notice_id: &str,
+    result_json: &Value,
+) -> Result<Vec<Value>> {
     let mut refs = Vec::new();
     let lots = required_array_at(result_json, &["lots"], "lots")?;
     for lot in lots {
         let lot_number_text =
             required_string_at(lot, &["lot_number"], "lots[].lot_number")?.to_owned();
-        let lot_id = format!(
-            "{}-lot-{}",
-            context.document_extraction_id,
-            slug_token(&lot_number_text)
-        );
+        let lot_id = resolve_notice_lot_id(tx, notice_id, &lot_number_text)?;
         let title = optional_string_at(lot, &["title"]).unwrap_or_default();
         let description = optional_string_at(lot, &["description"]);
+        let documents_json = json!([build_document_derived_evidence(
+            "pdf-extraction/tender-specification",
+            context.document_extraction_id,
+            lot.get("evidence_anchor").cloned(),
+        )])
+        .to_string();
 
         tx.execute(
             "\
             INSERT INTO notice_lots (
-              id, notice_id, source_lot_id, lot_key, lot_number, title, description,
+              id, notice_id, source_lot_id, lot_key, lot_number, title, description, documents,
               owner_id, row_version, last_local_seq, stage_run_id
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, ?10)
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 1, ?10, ?11)
             ON CONFLICT(id) DO UPDATE SET
               title = excluded.title,
               description = excluded.description,
+              documents = excluded.documents,
               row_version = notice_lots.row_version + 1,
               last_local_seq = excluded.last_local_seq,
               stage_run_id = excluded.stage_run_id,
@@ -6314,6 +6335,7 @@ fn persist_semantic_domain_writes(
                 parse_optional_lot_number(&lot_number_text),
                 title,
                 description,
+                documents_json,
                 DEFAULT_OWNER_ID,
                 context.visible_after_seq,
                 context.stage_run_id,
@@ -6323,25 +6345,28 @@ fn persist_semantic_domain_writes(
 
         for seed in lot_product_requirement_seeds(result_json, &lot_number_text) {
             let candidate_key = seed_key(seed);
-            let candidate_id = format!(
-                "{}-candidate-{}",
-                context.document_extraction_id,
-                slug_token(&candidate_key)
-            );
+            let candidate_id = format!("{lot_id}-candidate-{}", slug_token(&candidate_key));
             let candidate_name = seed_name(seed);
             let head_noun = candidate_name
                 .split_whitespace()
                 .next()
                 .map_or_else(|| "item".to_owned(), str::to_ascii_lowercase);
+            let source_evidence_json = json!([build_document_derived_evidence(
+                "pdf-extraction/tender-specification",
+                context.document_extraction_id,
+                seed.get("evidence_anchor").cloned(),
+            )])
+            .to_string();
             tx.execute(
                 "\
                 INSERT INTO product_candidates (
                   id, process_id, notice_id, lot_id, candidate_key, name, candidate_type, match_archetype,
                   head_noun, quantity, quantity_unit, specification_text, standards_json,
-                  source_evidence_json, owner_id, row_version, last_local_seq, stage_run_id
+                  source_evidence_json, spec_confidence_bps, quantity_confidence_bps,
+                  owner_id, row_version, last_local_seq, stage_run_id
                 ) VALUES (
                   ?1, ?2, ?3, ?4, ?5, ?6, 'sku', 'direct_match', ?7, ?8, ?9, ?10, ?11, ?12,
-                  ?13, 1, ?14, ?15
+                  9200, 9200, ?13, 1, ?14, ?15
                 )
                 ON CONFLICT(id) DO UPDATE SET
                   name = excluded.name,
@@ -6350,6 +6375,8 @@ fn persist_semantic_domain_writes(
                   specification_text = excluded.specification_text,
                   standards_json = excluded.standards_json,
                   source_evidence_json = excluded.source_evidence_json,
+                  spec_confidence_bps = excluded.spec_confidence_bps,
+                  quantity_confidence_bps = excluded.quantity_confidence_bps,
                   row_version = product_candidates.row_version + 1,
                   last_local_seq = excluded.last_local_seq,
                   stage_run_id = excluded.stage_run_id,
@@ -6367,7 +6394,7 @@ fn persist_semantic_domain_writes(
                     optional_string_at(seed, &["quantity_unit"]),
                     seed_specification_text(seed),
                     json!(seed_technical_standards(seed)).to_string(),
-                    json!([seed.get("evidence_anchor").cloned().unwrap_or(Value::Null)]).to_string(),
+                    source_evidence_json,
                     DEFAULT_OWNER_ID,
                     context.visible_after_seq,
                     context.stage_run_id,
@@ -6380,6 +6407,145 @@ fn persist_semantic_domain_writes(
     Ok(refs)
 }
 
+fn persist_pricing_overlay_domain_writes(
+    tx: &Transaction<'_>,
+    context: &SemanticDomainWriteContext<'_>,
+    notice_id: &str,
+    result_json: &Value,
+) -> Result<Vec<Value>> {
+    let Some(line_items) = optional_array_at(result_json, &["line_items"]) else {
+        return Ok(Vec::new());
+    };
+
+    let mut refs = Vec::new();
+    for line_item in line_items {
+        let lot_number =
+            optional_string_at(line_item, &["lot_number"]).unwrap_or_else(|| "1".to_owned());
+        let lot_id = resolve_notice_lot_id(tx, notice_id, &lot_number)?;
+        let description = optional_string_at(line_item, &["description"]);
+        let Some(candidate) = resolve_candidate_for_lot(tx, &lot_id, description.as_deref())?
+        else {
+            continue;
+        };
+        let numeric_specs_json = merge_json_object_text(
+            candidate.numeric_specs_json.as_deref(),
+            "pricing_overlay",
+            json!({
+                "item_number": optional_string_at(line_item, &["item_number"]),
+                "unit_rate_pence": optional_i64_at(line_item, &["unit_rate_pence"]),
+                "total_value_pence": optional_i64_at(line_item, &["total_value_pence"]),
+                "currency": optional_string_at(line_item, &["currency"]),
+                "source_table_key": optional_string_at(line_item, &["source_table_key"]),
+            }),
+        )?;
+        let source_evidence_json = append_source_evidence(
+            candidate.source_evidence_json.as_deref(),
+            build_document_derived_evidence(
+                "pdf-extraction/pricing-schedule",
+                context.document_extraction_id,
+                line_item.get("evidence_anchor").cloned(),
+            ),
+        )?;
+
+        tx.execute(
+            "\
+            UPDATE product_candidates
+            SET quantity = COALESCE(?2, quantity),
+                quantity_unit = COALESCE(?3, quantity_unit),
+                specification_text = COALESCE(?4, specification_text),
+                numeric_specs_json = ?5,
+                source_evidence_json = ?6,
+                row_version = product_candidates.row_version + 1,
+                last_local_seq = ?7,
+                stage_run_id = ?8,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?1
+            ",
+            params![
+                candidate.id,
+                optional_numeric_at(line_item, &["quantity"]),
+                optional_string_at(line_item, &["unit"]),
+                description,
+                numeric_specs_json,
+                source_evidence_json,
+                context.visible_after_seq,
+                context.stage_run_id,
+            ],
+        )?;
+        refs.push(json!({"table": "product_candidates", "id": candidate.id}));
+    }
+    Ok(refs)
+}
+
+fn persist_quantity_overlay_domain_writes(
+    tx: &Transaction<'_>,
+    context: &SemanticDomainWriteContext<'_>,
+    notice_id: &str,
+    result_json: &Value,
+) -> Result<Vec<Value>> {
+    let Some(items) = optional_array_at(result_json, &["items"]) else {
+        return Ok(Vec::new());
+    };
+
+    let mut refs = Vec::new();
+    for item in items {
+        let lot_number =
+            optional_string_at(item, &["lot_number"]).unwrap_or_else(|| "1".to_owned());
+        let lot_id = resolve_notice_lot_id(tx, notice_id, &lot_number)?;
+        let description = optional_string_at(item, &["description"]);
+        let Some(candidate) = resolve_candidate_for_lot(tx, &lot_id, description.as_deref())?
+        else {
+            continue;
+        };
+        let numeric_specs_json = merge_json_object_text(
+            candidate.numeric_specs_json.as_deref(),
+            "quantity_overlay",
+            json!({
+                "item_key": optional_string_at(item, &["item_key"]),
+                "item_ref": optional_string_at(item, &["item_ref"]),
+                "section_ref": optional_string_at(item, &["section_ref"]),
+                "unit_rate_pence": optional_i64_at(item, &["unit_rate_pence"]),
+                "total_pence": optional_i64_at(item, &["total_pence"]),
+            }),
+        )?;
+        let source_evidence_json = append_source_evidence(
+            candidate.source_evidence_json.as_deref(),
+            build_document_derived_evidence(
+                "pdf-extraction/bill-of-quantities",
+                context.document_extraction_id,
+                item.get("evidence_anchor").cloned(),
+            ),
+        )?;
+        tx.execute(
+            "\
+            UPDATE product_candidates
+            SET quantity = COALESCE(?2, quantity),
+                quantity_unit = COALESCE(?3, quantity_unit),
+                specification_text = COALESCE(?4, specification_text),
+                numeric_specs_json = ?5,
+                source_evidence_json = ?6,
+                row_version = product_candidates.row_version + 1,
+                last_local_seq = ?7,
+                stage_run_id = ?8,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?1
+            ",
+            params![
+                candidate.id,
+                optional_numeric_at(item, &["quantity"]),
+                optional_string_at(item, &["unit"]),
+                description,
+                numeric_specs_json,
+                source_evidence_json,
+                context.visible_after_seq,
+                context.stage_run_id,
+            ],
+        )?;
+        refs.push(json!({"table": "product_candidates", "id": candidate.id}));
+    }
+    Ok(refs)
+}
+
 fn lot_product_requirement_seeds<'a>(result_json: &'a Value, lot_number: &str) -> Vec<&'a Value> {
     let Some(seeds) = optional_array_at(result_json, &["product_requirement_seeds"]) else {
         return Vec::new();
@@ -6388,6 +6554,109 @@ fn lot_product_requirement_seeds<'a>(result_json: &'a Value, lot_number: &str) -
         .iter()
         .filter(|seed| optional_string_at(seed, &["lot_number"]).as_deref() == Some(lot_number))
         .collect()
+}
+
+fn resolve_notice_lot_id(
+    tx: &Transaction<'_>,
+    notice_id: &str,
+    lot_number_text: &str,
+) -> Result<String> {
+    let lot_number = parse_optional_lot_number(lot_number_text);
+    let existing: Option<String> = tx
+        .query_row(
+            "\
+            SELECT id
+            FROM notice_lots
+            WHERE notice_id = ?1
+              AND (lot_number = ?2 OR (lot_number IS NULL AND ?2 IS NULL))
+            ORDER BY created_at, id
+            LIMIT 1
+            ",
+            params![notice_id, lot_number],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(existing.unwrap_or_else(|| format!("{notice_id}-lot-{}", slug_token(lot_number_text))))
+}
+
+#[derive(Clone)]
+struct CandidateProjection {
+    id: String,
+    name: String,
+    numeric_specs_json: Option<String>,
+    source_evidence_json: Option<String>,
+}
+
+fn resolve_candidate_for_lot(
+    tx: &Transaction<'_>,
+    lot_id: &str,
+    preferred_name: Option<&str>,
+) -> Result<Option<CandidateProjection>> {
+    let mut statement = tx.prepare(
+        "\
+        SELECT id, name, numeric_specs_json, source_evidence_json
+        FROM product_candidates
+        WHERE lot_id = ?1
+        ORDER BY created_at, id
+        ",
+    )?;
+    let candidates = statement
+        .query_map(params![lot_id], |row| {
+            Ok(CandidateProjection {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                numeric_specs_json: row.get(2)?,
+                source_evidence_json: row.get(3)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    if candidates.is_empty() {
+        return Ok(None);
+    }
+    if candidates.len() == 1 {
+        return Ok(candidates.into_iter().next());
+    }
+
+    let preferred = preferred_name.map(slug_token);
+    Ok(candidates
+        .iter()
+        .find(|candidate| {
+            preferred.as_ref().is_some_and(|needle| {
+                let haystack = slug_token(&candidate.name);
+                haystack.contains(needle) || needle.contains(&haystack)
+            })
+        })
+        .cloned()
+        .or_else(|| candidates.into_iter().next()))
+}
+
+fn build_document_derived_evidence(
+    skill_id: &str,
+    document_extraction_id: &str,
+    anchor: Option<Value>,
+) -> Value {
+    json!({
+        "evidence_basis": "document_derived",
+        "skill_id": skill_id,
+        "document_extraction_id": document_extraction_id,
+        "anchor": anchor.unwrap_or(Value::Null),
+    })
+}
+
+fn append_source_evidence(existing_json: Option<&str>, entry: Value) -> Result<String> {
+    let mut items = existing_json
+        .and_then(|raw| serde_json::from_str::<Vec<Value>>(raw).ok())
+        .unwrap_or_default();
+    items.push(entry);
+    serde_json::to_string(&items).context("serializing source_evidence_json")
+}
+
+fn merge_json_object_text(existing_json: Option<&str>, key: &str, value: Value) -> Result<String> {
+    let mut object = existing_json
+        .and_then(|raw| serde_json::from_str::<Map<String, Value>>(raw).ok())
+        .unwrap_or_default();
+    object.insert(key.to_owned(), value);
+    serde_json::to_string(&Value::Object(object)).context("serializing numeric_specs_json")
 }
 
 fn recompute_semantic_extraction_state(
@@ -6480,6 +6749,10 @@ fn required_i64_at(value: &Value, path: &[&str], label: &str) -> Result<i64> {
 
 fn optional_numeric_at(value: &Value, path: &[&str]) -> Option<f64> {
     walk_json_path(value, path).and_then(Value::as_f64)
+}
+
+fn optional_i64_at(value: &Value, path: &[&str]) -> Option<i64> {
+    walk_json_path(value, path).and_then(Value::as_i64)
 }
 
 fn optional_value_at<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {

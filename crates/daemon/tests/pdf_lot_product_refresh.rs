@@ -91,6 +91,8 @@ struct FakeClaudeCli {
     program: PathBuf,
 }
 
+type CandidateProjectionRow = (String, Option<String>, Option<String>, Option<String>);
+
 impl LotRefreshHarness {
     fn new() -> Result<Self> {
         let temp = tempfile::tempdir()?;
@@ -264,6 +266,7 @@ impl LotRefreshHarness {
         semantic_id: &str,
         document_extraction_id: &str,
         process_id: &str,
+        notice_id: &str,
         result_json: &Value,
     ) -> Result<()> {
         let conn = self.connection()?;
@@ -289,10 +292,10 @@ impl LotRefreshHarness {
                 json!([]).to_string(),
                 json!([]).to_string(),
                 json!([
-                    {"table": "notice_lots", "id": lot_id_for_extraction(document_extraction_id)},
+                    {"table": "notice_lots", "id": stable_lot_id(notice_id, "1")},
                     {
                         "table": "product_candidates",
-                        "id": candidate_id_for_extraction(document_extraction_id)
+                        "id": stable_candidate_id(&stable_lot_id(notice_id, "1"), "cabinet-std-01")
                     }
                 ])
                 .to_string(),
@@ -312,6 +315,23 @@ impl LotRefreshHarness {
         document_extraction_id: &str,
         notice_id: &str,
     ) -> Result<()> {
+        self.seed_semantic_job_for_skill(
+            job_id,
+            process_id,
+            document_extraction_id,
+            notice_id,
+            "pdf-extraction/tender-specification",
+        )
+    }
+
+    fn seed_semantic_job_for_skill(
+        &self,
+        job_id: &str,
+        process_id: &str,
+        document_extraction_id: &str,
+        notice_id: &str,
+        skill_id: &str,
+    ) -> Result<()> {
         let conn = self.connection()?;
         conn.execute(
             "\
@@ -330,9 +350,14 @@ impl LotRefreshHarness {
                         "document_extraction_id": document_extraction_id,
                         "process_id": process_id,
                         "notice_id": notice_id,
-                        "skill_id": "pdf-extraction/tender-specification",
+                        "skill_id": skill_id,
                         "extraction_scope": "full_document",
-                        "target_domain": "lots",
+                        "target_domain": match skill_id {
+                            "pdf-extraction/tender-specification" => "lots",
+                            "pdf-extraction/pricing-schedule" => "pricing",
+                            "pdf-extraction/bill-of-quantities" => "quantities",
+                            _ => "generic",
+                        },
                         "stage_run_id": format!("stage-run-{job_id}")
                     }
                 })
@@ -441,14 +466,6 @@ fn stage_freshness(
     .context("reading process_stage_heads.freshness_state")
 }
 
-fn lot_id_for_extraction(document_extraction_id: &str) -> String {
-    format!("{document_extraction_id}-lot-1")
-}
-
-fn candidate_id_for_extraction(document_extraction_id: &str) -> String {
-    format!("{document_extraction_id}-candidate-cabinet-std-01")
-}
-
 fn qualification_basis(conn: &Connection, qualification_id: &str) -> Result<String> {
     conn.query_row(
         "SELECT qualification_basis FROM qualification_runs WHERE id = ?1",
@@ -465,6 +482,200 @@ fn document_set_extraction_state(conn: &Connection, document_set_id: &str) -> Re
         |row| row.get(0),
     )
     .context("reading tender_document_sets.extraction_state")
+}
+
+fn lot_row(conn: &Connection, lot_id: &str) -> Result<(String, Option<String>, Option<String>)> {
+    conn.query_row(
+        "SELECT title, description, documents FROM notice_lots WHERE id = ?1",
+        params![lot_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    )
+    .context("reading notice_lots row")
+}
+
+fn seed_notice_only_lot(
+    conn: &Connection,
+    lot_id: &str,
+    notice_id: &str,
+    title: &str,
+    estimated_value_pence: i64,
+) -> Result<()> {
+    conn.execute(
+        "\
+        INSERT INTO notice_lots (
+          id, notice_id, source_lot_id, lot_key, lot_number, title, estimated_value_pence,
+          owner_id, row_version
+        ) VALUES (?1, ?2, 'implicit', 'implicit-0', 1, ?3, ?4, 'local-owner', 1)
+        ",
+        params![lot_id, notice_id, title, estimated_value_pence],
+    )?;
+    Ok(())
+}
+
+fn candidate_projection(conn: &Connection, candidate_id: &str) -> Result<CandidateProjectionRow> {
+    conn.query_row(
+        "SELECT name, specification_text, numeric_specs_json, source_evidence_json FROM product_candidates WHERE id = ?1",
+        params![candidate_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    )
+    .context("reading product_candidates row")
+}
+
+fn stable_lot_id(notice_id: &str, lot_number: &str) -> String {
+    format!("{notice_id}-lot-{lot_number}")
+}
+
+fn stable_candidate_id(lot_id: &str, candidate_key: &str) -> String {
+    format!("{lot_id}-candidate-{candidate_key}")
+}
+
+#[test]
+fn test_lot_extraction_uses_document_evidence() -> Result<()> {
+    let harness = LotRefreshHarness::new()?;
+    harness.seed_process("proc-lot-doc")?;
+    harness.seed_notice("proc-lot-doc", "notice-lot-doc", "raw-lot-doc")?;
+    harness.seed_document_extraction(
+        "extract-lot-doc",
+        "raw-lot-doc",
+        "proc-lot-doc",
+        "notice-lot-doc",
+    )?;
+    let conn = harness.connection()?;
+    seed_notice_only_lot(
+        &conn,
+        "notice-lot-doc-lot-implicit",
+        "notice-lot-doc",
+        "Notice-only title",
+        250_000,
+    )?;
+    harness.seed_semantic_job(
+        "job-lot-doc",
+        "proc-lot-doc",
+        "extract-lot-doc",
+        "notice-lot-doc",
+    )?;
+
+    let run = harness.run_next_job(&sample_semantic_result(
+        "pdf-extraction/tender-specification",
+    ))?;
+    ensure!(run.success, "stderr: {}", run.stderr);
+
+    let (title, description, documents) = lot_row(&conn, "notice-lot-doc-lot-implicit")?;
+    ensure!(title == "Storage cabinets");
+    ensure!(
+        description.as_deref() == Some("Supply and delivery of stainless steel storage cabinets.")
+    );
+    ensure!(
+        documents
+            .as_deref()
+            .is_some_and(|value| value.contains("document_derived"))
+    );
+    Ok(())
+}
+
+#[test]
+fn test_product_extraction_uses_tender_spec_requirement_seeds() -> Result<()> {
+    let harness = LotRefreshHarness::new()?;
+    harness.seed_process("proc-seeds")?;
+    harness.seed_notice("proc-seeds", "notice-seeds", "raw-seeds")?;
+    harness.seed_document_extraction("extract-seeds", "raw-seeds", "proc-seeds", "notice-seeds")?;
+    harness.seed_semantic_job("job-seeds", "proc-seeds", "extract-seeds", "notice-seeds")?;
+
+    let run = harness.run_next_job(&sample_semantic_result(
+        "pdf-extraction/tender-specification",
+    ))?;
+    ensure!(run.success, "stderr: {}", run.stderr);
+
+    let lot_id = stable_lot_id("notice-seeds", "1");
+    let candidate_id = stable_candidate_id(&lot_id, "cabinet-std-01");
+    let (name, specification_text, _numeric_specs_json, source_evidence_json) =
+        candidate_projection(&harness.connection()?, &candidate_id)?;
+    ensure!(name == "Stainless steel storage cabinet");
+    ensure!(
+        specification_text
+            .as_deref()
+            .is_some_and(|value| value.contains("BS EN 16121"))
+    );
+    ensure!(
+        source_evidence_json
+            .as_deref()
+            .is_some_and(|value| value.contains("pdf-extraction/tender-specification"))
+    );
+    Ok(())
+}
+
+#[test]
+fn test_product_extraction_uses_pricing_and_quantity_overlays_when_present() -> Result<()> {
+    let harness = LotRefreshHarness::new()?;
+    harness.seed_process("proc-overlay-enrich")?;
+    harness.seed_notice(
+        "proc-overlay-enrich",
+        "notice-overlay-enrich",
+        "raw-overlay-enrich",
+    )?;
+    harness.seed_document_extraction(
+        "extract-overlay-enrich",
+        "raw-overlay-enrich",
+        "proc-overlay-enrich",
+        "notice-overlay-enrich",
+    )?;
+    harness.seed_semantic_job(
+        "job-overlay-tender",
+        "proc-overlay-enrich",
+        "extract-overlay-enrich",
+        "notice-overlay-enrich",
+    )?;
+    let tender = harness.run_next_job(&sample_semantic_result(
+        "pdf-extraction/tender-specification",
+    ))?;
+    ensure!(tender.success, "stderr: {}", tender.stderr);
+
+    harness.seed_semantic_job_for_skill(
+        "job-overlay-pricing",
+        "proc-overlay-enrich",
+        "extract-overlay-enrich",
+        "notice-overlay-enrich",
+        "pdf-extraction/pricing-schedule",
+    )?;
+    let pricing =
+        harness.run_next_job(&sample_semantic_result("pdf-extraction/pricing-schedule"))?;
+    ensure!(pricing.success, "stderr: {}", pricing.stderr);
+
+    harness.seed_semantic_job_for_skill(
+        "job-overlay-boq",
+        "proc-overlay-enrich",
+        "extract-overlay-enrich",
+        "notice-overlay-enrich",
+        "pdf-extraction/bill-of-quantities",
+    )?;
+    let boq = harness.run_next_job(&sample_semantic_result("pdf-extraction/bill-of-quantities"))?;
+    ensure!(boq.success, "stderr: {}", boq.stderr);
+
+    let lot_id = stable_lot_id("notice-overlay-enrich", "1");
+    let candidate_id = stable_candidate_id(&lot_id, "cabinet-std-01");
+    let (_name, _specification_text, numeric_specs_json, source_evidence_json) =
+        candidate_projection(&harness.connection()?, &candidate_id)?;
+    ensure!(
+        numeric_specs_json
+            .as_deref()
+            .is_some_and(|value| value.contains("pricing_overlay"))
+    );
+    ensure!(
+        numeric_specs_json
+            .as_deref()
+            .is_some_and(|value| value.contains("quantity_overlay"))
+    );
+    ensure!(
+        source_evidence_json
+            .as_deref()
+            .is_some_and(|value| value.contains("pdf-extraction/pricing-schedule"))
+    );
+    ensure!(
+        source_evidence_json
+            .as_deref()
+            .is_some_and(|value| value.contains("pdf-extraction/bill-of-quantities"))
+    );
+    Ok(())
 }
 
 #[test]
@@ -492,7 +703,7 @@ fn test_downstream_trigger_on_change() -> Result<()> {
         "proc-refresh-change",
         "Extract products",
         "lot",
-        &lot_id_for_extraction("extract-refresh-change"),
+        &stable_lot_id("notice-refresh-change", "1"),
     )?;
 
     let mut previous_result = sample_semantic_result("pdf-extraction/tender-specification");
@@ -501,6 +712,7 @@ fn test_downstream_trigger_on_change() -> Result<()> {
         "semantic-refresh-old",
         "extract-refresh-change",
         "proc-refresh-change",
+        "notice-refresh-change",
         &previous_result,
     )?;
     harness.seed_semantic_job(
@@ -536,7 +748,7 @@ fn test_downstream_trigger_on_change() -> Result<()> {
             "proc-refresh-change",
             "Extract products",
             "lot",
-            &lot_id_for_extraction("extract-refresh-change"),
+            &stable_lot_id("notice-refresh-change", "1"),
         )? == "soft_stale"
     );
     Ok(())
@@ -567,7 +779,7 @@ fn test_no_trigger_on_identical() -> Result<()> {
         "proc-refresh-same",
         "Extract products",
         "lot",
-        &lot_id_for_extraction("extract-refresh-same"),
+        &stable_lot_id("notice-refresh-same", "1"),
     )?;
 
     let identical_result = sample_semantic_result("pdf-extraction/tender-specification");
@@ -575,6 +787,7 @@ fn test_no_trigger_on_identical() -> Result<()> {
         "semantic-refresh-same-old",
         "extract-refresh-same",
         "proc-refresh-same",
+        "notice-refresh-same",
         &identical_result,
     )?;
     harness.seed_semantic_job(
@@ -608,7 +821,7 @@ fn test_no_trigger_on_identical() -> Result<()> {
             "proc-refresh-same",
             "Extract products",
             "lot",
-            &lot_id_for_extraction("extract-refresh-same"),
+            &stable_lot_id("notice-refresh-same", "1"),
         )? == "fresh"
     );
     Ok(())
@@ -645,4 +858,9 @@ fn test_fallback_to_notice_text() -> Result<()> {
             == 0
     );
     Ok(())
+}
+
+#[test]
+fn test_fallback_to_notice_only() -> Result<()> {
+    test_fallback_to_notice_text()
 }
