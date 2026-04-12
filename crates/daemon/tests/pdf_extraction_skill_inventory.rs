@@ -1,4 +1,7 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::duplicate_mod)]
+
+mod support;
 
 #[path = "support/skills.rs"]
 mod skills_support;
@@ -86,6 +89,14 @@ fn boq_schema() -> Result<Value> {
         repo_skill_dir("pdf-extraction/bill-of-quantities")?.join("result.schema.json");
     let schema = std::fs::read_to_string(&schema_path)?;
     Ok(serde_json::from_str(&schema)?)
+}
+
+const fn overlay_skill_relatives() -> [&'static str; 3] {
+    [
+        "pdf-extraction/tender-specification",
+        "pdf-extraction/pricing-schedule",
+        "pdf-extraction/bill-of-quantities",
+    ]
 }
 
 #[test]
@@ -262,6 +273,30 @@ fn test_boq_skill_lint() -> Result<()> {
     ensure!(linted.metadata.interaction_profile == "headless_contract");
     ensure!(linted.metadata.model_profile == "structured_extract_low_cost");
     ensure!(linted.metadata.side_effect_class == "none");
+    Ok(())
+}
+
+#[test]
+fn test_all_overlays_have_golden() -> Result<()> {
+    for relative in overlay_skill_relatives() {
+        let golden_path = repo_skill_dir(relative)?.join("golden.assertions.yaml");
+        ensure!(
+            golden_path.is_file(),
+            "overlay `{relative}` is missing golden.assertions.yaml"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn test_all_overlays_have_result_schema() -> Result<()> {
+    for relative in overlay_skill_relatives() {
+        let schema_path = repo_skill_dir(relative)?.join("result.schema.json");
+        ensure!(
+            schema_path.is_file(),
+            "overlay `{relative}` is missing result.schema.json"
+        );
+    }
     Ok(())
 }
 
