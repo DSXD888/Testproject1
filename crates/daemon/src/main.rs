@@ -1004,7 +1004,7 @@ async fn main() -> Result<()> {
     }
 
     if cli.run_next_job {
-        let report = run_next_workflow_job(&mut runtime).await?;
+        let report = run_next_workflow_job(&mut runtime, &cli).await?;
         if report.status == "completed" {
             println!("{}", report.summary_line);
             return Ok(());
@@ -1048,6 +1048,25 @@ struct StructuralExtractionJobRequest {
     processing_strategy: Option<String>,
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Deserialize)]
+struct SemanticExtractionJobRequest {
+    document_extraction_id: String,
+    process_id: String,
+    #[serde(default)]
+    notice_id: Option<String>,
+    #[serde(default)]
+    document_set_id: Option<String>,
+    #[serde(default)]
+    raw_document_id: Option<String>,
+    skill_id: String,
+    extraction_scope: String,
+    #[serde(default)]
+    target_domain: Option<String>,
+    #[serde(default)]
+    stage_run_id: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 struct StructuralExtractionDispatchOutcome {
     document_extraction_id: String,
@@ -1059,7 +1078,10 @@ struct StructuralExtractionDispatchOutcome {
 }
 
 #[allow(clippy::future_not_send)]
-async fn run_next_workflow_job(runtime: &mut RuntimeBootstrap) -> Result<LiveLoopReport> {
+async fn run_next_workflow_job(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+) -> Result<LiveLoopReport> {
     let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
     let claimed = runner
         .claim_next_job(runtime.state_db.connection())?
@@ -1068,6 +1090,9 @@ async fn run_next_workflow_job(runtime: &mut RuntimeBootstrap) -> Result<LiveLoo
     match claimed.kind.as_str() {
         "extract_document_structure" => {
             run_extract_document_structure_job(runtime, &runner, claimed).await
+        }
+        "extract_document_semantics" => {
+            run_extract_document_semantics_job(runtime, &runner, claimed, cli).await
         }
         other => fail_job(
             runtime,
@@ -1085,7 +1110,7 @@ async fn run_extract_document_structure_job(
     claimed: ClaimedJob,
 ) -> Result<LiveLoopReport> {
     let claimed_id = claimed.id.clone();
-    let attempt = async {
+    let attempt: Result<LiveLoopReport> = async {
         let request = parse_structural_extraction_request(&claimed.input_payload)?;
         let source_path =
             load_raw_document_source_path(runtime.state_db.connection(), &request.raw_document_id)?;
@@ -1236,7 +1261,7 @@ async fn run_extract_document_structure_job(
                 },
                 semantic_extraction_state: semantic_extraction_state.clone(),
                 owner_id: LOCAL_EXECUTOR_ID.to_owned(),
-                stage_run_id: stage_run_id.clone(),
+                stage_run_id,
             };
             persist_structural_extraction(runtime.state_db.connection(), &row)?;
             let enqueued_semantic_job_ids = enqueue_semantic_child_jobs(
@@ -1245,12 +1270,12 @@ async fn run_extract_document_structure_job(
                 &claimed,
                 &request,
                 &row.extraction_id,
-                &stage_run_id,
+                &row.stage_run_id,
                 &expected_overlays,
             )?;
             StructuralExtractionDispatchOutcome {
                 document_extraction_id: row.extraction_id,
-                stage_run_id,
+                stage_run_id: row.stage_run_id.clone(),
                 semantic_extraction_state,
                 expected_overlays,
                 enqueued_semantic_job_ids,
@@ -1319,9 +1344,132 @@ async fn run_extract_document_structure_job(
     }
 }
 
+#[allow(clippy::future_not_send)]
+async fn run_extract_document_semantics_job(
+    runtime: &mut RuntimeBootstrap,
+    runner: &JobRunner,
+    claimed: ClaimedJob,
+    cli: &Cli,
+) -> Result<LiveLoopReport> {
+    let claimed_id = claimed.id.clone();
+    let attempt: Result<LiveLoopReport> = async {
+        let request = parse_semantic_extraction_request(&claimed.input_payload)?;
+        let skill = load_pdf_extraction_skill(&request.skill_id)?;
+        let session_id = format!("session-semantic-{}", sha256_hex(claimed.id.as_bytes()));
+        let executed = execute_skill_session(
+            runtime,
+            &skill,
+            &claimed.id,
+            &session_id,
+            &claimed.input_payload,
+            cli,
+        )
+        .await?;
+        insert_executed_session_log(runtime.state_db.connection(), &skill, &claimed.id, &executed)?;
+
+        let result_path = executed
+            .result_path
+            .as_ref()
+            .ok_or_else(|| anyhow!("semantic extraction session missing result contract path"))?;
+        let result_text = fs::read_to_string(result_path)
+            .with_context(|| format!("reading semantic extraction result {}", result_path.display()))?;
+        let result_json: Value =
+            serde_json::from_str(&result_text).context("parsing semantic extraction result JSON")?;
+
+        persist_extraction_from_agent_output(
+            &mut runtime.state_db,
+            &request.document_extraction_id,
+            &request.process_id,
+            &skill,
+            &claimed.id,
+            &session_id,
+            &result_json,
+        )?;
+
+        let scope_id = request
+            .notice_id
+            .clone()
+            .or_else(|| request.raw_document_id.clone())
+            .unwrap_or_else(|| request.document_extraction_id.clone());
+        let stage_run_id = format!(
+            "{}-{}",
+            request
+                .stage_run_id
+                .clone()
+                .unwrap_or_else(allocate_stage_run_id),
+            slug_token(&skill.metadata.skill_id),
+        );
+        let target_domain = target_domain_for_overlay(&skill.metadata.skill_id);
+        runner.persist_success(
+            &mut runtime.state_db,
+            &PersistSuccessRequest {
+                job_id: claimed.id.clone(),
+                idempotency_key: format!("extract_document_semantics::{}", claimed.id),
+                session_id: session_id.clone(),
+                output_payload: json!({
+                    "document_extraction_id": request.document_extraction_id,
+                    "skill_id": skill.metadata.skill_id,
+                    "target_domain": target_domain,
+                    "extraction_scope": request.extraction_scope,
+                }),
+                stage: "acquire docs".to_owned(),
+                scope_kind: "notice".to_owned(),
+                scope_id,
+                stage_run_id,
+                process_id: request.process_id.clone(),
+                owner_id: LOCAL_EXECUTOR_ID.to_owned(),
+            },
+            &ValidationOutcome {
+                disposition: ValidationDisposition::Accepted,
+                error_code: None,
+                error_context_json: None,
+                anomalies: Vec::new(),
+            },
+        )?;
+
+        Ok(LiveLoopReport {
+            summary_line: format!(
+                "Semantic extraction completed: job_id={} document_extraction_id={} skill_id={} target_domain={}",
+                claimed.id,
+                request.document_extraction_id,
+                skill.metadata.skill_id,
+                target_domain,
+            ),
+            status: "completed".to_owned(),
+        })
+    }
+    .await;
+
+    match attempt {
+        Ok(report) => Ok(report),
+        Err(error) => fail_job(
+            runtime,
+            &claimed_id,
+            &error.to_string(),
+            json!({
+                "error_code": "AGENT_RUN_FAILED",
+                "job_kind": "extract_document_semantics",
+            }),
+        ),
+    }
+}
+
 fn parse_structural_extraction_request(payload: &Value) -> Result<StructuralExtractionJobRequest> {
-    let request = payload.get("request").unwrap_or(payload);
+    let request = payload
+        .get("request")
+        .and_then(|value| value.get("request"))
+        .or_else(|| payload.get("request"))
+        .unwrap_or(payload);
     serde_json::from_value(request.clone()).context("parsing structural extraction job request")
+}
+
+fn parse_semantic_extraction_request(payload: &Value) -> Result<SemanticExtractionJobRequest> {
+    let request = payload
+        .get("request")
+        .and_then(|value| value.get("request"))
+        .or_else(|| payload.get("request"))
+        .unwrap_or(payload);
+    serde_json::from_value(request.clone()).context("parsing semantic extraction job request")
 }
 
 fn parse_processing_strategy(raw: Option<&str>) -> Result<ProcessingStrategy> {
@@ -1411,6 +1559,11 @@ fn target_domain_for_overlay(skill_id: &str) -> &'static str {
         "pdf-extraction/bill-of-quantities" => "quantities",
         _ => "generic",
     }
+}
+
+fn load_pdf_extraction_skill(skill_id: &str) -> Result<LoadedSkill> {
+    let skill_root = repo_root()?.join("skills").join(skill_id);
+    load_skill(&skill_root, skill_id)
 }
 
 fn enqueue_semantic_child_jobs(
@@ -2344,6 +2497,34 @@ async fn run_bound_skill(
         let persisted_count =
             persist_ingestion_from_agent_output(&mut runtime.state_db, source_id, &result_json)?;
         eprintln!("Persisted {persisted_count} notices from agent output for source {source_id}");
+    } else if skill.metadata.skill_id.starts_with("pdf-extraction/")
+        && let Some(ref result_path) = executed.result_path
+    {
+        let result_text = fs::read_to_string(result_path).with_context(|| {
+            format!(
+                "reading semantic extraction result contract from {}",
+                result_path.display()
+            )
+        })?;
+        let result_json: Value = serde_json::from_str(&result_text)
+            .context("parsing semantic extraction result JSON")?;
+        let document_extraction_id = job_parameters
+            .get("document_extraction_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("pdf-extraction manual run missing document_extraction_id"))?;
+        let process_id = job_parameters
+            .get("process_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("pdf-extraction manual run missing process_id"))?;
+        persist_extraction_from_agent_output(
+            &mut runtime.state_db,
+            document_extraction_id,
+            process_id,
+            &skill,
+            &job_id,
+            &session_id,
+            &result_json,
+        )?;
     }
 
     runtime.state_db.with_write_transaction(|tx| {
@@ -5277,6 +5458,499 @@ fn persist_ingestion_from_agent_output(
     })?;
 
     Ok(persisted_count)
+}
+
+#[cfg(test)]
+#[allow(dead_code)]
+pub(crate) fn persist_ingestion_from_agent_output_for_test(
+    state_db: &mut StateDb,
+    source_id: &str,
+    result_json: &Value,
+) -> Result<usize> {
+    persist_ingestion_from_agent_output(state_db, source_id, result_json)
+}
+
+#[allow(clippy::too_many_lines)]
+fn persist_extraction_from_agent_output(
+    state_db: &mut StateDb,
+    document_extraction_id: &str,
+    process_id: &str,
+    skill: &LoadedSkill,
+    job_id: &str,
+    session_id: &str,
+    result_json: &Value,
+) -> Result<()> {
+    let skill_id = skill.metadata.skill_id.as_str();
+    let target_domain = target_domain_for_overlay(skill_id).to_owned();
+    let extraction_scope = required_string_at(
+        result_json,
+        &["extraction_metadata", "extraction_scope"],
+        "extraction_metadata.extraction_scope",
+    )?
+    .to_owned();
+    let field_confidences_json = optional_value_at(result_json, &["field_confidences"])
+        .cloned()
+        .unwrap_or_else(|| json!({}))
+        .to_string();
+    let warnings_json = optional_value_at(result_json, &["warnings"])
+        .cloned()
+        .unwrap_or_else(|| json!([]))
+        .to_string();
+    let evidence_anchors_json = optional_value_at(result_json, &["evidence_anchors"])
+        .cloned()
+        .unwrap_or_else(|| json!([]))
+        .to_string();
+    let extraction_confidence_bps = required_i64_at(
+        result_json,
+        &["extraction_confidence_bps"],
+        "extraction_confidence_bps",
+    )?;
+    let extracted_data_json = result_json.to_string();
+    let semantic_extraction_id = format!("semantic-{}", Uuid::new_v4());
+
+    state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        let context = load_document_extraction_context(tx, document_extraction_id)?;
+        let written_entity_refs = persist_semantic_domain_writes(
+            tx,
+            &SemanticDomainWriteContext {
+                document_extraction_id,
+                process_id,
+                notice_id: context.notice_id.as_deref(),
+                skill_id,
+                stage_run_id: &context.stage_run_id,
+                visible_after_seq,
+            },
+            result_json,
+        )?;
+
+        tx.execute(
+            "\
+            UPDATE document_semantic_extractions
+            SET is_current = 0,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE document_extraction_id = ?1
+              AND skill_id = ?2
+              AND extraction_scope = ?3
+              AND is_current = 1
+              AND id <> ?4
+            ",
+            params![
+                document_extraction_id,
+                skill_id,
+                extraction_scope,
+                semantic_extraction_id,
+            ],
+        )?;
+
+        tx.execute(
+            "\
+            INSERT INTO document_semantic_extractions (
+              id, document_extraction_id, process_id, skill_id, skill_version, job_id, session_id,
+              extraction_scope, target_domain, is_current, extracted_data_json, field_confidences_json,
+              extraction_confidence_bps, warnings_json, evidence_anchors_json, written_entity_refs_json,
+              owner_id, row_version, last_local_seq, stage_run_id
+            ) VALUES (
+              ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 1, ?10, ?11, ?12, ?13, ?14, ?15,
+              ?16, 1, ?17, ?18
+            )
+            ",
+            params![
+                semantic_extraction_id,
+                document_extraction_id,
+                process_id,
+                skill_id,
+                skill.metadata.skill_version.clone(),
+                job_id,
+                session_id,
+                extraction_scope,
+                target_domain,
+                extracted_data_json,
+                field_confidences_json,
+                extraction_confidence_bps,
+                warnings_json,
+                evidence_anchors_json,
+                json!(written_entity_refs).to_string(),
+                DEFAULT_OWNER_ID,
+                visible_after_seq,
+                context.stage_run_id,
+            ],
+        )?;
+
+        tx.execute(
+            "\
+            UPDATE document_semantic_extractions
+            SET superseded_by_semantic_extraction_id = ?1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE document_extraction_id = ?2
+              AND skill_id = ?3
+              AND extraction_scope = ?4
+              AND is_current = 0
+              AND id <> ?1
+              AND superseded_by_semantic_extraction_id IS NULL
+            ",
+            params![
+                semantic_extraction_id,
+                document_extraction_id,
+                skill_id,
+                extraction_scope,
+            ],
+        )?;
+
+        let aggregate_state = recompute_semantic_extraction_state(
+            tx,
+            document_extraction_id,
+            &context.expected_overlays,
+        )?;
+        tx.execute(
+            "\
+            UPDATE document_extractions
+            SET semantic_extraction_state = ?1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?2
+            ",
+            params![aggregate_state, document_extraction_id],
+        )?;
+        Ok(())
+    })?;
+
+    Ok(())
+}
+
+#[cfg(test)]
+#[allow(dead_code)]
+pub(crate) fn persist_extraction_from_agent_output_for_test(
+    state_db: &mut StateDb,
+    document_extraction_id: &str,
+    process_id: &str,
+    skill_relative_path: &str,
+    job_id: &str,
+    session_id: &str,
+    result_json: &Value,
+) -> Result<()> {
+    let skill = load_pdf_extraction_skill(skill_relative_path)?;
+    persist_extraction_from_agent_output(
+        state_db,
+        document_extraction_id,
+        process_id,
+        &skill,
+        job_id,
+        session_id,
+        result_json,
+    )
+}
+
+struct DocumentExtractionContext {
+    notice_id: Option<String>,
+    expected_overlays: Vec<String>,
+    stage_run_id: String,
+}
+
+struct SemanticDomainWriteContext<'a> {
+    document_extraction_id: &'a str,
+    process_id: &'a str,
+    notice_id: Option<&'a str>,
+    skill_id: &'a str,
+    stage_run_id: &'a str,
+    visible_after_seq: i64,
+}
+
+fn load_document_extraction_context(
+    tx: &Transaction<'_>,
+    document_extraction_id: &str,
+) -> Result<DocumentExtractionContext> {
+    let (notice_id, expected_overlays_json, stage_run_id): (
+        Option<String>,
+        String,
+        Option<String>,
+    ) = tx.query_row(
+        "\
+        SELECT notice_id, expected_overlays_json, stage_run_id
+        FROM document_extractions
+        WHERE id = ?1
+        ",
+        params![document_extraction_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    )?;
+    let expected_overlays = serde_json::from_str::<Vec<String>>(&expected_overlays_json)
+        .context("parsing document_extractions.expected_overlays_json")?;
+    Ok(DocumentExtractionContext {
+        notice_id,
+        expected_overlays,
+        stage_run_id: stage_run_id.unwrap_or_else(allocate_stage_run_id),
+    })
+}
+
+#[allow(clippy::too_many_lines)]
+fn persist_semantic_domain_writes(
+    tx: &Transaction<'_>,
+    context: &SemanticDomainWriteContext<'_>,
+    result_json: &Value,
+) -> Result<Vec<Value>> {
+    if context.skill_id != "pdf-extraction/tender-specification" {
+        return Ok(Vec::new());
+    }
+    let Some(notice_id) = context.notice_id else {
+        return Ok(Vec::new());
+    };
+
+    let mut refs = Vec::new();
+    let lots = required_array_at(result_json, &["lots"], "lots")?;
+    for lot in lots {
+        let lot_number_text =
+            required_string_at(lot, &["lot_number"], "lots[].lot_number")?.to_owned();
+        let lot_id = format!(
+            "{}-lot-{}",
+            context.document_extraction_id,
+            slug_token(&lot_number_text)
+        );
+        let title = optional_string_at(lot, &["title"]).unwrap_or_default();
+        let description = optional_string_at(lot, &["description"]);
+
+        tx.execute(
+            "\
+            INSERT INTO notice_lots (
+              id, notice_id, source_lot_id, lot_key, lot_number, title, description,
+              owner_id, row_version, last_local_seq, stage_run_id
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, ?10)
+            ON CONFLICT(id) DO UPDATE SET
+              title = excluded.title,
+              description = excluded.description,
+              row_version = notice_lots.row_version + 1,
+              last_local_seq = excluded.last_local_seq,
+              stage_run_id = excluded.stage_run_id,
+              updated_at = CURRENT_TIMESTAMP
+            ",
+            params![
+                lot_id,
+                notice_id,
+                lot_number_text,
+                lot_number_text,
+                parse_optional_lot_number(&lot_number_text),
+                title,
+                description,
+                DEFAULT_OWNER_ID,
+                context.visible_after_seq,
+                context.stage_run_id,
+            ],
+        )?;
+        refs.push(json!({"table": "notice_lots", "id": lot_id.clone()}));
+
+        for seed in lot_product_requirement_seeds(result_json, &lot_number_text) {
+            let candidate_key = seed_key(seed);
+            let candidate_id = format!(
+                "{}-candidate-{}",
+                context.document_extraction_id,
+                slug_token(&candidate_key)
+            );
+            let candidate_name = seed_name(seed);
+            let head_noun = candidate_name
+                .split_whitespace()
+                .next()
+                .map_or_else(|| "item".to_owned(), str::to_ascii_lowercase);
+            tx.execute(
+                "\
+                INSERT INTO product_candidates (
+                  id, process_id, notice_id, lot_id, candidate_key, name, candidate_type, match_archetype,
+                  head_noun, quantity, quantity_unit, specification_text, standards_json,
+                  source_evidence_json, owner_id, row_version, last_local_seq, stage_run_id
+                ) VALUES (
+                  ?1, ?2, ?3, ?4, ?5, ?6, 'sku', 'direct_match', ?7, ?8, ?9, ?10, ?11, ?12,
+                  ?13, 1, ?14, ?15
+                )
+                ON CONFLICT(id) DO UPDATE SET
+                  name = excluded.name,
+                  quantity = excluded.quantity,
+                  quantity_unit = excluded.quantity_unit,
+                  specification_text = excluded.specification_text,
+                  standards_json = excluded.standards_json,
+                  source_evidence_json = excluded.source_evidence_json,
+                  row_version = product_candidates.row_version + 1,
+                  last_local_seq = excluded.last_local_seq,
+                  stage_run_id = excluded.stage_run_id,
+                  updated_at = CURRENT_TIMESTAMP
+                ",
+                params![
+                    candidate_id,
+                    context.process_id,
+                    notice_id,
+                    lot_id,
+                    candidate_key,
+                    candidate_name,
+                    head_noun,
+                    optional_numeric_at(seed, &["quantity"]),
+                    optional_string_at(seed, &["quantity_unit"]),
+                    seed_specification_text(seed),
+                    json!(seed_technical_standards(seed)).to_string(),
+                    json!([seed.get("evidence_anchor").cloned().unwrap_or(Value::Null)]).to_string(),
+                    DEFAULT_OWNER_ID,
+                    context.visible_after_seq,
+                    context.stage_run_id,
+                ],
+            )?;
+            refs.push(json!({"table": "product_candidates", "id": candidate_id}));
+        }
+    }
+
+    Ok(refs)
+}
+
+fn lot_product_requirement_seeds<'a>(result_json: &'a Value, lot_number: &str) -> Vec<&'a Value> {
+    let Some(seeds) = optional_array_at(result_json, &["product_requirement_seeds"]) else {
+        return Vec::new();
+    };
+    seeds
+        .iter()
+        .filter(|seed| optional_string_at(seed, &["lot_number"]).as_deref() == Some(lot_number))
+        .collect()
+}
+
+fn recompute_semantic_extraction_state(
+    tx: &Transaction<'_>,
+    document_extraction_id: &str,
+    expected_overlays: &[String],
+) -> Result<String> {
+    if expected_overlays.is_empty() {
+        return Ok("skipped".to_owned());
+    }
+
+    let mut statement = tx.prepare(
+        "\
+        SELECT skill_id
+        FROM document_semantic_extractions
+        WHERE document_extraction_id = ?1
+          AND is_current = 1
+        ",
+    )?;
+    let completed = statement
+        .query_map(params![document_extraction_id], |row| {
+            row.get::<_, String>(0)
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    let mut failed_statement = tx.prepare(
+        "\
+        SELECT DISTINCT json_extract(input_payload, '$.request.request.skill_id')
+        FROM workflow_jobs
+        WHERE kind = 'extract_document_semantics'
+          AND status = 'failed'
+          AND json_extract(input_payload, '$.request.request.document_extraction_id') = ?1
+        ",
+    )?;
+    let failed = failed_statement
+        .query_map(params![document_extraction_id], |row| {
+            row.get::<_, String>(0)
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    if expected_overlays
+        .iter()
+        .any(|skill_id| failed.iter().any(|failed_id| failed_id == skill_id))
+    {
+        return Ok("failed".to_owned());
+    }
+    if expected_overlays
+        .iter()
+        .all(|skill_id| completed.iter().any(|done| done == skill_id))
+    {
+        return Ok("complete".to_owned());
+    }
+    if completed.iter().any(|skill_id| {
+        expected_overlays
+            .iter()
+            .any(|expected| expected == skill_id)
+    }) {
+        return Ok("partial".to_owned());
+    }
+    Ok("pending".to_owned())
+}
+
+fn required_array_at<'a>(value: &'a Value, path: &[&str], label: &str) -> Result<&'a [Value]> {
+    optional_array_at(value, path).ok_or_else(|| anyhow!("missing array `{label}`"))
+}
+
+fn optional_array_at<'a>(value: &'a Value, path: &[&str]) -> Option<&'a [Value]> {
+    walk_json_path(value, path)
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+}
+
+fn required_string_at<'a>(value: &'a Value, path: &[&str], label: &str) -> Result<&'a str> {
+    optional_string_ref_at(value, path).ok_or_else(|| anyhow!("missing string `{label}`"))
+}
+
+fn optional_string_at(value: &Value, path: &[&str]) -> Option<String> {
+    optional_string_ref_at(value, path).map(str::to_owned)
+}
+
+fn optional_string_ref_at<'a>(value: &'a Value, path: &[&str]) -> Option<&'a str> {
+    walk_json_path(value, path).and_then(Value::as_str)
+}
+
+fn required_i64_at(value: &Value, path: &[&str], label: &str) -> Result<i64> {
+    walk_json_path(value, path)
+        .and_then(Value::as_i64)
+        .ok_or_else(|| anyhow!("missing integer `{label}`"))
+}
+
+fn optional_numeric_at(value: &Value, path: &[&str]) -> Option<f64> {
+    walk_json_path(value, path).and_then(Value::as_f64)
+}
+
+fn optional_value_at<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
+    walk_json_path(value, path)
+}
+
+fn walk_json_path<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
+    path.iter()
+        .try_fold(value, |current, key| current.get(*key))
+}
+
+fn seed_key(seed: &Value) -> String {
+    optional_string_at(seed, &["seed_key"])
+        .or_else(|| optional_string_at(seed, &["candidate_key"]))
+        .unwrap_or_else(|| "seed".to_owned())
+}
+
+fn seed_name(seed: &Value) -> String {
+    optional_string_at(seed, &["candidate_name"])
+        .or_else(|| optional_string_at(seed, &["name"]))
+        .unwrap_or_else(|| "Unnamed candidate".to_owned())
+}
+
+fn seed_specification_text(seed: &Value) -> Option<String> {
+    optional_string_at(seed, &["specification_text"])
+        .or_else(|| optional_string_at(seed, &["summary"]))
+}
+
+fn seed_technical_standards(seed: &Value) -> Vec<String> {
+    optional_array_at(seed, &["technical_standards"])
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn slug_token(raw: &str) -> String {
+    raw.chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_owned()
+}
+
+fn parse_optional_lot_number(raw: &str) -> Option<i64> {
+    raw.parse::<i64>().ok()
 }
 
 #[allow(clippy::too_many_lines)]
