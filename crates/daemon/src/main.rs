@@ -150,15 +150,21 @@ use ipc::handshake::{
     ValidationStatusSnapshot,
 };
 use jobs::runner::{
-    EnqueuedValidatorJob, FreshnessState, JobLeaseHeartbeat, JobRunner, ObsoleteJobRequest,
-    PersistValidationVerdictRequest, ProcessValidationState, RetroactiveBacklogMetadata,
-    SkillTelemetrySnapshot, SkillTelemetryThresholds, SkillTelemetryWindow,
-    VALIDATION_SKIPPED_VALIDATOR_ERROR, VALIDATOR_JOB_KIND, ValidationHandlingMode,
-    ValidatorBasisSufficiency, ValidatorEnqueueRequest, ValidatorVerdict, allocate_stage_run_id,
-    compute_skill_telemetry, decide_validator_failure, decide_validator_verdict,
-    set_stage_head_freshness, skill_telemetry_thresholds, start_job_lease_heartbeat,
+    ClaimedJob, EnqueueJobRequest, EnqueuedValidatorJob, FreshnessState, JobLeaseHeartbeat,
+    JobRunner, ObsoleteJobRequest, PersistSuccessRequest, PersistValidationVerdictRequest,
+    ProcessValidationState, RetroactiveBacklogMetadata, SkillTelemetrySnapshot,
+    SkillTelemetryThresholds, SkillTelemetryWindow, VALIDATION_SKIPPED_VALIDATOR_ERROR,
+    VALIDATOR_JOB_KIND, ValidationHandlingMode, ValidatorBasisSufficiency, ValidatorEnqueueRequest,
+    ValidatorVerdict, allocate_stage_run_id, compute_skill_telemetry, decide_validator_failure,
+    decide_validator_verdict, set_stage_head_freshness, skill_telemetry_thresholds,
+    start_job_lease_heartbeat,
 };
 use nix::unistd::{Pid, getpgid, getsid};
+use pdf::engine::{
+    EngineConfig as PdfEngineConfig, PdfExtractionEngine, PdfInput, PersistStructuralExtractionRow,
+    ProcessingStrategy, clone_reused_extraction, compute_source_hash, lookup_reusable_extraction,
+    persist_structural_extraction,
+};
 use prompt::renderer::{PromptRenderer, PromptRendererInput};
 use pty::capture::{CaptureConfig, PtyCapture, compressed_payload_sha256};
 use pty::health::{
@@ -181,6 +187,7 @@ use tracing::structured::{
     parse_phase_history,
 };
 use tracing_subscriber::EnvFilter;
+use uuid::Uuid;
 use validation::manifest_writer::{ManifestWriteRequest, write_hybrid_run_manifest};
 use validation::policy::{
     BasisSufficiency as PolicyBasisSufficiency, SkillPromotionStage as PolicySkillPromotionStage,
@@ -297,6 +304,7 @@ const LIVE_LOOP_STEP_SURFACES: [StepSurface; 14] = [
     },
 ];
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Parser)]
 #[command(
     name = "daemon",
@@ -359,6 +367,23 @@ struct Cli {
     /// Run deterministic pipeline stages on already-ingested data for the given source.
     #[arg(long)]
     pipeline: Option<String>,
+
+    /// Claim and execute exactly one pending workflow job. Hidden because it is
+    /// currently only used by deterministic integration tests and PDF queue work.
+    #[arg(
+        long,
+        hide = true,
+        default_value_t = false,
+        conflicts_with_all = [
+            "serve",
+            "serve_once",
+            "ingest",
+            "skill_path",
+            "dry_run",
+            "pipeline"
+        ]
+    )]
+    run_next_job: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -978,11 +1003,470 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    if cli.run_next_job {
+        let report = run_next_workflow_job(&mut runtime).await?;
+        if report.status == "completed" {
+            println!("{}", report.summary_line);
+            return Ok(());
+        }
+        eprintln!("{}", report.summary_line);
+        bail!(report.summary_line);
+    }
+
     if cli.dry_run {
         ::tracing::info!("dry-run bootstrap completed");
     }
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct StructuralExtractionJobRequest {
+    raw_document_id: String,
+    process_id: String,
+    #[serde(default)]
+    notice_id: Option<String>,
+    #[serde(default)]
+    document_set_id: Option<String>,
+    #[serde(default)]
+    stage_run_id: Option<String>,
+    #[serde(default)]
+    extraction_policy_version: Option<String>,
+    #[serde(default)]
+    document_role: Option<String>,
+    #[serde(default)]
+    expected_overlays: Vec<String>,
+    #[serde(default)]
+    docling_wrapper_path: Option<PathBuf>,
+    #[serde(default)]
+    model_artifacts_path: Option<PathBuf>,
+    #[serde(default)]
+    document_timeout_secs: Option<u64>,
+    #[serde(default)]
+    wall_clock_timeout_secs: Option<u64>,
+    #[serde(default)]
+    processing_strategy: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct StructuralExtractionDispatchOutcome {
+    document_extraction_id: String,
+    stage_run_id: String,
+    semantic_extraction_state: String,
+    expected_overlays: Vec<String>,
+    enqueued_semantic_job_ids: Vec<String>,
+    cache_hit: bool,
+}
+
+#[allow(clippy::future_not_send)]
+async fn run_next_workflow_job(runtime: &mut RuntimeBootstrap) -> Result<LiveLoopReport> {
+    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+    let claimed = runner
+        .claim_next_job(runtime.state_db.connection())?
+        .ok_or_else(|| anyhow!("expected a pending workflow job"))?;
+
+    match claimed.kind.as_str() {
+        "extract_document_structure" => {
+            run_extract_document_structure_job(runtime, &runner, claimed).await
+        }
+        other => fail_job(
+            runtime,
+            &claimed.id,
+            &format!("unsupported queued job kind `{other}`"),
+            json!({"error_code": "AGENT_RUN_FAILED", "job_kind": other}),
+        ),
+    }
+}
+
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
+async fn run_extract_document_structure_job(
+    runtime: &mut RuntimeBootstrap,
+    runner: &JobRunner,
+    claimed: ClaimedJob,
+) -> Result<LiveLoopReport> {
+    let claimed_id = claimed.id.clone();
+    let attempt = async {
+        let request = parse_structural_extraction_request(&claimed.input_payload)?;
+        let source_path =
+            load_raw_document_source_path(runtime.state_db.connection(), &request.raw_document_id)?;
+        let processing_strategy =
+            parse_processing_strategy(request.processing_strategy.as_deref())?;
+        let engine_config = PdfEngineConfig {
+            docling_wrapper_path: request
+                .docling_wrapper_path
+                .clone()
+                .unwrap_or(default_docling_wrapper_path()?),
+            model_artifacts_path: request
+                .model_artifacts_path
+                .clone()
+                .unwrap_or(default_docling_artifacts_path()?),
+            document_timeout_secs: request.document_timeout_secs.unwrap_or(300),
+            wall_clock_timeout_secs: request.wall_clock_timeout_secs.unwrap_or(330),
+        };
+        let engine = PdfExtractionEngine::new(engine_config.clone());
+        if !engine.is_available()? {
+            bail!(
+                "Docling runtime unavailable for wrapper {}",
+                engine_config.docling_wrapper_path.display()
+            );
+        }
+
+        let source_bytes =
+            fs::read(&source_path).with_context(|| format!("reading {}", source_path.display()))?;
+        let source_content_hash = compute_source_hash(&source_bytes);
+        let engine_version = probe_docling_runtime_version()?;
+        let stage_run_id = request
+            .stage_run_id
+            .clone()
+            .unwrap_or_else(allocate_stage_run_id);
+
+        let outcome = if let Some(existing) = lookup_reusable_extraction(
+            runtime.state_db.connection(),
+            &source_content_hash,
+            &engine_version,
+            processing_strategy,
+        )? {
+            let resolved_document_role = request
+                .document_role
+                .clone()
+                .or_else(|| existing.document_role.clone());
+            let expected_overlays =
+                resolve_expected_overlays(resolved_document_role.as_deref(), &request.expected_overlays);
+            let semantic_extraction_state = if expected_overlays.is_empty() {
+                "skipped".to_owned()
+            } else {
+                "pending".to_owned()
+            };
+            let mut row = clone_reused_extraction(
+                &existing,
+                &request.raw_document_id,
+                &request.process_id,
+                request.notice_id.as_deref(),
+                request.document_set_id.as_deref(),
+                &stage_run_id,
+            );
+            row.document_role = resolved_document_role;
+            row.extraction_policy_version = request
+                .extraction_policy_version
+                .clone()
+                .unwrap_or(existing.extraction_policy_version);
+            row.expected_overlays_json = serde_json::to_string(&expected_overlays)
+                .context("serializing expected overlays for cache hit")?;
+            row.semantic_extraction_state
+                .clone_from(&semantic_extraction_state);
+            LOCAL_EXECUTOR_ID.clone_into(&mut row.owner_id);
+            persist_structural_extraction(runtime.state_db.connection(), &row)?;
+            let enqueued_semantic_job_ids = enqueue_semantic_child_jobs(
+                runtime,
+                runner,
+                &claimed,
+                &request,
+                &row.extraction_id,
+                &stage_run_id,
+                &expected_overlays,
+            )?;
+            StructuralExtractionDispatchOutcome {
+                document_extraction_id: row.extraction_id,
+                stage_run_id,
+                semantic_extraction_state,
+                expected_overlays,
+                enqueued_semantic_job_ids,
+                cache_hit: true,
+            }
+        } else {
+            let extraction = engine
+                .extract(PdfInput {
+                    raw_document_id: Some(request.raw_document_id.clone()),
+                    source_path,
+                    page_range: None,
+                    processing_strategy,
+                })
+                .await?;
+            let resolved_document_role = request
+                .document_role
+                .clone()
+                .or_else(|| extraction.metadata_json.get("document_role").and_then(Value::as_str).map(str::to_owned));
+            let expected_overlays =
+                resolve_expected_overlays(resolved_document_role.as_deref(), &request.expected_overlays);
+            let semantic_extraction_state = if expected_overlays.is_empty() {
+                "skipped".to_owned()
+            } else {
+                "pending".to_owned()
+            };
+            let row = PersistStructuralExtractionRow {
+                extraction_id: extraction.extraction_id.clone(),
+                raw_document_id: request.raw_document_id.clone(),
+                process_id: request.process_id.clone(),
+                notice_id: request.notice_id.clone(),
+                document_set_id: request.document_set_id.clone(),
+                source_content_hash: extraction.source_hash.clone(),
+                extraction_engine_version: extraction.engine_version.clone(),
+                processing_strategy,
+                page_count: extraction.page_count,
+                document_title: extraction
+                    .metadata_json
+                    .get("document_title")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+                document_language: extraction
+                    .metadata_json
+                    .get("document_language")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+                document_role: resolved_document_role,
+                extraction_policy_version: request
+                    .extraction_policy_version
+                    .clone()
+                    .unwrap_or_else(|| "2026.04.12".to_owned()),
+                expected_overlays_json: serde_json::to_string(&expected_overlays)
+                    .context("serializing expected overlays for cache miss")?,
+                extracted_markdown: extraction.extracted_markdown,
+                extracted_sections_json: extraction.sections_json.to_string(),
+                extracted_tables_json: extraction.tables_json.to_string(),
+                extracted_metadata_json: extraction.metadata_json.to_string(),
+                table_count: extraction.quality.table_count,
+                section_count: extraction.quality.section_count,
+                image_count: extraction.quality.image_count,
+                has_ocr_content: extraction.quality.has_ocr_content,
+                empty_page_count: extraction.quality.empty_page_count,
+                quality_warnings_json: if extraction.quality.warnings.is_empty() {
+                    None
+                } else {
+                    Some(json!(extraction.quality.warnings).to_string())
+                },
+                semantic_extraction_state: semantic_extraction_state.clone(),
+                owner_id: LOCAL_EXECUTOR_ID.to_owned(),
+                stage_run_id: stage_run_id.clone(),
+            };
+            persist_structural_extraction(runtime.state_db.connection(), &row)?;
+            let enqueued_semantic_job_ids = enqueue_semantic_child_jobs(
+                runtime,
+                runner,
+                &claimed,
+                &request,
+                &row.extraction_id,
+                &stage_run_id,
+                &expected_overlays,
+            )?;
+            StructuralExtractionDispatchOutcome {
+                document_extraction_id: row.extraction_id,
+                stage_run_id,
+                semantic_extraction_state,
+                expected_overlays,
+                enqueued_semantic_job_ids,
+                cache_hit: false,
+            }
+        };
+
+        let scope_id = request
+            .notice_id
+            .clone()
+            .unwrap_or_else(|| request.raw_document_id.clone());
+        runner.persist_success(
+            &mut runtime.state_db,
+            &PersistSuccessRequest {
+                job_id: claimed.id.clone(),
+                idempotency_key: format!("extract_document_structure::{}", claimed.id),
+                session_id: format!("daemon-struct-{}", outcome.document_extraction_id),
+                output_payload: json!({
+                    "raw_document_id": request.raw_document_id,
+                    "document_extraction_id": outcome.document_extraction_id,
+                    "cache_hit": outcome.cache_hit,
+                    "expected_overlays": outcome.expected_overlays,
+                    "semantic_extraction_state": outcome.semantic_extraction_state,
+                    "semantic_child_job_ids": outcome.enqueued_semantic_job_ids,
+                    "stage_run_id": outcome.stage_run_id,
+                }),
+                stage: "acquire docs".to_owned(),
+                scope_kind: "notice".to_owned(),
+                scope_id,
+                stage_run_id: outcome.stage_run_id.clone(),
+                process_id: request.process_id.clone(),
+                owner_id: LOCAL_EXECUTOR_ID.to_owned(),
+            },
+            &ValidationOutcome {
+                disposition: ValidationDisposition::Accepted,
+                error_code: None,
+                error_context_json: None,
+                anomalies: Vec::new(),
+            },
+        )?;
+
+        Ok(LiveLoopReport {
+            summary_line: format!(
+                "Structural extraction completed: job_id={} extraction_id={} cache_hit={} semantic_children={}",
+                claimed.id,
+                outcome.document_extraction_id,
+                outcome.cache_hit,
+                outcome.enqueued_semantic_job_ids.len()
+            ),
+            status: "completed".to_owned(),
+        })
+    }
+    .await;
+
+    match attempt {
+        Ok(report) => Ok(report),
+        Err(error) => fail_job(
+            runtime,
+            &claimed_id,
+            &error.to_string(),
+            json!({
+                "error_code": "AGENT_RUN_FAILED",
+                "job_kind": "extract_document_structure",
+            }),
+        ),
+    }
+}
+
+fn parse_structural_extraction_request(payload: &Value) -> Result<StructuralExtractionJobRequest> {
+    let request = payload.get("request").unwrap_or(payload);
+    serde_json::from_value(request.clone()).context("parsing structural extraction job request")
+}
+
+fn parse_processing_strategy(raw: Option<&str>) -> Result<ProcessingStrategy> {
+    match raw.unwrap_or("standard") {
+        "standard" => Ok(ProcessingStrategy::Standard),
+        "force_full_page_ocr" => Ok(ProcessingStrategy::ForceFullPageOcr),
+        "fast_table_structure" => Ok(ProcessingStrategy::FastTableStructure),
+        other => bail!("unsupported processing_strategy `{other}`"),
+    }
+}
+
+fn default_docling_wrapper_path() -> Result<PathBuf> {
+    Ok(repo_root()?.join("scripts/docling-extract.py"))
+}
+
+fn default_docling_artifacts_path() -> Result<PathBuf> {
+    if let Some(path) = std::env::var_os("DOCLING_ARTIFACTS_PATH") {
+        return Ok(PathBuf::from(path));
+    }
+    let home = std::env::var_os("HOME").ok_or_else(|| {
+        anyhow!("DOCLING_ARTIFACTS_PATH is unset and HOME is unavailable for default model path")
+    })?;
+    Ok(PathBuf::from(home).join(".cache/docling/models"))
+}
+
+fn probe_docling_runtime_version() -> Result<String> {
+    let output = process::Command::new("python3")
+        .arg("-c")
+        .arg("import docling; print(docling.__version__)")
+        .output()
+        .context("probing Docling runtime version")?;
+    ensure!(
+        output.status.success(),
+        "Docling runtime probe failed with status {:?}",
+        output.status.code()
+    );
+    let version = String::from_utf8(output.stdout)
+        .context("decoding Docling runtime version output")?
+        .trim()
+        .to_owned();
+    ensure!(
+        !version.is_empty(),
+        "Docling runtime probe returned empty version output"
+    );
+    Ok(version)
+}
+
+fn load_raw_document_source_path(conn: &Connection, raw_document_id: &str) -> Result<PathBuf> {
+    let storage_path: Option<String> = conn
+        .query_row(
+            "SELECT storage_path FROM raw_documents WHERE id = ?1",
+            params![raw_document_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .flatten();
+    let path = storage_path
+        .map(PathBuf::from)
+        .ok_or_else(|| anyhow!("raw_document `{raw_document_id}` is missing a storage_path"))?;
+    ensure!(
+        path.is_file(),
+        "raw_document `{raw_document_id}` storage_path does not exist: {}",
+        path.display()
+    );
+    Ok(path)
+}
+
+fn resolve_expected_overlays(document_role: Option<&str>, explicit: &[String]) -> Vec<String> {
+    if !explicit.is_empty() {
+        return explicit.to_vec();
+    }
+
+    match document_role.unwrap_or_default() {
+        "technical_specification" | "invitation_to_tender" | "statement_of_requirements" => {
+            vec!["pdf-extraction/tender-specification".to_owned()]
+        }
+        "pricing_schedule" => vec!["pdf-extraction/pricing-schedule".to_owned()],
+        "boq" | "bill_of_quantities" => vec!["pdf-extraction/bill-of-quantities".to_owned()],
+        _ => Vec::new(),
+    }
+}
+
+fn target_domain_for_overlay(skill_id: &str) -> &'static str {
+    match skill_id {
+        "pdf-extraction/tender-specification" => "lots",
+        "pdf-extraction/pricing-schedule" => "pricing",
+        "pdf-extraction/bill-of-quantities" => "quantities",
+        _ => "generic",
+    }
+}
+
+fn enqueue_semantic_child_jobs(
+    runtime: &mut RuntimeBootstrap,
+    runner: &JobRunner,
+    claimed: &ClaimedJob,
+    request: &StructuralExtractionJobRequest,
+    document_extraction_id: &str,
+    stage_run_id: &str,
+    expected_overlays: &[String],
+) -> Result<Vec<String>> {
+    let mut job_ids = Vec::with_capacity(expected_overlays.len());
+    let scope_id = request
+        .notice_id
+        .clone()
+        .unwrap_or_else(|| request.raw_document_id.clone());
+
+    for skill_id in expected_overlays {
+        let job_id = format!("job-{}", Uuid::new_v4());
+        let target_domain = target_domain_for_overlay(skill_id);
+        runner.enqueue_job(
+            &mut runtime.state_db,
+            &EnqueueJobRequest {
+                job_id: job_id.clone(),
+                kind: "extract_document_semantics".to_owned(),
+                process_id: Some(request.process_id.clone()),
+                notice_id: request.notice_id.clone(),
+                scope_kind: Some("notice".to_owned()),
+                scope_id: Some(scope_id.clone()),
+                parent_job_id: Some(claimed.id.clone()),
+                continuation_chain_id: None,
+                validation_required: false,
+                scheduled_for: None,
+                input_payload: json!({
+                    "request": {
+                        "document_extraction_id": document_extraction_id,
+                        "process_id": request.process_id,
+                        "notice_id": request.notice_id,
+                        "document_set_id": request.document_set_id,
+                        "raw_document_id": request.raw_document_id,
+                        "skill_id": skill_id,
+                        "extraction_scope": "full_document",
+                        "target_domain": target_domain,
+                        "stage_run_id": stage_run_id,
+                    }
+                }),
+                idempotency_key: format!(
+                    "extract_document_structure::{}::{}",
+                    claimed.id, skill_id
+                ),
+            },
+        )?;
+        job_ids.push(job_id);
+    }
+
+    Ok(job_ids)
 }
 
 fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
