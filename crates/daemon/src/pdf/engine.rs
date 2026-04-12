@@ -9,6 +9,7 @@ use std::process::{Command as StdCommand, Stdio};
 use anyhow::{Context, Result, anyhow, bail};
 use nix::sys::signal::{Signal, killpg};
 use nix::unistd::Pid;
+use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use tokio::fs::{self as tokio_fs, File};
@@ -66,6 +67,62 @@ pub struct EngineConfig {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PdfExtractionEngine {
     config: EngineConfig,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReusableStructuralExtraction {
+    pub extraction_id: String,
+    pub source_content_hash: String,
+    pub extraction_engine_version: String,
+    pub processing_strategy: ProcessingStrategy,
+    pub page_count: u32,
+    pub document_title: Option<String>,
+    pub document_language: Option<String>,
+    pub document_role: Option<String>,
+    pub extraction_policy_version: String,
+    pub expected_overlays_json: String,
+    pub extracted_markdown: String,
+    pub extracted_sections_json: String,
+    pub extracted_tables_json: String,
+    pub extracted_metadata_json: String,
+    pub table_count: u32,
+    pub section_count: u32,
+    pub image_count: u32,
+    pub has_ocr_content: bool,
+    pub empty_page_count: u32,
+    pub quality_warnings_json: Option<String>,
+    pub owner_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PersistStructuralExtractionRow {
+    pub extraction_id: String,
+    pub raw_document_id: String,
+    pub process_id: String,
+    pub notice_id: Option<String>,
+    pub document_set_id: Option<String>,
+    pub source_content_hash: String,
+    pub extraction_engine_version: String,
+    pub processing_strategy: ProcessingStrategy,
+    pub page_count: u32,
+    pub document_title: Option<String>,
+    pub document_language: Option<String>,
+    pub document_role: Option<String>,
+    pub extraction_policy_version: String,
+    pub expected_overlays_json: String,
+    pub extracted_markdown: String,
+    pub extracted_sections_json: String,
+    pub extracted_tables_json: String,
+    pub extracted_metadata_json: String,
+    pub table_count: u32,
+    pub section_count: u32,
+    pub image_count: u32,
+    pub has_ocr_content: bool,
+    pub empty_page_count: u32,
+    pub quality_warnings_json: Option<String>,
+    pub semantic_extraction_state: String,
+    pub owner_id: String,
+    pub stage_run_id: String,
 }
 
 impl PdfExtractionEngine {
@@ -155,7 +212,7 @@ impl PdfExtractionEngine {
         let source_bytes = tokio_fs::read(&input.source_path)
             .await
             .with_context(|| format!("reading PDF bytes from {}", input.source_path.display()))?;
-        let source_hash = format!("{:x}", Sha256::digest(&source_bytes));
+        let source_hash = compute_source_hash(&source_bytes);
 
         let output_text = tokio_fs::read_to_string(&output_path)
             .await
@@ -244,6 +301,203 @@ fn scratch_dir() -> PathBuf {
     let mut dir = std::env::temp_dir();
     dir.push(OsString::from(format!("daemon-pdf-{}", Uuid::new_v4())));
     dir
+}
+
+#[must_use]
+pub fn compute_source_hash(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
+
+pub fn lookup_reusable_extraction(
+    conn: &Connection,
+    source_content_hash: &str,
+    extraction_engine_version: &str,
+    processing_strategy: ProcessingStrategy,
+) -> Result<Option<ReusableStructuralExtraction>> {
+    conn.query_row(
+        "\
+        SELECT id, source_content_hash, extraction_engine_version, processing_strategy,
+               page_count, document_title, document_language, document_role,
+               extraction_policy_version, expected_overlays_json,
+               extracted_markdown, extracted_sections_json, extracted_tables_json,
+               extracted_metadata_json, table_count, section_count, image_count,
+               has_ocr_content, empty_page_count, quality_warnings_json, owner_id
+        FROM document_extractions
+        WHERE source_content_hash = ?1
+          AND extraction_engine = 'docling'
+          AND extraction_engine_version = ?2
+          AND processing_strategy = ?3
+          AND is_current = 1
+        ORDER BY datetime(updated_at) DESC, datetime(created_at) DESC
+        LIMIT 1
+        ",
+        params![
+            source_content_hash,
+            extraction_engine_version,
+            strategy_name(processing_strategy),
+        ],
+        |row| {
+            Ok(ReusableStructuralExtraction {
+                extraction_id: row.get(0)?,
+                source_content_hash: row.get(1)?,
+                extraction_engine_version: row.get(2)?,
+                processing_strategy,
+                page_count: row.get(4)?,
+                document_title: row.get(5)?,
+                document_language: row.get(6)?,
+                document_role: row.get(7)?,
+                extraction_policy_version: row.get(8)?,
+                expected_overlays_json: row.get(9)?,
+                extracted_markdown: row.get(10)?,
+                extracted_sections_json: row.get(11)?,
+                extracted_tables_json: row.get(12)?,
+                extracted_metadata_json: row.get(13)?,
+                table_count: row.get(14)?,
+                section_count: row.get(15)?,
+                image_count: row.get(16)?,
+                has_ocr_content: row.get::<_, i64>(17)? == 1,
+                empty_page_count: row.get(18)?,
+                quality_warnings_json: row.get(19)?,
+                owner_id: row.get(20)?,
+            })
+        },
+    )
+    .optional()
+    .context("looking up reusable structural extraction")
+}
+
+pub fn persist_structural_extraction(
+    conn: &Connection,
+    row: &PersistStructuralExtractionRow,
+) -> Result<()> {
+    let tx = Transaction::new_unchecked(conn, TransactionBehavior::Immediate)
+        .context("starting structural extraction persistence transaction")?;
+    supersede_current_structural_row(&tx, row)?;
+    insert_structural_extraction_row(&tx, row)?;
+    tx.commit()
+        .context("committing structural extraction persistence transaction")?;
+    Ok(())
+}
+
+#[must_use]
+pub fn clone_reused_extraction(
+    existing: &ReusableStructuralExtraction,
+    new_raw_document_id: &str,
+    new_process_id: &str,
+    new_notice_id: Option<&str>,
+    new_document_set_id: Option<&str>,
+    new_stage_run_id: &str,
+) -> PersistStructuralExtractionRow {
+    PersistStructuralExtractionRow {
+        extraction_id: Uuid::new_v4().to_string(),
+        raw_document_id: new_raw_document_id.to_owned(),
+        process_id: new_process_id.to_owned(),
+        notice_id: new_notice_id.map(str::to_owned),
+        document_set_id: new_document_set_id.map(str::to_owned),
+        source_content_hash: existing.source_content_hash.clone(),
+        extraction_engine_version: existing.extraction_engine_version.clone(),
+        processing_strategy: existing.processing_strategy,
+        page_count: existing.page_count,
+        document_title: existing.document_title.clone(),
+        document_language: existing.document_language.clone(),
+        document_role: existing.document_role.clone(),
+        extraction_policy_version: existing.extraction_policy_version.clone(),
+        expected_overlays_json: existing.expected_overlays_json.clone(),
+        extracted_markdown: existing.extracted_markdown.clone(),
+        extracted_sections_json: existing.extracted_sections_json.clone(),
+        extracted_tables_json: existing.extracted_tables_json.clone(),
+        extracted_metadata_json: existing.extracted_metadata_json.clone(),
+        table_count: existing.table_count,
+        section_count: existing.section_count,
+        image_count: existing.image_count,
+        has_ocr_content: existing.has_ocr_content,
+        empty_page_count: existing.empty_page_count,
+        quality_warnings_json: existing.quality_warnings_json.clone(),
+        semantic_extraction_state: "pending".to_owned(),
+        owner_id: existing.owner_id.clone(),
+        stage_run_id: new_stage_run_id.to_owned(),
+    }
+}
+
+fn supersede_current_structural_row(
+    tx: &Transaction<'_>,
+    row: &PersistStructuralExtractionRow,
+) -> Result<()> {
+    tx.execute(
+        "\
+        UPDATE document_extractions
+        SET is_current = 0,
+            superseded_by_extraction_id = ?1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE raw_document_id = ?2
+          AND extraction_engine = 'docling'
+          AND extraction_engine_version = ?3
+          AND processing_strategy = ?4
+          AND is_current = 1
+          AND id <> ?1
+        ",
+        params![
+            row.extraction_id,
+            row.raw_document_id,
+            row.extraction_engine_version,
+            strategy_name(row.processing_strategy),
+        ],
+    )
+    .context("superseding current structural extraction rows")?;
+    Ok(())
+}
+
+fn insert_structural_extraction_row(
+    tx: &Transaction<'_>,
+    row: &PersistStructuralExtractionRow,
+) -> Result<()> {
+    tx.execute(
+        "\
+        INSERT INTO document_extractions (
+          id, raw_document_id, process_id, notice_id, document_set_id, source_content_hash,
+          extraction_engine, extraction_engine_version, processing_strategy, is_current,
+          page_count, document_title, document_language, document_role, extraction_policy_version,
+          expected_overlays_json, extracted_markdown, extracted_sections_json, extracted_tables_json,
+          extracted_metadata_json, table_count, section_count, image_count, has_ocr_content,
+          empty_page_count, quality_warnings_json, semantic_extraction_state, owner_id,
+          row_version, last_local_seq, stage_run_id
+        ) VALUES (
+          ?1, ?2, ?3, ?4, ?5, ?6, 'docling', ?7, ?8, 1, ?9, ?10, ?11, ?12, ?13, ?14, ?15,
+          ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, 1, NULL, ?27
+        )
+        ",
+        params![
+            row.extraction_id,
+            row.raw_document_id,
+            row.process_id,
+            row.notice_id,
+            row.document_set_id,
+            row.source_content_hash,
+            row.extraction_engine_version,
+            strategy_name(row.processing_strategy),
+            i64::from(row.page_count),
+            row.document_title,
+            row.document_language,
+            row.document_role,
+            row.extraction_policy_version,
+            row.expected_overlays_json,
+            row.extracted_markdown,
+            row.extracted_sections_json,
+            row.extracted_tables_json,
+            row.extracted_metadata_json,
+            i64::from(row.table_count),
+            i64::from(row.section_count),
+            i64::from(row.image_count),
+            i64::from(u8::from(row.has_ocr_content)),
+            i64::from(row.empty_page_count),
+            row.quality_warnings_json,
+            row.semantic_extraction_state,
+            row.owner_id,
+            row.stage_run_id,
+        ],
+    )
+    .context("inserting structural extraction row")?;
+    Ok(())
 }
 
 fn value_u32(payload: &Value, field: &str) -> Result<u32> {

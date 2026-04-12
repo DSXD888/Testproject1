@@ -73,6 +73,20 @@ impl TestStateDb {
     }
 }
 
+pub fn seed_process(conn: &Connection, process_id: &str) -> Result<()> {
+    conn.execute(
+        "\
+        INSERT INTO procurement_processes (
+          id, current_stage, title, latest_published_at, latest_updated_at, owner_id
+        ) VALUES (?1, 'qualification', 'Process title', '2026-03-25T00:00:00Z',
+                  '2026-03-25T00:00:00Z', 'local-owner')
+        ON CONFLICT(id) DO NOTHING
+        ",
+        params![process_id],
+    )?;
+    Ok(())
+}
+
 pub fn seed_raw_document(conn: &Connection, raw_document_id: &str) -> Result<()> {
     conn.execute(
         "\
