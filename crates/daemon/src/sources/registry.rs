@@ -559,6 +559,7 @@ fn to_sql_error(error: impl std::fmt::Display) -> rusqlite::Error {
     )
 }
 
+#[allow(clippy::too_many_lines)]
 fn builtin_definitions() -> BTreeMap<String, SourceDefinition> {
     let mut definitions = BTreeMap::new();
     definitions.insert(
@@ -602,6 +603,69 @@ fn builtin_definitions() -> BTreeMap<String, SourceDefinition> {
                 Some("0 45 4 * * *"),
                 "procurement-ingestion",
                 "contracts-finder",
+            )),
+            canary_binding: None,
+            auth_refresh_binding: None,
+            policy: SourcePolicy::default(),
+            default_health_state: HealthState::Green,
+        },
+    );
+    definitions.insert(
+        "procontract".to_owned(),
+        SourceDefinition {
+            source_id: "procontract".to_owned(),
+            kind: SourceKind::Procurement,
+            enabled: true,
+            source_structure_version: "procontract-2026-04-13".to_owned(),
+            config: json!({}),
+            production_binding: Some(stable_binding(
+                "procurement-ingestion/procontract-discover",
+                DEFAULT_SOURCE_SKILL_VERSION,
+                Some("0 0 5 * * *"),
+                "procurement-ingestion",
+                "procontract",
+            )),
+            canary_binding: None,
+            auth_refresh_binding: None,
+            policy: SourcePolicy::default(),
+            default_health_state: HealthState::Green,
+        },
+    );
+    definitions.insert(
+        "procontract-interest".to_owned(),
+        SourceDefinition {
+            source_id: "procontract-interest".to_owned(),
+            kind: SourceKind::Procurement,
+            enabled: true,
+            source_structure_version: "procontract-interest-2026-04-13".to_owned(),
+            config: json!({}),
+            production_binding: Some(stable_binding(
+                "procurement-ingestion/procontract-register-interest",
+                DEFAULT_SOURCE_SKILL_VERSION,
+                Some("0 30 5 * * *"),
+                "procurement-ingestion",
+                "procontract-interest",
+            )),
+            canary_binding: None,
+            auth_refresh_binding: None,
+            policy: SourcePolicy::default(),
+            default_health_state: HealthState::Green,
+        },
+    );
+    definitions.insert(
+        "procontract-enrich".to_owned(),
+        SourceDefinition {
+            source_id: "procontract-enrich".to_owned(),
+            kind: SourceKind::Procurement,
+            enabled: true,
+            source_structure_version: "procontract-enrich-2026-04-13".to_owned(),
+            config: json!({}),
+            production_binding: Some(stable_binding(
+                "procurement-ingestion/procontract-enrich-tender",
+                DEFAULT_SOURCE_SKILL_VERSION,
+                Some("0 0 6 * * *"),
+                "procurement-ingestion",
+                "procontract-enrich",
             )),
             canary_binding: None,
             auth_refresh_binding: None,

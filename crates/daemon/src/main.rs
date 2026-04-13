@@ -728,6 +728,118 @@ struct SkillRunTelemetry {
     host_health: HostHealthSnapshot,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ProcontractRegistrationContract {
+    #[serde(default)]
+    cursor: String,
+    continuation_required: bool,
+    #[serde(default)]
+    registrations: Vec<ProcontractRegistrationRecord>,
+    summary: ProcontractRegistrationSummary,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ProcontractRegistrationRecord {
+    notice_id: String,
+    #[serde(default)]
+    process_id: Option<String>,
+    #[serde(default)]
+    source_url: Option<String>,
+    action: String,
+    #[serde(default)]
+    skip_reason: Option<String>,
+    #[serde(default)]
+    failure_reason: Option<String>,
+    #[serde(default)]
+    registered_at: Option<String>,
+    #[serde(default)]
+    pre_filter_result: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ProcontractRegistrationSummary {
+    total_evaluated: u32,
+    registered: u32,
+    already_registered: u32,
+    skipped_service: u32,
+    skipped_expiry: u32,
+    failed: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ProcontractEnrichmentContract {
+    #[serde(default)]
+    cursor: String,
+    continuation_required: bool,
+    #[serde(default)]
+    enriched_tenders: Vec<ProcontractEnrichedTender>,
+    summary: ProcontractEnrichmentSummary,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ProcontractEnrichedTender {
+    notice_id: String,
+    #[serde(default)]
+    process_id: Option<String>,
+    rfx_id: String,
+    rfx_url: String,
+    updated_title: String,
+    updated_description: String,
+    updated_deadline_at: String,
+    buyer_name: String,
+    #[serde(default)]
+    buyer_contact: Option<Value>,
+    #[serde(default)]
+    documents_downloaded: Vec<ProcontractDownloadedDocument>,
+    documents_count: u32,
+    enriched_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ProcontractDownloadedDocument {
+    filename: String,
+    content_type: String,
+    #[serde(default)]
+    size_bytes: Option<i64>,
+    local_path: String,
+    #[serde(default)]
+    download_url: Option<String>,
+    #[serde(default)]
+    document_role_hint: Option<String>,
+    #[serde(default)]
+    extracted_from_archive: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ProcontractEnrichmentSummary {
+    total_checked: u32,
+    enriched: u32,
+    not_yet_responded: u32,
+    failed: u32,
+}
+
+#[derive(Debug, Clone)]
+struct ProcontractInterestCandidate {
+    notice_id: String,
+    process_id: String,
+    source_url: String,
+    title: String,
+    summary: String,
+    main_category: String,
+    deadline_at: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct ProcontractInterestEvaluation {
+    notice_id: String,
+    process_id: String,
+    source_url: String,
+    title: String,
+    action: &'static str,
+    skip_reason: Option<&'static str>,
+    pre_filter_result: Value,
+}
+
 #[derive(Debug, Clone)]
 struct ExecutedSession {
     session_id: String,
@@ -990,6 +1102,13 @@ async fn main() -> Result<()> {
                 run_fts_live_loop(&mut runtime, fixture, &cli).await?
             }
             "contracts-finder" => run_contracts_finder_live_loop(&mut runtime, &cli).await?,
+            "procontract" => run_procontract_discover_live_loop(&mut runtime, &cli).await?,
+            "procontract-interest" => {
+                run_procontract_register_interest_live_loop(&mut runtime, &cli).await?
+            }
+            "procontract-enrich" => {
+                run_procontract_enrich_tender_live_loop(&mut runtime, &cli).await?
+            }
             other => bail!("unsupported source: {other}"),
         };
         if report.status == "completed" {
@@ -2662,6 +2781,736 @@ fn load_fixture(path: Option<&Path>) -> Result<LiveLoopFixture> {
     }
 }
 
+fn procurement_manual_source_id(skill_id: &str, job_parameters: &Value) -> String {
+    if let Some(source_id) = job_parameters.get("source_id").and_then(Value::as_str) {
+        return source_id.to_owned();
+    }
+
+    match skill_id {
+        "procurement-ingestion/procontract-discover" => "procontract".to_owned(),
+        "procurement-ingestion/procontract-register-interest" => "procontract-interest".to_owned(),
+        "procurement-ingestion/procontract-enrich-tender" => "procontract-enrich".to_owned(),
+        _ => skill_id
+            .strip_prefix("procurement-ingestion/")
+            .unwrap_or("unknown")
+            .to_owned(),
+    }
+}
+
+fn create_source_sync_job_from_parameters(
+    state_db: &mut StateDb,
+    source_id: &str,
+    skill: &LoadedSkill,
+    job_parameters: &Value,
+    agent_cli: AgentCliKind,
+) -> Result<String> {
+    let job_id = format!(
+        "job-{}",
+        sha256_hex(&UuidSeed::from_time(Utc::now()).as_bytes())
+    );
+    let ((), _) = state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, scope_kind, scope_id, status, input_payload, validation_required,
+              parent_job_id, validation_verdict_id
+            ) VALUES (?1, 'sync_source', 'source', ?2, 'pending', ?3, 0, NULL, NULL)
+            ",
+            params![
+                job_id,
+                source_id,
+                json!({
+                    "source_id": source_id,
+                    "trigger": "manual_cli",
+                    "skill_binding": skill_binding_payload(skill),
+                    "agent_cli": agent_cli.as_str(),
+                    "job_parameters": job_parameters,
+                    "durable_step_surfaces": live_loop_surfaces_json(),
+                })
+                .to_string(),
+            ],
+        )?;
+        Ok(())
+    })?;
+    Ok(job_id)
+}
+
+fn complete_source_job(
+    runtime: &mut RuntimeBootstrap,
+    job_id: &str,
+    summary_payload: &Value,
+    summary_line: String,
+) -> Result<LiveLoopReport> {
+    runtime.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            UPDATE workflow_jobs
+            SET status = 'completed',
+                completed_at = ?1,
+                output_payload = ?2
+            WHERE id = ?3
+            ",
+            params![Utc::now().to_rfc3339(), summary_payload.to_string(), job_id],
+        )?;
+        Ok(())
+    })?;
+
+    Ok(LiveLoopReport {
+        summary_line,
+        status: "completed".to_owned(),
+    })
+}
+
+fn read_result_contract(result_path: &Path) -> Result<Value> {
+    let result_text = fs::read_to_string(result_path)
+        .with_context(|| format!("reading result contract from {}", result_path.display()))?;
+    serde_json::from_str(&result_text).context("parsing result contract JSON")
+}
+
+fn load_procontract_interest_candidates(
+    conn: &Connection,
+) -> Result<Vec<ProcontractInterestCandidate>> {
+    let mut statement = conn.prepare(
+        "\
+        SELECT cn.id,
+               cn.process_id,
+               COALESCE(cn.source_url, ''),
+               cn.title,
+               COALESCE(cn.summary, ''),
+               COALESCE(cn.main_category, ''),
+               cn.deadline_at
+        FROM contract_notices cn
+        WHERE cn.source_id = 'procontract'
+          AND cn.procurement_stage IN ('tender', 'future_opportunity')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM process_stage_status pss
+            WHERE pss.process_id = cn.process_id
+              AND pss.stage = 'interest_registration'
+          )
+        ORDER BY COALESCE(cn.deadline_at, '9999-12-31T23:59:59Z'), cn.source_updated_at DESC, cn.id
+        ",
+    )?;
+
+    statement
+        .query_map([], |row| {
+            Ok(ProcontractInterestCandidate {
+                notice_id: row.get(0)?,
+                process_id: row.get(1)?,
+                source_url: row.get(2)?,
+                title: row.get(3)?,
+                summary: row.get(4)?,
+                main_category: row.get(5)?,
+                deadline_at: row.get(6)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("loading ProContract interest-registration candidates")
+}
+
+fn build_procontract_interest_evaluations(
+    candidates: Vec<ProcontractInterestCandidate>,
+) -> Vec<ProcontractInterestEvaluation> {
+    candidates
+        .into_iter()
+        .map(|candidate| {
+            let goods_check = is_likely_goods_contract(
+                &candidate.main_category,
+                &candidate.title,
+                &candidate.summary,
+            );
+            let (expiry_check, days_until_deadline) =
+                candidate_deadline_check(candidate.deadline_at.as_deref());
+            let action = if !expiry_check || !goods_check {
+                "skipped"
+            } else {
+                "register"
+            };
+            let skip_reason = if !expiry_check {
+                Some("expiry_too_close")
+            } else if !goods_check {
+                Some("pure_service")
+            } else {
+                None
+            };
+
+            ProcontractInterestEvaluation {
+                notice_id: candidate.notice_id,
+                process_id: candidate.process_id,
+                source_url: candidate.source_url,
+                title: candidate.title,
+                action,
+                skip_reason,
+                pre_filter_result: json!({
+                    "goods_check": goods_check,
+                    "expiry_check": expiry_check,
+                    "category": if candidate.main_category.is_empty() {
+                        Value::Null
+                    } else {
+                        Value::String(candidate.main_category)
+                    },
+                    "days_until_deadline": days_until_deadline,
+                }),
+            }
+        })
+        .collect()
+}
+
+fn candidate_deadline_check(deadline_at: Option<&str>) -> (bool, Option<i64>) {
+    let Some(deadline_at) = deadline_at else {
+        return (false, None);
+    };
+    let Ok(deadline) = DateTime::parse_from_rfc3339(deadline_at) else {
+        return (false, None);
+    };
+    let now = Utc::now();
+    let deadline_utc = deadline.with_timezone(&Utc);
+    let days_until_deadline = deadline_utc.signed_duration_since(now).num_days();
+    (
+        deadline_utc > now + chrono::Duration::days(30),
+        Some(days_until_deadline),
+    )
+}
+
+fn is_likely_goods_contract(main_category: &str, title: &str, summary: &str) -> bool {
+    let haystack = format!("{main_category}\n{title}\n{summary}").to_ascii_lowercase();
+    let positive_keywords = [
+        "goods",
+        "supply",
+        "supplies",
+        "equipment",
+        "products",
+        "product",
+        "hardware",
+        "furniture",
+        "vehicle",
+        "vehicles",
+        "tyre",
+        "tyres",
+        "fuel",
+        "flooring",
+        "signs",
+        "water dispensers",
+        "sports goods",
+        "electrical machinery",
+        "consumables",
+        "uniform",
+        "ppe",
+        "cleaning",
+        "play equipment",
+        "gymnasium",
+    ];
+    let service_keywords = [
+        "consultancy",
+        "consultant",
+        "design team",
+        "design",
+        "evaluation",
+        "advisory",
+        "strategy",
+        "appointment",
+        "management services",
+        "legal services",
+        "audit services",
+        "architect",
+        "engineering services",
+        "professional services",
+        "training services",
+    ];
+
+    let positive_hits = positive_keywords
+        .iter()
+        .filter(|keyword| haystack.contains(**keyword))
+        .count();
+    let service_hits = service_keywords
+        .iter()
+        .filter(|keyword| haystack.contains(**keyword))
+        .count();
+
+    positive_hits > 0 || (service_hits == 0 && haystack.contains("cpv"))
+}
+
+fn evaluation_report_entry(evaluation: &ProcontractInterestEvaluation) -> Value {
+    json!({
+        "notice_id": evaluation.notice_id,
+        "process_id": evaluation.process_id,
+        "source_url": evaluation.source_url,
+        "title": evaluation.title,
+        "action": if evaluation.action == "register" {
+            "pending_registration"
+        } else {
+            "skipped"
+        },
+        "skip_reason": evaluation.skip_reason,
+        "pre_filter_result": evaluation.pre_filter_result,
+    })
+}
+
+fn registration_job_entry(evaluation: &ProcontractInterestEvaluation) -> Value {
+    json!({
+        "notice_id": evaluation.notice_id,
+        "process_id": evaluation.process_id,
+        "source_url": evaluation.source_url,
+        "title": evaluation.title,
+        "pre_filter_result": evaluation.pre_filter_result,
+    })
+}
+
+fn persist_source_cursor(
+    tx: &Transaction<'_>,
+    source_id: &str,
+    cursor_key: &str,
+    cursor_value: &str,
+) -> Result<()> {
+    if cursor_value.is_empty() {
+        return Ok(());
+    }
+
+    tx.execute(
+        "\
+        INSERT INTO source_cursors (source_id, cursor_key, cursor_value, updated_at)
+        VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)
+        ON CONFLICT(source_id, cursor_key) DO UPDATE SET
+          cursor_value = excluded.cursor_value,
+          updated_at = excluded.updated_at
+        ",
+        params![source_id, cursor_key, cursor_value],
+    )?;
+    Ok(())
+}
+
+fn scoped_stage_run_id(base_stage_run_id: &str, scope_id: &str) -> String {
+    format!("{base_stage_run_id}-{}", slug_token(scope_id))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn persist_custom_process_stage_state(
+    tx: &Transaction<'_>,
+    process_id: &str,
+    stage: &str,
+    scope_kind: &str,
+    scope_id: &str,
+    stage_run_id: &str,
+    stage_state: &str,
+    visible_after_seq: i64,
+) -> Result<()> {
+    let now = Utc::now().to_rfc3339();
+    tx.execute(
+        "\
+        INSERT INTO process_stage_status (
+          id, process_id, stage, scope_kind, scope_id, stage_run_id, state,
+          freshness_state, started_at, completed_at, owner_id, row_version, last_local_seq
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'fresh', ?8, ?9, ?10, 1, ?11)
+        ",
+        params![
+            format!("{stage_run_id}-{stage_state}"),
+            process_id,
+            stage,
+            scope_kind,
+            scope_id,
+            stage_run_id,
+            stage_state,
+            now,
+            now,
+            DEFAULT_OWNER_ID,
+            visible_after_seq,
+        ],
+    )?;
+
+    if stage_state != "failed" {
+        tx.execute(
+            "\
+            INSERT INTO process_stage_heads (
+              process_id, stage, scope_kind, scope_id, current_stage_run_id,
+              freshness_state, owner_id, row_version, last_local_seq
+            ) VALUES (?1, ?2, ?3, ?4, ?5, 'fresh', ?6, 1, ?7)
+            ON CONFLICT(process_id, stage, scope_kind, scope_id) DO UPDATE SET
+              current_stage_run_id = excluded.current_stage_run_id,
+              freshness_state = excluded.freshness_state,
+              owner_id = excluded.owner_id,
+              row_version = process_stage_heads.row_version + 1,
+              last_local_seq = excluded.last_local_seq,
+              updated_at = CURRENT_TIMESTAMP
+            ",
+            params![
+                process_id,
+                stage,
+                scope_kind,
+                scope_id,
+                stage_run_id,
+                DEFAULT_OWNER_ID,
+                visible_after_seq,
+            ],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn resolve_process_id_for_notice(
+    tx: &Transaction<'_>,
+    notice_id: &str,
+    hinted_process_id: Option<&str>,
+) -> Result<String> {
+    if let Some(process_id) = hinted_process_id {
+        return Ok(process_id.to_owned());
+    }
+
+    tx.query_row(
+        "SELECT process_id FROM contract_notices WHERE id = ?1",
+        params![notice_id],
+        |row| row.get(0),
+    )
+    .with_context(|| format!("loading process_id for notice {notice_id}"))
+}
+
+fn load_notice_payload(tx: &Transaction<'_>, notice_id: &str) -> Result<Option<Value>> {
+    let payload: Option<String> = tx
+        .query_row(
+            "SELECT normalized_payload FROM contract_notices WHERE id = ?1",
+            params![notice_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    payload
+        .map(|raw| {
+            serde_json::from_str::<Value>(&raw)
+                .context("parsing contract_notices.normalized_payload")
+        })
+        .transpose()
+}
+
+fn merge_notice_payload(existing: Option<Value>, updates: &Value) -> Value {
+    let mut base = existing
+        .and_then(|value| value.as_object().cloned())
+        .unwrap_or_default();
+    if let Some(update_object) = updates.as_object() {
+        for (key, value) in update_object {
+            base.insert(key.clone(), value.clone());
+        }
+    }
+    Value::Object(base)
+}
+
+fn infer_document_role_hint(filename: &str) -> Option<String> {
+    let normalized = filename.to_ascii_lowercase();
+    if normalized.contains("invitation to tender") || normalized.contains("itt") {
+        Some("invitation_to_tender".to_owned())
+    } else if normalized.contains("specification") || normalized.contains("brief") {
+        Some("technical_specification".to_owned())
+    } else if normalized.contains("pricing schedule") || normalized.contains("schedule") {
+        Some("pricing_schedule".to_owned())
+    } else if normalized.contains("response") || normalized.contains("submission") {
+        Some("response_document".to_owned())
+    } else if normalized.contains("terms") || normalized.contains("t&c") {
+        Some("terms_and_conditions".to_owned())
+    } else if Path::new(&normalized)
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("zip"))
+    {
+        Some("archive".to_owned())
+    } else {
+        None
+    }
+}
+
+fn size_bytes_for_download(document: &ProcontractDownloadedDocument) -> Option<i64> {
+    document.size_bytes.or_else(|| {
+        fs::metadata(&document.local_path)
+            .ok()
+            .and_then(|metadata| i64::try_from(metadata.len()).ok())
+    })
+}
+
+fn persist_interest_registrations(
+    state_db: &mut StateDb,
+    source_id: &str,
+    result_json: &Value,
+) -> Result<usize> {
+    let contract: ProcontractRegistrationContract = serde_json::from_value(result_json.clone())
+        .context("parsing ProContract registration result contract")?;
+    let stage_run_id = allocate_stage_run_id();
+
+    let (persisted_count, _) = state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        for registration in &contract.registrations {
+            let process_id = resolve_process_id_for_notice(
+                tx,
+                &registration.notice_id,
+                registration.process_id.as_deref(),
+            )?;
+            let scoped_run_id = scoped_stage_run_id(&stage_run_id, &process_id);
+            let state = match registration.action.as_str() {
+                "registered" | "already_registered" => "completed",
+                "skipped" => "skipped",
+                "failed" => "failed",
+                other => bail!("unsupported ProContract registration action `{other}`"),
+            };
+            persist_custom_process_stage_state(
+                tx,
+                &process_id,
+                "interest_registration",
+                "process",
+                &process_id,
+                &scoped_run_id,
+                state,
+                visible_after_seq,
+            )?;
+        }
+        persist_source_cursor(tx, source_id, "interest_cursor", &contract.cursor)?;
+        Ok(contract.registrations.len())
+    })?;
+
+    Ok(persisted_count)
+}
+
+#[allow(clippy::too_many_lines)]
+fn persist_tender_enrichments(
+    state_db: &mut StateDb,
+    source_id: &str,
+    result_json: &Value,
+) -> Result<usize> {
+    let contract: ProcontractEnrichmentContract = serde_json::from_value(result_json.clone())
+        .context("parsing ProContract enrichment result contract")?;
+    let stage_run_id = allocate_stage_run_id();
+
+    let (persisted_count, _) = state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        for tender in &contract.enriched_tenders {
+            let process_id =
+                resolve_process_id_for_notice(tx, &tender.notice_id, tender.process_id.as_deref())?;
+            let merged_payload = merge_notice_payload(
+                load_notice_payload(tx, &tender.notice_id)?,
+                &json!({
+                    "rfx_id": tender.rfx_id,
+                    "rfx_url": tender.rfx_url,
+                    "buyer_contact": tender.buyer_contact,
+                    "documents_downloaded": tender.documents_downloaded,
+                    "documents_count": tender.documents_count,
+                    "enriched_at": tender.enriched_at,
+                    "updated_title": tender.updated_title,
+                    "updated_description": tender.updated_description,
+                    "updated_deadline_at": tender.updated_deadline_at,
+                }),
+            );
+            let merged_payload_json = serde_json::to_string(&merged_payload)
+                .context("serializing merged notice payload")?;
+            let scoped_run_id = scoped_stage_run_id(&stage_run_id, &process_id);
+
+            tx.execute(
+                "\
+                UPDATE procurement_processes
+                SET title = ?1,
+                    buyer_name = ?2,
+                    latest_deadline_at = ?3,
+                    latest_updated_at = ?4,
+                    row_version = procurement_processes.row_version + 1,
+                    last_local_seq = ?5,
+                    stage_run_id = ?6,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?7
+                ",
+                params![
+                    tender.updated_title,
+                    tender.buyer_name,
+                    tender.updated_deadline_at,
+                    tender.enriched_at,
+                    visible_after_seq,
+                    scoped_run_id,
+                    process_id,
+                ],
+            )?;
+
+            tx.execute(
+                "\
+                UPDATE contract_notices
+                SET title = ?1,
+                    summary = ?2,
+                    buyer_name = ?3,
+                    deadline_at = ?4,
+                    source_updated_at = ?5,
+                    normalized_payload = ?6,
+                    row_version = contract_notices.row_version + 1,
+                    last_local_seq = ?7,
+                    stage_run_id = ?8,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?9
+                ",
+                params![
+                    tender.updated_title,
+                    tender.updated_description,
+                    tender.buyer_name,
+                    tender.updated_deadline_at,
+                    tender.enriched_at,
+                    merged_payload_json,
+                    visible_after_seq,
+                    scoped_run_id,
+                    tender.notice_id,
+                ],
+            )?;
+
+            let mut document_rows = Vec::new();
+            let mut document_roles = Map::new();
+            let mut has_pdf_document = false;
+            for (index, document) in tender.documents_downloaded.iter().enumerate() {
+                let size_bytes = size_bytes_for_download(document);
+                let role_hint = document
+                    .document_role_hint
+                    .clone()
+                    .or_else(|| infer_document_role_hint(&document.filename));
+                let raw_document_id = format!(
+                    "raw-{}-{}",
+                    tender.notice_id,
+                    sha256_hex(
+                        format!("{}:{}:{}", document.filename, document.local_path, index)
+                            .as_bytes()
+                    )
+                );
+                let metadata = json!({
+                    "filename": document.filename,
+                    "size_bytes": size_bytes,
+                    "document_role_hint": role_hint,
+                    "download_url": document.download_url,
+                    "extracted_from_archive": document.extracted_from_archive,
+                    "rfx_id": tender.rfx_id,
+                    "rfx_url": tender.rfx_url,
+                    "last_local_seq": visible_after_seq,
+                });
+
+                tx.execute(
+                    "\
+                    INSERT INTO raw_documents (
+                      id, source_id, content_type, source_url, storage_path, metadata, created_at
+                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, CURRENT_TIMESTAMP)
+                    ON CONFLICT(id) DO UPDATE SET
+                      content_type = excluded.content_type,
+                      source_url = excluded.source_url,
+                      storage_path = excluded.storage_path,
+                      metadata = excluded.metadata
+                    ",
+                    params![
+                        raw_document_id,
+                        source_id,
+                        document.content_type,
+                        document.download_url.as_deref().unwrap_or(&tender.rfx_url),
+                        document.local_path,
+                        metadata.to_string(),
+                    ],
+                )?;
+
+                if document.content_type == "application/pdf" {
+                    has_pdf_document = true;
+                }
+
+                if let Some(role_hint) = role_hint.clone() {
+                    document_roles.insert(raw_document_id.clone(), Value::String(role_hint));
+                }
+
+                document_rows.push(json!({
+                    "raw_document_id": raw_document_id,
+                    "filename": document.filename,
+                    "content_type": document.content_type,
+                    "size_bytes": size_bytes,
+                    "storage_path": document.local_path,
+                    "source_url": document.download_url.as_deref().unwrap_or(&tender.rfx_url),
+                    "document_role_hint": role_hint,
+                    "extracted_from_archive": document.extracted_from_archive.unwrap_or(false),
+                }));
+            }
+
+            let documents_json =
+                serde_json::to_string(&document_rows).context("serializing tender documents")?;
+            let document_roles_json = Value::Object(document_roles).to_string();
+            let document_set_hash =
+                sha256_hex(format!("{}:{}", tender.rfx_id, documents_json).as_bytes());
+            let completeness_state = if document_rows.is_empty() {
+                "none"
+            } else {
+                "complete"
+            };
+            let extraction_state = if has_pdf_document { "pending" } else { "none" };
+
+            tx.execute(
+                "\
+                INSERT INTO tender_document_sets (
+                  id, process_id, notice_id, document_set_hash, completeness_state,
+                  document_roles_json, documents_json, acquired_at, extraction_state,
+                  owner_id, row_version, last_local_seq, stage_run_id
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, ?12)
+                ON CONFLICT(id) DO UPDATE SET
+                  document_set_hash = excluded.document_set_hash,
+                  completeness_state = excluded.completeness_state,
+                  document_roles_json = excluded.document_roles_json,
+                  documents_json = excluded.documents_json,
+                  acquired_at = excluded.acquired_at,
+                  extraction_state = excluded.extraction_state,
+                  row_version = tender_document_sets.row_version + 1,
+                  last_local_seq = excluded.last_local_seq,
+                  stage_run_id = excluded.stage_run_id,
+                  updated_at = CURRENT_TIMESTAMP
+                ",
+                params![
+                    format!("tds-{}", tender.notice_id),
+                    process_id,
+                    tender.notice_id,
+                    document_set_hash,
+                    completeness_state,
+                    document_roles_json,
+                    documents_json,
+                    tender.enriched_at,
+                    extraction_state,
+                    DEFAULT_OWNER_ID,
+                    visible_after_seq,
+                    scoped_run_id,
+                ],
+            )?;
+
+            persist_custom_process_stage_state(
+                tx,
+                &process_id,
+                "tender_enrichment",
+                "process",
+                &process_id,
+                &scoped_run_id,
+                "completed",
+                visible_after_seq,
+            )?;
+        }
+
+        persist_source_cursor(tx, source_id, "enrich_cursor", &contract.cursor)?;
+        Ok(contract.enriched_tenders.len())
+    })?;
+
+    Ok(persisted_count)
+}
+
+fn manual_procurement_persist_count_label(skill_id: &str) -> &'static str {
+    match skill_id {
+        "procurement-ingestion/procontract-register-interest" => "registrations",
+        "procurement-ingestion/procontract-enrich-tender" => "enriched tenders",
+        _ => "notices",
+    }
+}
+
+fn persist_procurement_result_for_skill(
+    state_db: &mut StateDb,
+    skill_id: &str,
+    job_parameters: &Value,
+    result_json: &Value,
+) -> Result<(String, usize)> {
+    let source_id = procurement_manual_source_id(skill_id, job_parameters);
+    let persisted_count = match skill_id {
+        "procurement-ingestion/procontract-register-interest" => {
+            persist_interest_registrations(state_db, &source_id, result_json)?
+        }
+        "procurement-ingestion/procontract-enrich-tender" => {
+            persist_tender_enrichments(state_db, &source_id, result_json)?
+        }
+        _ => persist_ingestion_from_agent_output(state_db, &source_id, result_json)?,
+    };
+    Ok((source_id, persisted_count))
+}
+
 #[allow(clippy::future_not_send)]
 async fn run_bound_skill(
     runtime: &mut RuntimeBootstrap,
@@ -2688,22 +3537,17 @@ async fn run_bound_skill(
         .starts_with("procurement-ingestion/")
         && let Some(ref result_path) = executed.result_path
     {
-        let result_text = fs::read_to_string(result_path).with_context(|| {
-            format!(
-                "reading agent result contract from {}",
-                result_path.display()
-            )
-        })?;
-        let result_json: Value =
-            serde_json::from_str(&result_text).context("parsing agent result contract JSON")?;
-        let source_id = skill
-            .metadata
-            .skill_id
-            .strip_prefix("procurement-ingestion/")
-            .unwrap_or("unknown");
-        let persisted_count =
-            persist_ingestion_from_agent_output(&mut runtime.state_db, source_id, &result_json)?;
-        eprintln!("Persisted {persisted_count} notices from agent output for source {source_id}");
+        let result_json = read_result_contract(result_path)?;
+        let (source_id, persisted_count) = persist_procurement_result_for_skill(
+            &mut runtime.state_db,
+            &skill.metadata.skill_id,
+            &job_parameters,
+            &result_json,
+        )?;
+        eprintln!(
+            "Persisted {persisted_count} {} from agent output for source {source_id}",
+            manual_procurement_persist_count_label(&skill.metadata.skill_id)
+        );
     } else if skill.metadata.skill_id.starts_with("pdf-extraction/")
         && let Some(ref result_path) = executed.result_path
     {
@@ -4527,6 +5371,337 @@ async fn run_contracts_finder_live_loop(
         ),
         status: "completed".to_owned(),
     })
+}
+
+#[allow(clippy::future_not_send)]
+async fn run_procontract_discover_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+) -> Result<LiveLoopReport> {
+    let repo_root = repo_root()?;
+    let ingest_skill = load_skill(
+        &repo_root.join("skills/procurement-ingestion/procontract-discover"),
+        "skills/procurement-ingestion/procontract-discover/SKILL.md",
+    )?;
+    let existing_cursor: Option<String> = runtime
+        .state_db
+        .connection()
+        .query_row(
+            "SELECT cursor_value FROM source_cursors \
+             WHERE source_id = 'procontract' AND cursor_key = 'notice_cursor'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    let published_from = existing_cursor.as_deref().and_then(|raw| {
+        serde_json::from_str::<Value>(raw).ok().and_then(|cursor| {
+            cursor
+                .get("last_published")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+    });
+    let job_parameters = json!({
+        "source_id": "procontract",
+        "cursor": existing_cursor,
+        "publishedFrom": published_from,
+        "limit": 100,
+        "startPage": 1,
+    });
+    let adapter_config = adapter_runtime_config(cli, &ingest_skill)?;
+    let job_id = create_source_sync_job_from_parameters(
+        &mut runtime.state_db,
+        "procontract",
+        &ingest_skill,
+        &job_parameters,
+        adapter_config.kind,
+    )?;
+    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+    let claimed = runner
+        .claim_next_job(runtime.state_db.connection())?
+        .ok_or_else(|| anyhow!("expected claimed workflow job for procontract"))?;
+    ensure!(claimed.id == job_id, "claimed unexpected workflow job");
+
+    let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
+    let executed = execute_skill_session(
+        runtime,
+        &ingest_skill,
+        &job_id,
+        &session_id,
+        &job_parameters,
+        cli,
+    )
+    .await?;
+    ensure!(
+        executed.execution_mode == ExecutionMode::Pty,
+        "procontract discovery skill must resolve to PTY"
+    );
+    insert_executed_session_log(
+        runtime.state_db.connection(),
+        &ingest_skill,
+        &job_id,
+        &executed,
+    )?;
+
+    let result_path = executed
+        .result_path
+        .as_ref()
+        .ok_or_else(|| anyhow!("procontract discovery skill did not produce a result contract"))?;
+    let result_json = read_result_contract(result_path)?;
+    let persisted_count =
+        persist_ingestion_from_agent_output(&mut runtime.state_db, "procontract", &result_json)?;
+    let continuation_required = result_json
+        .get("continuation_required")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+
+    complete_source_job(
+        runtime,
+        &job_id,
+        &json!({
+            "job_id": job_id,
+            "source_id": "procontract",
+            "notices_ingested": persisted_count,
+            "continuation_required": continuation_required,
+            "session_id": session_id,
+            "durable_step_surfaces": live_loop_surfaces_json(),
+        }),
+        format!(
+            "procontract discovery completed: job_id={job_id} notices={persisted_count} continuation={continuation_required}"
+        ),
+    )
+}
+
+#[allow(clippy::future_not_send)]
+#[allow(clippy::too_many_lines)]
+async fn run_procontract_register_interest_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+) -> Result<LiveLoopReport> {
+    let repo_root = repo_root()?;
+    let skill = load_skill(
+        &repo_root.join("skills/procurement-ingestion/procontract-register-interest"),
+        "skills/procurement-ingestion/procontract-register-interest/SKILL.md",
+    )?;
+    let evaluations = build_procontract_interest_evaluations(load_procontract_interest_candidates(
+        runtime.state_db.connection(),
+    )?);
+    let registration_targets = evaluations
+        .iter()
+        .filter(|evaluation| evaluation.action == "register")
+        .map(registration_job_entry)
+        .collect::<Vec<_>>();
+    let evaluation_report = evaluations
+        .iter()
+        .map(evaluation_report_entry)
+        .collect::<Vec<_>>();
+    let adapter_config = adapter_runtime_config(cli, &skill)?;
+    let job_parameters = json!({
+        "source_id": "procontract-interest",
+        "contracts_to_register": registration_targets,
+        "pre_filter_evaluated": evaluation_report,
+    });
+    let job_id = create_source_sync_job_from_parameters(
+        &mut runtime.state_db,
+        "procontract-interest",
+        &skill,
+        &job_parameters,
+        adapter_config.kind,
+    )?;
+    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+    let claimed = runner
+        .claim_next_job(runtime.state_db.connection())?
+        .ok_or_else(|| anyhow!("expected claimed workflow job for procontract-interest"))?;
+    ensure!(claimed.id == job_id, "claimed unexpected workflow job");
+
+    if evaluations.is_empty() {
+        return complete_source_job(
+            runtime,
+            &job_id,
+            &json!({
+                "job_id": job_id,
+                "source_id": "procontract-interest",
+                "registrations": 0,
+                "summary": {
+                    "total_evaluated": 0,
+                    "registered": 0,
+                    "already_registered": 0,
+                    "skipped_service": 0,
+                    "skipped_expiry": 0,
+                    "failed": 0,
+                },
+                "durable_step_surfaces": live_loop_surfaces_json(),
+            }),
+            format!("procontract interest registration completed: job_id={job_id} evaluated=0"),
+        );
+    }
+
+    if !evaluations
+        .iter()
+        .any(|evaluation| evaluation.action == "register")
+    {
+        let synthetic_result = json!({
+            "cursor": json!({"last_processed_at": Utc::now().to_rfc3339()}).to_string(),
+            "continuation_required": false,
+            "registrations": evaluations.iter().map(|evaluation| {
+                json!({
+                    "notice_id": evaluation.notice_id,
+                    "process_id": evaluation.process_id,
+                    "source_url": evaluation.source_url,
+                    "action": "skipped",
+                    "skip_reason": evaluation.skip_reason,
+                    "pre_filter_result": evaluation.pre_filter_result,
+                })
+            }).collect::<Vec<_>>(),
+            "summary": {
+                "total_evaluated": evaluations.len(),
+                "registered": 0,
+                "already_registered": 0,
+                "skipped_service": evaluations.iter().filter(|evaluation| evaluation.skip_reason == Some("pure_service")).count(),
+                "skipped_expiry": evaluations.iter().filter(|evaluation| evaluation.skip_reason == Some("expiry_too_close")).count(),
+                "failed": 0,
+            },
+        });
+        let persisted_count = persist_interest_registrations(
+            &mut runtime.state_db,
+            "procontract-interest",
+            &synthetic_result,
+        )?;
+        return complete_source_job(
+            runtime,
+            &job_id,
+            &json!({
+                "job_id": job_id,
+                "source_id": "procontract-interest",
+                "registrations": persisted_count,
+                "summary": synthetic_result.get("summary").cloned().unwrap_or_else(|| json!({})),
+                "durable_step_surfaces": live_loop_surfaces_json(),
+            }),
+            format!(
+                "procontract interest registration completed without portal actions: job_id={job_id} evaluated={} skipped_only=true",
+                evaluations.len()
+            ),
+        );
+    }
+
+    let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
+    let executed =
+        execute_skill_session(runtime, &skill, &job_id, &session_id, &job_parameters, cli).await?;
+    ensure!(
+        executed.execution_mode == ExecutionMode::Pty,
+        "procontract interest-registration skill must resolve to PTY"
+    );
+    insert_executed_session_log(runtime.state_db.connection(), &skill, &job_id, &executed)?;
+    let result_path = executed.result_path.as_ref().ok_or_else(|| {
+        anyhow!("procontract interest-registration skill did not produce a result contract")
+    })?;
+    let result_json = read_result_contract(result_path)?;
+    let persisted_count = persist_interest_registrations(
+        &mut runtime.state_db,
+        "procontract-interest",
+        &result_json,
+    )?;
+
+    let summary = result_json
+        .get("summary")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    complete_source_job(
+        runtime,
+        &job_id,
+        &json!({
+            "job_id": job_id,
+            "source_id": "procontract-interest",
+            "registrations": persisted_count,
+            "summary": summary,
+            "session_id": session_id,
+            "durable_step_surfaces": live_loop_surfaces_json(),
+        }),
+        format!(
+            "procontract interest registration completed: job_id={job_id} evaluations={} persisted={persisted_count}",
+            evaluations.len()
+        ),
+    )
+}
+
+#[allow(clippy::future_not_send)]
+async fn run_procontract_enrich_tender_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+) -> Result<LiveLoopReport> {
+    let repo_root = repo_root()?;
+    let skill = load_skill(
+        &repo_root.join("skills/procurement-ingestion/procontract-enrich-tender"),
+        "skills/procurement-ingestion/procontract-enrich-tender/SKILL.md",
+    )?;
+    let existing_cursor: Option<String> = runtime
+        .state_db
+        .connection()
+        .query_row(
+            "SELECT cursor_value FROM source_cursors \
+             WHERE source_id = 'procontract-enrich' AND cursor_key = 'enrich_cursor'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    let download_root = runtime.artifact_root.join("downloads").join("procontract");
+    fs::create_dir_all(&download_root)
+        .with_context(|| format!("creating {}", download_root.display()))?;
+    let job_parameters = json!({
+        "source_id": "procontract-enrich",
+        "cursor": existing_cursor,
+        "download_root": download_root.to_string_lossy(),
+    });
+    let adapter_config = adapter_runtime_config(cli, &skill)?;
+    let job_id = create_source_sync_job_from_parameters(
+        &mut runtime.state_db,
+        "procontract-enrich",
+        &skill,
+        &job_parameters,
+        adapter_config.kind,
+    )?;
+    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+    let claimed = runner
+        .claim_next_job(runtime.state_db.connection())?
+        .ok_or_else(|| anyhow!("expected claimed workflow job for procontract-enrich"))?;
+    ensure!(claimed.id == job_id, "claimed unexpected workflow job");
+
+    let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
+    let executed =
+        execute_skill_session(runtime, &skill, &job_id, &session_id, &job_parameters, cli).await?;
+    ensure!(
+        executed.execution_mode == ExecutionMode::Pty,
+        "procontract enrichment skill must resolve to PTY"
+    );
+    insert_executed_session_log(runtime.state_db.connection(), &skill, &job_id, &executed)?;
+    let result_path = executed
+        .result_path
+        .as_ref()
+        .ok_or_else(|| anyhow!("procontract enrichment skill did not produce a result contract"))?;
+    let result_json = read_result_contract(result_path)?;
+    let persisted_count =
+        persist_tender_enrichments(&mut runtime.state_db, "procontract-enrich", &result_json)?;
+    let summary = result_json
+        .get("summary")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+
+    complete_source_job(
+        runtime,
+        &job_id,
+        &json!({
+            "job_id": job_id,
+            "source_id": "procontract-enrich",
+            "enriched_tenders": persisted_count,
+            "summary": summary,
+            "session_id": session_id,
+            "download_root": download_root.to_string_lossy(),
+            "durable_step_surfaces": live_loop_surfaces_json(),
+        }),
+        format!(
+            "procontract tender enrichment completed: job_id={job_id} enriched={persisted_count}"
+        ),
+    )
 }
 
 #[allow(
@@ -8426,6 +9601,7 @@ mod tests {
         run_live_semantic_validation, write_run_manifest_for_session,
     };
     use crate::db::sqlite::DEFAULT_SCHEMA_EPOCH;
+    use crate::{persist_interest_registrations, persist_tender_enrichments};
     use chrono::Utc;
 
     type HistoryIdentityRow = (Option<i64>, Option<String>, Option<i64>);
@@ -9427,6 +10603,209 @@ mod tests {
         assert!(columns.iter().any(|column| column == "adapter_id"));
         assert!(columns.iter().any(|column| column == "sid"));
         assert!(columns.iter().any(|column| column == "exit_code"));
+        Ok(())
+    }
+
+    fn seed_minimal_procontract_notice(
+        conn: &Connection,
+        process_id: &str,
+        notice_id: &str,
+        title: &str,
+    ) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO procurement_processes (
+              id, canonical_ocid, primary_notice_id, current_stage, buyer_name, title,
+              latest_deadline_at, latest_published_at, latest_updated_at, owner_id
+            ) VALUES (?1, ?2, ?3, 'normalize', 'Buyer', ?4, '2026-05-31T12:00:00Z',
+                      '2026-04-01T00:00:00Z', '2026-04-01T00:00:00Z', 'local-owner')
+            ",
+            params![process_id, notice_id, notice_id, title],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO contract_notices (
+              id, process_id, source_id, source_notice_id, raw_document_id, ocid, title,
+              summary, buyer_name, procurement_stage, access_route, deadline_at, published_at,
+              source_updated_at, main_category, normalized_payload, owner_id
+            ) VALUES (?1, ?2, 'procontract', ?3, ?4, ?5, ?6, 'seed summary', 'Buyer',
+                      'tender', 'portal_authenticated', '2026-05-31T12:00:00Z',
+                      '2026-04-01T00:00:00Z', '2026-04-01T00:00:00Z', 'seed category',
+                      '{}', 'local-owner')
+            ",
+            params![
+                notice_id,
+                process_id,
+                notice_id,
+                format!("raw-{notice_id}"),
+                notice_id,
+                title,
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn persist_interest_registrations_writes_stage_tracking_rows() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-test-001",
+            "pc-test-001",
+            "Supply of widgets",
+        )?;
+
+        let result_json = json!({
+            "cursor": "{\"last_processed_at\":\"2026-04-13T15:00:00Z\"}",
+            "continuation_required": false,
+            "registrations": [
+                {
+                    "notice_id": "pc-test-001",
+                    "process_id": "proc-pc-test-001",
+                    "source_url": "https://example.invalid/pc-test-001",
+                    "action": "registered",
+                    "registered_at": "2026-04-13T15:02:30Z",
+                    "pre_filter_result": {
+                        "goods_check": true,
+                        "expiry_check": true,
+                        "category": "Goods",
+                        "days_until_deadline": 45
+                    }
+                }
+            ],
+            "summary": {
+                "total_evaluated": 1,
+                "registered": 1,
+                "already_registered": 0,
+                "skipped_service": 0,
+                "skipped_expiry": 0,
+                "failed": 0
+            }
+        });
+
+        let persisted =
+            persist_interest_registrations(&mut state_db, "procontract-interest", &result_json)?;
+        assert_eq!(persisted, 1);
+
+        let state: String = state_db.connection().query_row(
+            "\
+            SELECT state
+            FROM process_stage_status
+            WHERE process_id = 'proc-pc-test-001' AND stage = 'interest_registration'
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            ",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(state, "completed");
+
+        let head: String = state_db.connection().query_row(
+            "\
+            SELECT current_stage_run_id
+            FROM process_stage_heads
+            WHERE process_id = 'proc-pc-test-001' AND stage = 'interest_registration'
+            ",
+            [],
+            |row| row.get(0),
+        )?;
+        assert!(head.contains("stage-run-"));
+        Ok(())
+    }
+
+    #[test]
+    fn persist_tender_enrichments_updates_notice_and_documents() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-test-002",
+            "pc-test-002",
+            "Supply of signs",
+        )?;
+
+        let pdf_path = temp.path().join("sample.pdf");
+        let docx_path = temp.path().join("sample.docx");
+        fs::write(&pdf_path, b"%PDF-1.4\n%seed pdf\n")?;
+        fs::write(&docx_path, b"seed docx bytes")?;
+
+        let result_json = json!({
+            "cursor": "{\"last_checked_at\":\"2026-04-13T16:00:00Z\"}",
+            "continuation_required": false,
+            "enriched_tenders": [
+                {
+                    "notice_id": "pc-test-002",
+                    "process_id": "proc-pc-test-002",
+                    "rfx_id": "rfx-test-002",
+                    "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=rfx-test-002",
+                    "updated_title": "Supply of signs",
+                    "updated_description": "Updated tender description",
+                    "updated_deadline_at": "2026-06-01T12:00:00Z",
+                    "buyer_name": "Buyer",
+                    "buyer_contact": {
+                        "name": "Alex Buyer",
+                        "email": "alex@example.invalid"
+                    },
+                    "documents_downloaded": [
+                        {
+                            "filename": "Invitation.pdf",
+                            "content_type": "application/pdf",
+                            "size_bytes": 18,
+                            "local_path": pdf_path,
+                            "document_role_hint": "invitation_to_tender"
+                        },
+                        {
+                            "filename": "Response.docx",
+                            "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            "size_bytes": 15,
+                            "local_path": docx_path,
+                            "document_role_hint": "response_document"
+                        }
+                    ],
+                    "documents_count": 2,
+                    "enriched_at": "2026-04-13T16:05:00Z"
+                }
+            ],
+            "summary": {
+                "total_checked": 1,
+                "enriched": 1,
+                "not_yet_responded": 0,
+                "failed": 0
+            }
+        });
+
+        let persisted =
+            persist_tender_enrichments(&mut state_db, "procontract-enrich", &result_json)?;
+        assert_eq!(persisted, 1);
+
+        let (summary, deadline_at): (String, String) = state_db.connection().query_row(
+            "\
+            SELECT summary, deadline_at
+            FROM contract_notices
+            WHERE id = 'pc-test-002'
+            ",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        assert_eq!(summary, "Updated tender description");
+        assert_eq!(deadline_at, "2026-06-01T12:00:00Z");
+
+        let raw_document_count: i64 = state_db.connection().query_row(
+            "SELECT COUNT(*) FROM raw_documents WHERE source_id = 'procontract-enrich'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(raw_document_count, 2);
+
+        let extraction_state: String = state_db.connection().query_row(
+            "SELECT extraction_state FROM tender_document_sets WHERE id = 'tds-pc-test-002'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(extraction_state, "pending");
         Ok(())
     }
 }

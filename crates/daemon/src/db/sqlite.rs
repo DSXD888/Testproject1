@@ -429,6 +429,29 @@ fn seed_sources(conn: &Connection, config: &StateDbConfig) -> Result<()> {
     )
     .context("seeding contracts-finder source runtime state")?;
 
+    for source_id in ["procontract", "procontract-interest", "procontract-enrich"] {
+        conn.execute(
+            "\
+            INSERT INTO sources (id, kind, enabled, config)
+            VALUES (?1, 'procurement', 1, '{}')
+            ON CONFLICT(id) DO UPDATE SET
+              kind = excluded.kind,
+              enabled = excluded.enabled
+            ",
+            params![source_id],
+        )
+        .with_context(|| format!("seeding {source_id} source definition"))?;
+
+        conn.execute(
+            "\
+            INSERT OR IGNORE INTO source_runtime_state (source_id, last_health_state)
+            VALUES (?1, 'unknown')
+            ",
+            params![source_id],
+        )
+        .with_context(|| format!("seeding {source_id} source runtime state"))?;
+    }
+
     Ok(())
 }
 

@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "cursor",
+    "continuation_required",
+    "enriched_tenders",
+    "summary"
+  ],
+  "properties": {
+    "cursor": {
+      "type": "string"
+    },
+    "continuation_required": {
+      "type": "boolean"
+    },
+    "enriched_tenders": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "notice_id",
+          "rfx_id",
+          "rfx_url",
+          "updated_title",
+          "updated_description",
+          "updated_deadline_at",
+          "buyer_name",
+          "documents_downloaded",
+          "documents_count",
+          "enriched_at"
+        ],
+        "properties": {
+          "notice_id": {
+            "type": "string"
+          },
+          "process_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rfx_id": {
+            "type": "string"
+          },
+          "rfx_url": {
+            "type": "string"
+          },
+          "updated_title": {
+            "type": "string"
+          },
+          "updated_description": {
+            "type": "string"
+          },
+          "updated_deadline_at": {
+            "type": "string"
+          },
+          "buyer_name": {
+            "type": "string"
+          },
+          "buyer_contact": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "documents_downloaded": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "filename",
+                "content_type",
+                "local_path"
+              ],
+              "properties": {
+                "filename": {
+                  "type": "string"
+                },
+                "content_type": {
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "local_path": {
+                  "type": "string"
+                },
+                "download_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "document_role_hint": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "extracted_from_archive": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "documents_count": {
+            "type": "integer"
+          },
+          "enriched_at": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total_checked",
+        "enriched",
+        "not_yet_responded",
+        "failed"
+      ],
+      "properties": {
+        "total_checked": {
+          "type": "integer"
+        },
+        "enriched": {
+          "type": "integer"
+        },
+        "not_yet_responded": {
+          "type": "integer"
+        },
+        "failed": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

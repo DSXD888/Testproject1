@@ -1,0 +1,8 @@
+expected_fields:
+  - cursor
+  - continuation_required
+  - enriched_tenders
+  - summary
+expected_interaction_profile: pty_interactive
+expected_download_root_required: true
+expected_rfx_url_prefix: https://procontract.due-north.com/RfxResponse/Index

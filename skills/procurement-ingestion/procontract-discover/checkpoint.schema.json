@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "seq",
+    "cursor",
+    "notices_processed"
+  ],
+  "properties": {
+    "seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "cursor": {
+      "type": "string"
+    },
+    "notices_processed": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

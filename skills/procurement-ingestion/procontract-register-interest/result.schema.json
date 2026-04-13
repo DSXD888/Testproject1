@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "cursor",
+    "continuation_required",
+    "registrations",
+    "summary"
+  ],
+  "properties": {
+    "cursor": {
+      "type": "string"
+    },
+    "continuation_required": {
+      "type": "boolean"
+    },
+    "registrations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "notice_id",
+          "action"
+        ],
+        "properties": {
+          "notice_id": {
+            "type": "string"
+          },
+          "process_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "action": {
+            "type": "string"
+          },
+          "skip_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failure_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "registered_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pre_filter_result": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total_evaluated",
+        "registered",
+        "already_registered",
+        "skipped_service",
+        "skipped_expiry",
+        "failed"
+      ],
+      "properties": {
+        "total_evaluated": {
+          "type": "integer"
+        },
+        "registered": {
+          "type": "integer"
+        },
+        "already_registered": {
+          "type": "integer"
+        },
+        "skipped_service": {
+          "type": "integer"
+        },
+        "skipped_expiry": {
+          "type": "integer"
+        },
+        "failed": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

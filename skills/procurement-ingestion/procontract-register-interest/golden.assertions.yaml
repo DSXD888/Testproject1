@@ -1,0 +1,12 @@
+expected_fields:
+  - cursor
+  - continuation_required
+  - registrations
+  - summary
+expected_interaction_profile: pty_interactive
+expected_side_effect_class: external_mutation
+allowed_actions:
+  - registered
+  - already_registered
+  - skipped
+  - failed
