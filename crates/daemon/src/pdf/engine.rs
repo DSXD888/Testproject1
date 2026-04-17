@@ -4,7 +4,7 @@ use std::ffi::OsString;
 use std::fs;
 use std::io::ErrorKind;
 use std::os::unix::process::ExitStatusExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command as StdCommand, Stdio};
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -70,6 +70,7 @@ pub struct EngineConfig {
     pub model_artifacts_path: PathBuf,
     pub document_timeout_secs: u64,
     pub wall_clock_timeout_secs: u64,
+    pub python_bin: PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -144,14 +145,57 @@ impl PdfExtractionEngine {
             return Ok(false);
         }
 
-        Ok(Self::probe_docling_version()?.is_some())
+        Ok(Self::probe_docling_version_with_bin(&self.config.python_bin)?.is_some())
     }
 
-    pub async fn extract(&self, input: PdfInput) -> Result<ExtractionResult> {
+    #[allow(clippy::too_many_lines)]
+    pub async fn extract(&self, mut input: PdfInput) -> Result<ExtractionResult> {
+        let is_legacy_doc = input
+            .source_path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("doc"));
+
+        // Convert legacy .doc to .docx before extraction. Docling supports .docx
+        // but not the legacy binary .doc format. On macOS, textutil handles this
+        // natively; on Linux, LibreOffice (soffice) provides the conversion.
+        let _converted_temp_dir = if is_legacy_doc {
+            let temp_dir = tempfile::tempdir().context("creating temp dir for .doc conversion")?;
+            let converted_path = temp_dir.path().join(
+                input
+                    .source_path
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned()
+                    + ".docx",
+            );
+            if !convert_legacy_doc_to_docx(&input.source_path, &converted_path) {
+                return extraction_error(
+                    EXTRACTION_CORRUPT_PDF,
+                    &format!(
+                        "failed to convert legacy .doc to .docx: {}",
+                        input.source_path.display()
+                    ),
+                );
+            }
+            input.source_path = converted_path;
+            Some(temp_dir)
+        } else {
+            None
+        };
+
         let source_bytes = tokio_fs::read(&input.source_path)
             .await
-            .with_context(|| format!("reading PDF bytes from {}", input.source_path.display()))?;
-        validate_source_pdf_bytes(&source_bytes)?;
+            .with_context(|| format!("reading document bytes from {}", input.source_path.display()))?;
+        let is_pdf = input
+            .source_path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf"));
+        if is_pdf {
+            validate_source_pdf_bytes(&source_bytes)?;
+        } else if source_bytes.is_empty() {
+            return extraction_error(EXTRACTION_EMPTY_PDF, "input document bytes are empty");
+        }
         self.ensure_runtime_ready()?;
 
         let scratch_dir = scratch_dir();
@@ -174,7 +218,7 @@ impl PdfExtractionEngine {
             .into_std()
             .await;
 
-        let mut command = Command::new("python3");
+        let mut command = Command::new(&self.config.python_bin);
         command
             .arg(&self.config.docling_wrapper_path)
             .arg("--input")
@@ -265,12 +309,12 @@ impl PdfExtractionEngine {
         }
     }
 
-    fn probe_docling_version() -> Result<Option<String>> {
-        let output = StdCommand::new("python3")
+    fn probe_docling_version_with_bin(python_bin: &Path) -> Result<Option<String>> {
+        let output = StdCommand::new(python_bin)
             .arg("-c")
-            .arg("import docling; print(docling.__version__)")
+            .arg("from importlib.metadata import version; print(version('docling'))")
             .output()
-            .context("spawning python3 for Docling health probe")?;
+            .context("spawning python for Docling health probe")?;
 
         if !output.status.success() {
             return Ok(None);
@@ -306,7 +350,7 @@ impl PdfExtractionEngine {
                 ),
             );
         }
-        if Self::probe_docling_version()?.is_none() {
+        if Self::probe_docling_version_with_bin(&self.config.python_bin)?.is_none() {
             return extraction_error(
                 EXTRACTION_ENGINE_UNAVAILABLE,
                 "Docling runtime probe failed or docling is not installed",
@@ -646,19 +690,56 @@ fn parse_extraction_result(
 }
 
 fn validate_extraction_result(result: &ExtractionResult) -> Result<()> {
-    let zero_metrics = result.page_count == 0
-        || (result.quality.table_count == 0
-            && result.quality.section_count == 0
-            && result.quality.image_count == 0
-            && result.quality.empty_page_count == 0
-            && result.extracted_markdown.trim().is_empty());
-    if zero_metrics {
+    // For non-PDF documents (DOCX, XLSX), page_count may legitimately be 0.
+    // Only flag as empty when there is no markdown content at all.
+    if result.extracted_markdown.trim().is_empty()
+        && result.quality.table_count == 0
+        && result.quality.section_count == 0
+    {
         return extraction_error(
             EXTRACTION_EMPTY_PDF,
-            "Docling returned zero extraction metrics for the input PDF",
+            "Docling returned no extractable content for the input document",
         );
     }
     Ok(())
+}
+
+/// Convert a legacy `.doc` (binary Word) file to `.docx` so Docling can process it.
+/// Uses macOS `textutil` (always available) or falls back to `soffice` (`LibreOffice`).
+fn convert_legacy_doc_to_docx(source: &Path, dest: &Path) -> bool {
+    // macOS textutil: built-in, fast, no external dependency.
+    if let Ok(output) = StdCommand::new("textutil")
+        .args(["-convert", "docx"])
+        .arg("-output")
+        .arg(dest)
+        .arg(source)
+        .output()
+        && output.status.success()
+        && dest.exists()
+    {
+        return true;
+    }
+
+    // Fallback: LibreOffice headless conversion.
+    let soffice_candidates = [
+        "soffice",
+        "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+    ];
+    for soffice in &soffice_candidates {
+        let parent = dest.parent().unwrap_or_else(|| Path::new("."));
+        if let Ok(output) = StdCommand::new(soffice)
+            .args(["--headless", "--convert-to", "docx", "--outdir"])
+            .arg(parent)
+            .arg(source)
+            .output()
+            && output.status.success()
+            && dest.exists()
+        {
+            return true;
+        }
+    }
+
+    false
 }
 
 async fn terminate_process_group(child: &mut Child, grace_period: Duration) -> Result<()> {

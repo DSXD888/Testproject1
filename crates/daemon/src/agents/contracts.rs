@@ -203,9 +203,13 @@ pub fn persist_stage_validation(
           freshness_state, started_at, completed_at, error_manifest_id,
           input_revision, output_revision, owner_id
         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'fresh', ?8, ?9, NULL, 0, 0, ?10)
+        ON CONFLICT(process_id, stage, scope_kind, scope_id, stage_run_id) DO UPDATE SET
+          state = excluded.state,
+          completed_at = excluded.completed_at,
+          updated_at = CURRENT_TIMESTAMP
         ",
         params![
-            format!("{}-{}", write.stage_run_id, state),
+            format!("{}-{}-{}", write.stage_run_id, write.scope_id, state),
             write.process_id,
             write.stage,
             write.scope_kind,

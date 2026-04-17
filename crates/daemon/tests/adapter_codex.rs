@@ -38,12 +38,13 @@ mod tests {
             fs::create_dir_all(&state_dir)?;
             fs::write(state_dir.join("version.txt"), format!("codex {version}\n"))?;
             fs::write(state_dir.join("probe.json"), probe_json)?;
+            fs::write(state_dir.join("probe-mode.txt"), "ok\n")?;
 
             let program = tempdir.path().join("codex");
             fs::write(
                 &program,
                 format!(
-                    "#!/bin/sh\nset -eu\nstate_dir=\"{}\"\ncase \"${{1-}}\" in\n  --version)\n    cat \"$state_dir/version.txt\"\n    ;;\n  probe)\n    if [ \"${{CODEX_TEST_FAIL_PROBE:-0}}\" = \"1\" ]; then\n      echo 'probe failed' >&2\n      exit 7\n    fi\n    cat \"$state_dir/probe.json\"\n    ;;\n  *)\n    echo 'unknown command' >&2\n    exit 64\n    ;;\nesac\n",
+                    "#!/bin/sh\nset -eu\nstate_dir=\"{}\"\ncase \"${{1-}}\" in\n  --version)\n    cat \"$state_dir/version.txt\"\n    ;;\n  probe)\n    probe_mode=$(cat \"$state_dir/probe-mode.txt\")\n    if [ \"$probe_mode\" = fail ]; then\n      echo 'probe failed' >&2\n      exit 7\n    fi\n    if [ \"$probe_mode\" = unsupported ]; then\n      echo \"error: unexpected argument '--json' found\" >&2\n      exit 2\n    fi\n    cat \"$state_dir/probe.json\"\n    ;;\n  exec)\n    exit 0\n    ;;\n  *)\n    echo 'unknown command' >&2\n    exit 64\n    ;;\nesac\n",
                     state_dir.display()
                 ),
             )?;
@@ -63,6 +64,11 @@ mod tests {
                 self.state_dir.join("version.txt"),
                 format!("codex {version}\n"),
             )?;
+            Ok(())
+        }
+
+        fn set_probe_mode(&self, mode: &str) -> Result<()> {
+            fs::write(self.state_dir.join("probe-mode.txt"), format!("{mode}\n"))?;
             Ok(())
         }
     }
@@ -214,6 +220,38 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn ut_cdx_011_probe_falls_back_when_probe_json_is_unsupported() -> Result<()> {
+        let cli = FakeCodexCli::new(
+            KNOWN_VERSION,
+            r#"{"auth_healthy":false,"structured_output":false,"pty_viable":false,"browser_tools":false}"#,
+        )?;
+        cli.set_probe_mode("unsupported")?;
+        let adapter = CodexAdapter::new(cli.program.clone(), known_versions());
+
+        let report = adapter
+            .probe(&probe_context(program_dir(&cli.program)))
+            .await?;
+
+        ensure!(
+            report.auth_healthy,
+            "probe fallback should assume auth is healthy"
+        );
+        ensure!(
+            report.structured_output,
+            "probe fallback should assume structured output is available"
+        );
+        ensure!(
+            report.pty_viable,
+            "probe fallback should assume PTY is viable"
+        );
+        ensure!(
+            report.browser_tools,
+            "probe fallback should assume browser tools are available"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn ut_cdx_004_resolve_mode_honors_pty_required_deterministically() -> Result<()> {
         let cli = FakeCodexCli::new(
             KNOWN_VERSION,
@@ -356,6 +394,7 @@ mod tests {
                 == vec![
                     OsString::from("exec"),
                     OsString::from("--json"),
+                    OsString::from("--skip-git-repo-check"),
                     OsString::from("skill-run"),
                 ],
             "unexpected contract launch arguments"
@@ -369,9 +408,8 @@ mod tests {
             "original environment was not preserved"
         );
         ensure!(
-            spec.env.get(&OsString::from("CODEX_HOME"))
-                == Some(&session_root.path().join(".codex-home").into_os_string()),
-            "isolated CODEX_HOME missing"
+            !spec.env.contains_key(&OsString::from("CODEX_HOME")),
+            "session-local CODEX_HOME should stay unset without seeded auth"
         );
         ensure!(
             spec.env.get(&OsString::from("CODEX_BROWSER_PROFILE_DIR"))
@@ -387,6 +425,22 @@ mod tests {
             spec.env
                 .contains_key(&OsString::from("CODEX_ADAPTER_VERSION")),
             "adapter version marker missing"
+        );
+
+        let seeded_home = session_root.path().join(".codex-home");
+        fs::create_dir_all(&seeded_home)?;
+        fs::write(seeded_home.join("auth.json"), "{}")?;
+        let seeded_contract = adapter.build_launch_spec(&request, ExecutionMode::Contract)?;
+        ensure!(
+            seeded_contract.env.get(&OsString::from("CODEX_HOME"))
+                == Some(&seeded_home.into_os_string()),
+            "session-local CODEX_HOME should be enabled when auth is pre-seeded"
+        );
+
+        let pty_spec = adapter.build_launch_spec(&request, ExecutionMode::Pty)?;
+        ensure!(
+            pty_spec.args == seeded_contract.args,
+            "PTY runs should use the same unattended exec invocation as contract runs"
         );
         Ok(())
     }
@@ -603,6 +657,48 @@ mod tests {
             }
             _ => bail!("expected auth challenge event"),
         }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn ut_cdx_012_parser_accepts_current_exec_json_streams_and_mixed_pty_text() -> Result<()>
+    {
+        let cli = FakeCodexCli::new(
+            KNOWN_VERSION,
+            r#"{"auth_healthy":true,"structured_output":true,"pty_viable":true,"browser_tools":true}"#,
+        )?;
+        let adapter = CodexAdapter::new(cli.program, known_versions());
+
+        let mut contract_parser = adapter.parser(ExecutionMode::Contract);
+        let contract_events = contract_parser
+            .on_output(&OutputFrame::Stdout(Bytes::from_static(
+                br#"{"type":"thread.started","thread_id":"thread-1"}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"item_0","type":"command_execution","command":"/bin/zsh -lc pwd","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_0","type":"command_execution","command":"/bin/zsh -lc pwd","aggregated_output":"/tmp/workdir\n","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"done"}}
+{"type":"turn.completed","usage":{"input_tokens":1,"cached_input_tokens":0,"output_tokens":1}}
+"#,
+            )))
+            .await?;
+        ensure!(
+            contract_events.is_empty(),
+            "current codex exec JSONL should be tolerated without synthetic control events"
+        );
+
+        let mut pty_parser = adapter.parser(ExecutionMode::Pty);
+        let pty_events = pty_parser
+            .on_output(&OutputFrame::Pty(Bytes::from_static(
+                br#"Reading additional input from stdin...
+{"type":"thread.started","thread_id":"thread-1"}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"done"}}
+"#,
+            )))
+            .await?;
+        ensure!(
+            pty_events.is_empty(),
+            "mixed PTY text plus exec JSONL should not trip the parser"
+        );
         Ok(())
     }
 }

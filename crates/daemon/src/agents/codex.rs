@@ -108,6 +108,55 @@ impl CodexAdapter {
             .map(str::to_owned)
             .ok_or_else(|| anyhow!("{INTERNAL_ERROR_CODE}: missing Codex CLI version token"))
     }
+
+    fn probe_envelope(&self, ctx: &ProbeCtx) -> Result<ProbeEnvelope> {
+        let output = Command::new(&self.program)
+            .args(["probe", "--json"])
+            .current_dir(&ctx.working_directory)
+            .output()
+            .with_context(|| {
+                format!(
+                    "{}: failed to spawn `{}` with args {:?}",
+                    INTERNAL_ERROR_CODE,
+                    self.program.display(),
+                    ["probe", "--json"]
+                )
+            })?;
+
+        if output.status.success() {
+            return serde_json::from_slice::<ProbeEnvelope>(&output.stdout)
+                .with_context(|| format!("{INTERNAL_ERROR_CODE}: invalid Codex probe JSON"));
+        }
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if Self::probe_command_is_unsupported(&stderr) {
+            return Ok(Self::assumed_capabilities());
+        }
+
+        bail!(
+            "{}: `{}` {:?} exited unsuccessfully: {}",
+            INTERNAL_ERROR_CODE,
+            self.program.display(),
+            ["probe", "--json"],
+            stderr.trim()
+        );
+    }
+
+    fn probe_command_is_unsupported(stderr: &str) -> bool {
+        let normalized = stderr.to_ascii_lowercase();
+        normalized.contains("unexpected argument '--json' found")
+            || normalized.contains("unrecognized subcommand 'probe'")
+            || normalized.contains("unrecognized subcommand `probe`")
+    }
+
+    const fn assumed_capabilities() -> ProbeEnvelope {
+        ProbeEnvelope {
+            auth_healthy: true,
+            structured_output: true,
+            pty_viable: true,
+            browser_tools: true,
+        }
+    }
 }
 
 impl CodexParser {
@@ -122,11 +171,13 @@ impl CodexParser {
     }
 
     fn parse_frame_value(&self, value: &Value) -> Result<Vec<ControlEvent>> {
-        let kind = value
+        let Some(kind) = value
             .get("event")
             .or_else(|| value.get("type"))
             .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("{PROTOCOL_MISMATCH_CODE}: missing event/type field"))?;
+        else {
+            return Ok(Vec::new());
+        };
 
         match kind {
             "started" => Ok(vec![ControlEvent::Started {
@@ -157,7 +208,9 @@ impl CodexParser {
             "exited" => Ok(vec![ControlEvent::Exited {
                 status: ExitStatus::with_exit_code(required_u32(value, "code")?),
             }]),
-            other => bail!("{PROTOCOL_MISMATCH_CODE}: unsupported event `{other}`"),
+            "item.completed" => Ok(parse_vendor_item(value)),
+            "error" => Ok(vec![parse_vendor_error(value)]),
+            _ => Ok(vec![]),
         }
     }
 
@@ -170,6 +223,9 @@ impl CodexParser {
             if trimmed.is_empty() {
                 continue;
             }
+            if !trimmed.starts_with(b"{") {
+                continue;
+            }
 
             let value: Value = serde_json::from_slice(trimmed)
                 .with_context(|| format!("{PROTOCOL_MISMATCH_CODE}: invalid JSONL frame"))?;
@@ -178,6 +234,9 @@ impl CodexParser {
 
         if flush_tail && !trim_line(buffer).is_empty() {
             let tail = std::mem::take(buffer);
+            if !trim_line(&tail).starts_with(b"{") {
+                return Ok(events);
+            }
             let value: Value = serde_json::from_slice(trim_line(&tail)).with_context(|| {
                 format!("{PROTOCOL_MISMATCH_CODE}: truncated tail or invalid JSONL")
             })?;
@@ -197,9 +256,7 @@ impl AgentAdapter for CodexAdapter {
     async fn probe(&self, ctx: &ProbeCtx) -> Result<CapabilityReport> {
         let version_stdout = self.run_probe_command(ctx, &["--version"])?;
         let cli_version = Self::parse_version(&version_stdout)?;
-        let probe_stdout = self.run_probe_command(ctx, &["probe", "--json"])?;
-        let envelope: ProbeEnvelope = serde_json::from_slice(&probe_stdout)
-            .with_context(|| format!("{INTERNAL_ERROR_CODE}: invalid Codex probe JSON"))?;
+        let envelope = self.probe_envelope(ctx)?;
 
         Ok(CapabilityReport {
             cli_version: cli_version.clone(),
@@ -220,18 +277,19 @@ impl AgentAdapter for CodexAdapter {
     }
 
     fn build_launch_spec(&self, req: &SpawnRequest, mode: ExecutionMode) -> Result<LaunchSpec> {
-        let mut args = Vec::new();
-        if mode == ExecutionMode::Contract {
-            args.push(OsString::from("exec"));
-            args.push(OsString::from("--json"));
-        }
+        let mut args = vec![
+            OsString::from("exec"),
+            OsString::from("--json"),
+            OsString::from("--skip-git-repo-check"),
+        ];
+        let _ = mode;
         args.extend(req.args.clone());
 
         let mut env = req.env.clone();
-        env.insert(
-            OsString::from("CODEX_HOME"),
-            req.cwd.join(".codex-home").into_os_string(),
-        );
+        let session_home = req.cwd.join(".codex-home");
+        if session_home.join("auth.json").exists() {
+            env.insert(OsString::from("CODEX_HOME"), session_home.into_os_string());
+        }
         env.insert(
             OsString::from("CODEX_BROWSER_PROFILE_DIR"),
             req.cwd.join(".codex-browser-profile").into_os_string(),
@@ -313,6 +371,98 @@ fn trim_line(bytes: &[u8]) -> &[u8] {
     }
 
     &bytes[start..end]
+}
+
+fn parse_vendor_item(value: &Value) -> Vec<ControlEvent> {
+    let Some(item) = value.get("item") else {
+        return Vec::new();
+    };
+    let Some(item_type) = item.get("type").and_then(Value::as_str) else {
+        return Vec::new();
+    };
+
+    if item_type != "command_execution" && item_type != "agent_message" {
+        return Vec::new();
+    }
+
+    let detail = item
+        .get("aggregated_output")
+        .and_then(Value::as_str)
+        .or_else(|| item.get("text").and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|text| !text.is_empty());
+
+    let mut events = Vec::new();
+    if let Some(detail) = detail
+        && let Some(kind) = classify_auth_challenge(detail)
+    {
+        events.push(ControlEvent::AuthChallenge {
+            kind,
+            detail: detail.to_owned(),
+        });
+    }
+
+    if item_type == "command_execution"
+        && item
+            .get("exit_code")
+            .and_then(Value::as_i64)
+            .is_some_and(|code| code != 0)
+    {
+        events.push(ControlEvent::Warning {
+            code: "command_execution_failed".to_owned(),
+            detail: detail
+                .unwrap_or("Codex command execution failed")
+                .to_owned(),
+        });
+    }
+
+    events
+}
+
+fn parse_vendor_error(value: &Value) -> ControlEvent {
+    let detail = value
+        .get("message")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .unwrap_or("Codex reported an unspecified runtime error");
+
+    if let Some(kind) = classify_auth_challenge(detail) {
+        return ControlEvent::AuthChallenge {
+            kind,
+            detail: detail.to_owned(),
+        };
+    }
+
+    ControlEvent::Warning {
+        code: "vendor_error".to_owned(),
+        detail: detail.to_owned(),
+    }
+}
+
+fn classify_auth_challenge(detail: &str) -> Option<AuthChallengeKind> {
+    let normalized = detail.to_ascii_lowercase();
+    if normalized.contains("re-login") || normalized.contains("relogin") {
+        Some(AuthChallengeKind::ReLogin)
+    } else if normalized.contains("mfa")
+        || normalized.contains("2fa")
+        || normalized.contains("two-factor")
+    {
+        Some(AuthChallengeKind::Mfa)
+    } else if normalized.contains("sso") {
+        Some(AuthChallengeKind::Sso)
+    } else if normalized.contains("permission") || normalized.contains("approval") {
+        Some(AuthChallengeKind::PermissionPrompt)
+    } else if normalized.contains("unauthorized")
+        || normalized.contains("log in")
+        || normalized.contains("login")
+        || normalized.contains("missing bearer")
+        || normalized.contains("auth")
+    {
+        Some(AuthChallengeKind::Unknown)
+    } else {
+        None
+    }
 }
 
 fn required_str<'a>(value: &'a Value, field: &str) -> Result<&'a str> {

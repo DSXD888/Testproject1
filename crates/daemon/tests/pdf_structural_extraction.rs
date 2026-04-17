@@ -188,12 +188,13 @@ raise SystemExit({exit_code})\n"
         Ok(())
     }
 
-    const fn build_engine_config(wrapper_path: PathBuf, artifacts_dir: PathBuf) -> EngineConfig {
+    fn build_engine_config(wrapper_path: PathBuf, artifacts_dir: PathBuf) -> EngineConfig {
         EngineConfig {
             docling_wrapper_path: wrapper_path,
             model_artifacts_path: artifacts_dir,
             document_timeout_secs: 1,
             wall_clock_timeout_secs: 1,
+            python_bin: PathBuf::from("python3"),
         }
     }
 

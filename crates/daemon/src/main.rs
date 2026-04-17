@@ -785,7 +785,8 @@ struct ProcontractEnrichedTender {
     rfx_url: String,
     updated_title: String,
     updated_description: String,
-    updated_deadline_at: String,
+    #[serde(default)]
+    updated_deadline_at: Option<String>,
     buyer_name: String,
     #[serde(default)]
     buyer_contact: Option<Value>,
@@ -1292,6 +1293,7 @@ async fn run_extract_document_structure_job(
                 .unwrap_or(default_docling_artifacts_path()?),
             document_timeout_secs: request.document_timeout_secs.unwrap_or(300),
             wall_clock_timeout_secs: request.wall_clock_timeout_secs.unwrap_or(330),
+            python_bin: default_docling_python_bin(),
         };
         let engine = PdfExtractionEngine::new(engine_config.clone());
         if !engine.is_available()? {
@@ -1728,6 +1730,23 @@ fn default_docling_artifacts_path() -> Result<PathBuf> {
     Ok(PathBuf::from(home).join(".cache/docling/models"))
 }
 
+fn default_docling_python_bin() -> PathBuf {
+    // Prefer the docling venv if it exists, otherwise fall back to system python3.
+    let venv_python = PathBuf::from(
+        std::env::var_os("DOCLING_PYTHON_BIN")
+            .unwrap_or_else(|| {
+                let home = std::env::var_os("HOME").unwrap_or_default();
+                PathBuf::from(home)
+                    .join(".docling-venv/bin/python")
+                    .into_os_string()
+            }),
+    );
+    if venv_python.is_file() {
+        return venv_python;
+    }
+    PathBuf::from("python3")
+}
+
 fn load_notice_document_type(conn: &Connection, notice_id: Option<&str>) -> Result<Option<String>> {
     let Some(notice_id) = notice_id else {
         return Ok(None);
@@ -1752,9 +1771,10 @@ fn load_notice_document_type(conn: &Connection, notice_id: Option<&str>) -> Resu
 }
 
 fn probe_docling_runtime_version() -> Result<String> {
-    let output = process::Command::new("python3")
+    let python_bin = default_docling_python_bin();
+    let output = process::Command::new(&python_bin)
         .arg("-c")
-        .arg("import docling; print(docling.__version__)")
+        .arg("from importlib.metadata import version; print(version('docling'))")
         .output()
         .context("probing Docling runtime version")?;
     ensure!(
@@ -1782,9 +1802,17 @@ fn load_raw_document_source_path(conn: &Connection, raw_document_id: &str) -> Re
         )
         .optional()?
         .flatten();
-    let path = storage_path
+    let raw_path = storage_path
         .map(PathBuf::from)
         .ok_or_else(|| anyhow!("raw_document `{raw_document_id}` is missing a storage_path"))?;
+    // Resolve relative paths against the repo root.
+    let path = if raw_path.is_absolute() {
+        raw_path
+    } else {
+        repo_root()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join(&raw_path)
+    };
     ensure!(
         path.is_file(),
         "raw_document `{raw_document_id}` storage_path does not exist: {}",
@@ -2874,7 +2902,7 @@ fn load_procontract_interest_candidates(
         "\
         SELECT cn.id,
                cn.process_id,
-               COALESCE(cn.source_url, ''),
+               'https://procontract.due-north.com/Advert?advertId=' || cn.source_notice_id,
                cn.title,
                COALESCE(cn.summary, ''),
                COALESCE(cn.main_category, ''),
@@ -3164,6 +3192,62 @@ fn resolve_process_id_for_notice(
     .with_context(|| format!("loading process_id for notice {notice_id}"))
 }
 
+/// Resolve `notice_id` and `process_id` for enrichment results that may use
+/// portal reference numbers instead of the canonical `pc-{advertId}` format.
+/// Falls back to a title-based lookup within the procontract source when the
+/// direct id lookup fails.
+fn resolve_enrichment_notice(
+    tx: &Transaction<'_>,
+    notice_id: &str,
+    title: &str,
+    hinted_process_id: Option<&str>,
+) -> Result<(String, String)> {
+    if let Some(process_id) = hinted_process_id {
+        return Ok((notice_id.to_owned(), process_id.to_owned()));
+    }
+
+    if let Ok(process_id) = tx.query_row(
+        "SELECT process_id FROM contract_notices WHERE id = ?1",
+        params![notice_id],
+        |row| row.get::<_, String>(0),
+    ) {
+        return Ok((notice_id.to_owned(), process_id));
+    }
+
+    let prefixed = format!("pc-{notice_id}");
+    if let Ok(process_id) = tx.query_row(
+        "SELECT process_id FROM contract_notices WHERE id = ?1",
+        params![prefixed],
+        |row| row.get::<_, String>(0),
+    ) {
+        return Ok((prefixed, process_id));
+    }
+
+    if !title.is_empty() {
+        // Exact title match
+        if let Ok((resolved_id, process_id)) = tx.query_row(
+            "SELECT id, process_id FROM contract_notices \
+             WHERE source_id = 'procontract' AND title = ?1 LIMIT 1",
+            params![title],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+        ) {
+            return Ok((resolved_id, process_id));
+        }
+
+        // Prefix match: portal appends " - Acceptance Round N" or similar suffixes
+        if let Ok((resolved_id, process_id)) = tx.query_row(
+            "SELECT id, process_id FROM contract_notices \
+             WHERE source_id = 'procontract' AND ?1 LIKE title || '%' LIMIT 1",
+            params![title],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+        ) {
+            return Ok((resolved_id, process_id));
+        }
+    }
+
+    bail!("cannot resolve ProContract notice for id={notice_id} title={title}")
+}
+
 fn load_notice_payload(tx: &Transaction<'_>, notice_id: &str) -> Result<Option<Value>> {
     let payload: Option<String> = tx
         .query_row(
@@ -3277,10 +3361,16 @@ fn persist_tender_enrichments(
     let (persisted_count, _) = state_db.with_write_transaction(|tx| {
         let visible_after_seq = next_commit_seq(tx)?;
         for tender in &contract.enriched_tenders {
-            let process_id =
-                resolve_process_id_for_notice(tx, &tender.notice_id, tender.process_id.as_deref())?;
+            let Ok((resolved_notice_id, process_id)) = resolve_enrichment_notice(
+                tx,
+                &tender.notice_id,
+                &tender.updated_title,
+                tender.process_id.as_deref(),
+            ) else {
+                continue;
+            };
             let merged_payload = merge_notice_payload(
-                load_notice_payload(tx, &tender.notice_id)?,
+                load_notice_payload(tx, &resolved_notice_id)?,
                 &json!({
                     "rfx_id": tender.rfx_id,
                     "rfx_url": tender.rfx_url,
@@ -3345,7 +3435,7 @@ fn persist_tender_enrichments(
                     merged_payload_json,
                     visible_after_seq,
                     scoped_run_id,
-                    tender.notice_id,
+                    resolved_notice_id,
                 ],
             )?;
 
@@ -3360,7 +3450,7 @@ fn persist_tender_enrichments(
                     .or_else(|| infer_document_role_hint(&document.filename));
                 let raw_document_id = format!(
                     "raw-{}-{}",
-                    tender.notice_id,
+                    resolved_notice_id,
                     sha256_hex(
                         format!("{}:{}:{}", document.filename, document.local_path, index)
                             .as_bytes()
@@ -3398,7 +3488,7 @@ fn persist_tender_enrichments(
                     ],
                 )?;
 
-                if document.content_type == "application/pdf" {
+                if is_extractable_content_type(&document.content_type) {
                     has_pdf_document = true;
                 }
 
@@ -3450,9 +3540,9 @@ fn persist_tender_enrichments(
                   updated_at = CURRENT_TIMESTAMP
                 ",
                 params![
-                    format!("tds-{}", tender.notice_id),
+                    format!("tds-{}", resolved_notice_id),
                     process_id,
-                    tender.notice_id,
+                    resolved_notice_id,
                     document_set_hash,
                     completeness_state,
                     document_roles_json,
@@ -3475,6 +3565,16 @@ fn persist_tender_enrichments(
                 "completed",
                 visible_after_seq,
             )?;
+
+            let document_set_id = format!("tds-{resolved_notice_id}");
+            enqueue_extraction_jobs_for_document_set(
+                tx,
+                &document_rows,
+                &process_id,
+                &resolved_notice_id,
+                &document_set_id,
+                &scoped_run_id,
+            )?;
         }
 
         persist_source_cursor(tx, source_id, "enrich_cursor", &contract.cursor)?;
@@ -3482,6 +3582,95 @@ fn persist_tender_enrichments(
     })?;
 
     Ok(persisted_count)
+}
+
+/// Returns `true` if the content type is extractable by the Docling pipeline.
+fn is_extractable_content_type(content_type: &str) -> bool {
+    matches!(
+        content_type,
+        "application/pdf"
+            | "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            | "application/msword"
+            | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            | "application/vnd.ms-excel"
+    )
+}
+
+/// Enqueue `extract_document_structure` workflow jobs for every extractable
+/// document in a set so the extraction pipeline picks them up automatically.
+/// Uses an idempotency key per `raw_document` so re-runs are safe.
+fn enqueue_extraction_jobs_for_document_set(
+    tx: &Transaction<'_>,
+    document_rows: &[Value],
+    process_id: &str,
+    notice_id: &str,
+    document_set_id: &str,
+    stage_run_id: &str,
+) -> Result<usize> {
+    let mut enqueued = 0_usize;
+    for doc in document_rows {
+        let content_type = doc
+            .get("content_type")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if !is_extractable_content_type(content_type) {
+            continue;
+        }
+        let Some(raw_document_id) = doc.get("raw_document_id").and_then(Value::as_str) else {
+            continue;
+        };
+        let job_id = format!(
+            "job-extract-{}",
+            sha256_hex(raw_document_id.as_bytes())
+        );
+        let _idempotency_key = format!("extract_document_structure::{raw_document_id}");
+
+        // Skip if a job with this idempotency key already exists.
+        let exists: bool = tx
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM workflow_jobs WHERE id = ?1",
+                params![job_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+        if exists {
+            continue;
+        }
+
+        tx.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, process_id, notice_id, scope_kind, scope_id,
+              status, input_payload, validation_required
+            ) VALUES (?1, 'extract_document_structure', ?2, ?3, 'notice', ?4,
+                      'pending', ?5, 0)
+            ",
+            params![
+                job_id,
+                process_id,
+                notice_id,
+                notice_id,
+                json!({
+                    "raw_document_id": raw_document_id,
+                    "process_id": process_id,
+                    "notice_id": notice_id,
+                    "document_set_id": document_set_id,
+                    "stage_run_id": stage_run_id,
+                })
+                .to_string(),
+            ],
+        )?;
+        enqueued += 1;
+    }
+    Ok(enqueued)
+}
+
+/// Returns `true` when `skill_id` is a procurement-ingestion skill whose job
+/// must fail loudly if the agent exited without writing a result contract.
+/// Any other skill category (validation, pdf-extraction, etc.) is allowed to
+/// complete without a result artefact.
+fn procurement_skill_requires_result_contract(skill_id: &str) -> bool {
+    skill_id.starts_with("procurement-ingestion/")
 }
 
 fn manual_procurement_persist_count_label(skill_id: &str) -> &'static str {
@@ -3511,7 +3700,7 @@ fn persist_procurement_result_for_skill(
     Ok((source_id, persisted_count))
 }
 
-#[allow(clippy::future_not_send)]
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
 async fn run_bound_skill(
     runtime: &mut RuntimeBootstrap,
     skill_path: &Path,
@@ -3531,10 +3720,35 @@ async fn run_bound_skill(
         execute_skill_session(runtime, &skill, &job_id, &session_id, &job_parameters, cli).await?;
     insert_executed_session_log(runtime.state_db.connection(), &skill, &job_id, &executed)?;
 
-    if skill
-        .metadata
-        .skill_id
-        .starts_with("procurement-ingestion/")
+    let is_procurement_skill =
+        procurement_skill_requires_result_contract(&skill.metadata.skill_id);
+
+    if is_procurement_skill && executed.result_path.is_none() {
+        let message = format!(
+            "procurement skill `{}` exited without writing a result contract",
+            skill.metadata.skill_id
+        );
+        let source_id = procurement_manual_source_id(&skill.metadata.skill_id, &job_parameters);
+        return fail_with_manifest(
+            runtime,
+            &job_id,
+            ErrorCode::AgentRunFailed,
+            &message,
+            None,
+            Some(&session_id),
+            Some(&skill.skill_path),
+            "ingest",
+            "agent_execute",
+            json!({
+                "skill_id": skill.metadata.skill_id,
+                "source_id": source_id,
+                "adapter_id": executed.adapter_id,
+                "execution_mode": execution_mode_label(executed.execution_mode),
+            }),
+        );
+    }
+
+    if is_procurement_skill
         && let Some(ref result_path) = executed.result_path
     {
         let result_json = read_result_contract(result_path)?;
@@ -5644,7 +5858,10 @@ async fn run_procontract_enrich_tender_live_loop(
             |row| row.get(0),
         )
         .optional()?;
-    let download_root = runtime.artifact_root.join("downloads").join("procontract");
+    let download_root = fs::canonicalize(&runtime.artifact_root)
+        .unwrap_or_else(|_| runtime.artifact_root.clone())
+        .join("downloads")
+        .join("procontract");
     fs::create_dir_all(&download_root)
         .with_context(|| format!("creating {}", download_root.display()))?;
     let job_parameters = json!({
@@ -5681,6 +5898,10 @@ async fn run_procontract_enrich_tender_live_loop(
     let result_json = read_result_contract(result_path)?;
     let persisted_count =
         persist_tender_enrichments(&mut runtime.state_db, "procontract-enrich", &result_json)?;
+
+    let extraction_jobs_processed =
+        drain_pending_extraction_jobs(runtime, cli).await.unwrap_or(0);
+
     let summary = result_json
         .get("summary")
         .cloned()
@@ -5693,15 +5914,61 @@ async fn run_procontract_enrich_tender_live_loop(
             "job_id": job_id,
             "source_id": "procontract-enrich",
             "enriched_tenders": persisted_count,
+            "extraction_jobs_processed": extraction_jobs_processed,
             "summary": summary,
             "session_id": session_id,
             "download_root": download_root.to_string_lossy(),
             "durable_step_surfaces": live_loop_surfaces_json(),
         }),
         format!(
-            "procontract tender enrichment completed: job_id={job_id} enriched={persisted_count}"
+            "procontract tender enrichment completed: job_id={job_id} enriched={persisted_count} extractions={extraction_jobs_processed}"
         ),
     )
+}
+
+/// Drain all pending `extract_document_structure` workflow jobs.  Called after
+/// enrichment persistence so that downloaded PDFs are immediately processed
+/// through the Docling structural extraction pipeline without a separate cron
+/// trigger.  Each structural extraction job may in turn enqueue semantic
+/// extraction jobs, which are also drained here.
+#[allow(clippy::future_not_send)]
+async fn drain_pending_extraction_jobs(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+) -> Result<usize> {
+    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+    let mut processed = 0_usize;
+    loop {
+        let Some(claimed) = runner.claim_next_job(runtime.state_db.connection())? else {
+            break;
+        };
+        match claimed.kind.as_str() {
+            "extract_document_structure" => {
+                let report =
+                    run_extract_document_structure_job(runtime, &runner, claimed).await;
+                if let Err(error) = &report {
+                    ::tracing::warn!(%error, "extraction job failed, continuing drain");
+                }
+            }
+            "extract_document_semantics" => {
+                let report =
+                    run_extract_document_semantics_job(runtime, &runner, claimed, cli).await;
+                if let Err(error) = &report {
+                    ::tracing::warn!(%error, "semantic extraction job failed, continuing drain");
+                }
+            }
+            _ => {
+                // Not an extraction job — unclaim by breaking out; the job
+                // stays claimed but will expire and become re-claimable.
+                break;
+            }
+        }
+        processed += 1;
+    }
+    if processed > 0 {
+        ::tracing::info!(processed, "extraction job drain complete");
+    }
+    Ok(processed)
 }
 
 #[allow(
@@ -7353,7 +7620,7 @@ fn load_extractable_pdf_storage_path(
     let Some(storage_path) = storage_path else {
         return Ok(None);
     };
-    if content_type != "application/pdf" {
+    if !is_extractable_content_type(&content_type) {
         return Ok(None);
     }
 
@@ -10806,6 +11073,95 @@ mod tests {
             |row| row.get(0),
         )?;
         assert_eq!(extraction_state, "pending");
+        Ok(())
+    }
+
+    /// Regression: `run_bound_skill` used to mark procurement ingestion jobs
+    /// as `completed` even when the nested agent failed upstream and never
+    /// produced a result contract. The guard now in place asks
+    /// `procurement_skill_requires_result_contract` whether a missing
+    /// result file should promote to a hard failure. Non-procurement skills
+    /// (pdf-extraction/*, manifest-generation, etc.) can legitimately finish
+    /// without a result file, so they must continue returning `false`.
+    #[test]
+    fn procurement_skills_require_result_contract_to_complete() {
+        assert!(super::procurement_skill_requires_result_contract(
+            "procurement-ingestion/procontract-discover"
+        ));
+        assert!(super::procurement_skill_requires_result_contract(
+            "procurement-ingestion/procontract-register-interest"
+        ));
+        assert!(super::procurement_skill_requires_result_contract(
+            "procurement-ingestion/procontract-enrich-tender"
+        ));
+        assert!(!super::procurement_skill_requires_result_contract(
+            "pdf-extraction/extract-document-semantics"
+        ));
+        assert!(!super::procurement_skill_requires_result_contract(
+            "manifest-generation"
+        ));
+        assert!(!super::procurement_skill_requires_result_contract(""));
+    }
+
+    /// Regression: verifies that when a procurement ingestion skill produces
+    /// no result contract, the failure helper used by `run_bound_skill`
+    /// transitions the workflow job from `running` to `failed` with
+    /// `AGENT_RUN_FAILED` context. Before the fix, the job was
+    /// unconditionally marked `completed`, hiding upstream agent crashes.
+    #[test]
+    fn missing_procurement_result_contract_marks_job_failed() -> Result<()> {
+        let (_temp, mut runtime) = bootstrap_validation_runtime()?;
+        let job_id = "job-regression-missing-result";
+        runtime.state_db.connection().execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, scope_kind, scope_id, status, input_payload, validation_required,
+              parent_job_id, validation_verdict_id
+            ) VALUES (?1, 'sync_source', 'source', 'procontract', 'running',
+                      ?2, 0, NULL, NULL)
+            ",
+            params![
+                job_id,
+                json!({"source_id": "procontract"}).to_string()
+            ],
+        )?;
+
+        let report = super::fail_with_manifest(
+            &mut runtime,
+            job_id,
+            super::ErrorCode::AgentRunFailed,
+            "procurement skill `procurement-ingestion/procontract-discover` exited without writing a result contract",
+            None,
+            None,
+            None,
+            "ingest",
+            "agent_execute",
+            json!({"skill_id": "procurement-ingestion/procontract-discover"}),
+        )?;
+        assert_eq!(report.status, "failed");
+
+        let (status, last_error): (String, Option<String>) =
+            runtime.state_db.connection().query_row(
+                "SELECT status, last_error FROM workflow_jobs WHERE id = ?1",
+                params![job_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+        assert_eq!(status, "failed");
+        let last_error = last_error.unwrap_or_default();
+        assert!(
+            last_error.contains("without writing a result contract"),
+            "expected silent-success regression message, got: {last_error}"
+        );
+
+        let manifest_rows: i64 = runtime.state_db.connection().query_row(
+            "SELECT COUNT(*) FROM error_manifests WHERE job_id = ?1",
+            params![job_id],
+            |row| row.get(0),
+        )?;
+        assert!(
+            manifest_rows >= 1,
+            "expected at least one error manifest row for failed procurement job"
+        );
         Ok(())
     }
 }
