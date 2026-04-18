@@ -1,0 +1,1699 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Provision of Fire Risk Assessments",
+      "description": "Provision of Fire Risk Assessments for specified corporate buildings and adhoc, to identify fire hazards, evaluate risks to people and outline actions to prevent fires and ensure safe evacuation.",
+      "requirements": [
+        "Minimum weighted score threshold of 16 on the PSQ (pass/fail).",
+        "At least one client reference received for this lot by 18th May 2026 at 5pm.",
+        "Financial stability assessment via Experian Business Express.",
+        "Annual turnover at least twice the estimated lot value (£25k per annum).",
+        "Employer's (Compulsory) Liability Insurance of not less than £5 million (minimum £10 million once employing 100+ people).",
+        "Public Liability Insurance of not less than £5 million per claim.",
+        "Professional Indemnity Insurance of not less than £2 million per incident.",
+        "Health and Safety SSIP-forum registration prior to award and throughout delivery.",
+        "Compliance with Modern Slavery Act 2015, Declarations (Q21-Q30), and not on CDP Debarment list."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "PSQ minimum weighted score",
+          "summary": "A minimum weighted score threshold of 16 will be applied when assessing PSQs; applications not meeting this threshold will fail.",
+          "weighting_text": "Threshold 16; full scoring/weighting matrix detailed in the Procurement & Contract Information Document (PCID).",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "For each lot applied for, a minimum weighted score threshold of 16 will be applied when assessing PSQ's. Applications not meeting this minimum score threshold will fail.",
+            "section_ref": "Summary of requirements / Conditions of Participation"
+          }
+        },
+        {
+          "criterion": "Client references",
+          "summary": "Two client references must be sought per lot; at least one must be received by the deadline for the lot to be considered.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q14",
+            "anchor_text": "Complete Part A of the reference form provided at Appendix 1 for 2 different clients, for each lot which you have applied... At least one reference must be received for each lot applied for to ensure your application is considered.",
+            "section_ref": "Part 3 - Q14 Relevant experience and contract examples"
+          }
+        },
+        {
+          "criterion": "Financial suitability",
+          "summary": "Financial stability is assessed via Experian Business Express; company turnover must be at least twice the estimated lot value.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q12 / Q27",
+            "anchor_text": "The Council will make a financial assessment of your company using the Experian Business Express platform... Please self-certify that your company's annual turnover is at least twice the estimated value of the Lot or total value of Lots for which you have applied.",
+            "section_ref": "Part 3 - Q12 Financial assessment / Q27 Financial Suitability"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bsf-6278-lot-1-fire-risk-assessment-service",
+          "summary": "Fire Risk Assessment service for corporate buildings (scheduled) and adhoc instructions, covering hazard identification, risk evaluation, and prevention/evacuation actions.",
+          "requirement_type": "service_deliverable",
+          "technical_attributes": [
+            "Scope: corporate buildings (scheduled) plus adhoc",
+            "Outputs: hazard identification, risk evaluation, prevention and evacuation actions"
+          ],
+          "quantity_hint": "Estimated £25k per annum (Group 1 indicative lot value).",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "The provision of Fire Risk Assessments for specified corporate buildings & adhoc, to identify fire hazards, evaluate risks to people and outlining actions to prevent fires and ensure safe evacuation.",
+            "section_ref": "Summary of requirements - Lot 1"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ISO 9001:2008 (or equivalent)",
+          "context": "Quality management certification asked about under PSQ Q18 as applicable to works/services relating to this contract.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q18",
+            "anchor_text": "Does your organisation have ISO 9001:2008 or equivalent certification for works or services relating to this contract?",
+            "section_ref": "Part 3 - Q18 Quality Assurance"
+          }
+        },
+        {
+          "standard_ref": "ISO 14001:2004 (or equivalent)",
+          "context": "Environmental management certification asked about under PSQ Q19 for works/services relating to this contract.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q19",
+            "anchor_text": "Does your organisation have ISO 14001:2004 or equivalent certification for works/services relating to this contract?",
+            "section_ref": "Part 3 - Q19 Environmental Qualification"
+          }
+        },
+        {
+          "standard_ref": "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+          "context": "H&S competence must be evidenced via an SSIP-forum scheme; CHAS, EXOR Health and Safety and ISO 45001 are cited as the most commonly accepted standards.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q21",
+            "anchor_text": "the most common standards used are; the Contractors Health And Safety Assessment scheme also known as CHAS - EXOR Health and Safety - ISO 45001",
+            "section_ref": "Part 3 - Q21 Health and Safety at Work"
+          }
+        },
+        {
+          "standard_ref": "BAFE / FIA",
+          "context": "Listed under PSQ Q31 as accreditations which 'may apply'; full details to be provided within the specification.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q31",
+            "anchor_text": "BAFE / FIA, may apply. Full details relating to this will be provided to organisations within the specification.",
+            "section_ref": "Part 3 - Q31 BAFE / FIA"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "Lot 1: Provision of Fire Risk Assessments",
+        "section_ref": "Summary of requirements - Lot 1"
+      }
+    },
+    {
+      "lot_number": "2",
+      "title": "Provision of Water Risk Assessments",
+      "description": "Provision of Water Risk Assessments for specified corporate buildings and adhoc, to inspect water systems for contamination risks most notably the legionella bacteria.",
+      "requirements": [
+        "Minimum weighted PSQ score of 16 (pass/fail).",
+        "At least one client reference per lot by 18th May 2026 at 5pm.",
+        "Financial stability (Experian) and turnover at least twice the estimated lot value (£25k per annum).",
+        "Employer's Liability Insurance £5m (rising to £10m when employing 100+).",
+        "Public Liability Insurance £5m per claim.",
+        "Professional Indemnity Insurance £2m per incident.",
+        "SSIP-forum H&S registration maintained throughout the contract."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "PSQ minimum weighted score",
+          "summary": "Minimum weighted score threshold of 16; full matrix in the PCID.",
+          "weighting_text": "Threshold 16; matrix per PCID.",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "minimum weighted score threshold of 16 will be applied when assessing PSQ's",
+            "section_ref": "Summary of requirements / Conditions of Participation"
+          }
+        },
+        {
+          "criterion": "Client references",
+          "summary": "Minimum one reference received per lot applied for; up to two considered.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q14",
+            "anchor_text": "At least one reference must be received for each lot applied for to ensure your application is considered.",
+            "section_ref": "Part 3 - Q14"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bsf-6278-lot-2-water-risk-assessment-service",
+          "summary": "Water Risk Assessment service for corporate buildings (scheduled) plus adhoc, focused on inspection of water systems for contamination risks, particularly legionella.",
+          "requirement_type": "service_deliverable",
+          "technical_attributes": [
+            "Water-system inspection with legionella focus",
+            "Scheduled corporate-building coverage plus adhoc instructions"
+          ],
+          "quantity_hint": "Estimated £25k per annum (Group 1 indicative lot value).",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "The provision of Water Risk Assessments for specified corporate buildings & adhoc, to inspect water systems for contamination risks most notably the legionella bacteria.",
+            "section_ref": "Summary of requirements - Lot 2"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ISO 9001:2008 (or equivalent)",
+          "context": "Quality certification per PSQ Q18 applicable to works/services relating to this contract.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q18",
+            "anchor_text": "Does your organisation have ISO 9001:2008 or equivalent certification for works or services relating to this contract?",
+            "section_ref": "Part 3 - Q18"
+          }
+        },
+        {
+          "standard_ref": "ISO 14001:2004 (or equivalent)",
+          "context": "Environmental certification per PSQ Q19.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q19",
+            "anchor_text": "Does your organisation have ISO 14001:2004 or equivalent certification for works/services relating to this contract?",
+            "section_ref": "Part 3 - Q19"
+          }
+        },
+        {
+          "standard_ref": "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+          "context": "H&S competence evidenced via SSIP-forum member scheme; CHAS, EXOR, ISO 45001 named.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q21",
+            "anchor_text": "the most common standards used are; CHAS - EXOR Health and Safety - ISO 45001",
+            "section_ref": "Part 3 - Q21"
+          }
+        },
+        {
+          "standard_ref": "ACOP L8 competent person",
+          "context": "Listed under PSQ Q32 as an accreditation which 'may apply'; directly relevant to legionella control.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q32",
+            "anchor_text": "ACOP L8 competent person, may apply. Full details relating to this will be provided to organisations within the specification.",
+            "section_ref": "Part 3 - Q32 ACOP L8 competent person"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "Lot 2: Provision of Water Risk Assessments",
+        "section_ref": "Summary of requirements - Lot 2"
+      }
+    },
+    {
+      "lot_number": "3",
+      "title": "Provision of Asbestos Assessments",
+      "description": "Provision of Asbestos Assessments for specified corporate buildings and adhoc, to find, assess and manage asbestos containing materials.",
+      "requirements": [
+        "Minimum weighted PSQ score of 16 (pass/fail).",
+        "At least one client reference per lot received by deadline.",
+        "Financial stability (Experian) and turnover at least twice the estimated lot value (£60k per annum).",
+        "Employer's Liability Insurance £5m (rising to £10m when employing 100+).",
+        "Public Liability Insurance £5m per claim.",
+        "Professional Indemnity Insurance £2m per incident.",
+        "SSIP-forum H&S registration maintained throughout the contract."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "PSQ minimum weighted score",
+          "summary": "Minimum weighted score threshold of 16; scoring matrix per PCID.",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "minimum weighted score threshold of 16",
+            "section_ref": "Summary of requirements / Conditions of Participation"
+          }
+        },
+        {
+          "criterion": "Client references",
+          "summary": "Two references sought per lot; at least one required by deadline.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q14",
+            "anchor_text": "At least one reference must be received for each lot applied for",
+            "section_ref": "Part 3 - Q14"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bsf-6278-lot-3-asbestos-assessment-service",
+          "summary": "Asbestos Assessment service for corporate buildings (scheduled) and adhoc, covering survey, assessment and management of asbestos containing materials (ACMs).",
+          "requirement_type": "service_deliverable",
+          "technical_attributes": [
+            "Location and identification of ACMs",
+            "Risk assessment and management plans",
+            "Coverage of corporate buildings plus adhoc instructions"
+          ],
+          "quantity_hint": "Estimated £60k per annum (Group 1 indicative lot value).",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "The provision of Asbestos Assessments for specified corporate buildings & adhoc, to find, assess, and manage asbestos containing materials.",
+            "section_ref": "Summary of requirements - Lot 3"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ISO 9001:2008 (or equivalent)",
+          "context": "Quality certification per PSQ Q18.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q18",
+            "anchor_text": "Does your organisation have ISO 9001:2008 or equivalent certification for works or services relating to this contract?",
+            "section_ref": "Part 3 - Q18"
+          }
+        },
+        {
+          "standard_ref": "ISO 14001:2004 (or equivalent)",
+          "context": "Environmental certification per PSQ Q19.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q19",
+            "anchor_text": "Does your organisation have ISO 14001:2004 or equivalent certification for works/services relating to this contract?",
+            "section_ref": "Part 3 - Q19"
+          }
+        },
+        {
+          "standard_ref": "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+          "context": "H&S competence via SSIP-forum scheme per PSQ Q21.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q21",
+            "anchor_text": "the most common standards used are; CHAS - EXOR Health and Safety - ISO 45001",
+            "section_ref": "Part 3 - Q21"
+          }
+        },
+        {
+          "standard_ref": "UKAS Surveyor / HSE Licensed Contractor",
+          "context": "Listed under PSQ Q35 as an accreditation which 'may apply'; highly pertinent to asbestos surveying and licensed remediation.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q35",
+            "anchor_text": "UKAS Surveyor / HSE Licensed Contractor, may apply. Full details relating to this will be provided to organisations within the specification.",
+            "section_ref": "Part 3 - Q35 UKAS Surveyor / HSE Licensed Contractor"
+          }
+        },
+        {
+          "standard_ref": "Environment Agency Waste Carrier Licence",
+          "context": "Listed under PSQ Q34 as 'may apply'; relevant where removal/disposal is undertaken.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q34",
+            "anchor_text": "Environment Agency Waste Carrier Licence, may apply. Full details relating to this will be provided to organisations within the specification.",
+            "section_ref": "Part 3 - Q34 Environment Agency Waste Carrier Licence"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "Lot 3: Provision of Asbestos Assessments",
+        "section_ref": "Summary of requirements - Lot 3"
+      }
+    },
+    {
+      "lot_number": "4",
+      "title": "Provision of Fire Door Surveys",
+      "description": "Provision of Fire Door Surveys for specified corporate buildings and adhoc, to inspect door sets (door frame, hardware) to ensure they resist fire and smoke.",
+      "requirements": [
+        "Minimum weighted PSQ score of 16 (pass/fail).",
+        "At least one client reference received per lot by the deadline.",
+        "Financial stability (Experian) and turnover at least twice estimated lot value (£50k per annum).",
+        "Employer's Liability Insurance £5m (rising to £10m when employing 100+).",
+        "Public Liability Insurance £5m per claim.",
+        "Professional Indemnity Insurance £2m per incident.",
+        "SSIP-forum H&S registration maintained throughout the contract."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "PSQ minimum weighted score",
+          "summary": "Minimum weighted score threshold of 16 applied to all PSQs; scoring matrix per PCID.",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "minimum weighted score threshold of 16",
+            "section_ref": "Summary of requirements / Conditions of Participation"
+          }
+        },
+        {
+          "criterion": "Client references",
+          "summary": "Two references sought per lot; minimum one received for consideration.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q14",
+            "anchor_text": "At least one reference must be received for each lot applied for",
+            "section_ref": "Part 3 - Q14"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bsf-6278-lot-4-fire-door-survey-service",
+          "summary": "Fire Door Survey service covering door sets (frame, door leaf, hardware) to verify resistance to fire and smoke across specified corporate buildings and adhoc locations.",
+          "requirement_type": "service_deliverable",
+          "technical_attributes": [
+            "Inspection of door set components: door frame and hardware",
+            "Scope: corporate buildings (scheduled) plus adhoc"
+          ],
+          "quantity_hint": "Estimated £50k per annum (Group 1 indicative lot value).",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "The provision of Fire Door Surveys for specified corporate buildings & adhoc, to inspect door sets (door frame, hardware) to ensure they resist fire and smoke.",
+            "section_ref": "Summary of requirements - Lot 4"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ISO 9001:2008 (or equivalent)",
+          "context": "Quality certification per PSQ Q18.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q18",
+            "anchor_text": "Does your organisation have ISO 9001:2008 or equivalent certification for works or services relating to this contract?",
+            "section_ref": "Part 3 - Q18"
+          }
+        },
+        {
+          "standard_ref": "ISO 14001:2004 (or equivalent)",
+          "context": "Environmental certification per PSQ Q19.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q19",
+            "anchor_text": "Does your organisation have ISO 14001:2004 or equivalent certification for works/services relating to this contract?",
+            "section_ref": "Part 3 - Q19"
+          }
+        },
+        {
+          "standard_ref": "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+          "context": "H&S competence via SSIP-forum scheme per PSQ Q21.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q21",
+            "anchor_text": "CHAS - EXOR Health and Safety - ISO 45001",
+            "section_ref": "Part 3 - Q21"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "Lot 4: Provision of Fire Door Surveys",
+        "section_ref": "Summary of requirements - Lot 4"
+      }
+    },
+    {
+      "lot_number": "5",
+      "title": "Provision of Building Condition Surveys",
+      "description": "Provision of Building Condition Surveys to specified corporate buildings and residential properties: non-intrusive inspections to assess a property's structural integrity, identify defects and forecast maintenance needs.",
+      "requirements": [
+        "Minimum weighted PSQ score of 16 (pass/fail).",
+        "At least one client reference received per lot by deadline.",
+        "Financial stability (Experian) and turnover at least twice the estimated lot value (£70k per annum).",
+        "Employer's Liability Insurance £5m (rising to £10m when employing 100+).",
+        "Public Liability Insurance £5m per claim.",
+        "Professional Indemnity Insurance £2m per incident.",
+        "SSIP-forum H&S registration maintained throughout the contract."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "PSQ minimum weighted score",
+          "summary": "Minimum weighted score threshold of 16; scoring matrix per PCID.",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "minimum weighted score threshold of 16",
+            "section_ref": "Summary of requirements / Conditions of Participation"
+          }
+        },
+        {
+          "criterion": "Client references",
+          "summary": "Two references sought per lot; minimum one required.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q14",
+            "anchor_text": "At least one reference must be received for each lot applied for",
+            "section_ref": "Part 3 - Q14"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bsf-6278-lot-5-building-condition-survey-service",
+          "summary": "Building Condition Survey service: non-intrusive inspections of corporate buildings and residential properties to assess structural integrity, identify defects, and forecast maintenance needs.",
+          "requirement_type": "service_deliverable",
+          "technical_attributes": [
+            "Non-intrusive inspection methodology",
+            "Coverage: corporate buildings and residential properties",
+            "Outputs: structural integrity assessment, defects list, maintenance forecast"
+          ],
+          "quantity_hint": "Estimated £70k per annum (Group 1 indicative lot value).",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "The provision of Building Condition Surveys to specified corporate buildings & residential properties, non-intrusive inspections to assess a property's structural integrity, identify defects and forecast maintenance needs.",
+            "section_ref": "Summary of requirements - Lot 5"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ISO 9001:2008 (or equivalent)",
+          "context": "Quality certification per PSQ Q18.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q18",
+            "anchor_text": "Does your organisation have ISO 9001:2008 or equivalent certification for works or services relating to this contract?",
+            "section_ref": "Part 3 - Q18"
+          }
+        },
+        {
+          "standard_ref": "ISO 14001:2004 (or equivalent)",
+          "context": "Environmental certification per PSQ Q19.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q19",
+            "anchor_text": "Does your organisation have ISO 14001:2004 or equivalent certification for works/services relating to this contract?",
+            "section_ref": "Part 3 - Q19"
+          }
+        },
+        {
+          "standard_ref": "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+          "context": "H&S competence via SSIP-forum scheme per PSQ Q21.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q21",
+            "anchor_text": "CHAS - EXOR Health and Safety - ISO 45001",
+            "section_ref": "Part 3 - Q21"
+          }
+        },
+        {
+          "standard_ref": "CSCS cards",
+          "context": "Listed under PSQ Q36 as 'may apply'; typically required for site visits during building surveys.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q36",
+            "anchor_text": "CSCS cards, may apply. Full details relating to this will be provided to organisations within the specification.",
+            "section_ref": "Part 3 - Q36 CSCS cards"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "Lot 5: Provision of Building Condition Surveys",
+        "section_ref": "Summary of requirements - Lot 5"
+      }
+    },
+    {
+      "lot_number": "6",
+      "title": "Provision of Cleaning Services - Corporate Buildings & Public facilities in Parks & Open Spaces",
+      "description": "Provision of cleaning services to specified corporate buildings and public facilities in Parks & Open Spaces: delivery of a quality cleaning service covering general proactive cleaning, deep cleans, window cleaning, body spills, reactive cleaning, purchase and supply of all consumables, and internal building pest control and conservation cleaning.",
+      "requirements": [
+        "Minimum weighted PSQ score of 16 (pass/fail).",
+        "At least one client reference received per lot by deadline.",
+        "Financial stability (Experian) and turnover at least twice the estimated lot value (£670k per annum).",
+        "Employer's Liability Insurance £5m (rising to £10m when employing 100+).",
+        "Public Liability Insurance £5m per claim.",
+        "Professional Indemnity Insurance £2m per incident.",
+        "SSIP-forum H&S registration maintained throughout the contract.",
+        "Purchase and supply of all cleaning consumables as part of service delivery.",
+        "Internal building pest control and conservation cleaning within scope."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "PSQ minimum weighted score",
+          "summary": "Minimum weighted score threshold of 16; scoring matrix per PCID.",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "minimum weighted score threshold of 16",
+            "section_ref": "Summary of requirements / Conditions of Participation"
+          }
+        },
+        {
+          "criterion": "Client references",
+          "summary": "Two references per lot sought; minimum one required.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q14",
+            "anchor_text": "At least one reference must be received for each lot applied for",
+            "section_ref": "Part 3 - Q14"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bsf-6278-lot-6-cleaning-service",
+          "summary": "Integrated cleaning service (corporate buildings plus Parks & Open Spaces public facilities) including general proactive cleaning, deep cleans, window cleaning, body-spill response, reactive cleaning, internal pest control, and conservation cleaning.",
+          "requirement_type": "service_deliverable",
+          "technical_attributes": [
+            "Proactive general cleaning",
+            "Deep cleans",
+            "Window cleaning",
+            "Body spill response",
+            "Reactive cleaning",
+            "Internal building pest control",
+            "Conservation cleaning",
+            "Coverage across corporate buildings and Parks & Open Spaces public facilities"
+          ],
+          "quantity_hint": "Estimated £670k per annum (listed in both Group 1 and Group 2 lot tables).",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "The provision of Cleaning services to specified corporate buildings and public facilities in Parks & Open Spaces...",
+            "section_ref": "Summary of requirements - Lot 6"
+          }
+        },
+        {
+          "seed_key": "bsf-6278-lot-6-cleaning-consumables-supply",
+          "summary": "Supply of cleaning consumables as part of the Lot 6 service (purchased and supplied by the provider).",
+          "requirement_type": "consumable_supply",
+          "technical_attributes": [
+            "All consumables required for cleaning tasks included in scope",
+            "Provider-supplied (not buyer-supplied)"
+          ],
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "purchase and supply of all consumables",
+            "section_ref": "Summary of requirements - Lot 6"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ISO 9001:2008 (or equivalent)",
+          "context": "Quality certification per PSQ Q18.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q18",
+            "anchor_text": "Does your organisation have ISO 9001:2008 or equivalent certification for works or services relating to this contract?",
+            "section_ref": "Part 3 - Q18"
+          }
+        },
+        {
+          "standard_ref": "ISO 14001:2004 (or equivalent)",
+          "context": "Environmental certification per PSQ Q19.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q19",
+            "anchor_text": "Does your organisation have ISO 14001:2004 or equivalent certification for works/services relating to this contract?",
+            "section_ref": "Part 3 - Q19"
+          }
+        },
+        {
+          "standard_ref": "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+          "context": "H&S competence via SSIP-forum scheme per PSQ Q21.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q21",
+            "anchor_text": "CHAS - EXOR Health and Safety - ISO 45001",
+            "section_ref": "Part 3 - Q21"
+          }
+        },
+        {
+          "standard_ref": "BPCA / RSPH",
+          "context": "Listed under PSQ Q33 as 'may apply'; directly relevant to the internal pest-control element of the cleaning scope.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q33",
+            "anchor_text": "BPCA / RSPH, may apply. Full details relating to this will be provided to organisations within the specification.",
+            "section_ref": "Part 3 - Q33 BPCA / RSPH"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "Lot 6: Provision of Cleaning Services - Corporate Buildings & Public facilities in Parks & Open Spaces",
+        "section_ref": "Summary of requirements - Lot 6"
+      }
+    },
+    {
+      "lot_number": "7",
+      "title": "Provision of Lift Services - Corporate Buildings",
+      "description": "Provision of lift servicing, maintenance, repair, minor refurbishment and compliance management to lifts in corporate buildings.",
+      "requirements": [
+        "Minimum weighted PSQ score of 16 (pass/fail).",
+        "At least one client reference received per lot by deadline.",
+        "Financial stability (Experian) and turnover at least twice the estimated lot value (£40k per annum).",
+        "Employer's Liability Insurance £5m (rising to £10m when employing 100+).",
+        "Public Liability Insurance £5m per claim.",
+        "Professional Indemnity Insurance £2m per incident.",
+        "SSIP-forum H&S registration maintained throughout the contract."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "PSQ minimum weighted score",
+          "summary": "Minimum weighted score threshold of 16; scoring matrix per PCID.",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "minimum weighted score threshold of 16",
+            "section_ref": "Summary of requirements / Conditions of Participation"
+          }
+        },
+        {
+          "criterion": "Client references",
+          "summary": "Two references per lot sought; minimum one required.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q14",
+            "anchor_text": "At least one reference must be received for each lot applied for",
+            "section_ref": "Part 3 - Q14"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bsf-6278-lot-7-lift-services",
+          "summary": "Lift servicing, maintenance, repair, minor refurbishment and compliance management service for corporate-building lifts.",
+          "requirement_type": "service_deliverable",
+          "technical_attributes": [
+            "Routine servicing and maintenance",
+            "Repairs and minor refurbishment",
+            "Compliance management",
+            "Scope restricted to corporate-building lifts"
+          ],
+          "quantity_hint": "Estimated £40k per annum (listed in both Group 1 and Group 2 lot tables).",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "The provision of lift servicing, maintenance, repair, minor refurbishment & compliance management to lifts in corporate buildings.",
+            "section_ref": "Summary of requirements - Lot 7"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ISO 9001:2008 (or equivalent)",
+          "context": "Quality certification per PSQ Q18.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q18",
+            "anchor_text": "Does your organisation have ISO 9001:2008 or equivalent certification for works or services relating to this contract?",
+            "section_ref": "Part 3 - Q18"
+          }
+        },
+        {
+          "standard_ref": "ISO 14001:2004 (or equivalent)",
+          "context": "Environmental certification per PSQ Q19.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q19",
+            "anchor_text": "Does your organisation have ISO 14001:2004 or equivalent certification for works/services relating to this contract?",
+            "section_ref": "Part 3 - Q19"
+          }
+        },
+        {
+          "standard_ref": "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+          "context": "H&S competence via SSIP-forum scheme per PSQ Q21.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q21",
+            "anchor_text": "CHAS - EXOR Health and Safety - ISO 45001",
+            "section_ref": "Part 3 - Q21"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "Lot 7: Provision of Lift Services - Corporate Buildings",
+        "section_ref": "Summary of requirements - Lot 7"
+      }
+    },
+    {
+      "lot_number": "8",
+      "title": "Provision of Planned and Preventative Corporate Building Maintenance (PPM) & Remedial Repairs excluding full replacements",
+      "description": "Provision of planned maintenance and remedial works to corporate buildings, including routine maintenance for equipment, machinery, or building assets to prevent unexpected failures (e.g. boilers, fire alarms, visual inspections per the maintenance schedule) and all remedial works excluding full replacements. Inspections and servicing at monthly, quarterly or annual intervals aim to reduce downtime, extend asset life and improve safety.",
+      "requirements": [
+        "Minimum weighted PSQ score of 16 (pass/fail).",
+        "At least one client reference received per lot by deadline.",
+        "Financial stability (Experian) and turnover at least twice the estimated lot value (£860k per annum).",
+        "Employer's Liability Insurance £5m (rising to £10m when employing 100+).",
+        "Public Liability Insurance £5m per claim.",
+        "Professional Indemnity Insurance £2m per incident.",
+        "SSIP-forum H&S registration maintained throughout the contract.",
+        "Scope excludes full asset replacements."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "PSQ minimum weighted score",
+          "summary": "Minimum weighted score threshold of 16; scoring matrix per PCID.",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "minimum weighted score threshold of 16",
+            "section_ref": "Summary of requirements / Conditions of Participation"
+          }
+        },
+        {
+          "criterion": "Client references",
+          "summary": "Two references per lot sought; minimum one required.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q14",
+            "anchor_text": "At least one reference must be received for each lot applied for",
+            "section_ref": "Part 3 - Q14"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bsf-6278-lot-8-ppm-remedial-maintenance",
+          "summary": "Planned and preventative maintenance (PPM) plus remedial repairs for corporate buildings, covering routine servicing (e.g. boilers, fire alarms, visual inspections) and remedial works — full replacements excluded.",
+          "requirement_type": "service_deliverable",
+          "technical_attributes": [
+            "Planned Preventative Maintenance at monthly / quarterly / annual intervals",
+            "Boiler maintenance",
+            "Fire alarm maintenance",
+            "Visual inspections to maintenance schedule",
+            "Remedial works (excluding full replacements)",
+            "Objectives: reduce downtime, extend asset life, improve safety"
+          ],
+          "quantity_hint": "Estimated £860k per annum (Group 2 indicative lot value).",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "The provision of planned maintenance and remedial works to corporate buildings... routine maintenance for equipment, machinery, or building assets to prevent unexpected failures of boilers, fire alarms, visual inspections as per the maintenance schedule, and all remedial works excluding full replacements.",
+            "section_ref": "Summary of requirements - Lot 8"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ISO 9001:2008 (or equivalent)",
+          "context": "Quality certification per PSQ Q18.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q18",
+            "anchor_text": "Does your organisation have ISO 9001:2008 or equivalent certification for works or services relating to this contract?",
+            "section_ref": "Part 3 - Q18"
+          }
+        },
+        {
+          "standard_ref": "ISO 14001:2004 (or equivalent)",
+          "context": "Environmental certification per PSQ Q19.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q19",
+            "anchor_text": "Does your organisation have ISO 14001:2004 or equivalent certification for works/services relating to this contract?",
+            "section_ref": "Part 3 - Q19"
+          }
+        },
+        {
+          "standard_ref": "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+          "context": "H&S competence via SSIP-forum scheme per PSQ Q21.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q21",
+            "anchor_text": "CHAS - EXOR Health and Safety - ISO 45001",
+            "section_ref": "Part 3 - Q21"
+          }
+        },
+        {
+          "standard_ref": "Gas Safe Accreditation",
+          "context": "Listed under PSQ Q29 as 'may apply'; relevant to boiler maintenance within this lot's scope.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q29",
+            "anchor_text": "Gas Safe Accreditation, may apply. Full details relating to this will be provided to organisations within the specification.",
+            "section_ref": "Part 3 - Q29 Gas Safe Accreditation"
+          }
+        },
+        {
+          "standard_ref": "NICEIC / NAPIT",
+          "context": "Listed under PSQ Q30 as 'may apply'; relevant to electrical work within building maintenance.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q30",
+            "anchor_text": "NICEIC / NAPIT, may apply. Full details relating to this will be provided to organisations within the specification.",
+            "section_ref": "Part 3 - Q30 NICEIC / NAPIT"
+          }
+        },
+        {
+          "standard_ref": "BAFE / FIA",
+          "context": "Listed under PSQ Q31 as 'may apply'; relevant to fire-alarm maintenance cited in lot scope.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q31",
+            "anchor_text": "BAFE / FIA, may apply. Full details relating to this will be provided to organisations within the specification.",
+            "section_ref": "Part 3 - Q31 BAFE / FIA"
+          }
+        },
+        {
+          "standard_ref": "Building Regulations 2010",
+          "context": "Listed under PSQ Q28 as 'may apply'; germane to planned and remedial building works.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q28",
+            "anchor_text": "Building Regulations 2010, may apply. Full details relating to this will be provided to organisations within the specification.",
+            "section_ref": "Part 3 - Q28 Building Regulations 2010"
+          }
+        },
+        {
+          "standard_ref": "CSCS cards",
+          "context": "Listed under PSQ Q36 as 'may apply'; typically required for on-site maintenance activities.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q36",
+            "anchor_text": "CSCS cards, may apply. Full details relating to this will be provided to organisations within the specification.",
+            "section_ref": "Part 3 - Q36 CSCS cards"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "Lot 8: Provision of Planned and Preventative Corporate Building Maintenance (PPM) & Remedial Repairs excluding full replacements",
+        "section_ref": "Summary of requirements - Lot 8"
+      }
+    },
+    {
+      "lot_number": "9",
+      "title": "Provision of Reactive Repairs to Corporate Building",
+      "description": "Provision of reactive repairs to corporate buildings, including but not limited to clearing gutters and boarding up of buildings. Appropriate repairs identified through regular building assessments.",
+      "requirements": [
+        "Minimum weighted PSQ score of 16 (pass/fail).",
+        "At least one client reference received per lot by deadline.",
+        "Financial stability (Experian) and turnover at least twice the estimated lot value (£175k per annum).",
+        "Employer's Liability Insurance £5m (rising to £10m when employing 100+).",
+        "Public Liability Insurance £5m per claim.",
+        "Professional Indemnity Insurance £2m per incident.",
+        "SSIP-forum H&S registration maintained throughout the contract."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "PSQ minimum weighted score",
+          "summary": "Minimum weighted score threshold of 16; scoring matrix per PCID.",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "minimum weighted score threshold of 16",
+            "section_ref": "Summary of requirements / Conditions of Participation"
+          }
+        },
+        {
+          "criterion": "Client references",
+          "summary": "Two references per lot sought; minimum one required.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q14",
+            "anchor_text": "At least one reference must be received for each lot applied for",
+            "section_ref": "Part 3 - Q14"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bsf-6278-lot-9-reactive-repairs",
+          "summary": "Reactive repairs to corporate buildings, including gutter clearance, boarding-up and other appropriate repairs identified through regular building assessments.",
+          "requirement_type": "service_deliverable",
+          "technical_attributes": [
+            "Gutter clearance",
+            "Boarding up of buildings",
+            "Other reactive repairs identified through regular building assessments"
+          ],
+          "quantity_hint": "Estimated £175k per annum (Group 2 indicative lot value).",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "The provision of reactive repairs of corporate buildings. To include, but not limited to clearing gutters, boarding up of buildings. Appropriate repairs identified through regular building assessments.",
+            "section_ref": "Summary of requirements - Lot 9"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ISO 9001:2008 (or equivalent)",
+          "context": "Quality certification per PSQ Q18.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q18",
+            "anchor_text": "Does your organisation have ISO 9001:2008 or equivalent certification for works or services relating to this contract?",
+            "section_ref": "Part 3 - Q18"
+          }
+        },
+        {
+          "standard_ref": "ISO 14001:2004 (or equivalent)",
+          "context": "Environmental certification per PSQ Q19.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q19",
+            "anchor_text": "Does your organisation have ISO 14001:2004 or equivalent certification for works/services relating to this contract?",
+            "section_ref": "Part 3 - Q19"
+          }
+        },
+        {
+          "standard_ref": "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+          "context": "H&S competence via SSIP-forum scheme per PSQ Q21.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q21",
+            "anchor_text": "CHAS - EXOR Health and Safety - ISO 45001",
+            "section_ref": "Part 3 - Q21"
+          }
+        },
+        {
+          "standard_ref": "CSCS cards",
+          "context": "Listed under PSQ Q36 as 'may apply'; typically required for on-site repair work.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q36",
+            "anchor_text": "CSCS cards, may apply.",
+            "section_ref": "Part 3 - Q36"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "Lot 9: Provision of Reactive Repairs to Corporate Building",
+        "section_ref": "Summary of requirements - Lot 9"
+      }
+    },
+    {
+      "lot_number": "10",
+      "title": "Provision of Planned, Preventative & Responsive Residential Property Maintenance and Compliance Services",
+      "description": "Provision of comprehensive residential property maintenance, including but not limited to voids works, compliance checks and emergency response services to properties owned and leased by the London Borough of Bexley. Portfolio currently comprises approximately 230 Council-owned street properties, 2 hostels and 130 privately leased properties used to provide temporary accommodation; portfolio size may alter during the contract period.",
+      "requirements": [
+        "Minimum weighted PSQ score of 16 (pass/fail).",
+        "At least one client reference received per lot by deadline.",
+        "Financial stability (Experian) and turnover at least twice the estimated lot value (£1.8m per annum).",
+        "Employer's (Compulsory) Liability Insurance £10m.",
+        "Public Liability Insurance £20m (higher than the £5m standard applied to other lots).",
+        "Professional Indemnity Insurance £2m.",
+        "SSIP-forum H&S registration maintained throughout the contract.",
+        "Scope covers voids works, compliance checks and emergency response across ~360+ properties that may change in size over the contract."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "PSQ minimum weighted score",
+          "summary": "Minimum weighted score threshold of 16; scoring matrix per PCID.",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "minimum weighted score threshold of 16",
+            "section_ref": "Summary of requirements / Conditions of Participation"
+          }
+        },
+        {
+          "criterion": "Client references",
+          "summary": "Two references per lot sought; minimum one required.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q14",
+            "anchor_text": "At least one reference must be received for each lot applied for",
+            "section_ref": "Part 3 - Q14"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bsf-6278-lot-10-residential-maintenance-service",
+          "summary": "Comprehensive planned, preventative and responsive residential property maintenance and compliance service across Bexley-owned and leased temporary-accommodation properties, including voids, compliance checks and emergency response.",
+          "requirement_type": "service_deliverable",
+          "technical_attributes": [
+            "Voids works",
+            "Compliance checks",
+            "Emergency response",
+            "Portfolio: ~230 Council-owned street properties, 2 hostels, 130 privately leased properties (temporary accommodation)",
+            "Portfolio size may alter during the contract period"
+          ],
+          "quantity_hint": "Estimated £1.8m per annum (Group 2 indicative lot value).",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "The provision of comprehensive residential property maintenance, to include, but not limited to voids works, compliance checks and emergency response services to properties owned and leased by the London Borough of Bexley.",
+            "section_ref": "Summary of requirements - Lot 10"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ISO 9001:2008 (or equivalent)",
+          "context": "Quality certification per PSQ Q18.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q18",
+            "anchor_text": "Does your organisation have ISO 9001:2008 or equivalent certification for works or services relating to this contract?",
+            "section_ref": "Part 3 - Q18"
+          }
+        },
+        {
+          "standard_ref": "ISO 14001:2004 (or equivalent)",
+          "context": "Environmental certification per PSQ Q19.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q19",
+            "anchor_text": "Does your organisation have ISO 14001:2004 or equivalent certification for works/services relating to this contract?",
+            "section_ref": "Part 3 - Q19"
+          }
+        },
+        {
+          "standard_ref": "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+          "context": "H&S competence via SSIP-forum scheme per PSQ Q21.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q21",
+            "anchor_text": "CHAS - EXOR Health and Safety - ISO 45001",
+            "section_ref": "Part 3 - Q21"
+          }
+        },
+        {
+          "standard_ref": "Gas Safe Accreditation",
+          "context": "Listed under PSQ Q29 as 'may apply'; relevant to heating/gas compliance in residential maintenance.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q29",
+            "anchor_text": "Gas Safe Accreditation, may apply.",
+            "section_ref": "Part 3 - Q29"
+          }
+        },
+        {
+          "standard_ref": "NICEIC / NAPIT",
+          "context": "Listed under PSQ Q30 as 'may apply'; relevant to electrical compliance in residential properties.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q30",
+            "anchor_text": "NICEIC / NAPIT, may apply.",
+            "section_ref": "Part 3 - Q30"
+          }
+        },
+        {
+          "standard_ref": "Building Regulations 2010",
+          "context": "Listed under PSQ Q28 as 'may apply'; germane to residential maintenance and compliance work.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q28",
+            "anchor_text": "Building Regulations 2010, may apply.",
+            "section_ref": "Part 3 - Q28"
+          }
+        },
+        {
+          "standard_ref": "Disclosure and Barring Service (DBS)",
+          "context": "PSQ Q23 requires DBS clearance for operatives working on the contract where the specification requires it — relevant where residential tenant contact is expected.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q23",
+            "anchor_text": "operatives assigned to work on the Contract on behalf of the Contractor or any sub contractors must be cleared under the Disclosure and Barring Service Scheme [ordinary or enhanced check - as detailed in the specification]",
+            "section_ref": "Part 3 - Q23 Disclosure and Barring Service Checks"
+          }
+        },
+        {
+          "standard_ref": "CSCS cards",
+          "context": "Listed under PSQ Q36 as 'may apply'; typically required for residential repair and maintenance on site.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q36",
+            "anchor_text": "CSCS cards, may apply.",
+            "section_ref": "Part 3 - Q36"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "Lot 10: Provision of Planned, Preventative & Responsive Residential Property Maintenance and Compliance Services.",
+        "section_ref": "Summary of requirements - Lot 10"
+      }
+    },
+    {
+      "lot_number": "11",
+      "title": "Provision of Minor Disability Adaptations (minor building works) in privately owned properties",
+      "description": "Provision of minor disability adaptation works under £1,000 to private residential properties owned by residents of Bexley. Scope includes but is not limited to installation of handrails, grab rails and half steps.",
+      "requirements": [
+        "Minimum weighted PSQ score of 16 (pass/fail).",
+        "At least one client reference received per lot by deadline.",
+        "Financial stability (Experian) and turnover at least twice the estimated lot value (£375k per annum).",
+        "Employer's (Compulsory) Liability Insurance £10,000,000.",
+        "Public Liability Insurance £5,000,000.",
+        "Professional Indemnity Insurance £2,000,000.",
+        "SSIP-forum H&S registration maintained throughout the contract.",
+        "Individual adaptation-work value under £1,000."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "PSQ minimum weighted score",
+          "summary": "Minimum weighted score threshold of 16; scoring matrix per PCID.",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "minimum weighted score threshold of 16",
+            "section_ref": "Summary of requirements / Conditions of Participation"
+          }
+        },
+        {
+          "criterion": "Client references",
+          "summary": "Two references per lot sought; minimum one required.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q14",
+            "anchor_text": "At least one reference must be received for each lot applied for",
+            "section_ref": "Part 3 - Q14"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bsf-6278-lot-11-minor-disability-adaptations-service",
+          "summary": "Minor disability adaptation works (individual jobs under £1,000) to private residential properties owned by Bexley residents — e.g. installation of handrails, grab rails and half steps.",
+          "requirement_type": "service_deliverable",
+          "technical_attributes": [
+            "Minor building works under £1,000 per job",
+            "Examples: handrails, grab rails, half steps",
+            "Privately-owned residential properties of Bexley residents"
+          ],
+          "quantity_hint": "Estimated £375k per annum (Group 2 indicative lot value).",
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "The provision of minor disability adaptation works under £1,000 to private residential properties owned by residents of Bexley. To include, but not limited to installation of handrails, grab rails, half steps etc.",
+            "section_ref": "Summary of requirements - Lot 11"
+          }
+        },
+        {
+          "seed_key": "bsf-6278-lot-11-adaptation-fittings-supply",
+          "summary": "Supply and install of minor adaptation fittings (handrails, grab rails, half steps) associated with Lot 11 service calls.",
+          "requirement_type": "goods_supply_install",
+          "technical_attributes": [
+            "Handrails",
+            "Grab rails",
+            "Half steps",
+            "Supply-and-install bundled with service call, per-job cap under £1,000"
+          ],
+          "evidence_anchor": {
+            "page_ref": "Summary of requirements",
+            "anchor_text": "installation of handrails, grab rails, half steps etc.",
+            "section_ref": "Summary of requirements - Lot 11"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ISO 9001:2008 (or equivalent)",
+          "context": "Quality certification per PSQ Q18.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q18",
+            "anchor_text": "Does your organisation have ISO 9001:2008 or equivalent certification for works or services relating to this contract?",
+            "section_ref": "Part 3 - Q18"
+          }
+        },
+        {
+          "standard_ref": "ISO 14001:2004 (or equivalent)",
+          "context": "Environmental certification per PSQ Q19.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q19",
+            "anchor_text": "Does your organisation have ISO 14001:2004 or equivalent certification for works/services relating to this contract?",
+            "section_ref": "Part 3 - Q19"
+          }
+        },
+        {
+          "standard_ref": "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+          "context": "H&S competence via SSIP-forum scheme per PSQ Q21.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q21",
+            "anchor_text": "CHAS - EXOR Health and Safety - ISO 45001",
+            "section_ref": "Part 3 - Q21"
+          }
+        },
+        {
+          "standard_ref": "Building Regulations 2010",
+          "context": "Listed under PSQ Q28 as 'may apply'; relevant to minor adaptation building works.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q28",
+            "anchor_text": "Building Regulations 2010, may apply.",
+            "section_ref": "Part 3 - Q28"
+          }
+        },
+        {
+          "standard_ref": "Disclosure and Barring Service (DBS)",
+          "context": "PSQ Q23 requires DBS clearance where detailed in the specification — disability adaptations involve in-home visits with potentially vulnerable residents.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q23",
+            "anchor_text": "operatives assigned to work on the Contract on behalf of the Contractor or any sub contractors must be cleared under the Disclosure and Barring Service Scheme",
+            "section_ref": "Part 3 - Q23"
+          }
+        },
+        {
+          "standard_ref": "CSCS cards",
+          "context": "Listed under PSQ Q36 as 'may apply'; typically required for minor building works on site.",
+          "evidence_anchor": {
+            "page_ref": "Part 3 Q36",
+            "anchor_text": "CSCS cards, may apply.",
+            "section_ref": "Part 3 - Q36"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "Lot 11: Provision of Minor Disability Adaptations (minor building works) in privately owned properties",
+        "section_ref": "Summary of requirements - Lot 11"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "bsf-6278-lot-1-fire-risk-assessment-service",
+      "lot_number": "1",
+      "candidate_name": "Fire Risk Assessment service (corporate buildings + adhoc)",
+      "summary": "Service to identify fire hazards, evaluate risks to people and outline actions to prevent fires and ensure safe evacuation across specified corporate buildings and adhoc instructions.",
+      "requirements": [
+        "Coverage: corporate buildings (scheduled) plus adhoc",
+        "Outputs: hazard identification, risk evaluation, prevention/evacuation action plans"
+      ],
+      "technical_standards": [
+        "ISO 9001:2008 or equivalent",
+        "ISO 14001:2004 or equivalent",
+        "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+        "BAFE / FIA (may apply)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "The provision of Fire Risk Assessments for specified corporate buildings & adhoc...",
+        "section_ref": "Summary of requirements - Lot 1"
+      }
+    },
+    {
+      "seed_key": "bsf-6278-lot-2-water-risk-assessment-service",
+      "lot_number": "2",
+      "candidate_name": "Water Risk Assessment service (legionella focus)",
+      "summary": "Inspection of water systems in specified corporate buildings and adhoc sites for contamination risks, particularly legionella bacteria.",
+      "requirements": [
+        "Water-system inspection with legionella focus",
+        "Coverage: corporate buildings plus adhoc"
+      ],
+      "technical_standards": [
+        "ISO 9001:2008 or equivalent",
+        "ISO 14001:2004 or equivalent",
+        "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+        "ACOP L8 competent person (may apply)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "The provision of Water Risk Assessments... contamination risks most notably the legionella bacteria.",
+        "section_ref": "Summary of requirements - Lot 2"
+      }
+    },
+    {
+      "seed_key": "bsf-6278-lot-3-asbestos-assessment-service",
+      "lot_number": "3",
+      "candidate_name": "Asbestos Assessment service (ACM survey & management)",
+      "summary": "Service to find, assess and manage asbestos containing materials across corporate buildings and adhoc instructions.",
+      "requirements": [
+        "Locate and identify ACMs",
+        "Produce risk assessment and management plans",
+        "Coverage: corporate buildings plus adhoc"
+      ],
+      "technical_standards": [
+        "ISO 9001:2008 or equivalent",
+        "ISO 14001:2004 or equivalent",
+        "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+        "UKAS Surveyor / HSE Licensed Contractor (may apply)",
+        "Environment Agency Waste Carrier Licence (may apply)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "The provision of Asbestos Assessments... to find, assess, and manage asbestos containing materials.",
+        "section_ref": "Summary of requirements - Lot 3"
+      }
+    },
+    {
+      "seed_key": "bsf-6278-lot-4-fire-door-survey-service",
+      "lot_number": "4",
+      "candidate_name": "Fire Door Survey service",
+      "summary": "Inspection of door sets (door frame, hardware) to ensure they resist fire and smoke across corporate buildings and adhoc instructions.",
+      "requirements": [
+        "Inspect fire-door components: frames, hardware",
+        "Coverage: corporate buildings plus adhoc"
+      ],
+      "technical_standards": [
+        "ISO 9001:2008 or equivalent",
+        "ISO 14001:2004 or equivalent",
+        "SSIP-forum scheme (CHAS / EXOR / ISO 45001)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "The provision of Fire Door Surveys... to inspect door sets (door frame, hardware)...",
+        "section_ref": "Summary of requirements - Lot 4"
+      }
+    },
+    {
+      "seed_key": "bsf-6278-lot-5-building-condition-survey-service",
+      "lot_number": "5",
+      "candidate_name": "Building Condition Survey service",
+      "summary": "Non-intrusive inspections of corporate buildings and residential properties to assess structural integrity, identify defects and forecast maintenance needs.",
+      "requirements": [
+        "Non-intrusive inspection methodology",
+        "Coverage: corporate and residential portfolios",
+        "Outputs: structural integrity assessment, defects list, maintenance forecast"
+      ],
+      "technical_standards": [
+        "ISO 9001:2008 or equivalent",
+        "ISO 14001:2004 or equivalent",
+        "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+        "CSCS cards (may apply)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "The provision of Building Condition Surveys... non-intrusive inspections...",
+        "section_ref": "Summary of requirements - Lot 5"
+      }
+    },
+    {
+      "seed_key": "bsf-6278-lot-6-cleaning-service",
+      "lot_number": "6",
+      "candidate_name": "Cleaning service (corporate + Parks & Open Spaces public facilities)",
+      "summary": "Integrated cleaning service covering general proactive cleaning, deep cleans, window cleaning, body-spill response, reactive cleaning, internal pest control and conservation cleaning across corporate buildings and Parks & Open Spaces public facilities.",
+      "requirements": [
+        "Proactive general cleaning",
+        "Deep cleans",
+        "Window cleaning",
+        "Body spill response",
+        "Reactive cleaning",
+        "Internal building pest control",
+        "Conservation cleaning"
+      ],
+      "technical_standards": [
+        "ISO 9001:2008 or equivalent",
+        "ISO 14001:2004 or equivalent",
+        "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+        "BPCA / RSPH (may apply)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "The provision of Cleaning services to specified corporate buildings and public facilities in Parks & Open Spaces...",
+        "section_ref": "Summary of requirements - Lot 6"
+      }
+    },
+    {
+      "seed_key": "bsf-6278-lot-6-cleaning-consumables-supply",
+      "lot_number": "6",
+      "candidate_name": "Cleaning consumables supply",
+      "summary": "Provider-supplied cleaning consumables bundled with Lot 6 service delivery (no buyer-side consumable purchase).",
+      "requirements": [
+        "All cleaning consumables supplied by the provider"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "purchase and supply of all consumables",
+        "section_ref": "Summary of requirements - Lot 6"
+      }
+    },
+    {
+      "seed_key": "bsf-6278-lot-7-lift-services",
+      "lot_number": "7",
+      "candidate_name": "Lift servicing, maintenance, repair and compliance",
+      "summary": "Lift servicing, maintenance, repair, minor refurbishment and compliance management for corporate-building lifts.",
+      "requirements": [
+        "Routine servicing and maintenance",
+        "Repairs and minor refurbishment",
+        "Compliance management",
+        "Scope restricted to corporate-building lifts"
+      ],
+      "technical_standards": [
+        "ISO 9001:2008 or equivalent",
+        "ISO 14001:2004 or equivalent",
+        "SSIP-forum scheme (CHAS / EXOR / ISO 45001)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "The provision of lift servicing, maintenance, repair, minor refurbishment & compliance management to lifts in corporate buildings.",
+        "section_ref": "Summary of requirements - Lot 7"
+      }
+    },
+    {
+      "seed_key": "bsf-6278-lot-8-ppm-remedial-maintenance",
+      "lot_number": "8",
+      "candidate_name": "Planned Preventative Maintenance (PPM) and remedial repairs",
+      "summary": "Planned, preventative and remedial maintenance for corporate buildings, including boiler and fire-alarm servicing, visual inspections to schedule, and remedial works — full asset replacements excluded.",
+      "requirements": [
+        "Monthly / quarterly / annual PPM schedule",
+        "Boiler maintenance",
+        "Fire alarm maintenance",
+        "Visual inspections to maintenance schedule",
+        "Remedial works (exclude full replacements)"
+      ],
+      "technical_standards": [
+        "ISO 9001:2008 or equivalent",
+        "ISO 14001:2004 or equivalent",
+        "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+        "Gas Safe Accreditation (may apply)",
+        "NICEIC / NAPIT (may apply)",
+        "BAFE / FIA (may apply)",
+        "Building Regulations 2010 (may apply)",
+        "CSCS cards (may apply)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "The provision of planned maintenance and remedial works to corporate buildings...",
+        "section_ref": "Summary of requirements - Lot 8"
+      }
+    },
+    {
+      "seed_key": "bsf-6278-lot-9-reactive-repairs",
+      "lot_number": "9",
+      "candidate_name": "Reactive corporate-building repairs",
+      "summary": "Reactive repairs to corporate buildings, including gutter clearance, boarding-up and other repairs identified through regular building assessments.",
+      "requirements": [
+        "Gutter clearance",
+        "Boarding up of buildings",
+        "Other reactive repairs identified through regular building assessments"
+      ],
+      "technical_standards": [
+        "ISO 9001:2008 or equivalent",
+        "ISO 14001:2004 or equivalent",
+        "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+        "CSCS cards (may apply)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "The provision of reactive repairs of corporate buildings...",
+        "section_ref": "Summary of requirements - Lot 9"
+      }
+    },
+    {
+      "seed_key": "bsf-6278-lot-10-residential-maintenance-service",
+      "lot_number": "10",
+      "candidate_name": "Residential property maintenance & compliance service",
+      "summary": "Planned, preventative and responsive residential property maintenance and compliance across ~360+ Bexley-owned/leased temporary-accommodation properties.",
+      "requirements": [
+        "Voids works",
+        "Compliance checks",
+        "Emergency response",
+        "Portfolio: ~230 Council-owned street properties, 2 hostels, 130 privately leased properties",
+        "Portfolio size may alter during the contract period"
+      ],
+      "technical_standards": [
+        "ISO 9001:2008 or equivalent",
+        "ISO 14001:2004 or equivalent",
+        "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+        "Gas Safe Accreditation (may apply)",
+        "NICEIC / NAPIT (may apply)",
+        "Building Regulations 2010 (may apply)",
+        "Disclosure and Barring Service (as per specification)",
+        "CSCS cards (may apply)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "The provision of comprehensive residential property maintenance...",
+        "section_ref": "Summary of requirements - Lot 10"
+      }
+    },
+    {
+      "seed_key": "bsf-6278-lot-11-minor-disability-adaptations-service",
+      "lot_number": "11",
+      "candidate_name": "Minor disability adaptations service (privately owned properties)",
+      "summary": "Minor disability adaptation works (individual jobs under £1,000) to privately owned residential properties of Bexley residents.",
+      "requirements": [
+        "Per-job cap under £1,000",
+        "Examples: handrails, grab rails, half steps"
+      ],
+      "technical_standards": [
+        "ISO 9001:2008 or equivalent",
+        "ISO 14001:2004 or equivalent",
+        "SSIP-forum scheme (CHAS / EXOR / ISO 45001)",
+        "Building Regulations 2010 (may apply)",
+        "Disclosure and Barring Service (as per specification)",
+        "CSCS cards (may apply)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "The provision of minor disability adaptation works under £1,000 to private residential properties...",
+        "section_ref": "Summary of requirements - Lot 11"
+      }
+    },
+    {
+      "seed_key": "bsf-6278-lot-11-adaptation-fittings-supply",
+      "lot_number": "11",
+      "candidate_name": "Minor adaptation fittings (handrails, grab rails, half steps)",
+      "summary": "Supply and install of minor adaptation fittings bundled with Lot 11 service calls.",
+      "requirements": [
+        "Handrails",
+        "Grab rails",
+        "Half steps"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Summary of requirements",
+        "anchor_text": "installation of handrails, grab rails, half steps etc.",
+        "section_ref": "Summary of requirements - Lot 11"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9800,
+    "lots.title": 9700,
+    "lots.description": 9500,
+    "lots.requirements": 8200,
+    "lots.evaluation_criteria": 7000,
+    "lots.cpv_codes": 4000,
+    "lots.product_requirements": 7500,
+    "lots.technical_standards": 7200,
+    "lots.evidence_anchor": 9000,
+    "product_requirement_seeds": 7400,
+    "lot_value_attribution": 8500,
+    "insurance_per_lot": 9400
+  },
+  "extraction_confidence_bps": 8200,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "Document is the Procurement Specific Questionnaire (PSQ) - a selection-stage questionnaire, not a full technical specification. Lot technical detail is therefore summary-level only; detailed scope will appear in the downstream tender specification.",
+      "evidence_refs": [
+        "Procurement Specific Questionnaire (PSQ) return date",
+        "Part 3 - Questions Relating to Conditions of Participation"
+      ]
+    },
+    {
+      "code": "SCORING_MATRIX_EXTERNAL",
+      "message": "Scoring and weighting matrix is not contained in this document; the PSQ directs suppliers to the Procurement & Contract Information Document (PCID) for the full scoring matrix. Only the pass/fail threshold of 16 is visible here.",
+      "evidence_refs": [
+        "Scoring/ Weighting Matrix to be applied TO ALL LOTS in this assessment",
+        "See the Procurement & Contract information Document (PCID) for the scoring matrix"
+      ]
+    },
+    {
+      "code": "CPV_NOT_IN_DOCUMENT",
+      "message": "No CPV codes are cited in the PSQ text at lot level; per-lot cpv_codes arrays left empty. Notice-level CPV context (50700000-2 Repair and maintenance services of building installations; 50750000-7 Lift-maintenance services; 71315000-9 Building services) is available from upstream metadata but was not attributed to specific lots within this document.",
+      "evidence_refs": []
+    },
+    {
+      "code": "STANDARD_APPLICABILITY_DEFERRED",
+      "message": "PSQ Q28-Q36 list accreditations (Building Regulations 2010, Gas Safe, NICEIC/NAPIT, BAFE/FIA, ACOP L8, BPCA/RSPH, Environment Agency Waste Carrier Licence, UKAS Surveyor / HSE Licensed Contractor, CSCS) as 'may apply' without explicit lot-by-lot assignment. Standards have been attached to lots only where the lot description strongly implies applicability (e.g. ACOP L8 -> Lot 2 water/legionella; UKAS/HSE -> Lot 3 asbestos; BPCA/RSPH -> Lot 6 pest control; BAFE/FIA -> Lots 1 & 8; Gas Safe/NICEIC -> Lots 8 & 10). Final lot-level applicability is deferred to the tender specification.",
+      "evidence_refs": [
+        "Part 3 - Q28 Building Regulations 2010",
+        "Part 3 - Q29 Gas Safe Accreditation",
+        "Part 3 - Q30 NICEIC / NAPIT",
+        "Part 3 - Q31 BAFE / FIA",
+        "Part 3 - Q32 ACOP L8 competent person",
+        "Part 3 - Q33 BPCA / RSPH",
+        "Part 3 - Q34 Environment Agency Waste Carrier Licence",
+        "Part 3 - Q35 UKAS Surveyor / HSE Licensed Contractor",
+        "Part 3 - Q36 CSCS cards"
+      ]
+    },
+    {
+      "code": "LOT_GROUPING_RESTRICTION",
+      "message": "Q13 states that suppliers applying for lots in Group 1 CANNOT apply for lots in Group 2 and vice versa. Group 1 = Lots 1-7; Group 2 = Lots 6-11 (Lots 6 and 7 appear in both groupings). This grouping constrains bid-workflow routing but does not change lot identity.",
+      "evidence_refs": [
+        "Part 3 - Q13 GROUP 1 / GROUP 2 lot table"
+      ]
+    },
+    {
+      "code": "INSURANCE_LOT_10_HIGHER",
+      "message": "Lot 10 insurance thresholds are higher than the rest of the framework: EL £10m, PL £20m, PI £2m. Lot 11 stated as EL £10,000,000 / PL £5,000,000 / PI £2,000,000. All other lots (1-9) share EL £5m (rising to £10m when employing 100+) / PL £5m / PI £2m.",
+      "evidence_refs": [
+        "Part 3 - Q22 Insurance - Lot 10",
+        "Part 3 - Q22 Insurance - Lot 11"
+      ]
+    },
+    {
+      "code": "PAGE_REF_UNAVAILABLE",
+      "message": "Source document was a Word (.docx) file; Docling markdown does not carry page numbers. Evidence anchors therefore use section/question-number labels as page_ref values.",
+      "evidence_refs": []
+    },
+    {
+      "code": "LOT_VALUES_IN_Q13_ONLY",
+      "message": "Anticipated lot values (per annum) are listed only in Q13 (Group 1 / Group 2 table). They are indicative, not contractual, and have been used as quantity hints only.",
+      "evidence_refs": [
+        "Part 3 - Q13 GROUP 1 / GROUP 2 lot table"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "Summary of requirements",
+      "anchor_text": "Summary of requirements",
+      "section_ref": "Summary of requirements (top of document)"
+    },
+    {
+      "page_ref": "Summary of requirements",
+      "anchor_text": "For each lot applied for, a minimum weighted score threshold of 16 will be applied when assessing PSQ's. Applications not meeting this minimum score threshold will fail.",
+      "section_ref": "Summary of requirements / Conditions of Participation"
+    },
+    {
+      "page_ref": "Part 3 Q12",
+      "anchor_text": "The Council will make a financial assessment of your company using the Experian Business Express platform.",
+      "section_ref": "Part 3 - Q12 Financial assessment"
+    },
+    {
+      "page_ref": "Part 3 Q13",
+      "anchor_text": "COMPANIES APPLYING FOR LOTS IN GROUP 1 CANNOT APPLY FOR LOTS IN GROUP 2 AND VICE VERSA",
+      "section_ref": "Part 3 - Q13 Lot grouping and anticipated values"
+    },
+    {
+      "page_ref": "Part 3 Q14",
+      "anchor_text": "Complete Part A of the reference form provided at Appendix 1 for 2 different clients, for each lot which you have applied",
+      "section_ref": "Part 3 - Q14 Relevant experience and contract examples"
+    },
+    {
+      "page_ref": "Part 3 Q18",
+      "anchor_text": "Does your organisation have ISO 9001:2008 or equivalent certification for works or services relating to this contract?",
+      "section_ref": "Part 3 - Q18 Quality Assurance"
+    },
+    {
+      "page_ref": "Part 3 Q19",
+      "anchor_text": "Does your organisation have ISO 14001:2004 or equivalent certification for works/services relating to this contract?",
+      "section_ref": "Part 3 - Q19 Environmental Qualification"
+    },
+    {
+      "page_ref": "Part 3 Q21",
+      "anchor_text": "the most common standards used are; CHAS - EXOR Health and Safety - ISO 45001",
+      "section_ref": "Part 3 - Q21 Health and Safety at Work"
+    },
+    {
+      "page_ref": "Part 3 Q22",
+      "anchor_text": "Employer's (Compulsory) Liability Insurance = of not less than £5 million pounds... Public Liability Insurance = for not less than £5 million pounds... Professional Indemnity Insurance = of not less than £2 million pounds",
+      "section_ref": "Part 3 - Q22 Insurance (Lots 1-9 standard levels)"
+    },
+    {
+      "page_ref": "Part 3 Q22 (Lot 10)",
+      "anchor_text": "Employer's (Compulsory) Liability Insurance = £10m  Public Liability Insurance = £20m Professional Indemnity Insurance = £2m",
+      "section_ref": "Part 3 - Q22 Insurance - Lot 10"
+    },
+    {
+      "page_ref": "Part 3 Q22 (Lot 11)",
+      "anchor_text": "Employer's (Compulsory) Liability Insurance = £10,000,000  Public Liability Insurance = £5,000,000 Professional Indemnity = £2,000,000",
+      "section_ref": "Part 3 - Q22 Insurance - Lot 11"
+    },
+    {
+      "page_ref": "Part 3 Q23",
+      "anchor_text": "operatives assigned to work on the Contract on behalf of the Contractor or any sub contractors must be cleared under the Disclosure and Barring Service Scheme",
+      "section_ref": "Part 3 - Q23 Disclosure and Barring Service Checks"
+    },
+    {
+      "page_ref": "Part 3 Q27",
+      "anchor_text": "Please self-certify that your company's annual turnover is at least twice the estimated value of the Lot or total value of Lots for which you have applied",
+      "section_ref": "Part 3 - Q27 Financial Suitability"
+    },
+    {
+      "page_ref": "Part 3 Q28",
+      "anchor_text": "Building Regulations 2010, may apply.",
+      "section_ref": "Part 3 - Q28 Building Regulations 2010"
+    },
+    {
+      "page_ref": "Part 3 Q29",
+      "anchor_text": "Gas Safe Accreditation, may apply.",
+      "section_ref": "Part 3 - Q29 Gas Safe Accreditation"
+    },
+    {
+      "page_ref": "Part 3 Q30",
+      "anchor_text": "NICEIC / NAPIT, may apply.",
+      "section_ref": "Part 3 - Q30 NICEIC / NAPIT"
+    },
+    {
+      "page_ref": "Part 3 Q31",
+      "anchor_text": "BAFE / FIA, may apply.",
+      "section_ref": "Part 3 - Q31 BAFE / FIA"
+    },
+    {
+      "page_ref": "Part 3 Q32",
+      "anchor_text": "ACOP L8 competent person, may apply.",
+      "section_ref": "Part 3 - Q32 ACOP L8 competent person"
+    },
+    {
+      "page_ref": "Part 3 Q33",
+      "anchor_text": "BPCA / RSPH, may apply.",
+      "section_ref": "Part 3 - Q33 BPCA / RSPH"
+    },
+    {
+      "page_ref": "Part 3 Q34",
+      "anchor_text": "Environment Agency Waste Carrier Licence, may apply.",
+      "section_ref": "Part 3 - Q34 Environment Agency Waste Carrier Licence"
+    },
+    {
+      "page_ref": "Part 3 Q35",
+      "anchor_text": "UKAS Surveyor / HSE Licensed Contractor, may apply.",
+      "section_ref": "Part 3 - Q35 UKAS Surveyor / HSE Licensed Contractor"
+    },
+    {
+      "page_ref": "Part 3 Q36",
+      "anchor_text": "CSCS cards, may apply.",
+      "section_ref": "Part 3 - Q36 CSCS cards"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "8b70398e1d2dba0ac5adad64b538b451f371358e824ae5de3b94c807a58ade6c",
+    "policy_version": "2026.04.12",
+    "document_role": "procurement_specific_questionnaire"
+  }
+}

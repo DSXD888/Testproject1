@@ -1,0 +1,256 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Provision of Fire Risk Assessments",
+      "description": "Lot 1 of the London Borough of Bexley Building Services Framework (Tender 6278), covering the provision of Fire Risk Assessments. This document is the PSQ Reference Appendix scoped to Lot 1; lot identity is asserted on the document and corroborated by the parent notice summary which lists Lot 1 as 'Provision of Fire Risk Assessments'.",
+      "requirements": [
+        "Applicant must supply a previous-engagement reference covering services of the same nature as Lot 1 (Provision of Fire Risk Assessments), including referee contact details, brief description of services provided with dates, and annual contract value.",
+        "Reference Part B must be completed by the nominated referee and returned directly to procurement@bexley.gov.uk by 18th May 2026 5pm; references must not be returned via the applicant.",
+        "Referee must rate the contractor across six performance dimensions (supply chain resilience, service provision, resource, value for money, contract management, project management) on a five-point scale ranging from 'Failed to meet standard in all areas' to 'Exceeded standard in all areas', and indicate whether they would re-employ the contractor."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Supply chain resilience",
+          "summary": "Whether the contractor has provided a resilient and sustainable supply chain for required products, resources, and services.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "Supply chain resilience: Has the contractor provided a resilient and sustainable supply chain for required products, resources, and services?",
+            "section_ref": "Appendix 1 / PART B"
+          }
+        },
+        {
+          "criterion": "Service Provision",
+          "summary": "Whether the contractor has consistently delivered the contracted services in line with the required KPIs.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "Service Provision: Has the contractor consistently delivered the contracted services in line with the required KPIs?",
+            "section_ref": "Appendix 1 / PART B"
+          }
+        },
+        {
+          "criterion": "Resource",
+          "summary": "Whether the contractor's staff held the necessary qualifications, certifications, and experience for the tasks assigned and fully met the resource levels required to manage the contract.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "Resource: Have the contractor's staff held the necessary qualifications, certifications, and experience for the tasks assigned and fully met the resource levels required to manage the contract.",
+            "section_ref": "Appendix 1 / PART B"
+          }
+        },
+        {
+          "criterion": "Value for Money",
+          "summary": "Whether the contractor has shown a transparent and well-evidenced approach to securing value for money.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "Value for Money: Has the contractor shown a transparent and well-evidenced approach to securing value for money",
+            "section_ref": "Appendix 1 / PART B"
+          }
+        },
+        {
+          "criterion": "Contract Management",
+          "summary": "Whether the contractor has demonstrated effective contract management, including performance monitoring and oversight of subcontractors.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "Contract Management: Has the contractor demonstrated effective contract management, including performance monitoring and oversight of subcontractors.",
+            "section_ref": "Appendix 1 / PART B"
+          }
+        },
+        {
+          "criterion": "Project Management",
+          "summary": "Whether the contractor has shown the capability to successfully self-deliver small and medium project works.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "Project Management: Has the contractor shown the capability to successfully self-deliver small and medium project works",
+            "section_ref": "Appendix 1 / PART B"
+          }
+        },
+        {
+          "criterion": "Re-engagement willingness",
+          "summary": "Referee must indicate Yes/No whether they would employ the company again for similar services.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "Would you employ this company for similar services (please select)  Yes  No",
+            "section_ref": "Appendix 1 / PART B"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot1-fire-risk-assessment-service",
+          "summary": "Provision of Fire Risk Assessments as a recurring professional service for the London Borough of Bexley estate (Lot 1 of the 11-lot Building Services Framework).",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Service: Fire Risk Assessment (FRA)",
+            "Lot scope: Lot 1 of Tender 6278, framework agreement structure",
+            "Buyer estate: London Borough of Bexley corporate / housing buildings"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "6278: Lot 1: Provision of Fire Risk Assessments",
+            "section_ref": "Appendix 1 / Reference Form Header"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "6278: Lot 1: Provision of Fire Risk Assessments",
+        "section_ref": "Appendix 1 / Reference Form Header"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot1-fire-risk-assessment-service",
+      "lot_number": "1",
+      "candidate_name": "Fire Risk Assessment Service",
+      "summary": "Provision of Fire Risk Assessments service to London Borough of Bexley under Lot 1 of the 6278 Building Services Framework. Service-only requirement; no goods are specified by the document.",
+      "requirements": [
+        "Reference required for prior delivery of comparable Fire Risk Assessment services (referee-rated across six performance dimensions).",
+        "Annual contract value evidence (Value p/a) must be provided in Part A of the reference form.",
+        "Referee endorsement of repeat-engagement willingness."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "6278: Lot 1: Provision of Fire Risk Assessments",
+        "section_ref": "Appendix 1 / Reference Form Header"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 9500,
+    "lots.description": 7000,
+    "lots.requirements": 6500,
+    "lots.evaluation_criteria": 9000,
+    "lots.cpv_codes": 1000,
+    "lots.product_requirements": 5500,
+    "lots.technical_standards": 2000,
+    "product_requirement_seeds": 5500
+  },
+  "extraction_confidence_bps": 6200,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH_ADMINISTRATIVE_FORM",
+      "message": "Bound document is a PSQ Reference Form (Appendix 1 + Appendix 2 cover letter), not a substantive technical specification. It identifies the lot scope and supplies referee evaluation criteria but contains no technical product specifications, no explicit standards, and no inline CPV codes. Lot description was inferred from the parent notice summary cross-reference.",
+      "evidence_refs": [
+        "Appendix 1 / Reference Form Header",
+        "Appendix 2 / Cover Letter to Referee"
+      ]
+    },
+    {
+      "code": "NO_TECHNICAL_STANDARDS_PRESENT",
+      "message": "No explicit technical standards (BS, EN, ISO, RICS, IFE etc.) were referenced in the document body. Per skill contract, no standard refs were emitted; downstream stages must seek standards from a different overlay if Lot 1 standards are needed.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_INLINE_CPV_CODES",
+      "message": "Document does not declare CPV codes. Notice-level CPV codes (50700000-2 / 50750000-7 / 71315000-9) cover the broader 11-lot framework and are not specifically scoped to Fire Risk Assessment services; emitting them at lot scope would be misleading. cpv_codes left empty for Lot 1.",
+      "evidence_refs": []
+    },
+    {
+      "code": "EVALUATION_CRITERIA_FRAMING",
+      "message": "Evaluation criteria captured here are referee-rating dimensions for a prior-experience reference form, not the tender's award criteria. They reflect what the buyer asks the referee to score, which is informative for qualification screening but is not the formal MEAT/award-criteria matrix.",
+      "evidence_refs": [
+        "Appendix 1 / PART B"
+      ]
+    },
+    {
+      "code": "PRODUCT_REQUIREMENT_SEEDS_THIN",
+      "message": "Only one service-shaped product seed was emitted because the document discloses only the lot service title ('Provision of Fire Risk Assessments') without component-level technical attributes, frequency, asset count, or response-time expectations. Downstream matching must treat this as a service-typed seed, not a goods seed.",
+      "evidence_refs": [
+        "Appendix 1 / Reference Form Header"
+      ]
+    },
+    {
+      "code": "REFEREE_DEADLINE_TEMPLATE_INCONSISTENCY",
+      "message": "Appendix 1 PART B states a hard return date of '18th May 2026 by 5pm' for the referee, while Appendix 2 cover letter still contains the unresolved template placeholder '****INSERT DATE & TIME****'. The two appendices disagree on the referee deadline; downstream operators may need to flag this to the buyer.",
+      "evidence_refs": [
+        "Appendix 1 / PART B",
+        "Appendix 2 / Cover Letter to Referee"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p.1",
+      "anchor_text": "## Appendix 1",
+      "section_ref": "Appendix 1 (heading)"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "REFERENCE FORM",
+      "section_ref": "Appendix 1 / Form Title"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "6278: Lot 1: Provision of Fire Risk Assessments",
+      "section_ref": "Appendix 1 / Reference Form Header"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "TO BE COMPLETED BY REFEREE AND RETURNED TO THE ADDRESS BELOW BY 18th May 2026 by 5pm",
+      "section_ref": "Appendix 1 / PART B"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "Supply chain resilience: Has the contractor provided a resilient and sustainable supply chain for required products, resources, and services?",
+      "section_ref": "Appendix 1 / PART B"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "Service Provision: Has the contractor consistently delivered the contracted services in line with the required KPIs?",
+      "section_ref": "Appendix 1 / PART B"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "Resource: Have the contractor's staff held the necessary qualifications, certifications, and experience for the tasks assigned and fully met the resource levels required to manage the contract.",
+      "section_ref": "Appendix 1 / PART B"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "Value for Money: Has the contractor shown a transparent and well-evidenced approach to securing value for money",
+      "section_ref": "Appendix 1 / PART B"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "Contract Management: Has the contractor demonstrated effective contract management, including performance monitoring and oversight of subcontractors.",
+      "section_ref": "Appendix 1 / PART B"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "Project Management: Has the contractor shown the capability to successfully self-deliver small and medium project works",
+      "section_ref": "Appendix 1 / PART B"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "Would you employ this company for similar services (please select)  Yes  No",
+      "section_ref": "Appendix 1 / PART B"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "Please return the reference to: Procurement@bexley.gov.uk",
+      "section_ref": "Appendix 1 / PART B / Return Instructions"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "### Appendix 2",
+      "section_ref": "Appendix 2 (heading)"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "before ****INSERT DATE & TIME****",
+      "section_ref": "Appendix 2 / Cover Letter to Referee"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "a8612dc9a8fff0024bfa5d70a0d6609e5fa2833d6035c516a3c1fa22e3697aa7",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

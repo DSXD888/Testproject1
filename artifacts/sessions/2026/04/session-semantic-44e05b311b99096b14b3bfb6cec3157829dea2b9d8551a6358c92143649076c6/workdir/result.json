@@ -1,0 +1,606 @@
+{
+  "lots": [
+    {
+      "lot_number": "6",
+      "title": "Provision of Cleaning Services - Corporate Buildings & Public facilities in Parks & Open Spaces",
+      "description": "Lot 6 of Framework 6278 (London Borough of Bexley Building Services Framework). Draft Terms and Conditions governing the supply of cleaning services in Council Buildings by a Contractor to The Mayor and Burgesses of the London Borough of Bexley. The Services, their Premises, Key Personnel, KPIs, Service Credits and monitoring arrangements are defined by reference to Schedule 1 (Specification), which is a stub in this draft and must be supplied as a separate specification pack. The T&Cs establish the contracting relationship, quality regime (BSI / ISO Quality Standards and Good Industry Practice), staffing and DBS regime, insurance minima, data-protection Controller/Processor split (Council = Controller, Contractor = Processor), Best Value duty, TUPE risk allocation and standard statutory/commercial obligations (Bribery Act 2010, Public Contracts Regulations 2015, UK GDPR/DPA 2018, Equality Act 2010, Electronic Invoicing Regulations 2019, Local Government Act 1999). Template contract period shown on the front matter is 1 September 2020 to 31 August 2023; the authoritative commencement date and financial value for Framework 6278 are governed by the tender notice and Form of Contract insert fields.",
+      "requirements": [
+        "Supply the Services during the Contract Period in accordance with the Council's requirements as set out in the Specification and the provisions of the Contract (clause B1.1).",
+        "If any part of the Services does not meet contractual requirements, re-schedule and re-perform the affected Services at the Contractor's own expense within a reasonable time specified by the Council (clause B1.2).",
+        "Treat timely supply of the Services as of the essence, including commencing the supply on the specified date (clause B1.3).",
+        "Permit the Council to inspect and examine how the Services are supplied at the Premises during normal business hours on reasonable notice (clause B1.4).",
+        "Provide all Equipment necessary for the Services; do not deliver Equipment to the Premises without the Council's prior written approval; maintain Equipment in a safe, serviceable and clean condition; cease and replace Equipment which is hazardous, noxious or non-compliant on written request; remove Equipment on completion (clauses B2.1-B2.6).",
+        "Comply with the Quality Standards (BSI / ISO and equivalents) at all times, maintain accreditation with the relevant Quality Standards authorisation body where applicable, and where not specified in Contract, agree the relevant Services standard with the Council and perform in accordance with the Law and Good Industry Practice (clause B3.1).",
+        "Ensure all Staff perform with due skill, care and diligence and possess the qualifications, skills and experience necessary for the proper supply of the Services (clause B3.2).",
+        "Employ sufficient persons (including a sufficient reserve) to ensure the Service is provided at all times throughout the Contract Period, including any extension (clause B4.1).",
+        "Ensure Staff are competent, skilled, honest and experienced, suitably qualified to drive/operate vehicles or equipment, and wear full uniform or appropriate safety/identification clothing which is clean and presentable (clause B4.2).",
+        "Register with the Disclosure and Barring Service and undertake DBS checks at the required level for relevant Staff where required by the Specification; re-check at least every three years via new DBS disclosure or DBS Update Service status check; provide DBS policy, records of checks, and a list of Staff with check status at commencement (clauses B4.11 - B4.13).",
+        "Ensure no person employed or engaged in the Services is barred from Regulated Activity under the Safeguarding Vulnerable Groups Act 2006; immediately notify the Authorised Officer of any relevant conviction, caution, bindover, DBS barred-list entry, or non-disclosure by Staff (clauses B4.14, B4.17 - B4.18).",
+        "Confirm all Staff are lawfully entitled to live and work in the United Kingdom (clause B4.8).",
+        "Appoint a suitably qualified, competent and English-fluent Contract Manager in full charge of the Services, continuously available during operating hours, and empowered to act on the Contractor's behalf; notify the Authorised Officer in writing of the Contract Manager's and deputy's identity, addresses, phone and email (clauses B6.1 - B6.2).",
+        "Identify and propose continuous Service improvements (Best Value) under the Local Government Act 1999, including technology advances, quality/performance improvements, third-party interface improvements and process changes, and participate in Council benchmarking reviews (clauses B8.1 - B8.3).",
+        "Accept payment of the Contract Price, which remains fixed for the Contract Period subject to Clause C4; submit invoices in electronic form where required via the Tungsten Network, compliant with the standard on electronic invoicing under the Public Procurement (Electronic Invoices etc.) Regulations 2019 (clauses C1.1 - C1.4).",
+        "Invoice monthly in arrears; Council to pay undisputed sums within 30 days of receipt of a valid invoice; include detailed breakdown and applicable Service Credit deductions on each invoice (clauses C2.1 - C2.2).",
+        "Include in any sub-contract a 30-day payment term for undisputed sums and publishable compliance obligation; pay sub-contractors within 30 days of a valid invoice and certify compliance quarterly at director level (clauses C2.6 - C2.7).",
+        "Not commit Prohibited Acts (bribery, fraud, inducement or reward to Council personnel) nor have any member of Staff do so; comply with the Bribery Act 2010 (clauses D1, Definitions 'Prohibited Act').",
+        "Not unlawfully discriminate and comply with Equality Act 2010 and the Council's equality and diversity policies (clause D3).",
+        "Comply with environmental requirements set out in the Specification (clause D5).",
+        "Comply with health and safety Law and the Council's health and safety measures/policies at the Premises; ensure chemicals/solutions used for the Services comply with any Specification requirements, are used strictly per manufacturer instructions, are safe for site users, conform to relevant British/European standards, and chemicals have full HSE or Environment Agency approval (clauses D6.1 - D6.4).",
+        "Act as Processor to the Council's Controller under UK GDPR / DPA 2018 for Personal Data under the Contract; only process Personal Data in accordance with Schedule 1 and Council instructions; apply appropriate Protective Measures (encryption, pseudonymisation, confidentiality/integrity/availability/resilience, restorability); assist with DSARs and DPIAs; notify the Council promptly of Personal Data Breaches (clauses E1.1 - E1.15).",
+        "Treat Council Data and Confidential Information as confidential; comply with FOIA and EIRs, including responding to Requests for Information within 5 Working Days and transferring such requests to the Council where appropriate (clauses E3 - E4).",
+        "Maintain for the duration of the Contract public and third party liability and product liability insurance of not less than GBP 5 million per claim; employer's liability insurance of not less than GBP 5 million per incident where the Contractor employs fewer than 100 people and not less than GBP 10 million per claim where it employs 100 or more people; and where required by the nature of the Services, professional indemnity insurance of not less than GBP 2 million per incident (clauses G1.6 - G1.7).",
+        "Maintain professional indemnity insurance of not less than GBP 2,000,000 per claim (including for agents, consultants and sub-contractors where involved in the Services) for a minimum of 6 years after expiry or earlier termination (clause G2).",
+        "Perform Services for three defined milestone / contractual stages per the Form of Contract template commencement 1 September 2020 to 31 August 2023 with possible extension per Clause F8; authoritative dates are specified in the Form of Contract insert fields (Whereas A; clauses A2, F8).",
+        "Meet KPIs specified in Schedule 4 to the Specification; comply with Notices to Remedy under Section 18 of the Specification; submit Management Reports on KPIs as required by Schedule 4 to the Specification and attend meetings with the Authorised Officer at the frequency set out in the Specification (clauses F5.1 - F5.4, F7.1 - F7.2).",
+        "Not transfer or sub-contract the whole or any part of the Contract without prior written consent of the Council, except sub-contracts in the ordinary course (clause F1 and related).",
+        "Comply with the Council's security, access, premises and property handling requirements; treat all Council property issued free of charge as remaining the Council's property, return or make available on demand, store separately and identify (clauses B7.1 - B7.5).",
+        "Evaluate TUPE risk and cost at its own expense; indemnify the Council against all TUPE-related claims by former Contractor staff; on re-letting, supply staff data to the Council for disclosure to other Contractors within 21 days of request, at no cost; not artificially reorganise workforce or amend employment terms near expiry to frustrate TUPE or other bidders (clauses S1.1 - S1.7).",
+        "Resolve disputes through good-faith negotiation escalated to Chief Executives, then mediation via CEDR unless unsuitable, before any referral to the exclusive jurisdiction of the English Courts (clauses I1 - I2)."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bexley-6278-lot6-cleaning-services",
+          "summary": "Output-based cleaning and hygiene services for Council Buildings (civic/administrative offices, libraries, community hubs, customer service areas, operational depots, Danson House) and parks & open spaces assets (public conveniences, changing rooms, pavilions, visitor/education/function rooms and immediately adjacent external approaches). The T&Cs set the contractual wrapper (quality, staffing, DBS, insurance, data protection, Best Value, Service Credits, KPIs); the service scope, frequencies, outcome standards and Premises list are in Schedule 1 (Specification), which is a stub in this draft.",
+          "requirement_type": "cleaning_service",
+          "technical_attributes": [
+            "Performed to Good Industry Practice and BSI/ISO Quality Standards (clause B3.1)",
+            "Staff meet DBS, right-to-work, training and uniform/PPE requirements (clauses B4.2, B4.8, B4.11)",
+            "Services delivered during the Contract Period (Form of Contract template: 1 Sep 2020 - 31 Aug 2023) with possible extension under Clause F8",
+            "KPIs specified in Schedule 4 to Specification; Service Credits deducted per Clause C3A",
+            "Processor role for Personal Data incidental to the Services (UK GDPR / DPA 2018); Council is Controller"
+          ],
+          "quantity_hint": "Scope, frequencies, building/asset list and method-statement expectations are in Schedule 1 (Specification), which is a placeholder stub in this draft T&Cs; Schedule 1 must be supplied separately.",
+          "evidence_anchor": {
+            "anchor_text": "The Council wishes to secure the provision of cleaning services in Council Buildings as defined in the attached Specification (\"the Services\")",
+            "page_ref": "p.1 (WHEREAS (A))",
+            "section_ref": "Part 1 Form of Contract, WHEREAS (A); clause B1.1"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot6-cleaning-equipment",
+          "summary": "All Equipment (the Contractor's equipment, plant, materials and such other items) required to perform the cleaning Services. Equipment is Contractor-owned and at Contractor's risk; must be approved before delivery to Premises, maintained in safe, serviceable and clean condition, and removed on completion.",
+          "requirement_type": "cleaning_equipment",
+          "technical_attributes": [
+            "Supplied in full by the Contractor (clause B2.1)",
+            "Prior written Council approval before delivery to Premises (clause B2.2)",
+            "Maintained safe, serviceable and clean; replaceable on Council request if hazardous, noxious or non-compliant (clauses B2.4-B2.5)",
+            "Removed on completion of the Services (clause B2.6)"
+          ],
+          "quantity_hint": "Equipment mix is Contractor's responsibility; any Council-specified equipment constraints will appear in Schedule 1 (Specification), which is a stub here.",
+          "evidence_anchor": {
+            "anchor_text": "The Contractor shall provide all the Equipment necessary for the supply of the Services.",
+            "page_ref": "p.8 (Part 2 Section B2)",
+            "section_ref": "clause B2.1"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot6-cleaning-chemicals-consumables",
+          "summary": "Chemicals, solutions, substances and other materials used to deliver the cleaning Services. These must satisfy Specification constraints, manufacturer instructions, relevant British/European standards, and (for chemicals) have full HSE or Environment Agency approval; they must be safe for users of the Premises.",
+          "requirement_type": "cleaning_chemicals_and_materials",
+          "technical_attributes": [
+            "Complies with any particular requirements set out in the Specification (clause D6.2)",
+            "Used and applied strictly in accordance with manufacturer's instructions (clause D6.2)",
+            "Safe for all persons using, visiting or working at the Premises in the manner applied (clause D6.2)",
+            "Conforms with any relevant British or European standard (clause D6.2)",
+            "Chemicals have full approval from the Health and Safety Executive or Environment Agency (clause D6.2)"
+          ],
+          "quantity_hint": "Volume, product list and SDS depth belong to Schedule 1 (Specification) / COSHH register; Schedule 1 is a stub in this draft.",
+          "evidence_anchor": {
+            "anchor_text": "any chemicals or other solutions or substances or materials used for the purposes of the Services will comply with any particular requirements set out in the Specification ... in the case of chemicals have full approval from the Health and Safety Executive or Environment Agency",
+            "page_ref": "p.16 (Part 2 Section D6)",
+            "section_ref": "clause D6.2"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot6-cleaning-kpi-reporting",
+          "summary": "KPI measurement, Management Reports and Service Credit administration. Contractor must report against KPIs in Schedule 4 to the Specification, provide Management Reports referenced in Section 18 of the Specification, and accept Service Credit deductions on invoices for Service Failures.",
+          "requirement_type": "service_performance_reporting",
+          "technical_attributes": [
+            "KPIs defined in Schedule 4 to Specification; indicators measured per the table in Schedule 4 (clauses F5.1, F5.4)",
+            "Management Reports per clauses F7.1 - F7.2 and Section 18 of the Specification",
+            "Service Credits deducted or invoiced per Clause C3A for Service Failures (Definitions; clause C2.2)",
+            "Notices to Remedy actioned within the timescale set out in the Notice (clause F5.2)"
+          ],
+          "quantity_hint": "KPI definitions, frequency and thresholds live in Schedule 4 to Specification; Schedule 1/4 are placeholder headings in this draft.",
+          "evidence_anchor": {
+            "anchor_text": "Where any part of the Services is stated in Schedule 4 to the Specification to be the subject of a specific KPI the Contractor shall perform the Services in such a manner as will ensure that the Indicator ... is met.",
+            "page_ref": "p.22 (Part 2 Section F5)",
+            "section_ref": "clause F5.1"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "BSI / ISO Quality Standards (and equivalent reputable standards bodies)",
+          "context": "Quality Standards means quality standards published by BSI British Standards Institution, ISO or other reputable or equivalent body. Contractor must comply at all times and maintain accreditation where applicable; where standard is unspecified, agree with Council and perform per Law and Good Industry Practice.",
+          "evidence_anchor": {
+            "anchor_text": "\"Quality Standards\" means the quality standards published by BSI British Standards Institution, the National Standards Body of the United Kingdom, the International Organisation for Standardisation or other reputable or equivalent body ... The Contractor shall at all times comply with the Quality Standards",
+            "page_ref": "pp.6, 10 (Definitions; Part 2 Section B3)",
+            "section_ref": "Definitions 'Quality Standards'; clause B3.1"
+          }
+        },
+        {
+          "standard_ref": "Good Industry Practice",
+          "context": "Good Industry Practice means standards, practices, methods and procedures conforming to the Law and the degree of skill and care, diligence, prudence and foresight which would reasonably and ordinarily be expected from a skilled and experienced person or body engaged in a similar type of undertaking under the same or similar circumstances. Applies by default to Services whose standard is otherwise unspecified.",
+          "evidence_anchor": {
+            "anchor_text": "\"Good Industry Practice\" means standards, practices, methods and procedures conforming to the Law and the degree of skill and care, diligence, prudence and foresight which would reasonably and ordinarily be expected from a skilled and experienced person or body engaged in a similar type of undertaking",
+            "page_ref": "p.5 (Definitions)",
+            "section_ref": "Definitions 'Good Industry Practice'; clause B3.1"
+          }
+        },
+        {
+          "standard_ref": "Relevant British or European standards (for chemicals/materials)",
+          "context": "Chemicals, solutions, substances and materials used in the cleaning Services must conform with any relevant British or European standard and be used strictly per manufacturer instructions; chemicals must hold full HSE or Environment Agency approval.",
+          "evidence_anchor": {
+            "anchor_text": "conform with any relevant British or European standard and in the case of chemicals have full approval from the Health and Safety Executive or Environment Agency",
+            "page_ref": "p.16 (Part 2 Section D6)",
+            "section_ref": "clause D6.2"
+          }
+        },
+        {
+          "standard_ref": "UK GDPR + Data Protection Act 2018 (UK data-protection regime)",
+          "context": "Data Protection Legislation includes the UK GDPR, the Law Enforcement Directive and the DPA 2018. Council is Controller, Contractor is Processor; Protective Measures, breach notification, DPIA assistance, Data Subject Request support and restricted sub-processing all apply.",
+          "evidence_anchor": {
+            "anchor_text": "\"Data Protection Legislation\" means (i) the GDPR, the LED and any applicable national implementing Laws as amended from time to time (ii) the DPA 2018 ... (iii) all applicable Law about the processing of personal data and privacy.",
+            "page_ref": "pp.5-6, 13-15 (Definitions; Part 2 Section E1)",
+            "section_ref": "Definitions 'Data Protection Legislation'; clauses E1.1 - E1.15"
+          }
+        },
+        {
+          "standard_ref": "Freedom of Information Act 2000 and Environmental Information Regulations 2004",
+          "context": "Contractor must assist the Council with FOIA and EIR Requests for Information, including transferring requests to the Council within 5 Working Days and providing requested Information promptly.",
+          "evidence_anchor": {
+            "anchor_text": "\"FOIA\" means the Freedom of Information Act 2000 ... \"Environmental Information Regulations\" or \"EIRs\" means the Environmental Information Regulations 2004 (SI 2004/3391)",
+            "page_ref": "p.5 (Definitions)",
+            "section_ref": "Definitions 'FOIA' / 'Environmental Information Regulations'; clauses E4 (referenced)"
+          }
+        },
+        {
+          "standard_ref": "Public Contracts Regulations 2015",
+          "context": "The Contract references the PCR 2015 as the framework of Contracting Authority obligations; termination grounds under Regulation 72(9) (substantial modification) and Regulation 57(1)-(2) (mandatory exclusion) apply.",
+          "evidence_anchor": {
+            "anchor_text": "the contract has been subject to a substantial modification which would have required a new procurement procedure in accordance with regulation 72(9) of the Public Contracts Regulations 2015",
+            "page_ref": "p.24 (Part 2 Section H2A)",
+            "section_ref": "clause H2A.1"
+          }
+        },
+        {
+          "standard_ref": "Public Procurement (Electronic Invoices etc.) Regulations 2019 (SI 2019/624)",
+          "context": "Council accepts and processes electronic invoices that comply with the standard on electronic invoicing referred to in the 2019 Regulations; Tungsten Network may be mandated.",
+          "evidence_anchor": {
+            "anchor_text": "an electronic invoice complies with the standard on electronic invoicing where it complies with the standard referred to in the Public Procurement (Electronic Invoices etc.) Regulations 2019 (2019/624).",
+            "page_ref": "p.11 (Part 2 Section C1)",
+            "section_ref": "clause C1.4"
+          }
+        },
+        {
+          "standard_ref": "Bribery Act 2010",
+          "context": "Contractor and Staff must not commit any Prohibited Act (bribery, fraud, inducements) and must comply with the Bribery Act 2010; breach gives the Council termination rights.",
+          "evidence_anchor": {
+            "anchor_text": "\"Bribery Act\" means the Bribery Act 2010 ... committing any offence: under the Bribery Act",
+            "page_ref": "pp.4, 9 (Definitions; Part 2 Section D1)",
+            "section_ref": "Definitions 'Bribery Act' / 'Prohibited Act'"
+          }
+        },
+        {
+          "standard_ref": "Safeguarding Vulnerable Groups Act 2006 (DBS / Regulated Activity)",
+          "context": "Where Services include Regulated Activity, the Contractor is a Regulated Activity Provider. No Staff may be employed or used who are on the DBS barred list or unsuitable for Regulated Activity with children or vulnerable adults.",
+          "evidence_anchor": {
+            "anchor_text": "\"Regulated Activity\" in relation to children shall have the same meaning as set out in Part 1 of Schedule 4 to the Safeguarding Vulnerable Groups Act 2006 ... the Contractor is a Regulated Activity Provider",
+            "page_ref": "pp.6, 10 (Definitions; Part 2 Section B4)",
+            "section_ref": "Definitions 'Regulated Activity'; clauses B4.17 - B4.18"
+          }
+        },
+        {
+          "standard_ref": "Protection of Freedoms Act 2012 / Disclosure and Barring Service (DBS) regime",
+          "context": "Contractor must register with the DBS and carry out appropriate criminal records checks on relevant Staff where required by the Specification, re-check at least every three years, maintain a compliant DBS policy and supply records at commencement.",
+          "evidence_anchor": {
+            "anchor_text": "\"DBS\" or \"Disclosure and Barring Service\" means the service established under the Protection of Freedoms Act 2012 ... The Contractor shall at his expense register with the Disclosure and Barring Service and where required by the Specification undertake appropriate criminal records checks",
+            "page_ref": "pp.5, 10 (Definitions; Part 2 Section B4)",
+            "section_ref": "Definitions 'DBS'; clauses B4.11 - B4.14"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety Law (HSE-enforced) and Council H&S policies at the Premises",
+          "context": "Contractor and Staff must comply with all applicable health and safety Law, Council H&S measures/policies on Premises, and the health and safety requirements referred to in the Specification. Chemicals used in cleaning must have HSE approval.",
+          "evidence_anchor": {
+            "anchor_text": "the Contractor shall comply with any health and safety measures or policies implemented by the Council in respect of Staff and other persons working there and further comply with the health and safety requirements referred to in the Specification",
+            "page_ref": "p.16 (Part 2 Section D6)",
+            "section_ref": "clauses D6.1 - D6.4"
+          }
+        },
+        {
+          "standard_ref": "Equality Act 2010 (Discrimination and Equality Duty)",
+          "context": "Contractor must not unlawfully discriminate and must comply with applicable equality Law and the Council's equality and diversity policies.",
+          "evidence_anchor": {
+            "anchor_text": "D3\tDiscrimination",
+            "page_ref": "p.3 (Contents Section D)",
+            "section_ref": "clause D3 (Discrimination)"
+          }
+        },
+        {
+          "standard_ref": "Local Government Act 1999 (Best Value duty)",
+          "context": "Contractor must co-operate with the Council's Best Value duty under the Local Government Act 1999 and demonstrate continuous improvement in economy, efficiency and effectiveness during the Contract Period.",
+          "evidence_anchor": {
+            "anchor_text": "The Contractor acknowledges that the Council is required under the Local Government Act 1999 to make arrangements to secure continuous improvement in the way in which its functions are exercised ... (\"Best Value\").",
+            "page_ref": "p.11 (Part 2 Section B8)",
+            "section_ref": "clauses B8.1 - B8.3"
+          }
+        },
+        {
+          "standard_ref": "Transfer of Undertakings (Protection of Employment) Regulations 2006 (TUPE)",
+          "context": "Contractor bears full TUPE risk evaluation and applicability cost assessment; Contract Price cannot be varied post-award on TUPE grounds; Contractor indemnifies Council against TUPE-related claims; re-letting disclosure obligation applies.",
+          "evidence_anchor": {
+            "anchor_text": "It is the responsibility of the Contractor to evaluate the risk of the Transfer of Undertakings (Protection of Employment) Regulations 2006 (\"TUPE\") being applicable and to assess the potential costs",
+            "page_ref": "p.27 (Part 3 Section S1)",
+            "section_ref": "clauses S1.1 - S1.7"
+          }
+        },
+        {
+          "standard_ref": "Required Insurances (public/product liability GBP 5m; employer's liability GBP 5m/GBP 10m by headcount; professional indemnity GBP 2m for 6 years)",
+          "context": "Contractor must hold public and third-party liability and product liability insurance of at least GBP 5m per claim, employer's liability insurance of GBP 5m per incident (<100 employees) or GBP 10m per claim (>=100 employees), and where appropriate professional indemnity insurance of GBP 2m per claim, maintained for a minimum of 6 years after expiry/termination.",
+          "evidence_anchor": {
+            "anchor_text": "The Contractor shall hold public and third party liability and product liability insurance for not less than GBP 5 million pounds with a minimum of GBP 5 million pounds in respect of any one claim and employer's liability insurance of not less than GBP 5 million pounds ... not less than GBP 10 million pounds ... professional indemnity insurance of not less than GBP 2 million pounds",
+            "page_ref": "pp.21-22 (Part 2 Section G)",
+            "section_ref": "clauses G1.7, G2"
+          }
+        },
+        {
+          "standard_ref": "English Law and exclusive jurisdiction of the English Courts",
+          "context": "The Contract and all non-contractual obligations are governed by English Law; the parties accept the exclusive jurisdiction of the English courts subject to the dispute-resolution ladder (negotiation, mediation via CEDR, then courts).",
+          "evidence_anchor": {
+            "anchor_text": "the Council and the Contractor accept the exclusive jurisdiction of the English courts and agree that the Contract and all non-contractual obligations and other matters arising from or connected with it are to be governed and construed according to English Law.",
+            "page_ref": "p.26 (Part 2 Section I1)",
+            "section_ref": "clause I1"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "anchor_text": "CLEANING SERVICES IN COUNCIL BUILDINGS ... The Council wishes to secure the provision of cleaning services in Council Buildings as defined in the attached Specification (\"the Services\")",
+        "page_ref": "p.1 (Front matter; WHEREAS (A))",
+        "section_ref": "Part 1 Form of Contract; WHEREAS (A)"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "bexley-6278-lot6-cleaning-services",
+      "lot_number": "6",
+      "candidate_name": "Framework 6278 Lot 6 - Cleaning Services for Council Buildings",
+      "summary": "Output-based cleaning and hygiene services across Bexley corporate buildings (civic/administrative offices, libraries, community hubs, customer service areas, operational depots, Danson House) and parks & open spaces assets (public conveniences, changing rooms, pavilions, visitor/education/function rooms). Defined in the T&Cs by reference; service scope, frequencies and outcome standards live in Schedule 1 (Specification) which is a stub in this draft.",
+      "requirements": [
+        "Supply the Services during the Contract Period in accordance with the Specification (clause B1.1)",
+        "Re-perform non-conforming Services at Contractor's expense on Council notice (clause B1.2)",
+        "Timely supply is of the essence (clause B1.3)",
+        "Service Credits apply for Service Failures per Clause C3A; KPIs per Schedule 4 to Specification (clauses C2.2, F5.1)",
+        "Maintain Management Reports and Section 18 monitoring cadence (clauses F7.1 - F7.2)"
+      ],
+      "technical_standards": [
+        "BSI / ISO Quality Standards",
+        "Good Industry Practice",
+        "UK GDPR + DPA 2018 (Processor role)",
+        "Local Government Act 1999 Best Value",
+        "Health and Safety Law (HSE-enforced)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "The Council wishes to secure the provision of cleaning services in Council Buildings as defined in the attached Specification (\"the Services\")",
+        "page_ref": "p.1 (WHEREAS (A))",
+        "section_ref": "Part 1 Form of Contract, WHEREAS (A); clause B1.1"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot6-cleaning-equipment",
+      "lot_number": "6",
+      "candidate_name": "Cleaning equipment (Contractor-supplied) for Framework 6278 Lot 6",
+      "summary": "All equipment, plant, materials and similar items the Contractor must supply and use in performing the cleaning Services. Contractor-owned, at Contractor's risk, approved before delivery to Premises, maintained safe/serviceable/clean, replaced on Council request, removed on completion.",
+      "requirements": [
+        "Supplied in full by the Contractor (clause B2.1)",
+        "Prior written Council approval before delivery to Premises (clause B2.2)",
+        "Maintained safe, serviceable and clean (clause B2.4)",
+        "Replaced where hazardous, noxious or non-compliant (clause B2.5)",
+        "Removed on completion of the Services (clause B2.6)"
+      ],
+      "technical_standards": [
+        "Good Industry Practice",
+        "Health and Safety Law"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "The Contractor shall provide all the Equipment necessary for the supply of the Services.",
+        "page_ref": "p.8 (Part 2 Section B2)",
+        "section_ref": "clause B2.1"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot6-cleaning-chemicals-consumables",
+      "lot_number": "6",
+      "candidate_name": "Cleaning chemicals, solutions and consumable materials for Framework 6278 Lot 6",
+      "summary": "Chemicals, solutions, substances and materials used by the Contractor in delivering the cleaning Services. Must meet Specification constraints, manufacturer instructions, relevant British/European standards, and for chemicals carry full HSE or Environment Agency approval.",
+      "requirements": [
+        "Complies with any particular requirements set out in the Specification (clause D6.2)",
+        "Used strictly in accordance with manufacturer's instructions (clause D6.2)",
+        "Safe for users of the Premises (clause D6.2)",
+        "Conforms with relevant British or European standards (clause D6.2)",
+        "Full HSE or Environment Agency approval for chemicals (clause D6.2)"
+      ],
+      "technical_standards": [
+        "Relevant British or European standards",
+        "HSE approval for chemicals",
+        "Environment Agency approval for chemicals",
+        "Manufacturer instructions"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "any chemicals or other solutions or substances or materials used for the purposes of the Services will comply with any particular requirements set out in the Specification ... in the case of chemicals have full approval from the Health and Safety Executive or Environment Agency",
+        "page_ref": "p.16 (Part 2 Section D6)",
+        "section_ref": "clause D6.2"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot6-cleaning-kpi-reporting",
+      "lot_number": "6",
+      "candidate_name": "KPI measurement, Management Reports and Service Credit administration for Framework 6278 Lot 6",
+      "summary": "Performance-reporting stream covering KPI achievement (Schedule 4 to Specification), Management Reports (Section 18 of Specification), and Service Credit deduction/invoicing for Service Failures. The KPI definitions, measurement tables and thresholds are in Schedule 4 to Specification, which is a placeholder in this draft.",
+      "requirements": [
+        "Perform Services to meet Indicators in Schedule 4 to Specification (clause F5.1)",
+        "Action Notices to Remedy within timescale (clause F5.2)",
+        "Accept Service Credit deductions on invoices (Definitions 'Service Credits'; clause C2.2)",
+        "Provide Management Reports and attend scheduled monitoring meetings (clauses F7.1 - F7.2)"
+      ],
+      "technical_standards": [
+        "BSI / ISO Quality Standards",
+        "Good Industry Practice"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "Where any part of the Services is stated in Schedule 4 to the Specification to be the subject of a specific KPI the Contractor shall perform the Services in such a manner as will ensure that the Indicator ... is met.",
+        "page_ref": "p.22 (Part 2 Section F5)",
+        "section_ref": "clause F5.1"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 7800,
+    "lots.description": 7400,
+    "lots.requirements": 8400,
+    "lots.cpv_codes": 1500,
+    "lots.evaluation_criteria": 1500,
+    "lots.technical_standards": 8200,
+    "lots.product_requirements": 6800,
+    "lots.evidence_anchor": 8800,
+    "product_requirement_seeds.cleaning_services": 7600,
+    "product_requirement_seeds.cleaning_equipment": 7400,
+    "product_requirement_seeds.cleaning_chemicals_and_materials": 7400,
+    "product_requirement_seeds.service_performance_reporting": 6800
+  },
+  "extraction_confidence_bps": 6500,
+  "warnings": [
+    {
+      "code": "SCHEDULE_SPECIFICATION_STUB",
+      "message": "Schedule 1 (Specification) is an empty placeholder in this draft T&Cs (heading only on the Schedules page). Authoritative service scope, Premises list, frequencies, outcome standards, DBS-level mapping, Key Personnel list, KPIs and environmental requirements must come from the separately issued specification pack for Lot 6.",
+      "evidence_refs": [
+        "Part 2 Contents entry 'SCHEDULES 1. Specification'",
+        "SCHEDULE 1 / SPECIFICATION heading block at document end"
+      ]
+    },
+    {
+      "code": "PRICING_SCHEDULE_STUB",
+      "message": "Schedule 2 (Pricing Schedule) is a placeholder heading only; Contract Price, rate structure, indexation and any volume/frequency-based line items are not in this document.",
+      "evidence_refs": [
+        "SCHEDULE 2 / PRICING SCHEDULE heading block at document end"
+      ]
+    },
+    {
+      "code": "EVALUATION_CRITERIA_NOT_IN_DOCUMENT",
+      "message": "Award / evaluation criteria with weightings are not present. They belong to the ITT (Schedule 3 - also a stub) and the published notice / award pack.",
+      "evidence_refs": [
+        "SCHEDULE 3 / THE COUNCIL'S INVITATION TO TENDER heading block at document end"
+      ]
+    },
+    {
+      "code": "CPV_CODES_NOT_IN_DOCUMENT",
+      "message": "No CPV codes stated in the T&Cs body. The notice-level CPVs for Framework 6278 (50700000-2, 50750000-7, 71315000-9) cover the whole framework, not Lot 6 specifically; cleaning-services CPV (e.g. 90910000-9 class) should be resolved from the Find a Tender / ProContract notice record for Lot 6.",
+      "evidence_refs": [
+        "Document front matter: no CPV block",
+        "WHEREAS (A): 'cleaning services in Council Buildings'"
+      ]
+    },
+    {
+      "code": "CONTRACT_VALUE_AND_DATE_PLACEHOLDERS",
+      "message": "Form of Contract uses template values: contractor details '[CONTRACTOR]', company number and registered office '[     ]', execution date '[day] [month] 2020', and front-matter dates '2020' blanks. Template Contract Period shown as 1 Sep 2020 - 31 Aug 2023 is historic; the Framework 6278 / Lot 6 notice deadline is 18 May 2026 with commencement in September 2026, so the authoritative dates must be taken from the Form of Contract / ITT for this procurement.",
+      "evidence_refs": [
+        "Part 1 Form of Contract: 'Dated 2020'; '(2) [CONTRACTOR] (company number [ ])'",
+        "WHEREAS (A): '1 September 2020 to 31 August 2023'"
+      ]
+    },
+    {
+      "code": "KPI_AND_SERVICE_CREDITS_DEFERRED",
+      "message": "KPIs and Service Credits rely on Schedule 4 to the Specification (placeholder). Clause C3A is referenced but its body is not detailed in this draft; KPI indicators, measurement tables, acceptable-failure counts and credit percentages must be extracted from Schedule 4 when the specification pack is supplied.",
+      "evidence_refs": [
+        "Definitions: 'Service Credits', 'Service Failure'",
+        "clauses F5.1 - F5.4"
+      ]
+    },
+    {
+      "code": "DBS_LEVEL_UNSPECIFIED",
+      "message": "DBS check level (basic / standard / enhanced / barred-list check) is delegated to 'where required by the Specification' and 'at the required level'. This draft does not fix the level for cleaning Staff in corporate or parks/open-spaces assets.",
+      "evidence_refs": [
+        "clauses B4.11 - B4.14"
+      ]
+    },
+    {
+      "code": "LOT_TITLE_DERIVED_FROM_NOTICE_OVERLAY",
+      "message": "The T&Cs document does not carry a lot number in its body - Lot 6 identity and the long-form title 'Provision of Cleaning Services - Corporate Buildings & Public facilities in Parks & Open Spaces' are taken from the notice-level lot record for Framework 6278. The document itself only refers to 'cleaning services in Council Buildings' and is the generic T&Cs pack used across the framework.",
+      "evidence_refs": [
+        "Document front matter: 'CLEANING SERVICES IN COUNCIL BUILDINGS'",
+        "Notice-level lot 6 title 'Provision of Cleaning Services - Corporate Buildings & Public facilities in Parks & Open Spaces'"
+      ]
+    },
+    {
+      "code": "DOCUMENT_PAGINATION_NOT_PRESERVED",
+      "message": "Docling extraction produced plain markdown only (page_count=0, section_count=0, table_count=0). Page references in evidence anchors are approximate textual positions derived from headings and the 28-page PAGE footer marker, not Docling-verified page indices.",
+      "evidence_refs": [
+        "extracted_metadata_json: page_count=0",
+        "document trailer: 'PAGE  28' / 'FM Cleaning T&Cs 21 February 2020'"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "anchor_text": "CLEANING SERVICES IN COUNCIL BUILDINGS",
+      "page_ref": "p.1 (Front matter)",
+      "section_ref": "Part 1 Form of Contract title"
+    },
+    {
+      "anchor_text": "THE MAYOR AND BURGESSES OF THE LONDON BOROUGH OF BEXLEY of Civic Offices, 2 Watling Street, Bexleyheath, Kent DA6 7AT",
+      "page_ref": "p.1",
+      "section_ref": "Part 1 Form of Contract, parties block"
+    },
+    {
+      "anchor_text": "The Council wishes to secure the provision of cleaning services in Council Buildings as defined in the attached Specification (\"the Services\") during the period 1 September 2020 to 31 August 2023",
+      "page_ref": "p.1",
+      "section_ref": "Part 1 Form of Contract, WHEREAS (A)"
+    },
+    {
+      "anchor_text": "(d) The Specification appended hereto as Schedule 1; (e) The Pricing Schedule appended hereto as Schedule 2; (f) The Council's ITT appended hereto as Schedule 3; (g) The Contractor's Proposal ... as Schedule 4",
+      "page_ref": "p.2",
+      "section_ref": "Part 1 Form of Contract clause 1.2"
+    },
+    {
+      "anchor_text": "The Contractor shall supply the Services during the Contract Period in accordance with the Council's requirements as set out in the Specification and the provisions of the Contract",
+      "page_ref": "p.8",
+      "section_ref": "clause B1.1"
+    },
+    {
+      "anchor_text": "Timely supply of the Services shall be of the essence of the Contract",
+      "page_ref": "p.8",
+      "section_ref": "clause B1.3"
+    },
+    {
+      "anchor_text": "The Contractor shall provide all the Equipment necessary for the supply of the Services.",
+      "page_ref": "p.8",
+      "section_ref": "clause B2.1"
+    },
+    {
+      "anchor_text": "The Contractor shall maintain all items of Equipment in a safe, serviceable and clean condition.",
+      "page_ref": "p.9",
+      "section_ref": "clause B2.4"
+    },
+    {
+      "anchor_text": "The Contractor shall at all times comply with the Quality Standards, and where applicable shall maintain accreditation with the relevant Quality Standards authorisation body.",
+      "page_ref": "p.10",
+      "section_ref": "clause B3.1"
+    },
+    {
+      "anchor_text": "The Contractor shall at his expense register with the Disclosure and Barring Service and where required by the Specification undertake appropriate criminal records checks (in accordance with DBS legislation, regulations and guidance)",
+      "page_ref": "p.10",
+      "section_ref": "clause B4.11"
+    },
+    {
+      "anchor_text": "Where the Services include any Regulated Activity, the Parties acknowledge that the Contractor is a Regulated Activity Provider",
+      "page_ref": "p.11",
+      "section_ref": "clause B4.17"
+    },
+    {
+      "anchor_text": "The Contractor shall appoint a suitably qualified competent and experienced Contract Manager fluent in the English language",
+      "page_ref": "p.11",
+      "section_ref": "clause B6.1"
+    },
+    {
+      "anchor_text": "The Contractor acknowledges that the Council is required under the Local Government Act 1999 to make arrangements to secure continuous improvement ... (\"Best Value\")",
+      "page_ref": "p.11",
+      "section_ref": "clause B8.1"
+    },
+    {
+      "anchor_text": "an electronic invoice complies with the standard on electronic invoicing where it complies with the standard referred to in the Public Procurement (Electronic Invoices etc.) Regulations 2019 (2019/624)",
+      "page_ref": "p.11",
+      "section_ref": "clause C1.4"
+    },
+    {
+      "anchor_text": "The Council shall pay all sums due to the Contractor within 30 days of receipt of a valid invoice, submitted monthly in arrears.",
+      "page_ref": "p.12",
+      "section_ref": "clause C2.1"
+    },
+    {
+      "anchor_text": "any chemicals or other solutions or substances or materials used for the purposes of the Services will comply with any particular requirements set out in the Specification ... in the case of chemicals have full approval from the Health and Safety Executive or Environment Agency",
+      "page_ref": "p.16",
+      "section_ref": "clause D6.2"
+    },
+    {
+      "anchor_text": "the Contractor shall comply with any health and safety measures or policies implemented by the Council in respect of Staff and other persons working there",
+      "page_ref": "p.16",
+      "section_ref": "clause D6.4"
+    },
+    {
+      "anchor_text": "The Parties acknowledge that for the purposes of the Data Protection Legislation, the Council is the Controller and that the Contractor is the Processor",
+      "page_ref": "p.17",
+      "section_ref": "clause E1.1"
+    },
+    {
+      "anchor_text": "Where any part of the Services is stated in Schedule 4 to the Specification to be the subject of a specific KPI the Contractor shall perform the Services in such a manner as will ensure that the Indicator ... is met.",
+      "page_ref": "p.22",
+      "section_ref": "clause F5.1"
+    },
+    {
+      "anchor_text": "The Contractor shall comply with the monitoring arrangements set out in the Specification including, but not limited to, providing Management Reports",
+      "page_ref": "p.22",
+      "section_ref": "clause F7.1"
+    },
+    {
+      "anchor_text": "the conflict shall be resolved in accordance with the following order of precedence: (a) the Form of Contract ... (d) the Schedules in the following order: 1. Specification 2. Pricing Schedule 3. The Council's Invitation to Tender 4. The Contractor's Tender",
+      "page_ref": "p.23",
+      "section_ref": "clause F9.2"
+    },
+    {
+      "anchor_text": "The Contractor shall hold public and third party liability and product liability insurance for not less than GBP 5 million pounds ... employer's liability insurance of not less than GBP 5 million pounds ... not less than GBP 10 million pounds ... professional indemnity insurance of not less than GBP 2 million pounds",
+      "page_ref": "p.22",
+      "section_ref": "clause G1.7"
+    },
+    {
+      "anchor_text": "the Contractor shall ensure professional indemnity insurance held by the Contractor ... has a limit of indemnity of not less than GBP 2,000,000 for each individual claim ... Such insurance shall be maintained for a minimum of 6 (six) years following the expiration or earlier termination of the Contract.",
+      "page_ref": "p.22",
+      "section_ref": "clause G2"
+    },
+    {
+      "anchor_text": "the contract has been subject to a substantial modification which would have required a new procurement procedure in accordance with regulation 72(9) of the Public Contracts Regulations 2015",
+      "page_ref": "p.24",
+      "section_ref": "clause H2A.1"
+    },
+    {
+      "anchor_text": "the Council and the Contractor accept the exclusive jurisdiction of the English courts and agree that the Contract and all non-contractual obligations ... are to be governed and construed according to English Law.",
+      "page_ref": "p.26",
+      "section_ref": "clause I1"
+    },
+    {
+      "anchor_text": "It is the responsibility of the Contractor to evaluate the risk of the Transfer of Undertakings (Protection of Employment) Regulations 2006 (\"TUPE\") being applicable and to assess the potential costs",
+      "page_ref": "p.27",
+      "section_ref": "clause S1.1"
+    },
+    {
+      "anchor_text": "SCHEDULE 1 / SPECIFICATION",
+      "page_ref": "p.28",
+      "section_ref": "Schedule 1 heading (stub)"
+    },
+    {
+      "anchor_text": "SCHEDULE 2 / PRICING SCHEDULE",
+      "page_ref": "p.28",
+      "section_ref": "Schedule 2 heading (stub)"
+    },
+    {
+      "anchor_text": "FM Cleaning T&Cs 21 February 2020",
+      "page_ref": "p.28 (footer)",
+      "section_ref": "Document footer"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "sha256:86d13e0dbf01aac2df220669bcdec3777e82ddd3b2ba14a8d5a24f18e1a10c1a",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

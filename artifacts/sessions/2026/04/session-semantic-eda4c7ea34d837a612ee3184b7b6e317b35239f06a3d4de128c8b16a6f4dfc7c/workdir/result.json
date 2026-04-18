@@ -1,0 +1,220 @@
+{
+  "lots": [
+    {
+      "lot_number": "4",
+      "title": "Provision of Fire Door Surveys",
+      "description": "Lot 4 of the 6278 Building Services Framework, run by the London Borough of Bexley, covering the provision of Fire Door Survey services. The extracted document content consists of Appendix 1 (referee Reference Form) and Appendix 2 (covering letter to referees) used to evaluate applicants for this lot. The extracted appendices do not include the full technical specification body, so the requirement set captured here is limited to the referee-scored performance areas and the project-delivery expectation explicitly named in the form.",
+      "requirements": [
+        "Applicant must supply a named referee with verifiable contact details and a brief description of services provided and the value per annum of that prior contract.",
+        "Applicant must demonstrate capability to self-deliver small and medium Fire Door Survey projects (explicitly named in Part B, Project Management question).",
+        "Applicant must have held the necessary qualifications, certifications, and experience for tasks assigned on prior contracts and met required resource levels (Part B, Resource question).",
+        "Applicant must have provided a resilient and sustainable supply chain for required products, resources, and services on prior contracts (Part B, Supply chain resilience).",
+        "Applicant must have consistently delivered contracted services in line with required KPIs (Part B, Service Provision).",
+        "Applicant must have demonstrated effective contract management, including performance monitoring and oversight of subcontractors (Part B, Contract Management).",
+        "Applicant must have shown a transparent and well-evidenced approach to securing value for money (Part B, Value for Money).",
+        "The completed reference form must be returned by the referee directly to procurement@bexley.gov.uk by 18th May 2026 by 5pm and must not be returned to the applicant."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Supply chain resilience",
+          "summary": "Referee is asked whether the contractor provided a resilient and sustainable supply chain for required products, resources, and services.",
+          "weighting_text": "Referee scoring on a five-point scale: Failed to meet standard in all areas / Failed to meet standard in some areas / Met standard / Exceeded standard in some areas / Exceeded standard in all areas.",
+          "evidence_anchor": {
+            "page_ref": "appendix-1",
+            "anchor_text": "Supply chain resilience: Has the contractor provided a resilient and sustainable supply chain for required products, resources, and services?",
+            "section_ref": "Appendix 1 > PART B"
+          }
+        },
+        {
+          "criterion": "Service Provision",
+          "summary": "Referee is asked whether the contractor consistently delivered the contracted services in line with the required KPIs.",
+          "weighting_text": "Referee scoring on the same five-point scale used for all PART B questions.",
+          "evidence_anchor": {
+            "page_ref": "appendix-1",
+            "anchor_text": "Service Provision: Has the contractor consistently delivered the contracted services in line with the required KPIs?",
+            "section_ref": "Appendix 1 > PART B"
+          }
+        },
+        {
+          "criterion": "Resource",
+          "summary": "Referee is asked whether the contractor's staff held the necessary qualifications, certifications, and experience for tasks assigned and fully met required resource levels.",
+          "weighting_text": "Referee scoring on the same five-point scale used for all PART B questions.",
+          "evidence_anchor": {
+            "page_ref": "appendix-1",
+            "anchor_text": "Resource: Have the contractor's staff held the necessary qualifications, certifications, and experience for the tasks assigned and fully met the resource levels required to manage the contract.",
+            "section_ref": "Appendix 1 > PART B"
+          }
+        },
+        {
+          "criterion": "Value for Money",
+          "summary": "Referee is asked whether the contractor showed a transparent and well-evidenced approach to securing value for money.",
+          "weighting_text": "Referee scoring on the same five-point scale used for all PART B questions.",
+          "evidence_anchor": {
+            "page_ref": "appendix-1",
+            "anchor_text": "Value for Money: Has the contractor shown a transparent and well-evidenced approach to securing value for money",
+            "section_ref": "Appendix 1 > PART B"
+          }
+        },
+        {
+          "criterion": "Contract Management",
+          "summary": "Referee is asked whether the contractor demonstrated effective contract management, including performance monitoring and oversight of subcontractors.",
+          "weighting_text": "Referee scoring on the same five-point scale used for all PART B questions.",
+          "evidence_anchor": {
+            "page_ref": "appendix-1",
+            "anchor_text": "Contract Management: Has the contractor demonstrated effective contract management, including performance monitoring and oversight of subcontractors",
+            "section_ref": "Appendix 1 > PART B"
+          }
+        },
+        {
+          "criterion": "Project Management",
+          "summary": "Referee is asked to evidence the contractor's capability to self-deliver small and medium Fire Door Survey projects. This is the only PART B question that names the lot scope directly and therefore anchors the lot identity to Fire Door Surveys.",
+          "weighting_text": "Referee scoring on the same five-point scale used for all PART B questions.",
+          "evidence_anchor": {
+            "page_ref": "appendix-1",
+            "anchor_text": "Project Management: Has the contractor provided evidence of their capability to self-deliver small and medium Fire Door Survey projects",
+            "section_ref": "Appendix 1 > PART B"
+          }
+        },
+        {
+          "criterion": "Would you employ this company for similar services",
+          "summary": "Referee is asked a binary Yes/No question on whether they would re-engage the contractor for similar services.",
+          "weighting_text": "Binary Yes/No.",
+          "evidence_anchor": {
+            "page_ref": "appendix-1",
+            "anchor_text": "Would you employ this company for similar services (please select)  Yes  No",
+            "section_ref": "Appendix 1 > PART B"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot-4-fire-door-surveys",
+          "summary": "Fire Door Survey service delivery capability, sized to small and medium projects, evidenced by a named prior-contract referee.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "service_category: Fire Door Surveys",
+            "project_scale_scope: small and medium projects",
+            "delivery_model: self-deliver (capability to self-deliver explicitly required)",
+            "referee_evidence_required: true"
+          ],
+          "evidence_anchor": {
+            "page_ref": "appendix-1",
+            "anchor_text": "6278 - Lot 4: Provision of Fire Door Surveys",
+            "section_ref": "Appendix 1 > Reference Form header"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "appendix-1",
+        "anchor_text": "6278 - Lot 4: Provision of Fire Door Surveys",
+        "section_ref": "Appendix 1 > Reference Form header"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot-4-fire-door-surveys",
+      "lot_number": "4",
+      "candidate_name": "Fire Door Survey service",
+      "summary": "Provision of Fire Door Survey services for London Borough of Bexley under the 6278 Building Services Framework, Lot 4. Referee-evidenced capability to self-deliver small and medium Fire Door Survey projects is required.",
+      "requirements": [
+        "Demonstrated capability to self-deliver small and medium Fire Door Survey projects.",
+        "Qualified, certified and experienced survey staff resourced at levels sufficient to manage the contract.",
+        "Resilient and sustainable supply chain for required products, resources and services.",
+        "Service delivery consistent with contractual KPIs.",
+        "Effective contract management including performance monitoring and subcontractor oversight.",
+        "Transparent, evidenced value-for-money approach."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "appendix-1",
+        "anchor_text": "6278 - Lot 4: Provision of Fire Door Surveys",
+        "section_ref": "Appendix 1 > Reference Form header"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 9500,
+    "lots.description": 7000,
+    "lots.requirements": 6500,
+    "lots.evaluation_criteria": 9000,
+    "lots.cpv_codes": 2000,
+    "lots.product_requirements": 6500,
+    "lots.technical_standards": 2000,
+    "product_requirement_seeds": 6500
+  },
+  "extraction_confidence_bps": 5500,
+  "warnings": [
+    {
+      "code": "DOCUMENT_BODY_NOT_PRESENT",
+      "message": "Extracted markdown contains only Appendix 1 (reference form) and Appendix 2 (covering letter to referees). The main technical specification body of the tender is not present in this extraction, so detailed scope, deliverables, service levels, acceptance criteria and schedule for Lot 4 could not be captured.",
+      "evidence_refs": [
+        "Appendix 1 > Reference Form header",
+        "Appendix 2"
+      ]
+    },
+    {
+      "code": "NO_EXPLICIT_TECHNICAL_STANDARDS",
+      "message": "No technical standards (for example BS 8214, BS 476, BS 9999, PAS 24, NFDC, FDIS, ISO 9001) are cited in the extracted content. Technical standards array intentionally left empty rather than inferred.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_EXPLICIT_CPV_CODES",
+      "message": "The extracted document does not cite any CPV code. Notice-level CPV signals exist but were not taken as authoritative for the lot, per skill inputs guidance.",
+      "evidence_refs": []
+    },
+    {
+      "code": "LOT_SCOPE_ONLY_LOT_4",
+      "message": "The referenced framework 6278 spans Lots 1-11, but the extracted appendix set is explicitly titled against Lot 4 only. No content for Lots 1-3 or 5-11 appears in this extraction and no cross-lot content was invented.",
+      "evidence_refs": [
+        "Appendix 1 > '6278 - Lot 4: Provision of Fire Door Surveys'"
+      ]
+    },
+    {
+      "code": "FORM_PLACEHOLDERS_PRESENT",
+      "message": "Appendix 2 contains an un-filled placeholder ('****INSERT DATE & TIME****') indicating a template state for a referee deadline field in the covering letter. The definitive deadline 18th May 2026 by 5pm is taken from Appendix 1 Part B heading instead.",
+      "evidence_refs": [
+        "Appendix 1 > PART B heading",
+        "Appendix 2 body"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "appendix-1",
+      "anchor_text": "6278 - Lot 4: Provision of Fire Door Surveys",
+      "section_ref": "Appendix 1 > Reference Form header"
+    },
+    {
+      "page_ref": "appendix-1",
+      "anchor_text": "TO BE COMPLETED BY REFEREE AND RETURNED TO THE ADDRESS BELOW BY 18th May 2026 by 5pm",
+      "section_ref": "Appendix 1 > PART B heading"
+    },
+    {
+      "page_ref": "appendix-1",
+      "anchor_text": "Project Management: Has the contractor provided evidence of their capability to self-deliver small and medium Fire Door Survey projects",
+      "section_ref": "Appendix 1 > PART B"
+    },
+    {
+      "page_ref": "appendix-1",
+      "anchor_text": "Please return the reference to: Procurement@bexley.gov.uk",
+      "section_ref": "Appendix 1 > PART B footer"
+    },
+    {
+      "page_ref": "appendix-2",
+      "anchor_text": "The company named on the attached Reference Questionnaire has applied for a Bexley Procurement exercise and has given your name as a reference.",
+      "section_ref": "Appendix 2"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "7e4b0ecc66c7fbbdd77e78bb2821286c60fb0cd1ccfb33005e0bf20738c00995",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

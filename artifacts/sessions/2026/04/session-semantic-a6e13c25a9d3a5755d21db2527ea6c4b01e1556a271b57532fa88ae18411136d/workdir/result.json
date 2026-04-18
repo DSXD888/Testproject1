@@ -1,0 +1,461 @@
+{
+  "lots": [
+    {
+      "lot_number": "7",
+      "title": "Lift Servicing, Maintenance, Repair, Minor Refurbishment and Compliance Management",
+      "description": "Draft Terms and Conditions template for Lot 7 of London Borough of Bexley Framework 6278 (Building Services Framework). The document sets out Part 1 Form of Contract, Part 2 General Terms and Conditions, and Part 3 Special Terms and Conditions for the provision of Lift Services to the Council, including servicing, maintenance, repair, minor refurbishment works and compliance management. Schedule 1 Specification, Schedule 2 Pricing Schedule, Schedule 3 Council's Invitation to Tender and Schedule 4 Contractor's Tender are appended as empty placeholder headings only; the substantive scope, KPIs, CPV codes and evaluation criteria live in those schedules, which are not populated in this draft.",
+      "requirements": [
+        "Provision of lift servicing, maintenance, repair, minor refurbishment and compliance management to the London Borough of Bexley in accordance with the Specification set out at Schedule 1 (S2.1, S2.4).",
+        "Services to be performed during Working Hours for the Contract Period with reasonable skill, care and diligence and in accordance with the Specification, Council instructions and Council Policies (S2.1).",
+        "Contractor shall service the Plant and maintain it in good working order in accordance with any manufacturer's guarantees or recommendations (S2.4).",
+        "Contractor to provide all Equipment necessary for the supply of the Services, at its own risk, and keep it in safe, serviceable and clean condition; Equipment shall not be delivered to Premises without prior written Council approval (B2.1-B2.6, S9.1-S9.3).",
+        "Contractor to comply with all Quality Standards and maintain accreditation with the relevant Quality Standards authorisation body where applicable (B3.1).",
+        "All Staff engaged in the Services shall have the relevant and appropriate qualifications and be competent, skilled, honest and experienced; Staff operating vehicles and equipment must be suitably qualified (B4.2).",
+        "Contractor shall register with the Disclosure and Barring Service and undertake appropriate criminal records checks where required by the Specification, with rechecks at least every three years (B4.11).",
+        "Contractor shall appoint a suitably qualified, competent and experienced Contract Manager, fluent in English, available during specified operating hours (B6.1).",
+        "Contractor shall perform the duties of principal designer and principal contractor under the CDM Regulations to the extent applicable to the Services, including preparation of the Construction Phase Plan and Health and Safety File (S2.3).",
+        "Contractor must not specify or use materials known to be deleterious or contravening BSI Group / European directive standards, nor materials outside the BCO 'Good Practice in Selection of Construction Materials' guidance (S2.6).",
+        "All materials and goods supplied as part of the Services shall be as specified in the Specification; where not specified they shall be of the best available quality suitable for the purpose and comply with the latest applicable British Standard (S5.1).",
+        "Contractor shall comply with Health and Safety at Work etc. Act 1974 duties and maintain a COSHH register at the Premises for all substances brought onto site (S3.4, S3.5).",
+        "Contractor shall provide environmental compliance and comply with the Council's environmental policies and relevant environmental law (D5).",
+        "Contractor, as Processor, shall comply with Data Protection Legislation including UK GDPR and Data Protection Act 2018, and shall implement appropriate Protective Measures (E1.1, A1 Protective Measures).",
+        "Contract Price shall be fixed for the duration of the Contract Period subject to C4.1, with invoicing monthly in arrears and payment within 30 days of valid invoice (C1.1, C2.1, C2.2).",
+        "Contractor shall comply with the Public Procurement (Electronic Invoices etc.) Regulations 2019 electronic invoicing standard and the Council's Tungsten Network requirements (C1.3, C1.4).",
+        "Contractor shall pay valid sub-contractor invoices within 30 days and include equivalent provisions in sub-contracts (C2.10).",
+        "Contractor shall evaluate and bear the risk of the Transfer of Undertakings (Protection of Employment) Regulations 2006 (TUPE) applying to the Contract (S1.1-S1.5).",
+        "Contractor and Sub-Contractors shall comply with all EU regulations, Acts of Parliament, HSE/HSC codes of practice, pollution controls and Council rules applicable to the Premises (S2.2.1-S2.2.4).",
+        "Dispute resolution by adjudication under the Scheme for Construction Contracts SI 1998/649 (as amended by SI 2011/2333) and arbitration under the CIMAR Rules via the Chartered Institute of Building (S10.1-S10.6).",
+        "Contractor to support Best Value obligations under the Local Government Act 1999, including continuous improvement, benchmarking and reporting emerging technologies and process improvements (B8.1-B8.5).",
+        "KPIs and Service Credits regime in the event of inadequate performance, with Service Credits deducted from monthly invoices (F5, C2.2, C3A)."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot7:lift-servicing-maintenance",
+          "summary": "Routine servicing and preventative maintenance of lifts across Council Premises in accordance with manufacturer recommendations and applicable British Standards.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "service_category: lift_maintenance",
+            "service_mode: planned_preventative_maintenance",
+            "compliance_framework: BSI British Standards (applicable lift standards)",
+            "scope_anchor: S2.4 Plant servicing and maintenance",
+            "scope_anchor: S5.1 materials to comply with latest applicable British Standard"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p54",
+            "section_ref": "#/texts/814",
+            "anchor_text": "S2.4 The Contractor shall service the Plant and maintain it in good working order and in accordance with the provisions of any manufacturer's guarantees or recommendations"
+          }
+        },
+        {
+          "seed_key": "lot7:lift-repair-reactive",
+          "summary": "Reactive lift repair services including callout response and rectification of faults, performed with reasonable skill, care and diligence and in accordance with the Specification.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "service_category: lift_repair",
+            "service_mode: reactive",
+            "scope_anchor: S2.1 Contractor shall provide the Services during the Working Hours for the Contract Period",
+            "scope_anchor: Form of Contract title 'RELATING TO THE PROVISION OF LIFT SERVICES'"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "section_ref": "#/texts/1",
+            "anchor_text": "RELATING TO THE PROVISION OF LIFT SERVICES"
+          }
+        },
+        {
+          "seed_key": "lot7:lift-minor-refurbishment",
+          "summary": "Minor refurbishment works on lifts, delivered via Works Orders priced and instructed under the Pricing Schedule.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "service_category: lift_refurbishment_minor",
+            "commercial_model: Works Orders instructed by the Council under Annual Fee + Works Order charges",
+            "scope_anchor: C2.2 Each invoice shall include the sums due to the Contractor for one twelfth (1/12) of the Annual Fee and the costs of any completed Works Orders",
+            "design_obligation: principal designer / principal contractor duties under CDM Regulations where applicable (S2.3)"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p54",
+            "section_ref": "#/texts/814",
+            "anchor_text": "S2.3 The Contractor shall perform all the functions and duties of a \"principal designer\" and a \"principal contractor\" as defined in the CDM Regulations"
+          }
+        },
+        {
+          "seed_key": "lot7:lift-compliance-management",
+          "summary": "Lift compliance management services including statutory inspections, record keeping and notification of health and safety hazards arising from lift operation.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "service_category: compliance_management",
+            "regulatory_framework: Health and Safety at Work etc. Act 1974",
+            "regulatory_framework: CDM Regulations",
+            "hazard_notification: S3.1 Contractor shall promptly notify the Council of any health and safety hazards",
+            "cosshh_register: S3.4 maintain a COSHH register for all substances stored at or brought onto the Premises"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p55",
+            "section_ref": "#/texts/814",
+            "anchor_text": "S3. HEALTH AND SAFETY"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "BSI British Standards",
+          "context": "All materials and goods supplied as part of the Services shall comply with the latest applicable British Standard where appropriate (S5.1).",
+          "evidence_anchor": {
+            "page_ref": "p57",
+            "section_ref": "#/texts/859",
+            "anchor_text": "S5.1 All materials and/or goods supplied as part of the Services shall be as specified in the Specification ... shall comply with the latest applicable British Standard where appropriate."
+          }
+        },
+        {
+          "standard_ref": "BSI Group standards / European directive on standards and good building practice",
+          "context": "Contractor must not specify or use materials that contravene any relevant standard code of practice issued by the BSI Group or under a European directive (S2.6.2).",
+          "evidence_anchor": {
+            "page_ref": "p54",
+            "section_ref": "#/texts/814",
+            "anchor_text": "S2.6.2 contravene any relevant standard code of practice issued from time to time by the BSI Group or under a European directive relating to standards or good building practice"
+          }
+        },
+        {
+          "standard_ref": "British Council for Offices - Good Practice in Selection of Construction Materials",
+          "context": "Materials used must accord with the edition of the BCO publication 'Good Practice in Selection of Construction Materials' current at the date of specification or use (S2.6.3).",
+          "evidence_anchor": {
+            "page_ref": "p54",
+            "section_ref": "#/texts/814",
+            "anchor_text": "S2.6.3 do not accord with the guidelines contained in the edition of the publication \"Good Practice in Selection of Construction Materials\" (British Council for Offices (\"BCO\"))"
+          }
+        },
+        {
+          "standard_ref": "Construction (Design and Management) Regulations (CDM Regulations)",
+          "context": "Contractor to perform duties of principal designer and principal contractor as defined in the CDM Regulations, including Construction Phase Plan and Health and Safety File (S2.3).",
+          "evidence_anchor": {
+            "page_ref": "p54",
+            "section_ref": "#/texts/814",
+            "anchor_text": "S2.3 The Contractor shall perform all the functions and duties of a \"principal designer\" and a \"principal contractor\" as defined in the CDM Regulations"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work etc. Act 1974",
+          "context": "Contractor shall make available to the Council its health and safety policy statement as required by the Health and Safety at Work etc. Act 1974 (S3.5).",
+          "evidence_anchor": {
+            "page_ref": "p55",
+            "section_ref": "#/texts/814",
+            "anchor_text": "S3.5 The Contractor shall ensure that its health and safety policy statement (as required by the Health and Safety at Work etc Act 1974) is made available to the Council on request."
+          }
+        },
+        {
+          "standard_ref": "Transfer of Undertakings (Protection of Employment) Regulations 2006 (TUPE)",
+          "context": "Contractor to evaluate the risk of TUPE applying and indemnify the Council against claims relating to transferring staff (S1.1-S1.5).",
+          "evidence_anchor": {
+            "page_ref": "p54",
+            "section_ref": "#/texts/805",
+            "anchor_text": "S1 TRANSFER OF UNDERTAKINGS ('TUPE')"
+          }
+        },
+        {
+          "standard_ref": "Data Protection Legislation (UK GDPR, Data Protection Act 2018)",
+          "context": "Council is Controller and Contractor is Processor; processing only as authorised in Schedule 1 with Protective Measures applied (E1.1).",
+          "evidence_anchor": {
+            "page_ref": "p32",
+            "section_ref": "#/texts/377",
+            "anchor_text": "E1.1 The Parties acknowledge that for the purposes of the Data Protection Legislation, the Council is the Controller and that the Contractor is the Processor"
+          }
+        },
+        {
+          "standard_ref": "Safeguarding Vulnerable Groups Act 2006",
+          "context": "Where Services include any Regulated Activity, Contractor acts as Regulated Activity Provider with responsibility for management and control (B4.17, B4.18).",
+          "evidence_anchor": {
+            "page_ref": "p17",
+            "section_ref": "#/texts/239",
+            "anchor_text": "B4.17 Where the Services include any Regulated Activity, the Parties acknowledge that the Contractor is a Regulated Activity Provider"
+          }
+        },
+        {
+          "standard_ref": "Rehabilitation of Offenders Act 1974 (Exceptions) Order 1975",
+          "context": "Contractor Staff may be exempt under the Rehabilitation of Offenders Act 1974; Contractor must inform Staff of disclosure requirements (B4.10).",
+          "evidence_anchor": {
+            "page_ref": "p17",
+            "section_ref": "#/texts/239",
+            "anchor_text": "B4.10 Given that Staff of the Contractor may be exempt from the provisions of Section 4(2) of the Rehabilitation of Offenders Act 1974"
+          }
+        },
+        {
+          "standard_ref": "DBS (Disclosure and Barring Service) legislation, regulations and guidance",
+          "context": "Contractor shall register with DBS and carry out appropriate criminal records checks on relevant Staff, with three-yearly rechecks (B4.11-B4.14).",
+          "evidence_anchor": {
+            "page_ref": "p17",
+            "section_ref": "#/texts/239",
+            "anchor_text": "B4.11 The Contractor shall at his expense register with the Disclosure and Barring Service"
+          }
+        },
+        {
+          "standard_ref": "Late Payment of Commercial Debts (Interest) Act 1998",
+          "context": "Interest payable on late payment of undisputed invoiced sums (C2.9).",
+          "evidence_anchor": {
+            "page_ref": "p22",
+            "section_ref": "#/texts/377",
+            "anchor_text": "C2.9 Interest shall be payable by the Council on the late payment of any undisputed sums of money properly invoiced in accordance with the Late Payment of Commercial Debts (Interest) Act 1998."
+          }
+        },
+        {
+          "standard_ref": "Public Procurement (Electronic Invoices etc.) Regulations 2019 (2019/624)",
+          "context": "Electronic invoices must comply with the standard referenced in the 2019 Regulations (C1.4).",
+          "evidence_anchor": {
+            "page_ref": "p21",
+            "section_ref": "#/texts/377",
+            "anchor_text": "C1.4 ... the Public Procurement (Electronic Invoices etc.) Regulations 2019 (2019/624)"
+          }
+        },
+        {
+          "standard_ref": "Local Government Act 1999 (Best Value duty)",
+          "context": "Contractor to assist Council in fulfilling its Best Value duty of continuous improvement under the Local Government Act 1999 (B8.1).",
+          "evidence_anchor": {
+            "page_ref": "p20",
+            "section_ref": "#/texts/239",
+            "anchor_text": "B8.1 The Contractor acknowledges that the Council is required under the Local Government Act 1999 to make arrangements to secure continuous improvement"
+          }
+        },
+        {
+          "standard_ref": "Scheme for Construction Contracts (SI 1998/649, as amended by SI 2011/2333)",
+          "context": "Disputes may be referred to adjudication in accordance with the Scheme for Construction Contracts (S10.1).",
+          "evidence_anchor": {
+            "page_ref": "p59",
+            "section_ref": "#/texts/897",
+            "anchor_text": "S10.1 Any dispute or difference arising under or in connection with this Agreement may be referred to adjudication in accordance with the Scheme for Construction Contracts SI1998 No 649"
+          }
+        },
+        {
+          "standard_ref": "CIMAR Rules (Construction Industry Model Arbitration Rules)",
+          "context": "Arbitration under the CIMAR Rules administered via the Chartered Institute of Building (S10.6).",
+          "evidence_anchor": {
+            "page_ref": "p59",
+            "section_ref": "#/texts/897",
+            "anchor_text": "S10.6 ... The Arbitration shall be conducted in accordance with the CIMAR Rules."
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "section_ref": "#/texts/1",
+        "anchor_text": "RELATING TO THE PROVISION OF LIFT SERVICES"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot7:lift-servicing-maintenance",
+      "lot_number": "7",
+      "candidate_name": "Lift planned preventative maintenance service",
+      "summary": "Scheduled servicing and preventative maintenance of lifts at Council Premises in line with manufacturer recommendations and applicable British Standards; invoiced as part of the Annual Fee in twelfth monthly instalments.",
+      "requirements": [
+        "Service the Plant and maintain it in good working order in accordance with manufacturer's guarantees or recommendations (S2.4).",
+        "Comply with Quality Standards and maintain relevant accreditations (B3.1).",
+        "Staff performing servicing must hold relevant and appropriate qualifications (B4.2).",
+        "Monthly invoicing equal to one twelfth (1/12) of the Annual Fee, net of Service Credits (C2.2)."
+      ],
+      "technical_standards": [
+        "Latest applicable British Standard (S5.1)",
+        "BSI Group codes of practice / European directive standards (S2.6.2)",
+        "CDM Regulations where applicable (S2.3)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p54",
+        "section_ref": "#/texts/814",
+        "anchor_text": "S2.4 The Contractor shall service the Plant and maintain it in good working order"
+      }
+    },
+    {
+      "seed_key": "lot7:lift-repair-reactive",
+      "lot_number": "7",
+      "candidate_name": "Lift reactive repair and fault response",
+      "summary": "Reactive repair services responding to lift faults and breakdowns at Council Premises during Working Hours (or as otherwise specified), performed with reasonable skill, care and diligence and in accordance with the Specification.",
+      "requirements": [
+        "Provide Services during Working Hours for the Contract Period (S2.1).",
+        "Provide all Equipment necessary for the supply of the Services, kept safe, serviceable and clean (B2.1, B2.4, S9.1).",
+        "Notify the Council of any health and safety hazards arising (S3.1).",
+        "Escalate incidents causing personal injury or property damage immediately (S3.3)."
+      ],
+      "technical_standards": [
+        "Latest applicable British Standard (S5.1)",
+        "Health and Safety at Work etc. Act 1974 (S3.5)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "section_ref": "#/texts/1",
+        "anchor_text": "RELATING TO THE PROVISION OF LIFT SERVICES"
+      }
+    },
+    {
+      "seed_key": "lot7:lift-minor-refurbishment",
+      "lot_number": "7",
+      "candidate_name": "Lift minor refurbishment works",
+      "summary": "Minor refurbishment works on lifts instructed by the Council as Works Orders, priced under the Pricing Schedule and subject to CDM Regulations where applicable.",
+      "requirements": [
+        "Perform principal designer/principal contractor duties under CDM Regulations where applicable, including Construction Phase Plan and Health and Safety File (S2.3).",
+        "Use materials compliant with BSI Group standards, European directives, and BCO 'Good Practice in Selection of Construction Materials' (S2.6).",
+        "Invoice costs of completed Works Orders separately within monthly invoice (C2.2).",
+        "Where requested, provide collateral warranties in a form agreed with the Council and at no cost to the Council (S6.1)."
+      ],
+      "technical_standards": [
+        "CDM Regulations (S2.3)",
+        "BSI Group standards / European directive (S2.6.2)",
+        "BCO Good Practice in Selection of Construction Materials (S2.6.3)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p54",
+        "section_ref": "#/texts/814",
+        "anchor_text": "S2.3 The Contractor shall perform all the functions and duties of a \"principal designer\" and a \"principal contractor\" as defined in the CDM Regulations"
+      }
+    },
+    {
+      "seed_key": "lot7:lift-compliance-management",
+      "lot_number": "7",
+      "candidate_name": "Lift compliance management service",
+      "summary": "Compliance management services ensuring lifts meet statutory health and safety requirements, supported by hazard notification, COSHH register maintenance and incident reporting.",
+      "requirements": [
+        "Promptly notify the Council of any health and safety hazards (S3.1).",
+        "Comply with health and safety measures implemented by the Council while on the Premises (S3.2).",
+        "Maintain an up-to-date COSHH register for all substances at the Premises (S3.4).",
+        "Make the Contractor's health and safety policy statement available to the Council on request (S3.5)."
+      ],
+      "technical_standards": [
+        "Health and Safety at Work etc. Act 1974 (S3.5)",
+        "HSE/HSC codes of practice, guidance notes and recommendations (S2.2.2)",
+        "Pollution control rules applicable to the Premises (S2.2.3)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p55",
+        "section_ref": "#/texts/814",
+        "anchor_text": "S3. HEALTH AND SAFETY"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 9200,
+    "lots.description": 8500,
+    "lots.requirements": 7800,
+    "lots.evaluation_criteria": 2000,
+    "lots.cpv_codes": 1000,
+    "lots.product_requirements": 6500,
+    "lots.technical_standards": 8500,
+    "product_requirement_seeds": 6500,
+    "extraction_scope_detection": 9500
+  },
+  "extraction_confidence_bps": 6800,
+  "warnings": [
+    {
+      "code": "DRAFT_TEMPLATE_SCHEDULES_EMPTY",
+      "message": "Schedule 1 (Specification), Schedule 2 (Pricing Schedule), Schedule 3 (Council's ITT) and Schedule 4 (Contractor's Tender) appear in the document only as placeholder headings with no content. Product scope, KPIs, quantities and evaluation criteria are therefore not derivable from this draft and must be sourced from the published tender pack or related documents in the document set.",
+      "evidence_refs": [
+        "#/texts/897|p60|SCHEDULE 1 SPECIFICATION",
+        "#/texts/900|p61|SCHEDULE 2 PRICING SCHEDULE",
+        "#/texts/903|p62|SCHEDULE 3 THE COUNCIL'S INVITATION TO TENDER",
+        "#/texts/906|p63|SCHEDULE 4 THE CONTRACTOR'S TENDER"
+      ]
+    },
+    {
+      "code": "NO_EVALUATION_CRITERIA_FOUND",
+      "message": "The document is a Draft Terms and Conditions template and does not contain award/evaluation criteria, weightings or scoring methodology. KPI and remedies framework exists at F5 but is scheme-level (Service Credits), not award-criteria level.",
+      "evidence_refs": [
+        "#/texts/779|p51|F5 KPIs and Remedies in the event of Inadequate Performance"
+      ]
+    },
+    {
+      "code": "NO_CPV_CODES_IN_DOCUMENT",
+      "message": "No CPV codes are present in the T&Cs body. CPV classification for Lot 7 (lift services) should be taken from the notice-level metadata, not this document.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_STRUCTURED_TABLES_DETECTED",
+      "message": "Docling reported 'No structured tables were detected in the exported document.' Any tabular pricing or KPI tables that may exist in the original PDF are represented only as flowed text, not structured rows.",
+      "evidence_refs": []
+    },
+    {
+      "code": "CROSS_REFERENCE_NOTICE_LOTS_OK",
+      "message": "Document-claimed lot identity (Lot 7, Lift Services for London Borough of Bexley) is consistent with pre-existing notice_lots row for this process (lot_number=7, title='Lift Servicing, Maintenance, Repair, Minor Refurbishment and Compliance Management'). No contradiction detected; pre-existing lot metadata treated as corroborating context only.",
+      "evidence_refs": []
+    },
+    {
+      "code": "LOT_SCOPE_DOCUMENT",
+      "message": "Document file name '6278 - Draft T&Cs - Lot 7' and Form of Contract heading 'RELATING TO THE PROVISION OF LIFT SERVICES' confirm this is a single-lot contract template. Other lots of framework 6278 are not covered by this document.",
+      "evidence_refs": [
+        "#/texts/1|p1|RELATING TO THE PROVISION OF LIFT SERVICES"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p1",
+      "section_ref": "#/texts/1",
+      "anchor_text": "RELATING TO THE PROVISION OF LIFT SERVICES"
+    },
+    {
+      "page_ref": "p2",
+      "section_ref": "#/texts/11",
+      "anchor_text": "PART 1. FORM OF CONTRACT"
+    },
+    {
+      "page_ref": "p5",
+      "section_ref": "#/texts/69",
+      "anchor_text": "PART 2 - GENERAL TERMS AND CONDITIONS"
+    },
+    {
+      "page_ref": "p15",
+      "section_ref": "#/texts/223",
+      "anchor_text": "B1 The Services"
+    },
+    {
+      "page_ref": "p16",
+      "section_ref": "#/texts/239",
+      "anchor_text": "B3 Quality Standards"
+    },
+    {
+      "page_ref": "p54",
+      "section_ref": "#/texts/805",
+      "anchor_text": "PART 3. SPECIAL TERMS AND CONDITIONS"
+    },
+    {
+      "page_ref": "p54",
+      "section_ref": "#/texts/814",
+      "anchor_text": "S2. CONTRACTOR'S OBLIGATIONS"
+    },
+    {
+      "page_ref": "p57",
+      "section_ref": "#/texts/859",
+      "anchor_text": "S5. GOODS AND MATERIALS"
+    },
+    {
+      "page_ref": "p60",
+      "section_ref": "#/texts/897",
+      "anchor_text": "SCHEDULE 1 SPECIFICATION"
+    },
+    {
+      "page_ref": "p61",
+      "section_ref": "#/texts/900",
+      "anchor_text": "SCHEDULE 2 PRICING SCHEDULE"
+    },
+    {
+      "page_ref": "p62",
+      "section_ref": "#/texts/903",
+      "anchor_text": "SCHEDULE 3 THE COUNCIL'S INVITATION TO TENDER"
+    },
+    {
+      "page_ref": "p63",
+      "section_ref": "#/texts/906",
+      "anchor_text": "SCHEDULE 4 THE CONTRACTOR'S TENDER"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "0e177f5c9186a8e54fef7794d36b0d3c04a9e887915793b56cc25e98bed70247",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

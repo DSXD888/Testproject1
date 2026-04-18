@@ -28,6 +28,32 @@ Do not use this skill for pricing schedules, bills of quantities, raw PDF parsin
 - `field_confidences`, `extraction_confidence_bps`, `warnings`, and `evidence_anchors` for daemon-side persistence and audit.
 - `extraction_metadata` with `target_domain = "lots"` and a required `extraction_scope` so the daemon can distinguish `full_document` from `chunk_merged:<plan_hash>`.
 
+## CRITICAL: Result Contract
+
+You MUST write your output as a valid JSON file named `result.json` in the current working directory. The JSON must match `result.schema.json` exactly. Do NOT output a narrative text response. Do NOT explain your analysis in prose. Write ONLY the structured JSON result file.
+
+```bash
+# Write result.json to the current working directory
+cat > result.json << 'RESULT_EOF'
+{
+  "lots": [...],
+  "product_requirement_seeds": [...],
+  "field_confidences": {...},
+  "extraction_confidence_bps": 7500,
+  "warnings": [...],
+  "evidence_anchors": [...],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "...",
+    "policy_version": "2026.04.12"
+  }
+}
+RESULT_EOF
+```
+
+The daemon reads this file after the session completes. If `result.json` is missing or not valid JSON matching the schema, the job is marked as failed.
+
 ## Non-goals
 - Parsing layout or table structure that should already be present in Docling output.
 - Emitting separate semantic rows for `"candidates"` or `"requirements"` target domains.

@@ -1,0 +1,257 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Stockport Town Centre School — Multi-disciplinary Design Team Appointment",
+      "description": "Appointment of a multi-disciplinary design team to provide professional design services to Stockport Council for the Stockport Town Centre School project. The ITP identifies this as a single Contract with an estimated maximum value of GBP 1,800,000 (exclusive of VAT) over a 48-month Contract Period, procured by STAR Procurement on behalf of Stockport Council under the Competitive Flexible Procedure of the Procurement Act 2023. This ITP (Document 1A) governs the PSQ (Stage 1) participation process; detailed service requirements are described in Document 2 (Specification) and Document 7 (Stockport Town Centre School Brief) which are cross-referenced but not included in this ITP document.",
+      "requirements": [
+        "Provision of multi-disciplinary design team services for the Stockport Town Centre School (the Services).",
+        "Contract term: 48 months (Contract Period).",
+        "Maximum estimated Contract value: GBP 1,800,000 exclusive of VAT over the maximum possible term.",
+        "Prices fixed for the first 4 contract years; thereafter subject to RPI/CPI indexation capped at the lower of 3% or the Index, with the first increase taking effect from the expiry of the third Contract Year.",
+        "Procurement conducted under the Procurement Act 2023 using the Competitive Flexible Procedure with Stages: PSQ (Stage 1), Invitation to Tender (Stage 2), Due Diligence (Stage 3A), Award Decision (Stage 3B).",
+        "Top 3 highest-scoring Suppliers from PSQ stage to be shortlisted for invitation to Stage 2 Tender (Council reserves right to vary shortlist size).",
+        "Bid validity period: 270 days from submission, or until any procurement challenges are resolved.",
+        "All submissions must be made electronically via The Chest e-tendering system; QR-code or email submissions will be rejected.",
+        "All documentation must be in English and submitted in Microsoft Word/Excel format only.",
+        "Suppliers must register on the Central Digital Platform (CDP) and provide complete, up-to-date core supplier information and exclusions information (PSQ Parts 1 and 2).",
+        "Suppliers must complete Document 3A Response Documents (Procurement Specific Questionnaire) comprising Part 1 (core supplier info), Part 2 (exclusions) and Part 3 (conditions of participation).",
+        "Suppliers must comply with the terms and conditions set out in Document 4 without amendment; attempts to amend may invalidate the Application.",
+        "Successful supplier may be required to provide a Parent Company Guarantee (Document 8) where indicated in PSQ Part 3.",
+        "Compliance with STAR Responsible Procurement Strategy including Social Value (National TOMs via Social Value Portal for contracts over GBP 50,000), Modern Slavery, Real Living Wage, and Priority Account Service initiatives.",
+        "TUPE: Council view is that TUPE is unlikely to apply; however, Suppliers must make their own determination.",
+        "No anticipated direct contact with children, students or vulnerable adults; Supplier must notify Council if this changes during contract.",
+        "STAR Reference: 020417 / Chest Reference: DN811263."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Stage 1 (PSQ) — Relevant Experience and Contract Examples",
+          "summary": "Question 19 of the PSQ: Suppliers' relevant experience and contract examples, evaluated under the 0-6 scoring methodology (Unacceptable to Outstanding). Scores of 0/1/2 result in full exclusion of the submission.",
+          "weighting_text": "35% of PSQ qualitative assessment",
+          "evidence_anchor": {
+            "page_ref": "section-1.6-stage-1-weighting-table",
+            "anchor_text": "Question 19 Relevant Experience and Contract Examples | 35%",
+            "section_ref": "1.6 Qualitative Assessment — PSQ Weighting Table"
+          }
+        },
+        {
+          "criterion": "Stage 1 (PSQ) — Workforce & Resource",
+          "summary": "Question 20 of the PSQ: Supplier workforce and resource capability, evaluated under the same 0-6 scoring methodology.",
+          "weighting_text": "35% of PSQ qualitative assessment",
+          "evidence_anchor": {
+            "page_ref": "section-1.6-stage-1-weighting-table",
+            "anchor_text": "Question 20 Workforce & Resource | 35%",
+            "section_ref": "1.6 Qualitative Assessment — PSQ Weighting Table"
+          }
+        },
+        {
+          "criterion": "Stage 1 (PSQ) — Funding Model Approach",
+          "summary": "Question 21 of the PSQ: Supplier funding model approach, evaluated under the same 0-6 scoring methodology.",
+          "weighting_text": "30% of PSQ qualitative assessment",
+          "evidence_anchor": {
+            "page_ref": "section-1.6-stage-1-weighting-table",
+            "anchor_text": "Question 21 Funding Model Approach | 30%",
+            "section_ref": "1.6 Qualitative Assessment — PSQ Weighting Table"
+          }
+        },
+        {
+          "criterion": "Stage 1 (PSQ) — Scoring Methodology",
+          "summary": "Seven-point scoring scale from Unacceptable (0) through Poor (1), Deficient (2), Satisfactory (3), Good (4), Excellent (5) to Outstanding (6). Any quality question scoring 0, 1 or 2 results in full exclusion of the submission. Final scores determined via moderation meeting to reach consensus single score per question. All scores calculated to 2 decimal places.",
+          "weighting_text": "Exclusion thresholds: score of 0, 1 or 2 on any quality question = exclusion",
+          "evidence_anchor": {
+            "page_ref": "section-1.6-scoring-methodology-table",
+            "anchor_text": "Unacceptable | ... | 0 ... Outstanding | ... | 6",
+            "section_ref": "1.6 Scoring Methodology"
+          }
+        },
+        {
+          "criterion": "Stage 1 (PSQ) — Shortlisting",
+          "summary": "Following PSQ evaluation, Suppliers ranked by Total Weighted Score; top 3 highest-scoring Suppliers invited to Stage 2. Ties at 3rd place all progress. Council reserves right to increase or decrease shortlist size where appropriate and proportionate.",
+          "weighting_text": "Top 3 shortlist (variable at Council discretion)",
+          "evidence_anchor": {
+            "page_ref": "section-1.1-competitive-flexible-procedure-table",
+            "anchor_text": "The Council intends to shortlist the top 3 highest scoring Suppliers to be invited to participate in Stage 2.",
+            "section_ref": "1.1 Competitive Flexible Procedure — Stage 1"
+          }
+        },
+        {
+          "criterion": "Stage 2 (ITT) — Quality",
+          "summary": "Stage 2 quality assessment (indicative) comprises four quality questions — Experience, Methodology, Funding Model, Resourcing — each weighted 10%, plus Social Value (Quantitative) 10% and Social Value (Qualitative) 10%. Council reserves the right to amend, refine or change the Award Criteria prior to issuing the ITT.",
+          "weighting_text": "60% total Quality (Experience 10%, Methodology 10%, Funding Model 10%, Resourcing 10%, Social Value Quantitative 10%, Social Value Qualitative 10%)",
+          "evidence_anchor": {
+            "page_ref": "section-1.7-tender-assessment-criteria-table",
+            "anchor_text": "Quality | 60% ... Price | 40% ... Total | 100%",
+            "section_ref": "1.7 Tender Assessment Criteria"
+          }
+        },
+        {
+          "criterion": "Stage 2 (ITT) — Price",
+          "summary": "Stage 2 price assessment weighted at 40% of the total tender evaluation (indicative — subject to change prior to ITT issue).",
+          "weighting_text": "40% of total tender evaluation",
+          "evidence_anchor": {
+            "page_ref": "section-1.7-tender-assessment-criteria-table",
+            "anchor_text": "Price | 40%",
+            "section_ref": "1.7 Tender Assessment Criteria"
+          }
+        },
+        {
+          "criterion": "Stage 2 (ITT) — Clarification Meetings",
+          "summary": "Evaluation may include one-hour clarification meetings with Suppliers, potentially including presentation on aspects of the Bid. Clarification meetings are not scored but may be used to adjust evaluated scores of Stage 2 documents. Only bidders whose Bids require clarification and who are capable of winning will be invited.",
+          "evidence_anchor": {
+            "page_ref": "section-1.1-competitive-flexible-procedure-table",
+            "anchor_text": "Evaluation may also include a one-hour clarification meetings with Suppliers.",
+            "section_ref": "1.1 Competitive Flexible Procedure — Stage 2"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "section-header-document-1a",
+        "anchor_text": "Stockport Town Centre School – Multi – disciplinary Design Team Appointment (the Services)",
+        "section_ref": "Document 1A header"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 9500,
+    "lots.description": 8800,
+    "lots.requirements": 8500,
+    "lots.evaluation_criteria": 9200,
+    "lots.cpv_codes": 7500,
+    "lots.product_requirements": 9000,
+    "lots.technical_standards": 9000,
+    "lots.evidence_anchor": 9000,
+    "contract_value": 9500,
+    "contract_term": 9500,
+    "procedure_type": 9500,
+    "buyer_identity": 9500
+  },
+  "extraction_confidence_bps": 8400,
+  "warnings": [
+    {
+      "code": "NO_LOT_SPLIT_DETECTED",
+      "message": "The ITP describes a single contract with no lot split. A single lot has been emitted mirroring the whole Contract scope. Notice-level lot metadata in state already contains one lot for this notice, consistent with this finding.",
+      "evidence_refs": [
+        "section-header-document-1a",
+        "section-1.1-competitive-flexible-procedure-table"
+      ]
+    },
+    {
+      "code": "SERVICES_CONTRACT_NO_PRODUCTS",
+      "message": "This is a professional services contract (multi-disciplinary design team appointment for a school). It contains no product requirements, no bill-of-materials items, no quantities and no technical product standards. product_requirement_seeds is intentionally empty and the lot's product_requirements and technical_standards arrays are empty by design.",
+      "evidence_refs": [
+        "section-header-document-1a"
+      ]
+    },
+    {
+      "code": "NO_CPV_IN_DOCUMENT",
+      "message": "No CPV codes are cited anywhere within this ITP document. CPV classification for this procurement (available on the parent contract notice, e.g., main_category 'Consultancy') must be sourced from notice-level metadata rather than from this document.",
+      "evidence_refs": []
+    },
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH_POSSIBLE",
+      "message": "document_role in document_extractions is recorded as 'technical_specification', but the content of Document 1A is an Invitation to Participate (procurement instructions, timetable, scoring methodology, supplier obligations). The authoritative technical specification content is cross-referenced as Document 2 (Specification) and Document 7 (Stockport Town Centre School Brief), which are not included in this extraction. Downstream semantic consumers should treat this extraction as an ITP instruction/scoring document rather than a service specification.",
+      "evidence_refs": [
+        "section-header-document-1a",
+        "document-list-document-1a-through-7"
+      ]
+    },
+    {
+      "code": "SPECIFICATION_DETAIL_EXTERNAL",
+      "message": "Detailed service scope, performance requirements, deliverables and acceptance criteria for the design team services are not contained within this ITP; they are referenced as residing in Document 2 (Specification), Document 6 (Priority Cohort and Themes), and Document 7 (Stockport Town Centre School Brief). Requirements extracted here are limited to those explicitly stated in the ITP instructions.",
+      "evidence_refs": [
+        "section-itp-document-list"
+      ]
+    },
+    {
+      "code": "STAGE_2_CRITERIA_INDICATIVE",
+      "message": "Stage 2 (ITT) Tender Assessment Criteria are explicitly labelled 'indicative only' — Council reserves the right to amend, refine or change criteria prior to issuing the ITT. Downstream consumers should mark Stage 2 evaluation weights as non-authoritative until ITT issue.",
+      "evidence_refs": [
+        "section-1.7-tender-assessment-criteria-table"
+      ]
+    },
+    {
+      "code": "PAGE_REF_FALLBACK_TO_SECTION",
+      "message": "Docling output reports page_count=0 for this extraction; numeric page references are not available. evidence_anchor.page_ref values use section-based slugs drawn from headings and table captions present in the Docling markdown instead of page numbers.",
+      "evidence_refs": []
+    },
+    {
+      "code": "SECTION_NUMBERING_IRREGULAR",
+      "message": "The source document contains irregular auto-numbering (e.g., multiple lines labelled '1.1.1.' and '1.6.1.1.' under different topics, and an anomalous '0.1.' before 1.1.1). Section references in evidence_anchor use heading text rather than literal numbering to avoid ambiguity.",
+      "evidence_refs": []
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "section-header-document-1a",
+      "anchor_text": "DOCUMENT 1A: INVITATION TO PARTICIPATE (\"ITP\") INSTRUCTIONS — Stockport Council — Stockport Town Centre School – Multi – disciplinary Design Team Appointment (the Services) — STAR Refence: 020417 — Chest Reference: DN811263",
+      "section_ref": "Document header"
+    },
+    {
+      "page_ref": "section-itp-document-list",
+      "anchor_text": "This ITP consists of the following documents: Document 1A: Invitation to Participate (ITP) (this document); Document 2: Specification; Document 3: Response Document (Procurement Specific Questionnaire); Document 4: T&Cs (with novation); Document 5: Glossary; Document 6: Stockport Council Priority Cohort and Themes; Document 7: Stockport Town Centre School Brief; Appendices including scope of services, schedule of accommodation and TC School Programme",
+      "section_ref": "Document 1A — ITP document list"
+    },
+    {
+      "page_ref": "section-1.1-competitive-flexible-procedure-table",
+      "anchor_text": "Competitive Flexible Procedure — Stage 1: PSQ; Stage 2: Invitation to Tender; Stage 3A: Due diligence of winning bidder; Stage 3B: Award Decision",
+      "section_ref": "1.1 Competitive Flexible Procedure table"
+    },
+    {
+      "page_ref": "section-1.0.1-agreement-term",
+      "anchor_text": "The Contract will be for a term of 48 months (the \"Contract Period\").",
+      "section_ref": "Agreement Term"
+    },
+    {
+      "page_ref": "section-1.3.1-value",
+      "anchor_text": "The maximum estimated value of the Contract over its maximum possible term is £1,800,000.00 (exclusive of VAT). Prices shall be set for a fixed period of 4 contract years, after which prices may increase in each subsequent contract year by RPI/CPI indexation ... the lower of 3% and the Index ... first increase shall take effect as from the expiry of the third Contract Year.",
+      "section_ref": "Value — 1.3.1"
+    },
+    {
+      "page_ref": "section-1.4-deadlines-and-timetable",
+      "anchor_text": "PSQ (Stage 1) Issue of ITP 31 March '26; Submission of Application Response 27 April '26 12:00; Tender (Stage 2) Issue of ITT 18 May '26; Award Decision Approved W/C 13 July '26; Contract Start Date W/C 24 August '26",
+      "section_ref": "1.4 Deadlines & Timetable"
+    },
+    {
+      "page_ref": "section-bid-validity",
+      "anchor_text": "The Supplier's final tender submission must remain valid for acceptance for a period of 270 days from the date of its submission or until any procurement challenge/s have been resolved.",
+      "section_ref": "Validity of bid"
+    },
+    {
+      "page_ref": "section-1.6-stage-1-weighting-table",
+      "anchor_text": "Question 19 Relevant Experience and Contract Examples | 35%; Question 20 Workforce & Resource | 35%; Question 21 Funding Model Approach | 30%; Total | 100%",
+      "section_ref": "1.6 Qualitative Assessment — PSQ weighting"
+    },
+    {
+      "page_ref": "section-1.6-scoring-methodology-table",
+      "anchor_text": "Unacceptable 0 / Poor 1 / Deficient 2 (all result in exclusion) / Satisfactory 3 / Good 4 / Excellent 5 / Outstanding 6",
+      "section_ref": "1.6 Scoring Methodology"
+    },
+    {
+      "page_ref": "section-1.7-tender-assessment-criteria-table",
+      "anchor_text": "Quality 60% (Experience 10%, Methodology 10%, Funding Model 10%, Resourcing 10%, Social Value Quantitative 10%, Social Value Qualitative 10%); Price 40%; Total 100%",
+      "section_ref": "1.7 Tender Assessment Criteria"
+    },
+    {
+      "page_ref": "section-3-council-initiatives",
+      "anchor_text": "Social Value via National TOMs and Social Value Portal for contracts over £50,000; Modern Slavery and Responsible Procurement; Real Living Wage; Priority Account Service (PAS)",
+      "section_ref": "3. Council Initiatives and Key Policies"
+    },
+    {
+      "page_ref": "section-tupe",
+      "anchor_text": "It the Council's view that TUPE is unlikely to apply to this procurement exercise in the event of this agreement being awarded to persons other than those currently providing all or part of the services.",
+      "section_ref": "TUPE clause"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "0927b761e52e0a485e59c418e4d0fc7fc7e0956b0058e6e0a69a13fa66e7f4cd",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

@@ -1,0 +1,364 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment (ESPO Framework 107_26 Call-Off)",
+      "description": "Single non-lotted call-off arrangement under ESPO Framework Agreement reference 107_26 between Leicestershire County Council (trading as ESPO) and an appointed Supplier for the provision of inspection & maintenance of indoor gymnasium, fitness & sport equipment and outdoor schools play & sport equipment services to Contracting Authorities (Customers) under the Procurement Act 2023 (PA23). The supplied document is a Form of Contract and Call-Off Terms template (Framework Schedule 3); detailed Goods/Services specifications, performance/delivery locations, milestones, charges, technical standards and any further-competition evaluation criteria are placeholders to be completed at call-off and are externally incorporated from Framework Agreement Schedule 1 (Specification) and the ESPO Invitation to Tender Section 2 (Requirement).",
+      "requirements": [
+        "Supplier shall comply with the Technical Standards and the Quality Standards specified in the Master Contract Schedule and clause 13 of the Framework Agreement, and where applicable maintain accreditation with the relevant authorisation body (clause 6.3.1).",
+        "Supplier shall ensure Goods are free from defects in design and workmanship and are fit for purpose, and supplied in accordance with the Supplier Solution (clauses 6.3.5.1, 6.3.5.2).",
+        "Supplier shall supply the Goods and/or Services in accordance with the Specification (as a minimum), the Master Contract Schedule and applicable Law including obligations implied by sections 12, 13 and 14 of the Sale of Goods Act 1979 and section 2 of the Supply of Goods and Services Act 1982 (clause 6.3.4).",
+        "Supplier shall maintain business continuity arrangements throughout the Contract Period and review them at appropriate intervals so that delivery is subject to a minimum of disruption (clause 8.1).",
+        "Supplier shall achieve or exceed the Service Levels set out in Schedule 1 Part A; failures attract Service Credits and a Critical Service Failure entitles the Customer to terminate (clauses 11.1, 9.1; Schedule 1 Part A para 1).",
+        "Supplier shall implement measurement and monitoring tools and procedures sufficient to verify compliance with the Service Levels (clause 11.2).",
+        "Supplier shall comply with the monitoring arrangements and provide Management Information referred to in the Master Contract Schedule (clauses 9.1, 9.2).",
+        "Supplier shall provide an Implementation Plan and meet each Milestone by the Milestone Date; missed Milestones attract Delay Payments (Schedule 2 paras 1, 2).",
+        "Supplier shall comply with the Health and Safety at Work etc. Act 1974 and any other applicable health and safety acts, orders, regulations and codes of practice (clause 25.4); promptly notify health and safety hazards and incidents (clauses 25.1, 25.3).",
+        "Supplier shall operate a suitable environmental management system and minimise GHG emissions, comply with applicable environmental Law and submit an annual GHG/sustainability report using the most recent government conversion factors (clauses 26.2-26.5).",
+        "Supplier shall not commit Prohibited Acts under the Bribery Act 2010 and shall maintain an anti-bribery policy; on request, certify annual compliance (clauses 27.1.2, 27.3.1, 27.3.4, 27.3.5).",
+        "Supplier and Customer shall comply with Data Protection Legislation including UK GDPR; controller/processor or independent/joint controller roles, processing details and DPO contacts to be set out in Section 9 of the Master Contract Schedule (Master Contract Schedule §9; clauses 16.9 series).",
+        "Supplier shall comply with PA23 transparency obligations and consent to publication of Transparency Information except where exempt under FOIA, EIR or PA23 (clauses 18.56.1, 18.56.2).",
+        "Equipment brought onto Premises is at the Supplier's own risk; Supplier shall maintain Equipment in safe, serviceable and clean condition and remove or replace items deemed hazardous, noxious or non-compliant (clauses 6.2.3, 6.2.4, 6.2.5).",
+        "Where the Warranty Period applies, Supplier shall remedy defects in Goods notified during or shortly after the Warranty Period free of charge (clause 6.5).",
+        "If contract value exceeds £5 million, the Customer must set at least three Key Performance Indicators in respect of the Contract pursuant to PA23 sections 52 and 71 (Schedule 1 Appendix to Part A drafting note)."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "indoor-gymnasium-fitness-sport-equipment-inspection-maintenance",
+          "summary": "Inspection and maintenance services for indoor gymnasium, fitness and sport equipment supplied to Contracting Authorities under the framework.",
+          "requirement_type": "service_class_seed",
+          "technical_attributes": [
+            "scope: indoor gymnasium equipment",
+            "scope: indoor fitness equipment",
+            "scope: indoor sport equipment",
+            "service_type: inspection",
+            "service_type: maintenance",
+            "delivery_basis: framework call-off"
+          ],
+          "evidence_anchor": {
+            "page_ref": "line_13",
+            "section_ref": "Header / Form of Contract title block",
+            "anchor_text": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment"
+          }
+        },
+        {
+          "seed_key": "outdoor-schools-play-sport-equipment-inspection-maintenance",
+          "summary": "Inspection and maintenance services for outdoor schools play and sport equipment supplied to Contracting Authorities under the framework.",
+          "requirement_type": "service_class_seed",
+          "technical_attributes": [
+            "scope: outdoor schools play equipment",
+            "scope: outdoor schools sport equipment",
+            "service_type: inspection",
+            "service_type: maintenance",
+            "delivery_basis: framework call-off"
+          ],
+          "evidence_anchor": {
+            "page_ref": "line_13",
+            "section_ref": "Header / Form of Contract title block",
+            "anchor_text": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Framework Agreement clause 13 (Technical Standards)",
+          "context": "Master Contract Schedule §2 instructs the Customer to insert the appropriate Technical Standards and Quality Standards that the Goods/Services must comply with; details of technical standards are stated to be found in clause 13 of the Framework Agreement.",
+          "evidence_anchor": {
+            "page_ref": "line_91",
+            "section_ref": "§2 Master Contract Schedule — Standards row",
+            "anchor_text": "Standards: Quality Standards [ ] Technical Standards [ ] ... Details of technical standards can be found in clause 13 of the Framework Agreement."
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work etc. Act 1974",
+          "context": "Supplier shall comply with the Health and Safety at Work etc. Act 1974 and any other acts, orders, regulations and codes of practice relating to health and safety applicable to Staff and persons working on the Premises.",
+          "evidence_anchor": {
+            "page_ref": "line_1241",
+            "section_ref": "§25.4 Health and Safety",
+            "anchor_text": "comply with the requirements of the Health and Safety at Work etc. Act 1974"
+          }
+        },
+        {
+          "standard_ref": "Sale of Goods Act 1979 (sections 12, 13, 14)",
+          "context": "Statutory implied obligations of title, description and satisfactory quality / fitness for purpose apply to the supply of Goods.",
+          "evidence_anchor": {
+            "page_ref": "line_348",
+            "section_ref": "§6.3.4 Quality",
+            "anchor_text": "obligation implied by sections 12, 13 and 14 of the Sale of Goods Act 1979"
+          }
+        },
+        {
+          "standard_ref": "Supply of Goods and Services Act 1982 (section 2)",
+          "context": "Statutory implied obligations apply to the supply of Services.",
+          "evidence_anchor": {
+            "page_ref": "line_348",
+            "section_ref": "§6.3.4 Quality",
+            "anchor_text": "section 2 of the Supply of Goods and Services Act 1982"
+          }
+        },
+        {
+          "standard_ref": "Bribery Act 2010",
+          "context": "Supplier shall not commit Prohibited Acts under the Bribery Act 2010, shall act in accordance with Ministry of Justice guidance pursuant to section 9 of the Act, and shall maintain an anti-bribery policy.",
+          "evidence_anchor": {
+            "page_ref": "line_1283",
+            "section_ref": "§27 Prevention of Bribery and Corruption",
+            "anchor_text": "Prohibited Act under the Bribery Act 2010"
+          }
+        },
+        {
+          "standard_ref": "Procurement Act 2023 (PA23)",
+          "context": "Framework was placed on the central digital platform pursuant to section 95(4) PA23; transparency, sub-contracting, modification, KPI and termination obligations across the Contract are governed by PA23.",
+          "evidence_anchor": {
+            "page_ref": "line_33",
+            "section_ref": "§1 Form of Contract — WHEREAS recitals",
+            "anchor_text": "ESPO placed a Tender Notice 2026/S 000-002119 on 12 January 2026 on the central digital platform operated pursuant to section 95(4) of the PA23"
+          }
+        },
+        {
+          "standard_ref": "UK GDPR and Data Protection Act 2018",
+          "context": "Controller / processor / joint controller obligations under Data Protection Legislation, including GDPR Articles 13-22, 30, 33-36; DPO contacts and processing scope to be completed in Master Contract Schedule §9.",
+          "evidence_anchor": {
+            "page_ref": "line_112",
+            "section_ref": "§2 Master Contract Schedule §9 Processing, Personal Data and Data Subjects",
+            "anchor_text": "comply with data protection legislation ... GDPR Article 13 ... GDPR Article 22"
+          }
+        },
+        {
+          "standard_ref": "Government GHG conversion factors (most recent)",
+          "context": "Annual GHG / sustainability report shall use the most recent government conversion factors for greenhouse gas reporting.",
+          "evidence_anchor": {
+            "page_ref": "line_1271",
+            "section_ref": "§26.5.1 Environmental Requirements, GHG Emissions",
+            "anchor_text": "the Supplier's GHG Emissions, using the most recent government conversion factors for greenhouse gas reporting"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "line_13",
+        "section_ref": "Form of Contract / Call-Off Terms title block",
+        "anchor_text": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment ... CONTRACT REF 107_26"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "indoor-gymnasium-fitness-sport-equipment-inspection-maintenance",
+      "lot_number": "1",
+      "candidate_name": "Indoor gymnasium, fitness & sport equipment inspection and maintenance service",
+      "summary": "Service-class seed covering inspection and maintenance of indoor gymnasium, fitness and sport equipment supplied to Customers under the ESPO 107_26 framework. Seed is derived from the framework subject as stated in the document title block; detailed equipment categories, technical standards and quantities are externalised to Framework Agreement Schedule 1 / ITT Section 2 and are not present in this Form of Contract template.",
+      "requirements": [
+        "Provider must perform inspection of indoor gymnasium, fitness and sport equipment for Contracting Authorities.",
+        "Provider must perform maintenance (corrective and/or preventive as ordered) of indoor gymnasium, fitness and sport equipment.",
+        "Provider must operate within the framework call-off model, accepting orders from Customers under the Master Contract Schedule.",
+        "Provider must comply with Health and Safety at Work etc. Act 1974 and applicable health and safety regulations while working on Premises.",
+        "Provider must operate an environmental management system and report annual GHG emissions using government conversion factors.",
+        "Provider must achieve Service Levels per Schedule 1 and avoid Critical Service Failure (e.g., excessive consecutive-hour service downtime as defined in Master Contract Schedule §4)."
+      ],
+      "technical_standards": [
+        "Health and Safety at Work etc. Act 1974",
+        "Sale of Goods Act 1979 (s.12-14)",
+        "Supply of Goods and Services Act 1982 (s.2)",
+        "Framework Agreement clause 13 (Technical Standards) — to be applied per Master Contract Schedule §2"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "line_13",
+        "section_ref": "Form of Contract / Call-Off Terms title block",
+        "anchor_text": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment"
+      }
+    },
+    {
+      "seed_key": "outdoor-schools-play-sport-equipment-inspection-maintenance",
+      "lot_number": "1",
+      "candidate_name": "Outdoor schools play & sport equipment inspection and maintenance service",
+      "summary": "Service-class seed covering inspection and maintenance of outdoor schools play and sport equipment supplied to Customers under the ESPO 107_26 framework. Seed is derived from the framework subject as stated in the document title block; detailed equipment categories (e.g., playground apparatus, MUGAs, outdoor fitness, sport surfaces), technical standards and quantities are externalised to Framework Agreement Schedule 1 / ITT Section 2 and are not present in this Form of Contract template.",
+      "requirements": [
+        "Provider must perform inspection of outdoor schools play and sport equipment for Contracting Authorities.",
+        "Provider must perform maintenance (corrective and/or preventive as ordered) of outdoor schools play and sport equipment.",
+        "Provider must operate within the framework call-off model, accepting orders from Customers under the Master Contract Schedule.",
+        "Provider must comply with Health and Safety at Work etc. Act 1974 and applicable health and safety regulations while working on Premises.",
+        "Provider must operate an environmental management system and report annual GHG emissions using government conversion factors.",
+        "Provider must achieve Service Levels per Schedule 1 and avoid Critical Service Failure as defined in Master Contract Schedule §4."
+      ],
+      "technical_standards": [
+        "Health and Safety at Work etc. Act 1974",
+        "Sale of Goods Act 1979 (s.12-14)",
+        "Supply of Goods and Services Act 1982 (s.2)",
+        "Framework Agreement clause 13 (Technical Standards) — to be applied per Master Contract Schedule §2"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "line_13",
+        "section_ref": "Form of Contract / Call-Off Terms title block",
+        "anchor_text": "Inspection & Maintenance of ... Outdoor Schools Play & Sport Equipment"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lot_count": 8500,
+    "lot_title": 8500,
+    "lot_description": 7500,
+    "lot_requirements": 7000,
+    "evaluation_criteria": 1000,
+    "cpv_codes": 7000,
+    "product_requirements": 4000,
+    "technical_standards": 5500,
+    "product_requirement_seeds": 4000,
+    "evidence_anchors": 8000
+  },
+  "extraction_confidence_bps": 5500,
+  "warnings": [
+    {
+      "code": "DOCUMENT_IS_CALLOFF_TEMPLATE_NOT_TENDER_SPEC",
+      "message": "Source PDF is Framework Schedule 3 (Form of Contract and Call-Off Terms) for ESPO 107_26 — a contractual template populated with placeholders ('[ ]' / Customer Drafting Notes). Substantive Goods/Services specifications, lot detail, performance/delivery location, technical standards and milestones are deferred to (a) Framework Agreement Schedule 1 (Specification) and clause 13 (Technical Standards), and (b) ESPO Invitation to Tender Section 2 (Requirement). Treat this extraction as scaffolding-grade evidence only; do not use for product candidate generation without the upstream Specification document.",
+      "evidence_refs": [
+        "line_1: FRAMEWORK SCHEDULE 3 – FORM OF CONTRACT AND CALL-OFF TERMS",
+        "line_89: Details of the Goods listed above can be found in schedule 1 of the Framework Agreement",
+        "line_91: Details of technical standards can be found in clause 13 of the Framework Agreement"
+      ]
+    },
+    {
+      "code": "EVALUATION_CRITERIA_NOT_PRESENT",
+      "message": "No award/evaluation criteria, weightings or scoring rubric are present in this document. The Schedule 1 Service Levels table is unpopulated (rows 1-4 blank) and there is no MEAT criteria block. Evaluation criteria for the framework call-off / further-competitive selection are owned by the ESPO Invitation to Tender, not this template.",
+      "evidence_refs": [
+        "line_1567-1574: Service Levels and Service Credits table — blank Service Level rows",
+        "line_1575: 'Insert the appropriate Service Levels above'"
+      ]
+    },
+    {
+      "code": "TECHNICAL_STANDARDS_PLACEHOLDERS",
+      "message": "Equipment-level technical standards (e.g. for playground equipment, gym apparatus, fall surfacing) are NOT enumerated in this document. The Master Contract Schedule §2 Standards row contains '[ ]' placeholders. Only legal/regulatory frameworks (Health and Safety at Work Act 1974, Sale of Goods Act 1979, Supply of Goods and Services Act 1982, Bribery Act 2010, UK GDPR/DPA 2018, PA23) and a forward-reference to Framework Agreement clause 13 are present.",
+      "evidence_refs": [
+        "line_91: Standards / Quality Standards [ ] / Technical Standards [ ]",
+        "line_336: clause 6.3.1 Supplier shall at all times comply with the Technical Standards and the Quality Standards"
+      ]
+    },
+    {
+      "code": "CPV_CODES_FROM_NOTICE_CONTEXT",
+      "message": "Both CPV codes (37400000-2 Sports goods and equipment; 50000000-5 Repair and maintenance services) are inherited from the upstream contract notice / process context (notice id pc-3ba4e6b8-9cef-f011-813c-005056b64545, source ESPO). The codes are not literally cited in the body of this Form of Contract.",
+      "evidence_refs": [
+        "process_context.cpv: 37400000-2 - Sports goods and equipment | 50000000-5 - Repair and maintenance services",
+        "line_13: subject-matter title 'Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment' (consistent with both CPVs)"
+      ]
+    },
+    {
+      "code": "LOT_STRUCTURE_INFERRED_SINGLE_LOT",
+      "message": "The framework is a single non-lotted arrangement: the document's pricing/scope language refers to 'the Lot or Lots' generically and the WHEREAS recitals describe one combined subject-matter. This is consistent with the pre-existing notice_lots row (1 lot). No structural evidence in this document contradicts the single-lot model; if the upstream Framework Agreement Schedule 1 turns out to define multiple lots, this lot record should be split downstream.",
+      "evidence_refs": [
+        "line_13: combined subject 'Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment'",
+        "line_89: 'Include a description of the Goods (including by reference to the Lot or Lots)'"
+      ]
+    },
+    {
+      "code": "PRODUCT_SEEDS_ARE_SERVICE_CLASS_NOT_PRODUCT_LEVEL",
+      "message": "Two emitted product_requirement_seeds are deliberately at service-class grain (one for indoor gym/fitness/sport, one for outdoor schools play/sport) because no equipment-level specification, model list or quantity table exists in this document. Downstream candidate generation must not treat these as concrete product candidates without enrichment from the Framework Agreement Schedule 1 / ITT Section 2.",
+      "evidence_refs": [
+        "line_13: subject-matter title used as seed source",
+        "line_89: Goods/Services specifications deferred to schedule 1 of the Framework Agreement"
+      ]
+    },
+    {
+      "code": "DOCUMENT_PAGE_COUNT_ZERO",
+      "message": "Docling extraction reports page_count = 0 for this document; evidence_anchor.page_ref values therefore use markdown line numbers (e.g. 'line_91') and section_ref values use the document's hierarchical clause numbering (e.g. '§6.3.1', '§25.4', '§27', 'Master Contract Schedule §2 Standards row').",
+      "evidence_refs": [
+        "document_extractions.page_count = 0",
+        "extraction_engine: docling"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "line_13",
+      "section_ref": "Form of Contract / Call-Off Terms title block",
+      "anchor_text": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment"
+    },
+    {
+      "page_ref": "line_17",
+      "section_ref": "Form of Contract / Call-Off Terms title block",
+      "anchor_text": "CONTRACT REF 107_26"
+    },
+    {
+      "page_ref": "line_33",
+      "section_ref": "§1 Form of Contract — WHEREAS recital 1",
+      "anchor_text": "ESPO placed a Tender Notice 2026/S 000-002119 on 12 January 2026 on the central digital platform operated pursuant to section 95(4) of the PA23"
+    },
+    {
+      "page_ref": "line_89",
+      "section_ref": "§2 Master Contract Schedule — Goods and/or Services Requirements row",
+      "anchor_text": "Details of the Goods listed above can be found in schedule 1 of the Framework Agreement"
+    },
+    {
+      "page_ref": "line_91",
+      "section_ref": "§2 Master Contract Schedule — Standards row",
+      "anchor_text": "Standards: Quality Standards [ ] Technical Standards [ ] ... Details of technical standards can be found in clause 13 of the Framework Agreement"
+    },
+    {
+      "page_ref": "line_99",
+      "section_ref": "§2 Master Contract Schedule §4 — Critical Service Failure definition",
+      "anchor_text": "a delay in servicing the demand ... in excess of 24 consecutive hours during Normal Business Hours"
+    },
+    {
+      "page_ref": "line_336",
+      "section_ref": "§6.3.1 Quality",
+      "anchor_text": "The Supplier shall at all times comply with the Technical Standards and the Quality Standards"
+    },
+    {
+      "page_ref": "line_348",
+      "section_ref": "§6.3.4 Quality",
+      "anchor_text": "obligation implied by sections 12, 13 and 14 of the Sale of Goods Act 1979 and section 2 of the Supply of Goods and Services Act 1982"
+    },
+    {
+      "page_ref": "line_386",
+      "section_ref": "§8.1 Disaster Recovery and Business Continuity",
+      "anchor_text": "the Supplier will maintain in place throughout the Contract Period business continuity arrangements"
+    },
+    {
+      "page_ref": "line_408",
+      "section_ref": "§11.1 Service Levels and Remedies",
+      "anchor_text": "any failure to meet the Service Levels shall entitle the Customer to Service Credits"
+    },
+    {
+      "page_ref": "line_1241",
+      "section_ref": "§25.4 Health and Safety",
+      "anchor_text": "comply with the requirements of the Health and Safety at Work etc. Act 1974"
+    },
+    {
+      "page_ref": "line_1271",
+      "section_ref": "§26.5.1 Environmental Requirements, GHG Emissions",
+      "anchor_text": "the Supplier's GHG Emissions, using the most recent government conversion factors for greenhouse gas reporting"
+    },
+    {
+      "page_ref": "line_1283",
+      "section_ref": "§27.1.2 Prevention of Bribery and Corruption",
+      "anchor_text": "Prohibited Act under the Bribery Act 2010"
+    },
+    {
+      "page_ref": "line_1539",
+      "section_ref": "§45 Schedule 1 — Service Levels and Service Credits Scope",
+      "anchor_text": "This schedule 1 sets out the Service Levels which the Supplier is required to achieve"
+    },
+    {
+      "page_ref": "line_1620",
+      "section_ref": "§46 Schedule 2 — Implementation Plan and Milestones",
+      "anchor_text": "The Supplier shall supply the Goods and/or Services in accordance with the Implementation Plan"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "3469b5fd17c06fdfc47261b0f1dcd55e955714ee6ed6655d0623cc3caf4cab6e",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

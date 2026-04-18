@@ -1,0 +1,201 @@
+{
+  "cursor": "{\"last_checked_at\":\"2026-04-14T20:10:58Z\"}",
+  "continuation_required": true,
+  "enriched_tenders": [
+    {
+      "notice_id": "783238",
+      "process_id": null,
+      "rfx_id": "a9dc718e-aa2d-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=a9dc718e-aa2d-f111-813c-005056b64545",
+      "updated_title": "CCP074 - Provision of a Print Service DPS",
+      "updated_description": "The Council are looking to procure a Print Service using a DPS, the DPS is split into 10 Lots.\nThe purpose of this procurement is to establish a Dynamic Purchasing System for Print Services. The DPS is for a period of 60 months with a quantity of 10 Lots being available.",
+      "updated_deadline_at": "2027-10-31T20:00:00Z",
+      "buyer_name": "Derbyshire County Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "CCP074 Tender Checklist.doc",
+          "content_type": "application/msword",
+          "size_bytes": 862208,
+          "local_path": "artifacts/downloads/procontract/783238/CCP074-Tender-Checklist.doc",
+          "download_url": null,
+          "document_role_hint": "response_document",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "CCP074 Appendix B Instructions to Bidders.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 112963,
+          "local_path": "artifacts/downloads/procontract/783238/CCP074-Appendix-B-Instructions-to-Bidders.docx",
+          "download_url": null,
+          "document_role_hint": "invitation_to_tender",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "CCP074 Appendix C FOIA Schedule.doc",
+          "content_type": "application/msword",
+          "size_bytes": 870400,
+          "local_path": "artifacts/downloads/procontract/783238/CCP074-Appendix-C-FOIA-Schedule.doc",
+          "download_url": null,
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "CCP074 Specification for Print Service DPS.doc",
+          "content_type": "application/msword",
+          "size_bytes": 928256,
+          "local_path": "artifacts/downloads/procontract/783238/CCP074-Specification-for-Print-Service-DPS.doc",
+          "download_url": null,
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": false
+        }
+      ],
+      "documents_count": 4,
+      "enriched_at": "2026-04-14T19:41:00Z"
+    },
+    {
+      "notice_id": "782604",
+      "process_id": null,
+      "rfx_id": "a25079fd-2f28-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=a25079fd-2f28-f111-813c-005056b64545",
+      "updated_title": "BSH/HRA/Metal Works - Dynamic Purchasing System (DPS)",
+      "updated_description": "Metal Works - Dynamic Purchasing System (DPS)\n\nBristol City Council wish to establish a Dynamic Purchasing System (DPS) with a number of contractors for the provision of Metal Works, which includes, repairs, modification, supply, supply and installation and fabrication.\n\nLot 1 - Repairs and/or modification to metal items\nLot 2 - Supply only or Supply and Installation of metal items\nLot 3 - Fabrication of bespoke metal work items, such as lockers for parking meters, water taps, signs, specialist artwork\nLot 4 - Repair or Replace balcony balustrades\nLot 5 - Chute Repairs",
+      "updated_deadline_at": "2027-09-30T20:00:00Z",
+      "buyer_name": "Bristol City Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "Annexure_3_Metal_Works_Railings_and_Repairs_DPS_Minor_Works_Building_Contract_2016_Edition.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 802020,
+          "local_path": "artifacts/downloads/procontract/782604/Annexure_3_Metal_Works.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=251064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "Appendix 1 - Evaluation Criteria (Technical Assessment).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 82564,
+          "local_path": "artifacts/downloads/procontract/782604/Appendix-1-Evaluation-Criteria.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=0a1064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "ITT Metal Work DPS (3).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 146542,
+          "local_path": "artifacts/downloads/procontract/782604/ITT-Metal-Work-DPS-3.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=1d1064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "Metal Works - DPS - Final Draft August 2022.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 137247,
+          "local_path": "artifacts/downloads/procontract/782604/Metal-Works-DPS-Final-Draft-August-2022.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=fe0f64fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "Non Canvassing Certificate.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 28111,
+          "local_path": "artifacts/downloads/procontract/782604/Non-Canvassing-Certificate.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=f20f64fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "response_document",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "Non Collusive Certificate.doc",
+          "content_type": "application/msword",
+          "size_bytes": 25088,
+          "local_path": "artifacts/downloads/procontract/782604/Non-Collusive-Certificate.doc",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=f60f64fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "response_document",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "Schedule 7 Part 1 - Call-Off Contract - JCT MW16 - Final Draft August 2022.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 90075,
+          "local_path": "artifacts/downloads/procontract/782604/Schedule-7-Part-1-Call-Off-Contract-JCT-MW16.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=011064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "Schedule 7 Part 2 - Call-Off Contract - Goods- v Final Draft August 2022.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 56604,
+          "local_path": "artifacts/downloads/procontract/782604/Schedule-7-Part-2-Call-Off-Contract-Goods.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=171064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": false
+        }
+      ],
+      "documents_count": 8,
+      "enriched_at": "2026-04-14T20:07:00Z"
+    },
+    {
+      "notice_id": "621558",
+      "process_id": null,
+      "rfx_id": "2e1e258d-5c80-ed11-811c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=2e1e258d-5c80-ed11-811c-005056b64545",
+      "updated_title": "BSH/HRA/Joinery Timber Supplies - DPS",
+      "updated_description": "Joinery Timber Supplies - DPS\n\nTimber Supply Hardwoods and Timber Supply Soft Woods and Boards & Door Blanks.\n\nBristol City Council produces high quality joinery manufactured in its own joinery shop. This DPS will be used to procure the quality timber products that will be used in the manufacture of joinery products for external use in doors, windows, framing, soffits and Fascia's, in domestic property, as well as high profile public buildings such as Ashton Court, museums and Libraries throughout Bristol.\n\nThe DPS will be run in 3 Lots:\n\n1) Supply and delivery of Soft wood timbers\n2) Supply and delivery of Plywood and Door Blanks\n3) Supply and delivery of Hardwood and Hemlock",
+      "updated_deadline_at": "2026-11-30T20:00:00Z",
+      "buyer_name": "Bristol City Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "Appendix 1 - Evaluation Criteria Joinery Timber Supplies.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 79102,
+          "local_path": "artifacts/downloads/procontract/621558/Appendix-1-Evaluation-Criteria-Joinery.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=fe31f4e0-1c34-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "ITT Joinery Timber Supplies DPS.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 136631,
+          "local_path": "artifacts/downloads/procontract/621558/ITT-Joinery-Timber-Supplies-DPS.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=1cb122c8-1d34-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "Schedule 7 - Call-Off Contract - Timber Supplies.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 43939,
+          "local_path": "artifacts/downloads/procontract/621558/Schedule-7-Call-Off-Contract-Timber.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=b757fbda-1c34-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "Timber Supplies - DPS Agreement.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 128890,
+          "local_path": "artifacts/downloads/procontract/621558/Timber-Supplies-DPS-Agreement.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=1432f4e0-1c34-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": false
+        }
+      ],
+      "documents_count": 4,
+      "enriched_at": "2026-04-14T20:10:00Z"
+    }
+  ],
+  "summary": {
+    "total_checked": 10,
+    "enriched": 3,
+    "not_yet_responded": 7,
+    "failed": 0
+  }
+}

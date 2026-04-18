@@ -1,0 +1,541 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "25112 Library Services Engage, Design and Fit out Contract - Ely Library",
+      "description": "Single-lot contract to engage with Cambridgeshire County Council's Library team and stakeholders, produce design options covering furniture, waypoints and signage for Ely Library, and deliver the fit-out and supply of furniture. The procurement is explicitly not split into lots (§1.7.1). Bidders are not required to produce a final design at tender stage; the successful supplier produces the final design post-award. Contract term: 6 months from 7 July 2026 with a potential 6-month extension, followed by a 12-month defects period. Estimated value: £150,000 excl. VAT / £180,000 incl. VAT. Detailed product and service requirements reside in Appendix 4 Specification, which is a separate attachment on ProContract and is not contained in this ITT markdown.",
+      "requirements": [
+        "Engage with the Library team and other stakeholders to understand needs and intended outcomes of the redevelopment (§1.4.1).",
+        "Create final design options and approaches covering furniture, waypoints and signage (§1.4.2).",
+        "Deliver the design that the Authority selects, with the bidder supplying and fitting out the furniture (§1.4.1, Appendix Three §3.3).",
+        "Maintain a 12-month defects period following final handover and sign-off (§1.5.3).",
+        "Register on the Find a Tender service / Central Digital Platform before contract signature and provide the Unique Identifier (§5.5).",
+        "Register on the Match My Project (MMP) portal as a minimum social value requirement and agree a social value offering with the Authority after award (§3.4).",
+        "Sign up to the Cambridgeshire County Council Climate Charter (§4.3.1, Appendix One pass/fail 3.6).",
+        "Public Liability insurance with a limit of indemnity of not less than £5,000,000 per claim/series of claims (§4.5.1(a)).",
+        "Employer's Liability insurance with a limit of indemnity of not less than £5,000,000 per claim/series of claims (§4.5.1(b)).",
+        "Professional Indemnity insurance with a limit of indemnity of not less than £2,000,000 per claim and in the aggregate per insurance period (§4.5.1(c)).",
+        "Product Liability insurance with a limit of indemnity of not less than £1,000,000 per claim/series of claims (§4.5.1(d)).",
+        "Hold the tender open for acceptance for 180 days from the submission closing date (§2.8.1).",
+        "Submit the tender via ProContract by 12:00 noon on 22 May 2026; late submissions may be excluded (timetable §2.3, §2.10).",
+        "Comply with UK GDPR by excluding personal information from responses except referees (§2.10).",
+        "Detailed product, service and exit-planning requirements are set out in Appendix 4 Specification, which is referenced in §1.4.3 and §4.2.2 but is not contained within this ITT markdown and must be read from the ProContract attachment."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Price",
+          "summary": "Price is weighted at 50% of the total tender score. Scored on the Most Advantageous Tender (MAT) methodology: the lowest overall compliant price receives the full 50% weighting, with other bids scored using the formula 50 - ((bidPrice - lowestPrice)/bidPrice)*100. Negative scores are floored to zero. Only the totals in cells D13 and J21 of the Appendix 3a pricing worksheet (Comprehensive Price list) are used for the price evaluation; other items priced are binding on the bidder but excluded from scoring.",
+          "weighting_text": "50% (Price)",
+          "evidence_anchor": {
+            "page_ref": "p.17-19",
+            "section_ref": "§3.3.4.1, §3.6 Pricing, Appendix Three §3.7, §3.11, §3.12",
+            "anchor_text": "3.3.4.1 Price (50%) ... The bidder with the lowest overall compliant price will be awarded the full price weighting. ... The total figure against Total for Evaluation items (Cell D13 and J21) will be the only figures used for evaluation."
+          }
+        },
+        {
+          "criterion": "Quality - Q1 Similar projects",
+          "summary": "Bidder provides 2 examples of similar projects they have delivered. Scored 0/2/4/6/8/10 and weighted at 25% of the 50% Quality allocation.",
+          "weighting_text": "Quality split 50%, sub-weighting 25%",
+          "evidence_anchor": {
+            "page_ref": "Appendix Two",
+            "section_ref": "Appendix Two: Award Criteria, row 1",
+            "anchor_text": "Please provide 2 examples of similar projects you have delivered. | 50% | 25%"
+          }
+        },
+        {
+          "criterion": "Quality - Q2 Environmental impact strategy",
+          "summary": "Bidder sets out a clear strategy for reducing the environmental impact of delivering the contract. Scored 0/2/4/6/8/10 and weighted at 20% of the 50% Quality allocation.",
+          "weighting_text": "Quality split 50%, sub-weighting 20%",
+          "evidence_anchor": {
+            "page_ref": "Appendix Two",
+            "section_ref": "Appendix Two: Award Criteria, row 2",
+            "anchor_text": "Please can you provide a clear strategy on how you will reduce the environmental impact in delivering this contract? | 50% | 20%"
+          }
+        },
+        {
+          "criterion": "Quality - Q3 Children's Space ideas",
+          "summary": "Bidder shares ideas or concepts for an inventive and engaging Children's Space without designing the whole space. Scored 0/2/4/6/8/10 and weighted at 20% of the 50% Quality allocation.",
+          "weighting_text": "Quality split 50%, sub-weighting 20%",
+          "evidence_anchor": {
+            "page_ref": "Appendix Two",
+            "section_ref": "Appendix Two: Award Criteria, row 3",
+            "anchor_text": "Creating an inventive and engaging Children's Space is a core ambition of the project. Without designing the whole space, please share with us some ideas or concepts on how this could be achieved. | 50% | 20%"
+          }
+        },
+        {
+          "criterion": "Quality - Q4 Future-proofing design",
+          "summary": "Bidder describes key concepts that will help future-proof the library design to remain flexible to community needs. Scored 0/2/4/6/8/10 and weighted at 15% of the 50% Quality allocation.",
+          "weighting_text": "Quality split 50%, sub-weighting 15%",
+          "evidence_anchor": {
+            "page_ref": "Appendix Two",
+            "section_ref": "Appendix Two: Award Criteria, row 4",
+            "anchor_text": "Libraries are ever adapting spaces that need to be flexible to meet community needs. Please describe key concepts that will help future proof the design as much as possible. | 50% | 15%"
+          }
+        },
+        {
+          "criterion": "Quality - Q5 Stakeholder co-design approach",
+          "summary": "Bidder explains the approach it would use to work with the Authority, staff, building partners and users to create the final design. Scored 0/2/4/6/8/10 and weighted at 15% of the 50% Quality allocation.",
+          "weighting_text": "Quality split 50%, sub-weighting 15%",
+          "evidence_anchor": {
+            "page_ref": "Appendix Two",
+            "section_ref": "Appendix Two: Award Criteria, row 5",
+            "anchor_text": "We will look to work with the winning contractor to create a design based on experience of staff, partners in the building and users. Please explain the approach you would use to work with us to create the final design. | 50% | 15%"
+          }
+        },
+        {
+          "criterion": "Quality - Q6 Handover and skills transfer",
+          "summary": "Bidder describes how it will manage the handover of the completed project including the necessary skills transfer to frontline library staff. Scored 0/2/4/6/8/10 and weighted at 5% of the 50% Quality allocation.",
+          "weighting_text": "Quality split 50%, sub-weighting 5%",
+          "evidence_anchor": {
+            "page_ref": "Appendix Two",
+            "section_ref": "Appendix Two: Award Criteria, row 6",
+            "anchor_text": "Please describe how you propose to manage the handover of the completed project including necessary skills transfer to frontline staff working in the space. | 50% | 5%"
+          }
+        },
+        {
+          "criterion": "Minimum quality threshold",
+          "summary": "A total Quality score below 60% of the 50 points available (i.e. below 30 points) may result in exclusion from the process regardless of price score.",
+          "weighting_text": "Minimum 30 / 50 quality points",
+          "evidence_anchor": {
+            "page_ref": "p.20",
+            "section_ref": "§3.6 Minimum Quality threshold/Score",
+            "anchor_text": "a quality score ... of less than 60% of the total score available (50 points) ... may result in their being excluded from the process ... the minimum quality score to achieve is 30 points"
+          }
+        },
+        {
+          "criterion": "Suitability Pass/Fail",
+          "summary": "Conditions of Participation Questionnaire (CPQ) Pass/Fail questions covering mandatory/discretionary exclusions under the Procurement Act 2023 Schedules 6 and 7, debarment list, GDPR compliance, Climate Charter, Insurance, Match My Project registration and commitment. All pass/fail questions must be passed to progress to award scoring.",
+          "weighting_text": "Pass/Fail (non-weighted gate)",
+          "evidence_anchor": {
+            "page_ref": "Appendix One",
+            "section_ref": "Appendix One: Suitability Pass/Fail Questionnaire",
+            "anchor_text": "Appendix One: Suitability Pass/Fail Questionnaire ... 3.2 Mandatory exclusions under Schedule 6 ... 3.3 Discretionary exclusion under Schedule 7 ... 3.5 GDPR Compliance ... 3.7 Insurance ... 3.8 Signing up to Match my project"
+          }
+        },
+        {
+          "criterion": "Tie-breaker",
+          "summary": "If final scores are tied: (1) highest total quality, then (2) highest price score, then (3) highest presentation score; then by highest-weighted quality question in descending order; then clarification interview scored on the same criteria; then random selection by drawing lots witnessed by an independent officer.",
+          "evidence_anchor": {
+            "page_ref": "p.21",
+            "section_ref": "§3.7 Final Tender Score Tie Breaker",
+            "anchor_text": "Highest Total Quality Score, then Highest Price Score and then Highest Presentation Score. If the scores are still tied, then the Quotation with the highest score on the highest weighted quality score will be ranked higher."
+          }
+        }
+      ],
+      "cpv_codes": [
+        "39155000-3",
+        "79932000-6"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "ely-library-engage-design-service",
+          "summary": "Engagement and design services: engage with the Library team and stakeholders, produce design options covering furniture layout, waypoints and signage for Ely Library. Pricing expected to include day rates and design fees.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Day rates for design staff",
+            "Design for furniture, waypoints and signage",
+            "Stakeholder engagement and co-design approach"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.7",
+            "section_ref": "§1.4 Contract Details - Proposal; Appendix Three §3.3.1, §3.4",
+            "anchor_text": "The key part of this contract is the engagement with the Library team to create final design options and approaches covering furniture, way points and signage etc… ... Engagement & Design services Fit out and Furniture build and supply service"
+          }
+        },
+        {
+          "seed_key": "ely-library-fit-out-furniture-supply",
+          "summary": "Fit-out and furniture build and supply service for Ely Library. Bidder supplies furniture items (including bespoke pieces), signage and waypoints in line with the agreed design and the Appendix 4 Specification.",
+          "requirement_type": "goods_and_fit_out",
+          "technical_attributes": [
+            "Core equipment / library furniture",
+            "Bespoke or customisable furniture pieces",
+            "Signage and waypoint elements",
+            "Prices held for core equipment and design rates if used in final works (§1.6.5)"
+          ],
+          "quantity_hint": "Quantities and requirements in the ITT represent a minimum standard based on current layout; final quantities vary with the agreed design (§1.6.5). Detailed item list resides in Appendix 3a Pricing schedule and Appendix 4 Specification.",
+          "evidence_anchor": {
+            "page_ref": "p.7-8, Appendix Three",
+            "section_ref": "§1.6.5; Appendix Three §3.3.1, §3.4",
+            "anchor_text": "Quantities and requirements in the ITT represent a minimum standard and expectation based on the current layout. ... These elements bidders should be considering would include day rates, costs for individual pieces of furniture, cost for changing or creating bespoke pieces of furniture and signage/waypoints."
+          }
+        },
+        {
+          "seed_key": "ely-library-childrens-space",
+          "summary": "Children's Space within Ely Library identified as a core ambition: bidders supply concepts/ideas for an inventive and engaging Children's Space. Detailed physical requirements sit in Appendix 4 Specification.",
+          "requirement_type": "design_concept",
+          "technical_attributes": [
+            "Children-focused library environment",
+            "Engaging and inventive design concepts"
+          ],
+          "evidence_anchor": {
+            "page_ref": "Appendix Two",
+            "section_ref": "Appendix Two: Award Criteria, Q3",
+            "anchor_text": "Creating an inventive and engaging Children's Space is a core ambition of the project."
+          }
+        },
+        {
+          "seed_key": "ely-library-flexible-future-proofed-space",
+          "summary": "Design must support future-proofing so the library remains adaptable to community needs (flexible furniture, modular layouts, multi-use zones).",
+          "requirement_type": "design_concept",
+          "technical_attributes": [
+            "Flexible/modular layout",
+            "Multi-use community space",
+            "Adaptability over contract term and beyond"
+          ],
+          "evidence_anchor": {
+            "page_ref": "Appendix Two",
+            "section_ref": "Appendix Two: Award Criteria, Q4",
+            "anchor_text": "Libraries are ever adapting spaces that need to be flexible to meet community needs. Please describe key concepts that will help future proof the design as much as possible."
+          }
+        },
+        {
+          "seed_key": "ely-library-detailed-spec-appendix-4",
+          "summary": "Detailed product, service, exit-planning and MMP operational requirements are defined in Appendix 4 Specification (and Appendix 8 MMP Operations Manual), which are separate attachments on ProContract and are not contained in this ITT markdown. A downstream extraction of Appendix 4 is required before product_candidates can be fully populated.",
+          "requirement_type": "external_specification_reference",
+          "technical_attributes": [
+            "Appendix 4 Specification (separate ProContract attachment)",
+            "Appendix 8 MMP Operations Manual",
+            "Appendix 5 Ely Library Floor Plan 2011",
+            "Appendix 6 Ely Library Video"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.2, p.7, p.23",
+            "section_ref": "List of Appendices; §1.4.3; §4.2.2",
+            "anchor_text": "For detailed requirements, the Authority has defined these in Appendix 4 Specification and associated appendices. ... Appendix 4 Specification -- Within the attachments section of the project on ProContract"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Procurement Act 2023, Part 6 (Below Threshold Contracts)",
+          "context": "Procurement procedure is a Below Threshold Open Procedure permitted under §85 of the Procurement Act 2023. Mandatory and discretionary exclusion grounds reference Schedules 6 and 7 of the Act, and the Central Digital Platform Unique Identifier must be provided before contract signature (§5.5).",
+          "evidence_anchor": {
+            "page_ref": "p.6, p.9, p.25",
+            "section_ref": "Important Notice; §2.2 Procurement Procedure; §5.5",
+            "anchor_text": "This procurement process is being managed by the Authority in accordance with the Procurement Act 2023, Part 6 (Below Threshold Contracts). ... a Below Threshold Open Procedure, as permitted under Section 85 of the Procurement Act 2023."
+          }
+        },
+        {
+          "standard_ref": "Freedom of Information Act 2000 (FOIA)",
+          "context": "Bidders must identify any commercially sensitive information in the form provided; Authority disclosure obligations override confidentiality marks.",
+          "evidence_anchor": {
+            "page_ref": "p.10",
+            "section_ref": "§2.7 Confidentiality and Freedom of Information",
+            "anchor_text": "obligations and duties placed upon public authorities by the Freedom of Information Act 2000 (the 'FOIA') and the Environmental Information Regulations 2004 (the 'EIR')"
+          }
+        },
+        {
+          "standard_ref": "Environmental Information Regulations 2004 (EIR)",
+          "context": "Applicable disclosure regime referenced alongside FOIA.",
+          "evidence_anchor": {
+            "page_ref": "p.10",
+            "section_ref": "§2.7 Confidentiality and Freedom of Information",
+            "anchor_text": "Environmental Information Regulations 2004 (the 'EIR')"
+          }
+        },
+        {
+          "standard_ref": "UK GDPR",
+          "context": "Responses must not contain personal information except named referees; non-compliance leads to the response being deleted or scored zero / failed.",
+          "evidence_anchor": {
+            "page_ref": "p.12",
+            "section_ref": "§2.10 Submission of Tenders",
+            "anchor_text": "Any personal information provided as part of your tenders will be handled in accordance with the UK GDPR and processed solely for the purpose of this procurement exercise."
+          }
+        },
+        {
+          "standard_ref": "TUPE Regulations",
+          "context": "Authority's position is that TUPE does not apply at contract commencement; bidders must still conduct their own due diligence.",
+          "evidence_anchor": {
+            "page_ref": "p.8",
+            "section_ref": "§1.9 TUPE",
+            "anchor_text": "the Authority believes that the TUPE Regulations do not apply to the award of this contract"
+          }
+        },
+        {
+          "standard_ref": "Cambridgeshire County Council Climate Charter",
+          "context": "Bidders must sign up to the Authority's Climate Charter as a pass/fail suitability requirement and align with Cambridgeshire's Net Zero targets (County by 2045, Council by 2030).",
+          "evidence_anchor": {
+            "page_ref": "p.23, Appendix One",
+            "section_ref": "§4.3 Climate Charter; Appendix One pass/fail 3.6",
+            "anchor_text": "We are now asking that our suppliers sign up to our Climate Charter."
+          }
+        },
+        {
+          "standard_ref": "Match My Project (MMP) portal registration",
+          "context": "Operational platform requirement: successful bidder must register on MMP as the minimum social value commitment and use it to identify local community projects to support.",
+          "evidence_anchor": {
+            "page_ref": "p.19",
+            "section_ref": "§3.4 Social Value",
+            "anchor_text": "The successful bidder will be required to register on Match My Project as a minimum requirement."
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "p.8",
+        "section_ref": "§1.7 Lotting",
+        "anchor_text": "1.7.1 This procurement is not being split into Lots as it would be impractical to try and split what is one service and system required."
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "ely-library-engage-design-service",
+      "lot_number": "1",
+      "candidate_name": "Library engagement and design service (day rates and design fees)",
+      "summary": "Professional engagement, consultation and design services: engage with the Library team and stakeholders; produce design options covering furniture, waypoints and signage for Ely Library. Bidder prices on a day-rate / design-fee basis.",
+      "requirements": [
+        "Engagement with Library team, building partners and users (§1.4.1, §1.4.2, Quality Q5).",
+        "Production of design options and approaches covering furniture, waypoints and signage (§1.4.2).",
+        "Final design to be produced post-award; tender stage requires ideas/insights only (Appendix Three note).",
+        "Day rates and design fees submitted on Appendix 3a Pricing Schedule - Engagement & Design services block (Appendix Three §3.3.1, §3.4).",
+        "Design must respect Appendix 4 Specification and the Ely Library floor plan (Appendix 5)."
+      ],
+      "technical_standards": [
+        "Procurement Act 2023 Part 6 (below-threshold procurement)",
+        "Cambridgeshire County Council Climate Charter",
+        "UK GDPR (for stakeholder engagement data handling)"
+      ],
+      "cpv_codes": [
+        "79932000-6"
+      ],
+      "evidence_anchor": {
+        "page_ref": "p.7, Appendix Three",
+        "section_ref": "§1.4 Contract Details - Proposal; Appendix Three §3.3.1",
+        "anchor_text": "This contract is to instruct a suitable and sufficient bidder who is able to engage with the Library team, and other stakeholders to understand the needs and intended outcome of the redevelopment and create designs ... Engagement & Design services Fit out and Furniture build and supply service."
+      }
+    },
+    {
+      "seed_key": "ely-library-fit-out-furniture-supply",
+      "lot_number": "1",
+      "candidate_name": "Library furniture supply and fit-out (including bespoke furniture, signage, waypoints)",
+      "summary": "Supply and fit-out of library furniture, waypoints and signage for Ely Library, including scope for bespoke or customised pieces. Prices submitted line-by-line on Appendix 3a Comprehensive Price list and will be binding on the bidder for the contract.",
+      "requirements": [
+        "Supply individual furniture items and core equipment at declared unit prices (§1.6.5, Appendix Three §3.3.1).",
+        "Supply changed or bespoke pieces of furniture (Appendix Three §3.4).",
+        "Supply signage and waypoints (§1.4.2, Appendix Three §3.4).",
+        "Prices are held; unit of measure and stated quantities must not be changed (Appendix Three §3.8).",
+        "Additional items bidders add to the list are binding but excluded from price scoring (Appendix Three §3.9-3.10).",
+        "12-month defects period after sign-off (§1.5.3)."
+      ],
+      "technical_standards": [
+        "Appendix 4 Specification (external attachment - not contained in this extraction)",
+        "Product Liability insurance (min £1,000,000 per claim, §4.5.1(d))"
+      ],
+      "cpv_codes": [
+        "39155000-3"
+      ],
+      "evidence_anchor": {
+        "page_ref": "p.7-8, Appendix Three",
+        "section_ref": "§1.6.5; Appendix Three §3.3.1, §3.4-3.10",
+        "anchor_text": "Quantities and requirements in the ITT represent a minimum standard and expectation based on the current layout. ... day rates, costs for individual pieces of furniture, cost for changing or creating bespoke pieces of furniture and signage/waypoints."
+      }
+    },
+    {
+      "seed_key": "ely-library-childrens-space",
+      "lot_number": "1",
+      "candidate_name": "Children's Space concept design and fit-out within Ely Library",
+      "summary": "Inventive and engaging Children's Space is a core ambition. Seed covers bespoke children-area furniture/fixtures and associated design concepts; detailed physical requirements reside in Appendix 4 Specification.",
+      "requirements": [
+        "Provide concepts/ideas for the Children's Space at tender stage (Appendix Two, Q3).",
+        "Deliver the final Children's Space as part of the agreed design post-award (§1.4.1).",
+        "Fit-out consistent with flexibility and future-proofing requirements (Quality Q4)."
+      ],
+      "technical_standards": [
+        "Appendix 4 Specification (external attachment)"
+      ],
+      "cpv_codes": [
+        "39155000-3",
+        "79932000-6"
+      ],
+      "evidence_anchor": {
+        "page_ref": "Appendix Two",
+        "section_ref": "Appendix Two: Award Criteria, Q3",
+        "anchor_text": "Creating an inventive and engaging Children's Space is a core ambition of the project. Without designing the whole space, please share with us some ideas or concepts on how this could be achieved."
+      }
+    },
+    {
+      "seed_key": "ely-library-flexible-future-proofed-space",
+      "lot_number": "1",
+      "candidate_name": "Flexible / future-proofed library furniture and layout",
+      "summary": "Design must support flexible, adaptable use of the Ely Library space so it can evolve with community needs over the contract term and beyond. Covers modular / multi-use furniture items and adaptable layouts.",
+      "requirements": [
+        "Flexible / modular furniture items suited to multi-use library space (Quality Q4).",
+        "Design concepts demonstrating future-proofing (Quality Q4).",
+        "Alignment with the wider vision that libraries act as warm/cool spaces and community hubs (§1.3.1-1.3.2)."
+      ],
+      "technical_standards": [
+        "Appendix 4 Specification (external attachment)"
+      ],
+      "cpv_codes": [
+        "39155000-3",
+        "79932000-6"
+      ],
+      "evidence_anchor": {
+        "page_ref": "p.6-7, Appendix Two",
+        "section_ref": "§1.3 Background; Appendix Two: Award Criteria, Q4",
+        "anchor_text": "libraries are relevant, the service aims to redevelop library locations to meet the local needs and the changing nature of how libraries are used. ... please describe key concepts that will help future proof the design as much as possible."
+      }
+    },
+    {
+      "seed_key": "ely-library-detailed-spec-appendix-4",
+      "lot_number": "1",
+      "candidate_name": "External Specification (Appendix 4) reference marker",
+      "summary": "Marker seed indicating the authoritative product requirements live in Appendix 4 Specification (and Appendix 3a Pricing schedule, Appendix 5 Floor Plan, Appendix 8 MMP Operations Manual). Downstream extraction of those attachments is required before product_candidates can be fully expanded; daemon should not promote this seed to a real candidate.",
+      "requirements": [
+        "Obtain and extract Appendix 4 Specification from ProContract attachments (§1.4.3).",
+        "Obtain and extract Appendix 3a Pricing Schedule to enumerate stated core items, quantities and units of measure (Appendix Three §3.6-3.8).",
+        "Obtain Ely Library Floor Plan 2011 (Appendix 5) for spatial context.",
+        "Obtain MMP Operations Manual (Appendix 8) for operational Social Value requirements (§3.4)."
+      ],
+      "technical_standards": [
+        "Appendix 4 Specification (external attachment)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.2, p.7",
+        "section_ref": "List of Appendices; §1.4.3",
+        "anchor_text": "Appendix 4 -- Specification -- Within the attachments section of the project on ProContract ... For detailed requirements, the Authority has defined these in Appendix 4 Specification and associated appendices."
+      }
+    }
+  ],
+  "field_confidences": {
+    "lot_structure": 9800,
+    "contract_title": 9800,
+    "buyer_name": 9800,
+    "evaluation_criteria": 9500,
+    "quality_weightings": 9500,
+    "price_methodology": 9500,
+    "minimum_quality_threshold": 9500,
+    "insurance_requirements": 9500,
+    "contract_value": 9500,
+    "key_dates": 9200,
+    "tender_validity": 9500,
+    "cpv_codes": 5500,
+    "product_requirement_seeds": 5000,
+    "technical_standards": 6000,
+    "full_product_requirements": 2500
+  },
+  "extraction_confidence_bps": 7200,
+  "warnings": [
+    {
+      "code": "EXTERNAL_SPEC_NOT_EXTRACTED",
+      "message": "Appendix 4 Specification is the authoritative source of detailed product and service requirements but is a separate attachment on ProContract and is not contained in this ITT markdown. Product_requirement_seeds in this payload are necessarily high-level and must be re-expanded once Appendix 4 is extracted. Same applies to Appendix 3a Pricing Schedule (line-item furniture list), Appendix 5 Ely Library Floor Plan 2011 (spatial context), and Appendix 8 MMP Operations Manual (social value operational detail).",
+      "evidence_refs": [
+        "List of Appendices (p.2)",
+        "§1.4.3 Contract Details - Proposal",
+        "§4.2.2 Exit Planning",
+        "Appendix Three §3.5-3.6"
+      ]
+    },
+    {
+      "code": "CPV_FROM_NOTICE_METADATA",
+      "message": "The ITT document body does not quote CPV codes. The CPV codes included on the single lot (39155000-3 Library furniture; 79932000-6 Interior design services) were carried in from the upstream contract notice metadata rather than cited from the tender document itself; treat as inferred rather than document-grounded.",
+      "evidence_refs": [
+        "contract_notices.main_category (upstream)"
+      ]
+    },
+    {
+      "code": "STANDARDS_ARE_PROCEDURAL_NOT_PRODUCT",
+      "message": "The technical_standards entries are regulatory / procedural frameworks (Procurement Act 2023, FOIA, EIR, UK GDPR, TUPE, Climate Charter, MMP). This ITT does not cite any product-level technical standards (BS, EN, ISO, fire-rating, accessibility) for library furniture; such standards are expected to appear in Appendix 4 Specification.",
+      "evidence_refs": [
+        "§2.2 Procurement Procedure",
+        "§2.7 Confidentiality and Freedom of Information",
+        "§4.3 Climate Charter"
+      ]
+    },
+    {
+      "code": "TABLE_OF_CONTENTS_HAS_STRUCTURAL_ARTIFACTS",
+      "message": "The Docling markdown between lines ~55-120 and ~160-190 contains an out-of-order cascade of section numbers (2.1, 1.1, 3.1, 3.5, 2.2, ...) which appears to be a table-of-contents / marginalia rendering artifact rather than real content. Downstream consumers should ignore these loose numeric tokens and rely on the section headings extracted here.",
+      "evidence_refs": [
+        "lines 55-120 of extracted markdown",
+        "lines 160-190 of extracted markdown"
+      ]
+    },
+    {
+      "code": "DATE_OCR_AMBIGUITY",
+      "message": "Several dates in the §2.3 Key Activity table use ordinal suffixes that were OCR'd with occasional typos (e.g. '30 h June 2026' for 30th June, '7 th July 2026'). Canonical interpretation: publication 26 March 2026, clarification deadline 21 April 2026, clarification response 24 April 2026, tender submission 22 May 2026 (12:00 noon), evaluation 25 May 2026, award w/c 22 June 2026, feedback 30 June 2026, contract details notice 27 July 2026, contract start 7 July 2026, defects period ends 6 January 2027.",
+      "evidence_refs": [
+        "§2.3 Key Activity and Timescales"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p.1",
+      "section_ref": "Title block",
+      "anchor_text": "Contract Name: 25112 Library Services Engage, Design and Fit out Contract - Ely Library Contract Reference No.: DN797266"
+    },
+    {
+      "page_ref": "p.8",
+      "section_ref": "§1.7 Lotting",
+      "anchor_text": "1.7.1 This procurement is not being split into Lots as it would be impractical to try and split what is one service and system required."
+    },
+    {
+      "page_ref": "p.7",
+      "section_ref": "§1.5 Contract Details - Contract term",
+      "anchor_text": "it is anticipated to commence on 7 th July 2026 and will continue for a period of six (6) months ... potential for a contract extension of up to six (6) months ... twelve (12) month defects period"
+    },
+    {
+      "page_ref": "p.7",
+      "section_ref": "§1.6 Contract Details - Contract value",
+      "anchor_text": "estimated total value of the contract over the total contract period is of £180,000 (inclusive of VAT) ... exclusive of VAT of £150,000"
+    },
+    {
+      "page_ref": "p.9",
+      "section_ref": "§2.3 Key Activity and Timescales",
+      "anchor_text": "Tender response submission Deadline at 12:00 noon. | 22 nd May 2026"
+    },
+    {
+      "page_ref": "p.17",
+      "section_ref": "§3.3 Award Criteria - Quality and Price",
+      "anchor_text": "3.3.4.1 Price (50%) ... 3.3.4.2 Quality (50%)"
+    },
+    {
+      "page_ref": "p.17",
+      "section_ref": "§3.3.7 scoring methodology",
+      "anchor_text": "Score Commentary 0 Very weak or no answer 2 Poor 4 Satisfactory 6 Good 8 Very good 10 Exceptional"
+    },
+    {
+      "page_ref": "p.20",
+      "section_ref": "§3.6 Minimum Quality threshold/Score",
+      "anchor_text": "the minimum quality score to achieve is 30 points"
+    },
+    {
+      "page_ref": "p.11",
+      "section_ref": "§2.8 Tender Validity",
+      "anchor_text": "2.8.1 The bidder is required to hold the Tender open for acceptance by the Authority for a period of 180 days from the closing date for the submission of tenders."
+    },
+    {
+      "page_ref": "p.24",
+      "section_ref": "§4.5 Insurance Levels",
+      "anchor_text": "(a) Public Liability insurance ... £5,000,000 ... (b) Employer's Liability insurance ... £5,000,000 ... (c) Professional Indemnity ... £2,000,000 ... (d) Product Liability ... £1,000,000"
+    },
+    {
+      "page_ref": "Appendix One",
+      "section_ref": "Appendix One: Suitability Pass/Fail Questionnaire",
+      "anchor_text": "3.2 Mandatory exclusions under Schedule 6 of Procurement Act | Pass/Fail ... 3.3 Discretionary exclusion under Schedule 7 ... 3.7 Insurance ... 3.8 Signing up to Match my project"
+    },
+    {
+      "page_ref": "Appendix Two",
+      "section_ref": "Appendix Two: Award Criteria",
+      "anchor_text": "Q1 25% similar projects; Q2 20% environmental impact; Q3 20% Children's Space; Q4 15% future-proofing; Q5 15% co-design approach; Q6 5% handover"
+    },
+    {
+      "page_ref": "Appendix Three",
+      "section_ref": "Appendix Three: Pricing Schedule §3.7",
+      "anchor_text": "The total figure against Total for Evaluation items (Cell D13 and J21) will be the only figures used for evaluation."
+    },
+    {
+      "page_ref": "p.2",
+      "section_ref": "List of Appendices",
+      "anchor_text": "Appendix 4 -- Specification -- Within the attachments section of the project on ProContract"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "f4f0474fa46510628de580d8751112aa97c7cd549cef448eaae4ff19d1191795",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

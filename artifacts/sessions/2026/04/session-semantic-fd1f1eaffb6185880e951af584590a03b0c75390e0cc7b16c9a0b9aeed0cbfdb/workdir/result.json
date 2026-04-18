@@ -1,0 +1,1983 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "RCV's",
+      "description": "Refuse collection vehicles (RCVs) offered for contract hire/leasing under ESPO 218_26, bid on both 60-month and 84-month contract hire profile periods. Six scored vehicle specifications (Specs 1-6) plus one information-only specification (Spec 7). Usage profile 10,000 miles per annum, fully maintained, monthly payments in advance.",
+      "requirements": [
+        "Tenderers must price both 60-month and 84-month contract hire profile periods for at least one vehicle specification per elected Lot; pricing for only one of the two periods renders the bid non-compliant for that specification.",
+        "Pricing is total on-the-road (OTR) and inclusive of vehicle and associated equipment, mileage/hours usage, maintenance and parts, scheduled manufacturer servicing, MOT (where required), handbooks, statutory fees (first registration fee, VED) and other regulatory duties excluding VAT.",
+        "Pricing is on a contract hire basis with monthly payments in advance; usage profile is 10,000 miles per annum.",
+        "Tendered pricing shall be inclusive of the 1% ESPO framework fee.",
+        "A vehicle weighting is applied per specification to build the total weighted basket price used for scoring."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Overall Total Weighted Basket Price",
+          "summary": "Price evaluated per lot via the total weighted price for a basket of vehicle specifications, with vehicle-specific weightings applied. Maximum scored price weighting is 20% per the Overall Total Weighted Basket Price line, with detailed award criteria defined in the Invitation to Tender, section 5 - Evaluation of Tenders.",
+          "weighting_text": "Overall Total Weighted Basket Price (scored, max. score 20%)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 1 / Page 1",
+            "section_ref": "#/groups/2",
+            "anchor_text": "Overall Total Weighted Basket Price (scored, max. score 20%)"
+          }
+        },
+        {
+          "criterion": "Median substitution for missing vehicle specifications",
+          "summary": "Where a tenderer submits compliant prices for some but not all vehicle specifications in a lot, the median of other compliant tenderers' prices is substituted for evaluation; if no tenderer bids on a specification it is removed from the evaluation.",
+          "evidence_anchor": {
+            "page_ref": "sheet: Instructions / Page 1",
+            "section_ref": "#/groups/1",
+            "anchor_text": "the median price of all other compliant Tenderers' prices for the missing vehicle specifications will be used in substitution for evaluation purposes"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "34114000",
+        "34144510",
+        "34144511",
+        "34144512"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "218_26-lot-1-spec-1-rcv-7_5t-diesel",
+          "summary": "7.5t GVW diesel RCV with single-compartment refuse body and wheeled-bin lift",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "7.5t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 2 people",
+            "Single compartment refuse body",
+            "Bin lift capable of lifting wheeled containers",
+            "Vehicle weighting: 2"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 10,000 miles pa, fully maintained)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 1 / Page 1",
+            "section_ref": "#/groups/2",
+            "anchor_text": "Vehicle Specification 1 7.5t approx GVW chassis  Diesel Euro 6 engine Cab to accommodate a minimum of 2 people Single compartment refuse body  Bin lift capable of lifting wheeled containers"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-1-spec-2-rcv-18t-diesel",
+          "summary": "18t GVW diesel RCV with single-compartment refuse body and wheeled-bin lift",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "18t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 2 people plus driver",
+            "Single compartment refuse body",
+            "Bin lift capable of lifting wheeled containers",
+            "Vehicle weighting: 3"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 10,000 miles pa, fully maintained)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 1 / Page 1",
+            "section_ref": "#/groups/2",
+            "anchor_text": "Vehicle Specification 2 18t approx GVW chassis  Diesel Euro 6 engine Cab to accommodate a minimum of 2 people plus driver Single compartment refuse body  Bin lift capable of lifting wheeled containers"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-1-spec-3-rcv-26t-diesel",
+          "summary": "26t GVW diesel RCV with single-compartment refuse body and wheeled-bin lift",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "26t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 2 people plus driver",
+            "Single compartment refuse body",
+            "Bin lift capable of lifting wheeled containers",
+            "Vehicle weighting: 4"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 10,000 miles pa, fully maintained)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 1 / Page 1",
+            "section_ref": "#/groups/2",
+            "anchor_text": "Vehicle Specification 3 26t approx GVW chassis  Diesel Euro 6 engine Cab to accommodate a minimum of 2 people plus driver Single compartment refuse body  Bin lift capable of lifting wheeled containers"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-1-spec-4-rcv-7_5t-diesel-food-waste",
+          "summary": "7.5t GVW diesel RCV configured for household food-waste collection",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "7.5t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 2 people",
+            "Single compartment refuse body",
+            "Body to allow for collection of household food waste",
+            "Vehicle weighting: 3"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 10,000 miles pa, fully maintained)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 1 / Page 1",
+            "section_ref": "#/groups/2",
+            "anchor_text": "Vehicle Specification 4 7.5t approx GVW chassis  Diesel Euro 6 engine Cab to accommodate a minimum of 2 people Single compartment refuse body  Body to allow for collection of household food waste"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-1-spec-5-rcv-27t-electric",
+          "summary": "27t GVW electric RCV with automatic gearbox and wheeled-bin lift",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "27t approx GVW chassis",
+            "Electric powertrain",
+            "Automatic gearbox",
+            "Cab to accommodate a minimum of 2 people plus driver",
+            "Single compartment refuse body",
+            "Bin lift capable of lifting wheeled containers",
+            "Vehicle weighting: 1"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 10,000 miles pa, fully maintained)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 1 / Page 1",
+            "section_ref": "#/groups/2",
+            "anchor_text": "Vehicle Specification 5 27t approx GVW chassis  Electric powertrain Automatic gearbox  Cab to accommodate a minimum of 2 people plus driver Single compartment refuse body  Bin lift capable of lifting wheeled containers"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-1-spec-6-rcv-27t-hydrogen",
+          "summary": "27t GVW hydrogen-powered RCV with automatic gearbox and wheeled-bin lift",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "27t approx GVW chassis",
+            "Hydrogen powertrain",
+            "Automatic gearbox",
+            "Cab to accommodate a minimum of 2 people plus driver",
+            "Single compartment refuse body",
+            "Bin lift capable of lifting wheeled containers",
+            "Vehicle weighting: 1"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 10,000 miles pa, fully maintained)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 1 / Page 1",
+            "section_ref": "#/groups/2",
+            "anchor_text": "Vehicle Specification 6 27t approx GVW chassis  Hydrogen powertrain Automatic gearbox  Cab to accommodate a minimum of 2 people plus driver Single compartment refuse body  Bin lift capable of lifting wheeled containers"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-1-spec-7-rcv-26t-diesel-underground-crane",
+          "summary": "26t GVW diesel RCV with mounted crane for underground bin lifting (information only; not scored)",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "26t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 2 people plus driver",
+            "Single compartment refuse body",
+            "Mounted crane for underground bin lifting",
+            "Vehicle weighting: 0 (information only, not scored)",
+            "Usage: 5,000 miles per annum"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 5,000 miles pa, fully maintained; information only)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 1 / Page 1",
+            "section_ref": "#/groups/2",
+            "anchor_text": "FOR INFORMATION ONLY (NOT SCORED) ... Vehicle Specification 7 26t approx GVW chassis  Diesel Euro 6 engine ... Mounted crane to enable the lifting and emptying of underground bins"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Euro 6",
+          "context": "Diesel internal combustion engines on diesel RCV specifications must meet the Euro 6 emissions standard",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 1 / Page 1",
+            "section_ref": "#/groups/2",
+            "anchor_text": "Diesel Euro 6 engine"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 1 / Page 1",
+        "section_ref": "#/groups/2",
+        "anchor_text": "LOT 1 - RCV's  Yellow cells are for completion to enable evaluation - both yellow cells must be completed per Vehicle Specification for a bid to be compliant."
+      }
+    },
+    {
+      "lot_number": "2",
+      "title": "Sweepers",
+      "description": "Road sweeper vehicles offered for contract hire/leasing under ESPO 218_26 across a range of GVW bands including compact (sub-5t), truck-mounted (15t/18t) and electric variants. Eight vehicle specifications. Usage profile 8 hours per day, 5 days per week, fully maintained, monthly payments in advance.",
+      "requirements": [
+        "Tenderers must price both 60-month and 84-month contract hire profile periods for at least one vehicle specification per elected Lot.",
+        "Usage profile for all sweeper specs: 8 hours per day, 5 days per week; fully maintained; monthly payments in advance.",
+        "OTR pricing on contract hire basis, inclusive of 1% ESPO framework fee, VED, first registration fee (where required), MOT (where required); excluding VAT.",
+        "Vehicle-level weightings apply to build the total weighted basket price."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Overall Total Weighted Basket Price",
+          "summary": "Lot score driven by the weighted basket of sweeper vehicle specifications; scored price weighting up to 20% per line total; detailed criteria in ITT section 5.",
+          "weighting_text": "Overall Total Weighted Basket Price (scored, max. score 20%)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 2 / Page 1",
+            "section_ref": "#/groups/3",
+            "anchor_text": "Overall Total Weighted Basket Price (scored, max. score 20%)"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "34114000",
+        "34144430"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "218_26-lot-2-spec-1-sweeper-3_1t-diesel",
+          "summary": "Up to 3.1t GVW compact diesel suction sweeper",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "Up to 3.1t GVW compact sweeper",
+            "Diesel engine meeting current legislation",
+            "Cab to accommodate a minimum of 1 person",
+            "Non-corrosive body comprising a suction cleaner unit",
+            "Vehicle weighting: 2"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 8h/day x 5 days/week, fully maintained)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 2 / Page 1",
+            "section_ref": "#/groups/3",
+            "anchor_text": "Vehicle Specification 1 Up to 3.1t GVW compact sweeper Diesel engine meeting current legislation"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-2-spec-2-sweeper-3_1t-4t-diesel",
+          "summary": "3.1t-4t GVW compact diesel suction sweeper",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "3.1t - 4t GVW compact sweeper",
+            "Diesel engine meeting current legislation",
+            "Cab to accommodate a minimum of 1 person",
+            "Non-corrosive body comprising a suction cleaner unit",
+            "Vehicle weighting: 5"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 8h/day x 5 days/week, fully maintained)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 2 / Page 1",
+            "section_ref": "#/groups/3",
+            "anchor_text": "Vehicle Specification 2 3.1t - 4t GVW compact sweeper Diesel engine meeting current legislation"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-2-spec-3-sweeper-4_1t-5t-diesel",
+          "summary": "4.1t-5t GVW compact diesel suction sweeper",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "4.1t - 5t GVW compact sweeper",
+            "Diesel engine meeting current legislation",
+            "Cab to accommodate a minimum of 1 person",
+            "Non-corrosive body comprising a suction cleaner unit",
+            "Vehicle weighting: 1"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 8h/day x 5 days/week, fully maintained)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 2 / Page 1",
+            "section_ref": "#/groups/3",
+            "anchor_text": "Vehicle Specification 3 4.1t - 5t GVW compact sweeper"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-2-spec-4-sweeper-5_1t-plus-diesel",
+          "summary": "5.1t+ GVW compact diesel suction sweeper",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "5.1t+ GVW compact sweeper",
+            "Diesel engine meeting current legislation",
+            "Cab to accommodate a minimum of 1 person",
+            "Non-corrosive body comprising a suction cleaner unit"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 8h/day x 5 days/week, fully maintained)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 2 / Page 1",
+            "section_ref": "#/groups/3",
+            "anchor_text": "Vehicle Specification 4 5.1t+ GVW compact sweeper"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-2-spec-5-sweeper-3_1t-4t-electric",
+          "summary": "3.1t-4t GVW compact electric suction sweeper",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "3.1t - 4t GVW compact sweeper",
+            "Electric powertrain",
+            "Cab to accommodate a minimum of 1 person",
+            "Non-corrosive body comprising a suction cleaner unit"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 8h/day x 5 days/week, fully maintained)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 2 / Page 1",
+            "section_ref": "#/groups/3",
+            "anchor_text": "Vehicle Specification 5 3.1t - 4t GVW compact sweeper Electric powertrain"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-2-spec-6-sweeper-15t-truckmounted-diesel",
+          "summary": "15t GVW truck-mounted diesel sweeper with hydrostatic gearbox",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "15t approx GVW chassis, truck-mounted sweeper",
+            "Diesel Euro 6 engine",
+            "Hydrostatic gearbox",
+            "Cab to accommodate a minimum of 1 person plus driver",
+            "Non-corrosive body comprising a suction cleaner unit"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 8h/day x 5 days/week, fully maintained)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 2 / Page 1",
+            "section_ref": "#/groups/3",
+            "anchor_text": "Vehicle Specification 6 15t approx GVW chassis, truck mounted sweeper  Diesel Euro 6 engine Hydrostatic gearbox"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-2-spec-7-sweeper-18t-truckmounted-diesel",
+          "summary": "18t GVW truck-mounted diesel sweeper with hydrostatic gearbox",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "18t approx GVW chassis, truck-mounted sweeper",
+            "Diesel Euro 6 engine",
+            "Hydrostatic gearbox",
+            "Cab to accommodate a minimum of 1 person plus driver",
+            "Non-corrosive body comprising a suction cleaner unit"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 8h/day x 5 days/week, fully maintained)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 2 / Page 1",
+            "section_ref": "#/groups/3",
+            "anchor_text": "Vehicle Specification 7 18t approx GVW chassis, truck mounted sweeper"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-2-spec-8-sweeper-15t-truckmounted-electric",
+          "summary": "15t GVW truck-mounted electric sweeper with automatic gearbox",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "15t approx GVW chassis, truck-mounted sweeper",
+            "Electric powertrain",
+            "Automatic gearbox",
+            "Cab to accommodate a minimum of 1 person plus driver",
+            "Non-corrosive body comprising a suction cleaner unit"
+          ],
+          "quantity_hint": "1 unit basis (contract hire, 8h/day x 5 days/week, fully maintained)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 2 / Page 1",
+            "section_ref": "#/groups/3",
+            "anchor_text": "Vehicle Specification 8 15t approx GVW chassis, truck mounted sweeper  Electric powertrain Automatic gearbox"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Euro 6",
+          "context": "Diesel Euro 6 emissions standard required on truck-mounted diesel sweeper chassis (15t/18t)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 2 / Page 1",
+            "section_ref": "#/groups/3",
+            "anchor_text": "Diesel Euro 6 engine Hydrostatic gearbox"
+          }
+        },
+        {
+          "standard_ref": "diesel engine meeting current legislation",
+          "context": "Compact (sub-5t) diesel sweeper specifications state engines must meet current legislation rather than an explicit Euro 6 citation",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 2 / Page 1",
+            "section_ref": "#/groups/3",
+            "anchor_text": "Diesel engine meeting current legislation"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 2 / Page 1",
+        "section_ref": "#/groups/3",
+        "anchor_text": "LOT 2 - Sweepers  Yellow cells are for completion to enable evaluation Orange cells are for completion but are for information-only"
+      }
+    },
+    {
+      "lot_number": "3",
+      "title": "Winter maintenance vehicles",
+      "description": "Gritter/winter-maintenance vehicles with single-chamber gritting bodies and snowplough attachment, across 18t diesel, 26t diesel, and 19t electric specifications. Three vehicle specifications bid on 60- and 84-month contract hire profiles.",
+      "requirements": [
+        "Tenderers must price both 60-month and 84-month contract hire profile periods for at least one vehicle specification per elected Lot.",
+        "Each specification requires a permanently mounted (or demountable on electric spec) gritting body of non-corrosive construction plus a snowplough attachment.",
+        "OTR pricing on contract hire basis, inclusive of 1% ESPO framework fee, excluding VAT."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Overall Total Weighted Basket Price",
+          "summary": "Weighted basket pricing drives the lot score; scored price weighting up to 20% per line total.",
+          "weighting_text": "Overall Total Weighted Basket Price (scored, max. score 20%)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 3 / Page 1",
+            "section_ref": "#/groups/4",
+            "anchor_text": "Overall Total Weighted Basket Price (scored, max. score 20%)"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "34114000",
+        "34144420"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "218_26-lot-3-spec-1-gritter-18t-diesel",
+          "summary": "18t GVW diesel gritter, 6m³ permanently mounted gritting body with snowplough",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "18t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 1 person plus driver",
+            "6m³ approx single chamber gritting body",
+            "Permanently mounted body of non-corrosive construction",
+            "Snowplough attachment"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 3 / Page 1",
+            "section_ref": "#/groups/4",
+            "anchor_text": "Vehicle Specification 1 18t approx GVW chassis  Diesel Euro 6 engine ... 6m³ approx single chamber gritting body"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-3-spec-2-gritter-26t-diesel",
+          "summary": "26t GVW diesel gritter, 9m³ permanently mounted gritting body with snowplough",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "26t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 1 person plus driver",
+            "9m³ approx single chamber gritting body",
+            "Permanently mounted body of non-corrosive construction",
+            "Snowplough attachment"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 3 / Page 1",
+            "section_ref": "#/groups/4",
+            "anchor_text": "Vehicle Specification 2 26t approx GVW chassis  Diesel Euro 6 engine ... 9m³ approx single chamber gritting body"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-3-spec-3-gritter-19t-electric",
+          "summary": "19t GVW electric gritter, 6m³ demountable gritting body with snowplough",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "19t approx GVW chassis",
+            "Electric powertrain",
+            "Cab to accommodate a minimum of 1 person plus driver",
+            "6m³ approx single chamber gritting body",
+            "Demountable body of non-corrosive construction",
+            "Snowplough attachment"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 3 / Page 1",
+            "section_ref": "#/groups/4",
+            "anchor_text": "Vehicle Specification 3 19t approx GVW chassis  Electric powertrain ... Demountable body to be of a non-corrosive construction  Snowplough attachment"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Euro 6",
+          "context": "Diesel gritter chassis must meet the Euro 6 emissions standard",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 3 / Page 1",
+            "section_ref": "#/groups/4",
+            "anchor_text": "Diesel Euro 6 engine"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 3 / Page 1",
+        "section_ref": "#/groups/4",
+        "anchor_text": "LOT 3 -  Winter maintenance vehicles  Yellow cells are for completion to enable evaluation Orange cells are for completion but are for information-only"
+      }
+    },
+    {
+      "lot_number": "4",
+      "title": "Gully emptiers",
+      "description": "Gully-emptier vehicles with permanently mounted medium-volume tanks, in 18t diesel, 26t diesel, and 18t electric specifications. Three vehicle specifications bid on 60- and 84-month contract hire profiles.",
+      "requirements": [
+        "Tenderers must price both 60-month and 84-month contract hire profile periods for at least one vehicle specification per elected Lot.",
+        "Each specification requires a permanently mounted body of non-corrosive construction with a medium-volume tank capacity.",
+        "OTR pricing on contract hire basis, inclusive of 1% ESPO framework fee."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Overall Total Weighted Basket Price",
+          "summary": "Weighted basket pricing drives the lot score; scored price weighting up to 20% per line total.",
+          "weighting_text": "Overall Total Weighted Basket Price (scored, max. score 20%)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 4 / Page 1",
+            "section_ref": "#/groups/5",
+            "anchor_text": "Overall Total Weighted Basket Price (scored, max. score 20%)"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "34114000",
+        "34144500"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "218_26-lot-4-spec-1-gully-18t-diesel",
+          "summary": "18t GVW diesel gully emptier with permanently mounted medium-volume tank",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "18t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 1 person plus driver",
+            "Permanently mounted body of non-corrosive construction",
+            "Medium volume tank capacity"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 4 / Page 1",
+            "section_ref": "#/groups/5",
+            "anchor_text": "Vehicle Specification 1 18t approx GVW chassis  Diesel Euro 6 engine ... Permanently mounted body of a non-corrosive construction Medium volume tank capacity"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-4-spec-2-gully-26t-diesel",
+          "summary": "26t GVW diesel gully emptier with permanently mounted medium-volume tank",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "26t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 1 person plus driver",
+            "Permanently mounted body of non-corrosive construction",
+            "Medium volume tank capacity"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 4 / Page 1",
+            "section_ref": "#/groups/5",
+            "anchor_text": "Vehicle Specification 2 26t approx GVW chassis  Diesel Euro 6 engine ... Medium volume tank capacity"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-4-spec-3-gully-18t-electric",
+          "summary": "18t GVW electric gully emptier with permanently mounted medium-volume tank",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "18t approx GVW chassis",
+            "Electric powertrain",
+            "Cab to accommodate a minimum of 1 person plus driver",
+            "Permanently mounted body of non-corrosive construction",
+            "Medium volume tank capacity"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 4 / Page 1",
+            "section_ref": "#/groups/5",
+            "anchor_text": "Vehicle Specification 3 18t approx GVW chassis  Electric powertrain ... Medium volume tank capacity"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Euro 6",
+          "context": "Diesel gully-emptier chassis must meet the Euro 6 emissions standard",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 4 / Page 1",
+            "section_ref": "#/groups/5",
+            "anchor_text": "Diesel Euro 6 engine"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 4 / Page 1",
+        "section_ref": "#/groups/5",
+        "anchor_text": "LOT 4 - Gully emptiers  Yellow cells are for completion to enable evaluation Orange cells are for completion but are for information-only"
+      }
+    },
+    {
+      "lot_number": "5",
+      "title": "Buses and minibuses",
+      "description": "Minibus, midibus and single-deck bus specifications in diesel Euro 6 and electric variants across five vehicle specifications. Bid on 60- and 84-month contract hire profiles.",
+      "requirements": [
+        "Tenderers must price both 60-month and 84-month contract hire profile periods for at least one vehicle specification per elected Lot.",
+        "OTR pricing on contract hire basis, inclusive of 1% ESPO framework fee."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Overall Total Weighted Basket Price",
+          "summary": "Weighted basket pricing drives the lot score; scored price weighting up to 20% per line total.",
+          "weighting_text": "Overall Total Weighted Basket Price (scored, max. score 20%)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 5 / Page 1",
+            "section_ref": "#/groups/6",
+            "anchor_text": "Overall Total Weighted Basket Price (scored, max. score 20%)"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "34121000",
+        "34121100",
+        "34121400"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "218_26-lot-5-spec-1-minibus-16-17-diesel",
+          "summary": "3.5-5t GVW diesel minibus, 16/17 seats",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "3.5 - 5t GVW chassis, minibus",
+            "16/17 seats",
+            "Diesel Euro 6 engine"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 5 / Page 1",
+            "section_ref": "#/groups/6",
+            "anchor_text": "Vehicle Specification 1 3.5 - 5t GVW chassis, minibus  16/17 seats Diesel Euro 6 engine"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-5-spec-2-midibus-24-diesel",
+          "summary": "6-7t GVW diesel midibus, 24 seats",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "6 - 7t GVW chassis, midibus",
+            "24 seats",
+            "Diesel Euro 6 engine"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 5 / Page 1",
+            "section_ref": "#/groups/6",
+            "anchor_text": "Vehicle Specification 2 6 - 7t GVW chassis, midibus  24 seats Diesel Euro 6 engine"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-5-spec-3-singledeck-12t-diesel",
+          "summary": "12t GVW diesel single-deck bus, approx 40 seats",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "12t approx GVW chassis, single deck bus",
+            "40 seats approx",
+            "Diesel Euro 6 engine"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 5 / Page 1",
+            "section_ref": "#/groups/6",
+            "anchor_text": "Vehicle Specification 3 12t approx GVW chassis, single deck bus   40 seats approx Diesel Euro 6 engine"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-5-spec-4-singledeck-20t-electric",
+          "summary": "Up to 20t GVW electric single-deck bus, approx 40 seats",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "Up to 20t GVW chassis, single deck bus",
+            "40 seats approx",
+            "Electric powertrain"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 5 / Page 1",
+            "section_ref": "#/groups/6",
+            "anchor_text": "Vehicle Specification 4 Up to 20t GVW chassis, single deck bus   40 seats approx Electric powertrain"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-5-spec-5-minibus-16-17-electric",
+          "summary": "3.5-5t GVW electric minibus, 16/17 seats",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "3.5 - 5t GVW chassis, minibus",
+            "16/17 seats",
+            "Electric powertrain"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 5 / Page 1",
+            "section_ref": "#/groups/6",
+            "anchor_text": "Vehicle Specification 5 3.5 - 5t GVW chassis, minibus  16/17 seats Electric powertrain"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Euro 6",
+          "context": "Diesel bus/minibus specifications must meet the Euro 6 emissions standard",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 5 / Page 1",
+            "section_ref": "#/groups/6",
+            "anchor_text": "Diesel Euro 6 engine"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 5 / Page 1",
+        "section_ref": "#/groups/6",
+        "anchor_text": "LOT 5 - Buses and minibuses  Yellow cells are for completion to enable evaluation Orange cells are for completion but are for information-only"
+      }
+    },
+    {
+      "lot_number": "6",
+      "title": "Tippers",
+      "description": "Dropside tipper chassis in diesel and electric variants, 3.5t to 26t GVW. Four vehicle specifications. Bid on 60- and 84-month contract hire profiles.",
+      "requirements": [
+        "Tenderers must price both 60-month and 84-month contract hire profile periods for at least one vehicle specification per elected Lot.",
+        "All specifications require a dropside tipper body.",
+        "OTR pricing on contract hire basis, inclusive of 1% ESPO framework fee."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Overall Total Weighted Basket Price",
+          "summary": "Weighted basket pricing drives the lot score; scored price weighting up to 20% per line total.",
+          "weighting_text": "Overall Total Weighted Basket Price (scored, max. score 20%)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 6 / Page 1",
+            "section_ref": "#/groups/7",
+            "anchor_text": "Overall Total Weighted Basket Price (scored, max. score 20%)"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "34134000",
+        "34134100",
+        "34134200"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "218_26-lot-6-spec-1-tipper-7_5t-diesel",
+          "summary": "7.5t GVW diesel dropside tipper",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "7.5t approx GVW tipper chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 2 people",
+            "Dropside tipper body"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 6 / Page 1",
+            "section_ref": "#/groups/7",
+            "anchor_text": "Vehicle Specification 1 7.5t approx GVW tipper chassis  Diesel Euro 6 engine Cab to accommodate a minimum of 2 people Dropside tipper body"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-6-spec-2-tipper-18t-diesel",
+          "summary": "18t GVW diesel dropside tipper",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "18t approx GVW tipper chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 2 people",
+            "Dropside tipper body"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 6 / Page 1",
+            "section_ref": "#/groups/7",
+            "anchor_text": "Vehicle Specification 2 18t approx GVW tipper chassis  Diesel Euro 6 engine"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-6-spec-3-tipper-26t-diesel",
+          "summary": "26t GVW diesel dropside tipper",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "26t approx GVW tipper chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 2 people",
+            "Dropside tipper body"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 6 / Page 1",
+            "section_ref": "#/groups/7",
+            "anchor_text": "Vehicle Specification 3 26t approx GVW tipper chassis  Diesel Euro 6 engine"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-6-spec-4-tipper-3_5t-4_5t-electric",
+          "summary": "3.5-4.5t GVW electric dropside tipper (labelled 'Vehicle Specification 3' in source, treated as fourth specification in lot sequence)",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "3.5 - 4.5t GVW tipper chassis",
+            "Electric powertrain",
+            "Cab to accommodate a minimum of 2 people",
+            "Dropside tipper body"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 6 / Page 1",
+            "section_ref": "#/groups/7",
+            "anchor_text": "Vehicle Specification 3 3.5 -4.5t GVW tipper chassis  Electric powertrain Cab to accommodate a minimum of 2 people Dropside tipper body"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Euro 6",
+          "context": "Diesel tipper chassis must meet the Euro 6 emissions standard",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 6 / Page 1",
+            "section_ref": "#/groups/7",
+            "anchor_text": "Diesel Euro 6 engine"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 6 / Page 1",
+        "section_ref": "#/groups/7",
+        "anchor_text": "LOT 6 - Tippers  Yellow cells are for completion to enable evaluation Orange cells are for completion but are for information-only"
+      }
+    },
+    {
+      "lot_number": "7",
+      "title": "Loaders",
+      "description": "Hook loader and skip loader chassis in 18t-26t GVW bands, diesel and electric variants. Six vehicle specifications (three hook loaders, three skip loaders). Bid on 60- and 84-month contract hire profiles.",
+      "requirements": [
+        "Tenderers must price both 60-month and 84-month contract hire profile periods for at least one vehicle specification per elected Lot.",
+        "Hook loader specifications require 14t/14t+ lifting capacity; skip loader specifications require extending arms.",
+        "OTR pricing on contract hire basis, inclusive of 1% ESPO framework fee."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Overall Total Weighted Basket Price",
+          "summary": "Weighted basket pricing drives the lot score; scored price weighting up to 20% per line total.",
+          "weighting_text": "Overall Total Weighted Basket Price (scored, max. score 20%)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 7 / Page 1",
+            "section_ref": "#/groups/8",
+            "anchor_text": "Overall Total Weighted Basket Price (scored, max. score 20%)"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "34114000",
+        "34142000",
+        "34144700"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "218_26-lot-7-spec-1-hookloader-18t-diesel",
+          "summary": "18t GVW diesel hook loader, 14t lift capacity",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "18t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 2 people",
+            "Hook loader unit with approx 14t lifting capacity"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 7 / Page 1",
+            "section_ref": "#/groups/8",
+            "anchor_text": "Vehicle Specification 1 18t approx GVW chassis  Diesel Euro 6 engine ... Hook loader unit with approx 14t lifting capacity"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-7-spec-2-hookloader-26t-diesel",
+          "summary": "26t GVW diesel hook loader, 14t+ lift capacity",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "26t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 2 people",
+            "Hook loader unit with 14t+ lifting capacity"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 7 / Page 1",
+            "section_ref": "#/groups/8",
+            "anchor_text": "Vehicle Specification 2 26t approx GVW chassis  Diesel Euro 6 engine ... Hook loader unit with 14t+ lifting capacity"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-7-spec-3-hookloader-18t-electric",
+          "summary": "18t GVW electric hook loader, 14t lift capacity",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "18t approx GVW chassis",
+            "Electric powertrain",
+            "Cab to accommodate a minimum of 2 people",
+            "Hook loader unit with approx 14t lifting capacity"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 7 / Page 1",
+            "section_ref": "#/groups/8",
+            "anchor_text": "Vehicle Specification 3 18t approx GVW chassis  Electric powertrain  Cab to accommodate a minimum of 2 people Hook loader unit with approx 14t lifting capacity"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-7-spec-4-skiploader-18t-diesel",
+          "summary": "18t GVW diesel skip loader with extending arms",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "18t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 2 people",
+            "Skip loader unit with extending arms"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 7 / Page 1",
+            "section_ref": "#/groups/8",
+            "anchor_text": "Vehicle Specification 4 18t approx GVW chassis  Diesel Euro 6 engine ... Skip loader unit with extending arms"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-7-spec-5-skiploader-26t-diesel",
+          "summary": "26t GVW diesel skip loader with extending arms",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "26t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 2 people",
+            "Skip loader unit with extending arms"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 7 / Page 1",
+            "section_ref": "#/groups/8",
+            "anchor_text": "Vehicle Specification 5 26t approx GVW chassis  Diesel Euro 6 engine ... Skip loader unit with extending arms"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-7-spec-6-skiploader-18t-electric",
+          "summary": "18t GVW electric skip loader with extending arms",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "18t approx GVW chassis",
+            "Electric powertrain",
+            "Cab to accommodate a minimum of 2 people",
+            "Skip loader unit with extending arms"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 7 / Page 1",
+            "section_ref": "#/groups/8",
+            "anchor_text": "Vehicle Specification 6 18t approx GVW chassis  Electric powertrain Cab to accommodate a minimum of 2 people Skip loader unit with extending arms"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Euro 6",
+          "context": "Diesel loader chassis must meet the Euro 6 emissions standard",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 7 / Page 1",
+            "section_ref": "#/groups/8",
+            "anchor_text": "Diesel Euro 6 engine"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 7 / Page 1",
+        "section_ref": "#/groups/8",
+        "anchor_text": "LOT 7 - Loaders  Yellow cells are for completion to enable evaluation Orange cells are for completion but are for information-only"
+      }
+    },
+    {
+      "lot_number": "8",
+      "title": "Other specialist vehicles",
+      "description": "Other specialist vehicle specifications covering mobile library and mobile healthcare box-body chassis, diesel and electric variants. Three vehicle specifications.",
+      "requirements": [
+        "Tenderers must price both 60-month and 84-month contract hire profile periods for at least one vehicle specification per elected Lot.",
+        "Specifications cover mobile library (fitted interior) and mobile healthcare (non-fitted single room) box-body chassis.",
+        "OTR pricing on contract hire basis, inclusive of 1% ESPO framework fee."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Overall Total Weighted Basket Price",
+          "summary": "Weighted basket pricing drives the lot score; scored price weighting up to 20% per line total.",
+          "weighting_text": "Overall Total Weighted Basket Price (scored, max. score 20%)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 8 / Page 1",
+            "section_ref": "#/groups/9",
+            "anchor_text": "Overall Total Weighted Basket Price (scored, max. score 20%)"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "34114000",
+        "34114200",
+        "34114400"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "218_26-lot-8-spec-1-mobilelibrary-7_5t-diesel",
+          "summary": "7.5t GVW diesel mobile library, fully fitted interior",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "7.5t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 2 people",
+            "Mobile library box body with fully fitted interior"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 8 / Page 1",
+            "section_ref": "#/groups/9",
+            "anchor_text": "Vehicle Specification 1 7.5t approx GVW chassis  Diesel Euro 6 engine ... Mobile library box body with fully fitted interior"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-8-spec-2-mobilehealthcare-7_5t-diesel",
+          "summary": "7.5t GVW diesel mobile healthcare unit, single room, non-fitted",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "7.5t approx GVW chassis",
+            "Diesel Euro 6 engine",
+            "Cab to accommodate a minimum of 2 people",
+            "Mobile healthcare unit, single room, non-fitted"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 8 / Page 1",
+            "section_ref": "#/groups/9",
+            "anchor_text": "Vehicle Specification 2 7.5t approx GVW chassis  Diesel Euro 6 engine ... Mobile healthcare unit, single room, non-fitted"
+          }
+        },
+        {
+          "seed_key": "218_26-lot-8-spec-3-mobilelibrary-7_5t-electric",
+          "summary": "7.5t GVW electric mobile library, fully fitted interior",
+          "requirement_type": "vehicle_specification",
+          "technical_attributes": [
+            "7.5t approx GVW chassis",
+            "Electric powertrain",
+            "Cab to accommodate a minimum of 2 people",
+            "Mobile library box body with fully fitted interior"
+          ],
+          "quantity_hint": "1 unit basis (contract hire)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 8 / Page 1",
+            "section_ref": "#/groups/9",
+            "anchor_text": "Vehicle Specification 3 7.5t approx GVW chassis  Electric powertrain ... Mobile library box body with fully fitted interior"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Euro 6",
+          "context": "Diesel specialist-vehicle chassis must meet the Euro 6 emissions standard",
+          "evidence_anchor": {
+            "page_ref": "sheet: Lot 8 / Page 1",
+            "section_ref": "#/groups/9",
+            "anchor_text": "Diesel Euro 6 engine"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 8 / Page 1",
+        "section_ref": "#/groups/9",
+        "anchor_text": "LOT 8 - Other specialist vehicles Yellow cells are for completion to enable evaluation Orange cells are for completion but are for information-only"
+      }
+    },
+    {
+      "lot_number": "9",
+      "title": "Mixed specialist vehicle fleet",
+      "description": "Mixed specialist vehicle fleet lot. Pricing is not required in this Price Schedule (Appendix B); the lot is handled via the Tender Submission Document. No vehicle-specification basket is defined in this document for Lot 9.",
+      "requirements": [
+        "Pricing not required for this lot in the Price Schedule; refer to the Tender Submission Document, page 4."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [
+        "34114000"
+      ],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 9 / Page 1",
+        "section_ref": "#/groups/10",
+        "anchor_text": "LOT 9 - Mixed specialist vehicle fleet  Pricing not required for this lot - see Tender Submission Document, page 4"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "218_26-lot-1-spec-1-rcv-7_5t-diesel",
+      "lot_number": "1",
+      "candidate_name": "RCV - 7.5t diesel, single-compartment with wheeled-bin lift",
+      "summary": "7.5t GVW diesel refuse collection vehicle with single-compartment body and wheeled-bin lift",
+      "requirements": [
+        "7.5t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 2 people",
+        "Single compartment refuse body",
+        "Bin lift capable of lifting wheeled containers"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34144511"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 1 / Page 1",
+        "section_ref": "#/groups/2",
+        "anchor_text": "Vehicle Specification 1 7.5t approx GVW chassis  Diesel Euro 6 engine Cab to accommodate a minimum of 2 people Single compartment refuse body  Bin lift capable of lifting wheeled containers"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-1-spec-2-rcv-18t-diesel",
+      "lot_number": "1",
+      "candidate_name": "RCV - 18t diesel, single-compartment with wheeled-bin lift",
+      "summary": "18t GVW diesel refuse collection vehicle with single-compartment body and wheeled-bin lift",
+      "requirements": [
+        "18t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 2 people plus driver",
+        "Single compartment refuse body",
+        "Bin lift capable of lifting wheeled containers"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34144511"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 1 / Page 1",
+        "section_ref": "#/groups/2",
+        "anchor_text": "Vehicle Specification 2 18t approx GVW chassis  Diesel Euro 6 engine Cab to accommodate a minimum of 2 people plus driver Single compartment refuse body  Bin lift capable of lifting wheeled containers"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-1-spec-3-rcv-26t-diesel",
+      "lot_number": "1",
+      "candidate_name": "RCV - 26t diesel, single-compartment with wheeled-bin lift",
+      "summary": "26t GVW diesel refuse collection vehicle with single-compartment body and wheeled-bin lift",
+      "requirements": [
+        "26t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 2 people plus driver",
+        "Single compartment refuse body",
+        "Bin lift capable of lifting wheeled containers"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34144511"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 1 / Page 1",
+        "section_ref": "#/groups/2",
+        "anchor_text": "Vehicle Specification 3 26t approx GVW chassis  Diesel Euro 6 engine Cab to accommodate a minimum of 2 people plus driver Single compartment refuse body  Bin lift capable of lifting wheeled containers"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-1-spec-4-rcv-7_5t-diesel-food-waste",
+      "lot_number": "1",
+      "candidate_name": "RCV - 7.5t diesel food-waste collection",
+      "summary": "7.5t GVW diesel RCV configured for household food-waste collection",
+      "requirements": [
+        "7.5t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 2 people",
+        "Single compartment refuse body",
+        "Body to allow for collection of household food waste"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34144512"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 1 / Page 1",
+        "section_ref": "#/groups/2",
+        "anchor_text": "Vehicle Specification 4 7.5t approx GVW chassis  Diesel Euro 6 engine Cab to accommodate a minimum of 2 people Single compartment refuse body  Body to allow for collection of household food waste"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-1-spec-5-rcv-27t-electric",
+      "lot_number": "1",
+      "candidate_name": "RCV - 27t electric",
+      "summary": "27t GVW electric RCV with automatic gearbox and wheeled-bin lift",
+      "requirements": [
+        "27t approx GVW chassis",
+        "Electric powertrain",
+        "Automatic gearbox",
+        "Cab to accommodate a minimum of 2 people plus driver",
+        "Single compartment refuse body",
+        "Bin lift capable of lifting wheeled containers"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34144511"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 1 / Page 1",
+        "section_ref": "#/groups/2",
+        "anchor_text": "Vehicle Specification 5 27t approx GVW chassis  Electric powertrain Automatic gearbox"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-1-spec-6-rcv-27t-hydrogen",
+      "lot_number": "1",
+      "candidate_name": "RCV - 27t hydrogen",
+      "summary": "27t GVW hydrogen-powered RCV with automatic gearbox and wheeled-bin lift",
+      "requirements": [
+        "27t approx GVW chassis",
+        "Hydrogen powertrain",
+        "Automatic gearbox",
+        "Cab to accommodate a minimum of 2 people plus driver",
+        "Single compartment refuse body",
+        "Bin lift capable of lifting wheeled containers"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34144511"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 1 / Page 1",
+        "section_ref": "#/groups/2",
+        "anchor_text": "Vehicle Specification 6 27t approx GVW chassis  Hydrogen powertrain Automatic gearbox"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-1-spec-7-rcv-26t-diesel-underground-crane",
+      "lot_number": "1",
+      "candidate_name": "RCV - 26t diesel with underground-bin crane (info-only)",
+      "summary": "26t GVW diesel RCV with mounted crane for underground bin collection; information-only, unscored",
+      "requirements": [
+        "26t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 2 people plus driver",
+        "Single compartment refuse body",
+        "Mounted crane to enable the lifting and emptying of underground bins"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34144511"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 1 / Page 1",
+        "section_ref": "#/groups/2",
+        "anchor_text": "FOR INFORMATION ONLY (NOT SCORED) ... Vehicle Specification 7 26t approx GVW chassis ... Mounted crane to enable the lifting and emptying of underground bins"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-2-spec-1-sweeper-3_1t-diesel",
+      "lot_number": "2",
+      "candidate_name": "Compact sweeper - up to 3.1t diesel",
+      "summary": "Up to 3.1t GVW compact diesel suction sweeper",
+      "requirements": [
+        "Up to 3.1t GVW compact sweeper",
+        "Diesel engine meeting current legislation",
+        "Cab to accommodate a minimum of 1 person",
+        "Non-corrosive body comprising a suction cleaner unit"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34144430"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 2 / Page 1",
+        "section_ref": "#/groups/3",
+        "anchor_text": "Vehicle Specification 1 Up to 3.1t GVW compact sweeper Diesel engine meeting current legislation"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-2-spec-2-sweeper-3_1t-4t-diesel",
+      "lot_number": "2",
+      "candidate_name": "Compact sweeper - 3.1t-4t diesel",
+      "summary": "3.1t-4t GVW compact diesel suction sweeper",
+      "requirements": [
+        "3.1t - 4t GVW compact sweeper",
+        "Diesel engine meeting current legislation",
+        "Cab to accommodate a minimum of 1 person",
+        "Non-corrosive body comprising a suction cleaner unit"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34144430"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 2 / Page 1",
+        "section_ref": "#/groups/3",
+        "anchor_text": "Vehicle Specification 2 3.1t - 4t GVW compact sweeper"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-2-spec-3-sweeper-4_1t-5t-diesel",
+      "lot_number": "2",
+      "candidate_name": "Compact sweeper - 4.1t-5t diesel",
+      "summary": "4.1t-5t GVW compact diesel suction sweeper",
+      "requirements": [
+        "4.1t - 5t GVW compact sweeper",
+        "Diesel engine meeting current legislation",
+        "Cab to accommodate a minimum of 1 person",
+        "Non-corrosive body comprising a suction cleaner unit"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34144430"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 2 / Page 1",
+        "section_ref": "#/groups/3",
+        "anchor_text": "Vehicle Specification 3 4.1t - 5t GVW compact sweeper"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-2-spec-4-sweeper-5_1t-plus-diesel",
+      "lot_number": "2",
+      "candidate_name": "Compact sweeper - 5.1t+ diesel",
+      "summary": "5.1t+ GVW compact diesel suction sweeper",
+      "requirements": [
+        "5.1t+ GVW compact sweeper",
+        "Diesel engine meeting current legislation",
+        "Cab to accommodate a minimum of 1 person",
+        "Non-corrosive body comprising a suction cleaner unit"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34144430"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 2 / Page 1",
+        "section_ref": "#/groups/3",
+        "anchor_text": "Vehicle Specification 4 5.1t+ GVW compact sweeper"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-2-spec-5-sweeper-3_1t-4t-electric",
+      "lot_number": "2",
+      "candidate_name": "Compact sweeper - 3.1t-4t electric",
+      "summary": "3.1t-4t GVW compact electric suction sweeper",
+      "requirements": [
+        "3.1t - 4t GVW compact sweeper",
+        "Electric powertrain",
+        "Cab to accommodate a minimum of 1 person",
+        "Non-corrosive body comprising a suction cleaner unit"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34144430"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 2 / Page 1",
+        "section_ref": "#/groups/3",
+        "anchor_text": "Vehicle Specification 5 3.1t - 4t GVW compact sweeper Electric powertrain"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-2-spec-6-sweeper-15t-truckmounted-diesel",
+      "lot_number": "2",
+      "candidate_name": "Truck-mounted sweeper - 15t diesel",
+      "summary": "15t GVW truck-mounted diesel sweeper with hydrostatic gearbox",
+      "requirements": [
+        "15t approx GVW chassis, truck-mounted sweeper",
+        "Diesel Euro 6 engine",
+        "Hydrostatic gearbox",
+        "Cab to accommodate a minimum of 1 person plus driver",
+        "Non-corrosive body comprising a suction cleaner unit"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34144430"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 2 / Page 1",
+        "section_ref": "#/groups/3",
+        "anchor_text": "Vehicle Specification 6 15t approx GVW chassis, truck mounted sweeper  Diesel Euro 6 engine"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-2-spec-7-sweeper-18t-truckmounted-diesel",
+      "lot_number": "2",
+      "candidate_name": "Truck-mounted sweeper - 18t diesel",
+      "summary": "18t GVW truck-mounted diesel sweeper with hydrostatic gearbox",
+      "requirements": [
+        "18t approx GVW chassis, truck-mounted sweeper",
+        "Diesel Euro 6 engine",
+        "Hydrostatic gearbox",
+        "Cab to accommodate a minimum of 1 person plus driver",
+        "Non-corrosive body comprising a suction cleaner unit"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34144430"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 2 / Page 1",
+        "section_ref": "#/groups/3",
+        "anchor_text": "Vehicle Specification 7 18t approx GVW chassis, truck mounted sweeper"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-2-spec-8-sweeper-15t-truckmounted-electric",
+      "lot_number": "2",
+      "candidate_name": "Truck-mounted sweeper - 15t electric",
+      "summary": "15t GVW truck-mounted electric sweeper with automatic gearbox",
+      "requirements": [
+        "15t approx GVW chassis, truck-mounted sweeper",
+        "Electric powertrain",
+        "Automatic gearbox",
+        "Cab to accommodate a minimum of 1 person plus driver",
+        "Non-corrosive body comprising a suction cleaner unit"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34144430"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 2 / Page 1",
+        "section_ref": "#/groups/3",
+        "anchor_text": "Vehicle Specification 8 15t approx GVW chassis, truck mounted sweeper  Electric powertrain Automatic gearbox"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-3-spec-1-gritter-18t-diesel",
+      "lot_number": "3",
+      "candidate_name": "Gritter - 18t diesel with snowplough, 6m³ body",
+      "summary": "18t GVW diesel gritter, 6m³ permanently mounted gritting body with snowplough attachment",
+      "requirements": [
+        "18t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 1 person plus driver",
+        "6m³ approx single chamber gritting body",
+        "Permanently mounted body of non-corrosive construction",
+        "Snowplough attachment"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34144420"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 3 / Page 1",
+        "section_ref": "#/groups/4",
+        "anchor_text": "Vehicle Specification 1 18t approx GVW chassis  Diesel Euro 6 engine ... 6m³ approx single chamber gritting body"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-3-spec-2-gritter-26t-diesel",
+      "lot_number": "3",
+      "candidate_name": "Gritter - 26t diesel with snowplough, 9m³ body",
+      "summary": "26t GVW diesel gritter, 9m³ permanently mounted gritting body with snowplough attachment",
+      "requirements": [
+        "26t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 1 person plus driver",
+        "9m³ approx single chamber gritting body",
+        "Permanently mounted body of non-corrosive construction",
+        "Snowplough attachment"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34144420"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 3 / Page 1",
+        "section_ref": "#/groups/4",
+        "anchor_text": "Vehicle Specification 2 26t approx GVW chassis  Diesel Euro 6 engine ... 9m³ approx single chamber gritting body"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-3-spec-3-gritter-19t-electric",
+      "lot_number": "3",
+      "candidate_name": "Gritter - 19t electric with snowplough, demountable 6m³ body",
+      "summary": "19t GVW electric gritter, 6m³ demountable gritting body with snowplough attachment",
+      "requirements": [
+        "19t approx GVW chassis",
+        "Electric powertrain",
+        "Cab to accommodate a minimum of 1 person plus driver",
+        "6m³ approx single chamber gritting body",
+        "Demountable body of non-corrosive construction",
+        "Snowplough attachment"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34144420"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 3 / Page 1",
+        "section_ref": "#/groups/4",
+        "anchor_text": "Vehicle Specification 3 19t approx GVW chassis  Electric powertrain ... Demountable body to be of a non-corrosive construction  Snowplough attachment"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-4-spec-1-gully-18t-diesel",
+      "lot_number": "4",
+      "candidate_name": "Gully emptier - 18t diesel",
+      "summary": "18t GVW diesel gully emptier with permanently mounted medium-volume tank",
+      "requirements": [
+        "18t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 1 person plus driver",
+        "Permanently mounted body of non-corrosive construction",
+        "Medium volume tank capacity"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34144500"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 4 / Page 1",
+        "section_ref": "#/groups/5",
+        "anchor_text": "Vehicle Specification 1 18t approx GVW chassis  Diesel Euro 6 engine ... Medium volume tank capacity"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-4-spec-2-gully-26t-diesel",
+      "lot_number": "4",
+      "candidate_name": "Gully emptier - 26t diesel",
+      "summary": "26t GVW diesel gully emptier with permanently mounted medium-volume tank",
+      "requirements": [
+        "26t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 1 person plus driver",
+        "Permanently mounted body of non-corrosive construction",
+        "Medium volume tank capacity"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34144500"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 4 / Page 1",
+        "section_ref": "#/groups/5",
+        "anchor_text": "Vehicle Specification 2 26t approx GVW chassis  Diesel Euro 6 engine ... Medium volume tank capacity"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-4-spec-3-gully-18t-electric",
+      "lot_number": "4",
+      "candidate_name": "Gully emptier - 18t electric",
+      "summary": "18t GVW electric gully emptier with permanently mounted medium-volume tank",
+      "requirements": [
+        "18t approx GVW chassis",
+        "Electric powertrain",
+        "Cab to accommodate a minimum of 1 person plus driver",
+        "Permanently mounted body of non-corrosive construction",
+        "Medium volume tank capacity"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34144500"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 4 / Page 1",
+        "section_ref": "#/groups/5",
+        "anchor_text": "Vehicle Specification 3 18t approx GVW chassis  Electric powertrain ... Medium volume tank capacity"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-5-spec-1-minibus-16-17-diesel",
+      "lot_number": "5",
+      "candidate_name": "Minibus - 3.5-5t diesel, 16/17 seats",
+      "summary": "3.5-5t GVW diesel minibus, 16/17 seats",
+      "requirements": [
+        "3.5 - 5t GVW chassis, minibus",
+        "16/17 seats",
+        "Diesel Euro 6 engine"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34121400"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 5 / Page 1",
+        "section_ref": "#/groups/6",
+        "anchor_text": "Vehicle Specification 1 3.5 - 5t GVW chassis, minibus  16/17 seats Diesel Euro 6 engine"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-5-spec-2-midibus-24-diesel",
+      "lot_number": "5",
+      "candidate_name": "Midibus - 6-7t diesel, 24 seats",
+      "summary": "6-7t GVW diesel midibus, 24 seats",
+      "requirements": [
+        "6 - 7t GVW chassis, midibus",
+        "24 seats",
+        "Diesel Euro 6 engine"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34121400"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 5 / Page 1",
+        "section_ref": "#/groups/6",
+        "anchor_text": "Vehicle Specification 2 6 - 7t GVW chassis, midibus  24 seats Diesel Euro 6 engine"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-5-spec-3-singledeck-12t-diesel",
+      "lot_number": "5",
+      "candidate_name": "Single-deck bus - 12t diesel, 40 seats",
+      "summary": "12t GVW diesel single-deck bus, approx 40 seats",
+      "requirements": [
+        "12t approx GVW chassis, single deck bus",
+        "40 seats approx",
+        "Diesel Euro 6 engine"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34121100"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 5 / Page 1",
+        "section_ref": "#/groups/6",
+        "anchor_text": "Vehicle Specification 3 12t approx GVW chassis, single deck bus   40 seats approx Diesel Euro 6 engine"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-5-spec-4-singledeck-20t-electric",
+      "lot_number": "5",
+      "candidate_name": "Single-deck bus - up to 20t electric, 40 seats",
+      "summary": "Up to 20t GVW electric single-deck bus, approx 40 seats",
+      "requirements": [
+        "Up to 20t GVW chassis, single deck bus",
+        "40 seats approx",
+        "Electric powertrain"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34121100"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 5 / Page 1",
+        "section_ref": "#/groups/6",
+        "anchor_text": "Vehicle Specification 4 Up to 20t GVW chassis, single deck bus   40 seats approx Electric powertrain"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-5-spec-5-minibus-16-17-electric",
+      "lot_number": "5",
+      "candidate_name": "Minibus - 3.5-5t electric, 16/17 seats",
+      "summary": "3.5-5t GVW electric minibus, 16/17 seats",
+      "requirements": [
+        "3.5 - 5t GVW chassis, minibus",
+        "16/17 seats",
+        "Electric powertrain"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34121400"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 5 / Page 1",
+        "section_ref": "#/groups/6",
+        "anchor_text": "Vehicle Specification 5 3.5 - 5t GVW chassis, minibus  16/17 seats Electric powertrain"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-6-spec-1-tipper-7_5t-diesel",
+      "lot_number": "6",
+      "candidate_name": "Dropside tipper - 7.5t diesel",
+      "summary": "7.5t GVW diesel dropside tipper",
+      "requirements": [
+        "7.5t approx GVW tipper chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 2 people",
+        "Dropside tipper body"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34134200"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 6 / Page 1",
+        "section_ref": "#/groups/7",
+        "anchor_text": "Vehicle Specification 1 7.5t approx GVW tipper chassis  Diesel Euro 6 engine"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-6-spec-2-tipper-18t-diesel",
+      "lot_number": "6",
+      "candidate_name": "Dropside tipper - 18t diesel",
+      "summary": "18t GVW diesel dropside tipper",
+      "requirements": [
+        "18t approx GVW tipper chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 2 people",
+        "Dropside tipper body"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34134200"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 6 / Page 1",
+        "section_ref": "#/groups/7",
+        "anchor_text": "Vehicle Specification 2 18t approx GVW tipper chassis  Diesel Euro 6 engine"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-6-spec-3-tipper-26t-diesel",
+      "lot_number": "6",
+      "candidate_name": "Dropside tipper - 26t diesel",
+      "summary": "26t GVW diesel dropside tipper",
+      "requirements": [
+        "26t approx GVW tipper chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 2 people",
+        "Dropside tipper body"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34134200"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 6 / Page 1",
+        "section_ref": "#/groups/7",
+        "anchor_text": "Vehicle Specification 3 26t approx GVW tipper chassis  Diesel Euro 6 engine"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-6-spec-4-tipper-3_5t-4_5t-electric",
+      "lot_number": "6",
+      "candidate_name": "Dropside tipper - 3.5-4.5t electric",
+      "summary": "3.5-4.5t GVW electric dropside tipper (source labelled this 'Vehicle Specification 3' a second time; stable lot-sequenced key assigns it to spec 4)",
+      "requirements": [
+        "3.5 - 4.5t GVW tipper chassis",
+        "Electric powertrain",
+        "Cab to accommodate a minimum of 2 people",
+        "Dropside tipper body"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34134200"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 6 / Page 1",
+        "section_ref": "#/groups/7",
+        "anchor_text": "Vehicle Specification 3 3.5 -4.5t GVW tipper chassis  Electric powertrain Cab to accommodate a minimum of 2 people Dropside tipper body"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-7-spec-1-hookloader-18t-diesel",
+      "lot_number": "7",
+      "candidate_name": "Hook loader - 18t diesel, 14t lift",
+      "summary": "18t GVW diesel hook loader, 14t lift capacity",
+      "requirements": [
+        "18t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 2 people",
+        "Hook loader unit with approx 14t lifting capacity"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34142000"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 7 / Page 1",
+        "section_ref": "#/groups/8",
+        "anchor_text": "Vehicle Specification 1 18t approx GVW chassis  Diesel Euro 6 engine ... Hook loader unit with approx 14t lifting capacity"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-7-spec-2-hookloader-26t-diesel",
+      "lot_number": "7",
+      "candidate_name": "Hook loader - 26t diesel, 14t+ lift",
+      "summary": "26t GVW diesel hook loader, 14t+ lift capacity",
+      "requirements": [
+        "26t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 2 people",
+        "Hook loader unit with 14t+ lifting capacity"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34142000"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 7 / Page 1",
+        "section_ref": "#/groups/8",
+        "anchor_text": "Vehicle Specification 2 26t approx GVW chassis  Diesel Euro 6 engine ... Hook loader unit with 14t+ lifting capacity"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-7-spec-3-hookloader-18t-electric",
+      "lot_number": "7",
+      "candidate_name": "Hook loader - 18t electric, 14t lift",
+      "summary": "18t GVW electric hook loader, 14t lift capacity",
+      "requirements": [
+        "18t approx GVW chassis",
+        "Electric powertrain",
+        "Cab to accommodate a minimum of 2 people",
+        "Hook loader unit with approx 14t lifting capacity"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34142000"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 7 / Page 1",
+        "section_ref": "#/groups/8",
+        "anchor_text": "Vehicle Specification 3 18t approx GVW chassis  Electric powertrain  Cab to accommodate a minimum of 2 people Hook loader unit"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-7-spec-4-skiploader-18t-diesel",
+      "lot_number": "7",
+      "candidate_name": "Skip loader - 18t diesel, extending arms",
+      "summary": "18t GVW diesel skip loader with extending arms",
+      "requirements": [
+        "18t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 2 people",
+        "Skip loader unit with extending arms"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34144700"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 7 / Page 1",
+        "section_ref": "#/groups/8",
+        "anchor_text": "Vehicle Specification 4 18t approx GVW chassis  Diesel Euro 6 engine ... Skip loader unit with extending arms"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-7-spec-5-skiploader-26t-diesel",
+      "lot_number": "7",
+      "candidate_name": "Skip loader - 26t diesel, extending arms",
+      "summary": "26t GVW diesel skip loader with extending arms",
+      "requirements": [
+        "26t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 2 people",
+        "Skip loader unit with extending arms"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34144700"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 7 / Page 1",
+        "section_ref": "#/groups/8",
+        "anchor_text": "Vehicle Specification 5 26t approx GVW chassis  Diesel Euro 6 engine ... Skip loader unit with extending arms"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-7-spec-6-skiploader-18t-electric",
+      "lot_number": "7",
+      "candidate_name": "Skip loader - 18t electric, extending arms",
+      "summary": "18t GVW electric skip loader with extending arms",
+      "requirements": [
+        "18t approx GVW chassis",
+        "Electric powertrain",
+        "Cab to accommodate a minimum of 2 people",
+        "Skip loader unit with extending arms"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34144700"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 7 / Page 1",
+        "section_ref": "#/groups/8",
+        "anchor_text": "Vehicle Specification 6 18t approx GVW chassis  Electric powertrain ... Skip loader unit with extending arms"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-8-spec-1-mobilelibrary-7_5t-diesel",
+      "lot_number": "8",
+      "candidate_name": "Mobile library - 7.5t diesel, fitted interior",
+      "summary": "7.5t GVW diesel mobile library, fully fitted interior",
+      "requirements": [
+        "7.5t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 2 people",
+        "Mobile library box body with fully fitted interior"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34114200"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 8 / Page 1",
+        "section_ref": "#/groups/9",
+        "anchor_text": "Vehicle Specification 1 7.5t approx GVW chassis  Diesel Euro 6 engine ... Mobile library box body with fully fitted interior"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-8-spec-2-mobilehealthcare-7_5t-diesel",
+      "lot_number": "8",
+      "candidate_name": "Mobile healthcare unit - 7.5t diesel, single room non-fitted",
+      "summary": "7.5t GVW diesel mobile healthcare unit, single room, non-fitted",
+      "requirements": [
+        "7.5t approx GVW chassis",
+        "Diesel Euro 6 engine",
+        "Cab to accommodate a minimum of 2 people",
+        "Mobile healthcare unit, single room, non-fitted"
+      ],
+      "technical_standards": ["Euro 6"],
+      "cpv_codes": ["34114400"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 8 / Page 1",
+        "section_ref": "#/groups/9",
+        "anchor_text": "Vehicle Specification 2 7.5t approx GVW chassis  Diesel Euro 6 engine ... Mobile healthcare unit, single room, non-fitted"
+      }
+    },
+    {
+      "seed_key": "218_26-lot-8-spec-3-mobilelibrary-7_5t-electric",
+      "lot_number": "8",
+      "candidate_name": "Mobile library - 7.5t electric, fitted interior",
+      "summary": "7.5t GVW electric mobile library, fully fitted interior",
+      "requirements": [
+        "7.5t approx GVW chassis",
+        "Electric powertrain",
+        "Cab to accommodate a minimum of 2 people",
+        "Mobile library box body with fully fitted interior"
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["34114200"],
+      "evidence_anchor": {
+        "page_ref": "sheet: Lot 8 / Page 1",
+        "section_ref": "#/groups/9",
+        "anchor_text": "Vehicle Specification 3 7.5t approx GVW chassis  Electric powertrain ... Mobile library box body with fully fitted interior"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_count": 9800,
+    "lots.titles": 9600,
+    "lots.descriptions": 8500,
+    "lots.requirements": 7500,
+    "lots.evaluation_criteria": 7800,
+    "lots.cpv_codes": 6500,
+    "lots.product_requirements": 8700,
+    "lots.technical_standards": 8200,
+    "product_requirement_seeds.lot_mapping": 9200,
+    "product_requirement_seeds.technical_attributes": 9000,
+    "product_requirement_seeds.cpv_codes": 6000,
+    "document.framework_reference": 9800,
+    "document.closing_date": 9700,
+    "document.framework_period": 9700
+  },
+  "extraction_confidence_bps": 7800,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "The bound skill is pdf-extraction/tender-specification but the document self-identifies as 'Price Schedule (Appendix B)' for ESPO framework 218_26. The document nonetheless contains authoritative lot structure and per-lot vehicle specifications, which are emitted here as lots and product_requirement_seeds. Pricing-cell extraction is intentionally not performed by this skill and is expected to be handled by pdf-extraction/pricing-schedule when that skill is bound.",
+      "evidence_refs": [
+        "sheet: Title Sheet",
+        "sheet: Instructions"
+      ]
+    },
+    {
+      "code": "CPV_CODES_INFERRED_NOT_CITED",
+      "message": "CPV codes included on each lot (and seed) are inferred from the notice-level CPV signals 34114000/34121000/34134000 plus standard sub-codes for the vehicle family (RCV, sweeper, gritter, gully emptier, bus, tipper, loader). The Appendix B document itself does not cite CPV codes at the lot level. Daemon should cross-check against notice_lots and not overwrite lot-level CPVs if a more authoritative tender-specification document becomes available.",
+      "evidence_refs": [
+        "notice.main_category: 34114000-9 - Specialist vehicles | 34121000-1 - Buses and coaches | 34134000-5 - Flatbed and Tipper trucks"
+      ]
+    },
+    {
+      "code": "LOT_6_SPEC_NUMBERING_ANOMALY",
+      "message": "LOT 6 (Tippers) contains two rows both labelled 'Vehicle Specification 3' in the source spreadsheet - one 26t diesel, one 3.5-4.5t electric - with no row labelled 'Vehicle Specification 4'. The second occurrence (electric) has been emitted as spec-4 of lot 6 to keep seed_keys stable and prevent collisions; reviewers should confirm the intended numbering against the original Excel file.",
+      "evidence_refs": [
+        "sheet: Lot 6 - Vehicle Specification 3 (diesel)",
+        "sheet: Lot 6 - Vehicle Specification 3 (electric 3.5-4.5t)"
+      ]
+    },
+    {
+      "code": "LOT_9_NO_SPECS_IN_THIS_DOCUMENT",
+      "message": "LOT 9 (Mixed specialist vehicle fleet) carries the note 'Pricing not required for this lot - see Tender Submission Document, page 4'. No vehicle-specification basket is present in this document for Lot 9; product_requirements is empty for Lot 9. Authoritative product seeds for Lot 9 must come from the Tender Submission Document or its equivalent.",
+      "evidence_refs": [
+        "sheet: Lot 9"
+      ]
+    },
+    {
+      "code": "STANDARD_REFERENCE_AMBIGUOUS_FOR_COMPACT_SWEEPERS",
+      "message": "LOT 2 compact sweeper specifications (Specs 1-5) use the phrase 'Diesel engine meeting current legislation' rather than citing Euro 6 explicitly. Only the 15t/18t truck-mounted diesel sweepers cite Euro 6. This has been captured as two separate technical_standards entries on lot 2 to preserve the distinction.",
+      "evidence_refs": [
+        "sheet: Lot 2 - Diesel engine meeting current legislation",
+        "sheet: Lot 2 - Vehicle Specification 6/7 Diesel Euro 6 engine"
+      ]
+    },
+    {
+      "code": "PAGE_REF_SHEET_BASED",
+      "message": "The source file is an Excel workbook (not a PDF); Docling reports page_start/page_end = 1 for every sheet. page_ref fields therefore cite the sheet name (e.g., 'sheet: Lot 3 / Page 1') as the stable structural anchor.",
+      "evidence_refs": [
+        "extracted_sections_json: heading='sheet: Lot N' page_start=page_end=1"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "sheet: Title Sheet / Page 1",
+      "section_ref": "#/groups/0",
+      "anchor_text": "ESPO reference 218_26 | Specialist Vehicle Contract Hire/Leasing | Framework Period 01 July 2026 to 30 June 2030 | PRICING SCHEDULE | Closing date for submission of tender 12 noon, 15 May 2026"
+    },
+    {
+      "page_ref": "sheet: Instructions / Page 1",
+      "section_ref": "#/groups/1",
+      "anchor_text": "Tenderers may bid for one, some or all of the Lots available. ... Tendered pricing should be inclusive of the 1% ESPO framework fee. ... Pricing per Lot will be evaluated based on the total weighted price for a 'basket' of various vehicle specifications. ... 60 and 84 months."
+    },
+    {
+      "page_ref": "sheet: Lot 1 / Page 1",
+      "section_ref": "#/groups/2",
+      "anchor_text": "LOT 1 - RCV's  Yellow cells are for completion to enable evaluation - both yellow cells must be completed per Vehicle Specification for a bid to be compliant."
+    },
+    {
+      "page_ref": "sheet: Lot 2 / Page 1",
+      "section_ref": "#/groups/3",
+      "anchor_text": "LOT 2 - Sweepers  Yellow cells are for completion to enable evaluation Orange cells are for completion but are for information-only"
+    },
+    {
+      "page_ref": "sheet: Lot 3 / Page 1",
+      "section_ref": "#/groups/4",
+      "anchor_text": "LOT 3 -  Winter maintenance vehicles"
+    },
+    {
+      "page_ref": "sheet: Lot 4 / Page 1",
+      "section_ref": "#/groups/5",
+      "anchor_text": "LOT 4 - Gully emptiers"
+    },
+    {
+      "page_ref": "sheet: Lot 5 / Page 1",
+      "section_ref": "#/groups/6",
+      "anchor_text": "LOT 5 - Buses and minibuses"
+    },
+    {
+      "page_ref": "sheet: Lot 6 / Page 1",
+      "section_ref": "#/groups/7",
+      "anchor_text": "LOT 6 - Tippers"
+    },
+    {
+      "page_ref": "sheet: Lot 7 / Page 1",
+      "section_ref": "#/groups/8",
+      "anchor_text": "LOT 7 - Loaders"
+    },
+    {
+      "page_ref": "sheet: Lot 8 / Page 1",
+      "section_ref": "#/groups/9",
+      "anchor_text": "LOT 8 - Other specialist vehicles"
+    },
+    {
+      "page_ref": "sheet: Lot 9 / Page 1",
+      "section_ref": "#/groups/10",
+      "anchor_text": "LOT 9 - Mixed specialist vehicle fleet  Pricing not required for this lot - see Tender Submission Document, page 4"
+    },
+    {
+      "page_ref": "sheet: Administrative Charges / Page 1",
+      "section_ref": "#/groups/11",
+      "anchor_text": "ADMINISTRATIVE CHARGES | Excess mileage | Under-run credits | Cancellation (prior to delivery) | Early termination charges | Processing fees for penalty charge notices (PCN's) | Delivery/collection fees"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "3d41cb444554973e99b75fe62b4c79d8a1411d7ccf8832d9f1c7bb5e653a06c6",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

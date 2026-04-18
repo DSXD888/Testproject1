@@ -1,0 +1,1393 @@
+{
+  "cursor": "{\"last_checked_at\":\"2026-04-14T21:15:23.918Z\",\"pages_checked\":3}",
+  "continuation_required": false,
+  "enriched_tenders": [
+    {
+      "notice_id": "126086a2",
+      "process_id": "126086a2-9ad3-e911-80fa-005056b64545",
+      "rfx_id": "fcf0c967-aa25-eb11-8105-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=fcf0c967-aa25-eb11-8105-005056b64545",
+      "updated_title": "902-19 Supply and Application of Bituminous Based Binder Products in Highways Maintenance - Acceptance Round 9",
+      "updated_description": "",
+      "updated_deadline_at": "2022-01-13T00:00:00Z",
+      "buyer_name": "East Riding of Yorkshire",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "East Riding of Yorkshire"
+      },
+      "documents_downloaded": [],
+      "documents_count": 0,
+      "enriched_at": "2026-04-14T21:12:37.522Z",
+      "response_status": "Not started (Respond by: 13/01/2022)"
+    },
+    {
+      "notice_id": "700f9fac",
+      "process_id": "700f9fac-21d0-eb11-810c-005056b64545",
+      "rfx_id": "8a3e07ac-bd00-ec11-810d-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=8a3e07ac-bd00-ec11-810d-005056b64545",
+      "updated_title": "Provision and maintenance of Mobile Plant",
+      "updated_description": "",
+      "updated_deadline_at": "2021-08-25T00:00:00Z",
+      "buyer_name": "Yorwaste Ltd",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "Yorwaste Ltd"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "1 - ITT part 1 - Information and Instructions.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 82898,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/700f9fac/1 - ITT part 1 - Information and Instructions.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=a524b99c-2600-ec11-810d-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "2 - ITT part 2 - Specification (All Lots).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 83824,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/700f9fac/2 - ITT part 2 - Specification (All Lots).docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=b424b99c-2600-ec11-810d-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "3 - ITT part 3 - Questionairre.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 105849,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/700f9fac/3 - ITT part 3 - Questionairre.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=0425b99c-2600-ec11-810d-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "5 - ITT Part 5 - T&Cs.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 138736,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/700f9fac/5 - ITT Part 5 - T&Cs.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=6b25b99c-2600-ec11-810d-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "Appendix 2 - Yorwaste HSEQ Policy 2021.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 139539,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/700f9fac/Appendix 2 - Yorwaste HSEQ Policy 2021.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=2a26b99c-2600-ec11-810d-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        }
+      ],
+      "documents_count": 5,
+      "enriched_at": "2026-04-14T21:12:46.670Z",
+      "response_status": "Not started (Respond by: 25/08/2021)"
+    },
+    {
+      "notice_id": "71615924",
+      "process_id": "71615924-3b3f-ed11-8119-005056b64545",
+      "rfx_id": "a9dc718e-aa2d-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=a9dc718e-aa2d-f111-813c-005056b64545",
+      "updated_title": "CCP074 - Provision of a Print Service DPS - Acceptance Round 16",
+      "updated_description": "",
+      "updated_deadline_at": "2027-10-31T00:00:00Z",
+      "buyer_name": "Derbyshire County Council",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "Derbyshire County Council"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "CCP074  Tender Checklist.doc",
+          "content_type": "application/msword",
+          "size_bytes": 862208,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/71615924/CCP074  Tender Checklist.doc",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=2f80b66d-f942-ed11-811a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "checklist"
+        },
+        {
+          "filename": "CCP074 Appendix B Instructions to Bidders.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 112963,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/71615924/CCP074 Appendix B Instructions to Bidders.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=31371ebe-c540-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "CCP074 Appendix C FOIA Schedule.doc",
+          "content_type": "application/msword",
+          "size_bytes": 870400,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/71615924/CCP074 Appendix C FOIA Schedule.doc",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=2d371ebe-c540-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "CCP074 Specification for Print Service DPS.doc",
+          "content_type": "application/msword",
+          "size_bytes": 928256,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/71615924/CCP074 Specification for Print Service DPS.doc",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=6c0d81f8-cd40-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "technical_specification"
+        }
+      ],
+      "documents_count": 4,
+      "enriched_at": "2026-04-14T21:12:57.551Z",
+      "response_status": "Not started (Respond by: 31/10/2027)"
+    },
+    {
+      "notice_id": "4f25ee47",
+      "process_id": "4f25ee47-b44b-ec11-810e-005056b64545",
+      "rfx_id": "a25079fd-2f28-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=a25079fd-2f28-f111-813c-005056b64545",
+      "updated_title": "BSH/HRA/Metal Works - Dynamic Purchasing System (DPS) - Acceptance Round 6",
+      "updated_description": "",
+      "updated_deadline_at": "2027-09-30T00:00:00Z",
+      "buyer_name": "Bristol City Council",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "Bristol City Council"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "Annexure_3_Metal_Works_Railings_and_Repairs_DPS_Minor_Works_Building_Contract_2016_Edition.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 802020,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/4f25ee47/Annexure_3_Metal_Works_Railings_and_Repairs_DPS_Minor_Works_Building_Contract_2016_Edition.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=251064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "Appendix 1 - Evaluation Criteria (Technical Assessment).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 82564,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/4f25ee47/Appendix 1 - Evaluation Criteria (Technical Assessment).docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=0a1064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "ITT Metal Work DPS (3).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 146542,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/4f25ee47/ITT Metal Work DPS (3).docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=1d1064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "Metal Works - DPS - Final Draft August 2022.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 137247,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/4f25ee47/Metal Works - DPS - Final Draft August 2022.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=fe0f64fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "Non Canvassing Certificate.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 28111,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/4f25ee47/Non Canvassing Certificate.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=f20f64fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "certificate"
+        },
+        {
+          "filename": "Non Collusive Certificate.doc",
+          "content_type": "application/msword",
+          "size_bytes": 25088,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/4f25ee47/Non Collusive Certificate.doc",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=f60f64fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "certificate"
+        },
+        {
+          "filename": "Schedule 7 Part 1 - Call-Off Contract - JCT MW16 - Final Draft August 2022.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 90075,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/4f25ee47/Schedule 7 Part 1 - Call-Off Contract - JCT MW16 - Final Draft August 2022.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=011064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "Schedule 7 Part 2 - Call-Off Contract - Goods- v Final Draft August 2022.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 56604,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/4f25ee47/Schedule 7 Part 2 - Call-Off Contract - Goods- v Final Draft August 2022.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=171064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        }
+      ],
+      "documents_count": 8,
+      "enriched_at": "2026-04-14T21:13:07.780Z",
+      "response_status": "Not started (Respond by: 30/09/2027)"
+    },
+    {
+      "notice_id": "2d4db9eb",
+      "process_id": "2d4db9eb-eabc-e811-80ef-005056b64545",
+      "rfx_id": "3bd8a510-d545-ee11-8124-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=3bd8a510-d545-ee11-8124-005056b64545",
+      "updated_title": "746/2018R Passenger Transport DPS - Acceptance Round 21",
+      "updated_description": "",
+      "updated_deadline_at": "2023-11-28T00:00:00Z",
+      "buyer_name": "Croydon Council",
+      "buyer_contact": {
+        "name": null,
+        "email": "Margaret.Archibong@croydon.gov.uk",
+        "phone": null,
+        "organisation": "Croydon Council"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "DPS - Round timetable V11.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 482849,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/2d4db9eb/DPS - Round timetable V11.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=517b7acd-da9a-ec11-8112-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "VOLUME 0 Contents and Glossary.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 629033,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/2d4db9eb/VOLUME 0 Contents and Glossary.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=18cf612c-9657-e911-80f3-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "Volume 1 Instructions for Tendering.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 577973,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/2d4db9eb/Volume 1 Instructions for Tendering.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=37cf612c-9657-e911-80f3-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "Volume 2 SQ Tender Response Document.doc",
+          "content_type": "application/msword",
+          "size_bytes": 288256,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/2d4db9eb/Volume 2 SQ Tender Response Document.doc",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=b6d90d22-f256-e911-80f3-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "response_document"
+        },
+        {
+          "filename": "VOLUME 3 Tender Response Option 1.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 114923,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/2d4db9eb/VOLUME 3 Tender Response Option 1.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=10da0d22-f256-e911-80f3-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "response_document"
+        },
+        {
+          "filename": "VOLUME 3 Tender Response Option 2.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 110863,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/2d4db9eb/VOLUME 3 Tender Response Option 2.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=37da0d22-f256-e911-80f3-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "response_document"
+        },
+        {
+          "filename": "Volume 4 Appendix 1 LB Croydon - Passenger Transport Service Specification.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 806922,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/2d4db9eb/Volume 4 Appendix 1 LB Croydon - Passenger Transport Service Specification.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=48cf612c-9657-e911-80f3-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "technical_specification"
+        },
+        {
+          "filename": "VOLUME 4 APPENDIX 2 Draft Passenger Services DPS Contract.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 1091465,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/2d4db9eb/VOLUME 4 APPENDIX 2 Draft Passenger Services DPS Contract.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=842a6018-f356-e911-80f3-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "VOLUME 4 APPENDIX 3 PSP Agreement.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 556738,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/2d4db9eb/VOLUME 4 APPENDIX 3 PSP Agreement.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=54da0d22-f256-e911-80f3-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        }
+      ],
+      "documents_count": 9,
+      "enriched_at": "2026-04-14T21:13:22.661Z",
+      "response_status": "Not started (Respond by: 28/11/2023)"
+    },
+    {
+      "notice_id": "2f876f17",
+      "process_id": "2f876f17-90e7-ee11-8127-005056b64545",
+      "rfx_id": "984de133-1a03-ef11-812a-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=984de133-1a03-ef11-812a-005056b64545",
+      "updated_title": "Bracknell Forest Council - 2.\tEmergency Hormonal Contraception (EHC)",
+      "updated_description": "",
+      "updated_deadline_at": "2027-03-26T00:00:00Z",
+      "buyer_name": "Bracknell Forest Borough Council",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "Bracknell Forest Borough Council"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "EHC contract and service specification 2024-2026.doc",
+          "content_type": "application/msword",
+          "size_bytes": 752640,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/2f876f17/EHC contract and service specification 2024-2026.doc",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=fcfaa58d-1b03-ef11-812a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "technical_specification"
+        }
+      ],
+      "documents_count": 1,
+      "enriched_at": "2026-04-14T21:13:28.828Z",
+      "response_status": "Not started (Respond by: 26/03/2027)"
+    },
+    {
+      "notice_id": "2467784d",
+      "process_id": "2467784d-620e-ed11-8116-005056b64545",
+      "rfx_id": "2e1e258d-5c80-ed11-811c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=2e1e258d-5c80-ed11-811c-005056b64545",
+      "updated_title": "BSH/HRA/Joinery Timber Supplies - DPS - Acceptance Round 7",
+      "updated_description": "",
+      "updated_deadline_at": "2026-11-30T00:00:00Z",
+      "buyer_name": "Bristol City Council",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "Bristol City Council"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "Appendix 1 - Evaluation Criteria Joinery Timber Supplies.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 79102,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/2467784d/Appendix 1 - Evaluation Criteria Joinery Timber Supplies.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=fe31f4e0-1c34-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "ITT Joinery Timber Supplies DPS.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 136631,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/2467784d/ITT Joinery Timber Supplies DPS.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=1cb122c8-1d34-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "Schedule 7 - Call-Off Contract - Timber Supplies.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 43939,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/2467784d/Schedule 7 - Call-Off Contract - Timber Supplies.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=b757fbda-1c34-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "Timber Supplies - DPS Agreement.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 128890,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/2467784d/Timber Supplies - DPS Agreement.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=1432f4e0-1c34-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        }
+      ],
+      "documents_count": 4,
+      "enriched_at": "2026-04-14T21:13:34.663Z",
+      "response_status": "Not started (Respond by: 30/11/2026)"
+    },
+    {
+      "notice_id": "74e16850",
+      "process_id": "74e16850-630e-ed11-8116-005056b64545",
+      "rfx_id": "06a5154e-16e4-ed11-8121-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=06a5154e-16e4-ed11-8121-005056b64545",
+      "updated_title": "BSH/HRA/Supply of Double Glazed Units and Sheet Glass - DPS - Acceptance Round 5",
+      "updated_description": "",
+      "updated_deadline_at": "2026-11-30T00:00:00Z",
+      "buyer_name": "Bristol City Council",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "Bristol City Council"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "Appendix 1 - Evaluation Criteria Sheet Glass.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 71294,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/74e16850/Appendix 1 - Evaluation Criteria Sheet Glass.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=7375d447-2834-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "Glazing Supplies - DPS Agreement.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 128854,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/74e16850/Glazing Supplies - DPS Agreement.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=5842d741-2834-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "ITT Glazed Units & Sheet Glass DPS.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 135436,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/74e16850/ITT Glazed Units & Sheet Glass DPS.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=5d42d741-2834-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "Schedule 7 - Call-Off Contract - Glazing Supplies.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 43956,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/74e16850/Schedule 7 - Call-Off Contract - Glazing Supplies.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=7775d447-2834-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        }
+      ],
+      "documents_count": 4,
+      "enriched_at": "2026-04-14T21:13:40.168Z",
+      "response_status": "Not started (Respond by: 30/11/2026)"
+    },
+    {
+      "notice_id": "1a5eb480",
+      "process_id": "1a5eb480-0f37-f111-813c-005056b64545",
+      "rfx_id": "a12aa4e2-1037-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=a12aa4e2-1037-f111-813c-005056b64545",
+      "updated_title": "C3S2_413_bis Lot 2 Maintenance and Extension of C3S Windstorm and Storm Surge Services",
+      "updated_description": "",
+      "updated_deadline_at": "2026-06-04T00:00:00Z",
+      "buyer_name": "ECMWF",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "ECMWF"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "ECMWF eProcurement Portal Guidance for suppliers.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 2374061,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1a5eb480/ECMWF eProcurement Portal Guidance for suppliers.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=6b1fe700-1137-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "Volume I Instructions and Conditions final January 2026.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 455109,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1a5eb480/Volume I Instructions and Conditions final January 2026.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=36ca52fe-1037-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "C3S2_413_bis Volume IA final.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 268289,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1a5eb480/C3S2_413_bis Volume IA final.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=eeb152fe-1037-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "C3S2_413_bis Volume II final.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 714747,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1a5eb480/C3S2_413_bis Volume II final.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=a6c652fe-1037-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        }
+      ],
+      "documents_count": 4,
+      "enriched_at": "2026-04-14T21:13:47.349Z",
+      "response_status": "Not started (Respond by: 04/06/2026)"
+    },
+    {
+      "notice_id": "1b39cb55",
+      "process_id": "1b39cb55-ffdf-f011-813c-005056b64545",
+      "rfx_id": "f377a574-4137-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=f377a574-4137-f111-813c-005056b64545",
+      "updated_title": "107_26 Inspection and Maintenance of Indoor Gymnasium, Fitness and Sport Equipment, and Outdoor Schools Play and Sport Equipment",
+      "updated_description": "",
+      "updated_deadline_at": "2026-05-15T00:00:00Z",
+      "buyer_name": "ESPO",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "ESPO"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "107_26 Invitation to Tender FINAL.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 570900,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1b39cb55/107_26 Invitation to Tender FINAL.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=e57d0db8-4137-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "107_26 Appendix A Framework Agreement FINAL.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 658055,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1b39cb55/107_26 Appendix A Framework Agreement FINAL.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=ca7d0db8-4137-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "107_26 Form of Contract and Call Off Terms Template Framework Schedule 3 FINAL.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 250304,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1b39cb55/107_26 Form of Contract and Call Off Terms Template Framework Schedule 3 FINAL.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=de7d0db8-4137-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "107_26 Appendix B Pricing Schedule FINAL.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 20765,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1b39cb55/107_26 Appendix B Pricing Schedule FINAL.xlsx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=f07d0db8-4137-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "pricing_schedule"
+        },
+        {
+          "filename": "107_26 Tender Submission Document FINAL.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 176572,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1b39cb55/107_26 Tender Submission Document FINAL.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=ed7d0db8-4137-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "107_26 Tender Submission Checklist FINAL.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 145496,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1b39cb55/107_26 Tender Submission Checklist FINAL.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=d87d0db8-4137-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "checklist"
+        }
+      ],
+      "documents_count": 6,
+      "enriched_at": "2026-04-14T21:13:54.990Z",
+      "response_status": "Not started (Respond by: 15/05/2026)"
+    },
+    {
+      "notice_id": "a2858379",
+      "process_id": "a2858379-0529-f111-813c-005056b64545",
+      "rfx_id": "c3957abe-e22c-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=c3957abe-e22c-f111-813c-005056b64545",
+      "updated_title": "020417 - Stockport Town Centre School - Multi-disciplinary Design Team Appointment",
+      "updated_description": "",
+      "updated_deadline_at": "2026-04-27T00:00:00Z",
+      "buyer_name": "Stockport Metropolitan Borough Council",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "Stockport Metropolitan Borough Council"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "1A. Invitation to Participate and Instructions (To be read).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 272221,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/1A. Invitation to Participate and Instructions (To be read).docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=249afe7f-e62c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "2. Specification (To be read) (2).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 350092,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/2. Specification (To be read) (2).docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=204a0ad7-e22c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "technical_specification"
+        },
+        {
+          "filename": "3. Response Document (To be returned).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 166571,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/3. Response Document (To be returned).docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=933301d1-e22c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "response_document"
+        },
+        {
+          "filename": "4. T&Cs (with novation) (To be read).DOCX",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 209649,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/4. T&Cs (with novation) (To be read).DOCX",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=314a0ad7-e22c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "5. Glossary FINAL (To be read).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 169441,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/5. Glossary FINAL (To be read).docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=264a0ad7-e22c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "6. Stockport Council Priority Cohort and Themes (To be read).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 276394,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/6. Stockport Council Priority Cohort and Themes (To be read).docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=2a4a0ad7-e22c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "7. Stockport Town Centre School Brief  (To be read).pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 1690598,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/7. Stockport Town Centre School Brief  (To be read).pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=3e4a0ad7-e22c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "Appendices.zip",
+          "content_type": "application/zip",
+          "size_bytes": 1526442,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/Appendices.zip",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=3b4a0ad7-e22c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "Appendices/Schedule of Accommodation & Calculations DRAFT (To be read).xlsx",
+          "content_type": "application/xlsx",
+          "size_bytes": 73960,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/Appendices_extracted/Appendices/Schedule of Accommodation & Calculations DRAFT (To be read).xlsx",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendices/TC School - Programme Nov 25 (To be read).pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 31966,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/Appendices_extracted/Appendices/TC School - Programme Nov 25 (To be read).pdf",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendices/A) Scopes of Services (To be read)/A.1 Architectural Scope of Service (To be read).DOCX",
+          "content_type": "application/docx",
+          "size_bytes": 295867,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.1 Architectural Scope of Service (To be read).DOCX",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendices/A) Scopes of Services (To be read)/A.2 BR Principal Designer Scope of Service (To be read).docx",
+          "content_type": "application/docx",
+          "size_bytes": 288325,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.2 BR Principal Designer Scope of Service (To be read).docx",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendices/A) Scopes of Services (To be read)/A.3 Mechanical and Electrical Scope of Service (To be read).DOCX",
+          "content_type": "application/docx",
+          "size_bytes": 273653,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.3 Mechanical and Electrical Scope of Service (To be read).DOCX",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendices/A) Scopes of Services (To be read)/A.4 CDM Principal Designer Scope of Service (To be read).docx",
+          "content_type": "application/docx",
+          "size_bytes": 293689,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.4 CDM Principal Designer Scope of Service (To be read).docx",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendices/A) Scopes of Services (To be read)/A.5 Structural and Civils Scope of Service (To be read).DOCX",
+          "content_type": "application/docx",
+          "size_bytes": 267000,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/a2858379/Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.5 Structural and Civils Scope of Service (To be read).DOCX",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        }
+      ],
+      "documents_count": 15,
+      "enriched_at": "2026-04-14T21:14:05.864Z",
+      "response_status": "Not started (Respond by: 27/04/2026)"
+    },
+    {
+      "notice_id": "c08f1a87",
+      "process_id": "c08f1a87-4933-f111-813c-005056b64545",
+      "rfx_id": "175938ea-4c33-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=175938ea-4c33-f111-813c-005056b64545",
+      "updated_title": "Provision, Installation and Maintenance of   Worcester City Christmas Lights",
+      "updated_description": "",
+      "updated_deadline_at": "2026-05-13T00:00:00Z",
+      "buyer_name": "Worcester City Council",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "Worcester City Council"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "00. ITT Worcester Christmas Lights 2026.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 349978,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/c08f1a87/00. ITT Worcester Christmas Lights 2026.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=0954756f-0134-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "01. Appendix 2 Specification.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 120163,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/c08f1a87/01. Appendix 2 Specification.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=0654756f-0134-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "technical_specification"
+        },
+        {
+          "filename": "02. Appendix 3 Draft Contract - Christmas Lights.doc",
+          "content_type": "application/msword",
+          "size_bytes": 742912,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/c08f1a87/02. Appendix 3 Draft Contract - Christmas Lights.doc",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=2354756f-0134-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "03. Appendix 8 Quality Questions.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 25734,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/c08f1a87/03. Appendix 8 Quality Questions.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=fe53756f-0134-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "response_document"
+        },
+        {
+          "filename": "04. Appendix 9 Form of tender.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 25368,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/c08f1a87/04. Appendix 9 Form of tender.xlsx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=0254756f-0134-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "05. Appendix 10 Schedule A Map of Current Crossings.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 1572424,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/c08f1a87/05. Appendix 10 Schedule A Map of Current Crossings.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=1c54756f-0134-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        }
+      ],
+      "documents_count": 6,
+      "enriched_at": "2026-04-14T21:14:15.150Z",
+      "response_status": "Not started (Respond by: 13/05/2026)"
+    },
+    {
+      "notice_id": "ecc7dfe7",
+      "process_id": "ecc7dfe7-5156-f011-813a-005056b64545",
+      "rfx_id": "a549e1d7-cc0c-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=a549e1d7-cc0c-f111-813c-005056b64545",
+      "updated_title": "CO6088 - Supply and Fitment of Tyres",
+      "updated_description": "",
+      "updated_deadline_at": "2026-03-25T00:00:00Z",
+      "buyer_name": "Tower Hamlets",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "Tower Hamlets"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "Appendix 2 _ Cost Schedule _ tyres V2.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 63070,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/ecc7dfe7/Appendix 2 _ Cost Schedule _ tyres V2.xlsx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=25b1ea24-cd0c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "pricing_schedule"
+        },
+        {
+          "filename": "CO6088 Supply and Fitment of Tyre.zip",
+          "content_type": "application/zip",
+          "size_bytes": 2611900,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/ecc7dfe7/CO6088 Supply and Fitment of Tyre.zip",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=9ab4a73b-c20c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "archive"
+        },
+        {
+          "filename": "Appendix 1 of Schedule 2  - Quality Statements.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 202522,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/ecc7dfe7/CO6088 Supply and Fitment of Tyre_extracted/Appendix 1 of Schedule 2  - Quality Statements.pdf",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 1.1 SVB - CO6088 Supply Fitment Tyres.xlsx",
+          "content_type": "application/xlsx",
+          "size_bytes": 50554,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/ecc7dfe7/CO6088 Supply and Fitment of Tyre_extracted/Appendix 1.1 SVB - CO6088 Supply Fitment Tyres.xlsx",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 2 _ Cost Schedule _ tyres .xlsx",
+          "content_type": "application/xlsx",
+          "size_bytes": 30584,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/ecc7dfe7/CO6088 Supply and Fitment of Tyre_extracted/Appendix 2 _ Cost Schedule _ tyres .xlsx",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "CO6088 Schedule 1 - Specification .pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 523305,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/ecc7dfe7/CO6088 Supply and Fitment of Tyre_extracted/CO6088 Schedule 1 - Specification .pdf",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Contract - Schedule 2 - Form of Tender.docx",
+          "content_type": "application/docx",
+          "size_bytes": 377986,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/ecc7dfe7/CO6088 Supply and Fitment of Tyre_extracted/Contract - Schedule 2 - Form of Tender.docx",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "ITT - Confidentiality Agreement.docx",
+          "content_type": "application/docx",
+          "size_bytes": 359117,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/ecc7dfe7/CO6088 Supply and Fitment of Tyre_extracted/ITT - Confidentiality Agreement.docx",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "ITT - Invitation to Tender Template CO6088 Purchase of Tyres.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 704848,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/ecc7dfe7/CO6088 Supply and Fitment of Tyre_extracted/ITT - Invitation to Tender Template CO6088 Purchase of Tyres.pdf",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "T & C Provision and fitment of tyres - CO6088.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 361484,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/ecc7dfe7/CO6088 Supply and Fitment of Tyre_extracted/T & C Provision and fitment of tyres - CO6088.pdf",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        }
+      ],
+      "documents_count": 10,
+      "enriched_at": "2026-04-14T21:14:21.688Z",
+      "response_status": "Draft (Respond by: 25/03/2026)"
+    },
+    {
+      "notice_id": "1225d61b",
+      "process_id": "1225d61b-5edf-f011-813c-005056b64545",
+      "rfx_id": "c6b919e8-19e8-f011-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=c6b919e8-19e8-f011-813c-005056b64545",
+      "updated_title": "CPU 7609 Pouring Rights Partnership and Drinks Supply for National Ice Centre & Motorpoint Arena",
+      "updated_description": "",
+      "updated_deadline_at": "2026-04-24T00:00:00Z",
+      "buyer_name": "Nottingham City Council",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "Nottingham City Council"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "Appendix 3 Branding Sites.zip",
+          "content_type": "application/zip",
+          "size_bytes": 8854069,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites.zip",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=51fee9ac-5edf-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "Appendix 3 Branding Sites/Estrella 2.jpg",
+          "content_type": "application/jpg",
+          "size_bytes": 304074,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Estrella 2.jpg",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 3 Branding Sites/Estrella 3.jpg",
+          "content_type": "application/jpg",
+          "size_bytes": 406008,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Estrella 3.jpg",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 3 Branding Sites/Estrella 4.jpg",
+          "content_type": "application/jpg",
+          "size_bytes": 464639,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Estrella 4.jpg",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 3 Branding Sites/GK ACtivation.jpg",
+          "content_type": "application/jpg",
+          "size_bytes": 99996,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/GK ACtivation.jpg",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 3 Branding Sites/GK Activation2.jpg",
+          "content_type": "application/jpg",
+          "size_bytes": 123727,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/GK Activation2.jpg",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 3 Branding Sites/Gk 3.jpg",
+          "content_type": "application/jpg",
+          "size_bytes": 88124,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Gk 3.jpg",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 3 Branding Sites/Greene King vorm.png",
+          "content_type": "application/png",
+          "size_bytes": 3403517,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Greene King vorm.png",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 3 Branding Sites/Image.jfif",
+          "content_type": "application/jfif",
+          "size_bytes": 1552486,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Image.jfif",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 3 Branding Sites/The Bell Inn.jpg",
+          "content_type": "application/jpg",
+          "size_bytes": 928920,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/The Bell Inn.jpg",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 3 Branding Sites/The Old Trip.jpg",
+          "content_type": "application/jpg",
+          "size_bytes": 928920,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/The Old Trip.jpg",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 3 Branding Sites/Thumbs.db",
+          "content_type": "application/db",
+          "size_bytes": 123392,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Thumbs.db",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 3 Branding Sites/estreall1.jpg",
+          "content_type": "application/jpg",
+          "size_bytes": 336513,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/estreall1.jpg",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 3 Branding Sites/gksuite 2.jpg",
+          "content_type": "application/jpg",
+          "size_bytes": 79842,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/gksuite 2.jpg",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Appendix 3 Branding Sites/wGKSuite.jpg",
+          "content_type": "application/jpg",
+          "size_bytes": 66731,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/wGKSuite.jpg",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Commercial Advertising Opportunities 2025.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 5733339,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Commercial Advertising Opportunities 2025.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=3a131729-1ae8-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "Contractor Information.zip",
+          "content_type": "application/zip",
+          "size_bytes": 1867949,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Contractor Information.zip",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=4ffee9ac-5edf-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "Contractor Information/Contractor Policy V2.docx",
+          "content_type": "application/docx",
+          "size_bytes": 1299008,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Contractor Information_extracted/Contractor Information/Contractor Policy V2.docx",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Contractor Information/Contractor induction and information leaflet v2 - Copy.docx",
+          "content_type": "application/docx",
+          "size_bytes": 635168,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Contractor Information_extracted/Contractor Information/Contractor induction and information leaflet v2 - Copy.docx",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "Contractor Information/Contractors HS Info (2).doc",
+          "content_type": "application/doc",
+          "size_bytes": 51200,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Contractor Information_extracted/Contractor Information/Contractors HS Info (2).doc",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true
+        },
+        {
+          "filename": "CPU 7609 NIC POuring Rights Appendix 1 Cellar Dispence Eq.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 10750,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/CPU 7609 NIC POuring Rights Appendix 1 Cellar Dispence Eq.xlsx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=712d48a6-5edf-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "CPU 7609 NIC Pouring Rights Appendix 2 Arena Sales 2022, 2023 and 2024.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 25435,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/CPU 7609 NIC Pouring Rights Appendix 2 Arena Sales 2022, 2023 and 2024.xlsx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=4638e504-1ae8-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "National Ice Centre termsconditions 22122025.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 100234,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/National Ice Centre termsconditions 22122025.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=6a2d48a6-5edf-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "NIC Pouring Rights 2025 Form of Tender.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 887258,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/NIC Pouring Rights 2025 Form of Tender.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=6d2d48a6-5edf-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "NIC Pouring Rights 2025 Invitation to Tender Final.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 913909,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/NIC Pouring Rights 2025 Invitation to Tender Final.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=742d48a6-5edf-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "Selection Questionnaire 2023.doc",
+          "content_type": "application/msword",
+          "size_bytes": 236032,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/1225d61b/Selection Questionnaire 2023.doc",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=7c2d48a6-5edf-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "response_document"
+        }
+      ],
+      "documents_count": 26,
+      "enriched_at": "2026-04-14T21:14:40.290Z",
+      "response_status": "Draft (Respond by: 24/04/2026)"
+    },
+    {
+      "notice_id": "9d791355",
+      "process_id": "9d791355-fa87-f011-813a-005056b64545",
+      "rfx_id": "a12a4aa1-daeb-f011-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=a12a4aa1-daeb-f011-813c-005056b64545",
+      "updated_title": "900_26 Water Dispensers, Associated Consumables and Services",
+      "updated_description": "",
+      "updated_deadline_at": "2026-01-15T00:00:00Z",
+      "buyer_name": "ESPO",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "ESPO"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "ESPO 900_26 Invitation to Tender.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 602324,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/9d791355/ESPO 900_26 Invitation to Tender.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=978cca77-cace-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "ESPO 900_26 Appendix A - Framework Agreement.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 223333,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/9d791355/ESPO 900_26 Appendix A - Framework Agreement.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=bb24d271-cace-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "ESPO 900_26 Schedule 3 - Form of Contract and Call Off Terms V2.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 240349,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/9d791355/ESPO 900_26 Schedule 3 - Form of Contract and Call Off Terms V2.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=db62dfb3-daeb-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "ESPO 900_26 Appendix B - Pricing Schedule.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 11832,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/9d791355/ESPO 900_26 Appendix B - Pricing Schedule.xlsx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=9b8cca77-cace-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "pricing_schedule"
+        },
+        {
+          "filename": "ESPO 900_26 Appendix C - Geographical Coverage.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 12722,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/9d791355/ESPO 900_26 Appendix C - Geographical Coverage.xlsx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=b224d271-cace-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "ESPO 900_26 Tender Submission.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 185050,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/9d791355/ESPO 900_26 Tender Submission.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=b724d271-cace-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        }
+      ],
+      "documents_count": 6,
+      "enriched_at": "2026-04-14T21:14:52.816Z",
+      "response_status": "Not started (Respond by: 15/01/2026)"
+    },
+    {
+      "notice_id": "c765165f",
+      "process_id": "c765165f-822a-f011-8136-005056b64545",
+      "rfx_id": "972d780b-ebf2-f011-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=972d780b-ebf2-f011-813c-005056b64545",
+      "updated_title": "344_26 Signs",
+      "updated_description": "",
+      "updated_deadline_at": "2026-01-21T00:00:00Z",
+      "buyer_name": "ESPO",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "ESPO"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "344_26 Invitation to Tender - Issue 2 (Extended Deadline to 21-01-26).pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 842175,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/c765165f/344_26 Invitation to Tender - Issue 2 (Extended Deadline to 21-01-26).pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=e9f0d169-ebf2-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "344_26 Appendix A - Framework Agreement.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 696949,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/c765165f/344_26 Appendix A - Framework Agreement.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=fe42bd2f-d1d9-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "344 _26 Form of Contract and Call Off Terms Framework Schedule 3 - Issue 2.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 698817,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/c765165f/344 _26 Form of Contract and Call Off Terms Framework Schedule 3 - Issue 2.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=ddf0d169-ebf2-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "344 _26 Form of Contract and Call Off Terms Framework Schedule 3 - Issue 2 Tracked Changes.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 698901,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/c765165f/344 _26 Form of Contract and Call Off Terms Framework Schedule 3 - Issue 2 Tracked Changes.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=d5f0d169-ebf2-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "344_26 Appendix B - Price Schedule Issue 3.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 3864073,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/c765165f/344_26 Appendix B - Price Schedule Issue 3.xlsx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=2dc06774-7ced-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "pricing_schedule"
+        },
+        {
+          "filename": "344_26 Appendix C - Product Data Sheet Template.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 77646,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/c765165f/344_26 Appendix C - Product Data Sheet Template.xlsx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=f542bd2f-d1d9-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "344_26 Tender Submission Document- Issue 2 (Extended Deadline to 21-01-26).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 191951,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/c765165f/344_26 Tender Submission Document- Issue 2 (Extended Deadline to 21-01-26).docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=edf0d169-ebf2-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        }
+      ],
+      "documents_count": 7,
+      "enriched_at": "2026-04-14T21:15:03.322Z",
+      "response_status": "Submitted (Respond by: 21/01/2026)"
+    },
+    {
+      "notice_id": "d1944435",
+      "process_id": "d1944435-155c-f011-813a-005056b64545",
+      "rfx_id": "1ea66675-dff6-f011-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=1ea66675-dff6-f011-813c-005056b64545",
+      "updated_title": "777_26 Cleaning Materials and Janitorial Supplies",
+      "updated_description": "",
+      "updated_deadline_at": "2026-01-26T00:00:00Z",
+      "buyer_name": "ESPO",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "ESPO"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "777_26 - Invitation to Tender V2 (Extension).pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 608947,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/d1944435/777_26 - Invitation to Tender V2 (Extension).pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=84a24cdc-b3e0-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "777_26 - Appendix A - Framework Agreement V2.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 674928,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/d1944435/777_26 - Appendix A - Framework Agreement V2.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=0c53bd8d-dff6-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "appendix"
+        },
+        {
+          "filename": "777_26 - Form of Contract and Call Off Terms (Framework Schedule 3) V2.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 241012,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/d1944435/777_26 - Form of Contract and Call Off Terms (Framework Schedule 3) V2.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=1053bd8d-dff6-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "777_26 - Appendix B Pricing Schedule V2 (Extension).xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 40904,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/d1944435/777_26 - Appendix B Pricing Schedule V2 (Extension).xlsx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=7fa24cdc-b3e0-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "pricing_schedule"
+        },
+        {
+          "filename": "777_26 - Tender Submission Document V2 (Extension).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 187365,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/d1944435/777_26 - Tender Submission Document V2 (Extension).docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=88a24cdc-b3e0-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        }
+      ],
+      "documents_count": 5,
+      "enriched_at": "2026-04-14T21:15:11.146Z",
+      "response_status": "Not started (Respond by: 26/01/2026)"
+    },
+    {
+      "notice_id": "ee2b6423",
+      "process_id": "ee2b6423-df84-f011-813a-005056b64545",
+      "rfx_id": "5b308ce5-21d0-f011-813a-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=5b308ce5-21d0-f011-813a-005056b64545",
+      "updated_title": "001311 - Framework Agreement for Folding Furniture",
+      "updated_description": "",
+      "updated_deadline_at": "2025-12-16T00:00:00Z",
+      "buyer_name": "YPO",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "YPO"
+      },
+      "documents_downloaded": [
+        {
+          "filename": "Open Online ITT v1.1.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 306911,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/ee2b6423/Open Online ITT v1.1.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=f00fe7ec-8ecf-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "Framework Agreement - Template (1).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 151165,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/ee2b6423/Framework Agreement - Template (1).docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=5cec74a9-4ec1-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "unknown"
+        },
+        {
+          "filename": "Schedule 7 Call-Off Contract NEW.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 148943,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-3f2b31a95ad52fecf256be0e6a457916f138d6acced6b12b7e47bdc7d20d724c/workdir/artifacts/downloads/procontract/ee2b6423/Schedule 7 Call-Off Contract NEW.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=59ec74a9-4ec1-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions"
+        }
+      ],
+      "documents_count": 3,
+      "enriched_at": "2026-04-14T21:15:17.729Z",
+      "response_status": "Draft (Respond by: 16/12/2025)"
+    },
+    {
+      "notice_id": "161f3107",
+      "process_id": "161f3107-cc53-ea11-80ff-005056b64545",
+      "rfx_id": "cbcd275f-2338-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=cbcd275f-2338-f111-813c-005056b64545",
+      "updated_title": "YPO - 001021 School Uniform - Acceptance Round 133",
+      "updated_description": "",
+      "updated_deadline_at": "2026-04-14T00:00:00Z",
+      "buyer_name": "YPO",
+      "buyer_contact": {
+        "name": null,
+        "email": null,
+        "phone": null,
+        "organisation": "YPO"
+      },
+      "documents_downloaded": [],
+      "documents_count": 0,
+      "enriched_at": "2026-04-14T21:15:23.918Z",
+      "response_status": "Draft (Respond by: 14/04/2026)"
+    }
+  ],
+  "summary": {
+    "total_checked": 27,
+    "enriched": 19,
+    "not_yet_responded": 5,
+    "failed": 3
+  }
+}

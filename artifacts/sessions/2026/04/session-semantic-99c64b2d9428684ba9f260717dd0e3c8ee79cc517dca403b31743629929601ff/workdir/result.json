@@ -1,0 +1,763 @@
+{
+  "lots": [
+    {
+      "lot_number": "A.3",
+      "title": "Mechanical and Electrical (MEP) Scope of Service \u2014 Stockport Town Centre School",
+      "description": "Annex A.3 of the Multi-disciplinary Design Team Appointment for the Stockport Town Centre School (Project E000-25-0031). This scope annex defines the Mechanical and Electrical (MEP) consultant obligations across RIBA Plan of Work 2020 Stages 0 through 7, covering feasibility, concept design, spatial coordination, technical design, construction, handover and in-use. The appointment sits under a JCT Design & Build Contract with novation of a multi-disciplinary consultant. Services cover building services design (plumbing, above-ground drainage, mechanical and electrical engineering, service diversions and access/maintenance strategy), BIM coordination and clash detection, BREEAM contribution, compliance with the Stockport Climate Action Now (CAN) plan and Sustainable Build Standard, CDM Regulations compliance, and Disability Discrimination Act compliance. Detailed service-category breadth is enumerated in Appendix A (Mechanical and Electrical Services) and Appendix B (Life Engineering).",
+      "requirements": [
+        "General description: Design and Technical Services are procuring an architecturally-led multi-disciplinary design team to develop feasibility through to concept design of a new school in a town centre location (\u00a71.1 General).",
+        "Proposed form of building contract: JCT Design & Build Contract (\u00a71.3 General).",
+        "Form of consultant appointment: Multi-Discipline consultant with novation (\u00a71.4 General).",
+        "Proposed consultant payment terms: 30 days payment terms, invoices following completion of stages (\u00a71.5 General).",
+        "Employer Liability cover required: \u00a310,000,000 (ten million pounds) (\u00a71.6 General).",
+        "Public Liability cover required: \u00a310,000,000 (ten million pounds), with indemnity to principals and no annual claim-count limit (\u00a71.7 General).",
+        "Professional Indemnity Insurance cover required: \u00a310,000,000 (ten million pounds) per claim, no annual claim-count limit (\u00a71.8 General).",
+        "Attend SMBC, Design, Project, Construction and other meetings as required (Core Services \u00a71.1).",
+        "Comply with the client Organisational Information Requirements (OIR) and Employers Information Requirements (EIR) for BIM, including participating in clash detection reviews, feedback and clash-minimisation meetings (Core Services \u00a71.2).",
+        "Supply all information required to produce a fully coordinated design alongside other Designers and agree quality of materials and standards of workmanship (Core Services \u00a71.3).",
+        "Provide Mechanical and Electrical Services covering at minimum: Plumbing; Above Ground Drainage; all M&E engineering; Service diversions; all services outlined in the Project Briefing Document and Design Responsibility Matrix; and Access and Maintenance Strategy for all M&E elements (Core Services \u00a71.4).",
+        "Design the Works to meet SMBC's desired objectives and outputs (Core Services \u00a71.5).",
+        "Contribute to the Project Risk Register maintained by the client, highlighting project risks early and advising on mitigation (Core Services \u00a71.6).",
+        "Issue Designers Risk Assessments at the conclusion of each project stage (Core Services \u00a71.7).",
+        "Align with Stockport Council's 2019 climate emergency declaration (carbon neutral borough by 2038, council net zero by 2030) and Climate Action Now (CAN) plan. MEP survey must include high-level recommendations to meet the CAN plan and Sustainable Build Standard (Core Services \u00a71.8).",
+        "Evaluate sustainable solutions at each stage of design (Core Services \u00a71.9).",
+        "Support the BREEAM assessor by issuing required evidence and attending BREEAM meetings to hit the target BREEAM rating (Core Services \u00a71.10).",
+        "Liaise with SMBC / External Project Manager and Design Team on programme maintenance, quality and progress/cost reporting, and cash flow forecasting (Core Services \u00a71.11\u20131.13).",
+        "Consider and develop alternative design and material solutions that add value or deliver cost saving (Core Services \u00a71.14).",
+        "Design the works to comply with all relevant statutory requirements, codes of practice, guidance and best practice; maintain a register of derogations and notify SMBC of any non-compliances (Core Services \u00a71.15\u20131.17).",
+        "Support the process of gaining Planning Permissions, Building Control Applications and other consents (Core Services \u00a71.18).",
+        "Ensure proposals comply with the Disability Discrimination Act (Core Services \u00a71.19).",
+        "Make all drawn information available in PDF and DWG format (Core Services \u00a71.20).",
+        "Issue SMBC monthly Design Progress reports and maintain a design programme (Core Services \u00a71.21).",
+        "Maintain a Common Data Environment (CDE) for the project, details agreed with SMBC (Core Services \u00a71.22).",
+        "Advise the client on the need for specialist advice or services (Core Services \u00a71.23).",
+        "Visit site at regular intervals appropriate to the stage of construction to review progress, quality and compliance with the designer's design and specifications (Core Services \u00a71.24).",
+        "RIBA Stage 0 & 1 (Strategic Definition, Preparation and Briefing): comply with RIBA Plan of Work 2020 Stages 0 and 1 and BSRIA BG6/2018 Pro-Forma 1; deliver a formal stage report; carry out site inspections; comment on physical/logistical site restrictions; work with PM/design team on initial requirements, brief, budget and programme; advise on surveys, enabling works and demolition; comply with CDM Regulations; consult statutory bodies; undertake value management (\u00a72.1\u20132.13).",
+        "RIBA Stage 2 (Concept Design): comply with RIBA Stage 2 and BSRIA BG6/2018 Pro-Forma 2; deliver a formal stage report; consolidate and finalise the brief; prepare outline concept design proposals including General Arrangement Drawings (plans/elevations/sections), schedules and schematics, roof plans, large-scale details for complex areas and area/accommodation schedules; establish quality and cost management procedures; appraise all feasible design solutions; identify long-lead and specialist/proprietary components; update cost plan (\u00a73.1\u20133.14).",
+        "RIBA Stage 3 (Spatial Coordination): comply with RIBA Stage 3 and BSRIA BG6/2018 Pro-Forma 3; deliver a formal stage report; develop detailed proposals including finalised grid drawings, 1:100 & 1:50 fully coordinated GA drawings, schematic drawings and schedules, full spatially-coordinated site plan, 1:100 roof layout, spatially coordinated ceiling layouts, room data sheets, and area/accommodation schedules; prepare tender documentation inputs; coordinate Builders Work, life-cycle cost and environmental assessment (\u00a74.1\u20134.18).",
+        "RIBA Stage 4 (Technical Design): comply with RIBA Stage 4 and BSRIA BG6/2018 Pro-Forma 4A, 4B, 4C; deliver a formal stage report; develop technical design from detailed design per brief and cost plan; produce calculations, drawings, schedules and specifications to enable tenders; consult statutory authorities on final proposals; appraise and evaluate tenders; assist in preparing an Authority to Start Work Report; coordinate the Employer's Requirements for all construction elements (\u00a75.1\u20135.12).",
+        "RIBA Stage 5 (Manufacturing and Construction): comply with RIBA Stage 5 and BSRIA BG6/2018 Pro-Forma 5; provide all construction-status details, drawings, schedules, calculations and specifications; attend site meetings and periodic visits; review/assist testing, setting-to-work, commissioning and balancing of engineering services; inspect and record defects and remedial actions; agree test certificates and statutory approvals; prepare and maintain a handover plan (\u00a76.1\u20136.8).",
+        "RIBA Stage 6 & 7 (Handover, Close Out, In Use): comply with RIBA Stages 6 and 7 and BSRIA BG6/2018 Pro-Forma 6 and 7; prepare and maintain a defects administration plan; provide post-completion defect services; advise on operation and maintenance; provide drawings for the Health and Safety File; review contractor record drawings and O&M Manuals; attend Lessons Learnt workshops (\u00a77.1\u20137.8).",
+        "Appendix A \u2014 Mechanical and Electrical Services: broad scope covering acoustics, HVAC, air handling, boilers, cooling towers, calorifier plant, cold/hot water services, chilled water systems, distribution mains, electrical distribution and substations, lighting fittings, environmental & sustainable engineering, kitchen/food preparation equipment, fire engineering, fire detection/alarm, firefighting, fuel gas incoming supply and distribution, heating, kitchen ventilation, incoming utility supplies, lightning protection, public address, public health/drainage (internal and external) and plumbing, radio/TV, refrigeration and cold stores, steam humidification, street/external lighting, telephone and data distribution, thermal insulation, water treatment and filtration, other specialised supply systems/plant, and vibration control in connection with services.",
+        "Appendix B \u2014 Life Engineering: advisory scope covering electrical distribution, electric lighting and power installations (including fittings), fire engineering, and fire detection and alarm services."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "mep-hvac-scope",
+          "summary": "HVAC scope covering air conditioning, mechanical ventilation, air handling units, boiler plant, cooling towers and ancillary equipment, chilled water systems, kitchen ventilation and thermal insulation in connection with services.",
+          "requirement_type": "mep_service_scope",
+          "technical_attributes": [
+            "Air conditioning and mechanical ventilation",
+            "Air Handling, Boiler Plant, Cooling Towers and Ancillary Equipment",
+            "Chilled water systems",
+            "Kitchen ventilation",
+            "Thermal insulation in connection with services"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Appendix A",
+            "anchor_text": "Air conditioning and mechanical ventilation"
+          }
+        },
+        {
+          "seed_key": "mep-public-health-plumbing",
+          "summary": "Public health, plumbing and drainage scope covering cold and hot water services, internal and external drainage, above-ground drainage and water treatment/filtration.",
+          "requirement_type": "mep_service_scope",
+          "technical_attributes": [
+            "Cold Water Services",
+            "Hot Water Services",
+            "Public Health, Drainage (internal & external) and Plumbing Services",
+            "Water Treatment and Filtration",
+            "Above Ground Drainage"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Appendix A",
+            "anchor_text": "Public Health, Drainage (internal & external) and Plumbing Services"
+          }
+        },
+        {
+          "seed_key": "mep-electrical-distribution-lighting",
+          "summary": "Electrical distribution, power and lighting scope covering distribution mains, electrical substations, lighting fittings (interior and external/street lighting), and lightning protection.",
+          "requirement_type": "mep_service_scope",
+          "technical_attributes": [
+            "Electrical Distribution Services",
+            "Electric Lighting and Power Installations, including Lighting Fittings",
+            "Electrical Substations",
+            "Street / External Lighting",
+            "Lightning Protection Services"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Appendix A",
+            "anchor_text": "Electric Lighting and Power Installations, including Lighting Fittings"
+          }
+        },
+        {
+          "seed_key": "mep-fire-safety",
+          "summary": "Fire engineering scope covering fire engineering strategy, fire detection and alarm services, and firefighting services.",
+          "requirement_type": "mep_service_scope",
+          "technical_attributes": [
+            "Fire Engineering",
+            "Fire Detection and Alarm Services",
+            "Fire Fighting Services"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Appendix A",
+            "anchor_text": "Fire Detection and Alarm Services"
+          }
+        },
+        {
+          "seed_key": "mep-heating-steam",
+          "summary": "Heating and steam systems scope covering heating installations and steam humidification.",
+          "requirement_type": "mep_service_scope",
+          "technical_attributes": [
+            "Heating Installations",
+            "Steam Humidification"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Appendix A",
+            "anchor_text": "Heating Installations"
+          }
+        },
+        {
+          "seed_key": "mep-fuel-gas-utilities",
+          "summary": "Fuel gas and incoming utility scope covering fuel gas incoming supply and distribution and other incoming utility supplies.",
+          "requirement_type": "mep_service_scope",
+          "technical_attributes": [
+            "Fuel Gas Incoming Supply & Distribution",
+            "Incoming Utility Supplies"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Appendix A",
+            "anchor_text": "Fuel Gas Incoming Supply & Distribution"
+          }
+        },
+        {
+          "seed_key": "mep-telecoms-av",
+          "summary": "Telecoms and audio-visual scope covering telephone and data distribution services, public address, and radio/television installations.",
+          "requirement_type": "mep_service_scope",
+          "technical_attributes": [
+            "Telephone and Data Distribution Services",
+            "Public Address",
+            "Radio and Television installations"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Appendix A",
+            "anchor_text": "Telephone and Data Distribution Services"
+          }
+        },
+        {
+          "seed_key": "mep-refrigeration-food-service",
+          "summary": "Refrigeration and food-service equipment scope covering refrigeration installations and cold stores, and food preparation, cooking and serving equipment.",
+          "requirement_type": "mep_service_scope",
+          "technical_attributes": [
+            "Refrigeration Installations and Cold Stores",
+            "Food Preparation, Cooking, and Serving Equipment"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Appendix A",
+            "anchor_text": "Refrigeration Installations and Cold Stores"
+          }
+        },
+        {
+          "seed_key": "mep-acoustics-vibration",
+          "summary": "Acoustics and vibration scope covering acoustics advice, acoustical design and treatment in connection with the scheduled services, and vibration control in connection with services.",
+          "requirement_type": "mep_service_scope",
+          "technical_attributes": [
+            "Acoustics Advice",
+            "Acoustical design and treatment in connection with the scheduled services",
+            "Vibration control in connection with services"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Appendix A",
+            "anchor_text": "Acoustics Advice"
+          }
+        },
+        {
+          "seed_key": "mep-sustainability-environmental",
+          "summary": "Environmental and sustainable engineering advisory scope feeding BREEAM, the Stockport CAN plan and Sustainable Build Standard.",
+          "requirement_type": "mep_service_scope",
+          "technical_attributes": [
+            "Environmental & Sustainable Engineering"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Appendix A",
+            "anchor_text": "Environmental & Sustainable Engineering"
+          }
+        },
+        {
+          "seed_key": "mep-other-specialised-plant",
+          "summary": "Other specialised plant and supply systems scope covering other specialised supply systems and/or plant services not enumerated elsewhere.",
+          "requirement_type": "mep_service_scope",
+          "technical_attributes": [
+            "Other Specialised Supply Systems and / or Plant Services"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Appendix A",
+            "anchor_text": "Other Specialised Supply Systems and / or Plant Services"
+          }
+        },
+        {
+          "seed_key": "life-engineering-advisory",
+          "summary": "Life Engineering advisory scope covering advice on electrical distribution, electric lighting and power installations (including fittings), fire engineering and fire detection and alarm services.",
+          "requirement_type": "life_engineering_service_scope",
+          "technical_attributes": [
+            "Advice on Electrical Distribution Services",
+            "Advice on Electric Lighting and Power Installations, including Lighting Fittings",
+            "Advice on Fire Engineering",
+            "Advice on Fire Detection and Alarm Services"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Appendix B",
+            "anchor_text": "Life Engineering services include"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "RIBA Plan of Work 2020",
+          "context": "The consultant must comply with all requirements of the RIBA Plan of Work 2020 across Stages 0, 1, 2, 3, 4, 5, 6 and 7 (referenced at \u00a72.1, \u00a73.1, \u00a74.1, \u00a75.1, \u00a76.1 and \u00a77.1).",
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "\u00a72.1 / \u00a73.1 / \u00a74.1 / \u00a75.1 / \u00a76.1 / \u00a77.1",
+            "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Works 2020 for Stages 0 and 1."
+          }
+        },
+        {
+          "standard_ref": "BSRIA BG6/2018 Design Framework for Building Services, 5th Edition",
+          "context": "Consultant must comply with the BSRIA BG6/2018 Design Framework for Building Services (5th Edition), covering Pro-Forma 1, 2, 3, 4A/4B/4C, 5, 6 and 7 across RIBA Stages 0\u20137 (\u00a72.2, \u00a73.2, \u00a74.2, \u00a75.2, \u00a76.2, \u00a77.2).",
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "\u00a72.2 / \u00a73.2 / \u00a74.2 / \u00a75.2 / \u00a76.2 / \u00a77.2",
+            "anchor_text": "Comply with all of the Requirements of the BSRIA BG6/2018 Design Framework for Building Services, 5 th Edition covering Pro-Forma 1."
+          }
+        },
+        {
+          "standard_ref": "JCT Design & Build Contract",
+          "context": "Proposed form of building contract is the JCT Design & Build Contract (\u00a71.3 General).",
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "\u00a71.3 General",
+            "anchor_text": "Proposed Form of Building Contract: JCT Design & Build Contract"
+          }
+        },
+        {
+          "standard_ref": "Client Organisational Information Requirements (OIR) and Employers Information Requirements (EIR) for BIM",
+          "context": "Designer must comply with the Client's Organisational Information Requirements for BIM and Employers Information Requirements for BIM, including clash detection reviews and clash-minimisation meetings (Core Services \u00a71.2).",
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Core Services \u00a71.2",
+            "anchor_text": "Clients Organisational Information Requirements for BIM and Employers Information Requirements for BIM"
+          }
+        },
+        {
+          "standard_ref": "BREEAM",
+          "context": "Designer must support the BREEAM assessor by issuing required evidence and attending BREEAM meetings so the target BREEAM rating is achieved (Core Services \u00a71.10).",
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Core Services \u00a71.10",
+            "anchor_text": "support the work of the BREEAM assessor by issuing all required evidence and taking part in BREEAM meetings to ensure the target BREEAM rating is met"
+          }
+        },
+        {
+          "standard_ref": "CDM Regulations",
+          "context": "Consultant must comply with the CDM Regulations during Stage 0/1 (\u00a72.11) and provide Specialist input to the Principal Designer / CDM advisor to update pre-construction information and the Health and Safety File through later stages.",
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "\u00a72.11",
+            "anchor_text": "Comply with the CDM Regulations."
+          }
+        },
+        {
+          "standard_ref": "Disability Discrimination Act",
+          "context": "Designer must ensure proposals comply with the requirements of the Disability Discrimination Act (Core Services \u00a71.19).",
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Core Services \u00a71.19",
+            "anchor_text": "ensure the proposals comply with the requirements of the Disability Discrimination Act"
+          }
+        },
+        {
+          "standard_ref": "Stockport Climate Action Now (CAN) plan and Sustainable Build Standard",
+          "context": "Stockport Council declared a climate emergency in March 2019 (borough carbon neutral by 2038, council net zero by 2030). The MEP survey must include specific high-level recommendations to meet the CAN plan and the Sustainable Build Standard included in the briefing package (Core Services \u00a71.8).",
+          "evidence_anchor": {
+            "page_ref": "p.?",
+            "section_ref": "Core Services \u00a71.8",
+            "anchor_text": "Climate Action Now (CAN) plan"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "p.?",
+        "section_ref": "Document title",
+        "anchor_text": "Design and Technical Services \u2014 Estates & Asset Management \u2014 Scope of Service \u2014 MEP \u2014 Project: Stockport Town Centre School \u2014 Project Number: E000-25-0031"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "mep-hvac-scope",
+      "lot_number": "A.3",
+      "candidate_name": "HVAC design advisory scope (air handling, boilers, cooling towers, chilled water, kitchen ventilation, thermal insulation)",
+      "summary": "Bidder must provide MEP consulting across HVAC systems including air conditioning, mechanical ventilation, air handling, boiler plant, cooling towers, ancillary equipment, chilled water systems, kitchen ventilation and thermal insulation for the Stockport Town Centre School.",
+      "requirements": [
+        "Air conditioning and mechanical ventilation",
+        "Air Handling, Boiler Plant, Cooling Towers and Ancillary Equipment",
+        "Chilled water systems",
+        "Kitchen ventilation",
+        "Thermal insulation in connection with services"
+      ],
+      "technical_standards": [
+        "RIBA Plan of Work 2020",
+        "BSRIA BG6/2018 Design Framework for Building Services, 5th Edition",
+        "BREEAM"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.?",
+        "section_ref": "Appendix A \u2014 Mechanical and Electrical Services",
+        "anchor_text": "Air conditioning and mechanical ventilation"
+      }
+    },
+    {
+      "seed_key": "mep-public-health-plumbing",
+      "lot_number": "A.3",
+      "candidate_name": "Public health, plumbing and drainage design scope",
+      "summary": "Bidder must provide MEP consulting covering public health services, plumbing, above-ground drainage, cold and hot water services, internal and external drainage and water treatment/filtration.",
+      "requirements": [
+        "Cold Water Services",
+        "Hot Water Services",
+        "Public Health, Drainage (internal & external) and Plumbing Services",
+        "Water Treatment and Filtration",
+        "Above Ground Drainage"
+      ],
+      "technical_standards": [
+        "RIBA Plan of Work 2020",
+        "BSRIA BG6/2018 Design Framework for Building Services, 5th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.?",
+        "section_ref": "Appendix A \u2014 Mechanical and Electrical Services",
+        "anchor_text": "Public Health, Drainage (internal & external) and Plumbing Services"
+      }
+    },
+    {
+      "seed_key": "mep-electrical-distribution-lighting",
+      "lot_number": "A.3",
+      "candidate_name": "Electrical distribution, power, lighting and lightning protection scope",
+      "summary": "Bidder must provide MEP consulting covering electrical distribution mains, substations, internal and external/street lighting fittings, and lightning protection.",
+      "requirements": [
+        "Electrical Distribution Services",
+        "Electric Lighting and Power Installations, including Lighting Fittings",
+        "Electrical Substations",
+        "Street / External Lighting",
+        "Lightning Protection Services"
+      ],
+      "technical_standards": [
+        "RIBA Plan of Work 2020",
+        "BSRIA BG6/2018 Design Framework for Building Services, 5th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.?",
+        "section_ref": "Appendix A \u2014 Mechanical and Electrical Services",
+        "anchor_text": "Electric Lighting and Power Installations, including Lighting Fittings"
+      }
+    },
+    {
+      "seed_key": "mep-fire-safety",
+      "lot_number": "A.3",
+      "candidate_name": "Fire safety engineering scope (strategy, detection/alarm, firefighting)",
+      "summary": "Bidder must provide fire engineering strategy, fire detection and alarm services design, and firefighting services design for the Stockport Town Centre School.",
+      "requirements": [
+        "Fire Engineering",
+        "Fire Detection and Alarm Services",
+        "Fire Fighting Services"
+      ],
+      "technical_standards": [
+        "RIBA Plan of Work 2020",
+        "BSRIA BG6/2018 Design Framework for Building Services, 5th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.?",
+        "section_ref": "Appendix A \u2014 Mechanical and Electrical Services",
+        "anchor_text": "Fire Detection and Alarm Services"
+      }
+    },
+    {
+      "seed_key": "mep-heating-steam",
+      "lot_number": "A.3",
+      "candidate_name": "Heating and steam humidification scope",
+      "summary": "Bidder must provide heating installation design and steam humidification design.",
+      "requirements": [
+        "Heating Installations",
+        "Steam Humidification"
+      ],
+      "technical_standards": [
+        "RIBA Plan of Work 2020",
+        "BSRIA BG6/2018 Design Framework for Building Services, 5th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.?",
+        "section_ref": "Appendix A \u2014 Mechanical and Electrical Services",
+        "anchor_text": "Heating Installations"
+      }
+    },
+    {
+      "seed_key": "mep-fuel-gas-utilities",
+      "lot_number": "A.3",
+      "candidate_name": "Fuel gas and incoming utility services scope",
+      "summary": "Bidder must provide design for fuel gas incoming supply and distribution plus coordination of incoming utility supplies.",
+      "requirements": [
+        "Fuel Gas Incoming Supply & Distribution",
+        "Incoming Utility Supplies"
+      ],
+      "technical_standards": [
+        "RIBA Plan of Work 2020",
+        "BSRIA BG6/2018 Design Framework for Building Services, 5th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.?",
+        "section_ref": "Appendix A \u2014 Mechanical and Electrical Services",
+        "anchor_text": "Fuel Gas Incoming Supply & Distribution"
+      }
+    },
+    {
+      "seed_key": "mep-telecoms-av",
+      "lot_number": "A.3",
+      "candidate_name": "Telecoms, data and AV scope (telephone/data distribution, public address, radio/TV)",
+      "summary": "Bidder must provide design for telephone and data distribution services, public address and radio/television installations.",
+      "requirements": [
+        "Telephone and Data Distribution Services",
+        "Public Address",
+        "Radio and Television installations"
+      ],
+      "technical_standards": [
+        "RIBA Plan of Work 2020",
+        "BSRIA BG6/2018 Design Framework for Building Services, 5th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.?",
+        "section_ref": "Appendix A \u2014 Mechanical and Electrical Services",
+        "anchor_text": "Telephone and Data Distribution Services"
+      }
+    },
+    {
+      "seed_key": "mep-refrigeration-food-service",
+      "lot_number": "A.3",
+      "candidate_name": "Refrigeration, cold stores and food-service equipment scope",
+      "summary": "Bidder must provide design for refrigeration installations, cold stores and kitchen food preparation / cooking / serving equipment.",
+      "requirements": [
+        "Refrigeration Installations and Cold Stores",
+        "Food Preparation, Cooking, and Serving Equipment"
+      ],
+      "technical_standards": [
+        "RIBA Plan of Work 2020",
+        "BSRIA BG6/2018 Design Framework for Building Services, 5th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.?",
+        "section_ref": "Appendix A \u2014 Mechanical and Electrical Services",
+        "anchor_text": "Refrigeration Installations and Cold Stores"
+      }
+    },
+    {
+      "seed_key": "mep-acoustics-vibration",
+      "lot_number": "A.3",
+      "candidate_name": "Acoustics and vibration advisory scope",
+      "summary": "Bidder must provide acoustics advice, acoustical design/treatment in connection with scheduled services and vibration control in connection with services.",
+      "requirements": [
+        "Acoustics Advice",
+        "Acoustical design and treatment in connection with the scheduled services",
+        "Vibration control in connection with services"
+      ],
+      "technical_standards": [
+        "RIBA Plan of Work 2020",
+        "BSRIA BG6/2018 Design Framework for Building Services, 5th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.?",
+        "section_ref": "Appendix A \u2014 Mechanical and Electrical Services",
+        "anchor_text": "Acoustics Advice"
+      }
+    },
+    {
+      "seed_key": "mep-sustainability-environmental",
+      "lot_number": "A.3",
+      "candidate_name": "Environmental & sustainable engineering advisory scope",
+      "summary": "Bidder must provide environmental and sustainable engineering input aligned with BREEAM, the Stockport Climate Action Now (CAN) plan and the Sustainable Build Standard.",
+      "requirements": [
+        "Environmental & Sustainable Engineering",
+        "BREEAM support",
+        "CAN plan / Sustainable Build Standard alignment"
+      ],
+      "technical_standards": [
+        "BREEAM",
+        "Stockport Climate Action Now (CAN) plan and Sustainable Build Standard"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.?",
+        "section_ref": "Appendix A \u2014 Mechanical and Electrical Services",
+        "anchor_text": "Environmental & Sustainable Engineering"
+      }
+    },
+    {
+      "seed_key": "mep-other-specialised-plant",
+      "lot_number": "A.3",
+      "candidate_name": "Other specialised supply systems and/or plant services",
+      "summary": "Bidder must provide design coverage for other specialised supply systems and/or plant services not enumerated elsewhere in Appendix A.",
+      "requirements": [
+        "Other Specialised Supply Systems and / or Plant Services"
+      ],
+      "technical_standards": [
+        "RIBA Plan of Work 2020",
+        "BSRIA BG6/2018 Design Framework for Building Services, 5th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.?",
+        "section_ref": "Appendix A \u2014 Mechanical and Electrical Services",
+        "anchor_text": "Other Specialised Supply Systems and / or Plant Services"
+      }
+    },
+    {
+      "seed_key": "life-engineering-advisory",
+      "lot_number": "A.3",
+      "candidate_name": "Life Engineering advisory scope",
+      "summary": "Bidder must provide Life Engineering advice covering electrical distribution, electric lighting and power installations (including fittings), fire engineering and fire detection and alarm services.",
+      "requirements": [
+        "Advice on Electrical Distribution Services",
+        "Advice on Electric Lighting and Power Installations, including Lighting Fittings",
+        "Advice on Fire Engineering",
+        "Advice on Fire Detection and Alarm Services"
+      ],
+      "technical_standards": [
+        "RIBA Plan of Work 2020",
+        "BSRIA BG6/2018 Design Framework for Building Services, 5th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.?",
+        "section_ref": "Appendix B \u2014 Life Engineering",
+        "anchor_text": "Life Engineering services include"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 5500,
+    "lots.title": 9000,
+    "lots.description": 8500,
+    "lots.requirements": 9000,
+    "lots.evaluation_criteria": 9500,
+    "lots.cpv_codes": 8000,
+    "lots.product_requirements": 7500,
+    "lots.technical_standards": 9200,
+    "product_requirement_seeds": 7000,
+    "extraction_metadata": 9500
+  },
+  "extraction_confidence_bps": 7200,
+  "warnings": [
+    {
+      "code": "tender_is_services_not_goods",
+      "message": "This tender is a professional design services procurement (MEP consultant under a JCT Design & Build multi-disciplinary appointment). No physical goods or direct product purchases were identified; product_requirement_seeds therefore capture MEP service-scope families (from Appendix A) and Life Engineering advisory families (from Appendix B) rather than quotable SKUs.",
+      "evidence_refs": [
+        "Document title: Scope of Service \u2014 MEP",
+        "\u00a71.4 General: Form of Consultant Appointment: Multi Discipline consultant (with novation)"
+      ]
+    },
+    {
+      "code": "single_lot_annex_scope",
+      "message": "The source document is Annex A.3 of a multi-annex scope-of-service set (parallel annexes include A.1 Architect, plus Principal Designer and Structural scopes referenced in the notice summary). This extraction emits one lot for the MEP scope keyed to lot_number 'A.3'. The pre-existing notice_lots row (lot-1) refers to the bundled Multi-disciplinary Design Team Appointment with an Annex A.1 architect focus. Daemon must reconcile whether MEP is a distinct lot, a sub-scope under lot-1, or a separate workstream under the same bundled appointment.",
+      "evidence_refs": [
+        "Document title: A.3 Mechanical and Electrical Scope of Service (To be read)",
+        "Notice summary: Disciplines the team would be looking to appoint are: architect... MEP, Principal Designer (both CDM & BR) and Structural Engineer."
+      ]
+    },
+    {
+      "code": "no_cpv_codes_cited",
+      "message": "The tender specification document does not cite any explicit CPV codes. Process-level main_category is '150000 - Consultancy' (non-CPV Contracts Finder taxonomy). CPV codes were deliberately left empty to avoid fabrication.",
+      "evidence_refs": [
+        "Whole document scan: no 'CPV' reference found"
+      ]
+    },
+    {
+      "code": "no_evaluation_criteria_in_scope_annex",
+      "message": "This document is a Scope-of-Service annex and does not contain tender evaluation criteria or weightings; those are carried by the accompanying ITT/ITN rather than the scope annex. evaluation_criteria is therefore an empty array.",
+      "evidence_refs": [
+        "Document structure: RIBA-staged scope only, no 'award criteria' or 'evaluation' heading"
+      ]
+    },
+    {
+      "code": "page_references_unavailable",
+      "message": "Docling extraction reported page_count=0; section/heading references are preserved (e.g. \u00a72.1, Core Services \u00a71.8, Appendix A) but no page numbers are available on evidence anchors. page_ref is set to 'p.?' while section_ref carries the authoritative locator.",
+      "evidence_refs": [
+        "document_extractions.page_count = 0"
+      ]
+    },
+    {
+      "code": "section_numbering_restarts",
+      "message": "The document's outer ordered list restarts at '1' three times: the opening General block, the Core Services block, and the Appendix block. Requirement references therefore qualify the containing section (e.g. 'Core Services \u00a71.8' vs '\u00a71.8 General') rather than using a bare numeric locator.",
+      "evidence_refs": [
+        "Three top-level '1. General', '1. Core Services', '1. Appendix A \u2013 Mechanical and Electrical Services' headings observed in the docling markdown"
+      ]
+    },
+    {
+      "code": "version_control_table_empty",
+      "message": "Version Control table at the top of the document has all rows blank (no revision notes, originator, checker or date recorded). Document identity fields (Document Number: 00, Revision: 00) indicate an initial release.",
+      "evidence_refs": [
+        "Version Control table (top of document)"
+      ]
+    },
+    {
+      "code": "procurement_project_context",
+      "message": "Project header identifies this as Project E000-25-0031 'Stockport Town Centre School', Document Number 00, Revision 00, with Design & Technical Services Manager as Document Owner.",
+      "evidence_refs": [
+        "Header block: Project: Stockport Town Centre School / Project Number: E000-25-0031"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p.?",
+      "section_ref": "Header block",
+      "anchor_text": "Design and Technical Services \u2014 Estates & Asset Management \u2014 Scope of Service \u2014 MEP \u2014 Project: Stockport Town Centre School \u2014 Project Number: E000-25-0031 \u2014 Document Number: 00 \u2014 Revision: 00"
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a71.1 General",
+      "anchor_text": "General Description of the Works Required: Design and Technical Services are looking to procure an architecturally led multi disciplinary design team to develop a feasibility through to concept design of a new school, in a town centre location."
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a71.3 General",
+      "anchor_text": "Proposed Form of Building Contract: JCT Design & Build Contract"
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a71.4 General",
+      "anchor_text": "Form of Consultant Appointment: Multi Discipline consultant (with novation)"
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a71.5 General",
+      "anchor_text": "Proposed Consultant Payment Terms: 30 days payment terms, invoices following completion of stages."
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a71.6 General",
+      "anchor_text": "Level of Employer Liability Cover Required: \u00a310,000,000 (ten million pounds)."
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a71.7 General",
+      "anchor_text": "Level of Public Liability Cover Required: \u00a310,000,000 (ten million pounds) in respect of any and claim and without limit on the number of claims in any one year or other period"
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a71.8 General",
+      "anchor_text": "Level of Professional Indemnity Insurance Cover Required: \u00a310,000,000 (ten million pounds) in respect of any one claim"
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "Core Services \u00a71.2",
+      "anchor_text": "designer is required to comply with all of the requirements of the Clients Organisational Information Requirements for BIM and Employers Information Requirements for BIM"
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "Core Services \u00a71.4",
+      "anchor_text": "The Mechanical and Electrical Services as described here to shall be provided including, but not limited to the following elements or areas of responsibility"
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "Core Services \u00a71.8",
+      "anchor_text": "In March 2019 Stockport Council declared a climate emergency... Climate Action Now (CAN) plan. The Sustainable Build Standard... the M&E survey should include specific high-level recommendations that can be undertaken to meet the requirements of CAN plan and our sustainable build standard."
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "Core Services \u00a71.10",
+      "anchor_text": "support the work of the BREEAM assessor by issuing all required evidence and taking part in BREEAM meetings to ensure the target BREEAM rating is met"
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "Core Services \u00a71.19",
+      "anchor_text": "ensure the proposals comply with the requirements of the Disability Discrimination Act"
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a72.1",
+      "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Works 2020 for Stages 0 and 1."
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a72.2",
+      "anchor_text": "Comply with all of the Requirements of the BSRIA BG6/2018 Design Framework for Building Services, 5 th Edition covering Pro-Forma 1."
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a72.11",
+      "anchor_text": "Comply with the CDM Regulations."
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a73.1",
+      "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Work 2020 for Stage 2."
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a74.1",
+      "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Work 2020 for Stage 3."
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a75.1",
+      "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Work 2020 for Stage 4."
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a76.1",
+      "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Works 2020 for Stage 5."
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "\u00a77.1",
+      "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Work 2020 for Stage 6 and 7."
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "Appendix A \u2014 Mechanical and Electrical Services",
+      "anchor_text": "Mechanical and Electrical services include: Acoustics Advice; Air conditioning and mechanical ventilation; ... ; Vibration control in connection with services"
+    },
+    {
+      "page_ref": "p.?",
+      "section_ref": "Appendix B \u2014 Life Engineering",
+      "anchor_text": "Life Engineering services include: Advice on Electrical Distribution Services; Advice on Electric Lighting and Power Installations, including Lighting Fittings; Advice on Fire Engineering; Advice on Fire Detection and Alarm Services"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "c7369723103f5af2d02c0d38841589964e92eafc10280b2c5514e5ad4658ccad",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

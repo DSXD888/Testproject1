@@ -1,0 +1,699 @@
+{
+  "line_items": [
+    {
+      "item_number": "1",
+      "description": "Onsite Visit",
+      "lot_number": "1",
+      "quantity": 0.5,
+      "unit": "day",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/3",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Onsite Visit | 0.5",
+        "section_ref": "Engage, Design services pricing",
+        "table_ref": "#/tables/3"
+      },
+      "notes": [
+        "Unit rate and total are blank in the source template; bidders are expected to price these rows.",
+        "Unit 'day' inferred from the column header 'Quantity day'."
+      ]
+    },
+    {
+      "item_number": "2",
+      "description": "Staff and stakeholder engagement",
+      "lot_number": "1",
+      "quantity": 0.5,
+      "unit": "day",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/3",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Staff and stakeholder engagement | 0.5",
+        "section_ref": "Engage, Design services pricing",
+        "table_ref": "#/tables/3"
+      },
+      "notes": [
+        "Unit rate and total blank in source template.",
+        "Unit 'day' inferred from column header 'Quantity day'."
+      ]
+    },
+    {
+      "item_number": "3",
+      "description": "Developing design draft",
+      "lot_number": "1",
+      "quantity": 0,
+      "unit": "day",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/3",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Developing design draft",
+        "section_ref": "Engage, Design services pricing",
+        "table_ref": "#/tables/3"
+      },
+      "notes": [
+        "Quantity cell empty in source; recorded as 0 placeholder.",
+        "Unit rate and total blank in source template."
+      ]
+    },
+    {
+      "item_number": "4",
+      "description": "Engagement on design",
+      "lot_number": "1",
+      "quantity": 0.5,
+      "unit": "day",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/3",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Engagement on design | 0.5",
+        "section_ref": "Engage, Design services pricing",
+        "table_ref": "#/tables/3"
+      },
+      "notes": [
+        "Unit rate and total blank in source template.",
+        "Unit 'day' inferred from column header 'Quantity day'."
+      ]
+    },
+    {
+      "item_number": "5",
+      "description": "Adjustments & final design",
+      "lot_number": "1",
+      "quantity": 0,
+      "unit": "day",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/3",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Adjustments & final design",
+        "section_ref": "Engage, Design services pricing",
+        "table_ref": "#/tables/3"
+      },
+      "notes": [
+        "Quantity cell empty in source; recorded as 0 placeholder.",
+        "Unit rate and total blank in source template."
+      ]
+    },
+    {
+      "item_number": "6",
+      "description": "Library Fully replaced carpet (Wear Specification Class 33 heavy commercial; example reference paragon-carpets.co.uk Elemental-Hornbeam-Specification-rev3-1.pdf)",
+      "lot_number": "1",
+      "quantity": 500,
+      "unit": "sqm",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/4",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Library Fully replaced carpet | 500 sqm",
+        "section_ref": "Fit out and furniture supply pricing",
+        "table_ref": "#/tables/4"
+      },
+      "notes": [
+        "Total cost column blank in source template."
+      ]
+    },
+    {
+      "item_number": "7",
+      "description": "Kinder Boxes (or equivalent picture book storage) - wide enough for standard picture book (at least 11\")",
+      "lot_number": "1",
+      "quantity": 12,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/4",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Kinder Boxes (or equivalent picture book storage) | 12",
+        "section_ref": "Fit out and furniture supply pricing",
+        "table_ref": "#/tables/4"
+      },
+      "notes": [
+        "Unit 'each' inferred; 'Quantity (if applicable)' column header does not declare a unit.",
+        "Total cost blank in source template."
+      ]
+    },
+    {
+      "item_number": "8",
+      "description": "Freestanding book display (at least 16 books, wheelchair accessible)",
+      "lot_number": "1",
+      "quantity": 2,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/4",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Freestanding book display | 2",
+        "section_ref": "Fit out and furniture supply pricing",
+        "table_ref": "#/tables/4"
+      },
+      "notes": [
+        "Unit 'each' inferred.",
+        "Total cost blank in source template."
+      ]
+    },
+    {
+      "item_number": "9",
+      "description": "Study tables (dimensions at least 1200x800, water-ingress/vandal resistant, easy to clean)",
+      "lot_number": "1",
+      "quantity": 18,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/4",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Study tables | 18",
+        "section_ref": "Fit out and furniture supply pricing",
+        "table_ref": "#/tables/4"
+      },
+      "notes": [
+        "Unit 'each' inferred.",
+        "Total cost blank in source template."
+      ]
+    },
+    {
+      "item_number": "10",
+      "description": "Study Chairs (light, stain repellent, waterproof, antimicrobial, bleach cleanable, flame retardant fabric; e.g. Camira Halcyon Aspen)",
+      "lot_number": "1",
+      "quantity": 25,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/4",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Study Chairs | 25",
+        "section_ref": "Fit out and furniture supply pricing",
+        "table_ref": "#/tables/4"
+      },
+      "notes": [
+        "Unit 'each' inferred.",
+        "Total cost blank in source template."
+      ]
+    },
+    {
+      "item_number": "11",
+      "description": "Lobby study bar (bar-style wall bench 375cm x 105cm x 40cm, bolted to middle vertical mullion, 4 desktop power each with 1x 240V fused 5A and 1x USB)",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/4",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Lobby study bar | 1",
+        "section_ref": "Fit out and furniture supply pricing",
+        "table_ref": "#/tables/4"
+      },
+      "notes": [
+        "Unit 'each' inferred.",
+        "Total cost blank in source template."
+      ]
+    },
+    {
+      "item_number": "12",
+      "description": "Bar stools (seating to meet bar bench, vandal resistant and cleanable)",
+      "lot_number": "1",
+      "quantity": 4,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/4",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Bar stools | 4",
+        "section_ref": "Fit out and furniture supply pricing",
+        "table_ref": "#/tables/4"
+      },
+      "notes": [
+        "Unit 'each' inferred.",
+        "Total cost blank in source template."
+      ]
+    },
+    {
+      "item_number": "13",
+      "description": "Coffee Table (above office standard, easy to clean, vandal resistant)",
+      "lot_number": "1",
+      "quantity": 2,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/4",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Coffee Table | 2",
+        "section_ref": "Fit out and furniture supply pricing",
+        "table_ref": "#/tables/4"
+      },
+      "notes": [
+        "Unit 'each' inferred.",
+        "Total cost blank in source template."
+      ]
+    },
+    {
+      "item_number": "14",
+      "description": "Armchair (high use, resistant fabric, supportive arms for elderly users)",
+      "lot_number": "1",
+      "quantity": 2,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/4",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Armchair | 2",
+        "section_ref": "Fit out and furniture supply pricing",
+        "table_ref": "#/tables/4"
+      },
+      "notes": [
+        "Unit 'each' inferred.",
+        "Total cost blank in source template."
+      ]
+    },
+    {
+      "item_number": "15",
+      "description": "Meeting table (no single column leg)",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/4",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Meeting table | 1",
+        "section_ref": "Fit out and furniture supply pricing",
+        "table_ref": "#/tables/4"
+      },
+      "notes": [
+        "Unit 'each' inferred.",
+        "Total cost blank in source template."
+      ]
+    },
+    {
+      "item_number": "16",
+      "description": "Meeting area chairs (stackable, lightweight, stain-repellent, waterproof, antimicrobial, bleach-cleanable, flame-retardant fabric)",
+      "lot_number": "1",
+      "quantity": 12,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/4",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Meeting area chairs | 12",
+        "section_ref": "Fit out and furniture supply pricing",
+        "table_ref": "#/tables/4"
+      },
+      "notes": [
+        "Unit 'each' inferred.",
+        "Total cost blank in source template."
+      ]
+    },
+    {
+      "item_number": "17",
+      "description": "Youth Sofa (wipeable, hard wearing, avoid single cushions or vinyl)",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/4",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Youth Sofa | 1",
+        "section_ref": "Fit out and furniture supply pricing",
+        "table_ref": "#/tables/4"
+      },
+      "notes": [
+        "Unit 'each' inferred.",
+        "Total cost blank in source template."
+      ]
+    },
+    {
+      "item_number": "18",
+      "description": "Poster Display Unit (indicative bidder-supplied add-on)",
+      "lot_number": "1",
+      "quantity": 0,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/6",
+      "repeated_header_normalized": false,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Poster Display Unit ( for example)",
+        "section_ref": "bidders to include any and all other items that are required to ensure successful delivery",
+        "table_ref": "#/tables/6"
+      },
+      "notes": [
+        "Section is for bidder-initiated add-ons; quantity and cost are intentionally left open.",
+        "Header '( for example)' indicates illustrative rather than mandated entries."
+      ]
+    },
+    {
+      "item_number": "19",
+      "description": "Leaflet Display Unit (indicative bidder-supplied add-on)",
+      "lot_number": "1",
+      "quantity": 0,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/6",
+      "repeated_header_normalized": false,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Leaflet Display Unit ( for example)",
+        "section_ref": "bidders to include any and all other items that are required to ensure successful delivery",
+        "table_ref": "#/tables/6"
+      },
+      "notes": [
+        "Indicative bidder add-on; quantity and cost intentionally blank."
+      ]
+    },
+    {
+      "item_number": "20",
+      "description": "PC Desk - Public Use (indicative bidder-supplied add-on)",
+      "lot_number": "1",
+      "quantity": 0,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/6",
+      "repeated_header_normalized": false,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "PC Desk - Public Use ( for example)",
+        "section_ref": "bidders to include any and all other items that are required to ensure successful delivery",
+        "table_ref": "#/tables/6"
+      },
+      "notes": [
+        "Indicative bidder add-on; quantity and cost intentionally blank."
+      ]
+    },
+    {
+      "item_number": "21",
+      "description": "PC Chairs - Public Use (indicative bidder-supplied add-on)",
+      "lot_number": "1",
+      "quantity": 0,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/6",
+      "repeated_header_normalized": false,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "PC Chairs - Public Use ( for example)",
+        "section_ref": "bidders to include any and all other items that are required to ensure successful delivery",
+        "table_ref": "#/tables/6"
+      },
+      "notes": [
+        "Indicative bidder add-on; quantity and cost intentionally blank."
+      ]
+    },
+    {
+      "item_number": "22",
+      "description": "Benching Managers office (indicative bidder-supplied add-on)",
+      "lot_number": "1",
+      "quantity": 0,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/6",
+      "repeated_header_normalized": false,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Benching Managers office ( for example)",
+        "section_ref": "bidders to include any and all other items that are required to ensure successful delivery",
+        "table_ref": "#/tables/6"
+      },
+      "notes": [
+        "Indicative bidder add-on; quantity and cost intentionally blank."
+      ]
+    },
+    {
+      "item_number": "23",
+      "description": "Graphics (indicative bidder-supplied add-on)",
+      "lot_number": "1",
+      "quantity": 0,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/6",
+      "repeated_header_normalized": false,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Graphics ( for example)",
+        "section_ref": "bidders to include any and all other items that are required to ensure successful delivery",
+        "table_ref": "#/tables/6"
+      },
+      "notes": [
+        "Indicative bidder add-on; quantity and cost intentionally blank."
+      ]
+    },
+    {
+      "item_number": "24",
+      "description": "Signage (indicative bidder-supplied add-on)",
+      "lot_number": "1",
+      "quantity": 0,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "#/tables/6",
+      "repeated_header_normalized": false,
+      "evidence_anchor": {
+        "page_ref": "page:2",
+        "anchor_text": "Signage ( for example)",
+        "section_ref": "bidders to include any and all other items that are required to ensure successful delivery",
+        "table_ref": "#/tables/6"
+      },
+      "notes": [
+        "Indicative bidder add-on; quantity and cost intentionally blank."
+      ]
+    }
+  ],
+  "pricing_summary": {
+    "total_value_pence": 0,
+    "currency": "GBP",
+    "lot_count": 1
+  },
+  "field_confidences": {
+    "line_items[*].description": 9200,
+    "line_items[*].quantity": 7500,
+    "line_items[*].unit": 4500,
+    "line_items[*].unit_rate_pence": 500,
+    "line_items[*].total_value_pence": 500,
+    "line_items[*].currency": 3000,
+    "line_items[*].lot_number": 8000,
+    "line_items[*].source_table_key": 6000,
+    "pricing_summary.total_value_pence": 8500,
+    "pricing_summary.currency": 3000,
+    "pricing_summary.lot_count": 8500
+  },
+  "extraction_confidence_bps": 3000,
+  "warnings": [
+    {
+      "code": "BLANK_PRICING_TEMPLATE",
+      "message": "Every rate and total cell is blank or zero in the source; this is an unpriced template to be completed by bidders. Recorded unit_rate_pence and total_value_pence as 0 with low confidence so downstream gates do not treat them as real prices.",
+      "evidence_refs": [
+        "page:2 | Engage, Design services pricing | Total for Evaluated Items | 0",
+        "page:2 | Fit out and furniture supply pricing | Total for Evaluated Items | 0",
+        "page:3 | Grand Total for Evaluation | 0"
+      ]
+    },
+    {
+      "code": "CURRENCY_NOT_DECLARED",
+      "message": "No explicit currency symbol or ISO code is present anywhere in the extracted markdown. GBP is inferred from the UK local authority context (Cambridgeshire County Council / Ely Library) but the document never states it; currency confidence is low.",
+      "evidence_refs": [
+        "page:2 | column header 'Total cost' (no currency indicator)",
+        "page:3 | 'Grand Total for Evaluation' (no currency indicator)"
+      ]
+    },
+    {
+      "code": "REPEATED_HEADER_NOISE",
+      "message": "Docling markdown contains heavy repeated-header and repeated-title rows (e.g. every cell duplicates the lot title and every main table repeats its header row immediately below the separator). Normalized by treating the first header occurrence as authoritative and collapsing the duplicate body row.",
+      "evidence_refs": [
+        "page:1 | '23105 Library Services provision...' repeated across every cell of a 2x2 table",
+        "page:2 | 'Engage, Design services pricing | Quantity day | Total cost' repeated as both header and first data row",
+        "page:2 | 'Fit out and furniture supply pricing | Quantity (if applicable) | Total cost | Minimum standard' repeated as both header and first data row"
+      ]
+    },
+    {
+      "code": "STRUCTURAL_TABLE_ROWS_EMPTY",
+      "message": "All 14 entries in extracted_tables_json have empty headers and empty rows arrays; only the markdown body carried table content. Extraction relied entirely on markdown parsing; table_key mapping to pages (1,1,2,2,2,2,2,2,2,3,3,3,3,3) is approximate.",
+      "evidence_refs": [
+        "extracted_tables_json[0..13].rows = []",
+        "extracted_tables_json[0..13].headers = []"
+      ]
+    },
+    {
+      "code": "UNIT_INFERENCE",
+      "message": "Column header for the second main table is 'Quantity (if applicable)' with no unit. Unit 'each' was inferred for all physical furniture/fit-out items and should be treated as a best-effort guess.",
+      "evidence_refs": [
+        "page:2 | 'Fit out and furniture supply pricing | Quantity (if applicable) | Total cost | Minimum standard'"
+      ]
+    },
+    {
+      "code": "MISSING_QUANTITY_CELLS",
+      "message": "Two rows in the Engage/Design services table ('Developing design draft', 'Adjustments & final design') have blank Quantity cells. Recorded quantity as 0 placeholder; field_confidence for these rows' quantity is low.",
+      "evidence_refs": [
+        "page:2 | 'Developing design draft' row has blank quantity",
+        "page:2 | 'Adjustments & final design' row has blank quantity"
+      ]
+    },
+    {
+      "code": "INDICATIVE_ADDON_SECTION",
+      "message": "The 'bidders to include any and all other items' section lists 7 items each suffixed with '( for example)'. These are illustrative add-on prompts, not mandated line items; quantity, rate, and total are intentionally blank in the source template.",
+      "evidence_refs": [
+        "page:2 | 'bidders to include any and all other items that are required to ensure successful delivery'",
+        "page:2 | 'Poster Display Unit ( for example)' through 'Signage ( for example)'"
+      ]
+    },
+    {
+      "code": "DUPLICATE_SUMMARY_BLOCK",
+      "message": "Page 2 ends with two consecutive '|Total|||' tables with identical structure; page 3 repeats the 'Total' pattern via a Required Elements summary that restates the Engage/Design and Fit-out subtotals as 0 and computes Grand Total for Evaluation as 0.",
+      "evidence_refs": [
+        "page:2 | two '|Total|||' tables back to back",
+        "page:3 | 'Required Elements | Total cost' summary table",
+        "page:3 | 'Grand Total for Evaluation | 0'"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "page:1",
+      "anchor_text": "23105 Library Services provision for Engage, Design, and Fit out Contract",
+      "section_ref": "document title banner",
+      "table_ref": "#/tables/0"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "The intention of this tender is to provide simple and efficient provision for delivering a comprehensive Library engage, design and fit out service. Cambridgeshire County Council is looking to appoint a Provider...",
+      "section_ref": "Statement of intention to tender",
+      "table_ref": "#/tables/1"
+    },
+    {
+      "page_ref": "page:2",
+      "anchor_text": "25112 Library Services provision for Engage, Design, and Fit out Contract - Ely Library",
+      "section_ref": "lot banner - Ely Library (lot 1)",
+      "table_ref": "#/tables/2"
+    },
+    {
+      "page_ref": "page:2",
+      "anchor_text": "Engage, Design services pricing | Quantity day | Total cost",
+      "section_ref": "Engage, Design services pricing header",
+      "table_ref": "#/tables/3"
+    },
+    {
+      "page_ref": "page:2",
+      "anchor_text": "Total for Evaluated Items | Total for Evaluated Items | 0",
+      "section_ref": "Engage, Design subtotal",
+      "table_ref": "#/tables/3"
+    },
+    {
+      "page_ref": "page:2",
+      "anchor_text": "Fit out and furniture supply pricing | Quantity (if applicable) | Total cost | Minimum standard",
+      "section_ref": "Fit out and furniture supply pricing header",
+      "table_ref": "#/tables/4"
+    },
+    {
+      "page_ref": "page:2",
+      "anchor_text": "Total for Evaluated Items | Total for Evaluated Items | 0",
+      "section_ref": "Fit out subtotal",
+      "table_ref": "#/tables/5"
+    },
+    {
+      "page_ref": "page:2",
+      "anchor_text": "bidders to include any and all other items that are required to ensure successful delivery",
+      "section_ref": "indicative bidder add-on header",
+      "table_ref": "#/tables/6"
+    },
+    {
+      "page_ref": "page:2",
+      "anchor_text": "Total |  | ",
+      "section_ref": "blank totals block",
+      "table_ref": "#/tables/7"
+    },
+    {
+      "page_ref": "page:3",
+      "anchor_text": "Required Elements | Total cost",
+      "section_ref": "summary header",
+      "table_ref": "#/tables/10"
+    },
+    {
+      "page_ref": "page:3",
+      "anchor_text": "Engage, Design services pricing | 0",
+      "section_ref": "summary line - Engage/Design",
+      "table_ref": "#/tables/11"
+    },
+    {
+      "page_ref": "page:3",
+      "anchor_text": "Fit out and furniture supply pricing | 0",
+      "section_ref": "summary line - Fit out",
+      "table_ref": "#/tables/12"
+    },
+    {
+      "page_ref": "page:3",
+      "anchor_text": "Grand Total for Evaluation | 0",
+      "section_ref": "Grand Total for Evaluation",
+      "table_ref": "#/tables/13"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "pricing",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "f1a2c238ea34cb2ba9dd9bfd6b4a2b49a1f8d17dd4cbc0170c8314edab5f8a01",
+    "policy_version": "2026.04.12",
+    "items_examined": 24
+  }
+}

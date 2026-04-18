@@ -210,7 +210,7 @@ If pull breaks, the daemon continues with stale remote-owned config. Not all con
 
 ### 2.1 Supabase Projection Tables (Push-Owned)
 
-All 18 push-owned SQLite tables get Supabase counterparts. These are **push-only projections** — the daemon pushes via `apply_push_batch(batch_json)` RPC. The local SQLite copy is authoritative; Supabase is a read-only mirror for the web portal.
+All 20 push-owned SQLite tables get Supabase counterparts. These are **push-only projections** — the daemon pushes via `apply_push_batch(batch_json)` RPC. The local SQLite copy is authoritative; Supabase is a read-only mirror for the web portal.
 
 | # | Table | Scope | Notes |
 |---|-------|-------|-------|
@@ -232,6 +232,8 @@ All 18 push-owned SQLite tables get Supabase counterparts. These are **push-only
 | 16 | `process_stage_heads` | Scoped | Current stage head per scope |
 | 17 | `process_relations` | Process | Inter-process relationship edges |
 | 18 | `process_aliases` | Process | Merged-process alias redirects |
+| 19 | `document_extractions` | Notice | Structural extraction output (markdown, sections, tables) |
+| 20 | `document_semantic_extractions` | Notice | Semantic mapping output from pdf-extraction skills |
 
 Schema for these tables mirrors the SQLite DDL from L0 §2 with Postgres type substitutions (TEXT → text, INTEGER → integer/bigint, etc.). All push-owned columns (`owner_id`, `row_version`, `last_local_seq`, `stage_run_id`, `created_at`, `updated_at`) are present.
 
@@ -342,7 +344,7 @@ Row-Level Security policies enforce the authority matrix at the Supabase databas
 
 | Table Category | Tables | `viewer` | `operator` | `admin` | `daemon` |
 |---|---|---|---|---|---|
-| Push-owned projections | All 18 projection tables | SELECT | SELECT | SELECT | INSERT, UPDATE (via `apply_push_batch` RPC) |
+| Push-owned projections | All 20 projection tables | SELECT | SELECT | SELECT | INSERT, UPDATE (via `apply_push_batch` RPC) |
 | Push-owned summaries | 5 summary tables + executors | SELECT | SELECT | SELECT | INSERT, UPDATE (via `apply_push_batch` RPC) |
 | Remote-owned config | `shared_company_profile` | — | — | Full CRUD | SELECT (pull) |
 | Remote-owned config | `shared_source_configs` | — | — | Full CRUD | SELECT (pull) |
@@ -374,7 +376,7 @@ Eight migration files create the full Supabase schema:
 
 | # | Migration | Purpose |
 |---|-----------|---------|
-| 1 | `supabase/migrations/0001_projection_tables.sql` | CREATE TABLE for all 18 push-owned projection tables + 3 junction tables. Schema mirrors SQLite DDL with Postgres types. |
+| 1 | `supabase/migrations/0001_projection_tables.sql` | CREATE TABLE for all 20 push-owned projection tables + 3 junction tables. Schema mirrors SQLite DDL with Postgres types. |
 | 2 | `supabase/migrations/0002_remote_owned_tables.sql` | CREATE TABLE for `shared_company_profile`, `shared_source_configs`, `operator_decision_heads`. |
 | 3 | `supabase/migrations/0003_summary_tables.sql` | CREATE TABLE for 5 summary tables: `workflow_job_summaries`, `error_manifest_summaries`, `validation_verdict_summaries`, `viewer_sync_status`, `executors`. |
 | 4 | `supabase/migrations/0004_rls_policies.sql` | RLS policies for all 4 roles (viewer, operator, admin, daemon) across all table categories. |
@@ -650,7 +652,7 @@ CREATE TABLE viewer_sync_status (
 | 17 | Web portal uses viewer-scoped credentials only (security boundary, not UI convention) | Supabase migration test + RLS test |
 | 18 | Redaction tests pass: no leakage of operator identity/company profile/raw supplier data in summary projections | `redaction_boundary.rs` |
 
-### 4.2 Test File Listing (4 New, Cumulative 42)
+### 4.2 Test File Listing (4 New, Cumulative 52)
 
 | File | Coverage |
 |------|---------|
@@ -747,7 +749,7 @@ CREATE TABLE viewer_sync_status (
 
 | Migration | Purpose |
 |-----------|---------|
-| `0001_projection_tables.sql` | All 18 push-owned projection tables + 3 junction tables |
+| `0001_projection_tables.sql` | All 20 push-owned projection tables + 3 junction tables |
 | `0002_remote_owned_tables.sql` | `shared_company_profile`, `shared_source_configs`, `operator_decision_heads` |
 | `0003_summary_tables.sql` | `workflow_job_summaries`, `error_manifest_summaries`, `validation_verdict_summaries`, `viewer_sync_status`, `executors` |
 | `0004_rls_policies.sql` | RLS policies per role (viewer, operator, admin, daemon) |

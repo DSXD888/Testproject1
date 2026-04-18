@@ -130,9 +130,12 @@ Three quota types with ordered admission priority:
 1. Procurement ingestion (highest — data freshness)
 2. Auth refresh / health probes (keeps sources accessible)
 3. Qualification (pipeline progression)
+3b. Document semantic extraction (pipeline progression — feeds lot/product extraction)
 4. Supplier enrichment (most sessions, most resource-intensive)
 5. Manifest generation (lightweight)
 6. Bid automation (lowest — rare, operator-initiated)
+
+**Note on extraction job resources:** `extract_document_structure` jobs do NOT consume `browser_slots` or `agent_slots` — they run as daemon-internal subprocesses (Docling). Only `extract_document_semantics` jobs consume `agent_slots` (1 per semantic overlay, `headless_contract` mode). Structural extraction is therefore not subject to arbiter admission.
 
 Skill-level `max_concurrency` can lower these ceilings but never raise them.
 
@@ -1551,7 +1554,7 @@ All items must pass before Layer 3 is complete, and each item must trace to one 
 | 16 | Operator can trace verdict → run manifest → forensic bytes → originating session/job without manual transcript archaeology | Replay/manual drill-down | `L3-FR-2.4.4`, `L3-FR-4.4.1`-`L3-FR-4.4.3` |
 | 17 | Telemetry emits at the declared update points and non-applicable metrics do not generate false alerts | Metrics smoke + fault injection | `L3-FR-1.4.5`, `L3-FR-4.5.1`, `L3-FR-4.6.1`, `L3-FR-4.6.2` |
 
-### 5.2 Test File Listing (18 New, Cumulative 43)
+### 5.2 Test File Listing (18 New, Cumulative 48)
 
 #### Fault Injection (4)
 
@@ -1736,6 +1739,6 @@ No new PTY/process-supervision crate is required for Layer 3 hardening: the exis
 
 <!-- CROSS-DOMAIN NOTE FOR L0: Current repo copies of the L0 DDL/migration surface do not yet fully reflect every L3-ready field described here (notably `source_runtime_state.circuit_state`, `source_runtime_state.last_canary_result`, and the full activation surface for `process_relations` / `listing_evidence`). Layer 3 implementation must reconcile the constitutional schema before first write. -->
 
-<!-- CROSS-DOMAIN NOTE FOR L5: Cumulative test count in L5 §3.2 header should be 52 (L4 cumulative 47 + L5 new 5 = 52). The authoritative count is in layer-strategy.md §11. -->
+<!-- CROSS-DOMAIN NOTE FOR L5: Cumulative test count in L5 §3.2 header should be 57 (L4 cumulative 52 + L5 new 5 = 57). The authoritative count is in layer-strategy.md §11. -->
 
-<!-- CROSS-DOMAIN NOTE FOR L6: Cumulative test count in L6 §2.2 header should be 55 (L5 cumulative 52 + L6 new 3 = 55). The authoritative count is in layer-strategy.md §11. -->
+<!-- CROSS-DOMAIN NOTE FOR L6: Cumulative test count in L6 §2.2 header should be 60 (L5 cumulative 57 + L6 new 3 = 60). The authoritative count is in layer-strategy.md §11. -->

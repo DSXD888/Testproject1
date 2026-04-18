@@ -313,7 +313,7 @@ Every bid submission produces a complete, traceable audit trail:
 | 10 | L5 readiness gate blocks `ready_to_bid` when active L5 blockers present |
 | 11 | Validator rejection or outage blocks `bid_submitted` (fail-closed for portal submission) |
 
-### 2.2 Test Files (3 New, Cumulative 50)
+### 2.2 Test Files (3 New, Cumulative 60)
 
 | File | Coverage |
 |------|---------|
@@ -353,6 +353,7 @@ Every bid submission produces a complete, traceable audit trail:
 | Workflow registry pattern | Maps portal type to workflow implementation | Add new portal support = new workflow file + registry entry |
 | Company profile schema | Structured profile for Proactis | Extensible for additional portal-specific fields |
 | `bidScopeJson` | Explicit lot/candidate scope payload | Supports multi-lot bids, partial bids, amended bids |
+| PDF extraction toolkit extension | L1 toolkit supports future `pdf-extraction/bid-template` overlay skill for extracting portal-specific bid form structure. Note: document **generation** (letters of intent, cover letters) is a separate module, not an extraction overlay. | Add new overlay skill without schema/daemon changes |
 
 ### 2.6 Dependencies
 

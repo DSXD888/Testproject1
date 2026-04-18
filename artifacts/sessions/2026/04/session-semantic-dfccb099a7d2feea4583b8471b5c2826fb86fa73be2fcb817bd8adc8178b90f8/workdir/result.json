@@ -1,0 +1,281 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "CCP074 — Creation of a Print Services Dynamic Purchasing System (DPS umbrella)",
+      "description": "Derbyshire County Council DPS for Print Services established under the Public Contracts Regulations 2015 using the FTS Restricted Procedure (two-stage). Stage 1 admits qualifying providers via the DCC Universal Selection Questionnaire; Stage 2 invites further-competition quotes from admitted providers for specific service categories or lots. The DPS runs for an initial 60-month period (1 December 2022 — 30 November 2027) and is operated through the ProActis / east-mids-tenders portal at https://www.eastmidstenders.org/. This output is at the DPS-umbrella grain only: the substantive per-lot specification of requirements is held in 'Appendix A — Specification of Requirements (Lots)', which is NOT contained in this PDF (CCP074 — Appendix B — Instructions to Bidders). The originating notice (pc-169ba131-3b3f-ed11-8119-005056b64545, summary field) declares the DPS is split into 10 lots; downstream extraction must split this single umbrella lot into its constituent 10 lots once Appendix A is available.",
+      "requirements": [
+        "Provider must apply to join the DPS by creating an account on the ProActis / east-mids-tenders portal (https://www.eastmidstenders.org/) and submitting the print-services document set online.",
+        "Provider must complete and return the DCC Universal Selection Questionnaire (SQ), the Freedom of Information Act (FOIA) response, and the Tender Checklist via the ProActis portal at Stage 1, even if the provider has previously completed the system's selection questionnaire.",
+        "Provider must indicate within the DCC Universal Selection Questionnaire the specific lot(s) it wishes to be considered for ('Details of Lots suppliers wish to be considered for').",
+        "Provider must satisfy the council's Stage-1 evaluation across Economic and Financial Standing, Technical / Professional Ability and capacity, Legal Status, and Quality.",
+        "Provider must accept that admission to the DPS is subject to the council's evaluation of capability to provide the services detailed in the specification; rejected providers are entitled to two additional opportunities to apply to join the DPS.",
+        "Provider must agree that, once admitted, Stage 2 quote awards will be made to the supplier that 'best meets the Council's requirements' on price, quality and delivery lead times (and not limited to those criteria).",
+        "Provider must respect the procurement timetable: contract notice published 30/09/2022; Round-1 clarification request deadline 21/10/2022 by 16:00; Round-1 submission deadline 01/11/2022; Round-1 evaluation by 11/11/2022; Round-1 standstill / outcome notification 22/11/2022; first contracts start 01/12/2022; Round-2 commences 01/12/2022.",
+        "Provider must raise Round-1 clarification questions through the ProActis messaging service before 16:00 on 21 October 2022; the council's responses to clarifications may be made available to all applicants.",
+        "Provider must accept the DCC Quality Questionnaire (QQ) and Supplier Information Security (SISQ) as part of the DCC Universal Selection Questionnaire.",
+        "Provider must agree that the council reserves the right to cancel the tender process at any point, with no liability for costs incurred by tendering parties.",
+        "Provider must accept Derbyshire County Council Terms and Conditions issued with the tender pack."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "stage_1_pre_qualification",
+          "summary": "DCC Universal Selection Questionnaire admission gate covering Economic and Financial Standing, Technical / Professional Ability and capacity, Legal Status, and Quality. Pass / fail admission to the DPS.",
+          "weighting_text": "Not stated in this document; admission is gated on meeting 'the required standards' across the four pre-qualification dimensions.",
+          "evidence_anchor": {
+            "page_ref": "line_11",
+            "section_ref": "Section 1 — Stage 1 Pre-qualification",
+            "anchor_text": "Economic and Financial Standing - Technical/Professional Ability and capacity - Legal Status - Quality"
+          }
+        },
+        {
+          "criterion": "stage_2_further_competition_award",
+          "summary": "Award of Stage-2 quotes to the supplier that 'best meets the Council's requirements'. Document lists indicative criteria as price, quality and delivery lead times, explicitly noting these are not exhaustive.",
+          "weighting_text": "No weightings disclosed in this document; per-lot weightings would be expected in Appendix A — Specification of Requirements (Lots) or in the Stage-2 invitation-to-quote pack.",
+          "evidence_anchor": {
+            "page_ref": "line_11",
+            "section_ref": "Section 1 — Stage 2",
+            "anchor_text": "based on an evaluation of the offers submitted, which would include, but not be limited to, price, quality and delivery lead times"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "22000000-0",
+        "79800000-2"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "ccp074-print-services-dps-umbrella",
+          "summary": "DPS-umbrella service-class seed for Print Services across the council's print-related demand. Concrete per-lot product specifications, technical attributes, and quantities are held in 'Appendix A — Specification of Requirements (Lots)' and are not present in this Appendix B Instructions-to-Bidders PDF.",
+          "requirement_type": "service_class_seed",
+          "technical_attributes": [
+            "service_family: print_services",
+            "delivery_model: dynamic_purchasing_system",
+            "term: 60_months_initial",
+            "buyer: derbyshire_county_council",
+            "lot_structure: pending_appendix_a_split"
+          ],
+          "evidence_anchor": {
+            "page_ref": "line_9",
+            "section_ref": "Document title block",
+            "anchor_text": "Creation of a Print Services DPS"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Public Contracts Regulations 2015",
+          "context": "The DPS is established and operated under the Public Contracts Regulations 2015 using the FTS Restricted Procedure. Cited in Section 1 of the Instructions to Bidders as the legal basis for the procurement.",
+          "evidence_anchor": {
+            "page_ref": "line_11",
+            "section_ref": "Section 1 — Introduction",
+            "anchor_text": "Under the Public Contracts Regulations 2015, the following documents are being made available by Derbyshire County Council"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "line_9",
+        "section_ref": "Document title block (Appendix B / CCP074)",
+        "anchor_text": "Creation of a Print Services DPS"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "ccp074-print-services-dps-umbrella",
+      "lot_number": "1",
+      "candidate_name": "Print Services (CCP074 DPS umbrella)",
+      "summary": "DPS-umbrella service-class seed covering the council's print-services demand across all 10 forthcoming lots of CCP074. Seed is intentionally at umbrella grain because Appendix B (Instructions to Bidders) does not enumerate the per-lot product / service requirements; those live in 'Appendix A — Specification of Requirements (Lots)' and are not present in this PDF. Downstream candidate generation must NOT treat this seed as a concrete product candidate; it is a placeholder pending enrichment from Appendix A.",
+      "requirements": [
+        "Provider must be capable of supplying print services to a UK local authority under a Dynamic Purchasing System contract.",
+        "Provider must accept ordering via the council's Stage-2 further-competition mechanism, with awards based on price, quality and delivery lead times.",
+        "Provider must be able to operate within an FTS-Restricted-Procedure DPS established under the Public Contracts Regulations 2015.",
+        "Provider must accept the council's Terms and Conditions issued with the tender pack."
+      ],
+      "technical_standards": [
+        "Public Contracts Regulations 2015"
+      ],
+      "cpv_codes": [
+        "22000000-0",
+        "79800000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "line_9",
+        "section_ref": "Document title block",
+        "anchor_text": "Creation of a Print Services DPS"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lot_count": 2000,
+    "lot_title": 6500,
+    "lot_description": 7000,
+    "lot_requirements": 7500,
+    "evaluation_criteria": 3000,
+    "cpv_codes": 6000,
+    "product_requirements": 2000,
+    "technical_standards": 4000,
+    "product_requirement_seeds": 2000,
+    "evidence_anchors": 8000,
+    "doc_role_hint_alignment": 1500
+  },
+  "extraction_confidence_bps": 2500,
+  "warnings": [
+    {
+      "code": "DOCUMENT_IS_INSTRUCTIONS_TO_BIDDERS_NOT_SPECIFICATION",
+      "message": "Source PDF is 'Appendix B — Instructions to Bidders' for CCP074 (Derbyshire County Council Print Services DPS). This is a procedural / process document describing how to bid (DPS mechanics, two-stage FTS Restricted Procedure, procurement timetable, contact details, portal URL). It is NOT the Specification of Requirements. The Specification of Requirements is explicitly named as a separate document — 'Appendix A - Specification of Requirements (Lots)' — and is not contained in this PDF. The daemon-side document_role hint of 'technical_specification' does not match the document's self-description ('Appendix B — Instructions to Bidders').",
+      "evidence_refs": [
+        "line_3: Appendix B",
+        "line_5: Instructions to Bidders",
+        "line_11: Appendix A - Specification of Requirements (Lots)",
+        "line_11: Appendix B - Instruction to Bidders including DPS conditions for guidance"
+      ]
+    },
+    {
+      "code": "LOT_DETAIL_DEFERRED_TO_APPENDIX_A",
+      "message": "The originating contract notice (pc-169ba131-3b3f-ed11-8119-005056b64545) summary states the DPS is split into 10 lots. This Appendix B does NOT enumerate any of the 10 lots — there are no per-lot titles, descriptions, requirements, evaluation criteria, CPV codes, product requirements, or technical standards in the body. The document only references 'Details of Lots suppliers wish to be considered for' as part of the DCC Universal Selection Questionnaire and 'the appropriate service category or lot' at Stage 2. The single emitted lot (lot_number = '1') is therefore a DPS-umbrella synthetic record so the contract's 'lot_outputs_must_be_non_empty' assertion can be satisfied; downstream processing MUST split it into the 10 underlying lots once 'Appendix A — Specification of Requirements (Lots)' is extracted.",
+      "evidence_refs": [
+        "process_context.notice.summary: The DPS is for a period of 60 months with a quantity of 10 Lots being available",
+        "line_11: Details of Lots suppliers wish to be considered for",
+        "line_11: the appropriate service category or lot"
+      ]
+    },
+    {
+      "code": "TECHNICAL_STANDARDS_NOT_PRESENT",
+      "message": "No equipment-, paper-, or print-process-level technical standards are present in this document (e.g. ISO/IEC 19752 toner-yield, ISO 9706 paper permanence, ISO 12647 colour management, FSC/PEFC paper certification, GDPR data-handling for variable-data print, etc.). The only normative reference cited in the body is the Public Contracts Regulations 2015, which is the legal basis for the DPS itself rather than a print-services technical standard. Print-specific technical standards would be expected in Appendix A — Specification of Requirements (Lots).",
+      "evidence_refs": [
+        "line_11: Under the Public Contracts Regulations 2015 ..."
+      ]
+    },
+    {
+      "code": "EVALUATION_CRITERIA_GENERIC_ONLY",
+      "message": "Stage-2 evaluation criteria are described generically as 'price, quality and delivery lead times' with the explicit caveat 'including, but not be limited to'. No weightings, scoring rubric, MEAT block, or per-lot evaluation matrix is present. Stage-1 admission is described in qualitative terms (Economic and Financial Standing, Technical / Professional Ability and capacity, Legal Status, Quality) without scoring. Per-lot evaluation criteria, weightings and pass marks would be expected in Appendix A or in the Stage-2 invitation-to-quote pack.",
+      "evidence_refs": [
+        "line_11: which would include, but not be limited to, price, quality and delivery lead times",
+        "line_11: Economic and Financial Standing - Technical/Professional Ability and capacity - Legal Status - Quality"
+      ]
+    },
+    {
+      "code": "CPV_CODES_FROM_NOTICE_CONTEXT",
+      "message": "Both CPV codes (22000000-0 Printed matter and related products; 79800000-2 Printing and related services) are inherited from the upstream contract notice main_category (process pc-169ba131-3b3f-ed11-8119-005056b64545). Neither CPV is literally cited in the body of this document; the body only refers generically to 'Print Services'.",
+      "evidence_refs": [
+        "process_context.cpv: 22000000-0 - Printed matter and related products | 79800000-2 - Printing and related services",
+        "line_9: Creation of a Print Services DPS"
+      ]
+    },
+    {
+      "code": "PRODUCT_SEEDS_AT_DPS_UMBRELLA_GRAIN",
+      "message": "The single emitted product_requirement_seed is at DPS-umbrella grain ('Print Services') because no concrete product, equipment, paper-stock, finishing-process, or per-lot service definition exists in this document. Downstream candidate generation must not treat this seed as a concrete product candidate without enrichment from Appendix A — Specification of Requirements (Lots).",
+      "evidence_refs": [
+        "line_9: Creation of a Print Services DPS",
+        "line_11: Appendix A - Specification of Requirements (Lots)"
+      ]
+    },
+    {
+      "code": "DOCLING_TABLE_LAYOUT_COLLAPSED_INTO_SINGLE_CELL",
+      "message": "Docling extracted the entire body of the document as a single table cell (extracted_tables_json shows two tables on page 1 with empty headers and rows; extracted_sections_json reports only 'page header', 'page footer', and 'textbox' sections). All substantive prose is therefore collapsed onto markdown line 11. Heading-based section_ref values in this output are derived from inline bold-prefixed headings ('Section 1 — Introduction', 'Period of Contract', 'Stage 1 ...', 'Section 2 — Procurement Timetable') rather than Docling-emitted section anchors.",
+      "evidence_refs": [
+        "document_extractions.section_count = 3 (page header, page footer, textbox)",
+        "document_extractions.table_count = 2 (both with empty headers and rows)",
+        "extracted_markdown lines 11-13: single bordered table cell containing the entire document body"
+      ]
+    },
+    {
+      "code": "DOCUMENT_PAGE_COUNT_ZERO",
+      "message": "Docling reports page_count = 0 for this extraction; evidence_anchor.page_ref values therefore use markdown line numbers (e.g. 'line_9', 'line_11') and section_ref values use either Docling-reported groups or inline bold headings extracted from the single-cell body.",
+      "evidence_refs": [
+        "document_extractions.page_count = 0",
+        "extraction_engine: per document_extractions row"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "line_3",
+      "section_ref": "Document title block",
+      "anchor_text": "Appendix B"
+    },
+    {
+      "page_ref": "line_5",
+      "section_ref": "Document title block",
+      "anchor_text": "Instructions to Bidders"
+    },
+    {
+      "page_ref": "line_7",
+      "section_ref": "Document title block",
+      "anchor_text": "CCP074"
+    },
+    {
+      "page_ref": "line_9",
+      "section_ref": "Document title block",
+      "anchor_text": "Creation of a Print Services DPS"
+    },
+    {
+      "page_ref": "line_11",
+      "section_ref": "Section 1 — Introduction",
+      "anchor_text": "Under the Public Contracts Regulations 2015, the following documents are being made available by Derbyshire County Council ('the council') to parties interested in submitting a Tender for the provision of Print Services, in accordance with the Dynamic Purchasing System (DPS) procedure."
+    },
+    {
+      "page_ref": "line_11",
+      "section_ref": "Section 1 — Introduction (document inventory)",
+      "anchor_text": "Appendix A - Specification of Requirements (Lots)"
+    },
+    {
+      "page_ref": "line_11",
+      "section_ref": "Section 1 — Introduction (document inventory)",
+      "anchor_text": "Appendix B - Instruction to Bidders including DPS conditions for guidance"
+    },
+    {
+      "page_ref": "line_11",
+      "section_ref": "Section 1 — DCC Universal Selection Questionnaire (SQ)",
+      "anchor_text": "1. Quality Questionnaire (QQ) 2. Supplier Information Security (SISQ) 3. Quality Questionnaire (QQ) 4. Details of Lots suppliers wish to be considered for"
+    },
+    {
+      "page_ref": "line_11",
+      "section_ref": "Section 1 — Period of Contract",
+      "anchor_text": "It is envisaged that this DPS will be available for an initial period of 60 months commencing 1 st December 2022 – 30 th November 2027"
+    },
+    {
+      "page_ref": "line_11",
+      "section_ref": "Section 1 — How does a DPS work? (portal)",
+      "anchor_text": "the URL for which is https://www.eastmidstenders.org/"
+    },
+    {
+      "page_ref": "line_11",
+      "section_ref": "Section 1 — Stage 1 Pre-qualification",
+      "anchor_text": "Economic and Financial Standing - Technical/Professional Ability and capacity - Legal Status - Quality"
+    },
+    {
+      "page_ref": "line_11",
+      "section_ref": "Section 1 — Stage 2",
+      "anchor_text": "based on an evaluation of the offers submitted, which would include, but not be limited to, price, quality and delivery lead times"
+    },
+    {
+      "page_ref": "line_11",
+      "section_ref": "Section 1 — Round-1 clarification window",
+      "anchor_text": "Please raise any 1 st round clarification questions by 16:00 hours on the 21 st October 2022"
+    },
+    {
+      "page_ref": "line_11",
+      "section_ref": "Section 2 — Procurement Timetable",
+      "anchor_text": "Contract notice (DCC Universal Selection Questionnaire available) Via the FTS Notice and on Contracts Finder and ProActis 30/09/2022 Clarification request deadline (1st round only) 21/10/2022 Deadline for submissions (1st round only) 01/11/2022"
+    },
+    {
+      "page_ref": "line_11",
+      "section_ref": "Section 2 — Procurement Timetable",
+      "anchor_text": "Anticipated contracts start date first round only 01/12/2022 Round 2 to commence 01/12/2022"
+    },
+    {
+      "page_ref": "line_11",
+      "section_ref": "Contact and Queries",
+      "anchor_text": "Procurement officer: Julia Apperley Email: julia.apperley@derbyshire.gov.uk Tel: 01629 536854"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "55d705de3593b81c53dc40dc23dc0e5ed27ba5fa66a0a3809cf9fb3f73cb255e",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

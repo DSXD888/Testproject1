@@ -1,0 +1,329 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Multi-disciplinary Design Team Appointment — Stockport Town Centre School",
+      "description": "Appointment of an architecturally led multi-disciplinary design team to deliver feasibility through to concept design (RIBA Stage 2) of a new exemplar town-centre through-school in Stockport, supporting the Council's wider £1bn town-centre regeneration on a constrained, previously developed (brownfield) site. The briefing document does not subdivide scope into separately bidable lots; it describes a single architecturally-led consultant-team appointment with a unified multi-disciplinary scope (Architecture, M&E, Structures & Civils, BR PD and CDM PD). Procurement is run under a Competitive Flexible Procedure with a Stage 1 Procurement Specific Questionnaire (PSQ) shortlisting to top 3 suppliers, followed by Stage 2 detailed proposals.",
+      "requirements": [
+        "Multi-disciplinary team comprising Architecture, M&E, Structures & Civils, BR PD (Building Regulations Principal Designer) and CDM PD (CDM Principal Designer) within a single architecturally-led consultant team.",
+        "Demonstrable experience of designing and delivering through-schools of similar size on complex, constrained, town and city-centre locations.",
+        "Inclusive design approach that meets the needs of all learners; flexible, adaptable spaces that can evolve with changing educational needs.",
+        "Embed green building standards, active travel promotion and adaptability; contribute to climate resilience (including flood risk) in line with the Council's 2019 climate emergency declaration.",
+        "Meet the Biodiversity Net Gain (BNG) target of 20% for the site.",
+        "Navigate brownfield development constraints including high remediation costs, proximity to primary traffic routes with significant volumes, and air-quality impacts.",
+        "Navigate town-centre heritage / historic townscape sensitivities and complement the existing skyline and character.",
+        "Provide consistency at Partner level throughout the design programme (stated SMBC preference).",
+        "Report to the SMBC Project Board (Estates, Education, MDC) and supporting teams — Estates and Asset Management (EAM), Design and Technical Services, Education Services, Stockport Mayoral Development Corporation, Local Council Members, Local Planning Authority, Highways, Sustainability — at frequent intervals during the commission; agree stage-reporting dates with the Head of Capital Design & Technical Services.",
+        "Support a viable funding model for the Town Centre School project, including public funding streams, grants, phased delivery, partnerships and value-engineering approaches; integrate cost planning, risk management and lifecycle considerations into the design process."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Relevant experience and contract examples (Stage 1 PSQ Q1)",
+          "summary": "Part 1: 500-word narrative describing experience of designing and delivering school projects on complex, constrained and urban sites — challenges encountered, how addressed, outcomes achieved. Part 2: three case studies, each with a separate 250-word narrative on relevance to Part 1 plus a separate single A4 sheet of case-study details (format at bidder discretion).",
+          "weighting_text": "Equally weighted with the other two Stage 1 PSQ questions (three equally weighted questions at Stage 1).",
+          "evidence_anchor": {
+            "page_ref": "p10",
+            "anchor_text": "Relevant experience and contract examples",
+            "section_ref": "Evaluation Criteria : Competitive Flexible Procedure"
+          }
+        },
+        {
+          "criterion": "Workforce and Resources (Stage 1 PSQ Q2)",
+          "summary": "Part 1: name each member of the proposed multidisciplinary team (company/practice) covering Architecture, M&E, Structures & Civils, BR PD and CDM PD; describe proposed team structure, key roles and responsibilities (max 500 words) and explain how the team's skills and experience align to the project (max 1000 words). Part 2: single-A4 CV per discipline lead, maximum 5 CVs.",
+          "weighting_text": "Equally weighted with the other two Stage 1 PSQ questions.",
+          "evidence_anchor": {
+            "page_ref": "p10",
+            "anchor_text": "Workforce and Resources",
+            "section_ref": "Evaluation Criteria : Competitive Flexible Procedure"
+          }
+        },
+        {
+          "criterion": "Funding Model Approach (Stage 1 PSQ Q3)",
+          "summary": "Max 500 words covering: (1) understanding of financial challenges and opportunities of delivering a school within a town-centre context; (2) how the bidder will work with the client team to explore, evaluate and refine funding options (public funding streams, grants, phased delivery, partnerships, value-engineering); (3) methodology for ensuring affordability, including integration of cost planning, risk management and lifecycle considerations into the design process.",
+          "weighting_text": "Equally weighted with the other two Stage 1 PSQ questions.",
+          "evidence_anchor": {
+            "page_ref": "p10",
+            "anchor_text": "Funding Model Approach",
+            "section_ref": "Evaluation Criteria : Competitive Flexible Procedure"
+          }
+        },
+        {
+          "criterion": "Shortlisting rule (Stage 1 → Stage 2)",
+          "summary": "The Council intends to shortlist the top 3 highest-scoring Suppliers from Stage 1 to be invited to Stage 2, reserving the right to increase or decrease the number of Suppliers invited to Stage 2 where appropriate and proportionate. Shortlisted suppliers receive the full tender pack for Stage 2 detailed proposals.",
+          "weighting_text": "Top 3 shortlist (flexible).",
+          "evidence_anchor": {
+            "page_ref": "p10",
+            "anchor_text": "The Council intends to shortlist the top 3 highest scoring Suppliers to be invited to participate in Stage 2.",
+            "section_ref": "Evaluation Criteria : Competitive Flexible Procedure"
+          }
+        },
+        {
+          "criterion": "Stage 2 award evaluation split",
+          "summary": "The Stage 2 Tender will be evaluated on the basis of quality (60%), price (40%) and social value (20%). Note the stated percentages sum to 120% — the document does not reconcile this; treat the stated weightings as literal.",
+          "weighting_text": "Quality 60% / Price 40% / Social Value 20% (as literally stated).",
+          "evidence_anchor": {
+            "page_ref": "p10",
+            "anchor_text": "The Stage 2 Tender will be evaluated on the basis of quality (60%) price (40%) and social value (20%).",
+            "section_ref": "Evaluation Criteria : Competitive Flexible Procedure"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "Biodiversity Net Gain 20%",
+          "context": "Site constraint: the brief states the scheme must meet Biodiversity Net Gain targets of 20% (exceeding the 10% statutory baseline under the Environment Act 2021).",
+          "evidence_anchor": {
+            "page_ref": "p7",
+            "anchor_text": "Biodiversity Net Gain targets of 20%",
+            "section_ref": "CONSTRAINTS: OPPORTUNITES & CHALLENGES"
+          }
+        },
+        {
+          "standard_ref": "RIBA Plan of Work — Stage 2",
+          "context": "Programme reference: the indicative programme covers RIBA Stage 2 design (concept design); a wider strategic programme will be issued with the Stage 2 tender documents.",
+          "evidence_anchor": {
+            "page_ref": "p11",
+            "anchor_text": "RIBA Stage 2 Programme",
+            "section_ref": "Programme"
+          }
+        },
+        {
+          "standard_ref": "CDM 2015 — Principal Designer (CDM PD)",
+          "context": "Required discipline in the multi-disciplinary team: CDM Principal Designer (Construction (Design and Management) Regulations 2015).",
+          "evidence_anchor": {
+            "page_ref": "p10",
+            "anchor_text": "Architecture, M&E, Structures & Civils, BR PD & CDM PD",
+            "section_ref": "Workforce and Resources"
+          }
+        },
+        {
+          "standard_ref": "Building Safety Act 2022 — Building Regulations Principal Designer (BR PD)",
+          "context": "Required discipline: Building Regulations Principal Designer under the dutyholder regime established by the Building Safety Act 2022 / Building Regulations etc. (Amendment) (England) Regulations 2023.",
+          "evidence_anchor": {
+            "page_ref": "p10",
+            "anchor_text": "Architecture, M&E, Structures & Civils, BR PD & CDM PD",
+            "section_ref": "Workforce and Resources"
+          }
+        },
+        {
+          "standard_ref": "Stockport Council 2019 Climate Emergency Declaration",
+          "context": "Context constraint: the design must contribute positively to climate resilience and the transition to a low-carbon future, referencing the climate emergency declared by the Council in 2019.",
+          "evidence_anchor": {
+            "page_ref": "p7",
+            "anchor_text": "The climate emergency, declared in 2019",
+            "section_ref": "CONSTRAINTS: OPPORTUNITES & CHALLENGES"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "anchor_text": "STOCKPORT TOWN CENTRE SCHOOL — Briefing document for the appointment of Design Team",
+        "section_ref": "Cover page"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 9300,
+    "lots.description": 8800,
+    "lots.requirements": 8500,
+    "lots.evaluation_criteria": 9500,
+    "lots.evaluation_criteria.stage2_weightings": 7500,
+    "lots.cpv_codes": 2000,
+    "lots.product_requirements": 1500,
+    "lots.technical_standards": 7200,
+    "lots.technical_standards.bng_20": 9300,
+    "lots.technical_standards.riba_stage_2": 9200,
+    "lots.technical_standards.cdm_br_pd": 8000,
+    "product_requirement_seeds": 2000,
+    "extraction_metadata": 9800
+  },
+  "extraction_confidence_bps": 7700,
+  "warnings": [
+    {
+      "code": "NO_EXPLICIT_LOT_SUBDIVISION",
+      "message": "The briefing document does not subdivide scope into separately bidable lots. A single synthetic lot (lot_number = \"1\") has been emitted covering the architecturally-led multi-disciplinary design-team appointment. Pre-existing notice-lot metadata (lot 1: 'Multi-disciplinary Design Team Appointment — Stockport Town Centre School') is consistent with this interpretation and was used only as cross-reference, not as authoritative truth.",
+      "evidence_refs": [
+        "p1: Briefing document for the appointment of Design Team",
+        "p10: Workforce and Resources — Architecture, M&E, Structures & Civils, BR PD & CDM PD"
+      ]
+    },
+    {
+      "code": "NO_CPV_IN_DOCUMENT",
+      "message": "No CPV codes are cited anywhere in the tender briefing; cpv_codes left empty. Notice-level CPV should be sourced from process-level signals, not from this document.",
+      "evidence_refs": []
+    },
+    {
+      "code": "SERVICES_ONLY_NO_PRODUCT_SEEDS",
+      "message": "This is a professional-services procurement (design-team appointment). No goods-style product requirements are present in the brief; product_requirement_seeds is empty by design. If a later stage (Stage 2 tender pack) introduces goods/equipment scope, a separate extraction should re-run against that document.",
+      "evidence_refs": [
+        "p10: Workforce and Resources",
+        "p10: Funding Model Approach"
+      ]
+    },
+    {
+      "code": "NO_NAMED_GREEN_BUILDING_STANDARD",
+      "message": "The brief references 'Green building standards' and sustainability ambitions without naming a specific scheme (e.g., BREEAM, Passivhaus, NZEB, DfE output specification). Only explicitly named frameworks (BNG 20%, RIBA Stage 2, CDM PD, BR PD, 2019 climate emergency) are emitted as technical_standards.",
+      "evidence_refs": [
+        "p4: Sustainability & Future Proofing — Green building standards"
+      ]
+    },
+    {
+      "code": "STAGE2_WEIGHTINGS_SUM_120PCT",
+      "message": "The stated Stage 2 evaluation weighting is quality (60%) + price (40%) + social value (20%), which sums to 120%. The document does not reconcile this. The weightings are preserved verbatim; downstream logic should not silently re-scale.",
+      "evidence_refs": [
+        "p10: The Stage 2 Tender will be evaluated on the basis of quality (60%) price (40%) and social value (20%)."
+      ]
+    },
+    {
+      "code": "OCR_QUALITY_NOISE",
+      "message": "The Docling markdown contains OCR/ligature artefacts (e.g., 'benefft', 'Opportunites', 'difierence', 'complimenting', '33₴', 'Od', 'STARI', '2th'). Narrative semantics are preserved, but quantitative and date tokens from the programme/Gantt section should be treated as low-confidence.",
+      "evidence_refs": [
+        "p7: Opportunites",
+        "p11: 33₴ 29/06/2026",
+        "p2: 2th"
+      ]
+    },
+    {
+      "code": "PROGRAMME_DATES_LOW_CONFIDENCE",
+      "message": "Programme/RIBA Stage 2 milestone dates (17/11/2025 PID submission, 12/01/2026 Brief finalisation, 26/01/2026 Stage 2 Design start, 29/06/2026 / 20/07/2026 / 27/07/2026 / 31/08/2026 Cost Plan) were extracted from a fragmented Gantt-like table and are preserved as narrative context only; not emitted as structured milestones. Durations such as '10d' and '15d' are retained.",
+      "evidence_refs": [
+        "p11: Programme",
+        "p11: 17/11/2025",
+        "p11: RIBA Stage 2 Programme Stage 2 Cost Plan 15d 31/08/2026"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p1",
+      "anchor_text": "STOCKPORT TOWN CENTRE SCHOOL",
+      "section_ref": "Cover"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Briefing document for the appointment of Design Team",
+      "section_ref": "Cover"
+    },
+    {
+      "page_ref": "p2",
+      "anchor_text": "Contents",
+      "section_ref": "Contents"
+    },
+    {
+      "page_ref": "p3",
+      "anchor_text": "TOWN CENTRE REGENERATION",
+      "section_ref": "Town Centre Regeneration"
+    },
+    {
+      "page_ref": "p3",
+      "anchor_text": "' One  S t o c kp o rt   -  One Future Plan'",
+      "section_ref": "One Stockport — One Future Plan"
+    },
+    {
+      "page_ref": "p4",
+      "anchor_text": "Our Ambition",
+      "section_ref": "Our Ambition"
+    },
+    {
+      "page_ref": "p4",
+      "anchor_text": "Sustainability & Future Proofing",
+      "section_ref": "Our Ambition — Sustainability"
+    },
+    {
+      "page_ref": "p5",
+      "anchor_text": "The Opportunity",
+      "section_ref": "The Opportunity"
+    },
+    {
+      "page_ref": "p6",
+      "anchor_text": "The Vision",
+      "section_ref": "The Vision"
+    },
+    {
+      "page_ref": "p7",
+      "anchor_text": "CONSTRAINTS: OPPORTUNITES & CHALLENGES",
+      "section_ref": "Constraints"
+    },
+    {
+      "page_ref": "p7",
+      "anchor_text": "Biodiversity Net Gain targets of 20%",
+      "section_ref": "Constraints"
+    },
+    {
+      "page_ref": "p7",
+      "anchor_text": "The climate emergency, declared in 2019",
+      "section_ref": "Constraints"
+    },
+    {
+      "page_ref": "p8",
+      "anchor_text": "Skills & Expertise",
+      "section_ref": "Skills & Expertise"
+    },
+    {
+      "page_ref": "p8",
+      "anchor_text": "Stockport Construction Hub",
+      "section_ref": "Skills & Expertise — Stockport Construction Hub"
+    },
+    {
+      "page_ref": "p9",
+      "anchor_text": "THE CLIENT TEAM Reporting & Governance",
+      "section_ref": "Client Team"
+    },
+    {
+      "page_ref": "p10",
+      "anchor_text": "Evaluation Criteria :",
+      "section_ref": "Evaluation Criteria"
+    },
+    {
+      "page_ref": "p10",
+      "anchor_text": "Competitive Flexible Procedure",
+      "section_ref": "Evaluation Criteria"
+    },
+    {
+      "page_ref": "p10",
+      "anchor_text": "Relevant experience and contract examples",
+      "section_ref": "Evaluation Criteria — Q1"
+    },
+    {
+      "page_ref": "p10",
+      "anchor_text": "Workforce and Resources",
+      "section_ref": "Evaluation Criteria — Q2"
+    },
+    {
+      "page_ref": "p10",
+      "anchor_text": "Funding Model Approach",
+      "section_ref": "Evaluation Criteria — Q3"
+    },
+    {
+      "page_ref": "p10",
+      "anchor_text": "The Council intends to shortlist the top 3 highest scoring Suppliers to be invited to participate in Stage 2.",
+      "section_ref": "Evaluation Criteria — shortlisting"
+    },
+    {
+      "page_ref": "p10",
+      "anchor_text": "The Stage 2 Tender will be evaluated on the basis of quality (60%) price (40%) and social value (20%).",
+      "section_ref": "Evaluation Criteria — Stage 2 weightings"
+    },
+    {
+      "page_ref": "p11",
+      "anchor_text": "Programme",
+      "section_ref": "Programme"
+    },
+    {
+      "page_ref": "p11",
+      "anchor_text": "RIBA Stage 2 Programme",
+      "section_ref": "Programme"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "f880d06fce4ec2121773069cad36e628fdc1a809ed308e0baf66be1ab5a957f9",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

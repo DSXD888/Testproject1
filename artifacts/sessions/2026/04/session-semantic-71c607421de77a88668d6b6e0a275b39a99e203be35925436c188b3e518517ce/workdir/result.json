@@ -1,0 +1,1287 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment",
+      "description": "Single-lot ESPO multi-supplier Framework (reference 107_26) for the inspection and maintenance of indoor gymnasium, fitness and sport equipment and outdoor schools play and sport equipment, including associated remedial services where required. Conducted as an Open Procedure under sections 19-24 of the Procurement Act 2023. Framework term is initially approximately 19 months (start 24 June 2026) with options to extend up to a total of approximately 4 years (maximum to 23 June 2030). Estimated Framework value £10m inclusive of VAT over the maximum term. A minimum of 4 Suppliers is anticipated to be appointed. Customers are UK public-sector bodies including local authorities, central government, schools/academies/colleges/universities, registered charities, and registered social landlords. The Framework is structured around the nine English government regions (East Midlands, East of England, London, North East, North West, South East, South West, West Midlands, Yorkshire and Humber); Tenderers must be able to supply all nine English regions and may additionally indicate coverage of Scotland, Wales and Northern Ireland. Customers may call-off without competition or via further competitive selection (including eAuction). Framework Fee is 3.5% payable quarterly by Supplier to ESPO. Variant bids are not accepted. National (not regional) pricing is required.",
+      "requirements": [
+        "Provide inspection & maintenance services for indoor gymnasium, fitness and sport equipment and outdoor schools play & sport equipment, including associated remedial services where required.",
+        "Be able to supply services across all nine English regions (East Midlands, East of England, London, North East, North West, South East, South West, West Midlands, Yorkshire and Humber).",
+        "Submit national pricing (not regional pricing) via the Pricing Schedule in Appendix B.",
+        "Provide pricing for a minimum of 40 of the 57 service requirements (70%) in the Pricing Schedule; failure to price at least 40 will result in exclusion from evaluation.",
+        "Perform at least one inspection & maintenance visit per annum, pre-arranged with the Customer; no visits to be made without prior Customer agreement.",
+        "Conduct full inspection of all portable and fixed physical education and fitness equipment as required by the Customer, including routine maintenance (tightening nuts/bolts), replacement of sundry items (e.g. washers), and lubrication of moving parts.",
+        "Submit a written inspection & maintenance report to the Customer after the first visit detailing maintenance carried out and any remedial work required.",
+        "Only perform the first visit at a Customer site on receipt of an official order; first-visit work is limited to rendering the equipment serviceable and safe for use.",
+        "Submit a separate quotation for any remedial work in addition to the first-visit scope, addressed to the Customer's authorising officer; remedial work must not be carried out until the Customer has considered, approved and confirmed the quotation.",
+        "Itemise charges such as scaffolding needed to carry out remedial work at height in quotations following the initial inspection visit.",
+        "Provide all necessary equipment (ladders, scaffolding, etc.) to examine overhead trackways, climbing ropes, travelling-beam uprights, etc. in compliance with health and safety requirements.",
+        "Be available for emergency call-outs from Customers where unforeseen breakages or damage has occurred.",
+        "Report any equipment that is not considered constructed to the required safety standards in the inspection & maintenance report.",
+        "Forward copies of the individual inspection report form to the relevant Customer on request.",
+        "Submit management information to ESPO on a quarterly basis on agreed dates, in the format specified in clause 15 and Schedule 7 of the Framework Agreement (including Social Value delivered per Framework Schedule 10).",
+        "Obtain written prior approval from ESPO before distributing any marketing material referencing ESPO, the Framework or ESPO's logo.",
+        "Pay a quarterly Framework Fee of 3.5% of turnover conducted under the Framework to ESPO.",
+        "Hold and maintain insurance of: £5m Employers' Liability (any one occurrence, where staff are employed); £10m Public Liability (any one occurrence); £10m Product Liability (any one occurrence and in aggregate); £2m Professional Indemnity (any one claim and in aggregate).",
+        "Have a published carbon reduction policy statement or equivalent commitment to carbon reduction, addressing minimal environmental impact, CO2 reduction goals, plan and progress.",
+        "Demonstrate relevant experience supplying inspection & maintenance services for indoor gym, fitness, sport and outdoor schools play & sport equipment within the last three years.",
+        "Confirm ability to meet the minimum specification requirements (see Requirement / Specification section)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Non-price (Quality) Q1 - Customer Engagement and Framework Management",
+          "summary": "Method statement on customer engagement and Framework management. Scored 0-3 with weighting 3; maximum weighted score 9.",
+          "weighting_text": "Weighting 3; max evaluator score 3; max weighted 9 (of 60)",
+          "evidence_anchor": {
+            "page_ref": "§5 Part 2 - Award Criteria - Weightings table",
+            "anchor_text": "Q1 Customer Engagement and Framework Management",
+            "section_ref": "5. EVALUATION OF TENDERS"
+          }
+        },
+        {
+          "criterion": "Non-price (Quality) Q2 - Customer Site Visit Process",
+          "summary": "Method statement on the customer site visit process. Scored 0-3 with weighting 3; maximum weighted score 9.",
+          "weighting_text": "Weighting 3; max evaluator score 3; max weighted 9 (of 60)",
+          "evidence_anchor": {
+            "page_ref": "§5 Part 2 - Award Criteria - Weightings table",
+            "anchor_text": "Q2 Customer Site Visit Process",
+            "section_ref": "5. EVALUATION OF TENDERS"
+          }
+        },
+        {
+          "criterion": "Non-price (Quality) Q3 - Inspection Report",
+          "summary": "Method statement on the inspection report. Scored 0-3 with weighting 5; maximum weighted score 15.",
+          "weighting_text": "Weighting 5; max evaluator score 3; max weighted 15 (of 60)",
+          "evidence_anchor": {
+            "page_ref": "§5 Part 2 - Award Criteria - Weightings table",
+            "anchor_text": "Q3 Inspection Report",
+            "section_ref": "5. EVALUATION OF TENDERS"
+          }
+        },
+        {
+          "criterion": "Non-price (Quality) Q4 - Services Following Completion of Work",
+          "summary": "Method statement on services following completion of work. Scored 0-3 with weighting 4; maximum weighted score 12.",
+          "weighting_text": "Weighting 4; max evaluator score 3; max weighted 12 (of 60)",
+          "evidence_anchor": {
+            "page_ref": "§5 Part 2 - Award Criteria - Weightings table",
+            "anchor_text": "Q4 Services Following Completion of Work",
+            "section_ref": "5. EVALUATION OF TENDERS"
+          }
+        },
+        {
+          "criterion": "Non-price (Quality) Q5 - Consistency of Standards",
+          "summary": "Method statement on consistency of standards. Scored 0-3 with weighting 4; maximum weighted score 12.",
+          "weighting_text": "Weighting 4; max evaluator score 3; max weighted 12 (of 60)",
+          "evidence_anchor": {
+            "page_ref": "§5 Part 2 - Award Criteria - Weightings table",
+            "anchor_text": "Q5 Consistency of Standards",
+            "section_ref": "5. EVALUATION OF TENDERS"
+          }
+        },
+        {
+          "criterion": "Non-price (Social Value) Q6 - Your Organisation's Current Approach to Social Value",
+          "summary": "Social Value method statement scored 0-3 against three elements; weighting 1; maximum weighted score 3.",
+          "weighting_text": "Weighting 1; max evaluator score 3; max weighted 3 (of 60). Overall non-price weight 60% (including 5% Social Value).",
+          "evidence_anchor": {
+            "page_ref": "§5 Part 2 - Award Criteria - Weightings table",
+            "anchor_text": "Q6 Your Organisation's Current Approach to Social Value",
+            "section_ref": "5. EVALUATION OF TENDERS"
+          }
+        },
+        {
+          "criterion": "Price (40%)",
+          "summary": "Total weighted basket of 57 service requirements in Appendix B Pricing Schedule evaluated using median-price methodology; median basket price awarded 20 points (half of 40), other tenderers scored pro-rata (minimum 0). Missing prices (up to 17) substituted with median of other compliant tenderers' prices; prices must exclude VAT but include 3.5% Framework Fee and be inclusive of travel, inspection & maintenance and reports (remedial priced separately).",
+          "weighting_text": "40% of total Tender score",
+          "evidence_anchor": {
+            "page_ref": "§5 Part 2 - Award Criteria - Price 40%",
+            "anchor_text": "Price accounts for 40% of the total Tender score",
+            "section_ref": "5. EVALUATION OF TENDERS"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "counter-balanced-beams",
+          "summary": "Counter Balanced Beams (Fixed and Hinged): inspect/tighten/replace fixings, wires, weights, booms, swivels, hauling/tricing lines, wedges/cords, tracks, floor plates, pulleys, uprights, wheeling; lubricate, de-splinter and touch-in varnish as required.",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "fixings_and_fittings_inspect_tighten_replace",
+            "wires_adjust_level_replace",
+            "weights_cover_panel_inspect_tighten",
+            "booms_splinters_varnish",
+            "pulleys_free_lubricate_replace_except_top_hauling"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 1 Counter Balanced Beans (Fixed and Hinged)",
+            "anchor_text": "## 1. Counter Balanced Beans (Fixed and Hinged)",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "fixed-tubular-equipment",
+          "summary": "Fixed Tubular Equipment: inspect fixings, tracks, spacing chains, hauling/tricing lines, floor plates, pole end fittings, pulleys, wheels; lubricate and replace worn items.",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "pole_end_fittings_rethread",
+            "hauling_lines_worn_replace",
+            "spacing_chains_replace_if_broken"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 2 Fixed Tubular Equipment",
+            "anchor_text": "## 2. Fixed Tubular Equipment",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "hinged-frames",
+          "summary": "Hinged Frames: inspect and service fixings, wires, tensioning device (adjust tension, tighten fixings, replace handgrip), pulleys.",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "tensioning_device_adjust",
+            "pulleys_free_lubricate_replace"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 3 Hinged Frames",
+            "anchor_text": "## 3. Hinged Frames",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "rope-tracks-frames-ropes",
+          "summary": "Rope Tracks / Rope Frames / Ropes: inspect/service fixings, tracks, tricing & hauling lines, pulleys, spacing chains, cleats, ropes (re-shoe if required, remove knots), rope ladders (re-whip up to 6 rungs), trapeze/rings, wires, tensioning device, storage cords, wheeling device, floor plates, uprights.",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "rope_reshoe",
+            "rope_ladder_rewhip_up_to_6_rungs",
+            "trapeze_rings_inspect"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 4 Rope Tracks / Rope Frames / Ropes",
+            "anchor_text": "## 4. Rope Tracks / Rope Frames / Ropes",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "fixed-hinged-wall-bars",
+          "summary": "Fixed and Hinged Wall Bars: inspect, tighten and replace missing screws/bolts/wall fixings/securing brackets/floor fittings; supply and fit new oval mouldings where broken; clean splinters and re-varnish where required. Complete re-varnishing is a separate order.",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "oval_moulding_replacement",
+            "rev_varnish_complete_separate_order"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 5 Fixed and Hinged Wall Bars",
+            "anchor_text": "## 5. Fixed and Hinged Wall Bars",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "basketball-goals",
+          "summary": "Basketball Goals: inspect/service fixings, framework (hinged parts, telescopic braces), tension wires, tensioning device, hand winch, electric winch (motor, limit switches, gearbox oil leaks, brake unit - excludes Electricity at Work Act testing), lifting cable, pulleys, backboard, ring & net.",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "electric_winch_excludes_electricity_at_work_act_testing",
+            "hand_winch_grease_gears"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 6 Basketball Goals",
+            "anchor_text": "## 6. Basketball Goals",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "trackway-netting-divisional-cricket",
+          "summary": "Trackway and Netting (Divisional / Cricket): check operation for snagging joints; service track fixings, crossovers (rotary type), trolleys (replace up to 3 if worn/missing), nets (re-hang partial detachment), hauling lines, pulleys, storage bags (re-sew detached rings/hooks or small seam splits), storage straps.",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "trolleys_replace_up_to_3",
+            "storage_bags_hand_resew"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 7 Trackway and Netting (Divisional / Cricket)",
+            "anchor_text": "## 7. Trackway and Netting (Divisional / Cricket)",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "floor-sockets",
+          "summary": "Floor Sockets: service threaded-type (re-thread by tapping), socket type (clean), flip-up type (check operation, lubricate if stiff).",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "threaded_rethread_tap",
+            "flip_up_lubricate_if_stiff"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 8 Floor Sockets",
+            "anchor_text": "## 8. Floor Sockets",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "vaulting-equipment",
+          "summary": "Vaulting Equipment (Boxes / Horses / Bucks): inspect/service fixings, woodwork (clean splinters, touch in varnish, re-varnish if necessary; corner blocks reported), feet (replace rubber feet), wheeling gear, hide covers (roughen/patch).",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "hide_covers_roughen_patch",
+            "rubber_feet_replace_worn"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 9 Vaulting Equipment (Boxes / Horses / Bucks)",
+            "anchor_text": "## 9. Vaulting Equipment (Boxes / Horses / Bucks)",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "upholstered-equipment",
+          "summary": "Upholstered Equipment (Stools / Benches / Tables): service fixings, woodwork, metalwork (cracked welds), rubber feet, safety devices (chains, cords, pins), padded tops (repair or recover with PVC of equivalent quality; full recovering is separate quoted order).",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "padded_tops_recover_pvc_equivalent",
+            "metalwork_cracked_welds_inspect"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 10 Upholstered Equipment (Stools / Benches / Tables)",
+            "anchor_text": "## 10. Upholstered Equipment (Stools / Benches / Tables)",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "springboards",
+          "summary": "Springboards: service fixings, woodwork (splinters, varnish, check plywood delamination), rubber feet.",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "plywood_delamination_check"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 11 Springboards",
+            "anchor_text": "## 11. Springboards",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "balance-benches-planks",
+          "summary": "Balance Benches and Planks: service fixings, woodwork (splinters, varnish, re-varnish top/rails if necessary), rubber feet, hooks (replacement hook covers), bench buttons, staunton bars, angle brackets.",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "hook_covers_fit_replacement",
+            "staunton_bars_inspect"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 12 Balance Benches and Planks",
+            "anchor_text": "## 12. Balance Benches and Planks",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "trestles-poles-ladders-bars",
+          "summary": "Trestles / Poles / Ladders / Bars: service fixings, woodwork, metalwork (cracked welds), rubber feet, rubber grommets/brushes, plastic tube inserts, safety devices (chains, cords, pins), threaded hooks (re-thread), rubber/leather hook covers (re-glue, repair, replace - excludes plastic re-coating).",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "plastic_tube_inserts_replace",
+            "hook_covers_exclude_plastic_recoating"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 13 Trestles / Poles / Ladders / Bars",
+            "anchor_text": "## 13. Trestles / Poles / Ladders / Bars",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "landing-mats-agility-mattresses",
+          "summary": "Landing Mats and Agility Mattresses: perform minor repairs to render mats safe; inspect for perished rubber bases; replace rather than repair ripped/holed mat covers (afPE and industry advice discourages cover patching - patching creates trip hazards and hides foam damage; patched mats may not meet fire regulations). Safety mattress covers can be replaced but foam condition and age must be considered. Cleaning and re-covering of agility mattresses is NOT part of this Framework.",
+          "requirement_type": "maintenance_scope_with_exclusion",
+          "technical_attributes": [
+            "afPE_industry_advice_no_cover_patching",
+            "replace_not_repair_ripped_mat_cover",
+            "cleaning_recovering_agility_mattresses_excluded"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 14 Landing Mats and Agility Mattresses",
+            "anchor_text": "## 14. Landing Mats and Agility Mattresses",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "games-posts-goals-indoor",
+          "summary": "Games Posts and Goals (Indoor): service fixings, framework (cracked welds, bent/damaged parts), hinges, safety devices, wheels/wheeling devices, rubber feet, anchorage points.",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "anchorage_points_secure_check",
+            "framework_cracked_welds_check"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 15 Games Posts and Goals (Indoor)",
+            "anchor_text": "## 15. Games Posts and Goals (Indoor)",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "equipment-trolleys",
+          "summary": "Equipment Trolleys: service fixings, framework (cracked welds), platform, castors and wheels (free stiff wheels/castors, clean wheels).",
+          "requirement_type": "maintenance_scope",
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 16 Equipment Trolleys",
+            "anchor_text": "## 16. Equipment Trolleys",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "wall-storage",
+          "summary": "Wall Storage: service fixings, brackets/hooks (check covers for wear, re-glue or recover if practical; excludes re-coating in plastic).",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "excludes_plastic_recoating"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 17 Wall Storage",
+            "anchor_text": "## 17. Wall Storage",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "trampettes",
+          "summary": "Trampettes: full maintenance including on-site welding repairs where necessary; replacement beds, complete sets of new cables/springs, or frame safety pads are separate orders - but fitting such replacements on a subsequent visit is included in the Framework visit cost.",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "on_site_welding_permitted",
+            "replacement_bed_separate_order_but_fit_included"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 18 Trampettes",
+            "anchor_text": "## 18. Trampettes",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "trampolines",
+          "summary": "Trampolines: inspect, check and adjust, report on equipment state. Price in schedule includes all labour charges and fitting of sundry spare parts. Additional work (e.g. replacement bed) must be in report and only carried out after an official order is placed.",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "price_includes_sundry_parts_fitting",
+            "replacement_bed_requires_official_order"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 19 Trampolines",
+            "anchor_text": "## 19. Trampolines",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "climbing-walls",
+          "summary": "Climbing Walls: inspect all fixings for security and working order; inspect wall material for wear and damage.",
+          "requirement_type": "maintenance_scope",
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 20 Climbing Walls",
+            "anchor_text": "## 20. Climbing Walls",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "cardiovascular-strength-equipment",
+          "summary": "Cardiovascular and Strength Equipment: servicing of all makes of cardiovascular and strength (resistance) equipment (electronic and manual). Ability to leave on-site service report and certificate for display. Parts available for supply-only and for supply-and-fit. On-site upholstery and stitched covers capability. Cardio service covers: remove covers, vacuum circuit boards, tighten connections; belts/chains check and lubricate; rollers, bearings, display operation, hinge points, belts (silicon, deck wear/reverse), general clean. Resistance machine service covers: frames (welds, fixings, lubricate), guide rods (degrease/lubricate), wires/belts (wear, adjust, replace worn shackles/carabiners), upholstery, plungers (re-tap threads), rubbers, weight stacks (spacer rubbers), pulleys, handles/clips, selector keys.",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "all_makes_electronic_and_manual",
+            "service_report_plus_display_certificate",
+            "parts_supply_only_and_supply_and_fit",
+            "on_site_upholstery_and_stitched_covers"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 21 Cardiovascular and Strength Equipment (incl. Service of Cardiovascular Equipment and Service of Resistance Machines tables)",
+            "anchor_text": "## 21. Cardiovascular and Strength Equipment",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "outdoor-schools-playground-equipment",
+          "summary": "Outdoor schools fixed playground equipment, low-level and low-risk inspection of trim-trail equipment, activity play equipment and surfacing equipment as typically found in schools (e.g. trim trails). Outdoor inspections to be actioned during the same visit as indoor inspections where possible.",
+          "requirement_type": "maintenance_scope",
+          "technical_attributes": [
+            "outdoor_same_visit_as_indoor_where_possible",
+            "low_level_low_risk_trim_trail_inspection"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - indicative list of service requirements",
+            "anchor_text": "Outdoor schools fixed playground equipment, low-level and low risk inspection of trim trail equipment",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "remedial-services",
+          "summary": "Associated remedial services for indoor and outdoor equipment, priced separately from inspection & maintenance and initiated only after a separate quotation has been approved by the Customer. Scaffolding and other access provisions must be itemised in remedial quotations.",
+          "requirement_type": "ancillary_service",
+          "technical_attributes": [
+            "separate_pricing_from_inspection_and_maintenance",
+            "quotation_approval_required_before_action",
+            "scaffolding_itemised"
+          ],
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - remedial work paragraphs",
+            "anchor_text": "associated remedial services (where required)",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "seed_key": "emergency-call-outs",
+          "summary": "Emergency call-outs for unforeseen breakages or damage to equipment, where agreed with the Customer in addition to scheduled inspection & maintenance and remedial visits.",
+          "requirement_type": "ancillary_service",
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - emergency call-outs paragraph",
+            "anchor_text": "emergency call outs may be received from Customers where unforeseen breakages or damage to equipment has occurred",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "BS EN 1176",
+          "context": "Applied to playground equipment inspection and maintenance (outdoor schools play equipment).",
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - regulations and standards paragraph",
+            "anchor_text": "BS EN 1176",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "standard_ref": "BS EN 1177",
+          "context": "Applied to impact-attenuating playground surfacing inspection.",
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - regulations and standards paragraph",
+            "anchor_text": "BS EN 1177",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "standard_ref": "BS 1892 Parts I, II and IV-1986/2003",
+          "context": "Applied to gymnasium / physical training equipment where applicable. (Note: the document renders '1982' but the authoritative standard series for gymnasium equipment is BS 1892; verify via daemon/authoritative lookup.)",
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - standards paragraph",
+            "anchor_text": "BS 1982 Parts I, II and IV-1986/2003",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "standard_ref": "BS EN 916:2003",
+          "context": "Gymnasium equipment - vaulting boxes requirements and test methods (document renders as 'BSEN 916:2003').",
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - standards paragraph",
+            "anchor_text": "BSEN 916:2003",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work Act 1974",
+          "context": "Primary UK health and safety statute governing the Supplier's operations.",
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - regulations and standards paragraph",
+            "anchor_text": "The Health and Safety at Work Act 1974",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "standard_ref": "Provision and Use of Work Equipment Regulations 1998 (PUWER)",
+          "context": "Applied to provision, inspection and use of work equipment.",
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - regulations and standards paragraph",
+            "anchor_text": "Provision and Use of Work Equipment Regulations 1998 (PUWER)",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "standard_ref": "Electricity at Work Regulations 1989",
+          "context": "Referenced by exclusion - the electric basketball-goal winch inspection excludes testing to comply with the current edition of the Electricity at Work Act, implying PAT/EaWR testing is out of scope.",
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 6 Basketball Goals - Electric Winch",
+            "anchor_text": "N.B: This inspection excludes testing to comply with the current edition of the Electricity at Work Act",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "standard_ref": "afPE guidance (Association for Physical Education)",
+          "context": "Cited as industry guidance against patching of landing-mat covers.",
+          "evidence_anchor": {
+            "page_ref": "§2 Requirement - item 14 Landing Mats and Agility Mattresses",
+            "anchor_text": "The Association for Physical Education (afPE) and industry advice does not advocate the repair of mat covers",
+            "section_ref": "2. REQUIREMENT (including Specification)"
+          }
+        },
+        {
+          "standard_ref": "Procurement Act 2023 (sections 19-24, 26-30, 28, 31, 45, 62)",
+          "context": "Procurement legal framework: Open Procedure (s20(2)(a)), exclusions (s26-30), debarment list (s62), call-off arrangements (s45), modifications (s31).",
+          "evidence_anchor": {
+            "page_ref": "§1 Introduction / §4 Procurement Process / §5 Evaluation",
+            "anchor_text": "Open Procedure conducted in accordance with sections 19 to 24 of the Procurement Act 2023",
+            "section_ref": "1. INTRODUCTION / 4. PROCUREMENT PROCESS"
+          }
+        },
+        {
+          "standard_ref": "Public Services (Social Value) Act 2012",
+          "context": "Used to define Social Value considered in evaluation (Q6) and Framework performance.",
+          "evidence_anchor": {
+            "page_ref": "§1 Introduction - Glossary 'Social Value'",
+            "anchor_text": "Public Service (Social Value) Act 2012",
+            "section_ref": "1. INTRODUCTION"
+          }
+        },
+        {
+          "standard_ref": "Modern Slavery Act 2015",
+          "context": "Referenced via the ESPO Supplier Code of Conduct that Suppliers must comply with.",
+          "evidence_anchor": {
+            "page_ref": "§1 Introduction - ESPO Supplier Code of Conduct",
+            "anchor_text": "Modern Slavery Act 2015",
+            "section_ref": "1. INTRODUCTION"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "Cover page of Invitation to Tender (ESPO ref 107_26)",
+        "anchor_text": "ESPO reference 107_26 Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment",
+        "section_ref": "Cover / Title"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "counter-balanced-beams",
+      "lot_number": "1",
+      "candidate_name": "Counter balanced gymnasium beams (fixed and hinged) inspection & maintenance service",
+      "summary": "Annual inspection and maintenance of counter balanced beams (fixed and hinged) including fixings, wires, weights, booms, swivels, hauling/tricing lines, wedges/cords, tracks, floor plates, pulleys, uprights and wheeling.",
+      "requirements": [
+        "Inspect, tighten, adjust, replace missing screws/bolts/nuts on fixings and fittings",
+        "Inspect wires; adjust to level; replace if worn",
+        "Remove cover panels; inspect weights and wire fixings; tighten",
+        "Inspect booms; remove splinters; touch in varnish",
+        "Inspect and tighten boom swivels; replace missing safety pins",
+        "Inspect hauling/tricing lines; remove twists; replace if worn",
+        "Inspect pulleys; free stiff pulleys; lubricate; replace if worn/broken (except internally fitted top hauling line pulleys)",
+        "Repair minor splits to upright woodwork; inspect tracks and lubricate if necessary"
+      ],
+      "technical_standards": [
+        "BS 1892 series (PT equipment) where applicable",
+        "Health and Safety at Work Act 1974"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 1",
+        "anchor_text": "## 1. Counter Balanced Beans (Fixed and Hinged)",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "fixed-tubular-equipment",
+      "lot_number": "1",
+      "candidate_name": "Fixed tubular gymnasium equipment inspection & maintenance service",
+      "summary": "Annual inspection and maintenance of fixed tubular equipment covering fixings, tracks, spacing chains, hauling/tricing lines, floor plates, pole-end fittings, pulleys and wheels.",
+      "requirements": [
+        "Inspect, tighten, adjust, replace missing screws/bolts/nuts",
+        "Inspect tracks and lubricate if necessary",
+        "Inspect spacing chains and replace if broken",
+        "Inspect hauling/tricing lines, remove twists, replace if worn",
+        "Clean out dirt/dust from floor plates",
+        "Inspect, tighten, adjust pole end fittings; re-thread if possible",
+        "Inspect pulleys, free if stiff, lubricate, replace if worn/broken",
+        "Inspect wheels and replace if worn or broken"
+      ],
+      "technical_standards": [
+        "BS 1892 series where applicable"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 2",
+        "anchor_text": "## 2. Fixed Tubular Equipment",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "hinged-frames",
+      "lot_number": "1",
+      "candidate_name": "Hinged gymnasium frames inspection & maintenance service",
+      "summary": "Inspection and maintenance of hinged frames including fixings, wires, tensioning device and pulleys.",
+      "requirements": [
+        "Inspect and service fixings and fittings; replace missing screws/bolts/nuts",
+        "Inspect wires; replace if worn",
+        "Inspect tensioning device; adjust tension; tighten fixings; replace handgrip if worn or broken",
+        "Inspect pulleys; free stiff pulleys; lubricate; replace if worn/broken"
+      ],
+      "technical_standards": [
+        "BS 1892 series where applicable"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 3",
+        "anchor_text": "## 3. Hinged Frames",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "rope-tracks-frames-ropes",
+      "lot_number": "1",
+      "candidate_name": "Rope tracks / rope frames / ropes inspection & maintenance service",
+      "summary": "Inspection and maintenance of rope tracks, rope frames and ropes including fixings, tracks, hauling lines, pulleys, spacing chains, cleats, ropes (re-shoe, knot removal), rope ladders (re-whip up to 6 rungs), trapeze/rings, wires, tensioning devices, storage cords, wheeling device, floor plates and uprights.",
+      "requirements": [
+        "Inspect, tighten and replace missing screws/bolts/nuts on fixings and fittings",
+        "Inspect tracks and lubricate if necessary",
+        "Inspect tricing/hauling lines; remove twists; replace if worn",
+        "Inspect pulleys; free if stiff; replace if worn/broken",
+        "Inspect spacing chains; replace if broken",
+        "Inspect and tighten cleats",
+        "Inspect ropes; re-shoe if required; remove knots",
+        "Re-whip rope ladders up to 6 rungs",
+        "Inspect trapeze/rings",
+        "Inspect wires; replace if worn",
+        "Service tensioning device; replace handgrip if worn/missing",
+        "Inspect storage cords and replace if worn/missing",
+        "Service wheeling device; tighten, adjust, replace wheel/hand grips if worn or damaged",
+        "Clean floor plates; inspect, tighten fixings, repair minor splits and touch in varnish on uprights"
+      ],
+      "technical_standards": [
+        "BS 1892 series where applicable"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 4",
+        "anchor_text": "## 4. Rope Tracks / Rope Frames / Ropes",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "fixed-hinged-wall-bars",
+      "lot_number": "1",
+      "candidate_name": "Fixed and hinged wall bars inspection & maintenance service",
+      "summary": "Inspection, tightening and replacement of fixings/wall mountings/floor fittings on fixed and hinged wall bars; supply and fit oval mouldings; re-varnish localised damage (complete re-varnishing is a separate order).",
+      "requirements": [
+        "Inspect, tighten and replace where missing all screws/bolts/wall fixings/securing brackets/floor fittings",
+        "Supply and fit new oval mouldings where broken",
+        "Clean splinters and re-varnish where these have occurred",
+        "Treat complete re-varnishing of wall bars as a separate order (out of scope of standard visit)"
+      ],
+      "technical_standards": [
+        "BS 1892 series where applicable"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 5",
+        "anchor_text": "## 5. Fixed and Hinged Wall Bars",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "basketball-goals",
+      "lot_number": "1",
+      "candidate_name": "Basketball goals inspection & maintenance service (indoor and outdoor)",
+      "summary": "Inspection and maintenance of basketball goals including fixings, framework, tension wires, tensioning device, hand winch, electric winch (excluding Electricity at Work Act testing), lifting cable, pulleys, backboard, ring & net.",
+      "requirements": [
+        "Service fixings: inspect, tighten, adjust, replace missing screws/bolts/nuts",
+        "Inspect framework; tighten and lubricate hinged parts and telescopic braces where required",
+        "Inspect and replace tension wires if worn",
+        "Service tensioning device; adjust tension; replace hand grip if worn/missing",
+        "Service hand winch: tighten fixings, grease gears / lubricate as applicable",
+        "Service electric winch: check motor and limit switches, tighten fixings, check gearbox for oil leaks, check brake unit - excludes Electricity at Work Act testing",
+        "Inspect lifting cable for wear",
+        "Service pulleys: inspect for wear, free if stiff, lubricate",
+        "Inspect and tighten backboard fixings",
+        "Inspect and tighten ring & net fixings; re-secure net if detached"
+      ],
+      "technical_standards": [
+        "BS 1892 series where applicable",
+        "Electricity at Work Regulations 1989 (by exclusion)"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 6",
+        "anchor_text": "## 6. Basketball Goals",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "trackway-netting-divisional-cricket",
+      "lot_number": "1",
+      "candidate_name": "Trackway and netting (divisional / cricket) inspection & maintenance service",
+      "summary": "Inspection and maintenance of divisional / cricket trackway and netting including track operation, crossovers, trolleys (replace up to 3), nets, hauling lines, pulleys, storage bags (hand re-sew) and storage straps.",
+      "requirements": [
+        "Check operation for snagging joints and adjust",
+        "Inspect and tighten track fixings",
+        "Check operation of crossovers (rotary type), adjust and tighten",
+        "Replace up to 3 trolleys if worn or missing",
+        "Inspect and re-hang partially detached nets",
+        "Inspect hauling lines for wear and replace if worn",
+        "Inspect pulleys; free if stiff; lubricate if required; replace if worn/broken",
+        "Hand re-sew one or two detached rings/hooks or small seam splits on storage bags where practical",
+        "Inspect storage straps and replace if broken/missing"
+      ],
+      "technical_standards": [
+        "BS 1892 series where applicable"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 7",
+        "anchor_text": "## 7. Trackway and Netting (Divisional / Cricket)",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "floor-sockets",
+      "lot_number": "1",
+      "candidate_name": "Gymnasium floor sockets inspection & maintenance service",
+      "summary": "Inspection and maintenance of threaded, socket and flip-up floor sockets.",
+      "requirements": [
+        "Inspect, clean and tighten threaded-type sockets; re-thread by tapping",
+        "Clean out dirt and dust from socket-type sockets",
+        "Inspect flip-up sockets; clean; tighten; check operation and lubricate if stiff"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 8",
+        "anchor_text": "## 8. Floor Sockets",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "vaulting-equipment",
+      "lot_number": "1",
+      "candidate_name": "Vaulting equipment (boxes / horses / bucks) inspection & maintenance service",
+      "summary": "Inspection and maintenance of vaulting boxes, horses and bucks including fixings, woodwork, feet, wheeling gear and hide covers.",
+      "requirements": [
+        "Inspect and tighten fixings; replace missing screws/nuts/bolts",
+        "Clean off splinters and touch in varnish on woodwork; re-varnish all woodwork if necessary",
+        "Report on need to fit new corner blocks where broken",
+        "Replace rubber feet to boxes if worn/missing",
+        "Service wheeling gear; tighten/adjust, clean wheels, fit replacement wheels if missing/worn",
+        "Inspect and roughen hide covers where appropriate; patch worn or torn covers where practical"
+      ],
+      "technical_standards": [
+        "BS EN 916:2003 (vaulting boxes requirements and test methods)"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 9",
+        "anchor_text": "## 9. Vaulting Equipment (Boxes / Horses / Bucks)",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "upholstered-equipment",
+      "lot_number": "1",
+      "candidate_name": "Upholstered gymnasium equipment (stools / benches / tables) inspection & maintenance service",
+      "summary": "Inspection and maintenance of upholstered stools, benches and tables including fixings, woodwork, metalwork (cracked welds), rubber feet, safety devices and padded tops (PVC recovering of damaged areas; full recovering quoted separately).",
+      "requirements": [
+        "Inspect and tighten fixings; replace missing screws/nuts/bolts/pins",
+        "Inspect woodwork; remove splinters, touch in varnish; re-varnish if necessary",
+        "Inspect metalwork for cracked welds",
+        "Replace rubber feet if worn/damaged",
+        "Service safety devices: replace broken/damaged chains, cords and pins",
+        "Repair holes or worn covers on padded tops; recover with PVC of equivalent quality where damage is through fair wear and tear",
+        "Treat complete recovering as a separate order, to be reported and quoted for"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 10",
+        "anchor_text": "## 10. Upholstered Equipment (Stools / Benches / Tables)",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "springboards",
+      "lot_number": "1",
+      "candidate_name": "Springboards inspection & maintenance service",
+      "summary": "Inspection and maintenance of springboards - fixings, woodwork (including plywood delamination check) and rubber feet.",
+      "requirements": [
+        "Inspect and tighten fixings; replace missing screws/bolts/nuts",
+        "Inspect woodwork; remove splinters; touch in varnish; check for delamination of plywood components",
+        "Replace worn/damaged rubber feet"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 11",
+        "anchor_text": "## 11. Springboards",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "balance-benches-planks",
+      "lot_number": "1",
+      "candidate_name": "Balance benches and planks inspection & maintenance service",
+      "summary": "Inspection and maintenance of balance benches/planks including fixings, woodwork (splinters, varnish, top/rail re-varnish), rubber feet, hooks (replacement covers), bench buttons, staunton bars and angle brackets.",
+      "requirements": [
+        "Inspect and tighten fixings; replace missing screws/bolts/nuts",
+        "Remove splinters; touch in varnish; re-varnish complete top and balance rails if necessary",
+        "Replace rubber feet if worn/missing",
+        "Service hooks: check operation; fit replacement hook covers if worn/missing",
+        "Inspect bench buttons and replace if worn/missing",
+        "Inspect staunton bars and angle brackets"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 12",
+        "anchor_text": "## 12. Balance Benches and Planks",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "trestles-poles-ladders-bars",
+      "lot_number": "1",
+      "candidate_name": "Trestles / poles / ladders / bars inspection & maintenance service",
+      "summary": "Inspection and maintenance of trestles, poles, ladders and bars including fixings, woodwork, metalwork, rubber feet, rubber grommets/brushes, plastic tube inserts, safety devices, threaded hooks and rubber/leather hook covers.",
+      "requirements": [
+        "Inspect and tighten fixings; replace missing screws/bolts/nuts",
+        "Inspect woodwork; remove splinters and touch in varnish; re-varnish",
+        "Inspect metalwork for cracked welds",
+        "Replace rubber feet if worn/missing",
+        "Inspect rubber grommets/brushes and replace if worn/damaged",
+        "Inspect plastic tube inserts and replace if worn/damaged",
+        "Service safety devices; replace broken or damaged chains/cords/pins",
+        "Re-thread threaded hooks if required",
+        "Re-glue, repair or replace rubber/leather hook covers - excludes re-coating in plastic"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 13",
+        "anchor_text": "## 13. Trestles / Poles / Ladders / Bars",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "landing-mats-agility-mattresses",
+      "lot_number": "1",
+      "candidate_name": "Landing mats and agility mattresses inspection service",
+      "summary": "Inspection of landing mats and agility mattresses with minor repairs to render safe; cover repairs are discouraged per afPE guidance - ripped or holed cover means mat replacement. Mattress covers replaceable. Cleaning and re-covering of agility mattresses is explicitly out of scope.",
+      "requirements": [
+        "Perform minor repairs to render landing mats safe for further use",
+        "Inspect for perished rubber bases",
+        "Replace (not repair) mats where cover is ripped or worn into a hole",
+        "Consider foam condition and mattress age when replacing safety mattress covers",
+        "Do NOT include cleaning and re-covering of agility mattresses under this Framework"
+      ],
+      "technical_standards": [
+        "afPE (Association for Physical Education) guidance against cover patching",
+        "Fire regulations for mat covers"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 14",
+        "anchor_text": "## 14. Landing Mats and Agility Mattresses",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "games-posts-goals-indoor",
+      "lot_number": "1",
+      "candidate_name": "Indoor games posts and goals inspection & maintenance service",
+      "summary": "Inspection and maintenance of indoor games posts and goals covering fixings, framework (cracked welds / bends), hinges, safety devices, wheels, rubber feet and anchorage points.",
+      "requirements": [
+        "Inspect and tighten fixings; replace missing screws/bolts/nuts",
+        "Inspect framework parts for cracked welds, bending or damage",
+        "Inspect and lubricate hinges if necessary",
+        "Check operation of safety devices",
+        "Service wheels/wheeling devices: free stiff wheels; check operation",
+        "Replace damaged rubber feet",
+        "Check anchorage points are secure and in good condition"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 15",
+        "anchor_text": "## 15. Games Posts and Goals (Indoor)",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "equipment-trolleys",
+      "lot_number": "1",
+      "candidate_name": "Equipment trolleys inspection & maintenance service",
+      "summary": "Inspection and maintenance of equipment trolleys covering fixings, framework (cracked welds), platform, castors and wheels.",
+      "requirements": [
+        "Inspect and tighten fixings; replace missing screws/bolts/nuts",
+        "Inspect framework parts for cracked welds",
+        "Inspect platform",
+        "Free stiff castors and wheels; clean wheels"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 16",
+        "anchor_text": "## 16. Equipment Trolleys",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "wall-storage",
+      "lot_number": "1",
+      "candidate_name": "Wall storage (equipment) inspection & maintenance service",
+      "summary": "Inspection and maintenance of wall storage systems, including brackets/hooks and their covers. Re-coating of covers in plastic is explicitly excluded.",
+      "requirements": [
+        "Inspect and tighten fixings; replace missing screws/bolts/nuts",
+        "Inspect brackets/hooks; check covers for wear; re-glue or recover if practical",
+        "Do NOT re-coat covers in plastic"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 17",
+        "anchor_text": "## 17. Wall Storage",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "trampettes",
+      "lot_number": "1",
+      "candidate_name": "Trampettes full-maintenance service",
+      "summary": "Full maintenance of trampettes, including on-site welding repairs where required. Replacement beds, complete cable/spring sets and frame safety pads are separate orders, but their subsequent fitting is included in Framework visit cost.",
+      "requirements": [
+        "Provide full maintenance including frame repairs and on-site welding where required",
+        "Treat replacement bed, complete cable/spring sets and frame safety pads as separate orders",
+        "Include the fitting of such replacements on a subsequent visit within the Framework cost"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 18",
+        "anchor_text": "## 18. Trampettes",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "trampolines",
+      "lot_number": "1",
+      "candidate_name": "Trampolines inspection & maintenance service",
+      "summary": "Inspection, adjustment and reporting on trampolines with labour and sundry spare-parts fitting included in the priced visit; replacement-bed and other major parts only carried out after an official order.",
+      "requirements": [
+        "Inspect trampolines; check and adjust where necessary",
+        "Report on the state of the trampoline equipment",
+        "Include all labour and fitting of sundry spare parts in the visit price",
+        "Wait for an official order before performing replacement-bed or other major work"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 19",
+        "anchor_text": "## 19. Trampolines",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "climbing-walls",
+      "lot_number": "1",
+      "candidate_name": "Climbing walls inspection & maintenance service",
+      "summary": "Inspection of climbing walls: fixings security and wall material wear/damage.",
+      "requirements": [
+        "Inspect all fixings for security and correct working order",
+        "Inspect the wall material itself for wear and damage"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 20",
+        "anchor_text": "## 20. Climbing Walls",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "cardiovascular-strength-equipment",
+      "lot_number": "1",
+      "candidate_name": "Cardiovascular and strength (resistance) equipment servicing",
+      "summary": "Service of all makes (electronic and manual) of cardiovascular equipment (treadmills, exercise bikes, rowing machines) and resistance machines (weight stations), with on-site service reports, display certificates, parts supply (supply-only and supply-and-fit), and on-site upholstery/stitched-cover capability.",
+      "requirements": [
+        "Leave an on-site service report and provide a display certificate after servicing",
+        "Service all makes of cardiovascular and strength equipment, electronic and manual",
+        "Maintain parts availability for supply-only and supply-and-fit",
+        "Provide on-site upholstery and stitched-cover capability",
+        "Cardiovascular service: remove covers, vacuum circuit boards, check/tighten connections; inspect/lubricate belts, chains, rollers, bearings; check display operation and hinge points; silicon belts if required, check decks for wear and reverse if required; clean and inspect all parts",
+        "Resistance-machine service: check welds, tighten/lubricate frames; degrease and lubricate guide rods; inspect wires/belts (replace worn shackles/carabiner hooks); check upholstery/plungers (re-tap threads) / rubbers / weight stacks (spacer rubbers) / pulleys / handles & clips / selector keys; clean machine and comment on condition"
+      ],
+      "technical_standards": [
+        "Electricity at Work Regulations 1989 - PAT/EaWR testing explicitly out of scope"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - item 21 (with Service of Cardiovascular Equipment and Service of Resistance Machines tables)",
+        "anchor_text": "## 21. Cardiovascular and Strength Equipment",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "outdoor-schools-playground-equipment",
+      "lot_number": "1",
+      "candidate_name": "Outdoor schools playground equipment inspection & maintenance service",
+      "summary": "Inspection and maintenance of outdoor schools fixed playground equipment, trim-trail equipment, activity play equipment and play surfacing - low-level and low-risk only; to be actioned in the same visit as indoor inspections where possible.",
+      "requirements": [
+        "Inspect outdoor fixed playground equipment",
+        "Perform low-level, low-risk inspection of trim-trail and activity play equipment",
+        "Inspect play surfacing",
+        "Action outdoor inspections during the same visit as indoor inspections where possible"
+      ],
+      "technical_standards": [
+        "BS EN 1176 (playground equipment and surfacing)",
+        "BS EN 1177 (impact-attenuating playground surfacing)"
+      ],
+      "cpv_codes": [
+        "37400000-2",
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - indicative list of service requirements (bullet on outdoor schools fixed playground equipment)",
+        "anchor_text": "Outdoor schools fixed playground equipment, low-level and low risk inspection of trim trail equipment, activity play equipment and surfacing equipment",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "remedial-services",
+      "lot_number": "1",
+      "candidate_name": "Associated remedial services (indoor and outdoor equipment)",
+      "summary": "Remedial services ancillary to inspection & maintenance, priced separately and only carried out after a Customer-approved quotation. Scaffolding and other access provisions must be itemised.",
+      "requirements": [
+        "Price remedial services separately from inspection & maintenance",
+        "Wait for Customer approval of quotation before carrying out remedial work",
+        "Itemise scaffolding and other access-at-height costs in quotations",
+        "Where the remedial work can be carried out at the time of the initial inspection & maintenance visit, this may be done provided the quotation process is actioned"
+      ],
+      "cpv_codes": [
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - remedial-work paragraphs",
+        "anchor_text": "Any such additional remedial work must not be carried out until an official quotation for such has been considered, approved and confirmed by the Customer.",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    },
+    {
+      "seed_key": "emergency-call-outs",
+      "lot_number": "1",
+      "candidate_name": "Emergency call-out response service",
+      "summary": "On-demand emergency call-out response for unforeseen breakages or damage to indoor / outdoor equipment, as agreed with Customer.",
+      "requirements": [
+        "Respond to emergency call-outs from Customers where unforeseen breakages or damage has occurred",
+        "Deliver on-site assessment / action in addition to scheduled inspection & maintenance and remedial visits"
+      ],
+      "cpv_codes": [
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "§2 Requirement - emergency call-outs paragraph",
+        "anchor_text": "emergency call outs may be received from Customers where unforeseen breakages or damage to equipment has occurred",
+        "section_ref": "2. REQUIREMENT (including Specification)"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9800,
+    "lots.title": 9700,
+    "lots.description": 9200,
+    "lots.requirements": 9000,
+    "lots.evaluation_criteria": 9500,
+    "lots.cpv_codes": 9600,
+    "lots.product_requirements": 8500,
+    "lots.technical_standards": 8800,
+    "product_requirement_seeds": 8400,
+    "extraction_metadata.target_domain": 10000,
+    "extraction_metadata.extraction_scope": 10000
+  },
+  "extraction_confidence_bps": 8800,
+  "warnings": [
+    {
+      "code": "STANDARD_REFERENCE_AMBIGUOUS",
+      "message": "Document text renders the gymnasium-equipment British Standard as 'BS 1982 Parts I, II and IV-1986/2003', but the authoritative standard series for this equipment is BS 1892. Preserved the verbatim rendering and flagged for daemon-side lookup.",
+      "evidence_refs": [
+        "§2 Requirement - standards paragraph: 'BS 1982 Parts I, II and IV-1986/2003 and BSEN 916:2003'"
+      ]
+    },
+    {
+      "code": "CPV_LIST_FROM_NOTICE_ONLY",
+      "message": "CPV codes were taken from the notice-level main_category (37400000-2 Sports goods and equipment; 50000000-5 Repair and maintenance services). The ITT document itself does not list CPV codes explicitly in the requirement section.",
+      "evidence_refs": [
+        "Notice-level main_category: '37400000-2 - Sports goods and equipment | 50000000-5 - Repair and maintenance services'"
+      ]
+    },
+    {
+      "code": "PRICING_SCHEDULE_NOT_ENUMERATED_HERE",
+      "message": "The ITT references 57 service requirements in the Pricing Schedule (Appendix B) but does not enumerate all 57 line items in this document. Per-line pricing extraction is out of scope for tender-specification and belongs to the pricing-schedule overlay.",
+      "evidence_refs": [
+        "§2 Requirement - 'a minimum of 40 out of the 57 service requirements'",
+        "§5 Price 40% - 'of the 57 service requirements in the Pricing Schedule (Appendix B)'"
+      ]
+    },
+    {
+      "code": "SINGLE_LOT_NATIONAL_COVERAGE",
+      "message": "The Framework is a single lot with mandatory national coverage across all nine English regions; sub-regional splitting is NOT a lot structure. Optional UK-wide (Scotland/Wales/NI) coverage is an additional indication by the Tenderer, not a separate lot.",
+      "evidence_refs": [
+        "§1 Introduction - Scope: 'Tenderers must be able to supply all regions as specified above.'",
+        "§3 Preliminary Market Engagement - 'Suppliers to provide national pricing for services, rather than regional pricing.'"
+      ]
+    },
+    {
+      "code": "EXCLUSIONS_NOTED",
+      "message": "Several maintenance scopes have explicit exclusions (Electricity at Work Act testing on electric winches; re-coating of hook covers in plastic; cleaning and re-covering of agility mattresses; complete re-varnishing of wall bars as separate order). Preserved inline on relevant seeds.",
+      "evidence_refs": [
+        "§2 item 6 Basketball Goals - Electric Winch",
+        "§2 item 13 Trestles/Poles/Ladders/Bars - Rubber or Leather Hook Covers",
+        "§2 item 14 Landing Mats and Agility Mattresses",
+        "§2 item 5 Fixed and Hinged Wall Bars"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "Cover page of ITT (ESPO ref 107_26)",
+      "anchor_text": "ESPO reference 107_26 Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment",
+      "section_ref": "Cover / Title"
+    },
+    {
+      "page_ref": "Framework period banner",
+      "anchor_text": "Framework Period 24 June 2026 - 31 January 2028 with the option to extend up to 23 June 2030",
+      "section_ref": "Cover / Title"
+    },
+    {
+      "page_ref": "Closing date banner",
+      "anchor_text": "Closing date for submission of tender 12 noon, 15 May 2026",
+      "section_ref": "Cover / Title"
+    },
+    {
+      "page_ref": "§1 Introduction - Overview",
+      "anchor_text": "This is an Open Procedure conducted in accordance with sections 19 to 24 of the Procurement Act 2023",
+      "section_ref": "1. INTRODUCTION"
+    },
+    {
+      "page_ref": "§1 Introduction - Overview",
+      "anchor_text": "It is anticipated that a minimum of 4 Suppliers shall be awarded a place on the Framework",
+      "section_ref": "1. INTRODUCTION"
+    },
+    {
+      "page_ref": "§1 Introduction - Scope",
+      "anchor_text": "Tenderers must be able to supply all regions as specified above.",
+      "section_ref": "1. INTRODUCTION"
+    },
+    {
+      "page_ref": "§1 Introduction - Estimated Value",
+      "anchor_text": "The estimated value of the Framework ... is £10m (inclusive of VAT) over the maximum possible term of the Framework.",
+      "section_ref": "1. INTRODUCTION"
+    },
+    {
+      "page_ref": "§1 Introduction - Framework Fee",
+      "anchor_text": "This Framework Fee will be at a rate of 3.5% and shall be payable every three months",
+      "section_ref": "1. INTRODUCTION"
+    },
+    {
+      "page_ref": "§2 Requirement (including Specification)",
+      "anchor_text": "The requirement is for the inspection & maintenance of indoor gymnasium, fitness & sport equipment and outdoor schools, play & sport equipment, including associated remedial services (where required).",
+      "section_ref": "2. REQUIREMENT (including Specification)"
+    },
+    {
+      "page_ref": "§2 Requirement - standards paragraph",
+      "anchor_text": "The Health and Safety at Work Act 1974, Provision and Use of Work Equipment Regulations 1998 (PUWER), BS EN 1176 and BS EN 1177.",
+      "section_ref": "2. REQUIREMENT (including Specification)"
+    },
+    {
+      "page_ref": "§2 Requirement - standards paragraph",
+      "anchor_text": "BS 1982 Parts I, II and IV-1986/2003 and BSEN 916:2003",
+      "section_ref": "2. REQUIREMENT (including Specification)"
+    },
+    {
+      "page_ref": "§2 Requirement - pricing callout",
+      "anchor_text": "Tenderers must provide pricing for a minimum of 40 out of the 57 service requirements (70%) in the yellow highlighted cells.",
+      "section_ref": "2. REQUIREMENT (including Specification)"
+    },
+    {
+      "page_ref": "§3 Preliminary Market Engagement",
+      "anchor_text": "Suppliers to provide national pricing for services, rather than regional pricing.",
+      "section_ref": "3. PRELIMINARY MARKET ENGAGEMENT"
+    },
+    {
+      "page_ref": "§3 Preliminary Market Engagement",
+      "anchor_text": "Evaluation award criteria weighting to be amended to 40% price and 60% non-price (including 5% social value).",
+      "section_ref": "3. PRELIMINARY MARKET ENGAGEMENT"
+    },
+    {
+      "page_ref": "§4 Procurement Process - Indicative Timetable",
+      "anchor_text": "Closing date for submission of Tender 15 May 2026; Framework award decision 11 June 2026; Framework start date 24 June 2026",
+      "section_ref": "4. PROCUREMENT PROCESS"
+    },
+    {
+      "page_ref": "§5 Part 2 Award Criteria - Weightings table",
+      "anchor_text": "Q1 Customer Engagement and Framework Management / Q2 Customer Site Visit Process / Q3 Inspection Report / Q4 Services Following Completion of Work / Q5 Consistency of Standards / Q6 Your Organisation's Current Approach to Social Value",
+      "section_ref": "5. EVALUATION OF TENDERS"
+    },
+    {
+      "page_ref": "§5 Price 40%",
+      "anchor_text": "Price accounts for 40% of the total Tender score and will be assessed against pricing submitted within the Pricing Schedule (Appendix B).",
+      "section_ref": "5. EVALUATION OF TENDERS"
+    },
+    {
+      "page_ref": "§5 Conditions of Participation - Insurance (Part 3 Q6)",
+      "anchor_text": "£5m Employers' liability ... £10m Public liability ... £10m Product liability ... £2m Professional indemnity",
+      "section_ref": "5. EVALUATION OF TENDERS"
+    },
+    {
+      "page_ref": "§5 Conditions of Participation - Carbon Reduction Plans (Part 3 Q12)",
+      "anchor_text": "Tenderers must confirm they have a published carbon reduction policy statement or must provide evidence of a commitment to carbon reduction.",
+      "section_ref": "5. EVALUATION OF TENDERS"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "5f70928da86c6d562af8c3ddd3b32f6ab8f684ceae8e208b8449aff173456774",
+    "policy_version": "2026.04.12",
+    "document_role": "invitation_to_tender"
+  }
+}

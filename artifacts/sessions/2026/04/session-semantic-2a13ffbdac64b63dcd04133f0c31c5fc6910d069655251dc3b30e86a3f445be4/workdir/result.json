@@ -1,0 +1,377 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Multi-disciplinary Design Team Appointment — Stockport Town Centre School",
+      "description": "Appointment of an architecturally led multi-disciplinary design team (Architect, MEP, Structures & Civils) by Metropolitan Borough Council of Stockport to develop a feasibility through to concept design of a new school in a town centre location, under a Terms of Appointment agreement with optional novation to a design-and-build contractor (Schedule 6). This document is the terms and conditions template governing the appointment; it does not subdivide the scope into separately bidable lots.",
+      "requirements": [
+        "Exercise the reasonable skill, care and diligence of a professional consultant of the relevant discipline experienced in projects of similar nature, size and complexity (clause 2.2).",
+        "Do not specify, approve or authorise materials contravening any British or EU Standard or Code of Practice, known to be deleterious, or inconsistent with 'Good Practice in the Selection of Construction Materials' (British Council of Offices) and the BRE Digest current at date of specification (clause 2.3).",
+        "Comply with all Statutory Requirements and obtain Requisite Consents (clause 5.2).",
+        "Act as a 'designer' under the CDM Regulations 2015, allocate adequate resources and competence, and cooperate with the Principal Designer (clause 20).",
+        "Maintain professional indemnity insurance of not less than £10,000,000 for any one claim in any one period of insurance (Schedule 1, clause 7).",
+        "Accept overall limitation of Consultant liability capped at £10,000,000 for any one claim (Schedule 1, clause 23.3).",
+        "Comply with Public Contracts Regulations 2015, including cascading regulations 57, 71 and 113 into sub-contracts (clause 8.5).",
+        "Comply with Bribery Act 2010 (clause 17), Modern Slavery Act 2015 (clause 18), Equality Act 2010 (clause 19), Freedom of Information Act 2000 / Environmental Information Regulations 2004 (clause 14) and GDPR / Data Protection Act 2018 as data processor (clause 25).",
+        "Execute collateral warranties (Schedules 4 and 5) and a Deed of Novation (Schedule 6) within 28 days of engrossments when required (clause 9.5–9.7).",
+        "Provide key personnel on a full-time basis as named in the Contract Particulars and replace staff at the Client's reasonable request (clause 16).",
+        "Submit interim invoices at intervals of not less than one month; payment due 21 days after receipt; final date for payment 30 days; interest at Bank of England base rate +5% applies on late payment (clause 4).",
+        "Notify any Claim in writing within 10 Working Days of the triggering event as a condition precedent to entitlement (clauses 4.14–4.15)."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "architect-design-services",
+          "summary": "Architectural design services leading the multi-disciplinary team for RIBA-stage progression (feasibility through concept) of a town centre secondary school.",
+          "requirement_type": "professional_service",
+          "technical_attributes": [
+            "Architecturally led multi-disciplinary design lead",
+            "Experience of educational / secondary school projects",
+            "Deliverables in REVIT, CAD and all usable electronic formats (clause 10.4)"
+          ],
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Schedule 1 — Contract Particulars: 'Consultant Discipline' and 'Project' rows",
+            "anchor_text": "Architect MEP Structures & Civils"
+          }
+        },
+        {
+          "seed_key": "mep-engineering-services",
+          "summary": "Mechanical, electrical and plumbing (MEP) engineering design services for the town centre school project, integrated with the architectural lead.",
+          "requirement_type": "professional_service",
+          "technical_attributes": [
+            "Mechanical and Electrical design scope",
+            "Coordination with architect and structural design (clause 5.1)"
+          ],
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Schedule 1 — Contract Particulars: 'Consultant Discipline' row",
+            "anchor_text": "Architect MEP Structures & Civils"
+          }
+        },
+        {
+          "seed_key": "structural-civils-engineering-services",
+          "summary": "Structural and civil engineering design services for the town centre school project.",
+          "requirement_type": "professional_service",
+          "technical_attributes": [
+            "Structural engineering design",
+            "Civils engineering design",
+            "Coordination with architect and MEP"
+          ],
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Schedule 1 — Contract Particulars: 'Consultant Discipline' row",
+            "anchor_text": "Architect MEP Structures & Civils"
+          }
+        },
+        {
+          "seed_key": "cdm-principal-designer-services",
+          "summary": "Principal Designer role as defined in the CDM Regulations 2015, fulfilling designer obligations and liaising on the health and safety file.",
+          "requirement_type": "professional_service",
+          "technical_attributes": [
+            "CDM Regulations 2015 Principal Designer duties",
+            "Provision of information for the Principal Designer's health and safety file",
+            "Adequate resources and competence under CDM"
+          ],
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Clause 20 (CDM Regulations) and Schedule 1 — Contract Particulars 'CDM Regulations' row",
+            "anchor_text": "Construction (Design and Management) Regulations 2015"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "British or EU Standard or Code of Practice (current at date of specification)",
+          "context": "Materials must not contravene any British or EU Standard or Code of Practice; Consultant warranty under clause 2.3.",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Clause 2.3 (Standard of Care)",
+            "anchor_text": "contravene any British or EU Standard or Code of Practice current at the date of specification"
+          }
+        },
+        {
+          "standard_ref": "'Good Practice in the Selection of Construction Materials' (British Council of Offices) and BRE Digest (current edition)",
+          "context": "Material selection must align with the current edition of this publication and the BRE Digest (clause 2.3).",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Clause 2.3 (Standard of Care)",
+            "anchor_text": "'Good Practice in the Selection of Construction Materials' published by the British Council of Offices and the BRE Digest"
+          }
+        },
+        {
+          "standard_ref": "Construction (Design and Management) Regulations 2015 (CDM Regulations)",
+          "context": "Consultant warrants it will comply as a 'designer' with CDM Regulations 2015 and associated HSE guidance (clause 20).",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Clause 20 (CDM Regulations) and Schedule 1 Contract Particulars",
+            "anchor_text": "Construction (Design and Management) Regulations 2015 together with any approved Code of Practice"
+          }
+        },
+        {
+          "standard_ref": "Public Contracts Regulations 2015",
+          "context": "Sub-contract cascade of regulations 57, 71 and 113 applies (clause 8.5).",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Clause 8.5 (Sub-letting/Assignment)",
+            "anchor_text": "the Public Contracts Regulations 2015 ('PC Regulations')"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "n/a",
+        "section_ref": "Schedule 1 — Contract Particulars: 'Project' and 'Consultant Discipline' rows",
+        "anchor_text": "Design and Technical Services are looking to procure an architecturally led multi disciplinary design team to develop a feasibility through to concept design of a new school, in a town centre location."
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "architect-design-services",
+      "lot_number": "1",
+      "candidate_name": "Architectural design services (multi-disciplinary lead)",
+      "summary": "Architect to lead the multi-disciplinary design team for the Stockport Town Centre School, covering feasibility through concept design with RIBA work-stage progression.",
+      "requirements": [
+        "Architect discipline named in Schedule 1 Contract Particulars ('Consultant Discipline' row).",
+        "Standard of care of a professional architect experienced in educational / similarly sized projects (clause 2.2).",
+        "Ability to deliver Copyright Material in REVIT, CAD and all usable electronic formats (clause 10.4)."
+      ],
+      "technical_standards": [
+        "British or EU Standard or Code of Practice",
+        "'Good Practice in the Selection of Construction Materials' (British Council of Offices)",
+        "BRE Digest (current edition)",
+        "Construction (Design and Management) Regulations 2015"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "n/a",
+        "section_ref": "Schedule 1 — Contract Particulars: 'Consultant Discipline' and 'Project' rows",
+        "anchor_text": "Architect MEP Structures & Civils"
+      }
+    },
+    {
+      "seed_key": "mep-engineering-services",
+      "lot_number": "1",
+      "candidate_name": "Mechanical, Electrical and Plumbing (MEP) engineering design services",
+      "summary": "MEP engineering design for the Stockport Town Centre School, coordinated with the architectural lead.",
+      "requirements": [
+        "MEP discipline named in Schedule 1 Contract Particulars.",
+        "Coordination with architect, Principal Designer and other consultants (clause 5.1)."
+      ],
+      "technical_standards": [
+        "British or EU Standard or Code of Practice",
+        "Construction (Design and Management) Regulations 2015"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "n/a",
+        "section_ref": "Schedule 1 — Contract Particulars: 'Consultant Discipline' row",
+        "anchor_text": "Architect MEP Structures & Civils"
+      }
+    },
+    {
+      "seed_key": "structural-civils-engineering-services",
+      "lot_number": "1",
+      "candidate_name": "Structural and Civil engineering design services",
+      "summary": "Structural and civil engineering design for the Stockport Town Centre School, coordinated with the architectural lead.",
+      "requirements": [
+        "Structures & Civils discipline named in Schedule 1 Contract Particulars.",
+        "Coordination with architect, Principal Designer and other consultants (clause 5.1)."
+      ],
+      "technical_standards": [
+        "British or EU Standard or Code of Practice",
+        "Construction (Design and Management) Regulations 2015"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "n/a",
+        "section_ref": "Schedule 1 — Contract Particulars: 'Consultant Discipline' row",
+        "anchor_text": "Architect MEP Structures & Civils"
+      }
+    },
+    {
+      "seed_key": "cdm-principal-designer-services",
+      "lot_number": "1",
+      "candidate_name": "CDM Principal Designer services",
+      "summary": "Principal Designer role under the CDM Regulations 2015 for the Stockport Town Centre School, discharging designer duties and supporting the H&S file.",
+      "requirements": [
+        "Consultant warrants designer status under CDM Regulations 2015 (clause 20.2).",
+        "Adequate resources and competence allocated for CDM compliance (clause 20.2).",
+        "Liaison with design team, contractors, Principal Designer and other consultants (clause 20.3)."
+      ],
+      "technical_standards": [
+        "Construction (Design and Management) Regulations 2015",
+        "HSE guidance published in relation to the CDM Regulations"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "n/a",
+        "section_ref": "Clause 20 (CDM Regulations)",
+        "anchor_text": "it shall be a 'designer' of the Project as defined in the CDM Regulations"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 8500,
+    "lots.description": 8000,
+    "lots.requirements": 7500,
+    "lots.evaluation_criteria": 2000,
+    "lots.cpv_codes": 1000,
+    "lots.product_requirements": 6000,
+    "lots.technical_standards": 7500,
+    "product_requirement_seeds": 6000,
+    "extraction_metadata.document_role": 3500
+  },
+  "extraction_confidence_bps": 4800,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "document_extractions.document_role is 'technical_specification' but the document is the consultancy Terms & Conditions template (file '4. T&Cs (with novation) (To be read).DOCX'); tender_document_sets.document_roles_json correctly labels this raw_document_id as 'terms_and_conditions'. Tender-spec extraction is therefore operating on a legal template, not a technical specification.",
+      "evidence_refs": [
+        "Title on cover page: 'Terms of Appointment of a Consultant to provide services as Multi-disciplinary design consultant (D&B – with novation) in relation to a Town Centre High School Project.'",
+        "tender_document_sets.document_roles_json: 'terms_and_conditions'"
+      ]
+    },
+    {
+      "code": "TEMPLATE_WITH_PLACEHOLDERS",
+      "message": "The document is a fill-in legal template. Many critical fields are bracketed placeholders (e.g. '[insert full name of Consultant]', '[insert description of Project]', 'Schedule 2 The Fees', 'Schedule 3 The Services'). The actual Services list, Fees table, Principal Designer name, Key Personnel names, Site description and execution dates are all blank and must be read from other documents in the tender pack.",
+      "evidence_refs": [
+        "Schedule 2: 'Total Fee … [insert amount in words] (£ [insert amount in figures]) (excluding VAT)'",
+        "Schedule 3: 'The Consultant shall generally perform the role and function of [insert details] in relation to the Project. [insert relevant list of services]'",
+        "Schedule 1 'Site' row: '[insert brief description of the precise location of the Site]'",
+        "Schedule 1 'Principal Designer' row: '[insert full name of Principal Designer]'"
+      ]
+    },
+    {
+      "code": "NO_EVALUATION_CRITERIA_PRESENT",
+      "message": "Award / evaluation criteria are not defined in this Terms & Conditions document. They belong in the Invitation to Participate and Instructions (document 1A) and the Response Document (document 3). evaluation_criteria is therefore empty.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_CPV_CODES_IN_DOCUMENT",
+      "message": "No CPV codes are asserted in this document. The notice main_category is populated at notice level ('150000 - Consultancy') but this extraction does not invent CPV codes from prior notice data.",
+      "evidence_refs": []
+    },
+    {
+      "code": "SERVICES_NOT_PRODUCTS",
+      "message": "Procurement is for professional consultancy services, not physical goods. product_requirement_seeds are seeded as service-type candidates (requirement_type='professional_service'). Downstream product-matching flows should treat these as services, not goods, and avoid quoteability/landed-cost steps that assume physical products.",
+      "evidence_refs": [
+        "Notice title: '020417 - Stockport Town Centre School - Multi-disciplinary Design Team Appointment'",
+        "Notice main_category: '150000 - Consultancy'"
+      ]
+    },
+    {
+      "code": "SINGLE_LOT_ALIGNS_WITH_NOTICE",
+      "message": "This document does not subdivide the appointment into multiple lots. One authoritative lot is emitted, aligned with the existing notice_lots row (lot_number 1). Lot identifier stability is preserved for downstream daemon persistence.",
+      "evidence_refs": [
+        "Existing notice_lots row: 'pc-f0f30f94-e22c-f111-813c-005056b64545-lot-1' / lot_key=1"
+      ]
+    },
+    {
+      "code": "DISCIPLINE_LIST_INCOMPLETE_VS_NOTICE",
+      "message": "Schedule 1 'Consultant Discipline' row lists only 'Architect MEP Structures & Civils', whereas the notice summary and the scope appendices (A.2 BR Principal Designer, A.4 CDM Principal Designer) identify five disciplines. Principal Designer roles are covered in clause 20 of this T&Cs but are not named in the discipline row; they are extracted as additional product_requirement_seeds with evidence anchored in clause 20.",
+      "evidence_refs": [
+        "Schedule 1 'Consultant Discipline': 'Architect MEP Structures & Civils'",
+        "Notice summary: 'architect … MEP, Principal Designer (both CDM & BR) and Structural Engineer'",
+        "Document set filenames: 'A.2 BR Principal Designer Scope of Service', 'A.4 CDM Principal Designer Scope of Service'"
+      ]
+    },
+    {
+      "code": "PAGE_REFERENCES_UNAVAILABLE",
+      "message": "document_extractions.page_count is 0 for this DOCX-derived extraction; the Docling output provides section structure but not page numbers. Evidence anchors therefore use section_ref values (clause / Schedule row names) and page_ref='n/a'.",
+      "evidence_refs": []
+    },
+    {
+      "code": "PI_INSURANCE_AND_LIABILITY_CAP_FIXED",
+      "message": "Schedule 1 fixes professional indemnity insurance at £10,000,000 per claim per insurance period and caps consultant liability at £10,000,000 per claim. These are material commercial terms that downstream pricing/qualification steps should surface.",
+      "evidence_refs": [
+        "Schedule 1 'Professional indemnity insurance': 'Ten million pounds (£10,000,000) for any one claim in any one period of insurance.'",
+        "Schedule 1 'Consultant's limitation of liability': 'Ten million pounds (£10,000,000) for any one claim.'"
+      ]
+    },
+    {
+      "code": "NOVATION_OPTION_PRESENT",
+      "message": "The appointment is novatable to a design-and-build third party under Schedule 6 (Deed of Novation). Downstream contract-workflow/route assessment should note optional novation and the associated collateral warranty cascade (Schedules 4 and 5).",
+      "evidence_refs": [
+        "Schedule 6 title: 'Agreed form draft Deed of Novation'",
+        "Clause 9.7: 'the Consultant shall … execute and deliver to the Client a deed or deeds of novation in the form attached at Schedule 6'"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "n/a",
+      "section_ref": "Cover page",
+      "anchor_text": "Terms of Appointment of a Consultant to provide services as Multi-disciplinary design consultant (D&B – with novation) in relation to a Town Centre High School Project."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Schedule 1 — Contract Particulars, 'Project' row (Clause 1.1)",
+      "anchor_text": "Design and Technical Services are looking to procure an architecturally led multi disciplinary design team to develop a feasibility through to concept design of a new school, in a town centre location."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Schedule 1 — Contract Particulars, 'Consultant Discipline' row (Clause 1.1 and 2.2)",
+      "anchor_text": "Architect MEP Structures & Civils"
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Schedule 1 — Contract Particulars, 'the Client' row",
+      "anchor_text": "Metropolitan Borough Council of Stockport of Town Hall, Stockport SK1 3XE"
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Schedule 1 — Contract Particulars, 'Professional indemnity insurance' row (Clause 7)",
+      "anchor_text": "Ten million pounds (£10,000,000) for any one claim in any one period of insurance."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Schedule 1 — Contract Particulars, 'Consultant's limitation of liability' row (Clause 23.3)",
+      "anchor_text": "Ten million pounds (£10,000,000) for any one claim."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Schedule 1 — Contract Particulars, 'CDM Regulations' row (Clause 20)",
+      "anchor_text": "Construction (Design and Management) Regulations 2015 together with any approved Code of Practice"
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Clause 2.3 (Standard of Care)",
+      "anchor_text": "any materials which by their nature or application contravene any British or EU Standard or Code of Practice current at the date of specification … 'Good Practice in the Selection of Construction Materials' published by the British Council of Offices and the BRE Digest"
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Clause 8.5 (Sub-letting/Assignment)",
+      "anchor_text": "Where this Agreement is subject to the Public Contracts Regulations 2015 ('PC Regulations')"
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Clause 20 (CDM Regulations)",
+      "anchor_text": "it shall be a 'designer' of the Project as defined in the CDM Regulations and shall fulfil in relation to the Project all the obligations for a designer"
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Schedule 2 — The Fees (template)",
+      "anchor_text": "The Consultant's total lump sum fixed fee under this Agreement is [insert amount in words] (£ [insert amount in figures]) (excluding VAT)."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Schedule 3 — The Services (template)",
+      "anchor_text": "The Consultant shall generally perform the role and function of [insert details] in relation to the Project. [insert relevant list of services]"
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Schedule 6 — Deed of Novation, Recitals",
+      "anchor_text": "the parties have agreed to novate the Agreement to the Third Party on the terms set out below"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "ff29d376d6e11cce814aea5bcc89f8fba2f52d547e5950960a99e1e4ee08d69e",
+    "policy_version": "2026.04.12",
+    "document_role": "terms_and_conditions"
+  }
+}

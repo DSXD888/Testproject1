@@ -1,0 +1,1506 @@
+{
+  "cursor": "{\"last_checked_at\": \"2026-04-17T17:47:43Z\", \"pages_checked\": 3}",
+  "continuation_required": false,
+  "enriched_tenders": [
+    {
+      "notice_id": "71615924-3b3f-ed11-8119-005056b64545",
+      "process_id": null,
+      "rfx_id": "a9dc718e-aa2d-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=a9dc718e-aa2d-f111-813c-005056b64545",
+      "updated_title": "CCP074 - Provision of a Print Service DPS",
+      "updated_description": "The Council are looking to procure a Print Service using a DPS, the DPS is split into 10 Lots.\nThe purpose of this procurement is to establish a Dynamic Purchasing System for Print Services. The DPS is for a period of 60 months with a quantity of 10 Lots being available.",
+      "updated_deadline_at": "2027-10-31T20:00:00Z",
+      "deadline_display_raw": "31st October 2027 at 8:00 PM",
+      "buyer_name": "Derbyshire County Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "CCP074  Tender Checklist.doc",
+          "content_type": "application/msword",
+          "size_bytes": 862208,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/71615924-3b3f-ed11-8119-005056b64545/CCP074  Tender Checklist.doc",
+          "document_role_hint": "tender_checklist",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=2f80b66d-f942-ed11-811a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "CCP074 Appendix B Instructions to Bidders.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 112963,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/71615924-3b3f-ed11-8119-005056b64545/CCP074 Appendix B Instructions to Bidders.docx",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=31371ebe-c540-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "CCP074 Appendix C FOIA Schedule.doc",
+          "content_type": "application/msword",
+          "size_bytes": 870400,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/71615924-3b3f-ed11-8119-005056b64545/CCP074 Appendix C FOIA Schedule.doc",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=2d371ebe-c540-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "CCP074 Specification for Print Service DPS.doc",
+          "content_type": "application/msword",
+          "size_bytes": 928256,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/71615924-3b3f-ed11-8119-005056b64545/CCP074 Specification for Print Service DPS.doc",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=6c0d81f8-cd40-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        }
+      ],
+      "documents_count": 4,
+      "enriched_at": "2026-04-17T17:47:43Z",
+      "activity_id_number": "783238",
+      "acceptance_round": "16"
+    },
+    {
+      "notice_id": "4f25ee47-b44b-ec11-810e-005056b64545",
+      "process_id": null,
+      "rfx_id": "a25079fd-2f28-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=a25079fd-2f28-f111-813c-005056b64545",
+      "updated_title": "BSH/HRA/Metal Works - Dynamic Purchasing System (DPS)",
+      "updated_description": "Metal Works - Dynamic Purchasing System (DPS)\n\nBristol City Council wish to establish a Dynamic Purchasing System (DPS) with a number of contractors for the provision of Metal Works, which includes, repairs, modification, supply, supply and installation and fabrication.\n\nLot 1 - Repairs and/or modification to metal items\nLot 2 - Supply only or Supply and Installation of metal items\nLot 3 - Fabrication of bespoke metal work items, such as lockers for parking meters, water taps, signs, specialist artwork\nLot 4 - Repair or Replace balcony balustrades\nLot 5 - Chute Repairs",
+      "updated_deadline_at": "2027-09-30T20:00:00Z",
+      "deadline_display_raw": "30th September 2027 at 8:00 PM",
+      "buyer_name": "Bristol City Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "Annexure_3_Metal_Works_Railings_and_Repairs_DPS_Minor_Works_Building_Contract_2016_Edition.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 802020,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/4f25ee47-b44b-ec11-810e-005056b64545/Annexure_3_Metal_Works_Railings_and_Repairs_DPS_Minor_Works_Building_Contract_2016_Edition.pdf",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=251064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Appendix 1 - Evaluation Criteria (Technical Assessment).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 82564,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/4f25ee47-b44b-ec11-810e-005056b64545/Appendix 1 - Evaluation Criteria (Technical Assessment).docx",
+          "document_role_hint": "evaluation_criteria",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=0a1064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "ITT Metal Work DPS (3).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 146542,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/4f25ee47-b44b-ec11-810e-005056b64545/ITT Metal Work DPS (3).docx",
+          "document_role_hint": "invitation_to_tender",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=1d1064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Metal Works - DPS - Final Draft August 2022.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 137247,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/4f25ee47-b44b-ec11-810e-005056b64545/Metal Works - DPS - Final Draft August 2022.docx",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=fe0f64fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Non Canvassing Certificate.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 28111,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/4f25ee47-b44b-ec11-810e-005056b64545/Non Canvassing Certificate.docx",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=f20f64fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Non Collusive Certificate.doc",
+          "content_type": "application/msword",
+          "size_bytes": 25088,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/4f25ee47-b44b-ec11-810e-005056b64545/Non Collusive Certificate.doc",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=f60f64fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Schedule 7 Part 1 - Call-Off Contract - JCT MW16 - Final Draft August 2022.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 90075,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/4f25ee47-b44b-ec11-810e-005056b64545/Schedule 7 Part 1 - Call-Off Contract - JCT MW16 - Final Draft August 2022.docx",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=011064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Schedule 7 Part 2 - Call-Off Contract - Goods- v Final Draft August 2022.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 56604,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/4f25ee47-b44b-ec11-810e-005056b64545/Schedule 7 Part 2 - Call-Off Contract - Goods- v Final Draft August 2022.docx",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=171064fe-67a3-f011-813a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        }
+      ],
+      "documents_count": 8,
+      "enriched_at": "2026-04-17T17:47:43Z",
+      "activity_id_number": "782604",
+      "acceptance_round": "6"
+    },
+    {
+      "notice_id": "2f876f17-90e7-ee11-8127-005056b64545",
+      "process_id": null,
+      "rfx_id": "984de133-1a03-ef11-812a-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=984de133-1a03-ef11-812a-005056b64545",
+      "updated_title": "Bracknell Forest Council - 2.\tEmergency Hormonal Contraception (EHC)",
+      "updated_description": "Bracknell Forest Council on behalf of the three Berkshire East Local Authorities - Slough, Bracknell Forest, Royal Borough of Windsor and Maidenhead \u2013 will be hosting a new 3 \u2013 year contract for the provision of Emergency Hormonal Contraception for 13 \u2013 24-year-olds.\n\nThis contract will be awarded under the Provider selection Regime process B Direct Award \u2013 meaning that any eligible provider can have a Contract. The contract will be released for publication and download on the 25th March 2024.\n\nThe contract will run from 1st April 2024 \u2013 31st March 2027.\n\nThis updated service specification and pricing schedule is modeled and delivered on units of activity.",
+      "updated_deadline_at": "2027-03-26T17:00:00Z",
+      "deadline_display_raw": "26th March 2027 at 5:00 PM",
+      "buyer_name": "Bracknell Forest Borough Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "EHC contract and service specification 2024-2026.doc",
+          "content_type": "application/msword",
+          "size_bytes": 752640,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/2f876f17-90e7-ee11-8127-005056b64545/EHC contract and service specification 2024-2026.doc",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=fcfaa58d-1b03-ef11-812a-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        }
+      ],
+      "documents_count": 1,
+      "enriched_at": "2026-04-17T17:47:43Z",
+      "activity_id_number": "696802"
+    },
+    {
+      "notice_id": "2467784d-620e-ed11-8116-005056b64545",
+      "process_id": null,
+      "rfx_id": "2e1e258d-5c80-ed11-811c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=2e1e258d-5c80-ed11-811c-005056b64545",
+      "updated_title": "BSH/HRA/Joinery Timber Supplies - DPS",
+      "updated_description": "Joinery Timber Supplies - DPS\n\nTimber Supply Hardwoods and Timber Supply Soft Woods and Boards & Door Blanks.\n\nBristol City Council produces high quality joinery manufactured in its own joinery shop. This DPS will be used to procure the quality timber products that will be used in the manufacture of joinery products for external use in doors, windows, framing, soffits and Fascia\u2019s, in domestic property, as well as high profile public buildings such as Ashton Court, museums and Libraries throughout Bristol.\n\nThe DPS will be run in 3 Lots:\n\n1) Supply and delivery of Soft wood timbers\n2) Supply and delivery of Plywood and Door Blanks\n3) Supply and delivery of Hardwood and Hemlock",
+      "updated_deadline_at": "2026-11-30T20:00:00Z",
+      "deadline_display_raw": "30th November 2026 at 8:00 PM",
+      "buyer_name": "Bristol City Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "Appendix 1 - Evaluation Criteria Joinery Timber Supplies.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 79102,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/2467784d-620e-ed11-8116-005056b64545/Appendix 1 - Evaluation Criteria Joinery Timber Supplies.docx",
+          "document_role_hint": "evaluation_criteria",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=fe31f4e0-1c34-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "ITT Joinery Timber Supplies DPS.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 136631,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/2467784d-620e-ed11-8116-005056b64545/ITT Joinery Timber Supplies DPS.docx",
+          "document_role_hint": "invitation_to_tender",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=1cb122c8-1d34-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Schedule 7 - Call-Off Contract - Timber Supplies.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 43939,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/2467784d-620e-ed11-8116-005056b64545/Schedule 7 - Call-Off Contract - Timber Supplies.docx",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=b757fbda-1c34-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Timber Supplies - DPS Agreement.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 128890,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/2467784d-620e-ed11-8116-005056b64545/Timber Supplies - DPS Agreement.docx",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=1432f4e0-1c34-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        }
+      ],
+      "documents_count": 4,
+      "enriched_at": "2026-04-17T17:47:43Z",
+      "activity_id_number": "621558",
+      "acceptance_round": "7"
+    },
+    {
+      "notice_id": "74e16850-630e-ed11-8116-005056b64545",
+      "process_id": null,
+      "rfx_id": "06a5154e-16e4-ed11-8121-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=06a5154e-16e4-ed11-8121-005056b64545",
+      "updated_title": "BSH/HRA/Supply of Double Glazed Units and Sheet Glass - DPS",
+      "updated_description": "Supply of Double Glazed Units and Sheet Glass - DPS\n\nCategory 1 - Supply of Double Glazed Units\nCategory 2 - Supply of Sheet Glass",
+      "updated_deadline_at": "2026-11-30T20:00:00Z",
+      "deadline_display_raw": "30th November 2026 at 8:00 PM",
+      "buyer_name": "Bristol City Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "Appendix 1 - Evaluation Criteria Sheet Glass.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 71294,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/74e16850-630e-ed11-8116-005056b64545/Appendix 1 - Evaluation Criteria Sheet Glass.docx",
+          "document_role_hint": "evaluation_criteria",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=7375d447-2834-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Glazing Supplies - DPS Agreement.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 128854,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/74e16850-630e-ed11-8116-005056b64545/Glazing Supplies - DPS Agreement.docx",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=5842d741-2834-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "ITT Glazed Units & Sheet Glass DPS.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 135436,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/74e16850-630e-ed11-8116-005056b64545/ITT Glazed Units & Sheet Glass DPS.docx",
+          "document_role_hint": "invitation_to_tender",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=5d42d741-2834-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Schedule 7 - Call-Off Contract - Glazing Supplies.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 43956,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/74e16850-630e-ed11-8116-005056b64545/Schedule 7 - Call-Off Contract - Glazing Supplies.docx",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=7775d447-2834-ed11-8119-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        }
+      ],
+      "documents_count": 4,
+      "enriched_at": "2026-04-17T17:47:43Z",
+      "activity_id_number": "640042",
+      "acceptance_round": "5"
+    },
+    {
+      "notice_id": "1a5eb480-0f37-f111-813c-005056b64545",
+      "process_id": null,
+      "rfx_id": "a12aa4e2-1037-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=a12aa4e2-1037-f111-813c-005056b64545",
+      "updated_title": "C3S2_413_bis Lot 2 Maintenance and Extension of C3S Windstorm and Storm Surge Services",
+      "updated_description": "ECMWF, as the Entrusted Entity for the Copernicus Climate Change Service (C3S), invites Tenders for the maintenance and extension of C3S windstorm and storm surge services. The requirements are split into two Lots: maintenance and extension of the Operational Windstorm Service (Lot 1), and maintenance and extension of operational storm surge products (Lot 2).\n\nFor each Lot, ECMWF intends to award a single Framework Agreement for a period of maximum 28 months, which shall be implemented via a single multi-annual Service Contract expected to commence in Q3 2026. Tenderers are invited to submit their Tenders for either one or both Lots. Note that the expertise required for each Lot strongly differ. In cases where a Tenderer opts to submit Tenders for both Lots, it is mandatory that each Tender is presented as a separate submission, with its own set of documents, including but not limited to, technical proposals, pricing tables and any required supporting documents. Tenderers must ensure that the submissions for each Lot are independently viable and stand on their own merits. At the same time, Tenderers should indicate what synergies, including cost savings, can be achieved should more than one Lot be awarded to them.\n\nLot 2: Maintenance and extension of operational storm surge products\n\nThe objective of Lot 2 is to ensure the continued operational running, consistency, and scientific integrity of C3S storm-surge / extreme sea-level products (reanalysis-based coastal water-level time series and related diagnostics) by implementing an operational update cycle (at least monthly), robust QA/QC, and maintained CDS catalogue interfaces/documentation, while preparing for ERA6 via early end-to-end testing and a documented migration plan. In parallel, the lot aims to maintain and evolve derived indicators (percentiles/return periods with uncertainty treatment), explore AI-based approaches (e.g., emulators, post-processing, downscaling) without compromising operational continuity, and restructure/extend the climate projections component so storm-surge/sea-level indicators are produced consistently from a broad, Atlas-aligned CMIP ensemble set with transparent model-selection rules, reproducible processing, and coherent uncertainty characterisation, complemented by updated training/example workflows, L2 support, and cross-lot coordination to enable joint windstorm\u2013storm-surge compound hazard products for insurance and risk-modelling users.\n\nPortal instructions:\nSome of the ITT documents are accessible under the \u2018Attachments\u2019 box at bottom right of this page. The full set of ITT documents which are provided inside the response questionnaire are only accessible by registering an interest in this opportunity (see the 'Expression of interest window' at top right). Please refer initially to the \u2018ECMWF eProcurement Portal Guidance for suppliers\u2019 file in the Attachments box as this document will help you navigate the portal and locate the necessary information in order to submit a proposal.\n\nPlease note that the contact email address shown under 'Contact details' is not monitored, and any messages sent to this email address will not be attended to. Questions / clarifications concerning this ITT must be submitted via the Messaging area of the ITT, which can be accessed through the My Activities page of the Portal once you have logged-in and registered your interest in this opportunity.",
+      "updated_deadline_at": "2026-06-04T15:00:00Z",
+      "deadline_display_raw": "4th June 2026 at 3:00 PM",
+      "buyer_name": "ECMWF",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "C3S2_413_bis Volume IA final.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 268289,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1a5eb480-0f37-f111-813c-005056b64545/C3S2_413_bis Volume IA final.pdf",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=eeb152fe-1037-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "C3S2_413_bis Volume II final.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 714747,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1a5eb480-0f37-f111-813c-005056b64545/C3S2_413_bis Volume II final.pdf",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=a6c652fe-1037-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "ECMWF eProcurement Portal Guidance for suppliers.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 2374061,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1a5eb480-0f37-f111-813c-005056b64545/ECMWF eProcurement Portal Guidance for suppliers.pdf",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=6b1fe700-1137-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Volume I Instructions and Conditions final January 2026.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 455109,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1a5eb480-0f37-f111-813c-005056b64545/Volume I Instructions and Conditions final January 2026.pdf",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=36ca52fe-1037-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        }
+      ],
+      "documents_count": 4,
+      "enriched_at": "2026-04-17T17:47:43Z",
+      "activity_id_number": "783996"
+    },
+    {
+      "notice_id": "bac577e7-dabf-f011-813a-005056b64545",
+      "process_id": null,
+      "rfx_id": "28b81c96-0929-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=28b81c96-0929-f111-813c-005056b64545",
+      "updated_title": "25112 Library Services Engage, Design and Fit out Contract - Ely Library",
+      "updated_description": "To have an experienced Design and Fit Out contractor who will looking to work with the Library service to develop a final design for the Ely Library and once agreed, execute the design by delivering the fit out within the specify timeframe/scale.\n\nContract term will be 12 months with an option for 6 month extension.",
+      "updated_deadline_at": "2026-05-22T12:00:00Z",
+      "deadline_display_raw": "22nd May 2026 at 12:00 PM",
+      "buyer_name": "Cambridgeshire County Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "25112 ITT - Ely Library service Engage, Design and Fit Out.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 702769,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/bac577e7-dabf-f011-813a-005056b64545/25112 ITT - Ely Library service Engage, Design and Fit Out.pdf",
+          "document_role_hint": "invitation_to_tender",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=fa80819b-2d29-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Appendix 2a - Copy of Award Criteria questionnaire.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 230272,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/bac577e7-dabf-f011-813a-005056b64545/Appendix 2a - Copy of Award Criteria questionnaire.pdf",
+          "document_role_hint": "evaluation_criteria",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=7981819b-2d29-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Appendix 3a - Pricing schedule worksheet.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 49816,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/bac577e7-dabf-f011-813a-005056b64545/Appendix 3a - Pricing schedule worksheet.xlsx",
+          "document_role_hint": "pricing_schedule",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=6f81819b-2d29-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Appendix 4 - Specification.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 398536,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/bac577e7-dabf-f011-813a-005056b64545/Appendix 4 - Specification.pdf",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=c6e979a1-2d29-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Appendix 5 - Ely Library Floor plan 2011.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 111039,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/bac577e7-dabf-f011-813a-005056b64545/Appendix 5 - Ely Library Floor plan 2011.pdf",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=2381819b-2d29-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Appendix 6 - Ely library Video.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 55464,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/bac577e7-dabf-f011-813a-005056b64545/Appendix 6 - Ely library Video.pdf",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=e9e979a1-2d29-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Appendix 7 - Draft 25112 Contract.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 591177,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/bac577e7-dabf-f011-813a-005056b64545/Appendix 7 - Draft 25112 Contract.pdf",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=7e81819b-2d29-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Appendix 8 - MMP Operations Manual.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 61543,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/bac577e7-dabf-f011-813a-005056b64545/Appendix 8 - MMP Operations Manual.pdf",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=d0e979a1-2d29-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        }
+      ],
+      "documents_count": 8,
+      "enriched_at": "2026-04-17T17:47:43Z",
+      "activity_id_number": "782746"
+    },
+    {
+      "notice_id": "afb3b5dc-772e-f111-813c-005056b64545",
+      "process_id": null,
+      "rfx_id": "ea9d90b2-4833-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=ea9d90b2-4833-f111-813c-005056b64545",
+      "updated_title": "6278 - Building Services Framework - Lots 1-11",
+      "updated_description": "Lot 1: Provision of Fire Risk Assessments\nLot 2: Provider of Water Risk Assessments\nLot 3: Provision of Asbestos Assessments\nLot 4: Provision of Fire Door Surveys\nLot 5: Provision of Building Condition Surveys\nLot 6 : Provision of Cleaning Services - Corporate Buildings & Public Facilities in Parks & Open Spaces\nLot 7: Provision of Lift Services - Corporate Buildnigs\nLot 8: Provision of Planned & Preventative Corporate Building Maintenance (PPM) & Remedial Repairs\nLot 9: Provision of Reactive Repairs to Corporate Buildings\nLot 10: Provision of Planned & Preventative Residential Property Maintenance (PPM) & Remedial Repairs\nLot 11: Provision of Minor Disability Adaptations (Minor Buiding Works) in Privately Owned Properties",
+      "updated_deadline_at": "2026-05-18T12:00:00Z",
+      "deadline_display_raw": "18th May 2026 at 12:00 PM",
+      "buyer_name": "London Borough of Bexley",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY).zip",
+          "content_type": "application/zip",
+          "size_bytes": 4845284,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY).zip",
+          "document_role_hint": "archive",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=d25b087b-4933-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "6278 - Draft Specification -  Lot 1.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 165742,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification -  Lot 1.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification -  Lot 1.docx"
+        },
+        {
+          "filename": "6278 - Draft Specification - Lot 10.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 92134,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification - Lot 10.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification - Lot 10.docx"
+        },
+        {
+          "filename": "6278 - Draft Specification - Lot 11.doc",
+          "content_type": "application/msword",
+          "size_bytes": 250880,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification - Lot 11.doc",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification - Lot 11.doc"
+        },
+        {
+          "filename": "6278 - Draft Specification - Lot 4.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 151814,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification - Lot 4.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification - Lot 4.docx"
+        },
+        {
+          "filename": "6278 - Draft Specification - Lot 6.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 36375,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification - Lot 6.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification - Lot 6.docx"
+        },
+        {
+          "filename": "6278 - Draft T&CS - Lot 2.doc",
+          "content_type": "application/msword",
+          "size_bytes": 562176,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&CS - Lot 2.doc",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&CS - Lot 2.doc"
+        },
+        {
+          "filename": "6278 - Draft T&Cs - Lot 1.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 472791,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 1.pdf",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 1.pdf"
+        },
+        {
+          "filename": "6278 - Draft T&Cs - Lot 10.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 27940,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 10.docx",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 10.docx"
+        },
+        {
+          "filename": "6278 - Draft T&Cs - Lot 11.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 28081,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 11.docx",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 11.docx"
+        },
+        {
+          "filename": "6278 - Draft T&Cs - Lot 3.doc",
+          "content_type": "application/msword",
+          "size_bytes": 559616,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 3.doc",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 3.doc"
+        },
+        {
+          "filename": "6278 - Draft T&Cs - Lot 6.doc",
+          "content_type": "application/msword",
+          "size_bytes": 560128,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 6.doc",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 6.doc"
+        },
+        {
+          "filename": "6278 - Draft T&Cs - Lot 7.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 515615,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 7.pdf",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 7.pdf"
+        },
+        {
+          "filename": "6278 - Draft T&Cs - Lots 8 & 9.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 509484,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lots 8 & 9.pdf",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lots 8 & 9.pdf"
+        },
+        {
+          "filename": "6278 - Draft specification - Lot 2.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 161159,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 2.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 2.docx"
+        },
+        {
+          "filename": "6278 - Draft specification - Lot 3.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 242817,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 3.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 3.docx"
+        },
+        {
+          "filename": "6278 - Draft specification - Lot 5.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 68860,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 5.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 5.docx"
+        },
+        {
+          "filename": "6278 - Draft specification - Lot 7.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 167102,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 7.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 7.docx"
+        },
+        {
+          "filename": "6278 - Draft specification - Lot 8.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 135108,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 8.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 8.docx"
+        },
+        {
+          "filename": "6278 - Draft specification - Lot 9.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 132106,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 9.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Adendum 1 -  Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 9.docx"
+        },
+        {
+          "filename": "6278 - Draft Tender Documents (FOR INFORMATION ONLY).zip",
+          "content_type": "application/zip",
+          "size_bytes": 4196215,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY).zip",
+          "document_role_hint": "archive",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=1a67d192-792e-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "6278 - Draft Specification -  Lot 1 Provision of Fire Risk Assessments.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 165165,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification -  Lot 1 Provision of Fire Risk Assessments.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification -  Lot 1 Provision of Fire Risk Assessments.docx"
+        },
+        {
+          "filename": "6278 - Draft Specification - Lot 10 - Provision of Planned, Preventative & Responsive Residential Property Maintenance and Compl.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 92134,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification - Lot 10 - Provision of Planned, Preventative & Responsive Residential Property Maintenance and Compl.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification - Lot 10 - Provision of Planned, Preventative & Responsive Residential Property Maintenance and Compl.docx"
+        },
+        {
+          "filename": "6278 - Draft Specification - Lot 11 Provision of Minor Disability Adaptations (minor building works) in privately owned properti.doc",
+          "content_type": "application/msword",
+          "size_bytes": 250880,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification - Lot 11 Provision of Minor Disability Adaptations (minor building works) in privately owned properti.doc",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification - Lot 11 Provision of Minor Disability Adaptations (minor building works) in privately owned properti.doc"
+        },
+        {
+          "filename": "6278 - Draft Specification - Lot 4 - Provision of Fire Door Surveys.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 151814,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification - Lot 4 - Provision of Fire Door Surveys.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft Specification - Lot 4 - Provision of Fire Door Surveys.docx"
+        },
+        {
+          "filename": "6278 - Draft T&CS - Lot 2 - Provision of Water Risk Assessments.doc",
+          "content_type": "application/msword",
+          "size_bytes": 562176,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&CS - Lot 2 - Provision of Water Risk Assessments.doc",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&CS - Lot 2 - Provision of Water Risk Assessments.doc"
+        },
+        {
+          "filename": "6278 - Draft T&Cs - Lot 1 Provision of Fire Risk Assessment.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 472791,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 1 Provision of Fire Risk Assessment.pdf",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 1 Provision of Fire Risk Assessment.pdf"
+        },
+        {
+          "filename": "6278 - Draft T&Cs - Lot 10 - Provision of Planned, Preventative & Responsive Residential Property Maintenance and Compliance Ser.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 27940,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 10 - Provision of Planned, Preventative & Responsive Residential Property Maintenance and Compliance Ser.docx",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 10 - Provision of Planned, Preventative & Responsive Residential Property Maintenance and Compliance Ser.docx"
+        },
+        {
+          "filename": "6278 - Draft T&Cs - Lot 11 Provision of Minor Disability Adaptations (minor building works) in privately owned properties.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 28081,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 11 Provision of Minor Disability Adaptations (minor building works) in privately owned properties.docx",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 11 Provision of Minor Disability Adaptations (minor building works) in privately owned properties.docx"
+        },
+        {
+          "filename": "6278 - Draft T&Cs - Lot 3 - Provision of Asbestos Assessments.doc",
+          "content_type": "application/msword",
+          "size_bytes": 559616,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 3 - Provision of Asbestos Assessments.doc",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 3 - Provision of Asbestos Assessments.doc"
+        },
+        {
+          "filename": "6278 - Draft T&Cs - Lot 7 - Provision of Lift Services  - Corporate Buildings.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 515615,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 7 - Provision of Lift Services  - Corporate Buildings.pdf",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft T&Cs - Lot 7 - Provision of Lift Services  - Corporate Buildings.pdf"
+        },
+        {
+          "filename": "6278 - Draft specification - Lot 2 - Provision of Water Risk Assessments.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 161159,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 2 - Provision of Water Risk Assessments.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 2 - Provision of Water Risk Assessments.docx"
+        },
+        {
+          "filename": "6278 - Draft specification - Lot 3 - Provision of Asbestos Assessments.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 242814,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 3 - Provision of Asbestos Assessments.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 3 - Provision of Asbestos Assessments.docx"
+        },
+        {
+          "filename": "6278 - Draft specification - Lot 5 - Provision of Building Condition Surveys.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 65988,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 5 - Provision of Building Condition Surveys.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 5 - Provision of Building Condition Surveys.docx"
+        },
+        {
+          "filename": "6278 - Draft specification - Lot 7 - Provision of Lift Services  - Corporate Buildings.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 167102,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 7 - Provision of Lift Services  - Corporate Buildings.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 7 - Provision of Lift Services  - Corporate Buildings.docx"
+        },
+        {
+          "filename": "6278 - Draft specification - Lot 9 - Provision of Reactive Repairs to Corporate Building.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 132103,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 9 - Provision of Reactive Repairs to Corporate Building.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Draft Tender Documents (FOR INFORMATION ONLY)_extracted/Draft Tender Documents (FOR INFORMATION ONLY)/6278 - Draft specification - Lot 9 - Provision of Reactive Repairs to Corporate Building.docx"
+        },
+        {
+          "filename": "6278 - PSQ - Procurement Specific Questionnaire (Competitive Flexible).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 115083,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - PSQ - Procurement Specific Questionnaire (Competitive Flexible).docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=fae2dc98-792e-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "6278 - Procurement & Contract Informative Document (PCID) - PSQ (To Be Read First).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 103538,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Procurement & Contract Informative Document (PCID) - PSQ (To Be Read First).docx",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=1467d192-792e-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "6278 - Reference Appendices.zip",
+          "content_type": "application/zip",
+          "size_bytes": 332452,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Reference Appendices.zip",
+          "document_role_hint": "archive",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=1867d192-792e-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "6278 - PSQ Reference Appendices - Lot 1 Provision of Fire Risk Assessments.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 29664,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices - Lot 1 Provision of Fire Risk Assessments.docx",
+          "document_role_hint": "questionnaire",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices - Lot 1 Provision of Fire Risk Assessments.docx"
+        },
+        {
+          "filename": "6278 - PSQ Reference Appendices - Lot 10 - Provision of Planned, Preventative & Responsive Residential Property Maintenance and .docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 29326,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices - Lot 10 - Provision of Planned, Preventative & Responsive Residential Property Maintenance and .docx",
+          "document_role_hint": "questionnaire",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices - Lot 10 - Provision of Planned, Preventative & Responsive Residential Property Maintenance and .docx"
+        },
+        {
+          "filename": "6278 - PSQ Reference Appendices - Lot 11 Provision of Minor Disability Adaptations (minor building works) in privately owned pro.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 30838,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices - Lot 11 Provision of Minor Disability Adaptations (minor building works) in privately owned pro.docx",
+          "document_role_hint": "questionnaire",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices - Lot 11 Provision of Minor Disability Adaptations (minor building works) in privately owned pro.docx"
+        },
+        {
+          "filename": "6278 - PSQ Reference Appendices - Lot 2 - Provision of Water Risk Assessments.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 29732,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices - Lot 2 - Provision of Water Risk Assessments.docx",
+          "document_role_hint": "questionnaire",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices - Lot 2 - Provision of Water Risk Assessments.docx"
+        },
+        {
+          "filename": "6278 - PSQ Reference Appendices - Lot 3 - Provision of Asbestos Assessments.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 29757,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices - Lot 3 - Provision of Asbestos Assessments.docx",
+          "document_role_hint": "questionnaire",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices - Lot 3 - Provision of Asbestos Assessments.docx"
+        },
+        {
+          "filename": "6278 - PSQ Reference Appendices - Lot 4 - Provision of Fire Door Surveys.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 29741,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices - Lot 4 - Provision of Fire Door Surveys.docx",
+          "document_role_hint": "questionnaire",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices - Lot 4 - Provision of Fire Door Surveys.docx"
+        },
+        {
+          "filename": "6278 - PSQ Reference Appendices - Lot 5 - Provision of Building Condition Surveys.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 29807,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices - Lot 5 - Provision of Building Condition Surveys.docx",
+          "document_role_hint": "questionnaire",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices - Lot 5 - Provision of Building Condition Surveys.docx"
+        },
+        {
+          "filename": "6278 - PSQ Reference Appendices Lot 7 - Provision of Lift Services  - Corporate Buildings.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 29834,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices Lot 7 - Provision of Lift Services  - Corporate Buildings.docx",
+          "document_role_hint": "questionnaire",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices Lot 7 - Provision of Lift Services  - Corporate Buildings.docx"
+        },
+        {
+          "filename": "6278 - PSQ Reference Appendices- Lot 8 - Provision of Planned and Preventative  Corporate Building Maintenance (PPM) & Remedial .docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 29850,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices- Lot 8 - Provision of Planned and Preventative  Corporate Building Maintenance (PPM) & Remedial .docx",
+          "document_role_hint": "questionnaire",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices- Lot 8 - Provision of Planned and Preventative  Corporate Building Maintenance (PPM) & Remedial .docx"
+        },
+        {
+          "filename": "6278 - PSQ Reference Appendices- Lot 9 - Provision of Reactive Repairs to Corporate Building.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 29881,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/afb3b5dc-772e-f111-813c-005056b64545/6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices- Lot 9 - Provision of Reactive Repairs to Corporate Building.docx",
+          "document_role_hint": "questionnaire",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "6278 - Reference Appendices_extracted/Reference Appendicies/6278 - PSQ Reference Appendices- Lot 9 - Provision of Reactive Repairs to Corporate Building.docx"
+        }
+      ],
+      "documents_count": 49,
+      "enriched_at": "2026-04-17T17:47:43Z",
+      "activity_id_number": "783700"
+    },
+    {
+      "notice_id": "1b39cb55-ffdf-f011-813c-005056b64545",
+      "process_id": null,
+      "rfx_id": "f377a574-4137-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=f377a574-4137-f111-813c-005056b64545",
+      "updated_title": "107_26 Inspection and Maintenance of Indoor Gymnasium, Fitness and Sport Equipment, and Outdoor Schools Play and Sport Equipment",
+      "updated_description": "Please download all the documents (ITT pack) from the below 'Activity documentation, files & links' area.\n\nTO RESPOND:\n\u2022 Please click on \"Start my response\" (from this Activity summary screen to be taken to the Your response summary screen - the below will ALL need to be completed from the Your response summary screen).\n\u2022 Please review the Central Digital Platform (CDP) - Supplier information section, by clicking on \u201cEdit\u201d against this (seen once you have started your response and you are in Your response summary screen) - IT IS RECOMMENDED THIS SECTION IS REVIEWED AND COMPLETED (tick box) AS SOON AS POSSIBLE, as your Central Digital Platform (CDP) Supplier information is instead provided when completing the Online Question set (Procurement Specific Questionnaire), see below (next step).\n\u2022 Complete the Question set (Procurement Specific Questionnaire) - click on \"Edit\" which appears to the right of the Progress bar to access this (again seen once you have started your response and you are in Your response summary screen). NOTE: THESE ARE ONLINE QUESTIONS THAT ARE ANSWERED WITHIN THE EPROCUREMENT PORTAL (PROCONTRACT), please do NOT download these for completion.\n\u2022 Upload ALL your Response documents to the 'Response documentation, files & links' area (click \"+Add\" to complete) - IT IS YOUR RESPONSIBILITY TO ENSURE ALL YOUR COMPLETED TENDER RESPONSE DOCUMENTS AS DETAILED IN THE ITT ARE SUCCESSFULLY UPLOADED WHEN RESPONDING (AND PLEASE ALSO REFER TO THE SUBMISSION CHECKLIST FOUND IN THE TENDER SUBMISSION DOCUMENT). A SUBMITTED STATUS (see below) DOES NOT CONFIRM COMPLIANCE WITH ALL INSTRUCTIONS GIVEN (and Buying organisations do NOT have access to any response documents until after the response deadline has passed for our own checks to be completed on this).\n\u2022 Submit your response (click \"Submit response\" which should become available under Your response submission progress checklist once the above actions have been completed), after which the status of Submitted should be clearly seen in the system. PLEASE NOTE, you can continue to change your response after you have submitted (providing it is still before the response/Submission deadline), by clicking \"Change response\". If you choose to do this please remember to ensure that any updates made are again Submitted as above (and prior to the Tender Submission deadline).\n\nFor any questions relating to the operation of the Portal itself, ProContract, these should be submitted to Proactis and the following links (URL's) can be used for this, for supplier support and system technical queries: https://www.proactis.com/uk/support-login/ or via https://suppliersupport.proactisservicedesk.com/ (or alternatively please click on \"Take a tour\" for additional onscreen guidance). Note: In case of any technical issues with the system, these must be raised to Proactis at the earliest opportunity, including providing them full details (copies or screen shots) of any errors seen if applicable.\n\nANY QUESTIONS RELATING TO THE TENDER CONTENT should be submitted to ESPO using the Messages section, see also the introduction pages of the Invitation to Tender for details. ADDITIONALLY, ALL TENDERERS SHOULD ACCESS THE MAIN ACTIVITY DASHBOARD SCREEN AND ACCESS THE MESSAGES SECTION THERE TO CHECK FOR ANY CLARIFICATIONS ISSUED and/or any public exchange of information between interested parties, before completing your final submission. It is the sole responsibility of tenderers to do so.",
+      "updated_deadline_at": "2026-05-15T12:00:00Z",
+      "deadline_display_raw": "15th May 2026 at 12:00 PM",
+      "buyer_name": "ESPO",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "107_26 Appendix A Framework Agreement FINAL.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 658055,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1b39cb55-ffdf-f011-813c-005056b64545/107_26 Appendix A Framework Agreement FINAL.pdf",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=ca7d0db8-4137-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "107_26 Appendix B Pricing Schedule FINAL.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 20765,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1b39cb55-ffdf-f011-813c-005056b64545/107_26 Appendix B Pricing Schedule FINAL.xlsx",
+          "document_role_hint": "pricing_schedule",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=f07d0db8-4137-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "107_26 Form of Contract and Call Off Terms Template Framework Schedule 3 FINAL.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 250304,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1b39cb55-ffdf-f011-813c-005056b64545/107_26 Form of Contract and Call Off Terms Template Framework Schedule 3 FINAL.docx",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=de7d0db8-4137-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "107_26 Invitation to Tender FINAL.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 570900,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1b39cb55-ffdf-f011-813c-005056b64545/107_26 Invitation to Tender FINAL.pdf",
+          "document_role_hint": "invitation_to_tender",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=e57d0db8-4137-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "107_26 Tender Submission Checklist FINAL.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 145496,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1b39cb55-ffdf-f011-813c-005056b64545/107_26 Tender Submission Checklist FINAL.docx",
+          "document_role_hint": "response_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=d87d0db8-4137-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "107_26 Tender Submission Document FINAL.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 176572,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1b39cb55-ffdf-f011-813c-005056b64545/107_26 Tender Submission Document FINAL.docx",
+          "document_role_hint": "response_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=ed7d0db8-4137-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        }
+      ],
+      "documents_count": 6,
+      "enriched_at": "2026-04-17T17:47:43Z",
+      "activity_id_number": "784078"
+    },
+    {
+      "notice_id": "a2858379-0529-f111-813c-005056b64545",
+      "process_id": null,
+      "rfx_id": "c3957abe-e22c-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=c3957abe-e22c-f111-813c-005056b64545",
+      "updated_title": "020417 - Stockport Town Centre School - Multi-disciplinary Design Team Appointment",
+      "updated_description": "Design & Technical Services are looking to procure a multi-disciplinary design team to deliver the town centre school project.\n\nThis procurement would look to appoint a team for the entire project, with the option to terminate or pause at each RIBA stage written into the contract.\n\nFunding has been secured from the Greater Manchester Combined Authority to deliver RIBA Stage 2.\n\nDisciplines the team would be looking to appoint are: architect with experience of delivering educational projects, MEP, Principal Designer (both CDM & BR) and Structural Engineer.",
+      "updated_deadline_at": "2026-04-27T12:00:00Z",
+      "deadline_display_raw": "27th April 2026 at 12:00 PM",
+      "buyer_name": "Stockport Metropolitan Borough Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "1A. Invitation to Participate and Instructions (To be read).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 272221,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/1A. Invitation to Participate and Instructions (To be read).docx",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=249afe7f-e62c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "2. Specification (To be read) (2).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 350092,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/2. Specification (To be read) (2).docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=204a0ad7-e22c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "3. Response Document (To be returned).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 166571,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/3. Response Document (To be returned).docx",
+          "document_role_hint": "response_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=933301d1-e22c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "4. T&Cs (with novation) (To be read).DOCX",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 209649,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/4. T&Cs (with novation) (To be read).DOCX",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=314a0ad7-e22c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "5. Glossary FINAL (To be read).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 169441,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/5. Glossary FINAL (To be read).docx",
+          "document_role_hint": "glossary",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=264a0ad7-e22c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "6. Stockport Council Priority Cohort and Themes (To be read).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 276394,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/6. Stockport Council Priority Cohort and Themes (To be read).docx",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=2a4a0ad7-e22c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "7. Stockport Town Centre School Brief  (To be read).pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 1690598,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/7. Stockport Town Centre School Brief  (To be read).pdf",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=3e4a0ad7-e22c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Appendices.zip",
+          "content_type": "application/zip",
+          "size_bytes": 1526442,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/Appendices.zip",
+          "document_role_hint": "archive",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=3b4a0ad7-e22c-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "A.1 Architectural Scope of Service (To be read).DOCX",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 295867,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.1 Architectural Scope of Service (To be read).DOCX",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.1 Architectural Scope of Service (To be read).DOCX"
+        },
+        {
+          "filename": "A.2 BR Principal Designer Scope of Service (To be read).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 288325,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.2 BR Principal Designer Scope of Service (To be read).docx",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.2 BR Principal Designer Scope of Service (To be read).docx"
+        },
+        {
+          "filename": "A.3 Mechanical and Electrical Scope of Service (To be read).DOCX",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 273653,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.3 Mechanical and Electrical Scope of Service (To be read).DOCX",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.3 Mechanical and Electrical Scope of Service (To be read).DOCX"
+        },
+        {
+          "filename": "A.4 CDM Principal Designer Scope of Service (To be read).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 293689,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.4 CDM Principal Designer Scope of Service (To be read).docx",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.4 CDM Principal Designer Scope of Service (To be read).docx"
+        },
+        {
+          "filename": "A.5 Structural and Civils Scope of Service (To be read).DOCX",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 267000,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.5 Structural and Civils Scope of Service (To be read).DOCX",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.5 Structural and Civils Scope of Service (To be read).DOCX"
+        },
+        {
+          "filename": "Schedule of Accommodation & Calculations DRAFT (To be read).xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 73960,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/Appendices_extracted/Appendices/Schedule of Accommodation & Calculations DRAFT (To be read).xlsx",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendices_extracted/Appendices/Schedule of Accommodation & Calculations DRAFT (To be read).xlsx"
+        },
+        {
+          "filename": "TC School - Programme Nov 25 (To be read).pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 31966,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/a2858379-0529-f111-813c-005056b64545/Appendices_extracted/Appendices/TC School - Programme Nov 25 (To be read).pdf",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendices_extracted/Appendices/TC School - Programme Nov 25 (To be read).pdf"
+        }
+      ],
+      "documents_count": 15,
+      "enriched_at": "2026-04-17T17:47:43Z",
+      "activity_id_number": "783101"
+    },
+    {
+      "notice_id": "380359ab-c0ca-f011-813a-005056b64545",
+      "process_id": null,
+      "rfx_id": "8a0b201f-c338-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=8a0b201f-c338-f111-813c-005056b64545",
+      "updated_title": "218_26 Specialist Vehicle Contract Hire/Leasing",
+      "updated_description": "Please download all the documents (ITT pack) from the below 'Activity documentation, files & links' area.\n\nTO RESPOND:\n\u2022 Please click on \"Start my response\" (from this Activity summary screen to be taken to the Your response summary screen - the below will ALL need to be completed from the Your response summary screen).\n\u2022 Please review the Central Digital Platform (CDP) - Supplier information section, by clicking on \u201cEdit\u201d against this (seen once you have started your response and you are in Your response summary screen) - IT IS RECOMMENDED THIS SECTION IS REVIEWED AND COMPLETED (tick box) AS SOON AS POSSIBLE, as your Central Digital Platform (CDP) Supplier information is instead provided when completing the Online Question set (Procurement Specific Questionnaire), see below (next step).\n\u2022 Complete the Question set (Procurement Specific Questionnaire) - click on \"Edit\" which appears to the right of the Progress bar to access this (again seen once you have started your response and you are in Your response summary screen). NOTE: THESE ARE ONLINE QUESTIONS THAT ARE ANSWERED WITHIN THE EPROCUREMENT PORTAL (PROCONTRACT), please do NOT download these for completion.\n\u2022 Upload ALL your Response documents to the 'Response documentation, files & links' area (click \"+Add\" to complete) - IT IS YOUR RESPONSIBILITY TO ENSURE ALL YOUR COMPLETED TENDER RESPONSE DOCUMENTS AS DETAILED IN THE ITT ARE SUCCESSFULLY UPLOADED WHEN RESPONDING (AND PLEASE ALSO REFER TO THE SUBMISSION CHECKLIST FOUND IN THE TENDER SUBMISSION DOCUMENT). A SUBMITTED STATUS (see below) DOES NOT CONFIRM COMPLIANCE WITH ALL INSTRUCTIONS GIVEN (and Buying organisations do NOT have access to any response documents until after the response deadline has passed for our own checks to be completed on this).\n\u2022 Submit your response (click \"Submit response\" which should become available under Your response submission progress checklist once the above actions have been completed), after which the status of Submitted should be clearly seen in the system. PLEASE NOTE, you can continue to change your response after you have submitted (providing it is still before the response/Submission deadline), by clicking \"Change response\". If you choose to do this please remember to ensure that any updates made are again Submitted as above (and prior to the Tender Submission deadline).\n\nFor any questions relating to the operation of the Portal itself, ProContract, these should be submitted to Proactis and the following links (URL's) can be used for this, for supplier support and system technical queries: https://www.proactis.com/uk/support-login/ or via https://suppliersupport.proactisservicedesk.com/ (or alternatively please click on \"Take a tour\" for additional onscreen guidance). Note: In case of any technical issues with the system, these must be raised to Proactis at the earliest opportunity, including providing them full details (copies or screen shots) of any errors seen if applicable.\n\nANY QUESTIONS RELATING TO THE TENDER CONTENT should be submitted to ESPO using the Messages section, see also the introduction pages of the Invitation to Tender for details. ADDITIONALLY, ALL TENDERERS SHOULD ACCESS THE MAIN ACTIVITY DASHBOARD SCREEN AND ACCESS THE MESSAGES SECTION THERE TO CHECK FOR ANY CLARIFICATIONS ISSUED and/or any public exchange of information between interested parties, before completing your final submission. It is the sole responsibility of tenderers to do so.",
+      "updated_deadline_at": "2026-05-15T12:00:00Z",
+      "deadline_display_raw": "15th May 2026 at 12:00 PM",
+      "buyer_name": "ESPO",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "218_26 Form of Contract and Call Off Terms FINAL.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 263840,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/380359ab-c0ca-f011-813a-005056b64545/218_26 Form of Contract and Call Off Terms FINAL.docx",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=51d6bd4f-c338-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "218_26 Framework Agreement (Appendix A) FINAL.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 706016,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/380359ab-c0ca-f011-813a-005056b64545/218_26 Framework Agreement (Appendix A) FINAL.pdf",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=cbd6bd4f-c338-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "218_26 Invitation to Tender FINAL.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 548111,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/380359ab-c0ca-f011-813a-005056b64545/218_26 Invitation to Tender FINAL.pdf",
+          "document_role_hint": "invitation_to_tender",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=7dd6bd4f-c338-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "218_26 Price Schedule (Appendix B) FINAL.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 60468,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/380359ab-c0ca-f011-813a-005056b64545/218_26 Price Schedule (Appendix B) FINAL.xlsx",
+          "document_role_hint": "pricing_schedule",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=72d6bd4f-c338-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "218_26 Tender Submission Checklist FINAL.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 146076,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/380359ab-c0ca-f011-813a-005056b64545/218_26 Tender Submission Checklist FINAL.docx",
+          "document_role_hint": "response_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=64d6bd4f-c338-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "218_26 Tender Submission Document FINAL.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 176353,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/380359ab-c0ca-f011-813a-005056b64545/218_26 Tender Submission Document FINAL.docx",
+          "document_role_hint": "response_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=44d6bd4f-c338-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        }
+      ],
+      "documents_count": 6,
+      "enriched_at": "2026-04-17T17:47:43Z",
+      "activity_id_number": "784284"
+    },
+    {
+      "notice_id": "c08f1a87-4933-f111-813c-005056b64545",
+      "process_id": null,
+      "rfx_id": "175938ea-4c33-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=175938ea-4c33-f111-813c-005056b64545",
+      "updated_title": "Provision, Installation and Maintenance of   Worcester City Christmas Lights",
+      "updated_description": "Worcester City Council is inviting tenders for the Provision, Installation and Maintenance of Worcester City Christmas Lights.\n\nWorcester is a city which is proud of its history, with many listed buildings and heritage attractions. The city also boasts a vibrant cultural offering alongside quality retailers. It is important to the Council that all Christmas illuminations are respectful of this heritage and culture.\n\nThe Supplier will be required to provide illuminations in city streets; testing of fixtures and the installation and maintenance of the lights; installation and dressing Christmas trees; installation of one feature on a prominent roundabout; and support for their switch on, which may be part of a wider Council event.\n\nBidders are required to make a mandatory site visit with an authorised officer from the Authority. Tenders from Bidders who fail to make a site visit will be treated as non-compliant and will not be considered further.\n\nPlease see the procurement documents for further information.\n\nThe Council is using the e-procurement portal known as the Proactis Pro-Contract portal https://procontract.due-north.com to conduct this procurement exercise.\n\nTo gain access to the procurement documents, bidders will need to register their company details at the above website. Once registered, bidders will be emailed a log-in and password which will allow them to gain access to the procurement documents. Bidders will need to search for the invitation under Worcester City Council and then electronically submit an expression of interest and follow the online instructions to view the procurement documents",
+      "updated_deadline_at": "2026-05-13T12:00:00Z",
+      "deadline_display_raw": "13th May 2026 at 12:00 PM",
+      "buyer_name": "Worcester City Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "00. ITT Worcester Christmas Lights 2026.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 349978,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/c08f1a87-4933-f111-813c-005056b64545/00. ITT Worcester Christmas Lights 2026.docx",
+          "document_role_hint": "invitation_to_tender",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=0954756f-0134-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "01. Appendix 2 Specification.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 120163,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/c08f1a87-4933-f111-813c-005056b64545/01. Appendix 2 Specification.docx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=0654756f-0134-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "02. Appendix 3 Draft Contract - Christmas Lights.doc",
+          "content_type": "application/msword",
+          "size_bytes": 742912,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/c08f1a87-4933-f111-813c-005056b64545/02. Appendix 3 Draft Contract - Christmas Lights.doc",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=2354756f-0134-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "03. Appendix 8 Quality Questions.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 25734,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/c08f1a87-4933-f111-813c-005056b64545/03. Appendix 8 Quality Questions.docx",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=fe53756f-0134-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "04. Appendix 9 Form of tender.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 25368,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/c08f1a87-4933-f111-813c-005056b64545/04. Appendix 9 Form of tender.xlsx",
+          "document_role_hint": "response_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=0254756f-0134-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "05. Appendix 10 Schedule A Map of Current Crossings.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 1572424,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/c08f1a87-4933-f111-813c-005056b64545/05. Appendix 10 Schedule A Map of Current Crossings.pdf",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=1c54756f-0134-f111-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        }
+      ],
+      "documents_count": 6,
+      "enriched_at": "2026-04-17T17:47:43Z",
+      "activity_id_number": "783707"
+    },
+    {
+      "notice_id": "1225d61b-5edf-f011-813c-005056b64545",
+      "process_id": null,
+      "rfx_id": "c6b919e8-19e8-f011-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=c6b919e8-19e8-f011-813c-005056b64545",
+      "updated_title": "CPU 7609 Pouring Rights Partnership and Drinks Supply for National Ice Centre & Motorpoint Arena",
+      "updated_description": "The Arena seeks to establish an agreement with leading drinks Suppliers to become its Pouring Rights partner and for the supply of beverage requirements throughout the venue with effect from 01 June 2026 and contract Commencement from 01 January 2027.\nThe Pouring Rights contract will be split into seven Lots:\n\u2022 Lot 1: Draught Beers & Ciders\n\u2022 Lot 2: Packaged Beverages (bottled/canned)\n\u2022 Lot 3: Wine & Champagne\n\u2022 Lot 4: Spirits\n\u2022 Lot 5: Soft drinks and post mix\n\u2022 Lot 6: Water\n\u2022 Lot 7: Cocktails",
+      "updated_deadline_at": "2026-04-24T15:00:00Z",
+      "deadline_display_raw": "24th April 2026 at 3:00 PM",
+      "buyer_name": "Nottingham City Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "Appendix 3 Branding Sites.zip",
+          "content_type": "application/zip",
+          "size_bytes": 8854069,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites.zip",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=51fee9ac-5edf-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Estrella 2.jpg",
+          "content_type": "image/jpeg",
+          "size_bytes": 304074,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Estrella 2.jpg",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Estrella 2.jpg"
+        },
+        {
+          "filename": "Estrella 3.jpg",
+          "content_type": "image/jpeg",
+          "size_bytes": 406008,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Estrella 3.jpg",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Estrella 3.jpg"
+        },
+        {
+          "filename": "Estrella 4.jpg",
+          "content_type": "image/jpeg",
+          "size_bytes": 464639,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Estrella 4.jpg",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Estrella 4.jpg"
+        },
+        {
+          "filename": "GK ACtivation.jpg",
+          "content_type": "image/jpeg",
+          "size_bytes": 99996,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/GK ACtivation.jpg",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/GK ACtivation.jpg"
+        },
+        {
+          "filename": "GK Activation2.jpg",
+          "content_type": "image/jpeg",
+          "size_bytes": 123727,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/GK Activation2.jpg",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/GK Activation2.jpg"
+        },
+        {
+          "filename": "Gk 3.jpg",
+          "content_type": "image/jpeg",
+          "size_bytes": 88124,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Gk 3.jpg",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Gk 3.jpg"
+        },
+        {
+          "filename": "Greene King vorm.png",
+          "content_type": "image/png",
+          "size_bytes": 3403517,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Greene King vorm.png",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Greene King vorm.png"
+        },
+        {
+          "filename": "Image.jfif",
+          "content_type": "application/octet-stream",
+          "size_bytes": 1552486,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Image.jfif",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Image.jfif"
+        },
+        {
+          "filename": "The Bell Inn.jpg",
+          "content_type": "image/jpeg",
+          "size_bytes": 928920,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/The Bell Inn.jpg",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/The Bell Inn.jpg"
+        },
+        {
+          "filename": "The Old Trip.jpg",
+          "content_type": "image/jpeg",
+          "size_bytes": 928920,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/The Old Trip.jpg",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/The Old Trip.jpg"
+        },
+        {
+          "filename": "Thumbs.db",
+          "content_type": "application/octet-stream",
+          "size_bytes": 123392,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Thumbs.db",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/Thumbs.db"
+        },
+        {
+          "filename": "estreall1.jpg",
+          "content_type": "image/jpeg",
+          "size_bytes": 336513,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/estreall1.jpg",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/estreall1.jpg"
+        },
+        {
+          "filename": "gksuite 2.jpg",
+          "content_type": "image/jpeg",
+          "size_bytes": 79842,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/gksuite 2.jpg",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/gksuite 2.jpg"
+        },
+        {
+          "filename": "wGKSuite.jpg",
+          "content_type": "image/jpeg",
+          "size_bytes": 66731,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/wGKSuite.jpg",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Appendix 3 Branding Sites_extracted/Appendix 3 Branding Sites/wGKSuite.jpg"
+        },
+        {
+          "filename": "CPU 7609 NIC POuring Rights Appendix 1 Cellar Dispence Eq.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 10750,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/CPU 7609 NIC POuring Rights Appendix 1 Cellar Dispence Eq.xlsx",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=712d48a6-5edf-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "CPU 7609 NIC Pouring Rights Appendix 2 Arena Sales 2022, 2023 and 2024.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 25435,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/CPU 7609 NIC Pouring Rights Appendix 2 Arena Sales 2022, 2023 and 2024.xlsx",
+          "document_role_hint": "appendix",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=4638e504-1ae8-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Commercial Advertising Opportunities 2025.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 5733339,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Commercial Advertising Opportunities 2025.pdf",
+          "document_role_hint": "tender_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=3a131729-1ae8-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Contractor Information.zip",
+          "content_type": "application/zip",
+          "size_bytes": 1867949,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Contractor Information.zip",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=4ffee9ac-5edf-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Contractor Policy V2.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 1299008,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Contractor Information_extracted/Contractor Information/Contractor Policy V2.docx",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Contractor Information_extracted/Contractor Information/Contractor Policy V2.docx"
+        },
+        {
+          "filename": "Contractor induction and information leaflet v2 - Copy.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 635168,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Contractor Information_extracted/Contractor Information/Contractor induction and information leaflet v2 - Copy.docx",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Contractor Information_extracted/Contractor Information/Contractor induction and information leaflet v2 - Copy.docx"
+        },
+        {
+          "filename": "Contractors HS Info (2).doc",
+          "content_type": "application/msword",
+          "size_bytes": 51200,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Contractor Information_extracted/Contractor Information/Contractors HS Info (2).doc",
+          "document_role_hint": "contract_terms",
+          "extracted_from_archive": true,
+          "archive_source_relative_path": "Contractor Information_extracted/Contractor Information/Contractors HS Info (2).doc"
+        },
+        {
+          "filename": "NIC Pouring Rights 2025 Form of Tender.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 887258,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/NIC Pouring Rights 2025 Form of Tender.docx",
+          "document_role_hint": "response_document",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=6d2d48a6-5edf-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "NIC Pouring Rights 2025 Invitation to Tender Final.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 913909,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/NIC Pouring Rights 2025 Invitation to Tender Final.docx",
+          "document_role_hint": "invitation_to_tender",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=742d48a6-5edf-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "National Ice Centre termsconditions 22122025.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 100234,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/National Ice Centre termsconditions 22122025.docx",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=6a2d48a6-5edf-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        },
+        {
+          "filename": "Selection Questionnaire 2023.doc",
+          "content_type": "application/msword",
+          "size_bytes": 236032,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/downloads/procontract/1225d61b-5edf-f011-813c-005056b64545/Selection Questionnaire 2023.doc",
+          "document_role_hint": "questionnaire",
+          "extracted_from_archive": false,
+          "download_url": "/FileUploads/ViewAttachment?attachmentId=7c2d48a6-5edf-f011-813c-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx"
+        }
+      ],
+      "documents_count": 26,
+      "enriched_at": "2026-04-17T17:47:43Z",
+      "activity_id_number": "774481"
+    }
+  ],
+  "summary": {
+    "total_checked": 27,
+    "enriched": 13,
+    "not_yet_responded": 14,
+    "failed": 0
+  }
+}

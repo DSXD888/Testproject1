@@ -1,0 +1,289 @@
+{
+  "lots": [
+    {
+      "lot_number": "9",
+      "title": "Building Services Specification - Reactive Works (Lot 9)",
+      "description": "London Borough of Bexley specification for the delivery of Reactive Maintenance across the Council's Corporate estate. The Supplier is responsible for the safe, compliant, and efficient operation of all mechanical, electrical, building fabric, and specialist facilities management assets, delivering 24/7 emergency cover, reactive repairs, fault investigation, make-safe actions, and follow-on works integrated with the Council's CAFM system (Civica/TF Cloud). Contract commences September 2026.",
+      "requirements": [
+        "Achieve and maintain statutory compliance across all assets.",
+        "Support business continuity through proactive maintenance and rapid response to failures.",
+        "Optimise asset lifecycle performance and reduce whole-life costs.",
+        "Deliver services in accordance with industry best practice (SFG20, CIBSE Guide M, manufacturer recommendations).",
+        "Integrate data management with the Council's CAFM system (Civica/TF Cloud).",
+        "Provide 24/7 emergency cover and helpdesk for all critical systems including BMS alarms, life safety systems, and essential plant.",
+        "Deliver reactive repairs to all M&E, fabric, and life-safety systems with fault investigation and root cause analysis.",
+        "Perform make-safe actions and follow-on works as required.",
+        "Comprehensive mobilisation and asset collection: asset verification, tagging, and onboarding into the Council's CAFM system.",
+        "Implement sustainability initiatives and deliver measurable social value outcomes aligned with Council objectives.",
+        "Comply with response and resolution SLAs: Priority 1 Emergency - 2h response / 24h resolution (make safe); Priority 2 Urgent - 1 working day response / 2 working days resolution; Priority 3 Standard - 2 working days response / 4 working days resolution; Priority 4 Non-Urgent - as agreed.",
+        "All reactive works must be carried out by appropriately certified and competent engineers, with manufacturer accreditations where applicable.",
+        "Upload all reactive maintenance activities (fault reports, remedial actions, certification) to Council's CAFM system (Civica/TF Cloud) within 48 hours of completion.",
+        "Prepare and submit site-specific Risk Assessment and Method Statements (RAMS) for all works; conduct dynamic risk assessments.",
+        "Perform asbestos register checks prior to commencing any work and implement immediate stop-work procedures if ACMs are encountered.",
+        "Adhere to permit-to-work systems for hot works, electrical isolations, confined spaces, and roof access.",
+        "Operate an ISO 14001-compliant Environmental Management System; segregate waste streams and use licensed waste carriers; implement carbon reduction and energy-efficiency measures.",
+        "Deliver measurable social value outcomes including local employment, structured apprenticeships and work placements, active SME engagement, and sustainability initiatives.",
+        "Provide a mobilisation plan within 10 working days of contract award; complete mobilisation within 6-12 weeks including competency matrix, staffing plan, and CAFM system integration (TF Cloud).",
+        "Record all verified asset data in the Council's CAFM system (TF Cloud) within the agreed timeframe and provide a comprehensive findings/gap report.",
+        "Produce monthly operational reports covering PPM completion, reactive performance, statutory compliance tracker, risk register, social value tracker, energy-saving opportunities, performance dashboard (KPIs/SLAs), exception reporting, continuous improvement actions, financial summary, and forward look."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Core KPI Framework (performance thresholds)",
+          "summary": "The specification sets core operational KPIs that suppliers must meet: 95% monthly PPM completion, 90-95% reactive response compliance, 80% first-time fix rate, data upload within 48 hours, zero major H&S breaches, and quarterly social value delivery.",
+          "evidence_anchor": {
+            "page_ref": "section-11",
+            "section_ref": "11. KPI Framework",
+            "anchor_text": "Core KPIs: 95% PPM completion monthly; 90-95% reactive response compliance; 80% first-time fix rate; Data upload within 48 hours; Zero major H&S breaches; Quarterly social value delivery."
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "SFG20",
+          "context": "Industry best practice standard for maintenance task frequencies and scope cited as mandatory in the specification's objectives and the Legislative & Regulatory Compliance section.",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "1. Introduction & Purpose of the Specification / 3. Legislative & Regulatory Compliance",
+            "anchor_text": "Deliver services in accordance with industry best practice, including SFG20, CIBSE Guide M, and manufacturer recommendations."
+          }
+        },
+        {
+          "standard_ref": "CIBSE Guide M",
+          "context": "Cited as industry best practice for building services operation and maintenance management.",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "1. Introduction & Purpose of the Specification / 3. Legislative & Regulatory Compliance",
+            "anchor_text": "industry best practice, including SFG20, CIBSE Guide M, and manufacturer recommendations."
+          }
+        },
+        {
+          "standard_ref": "ISO 14001",
+          "context": "Supplier must operate an ISO 14001-compliant Environmental Management System and demonstrate sustainable practices.",
+          "evidence_anchor": {
+            "page_ref": "section-7",
+            "section_ref": "7. Environmental & Sustainability Requirements",
+            "anchor_text": "The Supplier shall operate an ISO 14001-compliant Environmental Management System"
+          }
+        },
+        {
+          "standard_ref": "BS EN (relevant British/European standards)",
+          "context": "Supplier must comply with relevant BS EN standards as part of Legislative & Regulatory Compliance.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Relevant BS EN standards"
+          }
+        },
+        {
+          "standard_ref": "HSE Approved Code of Practice L8 (Legionella control)",
+          "context": "Mandatory legislative compliance for legionella control in water systems.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "HSE Approved Code of Practice L8 (Legionella control)"
+          }
+        },
+        {
+          "standard_ref": "CDM 2015 (Construction (Design and Management) Regulations 2015)",
+          "context": "Mandatory legislative compliance for construction-related activity.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Construction (Design and Management) Regulations 2015 (CDM 2015)"
+          }
+        },
+        {
+          "standard_ref": "Fire Safety Act 2021",
+          "context": "Mandatory fire safety legislative compliance.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Fire Safety Act 2021"
+          }
+        },
+        {
+          "standard_ref": "Control of Asbestos Regulations 2012",
+          "context": "Mandatory compliance; asbestos register checks required prior to any work.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Control of Asbestos Regulations 2012"
+          }
+        },
+        {
+          "standard_ref": "PUWER (Provision and Use of Work Equipment Regulations)",
+          "context": "Mandatory compliance cited in Legislative & Regulatory Compliance.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Provision and Use of Work Equipment Regulations (PUWER)"
+          }
+        },
+        {
+          "standard_ref": "LOLER (Lifting Operations and Lifting Equipment Regulations)",
+          "context": "Mandatory compliance cited in Legislative & Regulatory Compliance.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Lifting Operations and Lifting Equipment Regulations (LOLER)"
+          }
+        },
+        {
+          "standard_ref": "PSSR (Pressure Systems Safety Regulations)",
+          "context": "Mandatory compliance cited in Legislative & Regulatory Compliance.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Pressure Systems Safety Regulations (PSSR)"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work",
+          "context": "Top-line obligation in Legislative & Regulatory Compliance.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Health and Safety at Work"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "document-title",
+        "section_ref": "Document title / Section 1",
+        "anchor_text": "London Borough of Bexley - Building Services Specification - Reactive Works - Contract Commencement SEPT 2026"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.lot_number": 8500,
+    "lots.title": 9200,
+    "lots.description": 9000,
+    "lots.requirements": 8800,
+    "lots.evaluation_criteria": 5500,
+    "lots.cpv_codes": 2000,
+    "lots.product_requirements": 3000,
+    "lots.technical_standards": 9300,
+    "product_requirement_seeds": 3000
+  },
+  "extraction_confidence_bps": 7800,
+  "warnings": [
+    {
+      "code": "NO_EXPLICIT_CPV_IN_DOCUMENT",
+      "message": "The tender specification document text does not explicitly list CPV codes. Lot CPV should be sourced from the parent notice record rather than inferred from this specification.",
+      "evidence_refs": [
+        "section-1",
+        "section-2"
+      ]
+    },
+    {
+      "code": "NO_FORMAL_TENDER_EVALUATION_CRITERIA",
+      "message": "This is a technical/service specification and does not contain the tender's formal award evaluation criteria, weightings, or scoring methodology. Section 11 defines operational KPIs (contract-performance thresholds), not evaluation/award criteria. Evaluation criteria should be sourced from a separate ITT/award document.",
+      "evidence_refs": [
+        "section-11"
+      ]
+    },
+    {
+      "code": "NO_DISCRETE_PRODUCT_ITEMS",
+      "message": "The specification describes a pure reactive-maintenance service (labour, response SLAs, compliance, reporting). It contains no discrete product SKUs, materials lists, quantities, or bill-of-material items to seed product candidates. product_requirement_seeds is intentionally empty.",
+      "evidence_refs": [
+        "section-2",
+        "section-5"
+      ]
+    },
+    {
+      "code": "DOCUMENT_ROLE_PARTIAL",
+      "message": "The source is marked as a 'Draft specification - Lot 9' (draft status); content may be non-final and missing sections (e.g. there is no section 4 in the numbering). Extraction reflects the draft as presented.",
+      "evidence_refs": [
+        "document-title"
+      ]
+    },
+    {
+      "code": "SECTION_NUMBERING_GAP",
+      "message": "Numbered sections jump from 3 to 5 (no Section 4 present in extracted markdown). Extraction preserved the numbering as-found; downstream reviewers should verify whether a Section 4 was omitted from the draft or lost in conversion.",
+      "evidence_refs": [
+        "section-3",
+        "section-5"
+      ]
+    },
+    {
+      "code": "MOBILISATION_PERIOD_AMBIGUITY",
+      "message": "Section 9 states mobilisation period as both '6-12 weeks' (first paragraph) and '6-8 weeks' (second paragraph). The tighter 6-8 weeks figure is preserved in requirements text but operator should resolve the discrepancy in the final specification.",
+      "evidence_refs": [
+        "section-9"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "document-title",
+      "section_ref": "Document header",
+      "anchor_text": "London Borough of Bexley - Building Services Specification - Reactive Works - Contract Commencement SEPT 2026"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1. Introduction & Purpose of the Specification",
+      "anchor_text": "This specification sets out the requirements for the delivery of Reactive Maintenance across the Corporate estate."
+    },
+    {
+      "page_ref": "section-2",
+      "section_ref": "2. Scope of Services",
+      "anchor_text": "24/7 emergency cover; Reactive repairs to all M&E, fabric, and life-safety systems; Fault investigations and root cause analysis; Make-safe actions; Follow-on works as required."
+    },
+    {
+      "page_ref": "section-3",
+      "section_ref": "3. Legislative & Regulatory Compliance",
+      "anchor_text": "Health and Safety at Work; Fire Safety Act 2021; CDM 2015; Control of Asbestos Regulations 2012; PUWER; LOLER; PSSR; HSE Approved Code of Practice L8; Relevant BS EN standards; CIBSE Guide M; SFG20."
+    },
+    {
+      "page_ref": "section-5",
+      "section_ref": "5. Reactive Repairs",
+      "anchor_text": "Priority 1 Emergency - Response 2 hours / Resolution 24 hours (make safe); Priority 2 Urgent - 1 working day / 2 working days; Priority 3 Standard - 2 working days / 4 working days; Priority 4 Non-Urgent - As agreed."
+    },
+    {
+      "page_ref": "section-6",
+      "section_ref": "6. Health & Safety Requirements",
+      "anchor_text": "Site-specific RAMS; dynamic risk assessments; asbestos register checks; permit-to-work systems for hot works, electrical isolations, confined spaces, roof access."
+    },
+    {
+      "page_ref": "section-7",
+      "section_ref": "7. Environmental & Sustainability Requirements",
+      "anchor_text": "The Supplier shall operate an ISO 14001-compliant Environmental Management System"
+    },
+    {
+      "page_ref": "section-8",
+      "section_ref": "8. Social Value Requirements",
+      "anchor_text": "Local Employment; Apprenticeships & Work Placements; SME Engagement; Sustainability Initiatives."
+    },
+    {
+      "page_ref": "section-9",
+      "section_ref": "9. Mobilisation Requirements",
+      "anchor_text": "The Supplier shall provide a comprehensive mobilisation plan within 10 working days of contract award. The mobilisation period (typically 6-12 weeks)."
+    },
+    {
+      "page_ref": "section-10",
+      "section_ref": "10. Asset Verification Requirements",
+      "anchor_text": "All verified asset data must be accurately recorded and uploaded to the Council's CAFM system (TF Cloud)."
+    },
+    {
+      "page_ref": "section-11",
+      "section_ref": "11. KPI Framework",
+      "anchor_text": "Core KPIs: 95% PPM completion monthly; 90-95% reactive response compliance; 80% first-time fix rate; Data upload within 48 hours; Zero major H&S breaches; Quarterly social value delivery."
+    },
+    {
+      "page_ref": "section-12",
+      "section_ref": "12. Operational Reporting & Contract Management Requirements",
+      "anchor_text": "Statutory Compliance Tracker; Risk Register; Social Value Tracker; Energy-Saving Opportunities; Performance Dashboard; Exception Reporting; Continuous Improvement Actions; Financial Summary; Forward Look."
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "9a59c6a303ce3bfb9475919cf94e65387d3f6310565f21ef023e20298d6ce05c",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

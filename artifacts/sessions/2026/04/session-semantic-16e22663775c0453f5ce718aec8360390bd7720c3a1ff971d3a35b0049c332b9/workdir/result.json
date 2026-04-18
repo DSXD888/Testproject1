@@ -1,0 +1,619 @@
+{
+  "lots": [
+    {
+      "lot_number": "8",
+      "title": "Provision of Planned and Preventative Corporate Building Maintenance (PPM) & Remedial Repairs excluding full replacements",
+      "description": "Lot 8 of the London Borough of Bexley Framework 6278 (Building Services Framework - Lots 1-11). This draft T&Cs document is the contractual wrapper governing the Contractor's provision of building services (planned and preventative maintenance of corporate buildings together with remedial works excluding full replacements) to The Mayor and Burgesses of the London Borough of Bexley. The T&Cs themselves do not enumerate the inspection cadence, asset list, response times, KPI values, trade / craft breakdown or Service Credit tables for Lot 8 - those live in Schedule 1 (Specification) and Schedule 4 to the Specification (KPIs / Service Credits), which appear only as placeholder headings at the end of this draft. What the document does fix is: the quality regime (BSI / ISO Quality Standards and Good Industry Practice), the 'Annual Fee Services' construct tied to the PPM Schedule in Appendix B to the Specification, the construction-contract special conditions (CDM Regulations 2015, principal designer / principal contractor duties, BSI codes of practice, COSHH register, CIMAR-based adjudication / arbitration), the staffing regime (DBS, fluent English contract manager, key personnel), insurance minima via Schedule F, the data-protection split (Council = Controller, Contractor = Processor), and standard statutory obligations (Bribery Act 2010, Public Contracts Regulations 2015, UK GDPR / DPA 2018, Equality Act 2010, Electronic Invoicing Regulations 2019, Local Government Act 1999 - Best Value). The template Contract Period on the front matter is 1 September 2020 to 31 August 2024 and must be treated as boilerplate; the authoritative dates and value for Lot 8 come from the live Framework 6278 notice. The notice-level metadata records an anticipated Lot 8 value of ~£860k per annum and places the lot in PSQ Group 2.",
+      "requirements": [
+        "Supply the Services for the Contract Period in accordance with the Specification (clause B1.1)",
+        "Timely supply is of the essence of the Contract (clause B1.3)",
+        "Re-perform non-conforming Services at the Contractor's expense on Council notice (clause B1.2)",
+        "Provide all Equipment necessary, maintained safe / serviceable / clean, and remove on completion (clauses B2.1, B2.4, B2.6)",
+        "Comply at all times with the Quality Standards and maintain accreditation with the relevant Quality Standards authorisation body (clause B3.1)",
+        "Register with DBS and run criminal-records checks at the level required by the Specification, with rechecks every three years (clauses B4.11 - B4.14)",
+        "Appoint a suitably qualified, English-fluent Contract Manager and nominate Key Personnel (clauses B5, B6.1)",
+        "Deliver Best Value / continuous improvement obligations under Local Government Act 1999 (clause B8.1)",
+        "Accept electronic invoicing compliant with Public Procurement (Electronic Invoices etc.) Regulations 2019 (clause C1.4)",
+        "Service the Plant and maintain it in good working order in accordance with manufacturer's guarantees and clause S2.2 (clause S2.4) - the operative clause for PPM on Council plant",
+        "Perform 'principal designer' / 'principal contractor' duties under the CDM Regulations 2015 to the extent the Regulations apply (clause S2.3)",
+        "Maintain a COSHH register at the Premises and supply updated copies to the Council (clause S3.4)",
+        "Comply with the Contractor's own Health and Safety at Work etc Act 1974 policy statement, available to the Council on request (clause S3.5)",
+        "Service Credits apply for Service Failures per Clause C3A, with KPIs in Schedule 4 to the Specification (clauses C3A, F5.1-F5.4, F7.1-F7.2)",
+        "Authoritative PPM schedule, asset list and response / rectification times must be read from Schedule 1 (Specification), Appendix B (PPM Schedule) and Appendix D (KPIs) - stubs in this draft"
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bexley-6278-lot8-ppm-corporate-buildings",
+          "summary": "Planned and preventative maintenance of Bexley corporate buildings and their plant / equipment (boilers, fire alarms, building assets), delivered on an 'Annual Fee Services' basis against the PPM Schedule in Appendix B to Schedule 1 (Specification). Scope in the T&Cs is defined by reference only - the authoritative asset list, visit frequencies (e.g. monthly / quarterly / annual), outcome standards, rectification SLAs and KPI indicators must be taken from Schedule 1, which is a placeholder heading in this draft.",
+          "requirement_type": "planned_preventative_maintenance_service",
+          "technical_attributes": [
+            "Performed during Working Hours with reasonable skill, care and diligence (clause S2.1)",
+            "Plant serviced and maintained in good working order in accordance with manufacturer's guarantees / recommendations (clause S2.4)",
+            "Compliant with BSI / ISO Quality Standards, Good Industry Practice and Council Policies (clauses B3.1, S2.1.4)",
+            "Compliant with Health and Safety law, HSE codes of practice and the CDM Regulations 2015 (clauses D6.4, S2.2.2, S2.3)",
+            "No deleterious materials; materials must not contravene BSI / European standards or BCO 'Good Practice in Selection of Construction Materials' (clauses S2.6.1 - S2.6.3)",
+            "Staff subject to DBS checks at the level set in the Specification (clauses B4.11 - B4.14)",
+            "Annual Fee Services billing against the PPM Schedule (definition: 'Annual Fee Services')",
+            "KPIs and Service Credits per Schedule 4 to the Specification (clauses C3A, F5, F7)"
+          ],
+          "quantity_hint": "Frequencies, asset counts, properties in scope, craft mix and annual visit volumes are not in the T&Cs body; Schedule 1 (Specification) and its Appendix B (PPM Schedule) are placeholder stubs. Notice-level overlay records anticipated Lot 8 value ~£860k per annum (cross-reference only).",
+          "evidence_anchor": {
+            "anchor_text": "'Annual Fee Services' means the services described in the Appendix B to the Specification (PPM Schedule) as the same may be varied from time to time in accordance with this Agreement",
+            "page_ref": "p.6 (Part 2 Definitions)",
+            "section_ref": "Definitions 'Annual Fee Services'"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot8-remedial-works-excluding-full-replacements",
+          "summary": "Remedial / corrective works arising from PPM inspections, explicitly excluding full replacements. Delivered under Works Orders within the same T&Cs envelope as the PPM service. Scope, rectification timescales, valuation rules and any Works Order dispatch protocol must come from Schedule 1 (Specification); not in the T&Cs body.",
+          "requirement_type": "remedial_building_works",
+          "technical_attributes": [
+            "Executed against Works Orders issued by the Council (clauses S2.3 reference 'Works Orders')",
+            "Performed to Good Industry Practice in a good and workmanlike manner (clauses B3.1, S2.5)",
+            "Construction-CDM compliance where applicable; principal designer / principal contractor roles (clause S2.3)",
+            "Materials compliant with BSI codes of practice and BCO 'Good Practice in Selection of Construction Materials' (clauses S2.6.2, S2.6.3)",
+            "Excludes 'full replacements' (per the notice-level Lot 8 scope)"
+          ],
+          "quantity_hint": "Volume, unit rates and response / rectification times are not in this document. Notice-level lot description records the exclusion of full replacements. Schedule 1 (Specification) and Schedule 2 (Pricing Schedule) are placeholder stubs.",
+          "evidence_anchor": {
+            "anchor_text": "The Contractor shall service the Plant and maintain it in good working order and in accordance with the provisions of any manufacturer's guarantees or recommendations",
+            "page_ref": "p.61 (Part 3 Special Conditions, Section S2)",
+            "section_ref": "clause S2.4"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "BSI / ISO Quality Standards (and equivalent reputable standards bodies)",
+          "context": "'Quality Standards' are defined as those published by BSI (National Standards Body of the United Kingdom), the International Organisation for Standardisation or other reputable or equivalent body, and the Contractor must comply at all times and maintain accreditation with the relevant Quality Standards authorisation body (clause B3.1). Where a standard is unspecified in the Contract, the Contractor must agree the standard with the Council and perform under the Law and Good Industry Practice.",
+          "evidence_anchor": {
+            "anchor_text": "\"Quality Standards\" means the quality standards published by BSI British Standards Institution, the National Standards Body of the United Kingdom, the International Organisation for Standardisation or other reputable or equivalent body ... The Contractor shall at all times comply with the Quality Standards, and where applicable shall maintain accreditation with the relevant Quality Standards authorisation body.",
+            "page_ref": "pp.11, 26 (Definitions; Part 2 Section B3)",
+            "section_ref": "Definitions 'Quality Standards'; clause B3.1"
+          }
+        },
+        {
+          "standard_ref": "Good Industry Practice",
+          "context": "Good Industry Practice is defined in the Definitions section and is the default performance standard where a specific standard is not fixed in the Contract.",
+          "evidence_anchor": {
+            "anchor_text": "'Good Industry Practice' means standards, practices, methods and procedures conforming to the Law and the degree of skill and care, diligence, prudence and foresight which would reasonably and ordinarily be expected from a skilled and experienced person or body engaged in a similar type of undertaking under the same or similar circumstances.",
+            "page_ref": "p.9 (Part 2 Definitions)",
+            "section_ref": "Definitions 'Good Industry Practice'; clause B3.1"
+          }
+        },
+        {
+          "standard_ref": "Construction (Design and Management) Regulations 2015 (CDM Regulations)",
+          "context": "The Contractor shall perform all the functions and duties of a 'principal designer' and 'principal contractor' as defined in the CDM Regulations to the extent the Regulations apply to the Services, including preparation of the Construction Phase Plan and the Health and Safety File. Central to PPM / remedial works under Lot 8.",
+          "evidence_anchor": {
+            "anchor_text": "The Contractor shall perform all the functions and duties of a \"principal designer\" and a \"principal contractor\" as defined in the CDM Regulations (including the preparation of the \"Construction Phase Plan\" and the \"Health and Safety File\" in accordance with the CDM Regulations) to the extent that the CDM Regulations are applicable to the Services",
+            "page_ref": "p.61 (Part 3 Special Conditions)",
+            "section_ref": "clause S2.3; Definitions 'CDM Regulations'"
+          }
+        },
+        {
+          "standard_ref": "BSI Group codes of practice and European directive standards for good building practice",
+          "context": "The Contractor warrants that no materials specified, approved or used will contravene any relevant standard code of practice issued by the BSI Group or under a European directive relating to standards or good building practice.",
+          "evidence_anchor": {
+            "anchor_text": "contravene any relevant standard code of practice issued from time to time by the BSI Group or under a European directive relating to standards or good building practice",
+            "page_ref": "p.62 (Part 3 Special Conditions)",
+            "section_ref": "clause S2.6.2"
+          }
+        },
+        {
+          "standard_ref": "British Council for Offices (BCO) - 'Good Practice in Selection of Construction Materials'",
+          "context": "Materials specified or used in the Services must accord with the guidelines contained in the current edition of the BCO publication 'Good Practice in Selection of Construction Materials'.",
+          "evidence_anchor": {
+            "anchor_text": "do not accord with the guidelines contained in the edition of the publication \"Good Practice in Selection of Construction Materials\" (British Council for Offices (\"BCO\")), current at the date of specification or use",
+            "page_ref": "p.62 (Part 3 Special Conditions)",
+            "section_ref": "clause S2.6.3"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work etc Act 1974 / HSE codes of practice and guidance",
+          "context": "The Contractor must comply with HSE codes of practice and guidance for the time being in force and produce its own H&S policy statement under the HSWA 1974 on Council request. Chemicals and hazardous materials must have HSE / Environment Agency approval and conform to British or European standards.",
+          "evidence_anchor": {
+            "anchor_text": "any codes of practice, guidance notes and recommendations for the time being in force and approved by the Health and Safety Commission or published by the Health and Safety Executive ... the Contractor shall ensure that its health and safety policy statement (as required by the Health and Safety at Work etc Act 1974) is made available to the Council on request",
+            "page_ref": "pp.61-62 (Part 3 Special Conditions)",
+            "section_ref": "clauses S2.2.2, S3.5"
+          }
+        },
+        {
+          "standard_ref": "COSHH register (Control of Substances Hazardous to Health regulatory regime)",
+          "context": "The Contractor shall maintain a COSHH register for all substances stored at or brought onto the Premises, keep a copy at the Premises, and provide updated copies to the Council whenever the register changes.",
+          "evidence_anchor": {
+            "anchor_text": "maintain a COSHH register for all substances stored at or brought onto the Premises by the Contractor or any Staff, which shall be up-to-date at all times",
+            "page_ref": "p.62 (Part 3 Special Conditions)",
+            "section_ref": "clause S3.4"
+          }
+        },
+        {
+          "standard_ref": "UK GDPR and Data Protection Act 2018 (Processor role)",
+          "context": "The Council is the Controller and the Contractor is the Processor for personal data processed incidental to the Services; processing is limited to what is listed in Schedule 1.",
+          "evidence_anchor": {
+            "anchor_text": "the Council is the Controller and that the Contractor is the Processor unless otherwise specified in Schedule 1. The only processing that the Processor is authorised to do is listed in Schedule 1 by the Controller",
+            "page_ref": "p.33 (Part 2 Section E1)",
+            "section_ref": "clause E1.1"
+          }
+        },
+        {
+          "standard_ref": "Scheme for Construction Contracts / CIMAR Rules (adjudication and arbitration)",
+          "context": "Disputes under the Agreement are referred to adjudication under the Scheme for Construction Contracts (appointed by the President of the Chartered Institute of Building) and, failing that, to arbitration under the CIMAR Rules.",
+          "evidence_anchor": {
+            "anchor_text": "If the Adjudicator fails to give his decision in accordance with the provisions of paragraph 20 of the Scheme for Construction Contracts ... any dispute or difference ... shall be referred to the arbitration of a single arbitrator ... The Arbitration shall be conducted in accordance with the CIMAR Rules.",
+            "page_ref": "p.66 (Part 3 Special Conditions)",
+            "section_ref": "clauses S10.5, S10.6"
+          }
+        },
+        {
+          "standard_ref": "Public Procurement (Electronic Invoices etc.) Regulations 2019 (2019/624)",
+          "context": "The Council must accept electronic invoices that comply with the standard referenced in the Public Procurement (Electronic Invoices etc.) Regulations 2019.",
+          "evidence_anchor": {
+            "anchor_text": "an electronic invoice complies with the standard on electronic invoicing where it complies with the standard referred to in the Public Procurement (Electronic Invoices etc.) Regulations 2019 (2019/624)",
+            "page_ref": "p.25 (Part 2 Section C1)",
+            "section_ref": "clause C1.4"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "anchor_text": "Document set title: '6278 - Draft T&Cs - Lots 8 & 9'; WHEREAS (A): 'The Council wishes to secure the provision of building services as defined in the attached Specification (\"the Services\") during the period 1 September 2020 to 31 August 2024'",
+        "page_ref": "p.1 (Front matter; WHEREAS (A))",
+        "section_ref": "Document title; Part 1 Form of Contract, WHEREAS (A)"
+      }
+    },
+    {
+      "lot_number": "9",
+      "title": "Provision of Reactive Repairs to Corporate Building",
+      "description": "Lot 9 of the London Borough of Bexley Framework 6278 (Building Services Framework - Lots 1-11). This draft T&Cs document is the contractual wrapper governing the Contractor's provision of reactive repairs to Bexley corporate buildings. As with Lot 8, the substantive scope (types of defects in scope such as the notice-level examples of gutter clearance and boarding-up, response-time SLAs, dispatch / Works Order protocol, pricing mechanism, key asset list and KPI / Service Credit regime) is defined by reference to Schedule 1 (Specification) and Schedule 4 to the Specification, which appear only as placeholder headings in this draft. The T&Cs fix the contractual wrapper shared with Lot 8: quality regime (BSI / ISO Quality Standards and Good Industry Practice), construction-contract special conditions (CDM Regulations 2015, principal designer / principal contractor duties, BSI codes of practice, COSHH, CIMAR adjudication / arbitration), staffing (DBS, English-fluent Contract Manager, Key Personnel), insurance, data-protection Controller/Processor split, Best Value and standard statutory obligations (Bribery Act 2010, Public Contracts Regulations 2015, UK GDPR / DPA 2018, Equality Act 2010, Electronic Invoicing Regulations 2019, Local Government Act 1999). The template Contract Period on the front matter (1 Sep 2020 - 31 Aug 2024) is boilerplate; the authoritative dates and value for Lot 9 come from the live Framework 6278 notice. Notice-level metadata records an anticipated Lot 9 value of ~£175k per annum and places the lot in PSQ Group 2.",
+      "requirements": [
+        "Supply the Services for the Contract Period in accordance with the Specification (clause B1.1)",
+        "Timely supply is of the essence of the Contract - material for reactive-repair SLAs (clause B1.3)",
+        "Re-perform non-conforming Services at the Contractor's expense on Council notice (clause B1.2)",
+        "Provide all Equipment necessary, maintained safe / serviceable / clean, and remove on completion (clauses B2.1, B2.4, B2.6)",
+        "Comply at all times with the Quality Standards and maintain accreditation with the relevant Quality Standards authorisation body (clause B3.1)",
+        "Register with DBS and run criminal-records checks at the level required by the Specification, with rechecks every three years (clauses B4.11 - B4.14)",
+        "Appoint a suitably qualified, English-fluent Contract Manager and nominate Key Personnel (clauses B5, B6.1)",
+        "Deliver Best Value / continuous improvement obligations under Local Government Act 1999 (clause B8.1)",
+        "Accept electronic invoicing compliant with Public Procurement (Electronic Invoices etc.) Regulations 2019 (clause C1.4)",
+        "Perform 'principal designer' / 'principal contractor' duties under the CDM Regulations 2015 to the extent the Regulations apply to a Works Order (clause S2.3)",
+        "Maintain a COSHH register at the Premises and supply updated copies to the Council (clause S3.4)",
+        "Avoid the non-exhaustive list of unacceptable practices (refuse disposal, throwing of bags from height, leaving unsecured vehicles / plant, mishandling of petrol or flammable substances, acts giving rise to public outrage) at the Premises (clauses S4.1.1 - S4.1.6)",
+        "Service Credits apply for Service Failures per Clause C3A, with KPIs in Schedule 4 to the Specification (clauses C3A, F5.1-F5.4, F7.1-F7.2)",
+        "Authoritative reactive-repair scope, response-time SLAs, valuation rules and trade mix must be read from Schedule 1 (Specification) and Schedule 2 (Pricing Schedule) - stubs in this draft"
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bexley-6278-lot9-reactive-repairs-corporate-buildings",
+          "summary": "Reactive repairs to Bexley corporate buildings dispatched against Works Orders - scope exemplified in the notice-level Lot 9 record (e.g. gutter clearance, boarding-up) and by the 'appropriate repairs identified through regular building assessments'. The T&Cs body defines the contractual envelope; response times, categorisation (emergency / urgent / routine), trade coverage, unit rates and acceptable fix windows live in Schedule 1 and Schedule 2 which are placeholder stubs in this draft.",
+          "requirement_type": "reactive_building_repair_service",
+          "technical_attributes": [
+            "Performed during Working Hours with reasonable skill, care and diligence under the Specification (clause S2.1)",
+            "Timely supply is of the essence (clause B1.3) - operative clause for reactive-repair SLAs",
+            "Compliant with BSI / ISO Quality Standards and Good Industry Practice (clause B3.1)",
+            "HSE / CDM 2015 / BSI codes-of-practice compliance for construction-nature repairs (clauses S2.2.2, S2.3, S2.6.2)",
+            "No deleterious materials; BCO 'Good Practice in Selection of Construction Materials' guidelines observed (clauses S2.6.1 - S2.6.3)",
+            "Staff subject to DBS checks at the level set in the Specification (clauses B4.11 - B4.14)",
+            "KPIs and Service Credits per Schedule 4 to the Specification (clauses C3A, F5, F7)",
+            "Compliance with the unacceptable-practices list for works on Council Premises (clause S4.1)"
+          ],
+          "quantity_hint": "Volume, ticket mix, response-time bands, unit rates / schedule-of-rates and trade coverage are not in the T&Cs body. Schedule 1 (Specification) and Schedule 2 (Pricing Schedule) are placeholder stubs. Notice-level overlay records anticipated Lot 9 value ~£175k per annum (cross-reference only).",
+          "evidence_anchor": {
+            "anchor_text": "The Contractor shall supply the Services during the Contract Period in accordance with the Council's requirements as set out in the Specification ... Timely supply of the Services shall be of the essence of the Contract",
+            "page_ref": "pp.15-16 (Part 2 Section B1)",
+            "section_ref": "clauses B1.1, B1.3"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "BSI / ISO Quality Standards (and equivalent reputable standards bodies)",
+          "context": "Same Quality Standards definition and clause B3.1 compliance duty applies to Lot 9 reactive repairs - the T&Cs are shared across Lots 8 and 9 in this document.",
+          "evidence_anchor": {
+            "anchor_text": "\"Quality Standards\" means the quality standards published by BSI British Standards Institution, the National Standards Body of the United Kingdom, the International Organisation for Standardisation or other reputable or equivalent body ... The Contractor shall at all times comply with the Quality Standards",
+            "page_ref": "pp.11, 26 (Definitions; Part 2 Section B3)",
+            "section_ref": "Definitions 'Quality Standards'; clause B3.1"
+          }
+        },
+        {
+          "standard_ref": "Good Industry Practice",
+          "context": "Default performance standard where a specific standard is not fixed - applies to reactive repairs in the same way as to PPM.",
+          "evidence_anchor": {
+            "anchor_text": "'Good Industry Practice' means standards, practices, methods and procedures conforming to the Law and the degree of skill and care, diligence, prudence and foresight which would reasonably and ordinarily be expected from a skilled and experienced person or body engaged in a similar type of undertaking",
+            "page_ref": "p.9 (Part 2 Definitions)",
+            "section_ref": "Definitions 'Good Industry Practice'; clause B3.1"
+          }
+        },
+        {
+          "standard_ref": "Construction (Design and Management) Regulations 2015 (CDM Regulations)",
+          "context": "Principal designer / principal contractor duties apply to Works Orders that are CDM-relevant - which reactive repair orders can be, depending on scope.",
+          "evidence_anchor": {
+            "anchor_text": "The Contractor shall perform all the functions and duties of a \"principal designer\" and a \"principal contractor\" as defined in the CDM Regulations ... to the extent that the CDM Regulations are applicable to the Services",
+            "page_ref": "p.61 (Part 3 Special Conditions)",
+            "section_ref": "clause S2.3"
+          }
+        },
+        {
+          "standard_ref": "BSI Group codes of practice and European directive standards for good building practice",
+          "context": "Same S2.6.2 warranty applies to materials used in reactive repairs.",
+          "evidence_anchor": {
+            "anchor_text": "contravene any relevant standard code of practice issued from time to time by the BSI Group or under a European directive relating to standards or good building practice",
+            "page_ref": "p.62 (Part 3 Special Conditions)",
+            "section_ref": "clause S2.6.2"
+          }
+        },
+        {
+          "standard_ref": "British Council for Offices (BCO) - 'Good Practice in Selection of Construction Materials'",
+          "context": "Same BCO guideline obligation applies to materials used in reactive repairs.",
+          "evidence_anchor": {
+            "anchor_text": "do not accord with the guidelines contained in the edition of the publication \"Good Practice in Selection of Construction Materials\" (British Council for Offices (\"BCO\")), current at the date of specification or use",
+            "page_ref": "p.62 (Part 3 Special Conditions)",
+            "section_ref": "clause S2.6.3"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work etc Act 1974 / HSE codes of practice and guidance",
+          "context": "HSE guidance and HSWA 1974 policy-statement duty apply to reactive-repair Works Orders.",
+          "evidence_anchor": {
+            "anchor_text": "any codes of practice, guidance notes and recommendations for the time being in force and approved by the Health and Safety Commission or published by the Health and Safety Executive",
+            "page_ref": "p.61 (Part 3 Special Conditions)",
+            "section_ref": "clause S2.2.2; clause S3.5"
+          }
+        },
+        {
+          "standard_ref": "COSHH register (Control of Substances Hazardous to Health regulatory regime)",
+          "context": "Same COSHH register duty applies - relevant for reactive repairs involving flammable / hazardous substances.",
+          "evidence_anchor": {
+            "anchor_text": "maintain a COSHH register for all substances stored at or brought onto the Premises by the Contractor or any Staff, which shall be up-to-date at all times",
+            "page_ref": "p.62 (Part 3 Special Conditions)",
+            "section_ref": "clause S3.4"
+          }
+        },
+        {
+          "standard_ref": "Unacceptable practices list (clause S4.1)",
+          "context": "A non-exhaustive list of unacceptable practices during works on the Premises - particularly material for reactive-repair operations on corporate-building premises (refuse disposal, throwing of bags from balconies / walkways, leaving unsecured vehicles and plant, mishandling flammable substances).",
+          "evidence_anchor": {
+            "anchor_text": "the following acts or omissions are a non-exhaustive list of unacceptable practices at the Premises: S4.1.1 a failure properly to dispose of refuse within the same Working Day; S4.1.2 the throwing of bags, sacks or other heavy items from balconies, walkway, bridges ...",
+            "page_ref": "p.62 (Part 3 Special Conditions)",
+            "section_ref": "clause S4.1"
+          }
+        },
+        {
+          "standard_ref": "UK GDPR and Data Protection Act 2018 (Processor role)",
+          "context": "Same Controller / Processor split applies under Lot 9.",
+          "evidence_anchor": {
+            "anchor_text": "the Council is the Controller and that the Contractor is the Processor unless otherwise specified in Schedule 1",
+            "page_ref": "p.33 (Part 2 Section E1)",
+            "section_ref": "clause E1.1"
+          }
+        },
+        {
+          "standard_ref": "Scheme for Construction Contracts / CIMAR Rules (adjudication and arbitration)",
+          "context": "Same construction-contract dispute pathway applies to Lot 9.",
+          "evidence_anchor": {
+            "anchor_text": "The Arbitration shall be conducted in accordance with the CIMAR Rules",
+            "page_ref": "p.66 (Part 3 Special Conditions)",
+            "section_ref": "clauses S10.5, S10.6"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "anchor_text": "Document set title: '6278 - Draft T&Cs - Lots 8 & 9'; WHEREAS (A): 'The Council wishes to secure the provision of building services as defined in the attached Specification (\"the Services\")'",
+        "page_ref": "p.1 (Front matter; WHEREAS (A))",
+        "section_ref": "Document title; Part 1 Form of Contract, WHEREAS (A)"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "bexley-6278-lot8-ppm-corporate-buildings",
+      "lot_number": "8",
+      "candidate_name": "Framework 6278 Lot 8 - Planned & Preventative Maintenance of Bexley corporate buildings (PPM)",
+      "summary": "Annual Fee Services delivered against Appendix B (PPM Schedule) to Schedule 1 (Specification): routine / programmed maintenance of corporate-building plant and assets (boilers, fire alarms, visual inspections per maintenance schedule) on monthly / quarterly / annual cadence. Scope, asset list and frequencies live in Schedule 1 which is a placeholder stub in this draft T&Cs.",
+      "requirements": [
+        "Annual Fee Services billing model tied to Appendix B (PPM Schedule) to Schedule 1 (Definition: 'Annual Fee Services')",
+        "Service the Plant and maintain it in good working order in accordance with manufacturer's guarantees / recommendations (clause S2.4)",
+        "Work during Working Hours with reasonable skill, care and diligence (clause S2.1)",
+        "Compliant with BSI / ISO Quality Standards, Good Industry Practice and Council Policies (clauses B3.1, S2.1.4)",
+        "HSE / CDM 2015 compliance where the Regulations apply (clauses S2.2.2, S2.3)",
+        "Staff DBS-checked at the level required by the Specification (clauses B4.11 - B4.14)",
+        "KPIs and Service Credits per Schedule 4 to the Specification (clauses C3A, F5)",
+        "Full replacements are excluded from the Lot 8 scope (cross-reference: notice-level Lot 8 record)"
+      ],
+      "technical_standards": [
+        "BSI / ISO Quality Standards",
+        "Good Industry Practice",
+        "Construction (Design and Management) Regulations 2015 (CDM)",
+        "BSI Group codes of practice / European good-building-practice standards",
+        "BCO 'Good Practice in Selection of Construction Materials'",
+        "Health and Safety at Work etc Act 1974 / HSE guidance",
+        "COSHH register"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "'Annual Fee Services' means the services described in the Appendix B to the Specification (PPM Schedule)",
+        "page_ref": "p.6 (Part 2 Definitions)",
+        "section_ref": "Definitions 'Annual Fee Services'"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot8-remedial-works-excluding-full-replacements",
+      "lot_number": "8",
+      "candidate_name": "Framework 6278 Lot 8 - Remedial building works arising from PPM (excluding full replacements)",
+      "summary": "Remedial / corrective works dispatched under Works Orders from PPM findings on Bexley corporate buildings. Full replacements are expressly out of scope at Lot 8 (per notice-level record). Unit rates, response-time tiers and work categorisation must come from Schedule 1 and Schedule 2, which are placeholder stubs in this draft.",
+      "requirements": [
+        "Performed under Works Orders with CDM principal designer / principal contractor duties where applicable (clause S2.3)",
+        "Good and workmanlike manner; design carried out with the skill of a properly qualified and competent professional designer (clause S2.5)",
+        "Materials compliant with BSI / European standards and BCO 'Good Practice in Selection of Construction Materials' (clauses S2.6.2, S2.6.3)",
+        "No deleterious materials (clause S2.6.1)",
+        "Excludes full replacements (cross-reference: notice-level Lot 8 record)"
+      ],
+      "technical_standards": [
+        "BSI Group codes of practice / European good-building-practice standards",
+        "BCO 'Good Practice in Selection of Construction Materials'",
+        "Construction (Design and Management) Regulations 2015 (CDM)",
+        "Good Industry Practice"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "The Contractor shall service the Plant and maintain it in good working order and in accordance with the provisions of any manufacturer's guarantees or recommendations",
+        "page_ref": "p.61 (Part 3 Special Conditions)",
+        "section_ref": "clause S2.4"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot9-reactive-repairs-corporate-buildings",
+      "lot_number": "9",
+      "candidate_name": "Framework 6278 Lot 9 - Reactive repairs to Bexley corporate buildings",
+      "summary": "Reactive repairs dispatched against Works Orders on Bexley corporate buildings - e.g. gutter clearance, boarding-up, appropriate repairs identified through regular building assessments (scope examples drawn from the notice-level Lot 9 record). Response-time bands, unit rates and acceptable fix windows live in Schedule 1 and Schedule 2 which are placeholder stubs in this draft.",
+      "requirements": [
+        "Timely supply is of the essence (clause B1.3) - operative for reactive response-time SLAs",
+        "Works performed during Working Hours with reasonable skill, care and diligence (clause S2.1)",
+        "Compliant with BSI / ISO Quality Standards and Good Industry Practice (clause B3.1)",
+        "HSE / CDM 2015 / BSI code compliance where applicable (clauses S2.2.2, S2.3, S2.6.2)",
+        "Avoid unacceptable practices listed in clause S4.1 during works on Premises",
+        "KPIs and Service Credits per Schedule 4 to the Specification (clauses C3A, F5)"
+      ],
+      "technical_standards": [
+        "BSI / ISO Quality Standards",
+        "Good Industry Practice",
+        "Construction (Design and Management) Regulations 2015 (CDM)",
+        "BSI Group codes of practice / European good-building-practice standards",
+        "BCO 'Good Practice in Selection of Construction Materials'",
+        "Health and Safety at Work etc Act 1974 / HSE guidance",
+        "COSHH register",
+        "Unacceptable practices list (clause S4.1)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "The Contractor shall supply the Services during the Contract Period in accordance with the Council's requirements as set out in the Specification",
+        "page_ref": "pp.15-16 (Part 2 Section B1)",
+        "section_ref": "clauses B1.1, B1.3"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9000,
+    "lots.title": 7500,
+    "lots.description": 7000,
+    "lots.requirements": 8000,
+    "lots.evaluation_criteria": 1000,
+    "lots.cpv_codes": 1000,
+    "lots.product_requirements": 5500,
+    "lots.technical_standards": 8500,
+    "lots.evidence_anchor": 8800,
+    "product_requirement_seeds.bexley-6278-lot8-ppm-corporate-buildings": 6500,
+    "product_requirement_seeds.bexley-6278-lot8-remedial-works-excluding-full-replacements": 5500,
+    "product_requirement_seeds.bexley-6278-lot9-reactive-repairs-corporate-buildings": 6500
+  },
+  "extraction_confidence_bps": 5500,
+  "warnings": [
+    {
+      "code": "SCHEDULE_SPECIFICATION_STUB",
+      "message": "Schedule 1 (Specification) is an empty placeholder in this draft T&Cs (heading only at the end of the document). Authoritative service scope for Lot 8 (PPM Schedule in Appendix B, asset list, cadence, KPI indicators in Appendix D) and Lot 9 (reactive-repair categorisation, response times, acceptable-repair windows, trade coverage) must come from a separately issued specification pack that is not in this document.",
+      "evidence_refs": [
+        "Part 2 Contents 'SCHEDULES 1. Specification'",
+        "SCHEDULE 1 SPECIFICATION heading block at document end",
+        "Definitions 'Annual Fee Services' references Appendix B (PPM Schedule) to Schedule 1"
+      ]
+    },
+    {
+      "code": "PRICING_SCHEDULE_STUB",
+      "message": "Schedule 2 (Pricing Schedule) is a placeholder heading only. Contract Price, unit rates / schedule-of-rates, indexation and Lot 8 / Lot 9 pricing mechanism are not in this document.",
+      "evidence_refs": [
+        "SCHEDULE 2 PRICING SCHEDULE heading block at document end",
+        "Definitions 'Pricing Schedule' references Schedule 2"
+      ]
+    },
+    {
+      "code": "EVALUATION_CRITERIA_NOT_IN_DOCUMENT",
+      "message": "Award / evaluation criteria with weightings are not present. They belong to the ITT (Schedule 3 - also a stub) and the published notice / award pack. Do not derive evaluation criteria from this T&Cs template.",
+      "evidence_refs": [
+        "SCHEDULE 3 THE COUNCIL'S INVITATION TO TENDER heading block at document end"
+      ]
+    },
+    {
+      "code": "CPV_CODES_NOT_IN_DOCUMENT",
+      "message": "No CPV codes are stated in the T&Cs body. The notice-level CPVs for Framework 6278 (50700000-2 Repair and maintenance of building installations; 50750000-7 Lift-maintenance; 71315000-9 Building services) cover the whole framework, not Lots 8 / 9 specifically. CPVs for each lot should be resolved from the Find-a-Tender / ProContract notice record for that lot.",
+      "evidence_refs": [
+        "Document front matter: no CPV block",
+        "Notice-level overlay: Framework 6278 main_category lists CPV codes against the framework, not per lot"
+      ]
+    },
+    {
+      "code": "CONTRACT_VALUE_AND_DATE_PLACEHOLDERS",
+      "message": "Form of Contract uses template values: 'Dated 2020', '(2) [CONTRACTOR] (company number [ ]) whose registered office is situated at [ ]', and the Contract Period shown as 1 September 2020 to 31 August 2024 on the front matter. These are boilerplate; the authoritative dates and monetary value for Lots 8 / 9 under Framework 6278 must be taken from the live notice and the completed Form of Contract.",
+      "evidence_refs": [
+        "Part 1 Form of Contract: '[CONTRACTOR] (company number [ ])'",
+        "WHEREAS (A): 'during the period 1 September 2020 to 31 August 2024'"
+      ]
+    },
+    {
+      "code": "KPI_AND_SERVICE_CREDITS_DEFERRED",
+      "message": "KPIs and Service Credits rely on Schedule 4 to the Specification (placeholder). Clause C3A (Service Credits) is cited but the KPI indicators, measurement table, acceptable-failure counts and credit percentages for Lots 8 / 9 must be extracted from Schedule 4 when the specification pack is supplied.",
+      "evidence_refs": [
+        "Definitions 'Service Credits', 'Service Failure'",
+        "clause C3A; clauses F5.1 - F5.4; clauses F7.1 - F7.2"
+      ]
+    },
+    {
+      "code": "DBS_LEVEL_UNSPECIFIED",
+      "message": "DBS check level (basic / standard / enhanced / barred-list check) is delegated to 'where required by the Specification' and 'at the required level'. This draft does not fix the level for building-maintenance Staff on Lots 8 / 9.",
+      "evidence_refs": [
+        "clauses B4.11 - B4.14"
+      ]
+    },
+    {
+      "code": "LOT_ATTRIBUTION_FROM_DOCUMENT_TITLE_ONLY",
+      "message": "The T&Cs body does not name 'Lot 8' or 'Lot 9' at any point. Lot 8 / Lot 9 attribution is taken from the document_set / document title '6278 - Draft T&Cs - Lots 8 & 9' and cross-referenced with the notice-level lot records (Lot 8 = PPM & Remedial Repairs excluding full replacements; Lot 9 = Reactive Repairs to Corporate Buildings). The body text refers only to 'building services' generically. This is the same generic T&Cs pack the framework re-uses across several lots (cf. a near-identical template for Lot 6 Cleaning Services).",
+      "evidence_refs": [
+        "Document title: '6278 - Draft T&Cs - Lots 8 & 9'",
+        "WHEREAS (A): 'RELATING TO THE PROVISION OF BUILDING SERVICES'; 'the provision of building services as defined in the attached Specification'",
+        "Notice-level lot records: pc-dc1daee2-772e-f111-813c-005056b64545-lot-8, -lot-9"
+      ]
+    },
+    {
+      "code": "WORKS_ORDER_PROTOCOL_NOT_DETAILED",
+      "message": "The T&Cs reference 'Works Orders' (clause S2.3) but do not detail how Works Orders are issued, priced, categorised (emergency / urgent / routine) or signed off. For reactive-repair Lot 9 in particular, the Works Order protocol is central - it must come from Schedule 1 / Schedule 2.",
+      "evidence_refs": [
+        "clause S2.3 references 'Works Orders' without defining the issue / valuation / sign-off protocol",
+        "SCHEDULE 1 SPECIFICATION stub; SCHEDULE 2 PRICING SCHEDULE stub"
+      ]
+    },
+    {
+      "code": "DOCUMENT_PAGINATION_APPROXIMATE",
+      "message": "Docling extraction produced markdown with section headings but page references in evidence anchors are approximate (derived from section placement and the 64-page total reported by the extraction). They are not Docling-verified page indices for every anchor.",
+      "evidence_refs": [
+        "document_extractions.page_count = 64",
+        "document_extractions.section_count = 253",
+        "document_extractions.table_count = 2"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "anchor_text": "AGREEMENT ... RELATING TO THE PROVISION OF BUILDING SERVICES ... THE MAYOR AND BURGESSES OF THE LONDON BOROUGH OF BEXLEY ... [THE CONTRACTOR]",
+      "page_ref": "p.1 (Front matter)",
+      "section_ref": "Part 1 Form of Contract title block"
+    },
+    {
+      "anchor_text": "The Council wishes to secure the provision of building services as defined in the attached Specification ('the Services') during the period 1 September 2020 to 31 August 2024",
+      "page_ref": "p.2 (Part 1 Form of Contract, WHEREAS (A))",
+      "section_ref": "Part 1 Form of Contract, WHEREAS (A)"
+    },
+    {
+      "anchor_text": "(d) The Specification appended hereto as Schedule 1; (e) The Pricing Schedule appended hereto as Schedule 2; (f) The Council's ITT appended hereto as Schedule 3; (g) The Contractor's Proposal ... appended hereto as Schedule 4",
+      "page_ref": "p.2 (Part 1 Form of Contract, clause 1.2)",
+      "section_ref": "Part 1 Form of Contract, clause 1.2(d)-(g)"
+    },
+    {
+      "anchor_text": "'Annual Fee Services' means the services described in the Appendix B to the Specification (PPM Schedule)",
+      "page_ref": "p.6 (Part 2 Definitions)",
+      "section_ref": "Definitions 'Annual Fee Services'"
+    },
+    {
+      "anchor_text": "'CDM Regulations' means the Construction (Design and Management) Regulations 2015",
+      "page_ref": "p.7 (Part 2 Definitions)",
+      "section_ref": "Definitions 'CDM Regulations'"
+    },
+    {
+      "anchor_text": "'Quality Standards' means the quality standards published by BSI British Standards Institution, the National Standards Body of the United Kingdom, the International Organisation for Standardisation or other reputable or equivalent body",
+      "page_ref": "p.11 (Part 2 Definitions)",
+      "section_ref": "Definitions 'Quality Standards'"
+    },
+    {
+      "anchor_text": "The Contractor shall supply the Services during the Contract Period in accordance with the Council's requirements as set out in the Specification",
+      "page_ref": "p.15 (Part 2 Section B1)",
+      "section_ref": "clause B1.1"
+    },
+    {
+      "anchor_text": "Timely supply of the Services shall be of the essence of the Contract",
+      "page_ref": "p.16 (Part 2 Section B1)",
+      "section_ref": "clause B1.3"
+    },
+    {
+      "anchor_text": "The Contractor shall provide all the Equipment necessary for the supply of the Services.",
+      "page_ref": "p.16 (Part 2 Section B2)",
+      "section_ref": "clause B2.1"
+    },
+    {
+      "anchor_text": "The Contractor shall at all times comply with the Quality Standards, and where applicable shall maintain accreditation with the relevant Quality Standards authorisation body.",
+      "page_ref": "p.26 (Part 2 Section B3)",
+      "section_ref": "clause B3.1"
+    },
+    {
+      "anchor_text": "The Contractor shall at his expense register with the Disclosure and Barring Service and where required by the Specification undertake appropriate criminal records checks",
+      "page_ref": "p.17 (Part 2 Section B4)",
+      "section_ref": "clause B4.11"
+    },
+    {
+      "anchor_text": "an electronic invoice complies with the standard on electronic invoicing where it complies with the standard referred to in the Public Procurement (Electronic Invoices etc.) Regulations 2019 (2019/624)",
+      "page_ref": "p.22 (Part 2 Section C1)",
+      "section_ref": "clause C1.4"
+    },
+    {
+      "anchor_text": "any chemicals or other solutions or substances or materials used for the purposes of the Services will comply with any particular requirements set out in the Specification ... and in every case shall conform with any relevant British or European standard and in the case of chemicals have full approval from the Health and Safety Executive or Environment Agency",
+      "page_ref": "p.27 (Part 2 Section D6)",
+      "section_ref": "clause D6.2"
+    },
+    {
+      "anchor_text": "the Council is the Controller and that the Contractor is the Processor unless otherwise specified in Schedule 1",
+      "page_ref": "p.33 (Part 2 Section E1)",
+      "section_ref": "clause E1.1"
+    },
+    {
+      "anchor_text": "The Contractor shall perform all the functions and duties of a \"principal designer\" and a \"principal contractor\" as defined in the CDM Regulations (including the preparation of the \"Construction Phase Plan\" and the \"Health and Safety File\" in accordance with the CDM Regulations) to the extent that the CDM Regulations are applicable to the Services",
+      "page_ref": "p.61 (Part 3 Special Conditions, Section S2)",
+      "section_ref": "clause S2.3"
+    },
+    {
+      "anchor_text": "The Contractor shall service the Plant and maintain it in good working order and in accordance with the provisions of any manufacturer's guarantees or recommendations",
+      "page_ref": "p.61 (Part 3 Special Conditions)",
+      "section_ref": "clause S2.4"
+    },
+    {
+      "anchor_text": "contravene any relevant standard code of practice issued from time to time by the BSI Group or under a European directive relating to standards or good building practice",
+      "page_ref": "p.62 (Part 3 Special Conditions)",
+      "section_ref": "clause S2.6.2"
+    },
+    {
+      "anchor_text": "do not accord with the guidelines contained in the edition of the publication \"Good Practice in Selection of Construction Materials\" (British Council for Offices (\"BCO\")), current at the date of specification or use",
+      "page_ref": "p.62 (Part 3 Special Conditions)",
+      "section_ref": "clause S2.6.3"
+    },
+    {
+      "anchor_text": "maintain a COSHH register for all substances stored at or brought onto the Premises by the Contractor or any Staff, which shall be up-to-date at all times",
+      "page_ref": "p.62 (Part 3 Special Conditions)",
+      "section_ref": "clause S3.4.1"
+    },
+    {
+      "anchor_text": "the Contractor shall ensure that its health and safety policy statement (as required by the Health and Safety at Work etc Act 1974) is made available to the Council on request",
+      "page_ref": "p.62 (Part 3 Special Conditions)",
+      "section_ref": "clause S3.5"
+    },
+    {
+      "anchor_text": "the following acts or omissions are a non-exhaustive list of unacceptable practices at the Premises: S4.1.1 a failure properly to dispose of refuse within the same Working Day; S4.1.2 the throwing of bags, sacks or other heavy items from balconies, walkway, bridges",
+      "page_ref": "p.62 (Part 3 Special Conditions)",
+      "section_ref": "clause S4.1"
+    },
+    {
+      "anchor_text": "The Arbitration shall be conducted in accordance with the CIMAR Rules",
+      "page_ref": "p.66 (Part 3 Special Conditions)",
+      "section_ref": "clauses S10.5, S10.6"
+    },
+    {
+      "anchor_text": "SCHEDULE 1 SPECIFICATION / SCHEDULE 2 PRICING SCHEDULE / SCHEDULE 3 THE COUNCIL'S INVITATION TO TENDER / SCHEDULE 4 THE CONTRACTOR'S TENDER",
+      "page_ref": "p.64 (Document end - Schedules page)",
+      "section_ref": "Schedules stubs (headings only)"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "sha256:55a5a7cc58029cba4a3d40b2ef0a828f3cb49d8315f3f0a5fd7711f9ba29a2ec",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "identity": {
+    "session_id": "session-semantic-25d14d102268c905adfe454c6318e47c4552d9e37ecd284ab7026a6a6cabe5e3",
+    "job_id": "job-10c23e53-e7bf-48a7-adf5-0d5aee19ef3c"
+  },
+  "retention": {
+    "base_retention_days": 14,
+    "linked_hold_days": 180
+  },
+  "stdout": {
+    "path": "contract.stdout.zst",
+    "sha256": "3f54b320c1a3431434b37d6f68c330afdbc9c81d2857fde4328697595ee82c45",
+    "size_bytes": 33595
+  },
+  "stderr": {
+    "path": "contract.stderr.zst",
+    "sha256": "6fb8543883dafcc2ed0934866b8b3f775231f5b0933add08bf502e9e84944cbd",
+    "size_bytes": 9
+  }
+}

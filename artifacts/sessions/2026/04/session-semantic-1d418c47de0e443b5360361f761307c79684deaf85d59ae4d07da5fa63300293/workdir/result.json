@@ -1,0 +1,616 @@
+{
+  "lots": [
+    {
+      "lot_number": "6",
+      "title": "Provision of Cleaning Services - Corporate Buildings & Public facilities in Parks & Open Spaces",
+      "description": "Output-based cleaning and hygiene service for the London Borough of Bexley covering corporate buildings (civic/administrative offices, libraries, community hubs, customer service areas, operational depots, Danson House) and parks & open spaces assets (public conveniences, changing rooms, pavilions, visitor/education centres, function rooms and immediately adjacent external approaches). The Contractor provides comprehensive cleaning, consumables, mobile provision, NFC/QR proof of service, biohazard response and environmental/social-value commitments from contract commencement in September 2026. Areas must meet defined outcomes at required times, with method and resourcing selected by the Contractor.",
+      "requirements": [
+        "Deliver output-based cleaning meeting acceptable standards across hard floors, soft floors, vertical/horizontal surfaces, sanitary ware and glazing; areas must be safe, dry and fit for use at the start of the defined operating day.",
+        "Prevent cross-contamination using recognised colour-coding; toilet/shower equipment must never be used elsewhere.",
+        "Operate a visual quality measurement regime with sampling and scoring; Council and Contractor agree audit forms, sampling plans and scoring during mobilisation.",
+        "Use environmentally preferable products; bleach is prohibited. Maintain Safety Data Sheets and COSHH risk assessments on site; lockable chemical storage required.",
+        "Corporate buildings frequencies: daily touch-point sanitisation, waste removal, vacuum/mop floors, desk wipe, kitchens/tea points, toilets/washrooms full clean and restock, receptions, lifts, consumable replenishment; weekly internal glass/partitions, high/low dusting, edge/skirting detail; monthly/quarterly floor burnish, carpet spot and extraction, blinds clean, high-level dust.",
+        "Public conveniences frequencies: minimum 4 cleans per day per block in summer (Apr-Sep) and 2 per day per block in winter (Oct-Mar), scheduled to include opening and closing bands; quarterly deep cleans as standard; biannual heavy deep clean where specified; ad-hoc mobile response between cleans.",
+        "Changing rooms & pavilions: in-season clean after each booked session or minimum twice weekly (showers, benches, floors, drains, touchpoints); off-season weekly routine and monthly deep bathroom descaling.",
+        "Function/Visitor rooms in parks: clean after each event/booking with interim top-ups between back-to-back bookings; monthly internal glazing and quarterly floor care.",
+        "External approaches (where in scope): daily litter pick, spot wash/spot mop thresholds, sanitisation of hand-contact points; summer monthly / winter quarterly jet-wash or steam-clean of approaches and gullies; quarterly gum removal in high-use sites.",
+        "Reactive & emergency cleaning via Helpdesk-routed requests for spills, biohazards, floods, toilet incidents, glass breakages and litter hotspots. Biohazard response: make safe within 30 minutes and complete sanitisation within 2 hours; provide barriers, signage and immediate Council notification where facilities are taken out of action.",
+        "Keyholding, access control and alarm management: securely hold, log, track and store all keys, access cards and alarm codes; open and secure premises at agreed times; set and unset intruder alarms in accordance with Council procedures; report any activations, faults or issues immediately; no key copying or code sharing without explicit written authorisation.",
+        "Provide a dedicated vehicle-based mobile cleaning team to deliver public convenience rounds, event uplifts, absence cover and daytime reactivity across parks, equipped with water-saving/low-moisture equipment, biohazard kits and signage; mobile deployment included in the Fixed Price Service Fee.",
+        "Contractor supplies, maintains in safe condition and keeps adequately stocked all equipment and consumables (including toilet tissue, hand towels/hand-dryers, soap, bin liners, sanitary waste liners).",
+        "Manage waste streams: general/recyclable to site bins, sanitary/nappy on schedule with duty-of-care documentation, sharps/clinical in UN-approved containers with compliant removal and consignment/transfer notes, and reactive hazardous/special removals fully compliant with legislation.",
+        "Comply with all relevant H&S legislation and Council policies; provide RAMS for all tasks (including working at height, jet-washing, confined access, sharps, biohazards); provide role-appropriate BICSc-aligned training and infection-control modules; toilets/parks teams trained in sharps and biohazard handling; staff hold DBS clearance where required.",
+        "Environmental and social-value commitments: use biodegradable/low-toxicity products and refill systems where practicable; minimise single-use plastics; deploy electric or ultra-low-emission vehicles for mobile rounds where reasonably practicable; conserve water via low-moisture methods and grey water for external cleaning where feasible; quarterly reporting on chemical SKU count, plastics reduction, vehicle CO2e and water saving; support local employment, pay the London Living Wage (or as directed) and offer apprenticeships/training.",
+        "Monitoring: NFC/QR checkpoints with time-stamped logs at public toilets and remote sites; upload geo-tagged photos for deep cleans and remedials; monthly site self-audits, monthly joint audits across a sample, and ad-hoc Council audits; maintain on-site communication books where requested.",
+        "Reporting: monthly operational pack (attendance, NFC logs, audit scores, complaints/compliments, incidents/accidents, consumables usage, sustainability metrics, additional works) and quarterly performance report (trends, KPI summary, improvement plan updates, innovation proposals).",
+        "Pricing structure: Fixed Price Service Fee covers routine baselines per site including mobile rounds, standard consumables and agreed deep cleans; Variable Works priced by PSQM/item/hour for external fabric cleaning, escalated jet-washing/gum removal, specialist floor finishes, blinds/curtains, comms/IT rooms (dry methods), post-event cleans beyond baseline, out-of-hours labour above baseline, hazardous/special waste uplifts and specialist medical-standard cleans.",
+        "Mobilisation deliverables prior to service start: site surveys; risk assessments; method statements; equipment and chemical lists; staffing and supervision plan; NFC point plans; quality audit templates; and initial Site-Specific Cleaning Frequency Tables.",
+        "TUPE (where applicable) managed under prevailing regulations; provide a workforce transition plan and ensure service continuity from Day 1."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Quality score (visual audit)",
+          "summary": "Average monthly site score from the visual quality measurement regime; failure triggers a service credit and a Service Recovery Action Plan (SRAP) within 5 working days.",
+          "weighting_text": "Target not specified in document; remedy: service credit + SRAP in 5 working days.",
+          "evidence_anchor": {
+            "page_ref": "section-12.2-kpi-row-quality-score",
+            "section_ref": "#section/12.2",
+            "anchor_text": "Quality score (visual audit) | Average monthly site score | | Service credit + Service Recovery Action Plan (SRAP) in 5 working days"
+          }
+        },
+        {
+          "criterion": "Public toilet attendance",
+          "summary": "Percentage of scheduled public toilet cleans evidenced by NFC proof per time band; target \u2265 98% per month; remedy is service credit plus root-cause plan.",
+          "weighting_text": "\u2265 98% per month; service credit + root-cause plan on failure.",
+          "evidence_anchor": {
+            "page_ref": "section-12.2-kpi-row-public-toilet-attendance",
+            "section_ref": "#section/12.2",
+            "anchor_text": "Public toilet attendance | % scheduled cleans with NFC proof (by time band) | \u2265 98% per month | Service credit + root-cause plan"
+          }
+        },
+        {
+          "criterion": "Biohazard response",
+          "summary": "Percentage of biohazard incidents attended within 30 minutes and completed within 2 hours; target \u2265 95%; remedy is service credit plus incident review.",
+          "weighting_text": "\u2265 95%; service credit + incident review on failure.",
+          "evidence_anchor": {
+            "page_ref": "section-12.2-kpi-row-biohazard-response",
+            "section_ref": "#section/12.2",
+            "anchor_text": "Biohazard response | % attended \u226430 min; completed \u22642 hrs | \u2265 95% | Service credit + incident review"
+          }
+        },
+        {
+          "criterion": "Customer satisfaction",
+          "summary": "Average monthly customer satisfaction score on a 1-5 scale; target \u2265 4.5. No explicit remedy stated in the KPI table.",
+          "weighting_text": "\u2265 4.5 monthly average; remedy column blank in source table.",
+          "evidence_anchor": {
+            "page_ref": "section-12.2-kpi-row-customer-satisfaction",
+            "section_ref": "#section/12.2",
+            "anchor_text": "Customer satisfaction | Average monthly score (1\u20135) | \u2265 4.5 |"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot6-washroom-consumables",
+          "summary": "Washroom consumables supplied and replenished by the Contractor to avoid run-outs, including toilet tissue, hand towels/hand-dryers, soap, bin liners and sanitary waste liners.",
+          "requirement_type": "consumable",
+          "technical_attributes": [
+            "Toilet tissue",
+            "Hand towels and/or hand-dryers",
+            "Soap",
+            "Bin liners",
+            "Sanitary waste liners",
+            "Replenished to avoid run-outs"
+          ],
+          "quantity_hint": "Sufficient on-site stocks across all in-scope corporate and park facility sites; exact SKU counts to be reported quarterly per environmental metrics.",
+          "evidence_anchor": {
+            "page_ref": "section-8-equipment-and-consumables",
+            "section_ref": "#section/8",
+            "anchor_text": "Washroom consumables (toilet tissue, hand towels/hand-dryers, soap, bin liners, sanitary waste liners, etc.) are replenished to avoid run-outs."
+          }
+        },
+        {
+          "seed_key": "lot6-cleaning-equipment-colour-coded",
+          "summary": "General cleaning equipment supplied, maintained and operated by the Contractor using recognised colour-coding so that toilet/shower equipment is never used elsewhere.",
+          "requirement_type": "equipment",
+          "technical_attributes": [
+            "Recognised colour-coding scheme to prevent cross-contamination",
+            "Dedicated toilet/shower equipment segregated from other areas",
+            "Contractor-owned, safe and maintained",
+            "Adequate on-site stocks"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-3.1-service-outcomes",
+            "section_ref": "#section/3.1",
+            "anchor_text": "The Contractor shall prevent cross-contamination using recognised colour-coding; toilet/shower equipment is never used elsewhere."
+          }
+        },
+        {
+          "seed_key": "lot6-low-moisture-mobile-kit",
+          "summary": "Mobile team kit covering water-saving/low-moisture cleaning equipment, biohazard kits and signage to support public convenience rounds, event uplifts, absence cover and daytime parks reactivity.",
+          "requirement_type": "equipment",
+          "technical_attributes": [
+            "Water-saving / low-moisture cleaning equipment",
+            "Biohazard kits",
+            "Deployment signage",
+            "Vehicle-based mobile deployment"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-7-mobile-cleaning-provision",
+            "section_ref": "#section/7",
+            "anchor_text": "Teams carry water-saving/low-moisture equipment, biohazard kits and signage."
+          }
+        },
+        {
+          "seed_key": "lot6-sharps-clinical-containers",
+          "summary": "UN-approved sharps and clinical waste containers plus compliant removal service, with consignment and transfer notes maintained.",
+          "requirement_type": "consumable",
+          "technical_attributes": [
+            "UN-approved sharps/clinical waste containers",
+            "Compliant removal process",
+            "Consignment/transfer notes retained"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-9-waste-streams",
+            "section_ref": "#section/9",
+            "anchor_text": "Sharps & clinical: provide UN-approved containers and compliant removal; maintain consignment/transfer notes."
+          }
+        },
+        {
+          "seed_key": "lot6-environmental-chemical-products",
+          "summary": "Environmentally preferable cleaning chemicals: biodegradable, low-toxicity products with refill systems where practicable and single-use plastics minimised. Bleach is expressly prohibited.",
+          "requirement_type": "consumable",
+          "technical_attributes": [
+            "Environmentally preferable products",
+            "Biodegradable and low-toxicity formulations",
+            "Refill systems where practicable",
+            "Single-use plastics minimised",
+            "Bleach prohibited",
+            "Safety Data Sheets on site",
+            "COSHH risk assessments on site",
+            "Lockable storage"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-3.3-materials-and-chemicals",
+            "section_ref": "#section/3.3",
+            "anchor_text": "Use environmentally preferable products; bleach is prohibited. Maintain Safety Data Sheets and COSHH risk assessments on site; lockable storage required."
+          }
+        },
+        {
+          "seed_key": "lot6-mobile-round-vehicles",
+          "summary": "Vehicles for the mobile parks cleaning round, with a preference for electric or ultra-low-emission vehicles where reasonably practicable.",
+          "requirement_type": "equipment",
+          "technical_attributes": [
+            "Vehicle-based mobile round capability",
+            "Electric or ultra-low-emission where reasonably practicable",
+            "Quarterly CO2e reporting"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-11-environmental-and-social-value-commitments",
+            "section_ref": "#section/11",
+            "anchor_text": "Deploy electric or ultra-low-emission vehicles for mobile rounds where reasonably practicable."
+          }
+        },
+        {
+          "seed_key": "lot6-nfc-qr-proof-of-service-system",
+          "summary": "NFC/QR checkpoint system with time-stamped logs at public toilets and remote sites, plus geo-tagged photo capture for deep cleans and remedials to evidence proof of service and feed the monthly operational pack.",
+          "requirement_type": "technology_system",
+          "technical_attributes": [
+            "NFC and/or QR checkpoints installed on site",
+            "Time-stamped attendance logs",
+            "Geo-tagged photo uploads",
+            "Feed KPI reporting (public toilet attendance %)"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-12.1-proof-of-service-and-audits",
+            "section_ref": "#section/12.1",
+            "anchor_text": "Use NFC/QR checkpoints with time-stamped logs at public toilets and remote sites; upload geo-tagged photos for deep cleans and remedials."
+          }
+        },
+        {
+          "seed_key": "lot6-biohazard-response-kit",
+          "summary": "Biohazard response kit and supporting barriers/signage to make incidents safe within 30 minutes and complete sanitisation within 2 hours in parks toilets and corporate washrooms.",
+          "requirement_type": "equipment",
+          "technical_attributes": [
+            "Biohazard response kit",
+            "Physical barriers",
+            "Out-of-service signage",
+            "Supports \u226430 min make-safe and \u22642 hr full sanitisation SLAs"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-5-reactive-and-emergency-cleaning",
+            "section_ref": "#section/5",
+            "anchor_text": "Biohazard response: make safe within 30 minutes; complete sanitisation within 2 hours (parks toilets and corporate washrooms)."
+          }
+        },
+        {
+          "seed_key": "lot6-deep-clean-specialist-floor-care",
+          "summary": "Specialist periodic cleaning works covered under Variable Works pricing: machine scrub/burnish, carpet extraction, jet-washing/gum removal, specialist floor finishes, blinds/curtain cleans and medical-standard cleans.",
+          "requirement_type": "service_or_consumable",
+          "technical_attributes": [
+            "Machine scrub/burnish hard floors",
+            "Carpet spot clean and quarterly extraction",
+            "Jet-wash/steam-clean approaches and gullies",
+            "Gum removal",
+            "Blinds/curtain cleaning",
+            "Specialist medical-standard cleans",
+            "Priced per PSQM / item / hour"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-13-pricing-structure",
+            "section_ref": "#section/13",
+            "anchor_text": "Variable Works (Optional Tasks) priced by PSQM / item / hour include: external fabric cleaning; escalated jet\u2011washing/gum removal; specialist floor finishes; blinds/curtains cleaning; communication/IT rooms (dry methods); event\u2011related post\u2011clean beyond baseline; out\u2011of\u2011hours labour above baseline; hazardous/special waste uplifts; specialist medical\u2011standard cleans where specified."
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "BICSc-aligned training",
+          "context": "Role-appropriate BICSc (British Institute of Cleaning Science) aligned training plus infection-control modules; toilets/parks teams also trained in sharps and biohazard handling.",
+          "evidence_anchor": {
+            "page_ref": "section-10-health-safety-and-compliance",
+            "section_ref": "#section/10",
+            "anchor_text": "Staff to receive role\u2011appropriate BICSc\u2011aligned training and infection\u2011control modules; toilets/parks teams trained in sharps and biohazard handling."
+          }
+        },
+        {
+          "standard_ref": "COSHH risk assessments",
+          "context": "Control of Substances Hazardous to Health risk assessments maintained on site alongside Safety Data Sheets, with lockable chemical storage.",
+          "evidence_anchor": {
+            "page_ref": "section-3.3-materials-and-chemicals",
+            "section_ref": "#section/3.3",
+            "anchor_text": "Maintain Safety Data Sheets and COSHH risk assessments on site; lockable storage required."
+          }
+        },
+        {
+          "standard_ref": "Risk Assessment and Method Statements (RAMS)",
+          "context": "RAMS required for all tasks including working at height, jet-washing, confined access, sharps and biohazards.",
+          "evidence_anchor": {
+            "page_ref": "section-10-health-safety-and-compliance",
+            "section_ref": "#section/10",
+            "anchor_text": "Provide RAMS for all tasks (including working at height, jet\u2011washing, confined access, sharps, biohazards)."
+          }
+        },
+        {
+          "standard_ref": "Disclosure and Barring Service (DBS) clearance",
+          "context": "Staff must hold DBS clearance where required by role/site.",
+          "evidence_anchor": {
+            "page_ref": "section-10-health-safety-and-compliance",
+            "section_ref": "#section/10",
+            "anchor_text": "Where required, staff must hold DBS clearance."
+          }
+        },
+        {
+          "standard_ref": "UN-approved sharps/clinical waste containers",
+          "context": "Sharps and clinical waste must be contained in UN-approved containers with compliant removal and consignment/transfer notes.",
+          "evidence_anchor": {
+            "page_ref": "section-9-waste-streams",
+            "section_ref": "#section/9",
+            "anchor_text": "Sharps & clinical: provide UN-approved containers and compliant removal; maintain consignment/transfer notes."
+          }
+        },
+        {
+          "standard_ref": "London Living Wage",
+          "context": "Contractor to pay the London Living Wage (or as directed by the Council) and support local employment, apprenticeships and training as part of social value commitments.",
+          "evidence_anchor": {
+            "page_ref": "section-11-environmental-and-social-value-commitments",
+            "section_ref": "#section/11",
+            "anchor_text": "Support local employment, pay the London Living Wage (or as directed by the Council), and offer apprenticeships/training."
+          }
+        },
+        {
+          "standard_ref": "TUPE (Transfer of Undertakings (Protection of Employment) Regulations)",
+          "context": "TUPE, where applicable, managed under prevailing regulations with a workforce transition plan and Day-1 service continuity.",
+          "evidence_anchor": {
+            "page_ref": "section-14-mobilisation-and-data-pack",
+            "section_ref": "#section/14",
+            "anchor_text": "TUPE (where applicable) will be managed under the prevailing regulations; the Contractor shall provide a workforce transition plan and ensure continuity of service from Day 1."
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "document-header",
+        "section_ref": "#section/header",
+        "anchor_text": "London Borough of Bexley - Cleaning & Hygiene Specification - Contract commencement: Sept 2026"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot6-washroom-consumables",
+      "lot_number": "6",
+      "candidate_name": "Washroom consumables pack (toilet tissue, hand towels, soap, bin liners, sanitary waste liners)",
+      "summary": "Ongoing supply of washroom consumables replenished across all in-scope corporate and parks facility sites to avoid run-outs.",
+      "requirements": [
+        "Toilet tissue suitable for commercial washrooms",
+        "Paper hand towels and/or electric hand-dryers",
+        "Hand soap",
+        "General bin liners",
+        "Sanitary waste liners",
+        "Stocks sufficient to avoid run-outs across all sites"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-8-equipment-and-consumables",
+        "section_ref": "#section/8",
+        "anchor_text": "Washroom consumables (toilet tissue, hand towels/hand-dryers, soap, bin liners, sanitary waste liners, etc.) are replenished to avoid run-outs."
+      }
+    },
+    {
+      "seed_key": "lot6-cleaning-equipment-colour-coded",
+      "lot_number": "6",
+      "candidate_name": "Colour-coded cleaning equipment set",
+      "summary": "Commercial cleaning equipment inventory with a recognised colour-coding scheme ensuring toilet/shower equipment is segregated from other use areas.",
+      "requirements": [
+        "Recognised colour-coding scheme applied to mops, cloths and buckets",
+        "Dedicated toilet/shower equipment not used elsewhere",
+        "Safely maintained and Contractor-owned",
+        "On-site stocks adequate for frequencies in Section 4"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3.1-service-outcomes",
+        "section_ref": "#section/3.1",
+        "anchor_text": "The Contractor shall prevent cross-contamination using recognised colour-coding; toilet/shower equipment is never used elsewhere."
+      }
+    },
+    {
+      "seed_key": "lot6-low-moisture-mobile-kit",
+      "lot_number": "6",
+      "candidate_name": "Water-saving / low-moisture mobile cleaning kit",
+      "summary": "Kit carried by the dedicated mobile team to deliver public convenience rounds, event uplifts and absence cover across parks with minimal water use.",
+      "requirements": [
+        "Low-moisture cleaning equipment (e.g. microfibre systems)",
+        "Water-saving methods supporting quarterly water-saving metric reporting",
+        "Biohazard kits co-carried",
+        "On-board signage for out-of-service periods"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-7-mobile-cleaning-provision",
+        "section_ref": "#section/7",
+        "anchor_text": "Teams carry water-saving/low-moisture equipment, biohazard kits and signage."
+      }
+    },
+    {
+      "seed_key": "lot6-sharps-clinical-containers",
+      "lot_number": "6",
+      "candidate_name": "UN-approved sharps & clinical waste containers",
+      "summary": "Sharps and clinical waste containers with compliant removal service and full consignment/transfer note documentation.",
+      "requirements": [
+        "UN-approved sharps/clinical waste containers",
+        "Compliant removal and disposal service",
+        "Consignment/transfer notes retained for duty-of-care"
+      ],
+      "technical_standards": [
+        "UN-approved sharps/clinical waste containers"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-9-waste-streams",
+        "section_ref": "#section/9",
+        "anchor_text": "Sharps & clinical: provide UN-approved containers and compliant removal; maintain consignment/transfer notes."
+      }
+    },
+    {
+      "seed_key": "lot6-environmental-chemical-products",
+      "lot_number": "6",
+      "candidate_name": "Environmentally preferable cleaning chemicals (biodegradable, low-toxicity, bleach-free)",
+      "summary": "Cleaning chemical inventory that is biodegradable, low-toxicity, preferably dispensed via refill systems and free of bleach; supported by SDS and COSHH documentation on site.",
+      "requirements": [
+        "Biodegradable, low-toxicity formulations",
+        "Refill systems where practicable",
+        "Single-use plastics minimised",
+        "Bleach expressly excluded",
+        "Safety Data Sheets maintained on site",
+        "COSHH risk assessments maintained on site",
+        "Lockable chemical storage provided"
+      ],
+      "technical_standards": [
+        "COSHH risk assessments"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3.3-materials-and-chemicals",
+        "section_ref": "#section/3.3",
+        "anchor_text": "Use environmentally preferable products; bleach is prohibited. Maintain Safety Data Sheets and COSHH risk assessments on site; lockable storage required."
+      }
+    },
+    {
+      "seed_key": "lot6-mobile-round-vehicles",
+      "lot_number": "6",
+      "candidate_name": "Electric or ultra-low-emission mobile round vehicles",
+      "summary": "Vehicle fleet for the parks mobile round, with a preference for electric or ultra-low-emission vehicles where reasonably practicable and quarterly CO2e reporting.",
+      "requirements": [
+        "Vehicle capable of carrying the mobile cleaning kit and team",
+        "Electric or ultra-low-emission preferred where reasonably practicable",
+        "Supports quarterly CO2e reporting"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-11-environmental-and-social-value-commitments",
+        "section_ref": "#section/11",
+        "anchor_text": "Deploy electric or ultra-low-emission vehicles for mobile rounds where reasonably practicable."
+      }
+    },
+    {
+      "seed_key": "lot6-nfc-qr-proof-of-service-system",
+      "lot_number": "6",
+      "candidate_name": "NFC/QR proof-of-service and audit platform",
+      "summary": "Field proof-of-service technology combining NFC/QR checkpoints, time-stamped clean logs and geo-tagged photo capture to evidence monthly KPI reporting.",
+      "requirements": [
+        "NFC tags and/or QR codes mounted at public toilets and remote sites",
+        "Mobile app for operatives with time-stamped check-in/out",
+        "Geo-tagged photo upload for deep cleans and remedials",
+        "Reporting pipeline feeding monthly operational pack and public-toilet-attendance KPI"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-12.1-proof-of-service-and-audits",
+        "section_ref": "#section/12.1",
+        "anchor_text": "Use NFC/QR checkpoints with time-stamped logs at public toilets and remote sites; upload geo-tagged photos for deep cleans and remedials."
+      }
+    },
+    {
+      "seed_key": "lot6-biohazard-response-kit",
+      "lot_number": "6",
+      "candidate_name": "Biohazard response kit with barriers and signage",
+      "summary": "Reactive biohazard kit supporting the 30-minute make-safe and 2-hour full sanitisation SLA for parks toilets and corporate washrooms, including barriers and signage.",
+      "requirements": [
+        "Biohazard spill kit (absorbents, disinfectants, PPE)",
+        "Portable barriers",
+        "Out-of-service signage",
+        "Enables \u226430 min make-safe and \u22642 hr full sanitisation response"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-5-reactive-and-emergency-cleaning",
+        "section_ref": "#section/5",
+        "anchor_text": "Biohazard response: make safe within 30 minutes; complete sanitisation within 2 hours (parks toilets and corporate washrooms)."
+      }
+    },
+    {
+      "seed_key": "lot6-deep-clean-specialist-floor-care",
+      "lot_number": "6",
+      "candidate_name": "Specialist periodic and reactive cleaning works (Variable Works)",
+      "summary": "Periodic and reactive specialist cleans priced as Variable Works including jet-washing, gum removal, floor scrub/burnish, carpet extraction, blinds/curtain cleaning and medical-standard cleans.",
+      "requirements": [
+        "Machine scrub/burnish equipment",
+        "Carpet extraction equipment",
+        "Jet-wash/steam-clean equipment for external approaches and gullies",
+        "Gum removal capability",
+        "Specialist floor finishes (application equipment)",
+        "Blinds/curtain cleaning capability",
+        "Dry methods for comms/IT rooms",
+        "Specialist medical-standard cleaning capability",
+        "Priced per PSQM/item/hour"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-13-pricing-structure",
+        "section_ref": "#section/13",
+        "anchor_text": "Variable Works (Optional Tasks) priced by PSQM / item / hour include: external fabric cleaning; escalated jet\u2011washing/gum removal; specialist floor finishes; blinds/curtains cleaning; communication/IT rooms (dry methods); event\u2011related post\u2011clean beyond baseline; out\u2011of\u2011hours labour above baseline; hazardous/special waste uplifts; specialist medical\u2011standard cleans where specified."
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 9500,
+    "lots.description": 9000,
+    "lots.requirements": 9000,
+    "lots.evaluation_criteria": 8500,
+    "lots.cpv_codes": 4000,
+    "lots.product_requirements": 8500,
+    "lots.technical_standards": 9000,
+    "product_requirement_seeds": 8500,
+    "extraction_metadata": 9500
+  },
+  "extraction_confidence_bps": 8500,
+  "warnings": [
+    {
+      "code": "CPV_CODES_NOT_CITED_IN_DOCUMENT",
+      "message": "The tender specification does not cite any CPV codes for Lot 6. The parent notice carries building-services CPV codes (50700000-2, 50750000-7, 71315000-9) which are not specific to cleaning services; a cleaning-specific code such as 90910000-9 is plausible but not evidenced in this document, so the lot's cpv_codes array has been left empty.",
+      "evidence_refs": [
+        "document-body:no-CPV-codes-present"
+      ]
+    },
+    {
+      "code": "KPI_TARGETS_PARTIAL",
+      "message": "KPI table in Section 12.2 leaves the 'Quality score' target cell blank and the 'Customer satisfaction' remedy cell blank; those values have been reproduced verbatim rather than inferred.",
+      "evidence_refs": [
+        "section-12.2-kpi-table"
+      ]
+    },
+    {
+      "code": "DOCLING_PAGE_COUNT_ZERO",
+      "message": "Source document_extraction row reports page_count=0 (DOCX source rendered as a single logical page). Evidence anchors therefore reference section headings rather than numeric page numbers.",
+      "evidence_refs": [
+        "document_extraction.page_count"
+      ]
+    },
+    {
+      "code": "SINGLE_LOT_DOCUMENT",
+      "message": "Document is the Draft Specification for Lot 6 only (Cleaning Services). Sibling lots 1-5 and 7-11 exist on the parent Building Services Framework notice but are out of scope for this specification document and are not emitted here.",
+      "evidence_refs": [
+        "document-title:6278 - Draft Specification - Lot 6"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "document-header",
+      "section_ref": "#section/header",
+      "anchor_text": "London Borough of Bexley - Cleaning & Hygiene Specification - Contract commencement: Sept 2026"
+    },
+    {
+      "page_ref": "section-2-scope-of-services",
+      "section_ref": "#section/2",
+      "anchor_text": "2. Scope of Services"
+    },
+    {
+      "page_ref": "section-3.1-service-outcomes",
+      "section_ref": "#section/3.1",
+      "anchor_text": "The Contractor shall prevent cross-contamination using recognised colour-coding; toilet/shower equipment is never used elsewhere."
+    },
+    {
+      "page_ref": "section-3.3-materials-and-chemicals",
+      "section_ref": "#section/3.3",
+      "anchor_text": "Use environmentally preferable products; bleach is prohibited. Maintain Safety Data Sheets and COSHH risk assessments on site; lockable storage required."
+    },
+    {
+      "page_ref": "section-4-frequencies",
+      "section_ref": "#section/4",
+      "anchor_text": "4. Frequencies (baseline)"
+    },
+    {
+      "page_ref": "section-5-reactive-and-emergency-cleaning",
+      "section_ref": "#section/5",
+      "anchor_text": "Biohazard response: make safe within 30 minutes; complete sanitisation within 2 hours (parks toilets and corporate washrooms)."
+    },
+    {
+      "page_ref": "section-6-keyholding",
+      "section_ref": "#section/6",
+      "anchor_text": "6. Keyholding, Access Control & Alarm Management"
+    },
+    {
+      "page_ref": "section-7-mobile-cleaning-provision",
+      "section_ref": "#section/7",
+      "anchor_text": "Teams carry water-saving/low-moisture equipment, biohazard kits and signage."
+    },
+    {
+      "page_ref": "section-8-equipment-and-consumables",
+      "section_ref": "#section/8",
+      "anchor_text": "Washroom consumables (toilet tissue, hand towels/hand-dryers, soap, bin liners, sanitary waste liners, etc.) are replenished to avoid run-outs."
+    },
+    {
+      "page_ref": "section-9-waste-streams",
+      "section_ref": "#section/9",
+      "anchor_text": "Sharps & clinical: provide UN-approved containers and compliant removal; maintain consignment/transfer notes."
+    },
+    {
+      "page_ref": "section-10-health-safety-and-compliance",
+      "section_ref": "#section/10",
+      "anchor_text": "Staff to receive role-appropriate BICSc-aligned training and infection-control modules; toilets/parks teams trained in sharps and biohazard handling."
+    },
+    {
+      "page_ref": "section-11-environmental-and-social-value-commitments",
+      "section_ref": "#section/11",
+      "anchor_text": "Deploy electric or ultra-low-emission vehicles for mobile rounds where reasonably practicable."
+    },
+    {
+      "page_ref": "section-12.1-proof-of-service-and-audits",
+      "section_ref": "#section/12.1",
+      "anchor_text": "Use NFC/QR checkpoints with time-stamped logs at public toilets and remote sites; upload geo-tagged photos for deep cleans and remedials."
+    },
+    {
+      "page_ref": "section-12.2-kpi-table",
+      "section_ref": "#section/12.2",
+      "anchor_text": "KPI | Measure | Target | Remedy"
+    },
+    {
+      "page_ref": "section-13-pricing-structure",
+      "section_ref": "#section/13",
+      "anchor_text": "Fixed Price Service Fee covers all routine and required baselines per site, including mobile rounds, standard consumables and agreed deep cleans."
+    },
+    {
+      "page_ref": "section-14-mobilisation-and-data-pack",
+      "section_ref": "#section/14",
+      "anchor_text": "TUPE (where applicable) will be managed under the prevailing regulations; the Contractor shall provide a workforce transition plan and ensure continuity of service from Day 1."
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "df2277b38c39f46c466571d2f7eda3a472a0523900774d903e9617e9f1ea9e1d",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

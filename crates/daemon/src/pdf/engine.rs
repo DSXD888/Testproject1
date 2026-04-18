@@ -184,9 +184,12 @@ impl PdfExtractionEngine {
             None
         };
 
-        let source_bytes = tokio_fs::read(&input.source_path)
-            .await
-            .with_context(|| format!("reading document bytes from {}", input.source_path.display()))?;
+        let source_bytes = tokio_fs::read(&input.source_path).await.with_context(|| {
+            format!(
+                "reading document bytes from {}",
+                input.source_path.display()
+            )
+        })?;
         let is_pdf = input
             .source_path
             .extension()

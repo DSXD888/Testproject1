@@ -1,0 +1,376 @@
+{
+  "lots": [
+    {
+      "lot_number": "2",
+      "title": "Provision of Water Risk Assessments",
+      "description": "Provision of Water Risk Assessments services in Council Buildings for the London Borough of Bexley. Contract period is 1 September 2020 to 31 August 2022, subject to extension agreed pursuant to the terms of the Contract. This document is the draft Terms & Conditions (T&Cs) for Lot 2 of the 6278 Building Services Framework (Lots 1-11). The detailed Schedule 1 Specification that governs scope, assessor qualifications, deliverables and KPIs is referenced throughout but is not embedded within this document (Schedule 1 appears only as a section placeholder heading).",
+      "requirements": [
+        "Provide Water Risk Assessment services in Council Buildings in accordance with the Specification (Schedule 1), the Code of Conduct at Appendix D to the ITT, and the General/Special Conditions of Contract (Clause B1.1).",
+        "Comply at all times with the Quality Standards (BSI British Standards Institution, ISO, or equivalent reputable body) and maintain accreditation with the relevant Quality Standards authorisation body where applicable (Clause B3.1).",
+        "Where a standard of Services is not specified, agree the relevant standard with the Council before supply and otherwise perform in accordance with the Law and Good Industry Practice (Clause B3.1).",
+        "Ensure all Staff supplying the Services possess the qualifications, skills and experience set out in the Specification and are competent, skilled, honest and experienced (Clauses B3.2, B4.2). Note: Clause B4.2 references 'fire risk assessors' and 'paragraph 3.12 of the Specification' which appears to be a template copy-paste retained from another lot; the analogous qualification clause for water risk assessors is expected in Schedule 1.",
+        "Provide all Equipment necessary for the supply of the Services; deliver Equipment to the Premises only with the Council's prior written approval; remove Equipment and materials on completion (Clauses B2.1-B2.6).",
+        "Register with the Disclosure and Barring Service and undertake DBS checks where required by the Specification; re-check at least every three years (Clauses B4.11-B4.13).",
+        "Maintain up-to-date personnel records and supply a list of Staff providing Services on request (Clause B4.4).",
+        "Appoint a suitably qualified, competent and English-fluent Contract Manager in full charge of performance of the Services and continuously available during specified operating hours (Clause B6.1).",
+        "Provide sufficient supervisory employees to ensure staff are supervised and comply with health-and-safety requirements (Clause B5.5).",
+        "Comply with the monitoring arrangements set out in the Specification including provision of Management Reports covering KPIs and matters referred to in the Specification (Clauses F7.1-F7.2).",
+        "Comply with KPIs included in Appendix E to the Invitation to Tender; Service Credits may be deducted for Service Failures (definitions of 'Key Performance Indicators', 'Service Credits', 'Service Failure'; Clauses C3A and F5).",
+        "Comply with all applicable health-and-safety Law including the Health and Safety at Work etc. Act 1974; any chemicals/substances used must conform with relevant British or European standards and, for chemicals, have full HSE or Environment Agency approval (Clauses D6.1-D6.8, particularly D6.2, D6.7).",
+        "Observe the Council's environmental policy (Appendix C to the ITT) and Central Government environmental policy including energy/water/paper conservation and phase-out of ozone depleting substances (Clause D5.1).",
+        "Act as Processor under the Data Protection Legislation with the Council as Controller; process Personal Data only in accordance with Schedule 1 (Clauses E1.1-E1.15).",
+        "Maintain insurance sufficient to cover liabilities under the Contract; minimum insurance cover, if specified, is set out in the Specification or Special Conditions (Clause G1 and G1.10).",
+        "Comply with TUPE obligations on expiry/re-let, including supply of employee information to the Council within 21 days of request (Schedule-level Clauses S1.6-S1.7)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "evaluation_criteria_not_present_in_document",
+          "summary": "This document (the draft Terms & Conditions for Lot 2) does not contain an evaluation/award criteria matrix. Such criteria are expected in the Council's Invitation to Tender (Schedule 3) which is referenced but not embedded. Recitation only: 'The Council's ITT appended hereto as Schedule 3' (Clause 1.2(f)), and placeholder 'SCHEDULE 3 — THE COUNCIL'S INVITATION TO TENDER' appears with no body content.",
+          "evidence_anchor": {
+            "page_ref": "md:line:63",
+            "anchor_text": "The Council's ITT appended hereto as Schedule 3",
+            "section_ref": "Part 1 Form of Contract, Clause 1.2(f) and Schedule 3 placeholder"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "50700000-2",
+        "50750000-7",
+        "71315000-9"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "seed::bexley-6278::lot2::water-risk-assessment-service",
+          "summary": "Water Risk Assessment services for Council Buildings (corporate/operational estate) of the London Borough of Bexley.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "risk_domain:water_hygiene",
+            "delivery_model:scheduled_and_responsive_assessments",
+            "service_population:council_buildings",
+            "reporting:management_reports_covering_kpis_and_specification_matters"
+          ],
+          "quantity_hint": "Unspecified in this document; covered estate and assessment frequency are defined in the Specification (Schedule 1), which is not embedded.",
+          "evidence_anchor": {
+            "page_ref": "md:line:43",
+            "anchor_text": "The Council wishes to secure the provision of Water Risk Assessments services in Council Buildings as defined in the attached Specification ('the Services') during the period 1 September 2020 to 31 August 2022",
+            "section_ref": "Part 1 Form of Contract, Recital A"
+          }
+        },
+        {
+          "seed_key": "seed::bexley-6278::lot2::water-risk-assessor-personnel",
+          "summary": "Qualified water risk assessor personnel and supporting staff, with required qualifications, competencies, DBS checks and supervision as set out in the Specification.",
+          "requirement_type": "labour_capability",
+          "technical_attributes": [
+            "role:water_risk_assessor",
+            "qualifications:per_specification",
+            "dbs_check:required_where_specified",
+            "supervision:contractor_provided",
+            "contract_manager:english_fluent_continuously_available"
+          ],
+          "quantity_hint": "Unspecified in this document; the T&Cs require sufficient supervisory employees and a continuously available Contract Manager. Clause B4.2 references paragraph 3.12 of the Specification which appears to be a fire-risk-assessor placeholder copy.",
+          "evidence_anchor": {
+            "page_ref": "md:line:571",
+            "anchor_text": "Staff who are fire risk assessors should hold the qualifications set out in paragraph 3.12 of the Specification",
+            "section_ref": "Clause B4.2 (note: 'fire' appears to be template copy; expected to be 'water' for Lot 2)"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "BSI British Standards (generic)",
+          "context": "Clause B3.1 requires compliance with Quality Standards published by BSI British Standards Institution, the National Standards Body of the United Kingdom, ISO or equivalent reputable body; specific water-hygiene standards (e.g. ACoP L8, HSG274, BS 8558) are not enumerated in this document and are expected in Schedule 1 Specification.",
+          "evidence_anchor": {
+            "page_ref": "md:line:433",
+            "anchor_text": "Quality Standards means the quality standards published by BSI British Standards Institution, the National Standards Body of the United Kingdom, the International Organisation for Standardisation or other reputable or equivalent body",
+            "section_ref": "Definitions, 'Quality Standards'"
+          }
+        },
+        {
+          "standard_ref": "ISO (International Organization for Standardization, generic)",
+          "context": "Same Quality Standards clause references ISO alongside BSI as the accreditation frame for Services; no specific ISO standard enumerated in this document.",
+          "evidence_anchor": {
+            "page_ref": "md:line:433",
+            "anchor_text": "the International Organisation for Standardisation or other reputable or equivalent body",
+            "section_ref": "Definitions, 'Quality Standards'"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work etc. Act 1974",
+          "context": "Clause D6.7 requires compliance with applicable health-and-safety Law including the Health and Safety at Work etc. Act 1974 and all related acts, orders, regulations and codes of practice.",
+          "evidence_anchor": {
+            "page_ref": "md:line:799",
+            "anchor_text": "the requirements of the Health and Safety at Work etc. Act 1974 and any other acts, orders, regulations and codes of practice relating to health and safety",
+            "section_ref": "Clause D6.7"
+          }
+        },
+        {
+          "standard_ref": "Relevant British or European standards (chemicals)",
+          "context": "Clause D6.2 requires chemicals/substances to conform with any relevant British or European standard and, for chemicals, have full HSE or Environment Agency approval.",
+          "evidence_anchor": {
+            "page_ref": "md:line:789",
+            "anchor_text": "shall conform with any relevant British or European standard and in the case of chemicals have full approval from the Health and Safety Executive or Environment Agency",
+            "section_ref": "Clause D6.2"
+          }
+        },
+        {
+          "standard_ref": "UK GDPR / Data Protection Act 2018",
+          "context": "Clause E1 Data Protection designates the Council as Controller and the Contractor as Processor, with processing restricted to Schedule 1.",
+          "evidence_anchor": {
+            "page_ref": "md:line:807",
+            "anchor_text": "for the purposes of the Data Protection Legislation, the Council is the Controller and that the Contractor is the Processor unless otherwise specified in Schedule 1",
+            "section_ref": "Clause E1.1"
+          }
+        },
+        {
+          "standard_ref": "Local Government Act 1999 (Best Value duty)",
+          "context": "Clause B8.1 requires the Contractor to co-operate with the Council's Best Value duty under the Local Government Act 1999.",
+          "evidence_anchor": {
+            "page_ref": "md:line:645",
+            "anchor_text": "the Council is required under the Local Government Act 1999 to make arrangements to secure continuous improvement",
+            "section_ref": "Clause B8.1"
+          }
+        },
+        {
+          "standard_ref": "Protection of Freedoms Act 2012 / DBS regime",
+          "context": "Clauses B4.11-B4.13 require Contractor DBS registration and checks where required by the Specification; DBS definition cites the Protection of Freedoms Act 2012.",
+          "evidence_anchor": {
+            "page_ref": "md:line:347",
+            "anchor_text": "'DBS' or 'Disclosure and Barring Service' means the service established under the Protection of Freedoms Act 2012",
+            "section_ref": "Definitions, 'DBS'"
+          }
+        },
+        {
+          "standard_ref": "TUPE Regulations (Transfer of Undertakings (Protection of Employment))",
+          "context": "Schedule-level special clauses S1.6-S1.7 impose TUPE-related disclosure and staff-stability obligations on the Contractor during re-letting.",
+          "evidence_anchor": {
+            "page_ref": "md:line:1511",
+            "anchor_text": "the Contractor reasonably considers that the TUPE Regulations will apply to such re-letting",
+            "section_ref": "Clause S1.6"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:line:17",
+        "anchor_text": "WATER RISK ASSESSMENTS",
+        "section_ref": "Part 1 Form of Contract, heading block and Recital A; cross-confirmed by document footer 'FM Water Risk Assessment Services T&Cs 6 August 2020' at line 1535"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "seed::bexley-6278::lot2::water-risk-assessment-service",
+      "lot_number": "2",
+      "candidate_name": "Water Risk Assessment services (London Borough of Bexley Council Buildings)",
+      "summary": "Provision of Water Risk Assessments across the Council's corporate and operational property estate, delivered in accordance with the Specification (Schedule 1), monitored via Management Reports, and subject to KPIs in Appendix E of the ITT.",
+      "requirements": [
+        "Perform Water Risk Assessments in Council Buildings during the Contract Period (1 September 2020 - 31 August 2022, extendable).",
+        "Comply with the Quality Standards (BSI/ISO/equivalent) and Good Industry Practice where a specific standard is not set out in the Contract.",
+        "Provide all Equipment required; use only substances that conform with relevant British/European standards and, for chemicals, carry HSE/Environment Agency approval.",
+        "Staff the service with appropriately qualified, competent assessors plus a continuously available, English-fluent Contract Manager.",
+        "Submit Management Reports covering KPIs and matters set out in the Specification, on a frequency set out in the Specification.",
+        "Accept Service Credit deductions for Service Failures as defined against KPIs in Appendix E to the ITT."
+      ],
+      "technical_standards": [
+        "BSI British Standards (generic Quality Standards definition)",
+        "ISO (generic Quality Standards definition)",
+        "Health and Safety at Work etc. Act 1974 and related codes of practice",
+        "Relevant British or European standards for any chemicals or substances used"
+      ],
+      "cpv_codes": [
+        "50700000-2",
+        "71315000-9"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:line:43",
+        "anchor_text": "The Council wishes to secure the provision of Water Risk Assessments services in Council Buildings as defined in the attached Specification",
+        "section_ref": "Part 1 Form of Contract, Recital A"
+      }
+    },
+    {
+      "seed_key": "seed::bexley-6278::lot2::water-risk-assessor-personnel",
+      "lot_number": "2",
+      "candidate_name": "Qualified water risk assessor personnel",
+      "summary": "Competent water risk assessor staff plus supervisory employees and contract management, DBS-checked where required, to deliver the Water Risk Assessment service under the Contract.",
+      "requirements": [
+        "All Staff engaged in supply of the Services must possess qualifications, skills and experience set out in the Specification (Clauses B3.2, B4.2).",
+        "Supervisory employees must be sufficient in number to supervise staff and ensure health-and-safety compliance (Clause B5.5).",
+        "Contractor must appoint a suitably qualified, English-fluent Contract Manager continuously available during specified operating hours (Clause B6.1).",
+        "DBS registration and checks must be carried out where required by the Specification, with re-checks at least every three years (Clauses B4.11-B4.13).",
+        "Staff must be in appropriate safety clothing/uniform that is clean and presentable when on Council Premises (Clause B4.2 final sentence)."
+      ],
+      "technical_standards": [
+        "Protection of Freedoms Act 2012 (DBS regime)",
+        "Health and Safety at Work etc. Act 1974"
+      ],
+      "cpv_codes": [
+        "50700000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:line:571",
+        "anchor_text": "Staff who are fire risk assessors should hold the qualifications set out in paragraph 3.12 of the Specification",
+        "section_ref": "Clause B4.2 (template-residual 'fire' text retained; expected to be 'water' for Lot 2)"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lot_number": 9800,
+    "lot_title": 9700,
+    "lot_description": 7200,
+    "cpv_codes": 5500,
+    "requirements": 6800,
+    "technical_standards": 5500,
+    "evaluation_criteria": 1000,
+    "product_requirements": 4500,
+    "contract_period": 9600,
+    "buyer_identity": 9900,
+    "document_role_match": 3500
+  },
+  "extraction_confidence_bps": 5200,
+  "warnings": [
+    {
+      "code": "SCHEDULE_SPECIFICATION_MISSING",
+      "message": "Schedule 1 (Specification) is referenced throughout this document (Clauses 1.2(d), B1.1, B3.1, B3.2, B4.2, B4.11, E1.1, F7, G1.10, and more) but only appears as an empty placeholder heading with no body content. The authoritative scope, assessor qualifications, service frequency, covered premises, KPIs and specific water-hygiene standards (e.g. ACoP L8, HSG274, BS 8558) that would normally be enumerated are therefore not extractable from this document and are expected in the separate '6278 - Draft specification - Lot 2.docx' file.",
+      "evidence_refs": [
+        "md:line:1515 — 'SCHEDULE 1'",
+        "md:line:1517 — 'SPECIFICATION' (no body)"
+      ]
+    },
+    {
+      "code": "EVALUATION_CRITERIA_MISSING",
+      "message": "No evaluation/award criteria, weightings or scoring matrix are present in this document. The Council's Invitation to Tender (Schedule 3) which would contain these is referenced in Clause 1.2(f) but also appears only as an empty placeholder.",
+      "evidence_refs": [
+        "md:line:63 — '(f) The Council's ITT appended hereto as Schedule 3'",
+        "md:line:1523 — 'SCHEDULE 3'",
+        "md:line:1525 — 'THE COUNCIL'S INVITATION TO TENDER' (no body)"
+      ]
+    },
+    {
+      "code": "PRICING_SCHEDULE_MISSING",
+      "message": "Schedule 2 (Pricing Schedule) is referenced throughout (Clauses 1.2(e), 1.4, Definitions) but appears only as an empty placeholder heading; no price structure, units or rate card are embedded here and should be read from the Lot 2 pricing schedule document if present in the tender pack.",
+      "evidence_refs": [
+        "md:line:61 — '(e) The Pricing Schedule appended hereto as Schedule 2'",
+        "md:line:1519 — 'SCHEDULE 2'",
+        "md:line:1521 — 'PRICING SCHEDULE' (no body)"
+      ]
+    },
+    {
+      "code": "TEMPLATE_RESIDUAL_FIRE_REFERENCE",
+      "message": "Clause B4.2 refers to 'fire risk assessors' and 'paragraph 3.12 of the Specification'. This document is the Lot 2 (Water Risk Assessments) T&Cs; the 'fire' reference appears to be a template copy-paste residual from a sibling lot (Lot 1 covers Fire Risk Assessments in the same framework). Downstream assessors should treat this clause as referring to water risk assessor qualifications in the Lot 2 Specification.",
+      "evidence_refs": [
+        "md:line:571 — 'Staff who are fire risk assessors should hold the qualifications set out in paragraph 3.12 of the Specification'"
+      ]
+    },
+    {
+      "code": "DOCUMENT_ROLE_CLASSIFICATION_SUSPECT",
+      "message": "The upstream docling extraction record tagged document_role='technical_specification' with expected overlay 'pdf-extraction/tender-specification'. In fact this document is the draft Terms & Conditions of Contract for Lot 2 ('FM Water Risk Assessment Services T&Cs 6 August 2020'). The tender-specification overlay still yields useful lot/scope/standards metadata, but downstream role-routing and semantic-extraction consumers should be aware this is T&Cs, not a specification proper.",
+      "evidence_refs": [
+        "md:line:1535 — 'FM Water Risk Assessment Services T&Cs 6 August 2020'",
+        "md:line:21 — 'Legal Services' (section heading identifying document origin)",
+        "md:line:25 — 'PART 1. FORM OF CONTRACT'"
+      ]
+    },
+    {
+      "code": "PAGE_COUNT_UNKNOWN",
+      "message": "Docling reported page_count = 0 (structural packet only). Evidence anchors in this extraction use markdown line references (md:line:<n>) rather than page numbers.",
+      "evidence_refs": [
+        "document_extractions.page_count = 0 (storage record)"
+      ]
+    },
+    {
+      "code": "CPV_CODES_INHERITED_FROM_NOTICE",
+      "message": "The CPV codes 50700000-2 (Repair and maintenance services of building installations), 50750000-7 (Lift-maintenance services) and 71315000-9 (Building services) originate from the framework notice 'pc-dc1daee2-772e-f111-813c-005056b64545' covering all eleven lots, not from this document. For Lot 2 (Water Risk Assessments) only 50700000-2 and 71315000-9 are plausibly in-scope; 50750000-7 applies to Lot 7 (Lift Services). No CPV codes are enumerated within the body of this document.",
+      "evidence_refs": [
+        "contract_notices.cpv_codes (process_context): '50700000-2 | 50750000-7 | 71315000-9'"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "md:line:17",
+      "anchor_text": "WATER RISK ASSESSMENTS",
+      "section_ref": "Part 1 heading block (subject of contract)"
+    },
+    {
+      "page_ref": "md:line:43",
+      "anchor_text": "The Council wishes to secure the provision of Water Risk Assessments services in Council Buildings as defined in the attached Specification ('the Services') during the period 1 September 2020 to 31 August 2022 subject to any extension agreed pursuant to the terms of this Contract",
+      "section_ref": "Part 1 Form of Contract, Recital A"
+    },
+    {
+      "page_ref": "md:line:59",
+      "anchor_text": "(d) The Specification appended hereto as Schedule 1",
+      "section_ref": "Clause 1.2(d) - document precedence list"
+    },
+    {
+      "page_ref": "md:line:433",
+      "anchor_text": "'Quality Standards' means the quality standards published by BSI British Standards Institution, the National Standards Body of the United Kingdom, the International Organisation for Standardisation or other reputable or equivalent body",
+      "section_ref": "Definitions, 'Quality Standards'"
+    },
+    {
+      "page_ref": "md:line:535",
+      "anchor_text": "B1.1 The Contractor shall supply the Services during the Contract Period in accordance with the Council's requirements as set out in the Specification the Code of Conduct set out at Appendix D to the Invitation to Tender and the provisions of the Contract",
+      "section_ref": "Clause B1.1"
+    },
+    {
+      "page_ref": "md:line:563",
+      "anchor_text": "B3.1 The Contractor shall at all times comply with the Quality Standards, and where applicable shall maintain accreditation with the relevant Quality Standards authorisation body",
+      "section_ref": "Clause B3.1"
+    },
+    {
+      "page_ref": "md:line:571",
+      "anchor_text": "Staff who are fire risk assessors should hold the qualifications set out in paragraph 3.12 of the Specification",
+      "section_ref": "Clause B4.2 (template residual 'fire' retained in Lot 2 T&Cs)"
+    },
+    {
+      "page_ref": "md:line:595",
+      "anchor_text": "B4.11 The Contractor shall at his expense register with the Disclosure and Barring Service and where required by the Specification undertake appropriate criminal records checks",
+      "section_ref": "Clause B4.11"
+    },
+    {
+      "page_ref": "md:line:789",
+      "anchor_text": "D6.2 The Contractor will ensure that any chemicals or other solutions or substances or materials used for the purposes of the Services will comply with any particular requirements set out in the Specification",
+      "section_ref": "Clause D6.2"
+    },
+    {
+      "page_ref": "md:line:799",
+      "anchor_text": "D6.7 The Contractor shall comply with all applicable Law regarding health and safety including (without limitation) the requirements of the Health and Safety at Work etc. Act 1974",
+      "section_ref": "Clause D6.7"
+    },
+    {
+      "page_ref": "md:line:807",
+      "anchor_text": "E1.1 The Parties acknowledge that for the purposes of the Data Protection Legislation, the Council is the Controller and that the Contractor is the Processor",
+      "section_ref": "Clause E1.1"
+    },
+    {
+      "page_ref": "md:line:1195",
+      "anchor_text": "F7.1 The Contractor shall comply with the monitoring arrangements set out in the Specification including, but not limited to, providing Management Reports",
+      "section_ref": "Clause F7.1"
+    },
+    {
+      "page_ref": "md:line:1217",
+      "anchor_text": "1. Specification",
+      "section_ref": "Schedules list"
+    },
+    {
+      "page_ref": "md:line:1515",
+      "anchor_text": "SCHEDULE 1",
+      "section_ref": "Schedule 1 placeholder heading (no body content)"
+    },
+    {
+      "page_ref": "md:line:1517",
+      "anchor_text": "SPECIFICATION",
+      "section_ref": "Schedule 1 body placeholder (empty)"
+    },
+    {
+      "page_ref": "md:line:1535",
+      "anchor_text": "FM Water Risk Assessment Services T&Cs 6 August 2020",
+      "section_ref": "Document footer confirming role = Terms & Conditions, subject = Water Risk Assessments, issue date = 6 August 2020"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "644a0672b6d9ea2fc4dd76b3cc3a5180846e39a1f3890f3ff21b54fbbbf6e74a",
+    "policy_version": "2026.04.12",
+    "document_role": "terms_and_conditions"
+  }
+}

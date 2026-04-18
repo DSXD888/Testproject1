@@ -1,0 +1,858 @@
+{
+  "lots": [
+    {
+      "lot_number": "SoA-1",
+      "title": "2FE Mainstream Primary School - Schedule of Accommodation (420 places, 1 and 2 storey, single block)",
+      "description": "Accommodation programme for the 2-form entry mainstream primary element of the Stockport Town Centre School project. Recommended GIA is 2,081.9 m2 (excluding 15% uplift); SMBC has instructed the GIA be uplifted to 15% above BB103 recommended GIA, giving an approximate design target of 2,394 m2 (2,400 m2 rounded). The schedule is organised by functional zone: Basic Teaching Area (15 spaces / 881 m2 comprising reception, infant extensive, junior standard, and primary practical/food/science/DT), Large Spaces including halls and studios (2 spaces / 235 m2 with assembly hall suitable for 40 or 60 minute dining in 2-3 sittings, plus an activity studio reducible to 45 m2 music/drama studio under NOR 600), Learning Resource Areas (6 spaces / 85 m2 including a school library, medical treatment / MI room, SEN resource space, and small group rooms), Staff and Administration (9 spaces / 130 m2 including staff room and workroom which may be combined into a minimum 47 m2 space, head office, offices with meeting area, reprographics, reception and entrance, confidential interview rooms, first aid / sick bay), Storage (40 spaces / 146 m2 split between teaching storage, non-teaching storage, cloakrooms/coat stores, cleaners and maintenance stores), and Non-net Area covering kitchen suite, kitchen dry store, kitchen staff toilets/changing, supervisable early years toilets, pupil toilet suites, hygiene rooms with hoist and changing bed, staff toilets, accessible toilets, plant and service shafts, and server rooms. SMBC design assumptions include: restricted town-centre site, 1 and 2 storey new construction in a single block, infant practicals in classrooms, junior practicals in specialist spaces, single library accessed by infants and juniors, servery used as dining furniture storage, hall storage at 10% of hall size, and secure storage is required. Uplift beneficiaries identified by SMBC include secure reception area, corridor width, number of small group rooms, and a parents/club room (20-50 m2) with kitchenette facilities adjoining a hall for wrap-around care, holiday clubs and case conferences.",
+      "requirements": [
+        "Total Gross Internal Area (GIA) 2,081.9 m2 per BB103 recommendation, uplifted by 15% on SMBC instruction to approximately 2,394 m2",
+        "Basic Teaching Area totalling 881 m2 across 15 spaces: 2 reception classrooms at 62 m2 each with sink/drainer, 4 infant extensive classrooms at 62 m2 for practical activities in-classroom, 8 junior standard classrooms at 55 m2, 1 primary practical room for food/science/DT at 69 m2 with bench/sink/cooker arrangements (one workstation per 3-5 pupils)",
+        "Large spaces: 1 assembly hall (150 m2) suitable for 40 or 60 minute dining in 2 or 3 sittings, plus 1 activity studio (85 m2) usable as a music/drama studio and reducible to 45 m2 under NOR 600",
+        "Learning Resource Areas: 1 school library (34 m2), 1 medical treatment/MI room (12 m2), 1 SEN resource space (12 m2) suitable for SEND and multi-agency use, 3 small group rooms (9 m2 each)",
+        "Staff and Administration: 1 staff room (41 m2) combinable with 1 staff workroom (13 m2) into a single space of minimum 47 m2, 1 head's office (16 m2), 1 office with meeting area (9 m2), 1 enclosed office with reception desk (20 m2), 1 reprographics room (11 m2), 1 reception/entrance (10 m2 with 50% circulation), 1 confidential interview room (6 m2), 1 first aid / sick bay (4 m2, increased to minimum 6 m2 if a dedicated sick room)",
+        "Storage: 40 spaces / 146 m2 including classroom stores off reception (2 x 3 m2), classroom stores off infants and juniors (12 x 1.5 m2), specialist teaching resource store (5 m2) with laptop trolley recharge capacity, internal sports equipment store at 10% of hall size, external sports equipment store, dining furniture stores/servery, secure storeroom, coat/bag stores, early-years cloakroom, cleaners' stores, maintenance equipment stores",
+        "Non-net Area / Kitchen and sanitary: 1 full-service kitchen prep/servery suite (58 m2, includes capacity for primary Resource Base pupils), kitchen dry store (3 m2), kitchen staff toilet with changing area (4 m2), 6 supervisable early-years toilets (2 WCs per reception class), 3 pupil toilet suites (18 WCs across remaining pupils, equal boys/girls), 1 hygiene room with hoist, changing bed, accessible WC, and either a sluice or waste-management facility plus storage for pads/spare clothing, 1 staff toilet suite (2 WCs), 2 accessible/staff toilets (one per floor), plant and service shafts (49 m2), servers (10.2 m2)",
+        "SMBC design brief: restricted town-centre site, 1 and 2 storey new construction, single block, all general classrooms standard size, single library accessed by infant and junior pupils, servery doubles as dining furniture storage, hall storage at 10% of hall size, secure storage required"
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "primary-kitchen-full-service-suite",
+          "summary": "Full-service primary school kitchen including prep/servery suite sized to also cater the primary Resource Base pupils",
+          "requirement_type": "kitchen_fit_out",
+          "technical_attributes": [
+            "Prep/servery/wash-up suite minimum 58 m2",
+            "Kitchen dry store 3 m2",
+            "Includes capacity for primary Resource Base pupils"
+          ],
+          "quantity_hint": "1 primary kitchen suite",
+          "evidence_anchor": {
+            "page_ref": "sheet: 2FE Primary",
+            "section_ref": "#/groups/0",
+            "anchor_text": "Food prep areas, kitchen (prep/ servery suite) | 1 | 58 | 58 | Includes capacity for primary Resource Base pupils. Area stated is recommended min. for full service kitchen"
+          }
+        },
+        {
+          "seed_key": "primary-hygiene-room-hoist",
+          "summary": "Primary-school hygiene room fit-out with hoist, changing bed, accessible WC and waste/sluice provision",
+          "requirement_type": "accessibility_fit_out",
+          "technical_attributes": [
+            "Hoist",
+            "Changing bed",
+            "Accessible WC",
+            "Sluice or equivalent waste-management facility",
+            "Storage for pads and spare clothing"
+          ],
+          "quantity_hint": "1 hygiene room at 8 m2 (primary mainstream)",
+          "evidence_anchor": {
+            "page_ref": "sheet: 2FE Primary",
+            "section_ref": "#/groups/0",
+            "anchor_text": "Hygiene rooms (small - 1 door) | 1 | 8 | 8 | With hoist, changing bed and accessible WC. Should have either a sluice or some other facility for dealing with waste"
+          }
+        },
+        {
+          "seed_key": "primary-practical-room-food-science-dt",
+          "summary": "Primary specialist practical room for food/science/DT with bench, sink and cooker arrangements for full-class or half-class teaching",
+          "requirement_type": "specialist_teaching_fit_out",
+          "technical_attributes": [
+            "62-69 m2 for full-class teaching",
+            "34-38 m2 for half-class teaching",
+            "Bench, sink and cooker arrangements (one work station per 3-5 pupils)",
+            "Optional space for quiet dining (~10 m2) for Resource Base pupils"
+          ],
+          "quantity_hint": "1 primary practical room",
+          "evidence_anchor": {
+            "page_ref": "sheet: 2FE Primary",
+            "section_ref": "#/groups/0",
+            "anchor_text": "Primary practical (food/ science/ DT) | 1 | 69 | 69 | 62m2 - 69m2 for full class teaching ... Suitable bench, sink and cooker arrangements e.g.one work station per 3-5 pupils."
+          }
+        },
+        {
+          "seed_key": "primary-assembly-hall-dining",
+          "summary": "Primary assembly hall sized for 40 or 60 minute dining in 2 or 3 sittings",
+          "requirement_type": "hall_construction",
+          "technical_attributes": [
+            "150 m2",
+            "Suitable for 40 or 60 minute dining in 2 or 3 sittings",
+            "Associated internal sports equipment store at 10% of hall area (15 m2)"
+          ],
+          "quantity_hint": "1 assembly hall",
+          "evidence_anchor": {
+            "page_ref": "sheet: 2FE Primary",
+            "section_ref": "#/groups/0",
+            "anchor_text": "Assembly halls, primary | 1 | 150 | 150 | Suitable for 40 or 60 minute dining in 2 or 3 sittings."
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Building Bulletin 103 (BB103) - Area guidelines for mainstream schools",
+          "context": "BB103 provides the baseline recommended GIA (2,081.9 m2) for the primary element. SMBC has instructed the GIA be uplifted to 15% above BB103 recommended GIA, giving approximately 2,400 m2.",
+          "evidence_anchor": {
+            "page_ref": "sheet: 2FE Primary",
+            "section_ref": "#/groups/0",
+            "anchor_text": "* SMBC have instructed that the GIA should be uplifted to 15% above BB103 recommended GIA i.e. a total of approximately 2,400m2."
+          }
+        },
+        {
+          "standard_ref": "Department for Education (DfE) Schedule of Accommodation guidance",
+          "context": "Baseline schedule of accommodation follows DfE SoA guidance; the DfE 'does not recommend the uplift of any space types in particular for a restricted site' - the 15% uplift is an SMBC instruction on top of DfE SoA.",
+          "evidence_anchor": {
+            "page_ref": "sheet: 2FE Primary",
+            "section_ref": "#/groups/0",
+            "anchor_text": "The Department for Education (DfE) does not recommend the uplift of any space types in particular for a restricted site"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "sheet: 2FE Primary",
+        "section_ref": "#/groups/0",
+        "anchor_text": "2FE Mainstream Primary Element | No. Spaces | Av. Area (m2) | Total Area (m2) | Notes and assumptions"
+      }
+    },
+    {
+      "lot_number": "SoA-2",
+      "title": "2-Class Primary Resource Base - Schedule of Accommodation (16 SEND pupils)",
+      "description": "Accommodation programme for the 2-class primary Resource Base element, delivering an additional 193 m2 GIA adjoining the 2FE primary school. Provides two resource-base classrooms at 52 m2 each (with sink and drainer, zoned for any key stage including EYFS and sized for 8 pupils per class) and associated support spaces: 1 small group room (9 m2), 1 staff workroom (12 m2), 1 resource base store (5 m2), and 1 hygiene room (8 m2) with hoist, changing bed, accessible WC and waste/sluice provision. Assumes Resource Base pupils access the primary school assembly halls for PE and dining, access the primary practical room via easy-access pathway, and access the main school staff WCs (no separate staff toilet suite provided). Where quiet dining is required, seating can be accommodated in Food Tech, Parents Room or Classrooms per the Primary SoA. The Resource Base should have easy access to the main school hygiene room; if not, a hygiene room is re-provided within the Resource Base as listed.",
+      "requirements": [
+        "Total Gross Internal Area (GIA) 193 m2 for the 2-class primary Resource Base",
+        "2 resource-base classrooms at 52 m2 each (total 104 m2) with sink and drainer, zoned for any key stage including EYFS, sized for 8 pupils per class, adjoining or with easy access to the primary practical room",
+        "1 small group room at 9 m2",
+        "1 staff workroom at 12 m2",
+        "1 dedicated resource-base store at 5 m2",
+        "1 hygiene room at 8 m2 with hoist, changing bed, accessible WC, sluice/waste-management facility, and storage for pads and spare clothing - provided only if main-school hygiene room is not easily accessible",
+        "Assumption: Resource Base pupils use primary school assembly hall for PE and dining (0 m2 assembly hall within Resource Base); staff use main school staff WCs (0 m2 staff toilet suite within Resource Base)",
+        "Quiet dining alternative: seating for Resource Base pupils may be provided in Food Tech, Parents Room or Classrooms per Primary SoA"
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "primary-rb-classroom-fit-out",
+          "summary": "Primary Resource Base classroom fit-out for 8 pupils per class with sink/drainer and zoning suitable for any key stage including EYFS",
+          "requirement_type": "specialist_classroom_fit_out",
+          "technical_attributes": [
+            "52 m2 per classroom",
+            "Sink and drainer",
+            "Zone sufficient for any key stage including EYFS",
+            "Sized for 8 pupils per class"
+          ],
+          "quantity_hint": "2 classrooms",
+          "evidence_anchor": {
+            "page_ref": "sheet: 2 class primary resource base",
+            "section_ref": "#/groups/1",
+            "anchor_text": "Resource base classrooms. | 2 | 52 | 104 | With sink and drainer. For 8 pupils per class, zone used is sufficient for any key stage, including EYFS."
+          }
+        },
+        {
+          "seed_key": "primary-rb-hygiene-room",
+          "summary": "Resource Base hygiene room fit-out (conditional: provided only if main-school hygiene room is not easily accessible)",
+          "requirement_type": "accessibility_fit_out",
+          "technical_attributes": [
+            "8 m2",
+            "Hoist",
+            "Changing bed",
+            "Accessible WC",
+            "Sluice or equivalent waste-management facility"
+          ],
+          "quantity_hint": "1 hygiene room (conditional)",
+          "evidence_anchor": {
+            "page_ref": "sheet: 2 class primary resource base",
+            "section_ref": "#/groups/1",
+            "anchor_text": "Hygiene rooms (small - 1 door) | 1 | 8 | 8 | Resource Base should have easy access to main school hygiene room. If not, re-provide in Resource Base."
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Department for Education (DfE) Schedule of Accommodation guidance - Resource Base spaces",
+          "context": "Resource Base spaces are dimensioned per DfE SoA guidance for specialist provision within mainstream primary settings.",
+          "evidence_anchor": {
+            "page_ref": "sheet: 2 class primary resource base",
+            "section_ref": "#/groups/1",
+            "anchor_text": "See Primary SoA."
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "sheet: 2 class primary resource base",
+        "section_ref": "#/groups/1",
+        "anchor_text": "2 Class Primary Resource Base Element | No. Spaces | Av. Area (m2) | Total Area (m2) | Notes and assumptions"
+      }
+    },
+    {
+      "lot_number": "SoA-3",
+      "title": "5FE Mainstream Secondary School - Schedule of Accommodation (750 places, Typical Curriculum Type, 5 storey, 2 blocks)",
+      "description": "Accommodation programme for the 5-form entry mainstream secondary element of the Stockport Town Centre School project (750 pupils, 'Typical' curriculum type). Recommended GIA is 5,889.7 m2 (excluding 15% uplift); SMBC has instructed the GIA be uplifted to 15% above BB103 recommended GIA, giving an approximate design target of 6,773 m2 (6,800 m2 rounded). SMBC design brief: restricted town-centre site, 5 storey new construction, 2 blocks (as fixed in the DfE SoA tool), Typical curriculum type, group sizes of 30 pupils unless otherwise stated, all science laboratories standard size, all general classrooms standard size, assembly hall with bleacher seating, dining hall sized for 60 minute continuous dining (considered optimal). The schedule covers Basic Teaching (33 rooms / 2,221 m2 including 6 maths + 6 English + 4 MFL + 4 humanities classrooms at 55 m2, 1 ICT-rich classroom at 69 m2, 6 general science laboratories at 83 m2, 1 3D art room at 97 m2, 1 music fitted-extensive room at 69 m2, 1 drama studio at 97 m2, 1 graphic products / electronics light practical at 83 m2, 1 resistant materials heavy practical workshop at 111 m2, 1 food-tech heavy practical at 97 m2), Large Spaces halls and indoor PE (4 spaces / 1,026 m2 including main hall with bleachers 197 m2, a 3-court 18m x 28m school sports hall 504 m2, activity studio 10m x 12m 120 m2, and dining area 205 m2 sized for 60-minute continuous dining per DfE SoA), Learning Resource Areas (13 spaces / 233 m2 including a 104 m2 library, kiln room, standard and extensive music practice rooms, recording and lighting/audio control rooms, SEN therapy / MI room, SEN resource base, small and large group rooms), Staff and Administration (32 spaces / 330 m2 including teaching-staff workrooms, social staff room at 34 m2, head's office, admin suite PA, reprographics, general office, entrance/reception, interview and sick rooms, 8 one-person office/meeting rooms at 9 m2, exam, SENCo/learning-support, visiting-professionals, ICT-tech and premises workroom offices, community entrance, kitchenettes, laundry allowance), plus Storage, Non-net Area and plant allowances.",
+      "requirements": [
+        "Total Gross Internal Area (GIA) 5,889.7 m2 per BB103 recommendation, uplifted by 15% on SMBC instruction to approximately 6,773 m2 (6,800 m2 rounded)",
+        "33 basic-teaching spaces / 2,221 m2 covering general classrooms (6 maths, 6 English, 4 MFL, 4 humanities at 55 m2 each), 1 ICT-rich classroom (69 m2), 6 general science laboratories (83 m2 each / 498 m2 total), 1 3D art room (97 m2), 1 music fitted-extensive room (69 m2), 1 drama studio (97 m2), 1 graphic products / electronics light-practical room (83 m2), 1 resistant materials heavy-practical workshop (111 m2), 1 food-technology heavy-practical room (97 m2)",
+        "Large spaces 4 / 1,026 m2: 1 main hall with bleacher seating (197 m2), 1 3-court school sports hall 18m x 28m (504 m2), 1 activity studio 10m x 12m (120 m2), 1 dining area (205 m2 sized per DfE SoA for 60-minute continuous dining)",
+        "Learning Resource Areas 13 / 233 m2: library (104 m2), kiln room (4 m2), standard music practice (8 m2), 2 extensive music practice rooms (16 m2 each), recording control room (8 m2), lighting/audio control room (6 m2), SEN therapy/MI room (12 m2), SEN resource base (16 m2), 3 small group rooms (9 m2 each), 1 large group room for SEN (16 m2)",
+        "Staff and Administration 32 / 330 m2: 5 teaching-staff workrooms (11 m2 each), 1 small-team teaching workroom (9 m2), 1 staff social room (34 m2), 1 community entrance (8 m2 with 50% circulation), 5 kitchenettes (3 m2 each), head's office/meeting room (16 m2), admin office (8 m2 PA to head), reprographics (13 m2), general office (27 m2), entrance/reception (16 m2 with 50% circulation), interview room (6 m2), sick room (9 m2), 8 one-person office/meeting rooms (9 m2 each), exams office (9 m2), SENCo/learning-support office (11 m2), ICT-tech workroom (11 m2), premises workroom (11 m2)",
+        "Storage (Teaching): 4 general teaching / IT stores (5 m2 each / 20 m2), 1 central science prep room (62 m2), 1 chemical store off prep room (7 m2), 2 specialist stores off art rooms (5 m2 each / 10 m2), 1 multi-materials store/prep room (34 m2)",
+        "Storage (PE): 1 sports hall store (51 m2), 1 community sports store (4 m2), 1 activity studio store (12 m2)",
+        "SMBC design brief: 5 storey new construction, 2 blocks (fixed in DfE SoA tool), group sizes 30 pupils unless otherwise stated, all science laboratories standard size, all general classrooms standard size, assembly hall with bleacher seating, dining hall for 60 minute continuous dining (considered optimal)"
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "secondary-science-laboratory-standard",
+          "summary": "Standard-size general science laboratory fit-out for secondary school",
+          "requirement_type": "specialist_laboratory_fit_out",
+          "technical_attributes": [
+            "83 m2 per laboratory",
+            "Standard size (all science laboratories standard size per SMBC assumption)",
+            "Supported by 62 m2 central science prep room and 7 m2 chemical store"
+          ],
+          "quantity_hint": "6 general science laboratories",
+          "evidence_anchor": {
+            "page_ref": "sheet: 5FE Secondary",
+            "section_ref": "#/groups/2",
+            "anchor_text": "general science laboratory | 6 | 83 | 498"
+          }
+        },
+        {
+          "seed_key": "secondary-sports-hall-3court",
+          "summary": "3-court school sports hall (18m x 28m) with associated PE stores",
+          "requirement_type": "sports_facility_construction",
+          "technical_attributes": [
+            "504 m2",
+            "3-court configuration 18m x 28m",
+            "Associated 51 m2 sports hall PE store",
+            "Activity studio PE store 12 m2"
+          ],
+          "quantity_hint": "1 sports hall",
+          "evidence_anchor": {
+            "page_ref": "sheet: 5FE Secondary",
+            "section_ref": "#/groups/2",
+            "anchor_text": "school sports hall (3-court, 18m x 28m) | 1 | 504 | 504"
+          }
+        },
+        {
+          "seed_key": "secondary-main-hall-bleachers",
+          "summary": "Secondary assembly / main hall with retractable bleacher seating",
+          "requirement_type": "hall_construction",
+          "technical_attributes": [
+            "197 m2",
+            "Bleacher seating (SMBC assumption: Assembly hall with bleacher seating)"
+          ],
+          "quantity_hint": "1 main hall",
+          "evidence_anchor": {
+            "page_ref": "sheet: 5FE Secondary",
+            "section_ref": "#/groups/2",
+            "anchor_text": "main hall (secondary, with bleachers) | 1 | 197 | 197"
+          }
+        },
+        {
+          "seed_key": "secondary-resistant-materials-workshop",
+          "summary": "Secondary resistant-materials heavy-practical DT workshop",
+          "requirement_type": "specialist_teaching_fit_out",
+          "technical_attributes": [
+            "111 m2",
+            "Heavy-practical classification",
+            "Supported by 34 m2 multi-materials store / prep room"
+          ],
+          "quantity_hint": "1 workshop",
+          "evidence_anchor": {
+            "page_ref": "sheet: 5FE Secondary",
+            "section_ref": "#/groups/2",
+            "anchor_text": "resistant materials workshop (heavy practical) | 1 | 111 | 111"
+          }
+        },
+        {
+          "seed_key": "secondary-food-tech-room",
+          "summary": "Secondary food-technology heavy-practical room",
+          "requirement_type": "specialist_teaching_fit_out",
+          "technical_attributes": [
+            "97 m2",
+            "Heavy-practical classification"
+          ],
+          "quantity_hint": "1 food room",
+          "evidence_anchor": {
+            "page_ref": "sheet: 5FE Secondary",
+            "section_ref": "#/groups/2",
+            "anchor_text": "food room (heavy practical) | 1 | 97 | 97"
+          }
+        },
+        {
+          "seed_key": "secondary-drama-studio",
+          "summary": "Secondary drama studio",
+          "requirement_type": "specialist_teaching_fit_out",
+          "technical_attributes": [
+            "97 m2",
+            "Supported by recording control room (8 m2) and lighting/audio control room (6 m2)"
+          ],
+          "quantity_hint": "1 drama studio",
+          "evidence_anchor": {
+            "page_ref": "sheet: 5FE Secondary",
+            "section_ref": "#/groups/2",
+            "anchor_text": "drama studio | 1 | 97 | 97"
+          }
+        },
+        {
+          "seed_key": "secondary-music-suite",
+          "summary": "Secondary music suite: fitted-extensive music room, practice rooms and recording/lighting control rooms",
+          "requirement_type": "specialist_teaching_fit_out",
+          "technical_attributes": [
+            "1 fitted-extensive music room (69 m2)",
+            "1 standard music practice room (8 m2)",
+            "2 extensive music practice rooms (16 m2 each)",
+            "1 recording control room (8 m2)",
+            "1 lighting/audio control room (6 m2)"
+          ],
+          "quantity_hint": "1 music suite",
+          "evidence_anchor": {
+            "page_ref": "sheet: 5FE Secondary",
+            "section_ref": "#/groups/2",
+            "anchor_text": "music room (fitted extensive) | 1 | 69 | 69"
+          }
+        },
+        {
+          "seed_key": "secondary-dining-area",
+          "summary": "Secondary dining area sized per DfE SoA for 60-minute continuous dining",
+          "requirement_type": "dining_fit_out",
+          "technical_attributes": [
+            "205 m2",
+            "Sized for 60-minute continuous dining per DfE SoA (approx 3 sittings)"
+          ],
+          "quantity_hint": "1 dining area",
+          "evidence_anchor": {
+            "page_ref": "sheet: 5FE Secondary",
+            "section_ref": "#/groups/2",
+            "anchor_text": "Dining and Social Areas ... Minimum total dining area for 60 minute continuous dining is 205m2 (equivalent to apx 3 sittings) per DfE SoA."
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Building Bulletin 103 (BB103) - Area guidelines for mainstream schools",
+          "context": "BB103 provides the baseline recommended GIA (5,889.7 m2) for the secondary element. SMBC has instructed the GIA be uplifted to 15% above BB103 recommended GIA, giving approximately 6,800 m2.",
+          "evidence_anchor": {
+            "page_ref": "sheet: 5FE Secondary",
+            "section_ref": "#/groups/2",
+            "anchor_text": "** SMBC have instructed that the GIA should be uplifted to 15% above BB103 recommended GIA i.e. a total of approximately 6,800m2."
+          }
+        },
+        {
+          "standard_ref": "Department for Education (DfE) Schedule of Accommodation tool",
+          "context": "The secondary SoA is generated using the DfE SoA tool with the Typical curriculum type selected; the 2-block constraint is fixed in the DfE SoA tool. Dining area 205 m2 is the DfE SoA minimum for 60-minute continuous dining.",
+          "evidence_anchor": {
+            "page_ref": "sheet: Assumptions",
+            "section_ref": "#/groups/5",
+            "anchor_text": "2 blocks (fixed in DfE SoA tool)"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "sheet: 5FE Secondary",
+        "section_ref": "#/groups/2",
+        "anchor_text": "5FE Mainstream Secondary Element | 750 Places, \"Typical\" Curriculum Type"
+      }
+    },
+    {
+      "lot_number": "SoA-4",
+      "title": "4-Class Secondary Resource Base - Schedule of Accommodation (32 SEND pupils)",
+      "description": "Accommodation programme for the 4-class secondary Resource Base element, delivering an additional 427 m2 GIA attached to the 5FE secondary school. Provides four resource-base classrooms at 49 m2 each (total 196 m2, sized for 8 pupils per class) and associated support spaces covering Basic Teaching, Large spaces, Learning Resource, Staff and Administration, Storage and Non-net categories. The design assumption is that there will be sufficient specialist practical capacity in the main secondary school so additional specialist practicals are not provisioned inside the Resource Base.",
+      "requirements": [
+        "Total Gross Internal Area (GIA) 427 m2 for the 4-class secondary Resource Base",
+        "4 resource-base classrooms at 49 m2 each (total 196 m2), sized for 8 pupils per class",
+        "Assumption: sufficient specialist practical capacity exists in the main secondary school; no duplicate specialist practicals provisioned within the Resource Base"
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "secondary-rb-classroom-fit-out",
+          "summary": "Secondary Resource Base classroom fit-out for 8 pupils per class, relying on main-school specialist practicals for extended curriculum",
+          "requirement_type": "specialist_classroom_fit_out",
+          "technical_attributes": [
+            "49 m2 per classroom",
+            "Sized for 8 pupils per class",
+            "Assumes main-school specialist practical access"
+          ],
+          "quantity_hint": "4 classrooms",
+          "evidence_anchor": {
+            "page_ref": "sheet: 4 class secondary resource base",
+            "section_ref": "#/groups/3",
+            "anchor_text": "Resource base classrooms. | 4 | 49 | 196 | For 8 pupils per class. Assumption is that there will be sufficient specialist practical capacity in the main school."
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Department for Education (DfE) Schedule of Accommodation guidance - Secondary Resource Base",
+          "context": "Resource Base spaces are dimensioned per DfE SoA guidance for specialist provision within mainstream secondary settings.",
+          "evidence_anchor": {
+            "page_ref": "sheet: 4 class secondary resource base",
+            "section_ref": "#/groups/3",
+            "anchor_text": "Assumption is that there will be sufficient specialist practical capacity in the main school."
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "sheet: 4 class secondary resource base",
+        "section_ref": "#/groups/3",
+        "anchor_text": "4 Class Secondary Resource Base Element | No. Spaces | Av. Area (m2) | Total Area (m2) | Notes and assumptions"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "primary-kitchen-full-service-suite",
+      "lot_number": "SoA-1",
+      "candidate_name": "Primary school kitchen prep/servery suite",
+      "summary": "Full-service primary kitchen with prep, servery, wash-up, dry store, cold/freezer stores (where applicable) and staff toilet/changing - sized to cater primary mainstream and primary Resource Base pupils",
+      "requirements": [
+        "Prep/servery/wash-up suite minimum 58 m2",
+        "Kitchen dry store 3 m2",
+        "Kitchen staff toilet with changing area 4 m2",
+        "Includes capacity for primary Resource Base pupils"
+      ],
+      "technical_standards": [
+        "Building Bulletin 103 (BB103)",
+        "DfE Schedule of Accommodation guidance"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 2FE Primary",
+        "section_ref": "#/groups/0",
+        "anchor_text": "Food prep areas, kitchen (prep/ servery suite) | 1 | 58 | 58 | Includes capacity for primary Resource Base pupils. Area stated is recommended min. for full service kitchen"
+      }
+    },
+    {
+      "seed_key": "primary-hygiene-room-hoist",
+      "lot_number": "SoA-1",
+      "candidate_name": "Primary hygiene room fit-out (hoist, changing bed, accessible WC)",
+      "summary": "Accessibility fit-out for the primary hygiene room including ceiling/mobile hoist, changing bed, accessible WC and waste-management (sluice or equivalent)",
+      "requirements": [
+        "8 m2 room",
+        "Hoist installation",
+        "Height-adjustable changing bed",
+        "Accessible WC and washing facilities",
+        "Sluice or equivalent waste-management facility",
+        "Storage for pads and spare clothing"
+      ],
+      "technical_standards": [
+        "DfE Schedule of Accommodation guidance (hygiene rooms)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 2FE Primary",
+        "section_ref": "#/groups/0",
+        "anchor_text": "Hygiene rooms (small - 1 door) | 1 | 8 | 8 | With hoist, changing bed and accessible WC."
+      }
+    },
+    {
+      "seed_key": "primary-assembly-hall-dining",
+      "lot_number": "SoA-1",
+      "candidate_name": "Primary assembly hall (dining-capable)",
+      "summary": "Primary assembly hall sized 150 m2 suitable for 40 or 60 minute dining in 2 or 3 sittings, with 10%-of-hall internal sports equipment storage",
+      "requirements": [
+        "150 m2 hall",
+        "Configurable for 40 or 60 minute dining in 2 or 3 sittings",
+        "15 m2 internal sports equipment store (10% of hall)",
+        "4 m2 external sports equipment store",
+        "14 m2 dining furniture store / servery"
+      ],
+      "technical_standards": [
+        "Building Bulletin 103 (BB103)",
+        "DfE Schedule of Accommodation guidance"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 2FE Primary",
+        "section_ref": "#/groups/0",
+        "anchor_text": "Assembly halls, primary | 1 | 150 | 150 | Suitable for 40 or 60 minute dining in 2 or 3 sittings."
+      }
+    },
+    {
+      "seed_key": "primary-practical-room-food-science-dt",
+      "lot_number": "SoA-1",
+      "candidate_name": "Primary specialist practical room (food/science/DT)",
+      "summary": "Primary specialist practical room with bench/sink/cooker arrangements for full- or half-class teaching, with optional quiet-dining provision",
+      "requirements": [
+        "62-69 m2 for full-class teaching; 34-38 m2 for half-class teaching",
+        "Bench, sink and cooker arrangements - one work station per 3-5 pupils",
+        "Optional ~10 m2 quiet dining allocation for Resource Base pupils"
+      ],
+      "technical_standards": [
+        "DfE Schedule of Accommodation guidance"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 2FE Primary",
+        "section_ref": "#/groups/0",
+        "anchor_text": "Primary practical (food/ science/ DT) | 1 | 69 | 69 | 62m2 - 69m2 for full class teaching ... Suitable bench, sink and cooker arrangements e.g.one work station per 3-5 pupils."
+      }
+    },
+    {
+      "seed_key": "primary-rb-classroom-fit-out",
+      "lot_number": "SoA-2",
+      "candidate_name": "Primary Resource Base classroom fit-out",
+      "summary": "Primary Resource Base classroom fit-out with sink/drainer, zoned for any key stage including EYFS, sized for 8 pupils per class",
+      "requirements": [
+        "52 m2 per classroom",
+        "Sink and drainer",
+        "Zone sufficient for any key stage including EYFS",
+        "8 pupils per class capacity"
+      ],
+      "technical_standards": [
+        "DfE Schedule of Accommodation guidance - Resource Base spaces"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 2 class primary resource base",
+        "section_ref": "#/groups/1",
+        "anchor_text": "Resource base classrooms. | 2 | 52 | 104 | With sink and drainer. For 8 pupils per class, zone used is sufficient for any key stage, including EYFS."
+      }
+    },
+    {
+      "seed_key": "primary-rb-hygiene-room",
+      "lot_number": "SoA-2",
+      "candidate_name": "Primary Resource Base hygiene room fit-out (conditional)",
+      "summary": "Primary Resource Base hygiene room fit-out provisioned only if main-school hygiene room is not easily accessible",
+      "requirements": [
+        "8 m2 room",
+        "Hoist, changing bed, accessible WC",
+        "Sluice or equivalent waste-management facility",
+        "Storage for pads and spare clothing",
+        "Conditional: only if Resource Base does not have easy access to main-school hygiene room"
+      ],
+      "technical_standards": [
+        "DfE Schedule of Accommodation guidance - hygiene rooms"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 2 class primary resource base",
+        "section_ref": "#/groups/1",
+        "anchor_text": "Hygiene rooms (small - 1 door) | 1 | 8 | 8 | Resource Base should have easy access to main school hygiene room. If not, re-provide in Resource Base."
+      }
+    },
+    {
+      "seed_key": "secondary-science-laboratory-standard",
+      "lot_number": "SoA-3",
+      "candidate_name": "Secondary general science laboratory (standard size)",
+      "summary": "Standard-size general science laboratory fit-out for a 5FE Typical-curriculum secondary school, with supporting central science prep room and chemical store",
+      "requirements": [
+        "83 m2 per laboratory",
+        "All science laboratories standard size per SMBC assumption",
+        "Supporting 62 m2 central science prep room",
+        "Supporting 7 m2 chemical store off prep room"
+      ],
+      "technical_standards": [
+        "Building Bulletin 103 (BB103)",
+        "DfE Schedule of Accommodation guidance (science spaces)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 5FE Secondary",
+        "section_ref": "#/groups/2",
+        "anchor_text": "general science laboratory | 6 | 83 | 498"
+      }
+    },
+    {
+      "seed_key": "secondary-sports-hall-3court",
+      "lot_number": "SoA-3",
+      "candidate_name": "Secondary 3-court school sports hall (18m x 28m)",
+      "summary": "3-court secondary school sports hall with sprung floor, run-off zones, retractable equipment and associated sports stores",
+      "requirements": [
+        "504 m2 hall",
+        "3-court configuration 18m x 28m",
+        "51 m2 sports hall PE store",
+        "4 m2 community PE store",
+        "12 m2 activity studio PE store"
+      ],
+      "technical_standards": [
+        "Building Bulletin 103 (BB103)",
+        "DfE Schedule of Accommodation guidance (sports halls)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 5FE Secondary",
+        "section_ref": "#/groups/2",
+        "anchor_text": "school sports hall (3-court, 18m x 28m) | 1 | 504 | 504"
+      }
+    },
+    {
+      "seed_key": "secondary-main-hall-bleachers",
+      "lot_number": "SoA-3",
+      "candidate_name": "Secondary main hall with retractable bleacher seating",
+      "summary": "Secondary assembly / main hall equipped with retractable bleacher seating to support flexible event, assembly and performance use",
+      "requirements": [
+        "197 m2 hall",
+        "Bleacher (telescopic/retractable) seating system",
+        "Assembly hall with bleacher seating per SMBC design assumption"
+      ],
+      "technical_standards": [
+        "Building Bulletin 103 (BB103)",
+        "DfE Schedule of Accommodation guidance (main halls)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 5FE Secondary",
+        "section_ref": "#/groups/2",
+        "anchor_text": "main hall (secondary, with bleachers) | 1 | 197 | 197"
+      }
+    },
+    {
+      "seed_key": "secondary-resistant-materials-workshop",
+      "lot_number": "SoA-3",
+      "candidate_name": "Secondary resistant-materials DT heavy-practical workshop",
+      "summary": "Secondary resistant-materials workshop classified as heavy-practical with associated multi-materials store/prep room",
+      "requirements": [
+        "111 m2 workshop",
+        "Heavy-practical classification",
+        "34 m2 multi-materials store / prep room"
+      ],
+      "technical_standards": [
+        "DfE Schedule of Accommodation guidance (DT heavy-practical spaces)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 5FE Secondary",
+        "section_ref": "#/groups/2",
+        "anchor_text": "resistant materials workshop (heavy practical) | 1 | 111 | 111"
+      }
+    },
+    {
+      "seed_key": "secondary-food-tech-room",
+      "lot_number": "SoA-3",
+      "candidate_name": "Secondary food-technology heavy-practical room",
+      "summary": "Secondary food-technology heavy-practical room with cookers, workstations and wash-down services",
+      "requirements": [
+        "97 m2 room",
+        "Heavy-practical classification"
+      ],
+      "technical_standards": [
+        "DfE Schedule of Accommodation guidance (food-tech spaces)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 5FE Secondary",
+        "section_ref": "#/groups/2",
+        "anchor_text": "food room (heavy practical) | 1 | 97 | 97"
+      }
+    },
+    {
+      "seed_key": "secondary-drama-studio",
+      "lot_number": "SoA-3",
+      "candidate_name": "Secondary drama studio with recording/lighting control rooms",
+      "summary": "Secondary drama studio with acoustic treatment, performance lighting and linked recording/lighting control rooms",
+      "requirements": [
+        "97 m2 studio",
+        "8 m2 recording control room",
+        "6 m2 lighting/audio control room"
+      ],
+      "technical_standards": [
+        "DfE Schedule of Accommodation guidance (performance spaces)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 5FE Secondary",
+        "section_ref": "#/groups/2",
+        "anchor_text": "drama studio | 1 | 97 | 97"
+      }
+    },
+    {
+      "seed_key": "secondary-music-suite",
+      "lot_number": "SoA-3",
+      "candidate_name": "Secondary music suite (fitted-extensive room + practice rooms)",
+      "summary": "Secondary music suite comprising a fitted-extensive music room with associated standard and extensive practice rooms",
+      "requirements": [
+        "1 fitted-extensive music room (69 m2)",
+        "1 standard music practice room (8 m2)",
+        "2 extensive music practice rooms (16 m2 each)",
+        "1 recording control room (8 m2)",
+        "1 lighting/audio control room (6 m2)"
+      ],
+      "technical_standards": [
+        "DfE Schedule of Accommodation guidance (music spaces)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 5FE Secondary",
+        "section_ref": "#/groups/2",
+        "anchor_text": "music room (fitted extensive) | 1 | 69 | 69"
+      }
+    },
+    {
+      "seed_key": "secondary-dining-area",
+      "lot_number": "SoA-3",
+      "candidate_name": "Secondary dining area (60-minute continuous dining)",
+      "summary": "Secondary dining area sized per DfE SoA for 60-minute continuous dining (approx 3 sittings)",
+      "requirements": [
+        "205 m2 minimum",
+        "60-minute continuous dining (considered optimal per SMBC assumption)",
+        "Approx 3 sittings"
+      ],
+      "technical_standards": [
+        "DfE Schedule of Accommodation guidance (dining)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 5FE Secondary",
+        "section_ref": "#/groups/2",
+        "anchor_text": "Minimum total dining area for 60 minute continuous dining is 205m2 (equivalent to apx 3 sittings) per DfE SoA."
+      }
+    },
+    {
+      "seed_key": "secondary-rb-classroom-fit-out",
+      "lot_number": "SoA-4",
+      "candidate_name": "Secondary Resource Base classroom fit-out",
+      "summary": "Secondary Resource Base classroom fit-out for 8 pupils per class, relying on main-school specialist practical capacity",
+      "requirements": [
+        "49 m2 per classroom",
+        "Sized for 8 pupils per class",
+        "Assumes access to main-school specialist practicals"
+      ],
+      "technical_standards": [
+        "DfE Schedule of Accommodation guidance - Secondary Resource Base"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "sheet: 4 class secondary resource base",
+        "section_ref": "#/groups/3",
+        "anchor_text": "Resource base classrooms. | 4 | 49 | 196 | For 8 pupils per class. Assumption is that there will be sufficient specialist practical capacity in the main school."
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots": 7800,
+    "lots.titles": 8500,
+    "lots.descriptions": 8200,
+    "lots.requirements": 8000,
+    "lots.evaluation_criteria": 2000,
+    "lots.cpv_codes": 1000,
+    "lots.technical_standards": 8400,
+    "product_requirement_seeds": 6500,
+    "extraction_scope": 9500,
+    "source_markdown_hash": 10000,
+    "evidence_anchors": 9000
+  },
+  "extraction_confidence_bps": 7600,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_TECHNICAL_SCHEDULE_NOT_PROCUREMENT_LOT_DEFINITION",
+      "message": "This document is a Schedule of Accommodation (a technical-specification annex / design brief for the Stockport Town Centre School). It is NOT a procurement-lot-defining tender pack. The four 'lots' emitted (SoA-1 .. SoA-4) correspond to the four distinct accommodation programmes the document presents (2FE Primary mainstream, 2-class Primary Resource Base, 5FE Secondary mainstream, 4-class Secondary Resource Base). They are space-programme deliverables for the overall design-team appointment, not independently biddable procurement lots.",
+      "evidence_refs": [
+        "document_title=Schedule of Accommodation & Calculations DRAFT (To be read)",
+        "document_role=technical_specification"
+      ]
+    },
+    {
+      "code": "NO_EVALUATION_CRITERIA_IN_SOURCE",
+      "message": "The Schedule of Accommodation does not contain bidder evaluation criteria or weighting text. Evaluation criteria arrays are intentionally left empty for all four lots. Evaluation criteria for this procurement live in the separate Invitation-to-Participate / Instructions and Response Document annexes, not in this schedule.",
+      "evidence_refs": [
+        "expected_overlays=['pdf-extraction/tender-specification']"
+      ]
+    },
+    {
+      "code": "NO_CPV_CODES_IN_SOURCE",
+      "message": "The Schedule of Accommodation does not cite any CPV codes. CPV assignment for this tender is published at the process/notice level (category '150000 - Consultancy' per notice metadata) and is not duplicated in this schedule. cpv_codes arrays are intentionally left empty for all four lots.",
+      "evidence_refs": [
+        "notice_category=150000 - Consultancy"
+      ]
+    },
+    {
+      "code": "NO_LOT_NUMBERING_IN_SOURCE",
+      "message": "The source document does not number its accommodation programmes as procurement lots. Lot identifiers SoA-1..SoA-4 are synthetic labels derived from the four Docling sections (#/groups/0..3). The five existing notice_lots rows at the process level (Architect Annex A.1, CDM PD Annex A.4, Structural Annex A.5, etc.) are per-discipline scope lots and are orthogonal to these four accommodation programmes; the daemon should not attempt to merge or replace them based on this extraction.",
+      "evidence_refs": [
+        "section_ref=#/groups/0",
+        "section_ref=#/groups/1",
+        "section_ref=#/groups/2",
+        "section_ref=#/groups/3"
+      ]
+    },
+    {
+      "code": "PRODUCT_SEEDS_ARE_BUILDING_FIT_OUT_NOT_GOODS",
+      "message": "Because this tender is a design-team appointment (multi-disciplinary consultancy), the product_requirement_seeds emitted describe building fit-out elements and specialist rooms (kitchen suite, hygiene room hoist, sports hall, science laboratories, DT workshops, drama/music suite, dining area, Resource Base classroom fit-out). They are upstream design requirements, not goods that the buyer will purchase under this procurement. Downstream consumers should expect these seeds to feed construction-stage product discovery (future contracts), not the current Consultancy appointment.",
+      "evidence_refs": [
+        "notice_category=150000 - Consultancy"
+      ]
+    },
+    {
+      "code": "DOCLING_PAGE_COLLAPSE_FOR_XLSX",
+      "message": "Source PDF extraction was generated from an .xlsx workbook; Docling collapsed all six sheets into page_start=1, page_end=1 for every section. Evidence anchors therefore rely on the Docling section_ref (#/groups/0..5) and the sheet heading as the primary locator, not on meaningful PDF page numbers.",
+      "evidence_refs": [
+        "filename=Schedule of Accommodation & Calculations DRAFT (To be read).xlsx"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "sheet: 2FE Primary",
+      "section_ref": "#/groups/0",
+      "anchor_text": "2FE Mainstream Primary Element | No. Spaces | Av. Area (m2) | Total Area (m2) | Notes and assumptions"
+    },
+    {
+      "page_ref": "sheet: 2FE Primary",
+      "section_ref": "#/groups/0",
+      "anchor_text": "Total Gross Internal Area (GIA)* | | | 2081.9 | Excludes 15% uplift* | 2394.18 | Including 15% uplift"
+    },
+    {
+      "page_ref": "sheet: 2FE Primary",
+      "section_ref": "#/groups/0",
+      "anchor_text": "* SMBC have instructed that the GIA should be uplifted to 15% above BB103 recommended GIA i.e. a total of approximately 2,400m2."
+    },
+    {
+      "page_ref": "sheet: 2 class primary resource base",
+      "section_ref": "#/groups/1",
+      "anchor_text": "2 Class Primary Resource Base Element | No. Spaces | Av. Area (m2) | Total Area (m2) | Notes and assumptions"
+    },
+    {
+      "page_ref": "sheet: 2 class primary resource base",
+      "section_ref": "#/groups/1",
+      "anchor_text": "Total Gross Internal Area (GIA) | | | 193"
+    },
+    {
+      "page_ref": "sheet: 5FE Secondary",
+      "section_ref": "#/groups/2",
+      "anchor_text": "5FE Mainstream Secondary Element | 750 Places, \"Typical\" Curriculum Type"
+    },
+    {
+      "page_ref": "sheet: 5FE Secondary",
+      "section_ref": "#/groups/2",
+      "anchor_text": "Total Gross Internal Area (GIA)** | | | 5889.7 | Excludes 15% uplift* | 6773.15 | Including 15% uplift"
+    },
+    {
+      "page_ref": "sheet: 5FE Secondary",
+      "section_ref": "#/groups/2",
+      "anchor_text": "** SMBC have instructed that the GIA should be uplifted to 15% above BB103 recommended GIA i.e. a total of approximately 6,800m2."
+    },
+    {
+      "page_ref": "sheet: 4 class secondary resource base",
+      "section_ref": "#/groups/3",
+      "anchor_text": "4 Class Secondary Resource Base Element | No. Spaces | Av. Area (m2) | Total Area (m2) | Notes and assumptions"
+    },
+    {
+      "page_ref": "sheet: 4 class secondary resource base",
+      "section_ref": "#/groups/3",
+      "anchor_text": "Total Gross Internal Area (GIA) | | | 427"
+    },
+    {
+      "page_ref": "sheet: Calcs",
+      "section_ref": "#/groups/4",
+      "anchor_text": "Per BB103 calc"
+    },
+    {
+      "page_ref": "sheet: Assumptions",
+      "section_ref": "#/groups/5",
+      "anchor_text": "Primary | Restricted site (although this does not change the overall GIA) | 1 and 2 storey new construction | 1 block | All general classrooms standard size"
+    },
+    {
+      "page_ref": "sheet: Assumptions",
+      "section_ref": "#/groups/5",
+      "anchor_text": "Secondary | Restricted site | 5 storey new construction | 2 blocks (fixed in DfE SoA tool) | Typical curriculum type | Group sizes of 30 pupils unless otherwise stated | Assembly hall with bleacher seating | Dining hall for 60 minute continous dining (considred optimal)"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "9ade44c14bcd59d844e69aba4acd7e22399f3a30c24126ae1c7ebe8f5602ca9e",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

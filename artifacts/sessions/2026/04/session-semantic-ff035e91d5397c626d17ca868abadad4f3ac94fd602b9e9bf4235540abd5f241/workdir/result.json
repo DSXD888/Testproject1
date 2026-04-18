@@ -1,0 +1,155 @@
+{
+  "lots": [
+    {
+      "lot_number": "10",
+      "title": "Provision of Planned, Preventative & Responsive Residential Property Maintenance and Compliance Services",
+      "description": "Document asserts scope to Lot 10 of Framework 6278 via the Appendix 1 reference-form heading. The extracted body is a pre-supplier-qualification (PSQ) reference questionnaire (Appendix 1) plus a covering letter to the nominated referee (Appendix 2); no lot-specific service scope, product scope, pricing schedule, or technical specification is present in this document body. Any residential-portfolio scope (e.g. street properties, hostels, leased temporary-accommodation properties) must be sourced from the parent notice or other Lot 10 documents, not from this appendix.",
+      "requirements": [],
+      "evaluation_criteria": [
+        {
+          "criterion": "Quality of repairs and maintenance works across property types",
+          "summary": "PSQ referee rating dimension: contractor's quality of repairs and maintenance works and ability to consistently meet required standards across a range of property types. Not an award-stage evaluation criterion.",
+          "evidence_anchor": {
+            "page_ref": "1",
+            "anchor_text": "How would you rate the contractor's quality of repairs and maintenance works, and their ability to consistently meet required standards across a range of property types",
+            "section_ref": "#/texts/4"
+          }
+        },
+        {
+          "criterion": "Response and completion times for repairs",
+          "summary": "PSQ referee rating dimension: effectiveness at meeting agreed response and completion times for emergency, urgent, and routine repairs. Not an award-stage evaluation criterion.",
+          "evidence_anchor": {
+            "page_ref": "1",
+            "anchor_text": "How effectively did the contractor meet agreed response and completion times, particularly for emergency, urgent, and routine repairs",
+            "section_ref": "#/texts/4"
+          }
+        },
+        {
+          "criterion": "Cost management and schedule-of-rates application",
+          "summary": "PSQ referee rating dimension: management of costs and application of the schedule of rates, including transparency, accuracy of pricing, and control of variations. Not an award-stage evaluation criterion.",
+          "evidence_anchor": {
+            "page_ref": "1",
+            "anchor_text": "How effectively did the contractor manage costs and apply the schedule of rates, including transparency, accuracy of pricing, and control of variations",
+            "section_ref": "#/texts/4"
+          }
+        },
+        {
+          "criterion": "Statutory compliance and health and safety",
+          "summary": "PSQ referee rating dimension: reliability in maintaining statutory compliance (gas, electrical cited as examples) and adhering to health and safety requirements. Not an award-stage evaluation criterion.",
+          "evidence_anchor": {
+            "page_ref": "1",
+            "anchor_text": "How reliable was the contractor in maintaining statutory compliance (e.g. gas, electrical) and adhering to health and safety requirements",
+            "section_ref": "#/texts/4"
+          }
+        },
+        {
+          "criterion": "Communication with client and residents",
+          "summary": "PSQ referee rating dimension: effectiveness of communication with both the client and residents, particularly in occupied properties and vulnerable households. Not an award-stage evaluation criterion.",
+          "evidence_anchor": {
+            "page_ref": "1",
+            "anchor_text": "How effective was the contractor's communication with both the client and residents, particularly in occupied properties and vulnerable households",
+            "section_ref": "#/texts/4"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "1",
+        "anchor_text": "REFERENCE FORM \u2013 6278 \u2013 Provision of Planned, Preventative & Responsive Residential Property Maintenance and Compliance Services",
+        "section_ref": "#/texts/0"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lot_number": 9200,
+    "title": 8500,
+    "description": 6500,
+    "evaluation_criteria": 3500,
+    "cpv_codes": 0,
+    "product_requirements": 0,
+    "technical_standards": 0
+  },
+  "extraction_confidence_bps": 2500,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "Daemon-resolved document_role is 'technical_specification' and this skill (pdf-extraction/tender-specification) was bound, but the extracted body is a pre-supplier-qualification reference questionnaire (Appendix 1) and a covering letter to referees (Appendix 2). No statement of requirements, service scope narrative, or technical specification is present. Consider re-routing this document to a PSQ or administrative overlay, or marking its semantic-extraction state so the daemon does not ingest it as a lot-specification source.",
+      "evidence_refs": [
+        "#/texts/0 (Appendix 1 heading)",
+        "#/texts/36 (Appendix 2 heading)",
+        "#/texts/4 (PART B referee rating block)"
+      ]
+    },
+    {
+      "code": "NO_PRODUCT_REQUIREMENT_SEEDS",
+      "message": "No product requirements, materials lists, schedules of rates, quantities, or technical attributes are described in this document. product_requirement_seeds is emitted as an empty array; downstream candidate generation for Lot 10 must rely on other documents in the tender set.",
+      "evidence_refs": [
+        "#/tables/0",
+        "#/tables/1"
+      ]
+    },
+    {
+      "code": "NO_TECHNICAL_STANDARDS",
+      "message": "No specific technical standards (BS, EN, ISO, HHSRS, Decent Homes, etc.) are cited anywhere in the extracted body. A generic reference to 'statutory compliance (e.g. gas, electrical)' appears as part of a referee rating question but does not name a specific standard, regulation, or scheme.",
+      "evidence_refs": [
+        "#/texts/4 (PART B statutory-compliance question)"
+      ]
+    },
+    {
+      "code": "CPV_NOT_IN_DOCUMENT",
+      "message": "No CPV codes appear in the extracted markdown for this document. Notice-level CPV codes (50700000-2, 50750000-7, 71315000-9) were deliberately NOT adopted for Lot 10 because the skill contract requires evidence anchors in the document body and the notice-level CPV list is framework-wide, not lot-specific.",
+      "evidence_refs": []
+    },
+    {
+      "code": "EVALUATION_CRITERIA_ARE_PSQ_RATING_DIMENSIONS",
+      "message": "The five entries emitted in evaluation_criteria are referee rating dimensions from the PSQ reference-questionnaire PART B, not award-stage evaluation criteria with weightings. Downstream consumers should treat these as supplier-qualification rating signals and must not surface them as award criteria on Lot 10. No explicit weightings, scoring methodology, or maximum marks are present in this document.",
+      "evidence_refs": [
+        "#/texts/4 (PART B five-column rating scale)"
+      ]
+    },
+    {
+      "code": "DOCUMENT_TITLE_IS_SOLE_LOT_IDENTITY_EVIDENCE",
+      "message": "Lot 10 identity is asserted only by the document title 'REFERENCE FORM \u2013 6278 \u2013 Provision of Planned, Preventative & Responsive Residential Property Maintenance and Compliance Services' (Appendix 1 heading). The body text contains no further Lot 10 identifiers. Treat lot-binding as heading-only evidence.",
+      "evidence_refs": [
+        "#/texts/0"
+      ]
+    },
+    {
+      "code": "PAGE_COUNT_ZERO",
+      "message": "Docling-reported page_count is 0 on the source extraction row, so page_ref values default to '1' matching page_start/page_end of all extracted sections. Reviewers should rely on section_ref (Docling self_refs) rather than page numbers for precise location.",
+      "evidence_refs": []
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "1",
+      "anchor_text": "Appendix 1",
+      "section_ref": "#/texts/0"
+    },
+    {
+      "page_ref": "1",
+      "anchor_text": "REFERENCE FORM \u2013 6278 \u2013 Provision of Planned, Preventative & Responsive Residential Property Maintenance and Compliance Services",
+      "section_ref": "#/texts/0"
+    },
+    {
+      "page_ref": "1",
+      "anchor_text": "TO BE COMPLETED BY REFEREE AND RETURNED TO THE ADDRESS BELOW BY 18th May 2026 by 5pm",
+      "section_ref": "#/texts/4"
+    },
+    {
+      "page_ref": "1",
+      "anchor_text": "Appendix 2",
+      "section_ref": "#/texts/36"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "d92a13191648046f5df1a9b308cdce79466023cd05ef3f8f1996a686f10d6a55",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

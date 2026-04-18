@@ -1,0 +1,10 @@
+{
+  "instanceId": "361cff26-0b56-4a4b-adbe-f0a7cad828f2",
+  "pid": 54069,
+  "socketPath": "runtime/daemon.sock",
+  "protocolVersion": 1,
+  "schemaEpoch": 3,
+  "stateRoot": "state",
+  "startedAt": "2026-04-18T09:58:01.881968+00:00",
+  "ready": true
+}

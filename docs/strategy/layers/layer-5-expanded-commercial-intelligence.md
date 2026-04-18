@@ -390,7 +390,7 @@ Same schema, more rows. Alibaba, 1688, Amazon quotes join existing eBay quotes. 
 | 11 | Decision-grade landed cost per validated category (with full audit trail) |
 | 12 | Category-specific gold-set expansion completed for >=3 categories |
 
-### 3.2 Test Files (5 New, Cumulative 47)
+### 3.2 Test Files (5 New, Cumulative 57)
 
 | File | Coverage |
 |------|---------|
@@ -487,6 +487,7 @@ Same schema, more rows. Alibaba, 1688, Amazon quotes join existing eBay quotes. 
 - CBAM forward placeholder ready for future regulation implementation
 - Evidence-tiered accuracy framework supports future calibration against declared outcomes
 - **L5→L6 readiness gate:** L5 blocker error codes (`CLASSIFICATION_AMBIGUOUS`, `TARIFF_BRANCH_DIVERGENCE`, `SUPPLEMENTARY_UNIT_MISSING`, `decision_grade = broker_required`) and classification freshness state serve as the L6 bid-readiness gate defined in `layer-strategy.md` §10 Interface Contracts. L6 cannot reach `ready_to_bid` while any of these blockers is active.
+- **PDF extraction toolkit extension:** The L1 PDF extraction toolkit supports future compliance certificate extraction via a new `pdf-extraction/compliance-certificate` semantic overlay skill — no schema changes or daemon recompilation needed. This is a natural extension for L5 customs evidence collection.
 
 ### 3.9 Dependencies
 

@@ -1,0 +1,403 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Stockport Town Centre School – Multi-disciplinary Design Team Appointment",
+      "description": "Single-lot procurement (Contract Reference 020417) under the Competitive Flexible Procedure to appoint a multi-disciplinary design team for the Stockport Town Centre School project. The roles covered in Stage 1 tender documents are Architecture, M&E, Structures & Civils, Building Regulations Principal Designer (BR PD) and CDM Principal Designer (CDM PD). This document is the Stage 1 Procurement Specific Questionnaire (PSQ) response template; it defines the Stage 1 qualification and technical-ability evaluation framework that candidate suppliers must pass to progress. Lot bidding is confirmed via Question 5 (\"Please confirm which lot(s) you wish to bid for?\") but no additional lot structure is defined inside this response document.",
+      "requirements": [
+        "Supplier must be registered on the UK Central Digital Platform (CDP) and provide their CDP unique identifier.",
+        "Supplier must declare bidding mode (single supplier / group / consortium) and submit up-to-date core supplier information via the CDP covering basic information, economic & financial standing, connected-person information and exclusion grounds.",
+        "Supplier must declare any reliance on associated persons (sub-contractors / consortium members that are not guarantors) and disclose them with descriptions and CDP identifiers.",
+        "Supplier must declare all intended sub-contractors with unique identifier (or Companies House number / charity number / VAT registration) and a brief description of each intended role.",
+        "Supplier must confirm that it is not on the UK Debarment List and that none of its associated persons or intended sub-contractors are on the Debarment List.",
+        "Supplier must confirm that it has or can obtain prior to contract award: Employer's (Compulsory) Liability Insurance of £10m, Public Liability Insurance of £10m and Professional Indemnity Insurance of £20m.",
+        "Supplier must confirm the human and technical resources in place (or planned by contract award) to comply with UK GDPR and provide a detailed description of data-protection technical facilities and measures.",
+        "Supplier must demonstrate relevant experience of designing and delivering school projects on complex, constrained and urban sites, supported by three case studies (≤500 words + 3×250-word case studies with one A4 sheet of project detail each).",
+        "Supplier must name each member of the proposed multidisciplinary team covering Architecture, M&E, Structures & Civils, BR PD and CDM PD, describe how the team will deliver the contract, and provide up to 5 CVs (single A4 per CV) for the key person in each discipline.",
+        "Supplier must describe a proposed approach to developing and supporting a viable funding model for the Town Centre School project covering financial challenges/opportunities, funding-option strategy and affordability methodology (≤500 words).",
+        "Supplier must demonstrate prior experience of sub-contractor management, supply-chain tracking and prompt-payment practice (e.g., signatory of the UK Prompt Payment Code).",
+        "Supplier must confirm systems to pass 30-day payment terms down the supply chain for public-sector contracts awarded under the Procurement Act 2023.",
+        "Supplier must confirm a published 2050 Net Zero plan and complete the specified Carbon Reduction Plan Microsoft Forms questionnaire.",
+        "Supplier must meet the Modern Slavery Act 2015 Section 54 requirements (or equivalent disclosure if a non-UK supplier) and confirm a list of modern-slavery-related commitments.",
+        "Supplier must confirm Real Living Wage (RLW) payment to relevant employees delivering the contract or commit to paying RLW at or above the Living Wage Foundation rate.",
+        "Supplier must evidence SSIP (Safety Schemes in Procurement) accreditation within the last 12 months or, failing that, provide evidence against H&S questions (c)-(k) including a written H&S policy, RIDDOR-compliant accident procedures and competent H&S advice.",
+        "Supplier must complete the Confirmations declaration attesting that all responses are complete, accurate and not misleading, and provide contact details of the declarant."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Preliminary / Core Supplier & Exclusions Information",
+          "summary": "Part 1 & Part 2 (core supplier information on CDP, associated persons, intended sub-contractors, Debarment List checks) are assessed on a pass/fail basis via self-certification; failure or misleading information leads to exclusion.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "§Part 1 – Confirmation of Core Supplier Information / §Part 2 – Additional Exclusions Information",
+            "anchor_text": "You must submit up-to-date core supplier information on the CDP and share this with information with us via the CDP",
+            "section_ref": "PSQ Stage 1, Parts 1 and 2"
+          }
+        },
+        {
+          "criterion": "Financial Capacity",
+          "summary": "Economic & Financial Standing assessed from Part 1 and Company Watch Credit Report; a credit score of 24 or below (or no report) triggers further due diligence and may require a guarantor.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "§Part 3A Standard Questions / Financial Capacity",
+            "anchor_text": "Where the Company Watch Credit Report states a Credit Score of 24 or below, or where no Company Watch Credit Report is available for the Bidder, the Council will undertake further financial due diligence",
+            "section_ref": "PSQ Stage 1, Part 3A – Financial Capacity"
+          }
+        },
+        {
+          "criterion": "Insurance",
+          "summary": "Confirmation of current or commit-to-obtain cover levels: Employer's Liability £10m, Public Liability £10m, Professional Indemnity £20m; failure to self-certify excludes the bidder.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "§Part 3A – Insurance",
+            "anchor_text": "a. Employer's (Compulsory) Liability Insurance* = £10m   b. Public Liability Insurance = £10m   c. Professional Indemnity Insurance = £20m",
+            "section_ref": "PSQ Stage 1, Part 3A – Insurance"
+          }
+        },
+        {
+          "criterion": "Data Protection",
+          "summary": "Self-certification that human and technical resources will comply with UK GDPR including processing confidentiality/integrity, data-subject rights, consent records, international transfer safeguards and records of processing.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "§Part 3A – Data Protection",
+            "anchor_text": "Please confirm that you have in place, or that you will have in place by the award of the contract, the human and technical resources to perform the contract to ensure compliance with the UK General Data Protection Regulation",
+            "section_ref": "PSQ Stage 1, Part 3A – Data Protection"
+          }
+        },
+        {
+          "criterion": "Technical Ability – Relevant experience and contract examples",
+          "summary": "Scored 0–6. Describe experience of designing and delivering school projects on complex, constrained and urban sites (≤500 words, Part 1) and provide three case studies (Part 2, 250-word narrative each plus a single A4 sheet of project detail per case study).",
+          "weighting_text": "35% of Technical Ability section (Scored 0-6)",
+          "evidence_anchor": {
+            "page_ref": "§Technical Ability (Scored 0-6) – Question 19",
+            "anchor_text": "Relevant experience and contract examples (35%) … Describe your experience of designing and delivering school projects on complex, constrained and urban sites.",
+            "section_ref": "PSQ Stage 1, Technical Ability – Question 19"
+          }
+        },
+        {
+          "criterion": "Technical Ability – Workforce and Resources",
+          "summary": "Scored 0–6. Name each member of the proposed multidisciplinary team (Architecture, M&E, Structures & Civils, BR PD, CDM PD) and provide up to 5 CVs (single A4 per CV) for the key person in each discipline.",
+          "weighting_text": "35% of Technical Ability section (Scored 0-6)",
+          "evidence_anchor": {
+            "page_ref": "§Technical Ability (Scored 0-6) – Question 20/21",
+            "anchor_text": "Workforce and Resources (35%) … Part 1: Please name each member of the proposed multidisciplinary team (company, practice etc) covering each of the roles outlined in the Stage 1 tender documents (Architecture, M&E, Structures & Civils, BR PD & CDM PD).",
+            "section_ref": "PSQ Stage 1, Technical Ability – Questions 20 & 21"
+          }
+        },
+        {
+          "criterion": "Technical Ability – Funding Model Approach",
+          "summary": "Scored 0–6. Describe a viable funding-model approach for the Town Centre School, including financial challenges/opportunities, funding-option evaluation and affordability methodology (≤500 words).",
+          "weighting_text": "30% of Technical Ability section (Scored 0-6)",
+          "evidence_anchor": {
+            "page_ref": "§Technical Ability (Scored 0-6) – Funding Model Approach",
+            "anchor_text": "Funding Model Approach (30%) … Please describe your proposed approach to developing and supporting a viable funding model for the Town Centre School project.",
+            "section_ref": "PSQ Stage 1, Technical Ability – Funding Model Approach"
+          }
+        },
+        {
+          "criterion": "Experience of Sub-Contractor Management and Organisational Standards (Q22–Q27)",
+          "summary": "Responses to Questions 22–27 are pass/fail: supply-chain management evidence, Prompt Payment Code signatory status, 30-day supply-chain payment terms, published 2050 Net Zero plan, Carbon Reduction Plan questionnaire completion.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "§Technical Ability post-Q21 (Q22–Q27)",
+            "anchor_text": "The answers provided in your Responses to Questions 22 – 27 will be evaluated on the basis of pass/fail.",
+            "section_ref": "PSQ Stage 1, Questions 22–27"
+          }
+        },
+        {
+          "criterion": "Modern Slavery, Responsible Procurement and Real Living Wage",
+          "summary": "Pass/fail self-certification against Section 54 Modern Slavery Act 2015, STAR Responsible Procurement Strategy Annex 1, and commitment to pay the Real Living Wage to eligible employees delivering the contract.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "§Tackling Modern Slavery / §Real Living Wage / §Employment",
+            "anchor_text": "In respect of question Modern Slavery and Responsible Procurement where you have stated \"agree\" to both, your response shall constitute a pass. Where you have stated \"disagree\" to one or both, your response shall constitute a fail.",
+            "section_ref": "PSQ Stage 1, Modern Slavery / Responsible Procurement / RLW"
+          }
+        },
+        {
+          "criterion": "Health and Safety",
+          "summary": "Pass/fail assessment. SSIP accreditation within the last 12 months auto-passes; otherwise questions (c)–(k) must be satisfactorily answered with H&S policy evidence, RIDDOR-compliant incident reporting, competent H&S advice and training arrangements. Any enforcement/remedial H&S order in the last 3 years must be disclosed.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "§Health and Safety",
+            "anchor_text": "A response of 'yes' to question (a) without satisfactory evidence of SSIP accreditation within the last twelve months will result in the Applicants exclusion from the procurement exercise",
+            "section_ref": "PSQ Stage 1, Health and Safety"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "UK General Data Protection Regulation (UK GDPR)",
+          "context": "Data Protection pass/fail criterion — supplier must have human and technical resources to comply with UK GDPR covering processing confidentiality/integrity, data-subject rights, consent audit, international transfer safeguards and records of processing.",
+          "evidence_anchor": {
+            "page_ref": "§Part 3A – Data Protection",
+            "anchor_text": "ensure compliance with the UK General Data Protection Regulation and to ensure the protection of the rights of data subjects",
+            "section_ref": "PSQ Stage 1, Part 3A – Data Protection"
+          }
+        },
+        {
+          "standard_ref": "Modern Slavery Act 2015 (Section 54)",
+          "context": "Organisations subject to s.54 must provide a modern slavery statement containing structure, policies, due diligence, risk areas, effectiveness measures and training; non-UK suppliers must link to an equivalent statement.",
+          "evidence_anchor": {
+            "page_ref": "§Tackling Modern Slavery in Supply Chains",
+            "anchor_text": "If you are a relevant commercial organisation subject to Section 54 of the Modern Slavery Act 2015 you must respond to question 26",
+            "section_ref": "PSQ Stage 1, Modern Slavery"
+          }
+        },
+        {
+          "standard_ref": "Article 4, European Convention on Human Rights (prohibition of slavery and forced labour)",
+          "context": "Supplier must agree to adhere to ECHR Article 4 as part of Modern Slavery declarations.",
+          "evidence_anchor": {
+            "page_ref": "§Tackling Modern Slavery",
+            "anchor_text": "You agree to adhere to Article 4 of the European Convention on Human Rights concerning the prohibition of slavery and forced labour",
+            "section_ref": "PSQ Stage 1, Modern Slavery"
+          }
+        },
+        {
+          "standard_ref": "Procurement Act 2023 — 30-day payment terms in supply chain contracts",
+          "context": "Supplier must confirm systems to include and enforce 30-day payment terms across its supply chain contracts for public-sector contracts awarded under the Act.",
+          "evidence_anchor": {
+            "page_ref": "§Payment Terms",
+            "anchor_text": "for public sector contracts awarded under the Procurement Act 2023 you have systems in place to include (as a minimum) 30 day payment terms in all of your supply chain contracts",
+            "section_ref": "PSQ Stage 1, Organisational Standards – Payment Terms"
+          }
+        },
+        {
+          "standard_ref": "Real Living Wage (Living Wage Foundation)",
+          "context": "Supplier must pay the Real Living Wage to employees engaged in delivery of the contract for ≥2 hours per week over an 8-week period, or commit to do so.",
+          "evidence_anchor": {
+            "page_ref": "§Real Living Wage / §Employment",
+            "anchor_text": "Does your organisation / business currently pay all of the employees who will be engaged in the provision of the services to the Council for 2 hours or more per week for a period of eight (8) weeks at a rate equal to or higher than the RLW",
+            "section_ref": "PSQ Stage 1, Real Living Wage / Employment"
+          }
+        },
+        {
+          "standard_ref": "SSIP (Safety Schemes in Procurement) accreditation",
+          "context": "A successful SSIP member assessment within the last 12 months provides an auto-pass for Health and Safety; otherwise detailed H&S evidence is required.",
+          "evidence_anchor": {
+            "page_ref": "§Health and Safety",
+            "anchor_text": "Has your organisation within the last twelve months successfully met the assessment requirements of a registered member of the Safety Schemes in Procurement (SSIP) forum?",
+            "section_ref": "PSQ Stage 1, Health and Safety"
+          }
+        },
+        {
+          "standard_ref": "RIDDOR (Reporting of Injuries, Diseases and Dangerous Occurrences Regulations)",
+          "context": "Supplier must have accident reporting and investigation arrangements that comply with RIDDOR; total number of accidents (including RIDDOR-reportable) in the last 3 years must be supplied.",
+          "evidence_anchor": {
+            "page_ref": "§Health and Safety",
+            "anchor_text": "Do you have arrangements in place for accident reporting and investigation, including RIDDOR reportable incidents?",
+            "section_ref": "PSQ Stage 1, Health and Safety"
+          }
+        },
+        {
+          "standard_ref": "HSE guidance INDG449 (Health and Safety policy for small employers)",
+          "context": "Employers with fewer than five staff may reference HSE guidance INDG449 as evidence of adequate H&S arrangements.",
+          "evidence_anchor": {
+            "page_ref": "§Health and Safety",
+            "anchor_text": "http://www.hse.gov.uk/pubns/indg449.pdf",
+            "section_ref": "PSQ Stage 1, Health and Safety"
+          }
+        },
+        {
+          "standard_ref": "Employer's (Compulsory) Liability Insurance £10m (HSE pub HSE39 minimum £5m)",
+          "context": "Bidder must hold or commit to hold Employer's Liability cover of £10m — above the statutory £5m minimum referenced in HSE publication HSE39.",
+          "evidence_anchor": {
+            "page_ref": "§Part 3A – Insurance",
+            "anchor_text": "a. Employer's (Compulsory) Liability Insurance* = £10m",
+            "section_ref": "PSQ Stage 1, Part 3A – Insurance"
+          }
+        },
+        {
+          "standard_ref": "Public Liability Insurance £10m",
+          "context": "Bidder must hold or commit to hold Public Liability cover of £10m.",
+          "evidence_anchor": {
+            "page_ref": "§Part 3A – Insurance",
+            "anchor_text": "b. Public Liability Insurance = £10m",
+            "section_ref": "PSQ Stage 1, Part 3A – Insurance"
+          }
+        },
+        {
+          "standard_ref": "Professional Indemnity Insurance £20m",
+          "context": "Bidder must hold or commit to hold Professional Indemnity cover of £20m, reflecting the design-team professional-services nature of the appointment.",
+          "evidence_anchor": {
+            "page_ref": "§Part 3A – Insurance",
+            "anchor_text": "c. Professional Indemnity Insurance = £20m",
+            "section_ref": "PSQ Stage 1, Part 3A – Insurance"
+          }
+        },
+        {
+          "standard_ref": "STAR Responsible Procurement Strategy (Annex 1 Core Expectations)",
+          "context": "Supplier must work in compliance with the Core Expectations and additional expectations set out in Annex 1 of STAR Procurement's Responsible Procurement Strategy.",
+          "evidence_anchor": {
+            "page_ref": "§Responsible Procurement",
+            "anchor_text": "You will uphold and work in compliance with the Core Expectations set out in Annex 1 of the STAR Responsible Procurement Strategy",
+            "section_ref": "PSQ Stage 1, Responsible Procurement"
+          }
+        },
+        {
+          "standard_ref": "UK Prompt Payment Code",
+          "context": "Supplier must state whether it is a signatory of the UK Prompt Payment Code (or equivalent) as part of Experience of Sub-Contractor Management evidence.",
+          "evidence_anchor": {
+            "page_ref": "§Experience of Sub-Contractor Management",
+            "anchor_text": "whether you are a signatory of the UK Prompt Payment Code",
+            "section_ref": "PSQ Stage 1, Experience of Sub-Contractor Management"
+          }
+        },
+        {
+          "standard_ref": "UK Central Digital Platform (CDP) registration",
+          "context": "Supplier (and any associated persons / sub-contractors being relied upon to satisfy conditions of participation) must be registered on the UK Central Digital Platform and share core supplier information via a PDF download.",
+          "evidence_anchor": {
+            "page_ref": "§Preliminary Question / §Part 1",
+            "anchor_text": "What is your central digital platform unique identifier? You must be registered on the central digital platform (CDP).",
+            "section_ref": "PSQ Stage 1, Preliminary & Part 1"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "§Contract Header",
+        "anchor_text": "Procurement Specific Questionnaire (PSQ) - Stage 1 | Contract: Stockport Town Centre School – Multi – disciplinary design team appointment | Contract Reference: 020417 | Procedure: Competitive Flexible Procedure",
+        "section_ref": "PSQ Stage 1 header"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 8800,
+    "lots.description": 7500,
+    "lots.requirements": 7200,
+    "lots.evaluation_criteria": 8500,
+    "lots.cpv_codes": 9000,
+    "lots.product_requirements": 9500,
+    "lots.technical_standards": 8200,
+    "product_requirement_seeds": 9500
+  },
+  "extraction_confidence_bps": 7200,
+  "warnings": [
+    {
+      "code": "DOCUMENT_IS_QUALIFICATION_QUESTIONNAIRE",
+      "message": "This document is a Procurement Specific Questionnaire (PSQ) Stage 1 response template (document title '3-Response-Document'), not a scope-of-works or technical-specification document. It defines the Stage 1 qualification and technical-ability evaluation framework but contains no product-level requirements, quantities or CPV codes. The substantive technical scope lives in sibling documents (e.g. '2-Specification', '7-Stockport-Town-Centre-School-Brief', and the A.1–A.5 scope-of-service documents) which must be extracted separately.",
+      "evidence_refs": [
+        "Procurement Specific Questionnaire (PSQ) - Stage 1",
+        "All Responses will be evaluated in terms of understanding and meeting the requirements as set out in the Specification (Document 2)"
+      ]
+    },
+    {
+      "code": "NO_LOT_STRUCTURE_IN_DOCUMENT",
+      "message": "The PSQ references lot bidding (Question 5: 'Please confirm which lot(s) you wish to bid for?') but does not enumerate a lot structure inside the response template. Lot 1 is inferred from the notice-level record and the contract header. Other documents in the document set should be consulted for any additional lot detail.",
+      "evidence_refs": [
+        "Please confirm which lot(s) you wish to bid for?",
+        "Contract Reference: 020417"
+      ]
+    },
+    {
+      "code": "NO_CPV_CODES_IN_DOCUMENT",
+      "message": "No Common Procurement Vocabulary (CPV) code is present inside this PSQ document. The notice main_category ('150000 - Consultancy') is a Proactis main-category string, not a CPV code. CPV resolution should be driven from the sibling '2-Specification' / '1A-Invitation-to-Participate' documents.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_PRODUCT_REQUIREMENT_SEEDS",
+      "message": "This is a professional design-services procurement (no quantifiable goods) and the document is a qualification questionnaire. No product_requirement_seeds are emitted. Quoteable product candidates are not applicable for a Stage 1 PSQ — if the procurement is later extended into a pricing schedule, that should be processed by the pricing-schedule or bill-of-quantities skill.",
+      "evidence_refs": [
+        "Stockport Town Centre School – Multi – disciplinary design team appointment",
+        "Technical Ability (Scored 0-6)"
+      ]
+    },
+    {
+      "code": "DOCLING_STRUCTURE_SPARSE",
+      "message": "Docling output for this document contains no recognised section headings and only empty table shells (11 tables with zero extracted rows). Anchors are therefore expressed as document-internal section labels ('§Part …', '§Technical Ability …') derived from the markdown body rather than Docling structural section IDs.",
+      "evidence_refs": []
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "§Contract Header",
+      "anchor_text": "Procurement Specific Questionnaire (PSQ) - Stage 1",
+      "section_ref": "Document header"
+    },
+    {
+      "page_ref": "§Contract Header",
+      "anchor_text": "Stockport Town Centre School – Multi – disciplinary design team appointment",
+      "section_ref": "Document header, Contract field"
+    },
+    {
+      "page_ref": "§Contract Header",
+      "anchor_text": "Contract Reference: 020417",
+      "section_ref": "Document header"
+    },
+    {
+      "page_ref": "§Contract Header",
+      "anchor_text": "Competitive Flexible Procedure",
+      "section_ref": "Document header, Procedure field"
+    },
+    {
+      "page_ref": "§Preliminary Question",
+      "anchor_text": "Please confirm which lot(s) you wish to bid for?",
+      "section_ref": "Preliminary Question"
+    },
+    {
+      "page_ref": "§Part 3A – Insurance",
+      "anchor_text": "a. Employer's (Compulsory) Liability Insurance* = £10m  b. Public Liability Insurance = £10m  c. Professional Indemnity Insurance = £20m",
+      "section_ref": "Part 3A – Insurance"
+    },
+    {
+      "page_ref": "§Technical Ability (Scored 0-6)",
+      "anchor_text": "All Responses will be evaluated in terms of understanding and meeting the requirements as set out in the Specification (Document 2)",
+      "section_ref": "Technical Ability header"
+    },
+    {
+      "page_ref": "§Technical Ability – Question 19",
+      "anchor_text": "Relevant experience and contract examples (35%)",
+      "section_ref": "Technical Ability – Relevant experience"
+    },
+    {
+      "page_ref": "§Technical Ability – Question 20/21",
+      "anchor_text": "Workforce and Resources (35%) … Part 1: Please name each member of the proposed multidisciplinary team (company, practice etc) covering each of the roles outlined in the Stage 1 tender documents (Architecture, M&E, Structures & Civils, BR PD & CDM PD)",
+      "section_ref": "Technical Ability – Workforce and Resources"
+    },
+    {
+      "page_ref": "§Technical Ability – Funding Model Approach",
+      "anchor_text": "Funding Model Approach (30%)",
+      "section_ref": "Technical Ability – Funding Model Approach"
+    },
+    {
+      "page_ref": "§Questions 22-27",
+      "anchor_text": "The answers provided in your Responses to Questions 22 – 27 will be evaluated on the basis of pass/fail.",
+      "section_ref": "Post-Technical-Ability pass/fail framework"
+    },
+    {
+      "page_ref": "§Tackling Modern Slavery in Supply Chains",
+      "anchor_text": "Section 54 of the Modern Slavery Act 2015",
+      "section_ref": "Tackling Modern Slavery"
+    },
+    {
+      "page_ref": "§Real Living Wage",
+      "anchor_text": "In 2023, Stockport Council became a Real Living Wage Accredited Organisation (RLW) committed to paying RLW",
+      "section_ref": "Real Living Wage"
+    },
+    {
+      "page_ref": "§Health and Safety",
+      "anchor_text": "Has your organisation within the last twelve months successfully met the assessment requirements of a registered member of the Safety Schemes in Procurement (SSIP) forum?",
+      "section_ref": "Health and Safety"
+    },
+    {
+      "page_ref": "§Health and Safety",
+      "anchor_text": "Do you have arrangements in place for accident reporting and investigation, including RIDDOR reportable incidents?",
+      "section_ref": "Health and Safety"
+    },
+    {
+      "page_ref": "§Payment Terms",
+      "anchor_text": "for public sector contracts awarded under the Procurement Act 2023 you have systems in place to include (as a minimum) 30 day payment terms in all of your supply chain contracts",
+      "section_ref": "Organisational Standards – Payment Terms"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "4c9ff2d61770becc3764298435d8686b0596fd768965a5617cbf7b04c5d4dc7e",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

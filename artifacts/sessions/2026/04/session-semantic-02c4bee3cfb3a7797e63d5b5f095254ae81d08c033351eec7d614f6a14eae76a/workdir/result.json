@@ -1,0 +1,195 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Inspection and Maintenance of Indoor Gymnasium, Fitness and Sport Equipment, and Outdoor Schools Play and Sport Equipment",
+      "description": "Synthetic single-scope lot representing the undivided framework. ESPO (Leicestershire County Council, trading as ESPO) is establishing a framework agreement (ref. 107_26) for the inspection and maintenance of (a) indoor gymnasium, fitness and sport equipment and (b) outdoor schools play and sport equipment. Contracting is performed by Customers (ESPO plus other PA23 Contracting Authorities identified in the Tender Notice) by call-off with or without further competitive selection. The framework itself does not itemise goods/services, service levels, CPV codes, or technical standards in this document; those are deferred to Framework Schedule 1, which is to be populated from Section 2 of the Invitation to Tender (the Specification) and the Supplier's response to the Statement of Requirements at the point of award.",
+      "requirements": [
+        "Supply inspection and maintenance of the Goods and/or Services in accordance with the (to-be-populated) Framework Schedule 1 Specification and the Supplier's response to the Statement of Requirements.",
+        "Provide Goods and/or Services that conform to the Specification and Call-Off Terms (clause 7.5).",
+        "Comply with the Standards (British Standards produced by BSI Group, international standards, ESPO internal policies and procedures, and Government codes of practice and guidance referred to in Framework Schedule 1) and with applicable Law (clause 13.2).",
+        "Deliver in accordance with the Service Levels set out in Framework Schedule 1 and any minimum Service Levels in the Call-Off Terms (Framework Schedule 10 §3.1, §4.1).",
+        "Operate under Procurement Act 2023 (PA23) obligations, including transparency, debarment/excluded supplier checks, and cooperation with Section 78/80 requirements.",
+        "Submit accurate and timely Management Information using the MI Reporting Template every Quarter (Framework Schedule 7).",
+        "Pay the Framework Fee of 3.5% (Framework Schedule 2 §1.4).",
+        "Appoint a nominated Framework Manager and deputy (Framework Schedule 10 §2.1.1)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Further Competitive Selection Process Award Criteria (applied at call-off)",
+          "summary": "Framework Schedule 5 states that Customers running a further competitive selection may either reuse ESPO's framework-establishment scheme or notify Suppliers of a revised scheme with different weightings; it explicitly anticipates that because non-price factors were assessed when the framework was established, increased weighting may be given to price at the further competitive stage. Concrete criteria and weightings are not fixed in this document.",
+          "weighting_text": "Not fixed in this document; set per call-off by the Customer, with increased price weighting anticipated at further competition stage.",
+          "evidence_anchor": {
+            "page_ref": "67",
+            "section_ref": "Framework Schedule 5 - Further Competitive Selection Process Award Criteria",
+            "anchor_text": "The following criteria ('the Further Competitive Selection Process Award Criteria') shall be applied to the Further Competitive Selection Process Procedure in Framework Schedule 4"
+          }
+        },
+        {
+          "criterion": "Call-Off Without Competition mechanism",
+          "summary": "Framework Schedule 4 §2.1 enumerates three objective mechanisms for selecting a Framework Supplier without re-opening competition: (a) cheapest Supplier on Framework Prices, (b) sole Supplier capable of delivering in the geographical location, or (c) Supplier with prior involvement in equivalent Goods/Services in the preceding 12 months where alternative instruction would cause demonstrable inefficiencies or duplication of costs.",
+          "weighting_text": "Objective selection, no weighted criteria.",
+          "evidence_anchor": {
+            "page_ref": "63",
+            "section_ref": "Framework Schedule 4 §2.1 Award Procedure (Call Off Without Competition)",
+            "anchor_text": "To the cheapest Supplier for the Goods and/or Services ... Where only one Supplier can deliver ... Where a Supplier has had prior involvement in the provision of equivalent Goods and/or Services"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "British Standards (BSI Group) and international standards",
+          "context": "Captured only via the 'Standards' definition in clause 1.1 of Framework Schedule 1 -- the clause states that 'Standards' means British Standards produced by the BSI Group and international standards, together with ESPO's reasonable internal policies, Government codes of practice and guidance referred to in Framework Schedule 1. No specific standard number (e.g., a BS EN or ISO reference) is cited in this document.",
+          "evidence_anchor": {
+            "page_ref": "12",
+            "section_ref": "Clause 1.1 Interpretation -- 'Standards' definition",
+            "anchor_text": "'Standards' means the British Standards (produced by the BSI Group) and international standards, ESPO's reasonable internal policies and procedures, Government codes of practice and guidance referred to in Framework Schedule 1 (Goods and/or Services)"
+          }
+        },
+        {
+          "standard_ref": "Procurement Act 2023 (PA23)",
+          "context": "Framework establishment pursuant to section 95(4) of the PA23; framework termination and modification rights exercised under sections 78-80 of the PA23. Not an equipment standard but a statutory standard governing the procurement itself.",
+          "evidence_anchor": {
+            "page_ref": "5",
+            "section_ref": "Background recital A",
+            "anchor_text": "ESPO placed a Tender Notice 2026/S 000-002119 on 12 January 2026 on the central digital platform operated pursuant to section 95(4) of the PA23"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "1",
+        "section_ref": "Cover page",
+        "anchor_text": "FRAMEWORK AGREEMENT FOR INSPECTION & MAINTENANCE OF INDOOR GYMNASIUM, FITNESS & SPORT EQUIPMENT AND OUTDOOR SCHOOLS PLAY & SPORT EQUIPMENT -- Agreement Ref: 107_26"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lot_structure": 9500,
+    "title": 10000,
+    "description": 8500,
+    "requirements": 7500,
+    "evaluation_criteria": 6000,
+    "cpv_codes": 0,
+    "product_requirements": 0,
+    "technical_standards": 3000,
+    "framework_fee": 10000,
+    "commencement_date": 10000,
+    "tender_notice_reference": 10000
+  },
+  "extraction_confidence_bps": 4500,
+  "warnings": [
+    {
+      "code": "FRAMEWORK_NOT_DIVIDED_INTO_LOTS",
+      "message": "The procurement is a single-scope framework and is not divided into lots. This skill emits a single synthetic lot (lot_number=\"1\") covering the full framework scope so downstream persistence can attach lot-scoped evidence. Consistent with the published Tender Notice (2026/S 000-002119) and the Background recitals which reference a single framework arrangement.",
+      "evidence_refs": [
+        "cover page",
+        "Background recital A",
+        "Framework Schedule 1 §1.1"
+      ]
+    },
+    {
+      "code": "SPECIFICATION_DEFERRED_TO_EXTERNAL_DOCUMENT",
+      "message": "Framework Schedule 1 explicitly states that the Specification (Section 2 of the Invitation to Tender) and the Supplier's response to the Statement of Requirements (Section 1 of the Tender Submission Document) will be incorporated into this Schedule only after tender evaluation and prior to entry into the Framework Agreement. Therefore this document contains no itemised goods/services list, no service levels, and no KPI targets for specific services.",
+      "evidence_refs": [
+        "Framework Schedule 1 §1.1",
+        "Framework Schedule 1 trailing paragraph ('Upon completion of the tender evaluation exercise...')"
+      ]
+    },
+    {
+      "code": "NO_PRODUCT_REQUIREMENTS_ITEMISED",
+      "message": "No product-level requirements, technical attributes, quantities, or SKU-like seeds are itemised in this document. product_requirement_seeds is empty. Downstream product candidate generation will need to pull seeds from the Specification document (Section 2 of the ITT) once available.",
+      "evidence_refs": [
+        "Framework Schedule 1 §1.2"
+      ]
+    },
+    {
+      "code": "NO_CPV_CODES_IN_DOCUMENT_BODY",
+      "message": "No CPV codes are cited in the document text. CPV codes 37400000-2 (Sports goods and equipment) and 50000000-5 (Repair and maintenance services) are present in the upstream notice metadata but do not appear in this document, so cpv_codes on the lot is emitted empty per skill contract (authoritative truth from the tender document only).",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_EXPLICIT_EQUIPMENT_STANDARDS_CITED",
+      "message": "No specific British or international standard reference (e.g., no BS EN, EN, ISO, or IEC number) is cited in this document. The only 'Standards' reference is the generic definitional clause pointing to Framework Schedule 1, which is itself deferred. Downstream compliance reasoning should treat technical_standards as pending until the ITT Specification is ingested.",
+      "evidence_refs": [
+        "Clause 1.1 -- 'Standards' definition"
+      ]
+    },
+    {
+      "code": "EVALUATION_CRITERIA_NOT_CONCRETELY_WEIGHTED",
+      "message": "Framework Schedule 5 defines the award scheme abstractly and explicitly defers concrete weighting decisions to each Customer's call-off exercise. No fixed numeric weightings or criterion-score pairs exist in this document.",
+      "evidence_refs": [
+        "Framework Schedule 5 preamble"
+      ]
+    },
+    {
+      "code": "DOCUMENT_ROLE_IS_FRAMEWORK_AGREEMENT_TEMPLATE",
+      "message": "Daemon resolved document_role='technical_specification', but this artifact is structurally a Framework Agreement template (Appendix A) composed of contractual clauses 1-44 plus Framework Schedules 1-11. The substantive technical specification lives in a separate document (ITT Section 2 / Statement of Requirements) not represented in this extraction. Role re-classification downstream may be warranted.",
+      "evidence_refs": [
+        "cover page -- 'FRAMEWORK AGREEMENT FOR ...'",
+        "document title: 107_26-Appendix-A-Framework-Agreement"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "1",
+      "section_ref": "Cover page",
+      "anchor_text": "FRAMEWORK AGREEMENT FOR INSPECTION & MAINTENANCE OF INDOOR GYMNASIUM, FITNESS & SPORT EQUIPMENT AND OUTDOOR SCHOOLS PLAY & SPORT EQUIPMENT -- Agreement Ref: 107_26"
+    },
+    {
+      "page_ref": "5",
+      "section_ref": "Background recital A",
+      "anchor_text": "ESPO placed a Tender Notice 2026/S 000-002119 on 12 January 2026 on the central digital platform operated pursuant to section 95(4) of the PA23"
+    },
+    {
+      "page_ref": "12",
+      "section_ref": "Clause 1.1 Interpretation -- 'Standards' definition",
+      "anchor_text": "'Standards' means the British Standards (produced by the BSI Group) and international standards, ESPO's reasonable internal policies and procedures, Government codes of practice and guidance referred to in Framework Schedule 1"
+    },
+    {
+      "page_ref": "56",
+      "section_ref": "Framework Schedule 1 §1.1 Introduction",
+      "anchor_text": "This Framework Schedule 1 specifies: 1.1.1 The Goods and/or Services that the Supplier shall make available to Customers; 1.1.2 The Service Levels, if any, applicable to each of the Services; 1.1.3 The Service Credits, if any, applicable where Service Levels are not met"
+    },
+    {
+      "page_ref": "56",
+      "section_ref": "Framework Schedule 1 trailing paragraph",
+      "anchor_text": "Upon completion of the tender evaluation exercise and prior to the entry into the Framework Agreement, ESPO will incorporate into this Framework Schedule the Specification (contained within Section 2 of the Invitation to Tender, Requirement) and the Supplier's response to the Statement of Requirements (contained within Section 1 of the Tender Submission Document)"
+    },
+    {
+      "page_ref": "58",
+      "section_ref": "Framework Schedule 2 §1.4 Framework Fee",
+      "anchor_text": "The Framework Fee is 3.5%."
+    },
+    {
+      "page_ref": "63",
+      "section_ref": "Framework Schedule 4 §2.1 Award Procedure (Call Off Without Competition)",
+      "anchor_text": "A Customer ordering the Goods and/or Services under this Framework Agreement, without re-opening competition, may enter a Contract by selecting a Framework Supplier based on the following objective mechanism: 2.1.1 To the cheapest Supplier ... 2.1.2 Where only one Supplier can deliver ... 2.1.3 Where a Supplier has had prior involvement"
+    },
+    {
+      "page_ref": "67",
+      "section_ref": "Framework Schedule 5 -- Further Competitive Selection Process Award Criteria",
+      "anchor_text": "When evaluating a further competitive selection process, Customers may adopt a scheme similar to that used by ESPO in establishing the Framework or may advise Suppliers that a revised scheme will be used ... It is anticipated that as 'non-price' factors will have been assessed when the framework was established, increased weighting may be given to 'price' at further competitive selection stage."
+    },
+    {
+      "page_ref": "75",
+      "section_ref": "Framework Schedule 10 Annex A -- Key Performance Indicators",
+      "anchor_text": "Complaints Resolution: 100% responded within two Working Days; 98% resolved or action plan within ten Working Days. Return of MI Reports: no less than three Quarterly MI Reports correct and on time per Contract Year. Invoicing: 98% accuracy. Social Value: delivered per Contract."
+    },
+    {
+      "page_ref": "6",
+      "section_ref": "Background recital C (Commencement Date, clause 1.1 definition)",
+      "anchor_text": "'Commencement Date' means 09 June 2026 or, if this date is not completed in this Framework Agreement, it shall be the date stipulated in writing by ESPO"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "00eb7cea0ff7a09b28b1dedb2f1471fc9baa518ebf99eac0e0f3f58209f9e23b",
+    "policy_version": "2026.04.12",
+    "document_role": "framework_agreement_template"
+  }
+}

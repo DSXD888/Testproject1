@@ -1,0 +1,353 @@
+{
+  "lots": [
+    {
+      "lot_number": "A.4",
+      "title": "CDM Principal Designer Scope of Service — Stockport Town Centre School",
+      "description": "Annex A.4 of the Multi-disciplinary Design Team Appointment for the Stockport Town Centre School (Project E000-25-0031, Document Number 00, Revision 00, January 2026). Defines the Scope of Service required by Stockport Metropolitan Borough Council (the Client / 'SMBC') from its appointed Principal Designer & Construction Health & Safety Advisor under the Construction (Design and Management) Regulations 2015 (CDM 2015). The appointed Principal Designer & Construction Health & Safety Advisor must deliver all services described in Sections 2 to 8, with Section 9 reserved for performance monitoring and KPIs. The scope covers Core Services derived from CDM 2015 duties (cooperation, reporting, information provision, pre-construction phase planning/management/monitoring, hazard identification and control, pre-construction information supply, liaison with the Principal Contractor, preparation of the Health & Safety File, SSIP accreditation, Council meeting attendance, BIM compliance, Design Risk workshops, Project-specific Design Hazard Risk register, HSE F10 notification, monthly progress reporting, Common Data Environment use, RIDDOR-incident reporting) and stage-based services aligned to the RIBA Plan of Work: Stages 0–1 (Strategic Definition, Preparation and Briefing), Stage 2 (Concept Design), Stage 3 (Developed Design), Stage 4 (Technical Design), Stage 5 (Construction), and Stages 6–7 (Handover and Close Out & In Use). The Principal Designer must comply with the Council's BIM Organisational Information Requirements and Employer's Information Requirements, and hold a Safety Schemes in Procurement (SSIP) accreditation such as CHAS or equivalent.",
+      "requirements": [
+        "Hold a Safety Schemes in Procurement (SSIP) accreditation such as CHAS or similar.",
+        "Carry out all services in Sections 2 to 8 of the document, priced within the tender submission; Section 9 covers performance monitoring and key performance indicators.",
+        "Cooperate with any other person working on or in relation to the project (CDM 2015 Regulation 8(4)).",
+        "Report to the Client anything the Principal Designer is aware of likely to endanger health and safety (CDM 2015 Regulation 8(5)).",
+        "Provide information or instructions as soon as is practicable and in a comprehensible form (CDM 2015 Regulation 8(6)).",
+        "Plan, manage and monitor the pre-construction phase and coordinate health & safety matters during pre-construction (CDM 2015 Regulation 11(1), 11(2)).",
+        "Identify and eliminate or control foreseeable risks during pre-construction for persons carrying out or affected by construction work, maintaining or cleaning a structure, or using a structure designed as a workplace (CDM 2015 Regulation 11(3)).",
+        "Assist the client in provision of pre-construction information required by Regulation 4[4], and provide pre-construction information promptly to every designer and contractor appointed or being considered (CDM 2015 Regulation 11(6)).",
+        "Liaise with the Principal Contractor for the duration of the appointment and share information relevant to planning, management and monitoring of the construction phase (CDM 2015 Regulation 11(7)).",
+        "Assist the Principal Contractor in preparing the construction phase plan by providing all information held that is relevant to the plan, including pre-construction information obtained from designers under Regulation 9(3)(b) (CDM 2015 Regulation 12(3)).",
+        "Prepare, appropriately revise, and maintain a Health & Safety File appropriate to the characteristics of the Project (CDM 2015 Regulations 12(5), 12(6)); if the Principal Designer's appointment ends before the project ends, pass the draft Health & Safety File to the Principal Contractor (Regulation 12(8)).",
+        "Provide general (non-project-specific) Health and Safety advice to the Council on construction matters as and when needed.",
+        "Attend (as minimum) project inception & briefing meetings, tender interviews / clarification interviews / evaluation meetings, design team meetings, pre-start meetings, construction progress meetings, and hand-over / practical completion meetings.",
+        "Comply with the Council's Organisational Information Requirements for BIM and Employer's Information Requirements for BIM and maintain in-depth awareness of the Council's BIM documentation suite.",
+        "Discuss with the Council at concept stage proposal and requirements (including budget and programme) and assist with preparation of the 'Client Brief'.",
+        "Advise the Council throughout design on the need for specialist health & safety consultants and assist in their appointment.",
+        "Advise the Council on Health and Safety considerations affecting or affected by procurement methods and approaches to design and construction.",
+        "Make appropriate enquiries and report in writing on whether any designer, Principal Contractor, or contractor the Council considers appointing has the necessary skills, knowledge, experience and organisational capability under CDM 2015.",
+        "Organise, chair and participate in Design Risk workshops at least every three months to ensure other designers comply with their duties.",
+        "Produce and proactively maintain a Project-specific Design Hazard Risk Register capturing all risks identified by designers, with actions to eliminate/reduce/control risks.",
+        "Prepare for and on behalf of the Council the HSE notification document (F10) and update it as required.",
+        "Provide a monthly progress report during design and pre-construction covering H&S status and post-completion Operation and Maintenance implications.",
+        "Cooperate fully with Council-appointed auditors (internal or external) and provide reports, documents, or correspondence within a reasonable agreed timescale.",
+        "Review Designer's Risk Assessments at each project stage and comment on Design Team proposals for ongoing Operation and Maintenance at each stage.",
+        "Liaise with the SMBC / External Project Manager & Design Team and contribute to and maintain the Programme for design, procurement and construction.",
+        "Assist in designing the works to comply with all relevant statutory requirements, codes of practice, guidance, and best practice; raise non-compliant elements with SMBC as soon as identified.",
+        "Use a Common Data Environment (CDE) for the project, to be agreed with SMBC on a project-by-project basis, complying with any CDE standards.",
+        "Agree with the Council a clear format for the Pre-Construction Information pack prior to production.",
+        "Agree with the Council a clear format for the Health & Safety File and Operation & Maintenance files, and communicate the format to the Principal Contractor prior to production.",
+        "In the event of a RIDDOR-reportable incident during construction, conduct a full review of site activities and provide the Council with a report of circumstances and recommended mitigations.",
+        "At the conclusion of RIBA Stage 1: contribute to the formal stage report, undertake site inspections, study project-relevant data, comment on physical site restrictions or logistics affecting safe construction, advise on required specialist consultants/contractors/subcontractors/suppliers, and develop/review/challenge the Brief, Budget and Programme with the PM and Design Team; comply with CDM Regulations.",
+        "At the conclusion of RIBA Stage 2: contribute to the formal stage report, consolidate and finalise the brief, prepare outline concept design proposals, and establish a quality management structure (review, approval, variations and reporting procedures) with the PM and Design Team.",
+        "At RIBA Stage 3 (Developed Design): contribute to the stage report, develop the detailed design within financial constraints, assist in producing sketches/drawings/specifications/calculations to support the pre-construction information and H&S File, and contribute to discussions on tendering and procurement options.",
+        "At RIBA Stage 4 (Technical Design): contribute to the stage report, assist in developing the technical design from the detailed design in line with the brief and cost plan, ensure drawings/specifications/specialist input are available for tendering and to support review/update of the pre-construction information and H&S File, consult relevant statutory authorities, appraise and evaluate tenders (including construction programmes, method statements, and H&S proposals), and assist in preparing an Authority to Start Work Report.",
+        "At RIBA Stage 5 (Construction): attend relevant site meetings as agreed, ensure the Regulation 6 notification (and any revised notification) is provided to the Principal Contractor with instruction to display at the Construction Site Office, make periodic unannounced site visits no less than monthly to monitor compliance with H&S and good construction practice, produce a standardised site-visit report with findings and recommended Client actions, raise any safety concerns immediately on site with the Site Supervisor/Manager, and support the Lead Consultant and PM in preparing and maintaining a handover plan.",
+        "At RIBA Stages 6 and 7 (Handover and Close Out & In Use): advise on operation and maintenance of the building, ensure the Principal Contractor issues Health & Safety Files and Operation & Maintenance Manuals per the preliminary specification timescales, review and comment on record drawings and other information provided by the contractor for those files, ensure compliance with agreed format / quality / depth and the Project's BIM Standards, and attend and actively contribute to Lessons Learnt workshops."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "cdm-principal-designer-service-appointment",
+          "summary": "Provision of CDM Principal Designer & Construction Health & Safety Advisor services for the Stockport Town Centre School project, covering all duties under CDM 2015 and full RIBA Plan of Work Stages 0–7.",
+          "requirement_type": "professional_service",
+          "technical_attributes": [
+            "Role: Principal Designer under CDM 2015",
+            "Role: Construction Health & Safety Advisor",
+            "Coverage: RIBA Plan of Work 2020 Stages 0 through 7",
+            "Mandatory SSIP accreditation (e.g. CHAS)",
+            "BIM compliance (Council's Organisational Information Requirements and Employer's Information Requirements)",
+            "Common Data Environment participation",
+            "Design Risk workshop facilitation (minimum quarterly)",
+            "Project-specific Design Hazard Risk Register ownership",
+            "HSE F10 notification preparation and maintenance",
+            "Monthly H&S progress reporting",
+            "Minimum monthly unannounced construction-phase site visits"
+          ],
+          "quantity_hint": "One appointment covering the full project lifecycle (RIBA Stages 0–7); entire scope to be priced as a single tender submission.",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "The appointed Principal Designer & Construction Health & Safety Advisor shall be expected to carry out all of the services required in Sections 2 to 8 and these should be allowed priced within any tender submission.",
+            "section_ref": "general"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Construction (Design and Management) Regulations 2015 (CDM 2015)",
+          "context": "Primary statutory framework governing the Principal Designer role. In force from 6 April 2015. Scope of service is explicitly derived from duties imposed by CDM 2015; detailed regulation citations include 4[4], 6, 8(4)–(6), 9(3)(b), 11(1)–(3), 11(6)–(7), 12(3), 12(5)–(6), and 12(8).",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "The Construction (Design and Management) Regulations 2015 (CDM 2015) came into force on 6 April 2015.",
+            "section_ref": "general"
+          }
+        },
+        {
+          "standard_ref": "CDM 2015 Regulation 8(4)",
+          "context": "Duty to cooperate fully with any other person working on or in relation to a project at the same or an adjoining construction site.",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Cooperate fully with any other person working on or in relation to a project... [Regulation 8(4)]",
+            "section_ref": "core-services"
+          }
+        },
+        {
+          "standard_ref": "CDM 2015 Regulations 11(1), 11(2), 11(3)",
+          "context": "Duty to plan, manage and monitor the pre-construction phase and coordinate H&S matters; take into account principles of prevention; identify and eliminate or control foreseeable risks.",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Plan, manage and monitor the pre-construction phase and coordinate matters relating to health & safety during the pre-construction phase... [Regulations 11(1)]",
+            "section_ref": "core-services"
+          }
+        },
+        {
+          "standard_ref": "CDM 2015 Regulations 11(6), 11(7)",
+          "context": "Duty to provide pre-construction information to appointed/considered designers and contractors; liaise with and share information with the Principal Contractor.",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "provide pre-construction information, promptly and in a convenient form, to every designer and contractor appointed... [Regulation 11(6)]",
+            "section_ref": "core-services"
+          }
+        },
+        {
+          "standard_ref": "CDM 2015 Regulations 12(3), 12(5), 12(6), 12(8)",
+          "context": "Duties around preparing the Health & Safety File, updating it, and passing a draft to the Principal Contractor if appointment ends before project end.",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "prepare a health & safety file appropriate to the characteristics of the Project... [Regulation 12(5)]",
+            "section_ref": "core-services"
+          }
+        },
+        {
+          "standard_ref": "CDM 2015 Regulation 4[4]",
+          "context": "Client's duty to ensure pre-construction information is provided; Principal Designer assists the client in this provision.",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Assist the client in provision of the pre-construction information required by Regulation 4[4].",
+            "section_ref": "core-services"
+          }
+        },
+        {
+          "standard_ref": "CDM 2015 Regulation 6",
+          "context": "HSE F10 notification of the development must be provided to the Principal Contractor with instruction to display at the Construction Site Office.",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Ensure that a copy of the notification of the Development under Regulation 6 (and any revised notification) is provided to the Principal Contractor",
+            "section_ref": "riba-stage-5-construction"
+          }
+        },
+        {
+          "standard_ref": "CDM 2015 Regulation 9(3)(b)",
+          "context": "Designers must provide pre-construction information to the Principal Designer; used by the PD when assisting the Principal Contractor with the construction phase plan.",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "including pre-construction information obtained from the designers under Regulation 9(3)(b). [Regulations 12(3)]",
+            "section_ref": "core-services"
+          }
+        },
+        {
+          "standard_ref": "RIDDOR (Reporting of Injuries, Diseases and Dangerous Occurrences Regulations)",
+          "context": "If a RIDDOR-reportable incident occurs during construction the supplier must conduct a full review of site activities and provide the Council with a circumstances report plus recommended mitigations.",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "should an incident which falls under the RIDDOR regulations take place the supplier will conduct a full review of the activities on site",
+            "section_ref": "core-services"
+          }
+        },
+        {
+          "standard_ref": "SSIP (Safety Schemes in Procurement) accreditation — e.g. CHAS",
+          "context": "Mandatory accreditation the Principal Designer must hold to be eligible to provide services to the Council.",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Parties providing Principal Designer services to the council must hold a SSIP accreditation such as CHAS or similar.",
+            "section_ref": "core-services"
+          }
+        },
+        {
+          "standard_ref": "Council's Organisational Information Requirements for BIM and Employer's Information Requirements for BIM",
+          "context": "The Principal Designer must comply with all requirements in the Council's BIM documentation suite throughout the project.",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "The Principal Designer is required to comply with all of the requirements of the Clients Organisational Information Requirements for BIM and Employers Information Requirements for BIM",
+            "section_ref": "core-services"
+          }
+        },
+        {
+          "standard_ref": "RIBA Plan of Work 2020 — Stages 0 to 7",
+          "context": "Scope is explicitly structured around RIBA Stages 0/1 (Strategic Definition, Preparation and Briefing), 2 (Concept Design), 3 (Developed Design), 4 (Technical Design), 5 (Construction), and 6 & 7 (Handover and Close Out & In Use).",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Strategic Definition, Preparation and Briefing – RIBA Stages 0 & 1",
+            "section_ref": "riba-stage-0-1"
+          }
+        },
+        {
+          "standard_ref": "Common Data Environment (CDE)",
+          "context": "Principal Designer must utilise a CDE agreed with SMBC on a project-by-project basis and comply with any standards associated with it.",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "The Principal Designer shall utilise a Common Data Environment for the project",
+            "section_ref": "core-services"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "page:1",
+        "anchor_text": "Scope of Service — CDM Principal Designer — Project: Stockport Town Centre School — Project Number: E000-25-0031",
+        "section_ref": "document-cover"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "cdm-principal-designer-service-appointment",
+      "lot_number": "A.4",
+      "candidate_name": "CDM Principal Designer & Construction Health & Safety Advisor Services",
+      "summary": "Professional-services appointment for a CDM Principal Designer and Construction Health & Safety Advisor on the Stockport Town Centre School project (Project E000-25-0031). Covers full CDM 2015 duties (pre-construction planning, hazard control, pre-construction information provision, Health & Safety File preparation and maintenance, liaison with Principal Contractor, RIDDOR incident review) and all RIBA Plan of Work Stages 0–7 activities. Mandatory SSIP accreditation (e.g. CHAS). BIM-compliant working against the Council's Organisational Information Requirements and Employer's Information Requirements, using an agreed Common Data Environment. Minimum monthly unannounced construction-phase site inspections with standardised reporting.",
+      "requirements": [
+        "Hold SSIP accreditation such as CHAS or similar.",
+        "Discharge all Principal Designer duties under CDM 2015 (Regulations 8, 9(3)(b), 11(1)-(3), 11(6)-(7), 12(3), 12(5)-(6), 12(8) and Regulation 6 notification).",
+        "Deliver scope across RIBA Plan of Work Stages 0–7 as specified in the annex.",
+        "Chair quarterly Design Risk workshops and maintain a Project-specific Design Hazard Risk Register.",
+        "Prepare and maintain HSE F10 notification.",
+        "Provide monthly H&S progress reports during design and pre-construction phases.",
+        "Conduct unannounced monthly construction-phase site visits and produce standardised reports.",
+        "Prepare and maintain the Health & Safety File appropriate to the project.",
+        "Comply with Council BIM Organisational Information Requirements and Employer's Information Requirements.",
+        "Use a Common Data Environment agreed with SMBC.",
+        "Attend inception/briefing, tender interviews & evaluation, design team, pre-start, construction progress, and handover/practical completion meetings.",
+        "In a RIDDOR-reportable incident, conduct a full site-activity review and provide a report with recommended mitigations."
+      ],
+      "technical_standards": [
+        "Construction (Design and Management) Regulations 2015 (CDM 2015)",
+        "RIDDOR",
+        "SSIP (Safety Schemes in Procurement) — e.g. CHAS",
+        "RIBA Plan of Work 2020 Stages 0–7",
+        "Council's Organisational Information Requirements for BIM and Employer's Information Requirements for BIM",
+        "Common Data Environment (CDE)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "page:1",
+        "anchor_text": "The appointed Principal Designer & Construction Health & Safety Advisor shall be expected to carry out all of the services required in Sections 2 to 8 and these should be allowed priced within any tender submission.",
+        "section_ref": "general"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 6500,
+    "lots.title": 9000,
+    "lots.description": 9200,
+    "lots.requirements": 9000,
+    "lots.evaluation_criteria": 2000,
+    "lots.cpv_codes": 1500,
+    "lots.product_requirements": 7500,
+    "lots.technical_standards": 9300,
+    "product_requirement_seeds": 7500
+  },
+  "extraction_confidence_bps": 7800,
+  "warnings": [
+    {
+      "code": "NO_EXPLICIT_CPV",
+      "message": "The source document does not cite any CPV (Common Procurement Vocabulary) codes. Parent notice main_category '150000 - Consultancy' is portal-specific, not a CPV. CPV codes left empty and should be inferred downstream (e.g. 71317210 Health and safety consultancy services, 71540000 Construction management services) if policy allows.",
+      "evidence_refs": ["document-cover", "general", "core-services"]
+    },
+    {
+      "code": "NO_EXPLICIT_EVALUATION_CRITERIA",
+      "message": "This annex defines scope of service only; it does not publish tender evaluation criteria or scoring weights. Evaluation criteria should be sourced from the Invitation to Participate (document 1A) or Response Document (document 3).",
+      "evidence_refs": ["general", "core-services"]
+    },
+    {
+      "code": "MULTI_PART_TENDER_PACK_CONTEXT",
+      "message": "This document is annex A.4 of a larger multi-disciplinary design team tender pack (notice pc-f0f30f94-e22c-f111-813c-005056b64545). Sibling annexes A.1 (Architect), A.2 (BR Principal Designer), A.3 (MEP), and A.5 (Structural & Civils) define separate discipline scopes. Lot numbering A.4 matches the annex label; it is not a formal 'Lot' in the procurement-regulation sense and may not be separately awardable — notice_lots rows already stored for A.1 and A.3 suggest the daemon's lotting strategy treats each annex as a pseudo-lot.",
+      "evidence_refs": ["document-cover"]
+    },
+    {
+      "code": "NO_PAGE_STRUCTURE",
+      "message": "Source document page_count is 0 and Docling sections_json exposes only a single 'page header' anchor. Evidence page_refs are therefore approximated as 'page:1' with descriptive section_ref values rather than true page numbers.",
+      "evidence_refs": ["document-cover"]
+    },
+    {
+      "code": "SOURCE_NUMBERING_INCONSISTENT",
+      "message": "The source markdown reuses list markers (e.g. multiple '0.x' prefixes, duplicate '1.' entries, and Concept/Developed/Technical stages re-started as '1.'/'2.'/'3.'). Requirement order is preserved from the document but numeric prefixes have been normalized away in the output; refer to descriptive section_ref values for navigation.",
+      "evidence_refs": ["core-services", "riba-stage-2-concept-design", "riba-stage-3-developed-design", "riba-stage-4-technical-design"]
+    },
+    {
+      "code": "SECTION_9_NOT_PRESENT_IN_ANNEX",
+      "message": "Document introduction refers to 'Section 9 deals with performance monitoring and key performance indicators', but Section 9 content is not present in this annex extraction. Performance monitoring / KPI detail must be sourced separately if required.",
+      "evidence_refs": ["general"]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Scope of Service — CDM Principal Designer — Project: Stockport Town Centre School — Project Number: E000-25-0031",
+      "section_ref": "document-cover"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "1. General: The Construction (Design and Management) Regulations 2015 (CDM 2015) came into force on 6 April 2015.",
+      "section_ref": "general"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "1. Core Services — derived by the duties imposed on the Principal Designer by the Construction (Design & Management) Regulations 2015.",
+      "section_ref": "core-services"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Strategic Definition, Preparation and Briefing – RIBA Stages 0 & 1",
+      "section_ref": "riba-stage-0-1"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Concept Design – RIBA Stage 2",
+      "section_ref": "riba-stage-2-concept-design"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Developed Design – RIBA Stage 3",
+      "section_ref": "riba-stage-3-developed-design"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Technical Design – RIBA Stage 4",
+      "section_ref": "riba-stage-4-technical-design"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Construction – RIBA Stage 5",
+      "section_ref": "riba-stage-5-construction"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Handover and Close Out & In Use – RIBA Stage 6 and 7",
+      "section_ref": "riba-stage-6-7-handover"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Parties providing Principal Designer services to the council must hold a SSIP accreditation such as CHAS or similar.",
+      "section_ref": "core-services"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "The Principal Designer is required to comply with all of the requirements of the Clients Organisational Information Requirements for BIM and Employers Information Requirements for BIM",
+      "section_ref": "core-services"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Prepare for and on behalf of the Council the HSE notification document (F10) and update this document as required.",
+      "section_ref": "core-services"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "should an incident which falls under the RIDDOR regulations take place the supplier will conduct a full review of the activities on site",
+      "section_ref": "core-services"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "1af0c126962ab984003ef70e32648dc46f9e8b4e093de19d377340c5183f938c",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

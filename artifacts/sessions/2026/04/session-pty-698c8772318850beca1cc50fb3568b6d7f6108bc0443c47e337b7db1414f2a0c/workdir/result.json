@@ -1,0 +1,1275 @@
+{
+  "cursor": "{\"last_processed_at\":\"2026-04-13T17:37:03Z\"}",
+  "continuation_required": false,
+  "registrations": [
+    {
+      "notice_id": "pc-ba3a9e74-b718-f111-813c-005056b64545",
+      "process_id": "proc-pc-ba3a9e74-b718-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=ba3a9e74-b718-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "321100 - Social Community Care Supplies & Services - Children",
+        "days_until_deadline": 0,
+        "expiry_check": false,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-0741fda8-cc26-f111-813c-005056b64545",
+      "process_id": "proc-pc-0741fda8-cc26-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=0741fda8-cc26-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "48000000-8 - Software package and information systems",
+        "days_until_deadline": 1,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-ba04288d-9406-f111-813c-005056b64545",
+      "process_id": "proc-pc-ba04288d-9406-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=ba04288d-9406-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "45000000-7 - Construction work",
+        "days_until_deadline": 1,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-67571d87-eb18-f111-813c-005056b64545",
+      "process_id": "proc-pc-67571d87-eb18-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=67571d87-eb18-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "150000 - Consultancy",
+        "days_until_deadline": 1,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-a45c84f0-fe33-f111-813c-005056b64545",
+      "process_id": "proc-pc-a45c84f0-fe33-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=a45c84f0-fe33-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "45210000-2 - Building construction work",
+        "days_until_deadline": 3,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-24d1bfe3-6224-f111-813c-005056b64545",
+      "process_id": "proc-pc-24d1bfe3-6224-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=24d1bfe3-6224-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "150000 - Consultancy",
+        "days_until_deadline": 3,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-ab9e58d5-7911-f111-813c-005056b64545",
+      "process_id": "proc-pc-ab9e58d5-7911-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=ab9e58d5-7911-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "45221111-3 - Road bridge construction work",
+        "days_until_deadline": 3,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-40cc746d-8289-ec11-8110-005056b64545",
+      "process_id": "proc-pc-40cc746d-8289-ec11-8110-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=40cc746d-8289-ec11-8110-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "31681410-0 - Electrical materials",
+        "days_until_deadline": 4,
+        "expiry_check": false,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-d2b7346a-e41e-f111-813c-005056b64545",
+      "process_id": "proc-pc-d2b7346a-e41e-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=d2b7346a-e41e-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "90731100-1 - Air quality management | 90731400-4 - Air pollution monitoring | 90731800-8 - Airborne particle monitoring",
+        "days_until_deadline": 6,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-457c37c6-9f22-f111-813c-005056b64545",
+      "process_id": "proc-pc-457c37c6-9f22-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=457c37c6-9f22-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "171040 - Educational Placements",
+        "days_until_deadline": 6,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-d0a57858-1629-f111-813c-005056b64545",
+      "process_id": "proc-pc-d0a57858-1629-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=d0a57858-1629-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 7,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-9ac757a1-f126-f111-813c-005056b64545",
+      "process_id": "proc-pc-9ac757a1-f126-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=9ac757a1-f126-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "75241000-7 - Public security services | 75242100-5 - Public-order services | 75242110-8 - Bailiff services",
+        "days_until_deadline": 7,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-f239a61d-7519-f111-813c-005056b64545",
+      "process_id": "proc-pc-f239a61d-7519-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=f239a61d-7519-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "45000000-7 - Construction work | 50000000-5 - Repair and maintenance services",
+        "days_until_deadline": 7,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-fd3d299b-3728-f111-813c-005056b64545",
+      "process_id": "proc-pc-fd3d299b-3728-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=fd3d299b-3728-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "390000 - Works - Construction, Repair & Maintenance | 391400 - Roads | 391465 - Reconstruction & Resurfacing",
+        "days_until_deadline": 8,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-01698761-4ef8-f011-813c-005056b64545",
+      "process_id": "proc-pc-01698761-4ef8-f011-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=01698761-4ef8-f011-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "42416100-6 - Lifts | 42416300-8 - Hoists | 44115600-5 - Stairlifts",
+        "days_until_deadline": 9,
+        "expiry_check": false,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-cc9efc86-6424-f111-813c-005056b64545",
+      "process_id": "proc-pc-cc9efc86-6424-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=cc9efc86-6424-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "44221400-9 - Shutters | 45000000-7 - Construction work",
+        "days_until_deadline": 9,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-1e292c3e-b22d-f111-813c-005056b64545",
+      "process_id": "proc-pc-1e292c3e-b22d-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=1e292c3e-b22d-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 10,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-bfa77c7c-c429-f111-813c-005056b64545",
+      "process_id": "proc-pc-bfa77c7c-c429-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=bfa77c7c-c429-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "390000 - Works - Construction, Repair & Maintenance",
+        "days_until_deadline": 10,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-15e12290-5624-f111-813c-005056b64545",
+      "process_id": "proc-pc-15e12290-5624-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=15e12290-5624-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "45000000-7 - Construction work",
+        "days_until_deadline": 10,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-766fb030-6a1d-f111-813c-005056b64545",
+      "process_id": "proc-pc-766fb030-6a1d-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=766fb030-6a1d-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "63712400-7 - Parking services",
+        "days_until_deadline": 10,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-7df5761a-d31b-f111-813c-005056b64545",
+      "process_id": "proc-pc-7df5761a-d31b-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=7df5761a-d31b-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "63712400-7 - Parking services",
+        "days_until_deadline": 10,
+        "expiry_check": false,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-218726bd-9dda-f011-813c-005056b64545",
+      "process_id": "proc-pc-218726bd-9dda-f011-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=218726bd-9dda-f011-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "34114000-9 - Specialist vehicles | 34121000-1 - Buses and coaches | 34134000-5 - Flatbed and Tipper trucks",
+        "days_until_deadline": 10,
+        "expiry_check": false,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-a0a0b3eb-ebd5-f011-813a-005056b64545",
+      "process_id": "proc-pc-a0a0b3eb-ebd5-f011-813a-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=a0a0b3eb-ebd5-f011-813a-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "03410000-7 - Wood | 19510000-4 - Rubber products | 39531000-3 - Carpets",
+        "days_until_deadline": 10,
+        "expiry_check": false,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-4992c49f-5821-f111-813c-005056b64545",
+      "process_id": "proc-pc-4992c49f-5821-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=4992c49f-5821-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 12,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-f0f30f94-e22c-f111-813c-005056b64545",
+      "process_id": "proc-pc-f0f30f94-e22c-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=f0f30f94-e22c-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "150000 - Consultancy",
+        "days_until_deadline": 13,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-0597bed5-382c-f111-813c-005056b64545",
+      "process_id": "proc-pc-0597bed5-382c-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=0597bed5-382c-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "291000 - Events",
+        "days_until_deadline": 13,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-1e5502ad-2629-f111-813c-005056b64545",
+      "process_id": "proc-pc-1e5502ad-2629-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=1e5502ad-2629-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "39300000-5 - Miscellaneous equipment | 55500000-5 - Canteen and catering services | 55520000-1 - Catering services",
+        "days_until_deadline": 13,
+        "expiry_check": false,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-72559434-1f29-f111-813c-005056b64545",
+      "process_id": "proc-pc-72559434-1f29-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=72559434-1f29-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "321100 - Social Community Care Supplies & Services - Children",
+        "days_until_deadline": 13,
+        "expiry_check": false,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-d3040ed1-1f4a-e811-80eb-005056b64545",
+      "process_id": "proc-pc-d3040ed1-1f4a-e811-80eb-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=d3040ed1-1f4a-e811-80eb-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 13,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-460c7871-322c-f111-813c-005056b64545",
+      "process_id": "proc-pc-460c7871-322c-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=460c7871-322c-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "281000 - Advocacy | 321010 - Advice, Advocacy & Counselling Services | 401501 - Support Services & Advocacy Services",
+        "days_until_deadline": 15,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-6fd81208-cfc7-ec11-8113-005056b64545",
+      "process_id": "proc-pc-6fd81208-cfc7-ec11-8113-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=6fd81208-cfc7-ec11-8113-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "151510 - Public Health",
+        "days_until_deadline": 16,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-83a118df-7c2e-f111-813c-005056b64545",
+      "process_id": "proc-pc-83a118df-7c2e-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=83a118df-7c2e-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "31000000-6 - Electrical machinery | 32000000-3 - Radio, television, communication equipment | 48000000-8 - Software package and information systems",
+        "days_until_deadline": 16,
+        "expiry_check": false,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-bf67a538-0d2d-f111-813c-005056b64545",
+      "process_id": "proc-pc-bf67a538-0d2d-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=bf67a538-0d2d-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "45212423-7 - Cafeteria construction work | 70332100-8 - Land management services | 79993100-2 - Facilities management services",
+        "days_until_deadline": 16,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-f25bb10d-131e-f111-813c-005056b64545",
+      "process_id": "proc-pc-f25bb10d-131e-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=f25bb10d-131e-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "09000000-3 - Petroleum products, fuel, electricity and other sources of energy",
+        "days_until_deadline": 16,
+        "expiry_check": false,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-11352083-46af-f011-813a-005056b64545",
+      "process_id": "proc-pc-11352083-46af-f011-813a-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=11352083-46af-f011-813a-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "55500000-5 - Canteen and catering services | 79418000-7 - Procurement consultancy services",
+        "days_until_deadline": 16,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-e3dbcb4d-7932-f111-813c-005056b64545",
+      "process_id": "proc-pc-e3dbcb4d-7932-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=e3dbcb4d-7932-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "80000000-4 - Education and training services | 85000000-9 - Health and social work services",
+        "days_until_deadline": 17,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-9c033674-862e-f111-813c-005056b64545",
+      "process_id": "proc-pc-9c033674-862e-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=9c033674-862e-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "261520 - Training",
+        "days_until_deadline": 17,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-089af3fb-f02c-f111-813c-005056b64545",
+      "process_id": "proc-pc-089af3fb-f02c-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=089af3fb-f02c-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "85311000-2 - Social work services with accommodation | 85311200-4 - Welfare services for the handicapped",
+        "days_until_deadline": 17,
+        "expiry_check": false,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-4b3a08bc-6f32-f111-813c-005056b64545",
+      "process_id": "proc-pc-4b3a08bc-6f32-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=4b3a08bc-6f32-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "150000 - Consultancy",
+        "days_until_deadline": 21,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-0d574ef7-3616-f111-813c-005056b64545",
+      "process_id": "proc-pc-0d574ef7-3616-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=0d574ef7-3616-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 21,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-871299d4-d029-f111-813c-005056b64545",
+      "process_id": "proc-pc-871299d4-d029-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=871299d4-d029-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 23,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-8466a02c-f733-f111-813c-005056b64545",
+      "process_id": "proc-pc-8466a02c-f733-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=8466a02c-f733-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "expiry_too_close",
+      "pre_filter_result": {
+        "category": "45221220-0 - Culverts | 45223500-1 - Reinforced-concrete structures | 45233100-0 - Construction work for highways, roads",
+        "days_until_deadline": 28,
+        "expiry_check": false,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-64d1918f-0e1e-f111-813c-005056b64545",
+      "process_id": "proc-pc-64d1918f-0e1e-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=64d1918f-0e1e-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "73000000-2 - Research and development services and related consultancy services",
+        "days_until_deadline": 30,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-dc1daee2-772e-f111-813c-005056b64545",
+      "process_id": "proc-pc-dc1daee2-772e-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=dc1daee2-772e-f111-813c-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T18:29:30Z",
+      "pre_filter_result": {
+        "category": "50700000-2 - Repair and maintenance services of building installations | 50750000-7 - Lift-maintenance services | 71315000-9 - Building services",
+        "days_until_deadline": 31,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-3ba4e6b8-9cef-f011-813c-005056b64545",
+      "process_id": "proc-pc-3ba4e6b8-9cef-f011-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=3ba4e6b8-9cef-f011-813c-005056b64545",
+      "action": "already_registered",
+      "registered_at": "2026-04-13T16:12:17Z",
+      "pre_filter_result": {
+        "category": "37400000-2 - Sports goods and equipment | 50000000-5 - Repair and maintenance services",
+        "days_until_deadline": 31,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-e38f823f-8b34-f011-8136-005056b64545",
+      "process_id": "proc-pc-e38f823f-8b34-f011-8136-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=e38f823f-8b34-f011-8136-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85320000-8 - Social services",
+        "days_until_deadline": 31,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-19574d11-0929-f111-813c-005056b64545",
+      "process_id": "proc-pc-19574d11-0929-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=19574d11-0929-f111-813c-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T17:30:15Z",
+      "pre_filter_result": {
+        "category": "39155000-3 - Library furniture | 79932000-6 - Interior design services",
+        "days_until_deadline": 38,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-5b2a7cd0-6d1c-f111-813c-005056b64545",
+      "process_id": "proc-pc-5b2a7cd0-6d1c-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=5b2a7cd0-6d1c-f111-813c-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T17:31:00Z",
+      "pre_filter_result": {
+        "category": "03000000-1 - Agricultural products | 09000000-3 - Petroleum products | 14000000-1 - Mining, basic metals",
+        "days_until_deadline": 47,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-978a1774-1037-f111-813c-005056b64545",
+      "process_id": "proc-pc-978a1774-1037-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=978a1774-1037-f111-813c-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T17:31:45Z",
+      "pre_filter_result": {
+        "category": "73000000-2 - Research and development services and related consultancy services",
+        "days_until_deadline": 51,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-addf05a5-0d37-f111-813c-005056b64545",
+      "process_id": "proc-pc-addf05a5-0d37-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=addf05a5-0d37-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "73000000-2 - Research and development services and related consultancy services",
+        "days_until_deadline": 51,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-7ceec675-8223-f111-813c-005056b64545",
+      "process_id": "proc-pc-7ceec675-8223-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=7ceec675-8223-f111-813c-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T17:32:30Z",
+      "pre_filter_result": {
+        "category": "16000000-5 - Agricultural machinery | 34000000-7 - Transport equipment | 42122130-0 - Water pumps",
+        "days_until_deadline": 52,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-7908a4b8-a43c-f011-8136-005056b64545",
+      "process_id": "proc-pc-7908a4b8-a43c-f011-8136-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "79311000-7 - Survey services | 79340000-9 - Advertising and marketing services | 79342310-9 - Customer survey services",
+        "days_until_deadline": 66,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-9543dce7-8832-f111-813c-005056b64545",
+      "process_id": "proc-pc-9543dce7-8832-f111-813c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "73000000-2 - Research and development services and related consultancy services",
+        "days_until_deadline": 70,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-9471fe16-f336-f011-8136-005056b64545",
+      "process_id": "proc-pc-9471fe16-f336-f011-8136-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "45000000-7 - Construction work",
+        "days_until_deadline": 73,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-cb74ba41-f628-f111-813c-005056b64545",
+      "process_id": "proc-pc-cb74ba41-f628-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=cb74ba41-f628-f111-813c-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T17:33:15Z",
+      "pre_filter_result": {
+        "category": "09310000-5 - Electricity | 65300000-6 - Electricity distribution and related services",
+        "days_until_deadline": 77,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-b096515a-a66e-f011-813a-005056b64545",
+      "process_id": "proc-pc-b096515a-a66e-f011-813a-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 77,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-0cf96ca4-986e-ef11-812f-005056b64545",
+      "process_id": "proc-pc-0cf96ca4-986e-ef11-812f-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "360000 - Public Transport",
+        "days_until_deadline": 139,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-dacf8c32-9a29-ef11-812c-005056b64545",
+      "process_id": "proc-pc-dacf8c32-9a29-ef11-812c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 139,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-306695c0-d1fb-ee11-812a-005056b64545",
+      "process_id": "proc-pc-306695c0-d1fb-ee11-812a-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "80400000-8 - Adult and other education services",
+        "days_until_deadline": 139,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-7469dde3-a7fb-ed11-8122-005056b64545",
+      "process_id": "proc-pc-7469dde3-a7fb-ed11-8122-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services | 98000000-3 - Other community, social and personal services",
+        "days_until_deadline": 140,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-ffb5deb6-a626-f111-813c-005056b64545",
+      "process_id": "proc-pc-ffb5deb6-a626-f111-813c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=ffb5deb6-a626-f111-813c-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T17:34:00Z",
+      "pre_filter_result": {
+        "category": "34926000-4 - Car park control equipment | 38730000-1 - Parking meters | 63712400-7 - Parking services",
+        "days_until_deadline": 169,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-7046e8ec-2734-ed11-8119-005056b64545",
+      "process_id": "proc-pc-7046e8ec-2734-ed11-8119-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=7046e8ec-2734-ed11-8119-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T17:34:30Z",
+      "pre_filter_result": {
+        "category": "14820000-5 - Glass | 44221111-6 - Double-glazed units",
+        "days_until_deadline": 230,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-b7aaab27-1f34-ed11-8119-005056b64545",
+      "process_id": "proc-pc-b7aaab27-1f34-ed11-8119-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=b7aaab27-1f34-ed11-8119-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T17:35:00Z",
+      "pre_filter_result": {
+        "category": "03419000-0 - Timber | 44220000-8 - Builders' joinery",
+        "days_until_deadline": 230,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-ba33f005-b1a1-e611-8116-000c29c9ba21",
+      "process_id": "proc-pc-ba33f005-b1a1-e611-8116-000c29c9ba21",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "80100000-5 - Primary education services | 80200000-6 - Secondary education services | 80300000-7 - Higher education services",
+        "days_until_deadline": 261,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-485bf5dc-d276-ed11-811c-005056b64545",
+      "process_id": "proc-pc-485bf5dc-d276-ed11-811c-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "79711000-1 - Alarm-monitoring services | 79713000-5 - Guard services | 79715000-9 - Patrol services",
+        "days_until_deadline": 290,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-2a73b5ad-2e2f-eb11-8105-005056b64545",
+      "process_id": "proc-pc-2a73b5ad-2e2f-eb11-8105-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services | 98000000-3 - Other community, social and personal services",
+        "days_until_deadline": 299,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-4a279b7f-1a03-ef11-812a-005056b64545",
+      "process_id": "proc-pc-4a279b7f-1a03-ef11-812a-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=4a279b7f-1a03-ef11-812a-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T17:35:30Z",
+      "pre_filter_result": {
+        "category": "151510 - Public Health | 311000 - Consumables | 311200 - Drugs & Pharmacy Services",
+        "days_until_deadline": 346,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-8551313c-3266-eb11-8108-005056b64545",
+      "process_id": "proc-pc-8551313c-3266-eb11-8108-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "180000 - Environmental Services",
+        "days_until_deadline": 351,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-bf7a7104-f916-ec11-810e-005056b64545",
+      "process_id": "proc-pc-bf7a7104-f916-ec11-810e-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 351,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-b6a4a769-3008-ed11-8116-005056b64545",
+      "process_id": "proc-pc-b6a4a769-3008-ed11-8116-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "80000000-4 - Education and training services",
+        "days_until_deadline": 504,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-bd97e35e-e3ec-e811-80ef-005056b64545",
+      "process_id": "proc-pc-bd97e35e-e3ec-e811-80ef-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=bd97e35e-e3ec-e811-80ef-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T17:36:00Z",
+      "pre_filter_result": {
+        "category": "60130000-8 - Special-purpose road passenger-transport services | 60140000-1 - Non-scheduled passenger transport | 60170000-0 - Hire of passenger transport vehicles with driver",
+        "days_until_deadline": 504,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-7e2a6fb2-67a3-f011-813a-005056b64545",
+      "process_id": "proc-pc-7e2a6fb2-67a3-f011-813a-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=7e2a6fb2-67a3-f011-813a-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T17:36:20Z",
+      "pre_filter_result": {
+        "category": "44221300-8 - Gates | 44400000-4 - Miscellaneous fabricated products | 45223100-7 - Assembly of metal structures",
+        "days_until_deadline": 534,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-579c4586-45d6-ea11-8104-005056b64545",
+      "process_id": "proc-pc-579c4586-45d6-ea11-8104-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "60000000-8 - Transport services (excl. Waste transport)",
+        "days_until_deadline": 595,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-169ba131-3b3f-ed11-8119-005056b64545",
+      "process_id": "proc-pc-169ba131-3b3f-ed11-8119-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=169ba131-3b3f-ed11-8119-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T17:36:40Z",
+      "pre_filter_result": {
+        "category": "22000000-0 - Printed matter and related products | 79800000-2 - Printing and related services",
+        "days_until_deadline": 595,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-ffa197ab-19c4-ee11-8127-005056b64545",
+      "process_id": "proc-pc-ffa197ab-19c4-ee11-8127-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "79000000-4 - Business services: law, marketing, consulting, recruitment, printing and security",
+        "days_until_deadline": 717,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-f3b4842d-0695-ee11-8125-005056b64545",
+      "process_id": "proc-pc-f3b4842d-0695-ee11-8125-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services | 98000000-3 - Other community, social and personal services",
+        "days_until_deadline": 717,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-2b3dac6f-3718-ef11-812b-005056b64545",
+      "process_id": "proc-pc-2b3dac6f-3718-ef11-812b-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 794,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-9a5cf5e3-36d0-eb11-810c-005056b64545",
+      "process_id": "proc-pc-9a5cf5e3-36d0-eb11-810c-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=9a5cf5e3-36d0-eb11-810c-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T17:37:00Z",
+      "pre_filter_result": {
+        "category": "42400000-0 - Lifting and handling equipment and parts | 43260000-3 - Mechanical shovels, excavators and shovel loaders, and mining machinery",
+        "days_until_deadline": 931,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-815100fd-c585-ec11-8110-005056b64545",
+      "process_id": "proc-pc-815100fd-c585-ec11-8110-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "60000000-8 - Transport services (excl. Waste transport) | 60112000-6 - Public road transport services | 60130000-8 - Special-purpose road passenger-transport services",
+        "days_until_deadline": 1045,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-77fc27e6-b3e7-ef11-8134-005056b64545",
+      "process_id": "proc-pc-77fc27e6-b3e7-ef11-8134-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "360000 - Public Transport",
+        "days_until_deadline": 1046,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-87e980b6-b4e7-ef11-8134-005056b64545",
+      "process_id": "proc-pc-87e980b6-b4e7-ef11-8134-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "360000 - Public Transport",
+        "days_until_deadline": 1046,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-67f55a25-66e8-ef11-8134-005056b64545",
+      "process_id": "proc-pc-67f55a25-66e8-ef11-8134-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 1046,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-6df9bc68-ad3e-ea11-80fc-005056b64545",
+      "process_id": "proc-pc-6df9bc68-ad3e-ea11-80fc-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "171010 - Adult & Further Education Services",
+        "days_until_deadline": 1052,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-00fb28b1-87a6-ef11-8132-005056b64545",
+      "process_id": "proc-pc-00fb28b1-87a6-ef11-8132-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "80000000-4 - Education and training services",
+        "days_until_deadline": 1082,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-6abf08ba-471a-ee11-8123-005056b64545",
+      "process_id": "proc-pc-6abf08ba-471a-ee11-8123-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "80000000-4 - Education and training services",
+        "days_until_deadline": 1082,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-439f2d7e-cdc9-f011-813a-005056b64545",
+      "process_id": "proc-pc-439f2d7e-cdc9-f011-813a-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "150000 - Consultancy",
+        "days_until_deadline": 1083,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-331fc0d9-d40d-ef11-812b-005056b64545",
+      "process_id": "proc-pc-331fc0d9-d40d-ef11-812b-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85121270-6 - Psychiatrist or psychologist services",
+        "days_until_deadline": 1143,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-45c1e490-2ad6-e911-80fa-005056b64545",
+      "process_id": "proc-pc-45c1e490-2ad6-e911-80fa-005056b64545",
+      "source_url": "https://procontract.due-north.com/Advert?advertId=45c1e490-2ad6-e911-80fa-005056b64545",
+      "action": "registered",
+      "registered_at": "2026-04-13T17:37:03Z",
+      "pre_filter_result": {
+        "category": "44113000-5 - Road-construction materials | 44113810-6 - Surface dressing | 45233210-4 - Surface work for highways",
+        "days_until_deadline": 1326,
+        "expiry_check": true,
+        "goods_check": true
+      }
+    },
+    {
+      "notice_id": "pc-9f32d28c-8237-ed11-8119-005056b64545",
+      "process_id": "proc-pc-9f32d28c-8237-ed11-8119-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85311000-2 - Social work services with accommodation",
+        "days_until_deadline": 1397,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-5bdc2bef-006d-ee11-8124-005056b64545",
+      "process_id": "proc-pc-5bdc2bef-006d-ee11-8124-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "171040 - Educational Placements | 179999 - Not Elsewhere Classified",
+        "days_until_deadline": 1447,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-58219d14-4396-ec11-8112-005056b64545",
+      "process_id": "proc-pc-58219d14-4396-ec11-8112-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 1447,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-3a494f5b-0ed6-e911-80fa-005056b64545",
+      "process_id": "proc-pc-3a494f5b-0ed6-e911-80fa-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 1447,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-0dc94e39-1db9-e911-80f8-005056b64545",
+      "process_id": "proc-pc-0dc94e39-1db9-e911-80f8-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 1447,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-a0828d4c-45c8-ea11-8104-005056b64545",
+      "process_id": "proc-pc-a0828d4c-45c8-ea11-8104-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "80100000-5 - Primary education services | 80200000-6 - Secondary education services | 80310000-0 - Youth education services",
+        "days_until_deadline": 1600,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-6576e314-540b-ee11-8123-005056b64545",
+      "process_id": "proc-pc-6576e314-540b-ee11-8123-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "360000 - Public Transport | 401504 - Transport Services",
+        "days_until_deadline": 1909,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-c0298e87-a806-ee11-8123-005056b64545",
+      "process_id": "proc-pc-c0298e87-a806-ee11-8123-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "191000 - Advertising | 231600 - Signage",
+        "days_until_deadline": 2665,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-dc63077f-f7b1-ed11-811f-005056b64545",
+      "process_id": "proc-pc-dc63077f-f7b1-ed11-811f-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "191000 - Advertising | 231600 - Signage",
+        "days_until_deadline": 2665,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-1ba98e1b-87b0-ee11-8127-005056b64545",
+      "process_id": "proc-pc-1ba98e1b-87b0-ee11-8127-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "250000 - Housing Management",
+        "days_until_deadline": 2757,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-662d9193-dc5e-ee11-8124-005056b64545",
+      "process_id": "proc-pc-662d9193-dc5e-ee11-8124-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "85000000-9 - Health and social work services",
+        "days_until_deadline": 2866,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    },
+    {
+      "notice_id": "pc-5079f041-b9fb-ed11-8122-005056b64545",
+      "process_id": "proc-pc-5079f041-b9fb-ed11-8122-005056b64545",
+      "action": "skipped",
+      "skip_reason": "pure_service",
+      "pre_filter_result": {
+        "category": "80000000-4 - Education and training services",
+        "days_until_deadline": 3395,
+        "expiry_check": true,
+        "goods_check": false
+      }
+    }
+  ],
+  "summary": {
+    "total_evaluated": 80,
+    "registered": 15,
+    "already_registered": 1,
+    "skipped_service": 39,
+    "skipped_expiry": 25,
+    "failed": 0
+  }
+}

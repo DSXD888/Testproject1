@@ -1,0 +1,426 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Repairs and/or modification to metal items",
+      "description": "Lot 1 covers repairs and/or modification to metal items under Bristol City Council's Metal Works Dynamic Purchasing System. The DPS Agreement body provides only the lot title and a short scope label; detailed product-level specification, performance requirements and KPIs are deferred to the Call-Off competition stage (per Schedule 1 wording 'AS SPECIFIED IN ANY CALL FOR FURTHER COMPETITION IN RESPECT OF THE LOTS FOR WHICH THE PROVIDER IS ADMITTED TO THE DPS' and Schedule 7 / Order Form Appendix 1 references).",
+      "requirements": [
+        "Provider must comply with all DPS Agreement obligations including the General Terms and Conditions, statutory requirements (Clause 11), and call-off ordering procedure (Clause 13).",
+        "Provider must maintain the cross-cutting insurance minimums for each Call-Off Contract: Employer's Liability £10M each and every claim, Public Liability £5M each and every claim (uplift possible per call-off), Professional Indemnity £2.5M each and every claim (uplift possible per call-off).",
+        "Detailed lot-specific scope (deliverables, milestones, KPIs, Goods/Services/Works requirements) is set in the Call-Off Order Form (Appendix 1) and the Specification attached at Appendix 1 to the Order Form, and is not enumerated in the DPS Agreement body."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Establishment on the DPS (Selection)",
+          "summary": "Schedule 2 (AWARD CRITERIA) contains an empty quality criteria/weighting table for DPS establishment and explicitly tags the selection step as 'Pas91 Pass/Fail', i.e. PAS 91 pre-qualification questionnaire on a pass/fail basis. No quantitative weightings are populated in the DPS Agreement body.",
+          "weighting_text": "Pass/Fail (PAS 91)",
+          "evidence_anchor": {
+            "page_ref": "line:925-933",
+            "anchor_text": "schedule 2 AWARD CRITERIA ... [Pas91 Pass/Fail]",
+            "section_ref": "Schedule 2 – Award Criteria"
+          }
+        },
+        {
+          "criterion": "Call-Off Award (Further Competition)",
+          "summary": "Where the Council issues a Call for Competition to participating providers, award will be on the basis of the criteria set out in the Invitation to Tender documentation issued for that specific call-off. The DPS Agreement does not pre-fix call-off weightings.",
+          "weighting_text": "Set per Invitation to Tender at call-off stage",
+          "evidence_anchor": {
+            "page_ref": "line:935-937",
+            "anchor_text": "Where the Council issues a Call for Competition to participating providers this will be awarded on the basis of the award criteria set out in the Invitation to Tender documentation.",
+            "section_ref": "Schedule 2 – Call-Off Award Criteria"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "PAS 91",
+          "context": "Schedule 2 designates the DPS establishment selection step as 'Pas91 Pass/Fail', referencing PAS 91 as the pre-qualification questionnaire standard. Applied across all 5 lots.",
+          "evidence_anchor": {
+            "page_ref": "line:933",
+            "anchor_text": "[Pas91 Pass/Fail]",
+            "section_ref": "Schedule 2 – Award Criteria"
+          }
+        },
+        {
+          "standard_ref": "JCT Minor Works Contract 2016 Edition",
+          "context": "Schedule 7 (Call-Off Terms and Conditions) lists 'Agreement Incorporating and Amending JCT Minor Works Contract 2016 Edition' as one of the two call-off contract forms applicable to lots delivered under this DPS. Cross-cutting; not exclusive to Lot 1.",
+          "evidence_anchor": {
+            "page_ref": "line:984-988",
+            "anchor_text": "Agreement Incorporating and Amending JCT Minor Works Contract 2016 Edition. [Amended JCT Minor Works Contract 2016 - See separate document]",
+            "section_ref": "Schedule 7 – Call-Off Terms and Conditions"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "line:9",
+        "anchor_text": "## Lot 1 – Repairs and/or modification to metal items",
+        "section_ref": "Cover page lot list / BACKGROUND clause 1"
+      }
+    },
+    {
+      "lot_number": "2",
+      "title": "Supply or Supply and Installation of metal items",
+      "description": "Lot 2 covers supply only, or supply and installation, of metal items under the Metal Works DPS. The DPS Agreement body identifies the lot only by title and scope label; concrete product lists, technical standards, performance requirements and KPIs are deferred to the per-call-off Specification (Appendix 1 of the Order Form) and Invitation to Tender at call-off stage.",
+      "requirements": [
+        "Provider must comply with all DPS Agreement obligations including the General Terms and Conditions, statutory requirements (Clause 11) and call-off ordering procedure (Clause 13).",
+        "Provider must maintain cross-cutting insurance minimums per Call-Off Contract: Employer's Liability £10M, Public Liability £5M (uplift possible), Professional Indemnity £2.5M (uplift possible).",
+        "Lot-specific product/installation scope, materials, finishes, dimensions and tolerances are not enumerated in the DPS Agreement body and must be sourced from the call-off Invitation to Tender / Specification."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Establishment on the DPS (Selection)",
+          "summary": "Same as Lot 1: Schedule 2 selection step is PAS 91 Pass/Fail; quantitative quality criteria table is empty in the DPS Agreement template.",
+          "weighting_text": "Pass/Fail (PAS 91)",
+          "evidence_anchor": {
+            "page_ref": "line:925-933",
+            "anchor_text": "schedule 2 AWARD CRITERIA ... [Pas91 Pass/Fail]",
+            "section_ref": "Schedule 2 – Award Criteria"
+          }
+        },
+        {
+          "criterion": "Call-Off Award (Further Competition)",
+          "summary": "Award criteria for any Call for Competition are set in the call-off Invitation to Tender; no fixed criteria in the DPS Agreement.",
+          "weighting_text": "Set per Invitation to Tender at call-off stage",
+          "evidence_anchor": {
+            "page_ref": "line:935-937",
+            "anchor_text": "Where the Council issues a Call for Competition to participating providers this will be awarded on the basis of the award criteria set out in the Invitation to Tender documentation.",
+            "section_ref": "Schedule 2 – Call-Off Award Criteria"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "PAS 91",
+          "context": "PAS 91 pre-qualification questionnaire applied as the DPS establishment selection step (cross-cutting across all 5 lots).",
+          "evidence_anchor": {
+            "page_ref": "line:933",
+            "anchor_text": "[Pas91 Pass/Fail]",
+            "section_ref": "Schedule 2 – Award Criteria"
+          }
+        },
+        {
+          "standard_ref": "JCT Minor Works Contract 2016 Edition",
+          "context": "Schedule 7 lists JCT Minor Works Contract 2016 (amended) as one of the two call-off contract forms; cross-cutting.",
+          "evidence_anchor": {
+            "page_ref": "line:984-988",
+            "anchor_text": "Agreement Incorporating and Amending JCT Minor Works Contract 2016 Edition.",
+            "section_ref": "Schedule 7 – Call-Off Terms and Conditions"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "line:11",
+        "anchor_text": "## Lot 2 – Supply or Supply and Installation of metal items",
+        "section_ref": "Cover page lot list / BACKGROUND clause 1"
+      }
+    },
+    {
+      "lot_number": "3",
+      "title": "Fabrication of bespoke metal work items",
+      "description": "Lot 3 covers fabrication of bespoke metal work items under the Metal Works DPS. The DPS Agreement body identifies the lot only by title and scope label; bespoke item specifications and acceptance criteria are deferred to the call-off Invitation to Tender / Specification. Note: the linked notice metadata (BACKGROUND context, not the DPS Agreement body) cites example bespoke items such as lockers for parking meters, water taps, signs and specialist artwork; those examples are NOT present in this Docling extraction of the DPS Agreement.",
+      "requirements": [
+        "Provider must comply with all DPS Agreement obligations including the General Terms and Conditions, statutory requirements (Clause 11) and call-off ordering procedure (Clause 13).",
+        "Provider must maintain cross-cutting insurance minimums per Call-Off Contract: Employer's Liability £10M, Public Liability £5M (uplift possible), Professional Indemnity £2.5M (uplift possible).",
+        "Bespoke fabrication scope (item-by-item specification, materials, finishes, design drawings, acceptance tests) is not enumerated in the DPS Agreement body and must be sourced from the call-off Invitation to Tender / Specification."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Establishment on the DPS (Selection)",
+          "summary": "Same as other lots: Schedule 2 selection step is PAS 91 Pass/Fail; weighted quality criteria table is empty in the DPS Agreement template.",
+          "weighting_text": "Pass/Fail (PAS 91)",
+          "evidence_anchor": {
+            "page_ref": "line:925-933",
+            "anchor_text": "schedule 2 AWARD CRITERIA ... [Pas91 Pass/Fail]",
+            "section_ref": "Schedule 2 – Award Criteria"
+          }
+        },
+        {
+          "criterion": "Call-Off Award (Further Competition)",
+          "summary": "Award criteria for any Call for Competition are set in the call-off Invitation to Tender; no fixed criteria in the DPS Agreement.",
+          "weighting_text": "Set per Invitation to Tender at call-off stage",
+          "evidence_anchor": {
+            "page_ref": "line:935-937",
+            "anchor_text": "Where the Council issues a Call for Competition to participating providers this will be awarded on the basis of the award criteria set out in the Invitation to Tender documentation.",
+            "section_ref": "Schedule 2 – Call-Off Award Criteria"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "PAS 91",
+          "context": "PAS 91 pre-qualification questionnaire applied as the DPS establishment selection step (cross-cutting).",
+          "evidence_anchor": {
+            "page_ref": "line:933",
+            "anchor_text": "[Pas91 Pass/Fail]",
+            "section_ref": "Schedule 2 – Award Criteria"
+          }
+        },
+        {
+          "standard_ref": "JCT Minor Works Contract 2016 Edition",
+          "context": "Schedule 7 lists JCT Minor Works Contract 2016 (amended) as one of the two call-off contract forms; cross-cutting.",
+          "evidence_anchor": {
+            "page_ref": "line:984-988",
+            "anchor_text": "Agreement Incorporating and Amending JCT Minor Works Contract 2016 Edition.",
+            "section_ref": "Schedule 7 – Call-Off Terms and Conditions"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "line:13",
+        "anchor_text": "## Lot 3 – Fabrication of bespoke metal work items",
+        "section_ref": "Cover page lot list / BACKGROUND clause 1"
+      }
+    },
+    {
+      "lot_number": "4",
+      "title": "Repair or Replace balcony balustrades",
+      "description": "Lot 4 covers repair or replacement of balcony balustrades under the Metal Works DPS. The DPS Agreement body identifies the lot only by title and scope label. Performance requirements (load/structural standards, materials, finishes) for balustrades are not enumerated in the DPS Agreement body and are deferred to the call-off Invitation to Tender / Specification.",
+      "requirements": [
+        "Provider must comply with all DPS Agreement obligations including the General Terms and Conditions, statutory requirements (Clause 11) and call-off ordering procedure (Clause 13).",
+        "Provider must maintain cross-cutting insurance minimums per Call-Off Contract: Employer's Liability £10M, Public Liability £5M (uplift possible), Professional Indemnity £2.5M (uplift possible).",
+        "Balustrade-specific structural, safety and dimensional requirements are not enumerated in the DPS Agreement body and must be sourced from the call-off Invitation to Tender / Specification."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Establishment on the DPS (Selection)",
+          "summary": "Same as other lots: PAS 91 Pass/Fail; weighted quality criteria table is empty in the DPS Agreement template.",
+          "weighting_text": "Pass/Fail (PAS 91)",
+          "evidence_anchor": {
+            "page_ref": "line:925-933",
+            "anchor_text": "schedule 2 AWARD CRITERIA ... [Pas91 Pass/Fail]",
+            "section_ref": "Schedule 2 – Award Criteria"
+          }
+        },
+        {
+          "criterion": "Call-Off Award (Further Competition)",
+          "summary": "Award criteria for any Call for Competition are set in the call-off Invitation to Tender; no fixed criteria in the DPS Agreement.",
+          "weighting_text": "Set per Invitation to Tender at call-off stage",
+          "evidence_anchor": {
+            "page_ref": "line:935-937",
+            "anchor_text": "Where the Council issues a Call for Competition to participating providers this will be awarded on the basis of the award criteria set out in the Invitation to Tender documentation.",
+            "section_ref": "Schedule 2 – Call-Off Award Criteria"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "PAS 91",
+          "context": "PAS 91 pre-qualification questionnaire applied as the DPS establishment selection step (cross-cutting).",
+          "evidence_anchor": {
+            "page_ref": "line:933",
+            "anchor_text": "[Pas91 Pass/Fail]",
+            "section_ref": "Schedule 2 – Award Criteria"
+          }
+        },
+        {
+          "standard_ref": "JCT Minor Works Contract 2016 Edition",
+          "context": "Schedule 7 lists JCT Minor Works Contract 2016 (amended) as one of the two call-off contract forms; cross-cutting.",
+          "evidence_anchor": {
+            "page_ref": "line:984-988",
+            "anchor_text": "Agreement Incorporating and Amending JCT Minor Works Contract 2016 Edition.",
+            "section_ref": "Schedule 7 – Call-Off Terms and Conditions"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "line:15",
+        "anchor_text": "## Lot 4 – Repair or Replace balcony balustrades",
+        "section_ref": "Cover page lot list / BACKGROUND clause 1"
+      }
+    },
+    {
+      "lot_number": "5",
+      "title": "Chute Repairs",
+      "description": "Lot 5 covers repairs to refuse chutes under the Metal Works DPS. The DPS Agreement body identifies the lot only by title and scope label. Detailed technical scope (chute type/material, condition assessment, repair methodology, tenant-occupied site working) is not enumerated in the DPS Agreement body and is deferred to the call-off Invitation to Tender / Specification.",
+      "requirements": [
+        "Provider must comply with all DPS Agreement obligations including the General Terms and Conditions, statutory requirements (Clause 11) and call-off ordering procedure (Clause 13).",
+        "Provider must maintain cross-cutting insurance minimums per Call-Off Contract: Employer's Liability £10M, Public Liability £5M (uplift possible), Professional Indemnity £2.5M (uplift possible).",
+        "Chute-specific technical scope is not enumerated in the DPS Agreement body and must be sourced from the call-off Invitation to Tender / Specification."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Establishment on the DPS (Selection)",
+          "summary": "Same as other lots: PAS 91 Pass/Fail; weighted quality criteria table is empty in the DPS Agreement template.",
+          "weighting_text": "Pass/Fail (PAS 91)",
+          "evidence_anchor": {
+            "page_ref": "line:925-933",
+            "anchor_text": "schedule 2 AWARD CRITERIA ... [Pas91 Pass/Fail]",
+            "section_ref": "Schedule 2 – Award Criteria"
+          }
+        },
+        {
+          "criterion": "Call-Off Award (Further Competition)",
+          "summary": "Award criteria for any Call for Competition are set in the call-off Invitation to Tender; no fixed criteria in the DPS Agreement.",
+          "weighting_text": "Set per Invitation to Tender at call-off stage",
+          "evidence_anchor": {
+            "page_ref": "line:935-937",
+            "anchor_text": "Where the Council issues a Call for Competition to participating providers this will be awarded on the basis of the award criteria set out in the Invitation to Tender documentation.",
+            "section_ref": "Schedule 2 – Call-Off Award Criteria"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "PAS 91",
+          "context": "PAS 91 pre-qualification questionnaire applied as the DPS establishment selection step (cross-cutting).",
+          "evidence_anchor": {
+            "page_ref": "line:933",
+            "anchor_text": "[Pas91 Pass/Fail]",
+            "section_ref": "Schedule 2 – Award Criteria"
+          }
+        },
+        {
+          "standard_ref": "JCT Minor Works Contract 2016 Edition",
+          "context": "Schedule 7 lists JCT Minor Works Contract 2016 (amended) as one of the two call-off contract forms; cross-cutting.",
+          "evidence_anchor": {
+            "page_ref": "line:984-988",
+            "anchor_text": "Agreement Incorporating and Amending JCT Minor Works Contract 2016 Edition.",
+            "section_ref": "Schedule 7 – Call-Off Terms and Conditions"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "line:17",
+        "anchor_text": "## Lot 5 – Chute Repairs",
+        "section_ref": "Cover page lot list / BACKGROUND clause 1"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.lot_number": 9800,
+    "lots.title": 9800,
+    "lots.description": 7000,
+    "lots.requirements": 5500,
+    "lots.evaluation_criteria": 7500,
+    "lots.cpv_codes": 2000,
+    "lots.product_requirements": 9500,
+    "lots.technical_standards": 7000,
+    "product_requirement_seeds": 9500,
+    "extraction_confidence_bps": 6800
+  },
+  "extraction_confidence_bps": 6800,
+  "warnings": [
+    {
+      "code": "AGENT_PARTIAL_FAILURE",
+      "message": "Document is the DPS Agreement template (Metal-Works-DPS-Final-Draft); Schedule 1 (THE SERVICES AND/OR WORKS SPECIFICATION) explicitly defers detailed product/technical requirements to the call-off competition stage ('AS SPECIFIED IN ANY CALL FOR FURTHER COMPETITION'). No concrete product items, materials, dimensions or per-lot technical standards are present in the document body, so product_requirement_seeds is empty and per-lot product_requirements arrays are empty. Detail must be sourced from per-call-off ITTs or other contract documents on ProContract.",
+      "evidence_refs": [
+        "line:919-922",
+        "line:218 (Schedule 1 – THE SERVICES AND/OR WORKS SPECIFICATION)",
+        "line:1027 (Order Form Appendix 1: 'as set out in the Specification attached at Appendix 1')"
+      ]
+    },
+    {
+      "code": "AGENT_PARTIAL_FAILURE",
+      "message": "Schedule 2 (Award Criteria) contains an empty quality criteria/weightings table for DPS establishment; only the selection-stage 'Pas91 Pass/Fail' tag is populated. Schedule 3 (Pricing Matrices) is annotated 'NOT REQUIRED UNTIL CALL FOR FURTHER COMPETITION STAGE'. Per-lot evaluation criteria with quantitative weightings are therefore not extractable from this document.",
+      "evidence_refs": [
+        "line:925-937 (Schedule 2)",
+        "line:939-941 (Schedule 3)"
+      ]
+    },
+    {
+      "code": "AGENT_PARTIAL_FAILURE",
+      "message": "No CPV codes are present in the DPS Agreement body. Process-level CPV signals (44221300-8 Gates, 44400000-4 Miscellaneous fabricated products, 45223100-7 Assembly of metal structures) come from process_context only; they are NOT asserted by this document and have not been replicated into per-lot cpv_codes arrays. The daemon may inherit them from the contract notice if its policy permits, but this skill does not authoritatively map them to lots.",
+      "evidence_refs": [
+        "process_context (notice 44221300-8 | 44400000-4 | 45223100-7)"
+      ]
+    },
+    {
+      "code": "AGENT_PARTIAL_FAILURE",
+      "message": "Per-lot descriptions in the DPS Agreement body consist solely of lot titles repeated in three places (cover-page heading list at lines 9-17, BACKGROUND clause 1 at line 39, and BACKGROUND clause 3 at line 41). The document does NOT include per-lot scope paragraphs, examples, quantities or sites. The richer per-lot descriptions found in the existing notice_lots rows (e.g. 'examples: lockers for parking meters, water taps, signs, and specialist artwork' for Lot 3) originate from notice metadata, not from this DPS Agreement document.",
+      "evidence_refs": [
+        "line:9-17",
+        "line:39",
+        "line:41"
+      ]
+    },
+    {
+      "code": "AGENT_SUSPECT_OUTPUT",
+      "message": "Docling extraction reports page_count = 0 in document_extractions; evidence_anchor.page_ref values therefore use markdown line numbers ('line:N') rather than physical page numbers. Downstream consumers should treat page_ref as a logical anchor into the extracted markdown, not a paginated PDF coordinate.",
+      "evidence_refs": [
+        "document_extractions.page_count=0"
+      ]
+    },
+    {
+      "code": "AGENT_SUSPECT_OUTPUT",
+      "message": "BS EN 15713:2009 is mentioned in Appendix 3 (Data Processing) for secure destruction of personal data at end of contract. It is a data-handling standard, not a metalworks technical standard, and applies to the contract overall rather than to any individual lot. It has been deliberately omitted from per-lot technical_standards arrays to avoid misclassifying it as a product/installation standard.",
+      "evidence_refs": [
+        "line:1142"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "line:1-17",
+      "anchor_text": "FOR THE PROVISION OF METAL WORKS DIVIDED INTO 5 CATEGORIES ... ## Lot 1 – Repairs and/or modification to metal items ... ## Lot 5 – Chute Repairs",
+      "section_ref": "Cover page – DPS scope and lot list"
+    },
+    {
+      "page_ref": "line:39",
+      "anchor_text": "The Council placed a contract notice [REFERENCE] ... seeking expressions of interest from potential Providers ... under the provision of a Dynamic Purchasing System (\"DPS\") established for the provision of Metal Work Railings and Repairs which is divided into 5 Categories. Lot 1 – Repairs and/or modification to metal items, Lot 2 - Supply or Supply and Installation of metal items, Lot 3 – Fabrication of bespoke metal work items, Lot 4 - Repair or Replace balcony balustrades, and Lot 5 - Chute Repairs.",
+      "section_ref": "BACKGROUND clause 1 – DPS scope statement"
+    },
+    {
+      "page_ref": "line:41",
+      "anchor_text": "the Council admitted the Provider onto the DPS to be able to provide Goods, Services and/or Works in respect of the following Categories – [Lot 1 ...] [Lot 2 ...] [Lot 3 ...] [Lot 4 ...] [Lot 5 ...]",
+      "section_ref": "BACKGROUND clause 3 – Per-provider lot admission template"
+    },
+    {
+      "page_ref": "line:218",
+      "anchor_text": "SCHEDULE 1 – THE SERVICES AND/OR WORKS SPECIFICATION",
+      "section_ref": "Schedule listing in Definitions section"
+    },
+    {
+      "page_ref": "line:919-922",
+      "anchor_text": "THE GOODS, SERVICES AND/OR WORKS SPECIFICATION AS SPECIFIED IN ANY CALL FOR FURTHER COMPETITION IN RESPECT OF THE LOTS FOR WHICH THE PROVIDER IS ADMITTED TO THE DPS.",
+      "section_ref": "Schedule 1 body – specification deferred to call-off"
+    },
+    {
+      "page_ref": "line:925-937",
+      "anchor_text": "schedule 2 AWARD CRITERIA ... [Pas91 Pass/Fail] ... Where the Council issues a Call for Competition to participating providers this will be awarded on the basis of the award criteria set out in the Invitation to Tender documentation.",
+      "section_ref": "Schedule 2 – Award Criteria"
+    },
+    {
+      "page_ref": "line:939-941",
+      "anchor_text": "schedule 3 PRICING MATRICES NOT REQUIRED UNTIL CALL FOR FURTHER COMPETITION STAGE",
+      "section_ref": "Schedule 3 – Pricing Matrices"
+    },
+    {
+      "page_ref": "line:984-988",
+      "anchor_text": "SCHEDULE 7 CALL-OFF TERMS AND CONDITIONS - Agreement Incorporating and Amending JCT Minor Works Contract 2016 Edition. ... Long Form Contract [Supply Call-Off Contract – See separate document]",
+      "section_ref": "Schedule 7 – Call-Off Terms and Conditions"
+    },
+    {
+      "page_ref": "line:118-122",
+      "anchor_text": "Employer's liability insurance £10M each and every claim | Public Liability Insurance £5M each and every claim ... | Professional indemnity Insurance £2.5M each and every claim",
+      "section_ref": "Articles of Agreement clause 7 – Insurance minimums"
+    },
+    {
+      "page_ref": "line:1027",
+      "anchor_text": "2.1 Contract Goods, Services or Works Required - The Contract Goods, Services or Works required are as set out in the Specification attached at Appendix 1",
+      "section_ref": "Order Form Appendix 1 – per-call-off specification reference"
+    },
+    {
+      "page_ref": "line:1142",
+      "anchor_text": "Destroyed in accordance with BS EN 15713:2009 standards and following NCSC ... recommended guidance.",
+      "section_ref": "Appendix 3 – Data Processing (data-destruction standard, not a metalworks standard)"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "598f77608fe261333965acc47967a66be3ebecfc09aa916871ca8de85eb6da75",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

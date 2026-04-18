@@ -1,0 +1,309 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Supply of Double Glazed Units",
+      "description": "Lot 1 of a two-category Dynamic Purchasing System (DPS) agreement run by Bristol City Council for the supply of double glazed units under the 'Glazing Supplies DPS' (reference GH05.112). Providers admitted to Lot 1 are permitted to participate in Call-Off competitions for double glazed units; the detailed product specification is deferred to each Call-Off Invitation to Tender (Schedule 1 states the specification is 'as specified in any call for further competition in respect of the Lots for which the Provider is admitted to the DPS'). Initial DPS term of 4 years from 1st December 2022.",
+      "requirements": [
+        "Provider must be admitted to Lot 1 of the DPS following a successful Request to Participate and satisfy the Technical Assessment Criteria referenced in Schedule 2.",
+        "All Goods, Services and/or Works supplied under any Call-Off Contract for Lot 1 must comply with the relevant Legislation, Codes of Conduct and Regulations governing the provision of such Goods/Services/Works (Background paragraph 4).",
+        "Provider must employ appropriately experienced, certified, qualified and trained Staff with all due skill, care and diligence (Clause 6.1.3 and Clause 15.1).",
+        "Provider must submit Management Information on request within 10 days, covering supply-chain resilience, environmental and ethical matters, and individual Call-Off Contract activity (Clause 17 and Schedule 5).",
+        "Provider must maintain the insurances with minimum cover set out in Article 6 for each Call-Off Contract (default levels apply unless varied for a specific Call-Off under Article 7).",
+        "Provider must accept that the Council may request product or installation testing at any time; during such testing the Provider is suspended from the Framework and cannot tender, and open Orders are put on hold pending the outcome (Clause 23.2).",
+        "Provider agrees that detailed product requirements, delivery timescales, pricing matrices, and KPIs for Lot 1 will be specified at Call-Off stage via the Invitation to Tender and resulting Order Form (Schedule 1; Schedule 3; Schedule 5)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "DPS Establishment — Quality only (Technical Assessment Criteria)",
+          "summary": "Admission to the DPS under Lot 1 is decided on a quality-only basis by reference to the Technical Assessment Criteria; Schedule 2 presents the criterion table but the specific criteria, percentage weightings and rank order are not populated in this master agreement and are expected to be provided separately as part of the DPS selection questionnaire.",
+          "weighting_text": "Quality only — percentage weightings / rank order: not populated in Schedule 2 (table left blank with note '[See Technical Assessment Criteria]').",
+          "evidence_anchor": {
+            "page_ref": "p?",
+            "anchor_text": "schedule 2 AWARD CRITERIA ... Establishment on the DPS Criteria (Quality only) ... [See Technical Assessment Criteria]",
+            "section_ref": "Schedule 2 — Award Criteria (DPS Establishment)"
+          }
+        },
+        {
+          "criterion": "Call-Off Award Criteria",
+          "summary": "Where the Council issues a Call for Competition to participating providers on Lot 1, the award will be made on the basis of the award criteria set out in the Invitation to Tender documentation for that Call-Off; criteria and weightings are not fixed in this DPS agreement.",
+          "weighting_text": "As specified per Call-Off Invitation to Tender; not fixed in the DPS master agreement.",
+          "evidence_anchor": {
+            "page_ref": "p?",
+            "anchor_text": "Goods, Services and/or Works (if applicable) – Call-Off Award Criteria ... awarded on the basis of the award criteria set out in the Invitation to Tender documentation",
+            "section_ref": "Schedule 2 — Call-Off Award Criteria"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "44221111-6",
+        "14820000-5"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot1-double-glazed-units",
+          "summary": "Supply of double glazed units to Bristol City Council via the DPS; product-level technical specification (dimensions, U-values, coatings, cavity gas fill, spacer type, safety glass requirements, etc.) is deferred to the Invitation to Tender issued at Call-Off stage under Schedule 1.",
+          "requirement_type": "category_seed_deferred_specification",
+          "technical_attributes": [
+            "product_category: double_glazed_unit",
+            "glazing_build: double_glazed (sealed insulating glass unit)",
+            "specification_deferred_to: call-off Invitation to Tender (Schedule 1)",
+            "cpv_primary: 44221111-6 (Double-glazed units)"
+          ],
+          "quantity_hint": "Not stated at DPS level; quantities are set per Call-Off Order Form (Schedule 7).",
+          "evidence_anchor": {
+            "page_ref": "p?",
+            "anchor_text": "Lot 1 – Supply of Double Glazed Units",
+            "section_ref": "Cover page / Background paragraphs 1 and 3 / Schedule 1"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "p?",
+        "anchor_text": "Lot 1 – Supply of Double Glazed Units",
+        "section_ref": "Cover page — 'SUPPLY OF DOUBLE GLAZED UNITS AND SHEET GLASS DIVIDED INTO 2 CATEGORIES'"
+      }
+    },
+    {
+      "lot_number": "2",
+      "title": "Supply of Sheet Glass",
+      "description": "Lot 2 of a two-category Dynamic Purchasing System (DPS) agreement run by Bristol City Council for the supply of sheet glass under the 'Glazing Supplies DPS' (reference GH05.112). Providers admitted to Lot 2 are permitted to participate in Call-Off competitions for sheet glass; as with Lot 1, detailed product specifications (glass type, thickness, cut-to-size tolerances, safety certifications, etc.) are deferred to Call-Off Invitation to Tender. Initial DPS term of 4 years from 1st December 2022.",
+      "requirements": [
+        "Provider must be admitted to Lot 2 of the DPS following a successful Request to Participate and satisfy the Technical Assessment Criteria referenced in Schedule 2.",
+        "All sheet glass supplied under any Call-Off Contract for Lot 2 must comply with the relevant Legislation, Codes of Conduct and Regulations governing the provision of such Goods (Background paragraph 4).",
+        "Provider must employ appropriately experienced, certified, qualified and trained Staff (Clause 6.1.3 and Clause 15.1).",
+        "Provider must submit Management Information on request within 10 days covering supply-chain resilience, environmental and ethical matters, and individual Call-Off Contract activity (Clause 17 and Schedule 5).",
+        "Provider must maintain the insurances with minimum cover set out in Article 6 for each Call-Off Contract (default levels apply unless varied under Article 7).",
+        "Provider must accept that the Council may request product or installation testing at any time; during testing the Provider is suspended from the Framework (Clause 23.2).",
+        "Detailed sheet-glass product requirements, delivery timescales, pricing matrices and KPIs for Lot 2 will be specified at Call-Off stage via the Invitation to Tender and resulting Order Form (Schedule 1; Schedule 3; Schedule 5)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "DPS Establishment — Quality only (Technical Assessment Criteria)",
+          "summary": "Admission to the DPS under Lot 2 is decided on a quality-only basis by reference to the Technical Assessment Criteria; Schedule 2 presents the criterion table but the specific criteria, percentage weightings and rank order are not populated in this master agreement.",
+          "weighting_text": "Quality only — percentage weightings / rank order: not populated in Schedule 2 (table left blank with note '[See Technical Assessment Criteria]').",
+          "evidence_anchor": {
+            "page_ref": "p?",
+            "anchor_text": "schedule 2 AWARD CRITERIA ... Establishment on the DPS Criteria (Quality only) ... [See Technical Assessment Criteria]",
+            "section_ref": "Schedule 2 — Award Criteria (DPS Establishment)"
+          }
+        },
+        {
+          "criterion": "Call-Off Award Criteria",
+          "summary": "Where the Council issues a Call for Competition on Lot 2, the award will be made on the basis of the award criteria set out in the Invitation to Tender documentation for that Call-Off; criteria and weightings are not fixed in this DPS agreement.",
+          "weighting_text": "As specified per Call-Off Invitation to Tender; not fixed in the DPS master agreement.",
+          "evidence_anchor": {
+            "page_ref": "p?",
+            "anchor_text": "Goods, Services and/or Works (if applicable) – Call-Off Award Criteria ... awarded on the basis of the award criteria set out in the Invitation to Tender documentation",
+            "section_ref": "Schedule 2 — Call-Off Award Criteria"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "14820000-5"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot2-sheet-glass",
+          "summary": "Supply of sheet glass to Bristol City Council via the DPS; product-level technical specification (glass type — e.g. float / annealed / toughened / laminated, thickness, cut dimensions, edge treatment, safety certifications) is deferred to the Invitation to Tender issued at Call-Off stage under Schedule 1.",
+          "requirement_type": "category_seed_deferred_specification",
+          "technical_attributes": [
+            "product_category: sheet_glass",
+            "form_factor: flat sheet glass (unspecified type/thickness at DPS level)",
+            "specification_deferred_to: call-off Invitation to Tender (Schedule 1)",
+            "cpv_primary: 14820000-5 (Glass)"
+          ],
+          "quantity_hint": "Not stated at DPS level; quantities are set per Call-Off Order Form (Schedule 7).",
+          "evidence_anchor": {
+            "page_ref": "p?",
+            "anchor_text": "Lot 2 – Supply of Sheet Glass",
+            "section_ref": "Cover page / Background paragraphs 1 and 3 / Schedule 1"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "p?",
+        "anchor_text": "## Lot 2 – Supply of Sheet Glass",
+        "section_ref": "Cover page — 'SUPPLY OF DOUBLE GLAZED UNITS AND SHEET GLASS DIVIDED INTO 2 CATEGORIES'"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot1-double-glazed-units",
+      "lot_number": "1",
+      "candidate_name": "Double glazed units (insulating glass units)",
+      "summary": "Category seed for sealed insulating glass units supplied to Bristol City Council under Lot 1 of the Glazing Supplies DPS. The DPS master agreement does not fix product attributes such as overall thickness, glass make-up, cavity fill, coatings, spacer bar material, frame compatibility or U-value; these are to be set in the Invitation to Tender for each Call-Off Contract. Seed is intended to drive downstream supplier/product candidate discovery at the sealed-IGU level.",
+      "requirements": [
+        "Candidate must be a supplier of double glazed (sealed insulating glass) units suitable for UK public-sector housing / building maintenance applications (Bristol City Council, Housing / Repairs Account context inferred from reference GH05.112).",
+        "Candidate must be able to respond to UK local authority DPS Call-Off competitions and supply in line with the Call-Off Order Form and Schedule 7 Call-Off Terms and Conditions.",
+        "Candidate must comply with UK legislation applicable to double glazed units, including any relevant building, safety and construction product regulations in force at the time of Call-Off.",
+        "Candidate must be prepared to meet product or installation testing requested by the Council at any time under Clause 23.2."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [
+        "44221111-6",
+        "14820000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "p?",
+        "anchor_text": "Lot 1 – Supply of Double Glazed Units",
+        "section_ref": "Cover page and Background paragraph 1 / Schedule 1"
+      }
+    },
+    {
+      "seed_key": "lot2-sheet-glass",
+      "lot_number": "2",
+      "candidate_name": "Sheet glass (flat glass)",
+      "summary": "Category seed for sheet (flat) glass supplied to Bristol City Council under Lot 2 of the Glazing Supplies DPS. The DPS master agreement does not fix glass type (float, annealed, toughened, laminated), thickness, cut-to-size tolerances, edge treatment or safety classification; these will be specified at Call-Off stage. Seed is intended to drive downstream supplier/product candidate discovery at the flat-glass level.",
+      "requirements": [
+        "Candidate must be a supplier of sheet/flat glass suitable for UK public-sector housing / building maintenance applications.",
+        "Candidate must be able to respond to UK local authority DPS Call-Off competitions and supply in line with the Call-Off Order Form and Schedule 7 Call-Off Terms and Conditions.",
+        "Candidate must comply with UK legislation applicable to sheet glass supply, including any relevant building, safety and construction product regulations in force at the time of Call-Off.",
+        "Candidate must be prepared to meet product or installation testing requested by the Council at any time under Clause 23.2."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [
+        "14820000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "p?",
+        "anchor_text": "## Lot 2 – Supply of Sheet Glass",
+        "section_ref": "Cover page and Background paragraph 1 / Schedule 1"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.count": 9800,
+    "lots.titles": 9800,
+    "lots.descriptions": 8500,
+    "lots.cpv_codes": 7200,
+    "lots.evaluation_criteria": 6500,
+    "lots.product_requirements": 7000,
+    "lots.technical_standards": 5000,
+    "product_requirement_seeds": 7500,
+    "extraction_scope_coverage": 9000
+  },
+  "extraction_confidence_bps": 7200,
+  "warnings": [
+    {
+      "code": "SPECIFICATION_DEFERRED_TO_CALL_OFF",
+      "message": "Schedule 1 ('The Services and/or Works Specification') explicitly defers the detailed goods/services/works specification for both lots to each Call-Off Invitation to Tender — there is no product-level specification in this DPS master agreement. Product seeds are therefore broad category seeds rather than SKU-level requirements.",
+      "evidence_refs": [
+        "Schedule 1 — 'THE GOODS, SERVICES AND/OR WORKS SPECIFICATION — AS SPECIFIED IN ANY CALL FOR FURTHER COMPETITION IN RESPECT OF THE LOTS FOR WHICH THE PROVIDER IS ADMITTED TO THE DPS.'"
+      ]
+    },
+    {
+      "code": "AWARD_CRITERIA_TABLE_EMPTY",
+      "message": "Schedule 2 presents an empty Award Criteria table for DPS establishment with only the placeholder '[See Technical Assessment Criteria]' and the note that Call-Off award criteria are defined per Invitation to Tender; concrete percentage weightings or rank order cannot be extracted from the document.",
+      "evidence_refs": [
+        "Schedule 2 — 'Goods, Services and/or Works (if applicable) - Establishment on the DPS Criteria (Quality only)' with blank criterion/weighting row",
+        "Schedule 2 — 'Call-Off Award Criteria ... awarded on the basis of the award criteria set out in the Invitation to Tender documentation'"
+      ]
+    },
+    {
+      "code": "PRICING_MATRIX_DEFERRED",
+      "message": "Schedule 3 states 'NOT REQUIRED UNTIL CALL FOR FURTHER COMPETITION STAGE'; no pricing information is present in the DPS master agreement.",
+      "evidence_refs": [
+        "Schedule 3 PRICING MATRICES — 'NOT REQUIRED UNTIL CALL FOR FURTHER COMPETITION STAGE'"
+      ]
+    },
+    {
+      "code": "NO_PRODUCT_TECHNICAL_STANDARDS_FOUND",
+      "message": "The document contains no explicit product-level technical standards for glass or double glazed units (e.g. no BS EN 1279, BS EN 572, BS EN 12150, BS EN 14449, BS EN 14179, BS EN 673, BS EN 410, etc.). The only BS EN reference in the document — BS EN 15713:2009 — applies to secure destruction of data/paper and is not a glazing product standard, so technical_standards arrays are intentionally empty for both lots.",
+      "evidence_refs": [
+        "Schedule 7 Appendix — 'Destroyed in accordance with BS EN 15713:2009 standards'"
+      ]
+    },
+    {
+      "code": "DOCLING_PAGE_REFS_MISSING",
+      "message": "The Docling-produced markdown passed to this extraction does not carry per-section page markers (page_count recorded as 0 on the document_extractions row), so evidence_anchor.page_ref values are set to 'p?' and section_ref is used to locate the anchor. The anchor_text strings are verbatim substrings from the extracted markdown and can still be searched in the source.",
+      "evidence_refs": [
+        "document_extractions.page_count = 0 (no per-page anchors available in the structured extraction packet)"
+      ]
+    },
+    {
+      "code": "PRE_EXISTING_LOT_ROW_INCOMPLETE",
+      "message": "Notice-level lot metadata (notice_lots) contains only a single combined lot row 'pc-7046e8ec-2734-ed11-8119-005056b64545-lot-1' titled 'Supply of Double Glazed Units and Sheet Glass (DPS)'. The tender document explicitly splits the DPS into two categories (Lot 1 and Lot 2); the extraction follows the tender document as authoritative.",
+      "evidence_refs": [
+        "notice_lots row (lot_number=1) vs tender cover page 'Lot 1 – Supply of Double Glazed Units' and '## Lot 2 – Supply of Sheet Glass'"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p?",
+      "anchor_text": "SUPPLY OF DOUBLE GLAZED UNITS AND SHEET GLASS DIVIDED INTO 2 CATEGORIES",
+      "section_ref": "Cover page — agreement title"
+    },
+    {
+      "page_ref": "p?",
+      "anchor_text": "Lot 1 – Supply of Double Glazed Units",
+      "section_ref": "Cover page / Background paragraph 1"
+    },
+    {
+      "page_ref": "p?",
+      "anchor_text": "## Lot 2 – Supply of Sheet Glass",
+      "section_ref": "Cover page / Background paragraph 1"
+    },
+    {
+      "page_ref": "p?",
+      "anchor_text": "The DPS is expected to run for an initial period of 4 (four) years, from 1st December 2022.",
+      "section_ref": "Articles of Agreement — Article 2 (Term)"
+    },
+    {
+      "page_ref": "p?",
+      "anchor_text": "SCHEDULE 1 – THE SERVICES AND/OR WORKS SPECIFICATION",
+      "section_ref": "Schedule 1 heading"
+    },
+    {
+      "page_ref": "p?",
+      "anchor_text": "THE GOODS, SERVICES AND/OR WORKS SPECIFICATION — AS SPECIFIED IN ANY CALL FOR FURTHER COMPETITION IN RESPECT OF THE LOTS FOR WHICH THE PROVIDER IS ADMITTED TO THE DPS.",
+      "section_ref": "Schedule 1 body"
+    },
+    {
+      "page_ref": "p?",
+      "anchor_text": "schedule 2 AWARD CRITERIA",
+      "section_ref": "Schedule 2 heading"
+    },
+    {
+      "page_ref": "p?",
+      "anchor_text": "Establishment on the DPS Criteria (Quality only)",
+      "section_ref": "Schedule 2 — DPS establishment award criteria"
+    },
+    {
+      "page_ref": "p?",
+      "anchor_text": "[See Technical Assessment Criteria]",
+      "section_ref": "Schedule 2 — placeholder for quality-only criteria"
+    },
+    {
+      "page_ref": "p?",
+      "anchor_text": "Goods, Services and/or Works (if applicable) – Call-Off Award Criteria",
+      "section_ref": "Schedule 2 — Call-Off award criteria"
+    },
+    {
+      "page_ref": "p?",
+      "anchor_text": "schedule 3 PRICING MATRICES",
+      "section_ref": "Schedule 3 heading"
+    },
+    {
+      "page_ref": "p?",
+      "anchor_text": "NOT REQUIRED UNTIL CALL FOR FURTHER COMPETITION STAGE",
+      "section_ref": "Schedule 3 body"
+    },
+    {
+      "page_ref": "p?",
+      "anchor_text": "Should the Council request product or installation testing for any reason whatsoever the Provider will be suspended from the Framework",
+      "section_ref": "Clause 23.2 — product / installation testing"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "e30ae9330a37f159fc9286ffc17fab5fe61a584014105c2ce805f313a8466f3f",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

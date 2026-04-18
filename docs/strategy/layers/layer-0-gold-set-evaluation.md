@@ -154,6 +154,11 @@ Testproject1/
 |   +-- product-extraction/      # Product candidate generation (L0)
 |   +-- preliminary-qualification/ # Goods qualification (L0)
 |   +-- manifest-generation/     # Opportunity manifest (L1)
+|   +-- pdf-extraction/          # PDF semantic mapping (L1)
+|   |   +-- base/                # Generic document extraction
+|   |   +-- tender-specification/ # Lot/requirement extraction
+|   |   +-- pricing-schedule/    # Pricing line-item extraction
+|   |   +-- bill-of-quantities/  # BoQ itemized extraction
 |   +-- bid-portal-*/            # Portal-specific bid automation (L6)
 +-- docs/
 |   +-- research/
@@ -343,6 +348,8 @@ The no-ALTER-TABLE principle (rule 8) eliminates the worst class of migration pa
 
 The correct framing: freeze **logical schema slots** early, but treat **activation, constraints, views, and projections** as first-class migration surfaces.
 
+**Retroactive constitutional additions:** `tender_document_sets.extraction_state` was added to the constitutional shape alongside the PDF extraction toolkit introduction, following the same pattern as `workflow_jobs.validation_required` (forward-compatibility provision included at table creation time).
+
 ### 2.3 Authority Classification
 
 Every table has exactly one authority classification. This is permanent — no reclassification across layers.
@@ -367,67 +374,69 @@ Every table has exactly one authority classification. This is permanent — no r
 | 14 | `bid_workflow_states` | Process | Bid automation state |
 | 15 | `process_stage_status` | Scoped | Per-stage execution records |
 | 16 | `process_stage_heads` | Scoped | Current stage head per scope |
+| 17 | `document_extractions` | Notice | Structural extraction output from Docling (L1-introduced via `0006_pdf_extraction_toolkit.sql`) |
+| 18 | `document_semantic_extractions` | Notice | Semantic mapping output from pdf-extraction skills (L1-introduced via `0006_pdf_extraction_toolkit.sql`) |
 
 **Push-owned infrastructure tables:**
 
 | # | Table | Notes |
 |---|-------|-------|
-| 17 | `executors` | Daemon identity (single row in MVP) |
-| 18 | `process_relations` | Inter-process relationship edges |
-| 19 | `process_aliases` | Merged-process alias pointers |
+| 19 | `executors` | Daemon identity (single row in MVP) |
+| 20 | `process_relations` | Inter-process relationship edges |
+| 21 | `process_aliases` | Merged-process alias pointers |
 
 **Push-owned junction tables:**
 
 | # | Table | Notes |
 |---|-------|-------|
-| 20 | `notice_cpv_codes` | Notice-level CPV codes |
-| 21 | `product_commodity_codes` | Candidate commodity codes |
-| 22 | `lot_cpv_codes` | Lot-level CPV codes |
+| 22 | `notice_cpv_codes` | Notice-level CPV codes |
+| 23 | `product_commodity_codes` | Candidate commodity codes |
+| 24 | `lot_cpv_codes` | Lot-level CPV codes |
 
 **Push-owned projection tables** (Supabase-only, for web viewer visibility):
 
 | # | Table | Notes |
 |---|-------|-------|
-| 23 | `workflow_job_summaries` | Redacted job status for web |
-| 24 | `error_manifest_summaries` | Redacted error info for web |
-| 25 | `validation_verdict_summaries` | Verdict summary for web |
-| 26 | `viewer_sync_status` | Daemon health for web |
+| 25 | `workflow_job_summaries` | Redacted job status for web |
+| 26 | `error_manifest_summaries` | Redacted error info for web |
+| 27 | `validation_verdict_summaries` | Verdict summary for web |
+| 28 | `viewer_sync_status` | Daemon health for web |
 
 **Local-only tables** (SQLite only, never synced):
 
 | # | Table | Notes |
 |---|-------|-------|
-| 27 | `workflow_jobs` | Job orchestration (summaries pushed separately) |
-| 28 | `agent_session_logs` | Full session logs (redacted summaries pushed) |
-| 29 | `raw_documents` | Fetched document payloads |
-| 30 | `error_manifests` | Full error context (summaries pushed separately) |
-| 31 | `source_cursors` | Source pagination cursors |
-| 32 | `sources` | Local copy of source definitions |
-| 33 | `source_runtime_state` | Circuit breaker / health state |
-| 34 | `listing_evidence` | Cached marketplace listing data |
-| 35 | `validation_verdicts` | Full validator verdicts |
-| 36 | `pending_operator_intents` | Queued operator mutations during degraded sync |
-| 37 | `local_outbox` | Transactional outbox for push sync |
-| 38 | `sync_batches` | Push batch tracking |
-| 39 | `pull_cursors` | Pull cursor per remote domain |
-| 40 | `gold_set_cases` | Gold-set corpus cases with human labels |
-| 41 | `evaluation_runs` | Evaluation run metadata |
-| 42 | `evaluation_case_results` | Per-case results within runs |
-| 43 | `evaluation_metric_summaries` | Aggregate metrics per run |
+| 29 | `workflow_jobs` | Job orchestration (summaries pushed separately) |
+| 30 | `agent_session_logs` | Full session logs (redacted summaries pushed) |
+| 31 | `raw_documents` | Fetched document payloads |
+| 32 | `error_manifests` | Full error context (summaries pushed separately) |
+| 33 | `source_cursors` | Source pagination cursors |
+| 34 | `sources` | Local copy of source definitions |
+| 35 | `source_runtime_state` | Circuit breaker / health state |
+| 36 | `listing_evidence` | Cached marketplace listing data |
+| 37 | `validation_verdicts` | Full validator verdicts |
+| 38 | `pending_operator_intents` | Queued operator mutations during degraded sync |
+| 39 | `local_outbox` | Transactional outbox for push sync |
+| 40 | `sync_batches` | Push batch tracking |
+| 41 | `pull_cursors` | Pull cursor per remote domain |
+| 42 | `gold_set_cases` | Gold-set corpus cases with human labels |
+| 43 | `evaluation_runs` | Evaluation run metadata |
+| 44 | `evaluation_case_results` | Per-case results within runs |
+| 45 | `evaluation_metric_summaries` | Aggregate metrics per run |
 
 **Remote-owned tables** (Supabase authoritative, daemon pulls):
 
 | # | Table | Layer | Notes |
 |---|-------|-------|-------|
-| 44 | `operator_decision_heads` | L4 | Human operator dispositions (CAS writes) |
-| 45 | `shared_company_profile` | L4 | Company profile data |
-| 46 | `shared_source_configs` | L4 | Source configuration (authoritative copy) |
+| 46 | `operator_decision_heads` | L4 | Human operator dispositions (CAS writes) |
+| 47 | `shared_company_profile` | L4 | Company profile data |
+| 48 | `shared_source_configs` | L4 | Source configuration (authoritative copy) |
 
 **Supabase-only infrastructure:**
 
 | # | Table | Notes |
 |---|-------|-------|
-| 47 | `schema_metadata` | Schema epoch tracking |
+| 49 | `schema_metadata` | Schema epoch tracking |
 
 ### 2.4 Sync Tracking Column Patterns
 
@@ -619,6 +628,7 @@ create table tender_document_sets (
   notice_id uuid not null references contract_notices(id),
   document_set_hash text not null,
   completeness_state text not null,  -- none, partial, full
+  extraction_state text not null default 'none',  -- none, partial, complete, failed (forward-compatibility: populated from L1 when PDF extraction is active)
   document_roles_json jsonb not null,
   documents_json jsonb not null,
   acquired_at timestamptz not null,
@@ -1052,7 +1062,7 @@ create table process_stage_heads (
 -- Authority: LOCAL-ONLY
 create table workflow_jobs (
   id uuid primary key default gen_random_uuid(),
-  kind text not null,            -- sync_source, normalize_notice, resolve_relations, prequalify_notice, qualify_lot, acquire_documents, extract_lots, extract_products, score_quoteability, enrich_supplier_prices, compute_gross_gate, estimate_landed_cost, compute_net_gate, generate_manifest, record_operator_decision, run_bid_workflow, escalate_rfq, validation
+  kind text not null,            -- sync_source, normalize_notice, resolve_relations, prequalify_notice, qualify_lot, acquire_documents, extract_document_structure, extract_document_semantics, extract_lots, extract_products, score_quoteability, enrich_supplier_prices, compute_gross_gate, estimate_landed_cost, compute_net_gate, generate_manifest, record_operator_decision, run_bid_workflow, escalate_rfq, validation
   process_id uuid references procurement_processes(id),
   notice_id uuid references contract_notices(id),
   scope_kind text,               -- process, notice, lot, candidate, candidate_source_pair, candidate_quote_scenario
@@ -2068,6 +2078,8 @@ export interface WorkflowJob {
     | "prequalify_notice"
     | "qualify_lot"
     | "acquire_documents"
+    | "extract_document_structure"
+    | "extract_document_semantics"
     | "extract_lots"
     | "extract_products"
     | "score_quoteability"
@@ -2519,6 +2531,13 @@ Download publicly accessible tender documents. In UK procurement, the notice bod
 3. Agent downloads documents and outputs structured references
 4. Documents stored as raw artifacts in local SQLite
 
+**Sub-capabilities within Stage 5 (from L1):**
+- **5a — Document download:** Raw document acquisition as described above
+- **5b — Structural extraction:** Docling subprocess extracts markdown, sections, and tables from PDFs. Output stored in `document_extractions`. Cache-aware: identical content hashes reuse prior extraction results.
+- **5c — Semantic extraction:** Claude pdf-extraction overlay skills (headless_contract mode) map structural output to domain-specific structured data. Output stored in `document_semantic_extractions`. Results enrich downstream Stages 6 (Extract Lots) and 7 (Extract Products) with document-derived evidence.
+
+These are not new top-level pipeline stages but internal capabilities that enrich the document set before lot and product extraction.
+
 **Document set output contract:** Produces a first-class `TenderDocumentSet` output:
 - Which documents found and their roles: `spec` | `pricing_schedule` | `boq` | `appendix` | `other`
 - Completeness state: `none` | `partial` | `full`
@@ -2532,9 +2551,11 @@ If no public documents available → proceed with notice text only (lower extrac
 
 Parse tender documents and OCDS lot data into structured lot records.
 
+**Evidence inputs:** Notice metadata, `TenderDocumentSet`, and (from L1) `document_extractions` + `document_semantic_extractions` from the PDF extraction toolkit. Semantic extraction outputs for the `lots` target domain provide pre-extracted lot structures and requirements that enrich or validate OCDS-derived data.
+
 **Process:**
 1. Parse OCDS lot data from normalized notice (if structured lot fields present)
-2. If no structured lots, use `lot-extraction` skill on acquired documents
+2. If no structured lots, use `lot-extraction` skill on acquired documents (augmented by semantic extraction output when available)
 3. Create `NoticeLot` entities with: lot number, title, description, CPV codes, estimated value, deadline, documents, bidability
 4. If no lots identifiable → create synthetic whole-notice lot
 5. Run per-lot qualification if notice-level qualification was provisional
@@ -3193,7 +3214,7 @@ These input/output contracts between stages are established in Layer 0 and must 
 |----------|---------------|----------------|
 | prequalify_notice → acquire_docs | `QualificationResult` per notice: expiryQualified, goodsQualified, accessRoute, qualificationBasis=notice_only | Per-notice provisional pass/review/reject |
 | extract_lots → qualify_lot | `NoticeLot` entities, document context | `QualificationResult` per lot with lotId, qualificationBasis=lot_level, addressableValuePence |
-| acquire_docs → extract_lots | Document set completeness, document roles | `TenderDocumentSet` with `documentSetHash` |
+| acquire_docs → extract_lots | Document set completeness, document roles, structural extraction output (`document_extractions`), semantic extraction output (`document_semantic_extractions`) | `TenderDocumentSet` with `documentSetHash` + extraction evidence |
 | extract_lots → extract_products | `NoticeLot` with title/description, lotNumber | At least one lot per qualified notice |
 | extract_products → score_quoteability | `ProductCandidate` with lotId, headNoun, identityConfidence, candidateType, matchArchetype | At least one candidate per qualified lot |
 | score_quoteability → price_match | quoteabilityScore, recallRiskScore, SearchProfile with queryWaves | quoteabilityScore ≥ 0.45 for auto-search |
@@ -3804,7 +3825,7 @@ In Layer 1, the daemon formalizes this into the hybrid-authored run manifest sys
 
 **jobs.ts** — Job payload types:
 - `WorkflowJob` interface with `kind` discriminator
-- 16 + 2 job kinds mapping (from Appendix C):
+- 18 + 2 job kinds mapping (from Appendix C):
 
 | Job Kind | Pipeline Stage | Scope Grain |
 |----------|---------------|-------------|
@@ -3814,6 +3835,8 @@ In Layer 1, the daemon formalizes this into the hybrid-authored run manifest sys
 | `prequalify_notice` | 4a. Prequalify notice | per notice |
 | `qualify_lot` | 4b. Qualify lot | per lot |
 | `acquire_documents` | 5. Acquire docs | per notice |
+| `extract_document_structure` | 5b. Structural extraction | per document (runner-native, Docling subprocess) |
+| `extract_document_semantics` | 5c. Semantic extraction | per document × overlay (agent adapter, headless_contract) |
 | `extract_lots` | 6. Extract lots | per notice + doc set |
 | `extract_products` | 7. Extract products | per lot |
 | `score_quoteability` | 8. Score quoteability | per candidate |

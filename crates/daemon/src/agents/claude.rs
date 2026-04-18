@@ -144,9 +144,39 @@ impl ClaudeParser {
                 completed: required_u32(value, "completed")?,
                 total: optional_u32(value, "total")?,
             }]),
-            "result" | "final_result_ready" => Ok(vec![ControlEvent::FinalResultReady {
+            "final_result_ready" => Ok(vec![ControlEvent::FinalResultReady {
                 path: PathBuf::from(required_str(value, "path")?),
             }]),
+            "result" => {
+                // Claude CLI stream-json emits {"type":"result","result":"...","subtype":"success",...}
+                // If a "path" field exists, use that (daemon protocol). Otherwise, try to
+                // extract the "result" text and create a synthetic result file in the workdir.
+                let path_field = value.get("path").and_then(Value::as_str);
+                let result_field = value.get("result").and_then(Value::as_str);
+                let session_field = value
+                    .get("session_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown");
+
+                #[allow(clippy::option_if_let_else)]
+                match path_field {
+                    Some(p) => Ok(vec![ControlEvent::FinalResultReady {
+                        path: PathBuf::from(p),
+                    }]),
+                    None => match result_field {
+                        Some(result_text) => {
+                            let result_path = std::env::temp_dir()
+                                .join(format!("claude-result-{session_field}.json"));
+                            std::fs::write(&result_path, result_text)
+                                .map(|()| {
+                                    vec![ControlEvent::FinalResultReady { path: result_path }]
+                                })
+                                .or_else(|_| Ok(Vec::new()))
+                        }
+                        None => Ok(Vec::new()),
+                    },
+                }
+            }
             "warning" => Ok(vec![ControlEvent::Warning {
                 code: required_str(value, "code")?.to_owned(),
                 detail: required_str(value, "detail")?.to_owned(),
@@ -158,7 +188,9 @@ impl ClaudeParser {
             "exited" => Ok(vec![ControlEvent::Exited {
                 status: ExitStatus::with_exit_code(required_u32(value, "code")?),
             }]),
-            other => bail!("{PROTOCOL_MISMATCH_CODE}: unsupported event `{other}`"),
+            // Claude CLI stream-json emits system, rate_limit_event, assistant,
+            // and other envelope types we don't need for control flow. Skip them.
+            _ => Ok(Vec::new()),
         }
     }
 
@@ -180,6 +212,12 @@ impl ClaudeParser {
                     events.extend(parsed);
                 }
             } else {
+                // In contract mode, skip lines that don't start with `{` — the
+                // Claude CLI may emit progress spinners, ANSI codes, or warning
+                // text before the JSONL stream begins.
+                if !trimmed.starts_with(b"{") {
+                    continue;
+                }
                 let value: Value = serde_json::from_slice(trimmed)
                     .with_context(|| format!("{PROTOCOL_MISMATCH_CODE}: invalid JSON frame"))?;
                 events.extend(self.parse_frame_value(&value)?);
@@ -194,7 +232,7 @@ impl ClaudeParser {
                 {
                     events.extend(parsed);
                 }
-            } else {
+            } else if trim_line(&tail).starts_with(b"{") {
                 let value: Value = serde_json::from_slice(trim_line(&tail)).with_context(|| {
                     format!("{PROTOCOL_MISMATCH_CODE}: truncated stream tail or invalid JSON")
                 })?;
@@ -253,6 +291,7 @@ impl AgentAdapter for ClaudeAdapter {
         if mode == ExecutionMode::Contract {
             args.push(OsString::from("--output-format"));
             args.push(OsString::from("stream-json"));
+            args.push(OsString::from("--verbose"));
         }
         args.extend(req.args.clone());
 

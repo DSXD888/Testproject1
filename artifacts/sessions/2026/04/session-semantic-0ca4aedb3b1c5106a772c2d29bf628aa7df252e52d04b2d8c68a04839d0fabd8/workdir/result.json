@@ -1,0 +1,159 @@
+{
+  "lots": [
+    {
+      "lot_number": "3",
+      "title": "Provision of Asbestos Assessments",
+      "description": "Lot 3 of framework reference 6278 (London Borough of Bexley, Building Services Framework, Lots 1-11). This document is the PSQ Reference Appendices scoped to Lot 3 only: Appendix 1 reference form (Part A applicant details + Part B referee questionnaire) and Appendix 2 referee cover letter. The document contains no scope of works, deliverables list, KPIs, volumes, technical specification, evaluation matrix or pricing schedule for the underlying services; lot identity is asserted only via the Appendix 1 heading. The Project Management criterion in Part B references 'small and medium asbestos project works', which corroborates the lot subject matter but is not itself a technical specification.",
+      "requirements": [
+        "Applicant (Part A) must supply name and contact details of applicant, name and contact details of referee, brief description of services provided with dates, and annual value (Value p/a).",
+        "Referee (Part B) must complete the assessment directly and return it to procurement@bexley.gov.uk by 18th May 2026 by 5pm. Referees must not return the completed reference to the applicant.",
+        "Referee must confirm that the services described by the applicant in Part A are accurate."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Supply chain resilience",
+          "summary": "Referee rates whether the contractor has provided a resilient and sustainable supply chain for required products, resources, and services.",
+          "weighting_text": "Five-point scale: Failed to meet standard in all areas; Failed to meet standard in some areas; Met standard; Exceeded standard in some areas; Exceeded standard in all areas.",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Supply chain resilience: Has the contractor provided a resilient and sustainable supply chain for required products, resources, and services?",
+            "section_ref": "#/texts/5"
+          }
+        },
+        {
+          "criterion": "Service Provision",
+          "summary": "Referee rates whether the contractor has consistently delivered the contracted services in line with the required KPIs.",
+          "weighting_text": "Five-point scale (failed/met/exceeded standard).",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Service Provision: Has the contractor consistently delivered the contracted services in line with the required KPIs?",
+            "section_ref": "#/texts/5"
+          }
+        },
+        {
+          "criterion": "Resource",
+          "summary": "Referee rates whether the contractor's staff held the necessary qualifications, certifications and experience for the tasks assigned and fully met the resource levels required to manage the contract.",
+          "weighting_text": "Five-point scale (failed/met/exceeded standard).",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Resource: Have the contractor's staff held the necessary qualifications, certifications, and experience for the tasks assigned and fully met the resource levels required to manage the contract.",
+            "section_ref": "#/texts/5"
+          }
+        },
+        {
+          "criterion": "Value for Money",
+          "summary": "Referee rates whether the contractor has shown a transparent and well-evidenced approach to securing value for money.",
+          "weighting_text": "Five-point scale (failed/met/exceeded standard).",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Value for Money: Has the contractor shown a transparent and well-evidenced approach to securing value for money",
+            "section_ref": "#/texts/5"
+          }
+        },
+        {
+          "criterion": "Contract Management",
+          "summary": "Referee rates whether the contractor has demonstrated effective contract management, including performance monitoring and oversight of subcontractors.",
+          "weighting_text": "Five-point scale (failed/met/exceeded standard).",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Contract Management: Has the contractor demonstrated effective contract management, including performance monitoring and oversight of subcontractors",
+            "section_ref": "#/texts/5"
+          }
+        },
+        {
+          "criterion": "Project Management",
+          "summary": "Referee rates whether the contractor has provided evidence of their capability to self-deliver small and medium asbestos project works.",
+          "weighting_text": "Five-point scale (failed/met/exceeded standard).",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Project Management: Has the contractor provided evidence of their capability to self-deliver small and medium asbestos project works",
+            "section_ref": "#/texts/5"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "page:1",
+        "anchor_text": "6278 - Lot 3: Provision of Asbestos Assessments",
+        "section_ref": "#/texts/0"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 9500,
+    "lots.description": 7000,
+    "lots.requirements": 5000,
+    "lots.evaluation_criteria": 6000,
+    "lots.cpv_codes": 2000,
+    "lots.product_requirements": 3000,
+    "lots.technical_standards": 3000,
+    "product_requirement_seeds": 3000
+  },
+  "extraction_confidence_bps": 3500,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "Document is a PSQ reference questionnaire (Appendix 1 reference form + Appendix 2 referee cover letter), not a technical tender specification. It contains no scope of works, deliverables, KPIs, volumes, pricing schedule, or technical requirements for the underlying Asbestos Assessments service. Tender-specification extraction was attempted on the best-available signal (the Lot 3 heading in Appendix 1) and yielded only one lot identity plus the referee-assessment dimensions from Part B. No product requirement seeds, no CPV codes, and no technical standards were recoverable from this document.",
+      "evidence_refs": [
+        "#/texts/0",
+        "#/texts/5",
+        "#/texts/35"
+      ]
+    },
+    {
+      "code": "NO_CPV_CODES_IN_DOCUMENT",
+      "message": "No CPV codes are present anywhere in the document body. Any CPV classification for Lot 3 must come from the parent notice or upstream process metadata, not from this PSQ reference form.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_TECHNICAL_STANDARDS_IN_DOCUMENT",
+      "message": "No explicit technical standards (e.g. HSG264, CAR 2012, BS ISO 17020, UKAS accreditation, licensable asbestos references) are cited in the document body. Part B references generic referee-assessment dimensions, not asbestos-specific regulatory standards.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_PRODUCT_REQUIREMENTS_IN_DOCUMENT",
+      "message": "The document defines no product requirements or purchasable line items. Asbestos-assessment scope is a service, and the body contains only a referee-rating questionnaire. product_requirement_seeds is intentionally empty; the daemon should not synthesize product candidates from this extraction.",
+      "evidence_refs": []
+    },
+    {
+      "code": "REFEREE_RETURN_DEADLINE_ATTACHED_TO_REFERENCE_PROCESS_NOT_LOT",
+      "message": "The deadline 18th May 2026 by 5pm applies to return of the referee form to procurement@bexley.gov.uk, not to the underlying Lot 3 tender submission deadline. Do not interpret this as the lot closing date.",
+      "evidence_refs": [
+        "#/texts/5"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Appendix 1",
+      "section_ref": "#/texts/0"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "6278 - Lot 3: Provision of Asbestos Assessments",
+      "section_ref": "#/texts/0"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "TO BE COMPLETED BY REFEREE AND RETURNED TO THE ADDRESS BELOW BY 18th May 2026 by 5pm",
+      "section_ref": "#/texts/5"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Appendix 2",
+      "section_ref": "#/texts/35"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "41d3f046d404867b578a2cad5d06be9c03807ed168956afe1974486caca41bf1",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

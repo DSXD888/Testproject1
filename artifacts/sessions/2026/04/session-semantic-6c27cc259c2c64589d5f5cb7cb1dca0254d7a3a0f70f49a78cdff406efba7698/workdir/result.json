@@ -1,0 +1,81 @@
+{
+  "lots": [],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots": 200,
+    "product_requirement_seeds": 200,
+    "evaluation_criteria": 1500,
+    "cpv_codes": 100,
+    "technical_standards": 100
+  },
+  "extraction_confidence_bps": 1500,
+  "warnings": [
+    {
+      "code": "SKILL_SCOPE_MISMATCH_VOLUME_I",
+      "message": "Document is 'Volume I: Instructions for respondents and Conditions of Tender' - an administrative/procedural overlay for the ECMWF Copernicus C3S2_413_bis ITT. Technical lot-level content (lot descriptions, product requirements, evaluation criteria detail, CPV codes, technical standards) is explicitly deferred to 'Volume II Specification' per section 4.5 of this document. No lot splits, product seeds, or standards can be evidentially anchored from this document alone.",
+      "evidence_refs": [
+        "p.8:section-4.5",
+        "p.8:section-4",
+        "p.5:section-3.3"
+      ]
+    },
+    {
+      "code": "LOT_STRUCTURE_ABSENT_FROM_VOLUME_I",
+      "message": "The term 'Lot' does not appear anywhere in this Volume I document. Notice-level metadata indicates a two-lot structure (Lot 1 Windstorm, Lot 2 Storm Surge) but Volume I neither confirms nor elaborates that split - it treats all ITT documents uniformly. Authoritative lot extraction must occur from Volume II Specification or the Volume IA timetable when those documents are supplied.",
+      "evidence_refs": [
+        "p.8:section-4"
+      ]
+    },
+    {
+      "code": "EVALUATION_CRITERIA_REFERENCE_ONLY",
+      "message": "Section 3.3 Evaluation states evaluation is based on 'Tenderer's responses to ECMWF's requirements (Volume II of this ITT) and the questions in the eProcurement Portal as well as Tenderer's compliance with paragraphs 3, 4, 5, 6 and 7 of this Volume I'. No weighted evaluation criteria, scoring rubric, or award method detail is present in this document.",
+      "evidence_refs": [
+        "p.5:section-3.3"
+      ]
+    },
+    {
+      "code": "DOCUMENT_ROLE_RECLASSIFICATION_SUGGESTED",
+      "message": "document_extractions.document_role is 'technical_specification' but document content is administrative/procedural (eligibility, tender conditions, submission mechanics, clarification procedure, ECMWF status). Role hint may warrant reclassification to 'tender_instructions' or 'conditions_of_tender' so pdf-extraction/tender-specification is not re-bound on future runs.",
+      "evidence_refs": [
+        "p.3:section-3",
+        "p.9:section-5",
+        "p.10:section-6",
+        "p.10:section-7"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p.8",
+      "section_ref": "4.5",
+      "anchor_text": "Volume II Specification - This contains detailed technical specifications and requirements for each ITT."
+    },
+    {
+      "page_ref": "p.8",
+      "section_ref": "4",
+      "anchor_text": "Structure of this ITT - The ITT is structured in several parts, described below, all of which form the ITT."
+    },
+    {
+      "page_ref": "p.5",
+      "section_ref": "3.3",
+      "anchor_text": "ECMWF will evaluate the Tender based on the Tenderer's responses to ECMWF's requirements (Volume II of this ITT) and the questions in the eProcurement Portal as well as Tenderer's compliance with paragraphs 3, 4, 5, 6 and 7 of this Volume I."
+    },
+    {
+      "page_ref": "p.8",
+      "section_ref": "4.6",
+      "anchor_text": "Volume III Templates for Suppliers to Complete - Volume III A Pricing and deliverables; Volume III B Templates for Tenderers to complete."
+    },
+    {
+      "page_ref": "p.1",
+      "section_ref": "title-block",
+      "anchor_text": "VOLUME I: Instructions for respondents and Conditions of tender - ISSUED BY: ECMWF Administration Department Procurement Section - Date: 30 January 2026 - Version: Final"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "982304ae02cae9dd63283bb146359198706f2aa239778930cba54ec092ab43f3",
+    "policy_version": "2026.04.12",
+    "document_role": "tender_instructions_volume_i"
+  }
+}

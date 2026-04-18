@@ -1,6 +1,6 @@
 ---
 skill_id: procurement-ingestion/procontract-enrich-tender
-skill_version: 1.0.0
+skill_version: 1.1.0
 interaction_profile: pty_interactive
 result_schema_version: 1.0.0
 checkpoint_schema_version: 1.0.0
@@ -56,26 +56,41 @@ agent-browser wait 2000
 
 If redirected to `Log In`, authenticate with the supplied credentials.
 
-### Step 2: Go to the Activities area
+### Step 2: Go to the Activities area and paginate through ALL pages
 
 On the live home page:
 
 - The `Activities` panel contains `Active`, `Recently added`, and `Last viewed`
 - Each row shows `Buyer`, `Title`, and `Added`
+- The table has **pagination** at the bottom (page numbers and `Next >`)
 
 Preferred path:
 
 1. Click `Recently added`
-2. Work through the newest rows first
+2. Collect every activity row on the current page
+3. **Check for pagination**: look for `Next >` or numbered page links below the table
+4. If more pages exist, click `Next >` (or the next page number) and collect rows from that page too
+5. Repeat until there are no more pages or you reach `maxPages` (5)
+
+**You MUST process ALL pages of the Recently added list, not just the first page.** The portal shows ~10 rows per page and there are often 2-3 pages. Stopping at page 1 misses activities.
 
 If the `Recently added` tab does not visibly switch but the grid already contains newly added items, continue with the visible activity list and record that the tab interaction was brittle.
 
+After collecting all activity rows across all pages, process each one through Steps 3-7 below.
+
 ### Step 3: Open the activity dashboard
 
-For each candidate row that appears newly added or recently updated:
+For each candidate row collected from the Recently added list (across all pages):
 
-1. Open the row title to reach the activity dashboard.
-2. Confirm the dashboard heading looks like:
+1. Navigate back to the home page if needed:
+
+```bash
+agent-browser open "https://procontract.due-north.com/SupplierPostLoginHome#"
+agent-browser wait 2000
+```
+
+2. Open the row title link to reach the activity dashboard. If you saved the activity URL or title link from Step 2, navigate directly to it.
+3. Confirm the dashboard heading looks like:
 
 ```text
 Activity : {title}
@@ -183,7 +198,7 @@ Write a top-level JSON object:
 
 ```json
 {
-  "cursor": "{\"last_checked_at\":\"2026-04-13T16:00:00Z\"}",
+  "cursor": "{\"last_checked_at\":\"2026-04-13T16:00:00Z\",\"pages_checked\":3}",
   "continuation_required": false,
   "enriched_tenders": [],
   "summary": {
@@ -194,6 +209,10 @@ Write a top-level JSON object:
   }
 }
 ```
+
+Set `continuation_required` to `false` when you have checked ALL pages of the Recently added list. Only set it to `true` if you hit the `maxPages` limit before reaching the end.
+
+The `total_checked` count must reflect activities checked across ALL pages, not just one page.
 
 If no tender-ready RFx pages are found, return an empty `enriched_tenders` array with a valid summary.
 

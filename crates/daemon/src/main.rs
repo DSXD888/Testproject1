@@ -1732,15 +1732,12 @@ fn default_docling_artifacts_path() -> Result<PathBuf> {
 
 fn default_docling_python_bin() -> PathBuf {
     // Prefer the docling venv if it exists, otherwise fall back to system python3.
-    let venv_python = PathBuf::from(
-        std::env::var_os("DOCLING_PYTHON_BIN")
-            .unwrap_or_else(|| {
-                let home = std::env::var_os("HOME").unwrap_or_default();
-                PathBuf::from(home)
-                    .join(".docling-venv/bin/python")
-                    .into_os_string()
-            }),
-    );
+    let venv_python = PathBuf::from(std::env::var_os("DOCLING_PYTHON_BIN").unwrap_or_else(|| {
+        let home = std::env::var_os("HOME").unwrap_or_default();
+        PathBuf::from(home)
+            .join(".docling-venv/bin/python")
+            .into_os_string()
+    }));
     if venv_python.is_file() {
         return venv_python;
     }
@@ -3619,10 +3616,7 @@ fn enqueue_extraction_jobs_for_document_set(
         let Some(raw_document_id) = doc.get("raw_document_id").and_then(Value::as_str) else {
             continue;
         };
-        let job_id = format!(
-            "job-extract-{}",
-            sha256_hex(raw_document_id.as_bytes())
-        );
+        let job_id = format!("job-extract-{}", sha256_hex(raw_document_id.as_bytes()));
         let _idempotency_key = format!("extract_document_structure::{raw_document_id}");
 
         // Skip if a job with this idempotency key already exists.
@@ -3720,8 +3714,7 @@ async fn run_bound_skill(
         execute_skill_session(runtime, &skill, &job_id, &session_id, &job_parameters, cli).await?;
     insert_executed_session_log(runtime.state_db.connection(), &skill, &job_id, &executed)?;
 
-    let is_procurement_skill =
-        procurement_skill_requires_result_contract(&skill.metadata.skill_id);
+    let is_procurement_skill = procurement_skill_requires_result_contract(&skill.metadata.skill_id);
 
     if is_procurement_skill && executed.result_path.is_none() {
         let message = format!(
@@ -3748,9 +3741,7 @@ async fn run_bound_skill(
         );
     }
 
-    if is_procurement_skill
-        && let Some(ref result_path) = executed.result_path
-    {
+    if is_procurement_skill && let Some(ref result_path) = executed.result_path {
         let result_json = read_result_contract(result_path)?;
         let (source_id, persisted_count) = persist_procurement_result_for_skill(
             &mut runtime.state_db,
@@ -5146,10 +5137,18 @@ async fn execute_contract_skill_session(
         status: portable_pty::ExitStatus::from(output.status),
     });
     events.extend(parser.finish().await?);
-    let result_path = events.iter().find_map(|event| match event {
-        ControlEvent::FinalResultReady { path } => Some(path.clone()),
-        _ => None,
-    });
+    // Prefer workdir result.json (written by the skill) over the stream
+    // `result` event (which may contain Claude's narrative text rather than
+    // the structured result contract).
+    let workdir_result = launch_spec.cwd.join("result.json");
+    let result_path = if workdir_result.exists() {
+        Some(workdir_result)
+    } else {
+        events.iter().find_map(|event| match event {
+            ControlEvent::FinalResultReady { path } => Some(path.clone()),
+            _ => None,
+        })
+    };
     let last_checkpoint_seq = events.iter().rev().find_map(|event| match event {
         ControlEvent::Checkpoint { seq, .. } => Some(*seq),
         _ => None,
@@ -5899,8 +5898,9 @@ async fn run_procontract_enrich_tender_live_loop(
     let persisted_count =
         persist_tender_enrichments(&mut runtime.state_db, "procontract-enrich", &result_json)?;
 
-    let extraction_jobs_processed =
-        drain_pending_extraction_jobs(runtime, cli).await.unwrap_or(0);
+    let extraction_jobs_processed = drain_pending_extraction_jobs(runtime, cli)
+        .await
+        .unwrap_or(0);
 
     let summary = result_json
         .get("summary")
@@ -5932,10 +5932,7 @@ async fn run_procontract_enrich_tender_live_loop(
 /// trigger.  Each structural extraction job may in turn enqueue semantic
 /// extraction jobs, which are also drained here.
 #[allow(clippy::future_not_send)]
-async fn drain_pending_extraction_jobs(
-    runtime: &mut RuntimeBootstrap,
-    cli: &Cli,
-) -> Result<usize> {
+async fn drain_pending_extraction_jobs(runtime: &mut RuntimeBootstrap, cli: &Cli) -> Result<usize> {
     let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
     let mut processed = 0_usize;
     loop {
@@ -5944,8 +5941,7 @@ async fn drain_pending_extraction_jobs(
         };
         match claimed.kind.as_str() {
             "extract_document_structure" => {
-                let report =
-                    run_extract_document_structure_job(runtime, &runner, claimed).await;
+                let report = run_extract_document_structure_job(runtime, &runner, claimed).await;
                 if let Err(error) = &report {
                     ::tracing::warn!(%error, "extraction job failed, continuing drain");
                 }
@@ -8853,6 +8849,19 @@ fn insert_session_log(conn: &Connection, draft: &SessionDraft) -> Result<()> {
           error_message, exit_code, cleanup_verdict, last_checkpoint_seq
         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15,
                   ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)
+        ON CONFLICT(id) DO UPDATE SET
+          completed_at = excluded.completed_at,
+          status = excluded.status,
+          terminal_output_path = excluded.terminal_output_path,
+          terminal_output_hash = excluded.terminal_output_hash,
+          terminal_output_bytes = excluded.terminal_output_bytes,
+          terminal_output_tail = excluded.terminal_output_tail,
+          structured_trace = excluded.structured_trace,
+          error_type = excluded.error_type,
+          error_message = excluded.error_message,
+          exit_code = excluded.exit_code,
+          cleanup_verdict = excluded.cleanup_verdict,
+          last_checkpoint_seq = excluded.last_checkpoint_seq
         ",
         params![
             draft.session_id,
@@ -11120,10 +11129,7 @@ mod tests {
             ) VALUES (?1, 'sync_source', 'source', 'procontract', 'running',
                       ?2, 0, NULL, NULL)
             ",
-            params![
-                job_id,
-                json!({"source_id": "procontract"}).to_string()
-            ],
+            params![job_id, json!({"source_id": "procontract"}).to_string()],
         )?;
 
         let report = super::fail_with_manifest(

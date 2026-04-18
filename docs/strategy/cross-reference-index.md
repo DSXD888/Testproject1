@@ -10,7 +10,7 @@
 
 | Topic | File | Section |
 |-------|------|---------|
-| Full SQLite DDL (47 tables, all columns from creation) | `layers/layer-0-gold-set-evaluation.md` | §2 |
+| Full SQLite DDL (49 tables, all columns from creation) | `layers/layer-0-gold-set-evaluation.md` | §2 |
 | Evaluation tables (gold_set_cases, evaluation_runs, evaluation_case_results, evaluation_metric_summaries) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.12) |
 | Cross-authority FK discipline (rule 15) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.2) |
 | Rounding policy and BPS constraint families (rules 17-18) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.2) |
@@ -21,7 +21,7 @@
 | Constitutional schema ownership vs activation matrix (`Created` vs `First Active Use`) | `layer-strategy.md` | §9 |
 | Schema stability matrix (all tables x all layers) | `layer-strategy.md` | §9 |
 | TypeScript interfaces (`packages/contracts-schema`) | `layers/layer-0-gold-set-evaluation.md` | §5 |
-| Supabase projection tables (18 push-owned mirrors) | `layers/layer-4-shared-visibility.md` | §2 |
+| Supabase projection tables (20 push-owned mirrors) | `layers/layer-4-shared-visibility.md` | §2 |
 | Supabase summary tables (6 redacted projections incl. operator_decision_summaries) | `layers/layer-4-shared-visibility.md` | §2 |
 | CAS command ledger (`operator_decision_commands`) | `layers/layer-4-shared-visibility.md` | §1 (§1.5) |
 | Remote-owned tables (`operator_decision_heads`, `shared_*`) | `layers/layer-4-shared-visibility.md` | §2 |
@@ -38,6 +38,10 @@
 | Branded scalar types recommendation (`Pence`, `MinorUnits`, `BpsBounded`, `BpsSigned`) | `layers/layer-0-gold-set-evaluation.md` | §5 (§5.3.5) |
 | Harness DB isolation (separate SQLite from operational DB) | `layers/layer-0-gold-set-evaluation.md` | §5 (§5.3.4) |
 | New L3 tables (`validation_verdicts`, `source_runtime_state`, `listing_evidence`, `process_relations`, `process_aliases`) | `layers/layer-3-operational-hardening.md` | §4 |
+| Document extraction tables (`document_extractions`, `document_semantic_extractions`) | `layers/layer-1-thin-local-runner.md` | §1 (§1.5) |
+| `extraction_state` on `tender_document_sets` (forward-compatibility) | `layers/layer-0-gold-set-evaluation.md` | §2 |
+| `semantic_extraction_state` on `document_extractions` (distinct from `tender_document_sets.extraction_state`) | `layers/layer-1-thin-local-runner.md` | §1 (§1.5) |
+| Document extraction entity relationship chain | `layers/layer-1-thin-local-runner.md` | §1 (§1.5) |
 
 ### Pipeline
 
@@ -57,6 +61,11 @@
 | Dual confidence model & lexicographic gating | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.9.7) |
 | Pipeline cost management | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.18) |
 | Bilingual lexicon & cross-language matching | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.17) |
+| PDF structural extraction (Docling engine, processing strategies) | `layers/layer-1-thin-local-runner.md` | §1 (§1.5) |
+| PDF semantic mapping (Claude overlay skills) | `layers/layer-1-thin-local-runner.md` | §1 (§1.5) |
+| Extraction orchestration (job cascade: structural → semantic → lot/product refresh) | `layers/layer-1-thin-local-runner.md` | §1 (§1.5) |
+| Extraction policy (document role classification, overlay routing) | `layers/layer-1-thin-local-runner.md` | §1 (§1.5) |
+| Deterministic document chunking (synopsis, section-aware splits) | `layers/layer-1-thin-local-runner.md` | §1 (§1.5) |
 
 ### Skills & Agent Orchestration
 
@@ -64,8 +73,10 @@
 |-------|------|---------|
 | Skill directory standard (SKILL.md + schemas) | `layers/layer-0-gold-set-evaluation.md` | §4 |
 | 8-question skill authoring guide | `layers/layer-0-gold-set-evaluation.md` | §4 |
+| `skills/pdf-extraction/` family path in the monorepo layout | `layers/layer-0-gold-set-evaluation.md` | §1.7 |
 | Agent Adapter trait (two-lane: OutputFrame + ControlEvent) | `layers/layer-1-thin-local-runner.md` | §2 (§2.3) |
-| Rust crate structure (17 daemon files) | `layers/layer-1-thin-local-runner.md` | §2 (§2.1) |
+| PDF extraction skill family (base + 3 domain overlays) | `layers/layer-1-thin-local-runner.md` | §1 (§1.5) |
+| Rust crate structure (20 daemon files) | `layers/layer-1-thin-local-runner.md` | §2 (§2.1) |
 | Rust crate dependencies | `layers/layer-1-thin-local-runner.md` | §2 (§2.2) |
 | PTY + contract mode execution | `layers/layer-1-thin-local-runner.md` | §1 (§1.7) |
 | Process-group supervision & session semantics (setsid, ctty, CLOEXEC, cleanup verdicts) | `layers/layer-1-thin-local-runner.md` | §1 (§1.8) |
@@ -218,7 +229,7 @@
 | L5 customs test files (5: classification, measure interaction, FX, freight, FPO) | `layers/layer-5-expanded-commercial-intelligence.md` | §3 (§3.2) |
 | L6 bid workflow test files (3: states, side-effects, readiness gate) | `layers/layer-6-request-pipeline-automation.md` | §2 (§2.2) |
 | No mock-only release gates (real sessions, real portals/APIs, or captured evidence bundles) | `layer-strategy.md` | §11 |
-| Testing evolution (all layers, cumulative 4→55) | `layer-strategy.md` | §11 |
+| Testing evolution (all layers, cumulative 4→60) | `layer-strategy.md` | §11 |
 
 ### Open Questions
 

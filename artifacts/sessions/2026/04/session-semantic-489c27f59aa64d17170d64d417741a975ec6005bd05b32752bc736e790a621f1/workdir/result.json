@@ -1,0 +1,187 @@
+{
+  "lots": [
+    {
+      "lot_number": "9",
+      "title": "Provision of Reactive Repairs to Corporate Building",
+      "description": "Lot 9 reference-check appendices (PSQ). This document contains Appendix 1 (Reference Form) and Appendix 2 (cover letter to referees). It does not enumerate technical specification content, product requirements, or scored evaluation weightings; it defines only the referee-facing quality-view categories used during PSQ reference checking for Lot 9.",
+      "requirements": [
+        "Applicants must provide contact details of a referee for whom the applicant has delivered comparable services (Appendix 1, Part A).",
+        "Referees must return the completed Part B reference form to Procurement@bexley.gov.uk by 18th May 2026 by 5pm; references must not be returned to the applicant."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Supply chain resilience",
+          "summary": "Referee view on whether the contractor provided a resilient and sustainable supply chain for required products, resources, and services.",
+          "weighting_text": "Qualitative 5-point tick scale: Failed to meet standard in all areas / Failed to meet standard in some areas / Met standard / Exceeded standard in some areas / Exceeded standard in all areas",
+          "evidence_anchor": {
+            "page_ref": "1",
+            "anchor_text": "Supply chain resilience: Has the contractor provided a resilient and sustainable supply chain for required products, resources, and services",
+            "section_ref": "#/texts/5"
+          }
+        },
+        {
+          "criterion": "Service Provision",
+          "summary": "Referee view on whether the contractor consistently delivered the contracted services in line with the required KPIs.",
+          "weighting_text": "Qualitative 5-point tick scale (same scale as other criteria)",
+          "evidence_anchor": {
+            "page_ref": "1",
+            "anchor_text": "Service Provision: Has the contractor consistently delivered the contracted services in line with the required KPIs",
+            "section_ref": "#/texts/5"
+          }
+        },
+        {
+          "criterion": "Resource",
+          "summary": "Referee view on whether the contractor's staff held the necessary qualifications, certifications, and experience for assigned tasks, and fully met required resource levels to manage the contract.",
+          "weighting_text": "Qualitative 5-point tick scale (same scale)",
+          "evidence_anchor": {
+            "page_ref": "1",
+            "anchor_text": "Resource:  Have the contractor\u2019s staff held the necessary qualifications, certifications, and experience for the tasks assigned and fully met the resource levels required to manage the contract",
+            "section_ref": "#/texts/5"
+          }
+        },
+        {
+          "criterion": "Value for Money",
+          "summary": "Referee view on whether the contractor demonstrated a transparent and well-evidenced approach to securing value for money.",
+          "weighting_text": "Qualitative 5-point tick scale (same scale)",
+          "evidence_anchor": {
+            "page_ref": "1",
+            "anchor_text": "Value for Money: Has the contractor shown a transparent and well\u2011evidenced approach to securing value for money",
+            "section_ref": "#/texts/5"
+          }
+        },
+        {
+          "criterion": "Contract Management",
+          "summary": "Referee view on whether the contractor demonstrated effective contract management, including performance monitoring and oversight of subcontractors.",
+          "weighting_text": "Qualitative 5-point tick scale (same scale)",
+          "evidence_anchor": {
+            "page_ref": "1",
+            "anchor_text": "Contract Management: Has the contractor demonstrated effective contract management, including performance monitoring and oversight of subcontractors",
+            "section_ref": "#/texts/5"
+          }
+        },
+        {
+          "criterion": "Project Management",
+          "summary": "Referee view on whether the contractor has evidenced capability to self-deliver small and medium project works (reactive-repair scope for Lot 9).",
+          "weighting_text": "Qualitative 5-point tick scale (same scale)",
+          "evidence_anchor": {
+            "page_ref": "1",
+            "anchor_text": "Project Management: Has the contractor provided evidence of their capability to self\u2011deliver small and medium project works",
+            "section_ref": "#/texts/5"
+          }
+        },
+        {
+          "criterion": "Reuse recommendation",
+          "summary": "Referee is asked to confirm whether they would employ the applicant for similar services (Yes/No).",
+          "weighting_text": "Binary Yes/No",
+          "evidence_anchor": {
+            "page_ref": "1",
+            "anchor_text": "Would you employ this company for similar services (please select)  Yes  No",
+            "section_ref": "#/texts/5"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "1",
+        "anchor_text": "6278 - Lot 9: Provision  of Reactive Repairs to Corporate Building",
+        "section_ref": "#/texts/2"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.lot_number": 9200,
+    "lots.title": 9200,
+    "lots.description": 7800,
+    "lots.requirements": 7500,
+    "lots.evaluation_criteria": 8200,
+    "lots.cpv_codes": 0,
+    "lots.product_requirements": 0,
+    "lots.technical_standards": 0,
+    "product_requirement_seeds": 0
+  },
+  "extraction_confidence_bps": 3200,
+  "warnings": [
+    {
+      "code": "ADMINISTRATIVE_CONTENT_ONLY",
+      "message": "Document content is an administrative PSQ reference appendix (reference questionnaire form plus cover letter to referees). It does not contain primary tender-specification requirements, product requirements, technical standards, or scored evaluation model weightings for Lot 9. Lot 9 context is identified by the in-document heading only.",
+      "evidence_refs": ["#/texts/0", "#/texts/1", "#/texts/2"]
+    },
+    {
+      "code": "NO_PRODUCT_REQUIREMENTS_FOUND",
+      "message": "No product, goods, quantity, or material specifications are present in this document; product_requirement_seeds is intentionally empty.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_TECHNICAL_STANDARDS_FOUND",
+      "message": "No standards references (e.g. EN, BS, ISO, CIBSE, safety codes) are present in the extracted markdown for this document.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_CPV_IN_DOCUMENT",
+      "message": "No CPV codes are cited inside the document body. Notice-level CPV hints on the parent process (50700000-2 Repair and maintenance of building installations; 50750000-7 Lift-maintenance services; 71315000-9 Building services) were not echoed in this document, so cpv_codes is left empty to avoid attributing unanchored claims to the document.",
+      "evidence_refs": []
+    },
+    {
+      "code": "EVALUATION_WEIGHTING_NOT_NUMERIC",
+      "message": "The referee evaluation criteria use a qualitative 5-point tick scale (failed/met/exceeded) rather than numeric weightings. No percentage or points weighting is stated in this document.",
+      "evidence_refs": ["#/texts/5"]
+    },
+    {
+      "code": "DATE_REFERENCE_IN_FORM",
+      "message": "Part B references a return deadline of '18th May 2026 by 5pm' for the reference form; this is the reference-check return deadline, not the tender submission deadline. Appendix 2 cover letter also contains a placeholder '****INSERT DATE & TIME****' indicating template text.",
+      "evidence_refs": ["#/texts/5", "#/texts/41"]
+    },
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "Resolved document_role is 'technical_specification' and overlay 'pdf-extraction/tender-specification' was bound, but the document body is a PSQ reference appendix. Downstream routing may wish to reclassify this role. Extraction proceeded conservatively with a single Lot 9 row and no product/requirement seeds.",
+      "evidence_refs": ["#/texts/0", "#/texts/41"]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "1",
+      "anchor_text": "Appendix 1",
+      "section_ref": "#/texts/0"
+    },
+    {
+      "page_ref": "1",
+      "anchor_text": "REFERENCE FORM",
+      "section_ref": "#/texts/1"
+    },
+    {
+      "page_ref": "1",
+      "anchor_text": "6278 - Lot 9: Provision  of Reactive Repairs to Corporate Building",
+      "section_ref": "#/texts/2"
+    },
+    {
+      "page_ref": "1",
+      "anchor_text": "TO BE COMPLETED BY REFEREE AND RETURNED TO THE ADDRESS BELOW BY 18th May 2026 by 5pm",
+      "section_ref": "#/texts/5"
+    },
+    {
+      "page_ref": "1",
+      "anchor_text": "Please return the reference to: Procurement@bexley.gov.uk",
+      "section_ref": "#/texts/5"
+    },
+    {
+      "page_ref": "1",
+      "anchor_text": "Appendix 2",
+      "section_ref": "#/texts/41"
+    },
+    {
+      "page_ref": "1",
+      "anchor_text": "The company named on the attached Reference Questionnaire has applied for a Bexley Procurement exercise and has given your name as a reference.",
+      "section_ref": "#/texts/41"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "bbd1c82d8552ad619511a2b2f6298cfdd8a88abd3382d6a433c760d7a8c2c881",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

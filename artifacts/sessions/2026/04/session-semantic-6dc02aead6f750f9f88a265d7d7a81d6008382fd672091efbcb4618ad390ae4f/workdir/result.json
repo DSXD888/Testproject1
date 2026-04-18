@@ -1,0 +1,149 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Provision of Fire Risk Assessment Services",
+      "description": "Lot 1 of the London Borough of Bexley 6278 Building Services Framework. The cover page of this contract template scopes the agreement to the provision of Fire Risk Assessment Services for Council Buildings during 1 September 2020 to 31 August 2022 (template dates), with the detailed scope deferred to Schedule 1 (Specification), which is an empty placeholder in this document.",
+      "requirements": [
+        "Contractor shall supply the Services during the Contract Period in accordance with the Council's requirements as set out in the Specification (Schedule 1) and the provisions of the Contract (clause B1.1).",
+        "Contractor shall comply with the Quality Standards published by BSI British Standards Institution, the International Organisation for Standardisation, or other reputable equivalent body, and where applicable maintain accreditation with the relevant Quality Standards authorisation body (clause B3.1).",
+        "Staff who are fire risk assessors shall hold the qualifications set out in paragraph 3.12 of the Specification (clause B4.2). Note: paragraph 3.12 is not present in this document.",
+        "Contractor shall register with the Disclosure and Barring Service and undertake appropriate criminal records checks for relevant Staff where required by the Specification (clause B4.11).",
+        "Contractor shall provide a Key Personnel list and a Contract Manager (clauses B5, B6).",
+        "Insurance requirements: liability insurance and professional indemnity insurance shall be maintained at the levels specified by the Council (clauses G1, G2)."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "BSI British Standards Institution (generic Quality Standards reference)",
+          "context": "Definition of 'Quality Standards' (clause A1) and obligation to comply (clause B3.1). No specific BS/EN/ISO numbers are cited in this document; the actual fire-risk-assessment standards are deferred to the Specification (Schedule 1), which is an empty placeholder here.",
+          "evidence_anchor": {
+            "page_ref": "p.10",
+            "anchor_text": "'Quality Standards' means the quality standards published by BSI British Standards Institution",
+            "section_ref": "A1 Definitions and Interpretation"
+          }
+        },
+        {
+          "standard_ref": "International Organisation for Standardisation (generic reference)",
+          "context": "Cited generically in the Quality Standards definition; no specific ISO standard numbers are named in this document.",
+          "evidence_anchor": {
+            "page_ref": "p.10",
+            "anchor_text": "the International Organisation for Standardisation or other reputable or equivalent body",
+            "section_ref": "A1 Definitions and Interpretation"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "RELATING TO THE PROVISION OF FIRE RISK ASSESSMENT SERVICES",
+        "section_ref": "AGREEMENT (cover page)"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.lot_number": 9000,
+    "lots.title": 8500,
+    "lots.description": 6500,
+    "lots.requirements": 5500,
+    "lots.evaluation_criteria": 0,
+    "lots.cpv_codes": 0,
+    "lots.product_requirements": 0,
+    "lots.technical_standards": 3000,
+    "product_requirement_seeds": 0
+  },
+  "extraction_confidence_bps": 3000,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "Document filename 'Draft T&Cs - Lot 1' and source metadata document_role_hint='terms_and_conditions' indicate this is a contract terms template, not a tender Specification. The daemon-side document_role was set to 'technical_specification', which appears incorrect for this PDF. Tender-spec extraction is therefore operating on contractual boilerplate rather than scope-of-work content.",
+      "evidence_refs": ["p.1 cover page (AGREEMENT)", "p.5 (PART 2 - GENERAL TERMS AND CONDITIONS)"]
+    },
+    {
+      "code": "SPECIFICATION_PLACEHOLDER_EMPTY",
+      "message": "Schedule 1 SPECIFICATION (page 54) is an empty heading with no body content. The actual Fire Risk Assessment scope, KPIs, evaluation criteria, and product/service requirements are not present in this PDF and must be sourced from a separate specification document in the document set.",
+      "evidence_refs": ["p.54 (## SCHEDULE 1 SPECIFICATION)"]
+    },
+    {
+      "code": "EMPTY_SCHEDULE_PLACEHOLDERS",
+      "message": "Schedules 2 (Pricing Schedule), 3 (Council's Invitation to Tender), and 4 (Contractor's Tender) are also empty heading placeholders. No pricing, ITT criteria, or tender-response content is available from this PDF.",
+      "evidence_refs": ["p.55-57 (SCHEDULE 2/3/4 placeholders)"]
+    },
+    {
+      "code": "TEMPLATE_CONTENT_DRIFT",
+      "message": "Recital A in the Form of Contract refers to 'security services' rather than fire risk assessment services. This appears to be unedited template boilerplate from a prior Council contract. The cover page and filename are the authoritative scope indicators; the WHEREAS clause is unreliable.",
+      "evidence_refs": ["p.2 WHEREAS A: 'Council wishes to secure the provision of security services in Council Buildings'"]
+    },
+    {
+      "code": "STANDARDS_GENERIC_ONLY",
+      "message": "The only technical-standards references in this PDF are generic 'BSI / ISO / equivalent body' wording in the Quality Standards definition (clause A1) and compliance clause B3.1. No specific fire-safety standards (e.g., BS 9999, PAS 79, RRO 2005) are cited within this document.",
+      "evidence_refs": ["p.10 (Quality Standards definition)", "p.16 (clause B3.1)"]
+    },
+    {
+      "code": "FORWARD_REFERENCE_UNRESOLVED",
+      "message": "Clause B4.2 references 'the qualifications set out in paragraph 3.12 of the Specification' for fire risk assessors. Paragraph 3.12 is not present in this document because Schedule 1 is an empty placeholder.",
+      "evidence_refs": ["p.16 clause B4.2"]
+    },
+    {
+      "code": "NO_EVALUATION_CRITERIA",
+      "message": "No award/evaluation criteria, MEAT weights, quality/price split, or scoring methodology are present in this document. Such criteria typically reside in the Invitation to Tender (Schedule 3), which is an empty placeholder here.",
+      "evidence_refs": ["p.56 (## SCHEDULE 3 THE COUNCIL'S INVITATION TO TENDER)"]
+    },
+    {
+      "code": "NO_CPV_IN_BODY",
+      "message": "No CPV codes are cited within the document body. CPV codes for the parent process (50700000-2, 50750000-7, 71315000-9) are present in the notice metadata but are not declared inside this PDF.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_PRODUCT_SEEDS",
+      "message": "No product or service requirement seeds can be extracted from this document. Fire Risk Assessments are a service deliverable rather than a procurable product, and the actual requirement parameters (frequency, building types, deliverables, response SLAs) are deferred to the missing Schedule 1.",
+      "evidence_refs": ["p.54 (## SCHEDULE 1 SPECIFICATION)"]
+    },
+    {
+      "code": "TEMPLATE_DATES",
+      "message": "Contract dates ('1 September 2020 to 31 August 2022') and the year on the front sheet (2020) are template placeholders unchanged from a prior procurement. They do not reflect the actual 6278 framework period (notice published 2026-04-02, deadline 2026-05-18).",
+      "evidence_refs": ["p.1 ('Dated ... 2020')", "p.2 (clause 1.3)", "p.2 (recital A: '1 September 2020 to 31 August 2022')"]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p.1",
+      "anchor_text": "RELATING TO THE PROVISION OF FIRE RISK ASSESSMENT SERVICES",
+      "section_ref": "AGREEMENT (cover page)"
+    },
+    {
+      "page_ref": "p.2",
+      "anchor_text": "(d) The Specification appended hereto as Schedule 1;",
+      "section_ref": "PART 1. FORM OF CONTRACT, clause 1.2"
+    },
+    {
+      "page_ref": "p.10",
+      "anchor_text": "'Quality Standards' means the quality standards published by BSI British Standards Institution",
+      "section_ref": "A1 Definitions and Interpretation"
+    },
+    {
+      "page_ref": "p.16",
+      "anchor_text": "Staff who are fire risk assessors should hold the qualifications set out in paragraph 3.12 of the Specification",
+      "section_ref": "B4.2 Contractor's Staff"
+    },
+    {
+      "page_ref": "p.16",
+      "anchor_text": "Contractor shall at all times comply with the Quality Standards",
+      "section_ref": "B3.1 Quality Standards"
+    },
+    {
+      "page_ref": "p.54",
+      "anchor_text": "## SCHEDULE 1 SPECIFICATION",
+      "section_ref": "SCHEDULE 1 SPECIFICATION (placeholder)"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "8ceea88c7c1944eb0b656cf91f20385e6299204ded72433d1ac454cc7df7eacf",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

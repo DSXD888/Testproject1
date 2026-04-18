@@ -1,0 +1,814 @@
+{
+  "lots": [
+    {
+      "lot_number": "3",
+      "title": "Provision of Asbestos Surveys Services",
+      "description": "Single-lot Service Specification for Lot 3 of the London Borough of Bexley Building Services Framework 6278, covering the provision of Asbestos Surveys across the Council's operational estate. The Supplier is to provide all expertise, staff, labour, materials, equipment and resources to deliver Management, Refurbishment, Demolition and sampling-only surveys in accordance with the Control of Asbestos Regulations 2012 (enforced 2025) and HSE Guidance HSG264 (2025 update). The contract period is stated as 3 + 2 years commencing April 2026. The specification also scopes Asbestos Management Consultancy (specification/tender preparation), Asbestos Consultancy (contractor supervision and project control), ad-hoc Air Monitoring (Background, Leak, Reassurance, Stage Clearance and Personal) and training of Council staff and partner suppliers. Annual resource schedules are driven by Appendix B - Bexley Asbestos Surveys - Price Matrix and the associated Building List in Appendix 1. Deliverables, invoicing, risk assessments and work orders are mediated through the Council's TF Cloud (Civica) CAFM / Asset Management system. The Supplier must be UKAS-accredited for Asbestos Surveys and Analysis (ISO 17025 laboratories), maintain full H&S compliance, DBS-checked personnel, collaborate with the Council's FM Mechanical & Electrical, Lift, Fire Risk Assessment and Water Risk Assessment suppliers, produce RAG-prioritised Material Assessment reports (HSG264 algorithm, plus HSG227 Priority Assessments where required), and report all near-misses including RIDDOR-reportable incidents.",
+      "requirements": [
+        "Deliver Management, Refurbishment, Demolition surveys and sampling-only services in accordance with HSG264 (2025 update) and the Control of Asbestos Regulations 2012 (enforced 2025).",
+        "Carry out Refurbishment Surveys as fully intrusive inspections prior to refurbishment works, with destructive inspection as required to access all areas.",
+        "Carry out Demolition Surveys as fully intrusive inspections of all buildings prior to demolition (previously known as type 3 asbestos survey).",
+        "Carry out Management Surveys to locate ACMs that could be damaged or disturbed during normal occupancy or standard maintenance (previously type 1/2); access risers, loft areas, voids above suspended ceilings, representative carpet tiles and external areas.",
+        "Provide Sampling Services to collect and analyse samples from materials and locations specified by the Council where no full survey is required.",
+        "Analyse all asbestos samples at UKAS-accredited laboratories operating to ISO 17025; include the full laboratory certificate in the survey report.",
+        "Produce a Material Assessment Algorithm per HSG264 (High / Medium / Low / Very Low) for every ACM; include Priority Assessments per HSG227 where required.",
+        "Take at least two samples per surface for textured coatings in every property in line with HSG248 (2022 amendment).",
+        "Prepare annual resource schedule of Asbestos Surveys with the Council, mapped to the Building List (Appendix 1) and Price Matrix (Appendix B), distinguishing statutory compliance from best-practice activity.",
+        "Provide Asbestos Management Consultancy including drafting specifications, method statements, and tender / technical documentation for removal works and obtaining sign-off from the Council.",
+        "Provide Asbestos Consultancy Services including project supervision, planning, on-site attendance through removal phase and oversight of 4-stage clearance, smoke-tests and final clean.",
+        "Deliver Ad-hoc Air Monitoring services covering Background, Leak, Reassurance, Stage Clearance (Certificate of Reoccupation) and Personal monitoring, including mandatory monitoring in schools and libraries even for non-licensed work.",
+        "Train Council staff and partner suppliers on Control of Asbestos Regulations, related codes of practice and emerging regulatory change.",
+        "Operate via Council's Technology Forge (TF Cloud) CAFM / Asset Management system for work instructions, updates, documentation upload and invoicing; do not accept or invoice work outside the system.",
+        "Submit invoices monthly and only via electronic submission to fmcu.buildingservices@bexley.gov.uk; all jobs on an invoice must be fully documented before payment.",
+        "Provide full plant, equipment, PPE and RPE at Supplier expense, including access equipment to >4m heights (subject to prior Council approval for additional costs) and specialist confined-space equipment.",
+        "Submit Risk Assessment and Method Statements (RAMS) and a Dynamic Risk Assessment prior to every planned or reactive visit; submit in format compatible with TF Cloud upload.",
+        "Maintain a single point of contact for all H&S matters; report all near-misses and RIDDOR-reportable incidents to the Council.",
+        "Maintain formal training and assessment records for all operatives and submit annually to the Council; all senior staff to have excellent written and verbal English.",
+        "Operate stringent sub-contractor vetting including DBS checks; all sub-contractors subject to prior Council approval; monitor sub-contractor KPIs, spot checks and management meetings.",
+        "Presume presence of ACMs in plant rooms and appliances unless proven otherwise; never disturb or remove ACMs without Council agreement.",
+        "Keep Council premises secure, report lost keys immediately, maintain a designated key-holder and comply with site 'No Smoking' environment.",
+        "Attend monthly operational meetings and quarterly Contract performance partnership meetings; provide monthly / quarterly / annual performance, asset, risk, staffing and financial reports in Council-agreed format.",
+        "Provide a named representative / Contract Manager to oversee service delivery and a designated Authorised Person under H&S regulations.",
+        "Deliver mobilisation activities including IT / reporting system configuration, reports format, meeting schedule, KPI agreement and Asbestos Surveys programme agreement.",
+        "Submit a complaints procedure as part of the tender; record complaints, acknowledge to Contract Administrator within 24 hours, and rectify within agreed SLAs.",
+        "Commit to continuous improvement and innovation proposals, adherence to the Council's Environmental Policy (Appendix C) and Social Value objectives (Section 25).",
+        "Cooperate with the Council's appointed FM M&E/Building Fabric, Lift, Fire Risk Assessment and Water Risk Assessment suppliers, including joint intrusive-access visits for fire compartmental surveys.",
+        "Ensure all operatives can be identified on site, carry company ID cards, sign in/out per Council process and adhere to Council confidentiality and staffing policies.",
+        "Record per ACM: sample number, date surveyed / analysed, location, building product, accessibility, asbestos type(s), extent/quantity, condition, surface treatment, Material Assessment score, Priority Assessment score, overall Risk score, recommendation, laboratory certificate number, test results.",
+        "Include Laboratory Analyst's signed reports with site, dates, sample references and material identification; record negative results explicitly as 'No Asbestos Detected'."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Asbestos Management Consultancy - specification, method statement and tender document preparation",
+          "summary": "Ability to attend Council meetings, capture requirements, develop asbestos removal specifications and method statements, and prepare tenders / technical documentation with vetting of contractor method statements.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Asbestos Management Services - Preparation of Specifications and Tender documents",
+            "section_ref": "3 Specification of Services"
+          }
+        },
+        {
+          "criterion": "Asbestos Consultancy Services - contractor supervision and project control",
+          "summary": "Planning, supervision and control of asbestos removal Project Works including pre-clean, smoke-test, on-site attendance through removal, 4-stage clearance and project completion reports updating the Council's Asbestos Register.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Asbestos Consultancy Services - Managing contractors undertaking Project Works including Supervision, Control and Planning",
+            "section_ref": "3 Specification of Services"
+          }
+        },
+        {
+          "criterion": "Ad-hoc Air Monitoring capability",
+          "summary": "Capability to deliver Background, Leak, Reassurance, Stage Clearance and Personal air monitoring, including mandatory monitoring in public buildings, schools and libraries for non-licensed work.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Ad-hoc Air Monitoring Services",
+            "section_ref": "3 Specification of Services"
+          }
+        },
+        {
+          "criterion": "UKAS accreditation, HSG264 methodology and laboratory analysis",
+          "summary": "UKAS accreditation for Asbestos Surveys and for Asbestos Analyst activities; sampling and analysis at ISO 17025 laboratories; full compliance with HSG264 (2025 update), HSG248 (2022 amendment) and HSG227 for Priority Assessments.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "All asbestos sampling must be analyzed by UKAS-accredited laboratories (ISO 17025).",
+            "section_ref": "5 Job Completion / 6 Documentation"
+          }
+        },
+        {
+          "criterion": "Health & Safety compliance and RAMS regime",
+          "summary": "Demonstration of full compliance with Health and Safety at Work Act 1974, HSE Guidance and Codes of Practice; submission of RAMS and dynamic risk assessments; near-miss / RIDDOR reporting; annual training and assessment records.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "7 Health and Safety Compliance",
+            "section_ref": "7 Health and Safety Compliance"
+          }
+        },
+        {
+          "criterion": "Training and knowledge-transfer capability",
+          "summary": "Ability to train Council staff and partner suppliers on Control of Asbestos Regulations, changes in regulation and duties, and to provide specialist advice to Council, Schools and other consultants / suppliers.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Training",
+            "section_ref": "3 Specification of Services"
+          }
+        },
+        {
+          "criterion": "CAFM / TF Cloud system integration",
+          "summary": "Ability to receive work instructions, update progress, upload documentation and invoice exclusively through the Council's TF Cloud (Civica) Asset Management / CAFM system, with invoices submitted monthly to fmcu.buildingservices@bexley.gov.uk.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Technology Forge (TF Cloud)",
+            "section_ref": "8 Completing Jobs and Invoicing"
+          }
+        },
+        {
+          "criterion": "Contract management, governance and reporting",
+          "summary": "Designated Contract Manager and Authorised Person; monthly operational and quarterly partnership meetings; monthly / quarterly / annual reporting on performance, assets, risks, staffing and finance.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "10 Contract Management",
+            "section_ref": "10 Contract Management"
+          }
+        },
+        {
+          "criterion": "Staffing competence, DBS and English-language standards",
+          "summary": "Provision of competent, DBS-checked staff including sub-contractors; senior staff must have excellent verbal and written English; sickness / absence / holiday cover plans; right of Council to require replacement of underperforming staff within 5 working days.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "12 Structure & Resourcing",
+            "section_ref": "12 Structure & Resourcing"
+          }
+        },
+        {
+          "criterion": "Sub-contractor governance",
+          "summary": "Stringent sub-contractor vetting with prior Council approval, KPI monitoring, spot checks and management meetings; DBS checks documented and available on Council request.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "13 Sub-contractors",
+            "section_ref": "13 Sub-contractors"
+          }
+        },
+        {
+          "criterion": "Mobilisation readiness",
+          "summary": "Delivery of mobilisation activities covering IT / reporting configuration, reports format, meeting schedule, KPI agreement and Asbestos Surveys programme agreement within the mobilisation window.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "16. Mobilisation Work",
+            "section_ref": "16 Mobilisation Work"
+          }
+        },
+        {
+          "criterion": "Continuous improvement, sustainability and social value",
+          "summary": "Demonstrated commitment to continuous improvement, innovation, carbon-emission reduction and the Council's Social Value objectives (Section 25); alignment with the Environmental Policy (Appendix C).",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "17.Continuous Improvement & Innovation",
+            "section_ref": "17 Continuous Improvement & Innovation"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot3-management-survey",
+          "summary": "Management Asbestos Survey to locate ACMs that could be damaged or disturbed during normal occupancy or routine maintenance (previously type 1/2); includes inspection of risers, loft areas, voids above suspended ceilings, representative carpet tiles and external areas.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Conducted in accordance with HSG264 (2025 update)",
+            "Access to at least 4m in height with suitable risk assessment; access above 4m via suitable access equipment at additional pre-approved cost",
+            "Fully inspect voids above suspended ceilings; Council may provide building contractor for interlocking tiles",
+            "Representative access beneath carpet tiles; no access beneath fitted carpets, paint or wallpaper qualifications not accepted",
+            "All samples analysed by UKAS-accredited ISO 17025 laboratories"
+          ],
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Management Surveys",
+            "section_ref": "5 Job Completion / Management Surveys"
+          }
+        },
+        {
+          "seed_key": "lot3-refurbishment-survey",
+          "summary": "Refurbishment Asbestos Survey required before refurbishment works; fully intrusive with destructive inspection as required to access all reasonably accessible areas in the relevant part of the building.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Conducted in accordance with HSG264 (2025 update)",
+            "Fully intrusive; may include destructive inspection",
+            "Full sampling programme with estimates of volume, length or surface area",
+            "Unreachable areas to be presumed to contain asbestos and reported as such",
+            "All samples analysed by UKAS-accredited ISO 17025 laboratories"
+          ],
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Refurbishment Surveys",
+            "section_ref": "5 Job Completion / Refurbishment Surveys"
+          }
+        },
+        {
+          "seed_key": "lot3-demolition-survey",
+          "summary": "Demolition Asbestos Survey required before demolition of a building; fully intrusive into the fabric of all buildings to be demolished (previously type 3 asbestos survey).",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Conducted in accordance with HSG264 (2025 update)",
+            "Fully intrusive and destructive as required",
+            "Full sampling programme with estimates of volume, length or surface area",
+            "Inaccessible areas presumed to contain asbestos",
+            "All samples analysed by UKAS-accredited ISO 17025 laboratories"
+          ],
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Demolition Survey",
+            "section_ref": "5 Job Completion / Demolition Survey"
+          }
+        },
+        {
+          "seed_key": "lot3-sampling-services",
+          "summary": "Stand-alone Asbestos Sampling Services to collect and analyse samples from materials and locations specified by the Council where no full survey is required; two samples per surface for textured coatings.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Sampling per HSG264 (2025 update) and HSG248 (2022 amendment)",
+            "Two samples per surface for textured coatings",
+            "Sample points sealed; textured coating points painted over",
+            "All samples analysed by UKAS-accredited ISO 17025 laboratories"
+          ],
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Sampling Services",
+            "section_ref": "5 Job Completion / Sampling Services"
+          }
+        },
+        {
+          "seed_key": "lot3-air-monitoring",
+          "summary": "Ad-hoc Air Monitoring Services covering Background, Leak, Reassurance, Stage Clearance (Certificate of Reoccupation) and Personal exposure monitoring, including mandatory monitoring in schools and libraries for non-licensed work.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Background Monitoring prior to asbestos removal",
+            "Leak Monitoring outside the enclosure during removal",
+            "Reassurance Monitoring to confirm absence of fibres",
+            "Stage Clearance Monitoring for Certificate of Reoccupation",
+            "Personal Monitoring for operative exposure levels",
+            "Mandatory monitoring in public buildings including schools and libraries even for non-licensed work"
+          ],
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Ad-hoc Air Monitoring Services",
+            "section_ref": "3 Specification of Services"
+          }
+        },
+        {
+          "seed_key": "lot3-re-inspection-monitoring",
+          "summary": "Annual Re-inspection and Monitoring Service for known ACMs, updating floor plans, assessing new areas, sampling previously strongly-presumed items, surveying previously inaccessible areas and escalating damaged high-risk products.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Annual re-evaluation of existing management survey",
+            "Update floor plans to whole property; escalate major refurbishment changes",
+            "Sample previously strongly-presumed items",
+            "Survey previously inaccessible areas",
+            "Immediate escalation of damaged high-risk products and debris"
+          ],
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Re-inspections and Monitoring Service",
+            "section_ref": "7 Health and Safety Compliance / Requirements"
+          }
+        },
+        {
+          "seed_key": "lot3-consultancy-contractor-supervision",
+          "summary": "Asbestos Consultancy Services: managing and supervising appointed contractors undertaking Project Works, including consultation support, liaison with enforcement authorities, review of RAMS, pre-clean, smoke test, removal oversight and 4-stage clearance.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Oversee pre-clean, smoke-test, removal phase and 4-stage clearance",
+            "Review Plan of Work, RAMS and method statements",
+            "Act as communication point between Council, contractor and stakeholders",
+            "Update Council's Asbestos Register post-completion"
+          ],
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Asbestos Consultancy Services",
+            "section_ref": "3 Specification of Services / 4 Working Methods and Practices"
+          }
+        },
+        {
+          "seed_key": "lot3-consultancy-spec-and-tender-prep",
+          "summary": "Asbestos Management Consultancy: preparation of asbestos removal specifications, method statements, tender documentation and technical documentation, either submitting on behalf of the Council or supporting Council submission.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Attend Council meetings to capture requirements",
+            "Develop and sign-off removal specifications and method statements",
+            "Prepare and develop tenders and technical documentation",
+            "Vet third-party method statements"
+          ],
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Asbestos Management Services - Preparation of Specifications and Tender documents",
+            "section_ref": "3 Specification of Services"
+          }
+        },
+        {
+          "seed_key": "lot3-training-and-advisory",
+          "summary": "Training and advisory services: training Council staff and partner suppliers on Control of Asbestos Regulations and code changes; providing specialist advice to the Council, Schools and other consultants/suppliers.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Deliver training to Council staff and appointed suppliers",
+            "Brief on existing and emerging regulatory change",
+            "Provide specialist advice to Schools and partner consultants"
+          ],
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Training",
+            "section_ref": "3 Specification of Services"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Control of Asbestos Regulations 2012 (enforced 2025)",
+          "context": "Primary statutory regime governing all asbestos work under this specification; the Supplier and all sub-contractors must comply in full.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Control of Asbestos Regulations 2012 (enforced 2025)",
+            "section_ref": "3 Specification of Services"
+          }
+        },
+        {
+          "standard_ref": "HSE Guidance HSG264 (2025 update)",
+          "context": "Methodology reference for Management, Refurbishment and Demolition surveys and for the Material Assessment Algorithm scoring.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "HSE Guidance HSG264 (2025 update)",
+            "section_ref": "3 Specification of Services / 6 Documentation"
+          }
+        },
+        {
+          "standard_ref": "HSE Guidance HSG248 (2022 amendment)",
+          "context": "Analysts' Guide referenced for sampling procedures, including the requirement of two samples per surface for textured coatings.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "HSG248 (2022 amendment)",
+            "section_ref": "6 Documentation / 7 Health and Safety Compliance / Requirements"
+          }
+        },
+        {
+          "standard_ref": "HSE Guidance HSG227",
+          "context": "Priority Assessment methodology used alongside HSG264 for risk-category scoring where Priority Assessments are required.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "HSG 227",
+            "section_ref": "6 Documentation"
+          }
+        },
+        {
+          "standard_ref": "ISO 17025",
+          "context": "Required accreditation standard for all laboratories analysing asbestos samples under this contract.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "UKAS-accredited laboratories (ISO 17025)",
+            "section_ref": "5 Job Completion / 6 Documentation / 7 Health and Safety Compliance"
+          }
+        },
+        {
+          "standard_ref": "UKAS Accreditation (Asbestos Surveys)",
+          "context": "The Supplier must hold UKAS accreditation for Asbestos Surveys; the UKAS number must be recorded in every survey report.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "The UKAS Accreditation number for Asbestos Surveys.",
+            "section_ref": "6 Documentation"
+          }
+        },
+        {
+          "standard_ref": "UKAS Accreditation (Asbestos Analyst)",
+          "context": "The Supplier's Asbestos Analyst must hold UKAS accreditation; the UKAS number must be recorded in every survey report.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "The UKAS Accreditation number for Asbestos Analyst.",
+            "section_ref": "6 Documentation"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work Act 1974",
+          "context": "Baseline UK H&S statute; Supplier and all personnel (including sub-contractors) must comply.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Health and Safety at Work Act 1974.",
+            "section_ref": "7 Health and Safety Compliance / Legislation and Standards"
+          }
+        },
+        {
+          "standard_ref": "Working at Height Regulations (latest version)",
+          "context": "Governs access above 4m in height during survey activities.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "the latest version of the Working at Height Regulations",
+            "section_ref": "5 Job Completion / Management Surveys"
+          }
+        },
+        {
+          "standard_ref": "RIDDOR",
+          "context": "Reporting of Injuries, Diseases and Dangerous Occurrences Regulations; Supplier must know when incidents are RIDDOR-reportable and report all near-misses to the Council.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "reportable under RIDDOR",
+            "section_ref": "7 Health and Safety Compliance / Communication and Reporting"
+          }
+        },
+        {
+          "standard_ref": "Disability Discrimination and Equalities legislation",
+          "context": "Supplier and personnel must comply with Disability Discrimination and Equalities legislation during contract delivery.",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Disability Discrimination and Equalities legislation.",
+            "section_ref": "7 Health and Safety Compliance / Legislation and Standards"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "page 1",
+        "anchor_text": "Asbestos Specification",
+        "section_ref": "Document Title"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot3-management-survey",
+      "lot_number": "3",
+      "candidate_name": "Asbestos Management Survey (HSG264)",
+      "summary": "Standard management-grade asbestos survey service to locate ACMs that could be damaged or disturbed during normal occupancy or routine maintenance activities, with Material Assessment scoring per HSG264.",
+      "requirements": [
+        "HSG264 (2025 update) methodology",
+        "Inspection of risers, loft areas and voids above suspended ceilings",
+        "Access to at least 4m in height with suitable risk assessment",
+        "No qualifications accepted for paint surfaces, wallpaper or occupancy",
+        "UKAS ISO 17025 laboratory analysis",
+        "Material Assessment and Priority Assessment scoring"
+      ],
+      "technical_standards": [
+        "HSG264 (2025 update)",
+        "HSG227",
+        "ISO 17025",
+        "Control of Asbestos Regulations 2012 (enforced 2025)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "page 1",
+        "anchor_text": "Management Surveys",
+        "section_ref": "5 Job Completion / Management Surveys"
+      }
+    },
+    {
+      "seed_key": "lot3-refurbishment-survey",
+      "lot_number": "3",
+      "candidate_name": "Asbestos Refurbishment Survey (HSG264, intrusive)",
+      "summary": "Fully intrusive, destructive-as-required asbestos survey service carried out in areas of a building scheduled for refurbishment, producing outputs suitable for tendering ACM removal works.",
+      "requirements": [
+        "HSG264 (2025 update) methodology",
+        "Fully intrusive and destructive inspection",
+        "Full sampling programme with volume/length/surface estimates",
+        "UKAS ISO 17025 laboratory analysis",
+        "Inaccessible areas presumed to contain asbestos and reported as such"
+      ],
+      "technical_standards": [
+        "HSG264 (2025 update)",
+        "ISO 17025",
+        "Control of Asbestos Regulations 2012 (enforced 2025)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "page 1",
+        "anchor_text": "Refurbishment Surveys",
+        "section_ref": "5 Job Completion / Refurbishment Surveys"
+      }
+    },
+    {
+      "seed_key": "lot3-demolition-survey",
+      "lot_number": "3",
+      "candidate_name": "Asbestos Demolition Survey (HSG264, fully intrusive pre-demolition)",
+      "summary": "Fully intrusive asbestos survey of all buildings prior to demolition (previously type 3), designed as a basis for tendering ACM removal prior to demolition.",
+      "requirements": [
+        "HSG264 (2025 update) methodology",
+        "Fully intrusive and destructive inspection of all buildings to be demolished",
+        "Full sampling programme with volume/length/surface estimates",
+        "UKAS ISO 17025 laboratory analysis",
+        "Inaccessible areas presumed to contain asbestos"
+      ],
+      "technical_standards": [
+        "HSG264 (2025 update)",
+        "ISO 17025",
+        "Control of Asbestos Regulations 2012 (enforced 2025)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "page 1",
+        "anchor_text": "Demolition Survey",
+        "section_ref": "5 Job Completion / Demolition Survey"
+      }
+    },
+    {
+      "seed_key": "lot3-sampling-services",
+      "lot_number": "3",
+      "candidate_name": "Asbestos Sampling Services (standalone)",
+      "summary": "Standalone asbestos sampling service for Council-specified materials and locations where a full survey is not required, including laboratory analysis and reinstatement.",
+      "requirements": [
+        "HSG264 and HSG248 (2022 amendment) sampling procedures",
+        "Two samples per surface for textured coatings",
+        "Sample points sealed; textured coating points painted over",
+        "UKAS ISO 17025 laboratory analysis with full certificate",
+        "No cloning of ACM presumption between adjoining properties"
+      ],
+      "technical_standards": [
+        "HSG264 (2025 update)",
+        "HSG248 (2022 amendment)",
+        "ISO 17025"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "page 1",
+        "anchor_text": "Sampling Services",
+        "section_ref": "5 Job Completion / Sampling Services"
+      }
+    },
+    {
+      "seed_key": "lot3-air-monitoring",
+      "lot_number": "3",
+      "candidate_name": "Ad-hoc Asbestos Air Monitoring",
+      "summary": "Ad-hoc air monitoring services covering Background, Leak, Reassurance, Stage Clearance and Personal exposure monitoring, including mandatory monitoring in schools and libraries for non-licensed work.",
+      "requirements": [
+        "Background monitoring prior to removal",
+        "Leak monitoring outside the enclosure during removal",
+        "Reassurance monitoring to confirm absence of fibres",
+        "Stage Clearance monitoring for Certificate of Reoccupation",
+        "Personal exposure monitoring of operatives",
+        "Mandatory monitoring in schools and libraries for non-licensed work"
+      ],
+      "technical_standards": [
+        "HSG248 (2022 amendment)",
+        "ISO 17025",
+        "Control of Asbestos Regulations 2012 (enforced 2025)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "page 1",
+        "anchor_text": "Ad-hoc Air Monitoring Services",
+        "section_ref": "3 Specification of Services"
+      }
+    },
+    {
+      "seed_key": "lot3-re-inspection-monitoring",
+      "lot_number": "3",
+      "candidate_name": "Annual Asbestos Re-inspection and Monitoring",
+      "summary": "Annual re-evaluation of the existing management survey, updating floor plans, assessing new areas, sampling previously strongly-presumed items and escalating damaged high-risk materials.",
+      "requirements": [
+        "Annual re-inspection of all known ACMs",
+        "Review and update floor plans to whole property",
+        "Sample previously strongly-presumed items",
+        "Survey previously inaccessible areas",
+        "Escalate damaged high-risk products and debris immediately"
+      ],
+      "technical_standards": [
+        "HSG264 (2025 update)",
+        "HSG227",
+        "Control of Asbestos Regulations 2012 (enforced 2025)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "page 1",
+        "anchor_text": "Re-inspections and Monitoring Service",
+        "section_ref": "7 Health and Safety Compliance / Requirements"
+      }
+    },
+    {
+      "seed_key": "lot3-consultancy-contractor-supervision",
+      "lot_number": "3",
+      "candidate_name": "Asbestos Consultancy - Removal Contractor Supervision",
+      "summary": "Consultancy service supervising asbestos removal contractors through planning, pre-clean, smoke-test, removal, 4-stage clearance and project completion reporting.",
+      "requirements": [
+        "Review and sign-off of contractor Plans of Work, RAMS and method statements",
+        "Act as communication point for Council, Supplier and stakeholders",
+        "Attend site throughout removal phase",
+        "Oversee 4-stage clearance and final clean",
+        "Prepare project completion reports and update Council's Asbestos Register"
+      ],
+      "technical_standards": [
+        "HSG264 (2025 update)",
+        "Control of Asbestos Regulations 2012 (enforced 2025)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "page 1",
+        "anchor_text": "Asbestos Consultancy Services",
+        "section_ref": "3 Specification of Services / 4 Working Methods and Practices"
+      }
+    },
+    {
+      "seed_key": "lot3-consultancy-spec-and-tender-prep",
+      "lot_number": "3",
+      "candidate_name": "Asbestos Management Consultancy - Specification and Tender Preparation",
+      "summary": "Consultancy service preparing asbestos removal specifications, method statements and tender / technical documentation, either submitting on behalf of the Council or supporting the Council to submit.",
+      "requirements": [
+        "Attend Council meetings and capture requirements",
+        "Draft removal specifications and method statements",
+        "Prepare tenders and technical documentation",
+        "Vet third-party method statements",
+        "Obtain sign-off from the Council"
+      ],
+      "technical_standards": [
+        "Control of Asbestos Regulations 2012 (enforced 2025)",
+        "HSG264 (2025 update)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "page 1",
+        "anchor_text": "Asbestos Management Services - Preparation of Specifications and Tender documents",
+        "section_ref": "3 Specification of Services"
+      }
+    },
+    {
+      "seed_key": "lot3-training-and-advisory",
+      "lot_number": "3",
+      "candidate_name": "Asbestos Training and Specialist Advisory",
+      "summary": "Training of Council staff and partner suppliers on the Control of Asbestos Regulations and evolving codes of practice, with specialist advisory to the Council, Schools and other consultants/suppliers.",
+      "requirements": [
+        "Deliver training to Council staff and appointed suppliers",
+        "Communicate regulatory change and duties",
+        "Provide specialist advisory to Schools and partner consultants"
+      ],
+      "technical_standards": [
+        "Control of Asbestos Regulations 2012 (enforced 2025)",
+        "HSG264 (2025 update)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "page 1",
+        "anchor_text": "Training",
+        "section_ref": "3 Specification of Services"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 9500,
+    "lots.description": 9200,
+    "lots.requirements": 8700,
+    "lots.evaluation_criteria": 7200,
+    "lots.cpv_codes": 4000,
+    "lots.product_requirements": 8500,
+    "lots.technical_standards": 9400,
+    "product_requirement_seeds": 8500
+  },
+  "extraction_confidence_bps": 8400,
+  "warnings": [
+    {
+      "code": "EVALUATION_CRITERIA_NOT_WEIGHTED",
+      "message": "The specification enumerates scope areas (asbestos consultancy, air monitoring, training, etc.) but does not publish numeric evaluation weightings or scoring bands in this document. Weightings are expected to live in the tender Invitation to Tender (Schedule 3) which is not present here. Evaluation criteria have been extracted as qualitative capability areas without weighting_text.",
+      "evidence_refs": [
+        "Section 3 Specification of Services",
+        "Section 7 Health and Safety Compliance"
+      ]
+    },
+    {
+      "code": "CPV_CODES_NOT_PRESENT_IN_DOCUMENT",
+      "message": "No CPV codes are cited in the tender specification body. CPV classification must be sourced from the parent notice metadata rather than from this document.",
+      "evidence_refs": [
+        "Document body (no CPV references)"
+      ]
+    },
+    {
+      "code": "CONTRACT_PERIOD_PARTIAL",
+      "message": "The specification states a '3 + 2 years' contract commencing April 2026, but detailed pricing and durations are governed by Appendix B (Price Matrix) and Appendix 1 (Building List), which are referenced but not embedded in this extraction.",
+      "evidence_refs": [
+        "Section 1 Introduction and Context",
+        "Section 2 General",
+        "Section 8 Completing Jobs and Invoicing"
+      ]
+    },
+    {
+      "code": "PAGE_REFS_UNAVAILABLE",
+      "message": "Docling extracted the document as a single logical page (page_count=0 in the extraction row, all sections marked page_start=1). Page references in evidence anchors are therefore recorded as 'page 1' and rely primarily on section_ref for granular location.",
+      "evidence_refs": [
+        "extracted_sections_json (all sections page_start=1)"
+      ]
+    },
+    {
+      "code": "DOCUMENT_IS_SINGLE_LOT_SCOPE",
+      "message": "This document is the Service Specification for Lot 3 of Framework 6278 only. A single authoritative lot (lot_number = 3) is emitted; it does not define or supersede Lots 1, 2, 4-11 of the parent framework.",
+      "evidence_refs": [
+        "document_title: 6278 - Draft specification - Lot 3",
+        "existing notice_lots.lot_number=3 title 'Provision of Asbestos Surveys Services (Lot 3 of Framework 6278)'"
+      ]
+    },
+    {
+      "code": "APPENDICES_REFERENCED_NOT_EMBEDDED",
+      "message": "The specification repeatedly references Appendix B (Price Matrix), Appendix 1 (Building List), Appendix C (Environmental Policy), Appendix D (Code of Conduct) and Section 25 (Social Value), none of which are embedded in the extracted markdown. Detailed pricing, KPI values, environmental commitments and staff conduct rules cannot be extracted from this document alone.",
+      "evidence_refs": [
+        "Appendix B - Bexley Asbestos Surveys - Price Matrix",
+        "Appendix 1 - Bexley Asbestos Surveys - Price Matrix",
+        "Appendix C - Environmental Policy",
+        "Appendix D - Code of Conduct",
+        "Section 25 - Social Value"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "page 1",
+      "anchor_text": "London Borough of Bexley - Asbestos Specification - Contract Commencement April 2026",
+      "section_ref": "Document Title"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "The contract will be for a period of 3 + 2 years.",
+      "section_ref": "1 Introduction and Context"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Asbestos Management Services - Preparation of Specifications and Tender documents",
+      "section_ref": "3 Specification of Services"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Asbestos Consultancy Services - Managing contractors undertaking Project Works including Supervision, Control and Planning",
+      "section_ref": "3 Specification of Services"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Ad-hoc Air Monitoring Services",
+      "section_ref": "3 Specification of Services"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Training",
+      "section_ref": "3 Specification of Services"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Management Surveys",
+      "section_ref": "5 Job Completion / Management Surveys"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Refurbishment Surveys",
+      "section_ref": "5 Job Completion / Refurbishment Surveys"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Demolition Survey",
+      "section_ref": "5 Job Completion / Demolition Survey"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Sampling Services",
+      "section_ref": "5 Job Completion / Sampling Services"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "All asbestos sampling must be analyzed by UKAS-accredited laboratories (ISO 17025).",
+      "section_ref": "5 Job Completion / 6 Documentation"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "HSE Guidance HSG264 (2025 update)",
+      "section_ref": "3 Specification of Services / 6 Documentation"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "HSG248 (2022 amendment)",
+      "section_ref": "6 Documentation / 7 Health and Safety Compliance / Requirements"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Priority Assessments where required must be conducted according to HSG 227.",
+      "section_ref": "6 Documentation"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Technology Forge (TF Cloud)",
+      "section_ref": "8 Completing Jobs and Invoicing / Help Desk"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "All invoices must be sent electronically to: fmcu.buildingservices@bexley.gov.uk",
+      "section_ref": "8 Completing Jobs and Invoicing / Invoicing"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Re-inspections and Monitoring Service",
+      "section_ref": "7 Health and Safety Compliance / Requirements"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Health and Safety at Work Act 1974",
+      "section_ref": "7 Health and Safety Compliance / Legislation and Standards"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Working at Height Regulations",
+      "section_ref": "5 Job Completion / Management Surveys"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "reportable under RIDDOR",
+      "section_ref": "7 Health and Safety Compliance / Communication and Reporting"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "13 Sub-contractors",
+      "section_ref": "13 Sub-contractors"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "16. Mobilisation Work",
+      "section_ref": "16 Mobilisation Work"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "17.Continuous Improvement & Innovation",
+      "section_ref": "17 Continuous Improvement & Innovation"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "1d4b450b6674fe43441e79224ea1d866f0312b90a3584f9519dcdf786a039c8e",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

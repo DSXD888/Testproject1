@@ -1,0 +1,138 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Provision of Fire Risk Assessments",
+      "description": "Draft Terms & Conditions document identifying Lot 1 of Building Services Framework 6278 between the London Borough of Bexley (the Council) and a contractor to be named, relating to the provision of Fire Risk Assessment Services. Contract period stated as 1 September 2020 to 31 August 2022, subject to extension under Clause F8. The document is the Form of Contract and General Terms & Conditions template only; Schedule 1 (Specification), Schedule 2 (Pricing Schedule), Schedule 3 (Council's ITT) and Schedule 4 (Contractor's Tender) are empty section headings and carry no substantive specification content in this extraction.",
+      "requirements": [],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "page 1",
+        "anchor_text": "RELATING TO THE PROVISION OF FIRE RISK ASSESSMENT SERVICES",
+        "section_ref": "#/texts/1"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.lot_number": 8500,
+    "lots.title": 7500,
+    "lots.description": 6000,
+    "lots.requirements": 500,
+    "lots.evaluation_criteria": 500,
+    "lots.cpv_codes": 500,
+    "lots.product_requirements": 500,
+    "lots.technical_standards": 500,
+    "product_requirement_seeds": 500
+  },
+  "extraction_confidence_bps": 2000,
+  "warnings": [
+    {
+      "code": "SPECIFICATION_BODY_EMPTY",
+      "message": "Schedule 1 (Specification) appears on page 54 as a heading with no body content; no technical requirements, deliverables, performance standards, or acceptance criteria can be extracted from this document.",
+      "evidence_refs": [
+        "page 54 section 'SCHEDULE 1 SPECIFICATION'"
+      ]
+    },
+    {
+      "code": "PRICING_SCHEDULE_EMPTY",
+      "message": "Schedule 2 (Pricing Schedule) appears on page 55 as a heading with no body content; this extraction intentionally does not emit pricing data and downstream pricing extraction should source a separate pricing-schedule document.",
+      "evidence_refs": [
+        "page 55 section 'SCHEDULE 2 PRICING SCHEDULE'"
+      ]
+    },
+    {
+      "code": "ITT_SCHEDULE_EMPTY",
+      "message": "Schedule 3 (Council's Invitation to Tender) appears on page 56 as a heading with no body content; evaluation criteria and KPIs referenced in clauses F5.1 and F7 are stated to reside in Appendix E of the ITT but are not present in this document, so no evaluation criteria are emitted.",
+      "evidence_refs": [
+        "page 56 section 'SCHEDULE 3 THE COUNCIL'S INVITATION TO TENDER'",
+        "page ~45 clause 'F5.1 Where any part of the Services is stated in Appendix E to the Invitation to Tender to be the subject of a specific KPI'"
+      ]
+    },
+    {
+      "code": "CONTRACTOR_TENDER_EMPTY",
+      "message": "Schedule 4 (Contractor's Tender) appears on page 57 as a heading with no body content.",
+      "evidence_refs": [
+        "page 57 section 'SCHEDULE 4 THE CONTRACTOR'S TENDER'"
+      ]
+    },
+    {
+      "code": "TEMPLATE_PLACEHOLDER_MISMATCH",
+      "message": "The WHEREAS clause A on page 2 states 'The Council wishes to secure the provision of security services' whereas the cover preamble on page 1 and notice-level lot 1 title identify the services as 'Fire Risk Assessment Services'. Treating this as an un-updated template placeholder; authoritative service scope is taken from the page 1 preamble and document title, not from clause WHEREAS A.",
+      "evidence_refs": [
+        "page 1 'RELATING TO THE PROVISION OF FIRE RISK ASSESSMENT SERVICES'",
+        "page 2 WHEREAS A 'secure the provision of security services in Council Buildings'"
+      ]
+    },
+    {
+      "code": "NO_CPV_IN_DOCUMENT",
+      "message": "No CPV codes are cited anywhere in this draft T&Cs document; CPV references must be sourced from the notice record or from the empty Schedule 3 ITT when it is supplied as a separate extraction.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_EXPLICIT_TECHNICAL_STANDARDS",
+      "message": "No named British Standards, ISO standards, PAS standards, Regulatory Reform (Fire Safety) Order references, or other explicit technical standards appear in the extracted markdown; references of that nature would normally live in Schedule 1 (Specification) which is empty in this extraction.",
+      "evidence_refs": []
+    },
+    {
+      "code": "DOCUMENT_ROLE_REVIEW_SUGGESTED",
+      "message": "Document was classified as 'technical_specification' and bound to the pdf-extraction/tender-specification overlay, but its substantive content is the Form of Contract (Part 1) plus General Terms and Conditions (Part 2) with unpopulated schedules. Reclassification to 'draft_terms_and_conditions' or 'contract_template' may produce a more honest authority signal on subsequent re-extractions.",
+      "evidence_refs": [
+        "page 2 section 'PART 1. FORM OF CONTRACT'",
+        "page 5 section 'PART 2 - GENERAL TERMS AND CONDITIONS'"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "page 1",
+      "anchor_text": "RELATING TO THE PROVISION OF FIRE RISK ASSESSMENT SERVICES",
+      "section_ref": "#/texts/1"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "THE MAYOR AND BURGESSES OF THE LONDON BOROUGH OF BEXLEY of Civic Offices, 2 Watling Street, Bexleyheath, Kent DA6 7AT",
+      "section_ref": "#/texts/14"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "The Council wishes to secure the provision of security services in Council Buildings as defined in the attached Specification ('the Services') during the period 1 September 2020 to 31 August 2022",
+      "section_ref": "#/texts/19"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "(a) The Form of Contract; (b) The General Terms and Conditions of Contract set out in Part 2 hereof; (c) The Special Conditions of Contract set out in Part 3 hereof; (d) The Specification appended hereto as Schedule 1; (e) The Pricing Schedule appended hereto as Schedule 2; (f) The Council's ITT appended hereto as Schedule 3; (g) The Contractor's Proposal as set out in its tender dated [ ] appended hereto as Schedule 4",
+      "section_ref": "#/texts/22"
+    },
+    {
+      "page_ref": "page 54",
+      "anchor_text": "SCHEDULE 1 SPECIFICATION",
+      "section_ref": "#/texts/795"
+    },
+    {
+      "page_ref": "page 55",
+      "anchor_text": "SCHEDULE 2 PRICING SCHEDULE",
+      "section_ref": "#/texts/797"
+    },
+    {
+      "page_ref": "page 56",
+      "anchor_text": "SCHEDULE 3 THE COUNCIL'S INVITATION TO TENDER",
+      "section_ref": "#/texts/800"
+    },
+    {
+      "page_ref": "page 57",
+      "anchor_text": "SCHEDULE 4 THE CONTRACTOR'S TENDER",
+      "section_ref": "#/texts/803"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "fbc2726ee7097df3e2a36ce2c3ac63d624704484f97086fe584db208c4a8ab92",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

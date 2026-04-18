@@ -1,0 +1,393 @@
+{
+  "lots": [
+    {
+      "lot_number": "7",
+      "lot_title": "Provision of Lift Services (Draft T&Cs - Lot 7 of procurement 6278)",
+      "description": "Three-year services contract for the provision of lift services by The Mayor and Burgesses of the London Borough of Bexley. The document seen here is the draft Form of Contract, General Terms and Conditions (Part 2) and Special Conditions (Part 3) for Lot 7 of the wider 6278 procurement; the substantive scope (Schedule 1 Specification), pricing structure (Schedule 2 Pricing Schedule / Appendix 1 PPM Schedule) and evaluation criteria / KPIs (Appendix C to the Invitation to Tender, Schedule 3) are referenced throughout but are NOT included in this markdown (they appear as heading-only placeholders at the end of the document, lines 1222-1228). Price structure referenced in the draft T&Cs: Annual Fee Services (PPM / Planned Preventative Maintenance) plus Works Orders that fall outside the Annual Fee. The document is described as LIFT SERVICES in the Form of Contract title block (line 17) but Recital A (line 37) contains stale template wording 'security services' that was not updated when the template was repurposed.",
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "RELATING TO THE PROVISION OF LIFT SERVICES",
+        "page_ref": "cover page (markdown line 17)",
+        "section_ref": "PART 1. FORM OF CONTRACT - Title block"
+      },
+      "evaluation_criteria": [
+        {
+          "criterion": "Evaluation criteria / KPIs (externally located)",
+          "summary": "The draft T&Cs repeatedly reference Key Performance Indicators ('KPIs') defined in Appendix C to the Invitation to Tender (Schedule 3) and associated Service Credits ('penalty per failure'). Neither the KPIs nor the Service Credit amounts nor the award weightings are contained in this markdown - Schedule 3 is only a heading placeholder at line 1226. The extraction therefore cannot return per-criterion weightings or scoring methodology for this lot.",
+          "weighting_text": "Not present in this document - see Appendix C to Invitation to Tender (Schedule 3)",
+          "evidence_anchor": {
+            "anchor_text": "'Key Performance Indicators' or 'KPIs' means the key performance indicators included in Appendix C to the Invitation to Tender.",
+            "page_ref": "markdown line 314",
+            "section_ref": "A1 Definitions and Interpretation"
+          }
+        },
+        {
+          "criterion": "Service Credits regime",
+          "summary": "The contract defines Service Credits as sums the Council is entitled to deduct or invoice for a Service Failure, specified in the 'penalty per failure' column of Appendix C of the Invitation to Tender. The specific Service Credit values and the definition of what constitutes a Service Failure per KPI are not in this markdown.",
+          "weighting_text": "Deduction / invoice per failure (amounts in Appendix C to ITT, not in this document)",
+          "evidence_anchor": {
+            "anchor_text": "'Service Credits' means a sum which the Council is entitled to deduct or invoice for a Service Failure pursuant to Clause C3A (Service Credits) as specified in the column headed 'penalty per failure' in Appendix C of the Invitation to Tender",
+            "page_ref": "markdown line 368",
+            "section_ref": "A1 Definitions and Interpretation; Clause C3A Service Credits (line 572)"
+          }
+        }
+      ],
+      "requirements": [
+        "Contract commences on the Commencement Date (1 September 2020) and expires on 31 August 2023 unless terminated earlier or extended under Clause F8 (Recital A, Clause A2, Clause 1.3).",
+        "The Contractor must supply the Services during the Contract Period in accordance with the Council's requirements set out in the Specification (Schedule 1) and the provisions of the Contract, in consideration of the Contract Price (Clause B1.1).",
+        "Timely supply of the Services is of the essence of the Contract (Clause B1.3).",
+        "The Contractor must provide all Equipment necessary for supply of the Services at its own risk, maintain it in a safe, serviceable and clean condition, and remove it on completion (Clauses B2.1-B2.6, S9.1-S9.3).",
+        "The Contractor must comply with Quality Standards (BSI British Standards, ISO or other reputable equivalent), with Good Industry Practice, and (where applicable) maintain accreditation with the relevant Quality Standards authorisation body (Clause B3.1, A1 'Quality Standards' definition).",
+        "Contractor's Staff must be competent, skilled, honest and experienced, in full uniform or appropriate safety clothing, and satisfactory DBS checks are required (Clauses B4.1-B4.11).",
+        "The Contractor must appoint a Contract Manager and sufficient supervisory employees; Key Personnel designated in the Specification/Tender are subject to Clause B5.",
+        "The Contractor must service the Council's Plant and maintain it in good working order in accordance with manufacturer's guarantees/recommendations (Clause S2.4) - this is the core obligation for the lift services (Plant means the Council's lift plant).",
+        "The Contractor must perform the functions of 'principal designer' and 'principal contractor' under the CDM Regulations 2015 to the extent applicable (Clause S2.3).",
+        "All materials/goods supplied as part of the Services must be as specified in the Specification; where not specified they must be of the best available quality and comply with the latest applicable British Standard (Clause S5.1).",
+        "Warranty benefits on supplied materials/goods must extend to the Council (Clause S5.2).",
+        "Materials must not be known-deleterious, must not contravene any relevant BSI / European standard, and must comply with 'Good Practice in Selection of Construction Materials' (BCO) - Clauses S2.6.1 - S2.6.3.",
+        "The Contractor must comply with all Data Protection Legislation (GDPR, DPA 2018, LED), protect Council Data, maintain appropriate Protective Measures and secure systems, and cooperate with FOIA/EIR requests (Clauses E1, E1A, E4).",
+        "The Contractor must comply with the Bribery Act 2010 and must not commit any Prohibited Act (Clauses A1 'Prohibited Act', D1).",
+        "The Contractor must comply with the Health and Safety at Work etc. Act 1974 and applicable HSC/HSE codes of practice, and provide its health and safety policy statement on request (Clauses D6, S2.2.2, S3.5).",
+        "The Contractor must maintain a COSHH register for substances stored at or brought onto the Premises, keep it up to date, hold a copy at the Premises and provide copies to the Council (Clauses S3.4.1 - S3.4.3).",
+        "The Contractor must assess TUPE applicability at its own risk; no price variation after contract signature on TUPE grounds; indemnity in favour of the Council (Clauses S1.1 - S1.7).",
+        "The Council may transfer or sub-contract, and imposes restrictions on the Contractor's ability to sub-contract - Sub-Contractors may be named in the Specification (Clauses F1, S7.1 - S7.4).",
+        "Insurance: the Council may require higher insurance limits than those in Clause G1.7 where the specific requirements of the Contract so demand (Clauses G1.2, G1.7, G1.10 - G1.11); the actual minimum insurance values must be read from the Specification / Special Conditions and are not present in this markdown.",
+        "Professional Indemnity insurance where applicable (Clause G2).",
+        "Works not forming part of the Annual Fee Services (ad-hoc remedial or project works) are instructed as Works Orders outside the Annual Fee (A1 'Works Order' definition, line 392).",
+        "Annual Fee Services = the Planned Maintenance / PPM Schedule supplied under Appendix 1 to the Invitation to Tender (A1 'Annual Fee Services' definition, line 215) - the PPM schedule content itself is not in this markdown.",
+        "Dispute resolution: Scheme for Construction Contracts adjudication with Chartered Institute of Building nominee, then CIMAR arbitration (Clauses S10.1 - S10.6); governing law is England & Wales with courts jurisdiction (I1, I2).",
+        "Management Reports per Clauses F7.1/F7.2 including reporting on KPIs in the format agreed with the Council.",
+        "Termination rights: default (H2), insolvency and change of control (H1), further grounds (H2A), break (H3)."
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot-7-lift-services-ppm",
+          "requirement_type": "service",
+          "summary": "Annual Fee Services - Planned Preventative Maintenance (PPM) of the Council's lift Plant. Defined as 'the services described in the Specification and Appendix 1 to the Invitation to Tender (Pricing Matrix containing the Planned Maintenance/PPM Schedule)'. The PPM schedule content (asset list, visit frequency, task checklist, engineer response times) is NOT contained in this markdown - it resides in the separate Specification (Schedule 1) and Pricing Matrix (Appendix 1 to ITT).",
+          "quantity_hint": "Not present in this markdown. The PPM schedule and lift asset inventory are held in Appendix 1 to the Invitation to Tender and Schedule 1 Specification, which are referenced but not included.",
+          "technical_attributes": [
+            "Planned Preventative Maintenance (PPM) of lift equipment",
+            "Council Plant (lifts) to be serviced in accordance with manufacturer's guarantees/recommendations (Clause S2.4)",
+            "Priced as an Annual Fee (Clause A1 'Annual Fee' definition)",
+            "Scope must be read from Schedule 1 Specification + Appendix 1 to ITT - not in this document"
+          ],
+          "evidence_anchor": {
+            "anchor_text": "'Annual Fee Services' means the services described in the Specification and Appendix 1 to the Invitation to Tender (Pricing Matrix containing the Planned Maintenance/PPM Schedule) as the same may be varied from time to time in accordance with this Agreement",
+            "page_ref": "markdown line 215",
+            "section_ref": "A1 Definitions and Interpretation"
+          }
+        },
+        {
+          "seed_key": "lot-7-lift-services-works-orders",
+          "requirement_type": "service",
+          "summary": "Works Orders - ad-hoc call-off works that fall outside the Annual Fee Services. Likely to cover reactive repair callouts, breakdown attendance, component replacement, modernisation works and any other lift works the Council instructs beyond scheduled PPM. Exact call-off categories and rates are held in the Pricing Schedule (Schedule 2) which is not in this markdown.",
+          "quantity_hint": "Not quantified in this document; dependent on Council-issued Works Orders during the Contract Period.",
+          "technical_attributes": [
+            "Reactive / non-PPM lift works instructed by the Council",
+            "Priced outside the Annual Fee - day rates and materials per Schedule 2 Pricing Schedule",
+            "Contractor responsible for design functions under CDM 2015 where applicable (Clause S2.3)",
+            "Materials must comply with latest British Standard where appropriate (Clause S5.1)"
+          ],
+          "evidence_anchor": {
+            "anchor_text": "'Works Order' means works which are instructed by the Council but fall outside the scope of the Annual Fee Services",
+            "page_ref": "markdown line 392",
+            "section_ref": "A1 Definitions and Interpretation"
+          }
+        },
+        {
+          "seed_key": "lot-7-lift-services-specification-placeholder",
+          "requirement_type": "external_specification_reference",
+          "summary": "The substantive service scope, asset inventory (specific lifts/buildings at the London Borough of Bexley), visit frequencies, engineer response times, pass/fail criteria and specific technical standards are all defined in Schedule 1 Specification, which is only a heading placeholder at the end of this markdown (line 1222). A downstream extraction of the Specification document itself is required before product_candidates can be fully populated.",
+          "quantity_hint": "Not in this document - read from Schedule 1 Specification when available.",
+          "technical_attributes": [
+            "Pointer only - no content present",
+            "Target document: Schedule 1 Specification",
+            "Also see Schedule 2 Pricing Schedule and Schedule 3 Invitation to Tender (and its Appendix 1 PPM Matrix and Appendix C KPIs)"
+          ],
+          "evidence_anchor": {
+            "anchor_text": "SCHEDULE 1 SPECIFICATION / SCHEDULE 2 PRICING SCHEDULE / SCHEDULE 3 THE COUNCIL'S INVITATION TO TENDER / SCHEDULE 4 THE CONTRACTOR'S TENDER",
+            "page_ref": "markdown lines 1222-1228",
+            "section_ref": "Schedules (heading-only placeholders)"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Quality Standards (BSI / ISO - generic framework)",
+          "context": "The contract defines Quality Standards generically as 'the quality standards published by BSI British Standards Institution, the National Standards Body of the United Kingdom, the International Organisation for Standardisation or other reputable or equivalent body... and as may be further detailed in the Specification or in the Special Conditions'. No lift-specific standards (e.g. BS EN 81 series, BS 7255, BS EN 13015, LOLER/PUWER statutory references) are explicitly listed in this markdown - those would appear in the Schedule 1 Specification, which is not included.",
+          "evidence_anchor": {
+            "anchor_text": "'Quality Standards' means the quality standards published by BSI British Standards Institution, the National Standards Body of the United Kingdom, the International Organisation for Standardisation or other reputable or equivalent body",
+            "page_ref": "markdown line 354",
+            "section_ref": "A1 Definitions and Interpretation"
+          }
+        },
+        {
+          "standard_ref": "British Standards (latest applicable) for materials and goods",
+          "context": "All materials and/or goods supplied as part of the Services must comply with the latest applicable British Standard where appropriate, where quality and standards are not otherwise specified in the Specification (Clause S5.1).",
+          "evidence_anchor": {
+            "anchor_text": "such materials and/or goods shall be of the best available quality suitable for the purposes for which they are intended and shall comply with the latest applicable British Standard where appropriate.",
+            "page_ref": "markdown line 1174",
+            "section_ref": "S5 Goods and Materials - S5.1"
+          }
+        },
+        {
+          "standard_ref": "BSI Group / European directive standards (deleterious materials)",
+          "context": "Contractor warrants not to specify/approve/use materials that are known-deleterious or that contravene any relevant standard code of practice issued by the BSI Group or under a European directive relating to standards or good building practice (Clause S2.6.2).",
+          "evidence_anchor": {
+            "anchor_text": "contravene any relevant standard code of practice issued from time to time by the BSI Group or under a European directive relating to standards or good building practice",
+            "page_ref": "markdown line 1144",
+            "section_ref": "S2 Contractor's Obligations - S2.6.2"
+          }
+        },
+        {
+          "standard_ref": "'Good Practice in Selection of Construction Materials' (British Council for Offices, BCO)",
+          "context": "Materials used must accord with the guidelines in the BCO publication 'Good Practice in Selection of Construction Materials', current at the date of specification or use (Clause S2.6.3).",
+          "evidence_anchor": {
+            "anchor_text": "do not accord with the guidelines contained in the edition of the publication 'Good Practice in Selection of Construction Materials' (British Council for Offices ('BCO')), current at the date of specification or use.",
+            "page_ref": "markdown line 1145",
+            "section_ref": "S2 Contractor's Obligations - S2.6.3"
+          }
+        },
+        {
+          "standard_ref": "Construction (Design and Management) Regulations 2015 (CDM 2015)",
+          "context": "The Contractor must perform the functions of 'principal designer' and 'principal contractor' under the CDM Regulations 2015 (including preparation of the Construction Phase Plan and Health and Safety File) to the extent the CDM Regulations apply to the Services (Clause S2.3 and A1 'CDM Regulations' definition).",
+          "evidence_anchor": {
+            "anchor_text": "'CDM Regulations' means the Construction (Design and Management) Regulations 2015 and any amendment or re-enactment thereof",
+            "page_ref": "markdown lines 221, 1134",
+            "section_ref": "A1 Definitions; S2.3"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work etc. Act 1974 + HSC/HSE codes of practice",
+          "context": "Contractor must comply with all applicable Law regarding health and safety, including the Health and Safety at Work etc. Act 1974 and any HSC/HSE codes of practice (Clauses D6.7, S2.2.2, S3.5).",
+          "evidence_anchor": {
+            "anchor_text": "The Contractor shall comply with all applicable Law regarding health and safety including (without limitation) the requirements of the Health and Safety at Work etc. Act 1974 and any other acts, orders, regulations and codes of practice relating to health and safety",
+            "page_ref": "markdown line 643",
+            "section_ref": "D6 Health and Safety - D6.7"
+          }
+        },
+        {
+          "standard_ref": "Data Protection Legislation - UK GDPR, DPA 2018, LED",
+          "context": "Contractor must comply with UK GDPR (Regulation (EU) 2016/679 as retained in UK law), the Data Protection Act 2018 and the Law Enforcement Directive (Directive (EU) 2016/680), including Protective Measures (pseudonymisation, encryption, confidentiality/integrity/availability, DPIA support). See Clauses E1, E1A and A1 Definitions.",
+          "evidence_anchor": {
+            "anchor_text": "'Data Protection Legislation' means (i) the GDPR, the LED and any applicable national implementing Laws as amended from time to time (ii) the DPA 2018 to the extent that it relates to processing of personal data and privacy; (iii) all applicable Law about the processing of personal data and privacy.",
+            "page_ref": "markdown line 265",
+            "section_ref": "A1 Definitions and Interpretation; E1 Data Protection"
+          }
+        },
+        {
+          "standard_ref": "Public Contracts Regulations 2015 (PCR 2015) - procurement regime signal",
+          "context": "'Contracting Authority' is defined by reference to Regulation 2 of the Public Contracts Regulations 2015, confirming that this procurement is regulated under PCR 2015 (consistent with a 2020 contract start date, pre- Procurement Act 2023).",
+          "evidence_anchor": {
+            "anchor_text": "'Contracting Authority' means any contracting authority as defined in Regulation 2 of the Public Contracts Regulations 2015.",
+            "page_ref": "markdown line 239",
+            "section_ref": "A1 Definitions and Interpretation"
+          }
+        }
+      ]
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot-7-lift-services-ppm",
+      "lot_number": "7",
+      "requirement_type": "service",
+      "summary": "Annual Fee PPM of Council lift Plant - defined by reference to Appendix 1 to the Invitation to Tender (Pricing Matrix / PPM Schedule), which is not included in this markdown.",
+      "technical_attributes": [
+        "Planned Preventative Maintenance of lift equipment",
+        "Priced as Annual Fee",
+        "Scope held in Schedule 1 Specification + Appendix 1 to ITT"
+      ],
+      "evidence_anchor": {
+        "anchor_text": "'Annual Fee Services' means the services described in the Specification and Appendix 1 to the Invitation to Tender (Pricing Matrix containing the Planned Maintenance/PPM Schedule)",
+        "page_ref": "markdown line 215",
+        "section_ref": "A1 Definitions"
+      }
+    },
+    {
+      "seed_key": "lot-7-lift-services-works-orders",
+      "lot_number": "7",
+      "requirement_type": "service",
+      "summary": "Call-off Works Orders for lift works outside the Annual Fee Services - likely reactive repair / component replacement / modernisation. Rates held in Schedule 2 Pricing Schedule, which is not included in this markdown.",
+      "technical_attributes": [
+        "Reactive / ad-hoc lift works",
+        "Priced outside the Annual Fee (day rates + materials)",
+        "Materials to comply with latest applicable British Standard"
+      ],
+      "evidence_anchor": {
+        "anchor_text": "'Works Order' means works which are instructed by the Council but fall outside the scope of the Annual Fee Services",
+        "page_ref": "markdown line 392",
+        "section_ref": "A1 Definitions"
+      }
+    },
+    {
+      "seed_key": "lot-7-lift-services-specification-placeholder",
+      "lot_number": "7",
+      "requirement_type": "external_specification_reference",
+      "summary": "Pointer seed: Schedule 1 Specification (heading-only in this markdown) holds the actual lift asset list, PPM task checklist, visit frequencies, response SLAs and specific engineering standards (expected: BS EN 81 series, LOLER, PUWER, BS 7255). A downstream extraction of the Specification itself is required before product_candidates can be populated.",
+      "technical_attributes": [
+        "Pointer only - no content present",
+        "Target: Schedule 1 Specification",
+        "Also: Schedule 2 Pricing, Schedule 3 ITT + Appendix 1 PPM Matrix + Appendix C KPIs"
+      ],
+      "evidence_anchor": {
+        "anchor_text": "SCHEDULE 1 SPECIFICATION / SCHEDULE 2 PRICING SCHEDULE / SCHEDULE 3 THE COUNCIL'S INVITATION TO TENDER / SCHEDULE 4 THE CONTRACTOR'S TENDER",
+        "page_ref": "markdown lines 1222-1228",
+        "section_ref": "Schedule headings - placeholders only"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lot_structure": 7500,
+    "lot_title": 7800,
+    "lot_number": 8500,
+    "buyer_name": 9800,
+    "contract_period": 9500,
+    "cpv_codes": 1000,
+    "evaluation_criteria": 2500,
+    "kpi_weightings": 500,
+    "service_credits_values": 500,
+    "requirements": 8000,
+    "product_requirement_seeds": 3000,
+    "technical_standards": 5500,
+    "lift_specific_standards": 500,
+    "insurance_limits": 1500,
+    "price_methodology": 5000,
+    "key_dates": 9500,
+    "pricing_schedule_content": 500
+  },
+  "extraction_confidence_bps": 5500,
+  "warnings": [
+    {
+      "code": "SCHEDULE_1_SPECIFICATION_MISSING",
+      "severity": "high",
+      "summary": "Schedule 1 Specification is referenced throughout the draft T&Cs but is only a heading placeholder in this markdown (line 1222). The substantive service scope, lift asset inventory, visit frequencies, response SLAs and lift-specific engineering standards therefore cannot be extracted from this document. Downstream extraction of the Specification document is required before product_candidates can be populated with confidence."
+    },
+    {
+      "code": "SCHEDULE_2_PRICING_SCHEDULE_MISSING",
+      "severity": "high",
+      "summary": "Schedule 2 Pricing Schedule is only a heading placeholder (line 1224). The Annual Fee figure ('£ [insert figure]' at line 213) is a template placeholder. No per-lift rates, Works Order day rates or materials markups are present."
+    },
+    {
+      "code": "APPENDIX_C_ITT_KPIS_MISSING",
+      "severity": "high",
+      "summary": "KPIs and Service Credits are referenced as defined in Appendix C to the Invitation to Tender (Schedule 3), but Schedule 3 is only a heading placeholder (line 1226). No KPI definitions, thresholds, scoring methodology or Service Credit amounts are available. evaluation_criteria therefore cannot be returned with weightings for this lot."
+    },
+    {
+      "code": "TEMPLATE_TEXT_NOT_CUSTOMISED_RECITAL_A",
+      "severity": "medium",
+      "summary": "Recital A (line 37) contains stale template wording 'security services' even though the title block (line 17) and document title record 'LIFT SERVICES'. This is a template repurposing error in the source document, not an ambiguity in this lot's scope."
+    },
+    {
+      "code": "NO_LIFT_SPECIFIC_STANDARDS",
+      "severity": "medium",
+      "summary": "No lift-specific engineering standards (BS EN 81 series, BS EN 13015, BS 7255, LOLER 1998, PUWER 1998) are cited in the visible markdown. Only generic BSI/ISO/British Standard references appear. Lift-specific standards are expected to live in Schedule 1 Specification, which is not included."
+    },
+    {
+      "code": "NO_CPV_CODES_PRESENT",
+      "severity": "medium",
+      "summary": "No CPV codes are cited in the visible markdown. This is a draft T&Cs document rather than a notice; CPV codes would normally be found in the Contract Notice or the Invitation to Tender front matter. Extraction returns an empty cpv_codes array rather than guessing (the plausible CPV 50750000-7 'Lift-maintenance services' was NOT emitted because it is not supported by an evidence anchor in this document)."
+    },
+    {
+      "code": "INSURANCE_LIMITS_NOT_SPECIFIED",
+      "severity": "low",
+      "summary": "Clause G1.10 states that minimum insurance cover will be specified in the Specification or Special Conditions, but no numeric minimum insurance limits are present in this markdown."
+    },
+    {
+      "code": "ANNUAL_FEE_PLACEHOLDER",
+      "severity": "low",
+      "summary": "The Annual Fee definition contains the placeholder '£ [insert figure]' (line 213). The actual Annual Fee would be entered post-award on execution."
+    },
+    {
+      "code": "LOT_NUMBER_FROM_TITLE_METADATA",
+      "severity": "low",
+      "summary": "Lot number 7 is derived from the document title '6278 - Draft T&Cs - Lot 7' (document_extraction.document_title) rather than from a 'Lot 7' heading inside the markdown itself. The markdown contains no 'Lot 7' label. Other lots of procurement 6278 are not in scope of this extraction."
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "anchor_text": "RELATING TO THE PROVISION OF LIFT SERVICES",
+      "page_ref": "markdown line 17",
+      "section_ref": "PART 1. FORM OF CONTRACT - Title block"
+    },
+    {
+      "anchor_text": "THE MAYOR AND BURGESSES OF THE LONDON BOROUGH OF BEXLEY of Civic Offices, 2 Watling Street, Bexleyheath, Kent DA6 7AT",
+      "page_ref": "markdown line 27",
+      "section_ref": "PART 1. FORM OF CONTRACT - Parties"
+    },
+    {
+      "anchor_text": "A The Council wishes to secure the provision of security services as defined in the attached Specification ('the Services') during the period 1 September 2020 to 31 August 2023 subject to any extension agreed pursuant to the terms of this Contract",
+      "page_ref": "markdown line 37",
+      "section_ref": "Recital A - note: 'security services' appears to be template text inconsistent with title 'LIFT SERVICES'"
+    },
+    {
+      "anchor_text": "The Council and the Contractor hereby covenant with each other to observe and perform the Contract which shall commence on 1 September 2020.",
+      "page_ref": "markdown line 54",
+      "section_ref": "Clause 1.3"
+    },
+    {
+      "anchor_text": "(a) The Form of Contract; (b) The General Terms and Conditions of Contract set out in Part 2 hereof; (c) The Special Conditions of Contract set out in Part 3 hereof; (d) The Specification appended hereto as Schedule 1; (e) The Pricing Schedule appended hereto as Schedule 2; (f) The Council's ITT appended hereto as Schedule 3; (g) The Contractor's Proposal as set out in its tender dated [ ] appended hereto as Schedule 4",
+      "page_ref": "markdown lines 44-51",
+      "section_ref": "Clause 1.2 Document precedence"
+    },
+    {
+      "anchor_text": "'Annual Fee Services' means the services described in the Specification and Appendix 1 to the Invitation to Tender (Pricing Matrix containing the Planned Maintenance/PPM Schedule)",
+      "page_ref": "markdown line 215",
+      "section_ref": "A1 Definitions and Interpretation"
+    },
+    {
+      "anchor_text": "'Works Order' means works which are instructed by the Council but fall outside the scope of the Annual Fee Services",
+      "page_ref": "markdown line 392",
+      "section_ref": "A1 Definitions and Interpretation"
+    },
+    {
+      "anchor_text": "'Plant' means any of the Council's plant or equipment referred to in the Specification to be the subject of any of the Services",
+      "page_ref": "markdown line 332",
+      "section_ref": "A1 Definitions and Interpretation"
+    },
+    {
+      "anchor_text": "'Key Performance Indicators' or 'KPIs' means the key performance indicators included in Appendix C to the Invitation to Tender.",
+      "page_ref": "markdown line 314",
+      "section_ref": "A1 Definitions and Interpretation"
+    },
+    {
+      "anchor_text": "'Service Credits' means a sum which the Council is entitled to deduct or invoice for a Service Failure pursuant to Clause C3A (Service Credits) as specified in the column headed 'penalty per failure' in Appendix C of the Invitation to Tender",
+      "page_ref": "markdown line 368",
+      "section_ref": "A1 Definitions and Interpretation"
+    },
+    {
+      "anchor_text": "'Quality Standards' means the quality standards published by BSI British Standards Institution, the National Standards Body of the United Kingdom, the International Organisation for Standardisation or other reputable or equivalent body",
+      "page_ref": "markdown line 354",
+      "section_ref": "A1 Definitions and Interpretation"
+    },
+    {
+      "anchor_text": "The Contractor shall service the Plant and maintain it in good working order and in accordance with the provisions of any manufacturer's guarantees or recommendations",
+      "page_ref": "markdown line 1135",
+      "section_ref": "S2.4"
+    },
+    {
+      "anchor_text": "All materials and/or goods supplied as part of the Services shall be as specified in the Specification. Where such quality and standards are not specified in the Specification, such materials and/or goods shall be of the best available quality suitable for the purposes for which they are intended and shall comply with the latest applicable British Standard where appropriate.",
+      "page_ref": "markdown line 1174",
+      "section_ref": "S5 Goods and Materials - S5.1"
+    },
+    {
+      "anchor_text": "SCHEDULE 1 SPECIFICATION / SCHEDULE 2 PRICING SCHEDULE / SCHEDULE 3 THE COUNCIL'S INVITATION TO TENDER / SCHEDULE 4 THE CONTRACTOR'S TENDER",
+      "page_ref": "markdown lines 1222-1228",
+      "section_ref": "Schedules - heading-only placeholders (content missing from this markdown)"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "d746197eb5aa991ff8474d5f05c9c5cc54843fa96405f96ea7d6bef00c2bc6fb",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification",
+    "document_subtype": "draft_contract_terms_and_conditions",
+    "document_title": "6278 - Draft T&Cs - Lot 7",
+    "buyer_name": "London Borough of Bexley",
+    "contract_period_start": "2020-09-01",
+    "contract_period_end": "2023-08-31",
+    "skill_id": "pdf-extraction/tender-specification",
+    "skill_version": "1.0.0"
+  }
+}

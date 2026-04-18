@@ -1,0 +1,377 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Supply of Double Glazed Units and Sheet Glass (DPS)",
+      "description": "Bristol City Council Dynamic Purchasing System (DPS) for the supply of double-glazed units and sheet glass to the Housing Response Repairs service and bulk orders (joiners shop, Wellington Road). Document is Appendix 1 – Evaluation Criteria; the DPS is evaluated in two stages: (a) a selection-criteria stage (Table A) for admission to the DPS and (b) per-call-off award criteria with price/quality/social-value weightings. Document does not enumerate separate numbered lots; bidders indicate which DPS categories they apply for at question 1.20.",
+      "requirements": [
+        "All bidders must meet the minimum selection criteria in Table A to be admitted to the DPS (§1.1).",
+        "The consortium as a whole must achieve the selection criteria; if any member fails a section flagged 'all individual consortium members must pass', the whole consortium fails (§1.3).",
+        "Employers Liability insurance not less than £10 million; Public Liability insurance not less than £5 million (Table A Q4.1, Q4.3).",
+        "Bidder must agree to be bound by liquidated damages, the Bribery Act 2011, and the Restricted Trade Practices Act 1976 (Table A Q4.5–4.7).",
+        "Financial standing must be Low or Medium risk; High risk = Fail (Financial Standing Appraisal scoring table).",
+        "Authority generally expects turnover of at least 2× the annual contract value and current ratio of at least 1:1 (Financial Standing Appraisal §1.1 bullets).",
+        "All employees attending Bristol City Council sites must hold current CSCS certification or equivalent, including sub-contractors (Table A Q11.1).",
+        "Bidder must pay Living Wage Foundation Rate on call-off contracts and reflect it in the Pricing Schedule (Table A Q12.1–12.2).",
+        "Bidder must have human/technical resources to comply with GDPR by contract award (Table A Q13.1).",
+        "Double-glazed units must comply with BS EN 1279 'Glass in Building – Insulating glass units' and carry a minimum 5-year guarantee (Table A Q14.1.1, Q14.1.3).",
+        "Response-repair DGUs must be producible and available for collection within Bristol on the same day (Table A Q14.1.2).",
+        "Bulk orders from the Wellington Road joiners shop must be available within 4 working days of order, with telephone pre-notification on 9224654 (Table A Q14.1.6).",
+        "Deliveries must not be instalment-split unless specifically requested; all goods must arrive packed and secured with a compliant delivery note (Table A Q14.1.7–14.1.8).",
+        "Rejected goods must be collected at supplier risk/expense with replacements within 24 hours (Table A Q14.1.9).",
+        "Weekly deliveries to a central location free of charge; weekly order spreadsheet; electronic invoicing (Table A Q14.1.10–14.1.12).",
+        "Bidder must accept DPS Agreement terms and conditions without alteration and upload Non-Collusion and Non-Canvassing Certificates (Table A Q15.1–15.3)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Selection Criteria (admission to DPS)",
+          "summary": "Pass/Fail gate: bidders must achieve minimum selection criteria in Table A to be admitted to the DPS. Only information provided in each on-line answer is considered; consortium passes as a whole.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "All bidders must achieve the minimum selection criteria in accordance within Table A below, to be admitted to the DPS.",
+            "section_ref": "§1 Selection Criteria, §1.1"
+          }
+        },
+        {
+          "criterion": "Financial Standing Appraisal",
+          "summary": "Financial assessment using profitability, net worth, liquidity, current ratio (generally ≥1:1), and turnover (generally ≥2× annual contract value). Low risk = Pass, Medium Risk = Pass, High Risk = Fail.",
+          "weighting_text": "Pass/Fail (Low/Med = Pass; High = Fail)",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Low risk | Pass; Medium Risk | Pass; High Risk | Fail",
+            "section_ref": "Financial Standing Appraisal, scoring table"
+          }
+        },
+        {
+          "criterion": "Award – Call-offs below £25,000: Price",
+          "summary": "For call-offs below £25,000, price is weighted 100%. Lowest lump-sum price receives 100 marks; each competing bid loses marks by the percentage by which it exceeds the lowest price; bids >100% over lowest score zero.",
+          "weighting_text": "Price 100%",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Weighting Range for call-offs with a value below £25,000 | Price | 100%",
+            "section_ref": "§2 Award Criteria for Call-offs, weighting-range table"
+          }
+        },
+        {
+          "criterion": "Award – Call-offs ≥£25,000: Price",
+          "summary": "For call-offs with a value of £25,000 or above, price is weighted in the range 20%–80% (tailored per call-off), scored via the 'standard differential' method with marks scaled to the weighting.",
+          "weighting_text": "Price 20%–80%",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Weighting Range for call-offs with a value of £25,000 or above | Price | 20% - 80%",
+            "section_ref": "§2 Award Criteria for Call-offs, weighting-range table"
+          }
+        },
+        {
+          "criterion": "Award – Call-offs ≥£25,000: Quality",
+          "summary": "Quality questions scored on a 0–5 matrix (Unacceptable to Excellent). Weighted 0%–60% of overall award. Any Quality score of 0 or 1 allows the Council to exclude the bidder from further consideration.",
+          "weighting_text": "Quality 0%–60%",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Quality | 0% - 60%",
+            "section_ref": "§2 Award Criteria for Call-offs, Scoring Matrix"
+          }
+        },
+        {
+          "criterion": "Award – Call-offs ≥£25,000: Social Value",
+          "summary": "Social Value is weighted at 20% of the overall award. Evaluation approach is set out in a separate appendix. Also acts as the tie-breaker: highest Social Value score wins in the event of a tied total.",
+          "weighting_text": "Social Value 20%",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Social Value | 20%",
+            "section_ref": "§2 Award Criteria for Call-offs, weighting-range table + Tie Breaker"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "14820000-5",
+        "44221111-6"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "glass-dgu-bs-en-1279",
+          "summary": "Double-glazed units (DGUs): flat, hermetically-sealed, dual-sealed, maximum 28mm thickness, with aluminium spacer bars containing desiccant, A-rated warm-edge spacer, argon-filled, complying with BS EN 1279 'Glass in Building – Insulating glass units', carrying a minimum 5-year guarantee. Usable for both Response Repairs (same-day) and Bulk Orders (within 4 working days).",
+          "requirement_type": "product",
+          "technical_attributes": [
+            "Flat hermetically sealed double-glazing unit",
+            "Dual seals",
+            "Maximum thickness 28mm",
+            "Aluminium spacer bars containing desiccant (air/gas drying)",
+            "A-rated warm-edge spacer",
+            "Argon-filled cavity",
+            "Compliant with BS EN 1279 (Glass in Building – Insulating glass units)",
+            "Minimum 5-year guarantee",
+            "Same-day collection within Bristol for response repairs",
+            "Availability within 2 working days for response-repair operative orders",
+            "Availability within 4 working days for joiners-shop bulk orders"
+          ],
+          "quantity_hint": "DPS call-off volumes unspecified; covers response-repair and bulk-order demand for Bristol City Council housing stock",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Units shall be flat hermetically sealed double glazing units having dual seals to a maximum of 28mm thickness. Aluminium Spacer bars to contain desiccant to keep air/gas dry, including A rated warm edge spacer argon filled. Units shall comply with BS EN 1279 'Glass in Building-Insulating glass units' and have a minimum 5 year guarantee.",
+            "section_ref": "§14 Contract Specific Questions, Q14.1.3"
+          }
+        },
+        {
+          "seed_key": "glass-stippolytte-6-4mm",
+          "summary": "Laminated Stippolytte single glazing, 6.4mm thickness. Supplier must be able to supply this obscure-pattern laminated single-glazing product on demand through the DPS.",
+          "requirement_type": "product",
+          "technical_attributes": [
+            "Laminated single glazing",
+            "Stippolytte obscure/patterned glass",
+            "6.4mm nominal thickness"
+          ],
+          "quantity_hint": "DPS call-off volumes unspecified",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Are you able to supply 6.4mm laminated Stippolytte single glazing?",
+            "section_ref": "§14 Contract Specific Questions, Q14.1.4"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "BS EN 1279",
+          "context": "'Glass in Building – Insulating glass units'. DGUs supplied under the DPS must comply with this standard (referenced in Q14.1.1 and reaffirmed in the technical specification at Q14.1.3, which also mandates a minimum 5-year guarantee).",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Are you able to produce double glazed units to comply with current British and European standards and specifically BS EN 1279?",
+            "section_ref": "§14 Contract Specific Questions, Q14.1.1"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "unknown",
+        "anchor_text": "APPENDIX 1: EVALUATION CRITERIA",
+        "section_ref": "Document heading / Appendix 1"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "glass-dgu-bs-en-1279",
+      "lot_number": "1",
+      "candidate_name": "Double-glazed unit (sealed insulating glass unit, BS EN 1279-compliant, argon-filled, warm-edge spacer)",
+      "summary": "Flat hermetically-sealed double-glazed unit, dual-sealed, max 28mm thickness, aluminium desiccant-filled spacer with A-rated warm-edge spacer, argon-filled, compliant with BS EN 1279 and carrying a minimum 5-year guarantee. Must be available same-day for Bristol response repairs and within 4 working days for bulk orders from the Wellington Road joiners shop.",
+      "requirements": [
+        "Flat hermetically sealed double-glazing unit with dual seals",
+        "Maximum unit thickness 28mm",
+        "Aluminium spacer bars containing desiccant",
+        "A-rated warm-edge spacer",
+        "Argon-filled cavity",
+        "Complies with BS EN 1279 'Glass in Building – Insulating glass units'",
+        "Minimum 5-year guarantee",
+        "Response-repair service: same-day collection within Bristol (Q14.1.2)",
+        "Response-repair operative order lead time: within 2 working days (Q14.1.5)",
+        "Bulk order lead time: within 4 working days of order from Wellington Road joiners shop (Q14.1.6)",
+        "Goods delivered packed and secured with compliant delivery note (order date, BCC works order number, supplier order number, address, operative name, type/quantity, special instructions) (Q14.1.8)",
+        "Rejected goods collected at supplier's risk/expense with replacement within 24 hours (Q14.1.9)"
+      ],
+      "technical_standards": [
+        "BS EN 1279"
+      ],
+      "cpv_codes": [
+        "44221111-6",
+        "14820000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "unknown",
+        "anchor_text": "Units shall be flat hermetically sealed double glazing units having dual seals to a maximum of 28mm thickness. Aluminium Spacer bars to contain desiccant to keep air/gas dry, including A rated warm edge spacer argon filled. Units shall comply with BS EN 1279 'Glass in Building-Insulating glass units' and have a minimum 5 year guarantee.",
+        "section_ref": "§14 Contract Specific Questions, Q14.1.3"
+      }
+    },
+    {
+      "seed_key": "glass-stippolytte-6-4mm",
+      "lot_number": "1",
+      "candidate_name": "6.4mm laminated Stippolytte single glazing",
+      "summary": "6.4mm laminated Stippolytte (obscure/patterned) single glazing. DPS suppliers must be able to supply this product on demand alongside DGUs and sheet glass.",
+      "requirements": [
+        "Laminated single glazing, 6.4mm nominal thickness",
+        "Stippolytte obscure/patterned finish",
+        "Available through the DPS alongside DGU supply"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [
+        "14820000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "unknown",
+        "anchor_text": "Are you able to supply 6.4mm laminated Stippolytte single glazing?",
+        "section_ref": "§14 Contract Specific Questions, Q14.1.4"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.count": 6500,
+    "lots[0].title": 9000,
+    "lots[0].description": 8500,
+    "lots[0].requirements": 8800,
+    "lots[0].evaluation_criteria": 9200,
+    "lots[0].cpv_codes": 7500,
+    "lots[0].product_requirements": 8700,
+    "lots[0].technical_standards": 9500,
+    "product_requirement_seeds": 8700
+  },
+  "extraction_confidence_bps": 8200,
+  "warnings": [
+    {
+      "code": "LOT_STRUCTURE_INFERRED",
+      "message": "Document is a DPS evaluation-criteria appendix (Appendix 1) and does not enumerate numbered lots. A single synthetic lot was emitted covering the whole DPS scope ('Supply of Double Glazed Units and Sheet Glass'). Q1.20 references DPS 'categories' that bidders apply for, but the categories themselves are not enumerated in this appendix; they are likely defined in a separate scope document.",
+      "evidence_refs": [
+        "§1.20 Please indicate which categories you are applying for",
+        "Notice title: BSH/HRA/Supply of Double Glazed Units and Sheet Glass - DPS - Acceptance Round 5"
+      ]
+    },
+    {
+      "code": "PAGE_ANCHORS_UNAVAILABLE",
+      "message": "Source Docling extraction has page_count=0 and contains no page markers in the markdown; evidence anchors use section/question refs (e.g. §14.1.3) with page_ref='unknown'.",
+      "evidence_refs": [
+        "document_extractions.page_count=0",
+        "no page delimiters present in extracted_markdown"
+      ]
+    },
+    {
+      "code": "CPV_FROM_NOTICE_CONTEXT",
+      "message": "CPV codes 14820000-5 (Glass) and 44221111-6 (Double-glazed units) are taken from the parent contract notice context, not from the document body. Document body does not cite CPV codes directly but its technical scope (DGUs + sheet glass) is consistent with these CPVs.",
+      "evidence_refs": [
+        "contract_notices.main_category: '14820000-5 - Glass | 44221111-6 - Double-glazed units'"
+      ]
+    },
+    {
+      "code": "PRICING_WEIGHTING_TEMPLATE_PLACEHOLDER",
+      "message": "The ≥£25,000 award section contains unresolved 'xx%' placeholders in the Pricing Document sub-section; exact price weighting is to be set per call-off ITT within the 20%–80% range.",
+      "evidence_refs": [
+        "§Pricing Document §1.1: 'Each Bidder will receive xx% of the available marks...'",
+        "§2 Award Criteria for Call-offs: 'Call-offs with a value £25,000 or above (to be tailored specific to the call-off)'"
+      ]
+    },
+    {
+      "code": "DUPLICATE_SECTION_NUMBERING",
+      "message": "Docling output contains repeated '1.1.' list-number prefixes within §1 Selection Criteria, the Financial Standing Appraisal, and §2 Award Criteria (source formatting quirk). Evidence anchors use question numbers (1.20, 14.1.x, etc.) where unambiguous and add human-readable section refs elsewhere.",
+      "evidence_refs": [
+        "Multiple paragraphs labelled '- 1.1.' in Financial Standing Appraisal",
+        "Multiple paragraphs labelled '- 1.1.' in §2 Award Criteria / Pricing"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "unknown",
+      "anchor_text": "APPENDIX 1: EVALUATION CRITERIA",
+      "section_ref": "Document heading"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "All bidders must achieve the minimum selection criteria in accordance within Table A below, to be admitted to the DPS.",
+      "section_ref": "§1 Selection Criteria, §1.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Table A – Selection Criteria",
+      "section_ref": "§1 Selection Criteria, Table A heading"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Please indicate which categories you are applying for.",
+      "section_ref": "§1 Selection Criteria, Q1.20"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Please confirm you currently have the required level of Employers Liability being not less than £10 million",
+      "section_ref": "§1 Selection Criteria, Q4.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Please confirm you currently have the required level of Public Liability being not less than £5 million",
+      "section_ref": "§1 Selection Criteria, Q4.3"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Low risk | Pass; Medium Risk | Pass; High Risk | Fail",
+      "section_ref": "Financial Standing Appraisal, scoring table"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Weighting Range for call-offs with a value below £25,000 | Price | 100%",
+      "section_ref": "§2 Award Criteria for Call-offs, weighting table"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Weighting Range for call-offs with a value of £25,000 or above | Price | 20% - 80% | Quality | 0% - 60% | Social Value | 20%",
+      "section_ref": "§2 Award Criteria for Call-offs, weighting table"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Scoring Matrix … Unacceptable 0 / Serious reservations 1 / Minor reservations 2 / Satisfactory 3 / Good 4 / Excellent 5",
+      "section_ref": "§2 Award Criteria for Call-offs, Scoring Matrix"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "In the event of a tie between two or more bidders, the bidder with the highest social value score will be awarded the contract.",
+      "section_ref": "§2 Award Criteria for Call-offs, Tie Breaker"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Are you able to produce double glazed units to comply with current British and European standards and specifically BS EN 1279?",
+      "section_ref": "§14 Contract Specific Questions, Q14.1.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "The response repair service will require some double glazed units to be produced and available for collection within the City of Bristol on the same day",
+      "section_ref": "§14 Contract Specific Questions, Q14.1.2"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Units shall be flat hermetically sealed double glazing units having dual seals to a maximum of 28mm thickness. Aluminium Spacer bars to contain desiccant to keep air/gas dry, including A rated warm edge spacer argon filled. Units shall comply with BS EN 1279 'Glass in Building-Insulating glass units' and have a minimum 5 year guarantee.",
+      "section_ref": "§14 Contract Specific Questions, Q14.1.3"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Are you able to supply 6.4mm laminated Stippolytte single glazing?",
+      "section_ref": "§14 Contract Specific Questions, Q14.1.4"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Operative will supply the size and specification of the unit to be provided. The unit will generally be manufactured and made available for collection within Bristol City within 2 working days of the order.",
+      "section_ref": "§14 Contract Specific Questions, Q14.1.5"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Most bulk orders will be placed by the joiners shop at Wellington Road, St Pauls, Bristol. Orders from the joiners shop for planned programmes of work, will be made available within 4 working days of order.",
+      "section_ref": "§14 Contract Specific Questions, Q14.1.6"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "All goods requested must be supplied properly packed and secured in such a manner as to enable them to reach their destination in good condition. All goods must be accompanied by a delivery note…",
+      "section_ref": "§14 Contract Specific Questions, Q14.1.8"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Any rejected goods shall be returnable at the suppliers risk and expense. Are you able to collect the rejected goods and provide replacements within 24 hours?",
+      "section_ref": "§14 Contract Specific Questions, Q14.1.9"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Applicants should note that if your company is successful all your employees that attend any Bristol City Council sites must hold a suitable and current Construction Skills Certificate Scheme (CSCS) certification or equivalent.",
+      "section_ref": "§1 Selection Criteria, Q11.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "If you are awarded a call-off contract please confirm you will pay all staff engaged to work on the call-off contract at least the Living Wage Foundation Rate",
+      "section_ref": "§1 Selection Criteria, Q12.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Please confirm that you have in place, or that you will have in place by contract award, the human and technical resources to perform the contract to ensure compliance with the General Data Protection Regulation",
+      "section_ref": "§1 Selection Criteria, Q13.1"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "79e2eedb878fb6085ab91cd41032147301d7f221070b931c951c1eeb8c54b905",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

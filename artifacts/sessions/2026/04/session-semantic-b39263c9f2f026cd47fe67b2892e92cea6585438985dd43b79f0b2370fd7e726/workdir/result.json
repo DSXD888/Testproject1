@@ -1,0 +1,476 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment (ESPO Framework 107_26)",
+      "description": "Single-lot ESPO framework (reference 107_26) covering inspection, maintenance and remedial work on indoor gymnasium, fitness & sport equipment and on outdoor schools play & sport equipment. Framework period runs 24 June 2026 – 31 January 2028 with an option to extend to 23 June 2030. The supplied document is the Tender Submission Document (response template); the detailed specification, technical standards and full evaluation methodology are externally incorporated from Framework Schedule 1 (Specification) and Section 2/5 of the Invitation to Tender, which are not included in this Docling payload.",
+      "requirements": [
+        "Supplier must confirm compliance with all essential elements of the requirement and specification as set out in Section 2 of the Invitation to Tender (Requirement including Specification).",
+        "Mandatory geographical coverage: Supplier must be able to provide Goods and/or Services to the nine defined regions of England.",
+        "Optional geographical coverage: Supplier asked to indicate ability to supply to Scotland, Wales and Northern Ireland so the Framework may be extended to eligible public sector bodies in those nations.",
+        "Supplier must submit a complete Pricing Schedule (Appendix B) with prices for each service requirement; failure to complete the Pricing Schedule in full may result in rejection of the Tender.",
+        "Tendered pricing populates the Framework pricing, from which Customers call off; earliest adjustment date for pricing increases is governed by Framework Schedule 2 (Charging Structure).",
+        "Supplier must allow for ESPO Framework Fees in the submitted Tender (clause 16 of the Framework Agreement terms and conditions).",
+        "Supplier must complete six method statements (five quality-based plus Social Value); each quality-based method statement has a maximum word limit of 700 words and the Social Value method statement has a maximum word limit of 500 words.",
+        "Supplier must describe how it will record and supply required management information (MI) to ESPO, including identifying customers using the framework.",
+        "Supplier must describe its site-visit, inspection, maintenance and remedial-work processes, including technical support, decommissioning/reinstatement, enquiry-response monitoring and lessons-learned loops.",
+        "Supplier must describe how it maintains equipment to a high safety and quality standard while minimising costs.",
+        "Supplier must complete the Social Value Percentage table (information-only) showing Social Value % offered across five Customer Contract Value Bands (£0.01–£50,000, £50,001–£100,000, £100,001–£200,000, £200,001–£400,000, £400,001+).",
+        "Supplier must indicate any prompt-payment discount terms offered for settlement within 7, 14 or 21 days from receipt of invoice (standard settlement is 30 days).",
+        "Supplier must complete the Confidential Information Schedule identifying any items considered commercially sensitive under FOIA/EIR and the Procurement Act 2023, together with reasons and a confidentiality expiry date.",
+        "Supplier must sign the Tendering Declaration (clauses 1–16), including: registration on the Central Digital Platform; non-collusion undertakings; a 120-day offer validity; acceptance of the Framework Agreement terms; and compliance with the Framework Fee provision.",
+        "Closing date for submission of tenders: 12 noon, 15 May 2026; submission must be uploaded to the www.eastmidstenders.org eProcurement Portal.",
+        "Tender Submission Document must be signed by a director, partner or other senior authorised representative on behalf of the organisation and include signatory name, job title, email and telephone."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Method Statement Q1 — Customer Engagement and Framework Management",
+          "summary": "Describe engagement with current and prospective Customers, attraction and retention of Customers across the Framework, framework management (monitoring enquiries, resources, capacity) and the supply of required management information (MI) including identifying ESPO framework customers.",
+          "weighting_text": "Weighting 3",
+          "evidence_anchor": {
+            "page_ref": "line_82",
+            "anchor_text": "Customer Engagement and Framework Management ... (Weighting 3)",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS"
+          }
+        },
+        {
+          "criterion": "Method Statement Q2 — Customer Site Visit Process",
+          "summary": "Describe the process for making inspection, maintenance and remedial appointments, arrival and delivery of service at customer sites, and specific previous examples.",
+          "weighting_text": "Weighting 3",
+          "evidence_anchor": {
+            "page_ref": "line_84",
+            "anchor_text": "Customer Site Visit Process ... (Weighting 3)",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS"
+          }
+        },
+        {
+          "criterion": "Method Statement Q3 — Inspection Report",
+          "summary": "Provide an example completed inspection & maintenance report; outline key features, customer benefits and added value, and how consistency of reporting is ensured across different staff members.",
+          "weighting_text": "Weighting 5",
+          "evidence_anchor": {
+            "page_ref": "line_86",
+            "anchor_text": "Inspection Report ... (Weighting 5)",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS"
+          }
+        },
+        {
+          "criterion": "Method Statement Q4 — Services following completion of work",
+          "summary": "Describe post-inspection and post-maintenance services (technical support, remedial works, equipment decommissioning and reinstatement), enquiry-response monitoring and lessons-learned loops, with previous examples.",
+          "weighting_text": "Weighting 4",
+          "evidence_anchor": {
+            "page_ref": "line_88",
+            "anchor_text": "Services following completion of work ... (Weighting 4)",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS"
+          }
+        },
+        {
+          "criterion": "Method Statement Q5 — Consistency of Standards",
+          "summary": "Describe how high safety and quality standards are maintained during inspections, maintenance and remedial work, and how costs are minimised, with previously evidenced examples.",
+          "weighting_text": "Weighting 4",
+          "evidence_anchor": {
+            "page_ref": "line_90",
+            "anchor_text": "Consistency of Standards ... (Weighting 4)",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS"
+          }
+        },
+        {
+          "criterion": "Method Statement Q6 — Organisation's Current Approach to Social Value",
+          "summary": "Describe the organisation's understanding of Social Value, any current or planned schemes/policies that benefit the economic, social and environmental well-being of the UK areas in which the organisation operates, and the processes used to measure effectiveness. Maximum word limit 500 (other method statements 700).",
+          "weighting_text": "Weighting 1",
+          "evidence_anchor": {
+            "page_ref": "line_92",
+            "anchor_text": "Your Organisation's Current Approach to Social Value ... (Weighting 1)",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS"
+          }
+        },
+        {
+          "criterion": "Price — Pricing Schedule (Appendix B)",
+          "summary": "Price is evaluated via the completed Pricing Schedule (Appendix B); detailed evaluation methodology is set out in Section 5 of the Invitation to Tender (Evaluation of Tenders) and is not included in this document. Failure to complete the Pricing Schedule may cause tender rejection.",
+          "evidence_anchor": {
+            "page_ref": "line_113",
+            "anchor_text": "Tenderers are required to detail in the Pricing Schedule (Appendix B) their prices for supplying the Goods and/or Services",
+            "section_ref": "3 PRICE"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot-1-indoor-gymnasium-equipment",
+          "summary": "Inspection and maintenance of indoor gymnasium equipment (with remedial work as required).",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "installation context: indoor gymnasium",
+            "service scope: inspection, maintenance, remedial work"
+          ],
+          "evidence_anchor": {
+            "page_ref": "line_2",
+            "anchor_text": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment",
+            "section_ref": "Document title block"
+          }
+        },
+        {
+          "seed_key": "lot-1-indoor-fitness-equipment",
+          "summary": "Inspection and maintenance of indoor fitness equipment (with remedial work as required).",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "installation context: indoor fitness facility",
+            "service scope: inspection, maintenance, remedial work"
+          ],
+          "evidence_anchor": {
+            "page_ref": "line_2",
+            "anchor_text": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment",
+            "section_ref": "Document title block"
+          }
+        },
+        {
+          "seed_key": "lot-1-indoor-sport-equipment",
+          "summary": "Inspection and maintenance of indoor sport equipment (with remedial work as required).",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "installation context: indoor sport facility",
+            "service scope: inspection, maintenance, remedial work"
+          ],
+          "evidence_anchor": {
+            "page_ref": "line_2",
+            "anchor_text": "Indoor Gymnasium, Fitness & Sport Equipment",
+            "section_ref": "Document title block"
+          }
+        },
+        {
+          "seed_key": "lot-1-outdoor-schools-play-equipment",
+          "summary": "Inspection and maintenance of outdoor schools play equipment (with remedial work as required).",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "installation context: outdoor, schools",
+            "service scope: inspection, maintenance, remedial work"
+          ],
+          "evidence_anchor": {
+            "page_ref": "line_2",
+            "anchor_text": "Outdoor Schools Play & Sport Equipment",
+            "section_ref": "Document title block"
+          }
+        },
+        {
+          "seed_key": "lot-1-outdoor-schools-sport-equipment",
+          "summary": "Inspection and maintenance of outdoor schools sport equipment (with remedial work as required).",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "installation context: outdoor, schools",
+            "service scope: inspection, maintenance, remedial work"
+          ],
+          "evidence_anchor": {
+            "page_ref": "line_2",
+            "anchor_text": "Outdoor Schools Play & Sport Equipment",
+            "section_ref": "Document title block"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "line_1",
+        "anchor_text": "ESPO reference 107_26 Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment",
+        "section_ref": "Document title block / TENDER SUBMISSION"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot-1-indoor-gymnasium-equipment",
+      "lot_number": "1",
+      "candidate_name": "Inspection & maintenance of indoor gymnasium equipment",
+      "summary": "Inspection, maintenance and (as required) remedial work on indoor gymnasium equipment, delivered across at minimum the nine defined regions of England.",
+      "requirements": [
+        "Service scope: inspection, maintenance, and remedial work.",
+        "Installation context: indoor gymnasium.",
+        "Geographic coverage: nine defined regions of England (mandatory); optional Scotland, Wales, Northern Ireland."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "line_2",
+        "anchor_text": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment",
+        "section_ref": "Document title block"
+      }
+    },
+    {
+      "seed_key": "lot-1-indoor-fitness-equipment",
+      "lot_number": "1",
+      "candidate_name": "Inspection & maintenance of indoor fitness equipment",
+      "summary": "Inspection, maintenance and (as required) remedial work on indoor fitness equipment.",
+      "requirements": [
+        "Service scope: inspection, maintenance, and remedial work.",
+        "Installation context: indoor fitness facility.",
+        "Geographic coverage: nine defined regions of England (mandatory); optional Scotland, Wales, Northern Ireland."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "line_2",
+        "anchor_text": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment",
+        "section_ref": "Document title block"
+      }
+    },
+    {
+      "seed_key": "lot-1-indoor-sport-equipment",
+      "lot_number": "1",
+      "candidate_name": "Inspection & maintenance of indoor sport equipment",
+      "summary": "Inspection, maintenance and (as required) remedial work on indoor sport equipment.",
+      "requirements": [
+        "Service scope: inspection, maintenance, and remedial work.",
+        "Installation context: indoor sport facility.",
+        "Geographic coverage: nine defined regions of England (mandatory); optional Scotland, Wales, Northern Ireland."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "line_2",
+        "anchor_text": "Indoor Gymnasium, Fitness & Sport Equipment",
+        "section_ref": "Document title block"
+      }
+    },
+    {
+      "seed_key": "lot-1-outdoor-schools-play-equipment",
+      "lot_number": "1",
+      "candidate_name": "Inspection & maintenance of outdoor schools play equipment",
+      "summary": "Inspection, maintenance and (as required) remedial work on outdoor schools play equipment.",
+      "requirements": [
+        "Service scope: inspection, maintenance, and remedial work.",
+        "Installation context: outdoor, schools setting.",
+        "Geographic coverage: nine defined regions of England (mandatory); optional Scotland, Wales, Northern Ireland."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "line_2",
+        "anchor_text": "Outdoor Schools Play & Sport Equipment",
+        "section_ref": "Document title block"
+      }
+    },
+    {
+      "seed_key": "lot-1-outdoor-schools-sport-equipment",
+      "lot_number": "1",
+      "candidate_name": "Inspection & maintenance of outdoor schools sport equipment",
+      "summary": "Inspection, maintenance and (as required) remedial work on outdoor schools sport equipment.",
+      "requirements": [
+        "Service scope: inspection, maintenance, and remedial work.",
+        "Installation context: outdoor, schools setting.",
+        "Geographic coverage: nine defined regions of England (mandatory); optional Scotland, Wales, Northern Ireland."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "line_2",
+        "anchor_text": "Outdoor Schools Play & Sport Equipment",
+        "section_ref": "Document title block"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 9500,
+    "lots.description": 8500,
+    "lots.requirements": 8500,
+    "lots.evaluation_criteria": 9000,
+    "lots.cpv_codes": 2000,
+    "lots.product_requirements": 6500,
+    "lots.technical_standards": 2000,
+    "product_requirement_seeds": 6500,
+    "document_role": 9000
+  },
+  "extraction_confidence_bps": 7200,
+  "warnings": [
+    {
+      "code": "DOCUMENT_IS_SUBMISSION_TEMPLATE_NOT_SPECIFICATION",
+      "message": "Payload is the ESPO 107_26 Tender Submission Document (bidder response form), not the Specification itself. The document explicitly references Section 2 of the Invitation to Tender (Requirement including Specification), Section 5 (Evaluation of Tenders), Framework Schedule 2 (Charging Structure) and Appendix B (Pricing Schedule) as the authoritative sources of specification detail, evaluation methodology, charging structure and pricing line-items respectively — none of which are included in the Docling payload.",
+      "evidence_refs": [
+        "line_25: return to ESPO in accordance with the instructions given in Instructions for Completing and Submitting a Tender (Section 5 of the Invitation to Tender)",
+        "line_45: Section 2 of the Invitation to Tender, Requirement (including Specification)",
+        "line_113: Tenderers are required to detail in the Pricing Schedule (Appendix B) their prices"
+      ]
+    },
+    {
+      "code": "NO_TECHNICAL_STANDARDS_CITED",
+      "message": "No explicit technical standards (e.g. BS EN 1176 for outdoor playground equipment, BS EN 1177 for impact-attenuating surfaces, BS EN 913 for gymnastic equipment) are cited in this document. The document references 'compliance certificates with relevant legislation and policy' generically (clause 12.0.1.1 of the Tendering Declaration) but names no specific standards. Technical standards are expected to reside in Framework Schedule 1 (Specification) / Section 2 of the Invitation to Tender.",
+      "evidence_refs": [
+        "line_208: Produce evidence that all compliance certificates with relevant legislation and policy are held and in force"
+      ]
+    },
+    {
+      "code": "NO_CPV_CODES_IN_DOCUMENT",
+      "message": "No CPV codes appear in the Docling markdown. Notice-level context indicates CPV 37400000-2 (Sports goods and equipment) and CPV 50000000-5 (Repair and maintenance services) are associated with the process, but these are not cited in this document and therefore not copied into the lot record. Daemon-side CPV assignment should come from the notice or a dedicated specification document.",
+      "evidence_refs": []
+    },
+    {
+      "code": "SINGLE_LOT_INFERRED",
+      "message": "Document describes a single-scope framework; no lot split is present in the text. Lot numbering uses '1' to match the pre-existing notice_lots row for this notice.",
+      "evidence_refs": [
+        "line_1: ESPO reference 107_26 Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment",
+        "line_29: 1. RESPONSE TO REQUIREMENT AND SPECIFICATION"
+      ]
+    },
+    {
+      "code": "PRICE_EVALUATION_METHOD_EXTERNAL",
+      "message": "Price evaluation methodology is referenced but not included (Section 5 of the Invitation to Tender). Only the existence of a Pricing Schedule (Appendix B) and the requirement to complete it are evidenced in this document.",
+      "evidence_refs": [
+        "line_113: Tenderers are advised to ensure they fully understand the evaluation methodology to be used to assess price, as described in Section 5 of the Invitation to Tender"
+      ]
+    },
+    {
+      "code": "PRODUCT_SEEDS_ARE_SERVICE_CATEGORIES",
+      "message": "Product requirement seeds represent broad equipment service-scope categories (gymnasium, fitness, sport, outdoor play, outdoor sport), not specific product models. Finer-grained product requirements and technical attributes are expected to appear in the Specification and/or Pricing Schedule.",
+      "evidence_refs": [
+        "line_2: Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "line_1",
+      "anchor_text": "ESPO reference 107_26",
+      "section_ref": "Document title block"
+    },
+    {
+      "page_ref": "line_2",
+      "anchor_text": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment",
+      "section_ref": "Document title block"
+    },
+    {
+      "page_ref": "line_4",
+      "anchor_text": "Framework Period 24 June 2026 – 31 January 2028",
+      "section_ref": "Document title block"
+    },
+    {
+      "page_ref": "line_7",
+      "anchor_text": "with the option to extend up to 23 June 2030",
+      "section_ref": "Document title block"
+    },
+    {
+      "page_ref": "line_14",
+      "anchor_text": "THIS DOCUMENT MUST BE UPLOADED ON TO THE WWW.EASTMIDSTENDERS.ORG EPROCUREMENT PORTAL",
+      "section_ref": "Submission instructions"
+    },
+    {
+      "page_ref": "line_21",
+      "anchor_text": "Closing date for submission of tender 12 noon, 15 May 2026",
+      "section_ref": "Document title block"
+    },
+    {
+      "page_ref": "line_41",
+      "anchor_text": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION",
+      "section_ref": "§1"
+    },
+    {
+      "page_ref": "line_45",
+      "anchor_text": "I confirm I comply with all essential elements of the requirement and specification as outlined in Section 2 of the Invitation to Tender",
+      "section_ref": "§1 Compliance with specification"
+    },
+    {
+      "page_ref": "line_52",
+      "anchor_text": "The mandatory requirement is for Suppliers to provide Goods and/or Services to the nine defined regions of England",
+      "section_ref": "§1 Geographical coverage"
+    },
+    {
+      "page_ref": "line_58",
+      "anchor_text": "Tenderers should also indicate the extent to which they can supply Goods and/or Services in other parts of the UK",
+      "section_ref": "§1 Geographical coverage"
+    },
+    {
+      "page_ref": "line_66",
+      "anchor_text": "2 NON-PRICE – METHOD STATEMENTS",
+      "section_ref": "§2"
+    },
+    {
+      "page_ref": "line_72",
+      "anchor_text": "There are 6 questions in total (5 quality based and 1 Social Value)",
+      "section_ref": "§2 Guidance"
+    },
+    {
+      "page_ref": "line_74",
+      "anchor_text": "maximum word limit of 700 words ... Social Value method statement there is a maximum word limit of 500 words",
+      "section_ref": "§2 Guidance"
+    },
+    {
+      "page_ref": "line_82",
+      "anchor_text": "Customer Engagement and Framework Management ... (Weighting 3)",
+      "section_ref": "§2 Q1"
+    },
+    {
+      "page_ref": "line_84",
+      "anchor_text": "Customer Site Visit Process ... (Weighting 3)",
+      "section_ref": "§2 Q2"
+    },
+    {
+      "page_ref": "line_86",
+      "anchor_text": "Inspection Report ... (Weighting 5)",
+      "section_ref": "§2 Q3"
+    },
+    {
+      "page_ref": "line_88",
+      "anchor_text": "Services following completion of work ... (Weighting 4)",
+      "section_ref": "§2 Q4"
+    },
+    {
+      "page_ref": "line_90",
+      "anchor_text": "Consistency of Standards ... (Weighting 4)",
+      "section_ref": "§2 Q5"
+    },
+    {
+      "page_ref": "line_92",
+      "anchor_text": "Your Organisation's Current Approach to Social Value ... (Weighting 1)",
+      "section_ref": "§2 Q6"
+    },
+    {
+      "page_ref": "line_101",
+      "anchor_text": "Customer Contract Value Band | Social Value % offered to Customers",
+      "section_ref": "§2 Social Value Percentage table"
+    },
+    {
+      "page_ref": "line_109",
+      "anchor_text": "3 PRICE",
+      "section_ref": "§3"
+    },
+    {
+      "page_ref": "line_115",
+      "anchor_text": "Tenderers must take care to ensure they provide a price for each service requirement within the Pricing Schedule (Appendix B)",
+      "section_ref": "§3 Guidance"
+    },
+    {
+      "page_ref": "line_125",
+      "anchor_text": "See the attached: 107_26 Pricing Schedule (Appendix B)",
+      "section_ref": "§3 Pricing Schedule"
+    },
+    {
+      "page_ref": "line_133",
+      "anchor_text": "Discount settlement terms from receipt of invoice",
+      "section_ref": "§3 Further Pricing Information"
+    },
+    {
+      "page_ref": "line_155",
+      "anchor_text": "5 CONFIDENTIAL INFORMATION SCHEDULE",
+      "section_ref": "§5"
+    },
+    {
+      "page_ref": "line_187",
+      "anchor_text": "6 TENDERING DECLARATION",
+      "section_ref": "§6"
+    },
+    {
+      "page_ref": "line_201",
+      "anchor_text": "undertake that this offer shall remain valid and open for acceptance for a period of 120 days from the date of submission",
+      "section_ref": "§6 Tendering Declaration clause 6"
+    },
+    {
+      "page_ref": "line_208",
+      "anchor_text": "Produce evidence that all compliance certificates with relevant legislation and policy are held and in force",
+      "section_ref": "§6 Tendering Declaration clause 12"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "sha256:0fe22bcd0541d1e53becd5bc06d99c7623d3aed2722a30a6095c1f3538e2b24d",
+    "policy_version": "2026.04.12",
+    "document_role": "tender_submission_template"
+  }
+}

@@ -1,0 +1,1212 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Maintenance and extension of the Operational Windstorm Service",
+      "description": "Maintain and further develop the operational windstorm climate service for the insurance and risk management sector under C3S. Scope includes continued operational delivery of ETC diagnostics based on ERA5, transition to ERA6, geographic extension to Northern (and where feasible Southern) Hemisphere midlatitudes, enhancement of derived products (return periods, cumulated precipitation), AI-based methods for storm detection and generative extension of statistics, maintenance and development of prototype applications and Jupyter notebooks, user engagement, co-designed online demonstrators, training, EQC liaison and L2 user support.",
+      "requirements": [
+        "Ensure continuous operational delivery, maintenance and evolution of the ETC diagnostics currently based on ERA5 reanalysis, including the CDS dataset 'Windstorm tracks and footprints derived from reanalysis over Europe between 1940 to present'.",
+        "Maintain and further develop the two prototype applications and the Jupyter Notebooks associated with the windstorm dataset, ensuring they remain fully operational, track any changes to the underlying datasets, and are promptly restored in coordination with C3S in the event of technical issues.",
+        "Perform scientific completeness and consistency checks, including validation against known recent high-impact European windstorms, and review/correct post-processing and spatial filtering criteria applied to the ETC diagnostics.",
+        "Assess the implications of the diagnostics for use in climate assessment products, in particular the C3S European State of the Climate (ESOTC).",
+        "Explore, test and benchmark AI-based methods for the identification, tracking, and characterisation of extra-tropical cyclones and associated windstorms, reproducing the existing algorithm-based diagnostics, ensuring physical consistency, full documentation, and rigorous evaluation against the ERA5-based methodology before any operational implementation.",
+        "Provide Level 2 user support by responding to user queries escalated by the C3S User Support team.",
+        "Prepare migration of the CDS catalogue entry and associated workflows to ERA6, including targeted testing of storm detection, tracking, and post-processing using initial ERA6 data and an assessment of ETC-diagnostic sensitivity to changes in resolution, model formulation, and data availability.",
+        "Extend the service geographically from the current European domain to cover the entire Northern Hemisphere midlatitudes and, where technically and scientifically feasible, the Southern Hemisphere midlatitudes, with methodological consistency.",
+        "Add cumulated precipitation associated with windstorm events as a complementary hazard variable alongside wind gusts.",
+        "Introduce return period estimates for key variables relevant to windstorm risk, methodologically consistent and suitable for risk assessment applications, delivered on cycles compatible with downstream users (e.g. insurance premium annual review).",
+        "Develop and assess methodologies to enhance windstorm statistics for downstream risk and catastrophe modelling; approaches may include UNSEEN-type resampling, synthetic windstorm event generation, perturbation/analogue-based approaches, and AI-based generative methods, benchmarked against ERA5 and evaluated for physical realism and statistical robustness.",
+        "Develop and assess extra-tropical storm indicators suitable for both historical reanalysis (ERA5/ERA6) and climate projection datasets (CMIP/CORDEX), based on gridded or regional diagnostics (e.g., exceedance-based metrics, spatial aggregates, persistence, footprint-based indicators) without relying on explicit tracking of individual storms.",
+        "Ensure methodological consistency with C3S Atlas products (selected climate models) and adaptability to evolving background climate models and ensemble configurations.",
+        "Develop a user engagement strategy with identification of relevant user communities (insurance, reinsurance, EIOPA, catastrophe modelling) including stakeholder interaction, collection of evolving requirements, and co-development of case studies; communicate findings whether positive or negative; deliver lessons learned, best practices and recommendations on scalability.",
+        "Transform valuable case studies into co-designed online demonstrators that deliver operational, regularly updated products with a visual component, with backing datasets delivered via the CDS, automatically maintainable after the contract ends, and with fully documented workflows.",
+        "Deliver training and dissemination materials co-defined with champion users and ECMWF (webinars, fact sheets, training events), contribute to ECMWF training and capacity-building activities, liaise with the C3S Evaluation and Quality Control (EQC) contractors, and set up and populate a C3S website presence for the service.",
+        "Propose a coherent set of deliverables and work packages addressing the above technical tasks (see §7.3 on Deliverables and Milestones)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Executive summary",
+          "summary": "Provide an executive summary of the proposal describing objectives, team and service level.",
+          "weighting_text": "Page limit: 2 pages (see Table 3)",
+          "evidence_anchor": {
+            "page_ref": "md:§8.2.1",
+            "section_ref": "8.2.1 Executive summary",
+            "anchor_text": "The Tenderer shall provide an executive summary of the proposal, describing the objectives, team and service level."
+          }
+        },
+        {
+          "criterion": "Track Record",
+          "summary": "Demonstrate that the Tenderer and any proposed subcontractors have experience with relevant projects in the public or private sector at national or international level; ECMWF may request evidence in the form of certificates.",
+          "weighting_text": "Page limit: 2 pages (general) + 2 per entity (see Table 3)",
+          "evidence_anchor": {
+            "page_ref": "md:§8.2.2",
+            "section_ref": "8.2.2 Track Record",
+            "anchor_text": "The Tenderer shall demonstrate for itself and for any proposed subcontractors that they have experience with relevant projects"
+          }
+        },
+        {
+          "criterion": "Quality of Resources to be Deployed",
+          "summary": "Team shall include a senior Service Manager with >5 years of relevant experience, a Contract Manager, and members with demonstrated experience in the various aspects of the ITT, each involved at a minimum of 10% of total working time.",
+          "weighting_text": "Page limit: 2 pages + CVs max 2 pages each (see Table 3)",
+          "evidence_anchor": {
+            "page_ref": "md:§8.2.3",
+            "section_ref": "8.2.3 Quality of Resources to be Deployed",
+            "anchor_text": "A senior team member with more than 5 years of experience in managing activities related to this ITT (referred to as Service Manager)"
+          }
+        },
+        {
+          "criterion": "Technical Solution Proposed",
+          "summary": "Provide background showing understanding of the C3S context, identify any third-party suppliers, and provide a statement of compliance for each requirement describing how the proposed solution maps to the requirements.",
+          "weighting_text": "Page limit: 2 + 3 per Work Package (see Table 3)",
+          "evidence_anchor": {
+            "page_ref": "md:§8.2.4",
+            "section_ref": "8.2.4 Technical Solution Proposed",
+            "anchor_text": "a statement of compliance for each requirement formulated throughout this document"
+          }
+        },
+        {
+          "criterion": "Management and Implementation",
+          "summary": "Describe project management considering the elements in §7.2 (WP0) including reporting, meetings, quality assurance, communications, KPIs, risk register, resources planning, subcontractor management and personal-data protection.",
+          "weighting_text": "Page limit: 6 + 2 per Work Package description (see Table 3)",
+          "evidence_anchor": {
+            "page_ref": "md:§8.2.5",
+            "section_ref": "8.2.5 Management and Implementation",
+            "anchor_text": "As part of the general project management description, and in addition to the guidance provided in Volume IIIB, Tenderers shall consider the elements described in Section 7.2 above."
+          }
+        },
+        {
+          "criterion": "Key Performance Indicators (SMART)",
+          "summary": "Propose SMART KPIs covering system performance (uptime, response time), search effectiveness (match rate for CDS datasets supported by expert knowledge), and user satisfaction; reported in Quarterly and Annual Implementation Reports and refined over the first 6 months.",
+          "evidence_anchor": {
+            "page_ref": "md:§7.8",
+            "section_ref": "7.8 Key Performance Indicators",
+            "anchor_text": "These shall include but are not limited to a) system performance (e.g. uptime rate, response time), b) search effectiveness (e.g. match rate of search results linking to reasonable CDS datasets and resources; supported by expert knowledge), and c) user satisfaction."
+          }
+        }
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot1-etc-diagnostics-era5-era6",
+          "summary": "Maintain ETC diagnostics currently based on ERA5 and prepare transition to ERA6, including CDS catalogue entry migration, sensitivity assessment, and targeted testing on initial ERA6 data.",
+          "requirement_type": "service_maintenance_and_migration",
+          "technical_attributes": [
+            "algorithms: Hodges and TempestExtremes storm-tracking",
+            "forcing: ERA5 reanalysis, migrating to ERA6",
+            "update cadence: monthly as new ERA5 reanalysis data become available",
+            "domain: European (current) extended to NH midlatitudes (SH where feasible)"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§4.3.1",
+            "section_ref": "4.3.1 Debug and Maintenance of the extra-tropical cyclone (ETC) diagnostics based on ERA5 and prepare extension to ERA6",
+            "anchor_text": "The Successful Tenderer shall ensure the continuous operational delivery, maintenance, and evolution of the ETC diagnostics and associated products currently based on ERA5 reanalysis and prepare their transition to ERA6."
+          }
+        },
+        {
+          "seed_key": "lot1-windstorm-tracks-and-footprints-dataset",
+          "summary": "Maintain the CDS dataset 'Windstorm tracks and footprints derived from reanalysis over Europe between 1940 to present', including tracks, footprints, a ~1 km downscaled footprint product, and aggregated storm summary indicators.",
+          "requirement_type": "dataset",
+          "technical_attributes": [
+            "coverage: pan-European, 1940–present",
+            "source: ERA5 reanalysis (transitioning to ERA6)",
+            "outputs: storm tracks, gridded footprints of max 10 m wind gusts, ~1 km downscaled footprint",
+            "statistics: storm frequency, severity indices aggregated annually/regionally",
+            "delivery: CDS catalogue entry; update cadence monthly"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§4.3.1.1",
+            "section_ref": "4.3.1.1 Products to be maintained",
+            "anchor_text": "The CDS dataset Windstorm tracks and footprints derived from reanalysis over Europe between 1940 to present"
+          }
+        },
+        {
+          "seed_key": "lot1-prototype-applications",
+          "summary": "Two prototype user-facing applications accompanying the windstorm dataset, to be maintained and further developed so that they remain fully operational, are updated when the underlying datasets change, and are promptly restored in coordination with C3S on technical issues.",
+          "requirement_type": "application",
+          "technical_attributes": [
+            "two prototype web/applications",
+            "must track underlying dataset updates",
+            "SLA: promptly restored after technical issues"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§4.3.1.1",
+            "section_ref": "4.3.1.1 Products to be maintained",
+            "anchor_text": "Two prototype applications, which shall be maintained and further developed."
+          }
+        },
+        {
+          "seed_key": "lot1-windstorm-jupyter-notebooks",
+          "summary": "Jupyter Notebooks associated with the windstorm dataset, intended to support advanced and expert users; must be maintained alongside dataset evolution.",
+          "requirement_type": "notebooks",
+          "technical_attributes": [
+            "format: Jupyter Notebooks",
+            "audience: advanced/expert users",
+            "preferred hosting: C3S-hosted and linked from service pages (see §7.4)"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§4.3.1.1",
+            "section_ref": "4.3.1.1 Products to be maintained",
+            "anchor_text": "Jupyter Notebooks associated with the windstorm dataset, intended to support advanced and expert users."
+          }
+        },
+        {
+          "seed_key": "lot1-ai-based-storm-tracking",
+          "summary": "AI-based methods for identification, tracking and characterisation of ETCs and associated windstorms, required to reproduce existing algorithm-based diagnostics, be physically consistent, fully documented, and rigorously evaluated against the ERA5-based methodology before any operational consideration.",
+          "requirement_type": "r_and_d_methodology",
+          "technical_attributes": [
+            "must reproduce existing algorithmic diagnostics",
+            "physically consistent",
+            "rigorous evaluation against ERA5-based methodology",
+            "sensitivity to post-processing and filtering choices must be assessed"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§4.3.1.3",
+            "section_ref": "4.3.1.3 Methodological development and innovation",
+            "anchor_text": "Explore, test, and benchmark AI-based methods for the identification, tracking, and characterisation of extra-tropical cyclones and associated windstorms"
+          }
+        },
+        {
+          "seed_key": "lot1-geographic-extension-nh-sh",
+          "summary": "Extend the windstorm service from the current European domain to the entire Northern Hemisphere midlatitudes and, where technically and scientifically feasible, the Southern Hemisphere midlatitudes with methodological consistency.",
+          "requirement_type": "service_extension_geographic",
+          "technical_attributes": [
+            "NH midlatitudes mandatory",
+            "SH midlatitudes where feasible",
+            "methodological consistency with existing European products"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§4.3.2.1",
+            "section_ref": "4.3.2.1 Geographic extension",
+            "anchor_text": "Extend the current service, which is presently limited to a European domain, to cover the entire Northern Hemisphere midlatitudes and, where technically and scientifically feasible, the Southern Hemisphere midlatitudes."
+          }
+        },
+        {
+          "seed_key": "lot1-precipitation-and-return-periods",
+          "summary": "Extend derived variables/products with cumulated precipitation associated with windstorm events and return period estimates for key risk-relevant variables, methodologically consistent and suited to downstream risk-assessment cycles (e.g. insurance premium annual review).",
+          "requirement_type": "derived_product_extension",
+          "technical_attributes": [
+            "variable: cumulated precipitation associated with windstorm events",
+            "metric: return period estimates for key windstorm-risk variables",
+            "delivery cadence aligned with annual insurance review cycles"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§4.3.2.2",
+            "section_ref": "4.3.2.2 Extension of variables and derived products",
+            "anchor_text": "Add cumulated precipitation associated with windstorm events, to provide complementary hazard information alongside wind gusts."
+          }
+        },
+        {
+          "seed_key": "lot1-windstorm-statistics-augmentation",
+          "summary": "Scientifically robust methodologies to increase the effective sample size of windstorm events derived from reanalysis for downstream risk and catastrophe modelling, including UNSEEN-type resampling, synthetic windstorm events, perturbation/analogue approaches, and AI-based generative methods.",
+          "requirement_type": "r_and_d_methodology",
+          "technical_attributes": [
+            "UNSEEN-type resampling with large ensembles",
+            "synthetic windstorm event generation",
+            "perturbation- or analogue-based approaches",
+            "AI-based generative methods",
+            "benchmark against existing ERA5-based windstorm dataset"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§4.3.2.3",
+            "section_ref": "4.3.2.3 Enhancement of windstorm statistics for downstream risk and catastrophe modelling",
+            "anchor_text": "Tenderers shall propose scientifically robust approaches to increase the effective sample size of windstorm events derived from reanalysis"
+          }
+        },
+        {
+          "seed_key": "lot1-etc-indicators-reanalysis-and-projections",
+          "summary": "Extra-tropical storm indicators for historical reanalysis and climate projections (e.g., CMIP6/CMIP7 when available), based on gridded or regional diagnostics (exceedance-based metrics, spatial aggregates, persistence, footprint-based indicators) computable without tracking individual storms, assessed for robustness, interpretability and cross-dataset consistency.",
+          "requirement_type": "indicator_family",
+          "technical_attributes": [
+            "datasets: ERA5/ERA6, CMIP6/CMIP7 (when available), CORDEX",
+            "reference periods: 2021–2050, 2071–2100 vs historical reference",
+            "indicator style: gridded/regional, exceedance-based, spatial aggregates, persistence, footprint-based"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§4.3.2.4",
+            "section_ref": "4.3.2.4 Development of extra-tropical storm indicators for reanalysis and climate projections",
+            "anchor_text": "develop and assess extra-tropical storm-related indicators suitable for both historical reanalysis datasets (e.g. ERA5, ERA6) and climate projection datasets (CMIP / CORDEX based)"
+          }
+        },
+        {
+          "seed_key": "lot1-user-engagement-and-case-studies",
+          "summary": "User engagement programme and co-developed case studies with insurance, reinsurance, EIOPA-equivalent policymakers and catastrophe modellers; delivery of lessons learned, best practices, and scalability recommendations.",
+          "requirement_type": "engagement_and_studies",
+          "technical_attributes": [
+            "stakeholder communities: insurance, reinsurance, EIOPA, catastrophe modelling",
+            "deliverables: case-study reports, lessons learned, best practices, scalability recommendations"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§4.3.3",
+            "section_ref": "4.3.3 User Engagement strategy and identification of users",
+            "anchor_text": "Development of a user engagement strategy, with the identification of relevant user communities (e.g., insurance and reinsurance companies, EIOPA or equivalent policymakers)"
+          }
+        },
+        {
+          "seed_key": "lot1-online-demonstrators",
+          "summary": "Co-designed online demonstrators with operational, regularly updated products, a visual component, underlying data delivered via CDS, automatically maintainable after contract end, and fully documented workflows.",
+          "requirement_type": "application",
+          "technical_attributes": [
+            "operational, regularly updated",
+            "visual component (graphical products, web-application)",
+            "underlying data delivered via CDS",
+            "workflows automatically maintainable post-contract",
+            "complete documentation"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§4.3.4",
+            "section_ref": "4.3.4 Co-development of online demonstrators",
+            "anchor_text": "For those case studies that demonstrate an added value, the results should be transformed into online demonstrators"
+          }
+        },
+        {
+          "seed_key": "lot1-training-dissemination-eqc-website",
+          "summary": "Training and dissemination materials (interactive webinars, fact sheets, training events), support to ECMWF training activities and MOOCs, liaison with C3S Evaluation and Quality Control contractors, and setup of a C3S website presence for the service.",
+          "requirement_type": "training_and_comms",
+          "technical_attributes": [
+            "interactive webinars, fact sheets, training events",
+            "train-the-trainer / MOOC contribution",
+            "EQC liaison",
+            "C3S website content (text, tools, materials)"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§4.3.5",
+            "section_ref": "4.3.5 Co-design of dissemination material, training elements and EQC",
+            "anchor_text": "Delivery of training and dissemination materials co-defined with champion users and ECMWF"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ECMWF Codex (github.com/ecmwf/codex)",
+          "context": "Authoritative set of guidelines for software development best practices at ECMWF and by its contractors. Covers Software Management Plan, contribution workflow via PRs to ECMWF-managed repositories, containerised deployment (Helm + specific repo structure), and documentation.",
+          "evidence_anchor": {
+            "page_ref": "md:§7.4",
+            "section_ref": "7.4 Code delivery and documentation",
+            "anchor_text": "The Successful Tenderer shall ensure that all software development is strictly consistent with the ECMWF Codex (see github.com/ecmwf/codex)."
+          }
+        },
+        {
+          "standard_ref": "Copernicus data licence (open access, free to use)",
+          "context": "All CDS data published under Copernicus open-access data licence.",
+          "evidence_anchor": {
+            "page_ref": "md:§2.1",
+            "section_ref": "2.1 The Climate Data store",
+            "anchor_text": "C3S data is offered with open access and is free to use under the Copernicus data licence."
+          }
+        },
+        {
+          "standard_ref": "GCOS Essential Climate Variables (ECVs)",
+          "context": "CDS data catalogue explicitly maps to most GCOS ECVs across global and regional domains.",
+          "evidence_anchor": {
+            "page_ref": "md:§2.1",
+            "section_ref": "2.1 The Climate Data store",
+            "anchor_text": "for most of the Global Climate Observing System (GCOS) Essential Climate Variables (ECVs)"
+          }
+        },
+        {
+          "standard_ref": "CMIP6 / CMIP7 / CORDEX ensembles",
+          "context": "Indicators for climate projections to be derived from CMIP6 (with CMIP7 when available) and CORDEX-based downscaled ensembles, aligned with C3S Atlas philosophy.",
+          "evidence_anchor": {
+            "page_ref": "md:§4.3.2.4",
+            "section_ref": "4.3.2.4 Development of extra-tropical storm indicators for reanalysis and climate projections",
+            "anchor_text": "an ensemble (e.g., CMIP6 or CMIP7 when available) multi-decadal climate simulations"
+          }
+        },
+        {
+          "standard_ref": "C3S Atlas methodological framework",
+          "context": "Consistency with Copernicus Climate Change Service Atlas products required for selected climate models, ensemble design, selection rules and robust statistics.",
+          "evidence_anchor": {
+            "page_ref": "md:§4.3.2.5",
+            "section_ref": "4.3.2.5 Consistency with Copernicus climate projections and large ensembles",
+            "anchor_text": "Ensure methodological consistency with Copernicus Climate Change Service Atlas products"
+          }
+        },
+        {
+          "standard_ref": "European Commission travel cost rules — Commission Decision C(2024)5405 (Table 3, Unit cost per distance band); daily subsistence allowance ≤ €300",
+          "context": "Travel prices must be based on the European Commission's calculator and daily subsistence ≤€300; no profit margin on travel; justifications required for deviations.",
+          "evidence_anchor": {
+            "page_ref": "md:§7.2",
+            "section_ref": "7.2 WP0: Management and Coordination",
+            "anchor_text": "Travel prices should be based on the European Commission's calculator [Table 3: Unit cost per distance band for air or combined air/rail travel, Commission Decision C(2024)5405]"
+          }
+        },
+        {
+          "standard_ref": "Earthkit (https://earthkit.ecmwf.int)",
+          "context": "Open-source Python framework led by ECMWF; software and workflows shall make use of and contribute to existing ECMWF frameworks such as Earthkit where possible.",
+          "evidence_anchor": {
+            "page_ref": "md:§7.4",
+            "section_ref": "7.4 Code delivery and documentation",
+            "anchor_text": "the software and workflows shall make use of and contribute to existing ECMWF software frameworks, such as Earthkit"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§4",
+        "section_ref": "4 Lot 1: Maintenance and extension of the Operational Windstorm Service",
+        "anchor_text": "## 4 Lot 1: Maintenance and extension of the Operational Windstorm Service"
+      }
+    },
+    {
+      "lot_number": "2",
+      "title": "Maintenance and extension of operational storm surge products",
+      "description": "Ensure continued operational delivery, scientific robustness and strategic extension of the C3S Operational Storm Surge Climate Service. Scope includes operationalising the storm-surge/extreme-sea-level product chain with NRT delivery and QA/QC, ERA6 preparation, AI-based method exploration for surrogate/emulation/post-processing, maintenance and evolution of statistical indicators (percentiles, return periods, confidence bounds), restructuring of the climate-projections component to a broad CMIP6/CMIP7 selection aligned with C3S Atlas, plus training, L2 support, ESOTC contribution and website presence.",
+      "requirements": [
+        "Generate an operational chain to update the current product with NRT delivery and ensure continuous operational delivery of the reanalysis-based products at least of the same quality and resolution as the current ones, with monitoring and timely restoration after issues.",
+        "Permit alternative modelling frameworks or updated model versions only if outputs are scientifically equivalent or improved, methodological changes are fully documented, and impacts on historical consistency/uncertainty/interpretation are clearly assessed (continuity not strictly required but must be documented and appropriately versioned).",
+        "Subject any proposed change of underlying model to scientific validation, benchmarking against the existing products, and approval by ECMWF/C3S prior to operational adoption.",
+        "Implement an operational update cycle with updates at least monthly (or as agreed with ECMWF/C3S) to incorporate newly available reanalysis data and keep the catalogue current.",
+        "Implement QA/QC procedures appropriate for operational dissemination (consistency checks, completeness checks, outlier detection, metadata validation, and verification against known historical high-water events where feasible).",
+        "Maintain and update CDS catalogue entries, documentation, and user guidance so changes are traceable and reproducible.",
+        "Prepare the product chain for ERA6, including impact assessment on forcing fields, resolution and availability; targeted early-ERA6 testing of the end-to-end workflow (forcing → modelling/post-processing → delivery); and a documented sensitivity assessment and migration plan for operational adoption once ERA6 becomes available at scale.",
+        "Explore AI-based methods for generation, emulation, acceleration or post-processing of storm-surge and extreme-sea-level products (surrogate/emulation models, AI-assisted post-processing/bias-correction/downscaling, hybrid physics+ML), ensuring physical consistency, rigorous evaluation against existing physics-based products, robustness/stability/operational suitability, and never compromising operational continuity.",
+        "Maintain the indicator generation chain and ensure indicators remain consistent across updates (versioning, methodological traceability, backward compatibility where possible); document methods, assumptions, limitations and uncertainty treatment (extreme value methodology, confidence intervals, sensitivity to record length).",
+        "Expand indicators as needed by the user community.",
+        "Contribute to cross-lot coordination with Lot 1 and deliver joint windstorm–storm-surge products for selected events and regionally aggregated statistics (see §6).",
+        "Restructure the climate-projections component so that storm-surge/sea-level indicators are produced and assessed from a broad selection of CMIP6 simulations (and CMIP7 when available) through 2100, aligned with the C3S Atlas philosophy (transparent model selection rules, consistent periods/scenarios, robust ensemble statistics, reproducible processing).",
+        "Define and document a model/ensemble selection strategy (eligibility criteria, scenario coverage, temporal windows such as near-term/mid-century/end-century, handling of multiple realizations), and a consistent approach for ensemble aggregation and uncertainty characterisation.",
+        "Ensure methodological consistency and traceability between historical reanalysis indicators (ERA5/ERA6) and future indicators derived from CMIP ensembles, with clear separation of drivers (mean sea level contribution vs surge/tide variability) where relevant.",
+        "Provide updated training and example workflows (e.g. notebooks demonstrating retrieval, visualisation, detrending, percentile/return-period calculations and interpretation), Level-2 support, C3S website content, and contribute to ESOTC report writing where products are selected for inclusion."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Executive summary",
+          "summary": "Provide an executive summary of the proposal describing objectives, team and service level.",
+          "weighting_text": "Page limit: 2 pages (see Table 3)",
+          "evidence_anchor": {
+            "page_ref": "md:§8.2.1",
+            "section_ref": "8.2.1 Executive summary",
+            "anchor_text": "The Tenderer shall provide an executive summary of the proposal, describing the objectives, team and service level."
+          }
+        },
+        {
+          "criterion": "Track Record",
+          "summary": "Demonstrate relevant experience for Tenderer and subcontractors; ECMWF may request certificates.",
+          "weighting_text": "Page limit: 2 pages (general) + 2 per entity (see Table 3)",
+          "evidence_anchor": {
+            "page_ref": "md:§8.2.2",
+            "section_ref": "8.2.2 Track Record",
+            "anchor_text": "The Tenderer shall demonstrate for itself and for any proposed subcontractors that they have experience with relevant projects"
+          }
+        },
+        {
+          "criterion": "Quality of Resources to be Deployed",
+          "summary": "Team must include Service Manager (>5 years experience), Contract Manager, and members with demonstrated experience in ITT activities, each engaged at least 10% FTE.",
+          "weighting_text": "Page limit: 2 pages + CVs max 2 pages each (see Table 3)",
+          "evidence_anchor": {
+            "page_ref": "md:§8.2.3",
+            "section_ref": "8.2.3 Quality of Resources to be Deployed",
+            "anchor_text": "A senior team member with more than 5 years of experience in managing activities related to this ITT (referred to as Service Manager)"
+          }
+        },
+        {
+          "criterion": "Technical Solution Proposed",
+          "summary": "Explain understanding of the C3S context, identify third-party suppliers, and provide a statement of compliance mapping the proposed solution to each requirement in the ITT.",
+          "weighting_text": "Page limit: 2 + 3 per Work Package (see Table 3)",
+          "evidence_anchor": {
+            "page_ref": "md:§8.2.4",
+            "section_ref": "8.2.4 Technical Solution Proposed",
+            "anchor_text": "a statement of compliance for each requirement formulated throughout this document"
+          }
+        },
+        {
+          "criterion": "Management and Implementation",
+          "summary": "Address the WP0 management elements (reporting, meetings, QA, communications, KPIs, risk register, resources planning, subcontractor management, personal-data protection) from §7.2.",
+          "weighting_text": "Page limit: 6 + 2 per Work Package description (see Table 3)",
+          "evidence_anchor": {
+            "page_ref": "md:§8.2.5",
+            "section_ref": "8.2.5 Management and Implementation",
+            "anchor_text": "As part of the general project management description, and in addition to the guidance provided in Volume IIIB, Tenderers shall consider the elements described in Section 7.2 above."
+          }
+        },
+        {
+          "criterion": "Key Performance Indicators (SMART)",
+          "summary": "Propose SMART KPIs covering system performance, search effectiveness and user satisfaction, reported in Quarterly/Annual Implementation Reports and refined with ECMWF during the first 6 months.",
+          "evidence_anchor": {
+            "page_ref": "md:§7.8",
+            "section_ref": "7.8 Key Performance Indicators",
+            "anchor_text": "These shall include but are not limited to a) system performance (e.g. uptime rate, response time), b) search effectiveness ... c) user satisfaction."
+          }
+        }
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot2-storm-surge-operational-reanalysis-chain",
+          "summary": "Operational chain providing NRT updates of the reanalysis-based storm-surge/extreme-sea-level products at least at the same quality and resolution as the current dataset, with QA/QC and catalogue updates.",
+          "requirement_type": "service_operationalisation",
+          "technical_attributes": [
+            "basis: Global Tide and Surge Model forced by ERA5 (currently)",
+            "variables: storm surge residual, total water level (tide + surge + mean sea level)",
+            "outputs: sub-daily (e.g. 10-minute, hourly, daily maxima), NetCDF delivery",
+            "update cadence: at least monthly or as agreed with ECMWF/C3S",
+            "QA/QC: consistency, completeness, outlier detection, metadata validation, verification against known high-water events",
+            "current dataset does not update; must become operational"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§5.2.1",
+            "section_ref": "5.2.1 Maintenance and operational running",
+            "anchor_text": "Current basis: The reanalysis product provides global time series of sea-level related variables (including storm surge residual and total water level)"
+          }
+        },
+        {
+          "seed_key": "lot2-storm-surge-era6-migration",
+          "summary": "Prepare the storm-surge product chain for ERA6, including impact assessment, early ERA6 workflow testing, sensitivity assessment and documented migration plan.",
+          "requirement_type": "service_migration",
+          "technical_attributes": [
+            "impact assessment on forcing fields, resolution, availability",
+            "targeted early-ERA6 testing of forcing → modelling/post-processing → delivery",
+            "documented sensitivity assessment and migration plan"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§5.2.1.1",
+            "section_ref": "5.2.1.1 Required operational capability",
+            "anchor_text": "The Successful Tenderer shall prepare the product chain for ERA6"
+          }
+        },
+        {
+          "seed_key": "lot2-ai-storm-surge-methods",
+          "summary": "AI-based methods for generation, emulation, acceleration or post-processing of storm-surge and extreme-sea-level products, including surrogate/emulation models, AI-assisted post-processing/bias-correction/downscaling, or hybrid physics+ML approaches.",
+          "requirement_type": "r_and_d_methodology",
+          "technical_attributes": [
+            "surrogate or emulation models for hydrodynamic simulations",
+            "AI-assisted post-processing, bias correction, downscaling",
+            "hybrid physics + ML approaches",
+            "physical consistency; rigorous evaluation against physics-based products; robustness for operational use"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§5.2.2",
+            "section_ref": "5.2.2 Exploration of AI-based methods",
+            "anchor_text": "the Successful Tenderer shall explore the potential use of AI-based methods for the generation, emulation, acceleration, or post-processing of storm surge and extreme sea-level products"
+          }
+        },
+        {
+          "seed_key": "lot2-indicator-family-percentiles-return-periods",
+          "summary": "Maintain and evolve the CDS indicator family (percentiles and return periods, including confidence bounds) for total water levels and surge levels, with explicit methodological traceability, versioning, backward compatibility where possible, and documented uncertainty treatment.",
+          "requirement_type": "indicator_family",
+          "technical_attributes": [
+            "percentiles and return periods for total water level and surge level",
+            "confidence intervals / uncertainty bounds",
+            "extreme value methodology",
+            "versioned with methodological traceability and backward compatibility where possible"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§5.2.3",
+            "section_ref": "5.2.3 Maintenance and evolution of indicators and derived products",
+            "anchor_text": "The CDS also provides statistical indicators (e.g., percentiles and return periods, including confidence bounds) for total water levels and surge levels."
+          }
+        },
+        {
+          "seed_key": "lot2-climate-projections-restructuring",
+          "summary": "Restructure the climate-projections component from a narrow HighResMIP CMIP6 subset to a broad selection of CMIP6 (and CMIP7 when available) simulations up to 2100, aligned with C3S Atlas (model selection rules, consistent periods/scenarios, robust ensemble statistics, reproducible processing).",
+          "requirement_type": "service_extension_projections",
+          "technical_attributes": [
+            "broad CMIP6 selection up to 2100 (CMIP7 when available)",
+            "C3S Atlas alignment (selection rules, periods/scenarios, ensemble stats)",
+            "temporal windows: near-term, mid-century, end-century",
+            "ensemble aggregation + uncertainty characterisation (model spread, internal variability, robustness metrics)",
+            "separate drivers: mean sea level contribution vs surge/tide variability"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§5.2.4.2",
+            "section_ref": "5.2.4.2 Restructuring the climate-projections component (CMIP breadth + Atlas alignment)",
+            "anchor_text": "restructure the projections work so that storm-surge / sea-level indicators can be produced and assessed from a broad selection of CMIP6 simulations available in the CDS and up to 2100 and CMIP7 simulations when they become available"
+          }
+        },
+        {
+          "seed_key": "lot2-training-and-notebooks",
+          "summary": "Training and example workflows (e.g. notebooks demonstrating retrieval, visualisation, detrending, percentile/return-period calculations and interpretation), plus Level-2 user support and C3S website content.",
+          "requirement_type": "training_and_support",
+          "technical_attributes": [
+            "notebooks: retrieval, visualisation, detrending, percentile/return-period calculations, interpretation",
+            "Level-2 support via Jira / forum",
+            "C3S website content"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§5.3",
+            "section_ref": "5.3 Other activities",
+            "anchor_text": "updated training and example workflows (e.g., notebooks demonstrating retrieval, visualisation, detrending, percentile/return-period calculations, and interpretation)"
+          }
+        },
+        {
+          "seed_key": "joint-windstorm-stormsurge-products",
+          "summary": "Joint windstorm–storm-surge products enabling compound coastal flood and wind-damage risk assessment, including event-based joint diagnostics, compound hazard indicators, regionally aggregated statistics and example workflows/demonstrators. Shared deliverable coordinated between Lot 1 and Lot 2 Successful Tenderers.",
+          "requirement_type": "joint_cross_lot_product",
+          "technical_attributes": [
+            "event-based joint diagnostics linking Lot 1 windstorm events with Lot 2 storm-surge information",
+            "compound hazard indicators (co-occurrence / joint severity of extreme winds and coastal water levels)",
+            "regionally aggregated statistics (joint exceedance frequency, joint return periods, conditional probabilities)",
+            "example workflows / demonstrators / Jupyter Notebooks",
+            "harmonised spatial/temporal definitions, event timing and metadata conventions across Lots"
+          ],
+          "evidence_anchor": {
+            "page_ref": "md:§6.1",
+            "section_ref": "6.1 Scope of joint products",
+            "anchor_text": "The Successful Tenderers for Lot 1 and Lot 2 shall ensure coordination and technical consistency to enable the development and maintenance of joint windstorm-storm surge products."
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ECMWF Codex (github.com/ecmwf/codex)",
+          "context": "Applies equally to Lot 2 software: Software Management Plan, PR-based delivery to ECMWF repositories, Helm-based containerisation, and documentation.",
+          "evidence_anchor": {
+            "page_ref": "md:§7.4",
+            "section_ref": "7.4 Code delivery and documentation",
+            "anchor_text": "The Successful Tenderer shall ensure that all software development is strictly consistent with the ECMWF Codex"
+          }
+        },
+        {
+          "standard_ref": "C3S Atlas philosophy (transparent model selection, consistent periods/scenarios, robust ensemble statistics, reproducible processing)",
+          "context": "Projections restructuring must align with the C3S Atlas philosophy.",
+          "evidence_anchor": {
+            "page_ref": "md:§5.2.4.2",
+            "section_ref": "5.2.4.2 Restructuring the climate-projections component (CMIP breadth + Atlas alignment)",
+            "anchor_text": "This must be aligned with the C3S Atlas philosophy (transparent model selection rules, consistent periods/scenarios, robust ensemble statistics, and reproducible processing)."
+          }
+        },
+        {
+          "standard_ref": "NetCDF delivery format",
+          "context": "Current storm-surge outputs are delivered as NetCDF at sub-daily resolution.",
+          "evidence_anchor": {
+            "page_ref": "md:§5.2.1",
+            "section_ref": "5.2.1 Maintenance and operational running",
+            "anchor_text": "outputs at sub-daily resolution (e.g., 10-minute, hourly, daily maxima) and NetCDF delivery"
+          }
+        },
+        {
+          "standard_ref": "Global Tide and Surge Model forced with ERA5",
+          "context": "Current basis for the storm-surge reanalysis product; alternative models permitted only under validation/benchmarking and ECMWF approval.",
+          "evidence_anchor": {
+            "page_ref": "md:§5.2.1",
+            "section_ref": "5.2.1 Maintenance and operational running",
+            "anchor_text": "generated by a state of the art Global tides and surge model with ERA5 forcing"
+          }
+        },
+        {
+          "standard_ref": "CMIP6 / CMIP7 / HighResMIP",
+          "context": "Climate-projections component must move beyond HighResMIP subset to a broader CMIP6 selection with CMIP7 when available.",
+          "evidence_anchor": {
+            "page_ref": "md:§5.2.4.2",
+            "section_ref": "5.2.4.2 Restructuring the climate-projections component (CMIP breadth + Atlas alignment)",
+            "anchor_text": "The existing projections component is based on a HighResMIP subset (CMIP6 experiment) for the projections period, which is too narrow for 'multi-model / Atlas-style' climate assessment"
+          }
+        },
+        {
+          "standard_ref": "Copernicus data licence (open access, free to use)",
+          "context": "All CDS data published under Copernicus open-access data licence.",
+          "evidence_anchor": {
+            "page_ref": "md:§2.1",
+            "section_ref": "2.1 The Climate Data store",
+            "anchor_text": "C3S data is offered with open access and is free to use under the Copernicus data licence."
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§5",
+        "section_ref": "5 Lot 2: Maintenance and extension of operational storm surge products",
+        "anchor_text": "## 5 Lot 2: Maintenance and extension of operational storm surge products"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot1-etc-diagnostics-era5-era6",
+      "lot_number": "1",
+      "candidate_name": "Operational ETC diagnostic chain (ERA5 → ERA6)",
+      "summary": "Continuous operational delivery, maintenance and evolution of extra-tropical cyclone diagnostics currently based on ERA5 reanalysis, including preparation for transition to ERA6 and assessment of diagnostic sensitivity to resolution, model formulation and data availability.",
+      "requirements": [
+        "Maintain ETC diagnostics produced by the Hodges and TempestExtremes tracking algorithms.",
+        "Prepare and document the CDS catalogue and workflow migration from ERA5 to ERA6.",
+        "Run targeted early-ERA6 testing of storm detection, tracking, and post-processing.",
+        "Assess diagnostic sensitivity to changes in resolution, model formulation, and data availability."
+      ],
+      "technical_standards": [
+        "ECMWF Codex (github.com/ecmwf/codex)",
+        "CDS catalogue conventions"
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§4.3.1",
+        "section_ref": "4.3.1 Debug and Maintenance of the extra-tropical cyclone (ETC) diagnostics based on ERA5 and prepare extension to ERA6",
+        "anchor_text": "The Successful Tenderer shall ensure the continuous operational delivery, maintenance, and evolution of the ETC diagnostics"
+      }
+    },
+    {
+      "seed_key": "lot1-windstorm-tracks-and-footprints-dataset",
+      "lot_number": "1",
+      "candidate_name": "CDS dataset: Windstorm tracks and footprints (reanalysis, Europe, 1940–present)",
+      "summary": "Pan-European windstorm dataset derived from ERA5 reanalysis, providing storm tracks, gridded footprints of maximum 10 m wind gusts, a ~1 km downscaled footprint product, and aggregated storm summary indicators; updated monthly.",
+      "requirements": [
+        "Maintain CDS catalogue entry and associated documentation.",
+        "Keep monthly update cadence aligned with ERA5 reanalysis releases.",
+        "Preserve downscaled ~1 km footprint product and aggregated statistics.",
+        "Validate against known high-impact European windstorms."
+      ],
+      "technical_standards": [
+        "Copernicus data licence",
+        "CDS catalogue conventions"
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§4.1",
+        "section_ref": "4.1 Specific background",
+        "anchor_text": "The underlying dataset is the Windstorm tracks and footprints derived from reanalysis over Europe between 1940 to present dataset"
+      }
+    },
+    {
+      "seed_key": "lot1-prototype-applications",
+      "lot_number": "1",
+      "candidate_name": "Two prototype user-facing windstorm applications",
+      "summary": "Two prototype applications accompanying the windstorm dataset that help users explore, visualise and navigate the data; to be maintained, updated with dataset changes, and promptly restored after technical issues.",
+      "requirements": [
+        "Ensure applications remain fully operational at all times.",
+        "Update applications following any changes to the underlying datasets.",
+        "Coordinate prompt restoration with C3S in the event of technical issues."
+      ],
+      "technical_standards": [
+        "ECMWF Codex — Containerisation (Helm)"
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§4.3.1.1",
+        "section_ref": "4.3.1.1 Products to be maintained",
+        "anchor_text": "Two prototype applications, which shall be maintained and further developed."
+      }
+    },
+    {
+      "seed_key": "lot1-windstorm-jupyter-notebooks",
+      "lot_number": "1",
+      "candidate_name": "Windstorm Jupyter Notebooks for advanced/expert users",
+      "summary": "Jupyter Notebooks associated with the windstorm dataset supporting advanced and expert users, maintained alongside dataset evolution and linked where possible from the C3S service pages.",
+      "requirements": [
+        "Maintain Jupyter Notebooks as dataset evolves.",
+        "Prefer C3S-hosted Jupyter Notebooks linked from service pages.",
+        "Ensure notebooks are reproducible, inspectable, adaptable and extensible."
+      ],
+      "technical_standards": [
+        "Earthkit",
+        "ECMWF Codex — Documentation"
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§4.3.1.1",
+        "section_ref": "4.3.1.1 Products to be maintained",
+        "anchor_text": "Jupyter Notebooks associated with the windstorm dataset, intended to support advanced and expert users."
+      }
+    },
+    {
+      "seed_key": "lot1-ai-based-storm-tracking",
+      "lot_number": "1",
+      "candidate_name": "AI-based storm-tracking methodology (ETC)",
+      "summary": "AI-based identification, tracking and characterisation of extra-tropical cyclones and associated windstorms, designed to reproduce existing algorithm-based diagnostics, with full documentation and rigorous benchmarking before any operational use.",
+      "requirements": [
+        "Reproduce existing ERA5-based algorithmic diagnostics.",
+        "Maintain physical consistency and full documentation.",
+        "Benchmark rigorously against existing methodology, including sensitivity to post-processing and filtering choices."
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§4.3.1.3",
+        "section_ref": "4.3.1.3 Methodological development and innovation",
+        "anchor_text": "Explore, test, and benchmark AI-based methods for the identification, tracking, and characterisation of extra-tropical cyclones"
+      }
+    },
+    {
+      "seed_key": "lot1-geographic-extension-nh-sh",
+      "lot_number": "1",
+      "candidate_name": "Geographic extension of the Operational Windstorm Service",
+      "summary": "Extend the service from the current European domain to the entire Northern Hemisphere midlatitudes and, where technically and scientifically feasible, the Southern Hemisphere midlatitudes with methodological consistency.",
+      "requirements": [
+        "Extend to NH midlatitudes mandatorily.",
+        "Extend to SH midlatitudes where feasible.",
+        "Preserve methodological consistency with existing European products while accounting for regional differences."
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§4.3.2.1",
+        "section_ref": "4.3.2.1 Geographic extension",
+        "anchor_text": "Extend the current service, which is presently limited to a European domain, to cover the entire Northern Hemisphere midlatitudes"
+      }
+    },
+    {
+      "seed_key": "lot1-precipitation-and-return-periods",
+      "lot_number": "1",
+      "candidate_name": "Cumulated precipitation and return-period extensions to windstorm products",
+      "summary": "Add cumulated precipitation associated with windstorm events and return-period estimates for key windstorm-risk variables, methodologically consistent and suited to annual insurance-review cycles.",
+      "requirements": [
+        "Add cumulated precipitation as a complementary hazard variable.",
+        "Introduce return-period estimates for key windstorm-risk variables.",
+        "Deliver on cadences compatible with downstream user workflows (e.g., annual insurance review)."
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§4.3.2.2",
+        "section_ref": "4.3.2.2 Extension of variables and derived products",
+        "anchor_text": "Add cumulated precipitation associated with windstorm events, to provide complementary hazard information alongside wind gusts."
+      }
+    },
+    {
+      "seed_key": "lot1-windstorm-statistics-augmentation",
+      "lot_number": "1",
+      "candidate_name": "Augmented windstorm statistics for risk / catastrophe modelling",
+      "summary": "Scientifically robust methodologies to increase the effective sample size of windstorm events from reanalysis for downstream catastrophe modelling — via UNSEEN-type resampling, synthetic event generation, perturbation/analogue approaches and AI-based generative methods.",
+      "requirements": [
+        "Benchmark augmentation methods against the existing ERA5-based windstorm dataset.",
+        "Evaluate methods for physical realism and statistical robustness.",
+        "Document assumptions, limitations and suitability for downstream modelling; assess consistency with existing CDS synthetic-event products where relevant."
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§4.3.2.3",
+        "section_ref": "4.3.2.3 Enhancement of windstorm statistics for downstream risk and catastrophe modelling",
+        "anchor_text": "increase the effective sample size of windstorm events derived from reanalysis, while preserving physical consistency"
+      }
+    },
+    {
+      "seed_key": "lot1-etc-indicators-reanalysis-and-projections",
+      "lot_number": "1",
+      "candidate_name": "Extra-tropical storm indicators for reanalysis and climate projections",
+      "summary": "Indicators characterising windstorm activity, intensity, frequency and potential impacts for both historical reanalysis (ERA5/ERA6) and projection datasets (CMIP/CORDEX), based on gridded/regional diagnostics computable without explicit tracking of individual storms.",
+      "requirements": [
+        "Cover reference periods such as 2021–2050 and 2071–2100 against a historical reference.",
+        "Use gridded/regional diagnostics (exceedance-based metrics, spatial aggregates, persistence, footprint-based indicators).",
+        "Assess robustness, interpretability, and cross-dataset consistency.",
+        "Document methodological choices, assumptions, limitations and relevance for downstream services."
+      ],
+      "technical_standards": [
+        "CMIP6",
+        "CMIP7 (when available)",
+        "CORDEX"
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§4.3.2.4",
+        "section_ref": "4.3.2.4 Development of extra-tropical storm indicators for reanalysis and climate projections",
+        "anchor_text": "develop and assess extra-tropical storm-related indicators suitable for both historical reanalysis datasets (e.g. ERA5, ERA6) and climate projection datasets (CMIP / CORDEX based)"
+      }
+    },
+    {
+      "seed_key": "lot1-online-demonstrators",
+      "lot_number": "1",
+      "candidate_name": "Co-designed online windstorm demonstrators (insurance / risk)",
+      "summary": "Operational, regularly updated online demonstrators with a visual component, underlying datasets delivered via the CDS, automatically maintainable after the contract ends, and fully documented workflows.",
+      "requirements": [
+        "Deliver operational, regularly updated products.",
+        "Provide a visual component co-designed with champion users.",
+        "Deliver underlying datasets via CDS; ensure automatic maintenance post-contract.",
+        "Provide complete documentation of workflows and methodologies."
+      ],
+      "technical_standards": [
+        "ECMWF Codex — Containerisation (Helm)",
+        "C3S Atlas conventions where relevant"
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§4.3.4",
+        "section_ref": "4.3.4 Co-development of online demonstrators",
+        "anchor_text": "For those case studies that demonstrate an added value, the results should be transformed into online demonstrators"
+      }
+    },
+    {
+      "seed_key": "lot2-storm-surge-operational-reanalysis-chain",
+      "lot_number": "2",
+      "candidate_name": "Operational storm-surge / extreme-sea-level reanalysis product chain",
+      "summary": "Operationalise the storm-surge / extreme-sea-level reanalysis product with NRT updates at at least the current quality and resolution, sub-daily NetCDF delivery, QA/QC procedures, and maintained CDS catalogue entries.",
+      "requirements": [
+        "Generate an operational chain with NRT delivery and monthly (or agreed) update cadence.",
+        "Preserve sub-daily resolution (10-minute, hourly, daily maxima) and NetCDF delivery.",
+        "Apply QA/QC: consistency, completeness, outlier detection, metadata validation, verification against known high-water events.",
+        "Maintain CDS catalogue entries and documentation traceably and reproducibly.",
+        "Allow alternative modelling frameworks only with benchmarking, full documentation and ECMWF/C3S approval."
+      ],
+      "technical_standards": [
+        "Global Tide and Surge Model (ERA5 forcing — current basis)",
+        "NetCDF",
+        "ECMWF Codex"
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§5.2.1",
+        "section_ref": "5.2.1 Maintenance and operational running",
+        "anchor_text": "Generate an operational chain to update the current product with NRT delivery and ensure continuous operational delivery of the reanalysis-based products"
+      }
+    },
+    {
+      "seed_key": "lot2-storm-surge-era6-migration",
+      "lot_number": "2",
+      "candidate_name": "Storm-surge ERA6 migration preparation",
+      "summary": "Prepare the storm-surge product chain for ERA6 with impact assessment, early-ERA6 end-to-end workflow testing, documented sensitivity assessment and migration plan.",
+      "requirements": [
+        "Assess impact on forcing fields, resolution and availability.",
+        "Test end-to-end workflow (forcing → modelling/post-processing → delivery) against early ERA6 data.",
+        "Document sensitivity assessment and migration plan for operational adoption once ERA6 is available at scale."
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§5.2.1.1",
+        "section_ref": "5.2.1.1 Required operational capability",
+        "anchor_text": "The Successful Tenderer shall prepare the product chain for ERA6"
+      }
+    },
+    {
+      "seed_key": "lot2-ai-storm-surge-methods",
+      "lot_number": "2",
+      "candidate_name": "AI-based storm-surge methodology (surrogate/emulation/hybrid)",
+      "summary": "AI-based methods for generation, emulation, acceleration and post-processing of storm-surge products, evaluated against existing physics-based products and required to preserve operational reliability.",
+      "requirements": [
+        "Explore surrogate/emulation models, AI-assisted post-processing/bias-correction/downscaling and hybrid physics+ML approaches.",
+        "Maintain physical consistency and scientific justification.",
+        "Evaluate rigorously against existing physics-based products; ensure robustness and operational suitability.",
+        "Do not compromise continuity or reliability of the operational service."
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§5.2.2",
+        "section_ref": "5.2.2 Exploration of AI-based methods",
+        "anchor_text": "the Successful Tenderer shall explore the potential use of AI-based methods for the generation, emulation, acceleration, or post-processing of storm surge and extreme sea-level products"
+      }
+    },
+    {
+      "seed_key": "lot2-indicator-family-percentiles-return-periods",
+      "lot_number": "2",
+      "candidate_name": "Storm-surge / total-water-level indicator family (percentiles, return periods, confidence bounds)",
+      "summary": "Maintain and evolve CDS statistical indicators for total water level and surge level, with extreme-value methodology, confidence intervals, versioning, and backward compatibility where possible.",
+      "requirements": [
+        "Maintain indicator generation chain (processing, delivery, validation, documentation).",
+        "Ensure cross-update consistency with versioning and methodological traceability.",
+        "Document methods, assumptions, limitations, uncertainty treatment and sensitivity to record length.",
+        "Expand indicators as required by the user community."
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§5.2.3",
+        "section_ref": "5.2.3 Maintenance and evolution of indicators and derived products",
+        "anchor_text": "The CDS also provides statistical indicators (e.g., percentiles and return periods, including confidence bounds) for total water levels and surge levels."
+      }
+    },
+    {
+      "seed_key": "lot2-climate-projections-restructuring",
+      "lot_number": "2",
+      "candidate_name": "Storm-surge / sea-level climate-projections component (broad CMIP + Atlas alignment)",
+      "summary": "Restructure the climate-projections component from the current HighResMIP subset to a broad CMIP6 selection up to 2100 (CMIP7 when available), aligned with the C3S Atlas philosophy and with harmonised drivers across reanalysis and projection indicators.",
+      "requirements": [
+        "Document a model/ensemble selection strategy (eligibility, scenarios, temporal windows, realizations).",
+        "Define consistent ensemble aggregation and uncertainty characterisation (spread, internal variability, robustness).",
+        "Ensure methodological consistency between ERA5/ERA6 historical indicators and CMIP-based projection indicators.",
+        "Co-define a subset of user/use-case indicators with C3S."
+      ],
+      "technical_standards": [
+        "C3S Atlas philosophy",
+        "CMIP6",
+        "CMIP7 (when available)"
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§5.2.4.2",
+        "section_ref": "5.2.4.2 Restructuring the climate-projections component (CMIP breadth + Atlas alignment)",
+        "anchor_text": "restructure the projections work so that storm-surge / sea-level indicators can be produced and assessed from a broad selection of CMIP6 simulations"
+      }
+    },
+    {
+      "seed_key": "joint-windstorm-stormsurge-products",
+      "lot_number": "1",
+      "candidate_name": "Joint windstorm–storm-surge products (cross-lot)",
+      "summary": "Joint products for compound coastal-flood and wind-damage risk built from Lot 1 windstorm and Lot 2 storm-surge outputs, with harmonised metadata, traceable lineage to source datasets, update-propagation design and scientific validation.",
+      "requirements": [
+        "Deliver event-based joint diagnostics linking windstorm events with corresponding storm-surge information.",
+        "Produce compound hazard indicators describing co-occurrence / joint severity of extreme winds and coastal water levels.",
+        "Provide regionally aggregated statistics (joint exceedance, joint return periods, conditional probabilities).",
+        "Provide example workflows / demonstrators / Jupyter Notebooks for coastal risk use cases.",
+        "Harmonise spatial/temporal definitions, event timing and metadata conventions across Lots."
+      ],
+      "cpv_codes": [
+        "73000000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:§6",
+        "section_ref": "6 Joint products and cross-Lot coordination (Lot 1 & Lot 2)",
+        "anchor_text": "Users in the insurance, reinsurance, and catastrophe modelling sectors frequently require integrated hazard information combining extreme windstorms (Lot1) and associated storm surges (Lot2)"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lot_count": 9800,
+    "lot_titles": 9700,
+    "lot_descriptions": 9000,
+    "lot_requirements": 8800,
+    "evaluation_criteria": 8000,
+    "cpv_codes": 6500,
+    "product_requirement_seeds": 8500,
+    "technical_standards": 9200,
+    "implementation_schedule": 9000,
+    "joint_product_attribution": 6800
+  },
+  "extraction_confidence_bps": 8600,
+  "warnings": [
+    {
+      "code": "CPV_NOT_IN_DOCUMENT",
+      "message": "The tender specification document does not contain explicit CPV codes. CPV 73000000-2 (Research and development services and related consultancy services) was carried over from the notice-level main_category on the contract notice, not extracted from the specification itself.",
+      "evidence_refs": [
+        "md:§9.1"
+      ]
+    },
+    {
+      "code": "EVALUATION_WEIGHTINGS_NOT_SPECIFIED",
+      "message": "No numeric evaluation weightings or scoring methodology are disclosed inside this Volume II document. §8 provides proposal-section guidance and page limits only; weighted scoring rules (if any) are likely in Volume III or Volume IIIB which are not part of this extraction payload.",
+      "evidence_refs": [
+        "md:§8",
+        "md:§8.1",
+        "md:§8.2"
+      ]
+    },
+    {
+      "code": "PRICING_CONTENT_ABSENT",
+      "message": "Pricing schedule and budget detail are described as being in Volume IIIA (Pricing and deliverables) / Volume IIIB, not Volume II. No price/quantity rows are present to extract; this skill correctly focuses on lot structure and product-requirement seeds.",
+      "evidence_refs": [
+        "md:§7.3",
+        "md:§7.9"
+      ]
+    },
+    {
+      "code": "JOINT_PRODUCTS_CROSS_LOT",
+      "message": "The 'joint-windstorm-stormsurge-products' seed is cross-lot by design (Section 6 spans both Lots). It is attributed to Lot 1 for seed indexing since the windstorm event catalogue anchors the joint diagnostics, but the work is explicitly coordinated with Lot 2 and should not be double-counted.",
+      "evidence_refs": [
+        "md:§6",
+        "md:§6.1",
+        "md:§6.3"
+      ]
+    },
+    {
+      "code": "PREEXISTING_LOT_METADATA_INCOMPLETE",
+      "message": "Existing notice-level lot metadata only records Lot 2. The tender specification authoritatively defines two lots (Lot 1 Windstorm and Lot 2 Storm Surge) as two separate Framework Agreements under a single ITT reference (C3S2_413_bis), each with its own independent submission. The daemon should treat the lot set emitted here as authoritative for the specification-derived lot structure.",
+      "evidence_refs": [
+        "md:§3",
+        "md:§4",
+        "md:§5"
+      ]
+    },
+    {
+      "code": "KPI_AND_L2_SUPPORT_CROSS_LOT",
+      "message": "KPI definition (§7.8), L2 support SLA (§7.5, 85% Level-2 tickets resolved within 15 business days), ESOTC contribution (§7.6) and Payment Plan (§7.9) apply to both lots. These are represented as lot-level requirements and evaluation criteria to preserve attribution without duplicating shared sections verbatim.",
+      "evidence_refs": [
+        "md:§7.5",
+        "md:§7.6",
+        "md:§7.8",
+        "md:§7.9"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "md:§4",
+      "section_ref": "4 Lot 1: Maintenance and extension of the Operational Windstorm Service",
+      "anchor_text": "## 4 Lot 1: Maintenance and extension of the Operational Windstorm Service"
+    },
+    {
+      "page_ref": "md:§5",
+      "section_ref": "5 Lot 2: Maintenance and extension of operational storm surge products",
+      "anchor_text": "## 5 Lot 2: Maintenance and extension of operational storm surge products"
+    },
+    {
+      "page_ref": "md:§3",
+      "section_ref": "3 Contract summary",
+      "anchor_text": "This Invitation to Tender (ITT) invites Tenderers to submit Tenders for two distinct Lots"
+    },
+    {
+      "page_ref": "md:§4.1",
+      "section_ref": "4.1 Specific background",
+      "anchor_text": "The underlying dataset is the Windstorm tracks and footprints derived from reanalysis over Europe between 1940 to present dataset"
+    },
+    {
+      "page_ref": "md:§4.2",
+      "section_ref": "4.2 Scope of the service",
+      "anchor_text": "The service is highly valued by its user community."
+    },
+    {
+      "page_ref": "md:§4.3.1",
+      "section_ref": "4.3.1 Debug and Maintenance of the extra-tropical cyclone (ETC) diagnostics",
+      "anchor_text": "The Successful Tenderer shall ensure the continuous operational delivery, maintenance, and evolution of the ETC diagnostics"
+    },
+    {
+      "page_ref": "md:§4.3.1.1",
+      "section_ref": "4.3.1.1 Products to be maintained",
+      "anchor_text": "The CDS dataset Windstorm tracks and footprints derived from reanalysis over Europe between 1940 to present"
+    },
+    {
+      "page_ref": "md:§4.3.1.3",
+      "section_ref": "4.3.1.3 Methodological development and innovation",
+      "anchor_text": "Explore, test, and benchmark AI-based methods for the identification, tracking, and characterisation of extra-tropical cyclones"
+    },
+    {
+      "page_ref": "md:§4.3.1.4",
+      "section_ref": "4.3.1.4 User and operational support",
+      "anchor_text": "The Successful Tenderer shall provide Level 2 user support"
+    },
+    {
+      "page_ref": "md:§4.3.1.5",
+      "section_ref": "4.3.1.5 Preparation for ERA6",
+      "anchor_text": "The Successful Tenderer shall prepare the migration of the CDS catalogue entry and associated workflows to ERA6"
+    },
+    {
+      "page_ref": "md:§4.3.2.1",
+      "section_ref": "4.3.2.1 Geographic extension",
+      "anchor_text": "Extend the current service, which is presently limited to a European domain, to cover the entire Northern Hemisphere midlatitudes"
+    },
+    {
+      "page_ref": "md:§4.3.2.2",
+      "section_ref": "4.3.2.2 Extension of variables and derived products",
+      "anchor_text": "Add cumulated precipitation associated with windstorm events"
+    },
+    {
+      "page_ref": "md:§4.3.2.3",
+      "section_ref": "4.3.2.3 Enhancement of windstorm statistics for downstream risk and catastrophe modelling",
+      "anchor_text": "increase the effective sample size of windstorm events derived from reanalysis"
+    },
+    {
+      "page_ref": "md:§4.3.2.4",
+      "section_ref": "4.3.2.4 Development of extra-tropical storm indicators for reanalysis and climate projections",
+      "anchor_text": "develop and assess extra-tropical storm-related indicators suitable for both historical reanalysis datasets"
+    },
+    {
+      "page_ref": "md:§4.3.2.5",
+      "section_ref": "4.3.2.5 Consistency with Copernicus climate projections and large ensembles",
+      "anchor_text": "Ensure methodological consistency with Copernicus Climate Change Service Atlas products"
+    },
+    {
+      "page_ref": "md:§4.3.3",
+      "section_ref": "4.3.3 User Engagement strategy and identification of users",
+      "anchor_text": "Development of a user engagement strategy"
+    },
+    {
+      "page_ref": "md:§4.3.4",
+      "section_ref": "4.3.4 Co-development of online demonstrators",
+      "anchor_text": "For those case studies that demonstrate an added value, the results should be transformed into online demonstrators"
+    },
+    {
+      "page_ref": "md:§4.3.5",
+      "section_ref": "4.3.5 Co-design of dissemination material, training elements and EQC",
+      "anchor_text": "Delivery of training and dissemination materials co-defined with champion users and ECMWF"
+    },
+    {
+      "page_ref": "md:§5.1",
+      "section_ref": "5.1 Specific background and scope of the service",
+      "anchor_text": "C3S currently provides storm-surge / extreme sea-level products derived from global hydrodynamic modelling"
+    },
+    {
+      "page_ref": "md:§5.2.1",
+      "section_ref": "5.2.1 Maintenance and operational running",
+      "anchor_text": "The reanalysis product provides global time series of sea-level related variables"
+    },
+    {
+      "page_ref": "md:§5.2.1.1",
+      "section_ref": "5.2.1.1 Required operational capability",
+      "anchor_text": "Generate an operational chain to update the current product with NRT delivery"
+    },
+    {
+      "page_ref": "md:§5.2.2",
+      "section_ref": "5.2.2 Exploration of AI-based methods",
+      "anchor_text": "explore the potential use of AI-based methods for the generation, emulation, acceleration, or post-processing of storm surge"
+    },
+    {
+      "page_ref": "md:§5.2.3",
+      "section_ref": "5.2.3 Maintenance and evolution of indicators and derived products",
+      "anchor_text": "The CDS also provides statistical indicators (e.g., percentiles and return periods, including confidence bounds)"
+    },
+    {
+      "page_ref": "md:§5.2.4.2",
+      "section_ref": "5.2.4.2 Restructuring the climate-projections component (CMIP breadth + Atlas alignment)",
+      "anchor_text": "restructure the projections work so that storm-surge / sea-level indicators can be produced and assessed from a broad selection of CMIP6 simulations"
+    },
+    {
+      "page_ref": "md:§6",
+      "section_ref": "6 Joint products and cross-Lot coordination (Lot 1 & Lot 2)",
+      "anchor_text": "Users in the insurance, reinsurance, and catastrophe modelling sectors frequently require integrated hazard information combining extreme windstorms (Lot1) and associated storm surges (Lot2)"
+    },
+    {
+      "page_ref": "md:§6.1",
+      "section_ref": "6.1 Scope of joint products",
+      "anchor_text": "The Successful Tenderers for Lot 1 and Lot 2 shall ensure coordination and technical consistency to enable the development and maintenance of joint windstorm-storm surge products"
+    },
+    {
+      "page_ref": "md:§7.1",
+      "section_ref": "7.1 Implementation Schedule",
+      "anchor_text": "ECMWF intends to award a single Framework Agreement for a period of maximum 28 months, which shall be implemented via a single multi-annual Service Contract expected to commence in Q3 2026."
+    },
+    {
+      "page_ref": "md:§7.2",
+      "section_ref": "7.2 WP0: Management and Coordination",
+      "anchor_text": "This work package includes overall responsibility for day-to-day service management and coordination."
+    },
+    {
+      "page_ref": "md:§7.4",
+      "section_ref": "7.4 Code delivery and documentation",
+      "anchor_text": "The Successful Tenderer shall ensure that all software development is strictly consistent with the ECMWF Codex"
+    },
+    {
+      "page_ref": "md:§7.5",
+      "section_ref": "7.5 Contribute to L2 support to Copernicus User Support Team",
+      "anchor_text": "for example, 85% of Level-2 tickets should be resolved within 15 business days"
+    },
+    {
+      "page_ref": "md:§7.8",
+      "section_ref": "7.8 Key Performance Indicators",
+      "anchor_text": "The KPIs shall be designed to quantify various aspects of quality of service against the requirements described in this document."
+    },
+    {
+      "page_ref": "md:§8.1",
+      "section_ref": "8.1 Page limits",
+      "anchor_text": "As a guideline, it is expected that individual sections of the Tenderer's response do not exceed the page limits listed below."
+    },
+    {
+      "page_ref": "md:§8.2",
+      "section_ref": "8.2 Specific additional instructions for the Tenderer's response",
+      "anchor_text": "The following is a guide to the minimum content expected to be included in each section"
+    },
+    {
+      "page_ref": "md:§9.1",
+      "section_ref": "9.1 Acronyms",
+      "anchor_text": "GCOS Global Climate Observing System"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "82bb3bb1fb3b6bf1764edd20fd743d09980ffbcfa2367c05cc8522dace1c21fe",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

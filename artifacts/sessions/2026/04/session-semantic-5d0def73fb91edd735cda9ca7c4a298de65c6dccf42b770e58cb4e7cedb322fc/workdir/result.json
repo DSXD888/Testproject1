@@ -1,0 +1,204 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment",
+      "description": "Single-lot ESPO framework call-off (framework ref 107_26). Subject matter is the inspection and maintenance of indoor gymnasium, fitness and sport equipment and outdoor schools' play and sport equipment, delivered to Contracting Authorities under the ESPO Framework Agreement. This source document is the Form of Contract / Call-Off Terms template (Framework Schedule 3); it defines the legal and performance envelope rather than enumerating product-level specifications.",
+      "requirements": [
+        "Supplier shall supply the Goods and/or Services during the Contract Period in accordance with the Customer's requirements as set out in the Contract (clause 6.1.1).",
+        "Supplier shall at all times comply with the Technical Standards and Quality Standards and, where applicable, maintain accreditation with the relevant Technical Standards and Quality Standards authorisation body (clause 6.3.1).",
+        "Supplier shall perform its obligations in accordance with the Law and Good Industry Practice; where a standard has not been specified in the Contract, the Supplier shall agree the relevant standard with the Customer before supply commences (clause 6.3.1).",
+        "Goods shall be free from defects in design and workmanship, fit for purpose, and supplied in accordance with the Supplier Solution and Specification (clauses 6.3.5.1 – 6.3.5.2).",
+        "Delivery shall meet the requirements stated in the Master Contract Schedule/ITT Response and proceed in accordance with the Implementation Plan and Milestones (clauses 6.4.1 – 6.4.2).",
+        "Supplier shall meet or exceed the Service Levels set out in Schedule 1 Part A; Service Credits apply for Service Failures and a Critical Service Failure gives the Customer a right to terminate (clauses 11.1 and Schedule 1).",
+        "Supplier shall maintain business continuity arrangements throughout the Contract Period so that delivery of the Goods and/or Services is subject to minimum disruption (clause 8.1).",
+        "Supplier shall implement measurement and monitoring tools sufficient to report on performance against the Service Levels (clause 11.2).",
+        "Where the Goods/Services require Staff to work in Regulated Activity with children and/or vulnerable adults, the Supplier shall make enhanced DBS checks including appropriate barred-list checks and comply with the Safeguarding of Vulnerable Groups Act 2006 (clauses 15.7 – 15.11).",
+        "Supplier shall comply with the Customer's environmental policy, maintain a suitable environmental management system, and minimise GHG emissions and other pollutants in performing the Contract (clauses 26.1 – 26.4).",
+        "Supplier shall keep and maintain full and accurate records of the operation of the Contract, including supply-chain traceability, for the Contract Period plus six (6) Years (clause 28.1)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Award criteria not defined in this document",
+          "summary": "The Form of Contract / Call-Off Terms template does not set out tender evaluation criteria or weightings. The originating contract notice (2026/S 000-002119) records this as a framework tender issued by ESPO; award criteria and weightings are defined in the Invitation to Tender document set rather than in this call-off template.",
+          "evidence_anchor": {
+            "page_ref": "sheet: Main / clause 1 (WHEREAS A)",
+            "section_ref": "#/texts/ref-preamble",
+            "anchor_text": "ESPO placed a Tender Notice 2026/S 000-002119 on 12 January 2026 ... Following receipt of expressions of interest, ESPO issued an Invitation to Tender for the provision of the Goods and/or Services."
+          }
+        },
+        {
+          "criterion": "Service Level compliance (post-award performance gate, not tender award)",
+          "summary": "Schedule 1 Part A defines that Service Credits are calculated as (100% minus % of Service Level achieved) of the Contract Charges; repeated or critical failure of agreed Service Levels is the trigger for remedies including termination. The table of specific Service Levels is left as a Customer drafting note (\"Insert the appropriate Service Levels above\") and is not populated in the template, so no scored evaluation criteria are extractable from this document.",
+          "weighting_text": "100% minus % of Service Level achieved = % deduction from next invoice (Schedule 1 Part A appendix, worked example)",
+          "evidence_anchor": {
+            "page_ref": "sheet: Main / Schedule 1 Part A appendix",
+            "section_ref": "#/groups/schedule-1-service-credits",
+            "anchor_text": "Formula: 100% minus % of Service Level achieved = x% of the Contract Charges to be deducted from the next invoice payable by the Customer, or otherwise by prompt refund by the Supplier."
+          }
+        }
+      ],
+      "cpv_codes": [
+        "37400000",
+        "50000000"
+      ],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "Technical Standards (placeholder in Master Contract Schedule)",
+          "context": "The Master Contract Schedule cover sheet declares Technical Standards and Quality Standards as fields to be populated per call-off ('Technical Standards [     ]', 'Quality Standards [     ]'). No concrete standard numbers are recorded in this template; the Customer Drafting Note directs the buyer to insert the appropriate standards with reference to clause 13 of the Framework Agreement.",
+          "evidence_anchor": {
+            "page_ref": "sheet: Main / Master Contract Schedule",
+            "section_ref": "#/tables/master-contract-schedule-standards-row",
+            "anchor_text": "Standards Quality Standards [     ] Technical Standards [     ] CUSTOMER DRAFTING NOTE: Insert the appropriate standards above that the Goods and/or Services will be required to comply with. Details of technical standards can be found in clause 13 of the Framework Agreement."
+          }
+        },
+        {
+          "standard_ref": "BSI British Standards / ISO (by reference via 'Quality Standards' definition)",
+          "context": "The 'Quality Standards' definition in clause 3.1 refers to standards published by BSI British Standards (National Standards Body of the UK), the International Organisation for Standardisation, and other reputable bodies that a skilled operator would reasonably be expected to comply with. This is a normative reference to families of standards rather than a specific standard number.",
+          "evidence_anchor": {
+            "page_ref": "sheet: Main / clause 3.1 definition 'Quality Standards'",
+            "section_ref": "#/texts/definitions-quality-standards",
+            "anchor_text": "\"Quality Standards\" means the quality standards published by BSI British Standards, the National Standards Body of the United Kingdom, the International Organisation for Standardisation or other reputable or equivalent body"
+          }
+        },
+        {
+          "standard_ref": "Good Industry Practice (governing standard of performance)",
+          "context": "Clause 3.1 defines Good Industry Practice as the skill and care reasonably expected from a skilled and experienced person in the relevant sector, and clause 6.3.1 binds the Supplier to perform in accordance with Law and Good Industry Practice where no specific standard is stated in the Contract.",
+          "evidence_anchor": {
+            "page_ref": "sheet: Main / clause 6.3.1",
+            "section_ref": "#/texts/clause-6-3-1",
+            "anchor_text": "the Supplier shall perform its obligations under this Contract in accordance with the Law and Good Industry Practice"
+          }
+        },
+        {
+          "standard_ref": "Safeguarding of Vulnerable Groups Act 2006 / DBS enhanced disclosure",
+          "context": "Clauses 15.7 – 15.11 impose statutory safeguarding obligations: enhanced Disclosure & Barring Service checks (including children's barred list where applicable) for Staff engaged in Regulated Activity with children or vulnerable adults, with re-checks at least every three years. Relevant for school-premises inspection/maintenance delivery.",
+          "evidence_anchor": {
+            "page_ref": "sheet: Main / clause 15.7",
+            "section_ref": "#/texts/clause-15-7",
+            "anchor_text": "the Supplier will make checks in respect of such employees and volunteers with the Disclosure & Barring Service for the purpose of checking at an enhanced level of disclosure ... and that the appropriate check of the Children's Barred List relating to the protection of children"
+          }
+        },
+        {
+          "standard_ref": "UK electronic invoicing standard (Commission Implementing Decision (EU) 2017/1870 as retained in UK law)",
+          "context": "Clause 13.2.2 requires supplier invoices to comply with the standard and syntaxes published in the UK version of Commission Implementing Decision (EU) 2017/1870. This is an operational compliance standard rather than a goods-level technical standard.",
+          "evidence_anchor": {
+            "page_ref": "sheet: Main / clause 13.2.2",
+            "section_ref": "#/texts/clause-13-2-2",
+            "anchor_text": "the standard and any of the syntaxes published in the UK version of Commission Implementing Decision (EU) 2017/1870 as it forms part of UK Law under the European Union (Withdrawal) Act 2018"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "sheet: Main / document title block",
+        "section_ref": "#/texts/title-block",
+        "anchor_text": "FRAMEWORK SCHEDULE 3 – FORM OF CONTRACT AND CALL-OFF TERMS ... Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment ... CONTRACT REF 107_26"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.lot_number": 4000,
+    "lots.title": 8500,
+    "lots.description": 7500,
+    "lots.requirements": 6500,
+    "lots.evaluation_criteria": 2500,
+    "lots.cpv_codes": 7500,
+    "lots.product_requirements": 500,
+    "lots.technical_standards": 4000
+  },
+  "extraction_confidence_bps": 3000,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "Document is a framework call-off contract template (FRAMEWORK SCHEDULE 3 – FORM OF CONTRACT AND CALL-OFF TERMS, contract ref 107_26) rather than a tender specification or statement of requirements. It defines the legal and performance envelope for the Goods/Services but contains no scored award criteria, no product-level specifications, and no populated technical-standard numbers. Lot-level output was seeded from the document title block and notice context; per-specification product requirements are not extractable.",
+      "evidence_refs": [
+        "sheet: Main / document title block",
+        "sheet: Main / Master Contract Schedule"
+      ]
+    },
+    {
+      "code": "NO_PRODUCT_REQUIREMENT_SEEDS",
+      "message": "The document does not enumerate individual product specifications, quantities, or candidate names. All Master Contract Schedule cells intended to hold concrete product/service details (e.g. Customer's equipment, Technical Standards, Quality Standards, Specification) are blank placeholders accompanied by Customer Drafting Notes. No product_requirement_seeds were emitted for this reason.",
+      "evidence_refs": [
+        "sheet: Main / Master Contract Schedule 'Standards' row",
+        "sheet: Main / Master Contract Schedule 'Customer's equipment' row"
+      ]
+    },
+    {
+      "code": "EVALUATION_CRITERIA_NOT_PRESENT",
+      "message": "Tender evaluation criteria and weightings are not defined in this call-off template. The document's preamble (WHEREAS) records that ESPO issued an Invitation to Tender (ref 2026/S 000-002119) and selected the Supplier on that basis; the award criteria therefore live in the ITT / tender-level documents rather than in this Form of Contract. Only a post-award Service-Credit formula (100% minus % of Service Level achieved) is recorded here, and the underlying Service Level table in Schedule 1 Part A is a placeholder (\"Insert the appropriate Service Levels above\").",
+      "evidence_refs": [
+        "sheet: Main / clause 1 (WHEREAS A)",
+        "sheet: Main / Schedule 1 Part A appendix"
+      ]
+    },
+    {
+      "code": "TECHNICAL_STANDARDS_PLACEHOLDER_ONLY",
+      "message": "The Technical Standards and Quality Standards fields on the Master Contract Schedule are blank placeholders ('Technical Standards [     ]', 'Quality Standards [     ]') with a Customer Drafting Note instructing the buyer to populate them. Concrete standard numbers applicable to gymnasium/fitness/play equipment inspection and maintenance (e.g. EN 1176 / EN 1177 for playground equipment, EN 957 for gym equipment, LOLER 1998, PUWER 1998, HSE guidance) are NOT cited anywhere in this document and must be sourced from the ITT or Framework Agreement.",
+      "evidence_refs": [
+        "sheet: Main / Master Contract Schedule 'Standards' row"
+      ]
+    },
+    {
+      "code": "CPV_INFERRED_FROM_NOTICE_CONTEXT",
+      "message": "CPV codes (37400000 – Sports goods and equipment; 50000000 – Repair and maintenance services) are not asserted in this document; they are inherited from the originating contract notice (ESPO 107_26) supplied in process_context. The notice records a pipe-delimited pairing of those two top-level CPVs as the main_category.",
+      "evidence_refs": [
+        "process_context.main_category"
+      ]
+    },
+    {
+      "code": "EXTRACTED_METADATA_DOCUMENT_ROLE_REVIEW",
+      "message": "Extraction record declares document_role='technical_specification' but the parsed content is unambiguously a form-of-contract template. Caller should treat the declared role as provisional and may want to re-classify this raw document as 'form_of_contract' or 'call_off_terms' for the 107_26 document set.",
+      "evidence_refs": [
+        "document_extractions.document_role",
+        "sheet: Main / document title block"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "sheet: Main / document title block",
+      "section_ref": "#/texts/title-block",
+      "anchor_text": "FRAMEWORK SCHEDULE 3 – FORM OF CONTRACT AND CALL-OFF TERMS ... Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment ... CONTRACT REF 107_26"
+    },
+    {
+      "page_ref": "sheet: Main / clause 1 (WHEREAS A)",
+      "section_ref": "#/texts/ref-preamble",
+      "anchor_text": "ESPO placed a Tender Notice 2026/S 000-002119 on 12 January 2026 on the central digital platform operated pursuant to section 95(4) of the PA23 seeking expressions of interest from providers of inspection & maintenance of indoor gymnasium, fitness & sport equipment and outdoor schools play & sport equipment services"
+    },
+    {
+      "page_ref": "sheet: Main / Master Contract Schedule 'Standards' row",
+      "section_ref": "#/tables/master-contract-schedule-standards-row",
+      "anchor_text": "Standards Quality Standards [     ] Technical Standards [     ] CUSTOMER DRAFTING NOTE: Insert the appropriate standards above that the Goods and/or Services will be required to comply with. Details of technical standards can be found in clause 13 of the Framework Agreement."
+    },
+    {
+      "page_ref": "sheet: Main / clause 6.3.1",
+      "section_ref": "#/texts/clause-6-3-1",
+      "anchor_text": "The Supplier shall at all times comply with the Technical Standards and the Quality Standards, and where applicable, shall maintain accreditation with the relevant Technical Standards and Quality Standards authorisation body."
+    },
+    {
+      "page_ref": "sheet: Main / clause 11.1",
+      "section_ref": "#/texts/clause-11-1",
+      "anchor_text": "The Supplier shall provide the Services to meet or exceed the Service Levels and any failure to meet the Service Levels shall entitle the Customer to Service Credits calculated in accordance with the provisions of schedule 1"
+    },
+    {
+      "page_ref": "sheet: Main / clause 15.7",
+      "section_ref": "#/texts/clause-15-7",
+      "anchor_text": "the Supplier will make checks in respect of such employees and volunteers with the Disclosure & Barring Service for the purpose of checking at an enhanced level of disclosure"
+    },
+    {
+      "page_ref": "sheet: Main / Schedule 1 Part A appendix",
+      "section_ref": "#/groups/schedule-1-service-credits",
+      "anchor_text": "Formula: 100% minus % of Service Level achieved = x% of the Contract Charges to be deducted from the next invoice payable by the Customer"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "083c26c4f86d913df3c83f3f942831b6ce5e59923b26ffcd08b39165b69116b5",
+    "policy_version": "2026.04.12",
+    "document_role": "form_of_contract_call_off_terms_template"
+  }
+}

@@ -1,0 +1,1039 @@
+{
+  "lots": [
+    {
+      "lot_number": "10",
+      "title": "Planned, Preventative & Responsive Residential Property Maintenance and Compliance Services",
+      "description": "Measured Term Contract governed by JCT MTC 2024 for planned, preventative and responsive residential property maintenance and compliance services to individual properties within the London Borough of Bexley or surrounding areas. Scope includes repairs, void works and minor works; engineering repairs; and servicing and compliance works for gas and electrical installations. Initial Contract Term: 1 November 2026 to 31 October 2030 (4 years, no option to extend or price uplifts). Applies to approximately 230 Council-owned street properties, 120 private leased properties managed by the Council, and 3 Hostels (repairs and maintenance).",
+      "requirements": [
+        "Contract governed by JCT Measured Term Contract 2024 (MTC 2024) and read in conjunction with Contract Particulars, Pricing Schedule / Schedule of Rates, this Specification and all associated Contract Documents.",
+        "General building maintenance: repairs, void works and minor works across ~230 Council-owned street properties, 120 private leased properties managed by the Council, and 3 Hostels.",
+        "Gas servicing and safety compliance to ensure compliance with current Gas Safety (Installation and Use) Regulations, including annual comprehensive service of every gas appliance and system to manufacturers' specifications.",
+        "Annual gas safety inspection and issue of Landlord's Gas Safety Record (CP12) for each dwelling, with monthly reporting to the Client Gas Contract Team.",
+        "Electrical testing and servicing to ensure compliance with IET Wiring Regulations (BS 7671) and Part P of the Building Regulations; provide Electrical Installation Condition Reports (EICR) and electrical installation certificates on completion of new circuits.",
+        "Fire and Legionella compliance inspections and services to ensure compliance with all current and relevant regulations.",
+        "Fire alarms and Emergency Lighting inspection by a competent person in accordance with BS 5839 and the Regulatory Reform (Fire Safety) Order 2005.",
+        "24-hour emergency out-of-hours service, with dedicated contact number (Monday-Friday 07:00-09:00 and 18:00-24:00; Saturday-Sunday 08:00-12:00).",
+        "Pest Control service in accordance with EN 16636 British and European quality standard for pest management services.",
+        "Rubbish clearance service with lawful disposal of waste at licensed tips; contractor must register as waste carrier or broker and retain Waste Disposal Certificates.",
+        "Asbestos reports and removal compliance: survey premises before works; do not use materials containing asbestos; removal performed only by specialist contractors appointed by the Council; comply with Control of Asbestos Regulations 2012 (CAR 2012) and HSE Guidance.",
+        "Orders: work instructed by Order issued electronically via a standard Works Approval Form; no work to commence until a valid Order has been issued; acknowledge orders promptly to the Council.",
+        "Response and completion times: Standard within 5 working days; Urgent same or next day, full completion within 1 working day; Emergency make safe within 4 hours, full completion ASAP; Small Void Works within 10 working days; Large Void Works within 28 working days.",
+        "Emergency follow-on works shall commence within 1 working day; any variation must be agreed in writing before commencement.",
+        "Payment: operate fully in accordance with the Housing Grants, Construction and Regeneration Act 1996 (as amended) and JCT MTC 2024 Section 4; monthly Application for Payment; monthly electronic invoices within one month of valuation period; 30-day final date for payment from receipt of valid invoice; invoices within six months of Order issue; VAT shown as separate line.",
+        "Participation in Bexley dynamic early-payment programme (Oxygen Finance) is optional.",
+        "Statutory compliance with Building Regulations 2010 (as amended), Building Safety Act 2022 and Part 2A, CDM Regulations 2015, Gas Safety (Installation and Use) Regulations, BS 7671 IET Wiring Regulations, Regulatory Reform (Fire Safety) Order 2005, Environmental Protection Act 1990, and GDPR/Data Protection Act 2018.",
+        "Act as Principal Contractor under CDM 2015 where required, with no additional payment — allowance included in Pricing Schedule.",
+        "Health and safety: maintain SSIP-compliant registration (CHAS, EXOR Health and Safety, or OHSAS) for the duration of the contract; comply with Health and Safety at Work etc Act 1974.",
+        "Asbestos handling: comply with CAR 2012 and HSE Guidance 2016; survey before commencement; cease work and notify Authorised Officer on discovery or suspected release; training on risks and recognition of ACMs.",
+        "Safety glazing compliance: Approved Document N of Building Regulations, Regulation 14 of Workplace (Health, Safety and Welfare) Regulations 1992, BS 6206:1981, BS 952-1:1995 Parts 1 & 2 and BS 6262:2005 Part 4; replace non-compliant glazing.",
+        "Portable electrical equipment: voltage not greater than 110V, double insulated or effectively earthed; comply with Electricity at Work Regulations 1989 and Provision and Use of Work Equipment Regulations 1998.",
+        "Hot works: provide safe working method statements and generic risk assessments; advise Authorised Officer; comply with Permit to Work; operatives suitably experienced and trained.",
+        "Working at height: comply with Working at Height Regulations 2005 and HSE guidance; provide method statements and risk assessments; comply with Council's scaffolding protocol.",
+        "Hazardous substances: written COSHH assessments available on premises; comply with Control of Substances Hazardous to Health Regulations (COSHH) 2002.",
+        "PPE: comply with Personal Protective Equipment at Work Regulations 2002; eye protection to BS 7028:1999.",
+        "Accident reporting: comply with RIDDOR 2013; report to Authorised Officer and HSE as applicable.",
+        "Premises protocols: prior appointment only; proof of company/individual identity; treat clients (who may be vulnerable) with courtesy, confidentiality, no smoking, no use of client facilities without permission; do not leave a client without WC, cooker, heating or electricity at day's end.",
+        "All fixings must be appropriate size and type for the building fabric; second-hand materials or equipment are not allowed.",
+        "Electrical works: isolate, disconnect and make safe circuits before commencing; bury services/conduit in walls (uPVC surface-mounted trunking on solid concrete); test installations and leave works fully operational.",
+        "Gas Safe servicing programme: annual comprehensive service with LGSR report per dwelling; monthly electronic transfer of data to Client Gas Contract Team.",
+        "Gas safety inspection: internal gas supplies; all fitted gas appliances; appliance flues and terminals; ventilation arrangements.",
+        "Void gas safety inspection: gas meter fitted with meter blanking disc after tightness test; internal gas supplies capped/plugged off; appliances disconnected and capped/plugged; issue landlord's gas safety report.",
+        "Gas breakdowns: comprehensive 24-hour breakdown service for appliances in property schedule or as directed.",
+        "System boiler replacements: prepare and submit for approval prior to installation; verbal authorisation permitted for at-risk/priority situations; no property to be left without hot water for more than 24 hours; flush heating systems and install correct inhibiters.",
+        "Staff suitability: operatives must hold valid CSCS cards, appropriate trade qualifications, photo ID, and enhanced DBS checks (since clients may be vulnerable); trainees/apprentices always accompanied by fully qualified personnel.",
+        "Registration bodies: Gas Safe for gas work; Registered Competent Persons or Registered Third-Party Certifiers for electrical work.",
+        "Photo ID card must show photograph, employee name, trade (and 'Trainee' if applicable), contractor name and address, contact number, and expiry date (maximum 1 year from issue).",
+        "Competent supervisor on premises during works; site manager's instructions deemed given to the Contractor.",
+        "TUPE: staff of existing contractors transfer to successful contractor under TUPE 2006 Regulations; incumbent-supplied data is not vouched for by Bexley Council.",
+        "Environment & sustainability: promote recycling; reduce waste; use sustainable materials; lawful disposal of hazardous waste under EPA 1990; maintain spill kits on vehicles.",
+        "Quotation visits: contractor to visit addresses to estimate works free of charge prior to any approval.",
+        "Pricing: fully inclusive of all work including call out, site clearance and waste disposal; net and exclusive of VAT.",
+        "Warranties: 12 months for defects/breakdowns on repaired or installed equipment (excluding spare parts costs); rectify faults within 4 days of notification; 10+ default notices in 12 months may trigger contractor substitution; warranty cards completed on client's behalf.",
+        "Confidentiality: all client and contract matters treated as strictly confidential; full GDPR/Data Protection Act 2018 compliance.",
+        "Communication: maintain manned contact (answerphone not acceptable during normal hours); supervisors equipped with mobile phones; out-of-hours emergency number per specified timetable.",
+        "Performance review meetings to cover customer satisfaction, response-time compliance, financial monitoring, invoice queries, abortive calls, sites of concern, quality of work, equal opportunities, H&S, DBS declarations and randomised audits of contractor reports."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "KPI 1 – Repair Response & Completion Times (Service Performance)",
+          "summary": "Timely response and completion of repairs to maintain property safety, habitability and service continuity for households in Temporary Accommodation. Applied to Standard (≤5 wd), Urgent (same/next day, full completion ≤1 wd), Emergency (make safe ≤4h), Small Void (≤10 wd) and Large Void (≤28 wd).",
+          "weighting_text": "Performance Target: minimum 90% compliance across all repair categories, measured monthly via CAFM / works order log.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "KPI 1 – Repair Response & Completion Times (Service Performance)",
+            "section_ref": "20.2 Key Performance Indicators (KPIs)"
+          }
+        },
+        {
+          "criterion": "KPI 2 – Statutory Compliance & Property Safety (Zero Tolerance KPI)",
+          "summary": "Full statutory compliance and property safety across the Bexley-owned Temporary Accommodation housing stock, covering Annual Gas Safety Certification (CP12), Electrical Safety Reports (EICR) and Energy Performance Certification (EPC).",
+          "weighting_text": "Performance Target: 100% compliance (zero tolerance). Monthly compliance reporting with real-time updates via dashboard or spreadsheet.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "KPI 2 – Statutory Compliance & Property Safety (Zero Tolerance KPI)",
+            "section_ref": "20.2 Key Performance Indicators (KPIs)"
+          }
+        },
+        {
+          "criterion": "KPI 3 – Void Turnaround & Property Readiness (Critical TA KPI)",
+          "summary": "Return void properties to a fully lettable standard — small voids within 10 days, large voids within 28 days — inclusive of all repairs, compliance checks and certification, to maximise availability of Temporary Accommodation units.",
+          "weighting_text": "Performance Target: minimum 90% compliance, measured monthly from handover date to certification of lettable status.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "KPI 3 – Void Turnaround & Property Readiness (Critical TA KPI)",
+            "section_ref": "20.2 Key Performance Indicators (KPIs)"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "50700000-2",
+        "71315000-9"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot10-gas-appliance-service-cp12",
+          "summary": "Annual comprehensive service of every gas appliance and system to manufacturers' specifications, with Landlord's Gas Safety Record (CP12) prepared per dwelling and data transferred to the Client Gas Contract Team monthly.",
+          "requirement_type": "service_with_certification",
+          "technical_attributes": [
+            "Annual frequency per dwelling",
+            "Compliance with Gas Safety (Installation and Use) Regulations 1998",
+            "Checks of internal gas supplies, all fitted appliances, flues and terminals, and ventilation arrangements",
+            "Issue of Landlord's Gas Safety Record (CP12)",
+            "Monthly electronic or hard-copy reporting to Client Gas Contract Team",
+            "Operative registration with Gas Safe"
+          ],
+          "quantity_hint": "~230 Council-owned street properties + 120 private leased properties + 3 Hostels within scope",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "An annual comprehensive service of every gas appliance and system to the manufacturers' specification will be undertaken.",
+            "section_ref": "10.1 Servicing Program"
+          }
+        },
+        {
+          "seed_key": "lot10-electrical-eicr-testing",
+          "summary": "Electrical testing and servicing, including Electrical Installation Condition Reports and issue of electrical installation certificates compliant with Part P of the Building Regulations for all new circuits on completion.",
+          "requirement_type": "service_with_certification",
+          "technical_attributes": [
+            "Compliance with IET Wiring Regulations (BS 7671)",
+            "Compliance with Part P of the Building Regulations",
+            "Isolation, disconnection and make-safe before commencement",
+            "Portable electrical equipment at voltage not greater than 110V, double-insulated or effectively earthed",
+            "Compliance with Electricity at Work Regulations 1989",
+            "Operatives registered as Competent Persons or Registered Third-Party Certifiers"
+          ],
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Electrical testing and servicing (To ensure compliance with all current and relevant regulations)",
+            "section_ref": "2.3 Services include"
+          }
+        },
+        {
+          "seed_key": "lot10-fire-alarm-emergency-lighting",
+          "summary": "Fire alarm and emergency lighting inspection by a competent person in accordance with BS 5839 and the Regulatory Reform (Fire Safety) Order 2005.",
+          "requirement_type": "inspection_service",
+          "technical_attributes": [
+            "Inspection by a competent person",
+            "Compliance with BS 5839 (fire detection and alarm systems)",
+            "Compliance with Regulatory Reform (Fire Safety) Order 2005"
+          ],
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Fire alarms and Emergency Lighting inspection by a competent person, according to BS 5839 standards and the Regulatory Reform (Fire Safety) Order 2005.",
+            "section_ref": "2.3 Services include"
+          }
+        },
+        {
+          "seed_key": "lot10-fire-legionella-compliance",
+          "summary": "Fire and Legionella compliance inspections and services to ensure compliance with all current and relevant regulations.",
+          "requirement_type": "inspection_service",
+          "technical_attributes": [
+            "Fire compliance inspections",
+            "Legionella compliance inspections",
+            "Alignment with current water risk management regulations"
+          ],
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Fire and Legionella compliance inspections and services (To ensure compliance with all current and relevant regulations)",
+            "section_ref": "2.3 Services include"
+          }
+        },
+        {
+          "seed_key": "lot10-pest-control-en16636",
+          "summary": "Pest Control service in accordance with EN 16636 (British and European quality standard for pest management services).",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Compliance with EN 16636 pest management standard"
+          ],
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Pest Control service in accordance with E.N 16636 is the British and European quality standard for pest management services",
+            "section_ref": "2.3 Services include"
+          }
+        },
+        {
+          "seed_key": "lot10-rubbish-waste-clearance",
+          "summary": "Rubbish clearance service with lawful disposal at a licensed tip authorised to receive the category of waste; contractor registered as waste carrier or broker.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Daily removal of rubbish and spoil from site",
+            "Disposal at a licensed tip",
+            "Registration as waste carrier or broker",
+            "Compliance with Environmental Protection Act 1990",
+            "Waste Disposal Certificates retained and produced on request",
+            "Spill kits carried on vehicles"
+          ],
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Rubbish Clearance service (To ensure compliance with all current and relevant regulations)",
+            "section_ref": "2.3 Services include"
+          }
+        },
+        {
+          "seed_key": "lot10-asbestos-reports-removal",
+          "summary": "Asbestos reports and removal support: pre-works surveys to determine presence; reporting and cessation on discovery; removal limited to specialist contractors appointed by the Council; training on ACM recognition.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Compliance with Control of Asbestos Regulations 2012 (CAR 2012)",
+            "Alignment with HSE Guidance 2016 and Council Asbestos Policy",
+            "No materials containing asbestos used",
+            "Asbestos removal performed only by specialist contractors appointed by the Council",
+            "Operative training on ACM recognition and handling"
+          ],
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Asbestos reports and removal (To ensure compliance with all current and relevant regulations)",
+            "section_ref": "2.3 Services include"
+          }
+        },
+        {
+          "seed_key": "lot10-emergency-24h-out-of-hours",
+          "summary": "24-hour emergency out-of-hours service with dedicated contact lines during defined evening, weekend and overnight windows.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "24/7 emergency availability",
+            "Manned contact (answerphone not acceptable in normal hours)",
+            "Supervisors equipped with mobile phones",
+            "Out-of-hours contact number weekdays 07:00-09:00 and 18:00-00:00, weekends 08:00-12:00"
+          ],
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "24-hour emergency out-of-hours service",
+            "section_ref": "2.3 Services include"
+          }
+        },
+        {
+          "seed_key": "lot10-system-boiler-replacement",
+          "summary": "System boiler replacements requiring survey, pre-approval, verbal authorisation for at-risk/priority cases, flushing to boiler-guarantee requirements and installation of correct inhibiters.",
+          "requirement_type": "works_installation",
+          "technical_attributes": [
+            "Pre-installation approval by Authorised Officer",
+            "Survey per dwelling with assessment of most suitable equipment",
+            "Safe isolation of mechanical and electrical circuits",
+            "Flushing in line with boiler guarantees",
+            "Correct inhibiter dosing",
+            "No property left without hot water for more than 24 hours"
+          ],
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "System Boiler Replacements",
+            "section_ref": "10.5 System Boiler Replacements"
+          }
+        },
+        {
+          "seed_key": "lot10-void-works",
+          "summary": "Small and large void works, including full gas safety inspection and void compliance works to return properties to a lettable standard.",
+          "requirement_type": "works",
+          "technical_attributes": [
+            "Small Void completion within 10 working days",
+            "Large Void completion within 28 working days",
+            "Void gas safety inspection with meter blanking disc after tightness test",
+            "Capping/plugging of appliances and internal supplies",
+            "Issue of Landlord's Gas Safety Record"
+          ],
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Void Gas Safety Inspections",
+            "section_ref": "10.3 Void Gas Safety Inspections"
+          }
+        },
+        {
+          "seed_key": "lot10-staff-id-cards",
+          "summary": "Photographic identification cards for all contractor staff engaged on Council premises, renewed annually.",
+          "requirement_type": "staff_credential",
+          "technical_attributes": [
+            "Photograph of employee",
+            "Employee's name",
+            "Trade (and 'Trainee' where applicable)",
+            "Contractor's name and address",
+            "Contact telephone number",
+            "Expiry date — maximum 1 year from date of issue"
+          ],
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "The identification card must contain the following details",
+            "section_ref": "11 Staff Suitability"
+          }
+        },
+        {
+          "seed_key": "lot10-safety-glazing",
+          "summary": "Safety glazing materials and workmanship compliant with Building Regulations Approved Document N, Workplace Regulations 1992 Regulation 14, and referenced British Standards.",
+          "requirement_type": "materials_standard",
+          "technical_attributes": [
+            "Compliance with Approved Document N of the Building Regulations",
+            "Compliance with Workplace (Health, Safety and Welfare) Regulations 1992 Regulation 14",
+            "BS 6206:1981 Safety Glazing Specification — clear and permanent marking",
+            "BS 952-1:1995 Parts 1 & 2 (Glass Classification and Terminology)",
+            "BS 6262:2005 Part 4 (Materials and Workmanship)",
+            "Non-compliant glazing to be replaced"
+          ],
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "All safety glazing must be clearly and permanently marked in accordance with BS 6206:1981 Safety Glazing Specification",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "JCT Measured Term Contract 2024 (MTC 2024)",
+          "context": "Overarching contract form governing this Lot, with Section 4 covering payment terms.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "This Contract shall be governed by the JCT Measured Term Contract 2024 (MTC 2024)",
+            "section_ref": "2 General"
+          }
+        },
+        {
+          "standard_ref": "BS 5839",
+          "context": "Fire alarms and Emergency Lighting inspection by a competent person.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "according to BS 5839 standards and the Regulatory Reform (Fire Safety) Order 2005",
+            "section_ref": "2.3 Services include"
+          }
+        },
+        {
+          "standard_ref": "EN 16636",
+          "context": "British and European quality standard for pest management services.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Pest Control service in accordance with E.N 16636",
+            "section_ref": "2.3 Services include"
+          }
+        },
+        {
+          "standard_ref": "BS 7671 – IET Wiring Regulations (Seventeenth / Eighteenth Edition)",
+          "context": "Electrical installations and testing; Seventeenth Edition cited in §5.1 and Eighteenth Edition cited in §7.2.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "BS 7671 – IET Wiring Regulations",
+            "section_ref": "5.1 Statutory & Regulatory Compliance"
+          }
+        },
+        {
+          "standard_ref": "Building Regulations 2010 (as amended), Part P and Approved Document N",
+          "context": "Building Regulations compliance and electrical installation certificates for new circuits; Approved Document N cited for safety glazing.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Building Regulations 2010 (as amended)",
+            "section_ref": "5.1 Statutory & Regulatory Compliance"
+          }
+        },
+        {
+          "standard_ref": "Building Safety Act 2022 and Part 2A",
+          "context": "Statutory compliance obligation under §5.1.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Building Safety Act 2022 and Part 2A",
+            "section_ref": "5.1 Statutory & Regulatory Compliance"
+          }
+        },
+        {
+          "standard_ref": "CDM Regulations 2015 (Construction (Design and Management) Regulations 2015)",
+          "context": "Principal Contractor duties and integrated health and safety management.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "CDM Regulations 2015",
+            "section_ref": "5.1 / 6 Statutory & Regulatory Compliance; Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "Gas Safety (Installation and Use) Regulations 1998",
+          "context": "Annual gas safety inspections, servicing and issuance of Landlord's Gas Safety Record.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Gas Safety (Installation and Use) Regulations",
+            "section_ref": "5.1 / 10 Statutory & Regulatory Compliance; Gas Safe"
+          }
+        },
+        {
+          "standard_ref": "Regulatory Reform (Fire Safety) Order 2005",
+          "context": "Fire safety framework for fire alarms, emergency lighting and fire compliance activities.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Fire Safety Order 2005",
+            "section_ref": "5.1 Statutory & Regulatory Compliance"
+          }
+        },
+        {
+          "standard_ref": "Environmental Protection Act 1990 (EPA 1990)",
+          "context": "Lawful disposal of waste including hazardous waste; contractor registered as waste carrier or broker.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "The Environmental Protection Act 1990 (EPA1990)",
+            "section_ref": "13 Environment & Sustainability"
+          }
+        },
+        {
+          "standard_ref": "GDPR / Data Protection Act 2018",
+          "context": "Confidentiality and data protection for client information.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "GDPR / Data Protection Act 2018",
+            "section_ref": "5.1 / 19 Statutory & Regulatory Compliance; Confidentiality"
+          }
+        },
+        {
+          "standard_ref": "Control of Asbestos Regulations 2012 (CAR 2012)",
+          "context": "Asbestos management obligations alongside HSE Guidance 2016 and Council Asbestos Policy.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "The Control of Asbestos Regulations 2012 (CAR 2012) and HSE Guidance from the HSE 2016",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "BS 6206:1981",
+          "context": "Safety Glazing Specification — safety glass must be clearly and permanently marked.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "BS 6206:1981 Safety Glazing Specification",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "BS 952-1:1995 Parts 1 & 2",
+          "context": "Glass Classification and Terminology.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "BS 952-1:1995 Parts 1 & 2 (Glass Classification and Terminology)",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "BS 6262:2005 Part 4",
+          "context": "Glass Materials and Workmanship.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "BS 6262:2005 Part 4 (Materials and Workmanship)",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "Electricity at Work Regulations 1989",
+          "context": "Safe use of electrical equipment at work.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "The Electricity at Work Regulations 1989",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "Provision and Use of Work Equipment Regulations 1998 (PUWER)",
+          "context": "Electrical and work equipment safety.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "The Provision and Use of Work Equipment Regulations 1998",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "Control of Substances Hazardous to Health Regulations (COSHH) 2002",
+          "context": "Written COSHH assessments for hazardous substances on premises.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "The Control of Substances Hazardous to Health Regulations (COSHH) 2002",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "Personal Protective Equipment at Work Regulations 2002",
+          "context": "PPE worn on premises as appropriate — safety headgear, gloves, footwear, high-visibility jackets.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "The Personal Protective Equipment at Work Regulations 2002",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "BS 7028:1999",
+          "context": "Eye Protection for Industrial and Other Uses.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "BS 7028:1999 Eye Protection for Industrial and Other Uses",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "Reporting of Injuries, Diseases and Dangerous Occurrences Regulations (RIDDOR) 2013",
+          "context": "Accident and incident reporting obligations.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "The Reporting of Injuries, Diseases and Dangerous Occurrences Regulations (RIDDOR) 2013",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "Working at Height Regulations 2005",
+          "context": "Safe working at height and scaffolding protocol.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "current Working at Height Regulations 2005",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "Control of Pollution Act (COPA) 1974",
+          "context": "Noise control during operations on premises.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "The Control of Pollution Act (COPA) 1974",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work etc Act 1974",
+          "context": "Overarching health and safety duty; Council uses SSIP pre-qualification schemes (CHAS, EXOR, OHSAS) as minimum competence standards.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Health and Safety at Work etc Act 1974",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety (First Aid) Regulations 2011",
+          "context": "Provision and maintenance of first aid facilities.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "The Health and Safety (First Aid) Regulations 2011",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "Housing Grants, Construction and Regeneration Act 1996 (as amended)",
+          "context": "Governs payment procedures for the contract.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Housing Grants, Construction and Regeneration Act 1996 (as amended)",
+            "section_ref": "4 Payment & Valuation"
+          }
+        },
+        {
+          "standard_ref": "Transfer of Undertakings (Protection of Employment) Regulations 2006 (TUPE)",
+          "context": "Transfer of incumbent contractor staff to successful bidder.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Transfer of Undertakings (Protection of Employment) Regulations 2006",
+            "section_ref": "21 TUPE"
+          }
+        },
+        {
+          "standard_ref": "SSIP (Safety Schemes in Procurement) — CHAS, EXOR, OHSAS",
+          "context": "Minimum pre-qualification standards for H&S competence; contractor must maintain compliant registration for duration of contract.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "SSIP (Safety Schemes in Procurement) Forum",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        },
+        {
+          "standard_ref": "Construction Skills Certification Scheme (CSCS)",
+          "context": "All staff and sub-contractors registered under CSCS or equivalent; cards carried and presented when challenged.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Construction Skills Certification Scheme",
+            "section_ref": "11 Staff Suitability"
+          }
+        },
+        {
+          "standard_ref": "Gas Safe Register",
+          "context": "Operative registration required for any work involving gas or gas appliances.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Gas Safe for work involving gas or gas appliances",
+            "section_ref": "11 Staff Suitability"
+          }
+        },
+        {
+          "standard_ref": "Workplace (Health, Safety and Welfare) Regulations 1992",
+          "context": "Regulation 14 cited for safety glazing.",
+          "evidence_anchor": {
+            "page_ref": "full_document",
+            "anchor_text": "Regulation 14 of the Workplace (Health, Safety and Welfare) Regulations 1992",
+            "section_ref": "6 Health, Safety & CDM"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "full_document",
+        "anchor_text": "CONTRACT SPECIFICATION — Measured Term Contract – Planned, Preventative & Responsive Residential Property Maintenance and Compliance Services",
+        "section_ref": "Document title / §1 Contract Description"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot10-gas-appliance-service-cp12",
+      "lot_number": "10",
+      "candidate_name": "Annual gas appliance service with CP12 certification",
+      "summary": "Annual comprehensive service of every gas appliance and system to manufacturers' specifications, with Landlord's Gas Safety Record (CP12) issued per dwelling and monthly reporting to the Council.",
+      "requirements": [
+        "Annual service per dwelling",
+        "Compliance with Gas Safety (Installation and Use) Regulations 1998",
+        "Inspect internal gas supplies, all fitted appliances, flues and terminals, and ventilation arrangements",
+        "Issue Landlord's Gas Safety Record (CP12)",
+        "Monthly data transfer to Client Gas Contract Team",
+        "Operatives registered with Gas Safe"
+      ],
+      "technical_standards": [
+        "Gas Safety (Installation and Use) Regulations 1998",
+        "Gas Safe Register"
+      ],
+      "cpv_codes": [
+        "50531200-8"
+      ],
+      "evidence_anchor": {
+        "page_ref": "full_document",
+        "anchor_text": "Carry out an full annual gas safety inspection to comply with the current Gas Safety (Installation and Use) Regulations.",
+        "section_ref": "10.2 Gas Safety Inspections"
+      }
+    },
+    {
+      "seed_key": "lot10-electrical-eicr-testing",
+      "lot_number": "10",
+      "candidate_name": "Electrical testing, EICR and installation certificates (BS 7671 / Part P)",
+      "summary": "Electrical testing and servicing with EICR reporting and issue of electrical installation certificates compliant with Part P for all new circuits.",
+      "requirements": [
+        "Compliance with BS 7671 / IET Wiring Regulations",
+        "Compliance with Part P of the Building Regulations",
+        "Portable electrical equipment ≤110V, double-insulated or effectively earthed",
+        "Isolate, disconnect and make safe prior to commencement",
+        "Operatives Registered Competent Persons / Registered Third-Party Certifiers"
+      ],
+      "technical_standards": [
+        "BS 7671 – IET Wiring Regulations",
+        "Electricity at Work Regulations 1989",
+        "Provision and Use of Work Equipment Regulations 1998",
+        "Building Regulations 2010 – Part P"
+      ],
+      "cpv_codes": [
+        "50711000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "full_document",
+        "anchor_text": "All electrical works must be carried out in accordance with current I.E.T wiring Regulations, (BS7671)",
+        "section_ref": "9 Premises Protocols (electrical works)"
+      }
+    },
+    {
+      "seed_key": "lot10-fire-alarm-emergency-lighting",
+      "lot_number": "10",
+      "candidate_name": "Fire alarm and emergency lighting inspection (BS 5839)",
+      "summary": "Inspection of fire alarms and emergency lighting by a competent person per BS 5839 and the Regulatory Reform (Fire Safety) Order 2005.",
+      "requirements": [
+        "Inspection by a competent person",
+        "Compliance with BS 5839",
+        "Compliance with Regulatory Reform (Fire Safety) Order 2005"
+      ],
+      "technical_standards": [
+        "BS 5839",
+        "Regulatory Reform (Fire Safety) Order 2005"
+      ],
+      "cpv_codes": [
+        "71317100-4"
+      ],
+      "evidence_anchor": {
+        "page_ref": "full_document",
+        "anchor_text": "Fire alarms and Emergency Lighting inspection by a competent person, according to BS 5839 standards and the Regulatory Reform (Fire Safety) Order 2005.",
+        "section_ref": "2.3 Services include"
+      }
+    },
+    {
+      "seed_key": "lot10-fire-legionella-compliance",
+      "lot_number": "10",
+      "candidate_name": "Fire and Legionella compliance inspections",
+      "summary": "Fire and Legionella compliance inspections and associated services to ensure regulatory conformance.",
+      "requirements": [
+        "Legionella risk assessment and management",
+        "Fire compliance inspection"
+      ],
+      "technical_standards": [
+        "Regulatory Reform (Fire Safety) Order 2005"
+      ],
+      "cpv_codes": [
+        "71317100-4"
+      ],
+      "evidence_anchor": {
+        "page_ref": "full_document",
+        "anchor_text": "Fire and Legionella compliance inspections and services",
+        "section_ref": "2.3 Services include"
+      }
+    },
+    {
+      "seed_key": "lot10-pest-control-en16636",
+      "lot_number": "10",
+      "candidate_name": "Pest control service (EN 16636)",
+      "summary": "Pest Control service performed in accordance with EN 16636.",
+      "requirements": [
+        "Compliance with EN 16636 pest management standard"
+      ],
+      "technical_standards": [
+        "EN 16636"
+      ],
+      "cpv_codes": [
+        "90923000-3"
+      ],
+      "evidence_anchor": {
+        "page_ref": "full_document",
+        "anchor_text": "Pest Control service in accordance with E.N 16636",
+        "section_ref": "2.3 Services include"
+      }
+    },
+    {
+      "seed_key": "lot10-rubbish-waste-clearance",
+      "lot_number": "10",
+      "candidate_name": "Rubbish clearance and waste disposal (EPA 1990)",
+      "summary": "Daily removal and lawful disposal of rubbish and spoil from sites at a licensed tip by a registered waste carrier.",
+      "requirements": [
+        "Daily removal of rubbish and spoil",
+        "Disposal at licensed tip authorised for the waste category",
+        "Registration as waste carrier or broker",
+        "Retention of Waste Disposal Certificates",
+        "Maintenance of spill kits on vehicles"
+      ],
+      "technical_standards": [
+        "Environmental Protection Act 1990"
+      ],
+      "cpv_codes": [
+        "90500000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "full_document",
+        "anchor_text": "The Environmental Protection Act 1990 (EPA1990) with regard to the disposal of waste and in particular hazardous waste",
+        "section_ref": "13 Environment & Sustainability"
+      }
+    },
+    {
+      "seed_key": "lot10-asbestos-reports-removal",
+      "lot_number": "10",
+      "candidate_name": "Asbestos survey, reporting and removal support (CAR 2012)",
+      "summary": "Asbestos reports and removal compliance — pre-works surveys, ACM reporting, cessation on discovery, specialist-only removal, operative training.",
+      "requirements": [
+        "Compliance with Control of Asbestos Regulations 2012",
+        "No materials containing asbestos used",
+        "Pre-works survey to determine presence",
+        "Cease work and notify Authorised Officer on discovery or fibre release",
+        "Removal only by Council-appointed specialist contractors",
+        "Operative training on ACM recognition and handling"
+      ],
+      "technical_standards": [
+        "Control of Asbestos Regulations 2012 (CAR 2012)",
+        "HSE Guidance 2016"
+      ],
+      "cpv_codes": [
+        "90650000-8"
+      ],
+      "evidence_anchor": {
+        "page_ref": "full_document",
+        "anchor_text": "The Control of Asbestos Regulations 2012 (CAR 2012) and HSE Guidance from the HSE 2016",
+        "section_ref": "6 Health, Safety & CDM"
+      }
+    },
+    {
+      "seed_key": "lot10-emergency-24h-out-of-hours",
+      "lot_number": "10",
+      "candidate_name": "24-hour emergency out-of-hours maintenance response",
+      "summary": "Continuous 24/7 emergency availability with manned contact and defined out-of-hours windows.",
+      "requirements": [
+        "24/7 emergency availability",
+        "Manned contact (answerphone unacceptable in normal hours)",
+        "Supervisors equipped with mobile phones",
+        "Weekday out-of-hours contact 07:00-09:00 and 18:00-00:00",
+        "Weekend out-of-hours contact 08:00-12:00",
+        "Make safe within 4 hours of an emergency call"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [
+        "50700000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "full_document",
+        "anchor_text": "24-hour emergency out-of-hours service",
+        "section_ref": "2.3 Services include"
+      }
+    },
+    {
+      "seed_key": "lot10-system-boiler-replacement",
+      "lot_number": "10",
+      "candidate_name": "System boiler replacement works",
+      "summary": "Replacement of system boilers with pre-approval, surveyed dwelling assessment, flushing to manufacturer requirements, and inhibiter installation.",
+      "requirements": [
+        "Prior written approval by Authorised Officer (verbal permitted for at-risk/priority)",
+        "Per-dwelling survey of most suitable equipment and methods",
+        "Safe isolation of mechanical and electrical circuits",
+        "Flushing in line with boiler guarantees",
+        "Correct inhibiter installation",
+        "Maximum 24 hours without hot water"
+      ],
+      "technical_standards": [
+        "Gas Safety (Installation and Use) Regulations 1998"
+      ],
+      "cpv_codes": [
+        "50531100-7"
+      ],
+      "evidence_anchor": {
+        "page_ref": "full_document",
+        "anchor_text": "System Boiler Replacements",
+        "section_ref": "10.5 System Boiler Replacements"
+      }
+    },
+    {
+      "seed_key": "lot10-void-works",
+      "lot_number": "10",
+      "candidate_name": "Void works with compliance certification",
+      "summary": "Small and large void property works including void gas safety inspection and lettable-standard turnaround.",
+      "requirements": [
+        "Small void completion within 10 working days",
+        "Large void completion within 28 working days",
+        "Gas meter blanking disc fitted after tightness test",
+        "Internal gas supplies capped/plugged",
+        "Appliances disconnected and capped",
+        "Issue of Landlord's Gas Safety Record"
+      ],
+      "technical_standards": [
+        "Gas Safety (Installation and Use) Regulations 1998"
+      ],
+      "cpv_codes": [
+        "50700000-2"
+      ],
+      "evidence_anchor": {
+        "page_ref": "full_document",
+        "anchor_text": "Void Gas Safety Inspections",
+        "section_ref": "10.3 Void Gas Safety Inspections"
+      }
+    },
+    {
+      "seed_key": "lot10-staff-id-cards",
+      "lot_number": "10",
+      "candidate_name": "Photographic staff ID cards (annual renewal)",
+      "summary": "Visible photographic identification cards for all contractor staff engaged on Council premises, renewed annually.",
+      "requirements": [
+        "Photograph of employee",
+        "Employee name",
+        "Trade (and 'Trainee' where applicable)",
+        "Contractor name and address",
+        "Contact telephone number",
+        "Expiry date max 1 year from issue"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "full_document",
+        "anchor_text": "The identification card must contain the following details",
+        "section_ref": "11 Staff Suitability"
+      }
+    },
+    {
+      "seed_key": "lot10-safety-glazing",
+      "lot_number": "10",
+      "candidate_name": "Safety glazing materials (BS 6206 / BS 952 / BS 6262)",
+      "summary": "Safety-glazing materials and workmanship compliant with Approved Document N and the referenced BS standards.",
+      "requirements": [
+        "Clearly and permanently marked safety glass per BS 6206:1981",
+        "Glass classification per BS 952-1:1995 Parts 1 & 2",
+        "Materials and workmanship per BS 6262:2005 Part 4",
+        "Compliance with Approved Document N of the Building Regulations",
+        "Compliance with Workplace Regulations 1992 Regulation 14",
+        "Replacement of non-compliant glazing"
+      ],
+      "technical_standards": [
+        "BS 6206:1981",
+        "BS 952-1:1995 Parts 1 & 2",
+        "BS 6262:2005 Part 4"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "full_document",
+        "anchor_text": "All safety glazing must be clearly and permanently marked in accordance with BS 6206:1981 Safety Glazing Specification",
+        "section_ref": "6 Health, Safety & CDM"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots": 9500,
+    "lot_number": 9500,
+    "lot_title": 9700,
+    "lot_description": 9400,
+    "requirements": 9200,
+    "evaluation_criteria": 7500,
+    "cpv_codes": 5500,
+    "product_requirements": 8000,
+    "technical_standards": 9400,
+    "product_requirement_seeds": 8000,
+    "evidence_anchors": 9500
+  },
+  "extraction_confidence_bps": 8800,
+  "warnings": [
+    {
+      "code": "CPV_NOT_DIRECTLY_CITED",
+      "message": "The tender specification does not explicitly cite CPV codes in its text. Lot-level CPV codes were inherited from the framework-level notice (50700000-2 Repair and maintenance services of building installations; 71315000-9 Building services) as the closest match to this Lot's residential maintenance scope. CPV codes provided on individual product_requirement_seeds (e.g., 50531200-8, 50711000-2, 71317100-4, 90923000-3, 90500000-2, 90650000-8, 50531100-7) are analyst-inferred from the cited standards and activities and are not directly quoted from the document.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_AWARD_CRITERIA_WEIGHTS",
+      "message": "Document does not contain explicit bid award criteria or price/quality weightings. The evaluation_criteria array captures the three contractual Key Performance Indicators (§20.2 KPIs) that govern ongoing performance monitoring — they are not award evaluation weights. Downstream consumers should treat them as performance criteria rather than tender scoring inputs.",
+      "evidence_refs": [
+        "§20.2 Key Performance Indicators (KPIs)"
+      ]
+    },
+    {
+      "code": "SINGLE_LOT_DOCUMENT",
+      "message": "This specification document covers only Lot 10 of Framework 6278 ('Planned, Preventative & Responsive Residential Property Maintenance and Compliance Services'). Existing notice-level lot rows (Lots 1-11) are documented in sibling specification documents and are not contradicted or merged here.",
+      "evidence_refs": [
+        "CONTRACT SPECIFICATION — Measured Term Contract"
+      ]
+    },
+    {
+      "code": "WIRING_REGULATIONS_EDITION_MISMATCH",
+      "message": "Document cites BS 7671 IET Wiring Regulations with inconsistent edition labels: §5.1 references 'BS 7671:200 Requirement for Electrical Installations - IET Wiring Regulations Seventeenth Edition' (likely typo for 'BS 7671:2008'), while §7.2 references the 'Eighteenth Edition'. Standard was consolidated as a single reference string with both citations recorded in technical_standards context.",
+      "evidence_refs": [
+        "§5.1 Statutory & Regulatory Compliance",
+        "§7.2 Regulations and statutory bodies"
+      ]
+    },
+    {
+      "code": "DOCUMENT_LACKS_PAGE_NUMBERS",
+      "message": "Extraction source is Docling markdown without retained page boundaries (page_count = 0 reported). All evidence anchors use page_ref = 'full_document' with section_ref pointing to the numbered clause (e.g., §10.1). Downstream enrichment requiring true page numbers must re-run extraction with a page-preserving engine.",
+      "evidence_refs": []
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "full_document",
+      "anchor_text": "CONTRACT SPECIFICATION — Measured Term Contract – Planned, Preventative & Responsive Residential Property Maintenance and Compliance Services",
+      "section_ref": "Document title"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "This Contract is for: Carrying out Repairs, Void works and Minor Works; Engineering Repairs; Servicing and Compliance Works for Gas and Electrical Installations",
+      "section_ref": "1 Contract Description"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "Initial Contract Term: 1st November 2026 to 31st October 2030",
+      "section_ref": "1 Contract Description"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "approximately 230 Council-owned street properties; 120 private leased properties managed by the Council; 3 Hostels",
+      "section_ref": "2.2 General"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "Services include: General building maintenance; Gas servicing and safety compliance; Electrical testing and servicing; Fire and Legionella compliance inspections; Fire alarms and Emergency Lighting inspection; 24-hour emergency out-of-hours service; Pest Control; Rubbish Clearance; Asbestos reports and removal",
+      "section_ref": "2.3 Services include"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "Standard - as programmed — Within 5 working days; Urgent same/next day — Within 1 working day; Emergency Immediate — Make safe within 4 hours, full completion ASAP; Small Void Works — Within 10 working days; Large Void Works — Within 28 working days",
+      "section_ref": "3.3 Orders, timescales, pricing and completion"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "Housing Grants, Construction and Regeneration Act 1996 (as amended); JCT MTC 2024 Section 4",
+      "section_ref": "4 Payment & Valuation"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "Building Regulations 2010 (as amended); Building Safety Act 2022 and Part 2A; CDM Regulations 2015; Gas Safety (Installation and Use) Regulations; BS 7671 – IET Wiring Regulations; Fire Safety Order 2005; Environmental Protection Act 1990; GDPR / Data Protection Act 2018",
+      "section_ref": "5.1 Statutory & Regulatory Compliance"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "The Control of Asbestos Regulations 2012 (CAR 2012) and HSE Guidance from the HSE 2016",
+      "section_ref": "6 Health, Safety & CDM (asbestos)"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "BS 6206:1981 Safety Glazing Specification; BS 952-1:1995 Parts 1 & 2; BS 6262:2005 Part 4",
+      "section_ref": "6 Health, Safety & CDM (glazing)"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "An annual comprehensive service of every gas appliance and system to the manufacturers' specification will be undertaken.",
+      "section_ref": "10.1 Servicing Program"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "Carry out an full annual gas safety inspection to comply with the current Gas Safety (Installation and Use) Regulations.",
+      "section_ref": "10.2 Gas Safety Inspections"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "Void Gas Safety Inspections",
+      "section_ref": "10.3 Void Gas Safety Inspections"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "Contractor will provide a comprehensive 24 hour breakdown service for the period of the contract",
+      "section_ref": "10.4 Breakdowns"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "System Boiler Replacements",
+      "section_ref": "10.5 System Boiler Replacements"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "Hold valid CSCS cards; appropriate trade qualifications; photo ID; enhanced Disclosure and barring service (DBS)",
+      "section_ref": "12.1 Staff, DBS & Conduct"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "The Environmental Protection Act 1990 (EPA1990)",
+      "section_ref": "13 Environment & Sustainability"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "The contract will be awarded on a fixed term basis for four years from 1st November 2026 to 31st October 2030 with no option to extend or price uplifts.",
+      "section_ref": "18 Period of Contract"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "KPI 1 – Repair Response & Completion Times (Service Performance)",
+      "section_ref": "20.2 Key Performance Indicators (KPIs)"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "KPI 2 – Statutory Compliance & Property Safety (Zero Tolerance KPI) — Annual Gas Safety Certification (CP12); Electrical Safety Reports (EICR); Energy Performance certification (EPC)",
+      "section_ref": "20.2 Key Performance Indicators (KPIs)"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "KPI 3 – Void Turnaround & Property Readiness (Critical TA KPI)",
+      "section_ref": "20.2 Key Performance Indicators (KPIs)"
+    },
+    {
+      "page_ref": "full_document",
+      "anchor_text": "Transfer of Undertakings (Protection of Employment) Regulations 2006",
+      "section_ref": "21 TUPE"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "8c42e3b8d65dc697c7c6193c553f16a08800e8065d97d065d31a4a796f2cee4a",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

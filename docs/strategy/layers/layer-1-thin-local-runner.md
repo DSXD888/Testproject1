@@ -110,7 +110,7 @@ Layer 0's TypeScript intelligence code runs from CLI (`bun run skill-name`). Lay
 - `Cargo.toml` — workspace root
 - `rust-toolchain.toml` — Rust 2024 edition (nightly)
 
-**`crates/daemon` — 17 core files:**
+**`crates/daemon` — 20 core files:**
 
 | File | Responsibility |
 |------|---------------|
@@ -131,17 +131,36 @@ Layer 0's TypeScript intelligence code runs from CLI (`bun run skill-name`). Lay
 | `ipc/descriptor.rs` | Daemon runtime descriptor: atomic `daemon.info.json` write on ready, exclusive `daemon.lock` via OS-level file lock, stale-socket cleanup |
 | `ipc/handshake.rs` | Desktop↔daemon handshake protocol: version negotiation, schema epoch check, `commit_seq` exchange, health summary |
 | `sessions/reaper.rs` | Session Reaper (L1-critical): `SIGCHLD` handling, `waitpid(-1, WNOHANG)` drain loop, `pid→session_id` map, orphan/leak scan, cleanup verdict assignment, `cleanup_report.json` emission |
+| `pdf/engine.rs` | Structural PDF extraction engine: Docling subprocess wrapper with supervised process groups, extraction result parsing, content-hash cache lookup/persist/clone-reuse, processing strategy dispatch (standard, force_full_page_ocr, fast_table_structure) |
+| `pdf/chunking.rs` | Deterministic document chunking: document synopsis extraction (section tree, table headers, page anchors, token estimates), section-aware chunk plans that never split tables, merge job coordination for per-chunk semantic overlays |
+| `pdf/policy.rs` | Extraction policy resolution: document role classification via three-tier heuristic cascade (OCDS metadata → filename patterns → structural content analysis), role-to-overlay skill mapping with versioned extraction policy |
 
-**New skills (2):**
+**New skills (6):**
 
 | Skill | Purpose | Interaction Profile |
 |-------|---------|-------------------|
 | `skills/procurement-ingestion/fts/` | Live FTS notice ingestion via browser automation | `pty_interactive` |
 | `skills/manifest-generation/` | Opportunity manifest generation from pipeline results | `headless_contract` |
+| `skills/pdf-extraction/base/` | Generic document semantic mapping (classification + entity extraction) | `headless_contract` |
+| `skills/pdf-extraction/tender-specification/` | Lot structure + requirement extraction from tender specs, ITT, SoR | `headless_contract` |
+| `skills/pdf-extraction/pricing-schedule/` | Line-item pricing extraction from pricing schedules, rate cards | `headless_contract` |
+| `skills/pdf-extraction/bill-of-quantities/` | Itemized quantity breakdown extraction from BoQs | `headless_contract` |
 
-**Database migration:**
+All pdf-extraction skills use `model_profile: structured_extract_low_cost` (Haiku tier) because structural work is done by Docling. All are `side_effect_class: none` — the daemon, not the skill, owns authoritative database writes after a successful contract run via a `pdf-extraction/`-specific result persister in the Job Runner.
+
+**Database migrations:**
 
 `0003_sqlite_runtime.sql` — creates `agent_session_logs`, `raw_documents`, `error_manifests`, `executors`, `source_cursors`, `commit_clock` tables (all in `state.db` — single-database model).
+
+`0006_pdf_extraction_toolkit.sql` — creates `document_extractions` and `document_semantic_extractions` tables (in `state.db`).
+
+**Extraction table contract (`0006_pdf_extraction_toolkit.sql`):**
+
+- `document_extractions` is the authoritative structural row per `raw_document_id × extraction_engine × extraction_engine_version × processing_strategy`, with content-hash reuse keyed by `source_content_hash + extraction_engine_version + processing_strategy`. The row carries `document_role`, `extraction_policy_version`, `expected_overlays_json`, `extracted_markdown`, `extracted_sections_json`, `extracted_tables_json`, `extracted_metadata_json`, objective quality metrics, and aggregate `semantic_extraction_state`. Supercession is explicit via `is_current` and `superseded_by_extraction_id`.
+- `document_semantic_extractions` is the authoritative semantic row per `document_extraction_id × skill_id × extraction_scope`, with `target_domain`, `extracted_data_json`, `field_confidences_json`, `warnings_json`, `evidence_anchors_json`, and `written_entity_refs_json`. Chunk-local runs may exist in artifacts and job payloads, but only the merged/current row remains authoritative.
+- `tender_document_sets.extraction_state` is the notice-level document-set progress field (`none` / `partial` / `complete` / `failed`). It is distinct from `document_extractions.semantic_extraction_state`, which is the per-document overlay rollup (`pending` / `partial` / `complete` / `failed` / `skipped`).
+- Cross-authority FK discipline still applies: `raw_document_id` is an opaque reference to local-only `raw_documents`, so no SQL FK exists there even though `document_extraction_id` is a real FK inside the push-owned extraction tables.
+- Index expectations are part of the contract: current-row uniqueness on `document_extractions(raw_document_id, extraction_engine, extraction_engine_version, processing_strategy)` and `document_semantic_extractions(document_extraction_id, skill_id, extraction_scope)`, plus hash/state lookup indices for reuse and pending semantic work.
 
 **Requirement ID namespace (authoritative for this document):**
 
@@ -163,7 +182,7 @@ Layer 0's TypeScript intelligence code runs from CLI (`bun run skill-name`). Lay
 **Traceability rule:** Every testable Layer 1 behavior in this document is identified by an inline `L1-FR-*` marker. Later sections may reference an existing requirement ID instead of restating the full contract.
 
 **L1-FR-DAEMON.2 — Runtime Surface Matches the Layer 1 Component Inventory**
-- AC1: The Layer 1 runtime surface is limited to the 17 daemon files, the two new skills, and the `0003_sqlite_runtime.sql` migration listed in this section.
+- AC1: The Layer 1 runtime surface is limited to the 20 daemon files, the six new skills, and the `0003_sqlite_runtime.sql` and `0006_pdf_extraction_toolkit.sql` migrations listed in this section.
 - AC2: Behavior assigned to a subsystem prefix in this document maps to the files listed in the namespace table above.
 - AC3: New functionality deferred to later layers is not treated as implicitly active in Layer 1 unless a requirement in this document says otherwise.
 
@@ -269,7 +288,7 @@ The first live operational loop executes this sequence via manual CLI trigger:
 | 8. Checkpoints and result contract | `agent_session_logs.last_checkpoint_seq` update when checkpoints validate | `checkpoint-*.json` and `result.json` artifacts |
 | 9. Run manifest generation | `agent_session_logs.run_manifest_path` and `agent_session_logs.run_manifest_hash` | `run-manifest.md` artifact |
 | 10. Result validation | Success path: no additional mandatory domain-table write beyond session metadata; failure/quarantine path writes `error_manifests` and session error fields | Validation/quarantine artifacts as applicable |
-| 11. Pipeline processing | Stage-domain writes as applicable: `procurement_processes`, `contract_notices`, `raw_documents` (when documents are acquired), `tender_document_sets`, `notice_lots`, `qualification_runs`, `product_candidates`, `search_profiles`, `search_attempts`, `supplier_quotes`, `candidate_pricing_assessments`, `landed_cost_estimates`, `pipeline_assessments` | Supporting downloaded documents and intermediate artifacts |
+| 11. Pipeline processing | Stage-domain writes as applicable: `procurement_processes`, `contract_notices`, `raw_documents` (when documents are acquired), `tender_document_sets`, `document_extractions`, `document_semantic_extractions`, `notice_lots`, `qualification_runs`, `product_candidates`, `search_profiles`, `search_attempts`, `supplier_quotes`, `candidate_pricing_assessments`, `landed_cost_estimates`, `pipeline_assessments` | Supporting downloaded documents and intermediate artifacts |
 | 12. Stage tracking | In the same transaction as step 11 domain writes: `process_stage_status`, `process_stage_heads`, `commit_clock` | None |
 | 13. Session cleanup | `agent_session_logs` status/cleanup-verdict finalization; `error_manifests` on cleanup failure paths | `cleanup-report.json` artifact |
 | 14. Verifiable output | `manifests` row, `workflow_jobs` final status, final `agent_session_logs` archival status/metadata | CLI summary plus local markdown opportunity manifest artifact |
@@ -1731,7 +1750,7 @@ Reserved forward-compat columns are **schema slots, not active behavior**. In La
 | Provision | Target Layer | Status in L1 |
 |-----------|-------------|-------------|
 | Sync tracking columns on all push-owned writes | L4 | Populated from first write; no outbox entries yet |
-| `workflow_jobs.parent_job_id` | L3 | Column exists but L1 writers MUST leave it `NULL`; L1 control flow ignores it |
+| `workflow_jobs.parent_job_id` | L1 (PDF extraction), L3 (validation) | Now actively used by PDF extraction cascade: `extract_document_structure` parent links to `extract_document_semantics` children. L1 non-extraction jobs still leave it `NULL`. |
 | `workflow_jobs.validation_required` | L3 | Constitutional invariant in L1: always `false`; L1 writers MUST NOT set it `true` |
 | `workflow_jobs.validation_verdict_id` | L3 | Column exists but L1 writers MUST leave it `NULL` |
 | `pipeline_assessments.validation_state` | L3 | Default `'unverified'` from first write; L1 writers MUST NOT emit validator-derived states |
@@ -1740,7 +1759,7 @@ Reserved forward-compat columns are **schema slots, not active behavior**. In La
 | Error manifest format includes validator fields | L3 | Fields exist but remain unpopulated in L1 |
 
 **L1-FR-DB.11 — Reserved Forward-Compatibility Columns Stay Reserved in Layer 1**
-- AC1: Layer 1-created or Layer 1-updated `workflow_jobs` rows leave `parent_job_id` and `validation_verdict_id` as `NULL` unless this document explicitly says otherwise.
+- AC1: Layer 1-created or Layer 1-updated `workflow_jobs` rows leave `validation_verdict_id` as `NULL` unless this document explicitly says otherwise. `parent_job_id` is populated by the PDF extraction cascade (`extract_document_semantics` children link to their `extract_document_structure` parent); non-extraction jobs leave it `NULL`.
 - AC2: `workflow_jobs.validation_required` remains `false` for all Layer 1 jobs, and Layer 1 control flow does not branch on validator-only fields.
 - AC3: `pipeline_assessments.validation_state` remains `'unverified'` in Layer 1; validator-derived states are reserved for later layers.
 - AC4: Later-layer-only fields may be surfaced for diagnostics, but Layer 1 does not treat them as active behavior.
@@ -1751,7 +1770,7 @@ Reserved forward-compat columns are **schema slots, not active behavior**. In La
 
 ### 4.1 New Skills (Layer 1)
 
-Two skills are introduced in Layer 1. Both follow the production skill directory standard established in Layer 0 §4 (SKILL.md + result.schema.json + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml).
+Six skills are introduced in Layer 1. All six follow the production skill directory standard established in Layer 0 §4 (SKILL.md + result.schema.json + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml).
 
 **L1-FR-SKILLS.1 — Layer 1 Skills Conform to the Layer 0 Production Skill Directory Standard**
 - AC1: Each Layer 1 skill directory includes the required Layer 0 production files unless this document explicitly classifies the skill as markdown-only sufficient.
@@ -2124,7 +2143,7 @@ All items must pass before Layer 1 is complete:
 | 1 | `cargo check --all-targets` and `cargo clippy --all-targets -- -D warnings` pass | Automated: CI gate | `L1-FR-DAEMON.2`, `L1-FR-DAEMON.3` |
 | 2 | Rust binary launches skills via CLI (both PTY and contract mode) | Manual: `./daemon --run-skill skills/supplier-price-enrichment/ebay --mode pty` | `L1-FR-ADAPTER.1`-`L1-FR-ADAPTER.18`, `L1-FR-PTY.1`-`L1-FR-PTY.4` |
 | 3 | Manual CLI trigger ingests a live FTS batch using source-batched skill execution | Manual: `./daemon --ingest fts` produces notice records | `L1-FR-PIPELINE.2`-`L1-FR-PIPELINE.8`, `L1-FR-PIPELINE.22`, `L1-FR-SKILLS.2` |
-| 4 | First live end-to-end local loop completes for at least one notice: normalize -> prequalify_notice -> acquire_docs -> extract lots -> qualify_lot -> extract products -> price-signal match -> gross gate -> landed cost -> manifest | Manual: verify manifest artifact exists | `L1-FR-PIPELINE.9`-`L1-FR-PIPELINE.22`, `L1-FR-RUNNER.3`-`L1-FR-RUNNER.9` |
+| 4 | First live end-to-end local loop completes for at least one notice: normalize -> prequalify_notice -> acquire_docs -> structural extraction -> semantic extraction -> extract lots -> qualify_lot -> extract products -> price-signal match -> gross gate -> landed cost -> manifest | Manual: verify manifest artifact exists | `L1-FR-PIPELINE.9`-`L1-FR-PIPELINE.22`, `L1-FR-RUNNER.3`-`L1-FR-RUNNER.9` |
 | 5 | Verifiable output exists without later layers: CLI summary plus a local markdown manifest artifact proves the loop completed | Manual: inspect output file | `L1-FR-PIPELINE.15`, `L1-FR-ARTIFACTS.6`-`L1-FR-ARTIFACTS.15`, `L1-FR-SKILLS.3` |
 | 6 | Process-group supervision verified: every session gets pgid, cleanup verdict recorded (clean/forced/leaked) | Automated: test + manual inspection of `agent_session_logs` | `L1-FR-PTY.1`-`L1-FR-PTY.4`, `L1-FR-REAPER.1`-`L1-FR-REAPER.5`, `L1-FR-DAEMON.5`-`L1-FR-DAEMON.12` |
 | 7 | Artifact capture works: PTY bytes compressed and stored, session metadata in `agent_session_logs` | Automated: test verifies compressed artifact exists | `L1-FR-PIPELINE.8`, `L1-FR-ARTIFACTS.1`-`L1-FR-ARTIFACTS.5`, `L1-FR-DB.5` |
@@ -2134,12 +2153,14 @@ All items must pass before Layer 1 is complete:
 | 11 | Smoke canary harness executes: page fingerprint check + required auth-state verification when applicable + minimal extraction per source | Automated: `skill_canary_harness.rs` test | `L1-FR-SKILLS.2`, `L1-FR-ADAPTER.4`, `L1-FR-ERRORS.31`, `L1-FR-ERRORS.35` |
 | 12 | Experiment 4 passes: 10 consecutive batch runs, >=90% success rate, 0 orphaned processes | Semi-automated: harness runs 10 batches, checks orphans | `L1-FR-DAEMON.1`, `L1-FR-REAPER.1`-`L1-FR-REAPER.5`, `L1-FR-PIPELINE.14`-`L1-FR-PIPELINE.15` |
 | 13 | `stage_run_id` correctly scoped per business unit grain for all live-pipeline stage commits | Automated: test verifies stage_run_id uniqueness per scope grain | `L1-FR-RUNNER.4`-`L1-FR-RUNNER.9`, `L1-FR-PIPELINE.16`-`L1-FR-PIPELINE.21` |
+| 14 | Structural extraction completes for at least one PDF, producing a valid `document_extractions` row with extracted markdown and tables | Automated: `pdf_structural_extraction.rs` test | `L1-FR-DAEMON.2` |
+| 15 | Semantic extraction completes for at least one document, producing a valid `document_semantic_extractions` row with domain-specific structured output | Automated: `pdf_semantic_extraction.rs` test | `L1-FR-DAEMON.2` |
 
 ### 5.2 Test File Listing
 
-10 new Rust test files for Layer 1 (cumulative: 14 including L0's 4 TS test files):
+15 new Rust test files for Layer 1 (cumulative: 19 including L0's 4 TS test files):
 
-Coverage note: DoD 1 is enforced by CI static analysis rather than a Rust test file. The 10 files below cover DoD 2-13.
+Coverage note: DoD 1 is enforced by CI static analysis rather than a Rust test file. The 15 files below cover DoD 2-15.
 
 | Test File | Coverage | Primary Requirements | DoD Coverage |
 |-----------|----------|----------------------|--------------|
@@ -2153,6 +2174,11 @@ Coverage note: DoD 1 is enforced by CI static analysis rather than a Rust test f
 | `skill_canary_harness.rs` | Live smoke canary execution: page fingerprint, auth verification, minimal extraction, protocol/version drift detection | `L1-FR-SKILLS.2`, `L1-FR-ADAPTER.4`, `L1-FR-ERRORS.31`, `L1-FR-ERRORS.35` | 11 |
 | `session_reaper.rs` | Session Reaper correctness: SIGCHLD handling, waitpid drain, orphan detection, cleanup verdict assignment, cleanup_report.json emission, daemon-crash recovery | `L1-FR-REAPER.1`-`L1-FR-REAPER.5`, `L1-FR-ERRORS.29`, `L1-FR-ERRORS.30`, `L1-FR-IPC.4` | 6, 9, 12 |
 | `ipc_handshake.rs` | Daemon↔desktop IPC: descriptor file write/read, lock-file exclusivity, handshake protocol, stale socket detection, peer credential verification, explicit startup-failure non-readiness | `L1-FR-IPC.1`-`L1-FR-IPC.7`, `L1-FR-DB.2`, `L1-FR-DB.4`, `L1-FR-ERRORS.42` | 5, 9 |
+| `pdf_structural_extraction.rs` | Docling subprocess spawn, extraction result parsing, content-hash cache hit/miss, persistence, supercession tracking (`is_current`/`superseded_by`), processing strategy dispatch | `L1-FR-DAEMON.2` | 14 |
+| `pdf_semantic_extraction.rs` | Semantic overlay skill execution via headless_contract, per-chunk semantic mapping, overlay routing by document role, result persistence to `document_semantic_extractions` | `L1-FR-DAEMON.2` | 15 |
+| `pdf_extraction_cascade.rs` | Full pipeline cascade: structural extraction → semantic extraction → lot/product refresh downstream, parent-child job orchestration via `parent_job_id` | `L1-FR-DAEMON.2`, `L1-FR-RUNNER.3` | 4, 14, 15 |
+| `pdf_extraction_skill_inventory.rs` | Skill linting and golden case verification for all 4 pdf-extraction skill directories (base + 3 domain overlays) | `L1-FR-SKILLS.1`, `L1-FR-SKILLS.4` | 10 |
+| `pdf_lot_product_refresh.rs` | End-to-end integration: structural + semantic extraction feeds into lot extraction and product extraction downstream stages | `L1-FR-PIPELINE.9`-`L1-FR-PIPELINE.22` | 4, 14, 15 |
 
 ### 5.3 Test Scenarios
 
@@ -2239,6 +2265,7 @@ These questions are routed from the research document §10. They are explicitly 
 | Job Runner aware of parent_job_id | Field exists and is queryable; null in L1 because no validation sub-jobs yet | Layer 3 (validator sub-jobs) |
 | stage_run_id on all pipeline writes | Populated from first live write; scope grain tracked in process_stage_status | Layer 4 (sync batch boundaries never cross stage_run_id) |
 | Sync tracking columns populated on every write | owner_id, row_version, last_local_seq set even before outbox exists | Layer 4 (sync activation) |
+| PDF extraction toolkit designed as reusable capability | New document types add semantic overlay skills without schema changes or daemon recompilation; MIME-aware backend abstraction ready for DOCX/HTML/XLSX future backends | L5 (compliance certificates), L6 (bid templates) |
 
 ### 6.4 Dependencies
 

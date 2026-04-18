@@ -1,0 +1,328 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Multi-disciplinary Design Team Appointment — Stockport Town Centre School (Architect scope, Annex A.1)",
+      "description": "Appointment of an architecturally led multi-disciplinary design team to develop a feasibility-through-to-concept design of a new school in a town-centre location. This document (Annex A.1) defines the Architect's scope of service within the multi-disciplinary appointment, covering Lead Consultant / Design Team Leader duties, BIM compliance, Risk Register contribution, and full RIBA Plan of Work 2020 Stage 0–7 responsibilities. The appointment is under a JCT Design & Build Contract with consultant novation, with payment on 30-day terms on stage completion. The Architect is responsible for coordinating all design outputs across roofing, waterproofing, flooring, ceilings, walling, doors/ironmongery, screens, architectural metalwork, finishes, FF&E, shading, façade and cladding (including glazed balustrades), toilets, BMS spatial allowances, wayfinding/signage, feature structural expressions, and an access and maintenance strategy.",
+      "requirements": [
+        "Architect acts as Lead Consultant and Design Team Leader (Core Services 1.2).",
+        "Comply with Client Organisational Information Requirements for BIM and Employer's Information Requirements for BIM; run clash detection reviews and minimisation meetings (Core Services 1.3).",
+        "Chair and minute design/project/construction meetings and distribute records across design and construction teams (Core Services 1.4).",
+        "Supply fully coordinated design covering architectural scope 1.6.1–1.6.18 including roofing, waterproofing, flooring, ceilings, walling, doors & ironmongery, acoustic/privacy screens, architectural metalwork, decorations & finishes, FF&E, shading systems, façade and cladding with glazed balustrades, toilets, BMS spatial requirements, statutory and wayfinding signage, architectural intent for expressed structural features, and access & maintenance strategy.",
+        "Contribute to and maintain the Project Risk Register; issue Designers Risk Assessments at the end of each stage (Core Services 1.8–1.9).",
+        "Support the BREEAM assessor to ensure the target BREEAM rating is met (Core Services 1.11).",
+        "Design the works to comply with all relevant statutory requirements, codes of practice, guidance and best practice; raise derogation notices where compliance is not met (Core Services 1.16–1.18).",
+        "Manage the gaining of Planning Permissions and Building Control Applications (Core Services 1.19).",
+        "Ensure proposals comply with the Disability Discrimination Act (Core Services 1.20).",
+        "Make drawings available in both PDF and DWG format; maintain a Common Data Environment (Core Services 1.21, 1.23).",
+        "Issue a monthly Design Progress report and maintain a design programme, also issued monthly (Core Services 1.22).",
+        "Comply with the RIBA Plan of Work 2020 for Stages 0/1, 2, 3, 4, 5 and 6/7, providing a formal stage report at the conclusion of each stage (Sections 2.1–2.2, 3.1–3.2, 4.1–4.2, 5.1–5.2, 6.1, 7.1).",
+        "At RIBA Stage 2 produce site plan, general arrangement drawings (plans, elevations, sections with dimensions/datums/levels), roof plans, larger-scale details for complex areas, and area/accommodation schedules (Section 3.4).",
+        "At RIBA Stage 3 produce grid drawings, 1:100 & 1:50 GAs, fully coordinated full site plan, external elevations with detailed bay studies, 1:100 roof layout, 1:50 stair/ramp sections proving rise/going/pitch, coordinated ceiling layouts with void depth zones, room data sheets, and area/accommodation schedules (Section 4.4).",
+        "At RIBA Stages 3–4 prepare calculations, drawings, schedules and specifications to enable tender documentation; coordinate submissions to statutory authorities; undertake value management and support cost planning (Sections 4.5–4.17, 5.3–5.11).",
+        "At RIBA Stage 5 issue Construction-status drawings, schedules, calculations and specifications; attend site meetings; record defects and handover plan (Section 6.2–6.6).",
+        "At RIBA Stages 6–7 manage snagging, defects administration, post-completion services, O&M input, Health & Safety File contributions and Lessons Learnt workshops (Sections 7.1–7.7).",
+        "Comply with the CDM Regulations and update the pre-construction information and Health and Safety File throughout (Sections 2.10, 3.9, 4.6, 4.10, 5.5, 7.5–7.6).",
+        "Employer's Liability insurance of £10,000,000 (General 1.6).",
+        "Public Liability insurance of £10,000,000 with indemnity-to-principals provision and no aggregate limit on number of claims (General 1.7).",
+        "Professional Indemnity Insurance cover of £20,000,000 per claim (General 1.8 — note text says 'ten million pounds' in parentheses despite figure of £20,000,000; treat the £20,000,000 figure as controlling but flag the inconsistency).",
+        "Payment terms: 30 days, invoices following completion of stages (General 1.5).",
+        "Form of Building Contract: JCT Design & Build (General 1.3).",
+        "Form of Consultant Appointment: Multi Discipline consultant with novation (General 1.4)."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "stockport-town-centre-school-architect-service",
+          "summary": "Architectural Lead Consultant / Design Team Leader service covering feasibility through RIBA Stage 7, within a JCT Design & Build multi-disciplinary consultant appointment (with novation) for a new town-centre school.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "RIBA Plan of Work 2020 compliance across Stages 0–7",
+            "BIM-Level compliance per Client Organisational Information Requirements and Employer's Information Requirements",
+            "Clash detection reviews and clash-minimisation chairing",
+            "CDM Regulations compliance",
+            "BREEAM support to target rating",
+            "Disability Discrimination Act compliance",
+            "Common Data Environment maintenance",
+            "PDF and DWG deliverable formats",
+            "Monthly design progress reporting"
+          ],
+          "quantity_hint": "Single appointment for one project (Stockport Town Centre School, Project Number E000-25-0031) — feasibility through to Stage 7.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "General Description of the Works Required: Design and Technical Services are looking to procure an architecturally led multi disciplinary design team to develop a feasibility through to concept design of a new school",
+            "section_ref": "General 1.1"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "RIBA Plan of Work 2020",
+          "context": "Referenced as the governing framework for Stages 0/1, 2, 3, 4, 5 and 6/7 deliverables — the Architect must comply with its requirements at each stage (sections 2.1, 3.1, 4.1, 5.1, 6.1, 7.1).",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Work 2020 for Stages 0 and 1.",
+            "section_ref": "2.1"
+          }
+        },
+        {
+          "standard_ref": "JCT Design & Build Contract",
+          "context": "Proposed Form of Building Contract under which the architect's design will be delivered.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Proposed Form of Building Contract: JCT Design & Build Contract",
+            "section_ref": "General 1.3"
+          }
+        },
+        {
+          "standard_ref": "CDM Regulations",
+          "context": "Architect must comply with the CDM Regulations and support the Principal Designer / CDM advisor in maintaining pre-construction information and the Health and Safety File.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Comply with the CDM Regulations.",
+            "section_ref": "2.10"
+          }
+        },
+        {
+          "standard_ref": "BREEAM",
+          "context": "Architect must support the BREEAM assessor and attend BREEAM meetings to ensure the target BREEAM rating is achieved.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "When appointed support the work of the BREEAM assessor by issuing all required evidence and taking part in BREEAM meetings to ensure the target BREEAM rating is met.",
+            "section_ref": "Core Services 1.11"
+          }
+        },
+        {
+          "standard_ref": "Disability Discrimination Act",
+          "context": "Architect must ensure proposals comply with the requirements of the Disability Discrimination Act.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "The designer shall ensure the proposals comply with the requirements of the Disability Discrimination Act.",
+            "section_ref": "Core Services 1.20"
+          }
+        },
+        {
+          "standard_ref": "Client Organisational Information Requirements for BIM",
+          "context": "Architect is required to comply with the Client's Organisational Information Requirements for BIM, alongside the Employer's Information Requirements for BIM.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "comply with all of the requirements of the Clients Organisational Information Requirements for BIM and Employers Information Requirements for BIM",
+            "section_ref": "Core Services 1.3"
+          }
+        },
+        {
+          "standard_ref": "Employer's Information Requirements for BIM",
+          "context": "Architect must comply with Employer's Information Requirements for BIM and run clash detection reviews and minimisation meetings.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Employers Information Requirements for BIM. The Architect is to undertake regular clash detection reviews, feedback and reporting and arrange clash minimisation meetings.",
+            "section_ref": "Core Services 1.3"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "anchor_text": "Scope of Service — Architect — Project: Stockport Town Centre School — Project Number: E000-25-0031",
+        "section_ref": "Cover page"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "stockport-town-centre-school-architect-service",
+      "lot_number": "1",
+      "candidate_name": "Architectural Lead Consultant Service — Stockport Town Centre School",
+      "summary": "Architecturally led multi-disciplinary design team appointment (Architect discipline scope defined in Annex A.1) covering feasibility through RIBA Stage 7 for a new town-centre through-school; delivered under a JCT Design & Build Contract with consultant novation and 30-day stage-based payment terms.",
+      "requirements": [
+        "Act as Lead Consultant and Design Team Leader across the multi-disciplinary team.",
+        "Deliver architectural design across all elements listed in Core Services 1.6 (roofing, waterproofing, flooring, ceilings, walling, doors/ironmongery, screens, metalwork, finishes, FF&E, shading, façade/cladding, toilets, BMS spatial, signage, feature structural expression, access & maintenance strategy).",
+        "Comply with the RIBA Plan of Work 2020 for all stages 0–7 and issue a formal stage report at the conclusion of each stage.",
+        "Produce Stage 2 and Stage 3 drawing deliverables (site plans, general arrangement drawings, roof plans, stair/ramp sections, ceiling layouts, room data sheets, area/accommodation schedules) with defined scales.",
+        "Comply with the CDM Regulations and contribute to the pre-construction information and Health & Safety File.",
+        "Support the BREEAM assessor to deliver the target BREEAM rating.",
+        "Comply with the Disability Discrimination Act.",
+        "Maintain a Common Data Environment, issue drawings in PDF and DWG, and issue a monthly design progress report.",
+        "Carry Employer's Liability insurance of £10m, Public Liability insurance of £10m, and Professional Indemnity insurance of £20m."
+      ],
+      "technical_standards": [
+        "RIBA Plan of Work 2020",
+        "JCT Design & Build Contract",
+        "CDM Regulations",
+        "BREEAM",
+        "Disability Discrimination Act",
+        "Client Organisational Information Requirements for BIM",
+        "Employer's Information Requirements for BIM"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "anchor_text": "Design and Technical Services are looking to procure an architecturally led multi disciplinary design team to develop a feasibility through to concept design of a new school, in a town centre location.",
+        "section_ref": "General 1.1"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots": 8800,
+    "lots.title": 7800,
+    "lots.description": 8600,
+    "lots.requirements": 9000,
+    "lots.evaluation_criteria": 3000,
+    "lots.cpv_codes": 2000,
+    "lots.product_requirements": 7500,
+    "lots.technical_standards": 8800,
+    "product_requirement_seeds": 7000
+  },
+  "extraction_confidence_bps": 7400,
+  "warnings": [
+    {
+      "code": "NO_EXPLICIT_EVALUATION_CRITERIA",
+      "message": "This document (Annex A.1 Architectural Scope of Service) does not state evaluation criteria, weightings or award methodology. Evaluation criteria are expected to be defined elsewhere in the tender pack (e.g. 1A-Invitation-to-Participate or 2-Specification) and must be merged at the lot level from those documents, not from this annex.",
+      "evidence_refs": ["Cover page", "General 1.1"]
+    },
+    {
+      "code": "NO_CPV_IN_DOCUMENT",
+      "message": "No CPV code appears anywhere in the Architectural Scope of Service document; CPV must be sourced from the notice or from the Invitation-to-Participate document. The notice-level main_category '150000 - Consultancy' is a ProContract/Proactis category and is not a CPV code, so it has not been emitted as a CPV.",
+      "evidence_refs": ["Cover page"]
+    },
+    {
+      "code": "SERVICE_SCOPE_ANNEX_ONLY",
+      "message": "This document is one of several discipline scope annexes (A.1 Architect, A.2 BR Principal Designer, A.3 Mechanical & Electrical, A.4 CDM Principal Designer, A.5 Structural and Civils). It describes only the Architect discipline within a single multi-disciplinary Lot 1 appointment — it does not introduce additional lots. Lot numbering has been preserved as Lot 1 consistent with existing notice-level lot metadata.",
+      "evidence_refs": ["Cover page", "General 1.1", "Core Services 1.2"]
+    },
+    {
+      "code": "PII_FIGURE_TEXT_MISMATCH",
+      "message": "Section 1.8 of General specifies Professional Indemnity Insurance Cover Required as '£20,000,000 (ten million pounds)' — the figure (£20,000,000) does not match the parenthetical wording ('ten million pounds'). The figure has been treated as controlling but the mismatch should be queried before reliance.",
+      "evidence_refs": ["General 1.8"]
+    },
+    {
+      "code": "STRUCTURAL_METADATA_SPARSE",
+      "message": "Docling structural output for this document reports page_count=0 and a single structural section labelled 'page header' with an empty table shell. Page references have been emitted as 'p1' consistently because the markdown content is present even though page-level pagination metadata is unavailable.",
+      "evidence_refs": ["extracted_sections_json", "extracted_tables_json"]
+    },
+    {
+      "code": "SECTION_NUMBERING_RESET",
+      "message": "The document's numbered-list structure restarts at '1. General' and then '1. Core Services' (the second top-level item is re-labelled '1' rather than '2'). Downstream sections use top-level numbers 2–7 for the RIBA stages. Section references have been preserved using the document's labelling (e.g. 'General 1.x', 'Core Services 1.x', '2.x'–'7.x') rather than renumbering.",
+      "evidence_refs": ["General 1.1", "Core Services 1.1"]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p1",
+      "anchor_text": "Scope of Service — Architect — Project: Stockport Town Centre School — Project Number: E000-25-0031 — Document Number: 00 — Revision: 00 — Date: January 2026",
+      "section_ref": "Cover page"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "General Description of the Works Required: Design and Technical Services are looking to procure an architecturally led multi disciplinary design team to develop a feasibility through to concept design of a new school, in a town centre location.",
+      "section_ref": "General 1.1"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Proposed Form of Building Contract: JCT Design & Build Contract",
+      "section_ref": "General 1.3"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Form of Consultant Appointment: Multi Discipline consultant (with novation)",
+      "section_ref": "General 1.4"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Proposed Consultant Payment Terms: 30 days payment terms, invoices following completion of stages.",
+      "section_ref": "General 1.5"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Level of Employer Liability Cover Required: £10,000,000 (ten million pounds).",
+      "section_ref": "General 1.6"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Level of Public Liability Cover Required: £10,000,000 (ten million pounds)",
+      "section_ref": "General 1.7"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Level of Professional Indemnity Insurance Cover Required: £20,000,000 (ten million pounds)",
+      "section_ref": "General 1.8"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "The Architect is to act as Lead Consultant and Design Team Leader.",
+      "section_ref": "Core Services 1.2"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "comply with all of the requirements of the Clients Organisational Information Requirements for BIM and Employers Information Requirements for BIM. The Architect is to undertake regular clash detection reviews, feedback and reporting and arrange clash minimisation meetings.",
+      "section_ref": "Core Services 1.3"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "The Architectural Services as described here to shall be provided including, but not limited to the following elements or areas of responsibility",
+      "section_ref": "Core Services 1.6"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "When appointed support the work of the BREEAM assessor by issuing all required evidence and taking part in BREEAM meetings to ensure the target BREEAM rating is met.",
+      "section_ref": "Core Services 1.11"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "The designer shall ensure the proposals comply with the requirements of the Disability Discrimination Act.",
+      "section_ref": "Core Services 1.20"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Work 2020 for Stages 0 and 1.",
+      "section_ref": "2.1"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Comply with the CDM Regulations.",
+      "section_ref": "2.10"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Work 2020 for Stage 2.",
+      "section_ref": "3.1"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "prepare outline concept design proposals ... Site Plan at an appropriate scale ... General Arrangement Drawings ... Roof Plans ... Detailed drawings for complex areas at a larger scale ... Area and accommodation schedules.",
+      "section_ref": "3.4"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Work 2020 for Stage 3.",
+      "section_ref": "4.1"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Finalised Grid Drawings ... 1:100 & 1:50 General Arrangement Drawings ... 1:100 roof layout ... 1:50 sections through each and every staircase and ramp ... Room data sheets",
+      "section_ref": "4.4"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Work 2020 for Stage 4.",
+      "section_ref": "5.1"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Works 2020 for Stage 5.",
+      "section_ref": "6.1"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Work 2020 for Stage 6 and 7.",
+      "section_ref": "7.1"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "b55f823fe3892563b7fb8d9b84f8dcb472b1eba0e9c15acf8fb12518b487c5a6",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

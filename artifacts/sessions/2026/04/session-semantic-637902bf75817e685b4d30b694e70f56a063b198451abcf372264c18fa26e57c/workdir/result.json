@@ -1,0 +1,743 @@
+{
+  "lots": [
+    {
+      "lot_number": "10",
+      "title": "Planned, Preventative and Responsive Residential Property Maintenance and Compliance Services (Lot 10 of Building Services Framework 6278)",
+      "description": "Measured Term Contract executed under the JCT Measured Term Contract 2024 between the London Borough of Bexley (the Employer) and the Contractor. Initial term 1 November 2026 to 31 October 2030 (4 years fixed, no extension option). Scope covers planned, preventative and responsive maintenance services to residential properties owned or managed by the Council, including responsive repairs and minor works, void property refurbishment, general building maintenance, engineering repairs, gas servicing and safety inspections, electrical inspection and testing, fire and Legionella compliance inspections, emergency repair call-out services, pest control, rubbish clearance and waste disposal, and asbestos reporting and management works. Property portfolio: approximately 230 Council-owned residential street properties, 120 privately leased properties managed by the Council, and 3 hostels. The Employer reserves the right to vary the property count during the contract period. All works are issued via electronic works orders by the Contract Administrator with priority categorisation; no works may commence without a valid Order. This document is the Draft Terms & Conditions extract for Lot 10; the full contract pack additionally includes JCT MTC 2024 Conditions, Contract Particulars, Contract Specification, Schedule of Rates / Pricing Schedule, Property Schedule and any further referenced contract documents.",
+      "requirements": [
+        "Execute the contract under the JCT Measured Term Contract 2024 incorporating Conditions of Contract, Contract Particulars, Schedule of Rates / Pricing Schedule, Contract Specification and all associated contract documents (Contract Form).",
+        "Initial Contract Term 1 November 2026 to 31 October 2030; 4 years fixed term with no extension option (section 2).",
+        "Provide planned, preventative and responsive maintenance services to residential properties owned or managed by the Council across the scope listed in section 3.",
+        "Service the stated property portfolio of approximately 230 Council-owned residential street properties, 120 privately leased properties managed by the Council and 3 hostels, recognising the Employer's right to vary property numbers during the term (section 4).",
+        "Accept all works via electronic works orders issued by the Contract Administrator; do not commence any works without a valid Order containing description, priority category, property location and (where applicable) cost allowance (section 5).",
+        "Meet priority response and completion times: Standard - response as programmed, completion within 5 working days; Urgent - response same or next day, completion within 1 working day; Emergency - immediate response, make safe within 4 hours; Small Void Works - completion within 10 working days; Large Void Works - completion within 28 working days; Emergency follow-on works to commence within 1 working day (section 6).",
+        "Comply with payment provisions under the Housing Grants, Construction and Regeneration Act 1996 and Section 4 of the JCT Measured Term Contract 2024, including monthly applications for payment, electronic submission of invoices, final date for payment of 30 days, VAT at the prevailing rate, and submission of all invoices within 6 months of order issue (section 7).",
+        "Achieve KPI 1 - minimum 90% compliance with response and completion times, measured monthly using works order data (section 8 KPI 1).",
+        "Achieve KPI 2 - maintain 100% statutory compliance across all properties for Gas Safety Certification, Electrical Safety Certification and Energy Performance Certification (zero tolerance) (section 8 KPI 2).",
+        "Achieve KPI 3 - small voids completed within 10 working days, large voids within 28 working days, with minimum 90% compliance measured monthly (section 8 KPI 3).",
+        "Comply with all applicable legislation including (without limitation) Building Regulations 2010, Building Safety Act 2022, CDM Regulations 2015, Gas Safety (Installation and Use) Regulations, IET Wiring Regulations BS 7671, Regulatory Reform (Fire Safety) Order, Environmental Protection Act and Data Protection legislation (section 9).",
+        "Comply with the Health and Safety at Work etc. Act 1974, fulfil duties under the Construction (Design and Management) Regulations 2015, act as Principal Contractor where required, and maintain SSIP-accredited health and safety certification (e.g. CHAS) (section 10).",
+        "Undertake annual servicing of all gas appliances, carry out annual gas safety inspections, provide Landlord Gas Safety Records (LGSR), and provide a 24-hour gas breakdown service - all works compliant with the Gas Safety (Installation and Use) Regulations 1998 (section 11).",
+        "Ensure all staff hold relevant trade qualifications, valid CSCS cards, photographic identification and enhanced DBS clearance where required (section 12).",
+        "Dispose of all waste in accordance with the Environmental Protection Act 1990; act as a registered waste carrier and provide waste transfer documentation upon request (section 13).",
+        "Treat the following as forming part of the Contract: JCT Measured Term Contract 2024 Conditions, Contract Particulars, Contract Specification, Schedule of Rates / Pricing Schedule, Property Schedule and any further documents referenced in the Contract (section 14)."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bexley-6278-lot10-responsive-repairs",
+          "summary": "Responsive repairs and minor works to Council residential portfolio, instructed via electronic works orders with priority-driven response and completion times.",
+          "requirement_type": "responsive_maintenance_service",
+          "technical_attributes": [
+            "Standard priority - response as programmed, completion within 5 working days (section 6)",
+            "Urgent priority - response same or next day, completion within 1 working day (section 6)",
+            "Emergency priority - immediate response, make safe within 4 hours (section 6)",
+            "Emergency follow-on works to commence within 1 working day (section 6)",
+            "Minimum 90% monthly compliance against response and completion times (KPI 1)",
+            "All works issued only on a valid electronic Order from the Contract Administrator (section 5)"
+          ],
+          "quantity_hint": "Approx. 230 Council-owned residential street properties, 120 privately leased properties managed by the Council, and 3 hostels (section 4); per-job volumes defined by works orders.",
+          "evidence_anchor": {
+            "anchor_text": "Responsive repairs and minor works",
+            "page_ref": "1",
+            "section_ref": "section 3 (Description of the Works)"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot10-void-property-works",
+          "summary": "Void property refurbishment works covering both small and large voids, with defined turnaround targets and 90% monthly compliance KPI.",
+          "requirement_type": "void_refurbishment_service",
+          "technical_attributes": [
+            "Small Void Works completed within 10 working days (section 6 / KPI 3)",
+            "Large Void Works completed within 28 working days (section 6 / KPI 3)",
+            "Minimum 90% monthly compliance with void turnaround targets (KPI 3)",
+            "Performance measured monthly (KPI 3)"
+          ],
+          "quantity_hint": "Volume driven by void rate across the ~353-property portfolio (section 4); precise volumes not stated in the draft T&Cs.",
+          "evidence_anchor": {
+            "anchor_text": "Void property refurbishment works",
+            "page_ref": "1",
+            "section_ref": "section 3 (Description of the Works)"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot10-gas-servicing-compliance",
+          "summary": "Annual gas servicing, annual gas safety inspections, Landlord Gas Safety Records (LGSR) and 24-hour gas breakdown service, all compliant with the Gas Safety (Installation and Use) Regulations 1998.",
+          "requirement_type": "gas_compliance_service",
+          "technical_attributes": [
+            "Annual servicing of all gas appliances (section 11)",
+            "Annual gas safety inspections (section 11)",
+            "Provision of Landlord Gas Safety Records (LGSR) (section 11)",
+            "24-hour gas breakdown service (section 11)",
+            "Compliance with the Gas Safety (Installation and Use) Regulations 1998 (section 11)",
+            "Contributes to KPI 2 - 100% Gas Safety Certification (zero tolerance) (section 8 KPI 2)"
+          ],
+          "quantity_hint": "Annual servicing across the gas-heated subset of the ~353 property portfolio (section 4); exact appliance counts not stated in the draft T&Cs.",
+          "evidence_anchor": {
+            "anchor_text": "Undertake annual servicing of all gas appliances; Carry out annual gas safety inspections; Provide Landlord Gas Safety Records (LGSR); Provide a 24-hour breakdown service",
+            "page_ref": "1",
+            "section_ref": "section 11 (Gas Servicing and Compliance)"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot10-electrical-inspection-testing",
+          "summary": "Electrical inspection and testing services delivering Electrical Safety Certification across the residential portfolio in line with IET Wiring Regulations BS 7671.",
+          "requirement_type": "electrical_compliance_service",
+          "technical_attributes": [
+            "Electrical inspection and testing scope (section 3)",
+            "Compliance with IET Wiring Regulations BS 7671 (section 9)",
+            "Contributes to KPI 2 - 100% Electrical Safety Certification (zero tolerance) (section 8 KPI 2)"
+          ],
+          "quantity_hint": "Periodic inspection cycle across the ~353-property portfolio (section 4); inspection cadence not specified in the draft T&Cs.",
+          "evidence_anchor": {
+            "anchor_text": "Electrical inspection and testing",
+            "page_ref": "1",
+            "section_ref": "section 3 (Description of the Works)"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot10-fire-legionella-compliance",
+          "summary": "Fire and Legionella compliance inspections supporting statutory residential property compliance under the Regulatory Reform (Fire Safety) Order and Building Safety Act 2022.",
+          "requirement_type": "fire_water_compliance_service",
+          "technical_attributes": [
+            "Fire and Legionella compliance inspections (section 3)",
+            "Compliance with the Regulatory Reform (Fire Safety) Order (section 9)",
+            "Compliance with the Building Safety Act 2022 (section 9)"
+          ],
+          "quantity_hint": "Inspection programme across applicable residential properties in the portfolio (section 4); cadence not stated in the draft T&Cs.",
+          "evidence_anchor": {
+            "anchor_text": "Fire and Legionella compliance inspections",
+            "page_ref": "1",
+            "section_ref": "section 3 (Description of the Works)"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot10-emergency-callout",
+          "summary": "Emergency repair call-out service delivering immediate response and 4-hour make-safe across the residential portfolio.",
+          "requirement_type": "emergency_callout_service",
+          "technical_attributes": [
+            "Immediate response (section 6)",
+            "Make safe within 4 hours of call (section 6)",
+            "Emergency follow-on works to commence within 1 working day (section 6)",
+            "Issued by Contract Administrator via electronic works orders (section 5)"
+          ],
+          "quantity_hint": "Demand-driven across the ~353-property portfolio (section 4); no fixed volume in the draft T&Cs.",
+          "evidence_anchor": {
+            "anchor_text": "Emergency repair call-out services",
+            "page_ref": "1",
+            "section_ref": "section 3 (Description of the Works)"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot10-asbestos-management",
+          "summary": "Asbestos reporting and management works including identification, assessment and management of asbestos-containing materials within the residential portfolio.",
+          "requirement_type": "asbestos_management_service",
+          "technical_attributes": [
+            "Asbestos reporting and management works (section 3)",
+            "Compliance with all applicable Statutory and Regulatory Compliance obligations (section 9)"
+          ],
+          "quantity_hint": "Property-by-property as triggered by works orders or surveys across the ~353-property portfolio (section 4).",
+          "evidence_anchor": {
+            "anchor_text": "Asbestos reporting and management works",
+            "page_ref": "1",
+            "section_ref": "section 3 (Description of the Works)"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot10-pest-control",
+          "summary": "Pest control services to Council-owned and Council-managed residential properties.",
+          "requirement_type": "pest_control_service",
+          "technical_attributes": [
+            "Pest control services (section 3)",
+            "Issued via Contract Administrator electronic works orders (section 5)"
+          ],
+          "quantity_hint": "Demand-driven across the ~353-property portfolio (section 4); no fixed volume stated.",
+          "evidence_anchor": {
+            "anchor_text": "Pest control services",
+            "page_ref": "1",
+            "section_ref": "section 3 (Description of the Works)"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot10-waste-clearance-disposal",
+          "summary": "Rubbish clearance and waste disposal performed in compliance with the Environmental Protection Act 1990, with the Contractor acting as a registered waste carrier.",
+          "requirement_type": "waste_management_service",
+          "technical_attributes": [
+            "Compliance with the Environmental Protection Act 1990 (section 13)",
+            "Contractor must be a registered waste carrier (section 13)",
+            "Provide waste transfer documentation upon request (section 13)"
+          ],
+          "quantity_hint": "Demand-driven and incidental to repair / void / clearance jobs across the ~353-property portfolio (section 4).",
+          "evidence_anchor": {
+            "anchor_text": "All waste shall be disposed of in accordance with the Environmental Protection Act 1990",
+            "page_ref": "1",
+            "section_ref": "section 13 (Waste Management)"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot10-general-engineering-maintenance",
+          "summary": "General building maintenance and engineering repairs to residential properties under planned and reactive regimes.",
+          "requirement_type": "building_maintenance_service",
+          "technical_attributes": [
+            "General building maintenance (section 3)",
+            "Engineering repairs (section 3)",
+            "Compliance with Building Regulations 2010 (section 9)",
+            "Compliance with Building Safety Act 2022 (section 9)",
+            "CDM Regulations 2015 duties; Principal Contractor role where required (section 10)"
+          ],
+          "quantity_hint": "Demand-driven and programmed across the ~353-property portfolio (section 4).",
+          "evidence_anchor": {
+            "anchor_text": "General building maintenance",
+            "page_ref": "1",
+            "section_ref": "section 3 (Description of the Works)"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "JCT Measured Term Contract 2024",
+          "context": "The Contract is executed under the JCT Measured Term Contract 2024, including its Conditions of Contract and associated documents; payment provisions are aligned to Section 4 of the JCT MTC 2024.",
+          "evidence_anchor": {
+            "anchor_text": "This Contract shall be executed under the JCT Measured Term Contract 2024",
+            "page_ref": "1",
+            "section_ref": "Contract Form"
+          }
+        },
+        {
+          "standard_ref": "Housing Grants, Construction and Regeneration Act 1996",
+          "context": "Payments under the contract are made in accordance with the Housing Grants, Construction and Regeneration Act 1996.",
+          "evidence_anchor": {
+            "anchor_text": "Payments shall be made in accordance with: Housing Grants, Construction and Regeneration Act 1996",
+            "page_ref": "1",
+            "section_ref": "section 7 (Payment Provisions)"
+          }
+        },
+        {
+          "standard_ref": "Building Regulations 2010",
+          "context": "The Contractor shall comply with the Building Regulations 2010 as part of statutory and regulatory compliance.",
+          "evidence_anchor": {
+            "anchor_text": "Building Regulations 2010",
+            "page_ref": "1",
+            "section_ref": "section 9 (Statutory and Regulatory Compliance)"
+          }
+        },
+        {
+          "standard_ref": "Building Safety Act 2022",
+          "context": "The Contractor shall comply with the Building Safety Act 2022 as part of statutory and regulatory compliance.",
+          "evidence_anchor": {
+            "anchor_text": "Building Safety Act 2022",
+            "page_ref": "1",
+            "section_ref": "section 9 (Statutory and Regulatory Compliance)"
+          }
+        },
+        {
+          "standard_ref": "Construction (Design and Management) Regulations 2015 (CDM 2015)",
+          "context": "The Contractor must fulfil duties under the CDM Regulations 2015 and act as Principal Contractor where required.",
+          "evidence_anchor": {
+            "anchor_text": "Fulfil duties under the Construction (Design and Management) Regulations 2015",
+            "page_ref": "1",
+            "section_ref": "section 10 (Health and Safety)"
+          }
+        },
+        {
+          "standard_ref": "Gas Safety (Installation and Use) Regulations 1998",
+          "context": "All gas servicing, inspection and breakdown works must comply with the Gas Safety (Installation and Use) Regulations 1998; supports KPI 2 statutory gas safety compliance.",
+          "evidence_anchor": {
+            "anchor_text": "All works must comply with the Gas Safety (Installation and Use) Regulations 1998",
+            "page_ref": "1",
+            "section_ref": "section 11 (Gas Servicing and Compliance)"
+          }
+        },
+        {
+          "standard_ref": "IET Wiring Regulations BS 7671",
+          "context": "Electrical works must comply with the IET Wiring Regulations BS 7671 as part of statutory and regulatory compliance.",
+          "evidence_anchor": {
+            "anchor_text": "IET Wiring Regulations BS 7671",
+            "page_ref": "1",
+            "section_ref": "section 9 (Statutory and Regulatory Compliance)"
+          }
+        },
+        {
+          "standard_ref": "Regulatory Reform (Fire Safety) Order",
+          "context": "The Contractor shall comply with the Regulatory Reform (Fire Safety) Order; supports fire compliance inspections and KPI 2 statutory compliance objectives.",
+          "evidence_anchor": {
+            "anchor_text": "Regulatory Reform (Fire Safety) Order",
+            "page_ref": "1",
+            "section_ref": "section 9 (Statutory and Regulatory Compliance)"
+          }
+        },
+        {
+          "standard_ref": "Environmental Protection Act (1990)",
+          "context": "The Contractor shall comply with the Environmental Protection Act, including waste disposal under the Environmental Protection Act 1990 and the requirement to act as a registered waste carrier with waste transfer documentation.",
+          "evidence_anchor": {
+            "anchor_text": "All waste shall be disposed of in accordance with the Environmental Protection Act 1990",
+            "page_ref": "1",
+            "section_ref": "section 13 (Waste Management)"
+          }
+        },
+        {
+          "standard_ref": "Data Protection legislation (UK GDPR / Data Protection Act 2018)",
+          "context": "The Contractor shall comply with applicable Data Protection legislation as part of statutory and regulatory compliance.",
+          "evidence_anchor": {
+            "anchor_text": "Data Protection legislation",
+            "page_ref": "1",
+            "section_ref": "section 9 (Statutory and Regulatory Compliance)"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work etc. Act 1974",
+          "context": "The Contractor must comply with the Health and Safety at Work etc. Act 1974.",
+          "evidence_anchor": {
+            "anchor_text": "Comply with the Health and Safety at Work etc. Act 1974",
+            "page_ref": "1",
+            "section_ref": "section 10 (Health and Safety)"
+          }
+        },
+        {
+          "standard_ref": "SSIP-accredited Health and Safety certification (e.g. CHAS)",
+          "context": "The Contractor must maintain SSIP-accredited health and safety certification such as CHAS.",
+          "evidence_anchor": {
+            "anchor_text": "Maintain SSIP accredited health and safety certification (e.g. CHAS)",
+            "page_ref": "1",
+            "section_ref": "section 10 (Health and Safety)"
+          }
+        },
+        {
+          "standard_ref": "CSCS card scheme",
+          "context": "All staff working under the contract must hold valid CSCS cards.",
+          "evidence_anchor": {
+            "anchor_text": "hold valid CSCS cards",
+            "page_ref": "1",
+            "section_ref": "section 12 (Staff Competence and DBS)"
+          }
+        },
+        {
+          "standard_ref": "Enhanced DBS clearance (where required)",
+          "context": "Staff must hold enhanced DBS clearance where required by the role and contract context.",
+          "evidence_anchor": {
+            "anchor_text": "hold enhanced DBS clearance where required",
+            "page_ref": "1",
+            "section_ref": "section 12 (Staff Competence and DBS)"
+          }
+        },
+        {
+          "standard_ref": "Energy Performance Certification",
+          "context": "The Contractor must support 100% statutory compliance for Energy Performance Certification (zero tolerance) under KPI 2.",
+          "evidence_anchor": {
+            "anchor_text": "Energy Performance Certification",
+            "page_ref": "1",
+            "section_ref": "section 8 (KPI 2 - Statutory Compliance and Property Safety)"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "anchor_text": "Draft Contract - JCT Measured Term Contract 2024 ... Measured Term Contract - Planned, Preventative and Responsive Residential Property Maintenance and Compliance Services",
+        "page_ref": "1",
+        "section_ref": "Header / section 1 (Contract Title)"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "bexley-6278-lot10-responsive-repairs",
+      "lot_number": "10",
+      "candidate_name": "Responsive repairs and minor works (residential)",
+      "summary": "Responsive repairs and minor works to ~353 Council residential properties, instructed via electronic works orders, with priority-based response and 90% monthly compliance KPI.",
+      "requirements": [
+        "Standard priority - response as programmed, completion within 5 working days (section 6)",
+        "Urgent priority - response same or next day, completion within 1 working day (section 6)",
+        "Emergency priority - immediate response, make safe within 4 hours; follow-on within 1 working day (section 6)",
+        "Minimum 90% monthly compliance with response and completion times (section 8 KPI 1)",
+        "Issued only on a valid electronic Order from the Contract Administrator (section 5)"
+      ],
+      "technical_standards": [
+        "JCT Measured Term Contract 2024 (Contract Form)",
+        "Building Regulations 2010 (section 9)",
+        "Building Safety Act 2022 (section 9)",
+        "CDM Regulations 2015 (section 10)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "Responsive repairs and minor works",
+        "page_ref": "1",
+        "section_ref": "section 3 (Description of the Works)"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot10-void-property-works",
+      "lot_number": "10",
+      "candidate_name": "Void property refurbishment (small and large voids)",
+      "summary": "Void property refurbishment works to Council residential portfolio with hard turnaround targets and dedicated void KPI.",
+      "requirements": [
+        "Small Void Works completed within 10 working days (section 6 / KPI 3)",
+        "Large Void Works completed within 28 working days (section 6 / KPI 3)",
+        "Minimum 90% monthly compliance with void turnaround targets (section 8 KPI 3)"
+      ],
+      "technical_standards": [
+        "JCT Measured Term Contract 2024 (Contract Form)",
+        "Building Regulations 2010 (section 9)",
+        "CDM Regulations 2015 (section 10)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "Void property refurbishment works",
+        "page_ref": "1",
+        "section_ref": "section 3 (Description of the Works)"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot10-gas-servicing-compliance",
+      "lot_number": "10",
+      "candidate_name": "Gas servicing, annual safety inspections, LGSR and 24h gas breakdown service",
+      "summary": "Annual gas servicing and inspections plus 24-hour gas breakdown service across gas-heated residential properties, supporting 100% statutory gas compliance.",
+      "requirements": [
+        "Annual servicing of all gas appliances (section 11)",
+        "Annual gas safety inspections (section 11)",
+        "Provision of Landlord Gas Safety Records (LGSR) (section 11)",
+        "24-hour gas breakdown service (section 11)",
+        "Supports KPI 2 - 100% Gas Safety Certification (zero tolerance) (section 8 KPI 2)"
+      ],
+      "technical_standards": [
+        "Gas Safety (Installation and Use) Regulations 1998 (section 11)",
+        "Health and Safety at Work etc. Act 1974 (section 10)",
+        "JCT Measured Term Contract 2024 (Contract Form)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "Undertake annual servicing of all gas appliances ... Provide a 24-hour breakdown service ... All works must comply with the Gas Safety (Installation and Use) Regulations 1998",
+        "page_ref": "1",
+        "section_ref": "section 11 (Gas Servicing and Compliance)"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot10-electrical-inspection-testing",
+      "lot_number": "10",
+      "candidate_name": "Electrical inspection, testing and certification",
+      "summary": "Periodic electrical inspection and testing producing Electrical Safety Certification across the residential portfolio, in line with BS 7671.",
+      "requirements": [
+        "Electrical inspection and testing (section 3)",
+        "Compliance with IET Wiring Regulations BS 7671 (section 9)",
+        "Supports KPI 2 - 100% Electrical Safety Certification (zero tolerance) (section 8 KPI 2)"
+      ],
+      "technical_standards": [
+        "IET Wiring Regulations BS 7671 (section 9)",
+        "Health and Safety at Work etc. Act 1974 (section 10)",
+        "JCT Measured Term Contract 2024 (Contract Form)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "Electrical inspection and testing",
+        "page_ref": "1",
+        "section_ref": "section 3 (Description of the Works)"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot10-fire-legionella-compliance",
+      "lot_number": "10",
+      "candidate_name": "Fire and Legionella compliance inspections",
+      "summary": "Fire and Legionella compliance inspections across the residential portfolio supporting statutory fire-safety and water-safety compliance.",
+      "requirements": [
+        "Fire and Legionella compliance inspections (section 3)",
+        "Compliance with Regulatory Reform (Fire Safety) Order (section 9)",
+        "Compliance with Building Safety Act 2022 (section 9)"
+      ],
+      "technical_standards": [
+        "Regulatory Reform (Fire Safety) Order (section 9)",
+        "Building Safety Act 2022 (section 9)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "Fire and Legionella compliance inspections",
+        "page_ref": "1",
+        "section_ref": "section 3 (Description of the Works)"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot10-emergency-callout",
+      "lot_number": "10",
+      "candidate_name": "24/7 emergency repair call-out service (residential)",
+      "summary": "Demand-driven emergency repair call-out service with immediate response and 4-hour make-safe across the Council residential portfolio.",
+      "requirements": [
+        "Immediate response to emergency calls (section 6)",
+        "Make safe within 4 hours of call (section 6)",
+        "Emergency follow-on works to commence within 1 working day (section 6)",
+        "Issued via Contract Administrator electronic works orders (section 5)"
+      ],
+      "technical_standards": [
+        "JCT Measured Term Contract 2024 (Contract Form)",
+        "Health and Safety at Work etc. Act 1974 (section 10)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "Emergency | Immediate | Make safe within 4 hours",
+        "page_ref": "1",
+        "section_ref": "section 6 (Priority Categories and Response Times)"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot10-asbestos-management",
+      "lot_number": "10",
+      "candidate_name": "Asbestos reporting and management works (residential)",
+      "summary": "Asbestos reporting and management activities in Council residential properties, supporting statutory ACM management.",
+      "requirements": [
+        "Asbestos reporting and management works (section 3)",
+        "Compliance with all applicable Statutory and Regulatory Compliance obligations (section 9)"
+      ],
+      "technical_standards": [
+        "Health and Safety at Work etc. Act 1974 (section 10)",
+        "CDM Regulations 2015 (section 10)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "Asbestos reporting and management works",
+        "page_ref": "1",
+        "section_ref": "section 3 (Description of the Works)"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot10-pest-control",
+      "lot_number": "10",
+      "candidate_name": "Pest control services (residential)",
+      "summary": "Pest control services to Council-owned and Council-managed residential properties, on demand via works orders.",
+      "requirements": [
+        "Pest control services (section 3)",
+        "Issued via Contract Administrator electronic works orders (section 5)"
+      ],
+      "technical_standards": [
+        "JCT Measured Term Contract 2024 (Contract Form)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "Pest control services",
+        "page_ref": "1",
+        "section_ref": "section 3 (Description of the Works)"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot10-waste-clearance-disposal",
+      "lot_number": "10",
+      "candidate_name": "Rubbish clearance and waste disposal (registered waste carrier)",
+      "summary": "Rubbish clearance and waste disposal services performed by a registered waste carrier with full waste transfer documentation.",
+      "requirements": [
+        "Compliance with the Environmental Protection Act 1990 (section 13)",
+        "Contractor must be a registered waste carrier (section 13)",
+        "Provide waste transfer documentation upon request (section 13)"
+      ],
+      "technical_standards": [
+        "Environmental Protection Act 1990 (section 13)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "All waste shall be disposed of in accordance with the Environmental Protection Act 1990 ... The Contractor must be a registered waste carrier",
+        "page_ref": "1",
+        "section_ref": "section 13 (Waste Management)"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot10-general-engineering-maintenance",
+      "lot_number": "10",
+      "candidate_name": "General building maintenance and engineering repairs (residential)",
+      "summary": "General building maintenance and engineering repairs to Council residential properties under planned, preventative and responsive regimes.",
+      "requirements": [
+        "General building maintenance (section 3)",
+        "Engineering repairs (section 3)",
+        "Compliance with Building Regulations 2010 and Building Safety Act 2022 (section 9)",
+        "CDM Regulations 2015 duties; Principal Contractor where required (section 10)"
+      ],
+      "technical_standards": [
+        "Building Regulations 2010 (section 9)",
+        "Building Safety Act 2022 (section 9)",
+        "CDM Regulations 2015 (section 10)",
+        "JCT Measured Term Contract 2024 (Contract Form)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "anchor_text": "General building maintenance ... Engineering repairs",
+        "page_ref": "1",
+        "section_ref": "section 3 (Description of the Works)"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 9000,
+    "lots.description": 8800,
+    "lots.requirements": 8800,
+    "lots.cpv_codes": 2000,
+    "lots.evaluation_criteria": 2000,
+    "lots.technical_standards": 9000,
+    "lots.product_requirements": 7500,
+    "lots.evidence_anchor": 9200,
+    "product_requirement_seeds.responsive_repairs": 8500,
+    "product_requirement_seeds.void_property_works": 8500,
+    "product_requirement_seeds.gas_servicing_compliance": 9000,
+    "product_requirement_seeds.electrical_inspection_testing": 8500,
+    "product_requirement_seeds.fire_legionella_compliance": 8200,
+    "product_requirement_seeds.emergency_callout": 8500,
+    "product_requirement_seeds.asbestos_management": 7800,
+    "product_requirement_seeds.pest_control": 7500,
+    "product_requirement_seeds.waste_clearance_disposal": 8500,
+    "product_requirement_seeds.general_engineering_maintenance": 7800
+  },
+  "extraction_confidence_bps": 7200,
+  "warnings": [
+    {
+      "code": "EVALUATION_CRITERIA_NOT_IN_DOCUMENT",
+      "message": "This document is the Draft Terms & Conditions for Lot 10, not the Invitation to Tender or evaluation matrix. No award/scoring criteria with weightings are present; KPIs are post-award performance measures, not selection/award criteria. Evaluation criteria should be sourced from the ITT pack rather than this draft contract.",
+      "evidence_refs": [
+        "Header: Draft Contract - JCT Measured Term Contract 2024",
+        "section 8 (KPIs) describes performance monitoring (KPI 1/2/3), not award scoring"
+      ]
+    },
+    {
+      "code": "CPV_CODES_NOT_IN_DOCUMENT",
+      "message": "No CPV codes are stated in this draft contract. The parent Find a Tender notice carries CPV codes (50700000-2 Repair and maintenance services of building installations; 50750000-7 Lift-maintenance services; 71315000-9 Building services) but these are framework-wide and may not all map to Lot 10. CPV classification for Lot 10 should be taken from the contract notice / Find a Tender record, not inferred from this draft contract body.",
+      "evidence_refs": [
+        "No occurrence of any 8-digit CPV code in the markdown body"
+      ]
+    },
+    {
+      "code": "DETAILED_SPECIFICATION_NOT_IN_DOCUMENT",
+      "message": "The substantive Contract Specification, Schedule of Rates / Pricing Schedule and Property Schedule are referenced as forming part of the Contract (section 14) but are NOT included in this draft T&Cs extraction. Detailed task lists, SOR rates, rate categories, frequency schedules and the property list (~353 properties) must be sourced from the separate specification, pricing schedule and property schedule documents before productisation or pricing.",
+      "evidence_refs": [
+        "section 14 (Contract Documents): 'Contract Specification', 'Schedule of Rates / Pricing Schedule', 'Property Schedule'",
+        "section 4 (Property Portfolio): only counts (~230 + 120 + 3) - no addresses or per-property data"
+      ]
+    },
+    {
+      "code": "PARENT_NOTICE_LOT_TITLE_DIVERGENCE",
+      "message": "The parent Find a Tender notice records Lot 10 as 'Provision of Planned & Preventative Residential Property Maintenance (PPM) & Remedial Repairs', but this contract document scopes Lot 10 more broadly as 'Planned, Preventative and Responsive Residential Property Maintenance and Compliance Services' (including responsive repairs, void works, gas/electrical/fire/Legionella compliance and emergency call-outs). The contract description should be treated as authoritative for Lot 10 scope.",
+      "evidence_refs": [
+        "section 1 (Contract Title): 'Measured Term Contract - Planned, Preventative and Responsive Residential Property Maintenance and Compliance Services'",
+        "section 3 (Description of the Works): full service line list"
+      ]
+    },
+    {
+      "code": "PROPERTY_PORTFOLIO_VARIATION_RIGHT",
+      "message": "The Employer reserves the right to vary the number of properties covered during the Contract period, so the stated portfolio (~230 + 120 + 3) is indicative rather than fixed. Quantity hints on product requirement seeds should be treated as approximate.",
+      "evidence_refs": [
+        "section 4 (Property Portfolio): 'The Employer reserves the right to vary the number of properties covered during the Contract period.'"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "anchor_text": "Draft Contract - JCT Measured Term Contract 2024",
+      "page_ref": "1",
+      "section_ref": "Header"
+    },
+    {
+      "anchor_text": "Employer ... London Borough of Bexley",
+      "page_ref": "1",
+      "section_ref": "Header / Employer"
+    },
+    {
+      "anchor_text": "This Contract shall be executed under the JCT Measured Term Contract 2024 including: Conditions of Contract; Contract Particulars; Schedule of Rates / Pricing Schedule; Contract Specification; All associated contract documents",
+      "page_ref": "1",
+      "section_ref": "Contract Form"
+    },
+    {
+      "anchor_text": "Measured Term Contract - Planned, Preventative and Responsive Residential Property Maintenance and Compliance Services",
+      "page_ref": "1",
+      "section_ref": "section 1 (Contract Title)"
+    },
+    {
+      "anchor_text": "Initial Contract Term: 1 November 2026 - 31 October 2030 ... 4 Years Fixed Term ... No extension option.",
+      "page_ref": "1",
+      "section_ref": "section 2 (Contract Period)"
+    },
+    {
+      "anchor_text": "The Contract covers the provision of planned, preventative and responsive maintenance services to residential properties owned or managed by the London Borough of Bexley.",
+      "page_ref": "1",
+      "section_ref": "section 3 (Description of the Works)"
+    },
+    {
+      "anchor_text": "Responsive repairs and minor works; Void property refurbishment works; General building maintenance; Engineering repairs; Gas servicing and safety inspections; Electrical inspection and testing; Fire and Legionella compliance inspections; Emergency repair call-out services; Pest control services; Rubbish clearance and waste disposal; Asbestos reporting and management works",
+      "page_ref": "1",
+      "section_ref": "section 3 (Description of the Works) - service list"
+    },
+    {
+      "anchor_text": "230 Council-owned residential street properties; 120 privately leased properties managed by the Council; 3 hostels requiring repairs and maintenance",
+      "page_ref": "1",
+      "section_ref": "section 4 (Property Portfolio)"
+    },
+    {
+      "anchor_text": "The Employer reserves the right to vary the number of properties covered during the Contract period.",
+      "page_ref": "1",
+      "section_ref": "section 4 (Property Portfolio)"
+    },
+    {
+      "anchor_text": "All works shall be instructed by the Contract Administrator through electronic works orders ... No works shall commence until a valid Order has been issued.",
+      "page_ref": "1",
+      "section_ref": "section 5 (Orders and Work Instructions)"
+    },
+    {
+      "anchor_text": "Standard | As programmed | Within 5 working days; Urgent | Same or next day | Within 1 working day; Emergency | Immediate | Make safe within 4 hours; Small Void Works | - | Within 10 working days; Large Void Works | - | Within 28 working days",
+      "page_ref": "1",
+      "section_ref": "section 6 (Priority Categories and Response Times) - table"
+    },
+    {
+      "anchor_text": "Emergency follow-on works shall commence within 1 working day.",
+      "page_ref": "1",
+      "section_ref": "section 6 (Priority Categories and Response Times)"
+    },
+    {
+      "anchor_text": "Housing Grants, Construction and Regeneration Act 1996; Section 4 of the JCT Measured Term Contract 2024; Monthly applications for payment; Electronic submission of invoices; Final date for payment: 30 days; All invoices must be submitted within 6 months of order issue",
+      "page_ref": "1",
+      "section_ref": "section 7 (Payment Provisions)"
+    },
+    {
+      "anchor_text": "KPI 1 - Repair Response and Completion ... Minimum 90% compliance with response and completion times.",
+      "page_ref": "1",
+      "section_ref": "section 8 (Key Performance Indicators) - KPI 1"
+    },
+    {
+      "anchor_text": "KPI 2 - Statutory Compliance and Property Safety ... Maintain 100% statutory compliance across all properties. Includes: Gas Safety Certification; Electrical Safety Certification; Energy Performance Certification ... 100% compliance (Zero tolerance).",
+      "page_ref": "1",
+      "section_ref": "section 8 (Key Performance Indicators) - KPI 2"
+    },
+    {
+      "anchor_text": "KPI 3 - Void Turnaround and Property Readiness ... Small voids - completed within 10 working days; Large voids - completed within 28 working days; Minimum 90% compliance measured monthly.",
+      "page_ref": "1",
+      "section_ref": "section 8 (Key Performance Indicators) - KPI 3"
+    },
+    {
+      "anchor_text": "Building Regulations 2010; Building Safety Act 2022; CDM Regulations 2015; Gas Safety (Installation and Use) Regulations; IET Wiring Regulations BS 7671; Regulatory Reform (Fire Safety) Order; Environmental Protection Act; Data Protection legislation",
+      "page_ref": "1",
+      "section_ref": "section 9 (Statutory and Regulatory Compliance)"
+    },
+    {
+      "anchor_text": "Comply with the Health and Safety at Work etc. Act 1974; Fulfil duties under the Construction (Design and Management) Regulations 2015; Act as Principal Contractor where required; Maintain SSIP accredited health and safety certification (e.g. CHAS)",
+      "page_ref": "1",
+      "section_ref": "section 10 (Health and Safety)"
+    },
+    {
+      "anchor_text": "Undertake annual servicing of all gas appliances; Carry out annual gas safety inspections; Provide Landlord Gas Safety Records (LGSR); Provide a 24-hour breakdown service ... All works must comply with the Gas Safety (Installation and Use) Regulations 1998.",
+      "page_ref": "1",
+      "section_ref": "section 11 (Gas Servicing and Compliance)"
+    },
+    {
+      "anchor_text": "hold relevant trade qualifications; hold valid CSCS cards; carry photographic identification; hold enhanced DBS clearance where required",
+      "page_ref": "1",
+      "section_ref": "section 12 (Staff Competence and DBS)"
+    },
+    {
+      "anchor_text": "All waste shall be disposed of in accordance with the Environmental Protection Act 1990. The Contractor must be a registered waste carrier and provide waste transfer documentation upon request.",
+      "page_ref": "1",
+      "section_ref": "section 13 (Waste Management)"
+    },
+    {
+      "anchor_text": "JCT Measured Term Contract 2024 Conditions; Contract Particulars; Contract Specification; Schedule of Rates / Pricing Schedule; Property Schedule; Any further documents referenced in the Contract",
+      "page_ref": "1",
+      "section_ref": "section 14 (Contract Documents)"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "sha256:82ea89d3e0fbc896702a7bea28b99f6eee8aca0e465d7697cb6be20b5a91e7cb",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

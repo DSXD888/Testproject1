@@ -1,0 +1,469 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Stockport Town Centre School — Multi-Disciplinary Design Team (Architect, MEP, Structures & Civils, BR Principal Designer & CDM Principal Designer)",
+      "description": "Appointment of an architecturally led multi-disciplinary design and advisory team to support delivery of a new exemplar all-through town centre school in Stockport. The core team comprises Architect, MEP, Structural & Civil Engineer, BR Principal Designer and CDM Principal Designer, with additional disciplines and services to be reviewed/added at each RIBA Stage. The primary focus for RIBA Stage 2 is involvement from MEP and Structural Engineers, with future services agreed once tender is awarded and reviewed at each RIBA stage. The school is located on a previously developed brownfield site to the west of Stockport town centre and forms part of a wider regeneration programme led by Stockport Metropolitan Borough Council and the Stockport Mayoral Development Corporation.",
+      "requirements": [
+        "Deliver an innovative all-through school (covering primary and secondary phases) serving current and future generations in Stockport town centre",
+        "Design must make a positive contribution to the town centre, complementing its unique character, historic townscape and skyline",
+        "Support inclusive and sustainable growth of adjacent communities by delivering necessary social infrastructure and education provision",
+        "Central accessible location with strong public transport links and connections to Brinnington; inclusive design meeting the needs of all learners",
+        "Green building standards, active travel promotion and flexible/adaptable spaces that can evolve with changing educational needs",
+        "Support curriculum innovation, technology integration and staff development",
+        "Additional disciplines beyond the core five to be appointed by the architect, either in-house or externally procured, to form the complete design team",
+        "Information sharing via SMBC SharePoint platform; BIM Level 2 with COBie data is a requirement",
+        "Compliance with RIBA Plan of Work and current Building Regulations, CDM 2015, Building Safety Act 2022, Building Regulations Approved Document B (Fire Safety), BS 9999, the Environment Act 2021, the Air Quality Standards Regulations 2010, inclusive design principles and BS 8300 (accessibility), and the Council's Climate Action Now and Social Value commitments",
+        "Suppliers must demonstrate how their approach contributes to sustainable design outcomes (environmental performance, energy efficiency, materials selection, long-term operational impact)",
+        "Architect: registered with ARB (Architects Registration Board); preferably chartered member of RIBA; MRICS or FRICS",
+        "MEP: CEng or IEng via Engineering Council UK; or MCIBSE/FCIBSE; or MIET; or MIMechE",
+        "Structural and Civils Engineer: registered with ICE and IStructE; preferably chartered member of ICE, IStructE or CIOB",
+        "Principal Designer (CDM 2015): membership of recognised body (RIBA, CIAT, ICE, IStructE); demonstrable CDM 2015 knowledge; SSIP accreditation (e.g. CHAS, SMAS, SafeContractor); PI insurance in place",
+        "Principal Designer (Building Safety Act 2022): competency standard PAS 8671:2022; in-house or specialist sub-consultant",
+        "Stage 1 participation requires written responses to competency questions via the Competitive Flexible Procedure with preliminary market engagement over 30 business days to shortlist a maximum of three suppliers",
+        "Stage 2 progression requires execution of a confidentiality / non-disclosure agreement given the sensitivity of the project, with detailed qualitative questions, pricing schedule and social value commitments",
+        "Performance monitored by the Authorised Officer with an agreed Performance Framework (Outcomes and KPIs) plus social, environmental and other monitoring processes throughout the contract"
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Stage 1 Competency Submission — qualitative scoring matrix",
+          "summary": "Stage 1 competency responses scored independently on a 7-point scale: Unacceptable (0), Poor (1), Deficient (2) — any of which excludes the submission; Satisfactory (3), Good (4), Excellent (5), Outstanding (6). Stage 2 scoring and additional information released only to bidders that progress.",
+          "weighting_text": "Unacceptable/Poor/Deficient each result in full exclusion; Satisfactory=3, Good=4, Excellent=5, Outstanding=6",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 STAGE 1 COMPETENCY SUBMISSION",
+            "anchor_text": "Submissions will be scored independently, using the scoring matrix below. | Unacceptable 0 | Poor 1 | Deficient 2 | Satisfactory 3 | Good 4 | Excellent 5 | Outstanding 6 |"
+          }
+        },
+        {
+          "criterion": "Exclusion threshold",
+          "summary": "A score of Unacceptable, Poor or Deficient on any quality question results in the full exclusion of the submission.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 STAGE 1 COMPETENCY SUBMISSION",
+            "anchor_text": "This score for any quality question will result in the full exclusion of the submission."
+          }
+        },
+        {
+          "criterion": "Stage 2 submission structure",
+          "summary": "Stage 2 involves a more detailed submission including numerous qualitative questions, a pricing schedule and social value commitments. Access to Stage 2 detail is conditional on signing a confidentiality agreement.",
+          "weighting_text": "Qualitative + pricing + social value (detailed weighting released only at Stage 2)",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 STAGE 1 COMPETENCY SUBMISSION",
+            "anchor_text": "Stage two will involve a more detailed submission with numerous qualitative questions, pricing schedule and social value commitments."
+          }
+        },
+        {
+          "criterion": "Contract performance KPIs (Pass/Fail)",
+          "summary": "Seven Pass/Fail KPIs monitored via Design Team Meeting feedback: (1a) minimal design queries/changes during tender period (target zero, excluding client-driven changes); (2) design meets client requirements; (3) design meets budget; (4) attendance at required meetings; (5) meeting site attendance requirements; (6) pro-active conduct (email response within 3 working days, early warnings, liaison, snag/defect logging); (7) Social Value commitments delivered (added to pre-start and progress meeting agendas).",
+          "weighting_text": "All seven measures scored Pass/Fail; reviewed at Design Team Meetings",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "6 PERFORMANCE REQUIREMENTS",
+            "anchor_text": "Performance Measures Table: Ref | KPI | Scoring Basis | How will this be measured? | 1a Design - Minimal Design Queries/Changes ... 7 Social Value"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "RIBA Plan of Work",
+          "context": "Applied across all RIBA Stages; Stage 2 is the primary near-term focus with MEP and Structural Engineer involvement; service scope reviewed at each RIBA Stage.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "3.6 Policies and Standards / 7 OTHER REQUIREMENTS",
+            "anchor_text": "RIBA Plan of Work and current Building Regulations."
+          }
+        },
+        {
+          "standard_ref": "CDM 2015 (Construction (Design and Management) Regulations 2015)",
+          "context": "CDM Principal Designer competency and statutory compliance; cited under both Policies & Standards and Other Requirements.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "3.6 Policies and Standards / 7 OTHER REQUIREMENTS / 9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "CDM 2015 Regulations and other statutory planning and heritage requirements."
+          }
+        },
+        {
+          "standard_ref": "Building Safety Act 2022",
+          "context": "BR Principal Designer competency; required regulatory framework.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "3.6 Policies and Standards / 7 OTHER REQUIREMENTS / 9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "Building Safety Act 2022"
+          }
+        },
+        {
+          "standard_ref": "PAS 8671:2022",
+          "context": "Competency standard for Principal Designer under Building Safety Act 2022; in-house or specialist sub-consultant.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "Competency standard PAS 8671:2022"
+          }
+        },
+        {
+          "standard_ref": "Building Regulations Approved Document B (Fire Safety)",
+          "context": "Fire safety compliance requirement in Policies and Standards.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "3.6 Policies and Standards",
+            "anchor_text": "Building Regulations Approved Document B (Fire Safety)"
+          }
+        },
+        {
+          "standard_ref": "BS 9999",
+          "context": "Code of Practice for Fire Safety in the Design, Management and Use of Buildings.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "3.6 Policies and Standards",
+            "anchor_text": "BS 9999 – Code of Practice for Fire Safety in the Design, Management and Use of Buildings"
+          }
+        },
+        {
+          "standard_ref": "Environment Act 2021",
+          "context": "Environmental statutory compliance required of all appointed consultants.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "3.6 Policies and Standards",
+            "anchor_text": "The Environment Act 2021"
+          }
+        },
+        {
+          "standard_ref": "Air Quality Standards Regulations 2010",
+          "context": "Air quality statutory compliance.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "3.6 Policies and Standards",
+            "anchor_text": "The Air Quality Standards Regulations 2010"
+          }
+        },
+        {
+          "standard_ref": "BS 8300",
+          "context": "Inclusive design and accessibility requirement.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "3.6 Policies and Standards",
+            "anchor_text": "Inclusive design principles and BS8300 (accessibility)."
+          }
+        },
+        {
+          "standard_ref": "Building Regulations (England and Wales)",
+          "context": "Current Building Regulations apply to all outputs.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "7 OTHER REQUIREMENTS",
+            "anchor_text": "Building Regulations (England and Wales)"
+          }
+        },
+        {
+          "standard_ref": "BS EN ISO 9001",
+          "context": "Quality management standard, where applicable.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "7 OTHER REQUIREMENTS",
+            "anchor_text": "British Standards (e.g. BS EN ISO 9001 for quality management, where applicable)"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work Act 1974",
+          "context": "Statutory health and safety framework.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "7 OTHER REQUIREMENTS",
+            "anchor_text": "Health and Safety at Work Act 1974"
+          }
+        },
+        {
+          "standard_ref": "Equality Act 2010",
+          "context": "Particularly in relation to inclusive design.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "7 OTHER REQUIREMENTS",
+            "anchor_text": "Equality Act 2010, particularly in relation to inclusive design."
+          }
+        },
+        {
+          "standard_ref": "BIM Level 2 with COBie",
+          "context": "Required information management standard for project deliverables.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "3.5 Information Flows",
+            "anchor_text": "BIM Level 2 with COBie data is a requirement."
+          }
+        },
+        {
+          "standard_ref": "ARB registration",
+          "context": "Architects Registration Board — mandatory for the architect discipline.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "Registered with ARB (Architects Registration Board)."
+          }
+        },
+        {
+          "standard_ref": "RIBA chartered membership",
+          "context": "Preferred for the architect lead.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "Preferably chartered member of RIBA."
+          }
+        },
+        {
+          "standard_ref": "MRICS / FRICS (RICS)",
+          "context": "Royal Institution of Chartered Surveyors membership requirement for chartered building surveyor competency.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "MRICS or FRICS (Chartered Building Surveyor via the Royal Institution of Chartered Surveyors)."
+          }
+        },
+        {
+          "standard_ref": "CEng / IEng (Engineering Council UK)",
+          "context": "Accepted MEP engineer registration route.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "CEng or IEng (via Engineering Council UK)"
+          }
+        },
+        {
+          "standard_ref": "MCIBSE / FCIBSE",
+          "context": "Chartered Institution of Building Services Engineers — accepted MEP route.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "MCIBSE or FCIBSE (Chartered Institution of Building Services Engineers)"
+          }
+        },
+        {
+          "standard_ref": "MIET",
+          "context": "Institution of Engineering and Technology — accepted MEP route.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "MIET (Institution of Engineering and Technology)"
+          }
+        },
+        {
+          "standard_ref": "MIMechE",
+          "context": "Institution of Mechanical Engineers — accepted MEP route.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "MIMechE (Institution of Mechanical Engineers)"
+          }
+        },
+        {
+          "standard_ref": "ICE registration",
+          "context": "Institution of Civil Engineers — required for structural/civils discipline.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "Registered with the Institution of Civil Engineers (ICE) and the Institution of Structural Engineers (IStructE)"
+          }
+        },
+        {
+          "standard_ref": "IStructE registration",
+          "context": "Institution of Structural Engineers — required for structural/civils discipline; preferred chartered membership.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "Registered with the Institution of Civil Engineers (ICE) and the Institution of Structural Engineers (IStructE)"
+          }
+        },
+        {
+          "standard_ref": "CIOB membership",
+          "context": "Chartered Institute of Building — accepted chartered route for structural/civils lead.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "Preferably chartered member of ICE, IStructE or CIOB as appropriate."
+          }
+        },
+        {
+          "standard_ref": "CIAT membership",
+          "context": "Chartered Institute of Architectural Technologists — accepted recognised-body route for CDM Principal Designer.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "Membership of a recognized body (e.g., RIBA, CIAT, ICE, IStructE)."
+          }
+        },
+        {
+          "standard_ref": "SSIP accreditation (e.g. CHAS, SMAS, SafeContractor)",
+          "context": "Safety Schemes in Procurement — often required for public-sector work; applies to CDM Principal Designer.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "SSIP Accreditation (e.g. CHAS, SMAS, or SafeContractor) often required for public-sector work."
+          }
+        },
+        {
+          "standard_ref": "Professional Indemnity Insurance",
+          "context": "PI insurance must be in place for Principal Designer (CDM 2015).",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+            "anchor_text": "PI (Professional Indemnity) Insurance in place."
+          }
+        },
+        {
+          "standard_ref": "Council Climate Action Now and Social Value commitments",
+          "context": "Council policy commitments referenced under Policies and Standards and under KPI 7.",
+          "evidence_anchor": {
+            "page_ref": "p.unknown",
+            "section_ref": "3.6 Policies and Standards / 6 PERFORMANCE REQUIREMENTS",
+            "anchor_text": "The Council's Climate Action Now and Social Value commitments."
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "p.unknown",
+        "section_ref": "Document header / 1 INTRODUCTION / 3.2 Objectives of the Procurement",
+        "anchor_text": "Document 2 Specification For: Stockport Town Centre School — Multi – Disciplinary Design Team (Architect, MEP, Structures & Civils, BR Principal Designer & CDM Principal Designer). This procurement seeks to appoint an architecturally led multidisciplinary design and advisory team (initially including Architect, MEP, Structural and Civil Engineer, BR Principal Designer and CDM Principal Designer) to support the delivery of a new through school within the centre of Stockport."
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots": 9200,
+    "lot_number": 9500,
+    "lot_title": 9400,
+    "lot_description": 9000,
+    "lot_requirements": 8600,
+    "evaluation_criteria": 9000,
+    "cpv_codes": 3000,
+    "product_requirements": 9000,
+    "technical_standards": 9300,
+    "evidence_anchors": 8500
+  },
+  "extraction_confidence_bps": 8400,
+  "warnings": [
+    {
+      "code": "NO_CPV_CODES_IN_DOCUMENT",
+      "message": "The tender specification text does not include any CPV codes. CPV classification, if required, must be sourced from the originating notice (contract_notices / procurement_processes) rather than this document.",
+      "evidence_refs": [
+        "Entire document reviewed; no CPV prefix or CPV keyword present."
+      ]
+    },
+    {
+      "code": "NO_PAGE_ANCHORS_IN_SOURCE",
+      "message": "Docling markdown for this document did not emit page numbers, so evidence_anchor.page_ref values are set to 'p.unknown'. Section references are preserved from explicit numbered headings in the markdown.",
+      "evidence_refs": [
+        "document_extractions.section_count=2 with page_start=1,page_end=1 for both emitted sections"
+      ]
+    },
+    {
+      "code": "DUPLICATE_HEADING_NUMBER",
+      "message": "The source document uses the heading number '9' for both 'SKILLS AND EXPERTISE REQUIRED' and 'STAGE 1 COMPETENCY SUBMISSION'. This is a document-side numbering defect, not an extraction error. Section references in evidence anchors disambiguate by heading title.",
+      "evidence_refs": [
+        "9 SKILLS AND EXPERTISE REQUIRED",
+        "9 STAGE 1 COMPETENCY SUBMISSION"
+      ]
+    },
+    {
+      "code": "NO_PRODUCT_REQUIREMENT_SEEDS",
+      "message": "This tender procures professional design services (Architect, MEP, Structures & Civils, Principal Designers). It does not itemise physical goods or quotable line-item products, so product_requirement_seeds is intentionally empty.",
+      "evidence_refs": [
+        "§3.2 Objectives of the Procurement: appoint a multidisciplinary design and advisory team"
+      ]
+    },
+    {
+      "code": "STAGE_2_WEIGHTINGS_WITHHELD",
+      "message": "Detailed Stage 2 scoring weightings are not released in this document and are only shared after bidders progress to Stage 2 and sign a confidentiality agreement. Evaluation criteria therefore reflect Stage 1 scoring matrix plus KPI framework only.",
+      "evidence_refs": [
+        "§9 STAGE 1 COMPETENCY SUBMISSION: 'Further details of the scoring and additional information will be released if bidders reach the second stage, on the basis that a confidentiality agreement is signed.'"
+      ]
+    },
+    {
+      "code": "ANNEXES_NOT_INLINED",
+      "message": "Section 10 ANNEXES lists five Scope of Services annexes (Architectural, BR Principal Designer, CDM Principal Designer, MEP, Structures and Civils) but their content is not inlined in this Document 2. Per-discipline detailed scope is out of scope of this extraction and should be resolved from separate documents in the tender pack if available.",
+      "evidence_refs": [
+        "§10 ANNEXES table listing Architectural/BR PD/CDM PD/MEP/Structures and Civils scope-of-service documents"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p.unknown",
+      "section_ref": "Document header",
+      "anchor_text": "Document 2 Specification For: Stockport Town Centre School — Multi – Disciplinary Design Team (Architect, MEP, Structures & Civils, BR Principal Designer & CDM Principal Designer)"
+    },
+    {
+      "page_ref": "p.unknown",
+      "section_ref": "1 INTRODUCTION",
+      "anchor_text": "Stockport Metropolitan Borough Council (SMBC) is a unitary authority in Greater Manchester, serving a population of over 290,000 residents."
+    },
+    {
+      "page_ref": "p.unknown",
+      "section_ref": "2 SCOPE",
+      "anchor_text": "We are looking to deliver an innovative all through school, building on the current town centre regeneration and with an emphasis on providing a new educational vision for Stockport."
+    },
+    {
+      "page_ref": "p.unknown",
+      "section_ref": "3.1 Business Objectives Relevant to this Procurement",
+      "anchor_text": "Central location benefits; Inclusive design; Integration with town centre regeneration; Sustainability & Future Proofing; Educational excellence."
+    },
+    {
+      "page_ref": "p.unknown",
+      "section_ref": "3.2 Objectives of the Procurement",
+      "anchor_text": "This procurement seeks to appoint an architecturally led multidisciplinary design and advisory team (initially including Architect, MEP, Structural and Civil Engineer, BR Principal Designer and CDM Principal Designer) to support the delivery of a new through school within the centre of Stockport."
+    },
+    {
+      "page_ref": "p.unknown",
+      "section_ref": "3.5 Information Flows",
+      "anchor_text": "It is anticipated that key information will be shared utilising SMBC SharePoint platform. BIM Level 2 with COBie data is a requirement."
+    },
+    {
+      "page_ref": "p.unknown",
+      "section_ref": "3.6 Policies and Standards",
+      "anchor_text": "All appointed consultants will be required to comply with: RIBA Plan of Work and current Building Regulations; CDM 2015 Regulations; Building Safety Act 2022; Climate Action Now and Social Value commitments; Approved Document B (Fire Safety); BS 9999; Environment Act 2021; Air Quality Standards Regulations 2010; Inclusive design principles and BS8300."
+    },
+    {
+      "page_ref": "p.unknown",
+      "section_ref": "4 PRELIMINARY MARKET ENGAGEMENT",
+      "anchor_text": "Stockport Council are commencing preliminary market engagement by issuing an Expression of Interest to suppliers through Stage 1 of the Competitive Flexible Procedure. 30 business days, maximum of three shortlisted suppliers."
+    },
+    {
+      "page_ref": "p.unknown",
+      "section_ref": "6 PERFORMANCE REQUIREMENTS",
+      "anchor_text": "Performance Measures Table: 1a Design Queries; 2 Design meets requirements; 3 Design meets budget; 4 Meetings; 5 Site Visits; 6 Pro-active duties; 7 Social Value. All Pass/Fail."
+    },
+    {
+      "page_ref": "p.unknown",
+      "section_ref": "7 OTHER REQUIREMENTS",
+      "anchor_text": "Standards: RIBA Plan of Work; CDM Regulations 2015; Building Safety Act 2022; Building Regulations (England and Wales); BS EN ISO 9001; Health and Safety at Work Act 1974; Equality Act 2010. Supplier may propose alternative standards with technical equivalence."
+    },
+    {
+      "page_ref": "p.unknown",
+      "section_ref": "8 TIMESCALES AND MILESTONES",
+      "anchor_text": "Design Team Appointment: April 2026. Stage 2 Design: Q2 2026 – Q3 2026."
+    },
+    {
+      "page_ref": "p.unknown",
+      "section_ref": "9 SKILLS AND EXPERTISE REQUIRED",
+      "anchor_text": "Architect: ARB, preferably RIBA, MRICS/FRICS. MEP: CEng/IEng, MCIBSE/FCIBSE, MIET, MIMechE. Structural/Civils: ICE and IStructE registered, preferably ICE/IStructE/CIOB chartered. CDM Principal Designer: RIBA/CIAT/ICE/IStructE, SSIP (CHAS/SMAS/SafeContractor), PI insurance. BR Principal Designer: PAS 8671:2022."
+    },
+    {
+      "page_ref": "p.unknown",
+      "section_ref": "9 STAGE 1 COMPETENCY SUBMISSION",
+      "anchor_text": "7-point scoring matrix: Unacceptable 0, Poor 1, Deficient 2 (all excluded); Satisfactory 3, Good 4, Excellent 5, Outstanding 6. Stage 2 scoring released after NDA signed."
+    },
+    {
+      "page_ref": "p.unknown",
+      "section_ref": "10 ANNEXES",
+      "anchor_text": "A Scope of Services: Architectural; BR Principal Designer; CDM Principal Designer; MEP; Structures and Civils."
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "2198aec117f60032127de45e8e3034c1b4eed8745171fb9e6c910c00e6caa3db",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

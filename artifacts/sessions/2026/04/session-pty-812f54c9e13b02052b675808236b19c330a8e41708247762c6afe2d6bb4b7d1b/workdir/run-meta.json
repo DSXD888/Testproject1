@@ -1,0 +1,228 @@
+{
+  "startedAt": "2026-04-14T20:35:18.885Z",
+  "completedAt": "2026-04-14T20:38:39.190Z",
+  "pagesVisited": [
+    "https://procontract.due-north.com/SupplierPostLoginHome/GridViewActivities?sortString=Added&sortDirection=Descending&pageSize=10&PageName=recentlyadded&page=1",
+    "https://procontract.due-north.com/SupplierPostLoginHome/GridViewActivities?sortString=Added&sortDirection=Descending&pageSize=10&PageName=recentlyadded&page=2",
+    "https://procontract.due-north.com/SupplierPostLoginHome/GridViewActivities?sortString=Added&sortDirection=Descending&pageSize=10&PageName=recentlyadded&page=3",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=126086a2-9ad3-e911-80fa-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=fcf0c967-aa25-eb11-8105-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=700f9fac-21d0-eb11-810c-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=8a3e07ac-bd00-ec11-810d-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=71615924-3b3f-ed11-8119-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=a9dc718e-aa2d-f111-813c-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=4f25ee47-b44b-ec11-810e-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=a25079fd-2f28-f111-813c-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=2d4db9eb-eabc-e811-80ef-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=3bd8a510-d545-ee11-8124-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=2f876f17-90e7-ee11-8127-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=984de133-1a03-ef11-812a-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=2467784d-620e-ed11-8116-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=2e1e258d-5c80-ed11-811c-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=74e16850-630e-ed11-8116-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=06a5154e-16e4-ed11-8121-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=f9f8c4a3-fc13-f111-813c-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=b4c8a90c-8218-f111-813c-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=c40622ee-00f6-f011-813c-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=1a5eb480-0f37-f111-813c-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=a12aa4e2-1037-f111-813c-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=bac577e7-dabf-f011-813a-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=28b81c96-0929-f111-813c-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=afb3b5dc-772e-f111-813c-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=ea9d90b2-4833-f111-813c-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=1b39cb55-ffdf-f011-813c-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=f377a574-4137-f111-813c-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=a2858379-0529-f111-813c-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=c3957abe-e22c-f111-813c-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=6b7fc291-2ba4-f011-813a-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=77dbe749-be0c-f111-813c-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=380359ab-c0ca-f011-813a-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=c08f1a87-4933-f111-813c-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=175938ea-4c33-f111-813c-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=ecc7dfe7-5156-f011-813a-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=a549e1d7-cc0c-f111-813c-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=1225d61b-5edf-f011-813c-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=c6b919e8-19e8-f011-813c-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=9d791355-fa87-f011-813a-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=a12a4aa1-daeb-f011-813c-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=c765165f-822a-f011-8136-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=972d780b-ebf2-f011-813c-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=d1944435-155c-f011-813a-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=1ea66675-dff6-f011-813c-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=ee2b6423-df84-f011-813a-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=5b308ce5-21d0-f011-813a-005056b64545",
+    "https://procontract.due-north.com/SupplierPostLoginHome/ActivityDashboard?projectId=161f3107-cc53-ea11-80ff-005056b64545&callingPage=Home",
+    "https://procontract.due-north.com/RfxResponse/Index?rfxId=cbcd275f-2338-f111-813c-005056b64545"
+  ],
+  "warnings": [],
+  "pagesChecked": 3,
+  "reachedEnd": true,
+  "totalActivities": 27,
+  "enrichedCount": 21,
+  "notYetResponded": 6,
+  "failedCount": 0,
+  "allActivities": [
+    {
+      "activityId": "126086a2-9ad3-e911-80fa-005056b64545",
+      "buyer": "East Riding of Yorkshire",
+      "title": "902-19 Supply and Application of Bituminous Based Binder Products in Highways Maintenance - NOW AVAILABLE AT https://uk.eu-supply.com/ctm/Supplier/PublicPurchase/42211/0/0?returnUrl=ctm/Supplier/publictenders&b=YORTENDER",
+      "added": "13/04/2026 18:36"
+    },
+    {
+      "activityId": "700f9fac-21d0-eb11-810c-005056b64545",
+      "buyer": "Yorwaste Ltd",
+      "title": "***DO NOT USE*** Provision and maintenance of Mobile Plant",
+      "added": "13/04/2026 18:36"
+    },
+    {
+      "activityId": "71615924-3b3f-ed11-8119-005056b64545",
+      "buyer": "Derbyshire County Council",
+      "title": "CCP074 - Provision of a Print Service DPS",
+      "added": "13/04/2026 18:35"
+    },
+    {
+      "activityId": "4f25ee47-b44b-ec11-810e-005056b64545",
+      "buyer": "Bristol City Council",
+      "title": "BSH/HRA/Metal Works - Dynamic Purchasing System (DPS)",
+      "added": "13/04/2026 18:35"
+    },
+    {
+      "activityId": "2d4db9eb-eabc-e811-80ef-005056b64545",
+      "buyer": "Croydon Council",
+      "title": "746/2018R Passenger Transport DPS",
+      "added": "13/04/2026 18:35"
+    },
+    {
+      "activityId": "2f876f17-90e7-ee11-8127-005056b64545",
+      "buyer": "Bracknell Forest Borough Council",
+      "title": "Bracknell Forest Council - 2. Emergency Hormonal Contraception (EHC)",
+      "added": "13/04/2026 18:34"
+    },
+    {
+      "activityId": "2467784d-620e-ed11-8116-005056b64545",
+      "buyer": "Bristol City Council",
+      "title": "BSH/HRA/Joinery Timber Supplies - DPS",
+      "added": "13/04/2026 18:34"
+    },
+    {
+      "activityId": "74e16850-630e-ed11-8116-005056b64545",
+      "buyer": "Bristol City Council",
+      "title": "BSH/HRA/Supply of Double Glazed Units and Sheet Glass - DPS",
+      "added": "13/04/2026 18:34"
+    },
+    {
+      "activityId": "f9f8c4a3-fc13-f111-813c-005056b64545",
+      "buyer": "ESPO",
+      "title": "509_27 Parking Management Solutions",
+      "added": "13/04/2026 18:33"
+    },
+    {
+      "activityId": "b4c8a90c-8218-f111-813c-005056b64545",
+      "buyer": "ESPO",
+      "title": "191_28 Electricity",
+      "added": "13/04/2026 18:33"
+    },
+    {
+      "activityId": "c40622ee-00f6-f011-813c-005056b64545",
+      "buyer": "ESPO",
+      "title": "274_26 Grounds Maintenance Machinery",
+      "added": "13/04/2026 18:32"
+    },
+    {
+      "activityId": "1a5eb480-0f37-f111-813c-005056b64545",
+      "buyer": "ECMWF",
+      "title": "C3S2_413_bis Lot 2 Maintenance and Extension of C3S Windstorm and Storm Surge Services",
+      "added": "13/04/2026 18:32"
+    },
+    {
+      "activityId": "bac577e7-dabf-f011-813a-005056b64545",
+      "buyer": "Cambridgeshire County Council",
+      "title": "25112 Library Services Engage, Design and Fit out Contract - Ely Library",
+      "added": "13/04/2026 18:30"
+    },
+    {
+      "activityId": "afb3b5dc-772e-f111-813c-005056b64545",
+      "buyer": "London Borough of Bexley",
+      "title": "6278 - Building Services Framework - Lots 1-11",
+      "added": "13/04/2026 18:29"
+    },
+    {
+      "activityId": "1b39cb55-ffdf-f011-813c-005056b64545",
+      "buyer": "ESPO",
+      "title": "107_26 Inspection and Maintenance of Indoor Gymnasium, Fitness and Sport Equipment, and Outdoor Schools Play and Sport Equipment",
+      "added": "13/04/2026 16:12"
+    },
+    {
+      "activityId": "a2858379-0529-f111-813c-005056b64545",
+      "buyer": "Stockport Metropolitan Borough Council",
+      "title": "020417 - Stockport Town Centre School - Multi-disciplinary Design Team Appointment",
+      "added": "13/04/2026 14:57"
+    },
+    {
+      "activityId": "6b7fc291-2ba4-f011-813a-005056b64545",
+      "buyer": "ESPO",
+      "title": "16_26 Flooring (Supply, Fit and Refurbishment)",
+      "added": "13/04/2026 14:30"
+    },
+    {
+      "activityId": "77dbe749-be0c-f111-813c-005056b64545",
+      "buyer": "ESPO",
+      "title": "301_26 The supply of Liquid Fuels",
+      "added": "13/04/2026 14:28"
+    },
+    {
+      "activityId": "380359ab-c0ca-f011-813a-005056b64545",
+      "buyer": "ESPO",
+      "title": "218_26 Specialist Vehicle Contract Hire/Leasing",
+      "added": "13/04/2026 14:26"
+    },
+    {
+      "activityId": "c08f1a87-4933-f111-813c-005056b64545",
+      "buyer": "Worcester City Council",
+      "title": "Provision, Installation and Maintenance of Worcester City Christmas Lights",
+      "added": "11/04/2026 10:57"
+    },
+    {
+      "activityId": "ecc7dfe7-5156-f011-813a-005056b64545",
+      "buyer": "Tower Hamlets",
+      "title": "CO6088 - Supply and Fitment of Tyres",
+      "added": "19/03/2026 13:59"
+    },
+    {
+      "activityId": "1225d61b-5edf-f011-813c-005056b64545",
+      "buyer": "Nottingham City Council",
+      "title": "CPU 7609 Pouring Rights Partnership and Drinks Supply for National Ice Centre & Motorpoint Arena",
+      "added": "19/03/2026 13:48"
+    },
+    {
+      "activityId": "9d791355-fa87-f011-813a-005056b64545",
+      "buyer": "ESPO",
+      "title": "900_26 Water Dispensers, Associated Consumables and Services",
+      "added": "24/12/2025 12:17"
+    },
+    {
+      "activityId": "c765165f-822a-f011-8136-005056b64545",
+      "buyer": "ESPO",
+      "title": "344_26 Signs",
+      "added": "24/12/2025 12:16"
+    },
+    {
+      "activityId": "d1944435-155c-f011-813a-005056b64545",
+      "buyer": "ESPO",
+      "title": "777_26 Cleaning Materials and Janitorial Supplies",
+      "added": "24/12/2025 11:41"
+    },
+    {
+      "activityId": "ee2b6423-df84-f011-813a-005056b64545",
+      "buyer": "YPO",
+      "title": "YPO 001311 - Folding Furniture",
+      "added": "10/12/2025 17:39"
+    },
+    {
+      "activityId": "161f3107-cc53-ea11-80ff-005056b64545",
+      "buyer": "YPO",
+      "title": "YPO - 001021 School Uniform",
+      "added": "06/12/2025 14:19"
+    }
+  ]
+}

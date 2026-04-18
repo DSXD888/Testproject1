@@ -1,0 +1,319 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Specialist Vehicle Contract Hire / Leasing (framework-wide scope)",
+      "description": "ESPO Framework Agreement Ref 218_26 covering the provision of specialist vehicle contract hire / leasing to Customers under call-off with or without further competitive selection. This source document (Framework Agreement Appendix A) expresses a single framework-wide scope; detailed per-lot specification content is explicitly deferred by Framework Schedule 1 to Section 2 of the Invitation to Tender (Requirement) and is not present in this document.",
+      "requirements": [
+        "Supplier shall provide Goods and/or Services described as 'specialist vehicle contract hire / leasing' to Customers identified in the Tender Notice (Background A).",
+        "Any Goods supplied to Customers pursuant to a Contract shall conform to a Specification and the Call-Off Terms (clause 7.5).",
+        "Supplier shall comply with the Standards and the Law in performing its obligations (clause 13.2) and obtain and maintain all licences, authorisations, consents or permits (clause 13.1).",
+        "Tendered pricing shall include: Vehicle (and associated equipment); mileage/hours usage; maintenance (and parts/ancillary products where required); scheduled manufacturers recommended servicing; MOT (where required); relevant manuals/handbooks; statutory fees (namely first registration fee where required and VED); and any other regulatory levies and duties (Framework Schedule 1, Tendered pricing block).",
+        "Other administrative charges to be stated in the Price Schedule (Appendix B), if applicable: excess mileage charge / under-run credits; cancellation fee (prior to delivery); early termination fee; processing fees for penalty charge notices (PCNs); delivery/collection fees (Framework Schedule 1).",
+        "Tenderers must state their policy in respect of repairs for vehicle accident damage / misuse / write-offs (Framework Schedule 1).",
+        "Supplier shall meet or exceed the Key Performance Indicators in Annex A of Framework Schedule 10 (clause 7.1.11).",
+        "Framework Fee of 1% of invoiced Contract Charges is payable by the Supplier to ESPO (Framework Schedule 2, clause 1.4).",
+        "Supplier shall submit Quarterly MI Reports by the Reporting Date using the prescribed MI Reporting Template (Framework Schedule 7, clauses 2.1 and 3.1).",
+        "Any additions or amendments to Goods and/or Services in Schedule 1 require ESPO Approval and must be technical developments or improvements to what was originally tendered (clauses 3.5, 1.4-1.7 of Schedule 1, clause 32.1)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Further Competitive Selection Process Award Criteria (deferred)",
+          "summary": "This document does not enumerate numeric award-stage weightings. Framework Schedule 5 states that Customers may adopt a scheme similar to that used by ESPO or a revised scheme suited to the specific requirements, varying weightings between price and non-price factors, with increased weighting anticipated for price at further competitive selection stage because non-price factors were assessed when the framework was established.",
+          "weighting_text": "Not specified in this document; to be determined per Customer's further competitive selection scheme.",
+          "evidence_anchor": {
+            "page_ref": "Framework Schedule 5",
+            "section_ref": "FRAMEWORK SCHEDULE 5 - FURTHER COMPETITIVE SELECTION PROCESS AWARD CRITERIA",
+            "anchor_text": "The following criteria ('the Further Competitive Selection Process Award Criteria') shall be applied to the Further Competitive Selection Process Procedure in Framework Schedule 4"
+          }
+        },
+        {
+          "criterion": "Call-Off Without Competition objective mechanism",
+          "summary": "For call-off without competition, a Customer may select a Framework Supplier from the relevant Lot based on: (i) cheapest Supplier for the relevant Goods/Services; (ii) only Supplier able to deliver in the geographical location; or (iii) prior involvement in equivalent supply within the preceding 12 months where alternative contractor would cause demonstrable inefficiency or duplication.",
+          "weighting_text": "Objective mechanism (not weighted scoring).",
+          "evidence_anchor": {
+            "page_ref": "Framework Schedule 4",
+            "section_ref": "2. AWARD PROCEDURE (CALL OFF WITHOUT COMPETITION)",
+            "anchor_text": "A Customer ordering the Goods and/or Services under this Framework Agreement, without re-opening competition, may enter a Contract by selecting a Framework Supplier from the relevant Lot based on the following objective mechanism"
+          }
+        },
+        {
+          "criterion": "Value for Money / Benchmarking",
+          "summary": "ESPO may request benchmark reviews after the initial six (6) Months and at intervals of no less than twelve (12) Months, covering Supplier rates, methodology, comparison items, market intelligence and competitiveness against comparison rates.",
+          "weighting_text": "Periodic post-award review, not an initial award weighting.",
+          "evidence_anchor": {
+            "page_ref": "Framework Schedule 6",
+            "section_ref": "2. BENCHMARKING",
+            "anchor_text": "The purpose of a Benchmark Review will be to establish whether the Benchmarked Rates are, individually and/or as a whole, good value."
+          }
+        }
+      ],
+      "cpv_codes": [
+        "34114000",
+        "34121000",
+        "34134000"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "218_26-framework-specialist-vehicles",
+          "summary": "Specialist vehicle contract hire / leasing across the framework scope, priced to include vehicle and associated equipment, mileage/hours usage, maintenance and ancillary parts, scheduled manufacturers' recommended servicing, MOT where required, relevant manuals/handbooks, and statutory fees (first registration fee where required, VED) plus other regulatory levies and duties.",
+          "requirement_type": "framework_scope_pricing_bundle",
+          "technical_attributes": [
+            "Vehicle and associated equipment",
+            "Mileage / hours usage included",
+            "Maintenance including parts and ancillary products where required",
+            "Scheduled manufacturers' recommended servicing",
+            "MOT (where required)",
+            "Relevant manuals / handbooks provided",
+            "Statutory fees included: first registration fee (where required) and Vehicle Excise Duty (VED)",
+            "Any other regulatory levies and duties",
+            "Pricing nett of VAT and of specified administrative fees (excess mileage, cancellation pre-delivery, early termination, PCN processing, delivery/collection)"
+          ],
+          "quantity_hint": "Call-off basis — no guaranteed volumes (Background H, clauses 3.4, 5.1).",
+          "evidence_anchor": {
+            "page_ref": "Framework Schedule 1",
+            "section_ref": "FRAMEWORK SCHEDULE 1 - THE GOODS AND/OR SERVICES, Tendered pricing block",
+            "anchor_text": "Tendered pricing shall include the following: Vehicle (and associated equipment), mileage/hours usage, maintenance (and parts/ancillary products where required), scheduled manufacturers recommended servicing, MOT (where required), relevant manuals/handbooks, statutory fees (namely first registration fee (where required) and VED) and any other regulatory levies and duties"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "MOT (Ministry of Transport) test",
+          "context": "Cited as an inclusion in tendered pricing where required; refers to the UK statutory periodic roadworthiness test regime under the Road Traffic Act / Motor Vehicles (Tests) Regulations.",
+          "evidence_anchor": {
+            "page_ref": "Framework Schedule 1",
+            "section_ref": "FRAMEWORK SCHEDULE 1, Tendered pricing block",
+            "anchor_text": "MOT (where required)"
+          }
+        },
+        {
+          "standard_ref": "VED (Vehicle Excise Duty)",
+          "context": "Statutory UK duty administered under the Vehicle Excise and Registration Act 1994; cited as an inclusion in tendered pricing.",
+          "evidence_anchor": {
+            "page_ref": "Framework Schedule 1",
+            "section_ref": "FRAMEWORK SCHEDULE 1, Tendered pricing block",
+            "anchor_text": "statutory fees (namely first registration fee (where required) and VED)"
+          }
+        },
+        {
+          "standard_ref": "UK First Registration Fee",
+          "context": "Statutory DVLA first vehicle registration fee; cited as an inclusion in tendered pricing where required.",
+          "evidence_anchor": {
+            "page_ref": "Framework Schedule 1",
+            "section_ref": "FRAMEWORK SCHEDULE 1, Tendered pricing block",
+            "anchor_text": "first registration fee (where required)"
+          }
+        },
+        {
+          "standard_ref": "Procurement Act 2023 (PA23)",
+          "context": "Framework award, further competitive selection and termination provisions are expressly governed by the Procurement Act 2023 and its Regulations and Guidance.",
+          "evidence_anchor": {
+            "page_ref": "Background A / clause 1 Definitions",
+            "section_ref": "BACKGROUND A; Definitions 'PA23'",
+            "anchor_text": "ESPO placed a Tender Notice 2025/S 000-083539 on 16/12/25 on the central digital platform operated pursuant to section 95(4) of the PA23"
+          }
+        },
+        {
+          "standard_ref": "UK GDPR and Data Protection Act 2018",
+          "context": "Data Protection Legislation cited in Definitions and clause 21 governs all processing of Personal Data under the Framework.",
+          "evidence_anchor": {
+            "page_ref": "Definitions / clause 21",
+            "section_ref": "'Data Protection Legislation' definition; clause 21 DATA PROTECTION",
+            "anchor_text": "Data Protection Legislation means all applicable data protection and privacy legislation in force from time to time in the UK including without limitation the UK GDPR; the Data Protection Act 2018"
+          }
+        },
+        {
+          "standard_ref": "Equality Act 2010",
+          "context": "Non-discrimination obligations (clause 14) and impact-analysis obligations reference compliance with Equality Legislation centred on the Equality Act 2010.",
+          "evidence_anchor": {
+            "page_ref": "Definitions / clause 14",
+            "section_ref": "'Equality Legislation' definition; clause 14 NON-DISCRIMINATION",
+            "anchor_text": "Equality Legislation means the Equality Act 2010 and such other acts, legislation and other Law relating to discrimination"
+          }
+        },
+        {
+          "standard_ref": "Bribery Act 2010",
+          "context": "Clause 9 obligations and warranty 7.1.8 require the Supplier not to have breached the Bribery Act 2010 or section 117(2) of the Local Government Act 1972.",
+          "evidence_anchor": {
+            "page_ref": "clause 7.1.8 / clause 9",
+            "section_ref": "7. WARRANTIES; 9 PREVENTION OF BRIBERY AND CORRUPTION",
+            "anchor_text": "it has not in any way breached the Bribery Act 2010 or caused an offence under section 117(2) of the Local Government Act 1972"
+          }
+        },
+        {
+          "standard_ref": "Modern Slavery Act 2015 (implied via ESPO Modern Slavery Statement and clause 7.1.14)",
+          "context": "Warranty 7.1.14 requires the Supplier not to have been convicted of, or under investigation for, slavery and human trafficking offences; Conduct Policy defined by reference to ESPO's Modern Slavery Statement.",
+          "evidence_anchor": {
+            "page_ref": "clause 7.1.14 / Definitions 'Conduct Policy'",
+            "section_ref": "7. WARRANTIES 7.1.14; 'Conduct Policy' definition",
+            "anchor_text": "it has not been convicted of any offence involving slavery and human trafficking"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "Title page / clause 3 / Framework Schedule 1",
+        "section_ref": "FRAMEWORK AGREEMENT FOR SPECIALIST VEHICLE CONTRACT HIRE / LEASING; 3. SCOPE OF FRAMEWORK AGREEMENT; FRAMEWORK SCHEDULE 1 - THE GOODS AND/OR SERVICES",
+        "anchor_text": "FRAMEWORK AGREEMENT FOR SPECIALIST VEHICLE CONTRACT HIRE / LEASING — Agreement Ref: 218_26"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "218_26-framework-specialist-vehicles",
+      "lot_number": "1",
+      "candidate_name": "Specialist vehicle contract hire / leasing (framework-wide bundle)",
+      "summary": "One framework-scope seed covering specialist vehicle contract hire / leasing. Specific vehicle types, capacities and per-unit specifications are deferred by this document to the ITT Section 2 (Requirement) and to individual Customer further-competitive Statements of Requirements, so no per-vehicle seeds can be emitted from this document alone.",
+      "requirements": [
+        "Contract hire / leasing delivery model (non-exclusive, call-off, no volume guarantee — clauses 3.3, 3.4, 5.1).",
+        "Vehicle plus associated equipment included in Framework Price.",
+        "Scheduled manufacturer-recommended servicing and maintenance (including parts / ancillary products where required).",
+        "MOT provision where required; relevant manuals/handbooks supplied.",
+        "Statutory fees included (first registration fee where required, VED) plus any other regulatory levies and duties.",
+        "Administrative charges (excess mileage, cancellation pre-delivery, early termination, PCN processing, delivery/collection) separately quoted in Price Schedule (Appendix B).",
+        "Supplier to state policy on repairs for vehicle accident damage / misuse / write-offs."
+      ],
+      "technical_standards": [
+        "MOT (where required)",
+        "VED (Vehicle Excise Duty)",
+        "UK first registration fee (where required)"
+      ],
+      "cpv_codes": [
+        "34114000",
+        "34121000",
+        "34134000"
+      ],
+      "evidence_anchor": {
+        "page_ref": "Framework Schedule 1",
+        "section_ref": "FRAMEWORK SCHEDULE 1, Tendered pricing block",
+        "anchor_text": "Tendered pricing shall include the following: Vehicle (and associated equipment), mileage/hours usage, maintenance (and parts/ancillary products where required), scheduled manufacturers recommended servicing, MOT (where required), relevant manuals/handbooks, statutory fees (namely first registration fee (where required) and VED) and any other regulatory levies and duties"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 4000,
+    "lots.title": 7000,
+    "lots.description": 6500,
+    "lots.requirements": 7500,
+    "lots.evaluation_criteria": 6000,
+    "lots.cpv_codes": 5500,
+    "lots.product_requirements": 5500,
+    "lots.technical_standards": 6500,
+    "product_requirement_seeds": 5500,
+    "extraction_scope": 9500
+  },
+  "extraction_confidence_bps": 5800,
+  "warnings": [
+    {
+      "code": "LOT_BOUNDARY_NOT_ENUMERATED_IN_DOCUMENT",
+      "message": "This Framework Agreement (Appendix A) does not explicitly enumerate lot numbers or lot titles. Framework Schedule 1 clause 1 and the body text reference 'relevant Lot(s)' generically but defer the actual Specification to Section 2 of the Invitation to Tender (Requirement). A single framework-wide lot was emitted with lot_number='1' to satisfy the non-empty lot contract; downstream consumers should treat this as a framework-scope placeholder pending ingestion of the ITT Requirement document.",
+      "evidence_refs": [
+        "Framework Schedule 1 §1.1-1.3",
+        "Framework Schedule 1 closing paragraph: 'Upon completion of the tender evaluation exercise and prior to the entry into the Framework Agreement, ESPO will incorporate into this Framework Schedule the Specification (contained within Section 2 of the Invitation to Tender, Requirement)'"
+      ]
+    },
+    {
+      "code": "SPECIFICATION_DEFERRED_TO_EXTERNAL_DOCUMENT",
+      "message": "Detailed per-product technical specifications, vehicle categories, capacities, and supplier response requirements are explicitly deferred to 'Section 2 of the Invitation to Tender, Requirement' and 'Section 1 of the Tender Submission Document' and are not present in this Framework Agreement document.",
+      "evidence_refs": [
+        "Framework Schedule 1 closing paragraph (line 1332)"
+      ]
+    },
+    {
+      "code": "AWARD_CRITERIA_WEIGHTINGS_NOT_SPECIFIED",
+      "message": "Framework Schedule 5 does not enumerate numeric weightings. Customers may use a similar or revised scheme at further competitive selection stage, varying price / non-price weightings per their specific requirements.",
+      "evidence_refs": [
+        "Framework Schedule 5 paragraph: 'When evaluating a further competitive selection process, Customers may adopt a scheme similar to that used by ESPO in establishing the Framework or may advise Suppliers that a revised scheme will be used'"
+      ]
+    },
+    {
+      "code": "CPV_CODES_FROM_PROCESS_CONTEXT_NOT_DOCUMENT",
+      "message": "CPV codes 34114000 (Specialist vehicles), 34121000 (Buses and coaches), 34134000 (Flatbed and Tipper trucks) are carried over from process_context (contract_notices.main_category) because this document does not print CPV codes in body text. They are attached at framework-lot level pending per-lot CPV refinement from the ITT Requirement document.",
+      "evidence_refs": [
+        "process_context / contract_notices.main_category for notice pc-218726bd-9dda-f011-813c-005056b64545"
+      ]
+    },
+    {
+      "code": "NO_TECHNICAL_STANDARDS_WITH_NUMERIC_CODES",
+      "message": "The document does not cite ISO / EN / BS / DIN technical standards with numeric codes. technical_standards entries reference UK statutory regimes (MOT, VED, first registration fee) and named UK legislation (PA23, UK GDPR, DPA 2018, Equality Act 2010, Bribery Act 2010, Modern Slavery Act 2015). These are statutory rather than technical-standard references; downstream consumers may wish to re-classify them accordingly once the ITT Requirement document is ingested."
+    },
+    {
+      "code": "MI_REPORTING_TEMPLATE_IS_IMAGE",
+      "message": "The MI Reporting Template annex is rendered with an <!-- image --> marker followed by a truncated table, suggesting the original template cell content is embedded as a graphic and may not be fully captured in the Docling markdown."
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "Title page",
+      "section_ref": "FRAMEWORK AGREEMENT FOR SPECIALIST VEHICLE CONTRACT HIRE / LEASING",
+      "anchor_text": "FRAMEWORK AGREEMENT FOR SPECIALIST VEHICLE CONTRACT HIRE / LEASING — Agreement Ref: 218_26"
+    },
+    {
+      "page_ref": "BACKGROUND A",
+      "section_ref": "BACKGROUND",
+      "anchor_text": "ESPO placed a Tender Notice 2025/S 000-083539 on 16/12/25 on the central digital platform operated pursuant to section 95(4) of the PA23 seeking expressions of interest from providers of specialist vehicle contract hire / leasing to Customers"
+    },
+    {
+      "page_ref": "clause 3",
+      "section_ref": "3. SCOPE OF FRAMEWORK AGREEMENT",
+      "anchor_text": "this Framework Agreement governs the relationship between ESPO and the Supplier in respect of the provision of the Goods and/or Services by the Supplier to Customers"
+    },
+    {
+      "page_ref": "clause 7.5",
+      "section_ref": "7. WARRANTIES, REPRESENTATIONS AND UNDERTAKINGS",
+      "anchor_text": "any Goods supplied to the Customers pursuant to a Contract shall conform to a Specification and the Call-Off Terms"
+    },
+    {
+      "page_ref": "clause 13",
+      "section_ref": "13 STATUTORY REQUIREMENTS AND STANDARDS",
+      "anchor_text": "The Supplier shall comply with the Standards and the Law in performing its obligations under this Framework Agreement"
+    },
+    {
+      "page_ref": "Framework Schedule 1",
+      "section_ref": "FRAMEWORK SCHEDULE 1 - THE GOODS AND/OR SERVICES, Introduction and Tendered pricing block",
+      "anchor_text": "Tendered pricing shall include the following: Vehicle (and associated equipment), mileage/hours usage, maintenance (and parts/ancillary products where required), scheduled manufacturers recommended servicing, MOT (where required), relevant manuals/handbooks, statutory fees (namely first registration fee (where required) and VED) and any other regulatory levies and duties"
+    },
+    {
+      "page_ref": "Framework Schedule 1 closing paragraph",
+      "section_ref": "FRAMEWORK SCHEDULE 1",
+      "anchor_text": "Upon completion of the tender evaluation exercise and prior to the entry into the Framework Agreement, ESPO will incorporate into this Framework Schedule the Specification (contained within Section 2 of the Invitation to Tender, Requirement)"
+    },
+    {
+      "page_ref": "Framework Schedule 2 clause 1.4",
+      "section_ref": "FRAMEWORK SCHEDULE 2 - CHARGING STRUCTURE, The Framework Fee",
+      "anchor_text": "The Framework Fee is 1%."
+    },
+    {
+      "page_ref": "Framework Schedule 4 §2.1",
+      "section_ref": "FRAMEWORK SCHEDULE 4 - ORDERING PROCEDURE, AWARD PROCEDURE (CALL OFF WITHOUT COMPETITION)",
+      "anchor_text": "A Customer ordering the Goods and/or Services under this Framework Agreement, without re-opening competition, may enter a Contract by selecting a Framework Supplier from the relevant Lot based on the following objective mechanism"
+    },
+    {
+      "page_ref": "Framework Schedule 5",
+      "section_ref": "FRAMEWORK SCHEDULE 5 - FURTHER COMPETITIVE SELECTION PROCESS AWARD CRITERIA",
+      "anchor_text": "When evaluating a further competitive selection process, Customers may adopt a scheme similar to that used by ESPO in establishing the Framework or may advise Suppliers that a revised scheme will be used"
+    },
+    {
+      "page_ref": "Framework Schedule 6 §2",
+      "section_ref": "FRAMEWORK SCHEDULE 6 - VALUE FOR MONEY, 2. BENCHMARKING",
+      "anchor_text": "The purpose of a Benchmark Review will be to establish whether the Benchmarked Rates are, individually and/or as a whole, good value"
+    },
+    {
+      "page_ref": "Framework Schedule 7 §3.1",
+      "section_ref": "FRAMEWORK SCHEDULE 7 - MANAGEMENT INFORMATION REQUIREMENTS, 3. FREQUENCY AND COVERAGE",
+      "anchor_text": "All MI Reports must be completed by the Supplier using the MI Reporting Template and returned to ESPO on or prior to the Reporting Date every Quarter"
+    },
+    {
+      "page_ref": "Framework Schedule 10 Annex A",
+      "section_ref": "ANNEX A — KEY PERFORMANCE INDICATORS",
+      "anchor_text": "The following KPIs will be applied by ESPO from the Commencement Date of this Framework Agreement."
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "13b6dd577f2c742764c097a2122865695d90c8dcd8abc52918f008918002c3e8",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

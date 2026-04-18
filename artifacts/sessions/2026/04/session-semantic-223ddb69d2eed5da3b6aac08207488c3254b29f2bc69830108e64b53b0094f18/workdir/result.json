@@ -1,0 +1,183 @@
+{
+  "lots": [
+    {
+      "lot_number": "11",
+      "title": "Provision of Minor Disability Adaptations (minor building works) in privately owned properties",
+      "description": "Lot 11 of the London Borough of Bexley 6278 - Building Services Framework, covering the provision of minor disability adaptations (minor building works) in privately owned properties. The document itself is the PSQ (Pre-Qualification) reference appendices — it contains a Reference Form (Appendix 1) to be completed by an applicant and returned by a referee, together with a covering letter (Appendix 2). It does not contain a full technical specification, quantitative requirements, or tender evaluation matrix; those items are expected in separate documents within the same tender pack.",
+      "requirements": [
+        "Applicant must supply a contactable referee who can attest to the quality of services previously delivered (Appendix 1, Part A).",
+        "Referee must return Part B of the reference form to procurement@bexley.gov.uk by 18th May 2026, 5pm, and not return it to the applicant."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Overall quality of service / workmanship",
+          "summary": "Referee's overall opinion of the provider / contractor / supplier and the quality of service or workmanship delivered, judged against measurable outcomes of the contract held.",
+          "weighting_text": "5-point scale: failed in all areas / failed in some areas / met standard / exceeded in some areas / exceeded in all areas.",
+          "evidence_anchor": {
+            "page_ref": "Appendix 1",
+            "section_ref": "Appendix 1 – Reference Form, Part B",
+            "anchor_text": "Your overall opinion of this provider/ contractor/ supplier and the quality of service/ workmanship delivered in terms of measurable outcomes against the contract held"
+          }
+        },
+        {
+          "criterion": "Adherence to service schedule / specification",
+          "summary": "Referee's assessment of the contractor's adherence to and compliance with the service schedule or specification in place on the reference contract.",
+          "weighting_text": "5-point scale (failed / met / exceeded).",
+          "evidence_anchor": {
+            "page_ref": "Appendix 1",
+            "section_ref": "Appendix 1 – Reference Form, Part B",
+            "anchor_text": "Adherence to & compliance with your service schedule/ specification"
+          }
+        },
+        {
+          "criterion": "Problem resolution capability",
+          "summary": "Ability of the contractor / provider / supplier to resolve problems quickly and effectively on the reference contract.",
+          "weighting_text": "5-point scale (failed / met / exceeded).",
+          "evidence_anchor": {
+            "page_ref": "Appendix 1",
+            "section_ref": "Appendix 1 – Reference Form, Part B",
+            "anchor_text": "Ability of the contractor/ provider/ supplier to resolve problems quickly and effectively."
+          }
+        },
+        {
+          "criterion": "Safe, secure, sensitive and reliable delivery",
+          "summary": "Whether the contractor / provider / supplier delivered services or goods that were generally safe, secure, sensitive and reliable — especially relevant given the residential, often occupied and vulnerable settings implied by the minor disability adaptations work.",
+          "weighting_text": "5-point scale (failed / met / exceeded).",
+          "evidence_anchor": {
+            "page_ref": "Appendix 1",
+            "section_ref": "Appendix 1 – Reference Form, Part B",
+            "anchor_text": "Did the contractor/ provider/ supplier provide the services/ goods that were generally safe, secure, sensitive and reliable?"
+          }
+        },
+        {
+          "criterion": "Communication with clients and residents",
+          "summary": "Effectiveness of the contractor's communication with both the client body and the residents, with explicit emphasis on occupied properties and vulnerable households.",
+          "weighting_text": "5-point scale (failed / met / exceeded).",
+          "evidence_anchor": {
+            "page_ref": "Appendix 1",
+            "section_ref": "Appendix 1 – Reference Form, Part B",
+            "anchor_text": "How effective was the contractor’s communication with both the client and residents, particularly in occupied properties and vulnerable households"
+          }
+        },
+        {
+          "criterion": "Referee repeat-engagement recommendation",
+          "summary": "Referee's Yes/No confirmation of whether they would re-employ the applicant company for similar services — used as a summary signal alongside the five rated criteria.",
+          "weighting_text": "Yes / No (binary).",
+          "evidence_anchor": {
+            "page_ref": "Appendix 1",
+            "section_ref": "Appendix 1 – Reference Form, Part B",
+            "anchor_text": "Would you employ this company for similar services (please select)  Yes  No"
+          }
+        },
+        {
+          "criterion": "Reference factual accuracy confirmation",
+          "summary": "Referee must confirm that the services described in Part A by the applicant are accurate. Used as an authenticity check on applicant-supplied information.",
+          "weighting_text": "Free-text confirmation.",
+          "evidence_anchor": {
+            "page_ref": "Appendix 1",
+            "section_ref": "Appendix 1 – Reference Form, Part A / Part B boundary",
+            "anchor_text": "Please confirm that the services provided, detailed by the applicant above, are accurate:"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "Appendix 1",
+        "section_ref": "Appendix 1 – Reference Form header",
+        "anchor_text": "Lot 11 Provision of Minor Disability Adaptations (minor building works) in privately owned properties"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.lot_number": 9800,
+    "lots.title": 9800,
+    "lots.description": 6500,
+    "lots.requirements": 6000,
+    "lots.evaluation_criteria": 8200,
+    "lots.cpv_codes": 3000,
+    "lots.product_requirements": 3000,
+    "lots.technical_standards": 3000,
+    "product_requirement_seeds": 3000
+  },
+  "extraction_confidence_bps": 5200,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "Document role was recorded as 'technical_specification' but the Docling markdown contains only a PSQ reference questionnaire form (Appendix 1) and a referee cover letter (Appendix 2). No technical specification, quantitative requirements, or detailed scope description is present in this document.",
+      "evidence_refs": [
+        "Appendix 1 header: REFERENCE FORM",
+        "Appendix 2 body: cover letter to referee"
+      ]
+    },
+    {
+      "code": "NO_PRODUCT_REQUIREMENTS_IN_SOURCE",
+      "message": "No product requirements, part numbers, quantities, or technical attributes were extractable from this document. Product requirement seeds and technical standards were left empty; seeds for Lot 11 should come from the separate tender specification / scope-of-services documents in the 6278 pack if they are processed under the same document_set_id.",
+      "evidence_refs": [
+        "Entire Docling markdown body (4 sections, no product or standard mentions)"
+      ]
+    },
+    {
+      "code": "NO_CPV_IN_SOURCE",
+      "message": "No CPV codes are cited in this document. Notice-level CPVs for the parent framework (50700000-2, 50750000-7, 71315000-9) are known but were not asserted on Lot 11 here because the document provides no evidence anchor for a lot-to-CPV mapping.",
+      "evidence_refs": [
+        "Appendix 1 header"
+      ]
+    },
+    {
+      "code": "PAGE_COUNT_ZERO",
+      "message": "Upstream Docling extraction recorded page_count = 0 for this document; evidence anchors therefore use section references (Appendix 1 / Appendix 2) and anchor text rather than page numbers.",
+      "evidence_refs": [
+        "document_extractions.page_count = 0"
+      ]
+    },
+    {
+      "code": "LOT_SCOPE_INFERRED_FROM_TITLE",
+      "message": "The lot description was reconstructed from the document's own title and header strings (framework number 6278, Lot 11 title) rather than from a substantive scope paragraph. The extraction flags Lot 11 as identified with high confidence but its scope text as low-confidence context rather than authoritative scope.",
+      "evidence_refs": [
+        "Appendix 1 title block: 6278 – Building Services Framework / Lot 11 Provision of Minor Disability Adaptations (minor building works) in privately owned properties"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "Appendix 1",
+      "section_ref": "Appendix 1 – Reference Form header",
+      "anchor_text": "6278 – Building Services Framework"
+    },
+    {
+      "page_ref": "Appendix 1",
+      "section_ref": "Appendix 1 – Reference Form header",
+      "anchor_text": "Lot 11 Provision of Minor Disability Adaptations (minor building works) in privately owned properties"
+    },
+    {
+      "page_ref": "Appendix 1",
+      "section_ref": "Appendix 1 – Reference Form, Part A",
+      "anchor_text": "Name and contact details of applicant:"
+    },
+    {
+      "page_ref": "Appendix 1",
+      "section_ref": "Appendix 1 – Reference Form, Part B",
+      "anchor_text": "TO BE COMPLETED BY REFEREE AND RETURNED TO THE ADDRESS BELOW BY 18th May 2026 by 5pm"
+    },
+    {
+      "page_ref": "Appendix 1",
+      "section_ref": "Appendix 1 – Reference Form, Part B return address",
+      "anchor_text": "Please return the reference to: Procurement@bexley.gov.uk  DO NOT SEND BACK TO APPLICANT"
+    },
+    {
+      "page_ref": "Appendix 2",
+      "section_ref": "Appendix 2 – Referee cover letter",
+      "anchor_text": "The company named on the attached Reference Questionnaire has applied for a Bexley Procurement exercise and has given your name as a reference."
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "7db3cbdf92cf9f46ac356a524190d2ba3319312f2d022948f49a62731a65bc2c",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

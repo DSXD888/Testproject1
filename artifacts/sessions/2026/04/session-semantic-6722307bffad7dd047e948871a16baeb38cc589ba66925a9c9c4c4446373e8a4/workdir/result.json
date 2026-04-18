@@ -1,0 +1,672 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Provision of Fire Risk Assessments",
+      "description": "London Borough of Bexley Building Services Framework 6278, Lot 1. Supplier to deliver Fire Risk Assessments (FRAs) and associated services across the Council's operational estate, ensuring statutory compliance under the Regulatory Reform (Fire Safety) Order 2005 (as amended by the Fire Safety Act 2021 and s.156 Building Safety Act 2022) and the Fire Safety (England) Regulations 2022. Contract period is 2 years with an option to extend for up to a further 12 months (maximum 3 years) commencing April 2026. Scope covers statutory/best-practice FRAs (Type 1-4), Person-Centred FRAs (PCFRA), PAS 9980:2022 Fire Risk Appraisal of External Walls (FRAEW) where applicable, compartmentation survey support, residential building duties under the Fire Safety (England) Regulations 2022 (door checks, information boxes, plans, signage, resident information for buildings at 11 m and 18 m thresholds), and risk-based review of emergency lighting (BS EN 1838:2024) and fire detection/alarm systems (BS 5839). Reports must be issued within 10 working days of site completion, integrate with the Council's CAFM system (TF Cloud), include a prioritised action plan, photographic evidence and plan mark-ups, and be produced by individually qualified assessors on the IFE Assessor Register working under a BAFE SP205 (or equivalent UKAS-accredited) certified organisation. The Supplier provides all expertise, staff, labour, materials, equipment and resources; operates under the Council's permits-to-work, dynamic risk assessment, and asbestos management regimes; and supports continuous improvement, environmental and social value objectives.",
+      "requirements": [
+        "Contract term: 2 years with an option to extend for up to 12 months (maximum 3-year term), commencing April 2026.",
+        "Provide all expertise, staff, labour, materials, equipment and resources required to deliver Fire Risk Assessments across the Council's operational estate.",
+        "Appoint a named representative (Contract Manager) as primary point of contact, responsible for meetings and monthly/quarterly/annual reporting (service performance, asset changes, risks/mitigations, staffing, financial summaries).",
+        "Collaborate with the Council's FM team and M&E / building fabric contractors to plan access, coordinate intrusive compartmentation surveys, and maintain site security.",
+        "Agree and deliver an annual schedule of FRAs in accordance with Appendix 1 - Bexley Fire Risk Assessment Price Matrix, distinguishing statutory compliance vs best-practice activities, and accommodate schedule changes without additional cost.",
+        "Align survey type to risk using the Type 1-4 FRA approach (common parts through to intrusive dwelling inspections) and provide Person-Centred FRAs (PCFRA) for residents requiring support.",
+        "Determine and coordinate any required PAS 9980:2022 Fire Risk Appraisal of External Walls (FRAEW) and engage specialist inputs as needed.",
+        "Deliver residential-building duties under the Fire Safety (England) Regulations 2022: resident information provision, quarterly common-parts and annual flat-door checks, and (for high-rise) information boxes, floor plans, lift checks and wayfinding signage.",
+        "Reference BS EN 1838:2024 for emergency lighting and BS 5839 (relevant parts) for fire detection and alarm systems, and align evacuation-lift / EVC strategies with BS 9991:2024.",
+        "Propose risk-based review intervals; review FRAs after material changes (occupancy, layout, systems) or fire incidents/near misses.",
+        "Issue FRA reports within 10 working days of site completion, covering methodology, scope/limitations, significant findings, persons at risk, preventative/protective measures, aids to evacuation, prioritised action plan with risk rationale, further-investigation flags, photographic evidence and plan mark-ups, in a format compatible with the Council's CAFM system (TF Cloud).",
+        "Submit anonymised sample FRAs (one standard and one intrusive) with explanatory notes as part of the tender response.",
+        "Individual assessors must hold recognised Fire Risk Assessment qualifications and be listed on the IFE Assessor Register; Associate Membership of IFE alone is not sufficient.",
+        "The Supplier organisation must hold BAFE SP205 certification or an equivalent UKAS-accredited scheme and comply with BS ISO 19706:2007 (guidelines for assessing fire threat to people).",
+        "Accept work instructions via email and update the Council's CAFM system (TF Cloud) with status and documentation in agreed formats; record completions and upload reports via TF Cloud; submit applications for payment monthly via the system (only completed jobs with required documentation are authorised for payment).",
+        "Send all invoices electronically to fmcu.buildingservices@bexley.gov.uk (not Central Payments).",
+        "Comply with Health and Safety at Work etc. Act 1974, HSE Guidance Notes and ACOPs, Fire Safety Act 2021, Building Safety Act 2022, Control of Asbestos Regulations 2012, Equality Act 2010 and RIDDOR 2013; submit Risk Assessments and Method Statements (RAMS) for Council approval before commencing work; maintain Workplace Risk Assessments on TF Cloud.",
+        "Complete a Dynamic Risk Assessment (DRA) before any planned or reactive works and upload it to TF Cloud (or agreed format); DRA completion is mandatory.",
+        "Assume presence of asbestos-containing materials (ACMs) in plant rooms and building fabric unless confirmed otherwise; on discovery/suspicion, cease work, notify the Council, do not disturb ACM without prior written agreement, arrange sampling by qualified firm if instructed, and notify the enforcing authority as required under CAR 2012; operatives must review the Asbestos Risk Management Plan, sign the site asbestos register, and comply with site-specific requirements.",
+        "Maintain site security: keep doors/windows closed, switch off lights when not in use, lock up and set alarms on completion, observe the No Smoking policy across all internal and external sites and access routes, and operate formal key handover / key-loss procedures with cost recovery for lost/damaged keys.",
+        "Fulfil the duties of the 'Authorised Person' under relevant health and safety legislation for ongoing monitoring, professional oversight and assurance of compliance with all applicable safety and maintenance standards.",
+        "Appoint a single Health and Safety point of contact, liaise with the Council's Corporate H&S representative, report all near misses, and comply fully with RIDDOR 2013 reporting obligations.",
+        "Provide a clear organisational structure with defined roles, responsibilities and escalation routes; ensure staff competence, continuity of service (cover for sickness/annual leave), DBS checks for all staff and subcontractors, and replacement of removed personnel within 5 working days; all staff must carry valid company ID and sign in/out per site process.",
+        "Sub-contracting permitted only with prior Council approval after technical/capability assessment; subcontractors operate under the same terms and DBS regime; Supplier remains fully accountable and must monitor subcontracted technical services via KPIs, spot checks and management oversight.",
+        "Operate a formal complaints procedure (submitted with the tender response); report complaints to the Council's FM Client Unit immediately, log and notify the Contract Administrator within 24 hours, remedy service failures within SLA, and submit monthly complaint summaries with year-on-year reduction targets.",
+        "Adhere to the Council's Environmental Policy and Social Value priorities; invited to submit Company Environmental Policy with implementation examples and to propose innovations supporting climate resilience, energy efficiency and waste reduction.",
+        "Attend monthly operational meetings and quarterly contract performance partnership meetings with the Council (KPIs, H&S compliance, overall performance) and implement agreed continuous improvement measures including digital reporting enhancements (e.g., digital door registers, QR-coded assets, photo-verified remedials).",
+        "During mobilisation, agree report templates (including alignment to BS 9792 where applicable), resource plan, programme, KPIs, TF Cloud data fields, and information-exchange protocols (including s.156 FSO record-keeping and information-sharing duties)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Sample FRA deliverables (quality submission)",
+          "summary": "Tenderer must submit anonymised fire risk assessments for both a standard FRA and an intrusive FRA, with explanatory notes describing their process.",
+          "evidence_anchor": {
+            "page_ref": "section-3.4",
+            "section_ref": "3.4 Method and content of reports",
+            "anchor_text": "As part of the tender response the supplier should submit anonymised fire risk assessments for both a standard FRA and intrusive FRA with explanatory notes to explain their process"
+          }
+        },
+        {
+          "criterion": "Formal complaints procedure",
+          "summary": "Tenderer must submit a formal complaints procedure with the tender response, demonstrating how complaints will be handled efficiently and professionally.",
+          "evidence_anchor": {
+            "page_ref": "section-15.1",
+            "section_ref": "15. Customer Care",
+            "anchor_text": "The Supplier shall implement a formal complaints procedure to ensure effective resolution. This procedure must be submitted with the tender response."
+          }
+        },
+        {
+          "criterion": "Environmental policy and social value contribution",
+          "summary": "Supplier is invited to submit their Company Environmental Policy with practical examples of implementation, summary of environmental/financial/social benefits, and alignment with the Council's Social Value priorities.",
+          "evidence_anchor": {
+            "page_ref": "section-11.1",
+            "section_ref": "11.1 Supplier Environmental Policy Submission",
+            "anchor_text": "The Supplier is invited to submit a copy of their Company Environmental Policy, including: Practical examples of how the policy has been implemented; A summary of environmental, financial, and social benefits achieved; Alignment with the Council's Social Value priorities"
+          }
+        },
+        {
+          "criterion": "Continuous improvement and innovation proposal",
+          "summary": "Supplier is expected to propose technologies and methods that improve value, compliance assurance and safety (e.g., digital door registers, QR-coded assets, photo-verified remedials); details of experience and initiatives in environmental sustainability and innovation are invited.",
+          "evidence_anchor": {
+            "page_ref": "section-17",
+            "section_ref": "17. Continuous Improvement & Innovation",
+            "anchor_text": "Propose technologies and methods that improve value, compliance assurance, and safety (e.g., digital door registers, QR-coded assets, photo-verified remedials)."
+          }
+        },
+        {
+          "criterion": "KPI performance (contract delivery monitoring)",
+          "summary": "Quarterly contract performance partnership meetings will review Key Performance Indicators, Health & Safety compliance and overall contract performance; these meetings serve as formal checkpoints for continuous improvement and compliance assurance.",
+          "evidence_anchor": {
+            "page_ref": "section-7",
+            "section_ref": "7. Contract Management",
+            "anchor_text": "Quarterly contract performance partnership meetings to review: Key Performance Indicators (KPIs); Health & Safety compliance; Overall contract performance"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bexley-6278-lot1-standard-fra",
+          "summary": "Standard Fire Risk Assessment (Type 1 or Type 2, non-intrusive) delivered against the property schedule in Appendix 1.2, reported within 10 working days in a TF Cloud-compatible format with prioritised action plan and photographic evidence.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Scope: statutory FRA to RRFSO 2005 as amended by Fire Safety Act 2021 and Building Safety Act 2022",
+            "Report deliverable within 10 working days of site completion",
+            "Includes methodology, scope/limitations, significant findings, action plan, photographic evidence, plan mark-ups",
+            "TF Cloud-compatible report format",
+            "Alignment with BS 9792:2025 (housing) where applicable"
+          ],
+          "quantity_hint": "Per property, per annual cycle; volumes driven by the Council's annual schedule (Appendix 1 price matrix; Appendix 1.2 property schedule indicative)",
+          "evidence_anchor": {
+            "page_ref": "section-3.4",
+            "section_ref": "3.4 Method and content of reports",
+            "anchor_text": "Reports shall be issued within 10 working days of site completion ... Format must be compatible with TF Cloud."
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot1-intrusive-fra",
+          "summary": "Intrusive Fire Risk Assessment (Type 3 or Type 4) including support for fire compartmentation surveys requiring intrusive building fabric works and access to roof spaces and concealed areas.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Type 3 / Type 4 approach for housing or mixed-use residential buildings",
+            "Coordination with Council FM team and M&E / building fabric contractors",
+            "Intrusive compartmentation opening-up where required",
+            "Access to roof spaces and concealed areas",
+            "Supplier to submit anonymised sample intrusive FRA as part of the tender response"
+          ],
+          "quantity_hint": "Instructed by the Council on a property-by-property basis; priced per Appendix 1 Price Matrix",
+          "evidence_anchor": {
+            "page_ref": "section-2.6",
+            "section_ref": "2.6 Fire Compartmentation Surveys",
+            "anchor_text": "Where instructed by the Council, the Supplier shall support fire compartmentation surveys, which may involve intrusive building fabric works. ... Ensure access to roof spaces and concealed areas for assessment."
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot1-pcfra",
+          "summary": "Person-Centred Fire Risk Assessment (PCFRA) for residents requiring support, including Personal Emergency Evacuation Plans (PEEPs) where required.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Person-Centred FRA methodology",
+            "Support for PEEPs",
+            "Alignment with Fire Safety (England) Regulations 2022 duties",
+            "Resident information provision"
+          ],
+          "quantity_hint": "Per resident / per dwelling as instructed",
+          "evidence_anchor": {
+            "page_ref": "section-3.2",
+            "section_ref": "3.2 Assessment types and intrusiveness",
+            "anchor_text": "align the survey type to risk using the established Type 1-4 approach (common parts only through to intrusive inspections in dwellings) and Person-Centred FRAs (PCFRA) for residents requiring support"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot1-fraew-pas9980",
+          "summary": "Fire Risk Appraisal of External Walls (FRAEW) compliant with PAS 9980:2022 where determined necessary, coordinating specialist inputs as required.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "PAS 9980:2022 compliant FRAEW methodology",
+            "Scope covers external walls and cladding systems per Fire Safety Act 2021",
+            "Specialist inputs coordinated where required"
+          ],
+          "quantity_hint": "As required per building; determined by Supplier's Type 1-4 assessment",
+          "evidence_anchor": {
+            "page_ref": "section-3.2",
+            "section_ref": "3.2 Assessment types and intrusiveness",
+            "anchor_text": "For external walls, determine whether a PAS 9980:2022 FRAEW is required and coordinate any specialist inputs."
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot1-residential-duties",
+          "summary": "Residential building duties for multi-occupied residential buildings under Fire Safety (England) Regulations 2022: quarterly common-parts door checks, annual flat-door checks, information boxes, floor plans, lift checks and wayfinding signage for high-rise (11 m / 18 m thresholds).",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Quarterly common-parts fire door checks",
+            "Annual flat entrance door checks",
+            "Information box, floor plans, lift checks, wayfinding signage (high-rise ≥18 m)",
+            "Resident information provision"
+          ],
+          "quantity_hint": "Quarterly and annual cycles; scope per property driven by building height thresholds",
+          "evidence_anchor": {
+            "page_ref": "section-3.5",
+            "section_ref": "3.5 Residential building duties",
+            "anchor_text": "For multi-occupied residential buildings, ensure compliance with the Fire Safety (England) Regulations 2022, including provision for resident information, fire door checking regimes (quarterly common parts; annual flat doors), and, for high-rise buildings, arrangements for information boxes, floor plans, lift checks and wayfinding signage."
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot1-emergency-lighting-review",
+          "summary": "Review of emergency lighting design / maintenance evidence against BS EN 1838:2024 and related series as part of FRA delivery.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "BS EN 1838:2024 compliance verification",
+            "Review of maintenance evidence records"
+          ],
+          "quantity_hint": "Integrated within each FRA visit",
+          "evidence_anchor": {
+            "page_ref": "section-3.6",
+            "section_ref": "3.6 Emergency lighting and alarms",
+            "anchor_text": "Emergency lighting design/maintenance evidence should reference BS EN 1838:2024 and related series"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot1-alarm-system-review",
+          "summary": "Review of fire detection and alarm systems against BS 5839 (relevant parts) and alignment of evacuation-lift / EVC strategies with BS 9991:2024.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "BS 5839 parts review",
+            "BS 9991:2024 alignment for evacuation lifts / Emergency Voice Communication"
+          ],
+          "quantity_hint": "Integrated within each FRA visit",
+          "evidence_anchor": {
+            "page_ref": "section-3.6",
+            "section_ref": "3.6 Emergency lighting and alarms",
+            "anchor_text": "fire detection and alarm systems should reference BS 5839 (relevant parts). Where strategies rely on evacuation lifts or EVC, align with BS 9991:2024 recommendations."
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Regulatory Reform (Fire Safety) Order 2005 (as amended by s.156 Building Safety Act 2022)",
+          "context": "Primary statutory framework for FRAs; covers record-keeping, information sharing, identification of Responsible Persons.",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "1. Introduction and Context",
+            "anchor_text": "Regulatory Reform (Fire Safety) Order 2005, as amended by Section 156 of the Building Safety Act 2022 (record-keeping, information sharing, and identification of Responsible Persons)."
+          }
+        },
+        {
+          "standard_ref": "Fire Safety Act 2021",
+          "context": "External walls, flat entrance doors and structure explicitly within scope of the FSO.",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "1. Introduction and Context",
+            "anchor_text": "Fire Safety Act 2021 (external walls, flat entrance doors and structure now explicitly within scope of the FSO)."
+          }
+        },
+        {
+          "standard_ref": "Fire Safety (England) Regulations 2022",
+          "context": "Duties for multi-occupied residential buildings, with escalations at 11 m and 18 m (door checks, information boxes, plans, signage, information to residents).",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "1. Introduction and Context",
+            "anchor_text": "Fire Safety (England) Regulations 2022 (duties for multi-occupied residential buildings, with escalations at 11 m and 18 m, including door checks, information boxes, plans, signage, and information to residents)."
+          }
+        },
+        {
+          "standard_ref": "PAS 9980:2022",
+          "context": "Fire Risk Appraisal of External Walls (FRAEW) where applicable.",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "1. Introduction and Context",
+            "anchor_text": "PAS 9980:2022 (Fire Risk Appraisal of External Walls - FRAEW) where applicable."
+          }
+        },
+        {
+          "standard_ref": "BS 9991:2024",
+          "context": "Fire safety in the design, management and use of residential buildings - Code of practice (referenced for evacuation lift / EVC strategy alignment).",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "1. Introduction and Context",
+            "anchor_text": "BS 9991:2024 (Fire safety in the design, management and use of residential buildings - Code of practice)."
+          }
+        },
+        {
+          "standard_ref": "BS EN 1838:2024",
+          "context": "Emergency lighting for buildings - referenced for emergency lighting design/maintenance evidence.",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "1. Introduction and Context",
+            "anchor_text": "BS EN 1838:2024 (Emergency lighting for buildings)."
+          }
+        },
+        {
+          "standard_ref": "BS 8674:2025",
+          "context": "Framework for competence of individual fire risk assessors.",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "1. Introduction and Context",
+            "anchor_text": "BS 8674:2025 (Framework for competence of individual fire risk assessors)."
+          }
+        },
+        {
+          "standard_ref": "BS 9792:2025",
+          "context": "Fire risk assessment - Housing - Code of practice (referenced for report-template alignment at mobilisation).",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "1. Introduction and Context",
+            "anchor_text": "BS 9792:2025 (Fire risk assessment - Housing - Code of practice)."
+          }
+        },
+        {
+          "standard_ref": "BS 5839",
+          "context": "Fire detection and alarm systems - relevant parts referenced for review within FRA.",
+          "evidence_anchor": {
+            "page_ref": "section-3.6",
+            "section_ref": "3.6 Emergency lighting and alarms",
+            "anchor_text": "fire detection and alarm systems should reference BS 5839 (relevant parts)"
+          }
+        },
+        {
+          "standard_ref": "BS ISO 19706:2007",
+          "context": "Guidelines for assessing fire threat to people - company-level compliance requirement.",
+          "evidence_anchor": {
+            "page_ref": "section-3.3-competence",
+            "section_ref": "3.3 Competence and accreditation",
+            "anchor_text": "Compliance with BS ISO 19706:2007 - Guidelines for assessing fire threat to people"
+          }
+        },
+        {
+          "standard_ref": "BAFE SP205",
+          "context": "Company-level life-safety fire risk assessment certification (or equivalent UKAS-accredited scheme) required of the Supplier organisation.",
+          "evidence_anchor": {
+            "page_ref": "section-3.3-competence",
+            "section_ref": "3.3 Competence and accreditation",
+            "anchor_text": "Company must hold BAFE SP205 certification or equivalent UKAS-accredited scheme"
+          }
+        },
+        {
+          "standard_ref": "IFE Assessor Register",
+          "context": "Individual assessors must hold recognised FRA qualifications and be listed on the IFE Assessor Register; Associate Membership alone is not sufficient.",
+          "evidence_anchor": {
+            "page_ref": "section-3.3-competence",
+            "section_ref": "3.3 Competence and accreditation",
+            "anchor_text": "Individual assessors must hold recognised Fire Risk Assessment qualifications and be listed on the IFE Assessor Register"
+          }
+        },
+        {
+          "standard_ref": "Building Safety Act 2022",
+          "context": "Referenced throughout, including s.156 record-keeping and information-sharing duties agreed at mobilisation.",
+          "evidence_anchor": {
+            "page_ref": "section-3.1",
+            "section_ref": "3. Specification of Services",
+            "anchor_text": "The Supplier shall deliver all fire safety services in strict accordance with the Regulatory Reform (Fire Safety) Order 2005, as amended by the Fire Safety Act 2021 and Building Safety Act 2022."
+          }
+        },
+        {
+          "standard_ref": "Control of Asbestos Regulations 2012",
+          "context": "Asbestos management duty on discovery or suspicion of ACMs; notification and plan compliance.",
+          "evidence_anchor": {
+            "page_ref": "section-2.5",
+            "section_ref": "2.5 Asbestos Management",
+            "anchor_text": "No Asbestos Containing Material (ACM) shall be disturbed or removed without prior written agreement from the Council and in full compliance with the Control of Asbestos Regulations 2012."
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work etc. Act 1974",
+          "context": "Supplier and all personnel (including subcontractors) must comply with the Act, statutory instruments and ACOPs.",
+          "evidence_anchor": {
+            "page_ref": "section-9.1",
+            "section_ref": "9.1 Legislative Framework",
+            "anchor_text": "Health and Safety at Work etc. Act 1974"
+          }
+        },
+        {
+          "standard_ref": "Equality Act 2010",
+          "context": "Supplier must comply with Equalities legislation (including former Disability Discrimination Act provisions) in service delivery.",
+          "evidence_anchor": {
+            "page_ref": "section-9.5",
+            "section_ref": "9.5 Equality and Accessibility",
+            "anchor_text": "Disability Discrimination Act provisions (now under the Equality Act 2010); All relevant Equalities legislation in the delivery of services"
+          }
+        },
+        {
+          "standard_ref": "RIDDOR 2013",
+          "context": "Supplier must maintain full understanding of RIDDOR 2013 requirements and ensure timely and accurate reporting of all reportable incidents.",
+          "evidence_anchor": {
+            "page_ref": "section-9.10",
+            "section_ref": "9.10 Incident Reporting",
+            "anchor_text": "Maintain a full understanding of RIDDOR 2013 requirements; Ensure timely and accurate reporting of all reportable incidents"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "document-header",
+        "section_ref": "Title block",
+        "anchor_text": "London Borough of Bexley - Fire Risk Assessment - Specification - Contract Commencement April 2026"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "bexley-6278-lot1-standard-fra",
+      "lot_number": "1",
+      "candidate_name": "Standard Fire Risk Assessment (Type 1/2)",
+      "summary": "Non-intrusive statutory Fire Risk Assessment delivered to the Council's property schedule, with TF Cloud-compatible report within 10 working days.",
+      "requirements": [
+        "FRA to RRFSO 2005 (as amended by Fire Safety Act 2021 and Building Safety Act 2022)",
+        "Type 1 / Type 2 non-intrusive scope",
+        "Report within 10 working days of site completion",
+        "TF Cloud-compatible report format with prioritised action plan, photographic evidence, plan mark-ups",
+        "Assessor on IFE Assessor Register; Supplier holds BAFE SP205 (or equivalent UKAS)"
+      ],
+      "technical_standards": [
+        "Regulatory Reform (Fire Safety) Order 2005",
+        "Fire Safety Act 2021",
+        "Building Safety Act 2022",
+        "BS 8674:2025",
+        "BS 9792:2025"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3.1",
+        "section_ref": "3.1 Scope and outputs",
+        "anchor_text": "The Supplier shall deliver all fire safety services in strict accordance with the Regulatory Reform (Fire Safety) Order 2005, as amended by the Fire Safety Act 2021 and Building Safety Act 2022."
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot1-intrusive-fra",
+      "lot_number": "1",
+      "candidate_name": "Intrusive Fire Risk Assessment (Type 3/4) with Compartmentation Support",
+      "summary": "Intrusive FRA involving compartmentation opening-up, access to roof spaces and concealed areas, coordinated with FM and M&E/building-fabric contractors.",
+      "requirements": [
+        "Type 3 / Type 4 intrusive scope",
+        "Compartmentation survey support, including intrusive building-fabric works",
+        "Access to roof spaces and concealed areas",
+        "Coordinated joint visits with FM / M&E / building fabric contractors",
+        "Anonymised sample intrusive FRA to be submitted with tender response"
+      ],
+      "technical_standards": [
+        "Regulatory Reform (Fire Safety) Order 2005",
+        "Fire Safety Act 2021",
+        "Building Safety Act 2022",
+        "BS 9792:2025"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-2.6",
+        "section_ref": "2.6 Fire Compartmentation Surveys",
+        "anchor_text": "Where instructed by the Council, the Supplier shall support fire compartmentation surveys, which may involve intrusive building fabric works."
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot1-pcfra",
+      "lot_number": "1",
+      "candidate_name": "Person-Centred Fire Risk Assessment (PCFRA)",
+      "summary": "PCFRA for residents requiring support, including Personal Emergency Evacuation Plans (PEEPs) where required.",
+      "requirements": [
+        "Person-Centred FRA methodology for supported residents",
+        "Support for development of PEEPs",
+        "Alignment with Fire Safety (England) Regulations 2022 duties",
+        "Resident communication and information provision"
+      ],
+      "technical_standards": [
+        "Fire Safety (England) Regulations 2022",
+        "BS 9792:2025"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3.2",
+        "section_ref": "3.2 Assessment types and intrusiveness",
+        "anchor_text": "Person-Centred FRAs (PCFRA) for residents requiring support"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot1-fraew-pas9980",
+      "lot_number": "1",
+      "candidate_name": "Fire Risk Appraisal of External Walls (FRAEW) to PAS 9980:2022",
+      "summary": "External wall FRA compliant with PAS 9980:2022 where determined necessary, with coordinated specialist inputs.",
+      "requirements": [
+        "PAS 9980:2022 methodology",
+        "Scope: external walls and cladding systems (Fire Safety Act 2021)",
+        "Specialist inputs coordinated where required"
+      ],
+      "technical_standards": [
+        "PAS 9980:2022",
+        "Fire Safety Act 2021"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3.2",
+        "section_ref": "3.2 Assessment types and intrusiveness",
+        "anchor_text": "determine whether a PAS 9980:2022 FRAEW is required and coordinate any specialist inputs"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot1-residential-duties",
+      "lot_number": "1",
+      "candidate_name": "Residential Fire Safety Duties (FSR 2022)",
+      "summary": "Quarterly common-parts and annual flat-door fire door checks, plus high-rise information box / floor plan / lift check / wayfinding signage delivery for multi-occupied residential buildings.",
+      "requirements": [
+        "Quarterly common-parts fire door checks",
+        "Annual flat entrance door checks",
+        "High-rise information box, floor plans, lift checks, wayfinding signage (at 11 m / 18 m thresholds)",
+        "Resident information provision"
+      ],
+      "technical_standards": [
+        "Fire Safety (England) Regulations 2022",
+        "BS 9991:2024"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3.5",
+        "section_ref": "3.5 Residential building duties",
+        "anchor_text": "fire door checking regimes (quarterly common parts; annual flat doors), and, for high-rise buildings, arrangements for information boxes, floor plans, lift checks and wayfinding signage"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot1-emergency-lighting-review",
+      "lot_number": "1",
+      "candidate_name": "Emergency Lighting Evidence Review (BS EN 1838)",
+      "summary": "Review of emergency lighting design / maintenance evidence against BS EN 1838:2024 as part of FRA delivery.",
+      "requirements": [
+        "BS EN 1838:2024 compliance verification",
+        "Review of emergency lighting maintenance evidence"
+      ],
+      "technical_standards": [
+        "BS EN 1838:2024"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3.6",
+        "section_ref": "3.6 Emergency lighting and alarms",
+        "anchor_text": "Emergency lighting design/maintenance evidence should reference BS EN 1838:2024"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot1-alarm-system-review",
+      "lot_number": "1",
+      "candidate_name": "Fire Detection & Alarm System Review (BS 5839 / BS 9991)",
+      "summary": "Review of fire detection and alarm systems against BS 5839 (relevant parts) with evacuation-lift / EVC strategy alignment to BS 9991:2024.",
+      "requirements": [
+        "BS 5839 parts review within FRA",
+        "BS 9991:2024 alignment for evacuation lifts / EVC"
+      ],
+      "technical_standards": [
+        "BS 5839",
+        "BS 9991:2024"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3.6",
+        "section_ref": "3.6 Emergency lighting and alarms",
+        "anchor_text": "fire detection and alarm systems should reference BS 5839 (relevant parts). Where strategies rely on evacuation lifts or EVC, align with BS 9991:2024 recommendations."
+      }
+    }
+  ],
+  "field_confidences": {
+    "lot_identity": 9500,
+    "lot_description": 9200,
+    "lot_requirements": 8800,
+    "evaluation_criteria": 6000,
+    "cpv_codes": 2000,
+    "product_requirements": 7500,
+    "technical_standards": 9500,
+    "evidence_anchors": 9000
+  },
+  "extraction_confidence_bps": 8100,
+  "warnings": [
+    {
+      "code": "CPV_CODES_NOT_PRESENT_IN_SPECIFICATION",
+      "message": "No CPV codes are cited in the specification body. CPV classification for Lot 1 (Fire Risk Assessments) should be resolved from the parent notice record / notice-level metadata rather than this extraction.",
+      "evidence_refs": [
+        "section-1",
+        "section-3.1"
+      ]
+    },
+    {
+      "code": "EVALUATION_SCORING_NOT_IN_DOCUMENT",
+      "message": "This document is a Service Specification. Explicit evaluation scoring weights / percentages and pricing structure are not included here; they live in the ITT / Invitation to Tender instructions and the Price Matrix (Appendix 1), which are referenced but not incorporated into this extraction.",
+      "evidence_refs": [
+        "section-2.3",
+        "section-3.3-property-schedule"
+      ]
+    },
+    {
+      "code": "PROPERTY_SCHEDULE_REFERENCED_NOT_EMBEDDED",
+      "message": "The indicative Property Schedule (Appendix 1.2) is referenced but not embedded. Volume / site list cannot be derived from this extraction.",
+      "evidence_refs": [
+        "section-3.3-property-schedule"
+      ]
+    },
+    {
+      "code": "DUPLICATE_SECTION_HEADING_3.3",
+      "message": "Document contains two sections labelled 3.3 ('The Property Schedule' and 'Competence and accreditation'). Extraction preserved both under disambiguated section_refs.",
+      "evidence_refs": [
+        "section-3.3-property-schedule",
+        "section-3.3-competence"
+      ]
+    },
+    {
+      "code": "PRICING_SCHEDULE_OUT_OF_SCOPE",
+      "message": "Pricing (Appendix 1 - Bexley Fire Risk Assessment Price Matrix) is out of scope for this tender-specification skill. Pricing should be extracted by pdf-extraction/pricing-schedule when the Price Matrix artefact is provided.",
+      "evidence_refs": [
+        "section-2.3"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "document-header",
+      "section_ref": "Title block",
+      "anchor_text": "London Borough of Bexley - Fire Risk Assessment - Specification - Contract Commencement April 2026"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1. Introduction and Context",
+      "anchor_text": "The contract will be for a period of 2 years with an option to extend for a further period of up to 12 months to a maximum term of 3 years"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1. Introduction and Context - Legislative framework",
+      "anchor_text": "Regulatory Reform (Fire Safety) Order 2005, as amended by Section 156 of the Building Safety Act 2022"
+    },
+    {
+      "page_ref": "section-2.3",
+      "section_ref": "2.3 Annual Planning and Resource Scheduling",
+      "anchor_text": "the Supplier shall develop an annual schedule of FRAs in accordance with this Specification and Appendix 1 - Bexley Fire Risk Assessment Price Matrix"
+    },
+    {
+      "page_ref": "section-2.6",
+      "section_ref": "2.6 Fire Compartmentation Surveys",
+      "anchor_text": "the Supplier shall support fire compartmentation surveys, which may involve intrusive building fabric works"
+    },
+    {
+      "page_ref": "section-3.1",
+      "section_ref": "3. Specification of Services - 3.1 Scope and outputs",
+      "anchor_text": "The Supplier shall deliver all fire safety services in strict accordance with the Regulatory Reform (Fire Safety) Order 2005"
+    },
+    {
+      "page_ref": "section-3.2",
+      "section_ref": "3.2 Assessment types and intrusiveness",
+      "anchor_text": "align the survey type to risk using the established Type 1-4 approach"
+    },
+    {
+      "page_ref": "section-3.3-property-schedule",
+      "section_ref": "3.3 The Property Schedule",
+      "anchor_text": "The property schedule in Appendix 1.2 is indicative."
+    },
+    {
+      "page_ref": "section-3.3-competence",
+      "section_ref": "3.3 Competence and accreditation",
+      "anchor_text": "Individual assessors must hold recognised Fire Risk Assessment qualifications and be listed on the IFE Assessor Register"
+    },
+    {
+      "page_ref": "section-3.4",
+      "section_ref": "3.4 Method and content of reports",
+      "anchor_text": "Reports shall be issued within 10 working days of site completion"
+    },
+    {
+      "page_ref": "section-3.4",
+      "section_ref": "3.4 Method and content of reports",
+      "anchor_text": "As part of the tender response the supplier should submit anonymised fire risk assessments for both a standard FRA and intrusive FRA"
+    },
+    {
+      "page_ref": "section-3.5",
+      "section_ref": "3.5 Residential building duties",
+      "anchor_text": "fire door checking regimes (quarterly common parts; annual flat doors)"
+    },
+    {
+      "page_ref": "section-3.6",
+      "section_ref": "3.6 Emergency lighting and alarms",
+      "anchor_text": "Emergency lighting design/maintenance evidence should reference BS EN 1838:2024"
+    },
+    {
+      "page_ref": "section-7",
+      "section_ref": "7. Contract Management",
+      "anchor_text": "Quarterly contract performance partnership meetings to review: Key Performance Indicators (KPIs); Health & Safety compliance; Overall contract performance"
+    },
+    {
+      "page_ref": "section-11.1",
+      "section_ref": "11.1 Supplier Environmental Policy Submission",
+      "anchor_text": "The Supplier is invited to submit a copy of their Company Environmental Policy"
+    },
+    {
+      "page_ref": "section-15.1",
+      "section_ref": "15. Customer Care",
+      "anchor_text": "The Supplier shall implement a formal complaints procedure to ensure effective resolution. This procedure must be submitted with the tender response."
+    },
+    {
+      "page_ref": "section-16",
+      "section_ref": "16. Mobilisation Work",
+      "anchor_text": "During mobilisation agree: report templates (including alignment to BS 9792 where applicable), resource plan, programme, KPIs, data fields for TF Cloud, and information exchange protocols"
+    },
+    {
+      "page_ref": "section-17",
+      "section_ref": "17. Continuous Improvement & Innovation",
+      "anchor_text": "Propose technologies and methods that improve value, compliance assurance, and safety"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "648d25bde0724fb1deecdee81409f64ae424bfd985ba0f056472f754e4a7ac18",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

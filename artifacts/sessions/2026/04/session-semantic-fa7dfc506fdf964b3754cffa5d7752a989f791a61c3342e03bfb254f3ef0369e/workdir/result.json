@@ -1,0 +1,374 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Stockport Town Centre School – Multi-disciplinary Design Team Appointment",
+      "description": "Appointment of a multi-disciplinary design team to provide professional design services to Stockport Council for the delivery of the Stockport Town Centre School (the Services). Procurement is conducted under the Procurement Act 2023 using the Competitive Flexible Procedure (Stage 1 PSQ selection, Stage 2 ITT, Stage 3 due diligence and award). Estimated maximum contract value £1,800,000.00 exclusive of VAT over a 48-month term, with prices fixed for 4 contract years and subsequent RPI/CPI-based indexation capped at the lower of 3% or the Index. STAR Reference 020417, Chest Reference DN811263.",
+      "requirements": [
+        "Suppliers must comply with the Procurement Act 2023 and the Competitive Flexible Procedure stages set out in the ITP.",
+        "Applications must be submitted electronically via The Chest e-tendering system; email, QR-code, or other submission routes will not be accepted and will be disqualified.",
+        "All Applications must be in English and submitted in Microsoft Word and Excel format only; format modifications to the response documents are not permitted.",
+        "Suppliers must register on the Central Digital Platform (CDP) and ensure complete, accurate and up-to-date core supplier and exclusions information is shared via the CDP before or at submission.",
+        "Suppliers must complete and return Document 3A Response Documents (Procurement Specific Questionnaire – Parts 1, 2, 3) by the PSQ submission deadline.",
+        "Suppliers must disclose all associated persons (consortium members and key sub-contractors being relied on to meet conditions of participation) and an exhaustive list of all intended sub-contractors for debarment-list checking.",
+        "Suppliers must declare and mitigate any actual, potential or perceived conflicts of interest with the Council or its advisers.",
+        "Tender submissions must remain valid for 270 days from submission, or until any procurement challenge is resolved.",
+        "Successful suppliers must contract on the Council's Document 4 Terms and Conditions (with novation); alternative or amended T&Cs will not be accepted and may result in rejection.",
+        "Where indicated in Part 3 of the Response Document, a parent-company guarantee in the form of Document 8 (Deed of Guarantee and Indemnity) must be provided prior to contract award; foreign parents require a legal opinion at supplier cost.",
+        "Suppliers must comply with the Modern Slavery Act 2015 and the STAR Responsible Procurement Strategy core and additional expectations on ethical and sustainable sourcing.",
+        "Suppliers are required to submit Social Value quantitative proposals through the Social Value Portal (SVP) using the National TOMs framework, by the same deadline as the main Application response.",
+        "Adoption of the Real Living Wage (RLW) as announced annually by the Living Wage Foundation is commended to contractors and sub-contractors.",
+        "All applications must be fully compliant with the ITP; signatures on response documents must be from an appropriate Director (or a delegated signatory with a Director's cover letter)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "PSQ Stage 1 – Question 19: Relevant Experience and Contract Examples",
+          "summary": "Scored selection question assessing the supplier's relevant experience and previously delivered contract examples comparable to the multi-disciplinary design team requirement.",
+          "weighting_text": "35% of PSQ (Stage 1) scored quality weighting",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "| Question 19 Relevant Experience and Contract Examples | 35%",
+            "section_ref": "Section 1.6 – Qualitative Assessment"
+          }
+        },
+        {
+          "criterion": "PSQ Stage 1 – Question 20: Workforce & Resource",
+          "summary": "Scored selection question assessing the supplier's proposed workforce, resource allocation and capacity to deliver the design team requirement.",
+          "weighting_text": "35% of PSQ (Stage 1) scored quality weighting",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "| Question 20 Workforce & Resource                      | 35%",
+            "section_ref": "Section 1.6 – Qualitative Assessment"
+          }
+        },
+        {
+          "criterion": "PSQ Stage 1 – Question 21: Funding Model Approach",
+          "summary": "Scored selection question assessing the supplier's proposed funding model approach for the multi-disciplinary design team appointment.",
+          "weighting_text": "30% of PSQ (Stage 1) scored quality weighting",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "| Question 21 Funding Model Approach                    | 30%",
+            "section_ref": "Section 1.6 – Qualitative Assessment"
+          }
+        },
+        {
+          "criterion": "ITT Stage 2 – Quality: Experience",
+          "summary": "Award-stage quality question on relevant experience, indicative and subject to refinement before ITT issue.",
+          "weighting_text": "10% of Stage 2 award score (indicative)",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "| Quality Question 1:  **Experience**    | 10%",
+            "section_ref": "Section 1.7 – Tender Assessment Criteria"
+          }
+        },
+        {
+          "criterion": "ITT Stage 2 – Quality: Methodology",
+          "summary": "Award-stage quality question on proposed delivery methodology.",
+          "weighting_text": "10% of Stage 2 award score (indicative)",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "| Quality Question 2:  **Methodology**   | 10%",
+            "section_ref": "Section 1.7 – Tender Assessment Criteria"
+          }
+        },
+        {
+          "criterion": "ITT Stage 2 – Quality: Funding Model",
+          "summary": "Award-stage quality question on the supplier's funding model proposal.",
+          "weighting_text": "10% of Stage 2 award score (indicative)",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "| Quality Question 3:  **Funding Model** | 10%",
+            "section_ref": "Section 1.7 – Tender Assessment Criteria"
+          }
+        },
+        {
+          "criterion": "ITT Stage 2 – Quality: Resourcing",
+          "summary": "Award-stage quality question on proposed resourcing plan.",
+          "weighting_text": "10% of Stage 2 award score (indicative)",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "| Quality Question 4:  **Resourcing**    | 10%",
+            "section_ref": "Section 1.7 – Tender Assessment Criteria"
+          }
+        },
+        {
+          "criterion": "ITT Stage 2 – Social Value (Quantitative)",
+          "summary": "Award-stage quantitative Social Value contribution assessed using the Social Value Portal and National TOMs.",
+          "weighting_text": "10% of Stage 2 award score (indicative)",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "| Social Value (Quantitative)            | 10%",
+            "section_ref": "Section 1.7 – Tender Assessment Criteria"
+          }
+        },
+        {
+          "criterion": "ITT Stage 2 – Social Value (Qualitative)",
+          "summary": "Award-stage qualitative Social Value narrative assessment under the STAR Responsible Procurement framework.",
+          "weighting_text": "10% of Stage 2 award score (indicative)",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "| Social Value (Qualitative)             | 10%",
+            "section_ref": "Section 1.7 – Tender Assessment Criteria"
+          }
+        },
+        {
+          "criterion": "ITT Stage 2 – Price",
+          "summary": "Price/commercial element of the award score applied at Stage 2, based on the Commercials response document (3C).",
+          "weighting_text": "40% of Stage 2 award score (indicative)",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "| **Price**                              | **40%**",
+            "section_ref": "Section 1.7 – Tender Assessment Criteria"
+          }
+        },
+        {
+          "criterion": "PSQ Pass/Fail Exclusion Grounds and Conditions of Participation (Parts 1–3)",
+          "summary": "Mandatory pass/fail gate: suppliers must satisfy supplier-information confirmation, exclusion-grounds disclosures and any conditions of participation before scored questions are evaluated.",
+          "weighting_text": "Pass/fail gate – failure results in exclusion before scoring",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "Return of PSQ (3A) response document including mandatory pass/fail criteria and scored selection questions.",
+            "section_ref": "Competitive Flexible Procedure – Stage 1"
+          }
+        },
+        {
+          "criterion": "Qualitative Scoring Methodology (0–6 scale)",
+          "summary": "Each scored quality question is rated on a 0–6 scale (Unacceptable, Poor, Deficient, Satisfactory, Good, Excellent, Outstanding); scores of Unacceptable, Poor or Deficient (0–2) on any question cause full exclusion of the submission. Final scores are set by moderation to a consensus per question, calculated to two decimal places.",
+          "weighting_text": "Scoring scale 0–6 with 0–2 causing exclusion",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "| **Unacceptable** | The response does not meet the question requirements ... This score for any quality question will result in the full exclusion of the submission.",
+            "section_ref": "Section 1.6 – Scoring Methodology"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "Procurement Act 2023",
+          "context": "Primary legislative framework under which the Competitive Flexible Procedure is conducted.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "this procurement exercise is being undertaken in compliance with the Procurement Act 2023",
+            "section_ref": "Section 0.1 / 1.1.1 – Invitation"
+          }
+        },
+        {
+          "standard_ref": "Procurement Regulations 2024",
+          "context": "Secondary legislation referenced for selection-process limitations (regulation 19(2)(d)) and pass/fail criteria publication.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "regulation 19(2)(d) of the Procurement Regulations 2024",
+            "section_ref": "PSQ Part 3 – Conditions of Participation"
+          }
+        },
+        {
+          "standard_ref": "Freedom of Information Act 2000 (FOIA)",
+          "context": "Governs disclosure obligations applicable to the Application and any resulting contract.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "'Freedom of Information Act 2000' (FOIA)",
+            "section_ref": "Freedom of information and environmental information"
+          }
+        },
+        {
+          "standard_ref": "Environmental Information Regulations 2004 (EIR)",
+          "context": "Governs environmental-information disclosure applicable to the Application and contract.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "'Environmental Regulations 2004 (EIR)",
+            "section_ref": "Freedom of information and environmental information"
+          }
+        },
+        {
+          "standard_ref": "Transfer of Undertakings (Protection of Employment) Regulations 2006 (TUPE)",
+          "context": "Supplier obligation to consider TUPE applicability to the service award.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "Transfer of Undertakings (Protection of Employment) Regulations 2006, and as amended (\"TUPE\")",
+            "section_ref": "TUPE clause"
+          }
+        },
+        {
+          "standard_ref": "Public Services (Social Value) Act 2012",
+          "context": "Statutory basis for the Social Value evaluation approach, implemented via National TOMs and the Social Value Portal.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "our obligations under the Public Services (Social Value Act) 2012",
+            "section_ref": "Real Living Wage / Social Value"
+          }
+        },
+        {
+          "standard_ref": "Modern Slavery Act 2015 (implied by Modern Slavery and Responsible Procurement clause)",
+          "context": "Supplier obligation to abide by STAR Responsible Procurement Strategy and Modern Slavery Act duties in supply chain.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "modern slavery and human trafficking, which it is absolutely committed to preventing, within its supply chains",
+            "section_ref": "Modern Slavery and Responsible Procurement"
+          }
+        },
+        {
+          "standard_ref": "Electronic Signatures Regulations 2002 (qualified certificate definition)",
+          "context": "Reference for the type of electronic signatures accepted; advanced electronic signatures with qualified certificate are not required.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "Advanced Electronic signatures (supported by a qualified certificate as defined in the Electronic Signatures Regulations 2002)",
+            "section_ref": "Instructions for returning your Application"
+          }
+        },
+        {
+          "standard_ref": "Competition Act 1998 / Schedule 6 para 41 and Schedule 7 para 7 of the Procurement Act",
+          "context": "Anti-competitive behaviour and exclusion/debarment grounds applicable to suppliers.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "a relevant decision has been made by the Competition and Markets Council under the Competition Act 1998",
+            "section_ref": "Anti-competitive behaviour"
+          }
+        },
+        {
+          "standard_ref": "National TOMs (Themes, Outcomes, Measures) framework",
+          "context": "Social Value assessment framework developed by the National Social Value Task Force and used by STAR Procurement.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "performance and evidence-based approach to Social Value based on the National TOMs",
+            "section_ref": "Social Value"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Stockport Town Centre School – Multi – disciplinary Design Team Appointment",
+        "section_ref": "Document 1A header"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.title": 9500,
+    "lots.description": 8800,
+    "lots.requirements": 8200,
+    "lots.evaluation_criteria": 9100,
+    "lots.cpv_codes": 4000,
+    "lots.product_requirements": 7500,
+    "lots.technical_standards": 8500,
+    "extraction_metadata": 9500
+  },
+  "extraction_confidence_bps": 7400,
+  "warnings": [
+    {
+      "code": "NO_CPV_CODES_IN_DOCUMENT",
+      "message": "The ITP (Document 1A) does not cite any CPV codes inline; any CPV signals must come from the process/notice record or the separately-loaded Document 2 Specification.",
+      "evidence_refs": ["Document 1A full text"]
+    },
+    {
+      "code": "NO_PRODUCT_REQUIREMENTS_SERVICES_TENDER",
+      "message": "This procurement is a professional services appointment (multi-disciplinary design team) and Document 1A contains no product-level requirements; product_requirement_seeds is intentionally empty and should not be interpreted as a gap.",
+      "evidence_refs": ["Stockport Town Centre School – Multi – disciplinary Design Team Appointment (the Services)"]
+    },
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "extracted_metadata_json classifies document_role as 'technical_specification', but the document content is the Invitation to Participate (ITP) instructions (raw_document doc_role_hint = invitation_to_tender). The detailed technical specification is in Document 2, which is a separate raw_document in this document set.",
+      "evidence_refs": ["DOCUMENT 1A: INVITATION TO PARTICIPATE (\"ITP\") INSTRUCTIONS"]
+    },
+    {
+      "code": "SINGLE_IMPLICIT_LOT",
+      "message": "No explicit lot numbering or multi-lot division is declared in Document 1A; the procurement is treated as a single implicit lot covering the whole design-team appointment.",
+      "evidence_refs": ["Stockport Town Centre School – Multi – disciplinary Design Team Appointment (the Services)"]
+    },
+    {
+      "code": "INDICATIVE_AWARD_WEIGHTINGS",
+      "message": "Section 1.7 explicitly marks Stage 2 (ITT) award weightings as indicative and subject to change before ITT issue; downstream consumers should not treat the quality/price split as final.",
+      "evidence_refs": ["the information provided in relation to the Award Criteria is indicative only and the Council reserves the right to amend, refine or change the criteria prior to issuing the ITT"]
+    },
+    {
+      "code": "PAGE_REF_FLATTENED",
+      "message": "Source is a DOCX converted via Docling, so every section reports page_start/page_end = 1; page_ref values use 'p.1' as a placeholder and do not reflect physical printed pages.",
+      "evidence_refs": ["extracted_sections_json all page_start=1"]
+    },
+    {
+      "code": "EVALUATION_PANEL_COMPOSITION_UNCONFIRMED",
+      "message": "The ITP states only that the evaluation panel will include 'a number of relevant and appropriately knowledgeable staff ... stakeholders and external consultants' without naming roles or organisations; moderation-meeting mechanics are described in Section 1.6.",
+      "evidence_refs": ["The evaluation panel will be formed from a number of relevant and appropriately knowledgeable staff."]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p.1",
+      "anchor_text": "Stockport Town Centre School – Multi – disciplinary Design Team Appointment",
+      "section_ref": "Document 1A header"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "The Procedure being followed is the Competitive Flexible Procedure.",
+      "section_ref": "Section 1.1 – Procedure"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "The Contract will be for a term of 48 months",
+      "section_ref": "Section 1.1 – Agreement Term"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "The maximum estimated value of the Contract over its maximum possible term is £1,800,000.00 (exclusive of VAT).",
+      "section_ref": "Section 1.3.1 – Value"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "| Question 19 Relevant Experience and Contract Examples | 35%",
+      "section_ref": "Section 1.6 – PSQ Quality Weightings"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "| Question 20 Workforce & Resource                      | 35%",
+      "section_ref": "Section 1.6 – PSQ Quality Weightings"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "| Question 21 Funding Model Approach                    | 30%",
+      "section_ref": "Section 1.6 – PSQ Quality Weightings"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "| **Quality**                            | **60%**",
+      "section_ref": "Section 1.7 – Tender Assessment Criteria"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "| **Price**                              | **40%**",
+      "section_ref": "Section 1.7 – Tender Assessment Criteria"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "this procurement exercise is being undertaken in compliance with the Procurement Act 2023",
+      "section_ref": "Section 1.1.1 – Legal basis"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "STAR Refence: 020417",
+      "section_ref": "Document 1A header"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "Chest Reference: DN811263",
+      "section_ref": "Document 1A header"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "The Supplier's final tender submission must remain valid for acceptance for a period of 270 days",
+      "section_ref": "Validity of bid"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "Applications must be submitted in Microsoft Word and Excel format only.",
+      "section_ref": "Format / Submission instructions"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "0927b761e52e0a485e59c418e4d0fc7fc7e0956b0058e6e0a69a13fa66e7f4cd",
+    "policy_version": "2026.04.12",
+    "document_role": "invitation_to_tender"
+  }
+}

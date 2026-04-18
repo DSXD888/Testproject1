@@ -1,0 +1,195 @@
+{
+  "lots": [
+    {
+      "lot_number": "5",
+      "title": "Provision of Building Condition Surveys",
+      "description": "Appendix 1 of the 6278 PSQ (Pre-Qualification / Selection Questionnaire) Reference Appendices for Lot 5 of the London Borough of Bexley Building Services Framework. The document is a two-part referee-completion form: Part A is filled by the applicant (applicant details, referee details, brief description of services provided, dates, annual value) and Part B is completed by the referee and returned to Procurement@bexley.gov.uk by 18th May 2026 by 5pm. It assesses prior performance on building condition survey services for similar contracting authorities. This document does not by itself contain substantive scope, deliverables, or product schedules for Lot 5 — those are expected to live in the tender specification / schedule of requirements documents. Appendix 2 supplies the accompanying cover letter template sent to referees.",
+      "requirements": [
+        "Reference must demonstrate delivery of Building Condition Survey services for a comparable contracting authority or client.",
+        "Applicant must provide an annual contract value ('Value p/a') for the referenced engagement.",
+        "Referee must confirm that the services described by the applicant are accurate.",
+        "Contractor must evidence capability to self-deliver small and medium Condition Survey project works.",
+        "Referee must indicate whether they would employ the applicant again for similar services (Yes/No).",
+        "Reference form must be returned by the referee directly to Procurement@bexley.gov.uk by 18th May 2026, 5pm and must not be returned via the applicant."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Supply chain resilience",
+          "summary": "Has the contractor provided a resilient and sustainable supply chain for required products, resources, and services?",
+          "weighting_text": "Scored on a five-point referee rubric: Failed to meet standard in all areas / Failed to meet standard in some areas / Met standard / Exceeded standard in some areas / Exceeded standard in all areas.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Supply chain resilience: Has the contractor provided a resilient and sustainable supply chain for required products, resources, and services?",
+            "section_ref": "#/texts/6"
+          }
+        },
+        {
+          "criterion": "Service Provision",
+          "summary": "Has the contractor consistently delivered the contracted services in line with the required KPIs?",
+          "weighting_text": "Scored on the same five-point referee rubric as above.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Service Provision: Has the contractor consistently delivered the contracted services in line with the required KPIs?",
+            "section_ref": "#/texts/6"
+          }
+        },
+        {
+          "criterion": "Resource",
+          "summary": "Have the contractor's staff held the necessary qualifications, certifications, and experience for the tasks assigned and fully met the resource levels required to manage the contract?",
+          "weighting_text": "Scored on the same five-point referee rubric as above.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Resource:  Have the contractor's staff held the necessary qualifications, certifications, and experience for the tasks assigned and fully met the resource levels required to manage the contract.",
+            "section_ref": "#/texts/6"
+          }
+        },
+        {
+          "criterion": "Value for Money",
+          "summary": "Has the contractor shown a transparent and well-evidenced approach to securing value for money?",
+          "weighting_text": "Scored on the same five-point referee rubric as above.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Value for Money: Has the contractor shown a transparent and well-evidenced approach to securing value for money",
+            "section_ref": "#/texts/6"
+          }
+        },
+        {
+          "criterion": "Contract Management",
+          "summary": "Has the contractor demonstrated effective contract management, including performance monitoring and oversight of subcontractors?",
+          "weighting_text": "Scored on the same five-point referee rubric as above.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Contract Management: Has the contractor demonstrated effective contract management, including performance monitoring and oversight of subcontractors",
+            "section_ref": "#/texts/6"
+          }
+        },
+        {
+          "criterion": "Project Management",
+          "summary": "Has the contractor provided evidence of their capability to self-deliver small and medium Condition Survey project works?",
+          "weighting_text": "Scored on the same five-point referee rubric as above.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Project Management: Has the contractor provided evidence of their capability to self-deliver small and medium Condition Survey project works",
+            "section_ref": "#/texts/6"
+          }
+        },
+        {
+          "criterion": "Re-employment recommendation",
+          "summary": "Would the referee employ this company again for similar services (Yes / No) and any free-text comments.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Would you employ this company for similar services (please select)  Yes  No   Any other comments",
+            "section_ref": "#/texts/6"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "anchor_text": "6278 - Lot 5: Provision of Building Condition Surveys",
+        "section_ref": "#/texts/0"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 9500,
+    "lots.description": 7800,
+    "lots.requirements": 6500,
+    "lots.evaluation_criteria": 8200,
+    "lots.cpv_codes": 3000,
+    "lots.product_requirements": 9000,
+    "lots.technical_standards": 9000,
+    "product_requirement_seeds": 9000
+  },
+  "extraction_confidence_bps": 7200,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "Document is marked document_role='technical_specification' and is routed through pdf-extraction/tender-specification, but its actual content is a PSQ referee reference form (Appendix 1) plus a referee cover-letter template (Appendix 2) for Lot 5 only. It does not contain substantive scope, deliverables, quantities, product requirements, or formal procurement evaluation criteria.",
+      "evidence_refs": ["#/texts/0", "#/texts/37"]
+    },
+    {
+      "code": "NO_PRODUCT_REQUIREMENTS",
+      "message": "No product requirements or procurable goods are described in this document. Lot 5 is a services lot (Provision of Building Condition Surveys) and the document is administrative (reference questionnaire), so product_requirement_seeds is intentionally empty.",
+      "evidence_refs": ["#/texts/0"]
+    },
+    {
+      "code": "EVALUATION_CRITERIA_SCOPE_NOTE",
+      "message": "The six rubric items extracted as evaluation_criteria are the referee-scoring criteria from Part B of the reference form (Supply chain resilience, Service Provision, Resource, Value for Money, Contract Management, Project Management). They are used to evaluate the applicant's PAST performance via the referee, not the formal tender evaluation criteria for the overall 6278 framework competition; those would need to be read from the separate ITT / tender specification document.",
+      "evidence_refs": ["#/texts/6"]
+    },
+    {
+      "code": "CPV_NOT_STATED_IN_DOCUMENT",
+      "message": "No CPV codes appear inside this document. Process-level CPV codes exist on the parent notice (e.g. 50700000-2 Repair and maintenance services of building installations, 50750000-7 Lift-maintenance services, 71315000-9 Building services) but none are anchored to the Lot 5 reference form itself, so lots[0].cpv_codes is left empty per 'do not guess without evidence anchor'.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_TECHNICAL_STANDARDS",
+      "message": "No explicit technical standards (e.g. RICS, BS, ISO) are cited in this document. The reference form asks about qualifications/certifications in general terms under the 'Resource' criterion but does not name specific standards, so technical_standards is empty.",
+      "evidence_refs": ["#/texts/6"]
+    },
+    {
+      "code": "SINGLE_LOT_DOCUMENT",
+      "message": "Document scope is Lot 5 only (the header is '6278 - Lot 5: Provision of Building Condition Surveys'). The parent notice pc-dc1daee2-772e-f111-813c-005056b64545 has 11 lots, but only Lot 5 is in scope for this extraction; other lots must be extracted from their own lot-specific reference appendices or from a consolidated tender specification.",
+      "evidence_refs": ["#/texts/0"]
+    },
+    {
+      "code": "APPENDIX_2_STUB_ONLY",
+      "message": "Appendix 2 is a cover-letter template that is largely placeholder ('INSERT DATE & TIME'). It confirms the routing address (procurement@bexley.gov.uk) and confidentiality wording but adds no lot scope, requirements, or evaluation content.",
+      "evidence_refs": ["#/texts/37"]
+    },
+    {
+      "code": "DEADLINE_REFERS_TO_REFERENCE_RETURN_ONLY",
+      "message": "'18th May 2026 by 5pm' in the document refers to the deadline for the referee to return the completed reference form, not necessarily the overall tender submission deadline (the notice deadline_at is 2026-05-18T12:00:00Z, which is noon not 5pm — similar date but different time). Downstream consumers should not treat this as the tender submission deadline.",
+      "evidence_refs": ["#/texts/6"]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p1",
+      "anchor_text": "Appendix 1",
+      "section_ref": "#/texts/0"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "6278 - Lot 5: Provision of Building Condition Surveys",
+      "section_ref": "#/texts/0"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "TO BE COMPLETED BY REFEREE AND RETURNED TO THE ADDRESS BELOW BY 18th May 2026 by 5pm",
+      "section_ref": "#/texts/6"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Supply chain resilience: Has the contractor provided a resilient and sustainable supply chain for required products, resources, and services?",
+      "section_ref": "#/texts/6"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Project Management: Has the contractor provided evidence of their capability to self-deliver small and medium Condition Survey project works",
+      "section_ref": "#/texts/6"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Please return the reference to: Procurement@bexley.gov.uk",
+      "section_ref": "#/texts/6"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Appendix 2",
+      "section_ref": "#/texts/37"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "186501876e737f9c6988c5b91a1a3fd6d0290a1ca675ae4895b8a9844eeab1c1",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

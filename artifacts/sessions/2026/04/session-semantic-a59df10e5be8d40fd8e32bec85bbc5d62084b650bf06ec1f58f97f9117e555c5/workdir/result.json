@@ -1,0 +1,199 @@
+{
+  "lots": [
+    {
+      "lot_number": "2",
+      "title": "Provision of Water Risk Assessments",
+      "description": "Lot 2 of framework reference 6278 (London Borough of Bexley, Building Services Framework, Lots 1-11). This document is the PSQ Reference Appendices for Lot 2 only: Appendix 1 reference form and Appendix 2 referee cover letter. No technical specification, scope of works, or product schedule is contained in this document.",
+      "requirements": [
+        "Applicant must supply one completed reference form (Part A) per reference, covering named contact, brief description of services provided, dates and annual value.",
+        "Part B (referee section) must be completed by the referee and returned directly to procurement@bexley.gov.uk by 18th May 2026 by 5pm; it must not be returned via the applicant."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Supply chain resilience",
+          "summary": "Referee rates whether the contractor has provided a resilient and sustainable supply chain for required products, resources, and services.",
+          "weighting_text": "Five-point scale: Failed to meet standard in all areas; Failed to meet standard in some areas; Met standard; Exceeded standard in some areas; Exceeded standard in all areas.",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Supply chain resilience: Has the contractor provided a resilient and sustainable supply chain for required products, resources, and services?",
+            "section_ref": "#/texts/6"
+          }
+        },
+        {
+          "criterion": "Service Provision",
+          "summary": "Referee rates whether the contractor has consistently delivered the contracted services in line with the required KPIs.",
+          "weighting_text": "Five-point scale (failed/met/exceeded standard).",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Service Provision: Has the contractor consistently delivered the contracted services in line with the required KPIs?",
+            "section_ref": "#/texts/6"
+          }
+        },
+        {
+          "criterion": "Resource",
+          "summary": "Referee rates whether the contractor's staff held the necessary qualifications, certifications and experience for the tasks assigned and fully met the resource levels required to manage the contract.",
+          "weighting_text": "Five-point scale (failed/met/exceeded standard).",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Resource: Have the contractor's staff held the necessary qualifications, certifications, and experience for the tasks assigned and fully met the resource levels required to manage the contract.",
+            "section_ref": "#/texts/6"
+          }
+        },
+        {
+          "criterion": "Value for Money",
+          "summary": "Referee rates whether the contractor has shown a transparent and well-evidenced approach to securing value for money.",
+          "weighting_text": "Five-point scale (failed/met/exceeded standard).",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Value for Money: Has the contractor shown a transparent and well-evidenced approach to securing value for money",
+            "section_ref": "#/texts/6"
+          }
+        },
+        {
+          "criterion": "Contract Management",
+          "summary": "Referee rates whether the contractor has demonstrated effective contract management, including performance monitoring and oversight of subcontractors.",
+          "weighting_text": "Five-point scale (failed/met/exceeded standard).",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Contract Management: Has the contractor demonstrated effective contract management, including performance monitoring and oversight of subcontractors",
+            "section_ref": "#/texts/6"
+          }
+        },
+        {
+          "criterion": "Project Management",
+          "summary": "Referee rates whether the contractor has demonstrated competence in self-delivering small and medium water-risk-assessment works.",
+          "weighting_text": "Five-point scale (failed/met/exceeded standard).",
+          "evidence_anchor": {
+            "page_ref": "page:1",
+            "anchor_text": "Project Management Has the contractor demonstrated competence in self-delivering small and medium water-risk-assessment works",
+            "section_ref": "#/texts/6"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "page:1",
+        "anchor_text": "6278 - Lot 2: Provision of Water Risk Assessments",
+        "section_ref": "#/texts/0"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 9500,
+    "lots.description": 7000,
+    "lots.requirements": 5000,
+    "lots.evaluation_criteria": 6000,
+    "lots.cpv_codes": 2000,
+    "lots.product_requirements": 3000,
+    "lots.technical_standards": 3000,
+    "product_requirement_seeds": 3000
+  },
+  "extraction_confidence_bps": 3500,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "Document is a PSQ reference form (Appendix 1 reference questionnaire + Appendix 2 referee cover letter), not a technical tender specification. It contains no scope of works, deliverables list, KPIs, volumes, or technical requirements for the goods/services being procured. Tender-specification extraction was attempted on the best-available signal (the Lot 2 header) and yielded only one lot identity plus referee-assessment dimensions.",
+      "evidence_refs": [
+        "page:1 | 6278 - Lot 2: Provision of Water Risk Assessments",
+        "page:1 | TO BE COMPLETED BY REFEREE AND RETURNED TO THE ADDRESS BELOW BY 18th May 2026 by 5pm"
+      ]
+    },
+    {
+      "code": "NO_PRODUCT_REQUIREMENTS_PRESENT",
+      "message": "No product, goods, or work-package requirements are present in this document; product_requirement_seeds is empty by design. Daemon should not synthesize product candidates from this extraction.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_TECHNICAL_STANDARDS_CITED",
+      "message": "No technical standards (e.g. BS, ISO, EN, HSG274, ACOP L8, BS 8580) are cited in the document text. Water-risk-assessment standards that might be expected for Lot 2 are not referenced here; they would be expected in a separate specification or scope document.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_CPV_CODES_IN_DOCUMENT",
+      "message": "No CPV codes appear in the document body. CPV codes attached to the parent notice (50700000-2, 50750000-7, 71315000-9) are not copied into this lot output because SKILL.md instructs the skill to treat notice-level lot metadata as cross-reference only rather than in-document truth.",
+      "evidence_refs": []
+    },
+    {
+      "code": "EVALUATION_CRITERIA_ARE_REFEREE_ASSESSMENT_NOT_AWARD",
+      "message": "The six criteria rendered under evaluation_criteria are referee-assessment dimensions for a past-performance reference (supply chain resilience, service provision, resource, value for money, contract management, project management). They are not tender award criteria; they are supplier-qualification reference dimensions. Downstream consumers should not weight these as price/quality award criteria for Lot 2.",
+      "evidence_refs": [
+        "page:1 | Please give your view of the quality of these services by placing ticks in the applicable columns"
+      ]
+    },
+    {
+      "code": "SINGLE_LOT_SCOPE",
+      "message": "Document is explicitly scoped to Lot 2 only. No other lots from the 11-lot framework (Fire Risk Assessments, Asbestos Assessments, Fire Door Surveys, Building Condition Surveys, Cleaning Services, Lift Services, PPM, Reactive Repairs, Residential PPM, Minor Disability Adaptations) are described here; semantic rows must not be emitted for them from this extraction.",
+      "evidence_refs": [
+        "page:1 | 6278 - Lot 2: Provision of Water Risk Assessments"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Appendix 1",
+      "section_ref": "#/texts/0"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "6278 - Lot 2: Provision of Water Risk Assessments",
+      "section_ref": "#/texts/0"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "TO BE COMPLETED BY REFEREE AND RETURNED TO THE ADDRESS BELOW BY 18th May 2026 by 5pm",
+      "section_ref": "#/texts/6"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Supply chain resilience: Has the contractor provided a resilient and sustainable supply chain for required products, resources, and services?",
+      "section_ref": "#/texts/6"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Service Provision: Has the contractor consistently delivered the contracted services in line with the required KPIs?",
+      "section_ref": "#/texts/6"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Resource: Have the contractor's staff held the necessary qualifications, certifications, and experience for the tasks assigned and fully met the resource levels required to manage the contract.",
+      "section_ref": "#/texts/6"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Value for Money: Has the contractor shown a transparent and well-evidenced approach to securing value for money",
+      "section_ref": "#/texts/6"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Contract Management: Has the contractor demonstrated effective contract management, including performance monitoring and oversight of subcontractors",
+      "section_ref": "#/texts/6"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Project Management Has the contractor demonstrated competence in self-delivering small and medium water-risk-assessment works",
+      "section_ref": "#/texts/6"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Appendix 2",
+      "section_ref": "#/texts/36"
+    },
+    {
+      "page_ref": "page:1",
+      "anchor_text": "Please return the reference to: Procurement@bexley.gov.uk",
+      "section_ref": "#/texts/6"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "0841827fce7d3b4a1039949205aa17e100a2b72d02b486a9e87108889ea73a02",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

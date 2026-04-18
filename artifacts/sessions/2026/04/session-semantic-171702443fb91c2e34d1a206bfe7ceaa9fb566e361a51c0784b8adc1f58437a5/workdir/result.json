@@ -1,0 +1,1369 @@
+{
+  "line_items": [
+    {
+      "item_number": "1",
+      "description": "Nursery - A designated hall within a Nursery School containing fixed and/or portable PE Equipment designed for indoor use - price per hall.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per hall",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 1 | Nursery - A designated hall within a Nursery School containing fixed and/or port…",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per hall\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "2",
+      "description": "First, Middle, Infant, Junior and Primary Schools - A designated hall within a School containing fixed and/or portable PE Equipment designed for indoor use. Common examples of equipment include agility tables, gym mats and wooden benches - price per hall.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per hall",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 2 | First, Middle, Infant, Junior and Primary Schools - A designated hall within a S…",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per hall\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "3",
+      "description": "School Gymnasium - A hall within a school used for multiple sports and PE activities, often equipped with gymnastic apparatus such as vaulting boxes/horses, wall bars etc. To include all fixed and portable PE and sport equipment within any one given hall. Excluding Trampolines - price per hall",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per hall",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 3 | School Gymnasium - A hall within a school used for multiple sports and PE activi…",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per hall\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "4",
+      "description": "Sports Hall - A hall used for multiple sports such as basketball, volleyball, badminton, 5-a-side etc. and sport activities. To include all fixed and portable sport equipment within any one given hall. Excluding Trampolines / Table Tennis Tables - price per hall.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per hall",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 4 | Sports Hall - A hall used for multiple sports such as basketball, volleyball, ba…",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per hall\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "5",
+      "description": "Trampoline - price per foldable trampoline",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per trampoline",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 5 | Trampoline - price per foldable trampoline",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per trampoline\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "6",
+      "description": "Table Tennis Table - A table tennis table designed for indoor usage - price per indoor table tennis table.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per table",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 6 | Table Tennis Table - A table tennis table designed for indoor usage - price per …",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per table\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "7",
+      "description": "Dance Studio - A hall within the establish where the primary use is deemed to be for dance/aerobic related lessons/activities. To include all fixed and portable equipment within the hall used for relevant activities - price per hall.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per hall",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 7 | Dance Studio - A hall within the establish where the primary use is deemed to be…",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per hall\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "8",
+      "description": "Cricket Matting - Artificial surface used for indoor cricket matting. All rolls of matting included in price but requires 2 men to inspect due to weight - price per surface.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per surface",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 8 | Cricket Matting - Artificial surface used for indoor cricket matting. All rolls …",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per surface\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "9",
+      "description": "High Level (roof level) Inspection- Includes all sport related equipment which is fixed at a height which is only accessible whilst using mobile access platforms/scaffold towers. Common examples would include roof mounted basketball goals or netting trackway - price per hall.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per hall",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 9 | High Level (roof level) Inspection- Includes all sport related equipment which i…",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per hall\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "10",
+      "description": "Traverse Walls - walls where you move from left to right -  price for a wall with dimensions 2 meters high x 3 metres wide",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per wall (2m x 3m)",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 10 | Traverse Walls - walls where you move from left to right -  price for a wall wit…",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per wall (2m x 3m)\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "11",
+      "description": "Climbing Walls - walls where you climb up and down - price for a wall with dimensions 6 metres high x 8 metres wide",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per wall (6m x 8m)",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 11 | Climbing Walls - walls where you climb up and down - price for a wall with dimen…",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per wall (6m x 8m)\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "12",
+      "description": "16 Station Multigym",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per multigym (16 station)",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 12 | 16 Station Multigym",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per multigym (16 station)\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "13",
+      "description": "13 Station Multigym",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per multigym (13 station)",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 13 | 13 Station Multigym",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per multigym (13 station)\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "14",
+      "description": "9 Station Multigym",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per multigym (9 station)",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 14 | 9 Station Multigym",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per multigym (9 station)\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "15",
+      "description": "6 Station Multigym",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per multigym (6 station)",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 15 | 6 Station Multigym",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per multigym (6 station)\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "16",
+      "description": "Single Station Resistance Machine - price per machine",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per machine",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 16 | Single Station Resistance Machine - price per machine",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per machine\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "17",
+      "description": "Cycles - price per machine",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per machine",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 17 | Cycles - price per machine",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per machine\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "18",
+      "description": "Treadmills/Crosstrainers - price per machine",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per machine",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 18 | Treadmills/Crosstrainers - price per machine",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per machine\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "19",
+      "description": "Rower - price per machine",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per machine",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 19 | Rower - price per machine",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per machine\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "20",
+      "description": "Stepper - price per machine",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per machine",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 20 | Stepper - price per machine",
+        "section_ref": "INDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per machine\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "21",
+      "description": "Fitness Suite Band 1 - price for up to 4 pieces of equipment",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per suite (up to 4 pieces)",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 21 | Fitness Suite Band 1 - price for up to 4 pieces of equipment",
+        "section_ref": "FITNESS SUITE",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per suite (up to 4 pieces)\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "22",
+      "description": "Fitness Suite Band 2 - price for up to 8 pieces of equipment",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per suite (up to 8 pieces)",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 22 | Fitness Suite Band 2 - price for up to 8 pieces of equipment",
+        "section_ref": "FITNESS SUITE",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per suite (up to 8 pieces)\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "23",
+      "description": "Fitness Suite Band 3 - price for up to 16 pieces of equipment",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per suite (up to 16 pieces)",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 23 | Fitness Suite Band 3 - price for up to 16 pieces of equipment",
+        "section_ref": "FITNESS SUITE",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per suite (up to 16 pieces)\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "24",
+      "description": "Fitness Suite Band 4 - price for up to 24 pieces of equipment",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per suite (up to 24 pieces)",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 24 | Fitness Suite Band 4 - price for up to 24 pieces of equipment",
+        "section_ref": "FITNESS SUITE",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per suite (up to 24 pieces)\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "25",
+      "description": "Fitness Suite Band 5 - price for up to 48 pieces of equipment",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per suite (up to 48 pieces)",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 25 | Fitness Suite Band 5 - price for up to 48 pieces of equipment",
+        "section_ref": "FITNESS SUITE",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per suite (up to 48 pieces)\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "26",
+      "description": "Fitness Suite Band 6 - price for  over 48 pieces of equipment",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per suite (over 48 pieces)",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 26 | Fitness Suite Band 6 - price for  over 48 pieces of equipment",
+        "section_ref": "FITNESS SUITE",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per suite (over 48 pieces)\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "27",
+      "description": "Astro Turf Equipment /MUGA - An area used for playing multiple sports, usually enclosed by fencing and often with an artificial surface. To include all fixed and portable sports equipment within the fencing/outer boundary of the surface - price per area.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per area",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 27 | Astro Turf Equipment /MUGA - An area used for playing multiple sports, usually e…",
+        "section_ref": "OUTDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per area\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "28",
+      "description": "Trim Trail - A path or course of multiple activity stations for outdoor exercise and play - price per trim trail area.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per area",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 28 | Trim Trail - A path or course of multiple activity stations for outdoor exercise…",
+        "section_ref": "OUTDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per area\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "29",
+      "description": "Fitness Machines - Static fitness machines purpose built for outdoor use - price per piece of equipment.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per piece",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 29 | Fitness Machines - Static fitness machines purpose built for outdoor use - price…",
+        "section_ref": "OUTDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per piece\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "30",
+      "description": "Primary Playground - An area within small primary and nursery schools used for outdoor play and Sport. To include all portable PE/Sport equipment within the area - price per area.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per area",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 30 | Primary Playground - An area within small primary and nursery schools used for o…",
+        "section_ref": "OUTDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per area\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "31",
+      "description": "Table Tennis Table - A table tennis table designed for outdoor usage - price per outdoor table tennis table.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per table",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 31 | Table Tennis Table - A table tennis table designed for outdoor usage - price per…",
+        "section_ref": "OUTDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per table\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "32",
+      "description": "Cricket Matting - A single area, often within a cricket net/caged area, of permanent outdoor artificial surface installed specifically for the use of Cricket - price per area.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per area",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 32 | Cricket Matting - A single area, often within a cricket net/caged area, of perma…",
+        "section_ref": "OUTDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per area\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "33",
+      "description": "Goals (sport fields / playgrounds) - Goals of any description found within any one outdoor sports field or playground area - price per outdoor goal.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per goal",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 33 | Goals (sport fields / playgrounds) - Goals of any description found within any o…",
+        "section_ref": "OUTDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per goal\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "34",
+      "description": "Mountain Bike - Bike and safety equipment when owned by the site and used as part of DofE or Cycle Proficiency Tests - price per bike.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per bike",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 34 | Mountain Bike - Bike and safety equipment when owned by the site and used as par…",
+        "section_ref": "OUTDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per bike\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "35",
+      "description": "Kayak/Canoe - Vessel and safety equipment when owned by the site and used as part of DofE - price per kayak/canoe.",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per kayak/canoe",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 35 | Kayak/Canoe - Vessel and safety equipment when owned by the site and used as par…",
+        "section_ref": "OUTDOOR",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per kayak/canoe\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "36",
+      "description": "Scheduled General Inspection Visit - price per visit (i.e. a non-urgent visit that can be scheduled in by the supplier)",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per visit",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 36 | Scheduled General Inspection Visit - price per visit (i.e. a non-urgent visit th…",
+        "section_ref": "ADDITIONAL VISITS",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per visit\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "37",
+      "description": "Interim Visit - price per visit           (ie. an urgent call-out visit, for example for a requirement of remedial work to a specific piece of equipment (separate from a general visit)",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per visit",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 37 | Interim Visit - price per visit           (ie. an urgent call-out visit, for exa…",
+        "section_ref": "ADDITIONAL VISITS",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per visit\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "38",
+      "description": "Call out for remedial work required within 1 working day - price per visit",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per visit",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 38 | Call out for remedial work required within 1 working day - price per visit",
+        "section_ref": "EMERGENCY VISITS",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per visit\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "39",
+      "description": "Call out for remedial work required within 2 working days - price per visit",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per visit",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 39 | Call out for remedial work required within 2 working days - price per visit",
+        "section_ref": "EMERGENCY VISITS",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per visit\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "40",
+      "description": "Call out for remedial work required midweek but outside of working hours (servicing between 18:00 - 06:00) - price per visit",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per visit",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 40 | Call out for remedial work required midweek but outside of working hours (servic…",
+        "section_ref": "EMERGENCY VISITS",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per visit\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "41",
+      "description": "Call out for remedial work required over a weekend - price per visit",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per visit",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 41 | Call out for remedial work required over a weekend - price per visit",
+        "section_ref": "EMERGENCY VISITS",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per visit\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "42",
+      "description": "Call out for remedial work required over a Bank Holiday - price per visit",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per visit",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "Row 42 | Call out for remedial work required over a Bank Holiday - price per visit",
+        "section_ref": "EMERGENCY VISITS",
+        "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per visit\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "43",
+      "description": "Replacement ropes for handrings and trapeze ropes - price per foot",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per foot",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 43 | Replacement ropes for handrings and trapeze ropes - price per foot",
+        "section_ref": "REMEDIAL WORK / ROPES & TRAMPOLINES",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per foot\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "44",
+      "description": "Re-making rope ladders with new rungs - price per rung",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per rung",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 44 | Re-making rope ladders with new rungs - price per rung",
+        "section_ref": "REMEDIAL WORK / ROPES & TRAMPOLINES",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per rung\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "45",
+      "description": "Re-making rope ladders with existing rungs - price per rung",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per rung",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 45 | Re-making rope ladders with existing rungs - price per rung",
+        "section_ref": "REMEDIAL WORK / ROPES & TRAMPOLINES",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per rung\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "46",
+      "description": "Replacement 13mm web bed for 77A trampoline - price each",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 46 | Replacement 13mm web bed for 77A trampoline - price each",
+        "section_ref": "REMEDIAL WORK / ROPES & TRAMPOLINES",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"each\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "47",
+      "description": "100 steel springs/cables for 77A trampolines - price set",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "per set (100)",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 47 | 100 steel springs/cables for 77A trampolines - price set",
+        "section_ref": "REMEDIAL WORK / ROPES & TRAMPOLINES",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"per set (100)\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "48",
+      "description": "Vaulting boxes with hide tops - price each",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 48 | Vaulting boxes with hide tops - price each",
+        "section_ref": "REMEDIAL WORK / RE-COVERING",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"each\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "49",
+      "description": "Vaulting boxes with vinyl tops - price each",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 49 | Vaulting boxes with vinyl tops - price each",
+        "section_ref": "REMEDIAL WORK / RE-COVERING",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"each\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "50",
+      "description": "Vaulting buck - price each",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 50 | Vaulting buck - price each",
+        "section_ref": "REMEDIAL WORK / RE-COVERING",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"each\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "51",
+      "description": "Vaulting horse - price each",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 51 | Vaulting horse - price each",
+        "section_ref": "REMEDIAL WORK / RE-COVERING",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"each\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "52",
+      "description": "Wooden frame benches - price each",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 52 | Wooden frame benches - price each",
+        "section_ref": "REMEDIAL WORK / RE-COVERING",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"each\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "53",
+      "description": "Metal frame benches - price each",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 53 | Metal frame benches - price each",
+        "section_ref": "REMEDIAL WORK / RE-COVERING",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"each\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "54",
+      "description": "Carpet covered balance beams - price each",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 54 | Carpet covered balance beams - price each",
+        "section_ref": "REMEDIAL WORK / RE-COVERING",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"each\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "55",
+      "description": "Small (up to 450mm high) - price each",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 55 | Small (up to 450mm high) - price each",
+        "section_ref": "REMEDIAL WORK / NESTING TABLES",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"each\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "56",
+      "description": "Medium (up to 760mm high) - price each",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 56 | Medium (up to 760mm high) - price each",
+        "section_ref": "REMEDIAL WORK / NESTING TABLES",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"each\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    },
+    {
+      "item_number": "57",
+      "description": "Large (over 760mm high) - price each",
+      "lot_number": "1",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "appendix_b_pricing_basket_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "p.2",
+        "anchor_text": "Row 57 | Large (over 760mm high) - price each",
+        "section_ref": "REMEDIAL WORK / NESTING TABLES",
+        "table_ref": "appendix_b_pricing_basket_remedial_work"
+      },
+      "notes": [
+        "Pricing cell is blank in source — tenderer-to-complete template. unit_rate_pence=0 reflects observed empty cell, not a quoted price of zero.",
+        "Rate basis stated in source as \"each\". quantity=1 represents unit basis for the rate, not a procured quantity."
+      ]
+    }
+  ],
+  "pricing_summary": {
+    "total_value_pence": 0,
+    "currency": "GBP",
+    "lot_count": 1
+  },
+  "field_confidences": {
+    "line_items.item_number": 9800,
+    "line_items.description": 9500,
+    "line_items.lot_number": 2000,
+    "line_items.quantity": 3000,
+    "line_items.unit": 8500,
+    "line_items.unit_rate_pence": 500,
+    "line_items.total_value_pence": 500,
+    "line_items.currency": 9800,
+    "line_items.source_table_key": 9500,
+    "pricing_summary.total_value_pence": 9800,
+    "pricing_summary.currency": 9800,
+    "pricing_summary.lot_count": 2500
+  },
+  "extraction_confidence_bps": 6500,
+  "warnings": [
+    {
+      "code": "PRICING_CELLS_BLANK",
+      "message": "All 57 service-requirement price cells in Appendix B are empty in the source. This is a tenderer-to-complete template; prices have not been populated. unit_rate_pence and total_value_pence are reported as 0 to reflect the observed absence of a quoted value; they are not genuine zero-priced quotes. Total \"basket\" total cell explicitly shows 0.",
+      "evidence_refs": [
+        "appendix_b_pricing_basket_inspection_maintenance",
+        "appendix_b_pricing_basket_remedial_work",
+        "TOTAL TENDERED 'BASKET' PRICE = 0"
+      ]
+    },
+    {
+      "code": "LOT_NUMBER_NOT_ENUMERATED",
+      "message": "Document does not enumerate distinct lot numbers. Framework ESPO 107_26 is treated as a single lot for overlay persistence (lot_number=\"1\"). Confidence on lot_number attribution is low; downstream persistence should confirm against tender-specification overlay if lot decomposition exists.",
+      "evidence_refs": [
+        "ESPO reference 107_26",
+        "Framework Period row"
+      ]
+    },
+    {
+      "code": "HEADER_ROW_REPEATED_ACROSS_COLUMNS",
+      "message": "The Instructions block is repeated three times across columns in the Docling markdown (identical text in cols 1/2/3). Normalised to a single instruction paragraph for narrative purposes — no line-item duplication occurred.",
+      "evidence_refs": [
+        "Instructions for tenderers paragraph (triple-column repeat)"
+      ]
+    },
+    {
+      "code": "SECTION_HEADER_BANDS_ARE_GROUP_LABELS",
+      "message": "Rows containing only section labels (INDOOR / FITNESS SUITE / OUTDOOR / ADDITIONAL VISITS / EMERGENCY VISITS / REMEDIAL WORK / ROPES & TRAMPOLINES / RE-COVERING / NESTING TABLES) are group headers, not line items, and are omitted from line_items while retained on each item as section_ref.",
+      "evidence_refs": [
+        "Rows between item 20 and 21, 26 and 27, 35 and 36, 37 and 38, 42 and 43, 47 and 48, 54 and 55"
+      ]
+    },
+    {
+      "code": "CURRENCY_ASSUMED_GBP",
+      "message": "Currency set to GBP based on explicit statement \"Prices tendered are to be in Pounds Sterling (exclusive of VAT)\" in the Instructions block.",
+      "evidence_refs": [
+        "Instructions for tenderers paragraph"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p.1",
+      "anchor_text": "ESPO reference 107_26 — Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment",
+      "section_ref": "Cover",
+      "table_ref": "cover_header"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "Appendix B — PRICING SCHEDULE",
+      "section_ref": "Cover",
+      "table_ref": "cover_header"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "Prices tendered are to be in Pounds Sterling (exclusive of VAT).",
+      "section_ref": "Instructions for tenderers",
+      "table_ref": "instructions"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "INSPECTION & MAINTENANCE | Service Requirement | Type of Area / Establishment | Price for Inspection & Maintenance Visit (£, excluding VAT)",
+      "section_ref": "Inspection & Maintenance basket",
+      "table_ref": "appendix_b_pricing_basket_inspection_maintenance"
+    },
+    {
+      "page_ref": "p.2",
+      "anchor_text": "REMEDIAL WORK | Service Requirement | Type of Remedial work | Price for Remedial work  (£, excluding VAT)",
+      "section_ref": "Remedial Work basket",
+      "table_ref": "appendix_b_pricing_basket_remedial_work"
+    },
+    {
+      "page_ref": "p.2",
+      "anchor_text": "TOTAL TENDERED 'BASKET' PRICE = 0",
+      "section_ref": "Total",
+      "table_ref": "appendix_b_basket_total"
+    },
+    {
+      "page_ref": "p.2",
+      "anchor_text": "Number of service requirements priced = 0 (Fail)",
+      "section_ref": "Compliance meter",
+      "table_ref": "compliance_meter"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "pricing",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "cd2fb167f65bff0126abbbc02e2938c8ccf021d0ae761ff42001888b1f882af5",
+    "policy_version": "2026.04.12",
+    "items_examined": 57
+  }
+}

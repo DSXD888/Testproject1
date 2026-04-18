@@ -1,0 +1,338 @@
+{
+  "lots": [
+    {
+      "lot_number": "5",
+      "title": "Structural and Civils Scope of Service — Stockport Town Centre School (Structural Engineer scope, Annex A.5)",
+      "description": "Annex A.5 of the Multi-disciplinary Design Team Appointment for Stockport Town Centre School (Project E000-25-0031, Document Number 00, Revision 00, January 2026). Defines the Structural and Civils Scope of Service required by Stockport Metropolitan Borough Council (SMBC) from its appointed multi-disciplinary design team for the design of a new town-centre school. The appointment is under a JCT Design & Build Contract with consultant novation, 30-day invoicing on stage completion. The Civil and Structural Engineering scope covers (among others) earthworks, drainage (surface water, storm water, foul), roads and highways, central sewage systems, water supplies, marine works, temporary works, vehicle tracking/circulation/access, structural design loads/strategy/movement tolerances, setting out levels/falls/gullies, foundation systems, and superstructure. The engineer must comply with the RIBA Plan of Work 2020 and the Institute of Structural Engineers Structural Plan of Work 2020 across Stages 0–7 (including Stage 4.5), contribute to BIM clash detection, BREEAM evidence, CDM 2015, and produce all drawings in PDF and DWG format. Insurance floors are £10,000,000 for Employer's Liability, Public Liability, and Professional Indemnity (each).",
+      "requirements": [
+        "Core Services §1.1: Attend SMBC, Design, Project, Construction and other meetings as required.",
+        "Core Services §1.2: Comply with Client's Organisational Information Requirements for BIM and Employer's Information Requirements for BIM; participate in clash detection reviews, feedback, reporting, and clash minimisation meetings.",
+        "Core Services §1.3: Supply all information required to produce a coordinated design, agree materials quality and workmanship standard with other Designers.",
+        "Core Services §1.4: Provide Civil and Structural Engineering Services including earthworks; drainage (surface water, storm water, foul); roads and highways; central sewage systems; water supplies; marine works; temporary works; vehicle tracking, circulation and access; structural design loads, structural strategy and movement tolerances; setting out levels, falls and gullies; foundation systems; superstructure; and all other services in the Project Briefing Document and Design Responsibility Matrix.",
+        "Core Services §1.5: Design the Works to meet SMBC's desired objectives and outputs.",
+        "Core Services §1.6: Contribute to a Project Risk Register, attend risk meetings, highlight project risks as they emerge, and advise on mitigation.",
+        "Core Services §1.7: Issue Designers Risk Assessments at the conclusion of each project stage.",
+        "Core Services §1.8: Ensure environmental considerations are factored into design and evaluate sustainable solutions at each stage.",
+        "Core Services §1.9: When appointed, support the BREEAM assessor by issuing evidence and attending BREEAM meetings to meet the target rating.",
+        "Core Services §1.10: Liaise with SMBC/External Project Manager and Design Team; contribute to and maintain the Project Programme for design, procurement and construction.",
+        "Core Services §1.11: Liaise with PM and Design Team; contribute to regular quality, progress and cost reports at agreed frequency.",
+        "Core Services §1.12: Support preparation and maintenance of cash flow forecasts and expenditure monitoring statements.",
+        "Core Services §1.13: Develop alternative design and material solutions that add value or deliver cost savings, throughout the project.",
+        "Core Services §1.14: Design the works to comply with all relevant statutory requirements, codes of practice, guidance and best practice.",
+        "Core Services §1.15: Where an element is not designed to comply with such requirements, issue a notice of derogation and inform SMBC as soon as identified.",
+        "Core Services §1.16: Maintain a register of derogations from the Employer's Requirements, Contract Documents or Regulations; report regularly to SMBC via the Project Manager.",
+        "Core Services §1.17: Support the process of gaining necessary consents, including Planning Permissions and Building Control Applications.",
+        "Core Services §1.18: Ensure proposals comply with the Disability Discrimination Act.",
+        "Core Services §1.19: Make all drawn information available in PDF and DWG formats.",
+        "Core Services §1.20: Issue SMBC a monthly Design Progress report and maintain and issue a design programme monthly.",
+        "Core Services §1.21: Maintain a Common Data Environment (CDE) for the project; details agreed with SMBC.",
+        "Core Services §1.22: Advise the client on the need for any other specialist advice or services.",
+        "Core Services §1.23: Visit the site at regular intervals appropriate to the stage of construction to review progress and quality, verifying execution is generally in accordance with the designer's design and specifications.",
+        "RIBA Stages 0 & 1 §2.1–2.2: Comply with RIBA Plan of Work 2020 and Institute of Structural Engineers Structural Plan of Work 2020 requirements for Stages 0 and 1.",
+        "RIBA Stages 0 & 1 §2.3: Provide a formal RIBA Stage 1 report in an agreed format.",
+        "RIBA Stages 0 & 1 §2.4: Undertake site inspections; review accessible data, information and reports relevant to the project.",
+        "RIBA Stages 0 & 1 §2.5: Comment on physical site restrictions or logistics that may affect construction / engineering options.",
+        "RIBA Stages 0 & 1 §2.6: Advise the Project Manager on specialist services (consultants, contractors, sub-contractors and suppliers).",
+        "RIBA Stages 0 & 1 §2.7: Work with the Project Manager and Design Team to determine initial requirements.",
+        "RIBA Stages 0 & 1 §2.8: Develop, establish, review and challenge the Brief, Budget and Programme.",
+        "RIBA Stages 0 & 1 §2.9: Advise the client on structural, building, measured and other surveys and site investigations.",
+        "RIBA Stages 0 & 1 §2.10: Advise on demolition, strip-out, site investigation and enabling works contracts before the Building Contract commences; assist in procuring them.",
+        "RIBA Stages 0 & 1 §2.11: Comply with the CDM Regulations.",
+        "RIBA Stages 0 & 1 §2.12: Consult authorities / statutory bodies on matters of principle; advise on approvals required and fees due.",
+        "RIBA Stages 0 & 1 §2.13: Undertake value management exercises; assist in updating the construction budget and cost plan.",
+        "RIBA Stage 2 §3.1–3.2: Comply with RIBA Plan of Work 2020 and IStructE Structural Plan of Work 2020 requirements for Stage 2.",
+        "RIBA Stage 2 §3.3: Provide a formal RIBA Stage 2 report.",
+        "RIBA Stage 2 §3.4: Consolidate and finalise the brief with SMBC, PM, Design Team and stakeholders; seek approval.",
+        "RIBA Stage 2 §3.5: Prepare outline concept design proposals with sufficient detail to agree spatial arrangements, materials and appearance — including Site Plan, General Arrangement Drawings (floor plans, elevations, sections with key dimensions / datums / levels), Roof Plans, detailed drawings for complex areas at larger scale, and area and accommodation schedules.",
+        "RIBA Stage 2 §3.6: Establish structure and procedure for quality management, review, approval, variations and reporting.",
+        "RIBA Stage 2 §3.7: Develop and make available all feasible building and engineering design solutions; ensure each option is fully appraised.",
+        "RIBA Stage 2 §3.8: Provide advice, sketches, reports or outline specifications to enable other Design Team members to prepare their proposals.",
+        "RIBA Stage 2 §3.9: Establish a structure and procedure for cost management.",
+        "RIBA Stage 2 §3.10: Input to cost planning, pre-construction information and Health and Safety File.",
+        "RIBA Stage 2 §3.11: Advise on additional works required by third parties.",
+        "RIBA Stage 2 §3.12: Identify long-delivery building components and systems.",
+        "RIBA Stage 2 §3.13: Identify specialist/proprietary building components and systems.",
+        "RIBA Stage 2 §3.14: Undertake value management exercises; assist in updating the construction budget and cost plan.",
+        "RIBA Stage 3 §4.1–4.2: Comply with RIBA Plan of Work 2020 and IStructE Structural Plan of Work 2020 requirements for Stage 3.",
+        "RIBA Stage 3 §4.3: Provide a formal RIBA Stage 3 report.",
+        "RIBA Stage 3 §4.4: Develop detailed proposals collaboratively; ensure elements are designed within financial constraints and agreed requirements.",
+        "RIBA Stage 3 §4.5: Develop detailed proposals, including Finalised Grid Drawings; 1:100 & 1:50 General Arrangement Drawings (fully spatially coordinated); full site plan (spatially coordinated); full external elevations with detailed bay studies; 1:100 roof layout; drainage strategy and water supply drawings; tracking drawings proving site plan operability; and area and accommodation schedules.",
+        "RIBA Stage 3 §4.6: Prepare representative sketches, drawings, specifications and calculations to support cost planning.",
+        "RIBA Stage 3 §4.7: Update the pre-construction information and Health and Safety File.",
+        "RIBA Stage 3 §4.8: Contribute to tendering and contractual procurement option discussions.",
+        "RIBA Stage 3 §4.9: Prepare calculations, drawings, schedules and specifications to support final proposals; make all available to SMBC and Design Team.",
+        "RIBA Stage 3 §4.10: Ensure information is available to update the cost plan.",
+        "RIBA Stage 3 §4.11: Ensure information is available to enable CDM advisor to review and update pre-construction information and Health and Safety File.",
+        "RIBA Stage 3 §4.12: Prepare calculations, drawings, schedules and specifications in detail to enable tender documentation preparation.",
+        "RIBA Stage 3 §4.13: Prepare calculations and details required for submission to any appropriate authority; coordinate information submitted by other Design Team / Specialists.",
+        "RIBA Stage 3 §4.14: Coordinate dimensional and similar requirements including builders work and provisions for building services.",
+        "RIBA Stage 3 §4.15: Prepare drawings and schedules enabling the Contractor and Specialists to carry out the Works.",
+        "RIBA Stage 3 §4.16: Ensure representative information is available to the Quantity Surveyor for tender preparation.",
+        "RIBA Stage 3 §4.17: Ensure information is available to facilitate tendering and enable CDM advisor to review and update pre-construction information and Health and Safety File.",
+        "RIBA Stage 3 §4.18: Support life cycle cost and environmental assessment techniques; develop solutions giving best overall value for money; make cost-limit recommendations where needed.",
+        "RIBA Stage 4 §5.1: Comply with RIBA Plan of Work 2020 requirements for Stage 4.",
+        "RIBA Stage 4 §5.2: Comply with IStructE Structural Plan of Work 2020 requirements for Stage 4 and Stage 4.5.",
+        "RIBA Stage 4 §5.3: Provide a formal RIBA Stage 4 report.",
+        "RIBA Stage 4 §5.4: Develop the technical design from the detailed design in accordance with brief and cost plan.",
+        "RIBA Stage 4 §5.5: Prepare calculations, drawings, schedules, specifications enabling tenders to be invited.",
+        "RIBA Stage 4 §5.6: Ensure information is available to facilitate tendering and enable Principal Designer & CDM advisor to review and update pre-construction information and Health and Safety File.",
+        "RIBA Stage 4 §5.7: Provide information required for revising the Cost Plan and Construction Budget.",
+        "RIBA Stage 4 §5.8: Advise on type of construction, materials quality, workmanship standard and implications for Cost Plan and Construction Budget.",
+        "RIBA Stage 4 §5.9: Consult relevant statutory authorities on final design proposals.",
+        "RIBA Stage 4 §5.10: Appraise and evaluate tenders; advise on tenderer's design and construction programmes and method statements.",
+        "RIBA Stage 4 §5.11: Assist in preparation of an Authority to Start Work Report.",
+        "RIBA Stage 4 §5.12: Coordinate preparation of design and Employer's Requirements for all construction elements.",
+        "RIBA Stage 5 §6.1–6.2: Comply with RIBA Plan of Work 2020 and IStructE Structural Plan of Work 2020 requirements for Stage 5.",
+        "RIBA Stage 5 §6.3: Provide all details, drawings, schedules, calculations and specifications necessary to allow the Contractor to construct the works, including issuance at Construction Status.",
+        "RIBA Stage 5 §6.4: Attend relevant site meetings and make periodic site visits; monitor that Works are executed in accordance with specification and good engineering practice; report to Project Manager and Design Team.",
+        "RIBA Stage 5 §6.5: Inspect on completion of works or sections of works; record defects and agreed remedial actions with Project Manager and Design Team.",
+        "RIBA Stage 5 §6.6: Agree all test certificates and statutory / non-statutory approvals required from the Design Team and Contractor; prepare recommendations for SMBC.",
+        "RIBA Stage 6 & 7 §7.1–7.2: Comply with RIBA Plan of Work 2020 and IStructE Structural Plan of Work 2020 requirements for Stages 6 and 7.",
+        "RIBA Stage 6 & 7 §7.3: Prepare and maintain a defects administration plan identifying roles and responsibilities of SMBC, Design Team and Contractor.",
+        "RIBA Stage 6 & 7 §7.4: Provide post-completion services to ensure completion of all defects.",
+        "RIBA Stage 6 & 7 §7.5: Advise on operation and maintenance of the building.",
+        "RIBA Stage 6 & 7 §7.6: Provide drawings and other relevant information for the Health and Safety File.",
+        "RIBA Stage 6 & 7 §7.7: Review and comment upon record drawings and information provided by the contractor for the Health and Safety File and Operation and Maintenance Manuals.",
+        "RIBA Stage 6 & 7 §7.8: Attend and actively contribute to Lessons Learnt workshops.",
+        "Commercial §1.6: Employer's Liability Insurance cover required: £10,000,000 (ten million pounds).",
+        "Commercial §1.7: Public Liability Insurance cover required: £10,000,000 per claim, without limit on number of claims, including an indemnity to principal's provision.",
+        "Commercial §1.8: Professional Indemnity Insurance cover required: £10,000,000 per claim arising out of each and every event, without limit on number of claims.",
+        "Commercial §1.3: Form of Building Contract is JCT Design & Build Contract.",
+        "Commercial §1.4: Form of Consultant Appointment is Multi-Discipline consultant (with novation).",
+        "Commercial §1.5: Consultant Payment Terms are 30 days; invoices follow stage completion."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [
+        "71322000",
+        "71322500",
+        "71310000",
+        "71300000",
+        "71000000"
+      ],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "RIBA Plan of Work 2020",
+          "context": "Consultant must comply with RIBA Plan of Work 2020 requirements for Stages 0, 1, 2, 3, 4, 5, 6 and 7 (§2.1, §3.1, §4.1, §5.1, §6.1, §7.1).",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Work 2020 for Stages 0 and 1.",
+            "section_ref": "§2.1"
+          }
+        },
+        {
+          "standard_ref": "Institute of Structural Engineers Structural Plan of Work 2020",
+          "context": "Consultant must comply with IStructE Structural Plan of Work 2020 for Stages 0, 1, 2, 3, 4 (including Stage 4.5), 5, 6 and 7 (§2.2, §3.2, §4.2, §5.2, §6.2, §7.2).",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Comply with all of the Requirements of the Institute of Structural Engineers Structural Plan of Work 2020 for Stage 4 and 4.5.",
+            "section_ref": "§5.2"
+          }
+        },
+        {
+          "standard_ref": "JCT Design & Build Contract",
+          "context": "Proposed Form of Building Contract for the project (Commercial terms §1.3).",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Proposed Form of Building Contract: JCT Design & Build Contract",
+            "section_ref": "§1.3 (General)"
+          }
+        },
+        {
+          "standard_ref": "BREEAM",
+          "context": "Consultant must support the BREEAM assessor with evidence and BREEAM meetings to meet target BREEAM rating (§1.9 Core Services).",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "support the work of the BREEAM assessor by issuing all required evidence and taking part in BREEAM meetings to ensure the target BREEAM rating is met.",
+            "section_ref": "Core Services §1.9"
+          }
+        },
+        {
+          "standard_ref": "Construction (Design and Management) Regulations (CDM Regulations)",
+          "context": "Consultant must comply with the CDM Regulations; information must support CDM advisor updates to pre-construction information and Health and Safety File (§2.11, §3.10, §4.7, §4.11, §4.17, §5.6).",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "Comply with the CDM Regulations.",
+            "section_ref": "§2.11"
+          }
+        },
+        {
+          "standard_ref": "Disability Discrimination Act",
+          "context": "Designer must ensure proposals comply with the Disability Discrimination Act (Core Services §1.18).",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "The designer shall ensure the proposals comply with the requirements of the Disability Discrimination Act.",
+            "section_ref": "Core Services §1.18"
+          }
+        },
+        {
+          "standard_ref": "Client BIM Organisational Information Requirements and Employer's Information Requirements for BIM",
+          "context": "Designer must comply with Client's Organisational Information Requirements for BIM and Employer's Information Requirements for BIM and support clash detection reviews (Core Services §1.2).",
+          "evidence_anchor": {
+            "page_ref": "page 1",
+            "anchor_text": "comply with all of the requirements of the Clients Organisational Information Requirements for BIM and Employers Information Requirements for BIM",
+            "section_ref": "Core Services §1.2"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "page 1",
+        "anchor_text": "Scope of Service — Structures and Civils — Project: Stockport Town Centre School — Project Number: E000-25-0031",
+        "section_ref": "Document heading"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots": 7500,
+    "lot_title": 9000,
+    "lot_description": 8500,
+    "requirements": 9000,
+    "evaluation_criteria": 8500,
+    "cpv_codes": 4500,
+    "technical_standards": 9200,
+    "product_requirements": 8800,
+    "product_requirement_seeds": 8800,
+    "insurance_requirements": 9500,
+    "contract_form": 9500
+  },
+  "extraction_confidence_bps": 7800,
+  "warnings": [
+    {
+      "code": "LOT_NUMBER_INFERRED_FROM_ANNEX",
+      "message": "The document does not explicitly declare a lot number. lot_number '5' was inferred from the annex identifier 'A.5' (A.5 Structural and Civils Scope of Service), consistent with how the notice represents Annex A.1 (Architect scope) as Lot 1. Reviewer should verify alignment with the authoritative notice lot structure.",
+      "evidence_refs": [
+        "A.5 Structural and Civils Scope of Service (To be read).DOCX (source filename)",
+        "Document heading: 'Scope of Service — Structures and Civils — Project: Stockport Town Centre School'"
+      ]
+    },
+    {
+      "code": "NO_EVALUATION_CRITERIA_IN_SCOPE_ANNEX",
+      "message": "This document is a scope-of-service annex and contains no evaluation criteria, scoring methodology, or tender weighting. Evaluation criteria for the multi-disciplinary appointment (if any) must be sourced from a separate ITT/scoring document, not this annex.",
+      "evidence_refs": [
+        "Section 1 (General) through Section 7 (RIBA Stages 6 and 7) are all service-scope clauses with no weighting or scoring text."
+      ]
+    },
+    {
+      "code": "NO_PRODUCT_SEEDS_PROFESSIONAL_SERVICES",
+      "message": "This document scopes professional consultancy services (structural and civil engineering design) rather than procurement of physical products. Consequently no product_requirement_seeds are emitted. Downstream product-candidate logic should treat this lot as a pure services engagement.",
+      "evidence_refs": [
+        "Core Services §1.4 (Civil and Structural Engineering Services elements) lists design responsibility areas (earthworks, drainage, roads, sewage, water supplies, marine works, temporary works, tracking, structural design, setting out, foundations, superstructure), not product SKUs."
+      ]
+    },
+    {
+      "code": "CPV_CODES_INFERRED_NOT_STATED",
+      "message": "The document does not contain explicit CPV codes. The emitted CPV codes (71322000 Engineering design services for construction of civil engineering works; 71322500 Engineering design services for traffic installations; 71310000 Consultative engineering and construction services; 71300000 Engineering services; 71000000 Architectural, construction, engineering and inspection services) are inferred from the described service areas — structural and civil engineering design for a new-build school — and should be reconciled with any CPV codes already present on the notice.",
+      "evidence_refs": [
+        "Document title: 'Scope of Service — Structures and Civils'",
+        "Core Services §1.4 'The Civils and Structural Engineering Services as described here to shall be provided'"
+      ]
+    },
+    {
+      "code": "EMPTY_VERSION_CONTROL_TABLE",
+      "message": "The Version Control table is present but has no populated rows beyond a 'Version 00' marker. Revision Notes, Originator and Checker fields are blank, indicating the document is at initial revision 00 (January 2026) and has not yet been through a review cycle.",
+      "evidence_refs": [
+        "Table 'Version Control' at document head with only '00' version marker and otherwise empty cells."
+      ]
+    },
+    {
+      "code": "DOCUMENT_SELF_DECLARED_TO_BE_READ",
+      "message": "Source filename contains '(To be read)' and the document is part of an Appendices pack — suggests this annex is one of several scope annexes read together. Reviewer should ensure related annexes (e.g., A.1 Architect, A.4 CDM Principal Designer, others) are also extracted under the same notice/process for complete tender coverage.",
+      "evidence_refs": [
+        "source_url path: '.../Appendices_extracted/Appendices/A) Scopes of Services (To be read)/A.5 Structural and Civils Scope of Service (To be read).DOCX'"
+      ]
+    },
+    {
+      "code": "DUPLICATE_SECTION_NUMBERING_IN_SOURCE",
+      "message": "Source markdown uses a mixed outline: outer numbered sections (1..7) and an inner sub-list that restarts at '1. Core Services' under top-level §1 (General). Requirement clauses under Core Services were anchored as Core Services §1.x to disambiguate from General §1.x. Reviewer should treat Core Services as a distinct block (effectively §2 in RIBA-stage ordering), with General commercial clauses under §1 (General).",
+      "evidence_refs": [
+        "Top-level item '1. General:' with clauses 1.1–1.9 (commercial).",
+        "Second outline item titled '1. Core Services' with clauses 1.1–1.23."
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Scope of Service — Structures and Civils — Project: Stockport Town Centre School — Project Number: E000-25-0031",
+      "section_ref": "Document heading"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Proposed Form of Building Contract: JCT Design & Build Contract",
+      "section_ref": "§1.3 (General)"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Form of Consultant Appointment: Multi Discipline consultant (with novation)",
+      "section_ref": "§1.4 (General)"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Level of Employer Liability Cover Required: £10,000,000 (ten million pounds).",
+      "section_ref": "§1.6 (General)"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Level of Public Liability Cover Required: £10,000,000 (ten million pounds) in respect of any and claim and without limit on the number of claims in any one year",
+      "section_ref": "§1.7 (General)"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Level of Professional Indemnity Insurance Cover Required: £10,000,000 (ten million pounds) in respect of any one claim arising out of each and every event",
+      "section_ref": "§1.8 (General)"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "The Civils and Structural Engineering Services as described here to shall be provided including, but not limited to the following elements or areas of responsibility: Earthworks; Drainage including surface water, storm water and foul drainage; Roads and Highways; Central Sewage Systems; Water Supplies; Marine Works; Temporary Works; Vehicle tracking, circulation and access; Structural design loads, structural strategy and movement tolerances; Setting out levels, falls and gullies; Foundation systems; Superstructure",
+      "section_ref": "Core Services §1.4"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Comply with all of the Requirements of the RIBA Plan of Work 2020 for Stages 0 and 1.",
+      "section_ref": "§2.1"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Comply with all of the Requirements of the Institute of Structural Engineers Structural Plan of Work 2020 for Stages 0 and 1.",
+      "section_ref": "§2.2"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Comply with all of the Requirements of the Institute of Structural Engineers Structural Plan of Work 2020 for Stage 4 and 4.5.",
+      "section_ref": "§5.2"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "support the work of the BREEAM assessor by issuing all required evidence and taking part in BREEAM meetings to ensure the target BREEAM rating is met.",
+      "section_ref": "Core Services §1.9"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Comply with the CDM Regulations.",
+      "section_ref": "§2.11"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "The designer shall ensure the proposals comply with the requirements of the Disability Discrimination Act.",
+      "section_ref": "Core Services §1.18"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "The Designer shall make available all drawn information in PDF and DWG format.",
+      "section_ref": "Core Services §1.19"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "comply with all of the requirements of the Clients Organisational Information Requirements for BIM and Employers Information Requirements for BIM",
+      "section_ref": "Core Services §1.2"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "8f44faec08ae7b1985b0bb0050bbe1719bcb33089e10520cd3a9ffb423639578",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

@@ -1,0 +1,1336 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Repairs and/or modification to metal items",
+      "description": "Repairs and/or modification to metal items such as railings, posts, single/double gates, chutes, balcony balustrade, fencing in communal spaces for Bristol City Council housing. Bidders must demonstrate delivery of similar projects in the last two years, including method statement, risk assessment, site safety plan for operatives and tenants, fire safety plan, and COSHH information on finishes used.",
+      "requirements": [
+        "Confirm delivery of repairs and/or modification to metal items such as railings, posts, single/double gates, chutes, balcony balustrade, fencing (Q 14.1)",
+        "Provide example in the last two years of repairs to metal railings and gates in a communal space, including method statement, risk assessment, site safety plan for operatives and tenants, fire safety plan, and COSHH information on finishes used (Q 14.2)",
+        "Meet all cross-lot selection criteria in Sections 1-13 (supplier details, insurance, finance, H&S, sustainability, equalities, disputes, blacklist, accreditations, general information, GDPR)",
+        "Hold suitable and current CSCS certification or equivalent for all operatives attending Bristol City Council sites (Q 11.1)",
+        "Provide customer care statement (Q 14.13)"
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Selection stage — Pass/Fail",
+          "summary": "Bidders must achieve the minimum selection criteria in Table A (Sections 1-15) to be admitted to the DPS. Consortium as a whole must achieve the selection criteria; failure by any consortium member in any 'all members must pass' section causes whole-consortium failure.",
+          "weighting_text": "Pass/Fail at DPS admission stage",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "Section 1 Selection Criteria (clauses 1.1-1.4)",
+            "anchor_text": "All bidders must achieve the minimum selection criteria in accordance within Table A below, to be admitted to the DPS."
+          }
+        },
+        {
+          "criterion": "Technical/Professional Capability (lot-specific) — Pass/Fail",
+          "summary": "Questions 14.1 (confirmation) and 14.2 (evidenced example of metal-item repair work in communal space in last two years) must be passed to qualify for Lot 1. Organisation/consortium aggregated must evidence similar delivered projects within the last two years.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "table-A-14.2",
+            "section_ref": "Table A row 14.2",
+            "anchor_text": "To pass the organisation / consortium aggregated together must provide evidence and demonstrate in the last two years, have delivered similar projects."
+          }
+        },
+        {
+          "criterion": "Call-off Award — Price (<£25,000 call-offs)",
+          "summary": "For call-offs valued below £25,000, Price is weighted 100%. Lowest lump sum bid scores 100; other bids scored via standard differential (100% minus percentage above lowest). Bids >100% over lowest score zero.",
+          "weighting_text": "Price 100% for call-offs below £25,000",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "Section 2 Award Criteria for Call-offs — Weighting Range table",
+            "anchor_text": "Weighting Range for call-offs with a value below £25,000 | Price | 100%"
+          }
+        },
+        {
+          "criterion": "Call-off Award — Price/Quality/Social Value (≥£25,000 call-offs)",
+          "summary": "For call-offs valued £25,000 or above, Price weighting 20%-80%, Quality 0%-60%, Social Value 20%. Exact weightings tailored in each ITT at call-off stage. Quality scored 0-5 using scoring matrix; scores of 0 or 1 on any quality question permit exclusion.",
+          "weighting_text": "Price 20%-80%, Quality 0%-60%, Social Value 20%",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "Section 2 Award Criteria for Call-offs — Weighting Range table",
+            "anchor_text": "Weighting Range for call-offs with a value of £25,000 or above | Price 20% - 80% | Quality 0% - 60% | Social Value 20%"
+          }
+        },
+        {
+          "criterion": "Tie-breaker",
+          "summary": "In the event of a tie between two or more bidders, the bidder with the highest social value score will be awarded the contract.",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "Section 2 — Tie Breaker",
+            "anchor_text": "In the event of a tie between two or more bidders, the bidder with the highest social value score will be awarded the contract."
+          }
+        }
+      ],
+      "cpv_codes": [
+        "44221300-8",
+        "44400000-4",
+        "45223100-7"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot1-metal-railings-gates-repair",
+          "summary": "Repairs and/or modification to metal railings, posts, single/double gates, and fencing in communal spaces",
+          "requirement_type": "repair_service",
+          "technical_attributes": [
+            "metal railings repair",
+            "metal posts repair",
+            "single/double gates repair/modification",
+            "fencing repair",
+            "communal-space installations"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.1",
+            "section_ref": "Table A row 14.1 (Lot 1)",
+            "anchor_text": "Please confirm you have carried out repairs and/or modification to metal items such as railings, posts, single/double gates, chutes, balcony balustrade, fencing"
+          }
+        },
+        {
+          "seed_key": "lot1-chute-balcony-balustrade-repair",
+          "summary": "Repairs and/or modification to metal chutes and balcony balustrades (cross-lot overlap with Lots 4 and 5)",
+          "requirement_type": "repair_service",
+          "technical_attributes": [
+            "refuse chute repair",
+            "balcony balustrade repair"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.1",
+            "section_ref": "Table A row 14.1 (Lot 1)",
+            "anchor_text": "chutes, balcony balustrade, fencing"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "CSCS (Construction Skills Certificate Scheme)",
+          "context": "All operatives attending Bristol City Council sites (including sub-contractors) must hold a suitable and current CSCS certification or equivalent (Q 11.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-11.1",
+            "section_ref": "Table A row 11.1",
+            "anchor_text": "all your employees that attend any Bristol City Council sites must hold a suitable and current Construction Skills Certificate Scheme (CSCS) certification or equivalent"
+          }
+        },
+        {
+          "standard_ref": "SSIP (Safety Schemes in Procurement)",
+          "context": "Construction-related scheme exemption evidence accepted if assessed within last 12 months by an SSIP member forum (Q 6.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-6.1",
+            "section_ref": "Table A row 6.1",
+            "anchor_text": "successfully met the assessment requirements of a construction-related scheme in registered membership of the Safety Schemes in Procurement (SSIP) forum"
+          }
+        },
+        {
+          "standard_ref": "Bribery Act 2011",
+          "context": "Bidders must confirm compliance with the Bribery Act in all contracts undertaken for Bristol City Council (Q 4.6).",
+          "evidence_anchor": {
+            "page_ref": "table-A-4.6",
+            "section_ref": "Table A row 4.6",
+            "anchor_text": "agree to be bound in all contracts undertaken for Bristol City Council, by conforming with the Bribery Act 2011"
+          }
+        },
+        {
+          "standard_ref": "Equalities Act 2010",
+          "context": "Bidders must evidence that they meet the requirements of the positive equality duties in relation to the Equalities Act 2010 (Q 8.1). Organisations with fewer than 5 employees not legally required to have an Equal Opportunities policy.",
+          "evidence_anchor": {
+            "page_ref": "table-A-8.1",
+            "section_ref": "Table A row 8.1",
+            "anchor_text": "evidence that they meet the requirements of the positive equality duties in relation to the Equalities Act 2010"
+          }
+        },
+        {
+          "standard_ref": "UK GDPR / Data Protection",
+          "context": "Bidders must confirm they have (or will have by contract award) the human and technical resources to comply with the General Data Protection Regulation and protect the rights of data subjects (Q 13.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-13.1",
+            "section_ref": "Table A row 13.1",
+            "anchor_text": "the human and technical resources to perform the contract to ensure compliance with the General Data Protection Regulation"
+          }
+        },
+        {
+          "standard_ref": "Employers Liability Insurance ≥ £10 million",
+          "context": "Minimum Employers Liability Insurance of not less than £10 million required (Q 4.1, 4.2).",
+          "evidence_anchor": {
+            "page_ref": "table-A-4.1",
+            "section_ref": "Table A row 4.1",
+            "anchor_text": "required level of Employers Liability being not less than £10 million"
+          }
+        },
+        {
+          "standard_ref": "Public Liability Insurance ≥ £5 million",
+          "context": "Minimum Public Liability Insurance of not less than £5 million required (Q 4.3, 4.4).",
+          "evidence_anchor": {
+            "page_ref": "table-A-4.3",
+            "section_ref": "Table A row 4.3",
+            "anchor_text": "required level of Public Liability being not less than £5 million"
+          }
+        },
+        {
+          "standard_ref": "Living Wage Foundation Rate",
+          "context": "Bidder must pay all staff engaged on the call-off at least the Living Wage Foundation Rate and reflect this in tender pricing (Q 12.1, 12.2).",
+          "evidence_anchor": {
+            "page_ref": "table-A-12.1",
+            "section_ref": "Table A row 12.1",
+            "anchor_text": "pay all staff engaged to work on the call-off contract at least the Living Wage Foundation Rate"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-lot-1-header",
+        "section_ref": "Section 14 Table A — Lot 1 header row",
+        "anchor_text": "Lot 1 | Repairs and/or modification to metal items"
+      }
+    },
+    {
+      "lot_number": "2",
+      "title": "Supply only or Supply and Installation of metal items",
+      "description": "Supply only, or supply and installation, of metal items such as railings, posts, single/double gates, fencing, handrails, park benches and bins. Includes both manufactured (off-the-shelf) and bespoke railings in communal areas and in single-street/multi-street campaigns.",
+      "requirements": [
+        "Confirm delivery of supply only, or supply and installation, of metal items such as railings, posts, single/double gates, fencing, handrails, park benches and bins (Q 14.3)",
+        "Provide example in last two years of work in communal areas installing manufactured railings: rationale for manufactured system, issues encountered, mitigation, site safety plan, residents/occupier information plan, risk and method statement (Q 14.4)",
+        "Provide example in last two years of work in communal areas installing bespoke railings: rationale for bespoke system, issues encountered, mitigation, site safety plan, residents/occupier information plan, risk and method statement (Q 14.5)",
+        "Provide example in last two years of installing gates, posts and railings across multiple properties in a single street or streets: resident communication, work programming, access/restriction management, public/resident H&S management (Q 14.6)",
+        "Meet all cross-lot selection criteria in Sections 1-13",
+        "Hold suitable and current CSCS certification or equivalent for all operatives attending Bristol City Council sites (Q 11.1)"
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Selection stage — Pass/Fail",
+          "summary": "Bidders must pass all DPS admission Pass/Fail selection criteria in Table A.",
+          "weighting_text": "Pass/Fail at DPS admission stage",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "Section 1 Selection Criteria",
+            "anchor_text": "All bidders must achieve the minimum selection criteria in accordance within Table A below, to be admitted to the DPS."
+          }
+        },
+        {
+          "criterion": "Technical/Professional Capability (lot-specific) — Pass/Fail",
+          "summary": "Questions 14.3 through 14.6 must be passed to qualify for Lot 2; organisation/consortium aggregated must evidence similar delivered projects within last two years across manufactured, bespoke, and multi-property street-level railing work.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "table-A-14.4",
+            "section_ref": "Table A rows 14.3-14.6",
+            "anchor_text": "To pass the organisation / consortium aggregated together must provide evidence and demonstrate in the last two years, have delivered similar projects."
+          }
+        },
+        {
+          "criterion": "Call-off Award — Price (<£25,000)",
+          "summary": "Price 100% for call-offs below £25,000.",
+          "weighting_text": "Price 100%",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "Section 2 Award Criteria — Weighting Range table",
+            "anchor_text": "Weighting Range for call-offs with a value below £25,000 | Price | 100%"
+          }
+        },
+        {
+          "criterion": "Call-off Award — Price/Quality/Social Value (≥£25,000)",
+          "summary": "Price 20%-80%, Quality 0%-60%, Social Value 20%. Exact weightings set at each ITT at call-off.",
+          "weighting_text": "Price 20%-80%, Quality 0%-60%, Social Value 20%",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "Section 2 Award Criteria — Weighting Range table",
+            "anchor_text": "Weighting Range for call-offs with a value of £25,000 or above | Price 20% - 80% | Quality 0% - 60% | Social Value 20%"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "44221300-8",
+        "44400000-4",
+        "45223100-7"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot2-manufactured-railings",
+          "summary": "Manufactured (catalogue/off-the-shelf) metal railings for communal areas",
+          "requirement_type": "supply_and_install_product",
+          "technical_attributes": [
+            "manufactured railing systems",
+            "communal-space installation",
+            "resident communication during works"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.4",
+            "section_ref": "Table A row 14.4 (Lot 2)",
+            "anchor_text": "please provide an example in the last two years of work you have completed in communal areas, where you installed manufactured railings"
+          }
+        },
+        {
+          "seed_key": "lot2-bespoke-railings",
+          "summary": "Bespoke (custom-designed) metal railings for communal areas",
+          "requirement_type": "supply_and_install_product",
+          "technical_attributes": [
+            "bespoke railing fabrication",
+            "communal-space installation",
+            "resident communication during works"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.5",
+            "section_ref": "Table A row 14.5 (Lot 2)",
+            "anchor_text": "you have installed bespoke railings"
+          }
+        },
+        {
+          "seed_key": "lot2-gates-posts-railings-multi-property",
+          "summary": "Gates, posts, and railings across multiple properties in a single street or streets (programmed street-level installation)",
+          "requirement_type": "supply_and_install_product",
+          "technical_attributes": [
+            "metal gates",
+            "metal posts",
+            "metal railings",
+            "multi-property programmed installation",
+            "access coordination"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.6",
+            "section_ref": "Table A row 14.6 (Lot 2)",
+            "anchor_text": "you were required to install gates, posts and railings to various properties in a single street or streets"
+          }
+        },
+        {
+          "seed_key": "lot2-handrails",
+          "summary": "Metal handrails (supply only, or supply and installation)",
+          "requirement_type": "supply_and_install_product",
+          "technical_attributes": [
+            "handrails"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.3",
+            "section_ref": "Table A row 14.3 (Lot 2)",
+            "anchor_text": "handrails, park benches and bin"
+          }
+        },
+        {
+          "seed_key": "lot2-park-benches",
+          "summary": "Metal park benches (supply only, or supply and installation)",
+          "requirement_type": "supply_and_install_product",
+          "technical_attributes": [
+            "park benches"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.3",
+            "section_ref": "Table A row 14.3 (Lot 2)",
+            "anchor_text": "handrails, park benches and bin"
+          }
+        },
+        {
+          "seed_key": "lot2-metal-bins",
+          "summary": "Metal bins (supply only, or supply and installation)",
+          "requirement_type": "supply_and_install_product",
+          "technical_attributes": [
+            "metal bins"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.3",
+            "section_ref": "Table A row 14.3 (Lot 2)",
+            "anchor_text": "handrails, park benches and bin"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "CSCS (Construction Skills Certificate Scheme)",
+          "context": "Required for all operatives (and sub-contractors) attending Bristol City Council sites (Q 11.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-11.1",
+            "section_ref": "Table A row 11.1",
+            "anchor_text": "a suitable and current Construction Skills Certificate Scheme (CSCS) certification or equivalent"
+          }
+        },
+        {
+          "standard_ref": "SSIP (Safety Schemes in Procurement)",
+          "context": "Construction-related scheme exemption evidence accepted if assessed within last 12 months (Q 6.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-6.1",
+            "section_ref": "Table A row 6.1",
+            "anchor_text": "registered membership of the Safety Schemes in Procurement (SSIP) forum"
+          }
+        },
+        {
+          "standard_ref": "Employers Liability Insurance ≥ £10 million",
+          "context": "Minimum Employers Liability cover required (Q 4.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-4.1",
+            "section_ref": "Table A row 4.1",
+            "anchor_text": "Employers Liability being not less than £10 million"
+          }
+        },
+        {
+          "standard_ref": "Public Liability Insurance ≥ £5 million",
+          "context": "Minimum Public Liability cover required (Q 4.3).",
+          "evidence_anchor": {
+            "page_ref": "table-A-4.3",
+            "section_ref": "Table A row 4.3",
+            "anchor_text": "Public Liability being not less than £5 million"
+          }
+        },
+        {
+          "standard_ref": "Living Wage Foundation Rate",
+          "context": "Required for all staff engaged on call-off contracts; must be reflected in pricing (Q 12.1, 12.2).",
+          "evidence_anchor": {
+            "page_ref": "table-A-12.1",
+            "section_ref": "Table A row 12.1",
+            "anchor_text": "pay all staff engaged to work on the call-off contract at least the Living Wage Foundation Rate"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-lot-2-header",
+        "section_ref": "Section 14 Table A — Lot 2 header row",
+        "anchor_text": "Lot 2 | Supply only or Supply and Installation of metal items"
+      }
+    },
+    {
+      "lot_number": "3",
+      "title": "Fabrication of bespoke metal work items",
+      "description": "Fabrication of bespoke metal work items, such as lockers for parking meters, water taps, signs, and specialist artwork. Bidders must evidence similar fabrication projects delivered in the last two years.",
+      "requirements": [
+        "Confirm delivery of fabrication of bespoke metal work items such as lockers for parking meters, water taps, specialist artwork (Q 14.7)",
+        "Provide example in last two years of fabrication of bespoke metal work items such as lockers for parking meters, water taps, specialist artwork (Q 14.8)",
+        "Meet all cross-lot selection criteria in Sections 1-13",
+        "Hold suitable and current CSCS certification or equivalent for all operatives (Q 11.1)"
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Selection stage — Pass/Fail",
+          "summary": "DPS admission Pass/Fail selection criteria in Table A.",
+          "weighting_text": "Pass/Fail at DPS admission stage",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "Section 1 Selection Criteria",
+            "anchor_text": "All bidders must achieve the minimum selection criteria in accordance within Table A below, to be admitted to the DPS."
+          }
+        },
+        {
+          "criterion": "Technical/Professional Capability (lot-specific) — Pass/Fail",
+          "summary": "Questions 14.7-14.8 must be passed to qualify for Lot 3; organisation/consortium aggregated must evidence similar fabrication projects in last two years.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "table-A-14.8",
+            "section_ref": "Table A row 14.8",
+            "anchor_text": "To pass the organisation / consortium aggregated together must provide evidence and demonstrate in the last two years, have delivered similar projects."
+          }
+        },
+        {
+          "criterion": "Call-off Award — Price (<£25,000)",
+          "summary": "Price 100% for call-offs below £25,000.",
+          "weighting_text": "Price 100%",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "Section 2 Award Criteria — Weighting Range table",
+            "anchor_text": "Weighting Range for call-offs with a value below £25,000 | Price | 100%"
+          }
+        },
+        {
+          "criterion": "Call-off Award — Price/Quality/Social Value (≥£25,000)",
+          "summary": "Price 20%-80%, Quality 0%-60%, Social Value 20%. Tailored per call-off ITT.",
+          "weighting_text": "Price 20%-80%, Quality 0%-60%, Social Value 20%",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "Section 2 Award Criteria — Weighting Range table",
+            "anchor_text": "Price 20% - 80% | Quality 0% - 60% | Social Value 20%"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "44400000-4",
+        "45223100-7"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot3-parking-meter-lockers",
+          "summary": "Bespoke fabricated lockers for parking meters",
+          "requirement_type": "fabricated_product",
+          "technical_attributes": [
+            "bespoke fabrication",
+            "parking meter enclosure/locker",
+            "outdoor street furniture"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.7",
+            "section_ref": "Table A row 14.7 (Lot 3)",
+            "anchor_text": "fabrication of bespoke metal work items, such as lockers for parking meters"
+          }
+        },
+        {
+          "seed_key": "lot3-water-taps",
+          "summary": "Bespoke fabricated metal water taps / tap housings",
+          "requirement_type": "fabricated_product",
+          "technical_attributes": [
+            "bespoke fabrication",
+            "metal water taps"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.7",
+            "section_ref": "Table A row 14.7 (Lot 3)",
+            "anchor_text": "water taps"
+          }
+        },
+        {
+          "seed_key": "lot3-bespoke-signs",
+          "summary": "Bespoke fabricated metal signs",
+          "requirement_type": "fabricated_product",
+          "technical_attributes": [
+            "bespoke fabrication",
+            "metal signage"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-lot-3-header",
+            "section_ref": "Section 14 Table A — Lot 3 header row",
+            "anchor_text": "such as lockers for parking meters, water taps, signs, specialist artwork"
+          }
+        },
+        {
+          "seed_key": "lot3-specialist-artwork",
+          "summary": "Specialist metal artwork (bespoke architectural / art pieces)",
+          "requirement_type": "fabricated_product",
+          "technical_attributes": [
+            "bespoke fabrication",
+            "specialist artwork",
+            "architectural metalwork"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.7",
+            "section_ref": "Table A row 14.7 (Lot 3)",
+            "anchor_text": "specialist artwork"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "CSCS (Construction Skills Certificate Scheme)",
+          "context": "Required for all operatives on Bristol City Council sites (Q 11.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-11.1",
+            "section_ref": "Table A row 11.1",
+            "anchor_text": "Construction Skills Certificate Scheme (CSCS) certification or equivalent"
+          }
+        },
+        {
+          "standard_ref": "SSIP (Safety Schemes in Procurement)",
+          "context": "Accepted as exemption evidence where assessed within last 12 months (Q 6.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-6.1",
+            "section_ref": "Table A row 6.1",
+            "anchor_text": "Safety Schemes in Procurement (SSIP) forum"
+          }
+        },
+        {
+          "standard_ref": "Employers Liability Insurance ≥ £10 million",
+          "context": "Minimum Employers Liability cover required (Q 4.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-4.1",
+            "section_ref": "Table A row 4.1",
+            "anchor_text": "Employers Liability being not less than £10 million"
+          }
+        },
+        {
+          "standard_ref": "Public Liability Insurance ≥ £5 million",
+          "context": "Minimum Public Liability cover required (Q 4.3).",
+          "evidence_anchor": {
+            "page_ref": "table-A-4.3",
+            "section_ref": "Table A row 4.3",
+            "anchor_text": "Public Liability being not less than £5 million"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-lot-3-header",
+        "section_ref": "Section 14 Table A — Lot 3 header row",
+        "anchor_text": "Lot 3 | Fabrication of bespoke metal work items, such as lockers for parking meters, water taps, signs, specialist artwork"
+      }
+    },
+    {
+      "lot_number": "4",
+      "title": "Repair or Replace balcony balustrades",
+      "description": "Repair or replacement of balcony balustrades, including hot works and working-at-height precautions. Bidders must provide risk assessment, method statement, details of hot-works procedures, and the temporary fire prevention plan for the duration of works.",
+      "requirements": [
+        "Confirm delivery of repairs or replacement of balcony balustrades (Q 14.9)",
+        "Provide example in last two years of repair/replacement of a balcony balustrade, including working-at-height precautions, access details, occupier information, risk assessment, method statement, hot-works procedures, and temporary fire prevention plan (Q 14.10)",
+        "Meet all cross-lot selection criteria in Sections 1-13",
+        "Hold suitable and current CSCS certification or equivalent for all operatives (Q 11.1)"
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Selection stage — Pass/Fail",
+          "summary": "DPS admission Pass/Fail selection criteria in Table A.",
+          "weighting_text": "Pass/Fail at DPS admission stage",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "Section 1 Selection Criteria",
+            "anchor_text": "All bidders must achieve the minimum selection criteria in accordance within Table A below"
+          }
+        },
+        {
+          "criterion": "Technical/Professional Capability (lot-specific) — Pass/Fail",
+          "summary": "Questions 14.9-14.10 must be passed to qualify for Lot 4; organisation/consortium aggregated must evidence similar delivered balustrade repair/replacement projects in last two years, including work-at-height and hot-works safety documentation.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "table-A-14.10",
+            "section_ref": "Table A row 14.10",
+            "anchor_text": "provide detail of precautions you had to take when working at height, include details of how you accessed the work"
+          }
+        },
+        {
+          "criterion": "Call-off Award — Price (<£25,000)",
+          "summary": "Price 100% for call-offs below £25,000.",
+          "weighting_text": "Price 100%",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "Section 2 Award Criteria — Weighting Range table",
+            "anchor_text": "call-offs with a value below £25,000 | Price | 100%"
+          }
+        },
+        {
+          "criterion": "Call-off Award — Price/Quality/Social Value (≥£25,000)",
+          "summary": "Price 20%-80%, Quality 0%-60%, Social Value 20%.",
+          "weighting_text": "Price 20%-80%, Quality 0%-60%, Social Value 20%",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "Section 2 Award Criteria — Weighting Range table",
+            "anchor_text": "Price 20% - 80% | Quality 0% - 60% | Social Value 20%"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "44221300-8",
+        "44400000-4",
+        "45223100-7"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot4-balcony-balustrade-repair",
+          "summary": "Repair of existing metal balcony balustrades",
+          "requirement_type": "repair_service",
+          "technical_attributes": [
+            "balcony balustrade",
+            "working at height",
+            "hot works",
+            "temporary fire prevention plan"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.9",
+            "section_ref": "Table A row 14.9 (Lot 4)",
+            "anchor_text": "Please confirm you have carried out repairs or replaced balcony balustrades"
+          }
+        },
+        {
+          "seed_key": "lot4-balcony-balustrade-replacement",
+          "summary": "Replacement of metal balcony balustrades",
+          "requirement_type": "supply_and_install_product",
+          "technical_attributes": [
+            "balcony balustrade replacement",
+            "working at height access",
+            "hot works management"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.10",
+            "section_ref": "Table A row 14.10 (Lot 4)",
+            "anchor_text": "repair or replace a balcony balustrade"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "CSCS (Construction Skills Certificate Scheme)",
+          "context": "Required for all operatives on Bristol City Council sites (Q 11.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-11.1",
+            "section_ref": "Table A row 11.1",
+            "anchor_text": "Construction Skills Certificate Scheme (CSCS) certification or equivalent"
+          }
+        },
+        {
+          "standard_ref": "SSIP (Safety Schemes in Procurement)",
+          "context": "Construction-related scheme exemption (Q 6.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-6.1",
+            "section_ref": "Table A row 6.1",
+            "anchor_text": "Safety Schemes in Procurement (SSIP) forum"
+          }
+        },
+        {
+          "standard_ref": "Hot Works Procedure + Temporary Fire Prevention Plan",
+          "context": "Lot 4 explicitly requires a risk assessment and method statement with details on undertaking hot works and the temporary fire prevention plan put in place for the duration of works (Q 14.10).",
+          "evidence_anchor": {
+            "page_ref": "table-A-14.10",
+            "section_ref": "Table A row 14.10",
+            "anchor_text": "risk assessment and method statement with details about the undertaking of hot works and the temporary fire prevention plan to be put in place for the duration of these works"
+          }
+        },
+        {
+          "standard_ref": "Employers Liability Insurance ≥ £10 million",
+          "context": "Minimum Employers Liability cover required (Q 4.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-4.1",
+            "section_ref": "Table A row 4.1",
+            "anchor_text": "Employers Liability being not less than £10 million"
+          }
+        },
+        {
+          "standard_ref": "Public Liability Insurance ≥ £5 million",
+          "context": "Minimum Public Liability cover required (Q 4.3).",
+          "evidence_anchor": {
+            "page_ref": "table-A-4.3",
+            "section_ref": "Table A row 4.3",
+            "anchor_text": "Public Liability being not less than £5 million"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-lot-4-header",
+        "section_ref": "Section 14 Table A — Lot 4 header row",
+        "anchor_text": "Lot 4 | Repair or Replace balcony balustrades"
+      }
+    },
+    {
+      "lot_number": "5",
+      "title": "Chute Repairs",
+      "description": "On-site repairs to refuse chutes, in particular closure plates at the bottom end of the chute. Chutes form part of the fire prevention system, so timely response and completion times are required. Bidders must evidence risk assessment, site safety plan, hot-works methodology, chute make-inoperable procedure, and temporary fire prevention plan, along with stated initial response time and task completion time.",
+      "requirements": [
+        "Confirm delivery of chute repairs (Q 14.11)",
+        "Provide example in last two years of on-site chute repairs (especially to closure plates at bottom of chute), with methodology to render the chute inoperable while under repair, risk assessment, site safety plan, method statement, hot-works procedures, and temporary fire prevention plan (Q 14.12)",
+        "State initial response time and task completion time (Q 14.12)",
+        "Meet all cross-lot selection criteria in Sections 1-13",
+        "Hold suitable and current CSCS certification or equivalent for all operatives (Q 11.1)"
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Selection stage — Pass/Fail",
+          "summary": "DPS admission Pass/Fail selection criteria in Table A.",
+          "weighting_text": "Pass/Fail at DPS admission stage",
+          "evidence_anchor": {
+            "page_ref": "section-1",
+            "section_ref": "Section 1 Selection Criteria",
+            "anchor_text": "All bidders must achieve the minimum selection criteria in accordance within Table A below"
+          }
+        },
+        {
+          "criterion": "Technical/Professional Capability (lot-specific) — Pass/Fail",
+          "summary": "Questions 14.11-14.12 must be passed. Lot 5 explicitly requires stated response/completion times given the fire-prevention role of the chute.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "table-A-14.12",
+            "section_ref": "Table A row 14.12",
+            "anchor_text": "The chutes form part of the fire prevention system and timely response would be required, please state your initial response time and completion of task time."
+          }
+        },
+        {
+          "criterion": "Call-off Award — Price (<£25,000)",
+          "summary": "Price 100% for call-offs below £25,000.",
+          "weighting_text": "Price 100%",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "Section 2 Award Criteria — Weighting Range table",
+            "anchor_text": "call-offs with a value below £25,000 | Price | 100%"
+          }
+        },
+        {
+          "criterion": "Call-off Award — Price/Quality/Social Value (≥£25,000)",
+          "summary": "Price 20%-80%, Quality 0%-60%, Social Value 20%.",
+          "weighting_text": "Price 20%-80%, Quality 0%-60%, Social Value 20%",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "Section 2 Award Criteria — Weighting Range table",
+            "anchor_text": "Price 20% - 80% | Quality 0% - 60% | Social Value 20%"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "44400000-4",
+        "45223100-7"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot5-chute-repair",
+          "summary": "On-site repairs to refuse chutes (general)",
+          "requirement_type": "repair_service",
+          "technical_attributes": [
+            "refuse chute repair",
+            "on-site repair",
+            "fire-prevention-system component",
+            "SLA-driven response/completion times"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.11",
+            "section_ref": "Table A row 14.11 (Lot 5)",
+            "anchor_text": "Please confirm you have carried out chute repairs"
+          }
+        },
+        {
+          "seed_key": "lot5-chute-closure-plates",
+          "summary": "Repair of chute closure plates at bottom end of chute",
+          "requirement_type": "repair_service",
+          "technical_attributes": [
+            "chute closure plates",
+            "hot works",
+            "chute-inoperable methodology",
+            "temporary fire prevention plan"
+          ],
+          "evidence_anchor": {
+            "page_ref": "table-A-14.12",
+            "section_ref": "Table A row 14.12 (Lot 5)",
+            "anchor_text": "onsite repairs to chutes and in particular the closure plates at the bottom end of the chute"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "CSCS (Construction Skills Certificate Scheme)",
+          "context": "Required for all operatives on Bristol City Council sites (Q 11.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-11.1",
+            "section_ref": "Table A row 11.1",
+            "anchor_text": "Construction Skills Certificate Scheme (CSCS) certification or equivalent"
+          }
+        },
+        {
+          "standard_ref": "SSIP (Safety Schemes in Procurement)",
+          "context": "Construction-related scheme exemption (Q 6.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-6.1",
+            "section_ref": "Table A row 6.1",
+            "anchor_text": "Safety Schemes in Procurement (SSIP) forum"
+          }
+        },
+        {
+          "standard_ref": "Hot Works Procedure + Temporary Fire Prevention Plan",
+          "context": "Lot 5 explicitly requires risk assessment, site safety plan, method statement with details about hot works and the temporary fire prevention plan for the duration of the works. Chutes are part of the fire prevention system (Q 14.12).",
+          "evidence_anchor": {
+            "page_ref": "table-A-14.12",
+            "section_ref": "Table A row 14.12",
+            "anchor_text": "details about the undertaking of hot works and the temporary for prevention plan to be put in place for the duration of these works"
+          }
+        },
+        {
+          "standard_ref": "Employers Liability Insurance ≥ £10 million",
+          "context": "Minimum Employers Liability cover required (Q 4.1).",
+          "evidence_anchor": {
+            "page_ref": "table-A-4.1",
+            "section_ref": "Table A row 4.1",
+            "anchor_text": "Employers Liability being not less than £10 million"
+          }
+        },
+        {
+          "standard_ref": "Public Liability Insurance ≥ £5 million",
+          "context": "Minimum Public Liability cover required (Q 4.3).",
+          "evidence_anchor": {
+            "page_ref": "table-A-4.3",
+            "section_ref": "Table A row 4.3",
+            "anchor_text": "Public Liability being not less than £5 million"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-lot-5-header",
+        "section_ref": "Section 14 Table A — Lot 5 header row",
+        "anchor_text": "Lot 5 | Chute Repairs"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot1-metal-railings-gates-repair",
+      "lot_number": "1",
+      "candidate_name": "Metal railings / gates / fencing — repair and modification service (communal space)",
+      "summary": "Repair and modification service for metal railings, posts, single/double gates, and fencing in communal housing spaces.",
+      "requirements": [
+        "Experience delivering similar projects in last two years",
+        "Method statement, risk assessment, site safety plan, fire safety plan, COSHH information on finishes"
+      ],
+      "technical_standards": [
+        "CSCS certification for operatives",
+        "SSIP scheme (exemption path)",
+        "Employers Liability ≥ £10M",
+        "Public Liability ≥ £5M"
+      ],
+      "cpv_codes": [
+        "44221300-8",
+        "44400000-4",
+        "45223100-7"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.1",
+        "section_ref": "Table A row 14.1 (Lot 1)",
+        "anchor_text": "repairs and/or modification to metal items such as railings, posts, single/double gates, chutes, balcony balustrade, fencing"
+      }
+    },
+    {
+      "seed_key": "lot1-chute-balcony-balustrade-repair",
+      "lot_number": "1",
+      "candidate_name": "Chute / balcony balustrade — general repair under Lot 1 scope",
+      "summary": "Chute and balcony balustrade repair as part of general metal-items repair scope under Lot 1 (overlap with Lots 4 and 5).",
+      "requirements": [
+        "Method statement, risk assessment, fire safety plan for communal-space works"
+      ],
+      "technical_standards": [
+        "CSCS certification",
+        "SSIP (exemption path)"
+      ],
+      "cpv_codes": [
+        "44400000-4",
+        "45223100-7"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.1",
+        "section_ref": "Table A row 14.1 (Lot 1)",
+        "anchor_text": "chutes, balcony balustrade, fencing"
+      }
+    },
+    {
+      "seed_key": "lot2-manufactured-railings",
+      "lot_number": "2",
+      "candidate_name": "Manufactured metal railings — supply and installation",
+      "summary": "Supply and installation of manufactured (catalogue/off-the-shelf) metal railings for communal areas.",
+      "requirements": [
+        "Evidence of installed manufactured railing system in last two years",
+        "Site safety plan, residents/occupier information plan, risk assessment, method statement"
+      ],
+      "technical_standards": [
+        "CSCS certification",
+        "Employers Liability ≥ £10M",
+        "Public Liability ≥ £5M"
+      ],
+      "cpv_codes": [
+        "44221300-8",
+        "44400000-4",
+        "45223100-7"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.4",
+        "section_ref": "Table A row 14.4 (Lot 2)",
+        "anchor_text": "you installed manufactured railings"
+      }
+    },
+    {
+      "seed_key": "lot2-bespoke-railings",
+      "lot_number": "2",
+      "candidate_name": "Bespoke metal railings — supply and installation",
+      "summary": "Supply and installation of bespoke (custom-designed) metal railings for communal areas.",
+      "requirements": [
+        "Evidence of bespoke railing installation in last two years",
+        "Rationale for bespoke approach, issues encountered and mitigation"
+      ],
+      "technical_standards": [
+        "CSCS certification",
+        "Employers Liability ≥ £10M",
+        "Public Liability ≥ £5M"
+      ],
+      "cpv_codes": [
+        "44221300-8",
+        "44400000-4",
+        "45223100-7"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.5",
+        "section_ref": "Table A row 14.5 (Lot 2)",
+        "anchor_text": "you have installed bespoke railings"
+      }
+    },
+    {
+      "seed_key": "lot2-gates-posts-railings-multi-property",
+      "lot_number": "2",
+      "candidate_name": "Gates, posts, and railings — multi-property street-level installation",
+      "summary": "Installation of gates, posts, and railings across multiple properties in single or multiple streets, with programmed communication, access management, and public/resident H&S.",
+      "requirements": [
+        "Evidence of similar multi-property programmed work in last two years",
+        "Resident communication and access/restriction management"
+      ],
+      "technical_standards": [
+        "CSCS certification",
+        "Employers Liability ≥ £10M",
+        "Public Liability ≥ £5M"
+      ],
+      "cpv_codes": [
+        "44221300-8",
+        "45223100-7"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.6",
+        "section_ref": "Table A row 14.6 (Lot 2)",
+        "anchor_text": "install gates, posts and railings to various properties in a single street or streets"
+      }
+    },
+    {
+      "seed_key": "lot2-handrails",
+      "lot_number": "2",
+      "candidate_name": "Metal handrails — supply only or supply and install",
+      "summary": "Metal handrails supplied only or supplied and installed.",
+      "requirements": [
+        "Part of Lot 2 scope confirmation (Q 14.3)"
+      ],
+      "technical_standards": [
+        "CSCS certification"
+      ],
+      "cpv_codes": [
+        "44400000-4"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.3",
+        "section_ref": "Table A row 14.3 (Lot 2)",
+        "anchor_text": "handrails, park benches and bin"
+      }
+    },
+    {
+      "seed_key": "lot2-park-benches",
+      "lot_number": "2",
+      "candidate_name": "Metal park benches — supply only or supply and install",
+      "summary": "Metal park benches supplied only or supplied and installed.",
+      "requirements": [
+        "Part of Lot 2 scope confirmation (Q 14.3)"
+      ],
+      "technical_standards": [
+        "CSCS certification"
+      ],
+      "cpv_codes": [
+        "44400000-4"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.3",
+        "section_ref": "Table A row 14.3 (Lot 2)",
+        "anchor_text": "park benches"
+      }
+    },
+    {
+      "seed_key": "lot2-metal-bins",
+      "lot_number": "2",
+      "candidate_name": "Metal bins — supply only or supply and install",
+      "summary": "Metal bins supplied only or supplied and installed.",
+      "requirements": [
+        "Part of Lot 2 scope confirmation (Q 14.3)"
+      ],
+      "technical_standards": [
+        "CSCS certification"
+      ],
+      "cpv_codes": [
+        "44400000-4"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.3",
+        "section_ref": "Table A row 14.3 (Lot 2)",
+        "anchor_text": "park benches and bin"
+      }
+    },
+    {
+      "seed_key": "lot3-parking-meter-lockers",
+      "lot_number": "3",
+      "candidate_name": "Bespoke metal lockers for parking meters",
+      "summary": "Bespoke fabricated metal lockers / enclosures for parking meters.",
+      "requirements": [
+        "Evidence of fabrication of bespoke metal work items in last two years (Q 14.8)"
+      ],
+      "technical_standards": [
+        "CSCS certification",
+        "SSIP (exemption path)"
+      ],
+      "cpv_codes": [
+        "44400000-4",
+        "45223100-7"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.7",
+        "section_ref": "Table A row 14.7 (Lot 3)",
+        "anchor_text": "lockers for parking meters"
+      }
+    },
+    {
+      "seed_key": "lot3-water-taps",
+      "lot_number": "3",
+      "candidate_name": "Bespoke metal water tap housings",
+      "summary": "Bespoke fabricated metal water taps / tap housings.",
+      "requirements": [
+        "Evidence of bespoke metal fabrication in last two years"
+      ],
+      "technical_standards": [
+        "CSCS certification"
+      ],
+      "cpv_codes": [
+        "44400000-4"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.7",
+        "section_ref": "Table A row 14.7 (Lot 3)",
+        "anchor_text": "water taps"
+      }
+    },
+    {
+      "seed_key": "lot3-bespoke-signs",
+      "lot_number": "3",
+      "candidate_name": "Bespoke metal signs",
+      "summary": "Bespoke fabricated metal signage (appears in Lot 3 header row; not repeated in Q 14.7 narrative).",
+      "requirements": [
+        "Evidence of bespoke metal fabrication in last two years"
+      ],
+      "technical_standards": [
+        "CSCS certification"
+      ],
+      "cpv_codes": [
+        "44400000-4"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-lot-3-header",
+        "section_ref": "Section 14 Table A — Lot 3 header row",
+        "anchor_text": "Fabrication of bespoke metal work items, such as lockers for parking meters, water taps, signs, specialist artwork"
+      }
+    },
+    {
+      "seed_key": "lot3-specialist-artwork",
+      "lot_number": "3",
+      "candidate_name": "Specialist metal artwork",
+      "summary": "Bespoke specialist metalwork / architectural art pieces.",
+      "requirements": [
+        "Evidence of bespoke fabrication delivery in last two years"
+      ],
+      "technical_standards": [
+        "CSCS certification"
+      ],
+      "cpv_codes": [
+        "44400000-4"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.7",
+        "section_ref": "Table A row 14.7 (Lot 3)",
+        "anchor_text": "specialist artwork"
+      }
+    },
+    {
+      "seed_key": "lot4-balcony-balustrade-repair",
+      "lot_number": "4",
+      "candidate_name": "Balcony balustrade repair",
+      "summary": "Repair service for metal balcony balustrades with working-at-height, hot-works, and temporary fire prevention controls.",
+      "requirements": [
+        "Evidence of repair in last two years (Q 14.10)",
+        "Working-at-height precautions, occupier information, risk assessment, method statement",
+        "Hot-works procedure, temporary fire prevention plan"
+      ],
+      "technical_standards": [
+        "CSCS certification",
+        "SSIP (exemption path)",
+        "Hot works procedure + temporary fire prevention plan",
+        "Employers Liability ≥ £10M",
+        "Public Liability ≥ £5M"
+      ],
+      "cpv_codes": [
+        "44221300-8",
+        "44400000-4",
+        "45223100-7"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.9",
+        "section_ref": "Table A row 14.9 (Lot 4)",
+        "anchor_text": "repairs or replaced balcony balustrades"
+      }
+    },
+    {
+      "seed_key": "lot4-balcony-balustrade-replacement",
+      "lot_number": "4",
+      "candidate_name": "Balcony balustrade replacement",
+      "summary": "Full replacement of metal balcony balustrades with working-at-height, hot-works, and temporary fire prevention controls.",
+      "requirements": [
+        "Evidence of replacement in last two years (Q 14.10)"
+      ],
+      "technical_standards": [
+        "CSCS certification",
+        "Hot works procedure + temporary fire prevention plan",
+        "Employers Liability ≥ £10M",
+        "Public Liability ≥ £5M"
+      ],
+      "cpv_codes": [
+        "44221300-8",
+        "45223100-7"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.10",
+        "section_ref": "Table A row 14.10 (Lot 4)",
+        "anchor_text": "repair or replace a balcony balustrade"
+      }
+    },
+    {
+      "seed_key": "lot5-chute-repair",
+      "lot_number": "5",
+      "candidate_name": "Refuse chute on-site repair",
+      "summary": "On-site refuse chute repair with SLA-driven initial response and completion-of-task times.",
+      "requirements": [
+        "Evidence of chute repairs in last two years (Q 14.12)",
+        "Stated initial response time and completion time"
+      ],
+      "technical_standards": [
+        "CSCS certification",
+        "SSIP (exemption path)",
+        "Employers Liability ≥ £10M",
+        "Public Liability ≥ £5M"
+      ],
+      "cpv_codes": [
+        "44400000-4",
+        "45223100-7"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.11",
+        "section_ref": "Table A row 14.11 (Lot 5)",
+        "anchor_text": "Please confirm you have carried out chute repairs"
+      }
+    },
+    {
+      "seed_key": "lot5-chute-closure-plates",
+      "lot_number": "5",
+      "candidate_name": "Refuse chute closure plate repair",
+      "summary": "Repair of chute closure plates at bottom end of chute, including chute-inoperable methodology and hot-works/fire prevention controls.",
+      "requirements": [
+        "Methodology to render chute inoperable while under repair",
+        "Risk assessment, site safety plan, method statement",
+        "Hot-works procedures, temporary fire prevention plan"
+      ],
+      "technical_standards": [
+        "CSCS certification",
+        "Hot works procedure + temporary fire prevention plan"
+      ],
+      "cpv_codes": [
+        "44400000-4",
+        "45223100-7"
+      ],
+      "evidence_anchor": {
+        "page_ref": "table-A-14.12",
+        "section_ref": "Table A row 14.12 (Lot 5)",
+        "anchor_text": "onsite repairs to chutes and in particular the closure plates at the bottom end of the chute"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 9500,
+    "lots.description": 9000,
+    "lots.requirements": 8500,
+    "lots.evaluation_criteria": 8800,
+    "lots.cpv_codes": 5500,
+    "lots.product_requirements": 7500,
+    "lots.technical_standards": 8500,
+    "product_requirement_seeds": 7500,
+    "extraction_metadata": 9800
+  },
+  "extraction_confidence_bps": 8200,
+  "warnings": [
+    {
+      "code": "CPV_INFERRED_FROM_PROCESS_CONTEXT",
+      "message": "Document contains no explicit per-lot CPV codes. CPVs (44221300-8 Gates, 44400000-4 Miscellaneous fabricated products, 45223100-7 Assembly of metal structures) were attached from the notice main_category and mapped to lots by relevance (gates CPV excluded from Lot 3 fabrication-only and Lot 5 chute-only where it did not fit).",
+      "evidence_refs": [
+        "notice-pc-7e2a6fb2-67a3-f011-813a-005056b64545.main_category",
+        "table-A-lot-1-header",
+        "table-A-lot-2-header",
+        "table-A-lot-3-header",
+        "table-A-lot-4-header",
+        "table-A-lot-5-header"
+      ]
+    },
+    {
+      "code": "PAGE_REF_SECTION_BASED",
+      "message": "Docling extraction returned page_count=0 for this document (Word-sourced .docx); page_ref values use section/table-row references instead of page numbers.",
+      "evidence_refs": [
+        "document_extractions.page_count=0"
+      ]
+    },
+    {
+      "code": "NOTICE_LOT_METADATA_INCOMPLETE",
+      "message": "Notice summary enumerates only Lots 1-3 for the Metal Works DPS, but Appendix 1 Evaluation Criteria explicitly defines five lots (1-5). Per the skill's input rules, the document is treated as authoritative over notice metadata.",
+      "evidence_refs": [
+        "contract_notices.summary",
+        "table-A-lot-4-header",
+        "table-A-lot-5-header"
+      ]
+    },
+    {
+      "code": "PRODUCT_SPEC_ABSTRACTION_LEVEL",
+      "message": "This Appendix 1 is an evaluation-criteria document, not a product specification. product_requirement_seeds capture categories of items (e.g. 'bespoke signs', 'handrails') mentioned in lot descriptions, without dimensional/material/finish attributes. Downstream product-matching must treat these as generic category seeds, not SKU-level requirements.",
+      "evidence_refs": [
+        "section-14",
+        "table-A-14.3",
+        "table-A-14.7"
+      ]
+    },
+    {
+      "code": "SOCIAL_VALUE_APPENDIX_REFERENCED_BUT_NOT_EMBEDDED",
+      "message": "Section 2 Award Criteria states 'A separate appendix will be provided which will set out the evaluation approach to Social Value.' That Social Value appendix is not present in this document; Social Value is modelled here only as a 20% award-criterion weighting.",
+      "evidence_refs": [
+        "section-2-marks-for-social-value"
+      ]
+    },
+    {
+      "code": "CALL_OFF_WEIGHTINGS_ARE_RANGES",
+      "message": "Award-criteria weightings for ≥£25,000 call-offs are expressed as ranges (Price 20-80%, Quality 0-60%, Social Value 20%); exact weightings are tailored per individual ITT at call-off stage.",
+      "evidence_refs": [
+        "section-2-weighting-range-table"
+      ]
+    },
+    {
+      "code": "SELECTION_CRITERIA_DOCUMENT_TYPE",
+      "message": "Document is primarily selection/award criteria for DPS admission. It is marked document_role=technical_specification upstream; caller should be aware that detailed product/technical attributes expected of a 'tender specification' are absent here — this is an evaluation-criteria appendix.",
+      "evidence_refs": [
+        "appendix-1-title",
+        "document_extractions.document_role"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "appendix-1-title",
+      "section_ref": "Document heading",
+      "anchor_text": "APPENDIX 1: EVALUATION CRITERIA"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "Section 1 Selection Criteria",
+      "anchor_text": "All bidders must achieve the minimum selection criteria in accordance within Table A below, to be admitted to the DPS."
+    },
+    {
+      "page_ref": "section-14",
+      "section_ref": "Section 14 Organisational Technical and/or Professional Capability",
+      "anchor_text": "Organisational Technical and/or Professional Capability — If not applying for a LOT, please state N/A"
+    },
+    {
+      "page_ref": "table-A-lot-1-header",
+      "section_ref": "Section 14 Table A — Lot 1 header row",
+      "anchor_text": "Lot 1 | Repairs and/or modification to metal items"
+    },
+    {
+      "page_ref": "table-A-lot-2-header",
+      "section_ref": "Section 14 Table A — Lot 2 header row",
+      "anchor_text": "Lot 2 | Supply only or Supply and Installation of metal items"
+    },
+    {
+      "page_ref": "table-A-lot-3-header",
+      "section_ref": "Section 14 Table A — Lot 3 header row",
+      "anchor_text": "Lot 3 | Fabrication of bespoke metal work items, such as lockers for parking meters, water taps, signs, specialist artwork"
+    },
+    {
+      "page_ref": "table-A-lot-4-header",
+      "section_ref": "Section 14 Table A — Lot 4 header row",
+      "anchor_text": "Lot 4 | Repair or Replace balcony balustrades"
+    },
+    {
+      "page_ref": "table-A-lot-5-header",
+      "section_ref": "Section 14 Table A — Lot 5 header row",
+      "anchor_text": "Lot 5 | Chute Repairs"
+    },
+    {
+      "page_ref": "section-2",
+      "section_ref": "Section 2 Award Criteria for Call-offs",
+      "anchor_text": "The award criteria at call-off will be in accordance with the evaluation criteria range set out below"
+    },
+    {
+      "page_ref": "section-2-scoring-matrix",
+      "section_ref": "Section 2 — Scoring Matrix",
+      "anchor_text": "Scoring Matrix — Scores 0-5 — Unacceptable/Serious reservations/Minor reservations/Satisfactory/Good/Excellent"
+    },
+    {
+      "page_ref": "financial-standing",
+      "section_ref": "Financial Standing Appraisal",
+      "anchor_text": "Low risk — Pass | Medium Risk — Pass | High Risk — Fail"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "f5282135b275a8f484f5fba4899bff23c468bcf52566efb3c8db853d5bff1beb",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

@@ -1,0 +1,246 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Stockport Town Centre School \u2013 Multi-disciplinary Design Team Appointment",
+      "description": "Appointment of a multi-disciplinary design team for contract reference 020417 (Stockport Town Centre School). The procurement is being run under a Competitive Flexible Procedure by Stockport Metropolitan Borough Council. The PSQ Stage 1 response template refers to roles covering Architecture, M&E, Structures & Civils, BR Principal Designer and CDM Principal Designer, as named within Question 20 (Workforce and Resources). Detailed scope is held in the separately referenced Specification (Document 2) rather than within this response template.",
+      "requirements": [
+        "Suppliers must be registered on the Central Digital Platform (CDP) and provide their unique identifier at the Preliminary Questions stage.",
+        "Suppliers must submit up-to-date core supplier information on the CDP (basic, economic and financial standing, connected person, and exclusion grounds information) and share it with the Council via the CDP PDF download.",
+        "Suppliers must confirm whether they are bidding as a single supplier or as part of a group/consortium and, where applicable, disclose the structure and lead member of the consortium.",
+        "Suppliers must self-certify against the Part 2 and Part 3A exclusion grounds; suppliers who do not meet the requirements will be excluded.",
+        "Suppliers must confirm whether they appear on the Debarment list.",
+        "Economic and financial standing is assessed using the information in Part 1 together with a Company Watch Credit Report; where the Credit Score is 24 or below or no report is available, the Council will undertake further due diligence and may exclude the bidder.",
+        "Suppliers must have in place (or in place by contract award) the human and technical resources to comply with UK General Data Protection Regulation and to protect the rights of data subjects (Q18).",
+        "Suppliers must confirm Procurement Act 2023-aligned payment practices, including 30-day payment terms passed down through the supply chain (Q25)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Relevant experience and contract examples",
+          "summary": "Scored 0-6 Technical Ability question weighted at 35%. Suppliers must describe experience of designing and delivering school projects on complex, constrained and urban sites (max 500 words) and provide three case studies, each with a 250-word narrative plus a single A4 sheet, to support that response.",
+          "weighting_text": "35%",
+          "evidence_anchor": {
+            "anchor_text": "Relevant experience and contract examples (35%) Part 1: Describe your experience of designing and delivering school projects on complex, constrained and urban sites.",
+            "page_ref": "p.unknown",
+            "section_ref": "Part 3B Technical Ability (Scored 0-6) / Q19"
+          }
+        },
+        {
+          "criterion": "Workforce and Resources",
+          "summary": "Scored 0-6 Technical Ability question weighted at 35%. Suppliers must name each member of the proposed multidisciplinary team (Architecture, M&E, Structures & Civils, BR Principal Designer and CDM Principal Designer), describe team structure, roles and responsibilities, explain alignment of skills and experience with project needs, and provide a single-A4 CV for the key person leading each discipline (maximum of 5 CVs).",
+          "weighting_text": "35%",
+          "evidence_anchor": {
+            "anchor_text": "Workforce and Resources (35%) Part 1: Please name each member of the proposed multidisciplinary team (company, practice etc) covering each of the roles outlined in the Stage 1 tender documents (Architecture, M&E, Structures & Civils, BR PD & CDM PD).",
+            "page_ref": "p.unknown",
+            "section_ref": "Part 3B Technical Ability (Scored 0-6) / Q20"
+          }
+        },
+        {
+          "criterion": "Funding Model Approach",
+          "summary": "Scored 0-6 Technical Ability question weighted at 30%. Suppliers must describe the proposed approach to developing and supporting a viable funding model for the Town Centre School project, covering financial challenges and opportunities, how they will work with the client team to explore and evaluate funding options (public funding streams, grants, phased delivery, partnerships, value-engineering), and their methodology for ensuring affordability through cost planning, risk management and lifecycle considerations (max 500 words).",
+          "weighting_text": "30%",
+          "evidence_anchor": {
+            "anchor_text": "Funding Model Approach (30%) Please describe your proposed approach to developing and supporting a viable funding model for the Town Centre School project.",
+            "page_ref": "p.unknown",
+            "section_ref": "Part 3B Technical Ability (Scored 0-6) / Q21"
+          }
+        },
+        {
+          "criterion": "Part 1 Economic & Financial Standing (Pass/Fail)",
+          "summary": "The Part 1 Confirmation of Core Supplier Information is evaluated on a pass/fail basis. Suppliers unable to provide two years of trading accounts must provide bank account evidence, a balance sheet and an income statement; Company Watch Credit Score of 24 or below (or absence of a report) triggers further due diligence and may lead to exclusion.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "anchor_text": "The information provided in response to Part 1 \u2013 Confirmation of Core Supplier Information will be used by the Council to assess the Economic & Financial Standing of Bidders.",
+            "page_ref": "p.unknown",
+            "section_ref": "Part 1 Criteria"
+          }
+        },
+        {
+          "criterion": "Part 3A Standard Questions (Pass/Fail)",
+          "summary": "Responses to the Part 3A Standard Questions are evaluated pass/fail against the requirements in the Specification (Document 2). Suppliers who self-certify they do not meet the requirements or whose responses the Council considers insufficient, false or otherwise unacceptable will be excluded. Supporting documentation that has not been requested or that exceeds the stated limit will not be evaluated.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "anchor_text": "All Responses will be evaluated in terms of understanding and meeting the requirements as set out in the Specification (Document 2).",
+            "page_ref": "p.unknown",
+            "section_ref": "Part 3A Standard Questions / Criteria"
+          }
+        },
+        {
+          "criterion": "Part 3A Questions 22-27 Experience of Sub-Contractor Management (Pass/Fail)",
+          "summary": "Responses to Questions 22 to 27 on experience of sub-contractor management, prompt payment (Procurement Act 2023) and supply chain management are evaluated pass/fail; self-certified failure to meet the requirements results in exclusion.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "anchor_text": "The answers provided in your Responses to Questions 22 \u2013 27 will be evaluated on the basis of pass/fail.",
+            "page_ref": "p.unknown",
+            "section_ref": "Part 3A / Experience of Sub-Contractor Management"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "UK General Data Protection Regulation (UK GDPR)",
+          "context": "Q18 (Data Protection) requires suppliers to have the human and technical resources to perform the contract in compliance with UK GDPR and to protect the rights of data subjects, covering confidentiality/integrity/availability of processing systems, data subject rights, consent, cross-border transfer safeguards, records of processing, and regular effectiveness testing.",
+          "evidence_anchor": {
+            "anchor_text": "Please confirm that you have in place, or that you will have in place by the award of the contract, the human and technical resources to perform the contract to ensure compliance with the UK General Data Protection Regulation and to ensure the protection of the rights of data subjects.",
+            "page_ref": "p.unknown",
+            "section_ref": "Part 3A Standard Questions / Q18 Data Protection"
+          }
+        },
+        {
+          "standard_ref": "Procurement Act 2023 (prompt payment / 30-day terms)",
+          "context": "Q25 requires suppliers to confirm that, for public sector contracts awarded under the Procurement Act 2023, they have systems in place to include a minimum of 30-day payment terms in all supply chain contracts and require that such terms are passed down through the supply chain.",
+          "evidence_anchor": {
+            "anchor_text": "Please confirm that for public sector contracts awarded under the Procurement Act 2023 you have systems in place to include (as a minimum) 30 day payment terms in all of your supply chain contracts and require that such terms are passed down through your supply chain.",
+            "page_ref": "p.unknown",
+            "section_ref": "Part 3A / Q25"
+          }
+        },
+        {
+          "standard_ref": "CDM (Construction Design and Management) Principal Designer role",
+          "context": "Q20 (Workforce and Resources) references the CDM Principal Designer as one of the required roles in the proposed multidisciplinary team (alongside Architecture, M&E, Structures & Civils and BR Principal Designer).",
+          "evidence_anchor": {
+            "anchor_text": "covering each of the roles outlined in the Stage 1 tender documents (Architecture, M&E, Structures & Civils, BR PD & CDM PD).",
+            "page_ref": "p.unknown",
+            "section_ref": "Part 3B Technical Ability / Q20"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "anchor_text": "Contract: Stockport Town Centre School \u2013 Multi \u2013 disciplinary design team appointment | Contract Reference: 020417 | Procedure: Competitive Flexible Procedure",
+        "page_ref": "p.unknown",
+        "section_ref": "Procurement Specific Questionnaire (PSQ) \u2013 Stage 1 / Header"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots.lot_number": 7000,
+    "lots.title": 9500,
+    "lots.description": 7000,
+    "lots.requirements": 7500,
+    "lots.evaluation_criteria": 8500,
+    "lots.cpv_codes": 3000,
+    "lots.product_requirements": 2000,
+    "lots.technical_standards": 6500,
+    "product_requirement_seeds": 2000
+  },
+  "extraction_confidence_bps": 6500,
+  "warnings": [
+    {
+      "code": "document_role_mismatch",
+      "message": "Source document is a Procurement Specific Questionnaire (PSQ) Stage 1 supplier response template, not a full tender specification. Its declared document_role in the extraction record is 'technical_specification', but the content is dominated by supplier-side response fields (declarations, CDP uploads, signature blocks). The authoritative scope/specification is explicitly referenced as 'the Specification (Document 2)', which is a separate document and is not embedded here.",
+      "evidence_refs": [
+        "Procurement Specific Questionnaire (PSQ) - Stage 1",
+        "All Responses will be evaluated in terms of understanding and meeting the requirements as set out in the Specification (Document 2)."
+      ]
+    },
+    {
+      "code": "single_lot_confirmed",
+      "message": "The Preliminary Questions field 'Please confirm which lot(s) you wish to bid for?' is answered 'N/A' in this response template, which is consistent with a single-lot procurement. The existing notice-level lot metadata also carries a single lot. The extraction therefore emits one authoritative lot entry (lot_number='1') rather than inventing sub-lots.",
+      "evidence_refs": [
+        "Where applicable: Please confirm which lot(s) you wish to bid for? | Insert details: N/A"
+      ]
+    },
+    {
+      "code": "no_product_requirements",
+      "message": "This procurement is a services/consultancy appointment (multi-disciplinary design team) and the PSQ response template does not contain any goods-style product requirements, technical attributes or quantities. No product_requirement_seeds were emitted and product_requirements remains empty.",
+      "evidence_refs": [
+        "Multi \u2013 disciplinary design team appointment",
+        "multidisciplinary team (company, practice etc) covering each of the roles outlined in the Stage 1 tender documents (Architecture, M&E, Structures & Civils, BR PD & CDM PD)"
+      ]
+    },
+    {
+      "code": "no_cpv_in_document",
+      "message": "The source markdown contains no explicit CPV code references. The notice-level main_category is '150000 - Consultancy' (ProContract internal category code), which is not an 8-digit CPV code, so cpv_codes is left empty rather than fabricating a mapping.",
+      "evidence_refs": []
+    },
+    {
+      "code": "no_page_markers",
+      "message": "Docling markdown for this document does not include page markers or page-break annotations, so all evidence_anchor.page_ref values use 'p.unknown'. Evidence is anchored via section/question references instead.",
+      "evidence_refs": []
+    },
+    {
+      "code": "referenced_external_document",
+      "message": "Authoritative scope, deliverables and technical specification are held in 'Document 2' (the Specification), referenced in the Part 3A Standard Questions criteria block. That document should be the target of a separate tender-specification extraction run; this run only reflects the content present in the PSQ response template.",
+      "evidence_refs": [
+        "All Responses will be evaluated in terms of understanding and meeting the requirements as set out in the Specification (Document 2)."
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "anchor_text": "Procurement Specific Questionnaire (PSQ) - Stage 1",
+      "page_ref": "p.unknown",
+      "section_ref": "Document header"
+    },
+    {
+      "anchor_text": "Contract: Stockport Town Centre School \u2013 Multi \u2013 disciplinary design team appointment | Contract Reference: 020417 | Procedure: Competitive Flexible Procedure",
+      "page_ref": "p.unknown",
+      "section_ref": "Document header / Contract table"
+    },
+    {
+      "anchor_text": "Where applicable: Please confirm which lot(s) you wish to bid for? | Insert details: N/A",
+      "page_ref": "p.unknown",
+      "section_ref": "Preliminary Question / Lot selection"
+    },
+    {
+      "anchor_text": "You must submit up-to-date core supplier information on the CDP and share this with information with us via the CDP (PDF download).",
+      "page_ref": "p.unknown",
+      "section_ref": "Part 1 \u2013 Confirmation of Core Supplier Information"
+    },
+    {
+      "anchor_text": "The information provided in response to Part 1 \u2013 Confirmation of Core Supplier Information will be used by the Council to assess the Economic & Financial Standing of Bidders.",
+      "page_ref": "p.unknown",
+      "section_ref": "Part 1 Criteria"
+    },
+    {
+      "anchor_text": "Please confirm that you have in place, or that you will have in place by the award of the contract, the human and technical resources to perform the contract to ensure compliance with the UK General Data Protection Regulation and to ensure the protection of the rights of data subjects.",
+      "page_ref": "p.unknown",
+      "section_ref": "Part 3A / Q18 Data Protection"
+    },
+    {
+      "anchor_text": "Technical Ability (Scored 0-6)",
+      "page_ref": "p.unknown",
+      "section_ref": "Part 3B header"
+    },
+    {
+      "anchor_text": "Relevant experience and contract examples (35%)",
+      "page_ref": "p.unknown",
+      "section_ref": "Part 3B / Q19"
+    },
+    {
+      "anchor_text": "Workforce and Resources (35%) Part 1: Please name each member of the proposed multidisciplinary team (company, practice etc) covering each of the roles outlined in the Stage 1 tender documents (Architecture, M&E, Structures & Civils, BR PD & CDM PD).",
+      "page_ref": "p.unknown",
+      "section_ref": "Part 3B / Q20"
+    },
+    {
+      "anchor_text": "Funding Model Approach (30%) Please describe your proposed approach to developing and supporting a viable funding model for the Town Centre School project.",
+      "page_ref": "p.unknown",
+      "section_ref": "Part 3B / Q21"
+    },
+    {
+      "anchor_text": "The answers provided in your Responses to Questions 22 \u2013 27 will be evaluated on the basis of pass/fail.",
+      "page_ref": "p.unknown",
+      "section_ref": "Part 3A / Experience of Sub-Contractor Management"
+    },
+    {
+      "anchor_text": "Please confirm that for public sector contracts awarded under the Procurement Act 2023 you have systems in place to include (as a minimum) 30 day payment terms in all of your supply chain contracts and require that such terms are passed down through your supply chain.",
+      "page_ref": "p.unknown",
+      "section_ref": "Part 3A / Q25"
+    },
+    {
+      "anchor_text": "All Responses will be evaluated in terms of understanding and meeting the requirements as set out in the Specification (Document 2).",
+      "page_ref": "p.unknown",
+      "section_ref": "Part 3A Standard Questions / Criteria"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "sha256:5a42fa991670ccb8ade4d9996a6d239d7958bc1c109afae6da4d2e0fcee1a8ab",
+    "policy_version": "2026.04.12",
+    "document_role": "procurement_specific_questionnaire_response_template"
+  }
+}

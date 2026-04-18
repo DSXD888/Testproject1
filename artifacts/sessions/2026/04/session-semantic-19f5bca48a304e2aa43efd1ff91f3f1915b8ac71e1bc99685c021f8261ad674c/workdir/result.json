@@ -1,0 +1,465 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Ely Library - Engage, Design and Fit Out",
+      "description": "Single-lot design-and-build engagement between Cambridgeshire County Council (Authority) and the appointed Supplier for the provision of design, furniture, signage and carpet to refresh the public library offer at Ely Library. Supplier responsibilities include a site visit and stakeholder consultation at Ely Library, preparing initial design proposals, incorporating one round of Authority feedback into revised proposals, and (only after the Authority's written approval of the final design) manufacturing, delivering and installing all furniture, signage, carpet and associated items in accordance with the approved design and any Authority installation requirements. The draft contract document itself does not enumerate separate lots and Schedule 1 'Specification' is an empty placeholder; the project is clearly a single-scope engagement, consistent with the existing single-lot entry on the notice.",
+      "requirements": [
+        "Provide the Services with reasonable care and skill and in accordance with Best Industry Practice (clause 4.2(a)).",
+        "Ensure all goods, materials, standards and techniques used in providing the Services are of the best quality and free from defects in workmanship, installation and design (clause 4.2(b)).",
+        "Obtain, maintain and comply with all Necessary Consents at the Supplier's own cost (clause 4.2(c)).",
+        "Undertake all design engagement activities required by the Authority, including a site visit at Ely Library and reasonable stakeholder consultation; prepare initial design proposals; incorporate one round of Authority feedback into revised proposals (clauses 4.3(a)-(c)).",
+        "Ensure all design proposals comply with applicable accessibility standards, including dementia-friendly and autism-friendly design principles aligned with the Authority's sustainability objectives (clause 4.4).",
+        "Do not commence manufacture, delivery or installation of any items until the Authority has provided express written approval of the final design (clause 4.5).",
+        "Deliver and install all furniture, signage, carpet and any associated items required under the Agreement in accordance with the approved design and any installation requirements specified by the Authority (clause 4.6).",
+        "Prior to commencing any works, prepare and submit Risk Assessments and Method Statements (RAMS) specific to Ely Library, taking into account first-floor access constraints, delivery windows and any site-specific requirements; do not begin works until the Authority has approved the RAMS in writing (clause 4.7).",
+        "Comply with all applicable Law and with the Authority's Mandatory Policies throughout performance of the Agreement (clause 5.1).",
+        "Comply with all applicable Law regarding health and safety and with the Authority's Health and Safety Policy whilst at the Authority Premises (clause 5.2(a)-(b)).",
+        "Comply with all applicable environmental Law, including waste disposal and the handling of hazardous and toxic materials (clause 6.1(a)).",
+        "Implement and maintain carbon-reduction measures consistent with the Authority's Climate Charter (energy-efficient practices, reduced fossil-fuel usage, low-carbon technologies, materials and transport) (clause 6.2(b)).",
+        "Implement and maintain waste-minimisation measures (prevent, reduce, reuse or recycle wherever reasonably practicable; environmentally responsible disposal) (clause 6.2(c)).",
+        "Provide evidence of carbon-reduction and waste-minimisation measures on request (records, plans, policies, audits, reporting) and cooperate with Authority sustainability or environmental reporting (clause 6.2(d)-(e)).",
+        "On exit, provide full documentation of all materials, components, equipment and associated warranties (including manufacturer warranties, maintenance instructions and compliance certificates), and deliver an in-person handover with on-site training for Authority Personnel (clause 7.9(a)-(c)).",
+        "Comply with all applicable requirements of the Data Protection Legislation, acting as Processor to the Authority's Controller for any Personal Data processing (clause 21.1-21.2).",
+        "Maintain appropriate technical and organisational measures to protect Personal Data against unauthorised or unlawful processing and against accidental loss, destruction or damage (clause 21.2(b))."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [
+        "39155000-3",
+        "79932000-6"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "ely-library-furniture",
+          "summary": "Library furniture for the main library footprint at Ely Library, supplied and installed in accordance with the Authority-approved final design. The contract does not itemise furniture types, dimensions or quantities; detailed specification is to be produced during the design engagement stage.",
+          "requirement_type": "goods_supply_and_install",
+          "technical_attributes": [
+            "Best Industry Practice quality threshold (clause 4.2(a)).",
+            "Free from defects in workmanship, installation and design (clause 4.2(b)).",
+            "Must comply with accessibility standards, including dementia-friendly and autism-friendly design principles (clause 4.4).",
+            "Manufacture only after Authority written approval of final design (clause 4.5).",
+            "Manufacturer warranties and warranty documentation to be handed over on exit (clause 7.9(a))."
+          ],
+          "quantity_hint": "unspecified",
+          "evidence_anchor": {
+            "page_ref": "p.13",
+            "anchor_text": "4.6 The Supplier must deliver and install all furniture, signage, carpet and any associated items required under this Agreement in accordance with the approved design and any installation requirements specified by the Authority.",
+            "section_ref": "Clause 4 Supply of services"
+          }
+        },
+        {
+          "seed_key": "ely-library-signage",
+          "summary": "Signage for Ely Library, supplied and installed in accordance with the Authority-approved final design. The contract does not specify signage substrates, formats or quantities; detail is to be resolved during design engagement.",
+          "requirement_type": "goods_supply_and_install",
+          "technical_attributes": [
+            "Best Industry Practice quality threshold (clause 4.2(a)).",
+            "Free from defects in workmanship, installation and design (clause 4.2(b)).",
+            "Must align with accessibility standards (dementia-friendly, autism-friendly) referenced in clause 4.4.",
+            "Manufacture only after Authority written approval of final design (clause 4.5)."
+          ],
+          "quantity_hint": "unspecified",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "inviting prospective suppliers to submit proposals for the provision of design, furniture, signage, and carpet to refresh the public library offer in Ely library.",
+            "section_ref": "BACKGROUND (A)"
+          }
+        },
+        {
+          "seed_key": "ely-library-carpet",
+          "summary": "Floor covering (carpet) for Ely Library, supplied and installed in accordance with the Authority-approved final design. No product codes, specifications or coverage area are given in the draft contract; detail is to be resolved during design engagement.",
+          "requirement_type": "goods_supply_and_install",
+          "technical_attributes": [
+            "Best Industry Practice quality threshold (clause 4.2(a)).",
+            "Free from defects in workmanship, installation and design (clause 4.2(b)).",
+            "Environmental considerations: sourcing, transport and waste minimisation per clause 6.2.",
+            "Manufacturer warranties / compliance certificates to be provided on exit (clause 7.9(a))."
+          ],
+          "quantity_hint": "unspecified",
+          "evidence_anchor": {
+            "page_ref": "p.13",
+            "anchor_text": "4.6 The Supplier must deliver and install all furniture, signage, carpet and any associated items required under this Agreement in accordance with the approved design and any installation requirements specified by the Authority.",
+            "section_ref": "Clause 4 Supply of services"
+          }
+        },
+        {
+          "seed_key": "ely-library-design-service",
+          "summary": "Design engagement and production of final design for Ely Library refresh, including a site visit, stakeholder consultation, initial design proposals, and one round of Authority feedback incorporated into revised proposals. Final design requires Authority written approval before any manufacture, delivery or installation.",
+          "requirement_type": "design_service",
+          "technical_attributes": [
+            "Accessibility compliance, including dementia-friendly and autism-friendly design principles, aligned with Authority sustainability objectives (clause 4.4).",
+            "RAMS (Risk Assessments and Method Statements) specific to Ely Library, addressing first-floor access constraints and delivery windows (clause 4.7).",
+            "Design outputs, drawings, models, specifications, plans and reports vest in the Authority on creation (clause 23 IP)."
+          ],
+          "quantity_hint": "one project-level design package",
+          "evidence_anchor": {
+            "page_ref": "p.13",
+            "anchor_text": "4.3 The Supplier shall undertake all design engagement activities required by the Authority, including: a) attending a site visit at Ely Library and carrying out stakeholder consultation as reasonably required; b) preparing initial design proposals for the Authority's review; c) incorporating one round of feedback from the Authority into revised design proposals",
+            "section_ref": "Clause 4 Supply of services"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Best Industry Practice",
+          "context": "Defined contractual quality threshold: 'the standards which fall within the upper quartile in the relevant industry for the provision of comparable services'. Applied to the delivery of the Services under clause 4.2(a).",
+          "evidence_anchor": {
+            "page_ref": "p.6",
+            "anchor_text": "Best Industry Practice : the standards which fall within the upper quartile in the relevant industry for the provision of comparable services which are substantially similar to the Services",
+            "section_ref": "Clause 1.1 Definitions"
+          }
+        },
+        {
+          "standard_ref": "Accessibility (dementia-friendly and autism-friendly design principles)",
+          "context": "All design proposals must comply with applicable accessibility standards, including dementia-friendly and autism-friendly design principles, aligned with the Authority's sustainability objectives.",
+          "evidence_anchor": {
+            "page_ref": "p.13",
+            "anchor_text": "4.4 ensuring that all design proposals comply with applicable accessibility standards, including dementia friendly and autism friendly design principles which align with the Authority's sustainability objectives.",
+            "section_ref": "Clause 4 Supply of services"
+          }
+        },
+        {
+          "standard_ref": "UK health and safety law + Authority Health and Safety Policy",
+          "context": "Supplier must comply with all applicable Law regarding health and safety and with the Authority's Health and Safety Policy whilst on Authority Premises.",
+          "evidence_anchor": {
+            "page_ref": "p.14",
+            "anchor_text": "(a) all applicable Law regarding health and safety; and (b) the Health and Safety Policy whilst at the Authority Premises.",
+            "section_ref": "Clause 5 Compliance and change in laws"
+          }
+        },
+        {
+          "standard_ref": "Risk Assessments and Method Statements (RAMS)",
+          "context": "Site-specific RAMS must be prepared, submitted and approved in writing by the Authority before any works commence at Ely Library, accounting for first-floor access constraints and delivery windows.",
+          "evidence_anchor": {
+            "page_ref": "p.13",
+            "anchor_text": "4.7 Prior to commencing any works, the Supplier must prepare and submit Risk Assessments and Method Statements (RAMS) specific to Ely Library",
+            "section_ref": "Clause 4 Supply of services"
+          }
+        },
+        {
+          "standard_ref": "Environmental Law and Authority Climate Charter",
+          "context": "Supplier must comply with applicable environmental Law (including waste disposal and hazardous/toxic materials handling) and implement carbon-reduction and waste-minimisation measures consistent with the Authority's Climate Charter.",
+          "evidence_anchor": {
+            "page_ref": "p.15",
+            "anchor_text": "implement and maintain carbon-reduction measures consistent with the Authority's Climate Charter",
+            "section_ref": "Clause 6 Supplier environmental obligations"
+          }
+        },
+        {
+          "standard_ref": "UK GDPR / Data Protection Act 2018 / PECR 2003",
+          "context": "Supplier-as-Processor must comply with the Data Protection Legislation (UK GDPR, Data Protection Act 2018 and PECR SI 2003/2426) and maintain appropriate technical and organisational measures.",
+          "evidence_anchor": {
+            "page_ref": "p.7",
+            "anchor_text": "Data Protection Legislation : all applicable data protection and privacy legislation in force from time to time in the UK including the UK GDPR; the Data Protection Act 2018 (DPA 2018) ... and the Privacy and Electronic Communications Regulations 2003 (SI 2003/2426)",
+            "section_ref": "Clause 1.1 Definitions (Data Protection Legislation)"
+          }
+        },
+        {
+          "standard_ref": "Freedom of Information Act 2000 / Environmental Information Regulations 2004",
+          "context": "EIRs are defined and the Authority's FOI obligations are called out in clause 20; Supplier must assist the Authority in meeting its FOI and EIR duties.",
+          "evidence_anchor": {
+            "page_ref": "p.8",
+            "anchor_text": "EIRs : the Environmental Information Regulations 2004 (SI 2004/3391)",
+            "section_ref": "Clause 1.1 Definitions (EIRs)"
+          }
+        },
+        {
+          "standard_ref": "Bribery Act 2010",
+          "context": "Supplier must comply with anti-bribery Relevant Requirements including the Bribery Act 2010 and related guidance under clause 28.",
+          "evidence_anchor": {
+            "page_ref": "p.10",
+            "anchor_text": "Relevant Requirements : all applicable law relating to bribery, corruption and fraud, including the Bribery Act 2010",
+            "section_ref": "Clause 1.1 Definitions / Clause 28 Prevention of bribery"
+          }
+        },
+        {
+          "standard_ref": "Modern Slavery Act 2015",
+          "context": "Supplier must comply with anti-slavery and human trafficking laws, including the Modern Slavery Act 2015, and with any Authority Modern Slavery Policy.",
+          "evidence_anchor": {
+            "page_ref": "p.37",
+            "anchor_text": "comply with all applicable anti-slavery and human trafficking laws, statutes, regulations including but not limited to the Modern Slavery Act 2015",
+            "section_ref": "Clause 29 Modern slavery"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "AGREEMENT RELATING TO ELY LIBRARY SERVICES - ENGAGE, DESIGN AND FIT OUT CONTRACT",
+        "section_ref": "Document cover"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "ely-library-furniture",
+      "lot_number": "1",
+      "candidate_name": "Library furniture (Ely Library refresh)",
+      "summary": "Library furniture to be supplied and installed at Ely Library in accordance with the Authority-approved final design. The draft contract does not itemise furniture types, materials, dimensions or quantities; specific product requirements emerge from the design engagement stage. CPV alignment: 39155000-3 Library furniture.",
+      "requirements": [
+        "Best Industry Practice quality (clause 4.2(a)).",
+        "Free from defects in workmanship, installation and design (clause 4.2(b)).",
+        "Accessibility-aligned (dementia-friendly, autism-friendly) per clause 4.4.",
+        "Manufacture only after written Authority approval of final design (clause 4.5).",
+        "Manufacturer warranties and compliance certificates provided on exit (clause 7.9(a))."
+      ],
+      "technical_standards": [
+        "Best Industry Practice",
+        "Accessibility (dementia-friendly and autism-friendly design principles)"
+      ],
+      "cpv_codes": [
+        "39155000-3"
+      ],
+      "evidence_anchor": {
+        "page_ref": "p.13",
+        "anchor_text": "4.6 The Supplier must deliver and install all furniture, signage, carpet and any associated items required under this Agreement in accordance with the approved design",
+        "section_ref": "Clause 4 Supply of services"
+      }
+    },
+    {
+      "seed_key": "ely-library-signage",
+      "lot_number": "1",
+      "candidate_name": "Library signage (Ely Library refresh)",
+      "summary": "Signage for Ely Library supplied and installed in accordance with the Authority-approved final design. The draft contract does not specify sign types, formats, substrates or quantities.",
+      "requirements": [
+        "Best Industry Practice quality (clause 4.2(a)).",
+        "Free from defects in workmanship, installation and design (clause 4.2(b)).",
+        "Accessibility-aligned (dementia-friendly, autism-friendly) per clause 4.4.",
+        "Manufacture only after written Authority approval of final design (clause 4.5)."
+      ],
+      "technical_standards": [
+        "Best Industry Practice",
+        "Accessibility (dementia-friendly and autism-friendly design principles)"
+      ],
+      "cpv_codes": [
+        "39155000-3"
+      ],
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "inviting prospective suppliers to submit proposals for the provision of design, furniture, signage, and carpet to refresh the public library offer in Ely library.",
+        "section_ref": "BACKGROUND (A)"
+      }
+    },
+    {
+      "seed_key": "ely-library-carpet",
+      "lot_number": "1",
+      "candidate_name": "Floor covering - carpet (Ely Library refresh)",
+      "summary": "Carpet floor covering for Ely Library supplied and installed in accordance with the Authority-approved final design. The draft contract does not give carpet grades, coverage area or fitting specifications.",
+      "requirements": [
+        "Best Industry Practice quality (clause 4.2(a)).",
+        "Free from defects in workmanship, installation and design (clause 4.2(b)).",
+        "Environmental sourcing, transport and waste minimisation considerations per clause 6.2.",
+        "Manufacturer warranties / compliance certificates provided on exit (clause 7.9(a))."
+      ],
+      "technical_standards": [
+        "Best Industry Practice",
+        "Environmental Law and Authority Climate Charter"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.13",
+        "anchor_text": "4.6 The Supplier must deliver and install all furniture, signage, carpet and any associated items required under this Agreement in accordance with the approved design",
+        "section_ref": "Clause 4 Supply of services"
+      }
+    },
+    {
+      "seed_key": "ely-library-design-service",
+      "lot_number": "1",
+      "candidate_name": "Design and engagement service (Ely Library refresh)",
+      "summary": "Design engagement and final-design production: site visit, stakeholder consultation, initial proposals and one round of Authority feedback, culminating in an Authority-approved final design. CPV alignment: 79932000-6 Interior design services.",
+      "requirements": [
+        "Attend a site visit at Ely Library and carry out stakeholder consultation (clause 4.3(a)).",
+        "Prepare initial design proposals for Authority review (clause 4.3(b)).",
+        "Incorporate one round of Authority feedback into revised proposals (clause 4.3(c)).",
+        "Comply with accessibility standards including dementia-friendly and autism-friendly design (clause 4.4).",
+        "Prepare RAMS specific to Ely Library before any works commence, addressing first-floor access and delivery windows (clause 4.7).",
+        "All design IP (drawings, models, specifications, plans, reports) vests in the Authority on creation (clause 23)."
+      ],
+      "technical_standards": [
+        "Best Industry Practice",
+        "Accessibility (dementia-friendly and autism-friendly design principles)",
+        "Risk Assessments and Method Statements (RAMS)"
+      ],
+      "cpv_codes": [
+        "79932000-6"
+      ],
+      "evidence_anchor": {
+        "page_ref": "p.13",
+        "anchor_text": "4.3 The Supplier shall undertake all design engagement activities required by the Authority",
+        "section_ref": "Clause 4 Supply of services"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.count": 8500,
+    "lots[0].lot_number": 8500,
+    "lots[0].title": 8500,
+    "lots[0].description": 7500,
+    "lots[0].requirements": 8000,
+    "lots[0].evaluation_criteria": 9000,
+    "lots[0].cpv_codes": 7500,
+    "lots[0].product_requirements": 6000,
+    "lots[0].technical_standards": 7500,
+    "product_requirement_seeds": 6000,
+    "document_role_match": 2500
+  },
+  "extraction_confidence_bps": 5500,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_CONTENT_MISMATCH",
+      "message": "Document was classified as 'technical_specification' in the extraction record, but the actual content is a draft Services Agreement (contract) for the Ely Library engage/design/fit-out project. Schedule 1 'Specification' exists as a heading on p.47 but contains only a placeholder comment - no actual specification clauses are present. Substantive scope statements were extracted from contract clauses 4-7 rather than from a specification schedule.",
+      "evidence_refs": [
+        "#/texts/611",
+        "#/texts/170"
+      ]
+    },
+    {
+      "code": "SPECIFICATION_SCHEDULE_EMPTY",
+      "message": "Schedule 1 Specification on p.47 is an empty placeholder. An inline drafter comment (FB20) suggests adding warranty requirements (12-month workmanship warranty, manufacturer warranties for furniture, signage, carpet, warranty pack and care instructions at handover) but these are not yet operative specification clauses.",
+      "evidence_refs": [
+        "#/texts/611"
+      ]
+    },
+    {
+      "code": "EVALUATION_CRITERIA_ABSENT",
+      "message": "No tender evaluation / award criteria are present in this document. The document is a post-award draft contract (clauses reference the Supplier's Tender at Schedule 3 as already-submitted). Evaluation criteria for the procurement would live in a separate ITT/specification document, not in this appendix.",
+      "evidence_refs": [
+        "#/texts/611"
+      ]
+    },
+    {
+      "code": "CPV_CODES_FROM_PROCESS_CONTEXT",
+      "message": "CPV codes (39155000-3 Library furniture; 79932000-6 Interior design services) were not restated within the draft contract text. Codes were carried forward from notice-level process_context metadata because they are clearly consistent with the contract scope (design, furniture, signage, carpet for a public library).",
+      "evidence_refs": []
+    },
+    {
+      "code": "PRODUCT_REQUIREMENTS_UNQUANTIFIED",
+      "message": "The four product_requirement_seeds (furniture, signage, carpet, design service) are qualitative only. The draft contract does not specify types, materials, dimensions, unit counts, coverage area or any quantitative product attributes - all detail is deferred to the post-contract design engagement stage. Downstream matching will need to treat these as category-level seeds, not SKU-level requirements.",
+      "evidence_refs": [
+        "#/texts/170"
+      ]
+    },
+    {
+      "code": "STANDARDS_ARE_REGULATORY_NOT_PRODUCT",
+      "message": "Technical standards extracted are regulatory / legal frameworks (Data Protection Legislation, Bribery Act 2010, Modern Slavery Act 2015, environmental law, accessibility principles, Best Industry Practice, RAMS, Health and Safety Policy) rather than product standards such as BS EN or ISO references. No BS/EN/ISO/UKCA product standards are cited in the draft contract.",
+      "evidence_refs": []
+    },
+    {
+      "code": "OCR_AND_TABLE_NOTES",
+      "message": "Docling extraction reported 'No structured tables were detected in the exported document.' The Contents Clause on p.2-3 renders as text with inline dot leaders (not as a parsed table). This does not affect substantive content extraction.",
+      "evidence_refs": []
+    },
+    {
+      "code": "LOT_REUSED_FROM_NOTICE",
+      "message": "The draft contract does not split the engagement into numbered lots. A single Lot 1 'Ely Library - Engage, Design and Fit Out' is emitted, consistent with the existing single lot already present on the notice (pc-19574d11-0929-f111-813c-005056b64545-lot-1). Lot numbering and title are stable against the existing notice lot.",
+      "evidence_refs": []
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p.1",
+      "anchor_text": "AGREEMENT RELATING TO ELY LIBRARY SERVICES - ENGAGE, DESIGN AND FIT OUT CONTRACT",
+      "section_ref": "Document cover"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "inviting prospective suppliers to submit proposals for the provision of design, furniture, signage, and carpet to refresh the public library offer in Ely library.",
+      "section_ref": "BACKGROUND (A)"
+    },
+    {
+      "page_ref": "p.6",
+      "anchor_text": "Best Industry Practice : the standards which fall within the upper quartile in the relevant industry for the provision of comparable services",
+      "section_ref": "Clause 1.1 Definitions"
+    },
+    {
+      "page_ref": "p.7",
+      "anchor_text": "Data Protection Legislation : all applicable data protection and privacy legislation in force from time to time in the UK including the UK GDPR; the Data Protection Act 2018 (DPA 2018)",
+      "section_ref": "Clause 1.1 Definitions"
+    },
+    {
+      "page_ref": "p.8",
+      "anchor_text": "EIRs : the Environmental Information Regulations 2004 (SI 2004/3391)",
+      "section_ref": "Clause 1.1 Definitions"
+    },
+    {
+      "page_ref": "p.13",
+      "anchor_text": "4.2 In providing the Services, the Supplier shall at all times: (a) provide the Services with reasonable care and skill and in accordance with Best Industry Practice; (b) ensure that all goods, materials, standards and techniques used in providing the Services are of the best quality and are free from defects in workmanship, installation and design",
+      "section_ref": "Clause 4 Supply of services"
+    },
+    {
+      "page_ref": "p.13",
+      "anchor_text": "4.3 The Supplier shall undertake all design engagement activities required by the Authority, including: a) attending a site visit at Ely Library and carrying out stakeholder consultation; b) preparing initial design proposals; c) incorporating one round of feedback",
+      "section_ref": "Clause 4 Supply of services"
+    },
+    {
+      "page_ref": "p.13",
+      "anchor_text": "4.4 ensuring that all design proposals comply with applicable accessibility standards, including dementia friendly and autism friendly design principles",
+      "section_ref": "Clause 4 Supply of services"
+    },
+    {
+      "page_ref": "p.13",
+      "anchor_text": "4.5 The Supplier must not commence manufacture, delivery or installation of any items until the Authority has provided written approval of the final design.",
+      "section_ref": "Clause 4 Supply of services"
+    },
+    {
+      "page_ref": "p.13",
+      "anchor_text": "4.6 The Supplier must deliver and install all furniture, signage, carpet and any associated items required under this Agreement in accordance with the approved design",
+      "section_ref": "Clause 4 Supply of services"
+    },
+    {
+      "page_ref": "p.13",
+      "anchor_text": "4.7 Prior to commencing any works, the Supplier must prepare and submit Risk Assessments and Method Statements (RAMS) specific to Ely Library",
+      "section_ref": "Clause 4 Supply of services"
+    },
+    {
+      "page_ref": "p.14",
+      "anchor_text": "(a) all applicable Law regarding health and safety; and (b) the Health and Safety Policy whilst at the Authority Premises.",
+      "section_ref": "Clause 5 Compliance and change in laws"
+    },
+    {
+      "page_ref": "p.15",
+      "anchor_text": "6.1 The Supplier shall ensure that: (a) its operations comply with all applicable environmental Law, including in relation to waste disposal and the handling of hazardous and toxic materials",
+      "section_ref": "Clause 6 Supplier environmental obligations"
+    },
+    {
+      "page_ref": "p.15",
+      "anchor_text": "implement and maintain carbon-reduction measures consistent with the Authority's Climate Charter",
+      "section_ref": "Clause 6 Supplier environmental obligations"
+    },
+    {
+      "page_ref": "p.17",
+      "anchor_text": "7.9 The Supplier shall, prior to leaving the Authority Premises and as part of the exit arrangements: (a) provide the Authority with full documentation of all materials, components, equipment and associated warranties, including manufacturer warranties",
+      "section_ref": "Clause 7 Use of Authority Premises and Assets"
+    },
+    {
+      "page_ref": "p.29",
+      "anchor_text": "21.1 Both parties will comply with all applicable requirements of the Data Protection Legislation.",
+      "section_ref": "Clause 21 Data processing"
+    },
+    {
+      "page_ref": "p.35",
+      "anchor_text": "Relevant Requirements : all applicable law relating to bribery, corruption and fraud, including the Bribery Act 2010",
+      "section_ref": "Clause 28 Prevention of bribery"
+    },
+    {
+      "page_ref": "p.37",
+      "anchor_text": "comply with all applicable anti-slavery and human trafficking laws, statutes, regulations including but not limited to the Modern Slavery Act 2015",
+      "section_ref": "Clause 29 Modern slavery"
+    },
+    {
+      "page_ref": "p.47",
+      "anchor_text": "Schedule 1 Specification",
+      "section_ref": "Schedule 1 Specification (placeholder)"
+    },
+    {
+      "page_ref": "p.47",
+      "anchor_text": "Commented [FB20]: I would suggest including the following into the Specification: Minimum 12-month warranty on installation workmanship. Manufacturer warranties for furniture, signage, and carpet. Warranty pack and care instructions at handover.",
+      "section_ref": "Schedule 1 Specification (drafter comment)"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "aea7731418bba2a5ba7e688f4925f75ed184aa65aafcead349fe042020dd57af",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

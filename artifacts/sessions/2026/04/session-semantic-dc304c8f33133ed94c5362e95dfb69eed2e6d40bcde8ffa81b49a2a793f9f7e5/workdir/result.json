@@ -1,0 +1,1327 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Standard Print",
+      "description": "Printing and delivery of standard-run materials on SRA1/B1, SRA2/B2 or SRA3/B3 sheet-fed litho or digital presses. Typical products include A4/A5/99x210mm brochures, leaflets and flyers; A1-A4 posters; oversize pocket folders; NCR pads, forms, headed paper, compliment slips, business cards, envelopes, receipt books; council meeting papers, agendas and reports. Statutory same-day or 24-hour turnaround jobs are scored in part on supplier proximity and delivery speed.",
+      "requirements": [
+        "Print on SRA1/B1, SRA2/B2 or SRA3/B3 sheet-fed litho presses or digital presses.",
+        "Products must meet the mandatory minimum Government Buying Standards for paper and paper products (GBS).",
+        "Where printed materials are subject to statutory timing (same-day or 24-hour turnaround), selection criteria for specific call-offs will include the supplier's proximity to the buying authority and speed of delivery service offered."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "proximity_and_delivery_speed",
+          "summary": "For statutory same-day or 24-hour turnaround jobs under Lot 1, call-off selection criteria include supplier proximity to the buying authority and speed of delivery service offered.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 1 — Standard Print",
+            "anchor_text": "*Where printed materials are subject to statutory timing requiring same-day or 24-hour turnaround, the selection criteria will include the supplier's proximity to the buying authority and speed of delivery service offered."
+          }
+        }
+      ],
+      "cpv_codes": ["22000000-0", "79800000-2"],
+      "product_requirements": [
+        {
+          "seed_key": "lot1-brochures-leaflets-flyers",
+          "summary": "A4 / A5 / 99x210mm brochures, leaflets or flyers.",
+          "requirement_type": "printed_product",
+          "technical_attributes": ["size:A4", "size:A5", "size:99x210mm", "product:brochure", "product:leaflet", "product:flyer"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 1 — Standard Print — Examples",
+            "anchor_text": "A4 / A5 / 99 x 210mm brochures, leaflets or flyers"
+          }
+        },
+        {
+          "seed_key": "lot1-posters",
+          "summary": "A4, A3, A2 and A1 posters.",
+          "requirement_type": "printed_product",
+          "technical_attributes": ["size:A4", "size:A3", "size:A2", "size:A1", "product:poster"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 1 — Standard Print — Examples",
+            "anchor_text": "A4/A3/A2/A1 posters"
+          }
+        },
+        {
+          "seed_key": "lot1-pocket-folders",
+          "summary": "Oversize A4 / A5 pocket folders.",
+          "requirement_type": "printed_product",
+          "technical_attributes": ["size:A4", "size:A5", "product:pocket_folder", "format:oversize"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 1 — Standard Print — Examples",
+            "anchor_text": "Oversize A4 / A5 pocket folders"
+          }
+        },
+        {
+          "seed_key": "lot1-stationery-ncr-forms",
+          "summary": "Forms, NCR pads, headed paper, compliment slips, business cards, envelopes, receipt books.",
+          "requirement_type": "printed_product",
+          "technical_attributes": ["product:form", "product:ncr_pad", "product:headed_paper", "product:compliment_slip", "product:business_card", "product:envelope", "product:receipt_book"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 1 — Standard Print — Examples",
+            "anchor_text": "Forms, NCR pads, headed paper, compliment slips, business cards, envelopes, receipt books"
+          }
+        },
+        {
+          "seed_key": "lot1-council-documents",
+          "summary": "Council meeting papers, agendas and reports; statutory same-day/24-hour turnaround jobs apply.",
+          "requirement_type": "printed_product",
+          "technical_attributes": ["product:meeting_papers", "product:agenda", "product:report", "turnaround:statutory_24h"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 1 — Standard Print — Examples",
+            "anchor_text": "Documents, council meeting papers and agendas*, reports"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Government Buying Standards for paper and paper products (GBS)",
+          "context": "Mandatory minimum standards for sustainable procurement of paper/paper products; link cited in Lot 1 paragraph.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 1 — Standard Print",
+            "anchor_text": "Suppliers shall ensure printed products supplied under the Framework meet the mandatory minimum standards set out by the Government buying Standards"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Specification by Category and Lot",
+        "anchor_text": "**Print and Distribution – Lot 1 - Standard Print**"
+      }
+    },
+    {
+      "lot_number": "2",
+      "title": "High Volume Print",
+      "description": "Printing and delivery of high-volume materials including high-volume leaflets, booklets and multi-page brochures, produced on SRA1/B1 cut-star, web-offset or reel digital presses. Typical products include A4/A5 multi-page brochures, door drops and school menus.",
+      "requirements": [
+        "Print on SRA1/B1 cut-star presses, web-offset presses, or reel digital presses suited to high-volume runs.",
+        "Products must meet the mandatory minimum Government Buying Standards for paper and paper products (GBS)."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": ["22000000-0", "79800000-2"],
+      "product_requirements": [
+        {
+          "seed_key": "lot2-multipage-brochures",
+          "summary": "A4 / A5 multi-page brochures.",
+          "requirement_type": "printed_product",
+          "technical_attributes": ["size:A4", "size:A5", "product:multipage_brochure"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 2 — High Volume Print — Examples",
+            "anchor_text": "A4 / A5 multi page brochures, door drops, school menus"
+          }
+        },
+        {
+          "seed_key": "lot2-door-drops",
+          "summary": "Door-drop leaflets produced at high volume (printed element of Lot 3 work also produced under Lot 2).",
+          "requirement_type": "printed_product",
+          "technical_attributes": ["product:door_drop_leaflet", "volume:high"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 3 — cross-reference to Lot 2",
+            "anchor_text": "**Please note - all printed elements for Lot 3 will be provided via Lot 2 of this Framework.**"
+          }
+        },
+        {
+          "seed_key": "lot2-school-menus",
+          "summary": "High-volume school menus (printed element).",
+          "requirement_type": "printed_product",
+          "technical_attributes": ["product:school_menu", "volume:high"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 2 — High Volume Print — Examples",
+            "anchor_text": "A4 / A5 multi page brochures, door drops, school menus"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Government Buying Standards for paper and paper products (GBS)",
+          "context": "Mandatory minimum standards for sustainable procurement of paper/paper products; link cited in Lot 2 paragraph.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 2 — High Volume Print",
+            "anchor_text": "Suppliers shall ensure printed products supplied under the Framework meet the mandatory minimum standards set out by the Government buying Standards"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Specification by Category and Lot",
+        "anchor_text": "Print and Distribution – Lot 2 - High Volume Print"
+      }
+    },
+    {
+      "lot_number": "3",
+      "title": "Door Drop and Leaflet Distribution only",
+      "description": "Door-drop county distribution for three main publications of 'Our Derbyshire' and regionalised distribution of specific Council leaflets within the County. All printed elements for Lot 3 are produced under Lot 2.",
+      "requirements": [
+        "Provide county-wide door-drop distribution for three annual 'Our Derbyshire' publications plus regionalised Council leaflet distribution.",
+        "All printed collateral for Lot 3 is supplied via Lot 2 of this Framework; Lot 3 scope is distribution-only."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": ["79800000-2"],
+      "product_requirements": [
+        {
+          "seed_key": "lot3-door-drop-distribution",
+          "summary": "County door-drop distribution — approximately 361,000 addresses (likely to increase as new houses are built).",
+          "requirement_type": "distribution_service",
+          "technical_attributes": ["service:door_drop", "coverage:county_derbyshire", "volume_hint:~361000"],
+          "quantity_hint": "Approx. 361,000; likely to increase as new houses are built",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 3 — Door Drop and Leaflet Distribution — Examples",
+            "anchor_text": "Door drop – Approx. 361,000 but likely to increase as new houses are built"
+          }
+        },
+        {
+          "seed_key": "lot3-leaflet-distribution",
+          "summary": "Regionalised Council leaflet distribution within the County, up to 10,000 per run.",
+          "requirement_type": "distribution_service",
+          "technical_attributes": ["service:leaflet_distribution", "coverage:regional_within_county", "volume_hint:up_to_10000"],
+          "quantity_hint": "Up to 10,000",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 3 — Door Drop and Leaflet Distribution — Examples",
+            "anchor_text": "Leaflet – Up to 10,000"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Specification by Category and Lot",
+        "anchor_text": "**Print and Distribution – Lot 3 - Door Drop and Leaflet Distribution only**"
+      }
+    },
+    {
+      "lot_number": "4",
+      "title": "Direct Mail Services",
+      "description": "Distribution and preparation of mailings for delivery by DSA providers or Royal Mail, including personalisation, match-mailing, collation and enveloping. The Council's in-house Corporate Mail facility is first port of call; Lot 4 supplements in-house provision when external capacity is needed.",
+      "requirements": [
+        "Provide personalisation and mailing services (printing, collating, match-mailing of variable documents, personalised letters and reply envelopes, envelope stuffing).",
+        "Apply mail-sort order and bag to Royal Mail requirements to attract optimal postal discounts.",
+        "Ensure the Council's post account is used at the correct required class."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": ["79800000-2"],
+      "product_requirements": [
+        {
+          "seed_key": "lot4-personalisation-mailing",
+          "summary": "Personalisation and mailing: printing, collating and match-mailing of variable documents, personalised letters and printed reply envelopes, envelope stuffing.",
+          "requirement_type": "direct_mail_service",
+          "technical_attributes": ["service:personalisation", "service:match_mailing", "service:enveloping", "service:reply_envelope_print"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 4 — Direct Mail Services — Examples",
+            "anchor_text": "Personalisation and mailing – e.g. printing, collating and match-mailing varying documents, personalised letter(s) and printed reply envelopes and stuffing in envelopes."
+          }
+        },
+        {
+          "seed_key": "lot4-royal-mail-sortation",
+          "summary": "Apply Royal Mail mail-sort order and bagging to secure optimal postal discounts using Council's post account at correct class.",
+          "requirement_type": "direct_mail_service",
+          "technical_attributes": ["service:mail_sort", "service:bagging", "carrier:royal_mail", "account:council_post"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 4 — Direct Mail Services — Examples",
+            "anchor_text": "Apply mail-sort order and bag to royal-mail requirements to attract optimal postal discounts"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Specification by Category and Lot",
+        "anchor_text": "**Print and Distribution – Lot 4 - Direct Mail Services**"
+      }
+    },
+    {
+      "lot_number": "5",
+      "title": "Envelopes",
+      "description": "Printing and production of envelopes — C4, C5 and DL in pocket, wallet, window, non-window, gummed or opaque formats.",
+      "requirements": [
+        "Produce C4, C5 and DL envelopes in the listed formats (pocket, wallet, window, non-window, gummed, opaque).",
+        "Products must meet the mandatory minimum Government Buying Standards for paper and paper products (GBS)."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": ["22000000-0"],
+      "product_requirements": [
+        {
+          "seed_key": "lot5-envelopes-c4-c5-dl",
+          "summary": "C4, C5 and DL envelopes — pocket, wallet, window, non-window, gummed, opaque.",
+          "requirement_type": "printed_product",
+          "technical_attributes": ["product:envelope", "size:C4", "size:C5", "size:DL", "style:pocket", "style:wallet", "style:window", "style:non_window", "closure:gummed", "material:opaque"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 5 — Envelopes — Examples",
+            "anchor_text": "C4  / C5 / DL  - pocket, wallet, window, non-window, gummed, opaque"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Government Buying Standards for paper and paper products (GBS)",
+          "context": "Mandatory minimum standards for paper envelopes; link cited in Lot 5 paragraph.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 5 — Envelopes",
+            "anchor_text": "Suppliers shall ensure printed products supplied under the Framework meet the mandatory minimum standards set out by the Government buying Standards"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Specification by Category and Lot",
+        "anchor_text": "**Print and Distribution – Lot 5 - Envelopes**"
+      }
+    },
+    {
+      "lot_number": "6",
+      "title": "Fulfilment – Pick and Pack Distribution",
+      "description": "Collation of set products based on variable supplied data, packaged for distribution. Example: collating an A5 school menu with a sticker sheet in variable volumes per school.",
+      "requirements": [
+        "Collate sets of products based on variable data supplied by the Council (e.g. per-school quantities).",
+        "Package collated sets appropriately for distribution."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": ["79800000-2"],
+      "product_requirements": [
+        {
+          "seed_key": "lot6-pick-and-pack",
+          "summary": "Pick-and-pack fulfilment of set products (e.g. A5 school menu + sticker sheet) in volumes varying by recipient (e.g. school size).",
+          "requirement_type": "fulfilment_service",
+          "technical_attributes": ["service:pick_and_pack", "service:variable_collation", "example:school_menu_plus_sticker"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 6 — Fulfilment — Examples",
+            "anchor_text": "A5 school menu, with another item (e.g. sticker sheet) to be collated in varying volumes dependant on the size of the school."
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Specification by Category and Lot",
+        "anchor_text": "**Print and Distribution – Lot 6 - Fulfilment – Pick and Pack Distribution**"
+      }
+    },
+    {
+      "lot_number": "7",
+      "title": "Business Continuity & Disaster Recovery – Standard & Security Printing/Confidential Print",
+      "description": "Secure and confidential printing for the Council and its partners — payroll outputs, P60s, pension payslips and statements, confidential service/investigation reports, commercial services contracts, planning surveyors' reports, democratic/cabinet/audit reports, and mail merges such as school admissions letters. Suppliers must be ISO 9001 and ISO 27001 certified, production must be on-premises without third parties, Council staff must be allowed on-premises for checking/verification, and suppliers must maintain annually-tested BC & DR policies. Statutory same-day/24-hour turnaround jobs apply.",
+      "requirements": [
+        "All production must be completed on-premises within the company; no third-party involvement is permitted.",
+        "Facilities must be provided for DCC employees to be on company premises during production for checking and verification.",
+        "Supplier must hold ISO 9001 and ISO 27001 certification.",
+        "Supplier must have its own Business Continuity and Disaster Recovery policies, annually tested.",
+        "Where printed materials are subject to statutory timing (same-day or 24-hour turnaround), call-off selection criteria include supplier proximity to the buying authority and speed of delivery service offered."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "iso_9001_mandatory",
+          "summary": "Mandatory ISO 9001 certification for all Lot 7 suppliers.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 7 — supplier requirements",
+            "anchor_text": "All suppliers for Lot 7 must have ISO 9001 &amp; ISO27001."
+          }
+        },
+        {
+          "criterion": "iso_27001_mandatory",
+          "summary": "Mandatory ISO 27001 certification for all Lot 7 suppliers.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 7 — supplier requirements",
+            "anchor_text": "All suppliers for Lot 7 must have ISO 9001 &amp; ISO27001."
+          }
+        },
+        {
+          "criterion": "onsite_production_no_third_party",
+          "summary": "All production must be on-premises with no third-party involvement; DCC staff must be able to be on-premises for verification; supplier must maintain annually-tested BC & DR policies.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 7 — supplier requirements",
+            "anchor_text": "All production must be completed on-premises within the Company and no 3 rd party involvement."
+          }
+        },
+        {
+          "criterion": "proximity_and_delivery_speed",
+          "summary": "For statutory same-day or 24-hour turnaround jobs under Lot 7, call-off selection criteria include supplier proximity to the buying authority and speed of delivery service offered.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 7",
+            "anchor_text": "Where printed materials are subject to statutory timing requiring same-day or 24-hour turnaround, the selection criteria will include the supplier's proximity to the buying authority and speed of delivery service offered."
+          }
+        }
+      ],
+      "cpv_codes": ["22000000-0", "79800000-2"],
+      "product_requirements": [
+        {
+          "seed_key": "lot7-payroll-p60-pension",
+          "summary": "Payroll, P60s, statements, pension payslips and statements.",
+          "requirement_type": "confidential_printed_product",
+          "technical_attributes": ["product:payroll", "product:p60", "product:pension_payslip", "product:pension_statement", "security:confidential"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 7 — Examples",
+            "anchor_text": "Payroll, P60's, Statements, Pension Payslips &amp; Statements etc."
+          }
+        },
+        {
+          "seed_key": "lot7-confidential-reports",
+          "summary": "Confidential service reports, statement of cases for staff investigations, commercial services contracts, surveyors' reports for planning, democratic / EMT / CMT / Cabinet reports and audits.",
+          "requirement_type": "confidential_printed_product",
+          "technical_attributes": ["product:confidential_report", "product:contract_print", "product:surveyor_report", "product:cabinet_report", "product:audit_report", "security:confidential"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 7 — Examples",
+            "anchor_text": "Confidential service reports, confidential statement of cases (investigation into staff), contracts for Commercial Services, Surveyors reports for planning, Democratic – agendas, audits, EMT/CMT, Cabinet reports"
+          }
+        },
+        {
+          "seed_key": "lot7-mail-merges",
+          "summary": "Mail merges — e.g. admissions letters for schools.",
+          "requirement_type": "confidential_printed_product",
+          "technical_attributes": ["product:mail_merge", "example:school_admissions_letter", "security:confidential"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 7 — Examples",
+            "anchor_text": "Mail merges (i.e. admissions letters for schools)"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ISO 9001",
+          "context": "Mandatory quality-management system certification for all Lot 7 suppliers.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 7 — supplier requirements",
+            "anchor_text": "All suppliers for Lot 7 must have ISO 9001 &amp; ISO27001."
+          }
+        },
+        {
+          "standard_ref": "ISO/IEC 27001",
+          "context": "Mandatory information security management system certification for all Lot 7 suppliers.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 7 — supplier requirements",
+            "anchor_text": "All suppliers for Lot 7 must have ISO 9001 &amp; ISO27001."
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Specification by Category and Lot",
+        "anchor_text": "**Print and Distribution – Lot 7 - Business Continuity &amp; Disaster Recovery – Standard &amp; Security Printing/Confidential Print**"
+      }
+    },
+    {
+      "lot_number": "8",
+      "title": "Large format, Signage, Display & POS Printing",
+      "description": "Production of large posters, signage, display boards, POS, vinyl banners, pop-up/pull-up display stands, vehicle livery and promotional products. Includes A2-A0 four-colour inkjet onto 170gsm satin photo paper mounted on 3-5mm Foamex; large/small-format PVC banners (hemmed and eye-letted) for indoor/outdoor use; lamp-post banners; outdoor advertising; building livery; vehicle livery; and promotional/merchandise items. Where signage or livery require on-site measurements, travel must be quoted within the call-off price estimate.",
+      "requirements": [
+        "Produce A2-A0 four-colour inkjet prints on 170gsm satin photo paper mounted on 3-5mm Foamex board for display use.",
+        "Produce large and small format PVC banners printed 4-colour, hemmed and eye-letted, suitable for indoor and outdoor use.",
+        "Produce pop-up and pull-up display stands and large-format display stands.",
+        "Produce vehicle livery; signage, lamp-post banners, outdoor advertising, building livery.",
+        "Produce point-of-sale merchandise and branded promotional products (printed with logos, contact details or straplines).",
+        "For signage and livery requiring site visits or on-site measurement, travel expenses must be quoted within the price estimate at call-off (quote-process) stage."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "site_visit_cost_disclosure",
+          "summary": "For signage and livery jobs requiring site visits and on-site measurement, travel expenses must be quoted within the call-off price estimate.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 8 — site-visit rule",
+            "anchor_text": "*For signage and livery; where site visits and on-site measurements are required, this will be requested through quote process and any travel expenses should be quoted within the price estimate."
+          }
+        }
+      ],
+      "cpv_codes": ["22000000-0", "79800000-2"],
+      "product_requirements": [
+        {
+          "seed_key": "lot8-foamex-mounted-posters",
+          "summary": "A2-A0 four-colour inkjet prints onto 170gsm satin photo paper, mounted on 3-5mm Foamex board.",
+          "requirement_type": "printed_product",
+          "technical_attributes": ["size:A2", "size:A1", "size:A0", "process:4c_inkjet", "substrate:170gsm_satin_photo_paper", "mount:foamex_3mm_to_5mm"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 8 — Examples",
+            "anchor_text": "A2 – A0 size 4 colour inkjets onto satin photo paper 170gsm mounted on 3mm – 5mm Foamex board."
+          }
+        },
+        {
+          "seed_key": "lot8-display-stands",
+          "summary": "Large-format display stands and pop-up / pull-up display stands.",
+          "requirement_type": "display_product",
+          "technical_attributes": ["product:display_stand_large", "product:popup_stand", "product:pullup_stand"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 8 — Examples",
+            "anchor_text": "Large format display stands."
+          }
+        },
+        {
+          "seed_key": "lot8-signage-and-livery",
+          "summary": "Signage, lamp-post banners, outdoor advertising, building livery; vehicle livery.",
+          "requirement_type": "signage_and_livery",
+          "technical_attributes": ["product:signage", "product:lamp_post_banner", "product:building_livery", "product:outdoor_advertising", "product:vehicle_livery"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 8 — Examples",
+            "anchor_text": "Signage*, lamp-post banners, outdoor advertising, buildings and livery"
+          }
+        },
+        {
+          "seed_key": "lot8-pvc-vinyl-banners",
+          "summary": "Large and small format PVC vinyl banners printed 4-colour, hemmed and eye-letted for indoor and outdoor use (including affixing).",
+          "requirement_type": "printed_product",
+          "technical_attributes": ["product:pvc_banner", "process:4c_print", "finish:hemmed", "finish:eyelets", "use:indoor", "use:outdoor", "service:affixing"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 8 — Examples",
+            "anchor_text": "Large and small format vinyl print and affixing, including PVC banners printed 4 colour, hemming and eye-letting, for indoor and outdoor use"
+          }
+        },
+        {
+          "seed_key": "lot8-pos-merchandise-promo",
+          "summary": "Point-of-sale merchandise, promotional products, branded giveaways printed with company logo, contact details or straplines.",
+          "requirement_type": "promotional_product",
+          "technical_attributes": ["product:pos_merchandise", "product:branded_giveaway", "print:logo_contact_strapline"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 8 — Examples",
+            "anchor_text": "Point of sale merchandise, promotional products, promotional items, promotional gifts, branded merchandise items"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Specification by Category and Lot",
+        "anchor_text": "**Large Format &amp; Promotional Products - Lot 8 - Large format, Signage, Display &amp; POS Printing**"
+      }
+    },
+    {
+      "lot_number": "9",
+      "title": "Scanning – Questionnaires, photos, plans, maps, etc.",
+      "description": "Scanning of documents across varying substrates and sizes — predominantly A4 with minimal A3 — with defined metadata to save files securely. Examples include landmark reports with attached photos/plans/maps, and questionnaires with character recognition requiring attention to detail against the source. Suppliers must be ISO 9001 and ISO 27001 certified, production must be on-premises without third parties, Council staff must be allowed on-premises for checking/verification, and suppliers must maintain annually-tested BC & DR policies.",
+      "requirements": [
+        "Scan documents of varying substrates and sizes — predominantly A4 with minimal A3.",
+        "Save scanned files securely with defined metadata.",
+        "Provide character recognition (OCR) on questionnaire-style documents with careful comparison of output against source.",
+        "All production on-premises; no third-party involvement.",
+        "Facilities for DCC employees to be on-premises for checking and verification.",
+        "Supplier must hold ISO 9001 and ISO 27001 certification.",
+        "Supplier must maintain its own BC & DR policies, annually tested."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "iso_9001_mandatory",
+          "summary": "Mandatory ISO 9001 certification for all Lot 9 suppliers.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 9 — supplier requirements",
+            "anchor_text": "All suppliers for Lot 9 must have ISO 9001 &amp; ISO27001."
+          }
+        },
+        {
+          "criterion": "iso_27001_mandatory",
+          "summary": "Mandatory ISO 27001 certification for all Lot 9 suppliers.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 9 — supplier requirements",
+            "anchor_text": "All suppliers for Lot 9 must have ISO 9001 &amp; ISO27001."
+          }
+        },
+        {
+          "criterion": "onsite_production_no_third_party",
+          "summary": "All production must be on-premises with no third-party involvement; DCC staff must be able to be on-premises for verification; supplier must maintain annually-tested BC & DR policies.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 9 — supplier requirements",
+            "anchor_text": "All production must be completed on-premises within the Company and no 3 rd party involvement."
+          }
+        }
+      ],
+      "cpv_codes": ["79800000-2"],
+      "product_requirements": [
+        {
+          "seed_key": "lot9-landmark-report-scanning",
+          "summary": "Scanning of landmark reports with attached photos, plans and maps.",
+          "requirement_type": "scanning_service",
+          "technical_attributes": ["service:document_scan", "content:photos", "content:plans", "content:maps"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 9 — Examples",
+            "anchor_text": "Landmark reports with attached photos, plans, maps"
+          }
+        },
+        {
+          "seed_key": "lot9-questionnaire-ocr",
+          "summary": "Questionnaires scanned with character recognition (OCR) and careful validation of output against source.",
+          "requirement_type": "scanning_service",
+          "technical_attributes": ["service:ocr", "content:questionnaire", "qa:source_match_verification"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 9 — Examples",
+            "anchor_text": "Questionnaires with character recognition but attention to detail on checking output against actual."
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ISO 9001",
+          "context": "Mandatory quality-management system certification for all Lot 9 suppliers.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 9 — supplier requirements",
+            "anchor_text": "All suppliers for Lot 9 must have ISO 9001 &amp; ISO27001."
+          }
+        },
+        {
+          "standard_ref": "ISO/IEC 27001",
+          "context": "Mandatory information security management system certification for all Lot 9 suppliers.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 9 — supplier requirements",
+            "anchor_text": "All suppliers for Lot 9 must have ISO 9001 &amp; ISO27001."
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Specification by Category and Lot",
+        "anchor_text": "**Scanning - Lot 9 - Scanning – Questionnaires, photos, plans, maps, etc.**"
+      }
+    },
+    {
+      "lot_number": "10",
+      "title": "Business Continuity & Disaster Recovery – Response Handling / Digital Mail Room",
+      "description": "Secure and confidential inbound mail handling and digitisation for the Council and its partners — across varying substrates and sizes (predominantly A4 with minimal A3) — with defined metadata for secure file storage. Examples include legal and HR responses and Adult & Children's Care cases. Suppliers must be ISO 9001 and ISO 27001 certified, production must be on-premises without third parties, Council staff must be allowed on-premises for checking/verification, and suppliers must maintain annually-tested BC & DR policies.",
+      "requirements": [
+        "Receive and digitise secure/confidential inbound mail across varying substrates and sizes — predominantly A4 with minimal A3.",
+        "Save digitised files securely with defined metadata.",
+        "All production on-premises; no third-party involvement.",
+        "Facilities for DCC employees to be on-premises for checking and verification.",
+        "Supplier must hold ISO 9001 and ISO 27001 certification.",
+        "Supplier must maintain its own BC & DR policies, annually tested."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "iso_9001_mandatory",
+          "summary": "Mandatory ISO 9001 certification for all Lot 10 suppliers.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 10 — supplier requirements",
+            "anchor_text": "All suppliers for Lot 10 must have ISO 9001 &amp; ISO27001."
+          }
+        },
+        {
+          "criterion": "iso_27001_mandatory",
+          "summary": "Mandatory ISO 27001 certification for all Lot 10 suppliers.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 10 — supplier requirements",
+            "anchor_text": "All suppliers for Lot 10 must have ISO 9001 &amp; ISO27001."
+          }
+        },
+        {
+          "criterion": "onsite_production_no_third_party",
+          "summary": "All production must be on-premises with no third-party involvement; DCC staff must be able to be on-premises for verification; supplier must maintain annually-tested BC & DR policies.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 10 — supplier requirements",
+            "anchor_text": "All production must be completed on-premises within the Company and no 3 rd party involvement."
+          }
+        }
+      ],
+      "cpv_codes": ["79800000-2"],
+      "product_requirements": [
+        {
+          "seed_key": "lot10-legal-hr-response-digitisation",
+          "summary": "Digitisation of legal and HR inbound responses.",
+          "requirement_type": "digital_mailroom_service",
+          "technical_attributes": ["service:inbound_digitisation", "content:legal_correspondence", "content:hr_correspondence", "security:confidential"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 10 — Examples",
+            "anchor_text": "Legal / HR responses"
+          }
+        },
+        {
+          "seed_key": "lot10-adult-childrens-care-digitisation",
+          "summary": "Digitisation of Adult & Children's Care case correspondence.",
+          "requirement_type": "digital_mailroom_service",
+          "technical_attributes": ["service:inbound_digitisation", "content:adult_social_care", "content:childrens_services", "security:confidential"],
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 10 — Examples",
+            "anchor_text": "Adult &amp; Childrens Care cases"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ISO 9001",
+          "context": "Mandatory quality-management system certification for all Lot 10 suppliers.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 10 — supplier requirements",
+            "anchor_text": "All suppliers for Lot 10 must have ISO 9001 &amp; ISO27001."
+          }
+        },
+        {
+          "standard_ref": "ISO/IEC 27001",
+          "context": "Mandatory information security management system certification for all Lot 10 suppliers.",
+          "evidence_anchor": {
+            "page_ref": "unpaginated",
+            "section_ref": "Part 1 — Lot 10 — supplier requirements",
+            "anchor_text": "All suppliers for Lot 10 must have ISO 9001 &amp; ISO27001."
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Specification by Category and Lot",
+        "anchor_text": "**Lot 10   Business Continuity &amp; Disaster Recovery – Response Handling/digital Mail Room**"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot1-brochures-leaflets-flyers",
+      "lot_number": "1",
+      "candidate_name": "Standard-run brochures / leaflets / flyers (A4, A5, 99x210mm)",
+      "summary": "Short- to medium-run printed brochures, leaflets and flyers at A4, A5 and 99x210mm finished sizes; sheet-fed litho or digital press output.",
+      "requirements": [
+        "Printed on SRA1/B1, SRA2/B2 or SRA3/B3 sheet-fed litho or digital presses.",
+        "Meets Government Buying Standards for paper and paper products (GBS)."
+      ],
+      "technical_standards": ["Government Buying Standards for paper and paper products (GBS)"],
+      "cpv_codes": ["22000000-0", "79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 1 — Standard Print — Examples",
+        "anchor_text": "A4 / A5 / 99 x 210mm brochures, leaflets or flyers"
+      }
+    },
+    {
+      "seed_key": "lot1-posters",
+      "lot_number": "1",
+      "candidate_name": "Posters A4-A1",
+      "summary": "Single-sheet posters in A4, A3, A2 and A1 sizes, sheet-fed litho or digital.",
+      "requirements": [
+        "Printed on sheet-fed litho or digital presses suited to A1-A4 output.",
+        "Meets Government Buying Standards for paper and paper products (GBS)."
+      ],
+      "technical_standards": ["Government Buying Standards for paper and paper products (GBS)"],
+      "cpv_codes": ["22000000-0"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 1 — Standard Print — Examples",
+        "anchor_text": "A4/A3/A2/A1 posters"
+      }
+    },
+    {
+      "seed_key": "lot1-pocket-folders",
+      "lot_number": "1",
+      "candidate_name": "Oversize pocket folders (A4/A5)",
+      "summary": "Oversize A4 and A5 pocket folders.",
+      "requirements": [
+        "Oversize A4 / A5 pocket folder format.",
+        "Meets Government Buying Standards for paper and paper products (GBS)."
+      ],
+      "technical_standards": ["Government Buying Standards for paper and paper products (GBS)"],
+      "cpv_codes": ["22000000-0"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 1 — Standard Print — Examples",
+        "anchor_text": "Oversize A4 / A5 pocket folders"
+      }
+    },
+    {
+      "seed_key": "lot1-stationery-ncr-forms",
+      "lot_number": "1",
+      "candidate_name": "Stationery, NCR and forms",
+      "summary": "NCR pads, forms, headed paper, compliment slips, business cards, envelopes and receipt books.",
+      "requirements": [
+        "Standard-run sheet-fed litho or digital output.",
+        "Meets Government Buying Standards for paper and paper products (GBS)."
+      ],
+      "technical_standards": ["Government Buying Standards for paper and paper products (GBS)"],
+      "cpv_codes": ["22000000-0"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 1 — Standard Print — Examples",
+        "anchor_text": "Forms, NCR pads, headed paper, compliment slips, business cards, envelopes, receipt books"
+      }
+    },
+    {
+      "seed_key": "lot1-council-documents",
+      "lot_number": "1",
+      "candidate_name": "Council meeting papers, agendas and reports",
+      "summary": "Printed council meeting papers, agendas and reports; may be subject to statutory same-day / 24-hour turnaround.",
+      "requirements": [
+        "Capability for statutory same-day or 24-hour turnaround.",
+        "Meets Government Buying Standards for paper and paper products (GBS)."
+      ],
+      "technical_standards": ["Government Buying Standards for paper and paper products (GBS)"],
+      "cpv_codes": ["22000000-0"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 1 — Standard Print — Examples",
+        "anchor_text": "Documents, council meeting papers and agendas*, reports"
+      }
+    },
+    {
+      "seed_key": "lot2-multipage-brochures",
+      "lot_number": "2",
+      "candidate_name": "High-volume multi-page brochures (A4/A5)",
+      "summary": "High-volume A4 / A5 multi-page brochures printed on SRA1/B1 cut-star, web-offset or reel digital presses.",
+      "requirements": [
+        "Printed on SRA1/B1 cut-star, web-offset or reel digital presses suited to high volume.",
+        "Meets Government Buying Standards for paper and paper products (GBS)."
+      ],
+      "technical_standards": ["Government Buying Standards for paper and paper products (GBS)"],
+      "cpv_codes": ["22000000-0", "79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 2 — High Volume Print — Examples",
+        "anchor_text": "A4 / A5 multi page brochures, door drops, school menus"
+      }
+    },
+    {
+      "seed_key": "lot2-door-drops",
+      "lot_number": "2",
+      "candidate_name": "High-volume door-drop leaflets",
+      "summary": "High-volume door-drop leaflets (printed element of Lot 3 work is produced under Lot 2).",
+      "requirements": [
+        "High-volume web-offset or reel digital output.",
+        "Meets Government Buying Standards for paper and paper products (GBS)."
+      ],
+      "technical_standards": ["Government Buying Standards for paper and paper products (GBS)"],
+      "cpv_codes": ["22000000-0"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 3 — cross-reference to Lot 2",
+        "anchor_text": "**Please note - all printed elements for Lot 3 will be provided via Lot 2 of this Framework.**"
+      }
+    },
+    {
+      "seed_key": "lot2-school-menus",
+      "lot_number": "2",
+      "candidate_name": "High-volume school menus",
+      "summary": "High-volume printed school menus.",
+      "requirements": [
+        "High-volume web-offset or reel digital output.",
+        "Meets Government Buying Standards for paper and paper products (GBS)."
+      ],
+      "technical_standards": ["Government Buying Standards for paper and paper products (GBS)"],
+      "cpv_codes": ["22000000-0"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 2 — High Volume Print — Examples",
+        "anchor_text": "A4 / A5 multi page brochures, door drops, school menus"
+      }
+    },
+    {
+      "seed_key": "lot3-door-drop-distribution",
+      "lot_number": "3",
+      "candidate_name": "County door-drop distribution",
+      "summary": "County-wide door-drop distribution to approximately 361,000 addresses (likely to grow with new housing).",
+      "requirements": [
+        "Coverage across Derbyshire County.",
+        "Distribution-only scope; printed element supplied via Lot 2."
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 3 — Door Drop and Leaflet Distribution — Examples",
+        "anchor_text": "Door drop – Approx. 361,000 but likely to increase as new houses are built"
+      }
+    },
+    {
+      "seed_key": "lot3-leaflet-distribution",
+      "lot_number": "3",
+      "candidate_name": "Regionalised leaflet distribution (within county)",
+      "summary": "Regionalised leaflet distribution within Derbyshire County, typically up to 10,000 per run.",
+      "requirements": [
+        "Regional coverage within Derbyshire County.",
+        "Distribution-only scope; printed element supplied via Lot 2."
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 3 — Door Drop and Leaflet Distribution — Examples",
+        "anchor_text": "Leaflet – Up to 10,000"
+      }
+    },
+    {
+      "seed_key": "lot4-personalisation-mailing",
+      "lot_number": "4",
+      "candidate_name": "Personalisation and match-mailing service",
+      "summary": "Direct-mail personalisation, collation, match-mailing, printed reply envelopes and enveloping as an alternative to the Council's in-house Corporate Mail facility.",
+      "requirements": [
+        "Personalisation of variable documents and letters.",
+        "Collation and match-mailing of variable documents.",
+        "Printed personalised reply envelopes.",
+        "Envelope stuffing for outbound mailings."
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 4 — Direct Mail Services — Examples",
+        "anchor_text": "Personalisation and mailing – e.g. printing, collating and match-mailing varying documents, personalised letter(s) and printed reply envelopes and stuffing in envelopes."
+      }
+    },
+    {
+      "seed_key": "lot4-royal-mail-sortation",
+      "lot_number": "4",
+      "candidate_name": "Royal Mail sortation & bagging service",
+      "summary": "Apply Royal Mail mail-sort order and bag mailings to Royal Mail requirements, using the Council's post account at the correct required class to achieve optimal postal discount.",
+      "requirements": [
+        "Apply mail-sort order per Royal Mail specification.",
+        "Bag mailings to Royal Mail requirements.",
+        "Use the Council's post account at the correct, required class."
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 4 — Direct Mail Services — Examples",
+        "anchor_text": "Apply mail-sort order and bag to royal-mail requirements to attract optimal postal discounts"
+      }
+    },
+    {
+      "seed_key": "lot5-envelopes-c4-c5-dl",
+      "lot_number": "5",
+      "candidate_name": "Envelopes C4 / C5 / DL (pocket, wallet, window, non-window, gummed, opaque)",
+      "summary": "Printed and plain envelopes in C4, C5 and DL sizes across pocket, wallet, window, non-window, gummed and opaque variants.",
+      "requirements": [
+        "Sizes C4, C5 and DL.",
+        "Variants: pocket, wallet, window, non-window, gummed, opaque.",
+        "Meets Government Buying Standards for paper and paper products (GBS)."
+      ],
+      "technical_standards": ["Government Buying Standards for paper and paper products (GBS)"],
+      "cpv_codes": ["22000000-0"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 5 — Envelopes — Examples",
+        "anchor_text": "C4  / C5 / DL  - pocket, wallet, window, non-window, gummed, opaque"
+      }
+    },
+    {
+      "seed_key": "lot6-pick-and-pack",
+      "lot_number": "6",
+      "candidate_name": "Pick-and-pack fulfilment with variable collation",
+      "summary": "Collate sets of supplied products in volumes that vary by recipient (e.g. per-school quantities) and package for distribution.",
+      "requirements": [
+        "Variable collation driven by supplied data (e.g. per-school).",
+        "Pack sets for secure onward distribution."
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 6 — Fulfilment — Examples",
+        "anchor_text": "A5 school menu, with another item (e.g. sticker sheet) to be collated in varying volumes dependant on the size of the school."
+      }
+    },
+    {
+      "seed_key": "lot7-payroll-p60-pension",
+      "lot_number": "7",
+      "candidate_name": "Confidential payroll, P60 and pension documents",
+      "summary": "Secure printed payroll, P60s, statements, pension payslips and pension statements.",
+      "requirements": [
+        "On-premises production with no third-party involvement.",
+        "DCC verification access on-premises.",
+        "ISO 9001 and ISO 27001 certified supplier.",
+        "Annually tested BC & DR policies."
+      ],
+      "technical_standards": ["ISO 9001", "ISO/IEC 27001"],
+      "cpv_codes": ["22000000-0", "79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 7 — Examples",
+        "anchor_text": "Payroll, P60's, Statements, Pension Payslips &amp; Statements etc."
+      }
+    },
+    {
+      "seed_key": "lot7-confidential-reports",
+      "lot_number": "7",
+      "candidate_name": "Confidential Council reports and contracts",
+      "summary": "Confidential service reports, staff-investigation statements, commercial services contracts, planning surveyors' reports, democratic / audit / EMT / CMT / Cabinet reports.",
+      "requirements": [
+        "On-premises production with no third-party involvement.",
+        "DCC verification access on-premises.",
+        "ISO 9001 and ISO 27001 certified supplier.",
+        "Annually tested BC & DR policies."
+      ],
+      "technical_standards": ["ISO 9001", "ISO/IEC 27001"],
+      "cpv_codes": ["22000000-0", "79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 7 — Examples",
+        "anchor_text": "Confidential service reports, confidential statement of cases (investigation into staff), contracts for Commercial Services, Surveyors reports for planning, Democratic – agendas, audits, EMT/CMT, Cabinet reports"
+      }
+    },
+    {
+      "seed_key": "lot7-mail-merges",
+      "lot_number": "7",
+      "candidate_name": "Confidential mail merges (e.g. school admissions)",
+      "summary": "Confidential variable-data mail merges such as school admissions letters.",
+      "requirements": [
+        "On-premises production with no third-party involvement.",
+        "DCC verification access on-premises.",
+        "ISO 9001 and ISO 27001 certified supplier.",
+        "Annually tested BC & DR policies."
+      ],
+      "technical_standards": ["ISO 9001", "ISO/IEC 27001"],
+      "cpv_codes": ["22000000-0", "79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 7 — Examples",
+        "anchor_text": "Mail merges (i.e. admissions letters for schools)"
+      }
+    },
+    {
+      "seed_key": "lot8-foamex-mounted-posters",
+      "lot_number": "8",
+      "candidate_name": "Foamex-mounted large-format posters A2-A0",
+      "summary": "A2 to A0 four-colour inkjet prints on 170gsm satin photo paper, mounted on 3-5mm Foamex board.",
+      "requirements": [
+        "A2 to A0 finished sizes.",
+        "Four-colour inkjet printing.",
+        "170gsm satin photo paper substrate.",
+        "Mounted on 3-5mm Foamex board."
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["22000000-0"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 8 — Examples",
+        "anchor_text": "A2 – A0 size 4 colour inkjets onto satin photo paper 170gsm mounted on 3mm – 5mm Foamex board."
+      }
+    },
+    {
+      "seed_key": "lot8-display-stands",
+      "lot_number": "8",
+      "candidate_name": "Display stands (large-format, pop-up, pull-up)",
+      "summary": "Large-format display stands and pop-up / pull-up display stands.",
+      "requirements": [
+        "Large-format and roll-up portable display stand production."
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["22000000-0"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 8 — Examples",
+        "anchor_text": "Large format display stands."
+      }
+    },
+    {
+      "seed_key": "lot8-signage-and-livery",
+      "lot_number": "8",
+      "candidate_name": "Signage, lamp-post banners, outdoor advertising, building and vehicle livery",
+      "summary": "Signage, lamp-post banners, outdoor advertising boards, building livery and vehicle livery.",
+      "requirements": [
+        "Outdoor-durable construction.",
+        "Signage/livery site-visit and measurement travel expenses must be quoted within price estimate at call-off (quote stage)."
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["22000000-0", "79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 8 — Examples",
+        "anchor_text": "Signage*, lamp-post banners, outdoor advertising, buildings and livery"
+      }
+    },
+    {
+      "seed_key": "lot8-pvc-vinyl-banners",
+      "lot_number": "8",
+      "candidate_name": "PVC vinyl banners (indoor/outdoor) with hem and eyelets",
+      "summary": "Large and small format 4-colour PVC vinyl banners, hemmed and eye-letted, for indoor and outdoor use; including affixing.",
+      "requirements": [
+        "4-colour PVC banner printing.",
+        "Hemmed edges.",
+        "Eyelets.",
+        "Indoor and outdoor use supported.",
+        "Affixing service available."
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["22000000-0"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 8 — Examples",
+        "anchor_text": "Large and small format vinyl print and affixing, including PVC banners printed 4 colour, hemming and eye-letting, for indoor and outdoor use"
+      }
+    },
+    {
+      "seed_key": "lot8-pos-merchandise-promo",
+      "lot_number": "8",
+      "candidate_name": "POS merchandise and branded promotional products",
+      "summary": "Point-of-sale merchandise and branded promotional products (printed with company logos, contact details or straplines).",
+      "requirements": [
+        "Branded with logo, contact details or strapline as specified at call-off."
+      ],
+      "technical_standards": [],
+      "cpv_codes": ["22000000-0"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 8 — Examples",
+        "anchor_text": "Point of sale merchandise, promotional products, promotional items, promotional gifts, branded merchandise items"
+      }
+    },
+    {
+      "seed_key": "lot9-landmark-report-scanning",
+      "lot_number": "9",
+      "candidate_name": "Landmark-report scanning (photos, plans, maps)",
+      "summary": "Scan landmark reports with attached photos, plans and maps; save files securely with defined metadata.",
+      "requirements": [
+        "Predominantly A4 with minimal A3 substrate support.",
+        "Defined metadata captured per file.",
+        "Secure file storage.",
+        "On-premises production with no third-party involvement.",
+        "ISO 9001 and ISO 27001 certified supplier."
+      ],
+      "technical_standards": ["ISO 9001", "ISO/IEC 27001"],
+      "cpv_codes": ["79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 9 — Examples",
+        "anchor_text": "Landmark reports with attached photos, plans, maps"
+      }
+    },
+    {
+      "seed_key": "lot9-questionnaire-ocr",
+      "lot_number": "9",
+      "candidate_name": "Questionnaire scanning with OCR",
+      "summary": "Scan questionnaires with character recognition (OCR); validate recognised output against source.",
+      "requirements": [
+        "OCR of questionnaire content.",
+        "Manual/automated attention-to-detail validation against source document.",
+        "On-premises production with no third-party involvement.",
+        "ISO 9001 and ISO 27001 certified supplier."
+      ],
+      "technical_standards": ["ISO 9001", "ISO/IEC 27001"],
+      "cpv_codes": ["79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 9 — Examples",
+        "anchor_text": "Questionnaires with character recognition but attention to detail on checking output against actual."
+      }
+    },
+    {
+      "seed_key": "lot10-legal-hr-response-digitisation",
+      "lot_number": "10",
+      "candidate_name": "Secure digital mailroom — Legal / HR response digitisation",
+      "summary": "Secure inbound digitisation of legal and HR correspondence with defined metadata and secure storage.",
+      "requirements": [
+        "Predominantly A4 with minimal A3 substrate support.",
+        "Defined metadata per file.",
+        "Secure file storage.",
+        "On-premises production with no third-party involvement.",
+        "ISO 9001 and ISO 27001 certified supplier."
+      ],
+      "technical_standards": ["ISO 9001", "ISO/IEC 27001"],
+      "cpv_codes": ["79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 10 — Examples",
+        "anchor_text": "Legal / HR responses"
+      }
+    },
+    {
+      "seed_key": "lot10-adult-childrens-care-digitisation",
+      "lot_number": "10",
+      "candidate_name": "Secure digital mailroom — Adult & Children's Care case digitisation",
+      "summary": "Secure inbound digitisation of Adult and Children's Care case correspondence with defined metadata and secure storage.",
+      "requirements": [
+        "Predominantly A4 with minimal A3 substrate support.",
+        "Defined metadata per file.",
+        "Secure file storage.",
+        "On-premises production with no third-party involvement.",
+        "ISO 9001 and ISO 27001 certified supplier."
+      ],
+      "technical_standards": ["ISO 9001", "ISO/IEC 27001"],
+      "cpv_codes": ["79800000-2"],
+      "evidence_anchor": {
+        "page_ref": "unpaginated",
+        "section_ref": "Part 1 — Lot 10 — Examples",
+        "anchor_text": "Adult &amp; Childrens Care cases"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lot_split": 9600,
+    "lot_titles": 9600,
+    "lot_descriptions": 9000,
+    "requirements": 8500,
+    "evaluation_criteria": 6500,
+    "cpv_codes": 6000,
+    "technical_standards": 9200,
+    "product_requirements": 7500,
+    "evidence_anchors": 9300,
+    "quantity_hints": 7000
+  },
+  "extraction_confidence_bps": 8200,
+  "warnings": [
+    {
+      "code": "PER_LOT_AWARD_CRITERIA_NOT_SPECIFIED",
+      "message": "Appendix A describes the scope and supplier mandatories for each lot but does not enumerate per-lot MEAT / price-quality award weightings. Those are evaluated at each DPS Stage-2 call-off (separate further-competition documents); only generic 'selection criteria will include proximity and delivery speed' is asserted for statutory-turnaround work in Lots 1 and 7.",
+      "evidence_refs": ["Part 1 — Lot 1 — Standard Print", "Part 1 — Lot 7 — supplier requirements"]
+    },
+    {
+      "code": "PRODUCT_EXAMPLES_NON_EXHAUSTIVE",
+      "message": "All per-lot product requirement seeds are derived from explicit 'Examples include (but not limited to)' lists. Lot scope is intentionally broader than the examples, so downstream matching must treat these seeds as representative, not exhaustive.",
+      "evidence_refs": ["Part 1 — Lot 1 — Examples", "Part 1 — Lot 2 — Examples", "Part 1 — Lot 7 — Examples", "Part 1 — Lot 8 — Examples"]
+    },
+    {
+      "code": "NO_PER_LOT_ESTIMATED_VALUE",
+      "message": "Specification gives only one aggregate estimate (£140,000 annually on print for the Local Authority); no per-lot monetary estimate is provided in this document.",
+      "evidence_refs": ["Introduction"]
+    },
+    {
+      "code": "DOC_SOURCE_UNPAGINATED",
+      "message": "Source document is a .doc / .docx converted to Docling markdown; page_count is 0 and the markdown contains no page markers. All evidence anchors use section_ref against the document's Part/Lot structure rather than page numbers.",
+      "evidence_refs": []
+    },
+    {
+      "code": "CPV_PER_LOT_NOT_IN_DOCUMENT",
+      "message": "Appendix A does not assign CPV codes to individual lots. The CPV codes attached to each lot output (22000000-0 Printed matter and related products, 79800000-2 Printing and related services) are inherited from the process-level CPV signal and then filtered per lot by whether the lot covers printed products (22000000-0) and/or printing services (79800000-2). Lots 3/4/6/9/10 are tagged 79800000-2 only because they are pure service lots.",
+      "evidence_refs": ["process_context.cpv"]
+    },
+    {
+      "code": "EXISTING_UMBRELLA_LOT_ROW",
+      "message": "The notice already has a single umbrella lot row describing the DPS as a whole (see notice_lots lot-1 description referencing Appendix B Instructions to Bidders). This extraction output supplies the 10 constituent lots referenced there; downstream persistence must replace or supersede the umbrella row with these 10 lots under a single atomic commit cohort for this stage_run.",
+      "evidence_refs": ["process_context.existing_lot_rows"]
+    },
+    {
+      "code": "PACKAGING_AND_CROSS_LOT_OBLIGATIONS_NOT_ATTACHED_PER_LOT",
+      "message": "Parts 2-10 (Packaging, Service Delivery, Complaints, Invoicing, Contract Management, Performance, Innovation, Insurance) are cross-lot DPS-wide obligations. They are not duplicated onto each per-lot 'requirements' array to avoid noisy downstream matching; downstream consumers should treat these as process-level rather than lot-level constraints. Insurance minimums (£5m employers' liability, £5m public liability) are DPS-wide.",
+      "evidence_refs": ["Part 2 — Packaging", "Part 3 — Service Delivery", "Part 10 — Insurance"]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Appendix A — Specification — Header",
+      "anchor_text": "**Appendix A**"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Introduction — DPS scope",
+      "anchor_text": "**The DPS is divided into the following service categories:**"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Introduction — Lot list (1-7 header)",
+      "anchor_text": "Lot 1     Standard Print"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Introduction — Lot list (Lot 8)",
+      "anchor_text": "Lot 8     Large format, Signage, Display &amp; POS Printing"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Introduction — Lot list (Lot 9)",
+      "anchor_text": "Lot 9    Scanning – Questionnaires, photos, plans, maps, etc."
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Introduction — Lot list (Lot 10)",
+      "anchor_text": "Lot 10   Business Continuity &amp; Disaster Recovery – Response Handling/digital Mail Room"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Part 1 — Lot 1 — Standard Print",
+      "anchor_text": "**Print and Distribution – Lot 1 - Standard Print**"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Part 1 — Lot 2 — High Volume Print",
+      "anchor_text": "Print and Distribution – Lot 2 - High Volume Print"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Part 1 — Lot 3 — Door Drop and Leaflet Distribution",
+      "anchor_text": "**Print and Distribution – Lot 3 - Door Drop and Leaflet Distribution only**"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Part 1 — Lot 4 — Direct Mail Services",
+      "anchor_text": "**Print and Distribution – Lot 4 - Direct Mail Services**"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Part 1 — Lot 5 — Envelopes",
+      "anchor_text": "**Print and Distribution – Lot 5 - Envelopes**"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Part 1 — Lot 6 — Fulfilment Pick and Pack",
+      "anchor_text": "**Print and Distribution – Lot 6 - Fulfilment – Pick and Pack Distribution**"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Part 1 — Lot 7 — BC&DR Confidential Print",
+      "anchor_text": "**Print and Distribution – Lot 7 - Business Continuity &amp; Disaster Recovery – Standard &amp; Security Printing/Confidential Print**"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Part 1 — Lot 8 — Large Format / POS",
+      "anchor_text": "**Large Format &amp; Promotional Products - Lot 8 - Large format, Signage, Display &amp; POS Printing**"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Part 1 — Lot 9 — Scanning",
+      "anchor_text": "**Scanning - Lot 9 - Scanning – Questionnaires, photos, plans, maps, etc.**"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Part 1 — Lot 10 — Digital Mail Room",
+      "anchor_text": "**Lot 10   Business Continuity &amp; Disaster Recovery – Response Handling/digital Mail Room**"
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Part 1 — Lot 7 — supplier mandatories",
+      "anchor_text": "All suppliers for Lot 7 must have ISO 9001 &amp; ISO27001."
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Part 1 — Lot 9 — supplier mandatories",
+      "anchor_text": "All suppliers for Lot 9 must have ISO 9001 &amp; ISO27001."
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Part 1 — Lot 10 — supplier mandatories",
+      "anchor_text": "All suppliers for Lot 10 must have ISO 9001 &amp; ISO27001."
+    },
+    {
+      "page_ref": "unpaginated",
+      "section_ref": "Part 10 — Insurance",
+      "anchor_text": "Employer's (Compulsory) Liability Insurance = £5 million"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "f312a8d3f2c0575b50d7b0f6df6143a97059cdbe9e0e2d45632719749c70558c",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

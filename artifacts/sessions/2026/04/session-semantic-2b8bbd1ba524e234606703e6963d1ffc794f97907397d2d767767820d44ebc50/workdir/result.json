@@ -1,0 +1,538 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment",
+      "description": "ESPO Framework Agreement 107_26 template (Appendix A) for the provision of inspection and maintenance of indoor gymnasium, fitness & sport equipment and outdoor schools play & sport equipment to ESPO customers (public bodies in England and potentially the wider UK). This document is the legal framework template only; Schedule 1 (The Goods and/or Services) is a stub that will be populated post-award by incorporating the Specification from Section 2 of the Invitation to Tender and the Supplier's Statement of Requirements response from the Tender Submission Document, neither of which is contained in this document. The Commencement Date is 09 June 2026; Initial Term is 20 Months with optional extensions up to 28 additional Months. Customers may call off either without competition (e.g. cheapest Supplier at Framework Prices) or via Further Competitive Selection Process. Clause 26.16 (Partial Termination) confirms the framework contains Lots, but no lot-level breakdown is made visible in this Framework Agreement template — the lot structure, Goods/Services detail, quantities, CPV split and technical specifications must be read from the separately issued Specification pack.",
+      "requirements": [
+        "Enter into Contracts with Customers in accordance with the Framework Schedule 4 Ordering Procedure, on the terms of the Form of Contract, Master Contract Schedule and Call-Off Terms (clauses 6.1, 6.2).",
+        "Ensure any Goods supplied to Customers conform to the Specification and the Call-Off Terms (clause 7.5).",
+        "Perform all obligations under Contracts in accordance with the Framework Agreement, Good Industry Practice, with appropriately experienced, qualified and trained personnel, with all due skill, care and diligence, and in compliance with all applicable Law (clauses 12.1.1-12.1.5).",
+        "Comply with the Standards (British Standards, international standards, ESPO's internal policies and procedures, Government codes of practice and guidance) referred to in Framework Schedule 1 in performing obligations (clause 13.2, 'Standards' definition).",
+        "Obtain and maintain all licences, authorisations, consents or permits required in relation to performance of obligations (clause 13.1).",
+        "Meet or exceed the Key Performance Indicators set out in Annex A of Framework Schedule 10 at all times (clause 7.1.11, Schedule 10 Annex A).",
+        "Submit full, accurate and complete MI Reports to ESPO Quarterly using the MI Reporting Template, by the 5th Working Day after each Quarter, until all Contracts have permanently ceased (Framework Schedule 7 paragraphs 2.1, 3.1, 3.3).",
+        "Pay the Framework Fee of 3.5% to ESPO within 30 days of ESPO's invoice, calculated Quarterly from Management Information (Framework Schedule 2 paragraphs 1.4-1.5, clauses 16.1-16.8).",
+        "Comply with anti-slavery and human trafficking laws (Modern Slavery Act 2015) and with ESPO's Conduct Policy; include equivalent provisions in sub-contracts; implement Supplier's Staff training and record-keeping (clauses 12.3.1-12.3.5).",
+        "Comply with all applicable environmental Law (including GHG Emissions, waste disposal, hazardous/toxic materials) for operations, manufactured goods and packaging; maintain an environmental management system that assesses impact, reduces emissions/pollution/waste, minimises raw materials and trains Staff (clauses 12.4-12.5).",
+        "On each anniversary of the Commencement Date, submit to ESPO a written report on GHG Emissions (using current government conversion factors) and overall sustainability impact of Framework performance (clause 12.7).",
+        "Comply with the Supplier Code of Conduct and promote Social Value in accordance with the Social Value Act 2012 and the current National Procurement Policy Statement (clauses 12.9, 12.10).",
+        "Carry out Disclosure & Barring Service enhanced checks (including Children's Barred List checks where applicable) for Supplier's Personnel or volunteers working in Regulated Activity with children and/or vulnerable adults; renew checks every three years; do not employ barred persons (clauses 13.3-13.6).",
+        "Carry out Employment Checks and DBS-required checks for Staff/volunteers who may have contact with children and/or vulnerable adults even outside Regulated Activity (clause 13.7).",
+        "Do not unlawfully discriminate within the scope of Equality Legislation (Equality Act 2010); take reasonable steps so that Staff observe this obligation; ensure written information produced under this Framework is as accessible as reasonably possible to people with disabilities (clauses 14.1, 14.2, 14.6).",
+        "Not commit any Prohibited Act, Fraud or offence under the Bribery Act 2010 in connection with this Framework Agreement; take all reasonable steps in accordance with Good Industry Practice to prevent Fraud by Supplier or Staff; comply with ESPO's published bribery/corruption policies (clauses 9.1-9.3, 11.1).",
+        "Keep and maintain, for the Term and 6 Years after termination/expiry, full and accurate records and accounts (including supply chain records) and afford ESPO and its Auditors access to these records and to Supplier Staff as requested (clauses 17.1-17.4).",
+        "Comply with Data Protection Legislation (UK GDPR, Data Protection Act 2018, PECR) as Controller; exchange only limited Personal Data as necessary; enter into a data processing agreement if any subsequent processing on behalf of ESPO arises (clauses 21.1-21.6).",
+        "Transfer all Requests for Information under FOIA/EIR to ESPO within 5 Working Days and provide all relevant Information and assistance for ESPO to respond within FOIA/EIR time limits; do not respond directly without ESPO's authorisation (clauses 22.2, 22.4).",
+        "Not make any press announcements or publicise the Framework without ESPO's Approval; undertake marketing of the Framework and Goods/Services in accordance with Framework Schedule 8 (clauses 23.1, 23.4).",
+        "Ensure that the availability, provision and use of Goods/Services does not infringe any third-party Intellectual Property Rights; hold or obtain valid licences for all IPR required for performance; indemnify ESPO against IPR infringement claims (clauses 25.2-25.4).",
+        "Take steps in accordance with Good Industry Practice to prevent introduction of viruses, worms, Trojans, spyware or other malware into systems, data or software owned by or used by ESPO and/or Customers (clause 25.3.2).",
+        "Implement a policy of continuous improvement for Goods/Services with a view to reducing ESPO and Customer costs and improving quality/efficiency; review regularly with ESPO (Framework Schedule 6 paragraph 3.1).",
+        "Provide a benchmark report on request during Benchmark Reviews, covering products/rates identified by ESPO, methodology, comparison items, market intelligence, Supplier's benchmarked rates, and competitiveness analysis (Framework Schedule 6 paragraphs 2.2.1-2.2.3).",
+        "Appoint a suitably qualified Framework Manager and a deputy, and put in place a management structure to deliver the Framework in accordance with Schedule 1 and against the Service Levels and KPIs in Schedule 10 Annex A (Framework Schedule 10 paragraphs 2.1.1, 2.1.2).",
+        "Attend Framework Review Meetings held every 12 Months (frequency/timing set by ESPO), covering strategic matters (supply chain performance, efficiency, benchmarking, market, policy, risk) and operational matters (KPI compliance, incidents, customer satisfaction, new products, environmental initiatives) (Framework Schedule 10 paragraphs 2.2.1-2.2.4).",
+        "Resolve 100% of customer complaints with an initial response within two Working Days, and 98% of complaints within ten Working Days (Framework Schedule 10 Annex A KPI row 'Complaints Resolution').",
+        "Ensure that no less than three Quarterly MI Reports are returned correct and on time by the Reporting Date in each Contract Year (Framework Schedule 10 Annex A KPI row 'Return of MI Reports').",
+        "Maintain accuracy of contact information provided to ESPO with no more than one discrepancy identified in any one Contract Year (Framework Schedule 10 Annex A KPI row 'Update of information to ESPO').",
+        "Ensure that 98% of invoices issued in every Month are accurate in amount (Framework Schedule 10 Annex A KPI row 'Invoicing').",
+        "Deliver Social Value as per each Contract, measure and report financial and non-financial benefits delivered to Customers to ESPO (Framework Schedule 10 Annex A KPI row 'Social Value').",
+        "At termination or expiry, return all ESPO Confidential Information in possession within 10 Working Days (retaining only Personal Data for compliance periods) and cooperate with access to data/information for up to 12 Months after termination (clauses 28.2, 28.3).",
+        "Pay interest on any late payments of the Framework Fee in accordance with the Late Payment of Commercial Debts (Interest) Act 1998 (clause 16.7)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Further Competitive Selection Process Award Criteria (Customer-defined at call-off)",
+          "summary": "Framework Schedule 5 states that Customers running a Further Competitive Selection Process may adopt a scheme similar to that used by ESPO in establishing the Framework, or may advise Suppliers that a revised scheme (which may keep the same criteria but vary weightings, with increased weighting on 'price' at call-off stage) will be used. No specific criteria names, definitions or weightings are listed in this Framework Agreement template.",
+          "evidence_anchor": {
+            "anchor_text": "When evaluating a further competitive selection process, Customers may adopt a scheme similar to that used by ESPO in establishing the Framework or may advise Suppliers that a revised scheme will be used, in order to suit the specific requirements.",
+            "page_ref": "67",
+            "section_ref": "Framework Schedule 5 - Further Competitive Selection Process Award Criteria"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "espo-107_26-lot1-indoor-gym-inspection",
+          "summary": "Inspection services for indoor gymnasium, fitness and sport equipment held at ESPO customer premises — confirmed in scope by the framework title; detailed cadence, methodology and acceptance criteria defined in the separately issued Specification (Section 2 of the ITT).",
+          "requirement_type": "inspection_service",
+          "technical_attributes": [
+            "Performance in accordance with Good Industry Practice (clause 12.1.3)",
+            "Personnel must be appropriately experienced, qualified and trained, with all due skill, care and diligence (clause 12.1.4)",
+            "Must comply with the Standards (British Standards, international standards, ESPO internal policies, Government codes of practice and guidance) referred to in Framework Schedule 1 ('Standards' definition; clause 13.2)",
+            "Must comply with all applicable Law including environmental, health & safety, Data Protection Legislation (clauses 12.1.5, 12.4)"
+          ],
+          "quantity_hint": "Covers indoor gymnasium, fitness and sport equipment inventory of ESPO Customers across framework geography; precise scope per equipment type and inspection frequency is set out in the Specification pack and in each Customer's Call-Off",
+          "evidence_anchor": {
+            "anchor_text": "FRAMEWORK AGREEMENT FOR INSPECTION & MAINTENANCE OF INDOOR GYMNASIUM, FITNESS & SPORT EQUIPMENT AND OUTDOOR SCHOOLS PLAY & SPORT EQUIPMENT",
+            "page_ref": "1",
+            "section_ref": "Cover / Framework title"
+          }
+        },
+        {
+          "seed_key": "espo-107_26-lot1-indoor-gym-maintenance",
+          "summary": "Maintenance services (including planned/preventive maintenance and remedial works) for indoor gymnasium, fitness and sport equipment — confirmed in scope by the framework title; detailed service levels and methodology defined in the separately issued Specification (Section 2 of the ITT) and in the Call-Off Terms.",
+          "requirement_type": "maintenance_service",
+          "technical_attributes": [
+            "Performance in accordance with Good Industry Practice (clause 12.1.3)",
+            "Must comply with the Standards referenced in Framework Schedule 1 (clause 13.2; 'Standards' definition)",
+            "Service Levels for Customers as set out in Schedule 1 and Call-Off Terms (Framework Schedule 10 paragraph 4.1)",
+            "Any Goods supplied during maintenance must conform to the Specification and Call-Off Terms (clause 7.5)"
+          ],
+          "quantity_hint": "Maintenance scope covers indoor gymnasium, fitness and sport equipment for ESPO Customers; cadence, reactive/planned split, response times and first-time-fix targets are in the Specification and Schedule 10 Annex A KPIs",
+          "evidence_anchor": {
+            "anchor_text": "FRAMEWORK AGREEMENT FOR INSPECTION & MAINTENANCE OF INDOOR GYMNASIUM, FITNESS & SPORT EQUIPMENT AND OUTDOOR SCHOOLS PLAY & SPORT EQUIPMENT",
+            "page_ref": "1",
+            "section_ref": "Cover / Framework title"
+          }
+        },
+        {
+          "seed_key": "espo-107_26-lot1-outdoor-schools-play-inspection",
+          "summary": "Inspection services for outdoor schools play and sport equipment (e.g. climbing frames, outdoor gym kit, MUGAs, court/pitch assets) — confirmed in scope by the framework title; inspection regimes (routine/operational/annual) defined in the separately issued Specification.",
+          "requirement_type": "inspection_service",
+          "technical_attributes": [
+            "Performance in accordance with Good Industry Practice (clause 12.1.3)",
+            "Personnel must be appropriately experienced, qualified and trained (clause 12.1.4)",
+            "Must comply with the Standards referenced in Framework Schedule 1 — expected to include relevant BS EN standards for playground equipment (e.g. the BS EN 1176/1177 families) as referenced via BSI Group Standards (clause 13.2; 'Standards' definition)",
+            "Must comply with all applicable Law including health & safety (clause 12.1.5)"
+          ],
+          "quantity_hint": "Outdoor schools play and sport equipment inventory for ESPO Customers (schools/academies/local authorities); detailed quantities and inspection frequencies sit in the Specification and in each Customer's Call-Off",
+          "evidence_anchor": {
+            "anchor_text": "OUTDOOR SCHOOLS PLAY & SPORT EQUIPMENT",
+            "page_ref": "1",
+            "section_ref": "Cover / Framework title"
+          }
+        },
+        {
+          "seed_key": "espo-107_26-lot1-outdoor-schools-play-maintenance",
+          "summary": "Maintenance and remedial services for outdoor schools play and sport equipment — confirmed in scope by the framework title; detailed service levels, response times and first-time-fix rates defined in the separately issued Specification and in Schedule 10 Annex A KPIs.",
+          "requirement_type": "maintenance_service",
+          "technical_attributes": [
+            "Performance in accordance with Good Industry Practice (clause 12.1.3)",
+            "Must comply with the Standards referenced in Framework Schedule 1 (clause 13.2; 'Standards' definition)",
+            "Any replacement Goods supplied during maintenance must conform to the Specification and Call-Off Terms (clause 7.5)",
+            "KPIs include response times, up-time and first-time-fix rates (Framework Schedule 10 paragraph 2.2.4 Operational aspect (b))"
+          ],
+          "quantity_hint": "Maintenance scope covers outdoor schools play and sport equipment inventory at ESPO Customer sites; reactive and planned cadence defined in the Specification",
+          "evidence_anchor": {
+            "anchor_text": "compliance against Key Performance Indicators ('KPI's') (e.g. response times, up time, first time fix rates, no. of units sold, volume of prints, exceptions reports)",
+            "page_ref": "77",
+            "section_ref": "Framework Schedule 10 paragraph 2.2.4 Operational aspect (b)"
+          }
+        },
+        {
+          "seed_key": "espo-107_26-lot1-replacement-parts-and-spares",
+          "summary": "Supply of replacement parts, spares and consumables necessary to complete remedial/maintenance work on indoor gymnasium, fitness, sport and outdoor schools play & sport equipment. Exact parts catalogue, brand acceptability and pricing is held in the Specification, the Framework Prices (Schedule 2 Annex) and the Supplier's Tender.",
+          "requirement_type": "goods_replacement_parts",
+          "technical_attributes": [
+            "Goods must conform to the Specification and Call-Off Terms (clause 7.5)",
+            "Brand/trade-name references in item descriptions are indicative only; equivalent alternative brands meeting stated requirements are acceptable (clause 24.1)",
+            "Goods and their inputs must comply with applicable environmental Law; packaging must comply with applicable environmental Law (clauses 12.4.1, 12.4.2)",
+            "Must comply with the Standards referenced in Framework Schedule 1 (clause 13.2)"
+          ],
+          "quantity_hint": "Parts volume is a function of installed base and fault incidence at Customer sites; not quantified in this Framework Agreement",
+          "evidence_anchor": {
+            "anchor_text": "where specific brand or trade names are mentioned within the item descriptions and specifications, this should not be taken to imply that other brands or makes of product would be unacceptable. Rather it is simply an indication of the brands which may have proved to be acceptable for ESPO. The Supplier may offer alternative brands which meet the stated requirements.",
+            "page_ref": "36",
+            "section_ref": "clause 24.1 Use of Brand Names"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "British Standards (produced by the BSI Group) and international standards",
+          "context": "Definition of 'Standards' — the Supplier shall comply with the Standards (British Standards and international standards, together with ESPO's internal policies/procedures, Government codes of practice and guidance) referenced in Framework Schedule 1 when performing obligations under this Framework Agreement (clause 13.2).",
+          "evidence_anchor": {
+            "anchor_text": "'Standards' means the British Standards (produced by the BSI Group) and international standards, ESPO's reasonable internal policies and procedures, Government codes of practice and guidance referred to in Framework Schedule 1 (Goods and/or Services)",
+            "page_ref": "15",
+            "section_ref": "clause 1.1 Interpretation - 'Standards' definition"
+          }
+        },
+        {
+          "standard_ref": "UK GDPR and Data Protection Act 2018 (with regulations), plus PECR 2003",
+          "context": "The Supplier and ESPO each act as Controllers under Data Protection Legislation; both must comply with UK GDPR, DPA 2018 and PECR 2003 in handling Personal Data exchanged under the Framework (clauses 21.1-21.6).",
+          "evidence_anchor": {
+            "anchor_text": "'Data Protection Legislation' means all applicable data protection and privacy legislation in force from time to time in the UK including without limitation the UK GDPR; the Data Protection Act 2018 (and regulations made thereunder) (DPA 2018); and the Privacy and Electronic Communications Regulations 2003 (SI 2003/2426)",
+            "page_ref": "10",
+            "section_ref": "clause 1.1 Interpretation - 'Data Protection Legislation' definition"
+          }
+        },
+        {
+          "standard_ref": "Procurement Act 2023 (PA23) and The Procurement Regulations 2024",
+          "context": "Call-off and further competitive selection processes under the Framework are conducted in accordance with the Procurement Act 2023 and the associated Regulations/Guidance; termination rights for compliance with the PA23 (e.g. Excluded/Excludable Suppliers, material breach) are preserved (clauses 1 definitions, 26.12, Framework Schedule 4).",
+          "evidence_anchor": {
+            "anchor_text": "'PA23' means the Procurement Act 2023; 'Regulations' means The Procurement Regulations 2024",
+            "page_ref": "11",
+            "section_ref": "clause 1.1 Interpretation - 'PA23' and 'Regulations' definitions"
+          }
+        },
+        {
+          "standard_ref": "Modern Slavery Act 2015",
+          "context": "Supplier and Sub-Contractors must not engage in activity that would constitute an offence under sections 1, 2 or 4 of the Modern Slavery Act 2015; must implement training, record-keeping and notify ESPO of any suspected slavery/human trafficking in the supply chain (clauses 12.3.1-12.3.5).",
+          "evidence_anchor": {
+            "anchor_text": "comply with all applicable anti-slavery and human trafficking laws, statutes, regulations and codes from time to time in force including the Modern Slavery Act 2015 and the Conduct Policy",
+            "page_ref": "24",
+            "section_ref": "clause 12.3.1"
+          }
+        },
+        {
+          "standard_ref": "Equality Act 2010 and Equality Legislation",
+          "context": "Supplier must not unlawfully discriminate within the meaning of Equality Legislation; must ensure Staff observe this obligation; written information must be as accessible as reasonably possible to people with disabilities; Customers may run Equality Act impact analyses (clauses 14.1-14.7).",
+          "evidence_anchor": {
+            "anchor_text": "'Equality Legislation' means the Equality Act 2010 and such other acts, legislation and other Law relating to discrimination",
+            "page_ref": "9",
+            "section_ref": "clause 1.1 Interpretation - 'Equality Legislation' definition; clause 14"
+          }
+        },
+        {
+          "standard_ref": "Bribery Act 2010",
+          "context": "Supplier, Supplier's Personnel and Sub-Contractors must not commit any offence under the Bribery Act 2010 or breach clause 9 (Prevention of Bribery and Corruption). Breach entitles ESPO to terminate the Framework Agreement and recover losses (clauses 9.1-9.6, 26.1).",
+          "evidence_anchor": {
+            "anchor_text": "under the Bribery Act 2010 or any other relevant laws, statutes, regulations or codes in relation to bribery and anti-corruption",
+            "page_ref": "12",
+            "section_ref": "clause 1.1 'Prohibited Act' definition 2)(a); clause 9"
+          }
+        },
+        {
+          "standard_ref": "Freedom of Information Act 2000 (FOIA) and Environmental Information Regulations 2004 (EIR)",
+          "context": "ESPO is subject to FOIA and EIR. Supplier must transfer all Requests for Information to ESPO within 5 Working Days, provide relevant information/assistance, and not respond directly without ESPO's authorisation (clauses 22.1-22.4).",
+          "evidence_anchor": {
+            "anchor_text": "The Supplier acknowledges that ESPO may be subject to the requirements of the Freedom of Information Act 2000 ('FOIA') and the Environmental Information Regulations 2004 (\"EIR\")",
+            "page_ref": "34",
+            "section_ref": "clause 22.1"
+          }
+        },
+        {
+          "standard_ref": "Safeguarding of Vulnerable Groups Act 2006 and DBS enhanced checks",
+          "context": "Where Goods/Services require Supplier Personnel or volunteers to work in a Regulated Activity with children and/or vulnerable adults, the Supplier must make enhanced DBS checks (including Children's Barred List) and renew them every three years; must not employ persons barred under the SVGA 2006 (clauses 13.3-13.6).",
+          "evidence_anchor": {
+            "anchor_text": "Where the provision of the Goods and/or Services requires any of the Supplier's Personnel or volunteers to work in a Regulated Activity with children and/or vulnerable adults, the Supplier will make checks in respect of such employees and volunteers with the Disclosure & Barring Service for the purpose of checking at an enhanced level of disclosure",
+            "page_ref": "26",
+            "section_ref": "clause 13.3"
+          }
+        },
+        {
+          "standard_ref": "Social Value Act 2012 and current National Procurement Policy Statement",
+          "context": "Supplier shall work with ESPO and Customers to promote Social Value in accordance with the Social Value Act 2012 and the current National Procurement Policy Statement, particularly within the Supplier's local economy. Social Value delivery is also a KPI (clause 12.10; Framework Schedule 10 Annex A).",
+          "evidence_anchor": {
+            "anchor_text": "The Supplier shall work with ESPO and Customers to promote Social Value in accordance with the Social Value Act 2012 and the current National Procurement Policy Statement",
+            "page_ref": "26",
+            "section_ref": "clause 12.10"
+          }
+        },
+        {
+          "standard_ref": "Late Payment of Commercial Debts (Interest) Act 1998",
+          "context": "Interest is payable on any late payments of the Framework Fee in accordance with the Late Payment of Commercial Debts (Interest) Act 1998 (clause 16.7).",
+          "evidence_anchor": {
+            "anchor_text": "Interest shall be payable on any late payments of the Framework Fee under this Framework Agreement in accordance with the Late Payment of Commercial Debts (Interest) Act 1998.",
+            "page_ref": "29",
+            "section_ref": "clause 16.7"
+          }
+        },
+        {
+          "standard_ref": "1998 Kyoto Protocol to the UN Framework Convention on Climate Change (Annex A GHGs)",
+          "context": "GHG Emissions that the Supplier must minimise and report on (clause 12.6, 12.7.1) are those of the greenhouse gases listed at Annex A of the 1998 Kyoto Protocol (CO2, CH4, N2O, NF3, HFCs, PFCs, SF6), expressed in carbon-dioxide equivalent ('GHG Emissions' definition; clauses 12.6-12.7).",
+          "evidence_anchor": {
+            "anchor_text": "'GHG Emissions' means emissions of the greenhouse gases listed at Annex A of the 1998 Kyoto Protocol to the United Nations Framework Convention on Climate Change",
+            "page_ref": "10",
+            "section_ref": "clause 1.1 Interpretation - 'GHG Emissions' definition"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "anchor_text": "FRAMEWORK AGREEMENT FOR INSPECTION & MAINTENANCE OF INDOOR GYMNASIUM, FITNESS & SPORT EQUIPMENT AND OUTDOOR SCHOOLS PLAY & SPORT EQUIPMENT ... Agreement Ref: 107_26",
+        "page_ref": "1",
+        "section_ref": "Cover / Framework title block"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "espo-107_26-lot1-indoor-gym-inspection",
+      "lot_number": "1",
+      "candidate_name": "Inspection services for indoor gymnasium, fitness and sport equipment",
+      "summary": "Routine/operational/annual inspection of indoor gymnasium, fitness and sport equipment installed at ESPO Customer premises. The Framework Agreement confirms the scope via its title and compliance clauses; detailed inspection regimes and acceptance criteria are defined in the separately issued Specification (Section 2 of the ITT).",
+      "requirements": [
+        "Performance in accordance with Good Industry Practice (clause 12.1.3)",
+        "Personnel must be appropriately experienced, qualified and trained, with all due skill, care and diligence (clause 12.1.4)",
+        "Must comply with the Standards (British Standards, international standards, ESPO internal policies, Government codes of practice and guidance) referred to in Framework Schedule 1 (clause 13.2; 'Standards' definition)",
+        "Must comply with all applicable Law including environmental and data protection (clauses 12.1.5, 12.4)",
+        "KPI: 100% of complaints responded to within 2 Working Days; 98% resolved/action-planned within 10 Working Days (Schedule 10 Annex A)"
+      ],
+      "technical_standards": [
+        "British Standards (BSI Group) and international standards referenced in Schedule 1",
+        "ESPO's internal policies and procedures",
+        "Government codes of practice and guidance referenced in Schedule 1"
+      ],
+      "cpv_codes": [
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "anchor_text": "FRAMEWORK AGREEMENT FOR INSPECTION & MAINTENANCE OF INDOOR GYMNASIUM, FITNESS & SPORT EQUIPMENT",
+        "page_ref": "1",
+        "section_ref": "Cover / Framework title"
+      }
+    },
+    {
+      "seed_key": "espo-107_26-lot1-indoor-gym-maintenance",
+      "lot_number": "1",
+      "candidate_name": "Maintenance and remedial services for indoor gymnasium, fitness and sport equipment",
+      "summary": "Planned/preventive and reactive maintenance (and remedial works) on indoor gymnasium, fitness and sport equipment at ESPO Customer sites. Service levels, response times and first-time-fix targets are described in the Specification and Schedule 10 Annex A KPIs.",
+      "requirements": [
+        "Performance in accordance with Good Industry Practice (clause 12.1.3)",
+        "Must comply with the Standards referenced in Framework Schedule 1 (clause 13.2)",
+        "Service Levels for Customers as set out in Schedule 1 and the Call-Off Terms (Schedule 10 paragraph 4.1)",
+        "Any Goods supplied during maintenance must conform to the Specification and Call-Off Terms (clause 7.5)",
+        "KPIs include response times, up-time and first-time-fix rates (Schedule 10 paragraph 2.2.4 Operational aspect (b))"
+      ],
+      "technical_standards": [
+        "British Standards (BSI Group) and international standards referenced in Schedule 1",
+        "ESPO's internal policies and procedures"
+      ],
+      "cpv_codes": [
+        "50000000-5",
+        "37400000-2"
+      ],
+      "evidence_anchor": {
+        "anchor_text": "FRAMEWORK AGREEMENT FOR INSPECTION & MAINTENANCE OF INDOOR GYMNASIUM, FITNESS & SPORT EQUIPMENT",
+        "page_ref": "1",
+        "section_ref": "Cover / Framework title"
+      }
+    },
+    {
+      "seed_key": "espo-107_26-lot1-outdoor-schools-play-inspection",
+      "lot_number": "1",
+      "candidate_name": "Inspection services for outdoor schools play and sport equipment",
+      "summary": "Routine/operational/annual inspection of outdoor schools play and sport equipment (e.g. climbing frames, outdoor gym kit, MUGAs, court/pitch assets) at ESPO Customer school and academy sites. Detailed inspection regimes are in the Specification.",
+      "requirements": [
+        "Performance in accordance with Good Industry Practice (clause 12.1.3)",
+        "Personnel must be appropriately experienced, qualified and trained (clause 12.1.4)",
+        "Must comply with the Standards referenced in Framework Schedule 1 (clause 13.2; 'Standards' definition)",
+        "DBS enhanced checks and renewal every three years where personnel work in Regulated Activity with children (clauses 13.3-13.6)",
+        "Must comply with applicable health & safety Law (clause 12.1.5)"
+      ],
+      "technical_standards": [
+        "British Standards (BSI Group) referenced in Schedule 1 (expected to include BS EN 1176/1177 families for playground equipment inspection; not explicitly named in this Framework Agreement template)",
+        "Government codes of practice and guidance referenced in Schedule 1"
+      ],
+      "cpv_codes": [
+        "50000000-5"
+      ],
+      "evidence_anchor": {
+        "anchor_text": "OUTDOOR SCHOOLS PLAY & SPORT EQUIPMENT",
+        "page_ref": "1",
+        "section_ref": "Cover / Framework title"
+      }
+    },
+    {
+      "seed_key": "espo-107_26-lot1-outdoor-schools-play-maintenance",
+      "lot_number": "1",
+      "candidate_name": "Maintenance and remedial services for outdoor schools play and sport equipment",
+      "summary": "Planned/preventive and reactive maintenance, plus remedial/repair works, on outdoor schools play and sport equipment at ESPO Customer schools/academies. Detailed service levels are in the Specification and Schedule 10 Annex A KPIs.",
+      "requirements": [
+        "Performance in accordance with Good Industry Practice (clause 12.1.3)",
+        "Must comply with the Standards referenced in Framework Schedule 1 (clause 13.2)",
+        "Any replacement Goods supplied during maintenance must conform to the Specification and Call-Off Terms (clause 7.5)",
+        "DBS enhanced checks where personnel work in Regulated Activity with children (clauses 13.3-13.6)",
+        "Must comply with applicable environmental Law including waste disposal and handling of hazardous/toxic materials (clause 12.4)"
+      ],
+      "technical_standards": [
+        "British Standards (BSI Group) referenced in Schedule 1",
+        "ESPO's internal policies and procedures"
+      ],
+      "cpv_codes": [
+        "50000000-5",
+        "37400000-2"
+      ],
+      "evidence_anchor": {
+        "anchor_text": "compliance against Key Performance Indicators ('KPI's') (e.g. response times, up time, first time fix rates",
+        "page_ref": "77",
+        "section_ref": "Framework Schedule 10 paragraph 2.2.4 Operational aspect (b)"
+      }
+    },
+    {
+      "seed_key": "espo-107_26-lot1-replacement-parts-and-spares",
+      "lot_number": "1",
+      "candidate_name": "Replacement parts, spares and consumables for inspected/maintained equipment",
+      "summary": "Supply of replacement parts, spares and consumables necessary to complete remedial/maintenance work on indoor gymnasium, fitness, sport and outdoor schools play & sport equipment. Exact parts catalogue and brand acceptability is set in the Specification; pricing is set in Framework Schedule 2 Annex.",
+      "requirements": [
+        "Goods must conform to the Specification and Call-Off Terms (clause 7.5)",
+        "Brand/trade-name references are indicative only; alternative brands meeting stated requirements are acceptable (clause 24.1)",
+        "Goods and their inputs must comply with applicable environmental Law (clauses 12.4, 12.4.1)",
+        "Packaging must comply with applicable environmental Law (clause 12.4.2)",
+        "Must comply with the Standards referenced in Framework Schedule 1 (clause 13.2)"
+      ],
+      "technical_standards": [
+        "British Standards (BSI Group) referenced in Schedule 1",
+        "Applicable environmental Law for goods and packaging"
+      ],
+      "cpv_codes": [
+        "37400000-2"
+      ],
+      "evidence_anchor": {
+        "anchor_text": "where specific brand or trade names are mentioned within the item descriptions and specifications, this should not be taken to imply that other brands or makes of product would be unacceptable",
+        "page_ref": "36",
+        "section_ref": "clause 24.1 Use of Brand Names"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 7500,
+    "lots.title": 9800,
+    "lots.description": 9000,
+    "lots.requirements": 9000,
+    "lots.evaluation_criteria": 4000,
+    "lots.cpv_codes": 2000,
+    "lots.product_requirements": 6500,
+    "lots.technical_standards": 7500,
+    "product_requirement_seeds": 6000,
+    "product_requirement_seeds.cpv_codes": 5000
+  },
+  "extraction_confidence_bps": 7000,
+  "warnings": [
+    {
+      "code": "LOT_STRUCTURE_UNCERTAIN",
+      "message": "Framework Schedule 1 (The Goods and/or Services) is a stub in this Appendix A Framework Agreement template; it refers out to the separately issued Specification (Section 2 of the Invitation to Tender) and to the Supplier's Statement of Requirements response, neither of which is contained in this document. Clause 26.16 (Partial Termination) explicitly refers to multiple 'Lots', and the title names two distinct equipment families (indoor gymnasium/fitness/sport vs outdoor schools play/sport), which strongly suggests a two-lot structure. However, the Framework Agreement text itself never labels 'Lot 1' / 'Lot 2' boundaries, so this extraction conservatively records a single lot matching the title and the existing notice-level lot record. Downstream should cross-reference the ITT Specification document (not in scope here) before treating this as a final lot structure.",
+      "evidence_refs": [
+        "FRAMEWORK SCHEDULE 1 - THE GOODS AND/OR SERVICES (page 56; stub)",
+        "clause 26.16 Partial Termination (page 43)",
+        "title block (page 1)"
+      ]
+    },
+    {
+      "code": "EVALUATION_CRITERIA_NOT_LISTED",
+      "message": "Framework Schedule 5 (Further Competitive Selection Process Award Criteria) does not enumerate specific criteria names, definitions, or weightings in this Framework Agreement template. It only states Customers 'may adopt a scheme similar to that used by ESPO' or 'advise Suppliers that a revised scheme will be used', and that increased weighting may be given to 'price' at call-off. No price/quality split is given. Framework-award evaluation criteria likely sit in the ITT (not in scope of this document).",
+      "evidence_refs": [
+        "Framework Schedule 5 (page 67)"
+      ]
+    },
+    {
+      "code": "SPECIFICATION_NOT_PRESENT",
+      "message": "Technical specification content (required equipment catalogues, inspection frequencies, response SLAs, specific BS EN standards, equipment categories) is not reproduced in this Framework Agreement template. Schedule 1 contains only the contractual wrapper and explicitly states it will be incorporated with the Specification (Section 2 of the ITT) and the Supplier's Statement of Requirements response post-award.",
+      "evidence_refs": [
+        "Framework Schedule 1 paragraph 1.1 (page 56)",
+        "Framework Schedule 1 final paragraph before Schedule 2 (page 57)"
+      ]
+    },
+    {
+      "code": "CPV_NOT_IN_DOCUMENT",
+      "message": "No CPV codes are printed in this Framework Agreement template. The process-context CPV codes held by the daemon (37400000-2 Sports goods and equipment; 50000000-5 Repair and maintenance services) have been used as CPV hints on product requirement seeds but are NOT recorded at the lot level because they are not cited in this document. Downstream should defer to the notice-level CPV.",
+      "evidence_refs": []
+    },
+    {
+      "code": "STANDARDS_REFERENCE_GENERIC",
+      "message": "The 'Standards' definition is generic — it references British Standards (BSI Group), international standards, ESPO's internal policies and procedures, and Government codes of practice 'referred to in Framework Schedule 1'. No specific BS EN numbers (e.g. BS EN 1176, BS EN 1177 for play equipment; BS EN 957 for fitness equipment) are named in this document. Specific standards are expected to be listed in the Specification.",
+      "evidence_refs": [
+        "clause 1.1 'Standards' definition (page 15)",
+        "clause 13.2 (page 26)"
+      ]
+    },
+    {
+      "code": "KPI_TARGETS_CUSTOMER_SERVICE_ONLY",
+      "message": "The KPI table in Framework Schedule 10 Annex A covers service-management KPIs (complaints handling, MI reporting, contact accuracy, invoicing accuracy, Social Value delivery) rather than technical inspection/maintenance performance KPIs (e.g. first-time-fix rate, mean time to repair). Technical performance KPIs are referenced conceptually in paragraph 2.2.4 but are not quantified in this document.",
+      "evidence_refs": [
+        "Framework Schedule 10 Annex A (page 78)",
+        "Framework Schedule 10 paragraph 2.2.4 (page 77)"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "anchor_text": "FRAMEWORK AGREEMENT FOR INSPECTION & MAINTENANCE OF INDOOR GYMNASIUM, FITNESS & SPORT EQUIPMENT AND OUTDOOR SCHOOLS PLAY & SPORT EQUIPMENT",
+      "page_ref": "1",
+      "section_ref": "Cover / Framework title block"
+    },
+    {
+      "anchor_text": "Agreement Ref: 107_26",
+      "page_ref": "1",
+      "section_ref": "Cover"
+    },
+    {
+      "anchor_text": "'Commencement Date' means 09 June 2026",
+      "page_ref": "7",
+      "section_ref": "clause 1.1 Interpretation"
+    },
+    {
+      "anchor_text": "This Framework Agreement shall take effect on the Commencement Date and shall continue ... for twenty (20) Months (Initial Term) ... extended for any period or periods up to a maximum period of twenty eight (28) Months (Extended Term)",
+      "page_ref": "17",
+      "section_ref": "clause 2.1 Term of Framework Agreement"
+    },
+    {
+      "anchor_text": "'Standards' means the British Standards (produced by the BSI Group) and international standards, ESPO's reasonable internal policies and procedures, Government codes of practice and guidance referred to in Framework Schedule 1",
+      "page_ref": "15",
+      "section_ref": "clause 1.1 Interpretation - 'Standards' definition"
+    },
+    {
+      "anchor_text": "The Supplier shall comply with the Standards and the Law in performing its obligations under this Framework Agreement",
+      "page_ref": "26",
+      "section_ref": "clause 13.2"
+    },
+    {
+      "anchor_text": "The Supplier acknowledges and agrees that any Goods supplied to the Customers pursuant to a Contract shall conform to a Specification and the Call-Off Terms.",
+      "page_ref": "19",
+      "section_ref": "clause 7.5"
+    },
+    {
+      "anchor_text": "FRAMEWORK SCHEDULE 1 -THE GOODS AND/OR SERVICES ... This Framework Schedule 1 specifies: ... The Goods and/or Services that the Supplier shall make available to Customers",
+      "page_ref": "56",
+      "section_ref": "Framework Schedule 1 paragraph 1.1"
+    },
+    {
+      "anchor_text": "Upon completion of the tender evaluation exercise and prior to the entry into the Framework Agreement, ESPO will incorporate into this Framework Schedule the Specification (contained within Section 2 of the Invitation to Tender, Requirement) and the Supplier's response to the Statement of Requirements",
+      "page_ref": "57",
+      "section_ref": "Framework Schedule 1 (post-paragraph 1.7)"
+    },
+    {
+      "anchor_text": "The Framework Fee is 3.5%.",
+      "page_ref": "58",
+      "section_ref": "Framework Schedule 2 paragraph 1.4"
+    },
+    {
+      "anchor_text": "When evaluating a further competitive selection process, Customers may adopt a scheme similar to that used by ESPO in establishing the Framework or may advise Suppliers that a revised scheme will be used",
+      "page_ref": "67",
+      "section_ref": "Framework Schedule 5"
+    },
+    {
+      "anchor_text": "If ESPO is entitled to terminate this Framework Agreement pursuant to this clause 26, it may (at its absolute discretion) terminate some and not all of the Lots.",
+      "page_ref": "43",
+      "section_ref": "clause 26.16 Partial Termination"
+    },
+    {
+      "anchor_text": "The Supplier shall have in place a suitable environmental management system for managing its environmental risks",
+      "page_ref": "24",
+      "section_ref": "clause 12.5"
+    },
+    {
+      "anchor_text": "100% of complaints to be responded to within two Working Days of Supplier's receipt of the Complaint. 98% of Complaints to be resolved or have an agreed action plan in place within ten Working Days",
+      "page_ref": "78",
+      "section_ref": "Framework Schedule 10 Annex A - KPI: Complaints Resolution"
+    },
+    {
+      "anchor_text": "compliance against Key Performance Indicators ('KPI's') (e.g. response times, up time, first time fix rates, no. of units sold, volume of prints, exceptions reports)",
+      "page_ref": "77",
+      "section_ref": "Framework Schedule 10 paragraph 2.2.4 Operational aspect (b)"
+    },
+    {
+      "anchor_text": "where specific brand or trade names are mentioned within the item descriptions and specifications, this should not be taken to imply that other brands or makes of product would be unacceptable",
+      "page_ref": "36",
+      "section_ref": "clause 24.1 Use of Brand Names"
+    },
+    {
+      "anchor_text": "Where the provision of the Goods and/or Services requires any of the Supplier's Personnel or volunteers to work in a Regulated Activity with children and/or vulnerable adults, the Supplier will make checks in respect of such employees and volunteers with the Disclosure & Barring Service",
+      "page_ref": "26",
+      "section_ref": "clause 13.3"
+    },
+    {
+      "anchor_text": "The Supplier shall work with ESPO and Customers to promote Social Value in accordance with the Social Value Act 2012 and the current National Procurement Policy Statement",
+      "page_ref": "26",
+      "section_ref": "clause 12.10"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "00eb7cea0ff7a09b28b1dedb2f1471fc9baa518ebf99eac0e0f3f58209f9e23b",
+    "policy_version": "2026.04.12",
+    "document_role": "tender-specification"
+  }
+}

@@ -1,0 +1,784 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Ely Library - Engage, Design and Fit Out",
+      "description": "Single-lot design-and-build contract for Cambridgeshire County Council to refresh Ely Library's public offer. Scope covers stakeholder engagement (site visit, staff/Friends group consultation), initial design proposals with one feedback round incorporated, and subsequent supply and installation of furniture, signage and carpet within the main library footprint of ~850sqm (first-floor, 150k+ visits/year). Out of scope items include the main entrance/stairway facade completed in 2022 and the provision of power, data, public PCs and self-service machines (delivered by the Authority's IT and electrical contractors, though the design must accommodate them).",
+      "requirements": [
+        "Design engagement including site visit, engagement with library staff and Friends group, and at least one feedback round incorporated into the final design (§1.4, §3.9).",
+        "Design and delivery of modern, comfortable, interactive library space that is flexible and adaptable (§4.1-§4.3).",
+        "Fully accessible design that is as dementia- and autism-friendly as possible (§4.4).",
+        "Signage and graphics treated as integral design elements, not secondary (§4.5).",
+        "Replacement carpet/flooring across the main library footprint: easy to maintain, darker colours preferred to tolerate spills from warm hub, teen and children's zones (§4.6, §5.9).",
+        "Children's Library zone: storage solution for craft/activity materials; standing staff desk at/near entrance; seating for story time with parents and desks for colours/homework; flexible or repositioned interactive picture book stand; retain 38 junior fiction shelves, 62 non-fiction shelves, 10 kinder boxes (existing Cantilibra shelving: 36 walled, 52 static, 16 wheeled) (§5.1).",
+        "Study Provision: expand from 12 to 18 distinct study desks, at least 10 with power access, with flexible furniture capable of forming group seating; Authority may fund separate overhead-power installation (§5.2).",
+        "Adult Shelving: approximately 210 adult fiction (inc. large print and spoken word), 120 non-fiction, 18 young adult, 20 local studies shelves; use shelving to separate zones; enhance existing shelving (e.g. add wheels/display panels to existing Cantilibra) in preference to full replacement; provide a distinct Young Adult zone (§5.3).",
+        "IT & Printing area: space for 6 public PCs with power/data; at least 1 PC position wheelchair-accessible/height-adjustable; multifunctional device (printer/photocopier) close to staff desk; privacy/spacing between PC users (§5.4).",
+        "Bespoke staff desk: holds 2 staff PCs with RFID pad; per station a minimum of 3 power points and 1 data port; additional 1 data port for Teams phone; 1 power point for till; 2 additional power for charging iPads/devices; behind-desk tambour-style storage; in-desk light stationery storage and lockable charging unit (§5.5).",
+        "Self-Service: accommodate 3 Lynsgoe Phoenix devices, each with a double-sided trolley, and 2 dump bins shared across the three (§5.6).",
+        "Events Space: flexible, separable space capable of hosting ~25-person groups (e.g. Veterans group) with seating and refreshments; whole-library flex for larger theatre-style events (§5.7).",
+        "Social Seating: hotel-lobby aesthetic soft seating for 8-10 with drinks table; accommodate the regularly accessed warm-hub trolley for hot drinks (§5.8).",
+        "First Floor Lobby: bar-stool height desk and seating with power supply; integrated poster/leaflet information display (§5.10).",
+        "Thoroughfares & Sightlines: preserve access to toilets, meeting rooms and fire exits; maintain sightlines from the main desk to avoid hidden areas (§5.11).",
+        "Sustainability built into design methodology and furniture (environmental credentials and longevity of 5-10 years) (§3.7-§3.8, §10.1-§10.2).",
+        "Provide Risk Assessments and Method Statements specific to the first-floor shared pedestrianised shopping complex with limited delivery windows prior to site attendance (§6.2, §7.1a, §7.4).",
+        "Coordinate with Authority core maintenance contractors for building works such as power/data provision; potential optional use of Authority contractors for carpet fit-out (§7.2-§7.3).",
+        "Minimum 12-month defects period following handover (§10.4).",
+        "Warranties supplied with the bid (in response to question 2 on sustainability) (§10.3).",
+        "Mobilisation and delivery per the indicative timetable in §9 (Site visit 6 Jul 2026; fit-out install 2 Nov - 20 Dec 2026; handover 4-8 Jan 2027); final timeline agreed at contract award (§8, §9).",
+        "Handover: written documentation of materials and equipment plus in-person handover; updates during defects period (§12).",
+        "Subcontracting, if proposed, must be declared in the bid and sub-contractors must abide by all requirements (§11).",
+        "Compliance with the Modern Slavery Act and maintenance of supporting policies/procedures (§13.1).",
+        "Compliance with the Equality Act and equality, diversity and inclusion regulations with supporting policies/procedures (§14.1).",
+        "Compliance with UK GDPR where any personal data is captured during the contract; breaches reported within 72 hours (§15.1-§15.2).",
+        "Adherence to ITT Section 4 (4.1) purchase-order and invoicing processes; milestone-linked payment schedule at Contract Manager's discretion; no pre-payment/deposit (§16)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Sustainability / Carbon Reduction",
+          "summary": "Scored submission element (question 2) requiring robust strategies to reduce carbon footprint: waste reduction (packaging, construction), transport (consolidated deliveries, local employees), re-use/re-purposing of existing material (e.g. salvage of existing furniture), and product longevity plus warranty details.",
+          "weighting_text": "Weightings not stated in this specification document; evaluation is scored - see ITT.",
+          "evidence_anchor": {
+            "page_ref": "p.8",
+            "anchor_text": "10.1. The Authority has declared a Climate Emergency... This will be part of the scored submission.",
+            "section_ref": "§10.1-§10.3"
+          }
+        },
+        {
+          "criterion": "Case Studies of Similar Work",
+          "summary": "Case studies from similar library/fit-out work expected as part of the bid and form part of the scored submission.",
+          "weighting_text": "Weighting not stated in this specification document.",
+          "evidence_anchor": {
+            "page_ref": "p.8",
+            "anchor_text": "10.5. Case studies from similar work will be expected as part of the bid and form part of the scored submission.",
+            "section_ref": "§10.5"
+          }
+        },
+        {
+          "criterion": "Design Principles, Methodology and Inspiration",
+          "summary": "Bid submission must present the bidder's design principles, methodology, insights and inspiration for the library refresh; subsequent collaborative refinement against stakeholder feedback is required rather than a fully finalised design.",
+          "weighting_text": "Weighting not stated in this specification document.",
+          "evidence_anchor": {
+            "page_ref": "p.1",
+            "anchor_text": "This procurement is looking for a bid submission which provides the bidder's design principles, methodologies, insights, thoughts, inspiration...",
+            "section_ref": "§1.2"
+          }
+        },
+        {
+          "criterion": "Accessibility and Inclusive Design",
+          "summary": "Design proposals must demonstrate accessibility and be as dementia- and autism-friendly as possible; bidders must reflect these principles in their response.",
+          "weighting_text": "Weighting not stated in this specification document.",
+          "evidence_anchor": {
+            "page_ref": "p.3",
+            "anchor_text": "4.4. The library must be fully accessible to all users and designed to be as dementia- and autism-friendly as possible. Bidders are expected to reflect these principles in their design proposals.",
+            "section_ref": "§4.4"
+          }
+        },
+        {
+          "criterion": "Warranties and Defects",
+          "summary": "Details of warranties required as part of the bid, especially in response to question 2 on sustainability; minimum 12-month defects period following handover.",
+          "weighting_text": "Weighting not stated in this specification document.",
+          "evidence_anchor": {
+            "page_ref": "p.8",
+            "anchor_text": "10.3. Details on warranties will be expected as part of the bid especially when answering question 2 on sustainability.",
+            "section_ref": "§10.3-§10.4"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "seed-flooring-carpet-main",
+          "summary": "Replacement carpet/flooring throughout the main open-plan library space, easy to maintain, with darker colours preferred to hide spills from the warm hub, teen area and children's zone; protection or alternative covering may be required around the warm hub.",
+          "requirement_type": "flooring",
+          "technical_attributes": [
+            "coverage: main public open-plan library footprint (~850sqm less out-of-scope entrance/stairway)",
+            "easy-to-maintain surface",
+            "darker colour palette preferred",
+            "high-traffic/high-spill durability required near warm hub, teen area and children's zone",
+            "option for floor protection or alternative covering around warm hub"
+          ],
+          "quantity_hint": "Main library footprint ~850sqm (out-of-scope areas excluded per §2 and office/classroom pod area).",
+          "evidence_anchor": {
+            "page_ref": "p.5",
+            "anchor_text": "5.9. Flooring - 5.9.2. flooring throughout the main library space needed... 5.9.3. the proposed flooring MUST be easy to maintain. 5.9.4. Darker colour(s) are preferred...",
+            "section_ref": "§4.6, §5.9"
+          }
+        },
+        {
+          "seed_key": "seed-childrens-zone",
+          "summary": "Children's Library zone furniture: craft/activity storage, a standing staff desk near the entrance, child/parent story seating, homework/colours desk space, and an enhanced or replaced interactive picture book display, retaining the existing junior, non-fiction and kinder-box shelving volumes.",
+          "requirement_type": "zone-furniture-and-shelving",
+          "technical_attributes": [
+            "storage unit(s) for craft/activity materials",
+            "standing staff desk within or near entrance to space",
+            "seating sized for children plus parents for story sessions",
+            "desk space for colouring/homework provision (future power provision out of scope)",
+            "enhance (repaint/sliders) or replace existing interactive picture book stand; mobile or side-located option required",
+            "maintain 38 junior-fiction shelves",
+            "maintain 62 non-fiction (large books) shelves",
+            "maintain 10 kinder boxes",
+            "reuse of existing Cantilibra shelving encouraged (36 walled, 52 static, 16 wheeled)",
+            "improved face-out display"
+          ],
+          "quantity_hint": "Shelving: 38 jr fiction + 62 non-fiction + 10 kinder boxes to retain; existing Cantilibra inventory 36/52/16.",
+          "evidence_anchor": {
+            "page_ref": "p.3",
+            "anchor_text": "5.1. Children's Library... 5.1.8. To maintain the 38 shelves of junior fiction, 62 shelves of non-fiction (large books) and 10 of kinder boxes...",
+            "section_ref": "§5.1"
+          }
+        },
+        {
+          "seed_key": "seed-study-desks",
+          "summary": "Study provision for laptop/work-from-home users: increase from 12 to 18 distinct study desks distributed around the library, with at least 10 having power access; flexible furniture that can combine to form group seating.",
+          "requirement_type": "desks",
+          "technical_attributes": [
+            "smaller-footprint desks acceptable",
+            "distributed layout permitted, desks may be dispersed",
+            "minimum 10 desks with power access",
+            "flexible/combinable for group seating",
+            "Authority may separately tender overhead power supply"
+          ],
+          "quantity_hint": "18 distinct desks (increase from current 12); ≥10 with power.",
+          "evidence_anchor": {
+            "page_ref": "p.4",
+            "anchor_text": "5.2.2. To increase the existing from twelve (12) to eighteen (18) distinct desks... 5.2.3. at least 10 must have access to power.",
+            "section_ref": "§5.2"
+          }
+        },
+        {
+          "seed_key": "seed-adult-shelving",
+          "summary": "Adult library shelving used actively to define library zones, with preference for enhancing existing Cantilibra shelving over replacement; distinct Young Adult area required.",
+          "requirement_type": "shelving",
+          "technical_attributes": [
+            "approximately 210 adult-fiction shelves (including large print and spoken word)",
+            "approximately 120 adult non-fiction shelves",
+            "approximately 18 young-adult shelves",
+            "approximately 20 local-studies shelves",
+            "shelving used to separate zones across the library",
+            "enhancement of existing Cantilibra shelving (adding wheels, display panels) preferred over replacement",
+            "distinct Young Adult zone required"
+          ],
+          "quantity_hint": "Total baseline shelving ~420 (§5.3); suggested allocation: 210/120/18/20.",
+          "evidence_anchor": {
+            "page_ref": "p.4",
+            "anchor_text": "5.3. Adult shelving - The main library holds currently 420 number of shelves... Suggested shelving for bidders to work with: 210 Adult Fiction... 120 Adult non-fiction... 18 young adult... 20 local studies.",
+            "section_ref": "§5.3"
+          }
+        },
+        {
+          "seed_key": "seed-it-printing",
+          "summary": "IT & Printing area accommodating six public PCs with power/data, at least one height-adjustable/wheelchair-accessible position, a staff-adjacent multifunctional device, and privacy separation between users.",
+          "requirement_type": "zone-furniture-power-data",
+          "technical_attributes": [
+            "space for 6 public PCs",
+            "power and data points at each PC position",
+            "minimum 1 desk wheelchair-accessible / height-adjustable",
+            "power/data likely wall-restricted; alternatives acceptable",
+            "multifunctional device (printer + photocopier) positioned close to staff desk",
+            "privacy/spacing between PC users"
+          ],
+          "quantity_hint": "6 public PCs; 1 MFD.",
+          "evidence_anchor": {
+            "page_ref": "p.4",
+            "anchor_text": "5.4. IT & Printing... 5.4.2. To maintain six (6) public PCs... 5.4.3. a minimum of One (1) desk should be wheel chair accessible/height adjustable. 5.4.5. A Multifunctional Device...",
+            "section_ref": "§5.4"
+          }
+        },
+        {
+          "seed_key": "seed-bespoke-staff-desk",
+          "summary": "Bespoke staff desk hosting two staff PC positions with RFID pads plus till, Teams phone and device-charging power, with behind-desk tambour storage and in-desk lockable charging.",
+          "requirement_type": "bespoke-furniture",
+          "technical_attributes": [
+            "2 staff PC positions including RFID pad",
+            "minimum 3 power points + 1 data port per PC position",
+            "1 data port for Teams phone",
+            "1 power point for till",
+            "2 additional power points for iPad/device charging (final count agreed at design phase)",
+            "behind-desk tambour cupboard or similar for materials",
+            "in-desk light stationery storage",
+            "in-desk lockable unit (e.g. for secure iPad charging)"
+          ],
+          "quantity_hint": "1 bespoke counter/desk unit.",
+          "evidence_anchor": {
+            "page_ref": "p.4",
+            "anchor_text": "5.5. Bespoke staff desk - 5.5.1. Requirements: Must be able to hold... 5.5.2. Space for two staff PCs (including RFID pad)... 5.5.3. a minimum of three(3) power points and one(1) data port for each station...",
+            "section_ref": "§5.5"
+          }
+        },
+        {
+          "seed_key": "seed-self-service-support",
+          "summary": "Self-service area supporting three existing Lynsgoe Phoenix devices with shared double-sided trolleys and two dump bins; existing location works but alternatives are welcome.",
+          "requirement_type": "ancillary-furniture",
+          "technical_attributes": [
+            "support 3 existing Lynsgoe Phoenix self-service devices",
+            "1 double-sided trolley per device (3 total)",
+            "2 dump bins shared across the three devices",
+            "existing location preferred but alternatives considered"
+          ],
+          "quantity_hint": "3 trolleys, 2 dump bins (Lynsgoe Phoenix devices are existing).",
+          "evidence_anchor": {
+            "page_ref": "p.5",
+            "anchor_text": "5.6.2. It will have three Lynsgoe Phoenix devices each supported by a double-sided trolley and two dump bins between the three.",
+            "section_ref": "§5.6"
+          }
+        },
+        {
+          "seed_key": "seed-events-space",
+          "summary": "Flexible events space for regular ~25-person groups (e.g. Veterans group) with seating and refreshment access, plus whole-library flex for larger theatre-style events, including a separable day-to-day sub-zone and storage.",
+          "requirement_type": "flexible-space-furniture",
+          "technical_attributes": [
+            "accommodate ~25 people regularly",
+            "seating plus refreshments access",
+            "sociable tables with some separation in open library",
+            "storage for events equipment",
+            "whole-library expansion capability (e.g. 'The Library Presents' theatre events)"
+          ],
+          "quantity_hint": "Capacity: ~25 regularly; whole-library flex for larger events.",
+          "evidence_anchor": {
+            "page_ref": "p.5",
+            "anchor_text": "5.7. Events Space... 5.7.1. Consider such events as a regular Veterans group approx. 25 with seating and access to refreshments.",
+            "section_ref": "§5.7"
+          }
+        },
+        {
+          "seed_key": "seed-social-seating",
+          "summary": "Soft social-seating area with hotel-lobby aesthetic supporting 8-10 people with drinks table and regular access for the warm-hub trolley.",
+          "requirement_type": "soft-furniture",
+          "technical_attributes": [
+            "soft seating for 8-10 people",
+            "table for drinks",
+            "'hotel lobby' rather than 'corporate waiting room' aesthetic",
+            "accommodate regular access of warm-hub trolley (hot drinks)"
+          ],
+          "quantity_hint": "Seating for 8-10 (final count agreed at design phase).",
+          "evidence_anchor": {
+            "page_ref": "p.5",
+            "anchor_text": "5.8. Social seating - 5.8.1 An informal reading and small-scale social space, with soft furniture... 5.8.2 Suggested scale would be soft seating for 8-10 people including table for drinks.",
+            "section_ref": "§5.8"
+          }
+        },
+        {
+          "seed_key": "seed-first-floor-lobby",
+          "summary": "First-floor lobby upgrade: bar-stool height desk and seating with power, plus poster/leaflet information display (integrated into lobby or elsewhere).",
+          "requirement_type": "lobby-furniture-and-display",
+          "technical_attributes": [
+            "bar-stool height desk with seating",
+            "power supply at desk",
+            "poster and leaflet display solutions",
+            "innovative low-footprint information display preferred"
+          ],
+          "quantity_hint": "1 bar-stool desk zone; 1 information-display system.",
+          "evidence_anchor": {
+            "page_ref": "p.5",
+            "anchor_text": "5.10. First Floor Lobby - 5.10.2. Addition of bar stool height desk and seating with power supply. 5.10.3. Information display...",
+            "section_ref": "§5.10"
+          }
+        },
+        {
+          "seed_key": "seed-signage-graphics",
+          "summary": "Integral signage and graphics treated as primary design elements shaping the library's look and feel, spanning wayfinding and community-information use.",
+          "requirement_type": "signage-graphics",
+          "technical_attributes": [
+            "integral to overall design (not secondary)",
+            "wayfinding + aesthetic function",
+            "community-information displays (posters, leaflets) integrated into design"
+          ],
+          "quantity_hint": "Library-wide (scoped per final design).",
+          "evidence_anchor": {
+            "page_ref": "p.3",
+            "anchor_text": "4.5. Signage and graphics should be treated as integral design elements, not merely functional or secondary.",
+            "section_ref": "§4.5, §5.10.3"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "Modern Slavery Act",
+          "context": "Minimum compliance expected of all bidders, with supporting policies, procedures and systems, alongside active vigilance in addressing modern slavery, child labour and inhumane treatment.",
+          "evidence_anchor": {
+            "page_ref": "p.9",
+            "anchor_text": "13.1. Tackling modern slavery requires everyone to be vigilant and active in addressing this issue... The Council will expect as a minimum, that all Bidders comply in full of the Morden Slavery Act where necessary...",
+            "section_ref": "§13.1"
+          }
+        },
+        {
+          "standard_ref": "Equality Act (and related EDI regulations)",
+          "context": "Minimum compliance expected with the Equality Act and all regulations relating to Equality, Diversity and Inclusion, with supporting policies, procedures and systems.",
+          "evidence_anchor": {
+            "page_ref": "p.9",
+            "anchor_text": "14.1. Ensuring that all in the UK have equal access... The Council will expect as a minimum, that all Bidders comply in full of the Equality Act and all regulations relating to Equality, Diversity, and inclusion...",
+            "section_ref": "§14.1"
+          }
+        },
+        {
+          "standard_ref": "UK General Data Protection Regulation (UK GDPR)",
+          "context": "Bidders must abide by UK GDPR where personal data is captured during the contract; suspected or actual breaches must be reported to the Council within 72 hours.",
+          "evidence_anchor": {
+            "page_ref": "p.10",
+            "anchor_text": "15.1. It is not expected that personal data would be collected... In the event that such data is captured, Cambridgeshire County Council expect all bidders to abide by UK GDPR... 15.2. Any breaches... reported... within 72 hours.",
+            "section_ref": "§15.1-§15.2"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "p.1",
+        "anchor_text": "1.1. For the delivery of design, furniture, signage, and carpet to refresh the public library service in Ely library to modern standards. This is a design and build project.",
+        "section_ref": "§1, Appendix 4 - Specification"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "seed-flooring-carpet-main",
+      "lot_number": "1",
+      "candidate_name": "Contract carpet/flooring - Ely Library main floor",
+      "summary": "Easy-maintain carpet/flooring across the main open-plan library space, darker colours preferred to hide spills from warm hub, teen and children's zones; optional protection covering around warm hub.",
+      "requirements": [
+        "Coverage: main public open-plan library footprint (excluding out-of-scope entrance/stairway)",
+        "Easy to maintain",
+        "Darker colour palette preferred",
+        "Durability for high-traffic / high-spill zones near warm hub, teen, children",
+        "Optional floor protection or alternative covering near warm hub"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.5",
+        "anchor_text": "5.9. Flooring - ... flooring throughout the main library space needed... the proposed flooring MUST be easy to maintain. Darker colour(s) are preferred...",
+        "section_ref": "§5.9 (also §4.6)"
+      }
+    },
+    {
+      "seed_key": "seed-childrens-zone",
+      "lot_number": "1",
+      "candidate_name": "Children's Library zone furniture and shelving enhancement",
+      "summary": "Furniture and shelving package for the children's library zone: craft storage, standing staff desk, story/seating, homework desking, enhanced interactive picture book stand, and retained shelving inventory.",
+      "requirements": [
+        "Craft/activity material storage unit(s)",
+        "Standing staff desk at/near entrance",
+        "Seating for children plus parents for story time",
+        "Desks for homework/colours",
+        "Enhanced or replacement interactive picture book stand (mobile or side-located)",
+        "Retain 38 junior fiction + 62 non-fiction + 10 kinder-box shelves",
+        "Reuse of existing Cantilibra shelving where possible (36 walled, 52 static, 16 wheeled)"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.3",
+        "anchor_text": "5.1. Children's Library... 5.1.8. To maintain the 38 shelves of junior fiction, 62 shelves of non-fiction (large books) and 10 of kinder boxes...",
+        "section_ref": "§5.1"
+      }
+    },
+    {
+      "seed_key": "seed-study-desks",
+      "lot_number": "1",
+      "candidate_name": "Study desks for laptop and work-from-home users",
+      "summary": "Increase of study-desk provision from 12 to 18 distinct desks, distributed around the library, with ≥10 positions at power; flexible combinable furniture for group seating.",
+      "requirements": [
+        "18 distinct study desks total (increase from 12)",
+        "Smaller-footprint desks acceptable",
+        "Distributed layout permitted",
+        "Minimum 10 desks at power access",
+        "Flexible/combinable for group seating",
+        "Authority may separately tender/install overhead power"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.4",
+        "anchor_text": "5.2.2. To increase the existing from twelve (12) to eighteen (18) distinct desks... 5.2.3. at least 10 must have access to power.",
+        "section_ref": "§5.2"
+      }
+    },
+    {
+      "seed_key": "seed-adult-shelving",
+      "lot_number": "1",
+      "candidate_name": "Adult library shelving (fiction, non-fiction, young adult, local studies)",
+      "summary": "Shelving package used actively to define library zones, with strong preference for enhancing existing Cantilibra shelving (wheels, display panels) rather than full replacement, and a distinct Young Adult zone.",
+      "requirements": [
+        "~210 adult fiction shelves (inc. large print and spoken word)",
+        "~120 adult non-fiction shelves",
+        "~18 young adult shelves",
+        "~20 local studies shelves",
+        "Use shelving to create distinct library zones",
+        "Enhance existing Cantilibra shelving (add wheels/display panels) in preference to replacement",
+        "Provide distinct Young Adult zone with teen-ownership feel"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.4",
+        "anchor_text": "5.3. Adult shelving - The main library holds currently 420 number of shelves... Suggested shelving for bidders to work with: 210 Adult Fiction... 120 Adult non-fiction... 18 young adult... 20 local studies.",
+        "section_ref": "§5.3"
+      }
+    },
+    {
+      "seed_key": "seed-it-printing",
+      "lot_number": "1",
+      "candidate_name": "IT & Printing area furniture and MFD placement",
+      "summary": "Furniture hosting 6 public PCs (at least one wheelchair-accessible/height-adjustable) with power/data, and a multifunctional device close to the staff desk, with privacy separation between users.",
+      "requirements": [
+        "Space for 6 public PCs",
+        "Power and data at each PC position",
+        "Minimum 1 wheelchair-accessible / height-adjustable PC desk",
+        "Power/data likely wall-restricted but alternatives acceptable",
+        "MFD (printer/photocopier) positioned close to staff desk",
+        "Privacy/spacing between PC users"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.4",
+        "anchor_text": "5.4. IT & Printing... 5.4.2. To maintain six (6) public PCs... 5.4.3. a minimum of One (1) desk should be wheel chair accessible/height adjustable. 5.4.5. A Multifunctional Device...",
+        "section_ref": "§5.4"
+      }
+    },
+    {
+      "seed_key": "seed-bespoke-staff-desk",
+      "lot_number": "1",
+      "candidate_name": "Bespoke staff desk (counter with PC, till, phone, storage)",
+      "summary": "Bespoke library staff desk supporting two staff PC positions with RFID, plus till, Teams phone and device-charging power with integrated tambour storage and a lockable in-desk charging unit.",
+      "requirements": [
+        "Space for 2 staff PCs including RFID pad",
+        "Minimum 3 power points + 1 data port per PC position",
+        "1 additional data port for Teams phone",
+        "1 additional power point for till",
+        "2 additional power points for iPad/device charging (final number agreed at design)",
+        "Behind-desk tambour cupboard or similar",
+        "In-desk light stationery storage",
+        "In-desk lockable unit for secure iPad charging"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.4",
+        "anchor_text": "5.5. Bespoke staff desk... 5.5.2. Space for two staff PCs (including RFID pad) 5.5.3. a minimum of three(3) power points and one(1) data port for each station...",
+        "section_ref": "§5.5"
+      }
+    },
+    {
+      "seed_key": "seed-self-service-support",
+      "lot_number": "1",
+      "candidate_name": "Self-service trolleys and dump bins supporting Lynsgoe Phoenix devices",
+      "summary": "Ancillary furniture - three double-sided trolleys (one per Lynsgoe Phoenix device) and two shared dump bins - supporting the library's existing self-service issue/return setup.",
+      "requirements": [
+        "3 double-sided trolleys (one per Lynsgoe Phoenix device)",
+        "2 dump bins shared across the 3 devices",
+        "Maintain current location unless better alternative proposed"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.5",
+        "anchor_text": "5.6.2. It will have three Lynsgoe Phoenix devices each supported by a double-sided trolley and two dump bins between the three.",
+        "section_ref": "§5.6"
+      }
+    },
+    {
+      "seed_key": "seed-events-space",
+      "lot_number": "1",
+      "candidate_name": "Flexible events-space furniture",
+      "summary": "Flexible events-space furniture supporting regular ~25-person gatherings (e.g. Veterans group), sociable tables, separable day-to-day sub-zone with storage, and whole-library expansion for theatre-style events such as 'The Library Presents'.",
+      "requirements": [
+        "Accommodate ~25-person regular events with seating + refreshments",
+        "Open library with separable sub-space and sociable tables",
+        "Storage for events equipment",
+        "Full library expansion capability for larger theatre-style events"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.5",
+        "anchor_text": "5.7. Events Space - A space to accommodate informal gatherings in the library. 5.7.1. Consider such events as a regular Veterans group approx. 25...",
+        "section_ref": "§5.7"
+      }
+    },
+    {
+      "seed_key": "seed-social-seating",
+      "lot_number": "1",
+      "candidate_name": "Social-seating soft furniture (hotel-lobby aesthetic) with warm-hub trolley access",
+      "summary": "Soft seating for 8-10 people with drinks table in a hotel-lobby-style social area, with regular hot-drinks access via the warm-hub trolley.",
+      "requirements": [
+        "Soft seating for 8-10 people",
+        "Drinks table",
+        "Hotel-lobby aesthetic (not corporate waiting room)",
+        "Accommodate warm-hub trolley for hot drinks on a regular basis"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.5",
+        "anchor_text": "5.8. Social seating... 5.8.2 Suggested scale would be soft seating for 8-10 people including table for drinks. 5.8.3 To include/accommodate the warm hub trolley.",
+        "section_ref": "§5.8"
+      }
+    },
+    {
+      "seed_key": "seed-first-floor-lobby",
+      "lot_number": "1",
+      "candidate_name": "First-floor lobby desk, seating and information display",
+      "summary": "First-floor lobby upgrade - bar-stool height desk with seating and power plus integrated poster/leaflet community-information display.",
+      "requirements": [
+        "Bar-stool height desk with seating",
+        "Power supply at the desk",
+        "Poster/leaflet community-information display",
+        "Innovative low-footprint display solution preferred"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.5",
+        "anchor_text": "5.10. First Floor Lobby... 5.10.2. Addition of bar stool height desk and seating with power supply. 5.10.3. Information display...",
+        "section_ref": "§5.10"
+      }
+    },
+    {
+      "seed_key": "seed-signage-graphics",
+      "lot_number": "1",
+      "candidate_name": "Integral library signage and graphics package",
+      "summary": "Signage and graphics treated as integral design elements contributing to the overall look and feel of the library, covering wayfinding and community information.",
+      "requirements": [
+        "Signage/graphics integral to overall design (not secondary)",
+        "Wayfinding plus aesthetic/design role",
+        "Integrated community-information displays (posters, leaflets)"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p.3",
+        "anchor_text": "4.5. Signage and graphics should be treated as integral design elements, not merely functional or secondary.",
+        "section_ref": "§4.5, §5.10.3"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lot_count": 9500,
+    "lot_number": 9500,
+    "lot_title": 9000,
+    "lot_description": 9000,
+    "lot_requirements": 8500,
+    "lot_evaluation_criteria": 5500,
+    "lot_cpv_codes": 2000,
+    "lot_product_requirements": 8500,
+    "lot_technical_standards": 4500,
+    "product_requirement_seeds": 8500,
+    "evidence_anchors": 9000
+  },
+  "extraction_confidence_bps": 7500,
+  "warnings": [
+    {
+      "code": "CPV_CODES_NOT_PRESENT_IN_DOCUMENT",
+      "message": "No CPV codes are present in the body of this tender specification document (Appendix 4). CPV signals, if required, must come from the notice/process record or a companion OCDS document.",
+      "evidence_refs": [
+        "§1 Scope",
+        "§3 Service Requirements"
+      ]
+    },
+    {
+      "code": "EVALUATION_WEIGHTINGS_NOT_PRESENT",
+      "message": "Scored evaluation criteria are referenced (sustainability 'question 2', case studies, warranties) but no numeric weightings or scoring rubric are included in this specification; weightings are presumed to live in the companion ITT.",
+      "evidence_refs": [
+        "§10.1 scored submission reference",
+        "§10.3 'question 2 on sustainability'",
+        "§10.5 scored case studies"
+      ]
+    },
+    {
+      "code": "NO_EXPLICIT_TECHNICAL_STANDARDS_CITED",
+      "message": "Document cites statutory frameworks (Modern Slavery Act, Equality Act, UK GDPR) but no British/European/ISO/BREEAM-style product standards are called out by identifier. Performance expectations (durability, accessibility, dementia-/autism-friendliness, sustainability) are stated in plain English.",
+      "evidence_refs": [
+        "§13.1",
+        "§14.1",
+        "§15.1"
+      ]
+    },
+    {
+      "code": "LAYOUT_CONTINUATION_ACROSS_APPENDIX_HEADING",
+      "message": "Docling extraction shows section 2 (Out of Scope) text continuing after the 'Appendix 4 - Specification' header at line 24, indicating a running header/layout artefact; this is a layout quirk rather than a content split and is handled by merging the two fragments under §2.",
+      "evidence_refs": [
+        "line 20-32 of extracted markdown",
+        "§2 Out of Scope"
+      ]
+    },
+    {
+      "code": "FLOOR_AREA_APPROXIMATE",
+      "message": "Library footprint is quoted as 'just under 850sqm' (§3.3); this should be treated as approximate for costing purposes rather than a precise gross internal area.",
+      "evidence_refs": [
+        "§3.3"
+      ]
+    },
+    {
+      "code": "FURNITURE_COUNTS_PROVISIONAL",
+      "message": "Several furniture quantities (social seating for 8-10, power-point counts at bespoke desk, number of study desks on power beyond the 10 minimum) are stated as suggested or to be agreed during the final design conversation, not firm counts.",
+      "evidence_refs": [
+        "§5.5.6",
+        "§5.8.2"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p.1",
+      "anchor_text": "Appendix 4 - Specification",
+      "section_ref": "Appendix 4 header"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "1.1. For the delivery of design, furniture, signage, and carpet to refresh the public library service in Ely library to modern standards. This is a design and build project.",
+      "section_ref": "§1.1"
+    },
+    {
+      "page_ref": "p.1",
+      "anchor_text": "1.3. To be clear the cost of design and engagement is part of the budget, bidders are not required to produce a final design.",
+      "section_ref": "§1.3"
+    },
+    {
+      "page_ref": "p.2",
+      "anchor_text": "2.1. The façade, graphics, flooring and decorations in the main entrance and stairway into the library (recently completed in 2022).",
+      "section_ref": "§2 Out of Scope"
+    },
+    {
+      "page_ref": "p.2",
+      "anchor_text": "3.3. The core library footprint is just under 850sqm, it receives over 150,000 visits a year and issues just under 100,000 items a year.",
+      "section_ref": "§3.3"
+    },
+    {
+      "page_ref": "p.3",
+      "anchor_text": "4.4. The library must be fully accessible to all users and designed to be as dementia- and autism-friendly as possible.",
+      "section_ref": "§4.4"
+    },
+    {
+      "page_ref": "p.3",
+      "anchor_text": "4.5. Signage and graphics should be treated as integral design elements, not merely functional or secondary.",
+      "section_ref": "§4.5"
+    },
+    {
+      "page_ref": "p.3",
+      "anchor_text": "4.6. There is a requirement to replace the carpet throughout the main library footprint.",
+      "section_ref": "§4.6"
+    },
+    {
+      "page_ref": "p.3",
+      "anchor_text": "5. Distinct Zones - The library is a large single open plan space, with distinct zones as highlighted in this specification to support core activity.",
+      "section_ref": "§5"
+    },
+    {
+      "page_ref": "p.3",
+      "anchor_text": "5.1. Children's Library - The library has a large thriving children's library.",
+      "section_ref": "§5.1"
+    },
+    {
+      "page_ref": "p.4",
+      "anchor_text": "5.2.2. To increase the existing from twelve (12) to eighteen (18) distinct desks for people to work at.",
+      "section_ref": "§5.2"
+    },
+    {
+      "page_ref": "p.4",
+      "anchor_text": "5.3. Adult shelving - The main library holds currently 420 number of shelves.",
+      "section_ref": "§5.3"
+    },
+    {
+      "page_ref": "p.4",
+      "anchor_text": "5.4.2. To maintain six (6) public PCs, along with access to power and data points for these.",
+      "section_ref": "§5.4"
+    },
+    {
+      "page_ref": "p.4",
+      "anchor_text": "5.5. Bespoke staff desk - 5.5.1. Requirements: Must be able to hold.",
+      "section_ref": "§5.5"
+    },
+    {
+      "page_ref": "p.5",
+      "anchor_text": "5.6.2. It will have three Lynsgoe Phoenix devices each supported by a double-sided trolley and two dump bins between the three.",
+      "section_ref": "§5.6"
+    },
+    {
+      "page_ref": "p.5",
+      "anchor_text": "5.7. Events Space - A space to accommodate informal gatherings in the library.",
+      "section_ref": "§5.7"
+    },
+    {
+      "page_ref": "p.5",
+      "anchor_text": "5.8. Social seating - 5.8.2 Suggested scale would be soft seating for 8-10 people including table for drinks.",
+      "section_ref": "§5.8"
+    },
+    {
+      "page_ref": "p.5",
+      "anchor_text": "5.9. Flooring - 5.9.3. the proposed flooring MUST be easy to maintain. 5.9.4. Darker colour(s) are preferred.",
+      "section_ref": "§5.9"
+    },
+    {
+      "page_ref": "p.5",
+      "anchor_text": "5.10. First Floor Lobby - 5.10.2. Addition of bar stool height desk and seating with power supply.",
+      "section_ref": "§5.10"
+    },
+    {
+      "page_ref": "p.6",
+      "anchor_text": "6.1. The Contract will live with Cambridgeshire Libraries as the contract manager under the wider umbrella of Cambridgeshire County Council.",
+      "section_ref": "§6.1"
+    },
+    {
+      "page_ref": "p.6",
+      "anchor_text": "7.1. The successful bidder will be asked to follow the health & safety requirements.",
+      "section_ref": "§7"
+    },
+    {
+      "page_ref": "p.7",
+      "anchor_text": "9. Project/Contract timetable - Draft milestones below to be agreed... School term dates | Cambridgeshire County Council",
+      "section_ref": "§9 timetable table"
+    },
+    {
+      "page_ref": "p.8",
+      "anchor_text": "10.1. The Authority has declared a Climate Emergency and as such will be looking for robust strategies to reduce the carbon footprint of the project... This will be part of the scored submission.",
+      "section_ref": "§10.1"
+    },
+    {
+      "page_ref": "p.8",
+      "anchor_text": "10.3. Details on warranties will be expected as part of the bid especially when answering question 2 on sustainability.",
+      "section_ref": "§10.3"
+    },
+    {
+      "page_ref": "p.8",
+      "anchor_text": "10.4. The successful bidder will provide a minimum twelve (12) month defects period to run following sign off and handover of the library.",
+      "section_ref": "§10.4"
+    },
+    {
+      "page_ref": "p.8",
+      "anchor_text": "10.5. Case studies from similar work will be expected as part of the bid and form part of the scored submission.",
+      "section_ref": "§10.5"
+    },
+    {
+      "page_ref": "p.9",
+      "anchor_text": "11. Subcontracting Arrangements - The Council believes that this solution may require the need for subcontracting arrangements.",
+      "section_ref": "§11"
+    },
+    {
+      "page_ref": "p.9",
+      "anchor_text": "13.1. Tackling modern slavery requires everyone to be vigilant... The Council will expect as a minimum, that all Bidders comply in full of the Morden Slavery Act where necessary.",
+      "section_ref": "§13.1"
+    },
+    {
+      "page_ref": "p.9",
+      "anchor_text": "14.1. Ensuring that all in the UK have equal access... Bidders comply in full of the Equality Act and all regulations relating to Equality, Diversity, and inclusion.",
+      "section_ref": "§14.1"
+    },
+    {
+      "page_ref": "p.10",
+      "anchor_text": "15.1. ... Cambridgeshire County Council expect all bidders to abide by UK GDPR... 15.2. Any breaches... reported... within 72 hours.",
+      "section_ref": "§15"
+    },
+    {
+      "page_ref": "p.10",
+      "anchor_text": "16.1. The successful bidder will be required to follow and adhere to the purchasing and invoicing procedures as stated in the ITT, section 4, 4.1 Purchase Order and Invoicing Processes.",
+      "section_ref": "§16"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "sha256:a78c3e5de185651e9203bfcc130aff51a099cf2948f0c5eb7a38cc1492d63a08",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

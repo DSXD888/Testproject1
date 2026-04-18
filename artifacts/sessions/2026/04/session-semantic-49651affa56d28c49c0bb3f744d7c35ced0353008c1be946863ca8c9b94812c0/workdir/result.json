@@ -1,0 +1,551 @@
+{
+  "lots": [
+    {
+      "lot_number": "5",
+      "title": "LOT 5 - Condition Surveys",
+      "description": "Appointment of a suitably qualified and accredited Chartered Surveying consultancy to deliver a rolling programme of building Condition Surveys for the London Borough of Bexley Residential and Corporate property portfolios (circa 220 street properties and 140 office/community type properties, plus pavilions and a Grade I listed public ceremonial building). The appointed Consultant collects non-intrusive condition data for all main building elements (roof, structure, M&E, decoration, boundary works, etc.), grades them A-D for condition and 1-4 for priority over a 5-year planning horizon, costs remedial works using a recognised schedule of rates, and produces a medium-to-long-term financial plan including backlog maintenance, forward maintenance, and asset life-cycle programmes in accordance with RICS and CIPFA guidance.",
+      "requirements": [
+        "Consultant must be a suitably qualified and accredited Chartered Surveying company delivering condition surveys in accordance with Appendix A, RICS and CIPFA guidance and best practice.",
+        "Programme starts on or around 01 September 2026 and runs as a rolling programme aligned to the council's property asset strategy.",
+        "Consultant provides an overview of total capital investment requirement and 5-year capital and revenue repair investment plans, broken down by asset/system (e.g. boiler/heating plant, roof, windows) and by building group (e.g. libraries, 2-bedroom dwellings).",
+        "Consultant is responsible for programming and managing its own resources to deliver surveys on time and budget, with appropriately trained and qualified staff.",
+        "Condition surveys are the detailed inspection of a building and its assets to evaluate deterioration and determine remediation or capital investment required.",
+        "Surveys must cover all main elements including: roof covering; internal/external windows and doors; main structure (walls and floors); guttering and chimney stacks; heating and cooling systems; plumbing and sanitary systems; electrical and mechanical equipment; internal/external decoration; boundary walls, fences, gates; car parking and external ground covering.",
+        "Consultant coordinates site visits and gives each premises at least three working days' written notice via email; access normally 08:00-17:00 Monday to Friday.",
+        "Surveys are non-intrusive visual inspections; intrusive mechanical/electrical surveys are out of scope and separately priced if required.",
+        "Each core element and installation photographed and included in report; condition rated A-D (Appendix A); priority rated 1-4 (Appendix A).",
+        "Buildings, blocks, floors and rooms numbered in accordance with council-issued site and building plans; AutoCAD-format plans provided where instructed.",
+        "Site visits: surveys commence only after appointments are arranged; surveyors wear company ID; report to main office/reception on arrival and departure; follow local site rules; ladders and equipment never left unattended; secure areas not left unattended; site-owned equipment (steps, ladders) not to be used.",
+        "Team must include qualified and experienced building surveyors supported by electrical and mechanical engineers and quantity surveyors.",
+        "Building Surveyors ideally MRICS qualified or equivalent professional accreditation in building surveying, with building services and maintenance knowledge and current regulation/statutory-compliance knowledge.",
+        "Survey data must be collated in a council-provided proforma with dropdown fields and uploaded to the council's property asset management database (CIVICA); this format is non-negotiable.",
+        "Alternative data entry via handheld digital device (e.g. Tablet PC) is permitted provided strict quality-control protocols preserve database integrity.",
+        "The condition assessments of electrical and mechanical infrastructure are non-intrusive but must identify need for further in-depth inspection/testing; all assessments must comply with current legislation and approved codes of practice.",
+        "Consultant collates all property data (name, reference number, construction type, block numbers/names, measured floor areas, location plans, planned works, M&E asset information) prior to survey.",
+        "Survey hierarchy: Site -> Building/Property name -> Block -> Floor -> Room; each block identified separately; external areas referenced as Block 0.",
+        "Condition grading strictly A (Good), B (Fair), C (Poor), D (Failed) as defined in the specification table.",
+        "Priority grading strictly P1 Urgent, P2 Essential (within 2 years), P3 Desirable mid-term (3-5 years), P4 Long Term (>5 years, default for Grade A), applied within a 5-year planning period.",
+        "Costings produced using a recognised Schedule of Rates such as BCIS or SPONS pricing matrix and must include preliminaries, preambles, contingencies, site access, site requirements, professional fees, but exclude VAT; costs quoted to bring element up to Grade A or prevailing standard.",
+        "Physical access to flat roofs and eaves-level inspection where access is within 3 metres vertical of ground level or fixed permanent access (stairs/ladder) is available; further investigation flagged where defects are apparent or suspected.",
+        "A pilot survey on a council-selected site is required; data must be reviewed and accepted before further surveys commence; progressing without acceptance is at Consultant's risk.",
+        "Measurements obtained using conventional tapes or electronic devices meeting appropriate industry standards; estimation is not acceptable; dimensions recorded in metric millimetres.",
+        "Digital photographs named, numbered and referenced against the data input template, issued in a format to be agreed.",
+        "Pre-start site meeting with Council's lead officer required before surveys commence, for induction and approach alignment.",
+        "Consultant nominates a senior named person responsible for delivery and maintains in-house quality controls with provision for mid- and post-survey audits.",
+        "Consultant produces a dedicated programme for surveying and reporting, updated monthly, with immediate escalation of delays, risks or issues.",
+        "Governance: Consultant selects project leads with delegated authority; weekly liaison with Council operational project managers; monthly written project update reports covering progress, upcoming inspections, data-loading progress, risks and issues.",
+        "Council may add or omit properties based on strategic acquisitions/disposals, closure/change of use, or Consultant performance; failure against programme may trigger partial or full contract termination.",
+        "All survey staff must have completed adequate asbestos awareness training prior to any surveys (particularly residential); each surveyor must consult the on-site Asbestos Management Survey and sign the register before inspection.",
+        "Council supplies CAD or line drawings (AutoCAD or PDF) where available; Consultant uses the council's room referencing; if drawings are inaccurate, Consultant notifies the Council and makes amendments at the Schedule-of-Rates rate.",
+        "Where no plan is available or PDFs are provided, Consultant prepares new AutoCAD building drawings implementing an agreed building/block/floor/room numbering scheme, with AutoCAD attribute tables and data readable by the asset-management software.",
+        "Consultant provides a medium-to-long-term financial plan covering backlog and forward maintenance and a life-cycle/asset-replacement programme aligned to an applicable industry index (RPI, CPI etc.); charged under the Schedule of Rates mechanism.",
+        "Indicative minimum life-expectancy baselines: kitchens/kitchenettes/pantries 15 years; bathrooms and toilets (sanitaryware) 20 years; heating systems 20 years; windows and doors 30 years; electrical systems 20 years; pitched roofing 60 years; flat roof (felt) 20 years; water drainage systems 60 years; guttering/facias/soffits, paths/driveways/hardscape, gardens/landscape TBA.",
+        "Consultant identifies specific obligations by building type, including but not limited to Energy Performance Certification (EPC/DEC), Asbestos Management (surveys/plans), Electrical Services Certification, Gas Safety, Water Safety, and Fire Safety."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot5-data-input-proforma",
+          "summary": "Council-provided digital data input template (proforma) with fixed dropdown fields; surveys must be completed in this format and uploaded into the council's asset management system (CIVICA / TF Cloud).",
+          "requirement_type": "software_data_template",
+          "technical_attributes": [
+            "Fixed dropdown fields",
+            "Format non-negotiable",
+            "Uploadable into CIVICA / TF Cloud asset management system",
+            "Supports joint review workflow"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section:13_resources_and_conditions",
+            "section_ref": "13 Resources & Conditions",
+            "anchor_text": "collate survey data in a proforma document that can then be uploaded into the Council's property asset management database following a joint review. This requirement is non-negotiable and must be completed in the format provided and using the dropdown fields that are included in the template."
+          }
+        },
+        {
+          "seed_key": "lot5-handheld-data-capture-device",
+          "summary": "Optional handheld digital device (Tablet PC) for on-site survey data capture, subject to strict quality-control protocols preserving integrity of council asset-management data.",
+          "requirement_type": "site_data_capture_hardware",
+          "technical_attributes": [
+            "Handheld digital device / Tablet PC",
+            "On-site data capture capability",
+            "Compatible with council data input template",
+            "Quality-control protocol compliance",
+            "Auto-upload pathway into TF Cloud asset management system"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section:13_resources_and_conditions",
+            "section_ref": "13 Resources & Conditions / 23 Data Collection",
+            "anchor_text": "alternative option of inputting information directly into a handheld digital device ... Survey data can be collected onsite using Tablet PC or in hard copy"
+          }
+        },
+        {
+          "seed_key": "lot5-digital-photography-output",
+          "summary": "Digital photographs of core building elements and installations, named, numbered and cross-referenced to the data input template.",
+          "requirement_type": "survey_photographic_deliverable",
+          "technical_attributes": [
+            "Digital photograph capture of core elements and installations",
+            "Named, numbered and referenced to data input template",
+            "Issued in an agreed electronic format"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section:23_data_collection",
+            "section_ref": "23 Data Collection / 11 Responsibilities",
+            "anchor_text": "the Contractor must provide digital photographs. These will be named and numbered and referenced against the data input template"
+          }
+        },
+        {
+          "seed_key": "lot5-autocad-drawings-deliverable",
+          "summary": "AutoCAD-format site and building drawings, including new drawings where PDF-only or no plans exist; drawings carry agreed building/block/floor/room numbering and attribute tables readable by the asset-management software.",
+          "requirement_type": "cad_drawings_deliverable",
+          "technical_attributes": [
+            "AutoCAD (.dwg) or provided PDF/line drawings",
+            "Agreed building/block/floor/room numbering scheme",
+            "AutoCAD attribute tables and data mapped to asset-management software",
+            "Amendments at Schedule-of-Rates rate when provided drawings are inaccurate"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section:29_drawings",
+            "section_ref": "29 Drawings",
+            "anchor_text": "Where PDF drawings are provided, or no plan is available the Council will require a new building drawing to be prepared in AutoCAD"
+          }
+        },
+        {
+          "seed_key": "lot5-costing-schedule-of-rates",
+          "summary": "Cost estimates for remedial works produced against a recognised Schedule of Rates (BCIS or SPONS pricing matrix), inclusive of preliminaries, preambles, contingencies, site access, site requirements and professional fees, excluding VAT.",
+          "requirement_type": "pricing_methodology",
+          "technical_attributes": [
+            "BCIS or SPONS pricing matrix based",
+            "Schedule of Rates mechanism for additions/amendments",
+            "Include preliminaries, preambles, contingencies, site access, site requirements, professional fees",
+            "Exclude VAT"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section:19_works_identified",
+            "section_ref": "19 Works Identified",
+            "anchor_text": "Costings will be produced using a recognised schedule of rates as Building Cost Information Service (BCIS) or SPONS pricing matrix."
+          }
+        },
+        {
+          "seed_key": "lot5-financial-planning-deliverable",
+          "summary": "Medium-to-long-term financial plan covering backlog maintenance, forward maintenance, and asset life-cycle/replacement programme indexed to an applicable industry index (RPI, CPI), with type- and property-grouped capital plans.",
+          "requirement_type": "financial_planning_deliverable",
+          "technical_attributes": [
+            "Backlog + forward maintenance plans",
+            "Life-cycle / asset-replacement programme",
+            "Industry-index-linked (RPI / CPI etc.)",
+            "Grouped by work type and property type",
+            "Charged via Schedule of Rates mechanism"
+          ],
+          "quantity_hint": "Single consolidated financial plan per survey programme cycle, covering both residential (~220) and corporate (~140) portfolios.",
+          "evidence_anchor": {
+            "page_ref": "section:30_financial_planning",
+            "section_ref": "30 Financial Planning",
+            "anchor_text": "medium to long term financial plan in the form of a holistic review of the backlog maintenance and forward maintenance plan. Also a life cycle expectancy / asset replacement programme"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "RICS guidance and best practice",
+          "context": "Condition surveys must be delivered in accordance with RICS (Royal Institution of Chartered Surveyors) guidance and best practice.",
+          "evidence_anchor": {
+            "page_ref": "section:1_overview",
+            "section_ref": "1 Overview",
+            "anchor_text": "in accordance with the requirements detailed in Appendix A, RICS and CIPFA guidance and best practice."
+          }
+        },
+        {
+          "standard_ref": "CIPFA guidance and best practice",
+          "context": "Condition surveys must be delivered in accordance with CIPFA (Chartered Institute of Public Finance & Accountancy) guidance and best practice.",
+          "evidence_anchor": {
+            "page_ref": "section:1_overview",
+            "section_ref": "1 Overview / Objective",
+            "anchor_text": "it is imperative the RICS and CIPFA best practice processes should be followed in relation to this assignment."
+          }
+        },
+        {
+          "standard_ref": "MRICS professional accreditation (or equivalent)",
+          "context": "Building surveyors should ideally be MRICS qualified or hold equivalent building-surveying professional accreditation.",
+          "evidence_anchor": {
+            "page_ref": "section:13_resources_and_conditions",
+            "section_ref": "13 Resources & Conditions",
+            "anchor_text": "Ideally Building Surveyors should be either MRICS qualified or similar professional accreditation (building surveying)"
+          }
+        },
+        {
+          "standard_ref": "BCIS (Building Cost Information Service) schedule of rates",
+          "context": "Remedial-works costings are produced using a recognised schedule of rates, such as BCIS, to bring elements up to Grade A / prevailing standard.",
+          "evidence_anchor": {
+            "page_ref": "section:19_works_identified",
+            "section_ref": "19 Works Identified",
+            "anchor_text": "Costings will be produced using a recognised schedule of rates as Building Cost Information Service (BCIS) or SPONS pricing matrix."
+          }
+        },
+        {
+          "standard_ref": "SPONS pricing matrix",
+          "context": "Alternative recognised schedule of rates for remedial-works costings.",
+          "evidence_anchor": {
+            "page_ref": "section:19_works_identified",
+            "section_ref": "19 Works Identified",
+            "anchor_text": "Building Cost Information Service (BCIS) or SPONS pricing matrix."
+          }
+        },
+        {
+          "standard_ref": "AutoCAD drawing format",
+          "context": "Site, building and new-build drawings delivered in AutoCAD (or PDF where CAD is unavailable) with agreed numbering scheme and attribute tables readable by the council asset-management software.",
+          "evidence_anchor": {
+            "page_ref": "section:29_drawings",
+            "section_ref": "29 Drawings",
+            "anchor_text": "CAD (Computer Aided Design) or line drawings in digital format (AutoCAD or PDF)"
+          }
+        },
+        {
+          "standard_ref": "RPI / CPI industry index linkage",
+          "context": "Life-cycle and asset-replacement programmes indexed to an applicable industry index (RPI, CPI, etc.) for forward cost planning.",
+          "evidence_anchor": {
+            "page_ref": "section:30_financial_planning",
+            "section_ref": "30 Financial Planning",
+            "anchor_text": "future maintenance costs in accordance with an applicable industry index (RPI, CPI etc)"
+          }
+        },
+        {
+          "standard_ref": "Condition grading scheme A-D (Appendix A)",
+          "context": "Council-prescribed condition grading (A Good / B Fair / C Poor / D Failed) applied to every element and installation.",
+          "evidence_anchor": {
+            "page_ref": "section:17_condition_grading",
+            "section_ref": "17 Condition Grading",
+            "anchor_text": "The condition of each attribute will be assessed using the recommended grades A - D."
+          }
+        },
+        {
+          "standard_ref": "Priority grading scheme P1-P4 (Appendix A) over 5-year horizon",
+          "context": "Council-prescribed priority grading (P1 Urgent / P2 Essential / P3 Desirable Mid-Term / P4 Long Term) applied within a five-year planning period.",
+          "evidence_anchor": {
+            "page_ref": "section:18_priority_grading",
+            "section_ref": "18 Priority Grading",
+            "anchor_text": "The priority grades 1, 2, 3 and 4 will be strictly followed in the context of a five (5) year planning period."
+          }
+        },
+        {
+          "standard_ref": "Compliance obligations: EPC/DEC, Asbestos Management, Electrical Services Certification, Gas Safety, Water Safety, Fire Safety",
+          "context": "Consultant must identify specific statutory obligations by building type as part of the financial planning deliverable.",
+          "evidence_anchor": {
+            "page_ref": "section:30_financial_planning",
+            "section_ref": "30 Financial Planning (Obligations)",
+            "anchor_text": "Energy Performance Certification (EPC, DEC) / Asbestos Management (Surveys, Plans) / Electrical Services Certification / Gas Safety / Water Safety / Fire Safety"
+          }
+        },
+        {
+          "standard_ref": "Asbestos awareness training (with on-site register sign-off)",
+          "context": "All surveyors/engineers must complete adequate asbestos awareness training before any surveys and must consult and sign the on-site Asbestos Management Survey register before inspection.",
+          "evidence_anchor": {
+            "page_ref": "section:28_asbestos_awareness",
+            "section_ref": "28 Asbestos Awareness",
+            "anchor_text": "all surveyors/engineers have received/completed adequate asbestos awareness training prior to commencing any surveys"
+          }
+        },
+        {
+          "standard_ref": "TF Cloud / CIVICA asset-management database compatibility",
+          "context": "Survey outputs must be collated in the council's proforma and uploaded to the council's asset-management system (CIVICA / TF Cloud) with joint review.",
+          "evidence_anchor": {
+            "page_ref": "section:13_resources_and_conditions",
+            "section_ref": "13 Resources & Conditions / 23 Data Collection",
+            "anchor_text": "uploaded into the Council's property asset management database following a joint review ... the Council's Asset Management system, TF Cloud"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "section:title_block",
+        "section_ref": "Cover / 1 Overview",
+        "anchor_text": "London Borough of Bexley - LOT 5 - Specification For - Condition Surveys - 1 Overview - London Borough of Bexley is seeking to appoint a suitably qualified and accredited Chartered Surveying company to deliver a programme of Condition Surveys"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot5-data-input-proforma",
+      "lot_number": "5",
+      "candidate_name": "Digital survey data input template (council-issued proforma)",
+      "summary": "Structured data-entry template with fixed dropdown fields, non-negotiable in format, designed for direct upload into the council's CIVICA / TF Cloud asset-management system.",
+      "requirements": [
+        "Fixed dropdown fields as supplied by council",
+        "Supports joint review workflow before upload",
+        "Upload path into CIVICA / TF Cloud asset-management system",
+        "Format non-negotiable"
+      ],
+      "technical_standards": [
+        "TF Cloud / CIVICA asset-management database compatibility"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section:13_resources_and_conditions",
+        "section_ref": "13 Resources & Conditions",
+        "anchor_text": "collate survey data in a proforma document that can then be uploaded into the Council's property asset management database following a joint review."
+      }
+    },
+    {
+      "seed_key": "lot5-handheld-data-capture-device",
+      "lot_number": "5",
+      "candidate_name": "Handheld survey data-capture device (Tablet PC)",
+      "summary": "Optional on-site digital data-capture device (e.g. Tablet PC) used in lieu of the paper proforma, with quality-control safeguards preserving data integrity into the council's asset management database.",
+      "requirements": [
+        "Handheld digital device / Tablet PC form factor",
+        "On-site survey data capture",
+        "Compatible with council-issued input template",
+        "Strict quality-control protocol compliance",
+        "Supports upload to TF Cloud"
+      ],
+      "technical_standards": [
+        "TF Cloud / CIVICA asset-management database compatibility"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section:23_data_collection",
+        "section_ref": "13 Resources & Conditions / 23 Data Collection",
+        "anchor_text": "alternative option of inputting information directly into a handheld digital device ... Survey data can be collected onsite using Tablet PC or in hard copy"
+      }
+    },
+    {
+      "seed_key": "lot5-autocad-drawings-deliverable",
+      "lot_number": "5",
+      "candidate_name": "AutoCAD site/building drawings (new or amended)",
+      "summary": "Delivery of AutoCAD-format site and building drawings, including the preparation of new drawings where the council only has PDF or no plan, applying an agreed building/block/floor/room numbering scheme and attribute tables readable by the asset-management software.",
+      "requirements": [
+        "AutoCAD (.dwg) primary; PDF or line drawings accepted where AutoCAD unavailable",
+        "Room and building referencing carried into AutoCAD attribute tables",
+        "Numbering scheme alignment to condition-survey data",
+        "Amendments priced under Schedule-of-Rates mechanism"
+      ],
+      "technical_standards": [
+        "AutoCAD drawing format"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section:29_drawings",
+        "section_ref": "29 Drawings",
+        "anchor_text": "Where PDF drawings are provided, or no plan is available the Council will require a new building drawing to be prepared in AutoCAD."
+      }
+    },
+    {
+      "seed_key": "lot5-costing-schedule-of-rates",
+      "lot_number": "5",
+      "candidate_name": "Costing using BCIS / SPONS Schedule of Rates",
+      "summary": "Production of remedial-works cost estimates against a recognised schedule of rates (BCIS or SPONS), inclusive of preliminaries, preambles, contingencies, site access, site requirements and professional fees, excluding VAT.",
+      "requirements": [
+        "Schedule of Rates grounded in BCIS or SPONS",
+        "Include preliminaries, preambles, contingencies, site access, site requirements, professional fees",
+        "Exclude VAT",
+        "Bring element to Grade A or prevailing standard"
+      ],
+      "technical_standards": [
+        "BCIS (Building Cost Information Service) schedule of rates",
+        "SPONS pricing matrix"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section:19_works_identified",
+        "section_ref": "19 Works Identified",
+        "anchor_text": "Costings will be produced using a recognised schedule of rates as Building Cost Information Service (BCIS) or SPONS pricing matrix."
+      }
+    },
+    {
+      "seed_key": "lot5-financial-planning-deliverable",
+      "lot_number": "5",
+      "candidate_name": "Backlog + forward maintenance and asset life-cycle programme",
+      "summary": "Medium-to-long-term financial plan covering backlog maintenance, forward maintenance and life-cycle / asset-replacement programme, indexed to RPI/CPI, grouped by work type and property type.",
+      "requirements": [
+        "Backlog maintenance plan",
+        "Forward maintenance plan",
+        "Life-cycle / asset-replacement programme",
+        "Industry index (RPI / CPI) linkage",
+        "Grouping by asset/system and by property type",
+        "Indicative life expectancies: kitchens 15y, sanitaryware 20y, heating 20y, windows/doors 30y, electrical 20y, pitched roofing 60y, flat roof felt 20y, water drainage 60y"
+      ],
+      "technical_standards": [
+        "RPI / CPI industry index linkage",
+        "RICS guidance and best practice",
+        "CIPFA guidance and best practice"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section:30_financial_planning",
+        "section_ref": "30 Financial Planning",
+        "anchor_text": "medium to long term financial plan in the form of a holistic review of the backlog maintenance and forward maintenance plan. Also a life cycle expectancy / asset replacement programme"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9800,
+    "lots.title": 9400,
+    "lots.description": 9000,
+    "lots.requirements": 8800,
+    "lots.evaluation_criteria": 2000,
+    "lots.cpv_codes": 2000,
+    "lots.product_requirements": 7500,
+    "lots.technical_standards": 8700,
+    "product_requirement_seeds": 7200,
+    "evidence_anchors": 8800
+  },
+  "extraction_confidence_bps": 8100,
+  "warnings": [
+    {
+      "code": "EVALUATION_CRITERIA_NOT_PRESENT",
+      "message": "Document is a technical specification for Lot 5 and does not contain explicit tender evaluation criteria or weightings (e.g. MEAT / price-quality split). Any evaluation criteria for this lot are expected in a separate procurement / ITT document rather than this specification.",
+      "evidence_refs": [
+        "doc_extraction_id:9e8c24cc-519b-4e6c-802c-5fcf0b27ad9a"
+      ]
+    },
+    {
+      "code": "LOT_CPV_CODES_NOT_IN_DOCUMENT",
+      "message": "This specification document does not contain CPV codes for Lot 5; CPV codes are recorded at notice level rather than within the lot-specification body. cpv_codes left empty to avoid unevidenced propagation.",
+      "evidence_refs": [
+        "doc_extraction_id:9e8c24cc-519b-4e6c-802c-5fcf0b27ad9a"
+      ]
+    },
+    {
+      "code": "APPENDIX_A_REFERENCED_BUT_NOT_INCLUDED_IN_EXTRACT",
+      "message": "Sections 11, 17 and 18 reference 'Appendix A' for the authoritative condition and priority grading definitions. The extracted markdown contains the inline A-D and P1-P4 definition tables but no standalone 'Appendix A' section; Appendix A is presumed consistent with the inline tables.",
+      "evidence_refs": [
+        "section:11_responsibilities",
+        "section:17_condition_grading",
+        "section:18_priority_grading"
+      ]
+    },
+    {
+      "code": "SECTION_NUMBERING_DUPLICATE",
+      "message": "Document uses two overlapping numbering schemes: a summary list reusing '1.' for every entry, and a body with numbered headings (1 Overview, 10 Objective, 11 Responsibilities, ...). Body numbering preserved in evidence anchors.",
+      "evidence_refs": [
+        "section:1_overview",
+        "section:10_objective"
+      ]
+    },
+    {
+      "code": "PAGE_NUMBERS_UNAVAILABLE",
+      "message": "Docling extraction reported page_count=0 for this document; evidence anchors therefore use section identifiers (section:<n>_<slug>) rather than page references.",
+      "evidence_refs": [
+        "doc_extraction_id:9e8c24cc-519b-4e6c-802c-5fcf0b27ad9a"
+      ]
+    },
+    {
+      "code": "GOVERNANCE_NUMBERING_INCONSISTENT",
+      "message": "Governance block in the extract is labelled '21 Governance' with sub-items 21.1-21.4 but appears between sections numbered 26 (Programme) and 27 (Additions/Omissions), suggesting a source-document numbering inconsistency rather than an extraction error.",
+      "evidence_refs": [
+        "section:governance"
+      ]
+    },
+    {
+      "code": "SERVICES_ORIENTED_LOT",
+      "message": "Lot 5 is a professional surveying services engagement; 'product_requirement_seeds' capture data/drawing/costing/device deliverables rather than physical goods, and may need service-classification handling downstream.",
+      "evidence_refs": [
+        "section:1_overview",
+        "section:30_financial_planning"
+      ]
+    },
+    {
+      "code": "LIFE_EXPECTANCY_PLACEHOLDERS",
+      "message": "Section 30 contains several 'life expectancy (tba)' placeholders (guttering/facias/soffits, paths/driveways/hardscape, gardens/landscape). Requirements capture the placeholder status rather than implying a specific period.",
+      "evidence_refs": [
+        "section:30_financial_planning"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "section:title_block",
+      "section_ref": "Cover",
+      "anchor_text": "London Borough of Bexley - LOT 5 - Specification For - Condition Surveys"
+    },
+    {
+      "page_ref": "section:1_overview",
+      "section_ref": "1 Overview",
+      "anchor_text": "London Borough of Bexley is seeking to appoint a suitably qualified and accredited Chartered Surveying company to deliver a programme of Condition Surveys"
+    },
+    {
+      "page_ref": "section:10_objective",
+      "section_ref": "10 Objective",
+      "anchor_text": "This document sets out the detailed requirement for the delivery of condition surveys for the London Borough of Bexley."
+    },
+    {
+      "page_ref": "section:11_responsibilities",
+      "section_ref": "11 Responsibilities",
+      "anchor_text": "condition rating of A-D (refer to Appendix A) ... priority of the repair / replacement work ... scale of 1-4 (refer to Appendix A)"
+    },
+    {
+      "page_ref": "section:12_site_visits",
+      "section_ref": "12 Site Visits",
+      "anchor_text": "Surveys to commence only after site appointments have been arranged and agreed."
+    },
+    {
+      "page_ref": "section:13_resources_and_conditions",
+      "section_ref": "13 Resources & Conditions",
+      "anchor_text": "Building Surveyors should be either MRICS qualified or similar professional accreditation (building surveying)"
+    },
+    {
+      "page_ref": "section:15_condition_assessments_em",
+      "section_ref": "15 Condition Assessments - Electrical and Mechanical",
+      "anchor_text": "establish the state of the electrical and mechanical infrastructure ... basically non-intrusive but should be sufficiently thorough"
+    },
+    {
+      "page_ref": "section:17_condition_grading",
+      "section_ref": "17 Condition Grading",
+      "anchor_text": "grades A - D ... A Good ... B Fair ... C Poor ... D Failed"
+    },
+    {
+      "page_ref": "section:18_priority_grading",
+      "section_ref": "18 Priority Grading",
+      "anchor_text": "P1 Urgent ... P2 Essential ... P3 Desirable (Mid Term) ... P4 Long Term"
+    },
+    {
+      "page_ref": "section:19_works_identified",
+      "section_ref": "19 Works Identified",
+      "anchor_text": "Costings will be produced using a recognised schedule of rates as Building Cost Information Service (BCIS) or SPONS pricing matrix."
+    },
+    {
+      "page_ref": "section:20_access",
+      "section_ref": "20 Access",
+      "anchor_text": "Access is within a vertical height 3 metres of the general ground level"
+    },
+    {
+      "page_ref": "section:21_pilot_survey",
+      "section_ref": "21 Pilot Survey",
+      "anchor_text": "A site/property will be identified by the Council for a pilot survey"
+    },
+    {
+      "page_ref": "section:22_measurement",
+      "section_ref": "22 Measurement",
+      "anchor_text": "Dimensions will be taken and recorded in metric millimetres."
+    },
+    {
+      "page_ref": "section:23_data_collection",
+      "section_ref": "23 Data Collection",
+      "anchor_text": "Survey data can be collected onsite using Tablet PC or in hard copy"
+    },
+    {
+      "page_ref": "section:24_pre_start_meeting",
+      "section_ref": "24 Pre-Start Meeting",
+      "anchor_text": "appointed Consultant will attend a site meeting with the Council's lead officer"
+    },
+    {
+      "page_ref": "section:28_asbestos_awareness",
+      "section_ref": "28 Asbestos Awareness",
+      "anchor_text": "all surveyors/engineers have received/completed adequate asbestos awareness training prior to commencing any surveys"
+    },
+    {
+      "page_ref": "section:29_drawings",
+      "section_ref": "29 Drawings",
+      "anchor_text": "CAD (Computer Aided Design) or line drawings in digital format (AutoCAD or PDF)"
+    },
+    {
+      "page_ref": "section:30_financial_planning",
+      "section_ref": "30 Financial Planning",
+      "anchor_text": "medium to long term financial plan in the form of a holistic review of the backlog maintenance and forward maintenance plan"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "2e1eed67144c8c783755b0cb50e09a1c1a07de2573f032eb8ebc805b21cc4e02",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

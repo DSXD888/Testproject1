@@ -1,0 +1,502 @@
+{
+  "lots": [
+    {
+      "lot_number": "4",
+      "title": "Fire Door Specification (Lot 4 of Building Services Framework 6278)",
+      "description": "Supply, installation, inspection, testing, certification and maintenance of fire doors and fire door sets in properties under the control of the London Borough of Bexley. Scope includes provision of test evidence, certification, product data sheets, asset record updates, and uploading documentation to the Authority's compliance platform (TF Cloud / Civica). Document scope is broader than the parent notice lot title 'Provision of Fire Door Surveys'.",
+      "requirements": [
+        "Comply with current UK Health and Safety Executive (HSE) guidance, Building Regulations, the Fire Safety Order and relevant British Standards.",
+        "Supply and install new fire doors and frames; inspect, test and certify existing fire doors; perform maintenance and remedial works to maintain compliance.",
+        "Provide all test evidence, certification, and product data sheets and update asset records.",
+        "Upload all documentation to the Authority's compliance platform (TF Cloud / Civica) for full audit trail.",
+        "Doors achieve minimum performance ratings as specified within design drawings or fire strategy documents: FD30, FD60, FD90, or FD120.",
+        "Domestic premises flat entrance doors must be a minimum FD30S rating (30 minutes fire and smoke resistance).",
+        "Intumescent and cold smoke seals must be continuous and undamaged.",
+        "Doors in corridors or staircases providing escape routes must be fitted with cold smoke brush-type seals to achieve FD30S or FD60S compliance.",
+        "All hardware must be fire-rated and tested to relevant EN standards in force, and must form part of the tested and approved door set assembly.",
+        "Self-closing devices must comply with BS EN 1154.",
+        "Fire-door hinges, compliant signage ('Fire Door - Keep Shut / Locked') and other furniture must be part of the tested approved set.",
+        "Any glazing must use fire-rated glass installed with approved fire-resistant glazing systems.",
+        "Installation must be carried out by competent installers trained in fire door installation.",
+        "All fire doors must be inspected at minimum annually; for domestic premises, communal doors must be checked quarterly per Fire Safety (England) Regulations 2022.",
+        "Inspections shall include checks for leaf/frame integrity, gaps, seals, signage, and correct closer operation.",
+        "Contractors must submit installation service sheets, inspection logs, photographs and asset schedules per door, uploaded to TFCloud / Civica.",
+        "Contractors must be competent and trained in installation of fire doors, frames and door furniture; Risk Assessments and Method Statements must be approved before work begins.",
+        "On completion of any repair or installation, contractor and London Borough of Bexley representative shall carry out a joint verification inspection.",
+        "Contractor shall provide a final installation and commissioning pack including a door-by-door register and all compliance documents; non-conformances shall be rectified at contractor's cost.",
+        "Inspection shall use the Appendix A Fire Door Inspection Checklist (door leaf condition, frame condition and fixings, gaps within tolerance \u22644mm, intumescent/smoke seals continuous and undamaged, self-closer operates effectively, signage correctly fitted, no obstructions or alterations, overall Pass/Fail rating).",
+        "Asset schedule shall follow Appendix B template (Property/Block Name, Door Location, Fire Rating FD30/FD60, Door Type/Material, Installation Date, Inspection Date, Findings, Action Taken, Certification Reference).",
+        "Each install/inspection event shall be evidenced by a certificate following the Appendix C example (Certificate No, Door ID, Location, Installer, Date Installed, Fire Rating, Smoke Seal Yes/No, Inspector Signature, Date of Inspection)."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [
+        "50700000-2"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot4-fire-door-fd30s-flat-entrance",
+          "summary": "Fire door / door set with minimum FD30S rating (30-minute fire and smoke resistance) for use as flat entrance doors in domestic premises.",
+          "requirement_type": "fire_door_set",
+          "technical_attributes": [
+            "minimum FD30S rating",
+            "30 minutes fire resistance",
+            "cold smoke resistance",
+            "tested and approved door set assembly",
+            "intended use: domestic flat entrance"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "For domestic premises flat entrance doors must be a minimum FD30S rating (30 minutes fire and smoke resistance).",
+            "section_ref": "#/texts/47"
+          }
+        },
+        {
+          "seed_key": "lot4-fire-door-fd-rated-general",
+          "summary": "General fire doors / door sets achieving FD30, FD60, FD90 or FD120 ratings as specified by design drawings or fire strategy documents.",
+          "requirement_type": "fire_door_set",
+          "technical_attributes": [
+            "rating range: FD30 / FD60 / FD90 / FD120",
+            "selection per design drawings or fire strategy",
+            "tested and approved door set assembly"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Doors achieve minimum performance ratings as specified within design drawings or fire strategy documents: FD30, FD60, FD90, or FD120.",
+            "section_ref": "#/texts/47"
+          }
+        },
+        {
+          "seed_key": "lot4-cold-smoke-brush-seal",
+          "summary": "Cold smoke brush-type seals for doors in corridors or staircases providing escape routes, contributing to FD30S/FD60S compliance.",
+          "requirement_type": "smoke_seal",
+          "technical_attributes": [
+            "brush-type cold smoke seal",
+            "supports FD30S / FD60S compliance",
+            "use case: corridor / staircase escape routes"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Doors in corridors or staircases providing escape routes shall be fitted with cold smoke brush-type seals to achieve FD30S or FD60S compliance.",
+            "section_ref": "#/texts/47"
+          }
+        },
+        {
+          "seed_key": "lot4-intumescent-seal",
+          "summary": "Intumescent seals (with continuous, undamaged installation) forming part of the tested fire door set assembly.",
+          "requirement_type": "intumescent_seal",
+          "technical_attributes": [
+            "continuous installation",
+            "undamaged condition",
+            "part of tested door set assembly"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Intumescent and cold smoke seals must be continuous and undamaged.",
+            "section_ref": "#/texts/47"
+          }
+        },
+        {
+          "seed_key": "lot4-self-closing-device-bs-en-1154",
+          "summary": "Self-closing device for fire doors, fire-rated and tested to BS EN 1154.",
+          "requirement_type": "door_closer",
+          "technical_attributes": [
+            "fire-rated",
+            "BS EN 1154 compliant",
+            "part of tested door set assembly"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Include self-closing devices (BS EN 1154).",
+            "section_ref": "#/texts/47"
+          }
+        },
+        {
+          "seed_key": "lot4-fire-rated-hinges",
+          "summary": "Fire-rated hinges that form part of the tested and approved fire door set assembly.",
+          "requirement_type": "door_hardware",
+          "technical_attributes": [
+            "fire-rated",
+            "tested to relevant EN standards in force",
+            "part of approved door set assembly"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Hinges Compliant signage ('Fire Door \u2013 Keep Shut / Locked') All hardware must form part of the tested and approved door set assembly.",
+            "section_ref": "#/texts/47"
+          }
+        },
+        {
+          "seed_key": "lot4-fire-door-signage",
+          "summary": "Fire door compliance signage with text 'Fire Door \u2013 Keep Shut / Locked'.",
+          "requirement_type": "signage",
+          "technical_attributes": [
+            "text: 'Fire Door \u2013 Keep Shut / Locked'",
+            "fire-door-set compliant"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Compliant signage ('Fire Door \u2013 Keep Shut / Locked')",
+            "section_ref": "#/texts/47"
+          }
+        },
+        {
+          "seed_key": "lot4-fire-rated-glazing-system",
+          "summary": "Fire-rated glass and approved fire-resistant glazing systems for any glazed sections of fire doors.",
+          "requirement_type": "glazing_system",
+          "technical_attributes": [
+            "fire-rated glass",
+            "approved fire-resistant glazing system"
+          ],
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Any glazing must use fire-rated glass installed with approved fire-resistant glazing systems.",
+            "section_ref": "#/texts/47"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "BS EN 1154",
+          "context": "Self-closing devices for fire doors must comply with BS EN 1154.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Include self-closing devices (BS EN 1154).",
+            "section_ref": "#/texts/47"
+          }
+        },
+        {
+          "standard_ref": "Fire Safety (England) Regulations 2022",
+          "context": "Communal fire doors in domestic premises must be checked quarterly in accordance with Fire Safety (England) Regulations 2022.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "For domestic premises, communal doors must be checked quarterly in accordance with Fire Safety (England) Regulations 2022.",
+            "section_ref": "#/texts/63"
+          }
+        },
+        {
+          "standard_ref": "UK Building Regulations",
+          "context": "Specification requires compliance with current UK Building Regulations alongside HSE guidance and the Fire Safety Order.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "compliance with current UK Health and Safety Executive (HSE) guidance, Building Regulations, and relevant British Standards",
+            "section_ref": "#/texts/40"
+          }
+        },
+        {
+          "standard_ref": "Regulatory Reform (Fire Safety) Order 2005",
+          "context": "Specification cites statutory duties under the 'Fire Safety Order' (Regulatory Reform (Fire Safety) Order 2005).",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "to meet all statutory duties under the Fire Safety Order.",
+            "section_ref": "#/texts/40"
+          }
+        },
+        {
+          "standard_ref": "FD30 / FD60 / FD90 / FD120 fire-resistance ratings",
+          "context": "Fire door ratings (categorical fire-resistance grades expressed in minutes) referenced for door selection per design drawings or fire strategy.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "Doors achieve minimum performance ratings as specified within design drawings or fire strategy documents: FD30, FD60, FD90, or FD120.",
+            "section_ref": "#/texts/47"
+          }
+        },
+        {
+          "standard_ref": "FD30S / FD60S (smoke-rated variants)",
+          "context": "Smoke-rated fire-door classifications referenced for flat entrance doors and escape-route corridor / staircase doors.",
+          "evidence_anchor": {
+            "page_ref": "p1",
+            "anchor_text": "fitted with cold smoke brush-type seals to achieve FD30S or FD60S compliance.",
+            "section_ref": "#/texts/47"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "anchor_text": "Fire Door Specification \u2026 This specification sets out the requirements for the supply, installation, inspection and maintenance of fire doors and fire door sets in properties under the control of the London Borough of Bexley.",
+        "section_ref": "#/texts/3"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot4-fire-door-fd30s-flat-entrance",
+      "lot_number": "4",
+      "candidate_name": "FD30S fire door set (flat entrance, domestic)",
+      "summary": "Fire door / door set with FD30S rating (30-minute fire and smoke resistance) for domestic flat entrance use.",
+      "requirements": [
+        "Minimum FD30S rating",
+        "30 minutes fire resistance",
+        "Cold smoke resistance (S)",
+        "Supplied as part of tested and approved door set assembly",
+        "Intended use: domestic flat entrance"
+      ],
+      "technical_standards": [
+        "FD30S",
+        "Fire Safety (England) Regulations 2022"
+      ],
+      "cpv_codes": [
+        "44221220-3"
+      ],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "anchor_text": "For domestic premises flat entrance doors must be a minimum FD30S rating (30 minutes fire and smoke resistance).",
+        "section_ref": "#/texts/47"
+      }
+    },
+    {
+      "seed_key": "lot4-fire-door-fd-rated-general",
+      "lot_number": "4",
+      "candidate_name": "Fire door set (FD30 / FD60 / FD90 / FD120)",
+      "summary": "General fire door / door set achieving FD30, FD60, FD90 or FD120 rating as required by design drawings or fire strategy.",
+      "requirements": [
+        "Performance rating per design drawings: FD30 / FD60 / FD90 / FD120",
+        "Tested and approved door set assembly",
+        "Hardware fire-rated and tested to relevant EN standards in force"
+      ],
+      "technical_standards": [
+        "FD30 / FD60 / FD90 / FD120"
+      ],
+      "cpv_codes": [
+        "44221220-3"
+      ],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "anchor_text": "Doors achieve minimum performance ratings as specified within design drawings or fire strategy documents: FD30, FD60, FD90, or FD120.",
+        "section_ref": "#/texts/47"
+      }
+    },
+    {
+      "seed_key": "lot4-cold-smoke-brush-seal",
+      "lot_number": "4",
+      "candidate_name": "Cold smoke brush-type seal",
+      "summary": "Cold smoke brush-type seal for fire doors on corridor / staircase escape routes to achieve FD30S or FD60S smoke compliance.",
+      "requirements": [
+        "Brush-type cold smoke seal",
+        "Supports FD30S / FD60S smoke compliance",
+        "Suitable for corridor and staircase escape-route doors"
+      ],
+      "technical_standards": [
+        "FD30S",
+        "FD60S"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "anchor_text": "Doors in corridors or staircases providing escape routes shall be fitted with cold smoke brush-type seals to achieve FD30S or FD60S compliance.",
+        "section_ref": "#/texts/47"
+      }
+    },
+    {
+      "seed_key": "lot4-intumescent-seal",
+      "lot_number": "4",
+      "candidate_name": "Intumescent fire door seal",
+      "summary": "Intumescent seal forming part of the tested fire door set assembly; continuous and undamaged installation required.",
+      "requirements": [
+        "Continuous installation",
+        "Undamaged condition",
+        "Part of tested fire door set assembly"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "anchor_text": "Intumescent and cold smoke seals must be continuous and undamaged.",
+        "section_ref": "#/texts/47"
+      }
+    },
+    {
+      "seed_key": "lot4-self-closing-device-bs-en-1154",
+      "lot_number": "4",
+      "candidate_name": "Fire-rated self-closing device (BS EN 1154)",
+      "summary": "Self-closing device for fire doors, fire-rated and certified to BS EN 1154 as part of the approved door set assembly.",
+      "requirements": [
+        "Fire-rated",
+        "BS EN 1154 compliant",
+        "Part of tested approved door set assembly"
+      ],
+      "technical_standards": [
+        "BS EN 1154"
+      ],
+      "cpv_codes": [
+        "44521120-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "anchor_text": "Include self-closing devices (BS EN 1154).",
+        "section_ref": "#/texts/47"
+      }
+    },
+    {
+      "seed_key": "lot4-fire-rated-hinges",
+      "lot_number": "4",
+      "candidate_name": "Fire-rated door hinges",
+      "summary": "Fire-rated hinges tested to relevant EN standards and forming part of the approved fire door set assembly.",
+      "requirements": [
+        "Fire-rated",
+        "Tested to relevant EN standards in force",
+        "Part of tested approved door set assembly"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "anchor_text": "Hinges Compliant signage ('Fire Door \u2013 Keep Shut / Locked') All hardware must form part of the tested and approved door set assembly.",
+        "section_ref": "#/texts/47"
+      }
+    },
+    {
+      "seed_key": "lot4-fire-door-signage",
+      "lot_number": "4",
+      "candidate_name": "Fire door compliance signage ('Fire Door \u2013 Keep Shut / Locked')",
+      "summary": "Compliance signage for fire doors with the text 'Fire Door \u2013 Keep Shut / Locked'.",
+      "requirements": [
+        "Compliant text: 'Fire Door \u2013 Keep Shut / Locked'",
+        "Fire-door-set compliant"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "anchor_text": "Compliant signage ('Fire Door \u2013 Keep Shut / Locked')",
+        "section_ref": "#/texts/47"
+      }
+    },
+    {
+      "seed_key": "lot4-fire-rated-glazing-system",
+      "lot_number": "4",
+      "candidate_name": "Fire-rated glass and glazing system",
+      "summary": "Fire-rated glass and approved fire-resistant glazing systems for any glazed sections of fire doors.",
+      "requirements": [
+        "Fire-rated glass",
+        "Approved fire-resistant glazing system"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "p1",
+        "anchor_text": "Any glazing must use fire-rated glass installed with approved fire-resistant glazing systems.",
+        "section_ref": "#/texts/47"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9500,
+    "lots.title": 9000,
+    "lots.description": 8500,
+    "lots.requirements": 8800,
+    "lots.evaluation_criteria": 9000,
+    "lots.cpv_codes": 5000,
+    "lots.product_requirements": 7800,
+    "lots.technical_standards": 8800,
+    "product_requirement_seeds": 7500,
+    "extraction_metadata.target_domain": 10000,
+    "extraction_metadata.extraction_scope": 10000
+  },
+  "extraction_confidence_bps": 8200,
+  "warnings": [
+    {
+      "code": "EVALUATION_CRITERIA_NOT_PRESENT",
+      "message": "This document is a draft technical specification only and contains no evaluation criteria, scoring weights or award methodology. Evaluation criteria array is empty. They likely live in a separate ITT / SQ / award-criteria document not provided to this run.",
+      "evidence_refs": [
+        "#/texts/15"
+      ]
+    },
+    {
+      "code": "LOT_TITLE_SCOPE_MISMATCH",
+      "message": "Notice-level lot 4 title is 'Provision of Fire Door Surveys' but this specification covers supply, installation, inspection, certification, and maintenance of fire doors and fire door sets. Document scope is broader than the parent notice lot title; notice metadata may understate the lot.",
+      "evidence_refs": [
+        "#/texts/3",
+        "#/texts/40",
+        "#/texts/42"
+      ]
+    },
+    {
+      "code": "CPV_NOT_CITED_IN_DOCUMENT",
+      "message": "The specification document does not cite CPV codes directly. Lot CPV (50700000-2 \u2013 Repair and maintenance services of building installations) is inherited from the parent notice metadata; product seed CPVs (44221220-3 fire doors, 44521120-5 emergency-exit / closer hardware) are heuristic candidates derived from product wording, not from explicit document citation. Treat with low confidence.",
+      "evidence_refs": []
+    },
+    {
+      "code": "DOCUMENT_HARDWARE_TEXT_AMBIGUOUS",
+      "message": "The hardware/ironmongery sub-section (\u00a73.3) renders without sentence terminators between 'Hinges', the 'Compliant signage' clause, and the assembly-conformance clause. Requirements were split semantically but original sentence boundaries are uncertain.",
+      "evidence_refs": [
+        "#/texts/47"
+      ]
+    },
+    {
+      "code": "DRAFT_DOCUMENT",
+      "message": "Document title indicates a draft specification ('6278 - Draft Specification - Lot 4'). Final published version may differ; downstream consumers should reconcile against the final ITT pack when available.",
+      "evidence_refs": [
+        "#/texts/3"
+      ]
+    },
+    {
+      "code": "PAGE_COUNT_ZERO",
+      "message": "Document extraction reports page_count=0 in document_extractions; all sections collapse to page 1. Page-level evidence anchors use 'p1' as the only available reference.",
+      "evidence_refs": []
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "p1",
+      "anchor_text": "Fire Door Specification",
+      "section_ref": "#/texts/3"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "1. Introduction & Purpose \u2026 supply, installation, inspection and maintenance of fire doors \u2026 London Borough of Bexley.",
+      "section_ref": "#/texts/40"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "2. Scope of Works",
+      "section_ref": "#/texts/42"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "3. Performance & Functional Requirements",
+      "section_ref": "#/texts/47"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "4. Inspection, Testing & Maintenance",
+      "section_ref": "#/texts/63"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "5. Documentation & Record Keeping",
+      "section_ref": "#/texts/67"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "6. Contractor Competence & Health & Safety",
+      "section_ref": "#/texts/73"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "7. Handover & Quality Assurance",
+      "section_ref": "#/texts/76"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Appendix A \u2013 Fire Door Inspection Checklist",
+      "section_ref": "#/groups/appendix-a"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Appendix B \u2013 Fire Door Asset Schedule Template",
+      "section_ref": "#/groups/appendix-b"
+    },
+    {
+      "page_ref": "p1",
+      "anchor_text": "Appendix C \u2013 Example Installation & Inspection Certificate",
+      "section_ref": "#/groups/appendix-c"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "8daf327fba87cde380a285e86da2578207cfb82cbc64e84eb3db2587facf19b8",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "lots": [],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots": 9500,
+    "product_requirement_seeds": 9500,
+    "evaluation_criteria": 9500,
+    "technical_standards": 9500,
+    "cpv_codes": 2000,
+    "document_role": 9000
+  },
+  "extraction_confidence_bps": 9200,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "Document is Framework Schedule 3 'Form of Contract and Call-Off Terms' (contractual boilerplate) rather than a tender technical specification. No lot definitions, no product requirements, no evaluation criteria, and no technical standards are expressed in this document. All substantive specification-shaped fields are empty placeholders to be populated by the buyer at call-off stage.",
+      "evidence_refs": [
+        "section:1 FORM OF CONTRACT",
+        "section:2 MASTER CONTRACT SCHEDULE",
+        "line:91 Goods required [     ]",
+        "line:93 Standards / Quality Standards [     ] / Technical Standards [     ]"
+      ]
+    },
+    {
+      "code": "ONLY_PLACEHOLDER_FIELDS",
+      "message": "Goods required, Services required, Standards (Quality + Technical), Performance/Delivery Location, Supplier Solution, Key Personnel, Milestones, Critical Service Failure thresholds, Contract Charges, Commercially Sensitive Information, Service Levels (Schedule 1 Appendix A), and Implementation Plan (Schedule 2) are all rendered as bracketed placeholders ([     ], [DD Month YYYY], numbered rows '1.'/'2.'/'3.'/'4.' with empty cells).",
+      "evidence_refs": [
+        "section:2 MASTER CONTRACT SCHEDULE",
+        "section:45 SCHEDULE 1",
+        "section:46 SCHEDULE 2"
+      ]
+    },
+    {
+      "code": "LOT_SIGNAL_EXTERNAL",
+      "message": "Lot structure for ESPO Framework 218_26 (Specialist Vehicle Contract Hire/Leasing) is not defined in this document. Document explicitly references 'schedule 1 of the Framework Agreement' as the authoritative location for the goods/services listing, and 'clause 13 of the Framework Agreement' for technical standards — those are separate documents not included in this extraction.",
+      "evidence_refs": [
+        "line:91 Details of the Goods listed above can be found in schedule 1 of the Framework Agreement.",
+        "line:93 Details of technical standards can be found in clause 13 of the Framework Agreement."
+      ]
+    },
+    {
+      "code": "CPV_FROM_NOTICE_ONLY",
+      "message": "CPV codes for this notice (34114000 Specialist vehicles; 34121000 Buses and coaches; 34134000 Flatbed and tipper trucks) are present on the parent contract_notices row from process_context but are not cited anywhere in the body of this document. Per skill contract, lot-level CPV must be evidence-anchored to the tender document, so they are not propagated into lots.",
+      "evidence_refs": [
+        "process_context:contract_notices.main_category"
+      ]
+    },
+    {
+      "code": "NO_EVALUATION_CRITERIA",
+      "message": "No award/evaluation criteria are present. Document is call-off contract terms, not the ITT. Service Levels (Schedule 1 Part A Appendix) is a blank 4-row table with 60-70%/71-90%/91-95%/96-100% column headers and no inserted Service Level descriptions.",
+      "evidence_refs": [
+        "section:45.1.1 APPENDIX TO PART A",
+        "line:1664-1671"
+      ]
+    },
+    {
+      "code": "NO_PRODUCT_REQUIREMENTS_IN_BODY",
+      "message": "The only product-domain signal in the document body is the framework title 'SPECIALIST VEHICLE CONTRACT HIRE / LEASING'. This is too abstract to emit as a product_candidate seed without speculative fabrication of specs, quantities, or specialisations. Omitting per skill's 'Do not ... guess ... product requirements without citing evidence anchors' rule.",
+      "evidence_refs": [
+        "line:13 SPECIALIST VEHICLE CONTRACT HIRE / LEASING",
+        "line:15-17 CONTRACT REF 218_26"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "line:1",
+      "section_ref": "header",
+      "anchor_text": "FRAMEWORK SCHEDULE 3 – FORM OF CONTRACT AND CALL-OFF TERMS"
+    },
+    {
+      "page_ref": "line:13",
+      "section_ref": "header",
+      "anchor_text": "SPECIALIST VEHICLE CONTRACT HIRE / LEASING"
+    },
+    {
+      "page_ref": "line:17",
+      "section_ref": "header",
+      "anchor_text": "CONTRACT REF 218_26"
+    },
+    {
+      "page_ref": "line:35",
+      "section_ref": "§1 FORM OF CONTRACT / WHEREAS clause 1",
+      "anchor_text": "ESPO placed a Tender Notice 2025/S 000-083539 on 16/12/25 on the central digital platform operated pursuant to section 95(4) of the PA23 seeking expressions of interest from providers of specialist contract hire / leasing"
+    },
+    {
+      "page_ref": "line:91",
+      "section_ref": "§2 MASTER CONTRACT SCHEDULE / Goods and/or Services Requirements",
+      "anchor_text": "Goods required [     ] ... Details of the Goods listed above can be found in schedule 1 of the Framework Agreement."
+    },
+    {
+      "page_ref": "line:93",
+      "section_ref": "§2 MASTER CONTRACT SCHEDULE / Standards",
+      "anchor_text": "Standards / Quality Standards [     ] / Technical Standards [     ] / Details of technical standards can be found in clause 13 of the Framework Agreement."
+    },
+    {
+      "page_ref": "line:1632-1681",
+      "section_ref": "§45 SCHEDULE 1 PART A — Service Levels and Service Credits",
+      "anchor_text": "Service Level table with four empty rows labelled 1./2./3./4. under columns 60-70% / 71-90% / 91-95% / 96-100%; CUSTOMER DRAFTING NOTE: Insert the appropriate Service Levels above."
+    },
+    {
+      "page_ref": "line:1715-1729",
+      "section_ref": "§46 SCHEDULE 2 — Implementation Plan and Milestones",
+      "anchor_text": "Supplier shall supply the Goods and/or Services in accordance with the Implementation Plan that it submitted to the Customer prior to the Commencement Date; no milestone table is populated in this template."
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "25ee1f4d39f1bd8cd3e9c6b53bd58a77e964c691d6d524be798e199b120c31f5",
+    "policy_version": "2026.04.12",
+    "document_role": "call_off_terms_template"
+  }
+}

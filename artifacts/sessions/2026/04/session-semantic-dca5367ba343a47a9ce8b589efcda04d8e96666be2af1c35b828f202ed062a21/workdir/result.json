@@ -1,0 +1,1478 @@
+{
+  "line_items": [
+    {
+      "item_number": "1",
+      "description": "Nursery - A designated hall within a Nursery School containing fixed and/or portable PE Equipment designed for indoor use - price per hall.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "hall",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "1 | Nursery - A designated hall within a Nursery School",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "2",
+      "description": "First, Middle, Infant, Junior and Primary Schools - A designated hall within a School containing fixed and/or portable PE Equipment designed for indoor use. Common examples of equipment include agility tables, gym mats and wooden benches - price per hall.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "hall",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "2 | First, Middle, Infant, Junior and Primary Schools",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "3",
+      "description": "School Gymnasium - A hall within a school used for multiple sports and PE activities, often equipped with gymnastic apparatus such as vaulting boxes/horses, wall bars etc. To include all fixed and portable PE and sport equipment within any one given hall. Excluding Trampolines - price per hall.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "hall",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "3 | School Gymnasium - A hall within a school used for multiple sports",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "4",
+      "description": "Sports Hall - A hall used for multiple sports such as basketball, volleyball, badminton, 5-a-side etc. and sport activities. To include all fixed and portable sport equipment within any one given hall. Excluding Trampolines / Table Tennis Tables - price per hall.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "hall",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "4 | Sports Hall - A hall used for multiple sports",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "5",
+      "description": "Trampoline - price per foldable trampoline.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "trampoline",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "5 | Trampoline - price per foldable trampoline",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "6",
+      "description": "Table Tennis Table - A table tennis table designed for indoor usage - price per indoor table tennis table.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "table",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "6 | Table Tennis Table - A table tennis table designed for indoor usage",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "7",
+      "description": "Dance Studio - A hall within the establish where the primary use is deemed to be for dance/aerobic related lessons/activities. To include all fixed and portable equipment within the hall used for relevant activities - price per hall.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "hall",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "7 | Dance Studio - A hall within the establish",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "8",
+      "description": "Cricket Matting - Artificial surface used for indoor cricket matting. All rolls of matting included in price but requires 2 men to inspect due to weight - price per surface.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "surface",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "8 | Cricket Matting - Artificial surface used for indoor cricket matting",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "9",
+      "description": "High Level (roof level) Inspection - Includes all sport related equipment which is fixed at a height which is only accessible whilst using mobile access platforms/scaffold towers. Common examples would include roof mounted basketball goals or netting trackway - price per hall.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "hall",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "9 | High Level (roof level) Inspection",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "10",
+      "description": "Traverse Walls - walls where you move from left to right - price for a wall with dimensions 2 meters high x 3 metres wide.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "wall",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "10 | Traverse Walls - walls where you move from left to right",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Reference dimensions: 2m high x 3m wide",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "11",
+      "description": "Climbing Walls - walls where you climb up and down - price for a wall with dimensions 6 metres high x 8 metres wide.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "wall",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "11 | Climbing Walls - walls where you climb up and down",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Reference dimensions: 6m high x 8m wide",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "12",
+      "description": "16 Station Multigym.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "multigym",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "12 | 16 Station Multigym",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit not explicitly stated in description; inferred as per-multigym from context",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "13",
+      "description": "13 Station Multigym.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "multigym",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "13 | 13 Station Multigym",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit not explicitly stated in description; inferred as per-multigym from context",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "14",
+      "description": "9 Station Multigym.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "multigym",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "14 | 9 Station Multigym",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit not explicitly stated in description; inferred as per-multigym from context",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "15",
+      "description": "6 Station Multigym.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "multigym",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "15 | 6 Station Multigym",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit not explicitly stated in description; inferred as per-multigym from context",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "16",
+      "description": "Single Station Resistance Machine - price per machine.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "machine",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "16 | Single Station Resistance Machine",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "17",
+      "description": "Cycles - price per machine.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "machine",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "17 | Cycles - price per machine",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "18",
+      "description": "Treadmills/Crosstrainers - price per machine.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "machine",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "18 | Treadmills/Crosstrainers - price per machine",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "19",
+      "description": "Rower - price per machine.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "machine",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "19 | Rower - price per machine",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "20",
+      "description": "Stepper - price per machine.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "machine",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "20 | Stepper - price per machine",
+        "section_ref": "INSPECTION & MAINTENANCE / INDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: INDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "21",
+      "description": "Fitness Suite Band 1 - price for up to 4 pieces of equipment.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "fitness_suite",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "21 | Fitness Suite Band 1 - price for up to 4 pieces of equipment",
+        "section_ref": "INSPECTION & MAINTENANCE / FITNESS SUITE",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: FITNESS SUITE",
+        "Band covers up to 4 pieces of equipment",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "22",
+      "description": "Fitness Suite Band 2 - price for up to 8 pieces of equipment.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "fitness_suite",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "22 | Fitness Suite Band 2 - price for up to 8 pieces of equipment",
+        "section_ref": "INSPECTION & MAINTENANCE / FITNESS SUITE",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: FITNESS SUITE",
+        "Band covers up to 8 pieces of equipment",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "23",
+      "description": "Fitness Suite Band 3 - price for up to 16 pieces of equipment.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "fitness_suite",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "23 | Fitness Suite Band 3 - price for up to 16 pieces of equipment",
+        "section_ref": "INSPECTION & MAINTENANCE / FITNESS SUITE",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: FITNESS SUITE",
+        "Band covers up to 16 pieces of equipment",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "24",
+      "description": "Fitness Suite Band 4 - price for up to 24 pieces of equipment.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "fitness_suite",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "24 | Fitness Suite Band 4 - price for up to 24 pieces of equipment",
+        "section_ref": "INSPECTION & MAINTENANCE / FITNESS SUITE",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: FITNESS SUITE",
+        "Band covers up to 24 pieces of equipment",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "25",
+      "description": "Fitness Suite Band 5 - price for up to 48 pieces of equipment.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "fitness_suite",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "25 | Fitness Suite Band 5 - price for up to 48 pieces of equipment",
+        "section_ref": "INSPECTION & MAINTENANCE / FITNESS SUITE",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: FITNESS SUITE",
+        "Band covers up to 48 pieces of equipment",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "26",
+      "description": "Fitness Suite Band 6 - price for over 48 pieces of equipment.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "fitness_suite",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "26 | Fitness Suite Band 6 - price for  over 48 pieces of equipment",
+        "section_ref": "INSPECTION & MAINTENANCE / FITNESS SUITE",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: FITNESS SUITE",
+        "Band covers over 48 pieces of equipment",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "27",
+      "description": "Astro Turf Equipment /MUGA - An area used for playing multiple sports, usually enclosed by fencing and often with an artificial surface. To include all fixed and portable sports equipment within the fencing/outer boundary of the surface - price per area.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "area",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "27 | Astro Turf Equipment /MUGA",
+        "section_ref": "INSPECTION & MAINTENANCE / OUTDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: OUTDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "28",
+      "description": "Trim Trail - A path or course of multiple activity stations for outdoor exercise and play - price per trim trail area.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "area",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "28 | Trim Trail - A path or course of multiple activity stations",
+        "section_ref": "INSPECTION & MAINTENANCE / OUTDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: OUTDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "29",
+      "description": "Fitness Machines - Static fitness machines purpose built for outdoor use - price per piece of equipment.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "piece",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "29 | Fitness Machines - Static fitness machines purpose built for outdoor use",
+        "section_ref": "INSPECTION & MAINTENANCE / OUTDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: OUTDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "30",
+      "description": "Primary Playground - An area within small primary and nursery schools used for outdoor play and Sport. To include all portable PE/Sport equipment within the area - price per area.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "area",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "30 | Primary Playground - An area within small primary and nursery schools",
+        "section_ref": "INSPECTION & MAINTENANCE / OUTDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: OUTDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "31",
+      "description": "Table Tennis Table - A table tennis table designed for outdoor usage - price per outdoor table tennis table.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "table",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "31 | Table Tennis Table - A table tennis table designed for outdoor usage",
+        "section_ref": "INSPECTION & MAINTENANCE / OUTDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: OUTDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "32",
+      "description": "Cricket Matting - A single area, often within a cricket net/caged area, of permanent outdoor artificial surface installed specifically for the use of Cricket - price per area.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "area",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "32 | Cricket Matting - A single area, often within a cricket net/caged area",
+        "section_ref": "INSPECTION & MAINTENANCE / OUTDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: OUTDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "33",
+      "description": "Goals (sport fields / playgrounds) - Goals of any description found within any one outdoor sports field or playground area - price per outdoor goal.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "goal",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "33 | Goals (sport fields / playgrounds)",
+        "section_ref": "INSPECTION & MAINTENANCE / OUTDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: OUTDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "34",
+      "description": "Mountain Bike - Bike and safety equipment when owned by the site and used as part of DofE or Cycle Proficiency Tests - price per bike.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "bike",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "34 | Mountain Bike - Bike and safety equipment",
+        "section_ref": "INSPECTION & MAINTENANCE / OUTDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: OUTDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "35",
+      "description": "Kayak/Canoe - Vessel and safety equipment when owned by the site and used as part of DofE - price per kayak/canoe.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "kayak_or_canoe",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "35 | Kayak/Canoe - Vessel and safety equipment",
+        "section_ref": "INSPECTION & MAINTENANCE / OUTDOOR",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: OUTDOOR",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "36",
+      "description": "Scheduled General Inspection Visit - price per visit (i.e. a non-urgent visit that can be scheduled in by the supplier).",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "visit",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "36 | Scheduled General Inspection Visit - price per visit",
+        "section_ref": "INSPECTION & MAINTENANCE / ADDITIONAL VISITS",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: ADDITIONAL VISITS",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "37",
+      "description": "Interim Visit - price per visit (ie. an urgent call-out visit, for example for a requirement of remedial work to a specific piece of equipment (separate from a general visit)).",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "visit",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "37 | Interim Visit - price per visit",
+        "section_ref": "INSPECTION & MAINTENANCE / ADDITIONAL VISITS",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: ADDITIONAL VISITS",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "38",
+      "description": "Call out for remedial work required within 1 working day - price per visit.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "visit",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "38 | Call out for remedial work required within 1 working day",
+        "section_ref": "INSPECTION & MAINTENANCE / EMERGENCY VISITS",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: EMERGENCY VISITS",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "39",
+      "description": "Call out for remedial work required within 2 working days - price per visit.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "visit",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "39 | Call out for remedial work required within 2 working days",
+        "section_ref": "INSPECTION & MAINTENANCE / EMERGENCY VISITS",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: EMERGENCY VISITS",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "40",
+      "description": "Call out for remedial work required midweek but outside of working hours (servicing between 18:00 - 06:00) - price per visit.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "visit",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "40 | Call out for remedial work required midweek but outside of working hours",
+        "section_ref": "INSPECTION & MAINTENANCE / EMERGENCY VISITS",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: EMERGENCY VISITS",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "41",
+      "description": "Call out for remedial work required over a weekend - price per visit.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "visit",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "41 | Call out for remedial work required over a weekend",
+        "section_ref": "INSPECTION & MAINTENANCE / EMERGENCY VISITS",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: EMERGENCY VISITS",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "42",
+      "description": "Call out for remedial work required over a Bank Holiday - price per visit.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "visit",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_inspection_maintenance",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "42 | Call out for remedial work required over a Bank Holiday",
+        "section_ref": "INSPECTION & MAINTENANCE / EMERGENCY VISITS",
+        "table_ref": "pricing_schedule_inspection_maintenance"
+      },
+      "notes": [
+        "Category header: EMERGENCY VISITS",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "43",
+      "description": "Replacement ropes for handrings and trapeze ropes - price per foot.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "foot",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "43 | Replacement ropes for handrings and trapeze ropes",
+        "section_ref": "REMEDIAL WORK / ROPES & TRAMPOLINES",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: ROPES & TRAMPOLINES",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "44",
+      "description": "Re-making rope ladders with new rungs - price per rung.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "rung",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "44 | Re-making rope ladders with new rungs",
+        "section_ref": "REMEDIAL WORK / ROPES & TRAMPOLINES",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: ROPES & TRAMPOLINES",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "45",
+      "description": "Re-making rope ladders with existing rungs - price per rung.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "rung",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "45 | Re-making rope ladders with existing rungs",
+        "section_ref": "REMEDIAL WORK / ROPES & TRAMPOLINES",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: ROPES & TRAMPOLINES",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "46",
+      "description": "Replacement 13mm web bed for 77A trampoline - price each.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "46 | Replacement 13mm web bed for 77A trampoline",
+        "section_ref": "REMEDIAL WORK / ROPES & TRAMPOLINES",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: ROPES & TRAMPOLINES",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "47",
+      "description": "100 steel springs/cables for 77A trampolines - price set.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "set",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "47 | 100 steel springs/cables for 77A trampolines - price set",
+        "section_ref": "REMEDIAL WORK / ROPES & TRAMPOLINES",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: ROPES & TRAMPOLINES",
+        "Unit of sale is a set of 100 steel springs/cables",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "48",
+      "description": "Vaulting boxes with hide tops - price each.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "48 | Vaulting boxes with hide tops - price each",
+        "section_ref": "REMEDIAL WORK / RE-COVERING",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: RE-COVERING",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "49",
+      "description": "Vaulting boxes with vinyl tops - price each.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "49 | Vaulting boxes with vinyl tops - price each",
+        "section_ref": "REMEDIAL WORK / RE-COVERING",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: RE-COVERING",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "50",
+      "description": "Vaulting buck - price each.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "50 | Vaulting buck - price each",
+        "section_ref": "REMEDIAL WORK / RE-COVERING",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: RE-COVERING",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "51",
+      "description": "Vaulting horse - price each.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "51 | Vaulting horse - price each",
+        "section_ref": "REMEDIAL WORK / RE-COVERING",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: RE-COVERING",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "52",
+      "description": "Wooden frame benches - price each.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "52 | Wooden frame benches - price each",
+        "section_ref": "REMEDIAL WORK / RE-COVERING",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: RE-COVERING",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "53",
+      "description": "Metal frame benches - price each.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "53 | Metal frame benches - price each",
+        "section_ref": "REMEDIAL WORK / RE-COVERING",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: RE-COVERING",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "54",
+      "description": "Carpet covered balance beams - price each.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "54 | Carpet covered balance beams - price each",
+        "section_ref": "REMEDIAL WORK / RE-COVERING",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: RE-COVERING",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "55",
+      "description": "Small (up to 450mm high) - price each.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "55 | Small (up to 450mm high) - price each",
+        "section_ref": "REMEDIAL WORK / NESTING TABLES",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: NESTING TABLES",
+        "Size band: up to 450mm high",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "56",
+      "description": "Medium (up to 760mm high) - price each.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "56 | Medium (up to 760mm high) - price each",
+        "section_ref": "REMEDIAL WORK / NESTING TABLES",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: NESTING TABLES",
+        "Size band: up to 760mm high",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    },
+    {
+      "item_number": "57",
+      "description": "Large (over 760mm high) - price each.",
+      "lot_number": "unassigned",
+      "quantity": 1,
+      "unit": "each",
+      "unit_rate_pence": 0,
+      "total_value_pence": 0,
+      "currency": "GBP",
+      "source_table_key": "pricing_schedule_remedial_work",
+      "repeated_header_normalized": true,
+      "evidence_anchor": {
+        "page_ref": "page 2",
+        "anchor_text": "57 | Large (over 760mm high) - price each",
+        "section_ref": "REMEDIAL WORK / NESTING TABLES",
+        "table_ref": "pricing_schedule_remedial_work"
+      },
+      "notes": [
+        "Category header: NESTING TABLES",
+        "Size band: over 760mm high",
+        "Unit rate cell is empty in source document (tenderer-fillable template)"
+      ]
+    }
+  ],
+  "pricing_summary": {
+    "total_value_pence": 0,
+    "currency": "GBP",
+    "lot_count": 0
+  },
+  "field_confidences": {
+    "line_items.*.item_number": 9800,
+    "line_items.*.description": 9500,
+    "line_items.*.lot_number": 4000,
+    "line_items.*.quantity": 5000,
+    "line_items.*.unit": 7500,
+    "line_items.*.unit_rate_pence": 500,
+    "line_items.*.total_value_pence": 500,
+    "line_items.*.currency": 9800,
+    "line_items.*.source_table_key": 9200,
+    "line_items.*.repeated_header_normalized": 9000,
+    "line_items.*.evidence_anchor": 9300,
+    "pricing_summary.total_value_pence": 500,
+    "pricing_summary.currency": 9800,
+    "pricing_summary.lot_count": 8500
+  },
+  "extraction_confidence_bps": 5500,
+  "warnings": [
+    {
+      "code": "PRICING_SCHEDULE_BLANK_TEMPLATE",
+      "message": "This pricing schedule is a tenderer-fillable template with no unit rates populated. All unit_rate_pence and total_value_pence values are set to 0 as placeholders; they reflect empty source cells, NOT actual pricing. Persistence layers must not treat these zeros as priced values. The document's own 'TOTAL TENDERED BASKET PRICE' row also displays 0, confirming the template is blank.",
+      "evidence_refs": [
+        "page 2 | TOTAL TENDERED 'BASKET' PRICE | ... | 0",
+        "page 1 | THIS DOCUMENT IS TO BE COMPLETED BY THE TENDERER",
+        "page 2 | Number of service requirements priced | 0 | Fail"
+      ]
+    },
+    {
+      "code": "NO_EXPLICIT_LOTS",
+      "message": "No lot decomposition is present in this pricing schedule. The framework is a single basket of 57 service requirements under ESPO Framework Reference 107_26 with no lot partition. lot_number set to 'unassigned' for all rows and lot_count set to 0 in pricing_summary.",
+      "evidence_refs": [
+        "page 1 | ESPO reference 107_26",
+        "page 1 | Inspection & Maintenance of Indoor Gymnasium... (single title, no lot split)"
+      ]
+    },
+    {
+      "code": "DOCLING_TABLE_FRAGMENTS_EMPTY",
+      "message": "Docling structural payload provided 13 table references (#/tables/0 through #/tables/12) but all table fragments had empty headers and empty rows. Extraction therefore relied on the markdown representation of the source xlsx, reconstructing table structure from markdown row delimiters rather than structured cell grids. Stable source_table_key names are synthetic (pricing_schedule_inspection_maintenance, pricing_schedule_remedial_work) rather than Docling's '#/tables/N' references.",
+      "evidence_refs": [
+        "extracted_tables_json: all entries have headers=[] and rows=[]",
+        "docling_document.origin.filename: 107_26-Appendix-B-Pricing-Schedule.xlsx"
+      ]
+    },
+    {
+      "code": "REPEATED_HEADER_COLUMN_SPAN_NORMALIZED",
+      "message": "The header row 'INSPECTION & MAINTENANCE' (and later 'REMEDIAL WORK') is rendered in the source markdown as three repeated cells across three columns, because the original xlsx uses column-spanning merged cells. These were normalized to a single logical header per table. Similarly, the 'Inspection & Maintenance of Indoor Gymnasium... (Maximum score 40%)' instructional preamble repeats three times across cells of a merged-cell row on page 2 and is treated as a single instructional block for evidence purposes.",
+      "evidence_refs": [
+        "page 2 | INSPECTION & MAINTENANCE | INSPECTION & MAINTENANCE | INSPECTION & MAINTENANCE",
+        "page 2 | REMEDIAL WORK | REMEDIAL WORK | REMEDIAL WORK",
+        "page 2 | instructional preamble '...Maximum score 40%...' repeated 3x across merged cells"
+      ]
+    },
+    {
+      "code": "UNIT_INFERRED_FROM_DESCRIPTION",
+      "message": "The source pricing table does not have a dedicated 'Unit' column; only an 'Inspection & Maintenance Visit' / 'Remedial work' price header. Unit values were inferred from each row description's trailing 'price per X' phrasing. For items 12-15 (multigyms) the description lacks an explicit 'price per' phrase; unit is inferred as per-multigym from surrounding context. Review required if downstream logic depends on strict unit taxonomy.",
+      "evidence_refs": [
+        "page 2 | Price for Inspection & Maintenance Visit (£, excluding VAT)",
+        "page 2 | Price for Remedial work  (£, excluding VAT)",
+        "page 2 | 12 | 16 Station Multigym (no 'price per' suffix)",
+        "page 2 | 13 | 13 Station Multigym (no 'price per' suffix)",
+        "page 2 | 14 | 9 Station Multigym (no 'price per' suffix)",
+        "page 2 | 15 | 6 Station Multigym (no 'price per' suffix)"
+      ]
+    },
+    {
+      "code": "VAT_TREATMENT_EXPLICIT",
+      "message": "All prices in this schedule are declared exclusive of VAT. Pence amounts (once populated by a tenderer) will represent net-of-VAT values. This is captured for downstream tax reconciliation: do not apply a VAT-inclusive interpretation to unit_rate_pence or total_value_pence.",
+      "evidence_refs": [
+        "page 2 | Prices tendered are to be in Pounds Sterling (exclusive of VAT).",
+        "page 2 | Price for Inspection & Maintenance Visit (£, excluding VAT)",
+        "page 2 | Price for Remedial work  (£, excluding VAT)"
+      ]
+    },
+    {
+      "code": "MINIMUM_COVERAGE_REQUIREMENT_PRESENT",
+      "message": "The schedule imposes a compliance floor of 40-out-of-57 priced service requirements (70%) for tender admissibility. Median substitution applies for up to 17 missing requirements; any requirement with zero tenderer coverage is removed from evaluation. This compliance rule is not itself a line item but is a material evaluation constraint that downstream scoring must honour.",
+      "evidence_refs": [
+        "page 2 | Tenderers must provide pricing for a minimum of 40 out of the 57 service requirements (70%)",
+        "page 2 | Number of service requirements priced | 0 | Fail"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "page 1",
+      "anchor_text": "ESPO reference 107_26",
+      "section_ref": "Cover sheet",
+      "table_ref": "cover_sheet_reference"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment",
+      "section_ref": "Cover sheet",
+      "table_ref": "cover_sheet_title"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "PRICING SCHEDULE | Appendix B",
+      "section_ref": "Cover sheet",
+      "table_ref": "cover_sheet_document_type"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "24 June 2026 – 31 January 2028 (with the option to extend up to 23 June 2030)",
+      "section_ref": "Cover sheet / Framework Period",
+      "table_ref": "cover_sheet_framework_period"
+    },
+    {
+      "page_ref": "page 1",
+      "anchor_text": "Closing date for submission of tender | 12 noon, 15 May 2026",
+      "section_ref": "Cover sheet / Submission deadline",
+      "table_ref": "cover_sheet_closing_date"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "Prices tendered are to be in Pounds Sterling (exclusive of VAT).",
+      "section_ref": "Pricing sheet instructions",
+      "table_ref": "pricing_schedule_preamble"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "INSPECTION & MAINTENANCE | Service Requirement | Type of Area / Establishment | Price for Inspection & Maintenance Visit (£, excluding VAT)",
+      "section_ref": "INSPECTION & MAINTENANCE header",
+      "table_ref": "pricing_schedule_inspection_maintenance"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "INDOOR",
+      "section_ref": "INSPECTION & MAINTENANCE / INDOOR group header",
+      "table_ref": "pricing_schedule_inspection_maintenance"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "FITNESS SUITE",
+      "section_ref": "INSPECTION & MAINTENANCE / FITNESS SUITE group header",
+      "table_ref": "pricing_schedule_inspection_maintenance"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "OUTDOOR",
+      "section_ref": "INSPECTION & MAINTENANCE / OUTDOOR group header",
+      "table_ref": "pricing_schedule_inspection_maintenance"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "ADDITIONAL VISITS",
+      "section_ref": "INSPECTION & MAINTENANCE / ADDITIONAL VISITS group header",
+      "table_ref": "pricing_schedule_inspection_maintenance"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "EMERGENCY VISITS",
+      "section_ref": "INSPECTION & MAINTENANCE / EMERGENCY VISITS group header",
+      "table_ref": "pricing_schedule_inspection_maintenance"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "REMEDIAL WORK | Service Requirement | Type of Remedial work | Price for Remedial work  (£, excluding VAT)",
+      "section_ref": "REMEDIAL WORK header",
+      "table_ref": "pricing_schedule_remedial_work"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "ROPES & TRAMPOLINES",
+      "section_ref": "REMEDIAL WORK / ROPES & TRAMPOLINES group header",
+      "table_ref": "pricing_schedule_remedial_work"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "RE-COVERING",
+      "section_ref": "REMEDIAL WORK / RE-COVERING group header",
+      "table_ref": "pricing_schedule_remedial_work"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "NESTING TABLES",
+      "section_ref": "REMEDIAL WORK / NESTING TABLES group header",
+      "table_ref": "pricing_schedule_remedial_work"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "TOTAL TENDERED 'BASKET' PRICE | ... | 0",
+      "section_ref": "Basket total row",
+      "table_ref": "pricing_schedule_basket_total"
+    },
+    {
+      "page_ref": "page 2",
+      "anchor_text": "Number of service requirements priced | 0 | Fail",
+      "section_ref": "Compliance counter",
+      "table_ref": "pricing_schedule_compliance_counter"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "pricing",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "b566713c30c7e726a8baaa8d80987eb25ff0b78133970f7b2faebe96a8b634c8",
+    "policy_version": "2026.04.12",
+    "items_examined": 57
+  }
+}

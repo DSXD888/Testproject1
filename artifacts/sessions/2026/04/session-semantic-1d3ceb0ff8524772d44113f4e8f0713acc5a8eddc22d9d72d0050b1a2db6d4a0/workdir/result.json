@@ -1,0 +1,369 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Stockport Town Centre School — Multi-Disciplinary Design Team Appointment",
+      "description": "Synthetic single-scope lot representing the undivided procurement. Stockport Metropolitan Borough Council (SMBC) is appointing an architecturally led multidisciplinary design and advisory team to deliver a new exemplar all-through (primary + secondary) town centre school on a brownfield site in Stockport town centre. The initial team composition to be procured is Architect, MEP, Structural and Civil Engineer, Principal Designer under the Building Safety Act 2022, and Principal Designer under CDM 2015; additional disciplines may be appointed by the Architect (in-house or externally procured) and reviewed at the end of each RIBA stage. The appointment is let via a Competitive Flexible Procedure with a Stage 1 competency submission narrowed to a maximum of three shortlisted suppliers, followed by a Stage 2 detailed submission including pricing and social value. The primary focus for RIBA Stage 2 is MEP and Structural Engineer involvement; RIBA Stage 2 funding is secured from the Greater Manchester Combined Authority, and the procurement is written with the option to terminate or pause at each RIBA stage. Detailed scopes of service for each discipline are deferred to Appendix A (Scope of Services: Architectural, BR Principal Designer, CDM Principal Designer, MEP, Structures and Civils).",
+      "requirements": [
+        "Deliver an architecturally led multi-disciplinary design team for a new town centre all-through school in Stockport, initially covering Architect, MEP, Structural/Civil Engineer, BR Principal Designer and CDM Principal Designer (Section 3.2).",
+        "Support the design from inception through the RIBA Plan of Work stages; primary focus at award is RIBA Stage 2 delivery with MEP and Structural Engineer involvement (Section 3.2).",
+        "Comply with RIBA Plan of Work, CDM 2015 Regulations, Building Safety Act 2022, Building Regulations (England and Wales), Building Regulations Approved Document B (Fire Safety), BS 9999, Environment Act 2021, Air Quality Standards Regulations 2010, Health and Safety at Work Act 1974, Equality Act 2010, and BS8300 inclusive design (Sections 3.6 and 7).",
+        "Comply with the Council's Climate Action Now and Social Value commitments (Section 3.6).",
+        "Deliver BIM Level 2 with COBie data as a mandatory information-management standard (Section 3.5).",
+        "Share project information via the SMBC SharePoint platform (Section 3.5).",
+        "Contribute to sustainable design outcomes including environmental performance, energy efficiency, materials selection and long-term operational impact (Section 7).",
+        "Meet Stage-2 performance KPIs monitored at Design Team Meetings: minimal design queries/changes during tender period, design meets client requirements, design meets budget requirement/limitations, attendance at required meetings, attendance at site visits, pro-active conduct (including email response within 3 working days and accurate snag/defect logging), and meeting Social Value commitments (Section 6, Performance Measures Table, all Pass/Fail).",
+        "Appointed personnel must hold the requisite qualifications, professional registration, accreditation and licensing — Architect: registered with ARB (preferably chartered RIBA) and/or MRICS/FRICS; MEP: CEng or IEng via Engineering Council UK or MCIBSE/FCIBSE or MIET or MIMechE; Structural & Civils: registered with ICE and IStructE (preferably chartered ICE/IStructE/CIOB); CDM Principal Designer: membership of a recognised body (RIBA, CIAT, ICE, IStructE), demonstrable knowledge of CDM 2015, SSIP accreditation (CHAS, SMAS or SafeContractor) and Professional Indemnity insurance; BR Principal Designer: competency standard PAS 8671:2022, delivered in-house or via specialist sub-consultant (Section 9, Skills and Expertise).",
+        "Stage 1 Competency Submission: provide a written response to the competency questions, scored on the published assessment scale (Unacceptable=0 through Outstanding=6); any quality question scored Unacceptable, Poor or Deficient results in full exclusion of the submission (Section 9 Stage 1 Competency Submission and scoring matrix).",
+        "Stage 2 submission (post-shortlisting) requires signing a confidentiality/non-disclosure agreement prior to receiving the detailed Stage 2 pack and will include numerous qualitative questions, a pricing schedule and social value commitments (Section 6 and Section 9 Stage 1 Competency Submission trailing paragraphs).",
+        "Scopes of service for each discipline are defined in Appendix A (Architectural Scope of Service, BR Principal Designer Scope of Service, CDM Principal Designer Scope of Service, MEP Scope of Service, Structures and Civils Scope of Service) — the Consultant shall cite and evidence all relevant qualifications, accreditations and licences; failure to do so may result in disqualification (Section 10 Annexes and Section 9 trailing paragraph)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Stage 1 Competency Submission — qualitative scoring matrix",
+          "summary": "Stage 1 submissions are scored independently using a seven-point scale: Unacceptable (0), Poor (1), Deficient (2), Satisfactory (3), Good (4), Excellent (5), Outstanding (6). A score of Unacceptable, Poor or Deficient on any quality question results in the full exclusion of the submission. A maximum of three shortlisted suppliers will be progressed to Stage 2. Specific Stage 1 competency questions, their individual weightings, and the pass threshold are not enumerated in this document.",
+          "weighting_text": "Per-question scoring 0–6 on the published matrix; scores of 0–2 on any quality question cause full exclusion. Individual question weightings are not specified in this document.",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 9 (second occurrence) — Stage 1 Competency Submission; scoring matrix",
+            "anchor_text": "Submissions will be scored independently, using the scoring matrix below. … Unacceptable 0 … Poor 1 … Deficient 2 … Satisfactory 3 … Good 4 … Excellent 5 … Outstanding 6 … This score for any quality question will result in the full exclusion of the submission."
+          }
+        },
+        {
+          "criterion": "Stage 2 Detailed Submission — qualitative questions, pricing schedule and social value commitments",
+          "summary": "Stage 2 is described as a more detailed submission comprising numerous qualitative questions, a pricing schedule and social value commitments. Progression to Stage 2 is conditional on signing a confidentiality/non-disclosure agreement given the sensitivity of the project. Concrete Stage 2 weightings (quality/price/social value split), individual questions, and the pass/fail threshold are not published in this document and will be released if bidders reach Stage 2.",
+          "weighting_text": "Not fixed in this document; quality/price/social value weighting is deferred to the Stage 2 pack released to shortlisted bidders under NDA.",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 9 (second occurrence) — Stage 1 Competency Submission, trailing paragraphs",
+            "anchor_text": "Stage two will involve a more detailed submission with numerous qualitative questions, pricing schedule and social value commitments. Further details of the scoring and additional information will be released if bidders reach the second stage, on the basis that a confidentiality agreement is signed."
+          }
+        },
+        {
+          "criterion": "Post-award Performance Measures (contract-phase KPIs)",
+          "summary": "Seven Pass/Fail post-award KPIs monitored at Design Team Meetings: (1a) minimal design queries/changes during tender period (target zero, excluding client-initiated changes); (2) design/report meets client requirements; (3) design meets budget requirement/limitations; (4) attendance at required meetings; (5) site attendance compliance; (6) pro-active conduct (3-working-day email response, early warnings, liaison, accurate snag/defect logging); (7) Social Value commitments met (added to pre-start and progress meeting agendas). These are contract-performance measures, not tender-evaluation criteria, but are included here because they materially shape Stage 2 scoring expectations.",
+          "weighting_text": "All seven measures are Pass/Fail; there are no numeric weightings. The KPIs are performance-monitoring measures applied post-award.",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 6 — Performance Requirements; Performance Measures Table",
+            "anchor_text": "Performance Measures Table: Ref 1a–7, Scoring Basis Pass/Fail for all rows; measured by 'Feedback and reviewed at Design Team Meeting' (row 7 adds 'added to pre-start & progress meeting agendas')."
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "RIBA Plan of Work",
+          "context": "Listed in Section 3.6 Policies and Standards and repeated in Section 7 Other Requirements. The procurement is structured around RIBA stages, with Stage 2 being the immediate focus at award and each RIBA stage being a termination/pause decision point.",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 3.6 Policies and Standards; Section 7 Other Requirements (Standards)",
+            "anchor_text": "RIBA Plan of Work and current Building Regulations. … RIBA (Royal Institute of British Architects) Plan of Work"
+          }
+        },
+        {
+          "standard_ref": "CDM 2015 — Construction (Design and Management) Regulations 2015",
+          "context": "Listed in Section 3.6 and Section 7. A CDM Principal Designer is an explicitly required discipline and must hold demonstrable knowledge of CDM 2015 (Section 9 Skills and Expertise).",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 3.6 Policies and Standards; Section 7 Other Requirements; Section 9 Principal Designer (under CDM Regulations 2015)",
+            "anchor_text": "CDM 2015 Regulations … CDM Regulations (Construction Design and Management Regulations 2015) … Demonstrable knowledge of Construction (Design and Management) Regulations 2015 (CDM 2015)"
+          }
+        },
+        {
+          "standard_ref": "Building Safety Act 2022",
+          "context": "Listed in Section 3.6 Policies and Standards and Section 7 Other Requirements. A Principal Designer under the Building Safety Act 2022 is a required discipline in the team composition.",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 3.6 Policies and Standards; Section 7 Other Requirements; Section 9 Principal Designer (Under Building Safety Act 2022)",
+            "anchor_text": "Building Safety Act 2022 … Principal Designer (Under Building Safety Act 2022 – UK)"
+          }
+        },
+        {
+          "standard_ref": "PAS 8671:2022",
+          "context": "Competency standard explicitly required for the Principal Designer under the Building Safety Act 2022, delivered either in-house or via a specialist sub-consultant (Section 9).",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 9 — Principal Designer (Under Building Safety Act 2022 – UK)",
+            "anchor_text": "Competency standard PAS 8671:2022"
+          }
+        },
+        {
+          "standard_ref": "Building Regulations Approved Document B (Fire Safety)",
+          "context": "Listed in Section 3.6 Policies and Standards. One of several fire-safety-related statutory requirements.",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 3.6 Policies and Standards",
+            "anchor_text": "Building Regulations Approved Document B (Fire Safety)"
+          }
+        },
+        {
+          "standard_ref": "BS 9999 — Code of Practice for Fire Safety in the Design, Management and Use of Buildings",
+          "context": "Listed explicitly in Section 3.6 Policies and Standards alongside Approved Document B.",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 3.6 Policies and Standards",
+            "anchor_text": "BS 9999 – Code of Practice for Fire Safety in the Design, Management and Use of Buildings"
+          }
+        },
+        {
+          "standard_ref": "BS 8300 (inclusive design / accessibility)",
+          "context": "Listed in Section 3.6 Policies and Standards as the reference standard for inclusive design principles and accessibility.",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 3.6 Policies and Standards",
+            "anchor_text": "Inclusive design principles and BS8300 (accessibility)"
+          }
+        },
+        {
+          "standard_ref": "Environment Act 2021",
+          "context": "Listed in Section 3.6 Policies and Standards.",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 3.6 Policies and Standards",
+            "anchor_text": "The Environment Act 2021"
+          }
+        },
+        {
+          "standard_ref": "Air Quality Standards Regulations 2010",
+          "context": "Listed in Section 3.6 Policies and Standards.",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 3.6 Policies and Standards",
+            "anchor_text": "The Air Quality Standards Regulations 2010"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work Act 1974",
+          "context": "Listed in Section 7 Other Requirements (Standards).",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 7 Other Requirements (Standards)",
+            "anchor_text": "Health and Safety at Work Act 1974"
+          }
+        },
+        {
+          "standard_ref": "Equality Act 2010",
+          "context": "Listed in Section 7 Other Requirements, particularly in relation to inclusive design.",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 7 Other Requirements (Standards)",
+            "anchor_text": "Equality Act 2010, particularly in relation to inclusive design"
+          }
+        },
+        {
+          "standard_ref": "BS EN ISO 9001 (quality management) — conditional",
+          "context": "Cited in Section 7 as an example of British Standards applicable 'where applicable' for quality management. Not identified as a mandatory deliverable but listed as a recognised professional standard that may apply.",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 7 Other Requirements (Standards)",
+            "anchor_text": "British Standards (e.g. BS EN ISO 9001 for quality management, where applicable)"
+          }
+        },
+        {
+          "standard_ref": "BIM Level 2 with COBie data",
+          "context": "Information-management and data-exchange standard declared in Section 3.5 Information Flows as a requirement for the project.",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 3.5 Information Flows",
+            "anchor_text": "BIM Level 2 with COBie data is a requirement."
+          }
+        },
+        {
+          "standard_ref": "ARB registration (Architects Registration Board) — personnel standard",
+          "context": "Mandatory Architect registration requirement; chartered RIBA membership preferred (Section 9).",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 9 — Architect Requirements",
+            "anchor_text": "Registered with ARB (Architects Registration Board). Preferably chartered member of RIBA."
+          }
+        },
+        {
+          "standard_ref": "Engineering Council UK (CEng/IEng) — personnel standard for MEP",
+          "context": "Alternative mandatory professional registrations for MEP personnel: CEng or IEng (Engineering Council UK), or MCIBSE/FCIBSE, or MIET, or MIMechE (Section 9).",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 9 — MEP Requirements",
+            "anchor_text": "CEng or IEng (via Engineering Council UK); or MCIBSE or FCIBSE … or MIET … or MIMechE"
+          }
+        },
+        {
+          "standard_ref": "ICE / IStructE registration — personnel standard for Structural and Civils",
+          "context": "Mandatory registration with the Institution of Civil Engineers and the Institution of Structural Engineers; chartered membership of ICE, IStructE or CIOB preferred (Section 9).",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 9 — Structural and Civils Engineer requirements",
+            "anchor_text": "Registered with the Institution of Civil Engineers (ICE) and the Institution of Structural Engineers (IStructE). Preferably chartered member of ICE, IStructE or CIOB as appropriate."
+          }
+        },
+        {
+          "standard_ref": "SSIP Accreditation (CHAS / SMAS / SafeContractor) — personnel standard for CDM Principal Designer",
+          "context": "SSIP-scheme accreditation (e.g. CHAS, SMAS or SafeContractor) is often required for public-sector work and is listed alongside Professional Indemnity insurance and recognised-body membership (RIBA, CIAT, ICE, IStructE) for the CDM Principal Designer role (Section 9).",
+          "evidence_anchor": {
+            "page_ref": "n/a",
+            "section_ref": "Section 9 — Principal Designer (under CDM Regulations 2015 - UK)",
+            "anchor_text": "SSIP Accreditation (e.g. CHAS, SMAS, or SafeContractor) often required for public-sector work. PI (Professional Indemnity) Insurance in place."
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "n/a",
+        "section_ref": "Document title block",
+        "anchor_text": "Document 2 Specification For: Stockport Town Centre School — Multi-Disciplinary Design Team (Architect, MEP, Structures & Civils, BR Principal Designer & CDM Principal Designer)"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lot_structure": 9500,
+    "title": 10000,
+    "description": 9000,
+    "requirements": 8500,
+    "evaluation_criteria": 7500,
+    "cpv_codes": 0,
+    "product_requirements": 0,
+    "technical_standards": 8500,
+    "kpi_table": 9500,
+    "personnel_qualifications": 9500,
+    "timescales_and_milestones": 9000,
+    "stage1_scoring_matrix": 9500,
+    "stage2_criteria_weightings": 2000,
+    "bim_requirement": 10000,
+    "annex_scope_of_services": 3000
+  },
+  "extraction_confidence_bps": 7500,
+  "warnings": [
+    {
+      "code": "PROCUREMENT_NOT_DIVIDED_INTO_LOTS",
+      "message": "The procurement is a single-scope multi-disciplinary appointment and is not divided into lots. This skill emits a single synthetic lot (lot_number=\"1\") covering the full Design Team scope so downstream persistence can attach lot-scoped evidence. The five disciplines referenced in the title (Architect, MEP, Structures & Civils, BR Principal Designer, CDM Principal Designer) are team-composition roles within the single appointment, not separate lots, consistent with the pre-existing notice-level lot metadata (single lot, contract reference 020417).",
+      "evidence_refs": [
+        "Document title block",
+        "Section 3.2 Objectives of the Procurement",
+        "Section 5 The Requirements"
+      ]
+    },
+    {
+      "code": "DETAILED_SCOPE_DEFERRED_TO_ANNEXES",
+      "message": "Section 5 states only 'The scope of services for the required disciplines are detailed within the Appendices' and Section 10 lists five Annex A entries (Architectural, BR Principal Designer, CDM Principal Designer, MEP, Structures and Civils scopes of service). The body of this document does not enumerate the per-discipline deliverables, activities, or per-RIBA-stage outputs — those live in the annex scope-of-service documents which are not embedded in this specification's Docling payload.",
+      "evidence_refs": [
+        "Section 5 The Requirements",
+        "Section 10 Annexes"
+      ]
+    },
+    {
+      "code": "NO_PRODUCT_REQUIREMENTS_ITEMISED",
+      "message": "This procurement is for professional design/advisory services, not for physical goods. No SKU-like product requirements, quantities, or technical product attributes are itemised. product_requirement_seeds is emitted as an empty array. Downstream product-candidate generation will remain empty for this document; any future BoQ or equipment schedule produced during RIBA stages is out of scope for this specification.",
+      "evidence_refs": [
+        "Section 2 Scope",
+        "Section 3.2 Objectives of the Procurement",
+        "Section 9 Skills and Expertise Required"
+      ]
+    },
+    {
+      "code": "NO_CPV_CODES_IN_DOCUMENT_BODY",
+      "message": "No CPV (Common Procurement Vocabulary) codes are cited anywhere in the document body. The upstream notice carries an internal buyer category of '150000 - Consultancy' but that is a ProContract portal category, not a CPV code. cpv_codes on the lot is emitted empty per skill contract (authoritative truth from the tender document only).",
+      "evidence_refs": []
+    },
+    {
+      "code": "STAGE2_CRITERIA_AND_WEIGHTINGS_NOT_PUBLISHED",
+      "message": "Stage 2 evaluation criteria, individual question weightings, and the quality/price/social-value split are explicitly deferred — 'Further details of the scoring and additional information will be released if bidders reach the second stage, on the basis that a confidentiality agreement is signed.' The pre-existing notice_lots record (from the Briefing document) references an indicative Stage 2 split of 60% quality / 40% price / 20% social value but this specification does not itself publish those weights.",
+      "evidence_refs": [
+        "Section 9 (second occurrence) — Stage 1 Competency Submission, trailing paragraphs",
+        "Section 6 Performance Requirements"
+      ]
+    },
+    {
+      "code": "NUMBERING_ANOMALY_SECTION_9_DUPLICATED",
+      "message": "The document contains two distinct sections numbered '9': 'Skills and Expertise Required' and 'Stage 1 Competency Submission'. This is a numbering anomaly in the source document. Both have been preserved and cited independently via section_ref in the evidence anchors; no content has been merged or dropped.",
+      "evidence_refs": [
+        "Section 9 Skills and Expertise Required",
+        "Section 9 (second occurrence) Stage 1 Competency Submission"
+      ]
+    },
+    {
+      "code": "PAGE_REFERENCES_UNAVAILABLE",
+      "message": "The Docling extraction for this document reports page_count=0 (no page geometry was extracted from the source DOCX). All evidence anchors therefore use page_ref=\"n/a\" and rely on section_ref (section numbers and headings) for precise anchoring. This is expected for DOCX inputs converted via Docling without page rendering and should not be treated as an extraction failure.",
+      "evidence_refs": [
+        "document_extractions.page_count = 0"
+      ]
+    },
+    {
+      "code": "DOCUMENT_IS_SPECIFICATION_NOT_FRAMEWORK_TEMPLATE",
+      "message": "Daemon resolved document_role='technical_specification' (document title '2-Specification'). This artifact is a self-contained procurement specification for a single Design Team appointment under the Procurement Act 2023 Competitive Flexible Procedure, not a framework agreement template. No framework schedules, framework fee, or multi-supplier call-off mechanics are present; classification is consistent.",
+      "evidence_refs": [
+        "Document title block",
+        "Section 4 Preliminary Market Engagement"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "n/a",
+      "section_ref": "Document title block",
+      "anchor_text": "Document 2 Specification For: Stockport Town Centre School — Multi-Disciplinary Design Team (Architect, MEP, Structures & Civils, BR Principal Designer & CDM Principal Designer)"
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Section 1 Introduction",
+      "anchor_text": "Stockport Metropolitan Borough Council (SMBC) is a unitary authority in Greater Manchester … Stockport Council are proposing to develop a new exemplar town centre school, within the heart of Stockport."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Section 3.2 Objectives of the Procurement",
+      "anchor_text": "This procurement seeks to appoint an architecturally led multidisciplinary design and advisory team (initially including Architect, MEP, Structural and Civil Engineer, BR Principal Designer and CDM Principal Designer) to support the delivery of a new through school within the centre of Stockport."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Section 3.5 Information Flows",
+      "anchor_text": "It is anticipated that key information will be shared utilising SMBC SharePoint platform. BIM Level 2 with COBie data is a requirement."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Section 3.6 Policies and Standards",
+      "anchor_text": "RIBA Plan of Work and current Building Regulations. CDM 2015 Regulations and other statutory planning and heritage requirements. Building Safety Act 2022 … Building Regulations Approved Document B (Fire Safety) … BS 9999 … The Environment Act 2021 … The Air Quality Standards Regulations 2010 … Inclusive design principles and BS8300 (accessibility)."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Section 4 Preliminary Market Engagement",
+      "anchor_text": "Stockport Council are commencing preliminary market engagement by issuing an Expression of Interest to suppliers through Stage 1 of the Competitive Flexible Procedure. This engagement will be conducted over 30 business days, with bidders providing a written response to competency questions prior to the formal release of the tender opportunity to a maximum of three shortlisted suppliers."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Section 6 Performance Requirements; Performance Measures Table",
+      "anchor_text": "Performance Measures Table: 1a Design - Minimal Design Queries/Changes … 2 Design – Does the design/report meet the client requirements? … 3 Design – Does the design meet the budget requirement/ limitations? … 4 Meetings … 5 Site Visits … 6 Pro-active in their duties (3 working day email response) … 7 Social Value — all Pass/Fail, reviewed at Design Team Meeting."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Section 7 Other Requirements (Standards)",
+      "anchor_text": "RIBA Plan of Work, CDM Regulations 2015, Building Safety Act 2022, Building Regulations (England and Wales), British Standards (e.g. BS EN ISO 9001 for quality management, where applicable), Health and Safety at Work Act 1974, Equality Act 2010 … Where specific standards are referenced, the Supplier may propose alternative standards or approaches provided these demonstrate clear technical equivalence or superior outcomes."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Section 8 Timescales and Milestones",
+      "anchor_text": "Design Team Appointment — Anticipated Start April 2026. Stage 2 Design — Anticipated Start Q2 2026, Anticipated End Q3 2026."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Section 9 Skills and Expertise Required",
+      "anchor_text": "Architect: Registered with ARB … Preferably chartered member of RIBA … MEP: CEng or IEng (via Engineering Council UK) or MCIBSE/FCIBSE or MIET or MIMechE … Structural and Civils: Registered with ICE and IStructE … CDM Principal Designer: Membership of a recognized body (RIBA, CIAT, ICE, IStructE), knowledge of CDM 2015, SSIP Accreditation, PI Insurance … BR Principal Designer: Competency standard PAS 8671:2022."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Section 9 (second occurrence) — Stage 1 Competency Submission and scoring matrix",
+      "anchor_text": "This tender opportunity will be split into two stages. Stage one is an open opportunity … scored using the scoring matrix below: Unacceptable 0 … Outstanding 6 … Stage two will involve a more detailed submission with numerous qualitative questions, pricing schedule and social value commitments … released if bidders reach the second stage, on the basis that a confidentiality agreement is signed."
+    },
+    {
+      "page_ref": "n/a",
+      "section_ref": "Section 10 Annexes",
+      "anchor_text": "A Scope of Services: Architectural Scope of Service; BR Principal Designer Scope of Service; CDM Principal Designer Scope of Service; MEP Scope of Service; Structures and Civils Scope of Service."
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "2198aec117f60032127de45e8e3034c1b4eed8745171fb9e6c910c00e6caa3db",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

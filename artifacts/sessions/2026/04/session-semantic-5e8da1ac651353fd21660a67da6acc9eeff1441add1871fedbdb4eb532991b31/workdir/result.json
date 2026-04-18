@@ -1,0 +1,428 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Stockport Town Centre School — Multi-Disciplinary Design Team Appointment",
+      "description": "Single undivided lot covering the appointment of a multi-disciplinary design team for the Stockport Town Centre School. The document in scope is the Stage 1 Procurement Specific Questionnaire (PSQ) Response template under contract reference 020417, let via a Competitive Flexible Procedure. The detailed Scope of Services for each discipline is not included in this document; the questionnaire text expressly defers evaluation against the technical scope to the separately referenced 'Specification (Document 2)'. The Stage 1 preliminary question asking 'Please confirm which lot(s) you wish to bid for' is answered 'N/A', which confirms the undivided single-lot structure already recorded in the notice. The appointment spans five discipline roles referred to in the Stage 1 Workforce and Resources question: Architecture, M&E, Structures & Civils, Building Regulations Principal Designer (BR PD under the Building Safety Act 2022), and CDM Principal Designer (CDM PD under CDM 2015).",
+      "requirements": [
+        "Procedure: Competitive Flexible Procedure under the Procurement Act 2023 (contract reference 020417).",
+        "Bidder must be registered on the Central Digital Platform (CDP) and provide a unique CDP identifier together with Core Supplier Information, connected person information, and exclusion grounds information.",
+        "Bidder must not appear on the Debarment List (Cabinet Office / gov.uk debarment register).",
+        "Minimum insurance cover (held or committed to obtain prior to award): Employer's (Compulsory) Liability £10m, Public Liability £10m, Professional Indemnity £20m.",
+        "Financial capacity assessed via Core Supplier Information plus a Company Watch Credit Report; a credit score of 24 or below triggers further due diligence and may result in exclusion.",
+        "UK GDPR compliance: technical and organisational measures for confidentiality, integrity, availability, data subject rights, cross-border safeguards, and records of processing activities must be in place by contract award.",
+        "30-day payment terms must be included in all onward supply chain contracts for public sector contracts awarded under the Procurement Act 2023.",
+        "Published 2050 net zero plan on the bidder's website.",
+        "Carbon Reduction Plan (Q27) via the linked Microsoft Forms submission (failure to complete may result in rejection).",
+        "Modern Slavery Act 2015 Section 54 compliance and assurance covering structure/supply chain, policies, due diligence, risk assessment, effectiveness measurement, and staff training.",
+        "Real Living Wage (RLW): commitment to pay RLW (as set by the Living Wage Foundation) to employees and sub-contractor personnel working 2+ hours per week for 8 consecutive weeks on the contract.",
+        "Health and safety: SSIP accreditation within the last 12 months is required; absence requires full completion of the questions (c)-(k) on H&S arrangements. No unresolved HSE enforcement or remedial orders in the last 3 years without satisfactory remediation.",
+        "Written and dated Health and Safety Policy reviewed regularly; access to competent H&S advice per the Management of Health and Safety at Work Regulations.",
+        "RIDDOR-compliant accident reporting and investigation arrangements with three-year accident history disclosure.",
+        "Adherence to the STAR Responsible Procurement Strategy Core and Additional Expectations (Annex 1) and to Article 4 of the European Convention on Human Rights regarding prohibition of slavery and forced labour.",
+        "Associated persons and sub-contractors must be declared (Part 2A/2B), CDP-registered where applicable, and none may appear on the Debarment List.",
+        "Supplier must self-declare, via Part 3 Confirmations, that answers are complete, accurate and not misleading and that supplementary information will be provided on request."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Relevant experience and contract examples",
+          "summary": "Describe experience of designing and delivering school projects on complex, constrained and urban sites, including challenges encountered, how they were addressed, and outcomes achieved (maximum 500 words). Part 2: three supporting case studies, each a 250-word narrative plus one A4 sheet presented as the bidder sees fit.",
+          "weighting_text": "35% (scored 0-6 under Technical Ability)",
+          "evidence_anchor": {
+            "page_ref": "md:line-66",
+            "anchor_text": "Relevant experience and contract examples (35%)",
+            "section_ref": "Part 3A - Technical Ability (Scored 0-6) / Question 19"
+          }
+        },
+        {
+          "criterion": "Workforce and Resources",
+          "summary": "Name each member of the proposed multidisciplinary team covering Architecture, M&E, Structures & Civils, BR PD and CDM PD; describe how the proposed team structure will operate and the key roles and responsibilities (max 500 words); explain how the team's skills and experience are aligned to the project (max 1000 words). Part 2: CVs for the key leader per discipline (one A4 sheet per CV, maximum of 5 CVs).",
+          "weighting_text": "35% (scored 0-6 under Technical Ability)",
+          "evidence_anchor": {
+            "page_ref": "md:line-69",
+            "anchor_text": "Workforce and Resources (35%)",
+            "section_ref": "Part 3A - Technical Ability (Scored 0-6) / Question 20"
+          }
+        },
+        {
+          "criterion": "Funding Model Approach",
+          "summary": "Describe the proposed approach to developing and supporting a viable funding model for the Town Centre School: understanding of financial challenges/opportunities for a town-centre school, how the bidder will work with the client to explore/evaluate/refine funding options (e.g. public funding streams, grants, phased delivery, partnership opportunities, value engineering) and methodology for affordability including cost planning, risk management and lifecycle considerations in design (max 500 words).",
+          "weighting_text": "30% (scored 0-6 under Technical Ability)",
+          "evidence_anchor": {
+            "page_ref": "md:line-72",
+            "anchor_text": "Funding Model Approach (30%)",
+            "section_ref": "Part 3A - Technical Ability (Scored 0-6) / Question 21"
+          }
+        },
+        {
+          "criterion": "Financial Capacity",
+          "summary": "Economic and Financial Standing assessed from Core Supplier Information with a Company Watch Credit Report overlay; credit score <= 24 or missing report triggers further due diligence and possible exclusion.",
+          "weighting_text": "Pass / Fail (Part 3A Standard Questions)",
+          "evidence_anchor": {
+            "page_ref": "md:line-48",
+            "anchor_text": "Where the Company Watch Credit Report states a Credit Score of 24 or below",
+            "section_ref": "Part 3A - Financial Capacity"
+          }
+        },
+        {
+          "criterion": "Insurance",
+          "summary": "Confirm ability to hold, or commit to obtain prior to contract award, Employer's Liability £10m, Public Liability £10m, and Professional Indemnity £20m.",
+          "weighting_text": "Pass / Fail",
+          "evidence_anchor": {
+            "page_ref": "md:line-54",
+            "anchor_text": "a. Employer's (Compulsory) Liability Insurance* = £10m  b. Public Liability Insurance = £10m  c. Professional Indemnity Insurance = £20m",
+            "section_ref": "Part 3A - Insurance"
+          }
+        },
+        {
+          "criterion": "Data Protection (UK GDPR)",
+          "summary": "Self-certify that human and technical resources to comply with UK GDPR and protect data subject rights are in place by contract award, with a narrative of technical facilities and measures.",
+          "weighting_text": "Pass / Fail",
+          "evidence_anchor": {
+            "page_ref": "md:line-60",
+            "anchor_text": "compliance with the UK General Data Protection Regulation",
+            "section_ref": "Part 3A - Data Protection"
+          }
+        },
+        {
+          "criterion": "Sub-Contractor Management",
+          "summary": "Questions 22-23: evidence of previously maintained healthy supply chains, supply chain management tracking, prompt payment, and UK Prompt Payment Code (or equivalent) signatory status.",
+          "weighting_text": "Pass / Fail (Part 3B)",
+          "evidence_anchor": {
+            "page_ref": "md:line-81",
+            "anchor_text": "whether you are a signatory of the UK Prompt Payment Code",
+            "section_ref": "Part 3B - Experience of Sub-Contractor Management"
+          }
+        },
+        {
+          "criterion": "Organisational Standards",
+          "summary": "Question 24: evidence of organisational qualifications/standards (or equivalents meeting/exceeding) where specified in the conditions of participation.",
+          "weighting_text": "Pass / Fail",
+          "evidence_anchor": {
+            "page_ref": "md:line-85",
+            "anchor_text": "organisational qualifications or standards",
+            "section_ref": "Part 3B - Organisational Standards"
+          }
+        },
+        {
+          "criterion": "Payment Terms",
+          "summary": "Question 25: confirm 30-day minimum payment terms in all supply chain contracts for public sector contracts under the Procurement Act 2023 and that such terms are passed down.",
+          "weighting_text": "Pass / Fail",
+          "evidence_anchor": {
+            "page_ref": "md:line-89",
+            "anchor_text": "Procurement Act 2023 you have systems in place to include (as a minimum) 30 day payment terms",
+            "section_ref": "Part 3B - Payment Terms"
+          }
+        },
+        {
+          "criterion": "Net Zero 2050 Plan",
+          "summary": "Question 26: confirm a 2050 net zero plan is in place and published on the bidder's website with URL provided.",
+          "weighting_text": "Pass / Fail",
+          "evidence_anchor": {
+            "page_ref": "md:line-92",
+            "anchor_text": "Please can you confirm that you have a 2050 net zero plan in place",
+            "section_ref": "Part 3B - Net Zero"
+          }
+        },
+        {
+          "criterion": "Carbon Reduction Plan",
+          "summary": "Question 27: complete the linked Carbon Reduction Plan information-only question (external Microsoft Forms submission). Failure to complete may result in rejection of the overall submission.",
+          "weighting_text": "Pass / Fail (information only)",
+          "evidence_anchor": {
+            "page_ref": "md:line-95",
+            "anchor_text": "Failure to complete this information only question may result in your overall submission being rejected",
+            "section_ref": "Part 3B - Carbon Reduction Plan"
+          }
+        },
+        {
+          "criterion": "Tackling Modern Slavery",
+          "summary": "Questions 28-31: Modern Slavery Act 2015 Section 54 compliance (structure, policies, due diligence, risk areas, effectiveness measurement, training); confirm adherence to Article 4 ECHR; confirm alignment with the STAR Responsible Procurement Strategy.",
+          "weighting_text": "Pass / Fail (agree to both Modern Slavery and Responsible Procurement declarations = pass)",
+          "evidence_anchor": {
+            "page_ref": "md:line-99",
+            "anchor_text": "Section 54 of the Modern Slavery Act 2015",
+            "section_ref": "Part 3B - Tackling Modern Slavery"
+          }
+        },
+        {
+          "criterion": "Real Living Wage",
+          "summary": "Questions 32-37: confirm RLW payment commitments for direct employees and supply chain personnel working 2+ hours per week for 8 consecutive weeks for the contract duration; narrative on assurance mechanisms for agents/sub-contractors.",
+          "weighting_text": "Pass / Fail",
+          "evidence_anchor": {
+            "page_ref": "md:line-108",
+            "anchor_text": "Stockport Council became a Real Living Wage Accredited Organisation (RLW)",
+            "section_ref": "Part 3B - Real Living Wage"
+          }
+        },
+        {
+          "criterion": "Health and Safety",
+          "summary": "Question 38 onwards: SSIP accreditation within last 12 months (passes the remainder if evidenced); otherwise completion of H&S arrangements questions (enforcement history, written H&S policy, competent advice, RIDDOR-compliant accident reporting/investigation, risk assessments, training, workforce consultation, monitoring/review, sub-contractor competence, and statutory compliance).",
+          "weighting_text": "Pass / Fail",
+          "evidence_anchor": {
+            "page_ref": "md:line-122",
+            "anchor_text": "Safety Schemes in Procurement (SSIP) forum",
+            "section_ref": "Part 3B - Health and Safety"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [
+        {
+          "standard_ref": "Procurement Act 2023",
+          "context": "Statutory basis for the Competitive Flexible Procedure and the 30-day payment terms obligation (Q25).",
+          "evidence_anchor": {
+            "page_ref": "md:line-89",
+            "anchor_text": "public sector contracts awarded under the Procurement Act 2023",
+            "section_ref": "Part 3B - Payment Terms"
+          }
+        },
+        {
+          "standard_ref": "Building Safety Act 2022 (Principal Designer)",
+          "context": "BR PD role under the Building Safety Act is one of the core disciplines the multidisciplinary team must cover.",
+          "evidence_anchor": {
+            "page_ref": "md:line-69",
+            "anchor_text": "Architecture, M&E, Structures & Civils, BR PD & CDM PD",
+            "section_ref": "Part 3A - Workforce and Resources / Q20"
+          }
+        },
+        {
+          "standard_ref": "CDM Regulations 2015 (Principal Designer)",
+          "context": "CDM PD role under the Construction (Design and Management) Regulations 2015 is one of the core disciplines for the team.",
+          "evidence_anchor": {
+            "page_ref": "md:line-69",
+            "anchor_text": "Architecture, M&E, Structures & Civils, BR PD & CDM PD",
+            "section_ref": "Part 3A - Workforce and Resources / Q20"
+          }
+        },
+        {
+          "standard_ref": "UK General Data Protection Regulation (UK GDPR)",
+          "context": "Data protection compliance is a pass/fail selection criterion (Part 3A Data Protection).",
+          "evidence_anchor": {
+            "page_ref": "md:line-60",
+            "anchor_text": "compliance with the UK General Data Protection Regulation",
+            "section_ref": "Part 3A - Data Protection"
+          }
+        },
+        {
+          "standard_ref": "Modern Slavery Act 2015 Section 54",
+          "context": "Section 54 compliance is required for relevant commercial organisations (Q28-30).",
+          "evidence_anchor": {
+            "page_ref": "md:line-99",
+            "anchor_text": "Section 54 of the Modern Slavery Act 2015",
+            "section_ref": "Part 3B - Tackling Modern Slavery"
+          }
+        },
+        {
+          "standard_ref": "RIDDOR (Reporting of Injuries, Diseases and Dangerous Occurrences Regulations)",
+          "context": "Accident reporting, recording and investigation procedures must comply with RIDDOR (Q38 H&S criteria).",
+          "evidence_anchor": {
+            "page_ref": "md:line-118",
+            "anchor_text": "RIDDOR (Reporting of Injuries, Diseases and Dangerous Occurrence Regulations)",
+            "section_ref": "Part 3B - Health and Safety"
+          }
+        },
+        {
+          "standard_ref": "Management of Health and Safety at Work Regulations",
+          "context": "Bidder must have access to competent health and safety advice as required by these regulations.",
+          "evidence_anchor": {
+            "page_ref": "md:line-125",
+            "anchor_text": "Management of Health and Safety at Work Regulations",
+            "section_ref": "Part 3B - Health and Safety"
+          }
+        },
+        {
+          "standard_ref": "Safety Schemes in Procurement (SSIP)",
+          "context": "SSIP accreditation within the last 12 months is the primary H&S gateway; absence requires full completion of detailed H&S arrangement questions.",
+          "evidence_anchor": {
+            "page_ref": "md:line-122",
+            "anchor_text": "Safety Schemes in Procurement (SSIP) forum",
+            "section_ref": "Part 3B - Health and Safety"
+          }
+        },
+        {
+          "standard_ref": "HSE INDG449 (Health and Safety Made Simple)",
+          "context": "Cited as a template option for employers with fewer than five employees lacking a formal written H&S policy.",
+          "evidence_anchor": {
+            "page_ref": "md:line-124",
+            "anchor_text": "Health and Safety Made Simple",
+            "section_ref": "Part 3B - Health and Safety"
+          }
+        },
+        {
+          "standard_ref": "UK Prompt Payment Code",
+          "context": "Bidders asked whether they are a signatory to the UK Prompt Payment Code (or equivalent) under Sub-Contractor Management (Q23).",
+          "evidence_anchor": {
+            "page_ref": "md:line-81",
+            "anchor_text": "UK Prompt Payment Code",
+            "section_ref": "Part 3B - Experience of Sub-Contractor Management"
+          }
+        },
+        {
+          "standard_ref": "Article 4, European Convention on Human Rights",
+          "context": "Adherence to Article 4 ECHR (prohibition of slavery and forced labour) required as part of the Modern Slavery declaration (Q30).",
+          "evidence_anchor": {
+            "page_ref": "md:line-103",
+            "anchor_text": "Article 4 of the European Convention on Human Rights",
+            "section_ref": "Part 3B - Tackling Modern Slavery"
+          }
+        },
+        {
+          "standard_ref": "STAR Responsible Procurement Strategy (Annex 1 - Core and Additional Expectations)",
+          "context": "Adherence to the STAR Responsible Procurement Strategy is required at Q31 (pass/fail).",
+          "evidence_anchor": {
+            "page_ref": "md:line-104",
+            "anchor_text": "STAR Responsible Procurement Strategy",
+            "section_ref": "Part 3B - Tackling Modern Slavery"
+          }
+        },
+        {
+          "standard_ref": "Living Wage Foundation - Real Living Wage",
+          "context": "RLW (as set annually by the Living Wage Foundation) must be paid to employees and sub-contracted personnel meeting the 2-hours-per-week / 8-weeks threshold.",
+          "evidence_anchor": {
+            "page_ref": "md:line-108",
+            "anchor_text": "Real Living Wage Accredited Organisation",
+            "section_ref": "Part 3B - Real Living Wage"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "md:line-5",
+        "anchor_text": "Stockport Town Centre School – Multi – disciplinary design team appointment",
+        "section_ref": "Header - Contract | Contract Reference | Procedure"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lot_number": 9500,
+    "lot_title": 9500,
+    "lot_description": 8800,
+    "requirements": 8800,
+    "evaluation_criteria_scored": 9500,
+    "evaluation_criteria_pass_fail": 9200,
+    "cpv_codes": 10000,
+    "product_requirements": 10000,
+    "product_requirement_seeds": 10000,
+    "technical_standards": 9000,
+    "evidence_anchors": 9500,
+    "single_lot_structure": 10000
+  },
+  "extraction_confidence_bps": 7500,
+  "warnings": [
+    {
+      "code": "DOCUMENT_IS_STAGE1_RESPONSE_TEMPLATE",
+      "message": "This document is the Stage 1 Procurement Specific Questionnaire (PSQ) response template ('3-Response-Document') under the Competitive Flexible Procedure. It defines Stage 1 selection criteria (scored Technical Ability + pass/fail checks) but does not contain the technical scope of services; the text expressly refers to a separate 'Specification (Document 2)' that is not included here.",
+      "evidence_refs": ["md:line-3", "md:line-64"]
+    },
+    {
+      "code": "SCOPE_OF_SERVICES_NOT_IN_DOCUMENT",
+      "message": "Discipline-specific scope of services (Appendix A referenced by the pre-existing notice-level lot description) is not present in this document. Lot requirements captured here are limited to what the Stage 1 questionnaire explicitly states about team composition and evaluation themes.",
+      "evidence_refs": ["md:line-64", "md:line-69"]
+    },
+    {
+      "code": "NO_CPV_CODES_IN_DOCUMENT",
+      "message": "No CPV codes appear anywhere in the source markdown. The notice-level 'main_category' field in the parent record ('150000 - Consultancy') is a ProContract taxonomy code and must not be treated as a CPV reference. No CPV codes are asserted by this extraction.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_MATERIAL_PRODUCTS",
+      "message": "Procurement is professional design services only (Architect, MEP, Structures & Civils, BR PD, CDM PD). There are no goods or material products to seed; product_requirements and product_requirement_seeds are intentionally empty.",
+      "evidence_refs": ["md:line-69"]
+    },
+    {
+      "code": "SINGLE_LOT_CONFIRMED_BY_NA",
+      "message": "The Part 1 preliminary question 'Please confirm which lot(s) you wish to bid for?' is answered 'N/A', confirming the undivided single-lot structure already recorded in the notice. The existing synthetic single lot is retained.",
+      "evidence_refs": ["md:line-17"]
+    },
+    {
+      "code": "NO_PAGE_NUMBERS_IN_DOCLING_OUTPUT",
+      "message": "Docling output reports page_count = 0 and contains no explicit page breaks; evidence anchors use markdown line numbers (md:line-N) as page_ref instead of native page numbers.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_DEADLINES_IN_DOCUMENT",
+      "message": "No tender submission deadline, RIBA stage milestone dates, or contract start dates are present in this document. Key dates were not extracted.",
+      "evidence_refs": []
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "md:line-3",
+      "anchor_text": "Procurement Specific Questionnaire (PSQ) - Stage 1",
+      "section_ref": "Document header"
+    },
+    {
+      "page_ref": "md:line-5",
+      "anchor_text": "Stockport Town Centre School – Multi – disciplinary design team appointment",
+      "section_ref": "Contract title row"
+    },
+    {
+      "page_ref": "md:line-7",
+      "anchor_text": "Contract Reference | 020417",
+      "section_ref": "Contract reference row"
+    },
+    {
+      "page_ref": "md:line-8",
+      "anchor_text": "Procedure | Competitive Flexible Procedure",
+      "section_ref": "Procedure row"
+    },
+    {
+      "page_ref": "md:line-17",
+      "anchor_text": "Please confirm which lot(s) you wish to bid for?",
+      "section_ref": "Part 1 - Preliminary Question (lot confirmation)"
+    },
+    {
+      "page_ref": "md:line-54",
+      "anchor_text": "Employer's (Compulsory) Liability Insurance* = £10m",
+      "section_ref": "Part 3A - Insurance"
+    },
+    {
+      "page_ref": "md:line-60",
+      "anchor_text": "UK General Data Protection Regulation",
+      "section_ref": "Part 3A - Data Protection"
+    },
+    {
+      "page_ref": "md:line-64",
+      "anchor_text": "as set out in the Specification (Document 2)",
+      "section_ref": "Part 3A - Technical Ability criteria preamble"
+    },
+    {
+      "page_ref": "md:line-66",
+      "anchor_text": "Relevant experience and contract examples (35%)",
+      "section_ref": "Part 3A / Q19"
+    },
+    {
+      "page_ref": "md:line-69",
+      "anchor_text": "Architecture, M&E, Structures & Civils, BR PD & CDM PD",
+      "section_ref": "Part 3A / Q20 - Workforce and Resources"
+    },
+    {
+      "page_ref": "md:line-72",
+      "anchor_text": "Funding Model Approach (30%)",
+      "section_ref": "Part 3A / Q21"
+    },
+    {
+      "page_ref": "md:line-89",
+      "anchor_text": "public sector contracts awarded under the Procurement Act 2023",
+      "section_ref": "Part 3B / Q25 - Payment Terms"
+    },
+    {
+      "page_ref": "md:line-99",
+      "anchor_text": "Section 54 of the Modern Slavery Act 2015",
+      "section_ref": "Part 3B / Q28 - Modern Slavery"
+    },
+    {
+      "page_ref": "md:line-122",
+      "anchor_text": "Safety Schemes in Procurement (SSIP) forum",
+      "section_ref": "Part 3B / Q38 - Health and Safety"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "5a42fa991670ccb8ade4d9996a6d239d7958bc1c109afae6da4d2e0fcee1a8ab",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

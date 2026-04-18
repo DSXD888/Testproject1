@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-"""Reference Docling wrapper for PDF structural extraction."""
+#!/usr/bin/env -S python3
+"""Reference Docling wrapper for document structural extraction (PDF, DOCX, XLSX)."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run Docling structural extraction for one PDF and emit normalized JSON.",
     )
-    parser.add_argument("--input", help="Input PDF file path.")
+    parser.add_argument("--input", help="Input document file path (PDF, DOCX, XLSX).")
     parser.add_argument("--output", help="Output JSON file path.")
     parser.add_argument(
         "--strategy",
@@ -95,6 +95,20 @@ def load_docling_api() -> dict[str, Any]:
     except ImportError as exc:
         raise ImportError(f"docling import unavailable: {exc}") from exc
 
+    # Optional format options for non-PDF documents
+    WordFormatOption = None
+    ExcelFormatOption = None
+    try:
+        from docling.document_converter import WordFormatOption as _wfo
+        WordFormatOption = _wfo
+    except ImportError:
+        pass
+    try:
+        from docling.document_converter import ExcelFormatOption as _efo
+        ExcelFormatOption = _efo
+    except ImportError:
+        pass
+
     return {
         "ConversionStatus": ConversionStatus,
         "DoclingParseDocumentBackend": DoclingParseDocumentBackend,
@@ -105,6 +119,8 @@ def load_docling_api() -> dict[str, Any]:
         "PdfPipelineOptions": PdfPipelineOptions,
         "TableFormerMode": TableFormerMode,
         "TableStructureOptions": TableStructureOptions,
+        "WordFormatOption": WordFormatOption,
+        "ExcelFormatOption": ExcelFormatOption,
     }
 
 
@@ -116,9 +132,13 @@ def validate_runtime_args(args: argparse.Namespace) -> tuple[Path, Path]:
 
     input_path = Path(args.input).expanduser()
     if not input_path.is_file():
-        raise ValueError(f"input PDF not found: {input_path}")
-    if input_path.suffix.lower() != ".pdf":
-        raise ValueError(f"input must be a .pdf file: {input_path}")
+        raise ValueError(f"input document not found: {input_path}")
+    supported_extensions = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx"}
+    if input_path.suffix.lower() not in supported_extensions:
+        raise ValueError(
+            f"unsupported file type '{input_path.suffix}': {input_path} "
+            f"(supported: {', '.join(sorted(supported_extensions))})"
+        )
 
     output_path = Path(args.output).expanduser()
     if output_path.is_dir():
@@ -152,16 +172,31 @@ def build_pipeline_options(api: dict[str, Any], strategy: str, timeout: float, a
     return pdf_pipeline_options
 
 
-def convert_pdf(api: dict[str, Any], input_path: Path, strategy: str, timeout: float, artifacts_path: Path) -> Any:
+def convert_document(api: dict[str, Any], input_path: Path, strategy: str, timeout: float, artifacts_path: Path) -> Any:
+    format_options: dict[Any, Any] = {}
+
+    # PDF format option (always available)
     pipeline_options = build_pipeline_options(api, strategy, timeout, artifacts_path)
-    converter = api["DocumentConverter"](
-        format_options={
-            api["InputFormat"].PDF: api["PdfFormatOption"](
-                pipeline_options=pipeline_options,
-                backend=api["DoclingParseDocumentBackend"],
-            )
-        }
+    format_options[api["InputFormat"].PDF] = api["PdfFormatOption"](
+        pipeline_options=pipeline_options,
+        backend=api["DoclingParseDocumentBackend"],
     )
+
+    # DOCX format option (if available in this Docling version)
+    if api.get("WordFormatOption") is not None:
+        try:
+            format_options[api["InputFormat"].DOCX] = api["WordFormatOption"]()
+        except Exception:
+            pass
+
+    # XLSX format option (if available in this Docling version)
+    if api.get("ExcelFormatOption") is not None:
+        try:
+            format_options[api["InputFormat"].XLSX] = api["ExcelFormatOption"]()
+        except Exception:
+            pass
+
+    converter = api["DocumentConverter"](format_options=format_options)
     return converter.convert(str(input_path), raises_on_error=False)
 
 
@@ -444,7 +479,7 @@ def main() -> int:
         return 1
 
     try:
-        result = convert_pdf(api, input_path, args.strategy, args.timeout, artifacts_path)
+        result = convert_document(api, input_path, args.strategy, args.timeout, artifacts_path)
         status = status_name(getattr(result, "status", "unknown"))
         if status in PARTIAL_SUCCESS_STATUSES:
             errors = "; ".join(error_messages(result)) or "document conversion reached partial_success"

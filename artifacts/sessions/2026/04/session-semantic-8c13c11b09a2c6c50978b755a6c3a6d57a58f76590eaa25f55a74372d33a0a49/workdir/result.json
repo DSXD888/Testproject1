@@ -1,0 +1,885 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Refuse collection vehicles (RCV's)",
+      "description": "Contract hire / leasing of refuse collection vehicles (RCVs) under ESPO Framework 218_26 for the period 01 July 2026 to 30 June 2030. Internal combustion engine and alternatively fuelled options are both in scope at the Framework level. Detailed per-lot specification is referenced in the Invitation to Tender (Section 2, Requirement (Specification)) and is not reproduced in this Tender Submission Document.",
+      "requirements": [
+        "Supplier must confirm compliance with all essential elements of the requirement and specification outlined in Section 2 of the Invitation to Tender.",
+        "Mandatory geographic coverage: 9 defined regions of England.",
+        "Optional geographic coverage: Scotland, Wales, Northern Ireland (supplier to indicate ability to supply).",
+        "Tenderer must indicate whether it will also facilitate a leasing option alongside contract hire."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Customer contract management and support",
+          "summary": "Q1 method statement — lead time management, support provisions (after-sales, warranty) and performance management measures enabling continuous improvement and innovation.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q1",
+            "anchor_text": "Customer contract management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Framework management and support",
+          "summary": "Q2 method statement — resource and capacity availability, customer identification on the framework, marketing.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q2",
+            "anchor_text": "Framework management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Maintenance, breakdown, servicing and support",
+          "summary": "Q3 method statement — standard maintenance protocol, vehicle breakdown/recovery provision, system procedures for timely services and MOTs.",
+          "weighting_text": "Weighting 8",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q3",
+            "anchor_text": "Maintenance, breakdown, servicing and support (Weighting 8)"
+          }
+        },
+        {
+          "criterion": "Training, spares and added value",
+          "summary": "Q4 method statement — provision of customer/driver/crew training, spare parts distribution network, added value provisions.",
+          "weighting_text": "Weighting 5",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q4",
+            "anchor_text": "Training, spares and added value (Weighting 5)"
+          }
+        },
+        {
+          "criterion": "Social value delivery proposal",
+          "summary": "Q5 method statement — local employment and skills (including apprenticeships), support for local supply chains and SMEs, environmental schemes/policies.",
+          "weighting_text": "Weighting 1",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q5",
+            "anchor_text": "Social value delivery proposal for this framework (Weighting 1)"
+          }
+        },
+        {
+          "criterion": "Price",
+          "summary": "Price evaluation per Section 5 of the Invitation to Tender, Evaluation of Tenders. Pricing submitted via Price Schedule (Appendix B). Weighting is detailed in the Invitation to Tender (Section 5) and is not restated in this Tender Submission Document.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3 PRICE",
+            "anchor_text": "Tenderers are required to detail their prices for supplying the Goods and/or Services within the Price Schedule (Appendix B)"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "section-1",
+        "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+        "anchor_text": "Lot 1 | Refuse collection vehicles (RCV's)"
+      }
+    },
+    {
+      "lot_number": "2",
+      "title": "Sweepers",
+      "description": "Contract hire / leasing of sweepers under ESPO Framework 218_26. Internal combustion engine and alternatively fuelled options are both in scope at Framework level. Detailed per-lot specification is held in the Invitation to Tender and is not reproduced in this Tender Submission Document.",
+      "requirements": [
+        "Supplier must confirm compliance with all essential elements of the requirement and specification outlined in Section 2 of the Invitation to Tender.",
+        "Mandatory geographic coverage: 9 defined regions of England.",
+        "Optional geographic coverage: Scotland, Wales, Northern Ireland.",
+        "Tenderer must indicate whether it will facilitate a leasing option alongside contract hire."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Customer contract management and support",
+          "summary": "Q1 method statement — see Lot 1. Same framework-level criteria apply to all lots.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q1",
+            "anchor_text": "Customer contract management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Framework management and support",
+          "summary": "Q2 method statement — see Lot 1.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q2",
+            "anchor_text": "Framework management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Maintenance, breakdown, servicing and support",
+          "summary": "Q3 method statement — see Lot 1.",
+          "weighting_text": "Weighting 8",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q3",
+            "anchor_text": "Maintenance, breakdown, servicing and support (Weighting 8)"
+          }
+        },
+        {
+          "criterion": "Training, spares and added value",
+          "summary": "Q4 method statement — see Lot 1.",
+          "weighting_text": "Weighting 5",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q4",
+            "anchor_text": "Training, spares and added value (Weighting 5)"
+          }
+        },
+        {
+          "criterion": "Social value delivery proposal",
+          "summary": "Q5 method statement — see Lot 1.",
+          "weighting_text": "Weighting 1",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q5",
+            "anchor_text": "Social value delivery proposal for this framework (Weighting 1)"
+          }
+        },
+        {
+          "criterion": "Price",
+          "summary": "Price evaluation per Section 5 of the Invitation to Tender. Pricing via Appendix B.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3 PRICE",
+            "anchor_text": "Tenderers are required to detail their prices for supplying the Goods and/or Services within the Price Schedule (Appendix B)"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "section-1",
+        "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+        "anchor_text": "Lot 2 | Sweepers"
+      }
+    },
+    {
+      "lot_number": "3",
+      "title": "Winter maintenance vehicles",
+      "description": "Contract hire / leasing of winter maintenance vehicles (e.g. gritters, snow ploughs per category descriptor) under ESPO Framework 218_26. Detailed per-lot specification is held in the Invitation to Tender and is not reproduced in this Tender Submission Document.",
+      "requirements": [
+        "Supplier must confirm compliance with all essential elements of the requirement and specification outlined in Section 2 of the Invitation to Tender.",
+        "Mandatory geographic coverage: 9 defined regions of England.",
+        "Optional geographic coverage: Scotland, Wales, Northern Ireland.",
+        "Tenderer must indicate whether it will facilitate a leasing option alongside contract hire."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Customer contract management and support",
+          "summary": "Q1 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q1",
+            "anchor_text": "Customer contract management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Framework management and support",
+          "summary": "Q2 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q2",
+            "anchor_text": "Framework management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Maintenance, breakdown, servicing and support",
+          "summary": "Q3 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 8",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q3",
+            "anchor_text": "Maintenance, breakdown, servicing and support (Weighting 8)"
+          }
+        },
+        {
+          "criterion": "Training, spares and added value",
+          "summary": "Q4 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 5",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q4",
+            "anchor_text": "Training, spares and added value (Weighting 5)"
+          }
+        },
+        {
+          "criterion": "Social value delivery proposal",
+          "summary": "Q5 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 1",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q5",
+            "anchor_text": "Social value delivery proposal for this framework (Weighting 1)"
+          }
+        },
+        {
+          "criterion": "Price",
+          "summary": "Price evaluation per Section 5 of the Invitation to Tender. Pricing via Appendix B.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3 PRICE",
+            "anchor_text": "Tenderers are required to detail their prices for supplying the Goods and/or Services within the Price Schedule (Appendix B)"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "section-1",
+        "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+        "anchor_text": "Lot 3 | Winter maintenance vehicles"
+      }
+    },
+    {
+      "lot_number": "4",
+      "title": "Gully emptiers",
+      "description": "Contract hire / leasing of gully emptiers under ESPO Framework 218_26. Detailed per-lot specification is held in the Invitation to Tender and is not reproduced in this Tender Submission Document.",
+      "requirements": [
+        "Supplier must confirm compliance with all essential elements of the requirement and specification outlined in Section 2 of the Invitation to Tender.",
+        "Mandatory geographic coverage: 9 defined regions of England.",
+        "Optional geographic coverage: Scotland, Wales, Northern Ireland.",
+        "Tenderer must indicate whether it will facilitate a leasing option alongside contract hire."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Customer contract management and support",
+          "summary": "Q1 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q1",
+            "anchor_text": "Customer contract management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Framework management and support",
+          "summary": "Q2 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q2",
+            "anchor_text": "Framework management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Maintenance, breakdown, servicing and support",
+          "summary": "Q3 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 8",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q3",
+            "anchor_text": "Maintenance, breakdown, servicing and support (Weighting 8)"
+          }
+        },
+        {
+          "criterion": "Training, spares and added value",
+          "summary": "Q4 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 5",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q4",
+            "anchor_text": "Training, spares and added value (Weighting 5)"
+          }
+        },
+        {
+          "criterion": "Social value delivery proposal",
+          "summary": "Q5 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 1",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q5",
+            "anchor_text": "Social value delivery proposal for this framework (Weighting 1)"
+          }
+        },
+        {
+          "criterion": "Price",
+          "summary": "Price evaluation per Section 5 of the Invitation to Tender. Pricing via Appendix B.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3 PRICE",
+            "anchor_text": "Tenderers are required to detail their prices for supplying the Goods and/or Services within the Price Schedule (Appendix B)"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "section-1",
+        "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+        "anchor_text": "Lot 4 | Gully emptiers"
+      }
+    },
+    {
+      "lot_number": "5",
+      "title": "Buses and minibuses",
+      "description": "Contract hire / leasing of buses and minibuses under ESPO Framework 218_26. Detailed per-lot specification is held in the Invitation to Tender and is not reproduced in this Tender Submission Document.",
+      "requirements": [
+        "Supplier must confirm compliance with all essential elements of the requirement and specification outlined in Section 2 of the Invitation to Tender.",
+        "Mandatory geographic coverage: 9 defined regions of England.",
+        "Optional geographic coverage: Scotland, Wales, Northern Ireland.",
+        "Tenderer must indicate whether it will facilitate a leasing option alongside contract hire."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Customer contract management and support",
+          "summary": "Q1 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q1",
+            "anchor_text": "Customer contract management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Framework management and support",
+          "summary": "Q2 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q2",
+            "anchor_text": "Framework management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Maintenance, breakdown, servicing and support",
+          "summary": "Q3 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 8",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q3",
+            "anchor_text": "Maintenance, breakdown, servicing and support (Weighting 8)"
+          }
+        },
+        {
+          "criterion": "Training, spares and added value",
+          "summary": "Q4 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 5",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q4",
+            "anchor_text": "Training, spares and added value (Weighting 5)"
+          }
+        },
+        {
+          "criterion": "Social value delivery proposal",
+          "summary": "Q5 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 1",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q5",
+            "anchor_text": "Social value delivery proposal for this framework (Weighting 1)"
+          }
+        },
+        {
+          "criterion": "Price",
+          "summary": "Price evaluation per Section 5 of the Invitation to Tender. Pricing via Appendix B.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3 PRICE",
+            "anchor_text": "Tenderers are required to detail their prices for supplying the Goods and/or Services within the Price Schedule (Appendix B)"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "section-1",
+        "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+        "anchor_text": "Lot 5 | Buses and minibuses"
+      }
+    },
+    {
+      "lot_number": "6",
+      "title": "Tippers",
+      "description": "Contract hire / leasing of tipper vehicles under ESPO Framework 218_26. Detailed per-lot specification is held in the Invitation to Tender and is not reproduced in this Tender Submission Document.",
+      "requirements": [
+        "Supplier must confirm compliance with all essential elements of the requirement and specification outlined in Section 2 of the Invitation to Tender.",
+        "Mandatory geographic coverage: 9 defined regions of England.",
+        "Optional geographic coverage: Scotland, Wales, Northern Ireland.",
+        "Tenderer must indicate whether it will facilitate a leasing option alongside contract hire."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Customer contract management and support",
+          "summary": "Q1 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q1",
+            "anchor_text": "Customer contract management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Framework management and support",
+          "summary": "Q2 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q2",
+            "anchor_text": "Framework management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Maintenance, breakdown, servicing and support",
+          "summary": "Q3 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 8",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q3",
+            "anchor_text": "Maintenance, breakdown, servicing and support (Weighting 8)"
+          }
+        },
+        {
+          "criterion": "Training, spares and added value",
+          "summary": "Q4 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 5",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q4",
+            "anchor_text": "Training, spares and added value (Weighting 5)"
+          }
+        },
+        {
+          "criterion": "Social value delivery proposal",
+          "summary": "Q5 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 1",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q5",
+            "anchor_text": "Social value delivery proposal for this framework (Weighting 1)"
+          }
+        },
+        {
+          "criterion": "Price",
+          "summary": "Price evaluation per Section 5 of the Invitation to Tender. Pricing via Appendix B.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3 PRICE",
+            "anchor_text": "Tenderers are required to detail their prices for supplying the Goods and/or Services within the Price Schedule (Appendix B)"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "section-1",
+        "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+        "anchor_text": "Lot 6 | Tippers"
+      }
+    },
+    {
+      "lot_number": "7",
+      "title": "Loaders",
+      "description": "Contract hire / leasing of loader vehicles under ESPO Framework 218_26. Detailed per-lot specification is held in the Invitation to Tender and is not reproduced in this Tender Submission Document.",
+      "requirements": [
+        "Supplier must confirm compliance with all essential elements of the requirement and specification outlined in Section 2 of the Invitation to Tender.",
+        "Mandatory geographic coverage: 9 defined regions of England.",
+        "Optional geographic coverage: Scotland, Wales, Northern Ireland.",
+        "Tenderer must indicate whether it will facilitate a leasing option alongside contract hire."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Customer contract management and support",
+          "summary": "Q1 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q1",
+            "anchor_text": "Customer contract management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Framework management and support",
+          "summary": "Q2 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q2",
+            "anchor_text": "Framework management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Maintenance, breakdown, servicing and support",
+          "summary": "Q3 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 8",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q3",
+            "anchor_text": "Maintenance, breakdown, servicing and support (Weighting 8)"
+          }
+        },
+        {
+          "criterion": "Training, spares and added value",
+          "summary": "Q4 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 5",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q4",
+            "anchor_text": "Training, spares and added value (Weighting 5)"
+          }
+        },
+        {
+          "criterion": "Social value delivery proposal",
+          "summary": "Q5 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 1",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q5",
+            "anchor_text": "Social value delivery proposal for this framework (Weighting 1)"
+          }
+        },
+        {
+          "criterion": "Price",
+          "summary": "Price evaluation per Section 5 of the Invitation to Tender. Pricing via Appendix B.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3 PRICE",
+            "anchor_text": "Tenderers are required to detail their prices for supplying the Goods and/or Services within the Price Schedule (Appendix B)"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "section-1",
+        "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+        "anchor_text": "Lot 7 | Loaders"
+      }
+    },
+    {
+      "lot_number": "8",
+      "title": "Other specialist vehicles",
+      "description": "Contract hire / leasing of other specialist vehicles not covered by Lots 1-7 under ESPO Framework 218_26. Detailed per-lot specification is held in the Invitation to Tender and is not reproduced in this Tender Submission Document.",
+      "requirements": [
+        "Supplier must confirm compliance with all essential elements of the requirement and specification outlined in Section 2 of the Invitation to Tender.",
+        "Mandatory geographic coverage: 9 defined regions of England.",
+        "Optional geographic coverage: Scotland, Wales, Northern Ireland.",
+        "Tenderer must indicate whether it will facilitate a leasing option alongside contract hire."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Customer contract management and support",
+          "summary": "Q1 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q1",
+            "anchor_text": "Customer contract management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Framework management and support",
+          "summary": "Q2 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q2",
+            "anchor_text": "Framework management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Maintenance, breakdown, servicing and support",
+          "summary": "Q3 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 8",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q3",
+            "anchor_text": "Maintenance, breakdown, servicing and support (Weighting 8)"
+          }
+        },
+        {
+          "criterion": "Training, spares and added value",
+          "summary": "Q4 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 5",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q4",
+            "anchor_text": "Training, spares and added value (Weighting 5)"
+          }
+        },
+        {
+          "criterion": "Social value delivery proposal",
+          "summary": "Q5 method statement — framework-level criterion applied to all lots.",
+          "weighting_text": "Weighting 1",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q5",
+            "anchor_text": "Social value delivery proposal for this framework (Weighting 1)"
+          }
+        },
+        {
+          "criterion": "Price",
+          "summary": "Price evaluation per Section 5 of the Invitation to Tender. Pricing via Appendix B.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3 PRICE",
+            "anchor_text": "Tenderers are required to detail their prices for supplying the Goods and/or Services within the Price Schedule (Appendix B)"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "section-1",
+        "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+        "anchor_text": "Lot 8 | Other specialist vehicles"
+      }
+    },
+    {
+      "lot_number": "9",
+      "title": "Mixed specialist vehicle fleet",
+      "description": "Lot 9 enables further competitive selection for a mixed specialist vehicle fleet spanning Lots 1-8. Eligibility: only Tenderers awarded to a minimum of 2 of Lots 1-8 qualify for Lot 9. Customers may use a further competitive selection process via Lot 9; awards are made by Customers to a single awarded Framework supplier.",
+      "requirements": [
+        "Eligibility: Tenderer must be successfully awarded to a minimum of 2 of Lots 1-8 to be eligible for Lot 9.",
+        "Lot 9 is facilitated via a further competitive selection process only (not direct award / call-off without competition in the same way as single-lot calls).",
+        "Awards made by Customers under Lot 9 will be to a single awarded Framework supplier.",
+        "Supplier must confirm compliance with all essential elements of the requirement and specification outlined in Section 2 of the Invitation to Tender.",
+        "Mandatory geographic coverage: 9 defined regions of England.",
+        "Optional geographic coverage: Scotland, Wales, Northern Ireland."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Customer contract management and support",
+          "summary": "Q1 method statement — framework-level criterion applied to all lots including Lot 9.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q1",
+            "anchor_text": "Customer contract management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Framework management and support",
+          "summary": "Q2 method statement — framework-level criterion applied to all lots including Lot 9.",
+          "weighting_text": "Weighting 12",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q2",
+            "anchor_text": "Framework management and support (Weighting 12)"
+          }
+        },
+        {
+          "criterion": "Maintenance, breakdown, servicing and support",
+          "summary": "Q3 method statement — framework-level criterion applied to all lots including Lot 9.",
+          "weighting_text": "Weighting 8",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q3",
+            "anchor_text": "Maintenance, breakdown, servicing and support (Weighting 8)"
+          }
+        },
+        {
+          "criterion": "Training, spares and added value",
+          "summary": "Q4 method statement — framework-level criterion applied to all lots including Lot 9.",
+          "weighting_text": "Weighting 5",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q4",
+            "anchor_text": "Training, spares and added value (Weighting 5)"
+          }
+        },
+        {
+          "criterion": "Social value delivery proposal",
+          "summary": "Q5 method statement — framework-level criterion applied to all lots including Lot 9.",
+          "weighting_text": "Weighting 1",
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q5",
+            "anchor_text": "Social value delivery proposal for this framework (Weighting 1)"
+          }
+        },
+        {
+          "criterion": "Price",
+          "summary": "Price evaluation per Section 5 of the Invitation to Tender. Pricing via Appendix B. Lot 9 further competitions use customer-level pricing as described in the Framework Agreement.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3 PRICE",
+            "anchor_text": "Tenderers are required to detail their prices for supplying the Goods and/or Services within the Price Schedule (Appendix B)"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "section-1",
+        "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+        "anchor_text": "*Lot 9 | Mixed specialist vehicle fleet ... Tenderers awarded to a minimum of 2 of Lots 1-8 would be eligible for this Lot 9."
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lot_titles": 9800,
+    "lot_numbering": 9800,
+    "lot_descriptions": 4500,
+    "lot_eligibility_lot9": 9500,
+    "lot_requirements_generic": 7000,
+    "evaluation_criteria_identity": 9500,
+    "evaluation_criteria_weightings": 9500,
+    "price_weighting": 1000,
+    "cpv_codes_per_lot": 0,
+    "technical_standards": 0,
+    "product_requirements": 0,
+    "geographic_coverage": 9500,
+    "framework_period": 9800,
+    "closing_date": 9800
+  },
+  "extraction_confidence_bps": 6200,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "Document is a Tender Submission (response template) — a form for the Tenderer to complete — not the detailed Requirement/Specification. The authoritative per-lot technical specification, product requirements, technical standards, and CPV codes are held in the referenced Invitation to Tender (Section 2, Requirement (Specification)) which is a separate document. Lot titles, eligibility, method-statement weightings, and geographic coverage are reliably extracted; detailed per-lot spec content is intentionally absent from this document.",
+      "evidence_refs": [
+        "This document is for completion by the Tenderer and return to ESPO in accordance with the instructions given in Instructions for Completing and Submitting a Tender (Section 5 of the Invitation to Tender).",
+        "I confirm I comply with all essential elements of the requirement and specification as outlined in Section 2 of the Invitation to Tender, Requirement (including Specification)"
+      ]
+    },
+    {
+      "code": "CPV_CODES_NOT_IN_DOCUMENT",
+      "message": "No CPV codes are cited inside this document. Per the skill contract, evidence for CPV codes must come from Docling-produced structure; notice-level CPV metadata was not used as substitute. Downstream consumers should populate per-lot CPV codes from the Invitation to Tender body or from notice-level metadata if that is acceptable policy.",
+      "evidence_refs": []
+    },
+    {
+      "code": "TECHNICAL_STANDARDS_NOT_IN_DOCUMENT",
+      "message": "No explicit technical standards (e.g. EN/ISO/BS references) are cited in the tender submission document. Technical standards, where they exist, will be in the Invitation to Tender specification and/or in the Price Schedule (Appendix B) line items.",
+      "evidence_refs": []
+    },
+    {
+      "code": "PRODUCT_REQUIREMENT_SEEDS_INSUFFICIENT_BASIS",
+      "message": "The document does not contain detailed per-lot product requirements suitable for seeding product_candidates. Lot entries are categorical titles only (e.g. 'Refuse collection vehicles', 'Sweepers'). Seed generation from these titles alone would amount to guessing without evidence anchors; the skill contract forbids this. Product seeds should be generated from the Invitation to Tender specification and/or Price Schedule (Appendix B) line items.",
+      "evidence_refs": []
+    },
+    {
+      "code": "PRICE_WEIGHTING_NOT_STATED",
+      "message": "Non-price method-statement weightings sum to 38 (12+12+8+5+1). The price weighting is not stated in this document; Section 3 defers to 'Section 5 of the Invitation to Tender, Evaluation of Tenders' for the evaluation methodology.",
+      "evidence_refs": [
+        "Tenderers are required to detail their prices for supplying the Goods and/or Services within the Price Schedule (Appendix B) and are advised to ensure they fully understand the evaluation methodology to be used to assess price, as described in Section 5 of the Invitation to Tender, Evaluation of Tenders."
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "section-header",
+      "section_ref": "Document header",
+      "anchor_text": "ESPO reference 218_26 SPECIALIST VEHICLE CONTRACT HIRE / LEASING"
+    },
+    {
+      "page_ref": "section-header",
+      "section_ref": "Document header",
+      "anchor_text": "Framework Period 01 July 2026 to 30 June 2030"
+    },
+    {
+      "page_ref": "section-header",
+      "section_ref": "Document header",
+      "anchor_text": "Closing date for submission of tender 12 noon, 15 May 2026"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+      "anchor_text": "Lot 1 | Refuse collection vehicles (RCV's)"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+      "anchor_text": "Lot 2 | Sweepers"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+      "anchor_text": "Lot 3 | Winter maintenance vehicles"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+      "anchor_text": "Lot 4 | Gully emptiers"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+      "anchor_text": "Lot 5 | Buses and minibuses"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+      "anchor_text": "Lot 6 | Tippers"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+      "anchor_text": "Lot 7 | Loaders"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+      "anchor_text": "Lot 8 | Other specialist vehicles"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION",
+      "anchor_text": "*Lot 9 | Mixed specialist vehicle fleet"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / LOT SELECTION footnote",
+      "anchor_text": "Lot 9 for 'Mixed specialist vehicle fleet' should be ticked by those Tenderers that are able to contract hire/lease various specialist vehicles from across the preceding 8 Lots on the Framework. Tenderers awarded to a minimum of 2 of Lots 1-8 would be eligible for this Lot 9."
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1 RESPONSE TO REQUIREMENT AND SPECIFICATION / GEOGRAPHICAL COVERAGE",
+      "anchor_text": "The mandatory requirement is for Suppliers to supply Goods and/or Services to the 9 defined regions of England"
+    },
+    {
+      "page_ref": "section-2",
+      "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q1",
+      "anchor_text": "Customer contract management and support (Weighting 12)"
+    },
+    {
+      "page_ref": "section-2",
+      "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q2",
+      "anchor_text": "Framework management and support (Weighting 12)"
+    },
+    {
+      "page_ref": "section-2",
+      "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q3",
+      "anchor_text": "Maintenance, breakdown, servicing and support (Weighting 8)"
+    },
+    {
+      "page_ref": "section-2",
+      "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q4",
+      "anchor_text": "Training, spares and added value (Weighting 5)"
+    },
+    {
+      "page_ref": "section-2",
+      "section_ref": "2 NON-PRICE – METHOD STATEMENTS / Q5",
+      "anchor_text": "Social value delivery proposal for this framework (Weighting 1)"
+    },
+    {
+      "page_ref": "section-3",
+      "section_ref": "3 PRICE",
+      "anchor_text": "Tenderers are required to detail their prices for supplying the Goods and/or Services within the Price Schedule (Appendix B)"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "76efdd7be34ea3bd1b500e42b63cd1b5cfa0855083061279deee2bfed436b740",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

@@ -1,0 +1,1911 @@
+{
+  "lots": [
+    {
+      "lot_number": "11",
+      "title": "Provision of Minor Disability Adaptations (Minor Building Works) in Privately Owned Properties",
+      "description": "Measured Term Contract for the installation of equipment and minor works at properties for people with disabilities. Scope covers the supply and installation of mobility/adaptation equipment (grab rails, ramps, thresholds, shower seats, stair rails, raised-height WCs, accessible doors, door aperture widening, accessible taps and electrical fittings, doorbells and keysafes) in clients' homes for the London Borough of Bexley, operating 1 November 2026 to 31 October 2028 with discretionary two one-year extensions. Works are ordered per-job via Council-issued Works Approval Forms and priced from an agreed pricing schedule; this document is the contract specification and is to be read with the Pricing Schedule under JCT MTC contract terms.",
+      "requirements": [
+        "Contract period 1 November 2026 – 31 October 2028 with option for the Council to extend in one-year increments for up to two further years.",
+        "All work is commissioned per-job by a Council-issued Works Approval Form; work may not commence before the Form is issued and any variation must be agreed by or on behalf of the Authorised Officer before proceeding.",
+        "Response-time tiers: Code A (hospital discharge) within 24 hours of receipt, Code B (emergency) within 48 hours, Code C (urgent) within 5 working days, Code D (standard) within 15 working days; financial penalties of £100 per day may apply for Code A delays.",
+        "All works to be compliant with JCT MTC 2024 Terms and Conditions (including the above response-time tiers and penalty clause); JCT MTC 2016 also referenced for invoicing and VAT.",
+        "Contractor must submit an Application for Payment before invoicing; invoices must be submitted within six months of the Works Approval Form date and within the month following the invoice period, and payment will normally be made within 30 days of receipt and agreement.",
+        "Majority of works under this contract are VAT exempt; VAT must be shown separately as a strictly net extra charge when applicable.",
+        "All operatives who visit clients' homes must hold an enhanced Disclosure and Barring Service (DBS) check; the Contractor must maintain a continually updated record of cleared staff and provide it to the Authorised Officer on request.",
+        "Transfer of Undertakings (Protection of Employment) Regulations 2006 (TUPE) applies; staff of incumbent contractors may transfer to the successful bidder.",
+        "Contractor must comply with the Safety Schemes in Procurement (SSIP) Forum competence standards (e.g., CHAS, EXOR Health and Safety, or OHSAS 18001 registration) and maintain a compliant registration for the duration of the contract.",
+        "All operatives must wear visible photographic identification cards with employee name, trade, contractor name/address, contact number and expiry date (no more than 1 year from issue); cards must be produced on request.",
+        "Works must comply with current UK building regulations and relevant statutory undertakers' requirements; applications and consents to Building Control must be copied to the Authorised Officer before works commence.",
+        "All electrical works must be carried out in accordance with the BS 7671:2008 IET Wiring Regulations 18th Edition; a Part P-compliant electrical installation certificate must be provided on completion of any new circuit.",
+        "Gas-related works must comply with the Gas Safety (Installation and Use) Regulations 1998 and be performed by Gas Safe-registered personnel.",
+        "Safety and toughened glazing must be clearly and permanently marked, in accordance with BS EN 12600, BS 952-1:1995 Parts 1 & 2 and BS 6262-4:2018, and comply with Approved Document K of the Building Regulations and Regulation 14 of the Workplace (Health, Safety and Welfare) Regulations 1992.",
+        "Personal protective equipment must conform to the Personal Protective Equipment at Work (Amendment) Regulations 2022; eye protection must be marked in conformity with BS EN ISO 16321 (2022).",
+        "Working at Height Regulations 2005 apply; safe working method statements and generic risk assessments are required before any work at height or hot works, and the Authorised Officer must be notified.",
+        "Construction (Design and Management) Regulations 2015 (CDM 2015) apply where relevant; no additional costs for the Principal Contractor role will be paid as this is deemed included in the Pricing Schedule.",
+        "Contractor must comply with the Control of Asbestos Regulations 2012 (CAR 2012) and the Council's Asbestos Policy; no asbestos-containing materials may be used, and suspected asbestos must be reported immediately and not removed by the Contractor.",
+        "COSHH 2002 written assessments must be available on-site before hazardous substances are used; all waste must be disposed of under the Environmental Protection Act 1990 via a licensed carrier and Waste Disposal Certificates retained.",
+        "RIDDOR 2013 reportable incidents and accidents must be reported to the Authorised Officer and (where applicable) the HSE without delay; copies of any HSE Improvement or Prohibition Notices must be forwarded.",
+        "Portable electrical equipment must be ≤110 V and double insulated or effectively earthed, complying with the Electricity at Work Regulations 1989 and the Provision and Use of Work Equipment Regulations 1998.",
+        "Contractor is responsible for making good all damage caused during works at own expense, including protection of floors, fixtures, fittings, carpets and furniture, and full clean-up / waste removal on completion.",
+        "Confidentiality: all client information must be treated in the strictest confidence; the Contractor must comply with the General Data Protection Regulation (GDPR) and UK data-protection law.",
+        "Warranty: any equipment defect or breakdown occurring within twelve months of repair or installation must be rectified by the Contractor at no extra cost other than spare parts; faulty workmanship must be re-done within 14 days of notification.",
+        "Additional Work Reports: where extra work beyond the approved grant documentation is required to make equipment safe and operational, a report and estimate must be sent to the Grants Team and work must not commence until the Authorised Officer approves it.",
+        "Performance review meetings at a frequency set by the Authorised Officer will review customer satisfaction, response-time achievement, financial monitoring, invoice queries, abortive calls, quality of work, H&S compliance (including HSE inspections and RIDDOR incidents), DBS declarations and random audit inspections.",
+        "Pricing must be fully inclusive of all work required to complete the specified adaptation, including call-out, site clearance and waste disposal; the use of second-hand materials or equipment is not permitted.",
+        "All materials and workmanship must be of a quality acceptable to Bexley Council and compliant with the appropriate British Standards or their European equivalents."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot11-1.1-electric-door-lock",
+          "summary": "Digital door lock (Yale-replacement type) with one internal and one external handset, fitted to a UPVC or wooden door. Contractor to verify existing Yale lock position and frame strength and, if repositioning, install within the middle third of the door height (by height).",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Door lock with 1 internal and 1 external handset",
+            "Compatible with UPVC or wooden doors",
+            "Mid-third vertical placement when original Yale position cannot be used"
+          ],
+          "quantity_hint": "per door (unit rate)",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/1.1",
+            "anchor_text": "General Information: Electric Door Locks — Supply and fit door lock with 1 internal and 1 external handset to a UPVC or wooden door"
+          }
+        },
+        {
+          "seed_key": "lot11-1.2.1-akw-4000-04130p-shower-seat",
+          "summary": "AKW 4000 series 04130P (blue) tip-up padded shower seat, with drop-down arms and adjustable legs, installed per manufacturer's instructions at location specified on Works Approval Form. Hunton Deluxe price to be agreed before works if specified by OT.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "AKW 4000 series 04130P (Blue) tip-up padded shower seat",
+            "Drop-down arms",
+            "Adjustable legs",
+            "Alternative: Hunton Deluxe (price to be agreed)"
+          ],
+          "quantity_hint": "1 per installation",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/1.2",
+            "anchor_text": "Supply and install to manufacturer's instruction 1no. AKW 4000 series 04130P (Blue) tip up padded shower seat"
+          }
+        },
+        {
+          "seed_key": "lot11-1.2.2-akw-4000-04240p-extrawide-shower-seat",
+          "summary": "AKW 4000 series 04240P (grey) extra-wide tip-up padded shower seat, supplied and securely installed with appropriate wall fixings per manufacturer's instructions. Includes drop-down arms and adjustable legs; height agreed with client.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "AKW 4000 series 04240P (Grey) extra-wide tip-up padded shower seat",
+            "Drop-down arms",
+            "Adjustable legs",
+            "Client-agreed mounting height"
+          ],
+          "quantity_hint": "1 per installation",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/1.2.1",
+            "anchor_text": "Supply and securely install with appropriate wall fixings and to manufacturer's instruction 1no. Extra wide AKW 4000 series 04240P (grey) tip up padded shower seat"
+          }
+        },
+        {
+          "seed_key": "lot11-1.3-shower-curtain-and-rail",
+          "summary": "Full-length white machine-washable nylon siliconised shower curtain with weighted bottom edge, hung within the edge of the bath on a straight, L- or U-shaped rail with suspended ceiling support pole that does not obstruct curtain movement. Includes all fittings and fixings.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Full-length white nylon siliconised shower curtain",
+            "Machine washable",
+            "Weighted bottom edge",
+            "Straight, L-shaped or U-shaped rail with ceiling support pole"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/1.3",
+            "anchor_text": "new full-length white machine washable nylon siliconised shower curtain with weighted bottom edge"
+          }
+        },
+        {
+          "seed_key": "lot11-2-electrical-switches-sockets",
+          "summary": "Electrical switches and sockets: supply and fit 13A single or double switched sockets on new UPVC or metal back boxes with cabling run from existing ring main (maintaining the ring, not spurred); new 1-gang 2-way light switches on new metal boxes from the existing lighting circuit; main earth bonding supply and fit/upgrade at meters and elsewhere as necessary. Socket minimum height 450mm AFFL; switch maximum height 1200mm AFFL. Includes making good and redecoration.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "25mm UPVC surface-mounted back box (sockets)",
+            "25×129mm metal back box (flush sockets)",
+            "25mm metal box (light switches)",
+            "13A switched single socket / 13A switched double socket",
+            "1-gang 2-way switch",
+            "Ring-main continuity (not spurred)",
+            "Socket minimum height 450mm AFFL",
+            "Switch maximum height 1200mm AFFL",
+            "Main earth bonding supply/upgrade"
+          ],
+          "quantity_hint": "per socket/switch (unit rates)",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/2.1-2.8",
+            "anchor_text": "Electrical Switches / Sockets — Supply and fit new surface mounted 25mm UPVC back box, including running new cables from existing ring main"
+          }
+        },
+        {
+          "seed_key": "lot11-2.7-electric-fan-heater",
+          "summary": "Wall-mounted electric convector heater, 2 kW, thermostatically controlled, with pull-cord switch, installed in the bathroom. Includes a new electrical supply compliant with current IET Regulations and making good of all disturbed areas and finishes.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Wall-mounted convector heater",
+            "2kW thermostatically controlled",
+            "Pull-cord switch",
+            "Bathroom location"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/2.7",
+            "anchor_text": "Supply and install a new wall mounted convector heater (2kw thermostatically controlled) with pull cord switch to the bathroom"
+          }
+        },
+        {
+          "seed_key": "lot11-2.8-remove-existing-heater",
+          "summary": "Remove existing bathroom heater, cut back and isolate services, dispose of existing heater and make good all disturbed areas.",
+          "requirement_type": "removal_and_disposal",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/2.8",
+            "anchor_text": "Remove the existing heater. Include to cut back and isolate services and to make good all disturbed areas"
+          }
+        },
+        {
+          "seed_key": "lot11-2.9-mira-advance-wireless-9kw-shower",
+          "summary": "Mira Advance Wireless 9 kW electric shower unit installed in existing location, thermostat set to 43 °C, with double-length shower flex, connected to the existing supply via a 40 A one-way DP flush ceiling switch with neon indicator / pull cord. Includes RCD; all new cabling concealed within existing structure and mechanically protected by rewirable trunking.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Mira Advance Wireless 9kW electric shower unit",
+            "Thermostat set at 43°C",
+            "Double-length shower flex",
+            "40A one-way DP flush ceiling switch with neon indicator / pull",
+            "RCD protection",
+            "Rewirable trunking"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/2",
+            "anchor_text": "Supply and install new Mira Advance Wireless 9kw electric shower unit in existing location. Thermostat to be set at 43.C"
+          }
+        },
+        {
+          "seed_key": "lot11-3-accessible-taps",
+          "summary": "Replacement of existing taps with 2 no. ¾-inch chrome-plated quarter-turn lever taps. Whole tap must be replaced (not just valve/upper body). Accessible isolation valves on both hot and cold supplies; copper pipework securely clipped (no flexi connectors); sanitary sealing with plumber's compounds (no silicone).",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "¾ inch chrome-plated ¼-turn lever taps",
+            "Accessible isolation valves on hot and cold",
+            "Copper pipework, clipped (no flexi connectors)",
+            "Plumber's compound sealing (no silicone)"
+          ],
+          "quantity_hint": "2 taps per installation",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/3.1-3.3",
+            "anchor_text": "supply and fit at client's address, 2 No. ¾ \"chrome plated ¼ turn lever taps"
+          }
+        },
+        {
+          "seed_key": "lot11-4.1-radiator-relocation",
+          "summary": "Drain heating system, disconnect and remove existing radiator for reuse or disposal, extend / adapt flow-and-return pipework and re-install radiator in new agreed position (or install a new radiator of suitable size and output where the existing is discarded). Includes bleeding, inhibitor dosing and making good.",
+          "requirement_type": "supply_install_or_relocate",
+          "technical_attributes": [
+            "Drain-down and bleed of heating system",
+            "Flow and return pipework extension/adaptation",
+            "System refill with inhibitor",
+            "Option A: reuse existing radiator",
+            "Option B: supply and install new radiator of suitable size and output"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/4.1",
+            "anchor_text": "Drain down heating system, carefully disconnect and remove existing radiator and set aside for reuse"
+          }
+        },
+        {
+          "seed_key": "lot11-5.1-balustrade-rails",
+          "summary": "New staircase balustrade (ground-to-first-floor or first-to-second-floor) comprising a handrail at minimum 900mm above any staircase element, 2 no. newel posts at each end of the flight and vertical spindles at a maximum of 100mm centres. Newel posts fixed to the full depth of the floor joists with a minimum of 2 no. M12 bolts per post with double-sided dog-toothed connectors.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Handrail minimum 900mm height",
+            "Vertical spindles at max 100mm centres",
+            "2 no. newel posts per flight",
+            "Newel fixing: 2× M12 bolts per post with double-sided dog-toothed connectors"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/5.1",
+            "anchor_text": "New balustrades, ground to 1 st floor or 1 st to 2 nd floor staircase, to comprise of handrail at Min: 900mm"
+          }
+        },
+        {
+          "seed_key": "lot11-5.2-mopstick-stair-rail",
+          "summary": "Softwood mopstick stair rail, 50mm diameter, fixed in metal proprietary wall brackets at every 900mm with a minimum 70mm projection from wall to centre of rail. Multiple lengths on a flight must be aligned and run parallel to the stair rake; fixings sized appropriately for the fabric of the building.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Softwood rail, 50mm diameter",
+            "Metal proprietary wall brackets at 900mm centres",
+            "Minimum 70mm wall-to-centre-of-rail projection",
+            "Aligned and parallel to stair rake",
+            "Smoothed timber for indoor use"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/5.2",
+            "anchor_text": "Softwood rail 50mm diameter fixed in metal proprietary wall brackets every 900mm"
+          }
+        },
+        {
+          "seed_key": "lot11-5.3-akw-1800-drop-down-rail",
+          "summary": "AKW 1800 series fold-up double rail with support leg, installed in strict accordance with manufacturer's instructions; fixings and plugs sized for the building fabric.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "AKW 1800 series fold-up double rail",
+            "Support leg"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/5.3",
+            "anchor_text": "AKW 1800 series fold-up double rail with support leg"
+          }
+        },
+        {
+          "seed_key": "lot11-5.4-newel-rail",
+          "summary": "Supply and install a newel post and associated handrail to a staircase, ensuring structural stability, alignment and compliance with applicable building regulations. Includes option to remove existing newel rail and make good.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Newel post with associated handrail",
+            "Structural stability and alignment to building regulations",
+            "Option: remove existing newel rail and make good"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/5.4",
+            "anchor_text": "Supply and install a newel post and associated handrail to a staircase"
+          }
+        },
+        {
+          "seed_key": "lot11-5.5-galvanized-rails",
+          "summary": "External 33.7mm (kee clamp size 6) or 42.4mm (size 7) galvanised handrail with 450mm high half-height rail; handrail minimum 900mm above surface; uprights at 1500mm centres terminated with a closed end and bedded in a minimum 400mm concrete base, base plates set far enough from the concrete edge to ensure a durable fixing.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Galvanised kee-clamp handrail 33.7mm (size 6) or 42.4mm (size 7)",
+            "Handrail minimum 900mm above surface",
+            "450mm high half-height rail",
+            "Uprights at 1500mm centres",
+            "Closed-end termination",
+            "Minimum 400mm concrete base, back-filled"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/5.5",
+            "anchor_text": "Price to include fixing 'kee clamp' or similar galvanized '33.7mm (size 6) or 42.4mm (size 7)' handrails"
+          }
+        },
+        {
+          "seed_key": "lot11-5.6-painted-bended-welded-rail",
+          "summary": "Painted, bended and welded 48.3mm diameter tube handrail, welded and bent to shape as necessary and painted black. Handrail 900mm above surface with a 450mm high half-height rail; uprights at 1500mm centres terminated with a closed end.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "48.3mm diameter tube, welded and bent to shape",
+            "Painted black",
+            "Handrail 900mm above surface",
+            "450mm half-height rail",
+            "Uprights 1500mm centres, closed-end termination"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/5.6",
+            "anchor_text": "48.3mm diameter tube, welded and bent to shape as necessary and painted black"
+          }
+        },
+        {
+          "seed_key": "lot11-5.7.1-derby-grab-rail-300mm",
+          "summary": "300mm Derby grab rail in approved finish, with concealed fixings, securely fixed to a suitable substrate to manufacturer's instructions and relevant regulations; left level, firm and free from movement with surrounding surfaces made good.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Derby grab rail",
+            "Length: 300mm",
+            "Approved finish",
+            "Concealed fixings"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/5.7.1",
+            "anchor_text": "Supply and install 300mm Derby grab rail in approved finish, complete with concealed fixings"
+          }
+        },
+        {
+          "seed_key": "lot11-5.7.2-derby-grab-rail-450mm",
+          "summary": "450mm Derby grab rail in approved finish, with concealed fixings, installed to manufacturer's instructions and relevant regulations.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Derby grab rail",
+            "Length: 450mm",
+            "Approved finish",
+            "Concealed fixings"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/5.7.2",
+            "anchor_text": "Supply and install 450mm Derby grab rail in approved finish, complete with concealed fixings"
+          }
+        },
+        {
+          "seed_key": "lot11-5.7.3-derby-grab-rail-600mm",
+          "summary": "600mm Derby grab rail in approved finish, with concealed fixings, installed to manufacturer's instructions and relevant regulations.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Derby grab rail",
+            "Length: 600mm",
+            "Approved finish",
+            "Concealed fixings"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/5.7.3",
+            "anchor_text": "Supply and install 600mm Derby grab rail in approved finish, complete with concealed fixings"
+          }
+        },
+        {
+          "seed_key": "lot11-5.8.1-epoxy-grab-rail-300mm",
+          "summary": "300mm epoxy-coated external grab rail with corrosion-resistant concealed fixings, installed to an external substrate with weather-resistant sealing of fixings and making good of surrounding surfaces.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Epoxy-coated external grab rail",
+            "Length: 300mm",
+            "Corrosion-resistant concealed fixings",
+            "External / weather-resistant installation"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/5.8.1",
+            "anchor_text": "Supply and install 300mm epoxy-coated external grab rail, complete with corrosion-resistant concealed fixings"
+          }
+        },
+        {
+          "seed_key": "lot11-5.8.2-epoxy-grab-rail-450mm",
+          "summary": "450mm epoxy-coated external grab rail with corrosion-resistant concealed fixings, weather-resistant external installation.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Epoxy-coated external grab rail",
+            "Length: 450mm",
+            "Corrosion-resistant concealed fixings"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/5.8.2",
+            "anchor_text": "Supply and install 450mm epoxy-coated external grab rail"
+          }
+        },
+        {
+          "seed_key": "lot11-5.8.3-epoxy-grab-rail-600mm",
+          "summary": "600mm epoxy-coated external grab rail with corrosion-resistant concealed fixings, weather-resistant external installation.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Epoxy-coated external grab rail",
+            "Length: 600mm",
+            "Corrosion-resistant concealed fixings"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/5.8.3",
+            "anchor_text": "Supply and install 600mm epoxy-coated external grab rail"
+          }
+        },
+        {
+          "seed_key": "lot11-6.1-full-concrete-steps",
+          "summary": "New full concrete steps, minimum 1.0 m clear width, maximum 150mm rise, minimum 280mm going, 1:2:4 mix with tamped surface; uniform rise; bitumen-based DPC where existing DPC would otherwise be bridged; continuous handrails both sides per handrail specification.",
+          "requirement_type": "construct_in_situ",
+          "technical_attributes": [
+            "Concrete steps cast in situ",
+            "Minimum clear width 1.0m",
+            "Rise ≤150mm",
+            "Going ≥280mm",
+            "1:2:4 concrete mix with tamped surface",
+            "Bitumen-based damp proof course",
+            "Continuous handrails both sides"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/6.1",
+            "anchor_text": "Cast new concrete steps minimum 1.0 metre clear width, height (rise) maximum 150mm and depth (going) minimum 280 mm"
+          }
+        },
+        {
+          "seed_key": "lot11-6.2-half-concrete-steps",
+          "summary": "New concrete half-step, minimum 1.0 m clear width, minimum 280mm going (preferably 360mm), 1:2:4 mix with tamped surface and bitumen-based DPM between step and wall where the existing DPC would otherwise be bridged.",
+          "requirement_type": "construct_in_situ",
+          "technical_attributes": [
+            "Half-step cast in situ",
+            "Minimum clear width 1.0m",
+            "Going minimum 280mm (360mm preferred)",
+            "1:2:4 concrete mix, tamped surface",
+            "Bitumen-based damp proof membrane"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/6.2",
+            "anchor_text": "Cast new concrete half step minimum 1.0 metre clear width (going) minimum 280mm preferably 360mm"
+          }
+        },
+        {
+          "seed_key": "lot11-6.4-concrete-ramp",
+          "summary": "Concrete ramp cast from door to ground level at a 1:14 fall, minimum surface width 1200mm and unobstructed width 1000mm, 1:2:4 mix with tamped surface, bitumen-based DPM between ramp and main building, prevention of DPC bridging and surface-water pooling; existing path and steps hacked up and removed as required.",
+          "requirement_type": "construct_in_situ",
+          "technical_attributes": [
+            "Gradient 1:14",
+            "Minimum surface width 1200mm",
+            "Minimum unobstructed width 1000mm",
+            "1:2:4 mix with tamped surface",
+            "Bitumen-based damp proof membrane",
+            "Level with existing path and internal floor"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/6.4",
+            "anchor_text": "Ramp minimum surface width 1200mm and an unobstructed width of 1000mm laid to a 1:14 fall"
+          }
+        },
+        {
+          "seed_key": "lot11-6.5-concrete-platform",
+          "summary": "Concrete platform minimum unobstructed 1500×1500mm, level with internal floor, with works to prevent bridging of existing DPCs and any pooling of surface water.",
+          "requirement_type": "construct_in_situ",
+          "technical_attributes": [
+            "Minimum unobstructed size 1500×1500mm",
+            "Level with internal floor level",
+            "Prevents DPC bridging",
+            "Prevents surface-water pooling"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/6.5",
+            "anchor_text": "Platforms to be a min: unobstructed 1500x1500mm and level with the internal floor level"
+          }
+        },
+        {
+          "seed_key": "lot11-6.6-concrete-path",
+          "summary": "Concrete path, minimum surface width 1200mm and unobstructed width 1000mm, bitumen-based DPM between path and main building; works to prevent DPC bridging and surface-water pooling.",
+          "requirement_type": "construct_in_situ",
+          "technical_attributes": [
+            "Minimum surface width 1200mm",
+            "Minimum unobstructed width 1000mm",
+            "Bitumen-based damp proof membrane"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/6.6",
+            "anchor_text": "Path to have minimum surface width 1200mm and an unobstructed width of 1000mm"
+          }
+        },
+        {
+          "seed_key": "lot11-7.1-door-aperture-widening-masonry",
+          "summary": "Widening of door opening in masonry walls with PCC lintel installed over the new opening; re-plaster to existing level, redecorate; re-secure flooring; supply and install new softwood lining set with stops and architraves, new 1981×(min)840/900mm plywood-faced flush door on 100mm butts; prime and paint in white gloss.",
+          "requirement_type": "alter_and_install",
+          "technical_attributes": [
+            "PCC lintel supplied and hoisted into position",
+            "New SW lining set, stops and architraves",
+            "Door 1981mm × min 840mm (or 900mm, per OT)",
+            "Plywood-faced flush door",
+            "100mm butt hinges",
+            "Knot/stop/prime + 2 undercoats + white gloss"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/7.1",
+            "anchor_text": "Door Aperture Widening Masonry Walls"
+          }
+        },
+        {
+          "seed_key": "lot11-7.2-door-aperture-widening-timber",
+          "summary": "Widening of door opening in timber-stud walls using 100×50mm studs to both sides of the new opening with 2 no. 100×50mm softwood timbers bolted together and fixed over; re-plaster to existing level, redecorate; same SW lining and flush door installation as 7.1.",
+          "requirement_type": "alter_and_install",
+          "technical_attributes": [
+            "100×50mm softwood studs either side of new opening",
+            "2× 100×50mm softwood timbers bolted together as lintel",
+            "New SW lining, stops and architraves",
+            "Door 1981mm × min 840mm (or 900mm, per OT)",
+            "Plywood-faced flush door"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/7.2",
+            "anchor_text": "Door Aperture Widening Timber Walls"
+          }
+        },
+        {
+          "seed_key": "lot11-7.3-new-wooden-or-plastic-sliding-door",
+          "summary": "New lightweight plywood-faced flush door on sliding gear providing minimum 840mm clear opening, with doorstops for a D-type handle (centred at max 1200mm AFFL) operating both sides; options include raising the existing threshold with a Duraflex (or similar) sill and re-hanging the existing door, or supplying and fitting a new UPVC front/rear door with low-profile ≤20mm threshold and 900mm minimum clear useable access opening externally over a new concrete platform.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Plywood-faced flush door",
+            "Sliding gear, min 840mm clear opening",
+            "D-type handle operating both sides, ≤1200mm AFFL",
+            "UPVC white front/rear door variant with low-profile ≤20mm threshold",
+            "Minimum 900mm clear useable access on UPVC door",
+            "Catnic-insulated steel or PCC lintel on external widening"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/7.3",
+            "anchor_text": "General Information: New Wooden Door/ Plastic Door / Door Widening"
+          }
+        },
+        {
+          "seed_key": "lot11-7.4-timber-or-concrete-threshold",
+          "summary": "Accessible threshold works: remove existing timber sill and scarf in new timber pieces to the frame (timber variant), or lower and make good the existing concrete threshold and scarf timber pieces to the frame (concrete variant); supply and fit new 'Duraflex' or similar level wheelchair-accessible threshold; adapt existing door to suit (remove rebate, glue-and-pin timber packing piece, prepare and finish to match).",
+          "requirement_type": "alter_and_install",
+          "technical_attributes": [
+            "Duraflex (or similar) level wheelchair-accessible threshold",
+            "Timber-frame repair with scarf jointing",
+            "Concrete threshold lowering and making good (variant)",
+            "Door adaptation to the new threshold"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/7.4",
+            "anchor_text": "Supply and fix a new ‘Duraflex’ or similar level wheelchair accessible threshold"
+          }
+        },
+        {
+          "seed_key": "lot11-8.1-timber-fillet-ramp",
+          "summary": "Hardwood timber fillet plinth laid over existing floor covering, fitted to the full width of the door opening with a gradual gradient from door threshold to finished floor covering.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Hardwood timber fillet plinth",
+            "Full door-opening width",
+            "Gradient from door threshold to floor covering"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/8.1",
+            "anchor_text": "supply and securely fit hardwood timber fillet plinth to suit entire width of door opening"
+          }
+        },
+        {
+          "seed_key": "lot11-8.2-sliding-door",
+          "summary": "New softwood timber sliding door with associated track and frame, hung on the appropriate side, with appropriate ironmongery. Existing timber door and affected architrave/frame adjusted and made good; new timber primed, stopped and finished with 2 coats of white gloss after fitting.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Softwood timber sliding door",
+            "Track and frame",
+            "Appropriate ironmongery",
+            "Primed + stopped + 2 coats white gloss"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/8.2",
+            "anchor_text": "Supply and fit new SW timber sliding door with associated track and frame"
+          }
+        },
+        {
+          "seed_key": "lot11-8.3-folding-door",
+          "summary": "White PVC folding concertina door with magnetic catch, fitted in the existing opening. Existing timber door removed and discarded; disturbed door lining filled with decorator's/timber filler, sanded smooth and left ready for client decoration.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "White PVC folding concertina door",
+            "Magnetic catch",
+            "Ready for client decoration"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/8.3",
+            "anchor_text": "Within opening fit white PVC folding concertina door with magnetic catch"
+          }
+        },
+        {
+          "seed_key": "lot11-8.4.1-ring-doorbell-3-wired",
+          "summary": "Ring Doorbell 3 (wired) replacing existing wired doorbell, fitted per manufacturer's instructions with plug-in chime. Requires 8–24 VAC @ 50/60 Hz and max 40 VA power rating; any need for a new transformer or wireless install reported to Bexley for permission. Left fully working, demonstrated to client; packaging and maintenance tools left on site.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Ring Doorbell 3 (wired)",
+            "8–24 VAC @ 50/60 Hz, max 40 VA",
+            "Plug-in chime"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/8.4.1",
+            "anchor_text": "Ring Doorbell 3. Item to include plug in chime all fitted to manufactures instructions. NB. Doorbell requires 8-24VAC"
+          }
+        },
+        {
+          "seed_key": "lot11-8.4.2-ring-doorbell-3-battery",
+          "summary": "Ring Doorbell 3 (battery) with plug-in chime, securely fixed to the external wall per manufacturer's instructions, demonstrated to client; packaging and maintenance tools left on site.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Ring Doorbell 3 (battery-powered)",
+            "Plug-in chime",
+            "External wall mount"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/8.4.2",
+            "anchor_text": "battery powered Ring Doorbell 3"
+          }
+        },
+        {
+          "seed_key": "lot11-8.5-master-lock-keysafe",
+          "summary": "Master Lock water-resistant combination key safe, securely fitted with appropriate wall fixings at the location specified by the client; workings demonstrated to client and left fully working.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "Master Lock water-resistant combination key safe",
+            "Wall-mounted with appropriate fixings",
+            "Combination-operated"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/8.5",
+            "anchor_text": "Master Lock water resistant combination key safe"
+          }
+        },
+        {
+          "seed_key": "lot11-8.6-akw-raised-height-wc-23162",
+          "summary": "AKW Raised-Height WC suite (650mm projection, ref 23162) in white: wash-down closet and cistern plugged and screwed to wall with flush pipe, connector cone, seat and cover; connect via 110mm uPVC branch to existing prepared soil collar; adjust cold water supply to marry up to new cistern inlet. Existing pan and cistern removed and discarded.",
+          "requirement_type": "supply_and_install",
+          "technical_attributes": [
+            "AKW Raised-Height WC suite, ref 23162",
+            "650mm projection",
+            "White wash-down closet and cistern",
+            "110mm uPVC soil branch connection",
+            "White flush pipe, connector cone, seat and cover"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/8.6",
+            "anchor_text": "Supply and install new AKW Raised Height WC suite (650mm projection ref 23162)"
+          }
+        },
+        {
+          "seed_key": "lot11-8.7-rehang-door",
+          "summary": "Re-hang of existing timber door to the opposite jamb using existing ironmongery; disturbed door lining filled with decorators'/timber filler and sanded smooth, left ready for client decoration.",
+          "requirement_type": "alter_and_install",
+          "technical_attributes": [
+            "Reuse of existing door and ironmongery",
+            "Door lining filler and sand-smooth finish"
+          ],
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#code/8.7",
+            "anchor_text": "Carefully remove existing timber door and rehang on to opposite jamb"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "BS 7671:2008 Requirement for Electrical Installations — IET Wiring Regulations Eighteenth Edition",
+          "context": "All electrical works carried out under this contract must comply with current IET Wiring Regulations 18th Edition.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#regulations-and-statutory-bodies",
+            "anchor_text": "BS 7671:2008 Requirement for Electrical Installations - IET Wiring Regulations Eighteenth Edition"
+          }
+        },
+        {
+          "standard_ref": "Gas Safety (Installation and Use) Regulations 1998",
+          "context": "Gas and gas-appliance works must be carried out by Gas Safe-registered personnel in compliance with these regulations.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#regulations-and-statutory-bodies",
+            "anchor_text": "Gas Safety (Installation and Use) Regulations 1998"
+          }
+        },
+        {
+          "standard_ref": "JCT MTC 2024 Terms and Conditions",
+          "context": "All work carried out under this contract must be compliant with the standard JCT Measured Term Contract 2024 terms, plus the Council's additional response-time and penalty provisions.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#timescales",
+            "anchor_text": "All work carried out under this contract should be compliant with the standard JCT MTC 2024 Terms and Conditions"
+          }
+        },
+        {
+          "standard_ref": "JCT MTC 2016 (referenced for invoices and VAT)",
+          "context": "Invoices, payments and VAT terms refer to the JCT Measured Term Contract 2016.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#invoices-and-payments",
+            "anchor_text": "Please refer to the Contract Terms and Conditions JCT MTC 2016 for further details of invoices and payments"
+          }
+        },
+        {
+          "standard_ref": "Approved Document K of the Building Regulations",
+          "context": "All glazing must be in full compliance with Approved Document K, and with Regulation 14 of the Workplace (Health, Safety and Welfare) Regulations 1992.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-glazing",
+            "anchor_text": "All glazing must be in full compliance with approved Document K of the Building Regulations"
+          }
+        },
+        {
+          "standard_ref": "Regulation 14, Workplace (Health, Safety and Welfare) Regulations 1992",
+          "context": "Glazing compliance and workplace safety.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-glazing",
+            "anchor_text": "Regulation 14 of the Workplace (Health, Safety and Welfare) Regulations 1992"
+          }
+        },
+        {
+          "standard_ref": "BS EN 12600",
+          "context": "Safety glazing must be clearly and permanently marked in accordance with BS EN 12600.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-glazing",
+            "anchor_text": "All safety glazing must be clearly and permanently marked in accordance with BS EN 12600"
+          }
+        },
+        {
+          "standard_ref": "BS 952-1:1995 Parts 1 & 2 (Glass Classification and Terminology)",
+          "context": "Safety or toughened glass classification and terminology.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-glazing",
+            "anchor_text": "All to BS 952-1:1995 Parts 1 & 2 (Glass Classification and Terminology)"
+          }
+        },
+        {
+          "standard_ref": "BS 6262-4:2018",
+          "context": "Glazing for buildings — code of practice for safety related to human impact.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-glazing",
+            "anchor_text": "BS 6262-4:2018 and any subsequent amendments"
+          }
+        },
+        {
+          "standard_ref": "BS EN ISO 16321 (2022)",
+          "context": "Eye protection made and marked in conformity with BS EN ISO 16321 (2022) where eye protection is required.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-ppe",
+            "anchor_text": "eye protection made and marked in conformity with BS EN ISO 16321 (2022)"
+          }
+        },
+        {
+          "standard_ref": "Personal Protective Equipment at Work (Amendment) Regulations 2022",
+          "context": "PPE compliance and use on site.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-ppe",
+            "anchor_text": "Protective equipment, conforming to The Personal Protective Equipment at Work (Amendment) Regulations 2022"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work etc Act 1974",
+          "context": "Baseline H&S legal duty for all contract works.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety",
+            "anchor_text": "the Health and Safety at Work etc Act 1974, and subordinate legislation"
+          }
+        },
+        {
+          "standard_ref": "Safety Schemes in Procurement (SSIP) Forum standards (CHAS, EXOR Health and Safety, OHSAS 18001)",
+          "context": "Minimum H&S competence pre-qualification; compliant registration must be maintained for the contract duration.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety",
+            "anchor_text": "the pre-qualification schemes that form the SSIP (Safety Schemes in Procurement) Forum as the minimum standards of Health and Safety competence required"
+          }
+        },
+        {
+          "standard_ref": "Construction (Design and Management) Regulations 2015 (CDM 2015)",
+          "context": "CDM 2015 applies where relevant to construction projects; the Contractor takes on Principal Contractor duties at no additional charge.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-cdm",
+            "anchor_text": "the Construction (Design and Management) Regulations 2015 apply"
+          }
+        },
+        {
+          "standard_ref": "Control of Asbestos Regulations 2012 (CAR 2012)",
+          "context": "Asbestos identification, management and non-use of asbestos-containing materials.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-asbestos",
+            "anchor_text": "The Control of Asbestos Regulations 2012 (CAR 2012)"
+          }
+        },
+        {
+          "standard_ref": "Control of Substances Hazardous to Health Regulations (COSHH) 2002",
+          "context": "Written COSHH assessments must be available on site before hazardous substances are used.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-coshh",
+            "anchor_text": "The Control of Substances Hazardous to Health Regulations (COSHH) 2002"
+          }
+        },
+        {
+          "standard_ref": "Working at Height Regulations 2005",
+          "context": "Method statements and risk assessments required before any work at height.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-working-at-height",
+            "anchor_text": "current Working at Height Regulations 2005"
+          }
+        },
+        {
+          "standard_ref": "Electricity at Work Regulations 1989",
+          "context": "Portable electrical equipment and leads compliance.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-electricity",
+            "anchor_text": "The Electricity at Work Regulations 1989"
+          }
+        },
+        {
+          "standard_ref": "Provision and Use of Work Equipment Regulations 1998",
+          "context": "Safe provision and use of work equipment on the contract.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-electricity",
+            "anchor_text": "The Provision and Use of Work Equipment Regulations 1998"
+          }
+        },
+        {
+          "standard_ref": "Environmental Protection Act 1990 (EPA 1990)",
+          "context": "Waste disposal, hazardous waste and licensed carriage obligations.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#environment-and-energy",
+            "anchor_text": "The Environmental Protection Act 1990 (EPA1990)"
+          }
+        },
+        {
+          "standard_ref": "Control of Pollution Act (COPA) 1974",
+          "context": "Noise control on-site during works.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-noise",
+            "anchor_text": "The Control of Pollution Act (COPA) 1974"
+          }
+        },
+        {
+          "standard_ref": "Reporting of Injuries, Diseases and Dangerous Occurrences Regulations (RIDDOR) 2013",
+          "context": "Accident and dangerous-occurrence reporting on-site.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety-accidents",
+            "anchor_text": "The Reporting of Injuries, Diseases and Dangerous Occurrences Regulations (RIDDOR) 2013"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety (First Aid) Regulations 1981",
+          "context": "Provision and maintenance of first-aid facilities on site.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#health-and-safety",
+            "anchor_text": "The Health and Safety (First Aid) Regulations 1981"
+          }
+        },
+        {
+          "standard_ref": "EU General Data Protection Regulation (GDPR) and UK Data Protection Act",
+          "context": "Handling of client personal data; data-breach reporting; rights of data subjects.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#confidentiality",
+            "anchor_text": "The EU's General Data Protection Regulation (GDPR) will apply"
+          }
+        },
+        {
+          "standard_ref": "Transfer of Undertakings (Protection of Employment) Regulations 2006 (TUPE)",
+          "context": "Transfer of incumbent contractor staff to the successful contractor.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#tupe",
+            "anchor_text": "Transfer of Undertakings (Protection of Employment) Regulations 2006"
+          }
+        },
+        {
+          "standard_ref": "Part P of the current Building Regulations",
+          "context": "Electrical installation certificate requirement on completion of new circuits.",
+          "evidence_anchor": {
+            "page_ref": "pg-1",
+            "section_ref": "#execution-of-works-electrical",
+            "anchor_text": "provide an electrical installation certificate complaint with Part P of the current Building Regulations"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#title-block",
+        "anchor_text": "INSTALLATION OF EQUIPMENT AND MINOR WORKS AT PROPERTIES FOR PEOPLE WITH DISABILITIES — 1 st November 2026 – 31 st October 2030"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot11-1.1-electric-door-lock",
+      "lot_number": "11",
+      "candidate_name": "Digital door lock (UPVC/wooden door, internal + external handset)",
+      "summary": "Yale-replacement digital door lock with one internal and one external handset, installed on a UPVC or wooden door; siting in the middle third of the door height where the existing Yale position cannot be reused.",
+      "requirements": [
+        "1 internal + 1 external handset",
+        "UPVC or wooden door compatibility",
+        "Middle-third placement when repositioning"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/1.1",
+        "anchor_text": "Supply and fit door lock with 1 internal and 1 external handset to a UPVC or wooden door"
+      }
+    },
+    {
+      "seed_key": "lot11-1.2.1-akw-4000-04130p-shower-seat",
+      "lot_number": "11",
+      "candidate_name": "AKW 4000 series 04130P tip-up padded shower seat (blue)",
+      "summary": "AKW 4000 04130P blue tip-up padded shower seat with drop-down arms and adjustable legs, installed per manufacturer's instructions; Hunton Deluxe alternative price to be agreed in advance.",
+      "requirements": [
+        "Model: AKW 4000 series 04130P (blue)",
+        "Tip-up padded seat",
+        "Drop-down arms",
+        "Adjustable legs"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/1.2",
+        "anchor_text": "AKW 4000 series 04130P (Blue) tip up padded shower seat"
+      }
+    },
+    {
+      "seed_key": "lot11-1.2.2-akw-4000-04240p-extrawide-shower-seat",
+      "lot_number": "11",
+      "candidate_name": "AKW 4000 series 04240P extra-wide tip-up padded shower seat (grey)",
+      "summary": "AKW 4000 04240P grey extra-wide tip-up padded shower seat with drop-down arms and adjustable legs, client-agreed mounting height.",
+      "requirements": [
+        "Model: AKW 4000 series 04240P (grey)",
+        "Extra-wide tip-up padded seat",
+        "Drop-down arms",
+        "Adjustable legs",
+        "Client-agreed mounting height"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/1.2.1",
+        "anchor_text": "Extra wide AKW 4000 series 04240P (grey) tip up padded shower seat"
+      }
+    },
+    {
+      "seed_key": "lot11-1.3-shower-curtain-and-rail",
+      "lot_number": "11",
+      "candidate_name": "Full-length nylon siliconised shower curtain with L/U-shaped rail",
+      "summary": "Full-length white machine-washable nylon siliconised shower curtain with weighted bottom edge, hung on a straight, L- or U-shaped rail with a suspended ceiling support pole that does not obstruct curtain movement.",
+      "requirements": [
+        "White nylon siliconised curtain, full length",
+        "Machine washable",
+        "Weighted bottom edge",
+        "Rail shape: straight, L or U",
+        "Suspended ceiling support pole"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/1.3",
+        "anchor_text": "new full-length white machine washable nylon siliconised shower curtain with weighted bottom edge"
+      }
+    },
+    {
+      "seed_key": "lot11-2.1-single-socket-13a-upvc-box",
+      "lot_number": "11",
+      "candidate_name": "13A switched single socket, 25mm UPVC surface-mounted back box",
+      "summary": "Surface-mounted 25mm UPVC back box plus new 13A switched single socket, wired from the existing ring main maintaining the ring; socket minimum height 450mm AFFL; new blanking plate to redundant sockets; making good.",
+      "requirements": [
+        "13A switched single socket",
+        "25mm UPVC surface-mounted back box",
+        "Ring-main continuity (not spurred)",
+        "Minimum height 450mm AFFL"
+      ],
+      "technical_standards": [
+        "BS 7671:2008 IET Wiring Regulations 18th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/2.1",
+        "anchor_text": "Supply and fit new surface mounted 25mm UPVC back box ... Supply and fit new 13Amp switched single socket"
+      }
+    },
+    {
+      "seed_key": "lot11-2.2-double-socket-13a-upvc-box",
+      "lot_number": "11",
+      "candidate_name": "13A switched double socket, 25mm UPVC surface-mounted back box",
+      "summary": "Surface-mounted 25mm UPVC back box plus new 13A switched double socket, wired from the existing ring main maintaining the ring; socket minimum height 450mm AFFL.",
+      "requirements": [
+        "13A switched double socket",
+        "25mm UPVC surface-mounted back box",
+        "Ring-main continuity (not spurred)",
+        "Minimum height 450mm AFFL"
+      ],
+      "technical_standards": [
+        "BS 7671:2008 IET Wiring Regulations 18th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/2.2",
+        "anchor_text": "Supply and fit new 13Amp switched double socket"
+      }
+    },
+    {
+      "seed_key": "lot11-2.3-1-gang-2-way-switch",
+      "lot_number": "11",
+      "candidate_name": "1-gang 2-way light switch, 25mm metal back box",
+      "summary": "New 1-gang 25mm metal back box in new position with cables from the existing lighting circuit; 1-gang 2-way switch at maximum 1200mm AFFL; remove redundant cables and setting-in boxes; plaster and decorate to match.",
+      "requirements": [
+        "1-gang 2-way switch",
+        "25mm metal back box",
+        "Maximum height 1200mm AFFL",
+        "Chased-in new cabling from lighting circuit"
+      ],
+      "technical_standards": [
+        "BS 7671:2008 IET Wiring Regulations 18th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/2.3",
+        "anchor_text": "new 1 gang 25mm metal box ... new 1 gang 2-way switch"
+      }
+    },
+    {
+      "seed_key": "lot11-2.4-flush-double-socket-metal-box",
+      "lot_number": "11",
+      "candidate_name": "13A switched double socket, 25×129mm metal back box (flush-wall)",
+      "summary": "Remove existing single socket and back box; supply and fit new 25×129mm metal box set into wall and new 13A switched double socket; make good disturbed surfaces.",
+      "requirements": [
+        "13A switched double socket",
+        "25×129mm metal back box flush to wall"
+      ],
+      "technical_standards": [
+        "BS 7671:2008 IET Wiring Regulations 18th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/2.4",
+        "anchor_text": "Supply and fit new 25x129mm metal box set into wall"
+      }
+    },
+    {
+      "seed_key": "lot11-2.6-main-earth-bonding",
+      "lot_number": "11",
+      "candidate_name": "Main earth bonding supply and fit / upgrade",
+      "summary": "Supply and fit or upgrade main earth bonding at the meters and elsewhere as necessary.",
+      "requirements": [
+        "Main earth bonding at meter position",
+        "Upgrades elsewhere as required"
+      ],
+      "technical_standards": [
+        "BS 7671:2008 IET Wiring Regulations 18th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/2.6",
+        "anchor_text": "supply and fit or upgrade, the main earth bonding at the meters and elsewhere as necessary"
+      }
+    },
+    {
+      "seed_key": "lot11-2.7-electric-fan-heater",
+      "lot_number": "11",
+      "candidate_name": "Wall-mounted 2 kW thermostatic electric convector heater with pull-cord",
+      "summary": "2 kW thermostatic electric convector heater for the bathroom, with pull-cord switch and new dedicated IET-compliant electrical supply.",
+      "requirements": [
+        "2kW thermostatic convector heater",
+        "Wall-mounted",
+        "Pull-cord switch",
+        "Bathroom use"
+      ],
+      "technical_standards": [
+        "BS 7671:2008 IET Wiring Regulations 18th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/2.7",
+        "anchor_text": "new wall mounted convector heater (2kw thermostatically controlled) with pull cord switch"
+      }
+    },
+    {
+      "seed_key": "lot11-2.9-mira-advance-wireless-9kw-shower",
+      "lot_number": "11",
+      "candidate_name": "Mira Advance Wireless 9 kW electric shower",
+      "summary": "Mira Advance Wireless 9 kW electric shower unit set to 43 °C, fed via a 40 A one-way DP flush ceiling switch with neon indicator and RCD; double-length shower flex; rewirable trunking.",
+      "requirements": [
+        "Mira Advance Wireless 9kW electric shower",
+        "Thermostat 43°C",
+        "40A one-way DP flush ceiling switch with neon indicator",
+        "RCD protection",
+        "Rewirable trunking",
+        "Double-length shower flex"
+      ],
+      "technical_standards": [
+        "BS 7671:2008 IET Wiring Regulations 18th Edition"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/2",
+        "anchor_text": "Mira Advance Wireless 9kw electric shower unit"
+      }
+    },
+    {
+      "seed_key": "lot11-3-accessible-taps",
+      "lot_number": "11",
+      "candidate_name": "Accessible 3/4\" chrome-plated quarter-turn lever taps (pair)",
+      "summary": "2 no. ¾-inch chrome-plated quarter-turn lever taps with accessible isolation valves and copper pipework (no flexi connectors); plumber's-compound sealing; existing bath panel carefully removed and refixed as required.",
+      "requirements": [
+        "¾-inch chrome-plated quarter-turn lever taps",
+        "Accessible hot and cold isolation valves",
+        "Copper pipework, clipped",
+        "No flexi connectors",
+        "No silicone sealants on tap body"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/3",
+        "anchor_text": "2 No. ¾ \"chrome plated ¼ turn lever taps"
+      }
+    },
+    {
+      "seed_key": "lot11-4.1-radiator-relocation-or-replacement",
+      "lot_number": "11",
+      "candidate_name": "Radiator relocation / replacement",
+      "summary": "Radiator relocation (reuse of existing) or replacement (new radiator of suitable size and output), with flow-and-return pipework extension, inhibitor dosing and bleeding.",
+      "requirements": [
+        "Drain-down, disconnect, relocate or replace radiator",
+        "F&R heating pipework extension",
+        "System inhibitor dosing",
+        "Bleed and pressure-test"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/4.1",
+        "anchor_text": "Drain down heating system, carefully disconnect and remove existing radiator"
+      }
+    },
+    {
+      "seed_key": "lot11-5.1-balustrade-rails",
+      "lot_number": "11",
+      "candidate_name": "Staircase balustrade (handrail + spindles + newels)",
+      "summary": "Balustrade with ≥900mm handrail, 2 newel posts per flight and spindles at ≤100mm centres; newels fixed with ≥2 M12 bolts per post to full depth of floor joists with double-sided dog-toothed connectors.",
+      "requirements": [
+        "Handrail ≥900mm",
+        "Spindles ≤100mm centres",
+        "2 newel posts per flight",
+        "2× M12 bolts per newel with dog-toothed connectors"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/5.1",
+        "anchor_text": "handrail at Min: 900mm above any and all elements of the staircase"
+      }
+    },
+    {
+      "seed_key": "lot11-5.2-mopstick-stair-rail",
+      "lot_number": "11",
+      "candidate_name": "Softwood mopstick stair rail (50mm) with 900mm-centre brackets",
+      "summary": "Softwood 50mm diameter mopstick stair rail on metal proprietary wall brackets at 900mm centres, aligned along the rake with ≥70mm projection to centre of rail.",
+      "requirements": [
+        "Softwood rail 50mm diameter",
+        "Brackets every 900mm",
+        "≥70mm wall-to-rail-centre projection",
+        "Parallel to rake, aligned across lengths"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/5.2",
+        "anchor_text": "Softwood rail 50mm diameter fixed in metal proprietary wall brackets every 900mm"
+      }
+    },
+    {
+      "seed_key": "lot11-5.3-akw-1800-drop-down-rail",
+      "lot_number": "11",
+      "candidate_name": "AKW 1800 series fold-up double rail with support leg",
+      "summary": "AKW 1800 series fold-up double rail with support leg installed to manufacturer's instructions with appropriately sized fixings.",
+      "requirements": [
+        "AKW 1800 series fold-up double rail",
+        "Integral support leg"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/5.3",
+        "anchor_text": "AKW 1800 series fold-up double rail with support leg"
+      }
+    },
+    {
+      "seed_key": "lot11-5.4-newel-rail",
+      "lot_number": "11",
+      "candidate_name": "Staircase newel post with associated handrail",
+      "summary": "Newel post and handrail installed to a staircase ensuring structural stability, alignment and Building Regulations compliance; includes variant for removal of existing newel rail with making-good.",
+      "requirements": [
+        "Newel post and associated handrail",
+        "Structural stability and alignment"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/5.4",
+        "anchor_text": "newel post and associated handrail to a staircase"
+      }
+    },
+    {
+      "seed_key": "lot11-5.5-galvanized-handrail-kee-clamp",
+      "lot_number": "11",
+      "candidate_name": "Galvanised kee-clamp handrail 33.7mm / 42.4mm with 450mm half-height rail",
+      "summary": "Galvanised handrail using kee-clamp (or similar) 33.7mm (size 6) or 42.4mm (size 7); ≥900mm above surface with 450mm high half-height rail; uprights at 1500mm centres in a ≥400mm concrete base with closed-end termination.",
+      "requirements": [
+        "Kee-clamp galvanised rail 33.7mm (size 6) or 42.4mm (size 7)",
+        "Handrail ≥900mm above surface",
+        "450mm half-height rail",
+        "Uprights at 1500mm centres",
+        "Minimum 400mm concrete base"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/5.5",
+        "anchor_text": "'kee clamp' or similar galvanized '33.7mm (size 6) or 42.4mm (size 7)' handrails"
+      }
+    },
+    {
+      "seed_key": "lot11-5.6-painted-bended-welded-rail",
+      "lot_number": "11",
+      "candidate_name": "Painted, bended and welded 48.3mm tube handrail",
+      "summary": "48.3mm diameter tube, welded/bent to shape, painted black; 900mm handrail above surface with 450mm half-height rail; uprights at 1500mm centres and closed-end termination.",
+      "requirements": [
+        "48.3mm tube rail",
+        "Bent/welded to shape, painted black",
+        "Handrail 900mm above surface",
+        "450mm half-height rail",
+        "Uprights 1500mm centres"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/5.6",
+        "anchor_text": "48.3mm diameter tube, welded and bent to shape as necessary and painted black"
+      }
+    },
+    {
+      "seed_key": "lot11-5.7.1-derby-grab-rail-300mm",
+      "lot_number": "11",
+      "candidate_name": "Derby 300mm grab rail (approved finish, concealed fixings)",
+      "summary": "300mm Derby grab rail with concealed fixings in approved finish, securely fitted to a suitable substrate.",
+      "requirements": [
+        "300mm length",
+        "Approved finish",
+        "Concealed fixings"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/5.7.1",
+        "anchor_text": "300mm Derby grab rail in approved finish, complete with concealed fixings"
+      }
+    },
+    {
+      "seed_key": "lot11-5.7.2-derby-grab-rail-450mm",
+      "lot_number": "11",
+      "candidate_name": "Derby 450mm grab rail (approved finish, concealed fixings)",
+      "summary": "450mm Derby grab rail with concealed fixings in approved finish.",
+      "requirements": [
+        "450mm length",
+        "Approved finish",
+        "Concealed fixings"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/5.7.2",
+        "anchor_text": "450mm Derby grab rail in approved finish"
+      }
+    },
+    {
+      "seed_key": "lot11-5.7.3-derby-grab-rail-600mm",
+      "lot_number": "11",
+      "candidate_name": "Derby 600mm grab rail (approved finish, concealed fixings)",
+      "summary": "600mm Derby grab rail with concealed fixings in approved finish.",
+      "requirements": [
+        "600mm length",
+        "Approved finish",
+        "Concealed fixings"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/5.7.3",
+        "anchor_text": "600mm Derby grab rail in approved finish"
+      }
+    },
+    {
+      "seed_key": "lot11-5.8.1-epoxy-grab-rail-300mm",
+      "lot_number": "11",
+      "candidate_name": "Epoxy-coated 300mm external grab rail",
+      "summary": "Epoxy-coated 300mm external grab rail with corrosion-resistant concealed fixings, weather-resistant installation.",
+      "requirements": [
+        "300mm length",
+        "Epoxy coating",
+        "Corrosion-resistant concealed fixings",
+        "External weather-resistant installation"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/5.8.1",
+        "anchor_text": "300mm epoxy-coated external grab rail"
+      }
+    },
+    {
+      "seed_key": "lot11-5.8.2-epoxy-grab-rail-450mm",
+      "lot_number": "11",
+      "candidate_name": "Epoxy-coated 450mm external grab rail",
+      "summary": "Epoxy-coated 450mm external grab rail with corrosion-resistant concealed fixings, weather-resistant installation.",
+      "requirements": [
+        "450mm length",
+        "Epoxy coating",
+        "Corrosion-resistant concealed fixings"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/5.8.2",
+        "anchor_text": "450mm epoxy-coated external grab rail"
+      }
+    },
+    {
+      "seed_key": "lot11-5.8.3-epoxy-grab-rail-600mm",
+      "lot_number": "11",
+      "candidate_name": "Epoxy-coated 600mm external grab rail",
+      "summary": "Epoxy-coated 600mm external grab rail with corrosion-resistant concealed fixings, weather-resistant installation.",
+      "requirements": [
+        "600mm length",
+        "Epoxy coating",
+        "Corrosion-resistant concealed fixings"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/5.8.3",
+        "anchor_text": "600mm epoxy-coated external grab rail"
+      }
+    },
+    {
+      "seed_key": "lot11-6.1-full-concrete-steps",
+      "lot_number": "11",
+      "candidate_name": "Cast-in-situ full concrete steps with handrails",
+      "summary": "Cast-in-situ concrete steps, minimum 1.0m clear width, rise ≤150mm, going ≥280mm, 1:2:4 mix, with bitumen-based DPC and continuous handrails both sides.",
+      "requirements": [
+        "Minimum clear width 1.0m",
+        "Rise ≤150mm",
+        "Going ≥280mm",
+        "1:2:4 concrete mix",
+        "Bitumen-based DPC",
+        "Continuous handrails both sides"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/6.1",
+        "anchor_text": "Cast new concrete steps minimum 1.0 metre clear width, height (rise) maximum 150mm and depth (going) minimum 280 mm"
+      }
+    },
+    {
+      "seed_key": "lot11-6.2-half-concrete-steps",
+      "lot_number": "11",
+      "candidate_name": "Cast-in-situ half concrete step",
+      "summary": "Cast-in-situ concrete half-step, minimum 1.0m clear width and ≥280mm (preferably 360mm) going, 1:2:4 mix, with bitumen-based DPM.",
+      "requirements": [
+        "Minimum clear width 1.0m",
+        "Going ≥280mm (360mm preferred)",
+        "1:2:4 mix",
+        "Bitumen-based DPM"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/6.2",
+        "anchor_text": "concrete half step minimum 1.0 metre clear width (going) minimum 280mm"
+      }
+    },
+    {
+      "seed_key": "lot11-6.4-concrete-ramp",
+      "lot_number": "11",
+      "candidate_name": "Cast-in-situ concrete ramp (1:14 fall, ≥1200mm surface)",
+      "summary": "Cast-in-situ concrete ramp at a 1:14 fall, minimum surface width 1200mm and unobstructed width 1000mm, bitumen-based DPM between ramp and building.",
+      "requirements": [
+        "Gradient 1:14",
+        "Minimum surface width 1200mm",
+        "Minimum unobstructed width 1000mm",
+        "1:2:4 concrete mix",
+        "Bitumen-based DPM",
+        "Level with existing path and internal floor"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/6.4",
+        "anchor_text": "Ramp minimum surface width 1200mm and an unobstructed width of 1000mm laid to a 1:14 fall"
+      }
+    },
+    {
+      "seed_key": "lot11-6.5-concrete-platform",
+      "lot_number": "11",
+      "candidate_name": "Concrete platform (1500×1500mm min, level with internal floor)",
+      "summary": "Concrete platform, minimum unobstructed 1500×1500mm, level with the internal floor, bitumen-based DPM and works to prevent DPC bridging.",
+      "requirements": [
+        "Minimum unobstructed size 1500×1500mm",
+        "Level with internal floor level",
+        "Prevent DPC bridging",
+        "Prevent surface-water pooling"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/6.5",
+        "anchor_text": "Platforms to be a min: unobstructed 1500x1500mm"
+      }
+    },
+    {
+      "seed_key": "lot11-6.6-concrete-path",
+      "lot_number": "11",
+      "candidate_name": "Concrete path (≥1200mm surface, ≥1000mm unobstructed)",
+      "summary": "Concrete path with minimum surface width 1200mm and unobstructed width 1000mm; bitumen-based DPM between path and building; prevents DPC bridging and surface-water pooling.",
+      "requirements": [
+        "Minimum surface width 1200mm",
+        "Minimum unobstructed width 1000mm",
+        "Bitumen-based DPM"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/6.6",
+        "anchor_text": "Path to have minimum surface width 1200mm and an unobstructed width of 1000mm"
+      }
+    },
+    {
+      "seed_key": "lot11-7.1-masonry-aperture-widen-plus-flush-door",
+      "lot_number": "11",
+      "candidate_name": "Masonry door aperture widening + flush door set",
+      "summary": "Widen masonry door opening with new PCC lintel, re-plaster and redecorate; supply and install new softwood lining, stops and architraves, and hang a new 1981×840mm (or 900mm) plywood-faced flush door on 100mm butts; prime and paint white gloss.",
+      "requirements": [
+        "New PCC lintel over widened opening",
+        "SW lining set with stops and architraves",
+        "Door: 1981mm × 840/900mm plywood-faced flush door",
+        "100mm butt hinges",
+        "White gloss finish"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/7.1",
+        "anchor_text": "Door Aperture Widening Masonry Walls"
+      }
+    },
+    {
+      "seed_key": "lot11-7.2-timber-aperture-widen-plus-flush-door",
+      "lot_number": "11",
+      "candidate_name": "Timber-wall door aperture widening + flush door set",
+      "summary": "Widen timber-stud door opening using 100×50mm studs either side and 2× 100×50mm softwood timbers bolted as lintel; install new SW lining, stops and architraves and hang new 1981×840/900mm plywood-faced flush door on 100mm butts; white gloss finish.",
+      "requirements": [
+        "100×50mm studs each side of new opening",
+        "2× 100×50mm SW timbers bolted together as lintel",
+        "SW lining set with stops and architraves",
+        "Door: 1981mm × 840/900mm plywood-faced flush door",
+        "100mm butt hinges",
+        "White gloss finish"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/7.2",
+        "anchor_text": "Door Aperture Widening Timber Walls"
+      }
+    },
+    {
+      "seed_key": "lot11-7.3-sliding-gear-flush-door-840mm",
+      "lot_number": "11",
+      "candidate_name": "Plywood flush door on sliding gear (min 840mm clear)",
+      "summary": "Lightweight plywood-faced flush door hung on new sliding gear giving minimum 840mm clear opening, with D-type handle operating both sides centred at ≤1200mm AFFL.",
+      "requirements": [
+        "Plywood-faced flush door",
+        "Sliding gear",
+        "Minimum 840mm clear opening",
+        "D-type handle both sides at ≤1200mm AFFL"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/7.3.1",
+        "anchor_text": "new lightweight plywood faced flush door hung on new sliding gear to give min 840mm clear opening"
+      }
+    },
+    {
+      "seed_key": "lot11-7.3-duraflex-threshold-rehang",
+      "lot_number": "11",
+      "candidate_name": "Duraflex (or similar) threshold + frame replacement / rehang",
+      "summary": "Remove frame, retain and re-hang existing door, raise threshold to finish at floor level, fit new frame and 'Duraflex' or similar threshold; filler piece above frame; adapt bottom of door to suit.",
+      "requirements": [
+        "New frame and 'Duraflex' or similar threshold",
+        "Reuse of existing door",
+        "Threshold flush with floor level"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/7.3.2",
+        "anchor_text": "Supply and fix new frame and \"Duraflex\" or similar threshold and re-hang door"
+      }
+    },
+    {
+      "seed_key": "lot11-7.3-upvc-frontrear-door-900mm-low-threshold",
+      "lot_number": "11",
+      "candidate_name": "UPVC front/rear door with low-profile threshold and ≥900mm clear access",
+      "summary": "New white UPVC front/rear door, window and frame with low-profile threshold ≤20mm and ≥900mm clear useable access, opening externally over new concrete platform; Catnic-insulated steel or PCC lintel when aperture widened externally; all ironmongery including door number, letter box, lever handle and key locking both sides.",
+      "requirements": [
+        "White UPVC door, window and frame",
+        "Low-profile threshold ≤20mm",
+        "≥900mm clear useable access (or per OT)",
+        "External-opening leaf over concrete platform",
+        "Door number, letter box, lever handle",
+        "Key locking to both sides",
+        "Catnic-insulated steel / PCC lintel when aperture widened"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/7.3.3",
+        "anchor_text": "new UPVC white front/rear door, window and frame. New door to have low profile threshold"
+      }
+    },
+    {
+      "seed_key": "lot11-7.4-accessible-threshold-timber-or-concrete",
+      "lot_number": "11",
+      "candidate_name": "Duraflex (or similar) wheelchair-accessible threshold (timber / concrete variants)",
+      "summary": "Level wheelchair-accessible Duraflex (or similar) threshold supplied and fitted; timber-sill variant scarfs in new timber pieces; concrete-threshold variant lowers and makes good the concrete; door adapted to suit via timber packing piece.",
+      "requirements": [
+        "Duraflex (or similar) wheelchair-accessible threshold",
+        "Timber or concrete substrate variants",
+        "Scarf-joint repair to frame (timber variant)",
+        "Concrete threshold lowering and making good (concrete variant)",
+        "Door adaptation by timber packing piece"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/7.4",
+        "anchor_text": "'Duraflex' or similar level wheelchair accessible threshold"
+      }
+    },
+    {
+      "seed_key": "lot11-8.1-timber-fillet-ramp",
+      "lot_number": "11",
+      "candidate_name": "Hardwood timber fillet plinth (internal ramp at door threshold)",
+      "summary": "Hardwood timber fillet plinth fitted across the full width of the door opening with a gradual gradient from the door threshold down to the finished floor covering; existing floor covering left in situ.",
+      "requirements": [
+        "Hardwood timber fillet plinth",
+        "Full door-opening width",
+        "Gradient from door threshold to floor covering"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/8.1",
+        "anchor_text": "supply and securely fit hardwood timber fillet plinth"
+      }
+    },
+    {
+      "seed_key": "lot11-8.2-sliding-door",
+      "lot_number": "11",
+      "candidate_name": "Softwood timber sliding door with track and frame",
+      "summary": "Softwood timber sliding door with associated track and frame, hung on the appropriate side with ironmongery, primed/stopped and finished with 2 coats of white gloss.",
+      "requirements": [
+        "SW timber sliding door",
+        "Track and frame",
+        "Appropriate ironmongery",
+        "Primed + stopped + 2 coats white gloss"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/8.2",
+        "anchor_text": "new SW timber sliding door with associated track and frame"
+      }
+    },
+    {
+      "seed_key": "lot11-8.3-folding-door",
+      "lot_number": "11",
+      "candidate_name": "White PVC folding concertina door with magnetic catch",
+      "summary": "White PVC folding concertina door with magnetic catch fitted in the existing opening; existing timber door removed; disturbed lining filled and sanded smooth ready for client decoration.",
+      "requirements": [
+        "White PVC folding concertina door",
+        "Magnetic catch"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/8.3",
+        "anchor_text": "white PVC folding concertina door with magnetic catch"
+      }
+    },
+    {
+      "seed_key": "lot11-8.4.1-ring-doorbell-3-wired",
+      "lot_number": "11",
+      "candidate_name": "Ring Doorbell 3 (wired) with plug-in chime",
+      "summary": "Ring Doorbell 3 wired replacement with plug-in chime, requires 8–24 VAC @ 50/60 Hz and max 40 VA; report transformer/wireless need to Bexley for permission.",
+      "requirements": [
+        "Ring Doorbell 3 (wired)",
+        "Plug-in chime",
+        "Power: 8–24 VAC @ 50/60 Hz, max 40 VA"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/8.4.1",
+        "anchor_text": "Ring Doorbell 3. Item to include plug in chime"
+      }
+    },
+    {
+      "seed_key": "lot11-8.4.2-ring-doorbell-3-battery",
+      "lot_number": "11",
+      "candidate_name": "Ring Doorbell 3 (battery) with plug-in chime",
+      "summary": "Battery-powered Ring Doorbell 3 with plug-in chime, fixed to external wall of property.",
+      "requirements": [
+        "Ring Doorbell 3 (battery-powered)",
+        "Plug-in chime"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/8.4.2",
+        "anchor_text": "battery powered Ring Doorbell 3"
+      }
+    },
+    {
+      "seed_key": "lot11-8.5-master-lock-keysafe",
+      "lot_number": "11",
+      "candidate_name": "Master Lock water-resistant combination key safe",
+      "summary": "Master Lock water-resistant combination key safe, externally wall-mounted at location specified by client.",
+      "requirements": [
+        "Master Lock water-resistant combination key safe",
+        "Wall-mounted with appropriate fixings"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/8.5",
+        "anchor_text": "Master Lock water resistant combination key safe"
+      }
+    },
+    {
+      "seed_key": "lot11-8.6-akw-raised-height-wc-23162",
+      "lot_number": "11",
+      "candidate_name": "AKW Raised-Height WC suite (650mm projection, ref 23162)",
+      "summary": "AKW Raised-Height white wash-down closet suite, 650mm projection, ref 23162, with flush pipe, connector cone, seat and cover; 110mm uPVC branch to existing prepared soil collar.",
+      "requirements": [
+        "AKW Raised-Height WC, ref 23162",
+        "650mm projection",
+        "Wash-down white closet with cistern",
+        "110mm uPVC branch to soil stack"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/8.6",
+        "anchor_text": "AKW Raised Height WC suite (650mm projection ref 23162)"
+      }
+    },
+    {
+      "seed_key": "lot11-8.7-rehang-door",
+      "lot_number": "11",
+      "candidate_name": "Re-hang timber door to opposite jamb",
+      "summary": "Carefully remove existing timber door and re-hang onto the opposite jamb using existing ironmongery; disturbed lining filler and sand-smooth finish left ready for client decoration.",
+      "requirements": [
+        "Reuse existing door and ironmongery",
+        "Fill and sand-smooth disturbed lining"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "pg-1",
+        "section_ref": "#code/8.7",
+        "anchor_text": "remove existing timber door and rehang on to opposite jamb"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lot_number": 9800,
+    "title": 8500,
+    "description": 8200,
+    "requirements": 8200,
+    "evaluation_criteria": 9500,
+    "cpv_codes": 4500,
+    "product_requirements": 8500,
+    "technical_standards": 9000,
+    "evidence_anchors": 7000
+  },
+  "extraction_confidence_bps": 8100,
+  "warnings": [
+    {
+      "code": "LOT_SCOPE_SINGLE",
+      "message": "Document title and content pertain exclusively to Lot 11 (Minor Disability Adaptations). Other lots referenced in the parent notice (Lots 1–10) are not covered by this extraction and should not be inferred from this document.",
+      "evidence_refs": [
+        "Title block: '6278 - Draft Specification - Lot 11'",
+        "Filename: '6278 - Draft Specification - Lot 11.doc'"
+      ]
+    },
+    {
+      "code": "EVALUATION_CRITERIA_ABSENT",
+      "message": "Document is a contract specification to be read with a separate Pricing Schedule and Contract Terms & Conditions (JCT MTC 2024). It contains no award/evaluation-criteria section, so evaluation_criteria is emitted as an empty array.",
+      "evidence_refs": [
+        "Header: 'Contract Specification - to be read in conjunction with Pricing Schedule and is subject to the Contract Terms and Conditions'"
+      ]
+    },
+    {
+      "code": "CPV_NOT_DECLARED_IN_DOCUMENT",
+      "message": "The tender specification document itself does not declare CPV codes. Notice-level CPVs (50700000, 50750000, 71315000) exist on the parent notice but are framework-level and not lot-specific to Lot 11; cpv_codes has been left empty to avoid fabricated classification. The daemon may overlay notice-level CPVs separately.",
+      "evidence_refs": [
+        "contract_notices.main_category lists framework CPVs across Lots 1–11"
+      ]
+    },
+    {
+      "code": "PAGE_NUMBERS_UNKNOWN",
+      "message": "Source was a .doc converted via Docling. Docling produced no stable page boundaries for this conversion (page_count=0). Evidence anchors therefore use section/code references (e.g., '#code/5.7.1') and a generic page_ref 'pg-1'; the document footer marks 'Page 23 of 23' but intermediate pages are not identifiable from the markdown.",
+      "evidence_refs": [
+        "document_extractions.page_count = 0",
+        "Document footer: 'Page  PAGE 23 of  NUMPAGES 23'"
+      ]
+    },
+    {
+      "code": "CONTRACT_TERM_INCONSISTENCY",
+      "message": "Document states two different contract end dates. Header reads '1 November 2026 – 31 October 2030' while body 'PERIOD OF CONTRACT' clause states '1 November 2026 to 31 October 2028' with up to two one-year extensions (which would reach 2030). The 2028 base term with extensions is adopted as the primary requirement text; the 2030 header is treated as the full potential extended duration. Verify against executed Contract Terms and Conditions.",
+      "evidence_refs": [
+        "Header: '1 st November 2026 – 31 st October 2030'",
+        "Body: 'The contract will cover the period 1 st November 2026 to 31 st October 2028. The Council also reserves the right to extend the contract for a further two years at its own discretion in one year increments'"
+      ]
+    },
+    {
+      "code": "ELECTRICAL_STANDARD_CITED_UK_VARIANT",
+      "message": "Document cites 'BS 7671:2008 ... IET Wiring Regulations Eighteenth Edition'. BS 7671 is currently BS 7671:2018+A2:2022 (18th Edition); the 2008 edition number in the specification appears to be a drafting error. The standard is captured exactly as cited.",
+      "evidence_refs": [
+        "'BS 7671:2008 Requirement for Electrical Installations — IET Wiring Regulations Eighteenth Edition'"
+      ]
+    },
+    {
+      "code": "PRICING_CODES_REFERENCE_EXTERNAL_SCHEDULE",
+      "message": "Section numbers 1.1–8.7 are 'Guidance Notes for Specification of Work to be read in conjunction with the Pricing Schedule'. Quantities and rates live in the Pricing Schedule (not in this document). product_requirement_seeds therefore carry no quantity_hint beyond per-unit descriptions.",
+      "evidence_refs": [
+        "Header: 'GUIDANCE NOTES FOR SPECIFICATION OF WORK TO BE READ IN CONJUNCTION WITH THE PRICING SCHEDULE'"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#title-block",
+      "anchor_text": "INSTALLATION OF EQUIPMENT AND MINOR WORKS AT PROPERTIES FOR PEOPLE WITH DISABILITIES"
+    },
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#period-of-contract",
+      "anchor_text": "The contract will cover the period 1 st November 2026 to 31 st October 2028"
+    },
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#timescales",
+      "anchor_text": "Standard work (Code D) is to be completed within 15 working days from the date of the Works Approval Form"
+    },
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#timescales",
+      "anchor_text": "Works relating to discharge from hospital (Code A) to be completed within 24 hours"
+    },
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#dbs",
+      "anchor_text": "all operatives visiting clients in their homes ... must have been subjected to an enhanced DBS check"
+    },
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#tupe",
+      "anchor_text": "Transfer of Undertakings (Protection of Employment) Regulations 2006"
+    },
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#regulations-and-statutory-bodies",
+      "anchor_text": "Gas Safety (Installation and Use) Regulations 1998 and BS 7671:2008 Requirement for Electrical Installations - IET Wiring Regulations Eighteenth Edition"
+    },
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#health-and-safety",
+      "anchor_text": "the pre-qualification schemes that form the SSIP (Safety Schemes in Procurement) Forum"
+    },
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#health-and-safety-cdm",
+      "anchor_text": "the Construction (Design and Management) Regulations 2015 apply"
+    },
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#health-and-safety-asbestos",
+      "anchor_text": "The Control of Asbestos Regulations 2012 (CAR 2012)"
+    },
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#health-and-safety-glazing",
+      "anchor_text": "All safety glazing must be clearly and permanently marked in accordance with BS EN 12600"
+    },
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#environment-and-energy",
+      "anchor_text": "The Environmental Protection Act 1990 (EPA1990)"
+    },
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#confidentiality",
+      "anchor_text": "The EU's General Data Protection Regulation (GDPR) will apply"
+    },
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#warranties",
+      "anchor_text": "Equipment defects and/or breakdowns occurring within twelve months of repair or installation shall be rectified by the contractor at no extra cost"
+    },
+    {
+      "page_ref": "pg-1",
+      "section_ref": "#guidance-header",
+      "anchor_text": "GUIDANCE NOTES FOR SPECIFICATION OF WORK TO BE READ IN CONJUNCTION WITH THE PRICING SCHEDULE"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "sha256:4099c275a37939274b2edd260aea8b6277974f8ee9dc2150c798e92ee4c8d8d9",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

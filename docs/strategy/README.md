@@ -12,8 +12,8 @@ This directory contains the layer decomposition strategy for building the procur
 |------|---------|
 | `layer-strategy.md` | Cross-layer strategy: design rationale, schema stability matrix, interface contracts, stage scope matrix, testing evolution, milestone mapping, stack sequencing |
 | `layers/layer-0-gold-set-evaluation.md` | L0: Gold set, evaluation harness, full SQLite DDL, screening-grade pipeline, skills standard |
-| `layers/layer-1-thin-local-runner.md` | L1: Rust daemon (17 files), two-lane adapter, session/ctty/reaper, chunked capture, commit fence, IPC protocol, single-database model, stage tracking, run manifests, error manifests |
-| `layers/layer-2-single-operator-desktop.md` | L2: Tauri desktop (16 files), commit fence, ControlPlaneState, 5-state bootstrap, 10 bridge commands, interactive SessionViewer, shared UI (FreshnessBadge, ErrorSummaryList), manifest rendering, decision capture |
+| `layers/layer-1-thin-local-runner.md` | L1: Rust daemon (20 files), two-lane adapter, session/ctty/reaper, chunked capture, commit fence, IPC protocol, single-database model, stage tracking, run manifests, error manifests |
+| `layers/layer-2-single-operator-desktop.md` | L2: Tauri desktop (18 files: 16 shipped + 2 dev-only), commit fence, ControlPlaneState, 5-state bootstrap, 10 bridge commands, interactive SessionViewer, shared UI (FreshnessBadge, ErrorSummaryList), manifest rendering, decision capture |
 | `layers/layer-3-operational-hardening.md` | L3: Cron, resource arbiter, PTY hardening, worker-validator dry-run, skill promotion, relation resolution with cluster identity, validator health monitoring, trust-state lattice |
 | `layers/layer-4-shared-visibility.md` | L4: Sync engine (fenced writer, command ledger, hi-water pull), Supabase schema/RLS, web portal (viewer-scoped security boundary), validation enforcement with provisional promotion buffer |
 | `layers/layer-5-expanded-commercial-intelligence.md` | L5: Full customs engine, dual FX, freight APIs, multi-source marketplace search |

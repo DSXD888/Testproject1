@@ -156,11 +156,11 @@ All layer docs are complete. Each is self-contained for implementation.
 
 | Layer | File | Lines | Key Content |
 |-------|------|-------|-------------|
-| 0 | `layers/layer-0-gold-set-evaluation.md` | ~4,170 | Full DDL (47 tables), 15-stage pipeline logic, skill standard, evaluation harness |
-| 1 | `layers/layer-1-thin-local-runner.md` | ~1,590 | Daemon core (17 files), two-lane adapter, session/ctty/reaper, chunked capture, commit fence, IPC protocol, stage tracking, run manifests |
-| 2 | `layers/layer-2-single-operator-desktop.md` | ~860 | Desktop architecture (16 files), commit fence, ControlPlaneState, 5-state bootstrap, 10 bridge commands, interactive SessionViewer, FreshnessBadge |
-| 3 | `layers/layer-3-operational-hardening.md` | ~1,140 | Worker-validator dry-run, skill promotion, source health, relation resolution |
-| 4 | `layers/layer-4-shared-visibility.md` | ~790 | Sync engine, Supabase schema/RLS, web portal, validation enforcement |
+| 0 | `layers/layer-0-gold-set-evaluation.md` | ~4,300 | Full DDL (49 tables), 15-stage pipeline logic, skill standard, evaluation harness |
+| 1 | `layers/layer-1-thin-local-runner.md` | ~2,300 | Daemon core (20 files), pdf extraction toolkit, two-lane adapter, session/ctty/reaper, chunked capture, commit fence, IPC protocol, stage tracking, run manifests |
+| 2 | `layers/layer-2-single-operator-desktop.md` | ~1,960 | Desktop architecture (18 files: 16 shipped + 2 dev-only), commit fence, ControlPlaneState, 5-state bootstrap, 10 bridge commands, interactive SessionViewer, FreshnessBadge |
+| 3 | `layers/layer-3-operational-hardening.md` | ~1,740 | Worker-validator dry-run, skill promotion, source health, relation resolution |
+| 4 | `layers/layer-4-shared-visibility.md` | ~800 | Sync engine, Supabase schema/RLS, web portal, validation enforcement |
 | 5 | `layers/layer-5-expanded-commercial-intelligence.md` | ~520 | Full customs engine, FX/freight, multi-source marketplace |
 | 6 | `layers/layer-6-request-pipeline-automation.md` | ~380 | Bid workflow, portal-specific skills, audit trail |
 
@@ -363,10 +363,10 @@ The verifiable output is a CLI-visible summary plus a local markdown opportunity
 
 | Component | Action | Files |
 |-----------|--------|-------|
-| Skills | Create | 2 (`procurement-ingestion/fts`, `manifest-generation`) |
+| Skills | Create | 6 (`procurement-ingestion/fts`, `manifest-generation`, `pdf-extraction/base`, `pdf-extraction/tender-specification`, `pdf-extraction/pricing-schedule`, `pdf-extraction/bill-of-quantities`) |
 | Rust workspace | Create | `Cargo.toml` (workspace root) |
-| `crates/daemon` | Create | 17 core files (main, db/sqlite, pty/session+capture+health, jobs/runner, agents/adapter+codex+claude+artifacts+contracts, prompt/renderer, errors/manifest+markdown, ipc/descriptor+handshake, sessions/reaper) |
-| Database | Create | `0003_sqlite_runtime.sql` (agent_session_logs, raw_documents, error_manifests, executors, source_cursors, commit_clock — all in single `state.db`) |
+| `crates/daemon` | Create | 20 core files (main, db/sqlite, pty/session+capture+health, jobs/runner, agents/adapter+codex+claude+artifacts+contracts, prompt/renderer, errors/manifest+markdown, ipc/descriptor+handshake, sessions/reaper, pdf/engine+chunking+policy) |
+| Database | Create | `0003_sqlite_runtime.sql` (agent_session_logs, raw_documents, error_manifests, executors, source_cursors, commit_clock — all in single `state.db`), `0006_pdf_extraction_toolkit.sql` (`document_extractions`, `document_semantic_extractions`) |
 
 ### Data Introduced
 
@@ -379,18 +379,38 @@ The verifiable output is a CLI-visible summary plus a local markdown opportunity
 | `error_manifests` | Local-only | Full error context for pipeline failures |
 | `executors` | Push-owned | Daemon instance identity (`owner_id`, `executor_id`, heartbeat) |
 | `source_cursors` | Local-only | Per-source ingestion watermarks for incremental retrieval |
+| `document_extractions` | Push-owned | Structural extraction output from Docling — links raw documents to extracted content (markdown, sections, tables, metadata, quality metrics). `raw_document_id` is an opaque reference (no SQL FK) per cross-authority FK discipline rule 15. |
+| `document_semantic_extractions` | Push-owned | Semantic mapping output from Claude pdf-extraction skills — domain-specific structured data per overlay, linked to `document_extractions` via FK |
+
+**Entity relationship chain (document extraction):**
+
+```
+raw_documents (PDF bytes on disk)
+    │
+    ├── 1:N ──→ document_extractions (Docling structural output)
+    │               │   (one current row per raw_document × engine × version × strategy)
+    │               │
+    │               └── 1:N ──→ document_semantic_extractions (Claude domain mapping)
+    │                               └── writes to → notice_lots, product_candidates
+    │
+    └── N:1 ──→ tender_document_sets (document collection metadata)
+```
+
+**Parent-child job cascade:** The extraction orchestration uses parent-child job cascading: `extract_document_structure` is the parent job, and `extract_document_semantics` jobs (one per expected overlay, plus optional chunk-merge jobs) are children linked via `workflow_jobs.parent_job_id`. This is the first real consumer of the `parent_job_id` column that has existed as nullable since L0. This is DISTINCT from `continuation_chain_id`, which tracks same-skill checkpoint resumption.
 
 **Activated tables (created in Layer 0, now actively used):**
 
 | Table | Change |
 |-------|--------|
 | `qualification_runs`, `product_candidates`, `search_profiles`, `search_attempts`, `supplier_quotes`, `candidate_pricing_assessments`, `landed_cost_estimates` | First **live-source** writes now active via the daemon-managed local pipeline loop |
-| `tender_document_sets` | First live-source document acquisition writes now active |
+| `tender_document_sets` | First live-source document acquisition writes now active; `extraction_state` now actively populated by PDF extraction engine |
 | `manifests` | First live-source verifiable output now active (local markdown/file artifact + row) |
 | `pipeline_assessments` | First live-source process rollups now active; `validation_state` starts as `unverified` from first write |
 | `workflow_jobs` | Now actively used by Job Runner for job lifecycle; `parent_job_id`, `validation_required`, `validation_verdict_id` remain nullable |
 | `process_stage_status` | Now actively written by Job Runner — records execution status per stage per scope |
 | `process_stage_heads` | Now actively written — advances atomically when a stage succeeds for its full scope |
+
+**State split:** `tender_document_sets.extraction_state` is the notice-level document-set progress signal (`none` / `partial` / `complete` / `failed`). `document_extractions.semantic_extraction_state` is the per-document semantic-overlay aggregate (`pending` / `partial` / `complete` / `failed` / `skipped`). They are distinct and must not be conflated.
 
 ### Authority Classification
 
@@ -434,7 +454,7 @@ None (Rust-only layer).
 1. `cargo check --all-targets` and `cargo clippy --all-targets -- -D warnings` pass
 2. Rust binary launches skills via CLI (both PTY and contract mode)
 3. Manual CLI trigger ingests a live FTS batch using source-batched skill execution
-4. The first live end-to-end local loop completes for at least one notice: normalize → qualify → acquire docs → extract lots → extract products → price-signal match → gross gate → landed cost → manifest
+4. The first live end-to-end local loop completes for at least one notice: normalize → prequalify_notice → acquire docs (including structural extraction → semantic extraction) → extract lots → qualify_lot → extract products → price-signal match → gross gate → landed cost → manifest
 5. Verifiable output exists without later layers: CLI summary and/or local markdown manifest artifact proves the loop completed
 6. Process-group supervision verified: every session gets pgid, cleanup verdict recorded (clean/forced/leaked)
 7. Artifact capture works: PTY bytes compressed and stored, session metadata in `agent_session_logs`
@@ -507,7 +527,7 @@ Single operator runs system daily for one week, making real accept/reject decisi
 | `packages/intelligence` | Create | 1 (`margins/coverage-rollup.ts`) |
 | `packages/ui` | Create | 5 (index, contract-card-frame, manifest-viewer, pipeline-badge, freshness-badge) |
 | `packages/manifests` | Create | 2 (render-opportunity.ts, opportunity.md.ts template) |
-| `apps/desktop` | Create | 16 files (full desktop shell) |
+| `apps/desktop` | Create | 18 files (16 shipped + 2 dev-only) |
 
 ### Data Introduced
 
@@ -782,7 +802,7 @@ Two users view the same pipeline: desktop operator (read-write) and web viewer (
 
 **Supabase projection tables (push-owned, mirroring local):**
 
-All push-owned tables from Layers 0–3 get Supabase counterparts: `procurement_processes`, `contract_notices`, `notice_lots`, `tender_document_sets`, `qualification_runs`, `product_candidates`, `search_profiles`, `search_attempts`, `supplier_quotes`, `candidate_pricing_assessments`, `landed_cost_estimates`, `manifests`, `process_relations`, `process_aliases`, `pipeline_assessments`, `bid_workflow_states`, `process_stage_status`, `process_stage_heads`.
+All push-owned tables from Layers 0–3 get Supabase counterparts: `procurement_processes`, `contract_notices`, `notice_lots`, `tender_document_sets`, `qualification_runs`, `product_candidates`, `search_profiles`, `search_attempts`, `supplier_quotes`, `candidate_pricing_assessments`, `landed_cost_estimates`, `manifests`, `process_relations`, `process_aliases`, `pipeline_assessments`, `bid_workflow_states`, `process_stage_status`, `process_stage_heads`, `document_extractions`, `document_semantic_extractions`.
 
 **Supabase summary tables (push-owned projections):**
 
@@ -1109,6 +1129,8 @@ Nothing — this is the final layer.
 
 L0 §2 is the constitutional schema source and reserves the full logical shape of every table up front. In this matrix, **Created** means the first layer where that already-specified table is physically materialized or operationally introduced in the implementation plan; **First Active Use** means the first layer where real workloads begin writing or consuming it.
 
+Matrix-count note: this section currently renders as 46 rows because the five Supabase summary tables are grouped into one row for readability. Counting underlying operational tables represented here yields 50. That does not conflict with the Layer 0 "49 tables" count, which is the constitutional DDL inventory and excludes the later Supabase-only CAS ledger `operator_decision_commands`.
+
 | Table | Created | First Active Use | Sync Activated | Authority |
 |-------|---------|-----------------|----------------|-----------|
 | `procurement_processes` | L0 | L0 | L4 | Push-owned |
@@ -1122,7 +1144,9 @@ L0 §2 is the constitutional schema source and reserves the full logical shape o
 | `pipeline_assessments` | L0 | L0 (gold-set harness), L1 (first live-source rollups), L2 (desktop coverage surface) | L4 | Push-owned |
 | `qualification_runs` | L0 | L0 | L4 | Push-owned |
 | `landed_cost_estimates` | L0 | L0 (screening-grade), L5 (decision-grade fields populated) | L4 | Push-owned |
-| `tender_document_sets` | L0 | L1 (first live-source document acquisition) | L4 | Push-owned |
+| `tender_document_sets` | L0 | L1 (first live-source document acquisition); `extraction_state` column exists from L0 (forward-compatibility), first populated in L1 | L4 | Push-owned |
+| `document_extractions` | L1 | L1 (structural extraction from document acquisition) | L4 | Push-owned |
+| `document_semantic_extractions` | L1 | L1 (semantic overlay extraction) | L4 | Push-owned |
 | `manifests` | L0 | L1 (first live-source verifiable output), L2 (desktop rendering) | L4 | Push-owned |
 | `process_stage_status` | L0 | L1 (stage tracking) | L4 | Push-owned |
 | `process_stage_heads` | L0 | L1 (stage tracking) | L4 | Push-owned |
@@ -1163,7 +1187,7 @@ L0 §2 is the constitutional schema source and reserves the full logical shape o
 3. **Sync tracking columns from day 1.** All push-owned tables include `owner_id`, `row_version`, `last_local_seq`, `stage_run_id`, `created_at`, `updated_at` from their creation in Layer 0, and those fields are populated on first write even before the outbox engine exists.
 4. **No column renames.** Column names are stable across layers (important for sync field mapping).
 5. **Junction tables introduced with parent tables.** `notice_cpv_codes` created alongside `contract_notices` in L0.
-6. **Job kinds.** Each pipeline stage maps to a specific `job_kind` value in `workflow_jobs` (e.g., `sync_source`, `normalize_notice`, `prequalify_notice`, `qualify_lot`, `extract_products`, `enrich_supplier_prices`, `estimate_landed_cost`). Qualification split into `prequalify_notice` (notice-grain) and `qualify_lot` (lot-grain). The full mapping of 17+ job kinds to pipeline stages is defined in the Layer 0 doc §5.1.
+6. **Job kinds.** Each pipeline stage maps to a specific `job_kind` value in `workflow_jobs` (e.g., `sync_source`, `normalize_notice`, `prequalify_notice`, `qualify_lot`, `extract_products`, `enrich_supplier_prices`, `estimate_landed_cost`, `extract_document_structure`, `extract_document_semantics`). Qualification split into `prequalify_notice` (notice-grain) and `qualify_lot` (lot-grain). `extract_document_structure` is runner-native (daemon subprocess, no agent adapter, consumes no `browser_slots` or `agent_slots`); `extract_document_semantics` runs through the standard agent adapter pipeline (`headless_contract`, consumes 1 `agent_slot` and no `browser_slots`). The full mapping of 20 job kinds to pipeline stages is defined in the Layer 0 doc §5.1.
 7. **Validation forward-compatibility exists from job-table introduction.** `workflow_jobs.parent_job_id` is nullable from Layer 0, `workflow_jobs.validation_required` exists from Layer 0 with default `false`, and `workflow_jobs.validation_verdict_id` is nullable from Layer 0.
 8. **Run-manifest columns exist from session-log introduction.** `agent_session_logs.run_manifest_path` and `agent_session_logs.run_manifest_hash` exist when `agent_session_logs` is introduced in Layer 1 and are populated from the first skill run.
 9. **Validation state exists from assessment-table introduction.** `pipeline_assessments.validation_state` exists from Layer 0 with default `'unverified'`.
@@ -1207,7 +1231,7 @@ L0 §2 is the constitutional schema source and reserves the full logical shape o
 | Normalize | per notice | `notice` | `contract_notices` |
 | Relate | per process cluster | `process` | `procurement_processes`, `contract_notices` |
 | Prequalify notice | per notice | `notice` | `contract_notices` (provisional goods/services/works classification before lot extraction) |
-| Acquire docs | per notice | `notice` | `contract_notices`, `tender_document_sets` (only for provisionally-qualified notices) |
+| Acquire docs | per notice | `notice` | `contract_notices`, `tender_document_sets` (only for provisionally-qualified notices). Includes structural extraction (Docling subprocess, `document_extractions`) and semantic extraction (Claude overlay skills, `document_semantic_extractions`) as internal sub-capabilities — these do not introduce new `scope_kind` values. |
 | Extract lots | per notice | `notice` | `contract_notices`, `notice_lots` |
 | Qualify lot | per lot | `lot` | `notice_lots`, `qualification_runs` (final lot-level qualification with document support) |
 | Extract products | per lot | `lot` | `notice_lots`, `product_candidates` |
@@ -1256,7 +1280,7 @@ These input/output contracts between pipeline stages are established in Layer 0 
 | Boundary | Required Input | Required Output | Established |
 |----------|---------------|-----------------|-------------|
 | prequalify_notice → acquire_docs | `QualificationResult` per notice: expiryQualified, goodsQualified, accessRoute, qualificationBasis=notice_only | Per-notice provisional pass/review/reject | L0 |
-| acquire_docs → extract_lots | Document set completeness, document roles | `TenderDocumentSet` with `documentSetHash` | L1 |
+| acquire_docs → extract_lots | Document set completeness, document roles, structural extraction output (`document_extractions` with extracted_markdown, extracted_tables_json, extracted_sections_json), semantic extraction output (`document_semantic_extractions` with domain-specific structured data) | `TenderDocumentSet` with `documentSetHash` + extraction evidence | L1 |
 | extract_lots → qualify_lot | `NoticeLot` entities, document context | `QualificationResult` per lot with lotId, qualificationBasis=lot_level, addressableValuePence | L0 |
 | extract_lots → extract_products | `NoticeLot` with title/description, lotNumber | At least one lot per qualified notice | L0 |
 | extract_products → score_quoteability | `ProductCandidate` with lotId, headNoun, identityConfidence, candidateType, matchArchetype | At least one candidate per qualified lot | L0 |
@@ -1291,12 +1315,12 @@ Release gates use either real external integrations (live browser sessions, live
 | Layer | New Test Files | Cumulative | Focus |
 |-------|---------------|------------|-------|
 | L0 | 4 | 4 | Intelligence pipeline unit tests |
-| L1 | 10 | 14 | Adapter, PTY, skill linting, canary harness, session reaper, IPC handshake |
-| L2 | 11 | 25 | Playwright browser E2E (6 specs: contracts, decisions, sessions, commit-fence, errors, security), Tauri integration (1 spec), agent E2E (4 Rust tests) |
-| L3 | 18 | 43 | Fault injection, replay, validation, drift, validator canary health, retro-validation |
-| L4 | 4 | 47 | Sync, schema, web E2E, redaction boundary |
-| L5 | 5 | 52 | Customs classification, measure interaction, FX, freight |
-| L6 | 3 | 55 | Bid workflow states, portal side-effects, readiness gate |
+| L1 | 15 | 19 | Adapter, PTY, skill linting, canary harness, session reaper, IPC handshake + PDF extraction cascade, semantic overlay, skill inventory |
+| L2 | 11 | 30 | Playwright browser E2E (6 specs: contracts, decisions, sessions, commit-fence, errors, security), Tauri integration (1 spec), agent E2E (4 Rust tests) |
+| L3 | 18 | 48 | Fault injection, replay, validation, drift, validator canary health, retro-validation |
+| L4 | 4 | 52 | Sync, schema, web E2E, redaction boundary |
+| L5 | 5 | 57 | Customs classification, measure interaction, FX, freight |
+| L6 | 3 | 60 | Bid workflow states, portal side-effects, readiness gate |
 
 ---
 
@@ -1382,7 +1406,8 @@ For quick reference, when each major component becomes active:
 | TypeScript intelligence pipeline | L0 | Screening-grade |
 | Evaluation harness | L0 | Full |
 | Gold-set lot corpus | L0 | Initial (≥80 lots: gating + challenge) |
-| Rust daemon binary | L1 | Thin (17 files: launch + capture + supervise + IPC + reaper) |
+| Rust daemon binary | L1 | Thin (20 files: launch + capture + supervise + IPC + reaper + pdf extraction) |
+| PDF extraction engine (structural + semantic) | L1 | Full (3 daemon modules + 4 skill directories + 2 job kinds) |
 | Agent adapter (two-lane: OutputFrame + ControlEvent) | L1 | Full |
 | Process-group supervision + session semantics | L1 | Full (setsid, ctty, CLOEXEC, reaper) |
 | Commit fence (`commit_seq` / `visibleAfterSeq`) | L1 | Full |

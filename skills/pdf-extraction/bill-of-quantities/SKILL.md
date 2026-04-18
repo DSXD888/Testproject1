@@ -28,6 +28,10 @@ Do not use this skill for pricing schedules whose primary output is rate-card pr
 - `field_confidences`, `extraction_confidence_bps`, `warnings`, and `evidence_anchors` for daemon-side persistence and audit.
 - `extraction_metadata` with `target_domain = "quantities"` and a required `extraction_scope` for `full_document` vs `chunk_merged:<plan_hash>` persistence.
 
+## CRITICAL: Result Contract
+
+You MUST write your output as a valid JSON file named `result.json` in the current working directory. The JSON must match `result.schema.json` exactly. Do NOT output a narrative text response. Write ONLY the structured JSON result file. The daemon reads this file after the session completes.
+
 ## Non-goals
 - Acting as the primary pricing overlay for tender pricing schedules.
 - Reconstructing document layout instead of using Docling structure.

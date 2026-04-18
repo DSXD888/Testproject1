@@ -1,0 +1,280 @@
+{
+  "lots": [
+    {
+      "lot_number": "3",
+      "title": "Provision of Asbestos Surveys Services",
+      "description": "Single-lot Draft Terms & Conditions template (Part 1 Form of Contract, Part 2 General Terms & Conditions, Part 3 Special Conditions — TUPE) governing the supply of Asbestos Surveys services in London Borough of Bexley Council Buildings by an appointed Contractor. The template was drafted for a contract period 1 September 2020 to 31 August 2024 and is being reused as the draft T&Cs for Lot 3 of Framework 6278. The substantive asbestos service specification, pricing schedule, ITT and Contractor proposal are referenced as Schedules 1–4 but are not present in the body of this extracted document (header placeholders only).",
+      "requirements": [
+        "Contractor shall supply the Services during the Contract Period in accordance with the Council's requirements as set out in the Specification, the Code of Conduct at Appendix D to the ITT and the provisions of the Contract (Clause B1.1).",
+        "Contractor shall comply with the Quality Standards, and where applicable maintain accreditation with the relevant Quality Standards authorisation body; unspecified standards shall be agreed with the Council prior to supply and shall follow the Law and Good Industry Practice (Clause B3.1).",
+        "All Staff supplying the Services must possess the qualifications, skills and experience set out in the Specification; staff must wear appropriate uniform/safety clothing at all times on site (Clause B4.2).",
+        "Contractor shall register with the Disclosure and Barring Service and, where required by the Specification, carry out DBS criminal records checks on relevant staff, with rechecks at least every three years; a DBS policy and staff-check register shall be provided to the Council (Clauses B4.9, B4.11–B4.14).",
+        "Contractor shall ensure that chemicals, substances and materials used in the Services comply with manufacturer instructions, the Specification, HSE/Environment Agency approvals, and any relevant British or European standard (Clause D6.2).",
+        "Contractor shall comply with the Health and Safety at Work etc. Act 1974 and all applicable health & safety law, orders, regulations and codes of practice including those referred to in the Specification (Clause D6.7).",
+        "Contractor shall maintain public/third-party liability and product liability insurance of at least £5,000,000 per claim (rising to £10,000,000 per claim where the Contractor employs 100 or more people), employer's liability of at least £5,000,000 per incident, and, where required by the nature of the services, professional indemnity insurance of at least £2,000,000 per incident (Clause G1.7).",
+        "Contractor shall maintain professional indemnity insurance of not less than £2,000,000 per claim, continuing for at least six years after expiry or termination of the Contract (Clause G2).",
+        "Contractor shall provide records of and Management Reports summarising the KPIs set out in Appendix E to the Invitation to Tender, and meet with the Authorised Officer at the frequency specified in the Specification (Clauses F5.3, F7.1–F7.2).",
+        "Processing of Personal Data shall be limited to what is authorised in Schedule 1; Contractor acts as Processor (unless Schedule 1 states otherwise) and shall comply with the Data Protection Legislation and GDPR Joint Controller arrangements where applicable (Clauses E1.1, E1.15).",
+        "Contractor shall preserve the integrity of Council Data, prevent corruption/loss, and use the latest industry-accepted anti-virus definitions/software on any Contractor ICT system that interfaces with the Council's ICT systems (Clauses E1A.4, E1A.9).",
+        "Sub-contractors must be paid undisputed sums within 30 days of a valid invoice; the Council may publish compliance with this obligation (Clause C2.6).",
+        "Contract period: commences on the Commencement Date and expires on the date specified in the Form of Contract / Specification; Council may extend under Clause F8; Contract Price is fixed for the initial Contract Period subject to Clause C4 (Clauses A2, C1.1, C4.1)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "KPIs and service level indicators",
+          "summary": "Services subject to KPIs set out in Appendix E to the Invitation to Tender; failure beyond the permitted number of acceptable failures triggers Service Credits under Clause C3A. The KPI table itself is not included in this document — it lives in Appendix E to the ITT.",
+          "weighting_text": "Not stated in this document; Appendix E to ITT not present.",
+          "evidence_anchor": {
+            "page_ref": "Part 2 §F5",
+            "section_ref": "F5 KPIs and Remedies in the Event of Inadequate Performance",
+            "anchor_text": "Where any part of the Services is stated in Appendix E to the Invitation to Tender to be the subject of a specific KPI the Contractor shall perform the Services in such a manner as will ensure that the Indicator ... is met."
+          }
+        },
+        {
+          "criterion": "Service Credits regime for Service Failures",
+          "summary": "Council may invoice the Contractor or deduct from the Contract Price an amount equal to the Service Credits defined in Appendix E to the ITT whenever the Contractor commits a Service Failure.",
+          "weighting_text": "Credit amounts defined in Appendix E to ITT; not present in this document.",
+          "evidence_anchor": {
+            "page_ref": "Part 2 §C3A",
+            "section_ref": "C3A Service Credits",
+            "anchor_text": "If the Contractor commits a Service Failure the Council shall be entitled to either submit an invoice to the Contractor or make deductions from the Contract Price for an amount corresponding to the Service Credits."
+          }
+        },
+        {
+          "criterion": "Default Notice / inadequate performance remedy",
+          "summary": "Authorised Officer may issue a Default Notice where Services are not performed, performed inadequately, or not in accordance with the Contract, independent of the Service Credit regime.",
+          "evidence_anchor": {
+            "page_ref": "Part 2 §F5.5",
+            "section_ref": "F5.5",
+            "anchor_text": "where the Authorised Officer reasonably determines that the Services or any part thereof have either not been performed or have been performed inadequately or not in accordance with the Contract, the Authorised Officer may issue a Default Notice to the Contractor."
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bexley-6278-lot3-asbestos-surveys",
+          "summary": "Provision of asbestos survey services (sampling, inspection and reporting) to be delivered across London Borough of Bexley Council Buildings under the Framework 6278 Lot 3 draft T&Cs. Detailed survey types, qualifications, and accreditation requirements are referred to the (missing) Schedule 1 Specification.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Recitals scope: 'the provision of Asbestos Surveys services in Council Buildings as defined in the attached Specification' (Recital A).",
+            "Contract period (per template recital): 1 September 2020 to 31 August 2024.",
+            "Quality Standards clause (B3.1) requires compliance with BSI / ISO / equivalent published standards and accreditation where applicable.",
+            "Staff qualifications requirement (B4.2) — details of required qualifications live in the Specification, which is not included in the extracted body."
+          ],
+          "evidence_anchor": {
+            "page_ref": "Part 1 Form of Contract — Recital A",
+            "section_ref": "Recital A (line ~41)",
+            "anchor_text": "The Council wishes to secure the provision of Asbestos Surveys services in Council Buildings as defined in the attached Specification (\"the Services\") during the period 1 September 2020 to 31 August 2024."
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "BSI British Standards Institution standards",
+          "context": "Defined as 'Quality Standards' in Clause A1.1 and required by Clause B3.1 (Quality Standards). Specific BS / BS EN numbers are not enumerated in the body of this document.",
+          "evidence_anchor": {
+            "page_ref": "Part 2 §A1.1 'Quality Standards' definition",
+            "section_ref": "A1.1",
+            "anchor_text": "\"Quality Standards\" means the quality standards published by BSI British Standards Institution, the National Standards Body of the United Kingdom, the International Organisation for Standardisation or other reputable or equivalent body ..."
+          }
+        },
+        {
+          "standard_ref": "ISO (International Organisation for Standardisation) standards",
+          "context": "Referenced generically in the 'Quality Standards' definition (Clause A1.1) and the Quality Standards obligation (B3.1). No specific ISO numbers enumerated in this document.",
+          "evidence_anchor": {
+            "page_ref": "Part 2 §A1.1 'Quality Standards' definition",
+            "section_ref": "A1.1",
+            "anchor_text": "... the International Organisation for Standardisation or other reputable or equivalent body ..."
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work etc. Act 1974 and associated H&S law",
+          "context": "Clause D6.7 requires the Contractor to comply with the 1974 Act and all applicable acts, orders, regulations and codes of practice relating to health and safety. No asbestos-specific statute (e.g., CAR 2012) is named in the body of this document.",
+          "evidence_anchor": {
+            "page_ref": "Part 2 §D6.7",
+            "section_ref": "D6.7",
+            "anchor_text": "The Contractor shall comply with all applicable Law regarding health and safety including (without limitation) the requirements of the Health and Safety at Work etc. Act 1974 and any other acts, orders, regulations and codes of practice relating to health and safety ..."
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "Part 1 Form of Contract — title block (lines ~1–17)",
+        "section_ref": "Form of Contract title block",
+        "anchor_text": "AGREEMENT ... THE MAYOR AND BURGESSES OF THE LONDON BOROUGH OF BEXLEY ... RELATING TO THE PROVISION OF ASBESTOS SURVEYS SERVICES"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "bexley-6278-lot3-asbestos-surveys",
+      "lot_number": "3",
+      "candidate_name": "Asbestos Surveys Services — Bexley Framework 6278 Lot 3",
+      "summary": "Draft T&Cs template envisages the Contractor delivering Asbestos Surveys services to London Borough of Bexley Council Buildings throughout the Contract Period. Detailed service scope (survey types, sampling protocols, reporting formats) is deferred to Schedule 1 Specification, which is not present in the extracted document body.",
+      "requirements": [
+        "Delivery location: London Borough of Bexley Council Buildings (defined in Recital A and the 'Premises' definition in Clause A1.1).",
+        "Contract period per template recital: 1 September 2020 to 31 August 2024; Council holds an extension right under Clause F8.",
+        "Compliance with the Quality Standards clause (B3.1) — BSI / ISO / equivalent reputable standards, with accreditation maintained where applicable.",
+        "DBS-checked staff with documented qualifications (Clauses B4.2, B4.9, B4.11).",
+        "Health and safety compliance under HSWA 1974 and associated law (Clause D6.7); chemical / substance use must comply with the Specification and HSE/EA approvals (Clause D6.2).",
+        "Insurance minima: £5M public/product liability (rising to £10M where ≥100 staff), £5M employer's liability, £2M professional indemnity where required (Clause G1.7, G2).",
+        "Reporting: Management Reports summarising KPIs per Appendix E to the ITT (Clauses F5.3, F7.1–F7.2)."
+      ],
+      "technical_standards": [
+        "BSI / British Standards (Clause A1.1 'Quality Standards' definition; B3.1).",
+        "ISO standards (Clause A1.1 'Quality Standards' definition; B3.1).",
+        "Health and Safety at Work etc. Act 1974 and associated H&S law (Clause D6.7)."
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Part 1 Form of Contract — Recital A (line ~41)",
+        "section_ref": "Recital A",
+        "anchor_text": "The Council wishes to secure the provision of Asbestos Surveys services in Council Buildings as defined in the attached Specification (\"the Services\") during the period 1 September 2020 to 31 August 2024."
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots": 9200,
+    "lots.lot_number": 9500,
+    "lots.title": 9500,
+    "lots.description": 8500,
+    "lots.requirements": 8800,
+    "lots.evaluation_criteria": 6500,
+    "lots.cpv_codes": 2000,
+    "lots.product_requirements": 5500,
+    "lots.technical_standards": 6000,
+    "product_requirement_seeds": 6500,
+    "product_requirement_seeds.requirements": 6800,
+    "product_requirement_seeds.technical_standards": 5800,
+    "product_requirement_seeds.cpv_codes": 2000,
+    "evidence_anchors": 9000,
+    "extraction_metadata": 9800
+  },
+  "extraction_confidence_bps": 6800,
+  "warnings": [
+    {
+      "code": "SPECIFICATION_SCHEDULE_MISSING",
+      "message": "Schedule 1 (Specification) is referenced throughout (Clauses 1.2(d), B1.1, B3.2, B4.2, B4.11, D6.2, D6.7, F3.1, F9.2) but the extracted markdown contains only the header placeholder 'SCHEDULE 1 / SPECIFICATION' with no body. Asbestos-specific survey scope, standards (e.g., HSG264, UKAS ISO/IEC 17020/17025 accreditation, BOHS P402/P404/P405 competency, CAR 2012 compliance) are therefore unavailable from this document. Detailed product requirements should be sourced from the actual Specification schedule.",
+      "evidence_refs": ["Part 1 §1.2(d)", "Part 2 §B1.1", "Schedule 1 placeholder (line ~1513)"]
+    },
+    {
+      "code": "PRICING_SCHEDULE_MISSING",
+      "message": "Schedule 2 (Pricing Schedule) is referenced (Clauses 1.2(e), C1.1, C2.2, A1.1 'Pricing Schedule' definition) but only the header placeholder is present in the extracted markdown. Contract Price, unit rates and rate card cannot be derived from this document.",
+      "evidence_refs": ["Part 1 §1.2(e)", "Part 2 §C1.1", "Schedule 2 placeholder (line ~1517)"]
+    },
+    {
+      "code": "ITT_SCHEDULE_MISSING",
+      "message": "Schedule 3 (The Council's Invitation to Tender) and its appendices (notably Appendix D — Code of Conduct, Appendix E — KPIs / Service Credits table) are referenced throughout (Clauses B1.1, F5.1–F5.4, F7.1) but are not included in the extracted markdown. Award / evaluation criteria and explicit KPI weightings cannot be derived from this document.",
+      "evidence_refs": ["Part 2 §B1.1", "Part 2 §F5.1", "Schedule 3 placeholder (line ~1521)"]
+    },
+    {
+      "code": "CONTRACTOR_TENDER_SCHEDULE_MISSING",
+      "message": "Schedule 4 (The Contractor's Tender) is a placeholder — not yet populated at draft-T&Cs stage. No product_requirement_seeds derivable from the Contractor's tender content.",
+      "evidence_refs": ["Part 1 §1.2(g)", "Schedule 4 placeholder (line ~1525)"]
+    },
+    {
+      "code": "CPV_NOT_STATED_IN_DOCUMENT_BODY",
+      "message": "No CPV codes appear in the body of this draft T&Cs document. The notice-level CPV codes (50700000-2 Repair and maintenance services of building installations; 50750000-7 Lift-maintenance services; 71315000-9 Building services) cover the framework but are not lot-specific and do not enumerate an asbestos-specific CPV (e.g., 90650000-8 Asbestos removal services, 71317100-4 Asbestos protection services). cpv_codes deliberately left empty on the lot — fabricating asbestos CPVs without textual evidence would violate evidence grounding.",
+      "evidence_refs": ["whole document — no CPV references found"]
+    },
+    {
+      "code": "TEMPLATE_DATES_STALE_RELATIVE_TO_NOTICE",
+      "message": "The recital states a contract period of 1 September 2020 to 31 August 2024, but the parent Contract Notice pc-dc1daee2-772e-f111-813c-005056b64545 has deadline_at 2026-05-18. The document is a template carry-over whose dates have not been refreshed for the current 6278 framework procurement. Treat period dates as template residue, not authoritative scheduling data.",
+      "evidence_refs": ["Part 1 Form of Contract — Recital A (line ~41)", "Part 1 §1.3 (line ~67) — 'shall commence on 1 September 2020'"]
+    },
+    {
+      "code": "TEMPLATE_CROSS_LOT_RESIDUE",
+      "message": "Clause B4.2 references 'qualifications set out in paragraph 3.12 of the Specification' for 'fire risk assessors' — this is residual boilerplate from another lot (Lot 1 Fire Risk Assessments) and does not apply to Lot 3 Asbestos Surveys. Flagged so downstream pipeline does not mis-derive a fire-assessor requirement for Lot 3.",
+      "evidence_refs": ["Part 2 §B4.2 (line ~569)"]
+    },
+    {
+      "code": "NO_STRUCTURAL_TABLES_EXTRACTED",
+      "message": "Docling extraction produced 0 tables and 0 section records (table_count=0, section_count=0, page_count=0 in document_extractions). Section references in evidence anchors therefore use clause numbers (e.g., 'Part 2 §B3.1') and approximate markdown-line anchors rather than true page/section IDs.",
+      "evidence_refs": ["document_extractions.extracted_sections_json=[]", "document_extractions.extracted_tables_json=[]"]
+    },
+    {
+      "code": "SINGLE_LOT_DOCUMENT",
+      "message": "This document scopes Lot 3 only. The parent notice has 11 lots (Lots 1–11) but the draft T&Cs extracted here cover solely Lot 3 Provision of Asbestos Surveys Services. A single lot record is emitted; the other 10 lots must be extracted from their own per-lot T&Cs / Specifications.",
+      "evidence_refs": ["Part 1 Form of Contract — title block 'RELATING TO THE PROVISION OF ASBESTOS SURVEYS SERVICES'", "contract_notices.title '6278 - Building Services Framework - Lots 1-11'"]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "Part 1 Form of Contract — title block",
+      "section_ref": "Form of Contract title block (lines 1–17)",
+      "anchor_text": "AGREEMENT ... THE MAYOR AND BURGESSES OF THE LONDON BOROUGH OF BEXLEY ... RELATING TO THE PROVISION OF ASBESTOS SURVEYS SERVICES"
+    },
+    {
+      "page_ref": "Part 1 §A (Recital)",
+      "section_ref": "Recital A (line ~41)",
+      "anchor_text": "The Council wishes to secure the provision of Asbestos Surveys services in Council Buildings as defined in the attached Specification (\"the Services\") during the period 1 September 2020 to 31 August 2024"
+    },
+    {
+      "page_ref": "Part 1 §1.2",
+      "section_ref": "1.2 Contract documents and precedence (lines 53–65)",
+      "anchor_text": "(d) The Specification appended hereto as Schedule 1; (e) The Pricing Schedule appended hereto as Schedule 2; (f) The Council's ITT appended hereto as Schedule 3; (g) The Contractor's Proposal ... as Schedule 4"
+    },
+    {
+      "page_ref": "Part 2 §B1.1",
+      "section_ref": "B1 The Services (line ~533)",
+      "anchor_text": "The Contractor shall supply the Services during the Contract Period in accordance with the Council's requirements as set out in the Specification the Code of Conduct set out at Appendix D to the Invitation to Tender ..."
+    },
+    {
+      "page_ref": "Part 2 §B3.1",
+      "section_ref": "B3 Quality Standards (line ~561)",
+      "anchor_text": "The Contractor shall at all times comply with the Quality Standards, and where applicable shall maintain accreditation with the relevant Quality Standards authorisation body."
+    },
+    {
+      "page_ref": "Part 2 §B4.2",
+      "section_ref": "B4 Contractor's Staff (line ~569)",
+      "anchor_text": "all Staff engaged in the provision of the Services shall have the relevant and appropriate qualifications, and be competent, skilled, honest and experienced ..."
+    },
+    {
+      "page_ref": "Part 2 §B4.9–B4.14",
+      "section_ref": "B4.9–B4.14 DBS obligations (lines 589–599)",
+      "anchor_text": "satisfactory DBS checks in accordance with Clause B4.11 ... The Contractor shall at his expense register with the Disclosure and Barring Service ..."
+    },
+    {
+      "page_ref": "Part 2 §D6.2, §D6.7",
+      "section_ref": "D6 Health and Safety (lines 787, 797)",
+      "anchor_text": "any chemicals or other solutions or substances or materials used for the purposes of the Services will comply ... the requirements of the Health and Safety at Work etc. Act 1974 ..."
+    },
+    {
+      "page_ref": "Part 2 §G1.7",
+      "section_ref": "G1 Insurance (line ~1291)",
+      "anchor_text": "public and third party liability and product liability insurance for not less than £5 million pounds ... employer's liability insurance of not less than £5 million pounds ... professional indemnity insurance of not less than £2 million pounds ..."
+    },
+    {
+      "page_ref": "Part 2 §G2",
+      "section_ref": "G2 Professional Indemnity (line ~1299)",
+      "anchor_text": "professional indemnity insurance held by the Contractor ... has a limit of indemnity of not less than £2,000,000 for each individual claim ... maintained for a minimum of 6 (six) years following the expiration or earlier termination of the Contract."
+    },
+    {
+      "page_ref": "Part 2 §F5",
+      "section_ref": "F5 KPIs and Remedies (lines 1163–1175)",
+      "anchor_text": "Where any part of the Services is stated in Appendix E to the Invitation to Tender to be the subject of a specific KPI the Contractor shall perform the Services in such a manner as will ensure that the Indicator ... is met."
+    },
+    {
+      "page_ref": "Part 2 §C3A",
+      "section_ref": "C3A Service Credits (line ~703)",
+      "anchor_text": "If the Contractor commits a Service Failure the Council shall be entitled to either submit an invoice to the Contractor or make deductions from the Contract Price for an amount corresponding to the Service Credits."
+    },
+    {
+      "page_ref": "Part 2 §F7",
+      "section_ref": "F7 Monitoring of Contract Performance (lines 1193–1195)",
+      "anchor_text": "The Contractor shall comply with the monitoring arrangements set out in the Specification including, but not limited to, providing Management Reports ..."
+    },
+    {
+      "page_ref": "Schedules section",
+      "section_ref": "Schedule 1 / 2 / 3 / 4 placeholders (lines 1513–1527)",
+      "anchor_text": "SCHEDULE 1 / SPECIFICATION / SCHEDULE 2 / PRICING SCHEDULE / SCHEDULE 3 / THE COUNCIL'S INVITATION TO TENDER / SCHEDULE 4 / THE CONTRACTOR'S TENDER"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "sha256:85d4c518c3cb852d8eecc8d50f6a9f60aa460cf56390ff37f3ef734e528688f5",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

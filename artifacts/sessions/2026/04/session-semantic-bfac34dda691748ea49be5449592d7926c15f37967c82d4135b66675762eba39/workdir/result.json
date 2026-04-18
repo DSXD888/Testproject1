@@ -1,0 +1,641 @@
+{
+  "lots": [
+    {
+      "lot_number": "7",
+      "title": "Lift Servicing, Maintenance, Repair, Minor Refurbishment and Compliance Management",
+      "description": "London Borough of Bexley appoints a single Supplier to provide servicing, maintenance, repair, minor refurbishment and compliance management for lifts within the corporate estate, with the option to include schools and other sites on a call-off basis. Service includes a 365-day, 24/7 call-out response for entrapments, failures and safety incidents across 24 lift assets at 12 sites (subject to change). Contract commencement Sept 2026, initial term 3+2 years subject to performance. Integration with the Council's CAFM (Civica/TF Cloud) is mandatory.",
+      "requirements": [
+        "Provide 24/7/365 call-out response for entrapments, failures and safety incidents (attendance: Entrapment/Life Safety within 1 hour target; Operational Failure within 4 hours; Nuisance/Minor Fault next working day).",
+        "All new or substantially modified equipment must comply with EN 81-20:2020 and EN 81-50:2020 (or UK-designated equivalents) and the Lifts Regulations 2016 (UK).",
+        "Where buildings fall within scope of BS 9991:2024, evacuation lift requirements must be considered during project design and lifecycle planning.",
+        "Track emerging standards (e.g., ISO 8100-1/-2 convergence) and apply successor or designated standards without delay.",
+        "Prepare an annual PPM schedule per site/asset, distinguishing statutory tasks (e.g., LOLER thorough examinations) from best-practice servicing; execute PPMs per manufacturer guidance and EN 13015.",
+        "Monthly servicing of passenger service lifts (ride quality, levelling, door operation/guards incl. non-contact light curtain per EN 81-20, alarm/emergency comms, pit/car-top/shaft/machine room inspection, lubrication, cleaning, defect logging).",
+        "Quarterly (or manufacturer-recommended) servicing for service lifts, platforms and access lifts; for person-carrying platform lifts LOLER thorough examination interval set to 6 months.",
+        "LOLER thorough examination by competent person at statutory intervals (typically 6-monthly for passenger/goods-passenger lifts; 12-monthly for goods-only). Reports must meet LOLER Sch. 1 and be retained. Complete certificates within 28 days of insurer report unless risk dictates sooner.",
+        "Apply SAFed LG1 for supplementary tests (UCMP, door systems, emergency release, refuge spaces, fire service/evacuation modes) when called by the competent person.",
+        "Use OEM or approved equivalent parts; safety-critical items must meet EN 81-20/50 performance where replaced; provide datasheets and declarations on request.",
+        "Operate a compatible work management platform with mobile workflows, photo evidence, asset updates and API/CSV exchange with Civica/TF Cloud; all work orders issued and updated via Civica/TF Cloud in real time.",
+        "Maintain a 24/7 telephony service for the Council, site contacts and the public (for entrapment calls) with call data available for audit.",
+        "Comply with HSW Act 1974, LOLER 1998, PUWER 1998, EAWR 1989, RIDDOR 2013, Workplace (H, S&W) Regulations; provide RAMS for all tasks and review annually or after incidents/changes.",
+        "Assume potential presence of ACMs unless confirmed; consult/sign site asbestos register; comply with Control of Asbestos Regulations 2012 and Council procedures.",
+        "Cooperate with Principal Designer/Principal Contractor under CDM 2015 for projects involving construction/refurbishment.",
+        "Engineers must be qualified and current, with ongoing training on EN 81-20/50, BS 7255:2023 (safe working on lifts), entrapment releases and site rules; maintain on-call rota 24/7 with English-proficient supervisors for customer-facing roles.",
+        "Submit Operating Manuals within 6 weeks of start: M&E Plan, PPM schedule by building, emergency and safety procedures, QA, hazardous materials, training plan, compliance logbooks.",
+        "Replace all references to the Data Protection Act 1998 with UK GDPR and Data Protection Act 2018; coordinate FOIA 2000 requests via the Council.",
+        "Deliver services consistent with the Equality Act 2010; provide inclusive support for vulnerable users and accessible notices.",
+        "Support carbon reduction plan: route optimisation, low-emission travel, LED car lighting, power-saving modes, regenerative drives where feasible, and recycling of components/packaging; provide environmental data for carbon reporting.",
+        "No sub-contracting without prior written consent; Supplier remains fully responsible for delivery and compliance, and passes down all safety/compliance/KPI/reporting obligations.",
+        "Maintain and annually test a Business Continuity Plan for major disruptions; ensure resilience for entrapment response and statutory inspections.",
+        "Deliver measurable social value outcomes aligned with Council priorities (local employment, apprenticeships, training, sustainability).",
+        "Mobilisation to establish governance, contacts, CAFM integration, key access, KPI baselines, asset validation and PPM regimes; all RAMS and emergency procedures before go-live.",
+        "Provide daily call-out summaries, weekly performance dashboards, monthly KPI reports, statutory compliance tracker, open quotes/defects register and insurer remedials progress; one monthly consolidated invoice via Civica/TF Cloud."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "KPI performance monitoring",
+          "summary": "Contract performance measured via KPIs (availability, first-time fix, statutory compliance) tracked through Civica/TF Cloud; monthly reports must include KPI results, H&S, complaints, staffing and continuous improvement actions.",
+          "evidence_anchor": {
+            "page_ref": "lines-39-41",
+            "section_ref": "Continuous Improvement and Performance Management",
+            "anchor_text": "Use data from Civica/TF Cloud to track KPIs (e.g., availability, first-time fix, statutory compliance) and implement improvement plans."
+          }
+        },
+        {
+          "criterion": "Monitoring & Reporting",
+          "summary": "Monthly reports must cover KPI results, health & safety, complaints, staffing, and continuous improvement actions; KPIs monitor Supplier performance relative to service standards and contract compliance.",
+          "evidence_anchor": {
+            "page_ref": "lines-277-279",
+            "section_ref": "Monitoring & Reporting",
+            "anchor_text": "Contract performance will be measured using KPIs to monitor the Supplier's performance relative to service standards and contract compliance."
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot7-traction-inclusive-parts",
+          "summary": "Inclusive consumables/components for traction lift systems: oils/greases, fuses, brushes, standard lamps, and selected contacts/switch gear; safety-critical replacements must meet EN 81-20/50 performance.",
+          "requirement_type": "inclusive_parts_consumables",
+          "technical_attributes": [
+            "Category: traction lift consumables",
+            "Examples: oils, greases, fuses, brushes, standard lamps, selected contacts and switch gear",
+            "Safety-critical performance: EN 81-20/50 compliant where replaced",
+            "OEM or approved equivalent parts per Section 'Responsibilities'"
+          ],
+          "quantity_hint": "Consumable ongoing across 24 lift assets / 12 sites (subject to change)",
+          "evidence_anchor": {
+            "page_ref": "lines-149-152",
+            "section_ref": "Traction Lifts — Inclusive Parts",
+            "anchor_text": "Inclusive consumables/components typical to traction systems (e.g., oils/greases, fuses, brushes, standard lamps, selected contacts/switch gear) as per contract pricing schedule. Safety-critical items must meet EN 81-20/50 performance where replaced."
+          }
+        },
+        {
+          "seed_key": "lot7-hydraulic-inclusive-parts",
+          "summary": "Inclusive consumables/components for hydraulic lift systems: seals, packings, hoses, pumps, valves and motors, unless expressly excluded (buried piping and direct-acting cylinders may be excluded where specified).",
+          "requirement_type": "inclusive_parts_consumables",
+          "technical_attributes": [
+            "Category: hydraulic lift consumables",
+            "Examples: seals, packings, hoses, pumps, valves, motors",
+            "Exclusions (where specified): buried piping, direct-acting cylinders",
+            "OEM or approved equivalent parts"
+          ],
+          "quantity_hint": "Consumable ongoing across hydraulic assets in the 24-lift / 12-site portfolio",
+          "evidence_anchor": {
+            "page_ref": "lines-153-156",
+            "section_ref": "Hydraulic Lifts — Inclusive Parts",
+            "anchor_text": "Inclusive items such as seals, packings, hoses, pumps, valves, and motors unless expressly excluded. Buried piping and direct-acting cylinders may be excluded where specified."
+          }
+        },
+        {
+          "seed_key": "lot7-door-light-curtain",
+          "summary": "Non-contact curtain-of-light door detection system on passenger lifts, required by EN 81-20.",
+          "requirement_type": "safety_component",
+          "technical_attributes": [
+            "Door protection type: non-contact light curtain",
+            "Compliance: EN 81-20",
+            "Installed on: passenger service lifts"
+          ],
+          "quantity_hint": "One door protection system per passenger lift entrance; retrofit scope subject to asset validation",
+          "evidence_anchor": {
+            "page_ref": "lines-173-175",
+            "section_ref": "Routine Servicing — Passenger Service Lifts & Associated Equipment",
+            "anchor_text": "Door detection must meet the non-contact curtain of light requirement under EN 81-20."
+          }
+        },
+        {
+          "seed_key": "lot7-energy-efficiency-components",
+          "summary": "Energy-efficiency components for lifts: LED car lighting, standby/power-saving modes, regenerative drives where feasible, supporting Council carbon reduction.",
+          "requirement_type": "energy_efficiency_component",
+          "technical_attributes": [
+            "LED car lighting",
+            "Power-saving / standby operating modes",
+            "Regenerative drives (where feasible)"
+          ],
+          "quantity_hint": "Fleet-wide energy retrofits as feasible",
+          "evidence_anchor": {
+            "page_ref": "lines-257-259",
+            "section_ref": "Energy & Environmental Assessments",
+            "anchor_text": "Support energy-saving measures (e.g., LED, standby modes, regenerative drives where feasible) and provide environmental data for the Council's carbon reporting."
+          }
+        },
+        {
+          "seed_key": "lot7-cafm-integration-platform",
+          "summary": "Supplier-side work management platform with mobile workflows, photo evidence capture, asset updates and API/CSV exchange with Council CAFM (Civica/TF Cloud).",
+          "requirement_type": "software_platform",
+          "technical_attributes": [
+            "Mobile workflows (engineer app)",
+            "Photo evidence capture",
+            "Asset register updates",
+            "API and/or CSV exchange interoperable with Civica/TF Cloud"
+          ],
+          "quantity_hint": "Single supplier-operated platform for the contract portfolio",
+          "evidence_anchor": {
+            "page_ref": "lines-213-215",
+            "section_ref": "Suppliers' System Capability Requirements",
+            "anchor_text": "Supplier to operate a compatible work management platform with mobile workflows, photo evidence, asset updates and API/CSV exchange with Civica/TF Cloud."
+          }
+        },
+        {
+          "seed_key": "lot7-telephony-service",
+          "summary": "24/7 telephony service covering the Council, site contacts and members of the public (entrapment calls) with call data available for audit.",
+          "requirement_type": "telephony_service",
+          "technical_attributes": [
+            "24/7 availability",
+            "Routing for entrapment/public calls",
+            "Auditable call data"
+          ],
+          "quantity_hint": "Single supplier-operated telephony service for the contract portfolio",
+          "evidence_anchor": {
+            "page_ref": "lines-49-51",
+            "section_ref": "Telephony",
+            "anchor_text": "Maintain a 24/7 telephony service for the Council, site contacts and the public (for entrapment calls), with call data available for audit."
+          }
+        },
+        {
+          "seed_key": "lot7-safed-lg1-supplementary-tests",
+          "summary": "Supplementary safety testing per SAFed LG1 (UCMP, door systems, emergency release, refuge spaces, fire service/evacuation modes) when called by the competent person.",
+          "requirement_type": "inspection_test_service",
+          "technical_attributes": [
+            "Standard: SAFed LG1",
+            "Tests: UCMP, door systems, emergency release, refuge spaces, fire service/evacuation modes",
+            "Trigger: competent-person request under LOLER thorough examination"
+          ],
+          "quantity_hint": "Asset-specific; triggered from LOLER cycle and insurer report",
+          "evidence_anchor": {
+            "page_ref": "lines-181-183",
+            "section_ref": "Examination & Testing of Lifts (LOLER & SAFed)",
+            "anchor_text": "SAFed LG1 applies for supplementary tests (e.g., UCMP, door systems, emergency release, refuge spaces, fire service/evacuation modes) when called by the competent person."
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "EN 81-20:2020",
+          "context": "Safety rules for the construction and installation of lifts — applicable to new or substantially modified equipment and to safety-critical replacement parts; door protection must meet the non-contact light-curtain requirement under this standard.",
+          "evidence_anchor": {
+            "page_ref": "lines-13-16",
+            "section_ref": "Introduction and Context",
+            "anchor_text": "All new or substantially modified equipment must comply with EN 81-20:2020 and EN 81-50:2020 (or UK-designated equivalents), and the Lifts Regulations 2016 (UK)."
+          }
+        },
+        {
+          "standard_ref": "EN 81-50:2020",
+          "context": "Examination and tests of lift components — applied in parallel with EN 81-20:2020 for new/modified installations and safety-critical replacements.",
+          "evidence_anchor": {
+            "page_ref": "lines-13-16",
+            "section_ref": "Introduction and Context",
+            "anchor_text": "All new or substantially modified equipment must comply with EN 81-20:2020 and EN 81-50:2020 (or UK-designated equivalents)."
+          }
+        },
+        {
+          "standard_ref": "Lifts Regulations 2016 (UK)",
+          "context": "Primary UK lifts regulations including designated standards; compliance required across all works.",
+          "evidence_anchor": {
+            "page_ref": "lines-13-16",
+            "section_ref": "Introduction and Context",
+            "anchor_text": "the Lifts Regulations 2016 (UK)"
+          }
+        },
+        {
+          "standard_ref": "ISO 8100-1:2019",
+          "context": "Emerging lifts standard referenced in primary legislation and guidance list; Supplier must track ISO 8100-1/-2 convergence and apply successor or designated standards.",
+          "evidence_anchor": {
+            "page_ref": "lines-17-18",
+            "section_ref": "Introduction and Context",
+            "anchor_text": "The Supplier must track emerging standards (e.g., ISO 8100-1/-2 convergence) and apply successor or designated standards without delay."
+          }
+        },
+        {
+          "standard_ref": "BS 9991:2024",
+          "context": "Fire safety in the design, management and use of residential buildings — evacuation lift requirements where buildings fall within its scope.",
+          "evidence_anchor": {
+            "page_ref": "lines-13-16",
+            "section_ref": "Introduction and Context",
+            "anchor_text": "Where buildings fall within scope of BS 9991:2024, evacuation lift requirements must be considered during project design and lifecycle planning."
+          }
+        },
+        {
+          "standard_ref": "LOLER 1998",
+          "context": "Lifting Operations and Lifting Equipment Regulations — thorough examinations by competent person at statutory intervals (typically 6-monthly for passenger/goods-passenger; 12-monthly for goods-only). Reports must meet LOLER Sch. 1.",
+          "evidence_anchor": {
+            "page_ref": "lines-181-183",
+            "section_ref": "Examination & Testing of Lifts (LOLER & SAFed)",
+            "anchor_text": "All lifts used by people at work require LOLER thorough examination by a competent person at statutory intervals (typically 6-monthly for passenger/goods-passenger lifts; 12-monthly for goods-only)."
+          }
+        },
+        {
+          "standard_ref": "PUWER 1998",
+          "context": "Provision and Use of Work Equipment Regulations — applicable to all work equipment used in the service.",
+          "evidence_anchor": {
+            "page_ref": "lines-225-227",
+            "section_ref": "Legislation & Standards",
+            "anchor_text": "Health and Safety at Work etc. Act 1974; LOLER 1998; PUWER 1998; EAWR 1989; RIDDOR 2013"
+          }
+        },
+        {
+          "standard_ref": "EAWR 1989",
+          "context": "Electricity at Work Regulations — applicable to electrical work on lift equipment.",
+          "evidence_anchor": {
+            "page_ref": "lines-225-227",
+            "section_ref": "Legislation & Standards",
+            "anchor_text": "LOLER 1998; PUWER 1998; EAWR 1989; RIDDOR 2013"
+          }
+        },
+        {
+          "standard_ref": "RIDDOR 2013",
+          "context": "Reporting of Injuries, Diseases and Dangerous Occurrences Regulations — accident/incident reporting duties.",
+          "evidence_anchor": {
+            "page_ref": "lines-117-119",
+            "section_ref": "Notification of Accidents",
+            "anchor_text": "Report RIDDOR events as required, sharing notices and investigations."
+          }
+        },
+        {
+          "standard_ref": "HSW Act 1974",
+          "context": "Health and Safety at Work etc. Act — overarching H&S duty.",
+          "evidence_anchor": {
+            "page_ref": "lines-57-59",
+            "section_ref": "Health and Safety",
+            "anchor_text": "Comply with HSW Act 1974, LOLER, PUWER, EAWR 1989, RIDDOR 2013, Workplace (Health, Safety and Welfare) Regulations and relevant standards/codes."
+          }
+        },
+        {
+          "standard_ref": "Control of Asbestos Regulations 2012",
+          "context": "All asbestos-related work must comply with CAR 2012 and the site Asbestos Management Plan; registers accessed via Civica/TF Cloud.",
+          "evidence_anchor": {
+            "page_ref": "lines-23-24",
+            "section_ref": "General / Asbestos",
+            "anchor_text": "All work must comply with the Control of Asbestos Regulations 2012 and the site Asbestos Management Plan."
+          }
+        },
+        {
+          "standard_ref": "CDM 2015",
+          "context": "Construction (Design and Management) Regulations — applies to projects involving construction/refurbishment; cooperate with Principal Designer/Principal Contractor.",
+          "evidence_anchor": {
+            "page_ref": "lines-37-38",
+            "section_ref": "Management and Organisation of Resources",
+            "anchor_text": "For projects involving construction/refurbishment, the Supplier must cooperate with the Principal Designer/Principal Contractor under CDM 2015."
+          }
+        },
+        {
+          "standard_ref": "EN 13015",
+          "context": "Maintenance for lifts and escalators — PPM execution per manufacturer guidance and EN 13015.",
+          "evidence_anchor": {
+            "page_ref": "lines-165-167",
+            "section_ref": "Servicing",
+            "anchor_text": "execute PPMs per manufacturer guidance and EN 13015 (maintenance for lifts and escalators)"
+          }
+        },
+        {
+          "standard_ref": "SAFed LG1",
+          "context": "Safety Assessment Federation Guidance LG1 — supplementary testing (UCMP, doors, emergency release, refuge, fire service/evacuation modes) called by competent person.",
+          "evidence_anchor": {
+            "page_ref": "lines-181-183",
+            "section_ref": "Examination & Testing of Lifts (LOLER & SAFed)",
+            "anchor_text": "SAFed LG1 applies for supplementary tests"
+          }
+        },
+        {
+          "standard_ref": "BS 7255:2023",
+          "context": "Safe working on lifts — code of practice; training and operational compliance required.",
+          "evidence_anchor": {
+            "page_ref": "lines-97-99",
+            "section_ref": "Training & Staff",
+            "anchor_text": "ongoing training on EN 81-20/50, BS 7255:2023 (safe working on lifts), entrapment releases and site rules."
+          }
+        },
+        {
+          "standard_ref": "UK GDPR",
+          "context": "Data protection obligations — Supplier systems and Civica/TF Cloud processing must follow UK GDPR principles.",
+          "evidence_anchor": {
+            "page_ref": "lines-43-47",
+            "section_ref": "Data Protection and Freedom of Information",
+            "anchor_text": "Replace all references to the Data Protection Act 1998 with UK GDPR and Data Protection Act 2018."
+          }
+        },
+        {
+          "standard_ref": "Data Protection Act 2018",
+          "context": "UK data protection statute — applicable alongside UK GDPR.",
+          "evidence_anchor": {
+            "page_ref": "lines-43-47",
+            "section_ref": "Data Protection and Freedom of Information",
+            "anchor_text": "UK GDPR and Data Protection Act 2018."
+          }
+        },
+        {
+          "standard_ref": "Freedom of Information Act 2000",
+          "context": "FOIA requests coordinated via the Council; Supplier must provide information promptly.",
+          "evidence_anchor": {
+            "page_ref": "lines-45-47",
+            "section_ref": "Data Protection and Freedom of Information",
+            "anchor_text": "Requests under the Freedom of Information Act 2000 will be coordinated via the Council"
+          }
+        },
+        {
+          "standard_ref": "Equality Act 2010",
+          "context": "Services delivered consistent with Equality Act 2010 and Council policies; accessible communication and reasonable adjustments.",
+          "evidence_anchor": {
+            "page_ref": "lines-85-87",
+            "section_ref": "Recognising Equality and Diversity",
+            "anchor_text": "Deliver services consistent with the Equality Act 2010 and Council policies"
+          }
+        },
+        {
+          "standard_ref": "Approved Document M (2024 amendments)",
+          "context": "Building Regulations access provisions — reference to 2024 amendments in the primary legislation and guidance list.",
+          "evidence_anchor": {
+            "page_ref": "lines-221-227",
+            "section_ref": "Compliance / Legislation & Standards",
+            "anchor_text": "Approved Documents (notably Part M), BS 9991:2024 (where applicable)"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "lines-3-18",
+        "section_ref": "Document header / Introduction and Context",
+        "anchor_text": "London Borough of Bexley Lift Specification Contract Commencement Sept 2026 ... 24 lift assets across 12 sites ... initial contract term is 3+2 years"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot7-traction-inclusive-parts",
+      "lot_number": "7",
+      "candidate_name": "Traction lift inclusive consumables and wearing components",
+      "summary": "Ongoing supply of inclusive traction-system consumables and wearing components priced within the maintenance contract framework; safety-critical replacements must meet EN 81-20/50 performance.",
+      "requirements": [
+        "Category: oils and greases suitable for traction drive machines",
+        "Category: fuses for lift control and door electronics",
+        "Category: brushes for motors and brake assemblies",
+        "Category: standard lamps for car and shaft lighting",
+        "Category: selected contacts and switch gear as listed in the contract pricing schedule",
+        "OEM or approved equivalent parts only",
+        "Safety-critical replacements must meet EN 81-20:2020 / EN 81-50:2020 performance"
+      ],
+      "technical_standards": [
+        "EN 81-20:2020",
+        "EN 81-50:2020",
+        "Lifts Regulations 2016 (UK)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "lines-149-152",
+        "section_ref": "Traction Lifts — Inclusive Parts",
+        "anchor_text": "Inclusive consumables/components typical to traction systems (e.g., oils/greases, fuses, brushes, standard lamps, selected contacts/switch gear) ... Safety-critical items must meet EN 81-20/50 performance where replaced."
+      }
+    },
+    {
+      "seed_key": "lot7-hydraulic-inclusive-parts",
+      "lot_number": "7",
+      "candidate_name": "Hydraulic lift inclusive consumables and wearing components",
+      "summary": "Ongoing supply of inclusive hydraulic-system consumables and wearing components priced within the maintenance contract framework (seals, packings, hoses, pumps, valves, motors). Buried piping and direct-acting cylinders may be excluded where specified.",
+      "requirements": [
+        "Category: seals and packings for hydraulic rams/valves",
+        "Category: hydraulic hoses",
+        "Category: hydraulic pumps",
+        "Category: hydraulic control valves",
+        "Category: hydraulic motors",
+        "Exclusions (where specified): buried piping, direct-acting cylinders",
+        "OEM or approved equivalent parts only"
+      ],
+      "technical_standards": [
+        "EN 81-20:2020",
+        "EN 81-50:2020",
+        "Lifts Regulations 2016 (UK)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "lines-153-156",
+        "section_ref": "Hydraulic Lifts — Inclusive Parts",
+        "anchor_text": "Inclusive items such as seals, packings, hoses, pumps, valves, and motors unless expressly excluded. Buried piping and direct-acting cylinders may be excluded where specified."
+      }
+    },
+    {
+      "seed_key": "lot7-door-light-curtain",
+      "lot_number": "7",
+      "candidate_name": "Non-contact curtain-of-light door protection system (EN 81-20)",
+      "summary": "Non-contact light-curtain door detection system for passenger service lifts, required by EN 81-20. Supply-and-install may be triggered through passenger lift modernisation or retrofit where existing systems do not meet this requirement.",
+      "requirements": [
+        "Door protection technology: non-contact curtain of light",
+        "Compliance: EN 81-20 door detection requirements",
+        "Compatible retrofit onto existing passenger service lift door operators in the portfolio"
+      ],
+      "technical_standards": [
+        "EN 81-20:2020"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "lines-173-175",
+        "section_ref": "Routine Servicing — Passenger Service Lifts & Associated Equipment",
+        "anchor_text": "Door detection must meet the non-contact curtain of light requirement under EN 81-20."
+      }
+    },
+    {
+      "seed_key": "lot7-energy-efficiency-components",
+      "lot_number": "7",
+      "candidate_name": "Lift energy-efficiency components (LED lighting, standby/power-saving controls, regenerative drives)",
+      "summary": "Energy-efficiency upgrade components supporting the Council's carbon reduction plan: LED car lighting, standby/power-saving modes and regenerative drives where feasible.",
+      "requirements": [
+        "LED car lighting retrofits (low-emission, low-energy)",
+        "Standby / power-saving operating modes enabled on controllers",
+        "Regenerative drives where feasible by motor/controller compatibility",
+        "Provide environmental / energy data feeds for carbon reporting"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "lines-73-75",
+        "section_ref": "Environmental Requirements / Energy & Environmental Assessments",
+        "anchor_text": "route optimisation, low-emission travel, LED car lighting, power-saving modes, recycling of components and packaging."
+      }
+    },
+    {
+      "seed_key": "lot7-cafm-integration-platform",
+      "lot_number": "7",
+      "candidate_name": "Supplier work-management platform with CAFM integration (Civica/TF Cloud)",
+      "summary": "Supplier-operated work management platform that integrates with the Council's CAFM (Civica/TF Cloud) via API and/or CSV exchange, with mobile workflows, photo evidence capture and real-time asset updates.",
+      "requirements": [
+        "Mobile workflows for engineers (work orders, photos, parts used, notes)",
+        "Real-time status updates pushed to Civica/TF Cloud",
+        "API and/or CSV exchange with Civica/TF Cloud",
+        "Photo evidence capture and retention",
+        "Asset register updates and certificate upload within 2 working days"
+      ],
+      "technical_standards": [
+        "UK GDPR",
+        "Data Protection Act 2018"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "lines-213-215",
+        "section_ref": "Suppliers' System Capability Requirements",
+        "anchor_text": "Supplier to operate a compatible work management platform with mobile workflows, photo evidence, asset updates and API/CSV exchange with Civica/TF Cloud."
+      }
+    },
+    {
+      "seed_key": "lot7-telephony-service",
+      "lot_number": "7",
+      "candidate_name": "24/7 lift telephony / entrapment call-answer service",
+      "summary": "24/7 telephony service handling calls from the Council, site contacts and the public (entrapment calls), with auditable call data.",
+      "requirements": [
+        "24/7 staffed telephony (365 days)",
+        "Entrapment-call routing and prioritisation",
+        "Auditable call data (recordings / logs)"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "lines-49-51",
+        "section_ref": "Telephony",
+        "anchor_text": "Maintain a 24/7 telephony service for the Council, site contacts and the public (for entrapment calls), with call data available for audit."
+      }
+    },
+    {
+      "seed_key": "lot7-safed-lg1-supplementary-tests",
+      "lot_number": "7",
+      "candidate_name": "SAFed LG1 supplementary testing service (UCMP, doors, emergency release, refuge, fire/evacuation)",
+      "summary": "Supplementary testing service performed when called by the competent person following LOLER thorough examination, per SAFed LG1 scope (UCMP, door systems, emergency release, refuge spaces, fire service/evacuation modes).",
+      "requirements": [
+        "Competent-person-triggered supplementary testing under SAFed LG1",
+        "Coverage of UCMP, door systems, emergency release, refuge spaces and fire service / evacuation modes",
+        "Complete certificates within 28 days of insurer report unless risk dictates sooner"
+      ],
+      "technical_standards": [
+        "LOLER 1998",
+        "SAFed LG1"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "lines-181-183",
+        "section_ref": "Examination & Testing of Lifts (LOLER & SAFed)",
+        "anchor_text": "SAFed LG1 applies for supplementary tests (e.g., UCMP, door systems, emergency release, refuge spaces, fire service/evacuation modes) when called by the competent person."
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.0.lot_number": 9200,
+    "lots.0.title": 8800,
+    "lots.0.description": 9000,
+    "lots.0.requirements": 8500,
+    "lots.0.evaluation_criteria": 5000,
+    "lots.0.cpv_codes": 2000,
+    "lots.0.product_requirements": 7800,
+    "lots.0.technical_standards": 9200,
+    "product_requirement_seeds": 7800
+  },
+  "extraction_confidence_bps": 8200,
+  "warnings": [
+    {
+      "code": "LOT_NUMBER_INFERRED_FROM_TITLE",
+      "message": "Lot number 7 is inferred from the document title '6278 - Draft specification - Lot 7' and from the header line 'Lift Specification'. The document body does not itself enumerate its lot number; no contradiction with notice-level lot metadata was detected for Lot 7.",
+      "evidence_refs": [
+        "document_title:6278 - Draft specification - Lot 7",
+        "lines-3-5"
+      ]
+    },
+    {
+      "code": "NO_CPV_IN_DOCUMENT",
+      "message": "The tender specification does not cite any CPV codes. cpv_codes is left empty; daemon-side enrichment or notice-level CPV should supply codes if needed (e.g., 50750000 'Lift-maintenance services' is the natural match but is not evidenced in this document).",
+      "evidence_refs": []
+    },
+    {
+      "code": "EVALUATION_CRITERIA_NOT_SCORED",
+      "message": "The document defines KPI-based performance monitoring but does not publish a scored evaluation model (no price/quality weightings, no sub-criterion percentages). Emitted evaluation_criteria describe the KPI/monitoring regime rather than a tender scoring matrix. Confidence kept at 50%.",
+      "evidence_refs": [
+        "lines-39-41",
+        "lines-277-279"
+      ]
+    },
+    {
+      "code": "PAGE_REFS_LINE_BASED",
+      "message": "The Docling markdown in document_extractions does not carry page boundaries (page_count=0, table_count=0, section_count=0). Evidence anchors use line-range (lines-N-M) and section heading text instead of true page numbers.",
+      "evidence_refs": []
+    },
+    {
+      "code": "DUPLICATED_SECTION_NUMBERS",
+      "message": "Docling markdown renders nearly every heading as '1.' (list-number reset per block). The literal numbering in the text is unreliable; anchors therefore use the heading title and the line range rather than the numeric prefix.",
+      "evidence_refs": [
+        "lines-11-11",
+        "lines-19-19",
+        "lines-25-25"
+      ]
+    },
+    {
+      "code": "DOCUMENT_MARKED_DRAFT",
+      "message": "The extraction is titled '6278 - Draft specification - Lot 7' indicating this is a draft. Downstream decisions should treat requirements as provisional until confirmed against the final published specification.",
+      "evidence_refs": [
+        "document_title:6278 - Draft specification - Lot 7"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "lines-3-10",
+      "section_ref": "Header",
+      "anchor_text": "London Borough of Bexley Lift Specification Contract Commencement Sept 2026"
+    },
+    {
+      "page_ref": "lines-11-18",
+      "section_ref": "Introduction and Context",
+      "anchor_text": "The Council will appoint a single Supplier to provide servicing, maintenance, repair, minor refurbishment and compliance management for lifts ... 24 lift assets across 12 sites ... initial contract term is 3+2 years"
+    },
+    {
+      "page_ref": "lines-137-139",
+      "section_ref": "Service Hours and Priorities",
+      "anchor_text": "Operate 24/7/365. Minimum attendance times: Entrapment/Life Safety: attend within 1 hour (target); Operational Failure: within 4 hours; Nuisance/Minor Fault: next working day."
+    },
+    {
+      "page_ref": "lines-149-152",
+      "section_ref": "Traction Lifts — Inclusive Parts",
+      "anchor_text": "Inclusive consumables/components typical to traction systems (e.g., oils/greases, fuses, brushes, standard lamps, selected contacts/switch gear)"
+    },
+    {
+      "page_ref": "lines-153-156",
+      "section_ref": "Hydraulic Lifts — Inclusive Parts",
+      "anchor_text": "Inclusive items such as seals, packings, hoses, pumps, valves, and motors unless expressly excluded."
+    },
+    {
+      "page_ref": "lines-165-167",
+      "section_ref": "Servicing",
+      "anchor_text": "execute PPMs per manufacturer guidance and EN 13015 (maintenance for lifts and escalators)"
+    },
+    {
+      "page_ref": "lines-173-175",
+      "section_ref": "Routine Servicing — Passenger Service Lifts & Associated Equipment",
+      "anchor_text": "Door detection must meet the non-contact curtain of light requirement under EN 81-20."
+    },
+    {
+      "page_ref": "lines-177-179",
+      "section_ref": "Routine Servicing — Service Lifts, Platforms, Access Lifts & Associated Equipment",
+      "anchor_text": "Where equipment carries persons (e.g., platform lifts), set LOLER thorough examination interval to 6 months."
+    },
+    {
+      "page_ref": "lines-181-183",
+      "section_ref": "Examination & Testing of Lifts (LOLER & SAFed)",
+      "anchor_text": "All lifts used by people at work require LOLER thorough examination by a competent person at statutory intervals (typically 6-monthly for passenger/goods-passenger lifts; 12-monthly for goods-only)."
+    },
+    {
+      "page_ref": "lines-213-215",
+      "section_ref": "Suppliers' System Capability Requirements",
+      "anchor_text": "Supplier to operate a compatible work management platform with mobile workflows, photo evidence, asset updates and API/CSV exchange with Civica/TF Cloud."
+    },
+    {
+      "page_ref": "lines-221-227",
+      "section_ref": "Compliance / Legislation & Standards",
+      "anchor_text": "Lifts Regulations 2016 (UK); EN 81-20:2020; EN 81-50:2020; ISO 8100-1:2019; Approved Document M (2024 amendments); BS 9991:2024; SAFed LG1; UK GDPR and Data Protection Act 2018."
+    },
+    {
+      "page_ref": "lines-97-99",
+      "section_ref": "Training & Staff",
+      "anchor_text": "ongoing training on EN 81-20/50, BS 7255:2023 (safe working on lifts), entrapment releases and site rules."
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "sha256:66cd85c1cb5b0709d0ed00d1cbc95eea15b1b0277ea33db13c5c1f26deb27dec",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

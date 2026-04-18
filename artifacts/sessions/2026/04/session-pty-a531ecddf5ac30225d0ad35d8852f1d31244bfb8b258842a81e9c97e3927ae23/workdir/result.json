@@ -1,0 +1,355 @@
+{
+  "cursor": "{\"last_checked_at\":\"2026-04-13T18:30:00Z\"}",
+  "continuation_required": false,
+  "enriched_tenders": [
+    {
+      "notice_id": "783238",
+      "rfx_id": "a9dc718e-aa2d-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=a9dc718e-aa2d-f111-813c-005056b64545",
+      "updated_title": "CCP074 - Provision of a Print Service DPS",
+      "updated_description": "The Council are looking to procure a Print Service using a DPS, the DPS is split into 10 Lots. The purpose of this procurement is to establish a Dynamic Purchasing System for Print Services. The DPS is for a period of 60 months with a quantity of 10 Lots being available.",
+      "updated_deadline_at": "2027-10-31T20:00:00Z",
+      "buyer_name": "Derbyshire County Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "CCP074 Tender Checklist.doc",
+          "content_type": "application/msword",
+          "size_bytes": 862208,
+          "local_path": "artifacts/downloads/procontract/783238/CCP074-Tender-Checklist.doc",
+          "document_role_hint": "response_document"
+        },
+        {
+          "filename": "CCP074 Appendix B Instructions to Bidders.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 112963,
+          "local_path": "artifacts/downloads/procontract/783238/CCP074-Appendix-B-Instructions-to-Bidders.docx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "CCP074 Appendix C FOIA Schedule.doc",
+          "content_type": "application/msword",
+          "size_bytes": 870400,
+          "local_path": "artifacts/downloads/procontract/783238/CCP074-Appendix-C-FOIA-Schedule.doc",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "CCP074 Specification for Print Service DPS.doc",
+          "content_type": "application/msword",
+          "size_bytes": 928256,
+          "local_path": "artifacts/downloads/procontract/783238/CCP074-Specification-for-Print-Service-DPS.doc",
+          "document_role_hint": "technical_specification"
+        }
+      ],
+      "documents_count": 4,
+      "enriched_at": "2026-04-13T17:46:00Z"
+    },
+    {
+      "notice_id": "782604",
+      "rfx_id": "a25079fd-2f28-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=a25079fd-2f28-f111-813c-005056b64545",
+      "updated_title": "BSH/HRA/Metal Works - Dynamic Purchasing System (DPS)",
+      "updated_description": "Metal Works - Dynamic Purchasing System (DPS). Bristol City Council wish to establish a Dynamic Purchasing System (DPS) with a number of contractors for the provision of Metal Works, which includes, repairs, modification, supply, supply and installation and fabrication. Lot 1 - Repairs and/or modification to metal items. Lot 2 - Supply only or Supply and Installation of metal items. Lot 3 - Fabrication of bespoke metal work items. Lot 4 - Repair or Replace balcony balustrades. Lot 5 - Chute Repairs.",
+      "updated_deadline_at": "2027-09-30T19:00:00Z",
+      "buyer_name": "Bristol City Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "Annexure_3_Metal_Works_Railings_and_Repairs_DPS_Minor_Works_Building_Contract_2016_Edition.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 802020,
+          "local_path": "artifacts/downloads/procontract/782604/Annexure_3_Metal_Works_Railings_and_Repairs_DPS_Minor_Works_Building_Contract_2016_Edition.pdf",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "Appendix 1 - Evaluation Criteria (Technical Assessment).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 82564,
+          "local_path": "artifacts/downloads/procontract/782604/Appendix-1-Evaluation-Criteria-Technical-Assessment.docx",
+          "document_role_hint": "response_document"
+        },
+        {
+          "filename": "ITT Metal Work DPS (3).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 146542,
+          "local_path": "artifacts/downloads/procontract/782604/ITT-Metal-Work-DPS-3.docx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "Metal Works - DPS - Final Draft August 2022.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 137247,
+          "local_path": "artifacts/downloads/procontract/782604/Metal-Works-DPS-Final-Draft-August-2022.docx",
+          "document_role_hint": "technical_specification"
+        },
+        {
+          "filename": "Non Canvassing Certificate.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 28111,
+          "local_path": "artifacts/downloads/procontract/782604/Non-Canvassing-Certificate.docx",
+          "document_role_hint": "response_document"
+        },
+        {
+          "filename": "Non Collusive Certificate.doc",
+          "content_type": "application/msword",
+          "size_bytes": 25088,
+          "local_path": "artifacts/downloads/procontract/782604/Non-Collusive-Certificate.doc",
+          "document_role_hint": "response_document"
+        },
+        {
+          "filename": "Schedule 7 Part 1 - Call-Off Contract - JCT MW16 - Final Draft August 2022.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 90075,
+          "local_path": "artifacts/downloads/procontract/782604/Schedule-7-Part-1-Call-Off-Contract-JCT-MW16-Final-Draft-August-2022.docx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "Schedule 7 Part 2 - Call-Off Contract - Goods- v Final Draft August 2022.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 56604,
+          "local_path": "artifacts/downloads/procontract/782604/Schedule-7-Part-2-Call-Off-Contract-Goods-Final-Draft-August-2022.docx",
+          "document_role_hint": "terms_and_conditions"
+        }
+      ],
+      "documents_count": 8,
+      "enriched_at": "2026-04-13T18:15:00Z"
+    },
+    {
+      "notice_id": "696802",
+      "rfx_id": "984de133-1a03-ef11-812a-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=984de133-1a03-ef11-812a-005056b64545",
+      "updated_title": "Bracknell Forest Council - 2. Emergency Hormonal Contraception (EHC)",
+      "updated_description": "Bracknell Forest Council on behalf of the three Berkshire East Local Authorities - Slough, Bracknell Forest, Royal Borough of Windsor and Maidenhead - will be hosting a new 3-year contract for the provision of Emergency Hormonal Contraception for 13-24-year-olds. This contract will be awarded under the Provider selection Regime process B Direct Award. The contract will run from 1st April 2024 - 31st March 2027. This updated service specification and pricing schedule is modeled and delivered on units of activity.",
+      "updated_deadline_at": "2027-03-26T17:00:00Z",
+      "buyer_name": "Bracknell Forest Borough Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "EHC contract and service specification 2024-2026.doc",
+          "content_type": "application/msword",
+          "size_bytes": 752640,
+          "local_path": "artifacts/downloads/procontract/696802/EHC-contract-and-service-specification-2024-2026.doc",
+          "document_role_hint": "technical_specification"
+        }
+      ],
+      "documents_count": 1,
+      "enriched_at": "2026-04-13T18:17:00Z"
+    },
+    {
+      "notice_id": "621558",
+      "rfx_id": "2e1e258d-5c80-ed11-811c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=2e1e258d-5c80-ed11-811c-005056b64545",
+      "updated_title": "BSH/HRA/Joinery Timber Supplies - DPS",
+      "updated_description": "Joinery Timber Supplies - DPS. Timber Supply Hardwoods and Timber Supply Soft Woods and Boards & Door Blanks. Bristol City Council produces high quality joinery manufactured in its own joinery shop. This DPS will be used to procure the quality timber products that will be used in the manufacture of joinery products for external use in doors, windows, framing, soffits and Fascia's, in domestic property, as well as high profile public buildings. The DPS will be run in 3 Lots: 1) Supply and delivery of Soft wood timbers, 2) Supply and delivery of Plywood and Door Blanks, 3) Supply and delivery of Hardwood and Hemlock.",
+      "updated_deadline_at": "2026-11-30T20:00:00Z",
+      "buyer_name": "Bristol City Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "Appendix 1 - Evaluation Criteria Joinery Timber Supplies.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 79102,
+          "local_path": "artifacts/downloads/procontract/621558/Appendix-1-Evaluation-Criteria-Joinery-Timber-Supplies.docx",
+          "document_role_hint": "response_document"
+        },
+        {
+          "filename": "ITT Joinery Timber Supplies DPS.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 136631,
+          "local_path": "artifacts/downloads/procontract/621558/ITT-Joinery-Timber-Supplies-DPS.docx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "Schedule 7 - Call-Off Contract - Timber Supplies.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 43939,
+          "local_path": "artifacts/downloads/procontract/621558/Schedule-7-Call-Off-Contract-Timber-Supplies.docx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "Timber Supplies - DPS Agreement.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 128890,
+          "local_path": "artifacts/downloads/procontract/621558/Timber-Supplies-DPS-Agreement.docx",
+          "document_role_hint": "technical_specification"
+        }
+      ],
+      "documents_count": 4,
+      "enriched_at": "2026-04-13T18:19:00Z"
+    },
+    {
+      "notice_id": "640042",
+      "rfx_id": "06a5154e-16e4-ed11-8121-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=06a5154e-16e4-ed11-8121-005056b64545",
+      "updated_title": "BSH/HRA/Supply of Double Glazed Units and Sheet Glass - DPS",
+      "updated_description": "Supply of Double Glazed Units and Sheet Glass - DPS. Category 1 - Supply of Double Glazed Units. Category 2 - Supply of Sheet Glass.",
+      "updated_deadline_at": "2026-11-30T20:00:00Z",
+      "buyer_name": "Bristol City Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "Appendix 1 - Evaluation Criteria Sheet Glass.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 71294,
+          "local_path": "artifacts/downloads/procontract/640042/Appendix-1-Evaluation-Criteria-Sheet-Glass.docx",
+          "document_role_hint": "response_document"
+        },
+        {
+          "filename": "Glazing Supplies - DPS Agreement.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 128854,
+          "local_path": "artifacts/downloads/procontract/640042/Glazing-Supplies-DPS-Agreement.docx",
+          "document_role_hint": "technical_specification"
+        },
+        {
+          "filename": "ITT Glazed Units & Sheet Glass DPS.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 135436,
+          "local_path": "artifacts/downloads/procontract/640042/ITT-Glazed-Units-and-Sheet-Glass-DPS.docx",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "Schedule 7 - Call-Off Contract - Glazing Supplies.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 43956,
+          "local_path": "artifacts/downloads/procontract/640042/Schedule-7-Call-Off-Contract-Glazing-Supplies.docx",
+          "document_role_hint": "terms_and_conditions"
+        }
+      ],
+      "documents_count": 4,
+      "enriched_at": "2026-04-13T18:21:00Z"
+    },
+    {
+      "notice_id": "782746",
+      "rfx_id": "28b81c96-0929-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=28b81c96-0929-f111-813c-005056b64545",
+      "updated_title": "25112 Library Services Engage, Design and Fit out Contract - Ely Library",
+      "updated_description": "To have an experienced Design and Fit Out contractor who will looking to work with the Library service to develop a final design for the Ely Library and once agreed, execute the design by delivering the fit out within the specify timeframe/scale. Contract term will be 12 months with an option for 6 month extension.",
+      "updated_deadline_at": "2026-05-22T11:00:00Z",
+      "buyer_name": "Cambridgeshire County Council",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "25112 ITT - Ely Library service Engage, Design and Fit Out.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 702769,
+          "local_path": "artifacts/downloads/procontract/782746/25112-ITT-Ely-Library-service-Engage-Design-and-Fit-Out.pdf",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "Appendix 2a - Copy of Award Criteria questionnaire.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 230272,
+          "local_path": "artifacts/downloads/procontract/782746/Appendix-2a-Copy-of-Award-Criteria-questionnaire.pdf",
+          "document_role_hint": "response_document"
+        },
+        {
+          "filename": "Appendix 3a - Pricing schedule worksheet.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 49816,
+          "local_path": "artifacts/downloads/procontract/782746/Appendix-3a-Pricing-schedule-worksheet.xlsx",
+          "document_role_hint": "pricing_schedule"
+        },
+        {
+          "filename": "Appendix 4 - Specification.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 398536,
+          "local_path": "artifacts/downloads/procontract/782746/Appendix-4-Specification.pdf",
+          "document_role_hint": "technical_specification"
+        },
+        {
+          "filename": "Appendix 5 - Ely Library Floor plan 2011.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 111039,
+          "local_path": "artifacts/downloads/procontract/782746/Appendix-5-Ely-Library-Floor-plan-2011.pdf",
+          "document_role_hint": "technical_specification"
+        },
+        {
+          "filename": "Appendix 6 - Ely library Video.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 55464,
+          "local_path": "artifacts/downloads/procontract/782746/Appendix-6-Ely-library-Video.pdf",
+          "document_role_hint": "technical_specification"
+        },
+        {
+          "filename": "Appendix 7 - Draft 25112 Contract.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 591177,
+          "local_path": "artifacts/downloads/procontract/782746/Appendix-7-Draft-25112-Contract.pdf",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "Appendix 8 - MMP Operations Manual.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 61543,
+          "local_path": "artifacts/downloads/procontract/782746/Appendix-8-MMP-Operations-Manual.pdf",
+          "document_role_hint": "technical_specification"
+        }
+      ],
+      "documents_count": 8,
+      "enriched_at": "2026-04-13T18:25:00Z"
+    },
+    {
+      "notice_id": "784078",
+      "rfx_id": "f377a574-4137-f111-813c-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=f377a574-4137-f111-813c-005056b64545",
+      "updated_title": "107_26 Inspection and Maintenance of Indoor Gymnasium, Fitness and Sport Equipment, and Outdoor Schools Play and Sport Equipment",
+      "updated_description": "Please download all the documents (ITT pack) from the Activity documentation section.",
+      "updated_deadline_at": "2026-05-15T11:00:00Z",
+      "buyer_name": "ESPO",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "107_26 Invitation to Tender FINAL.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 570900,
+          "local_path": "artifacts/downloads/procontract/784078/107_26-Invitation-to-Tender-FINAL.pdf",
+          "document_role_hint": "invitation_to_tender"
+        },
+        {
+          "filename": "107_26 Appendix A Framework Agreement FINAL.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 658055,
+          "local_path": "artifacts/downloads/procontract/784078/107_26-Appendix-A-Framework-Agreement-FINAL.pdf",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "107_26 Form of Contract and Call Off Terms Template Framework Schedule 3 FINAL.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 250304,
+          "local_path": "artifacts/downloads/procontract/784078/107_26-Form-of-Contract-and-Call-Off-Terms-Template-FINAL.docx",
+          "document_role_hint": "terms_and_conditions"
+        },
+        {
+          "filename": "107_26 Appendix B Pricing Schedule FINAL.xlsx",
+          "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "size_bytes": 20765,
+          "local_path": "artifacts/downloads/procontract/784078/107_26-Appendix-B-Pricing-Schedule-FINAL.xlsx",
+          "document_role_hint": "pricing_schedule"
+        },
+        {
+          "filename": "107_26 Tender Submission Document FINAL.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 176572,
+          "local_path": "artifacts/downloads/procontract/784078/107_26-Tender-Submission-Document-FINAL.docx",
+          "document_role_hint": "response_document"
+        },
+        {
+          "filename": "107_26 Tender Submission Checklist FINAL.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 145496,
+          "local_path": "artifacts/downloads/procontract/784078/107_26-Tender-Submission-Checklist-FINAL.docx",
+          "document_role_hint": "response_document"
+        }
+      ],
+      "documents_count": 6,
+      "enriched_at": "2026-04-13T18:27:00Z"
+    }
+  ],
+  "summary": {
+    "total_checked": 27,
+    "enriched": 7,
+    "not_yet_responded": 20,
+    "failed": 0
+  }
+}

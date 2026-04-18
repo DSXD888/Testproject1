@@ -1,0 +1,217 @@
+{
+  "lots": [
+    {
+      "lot_number": "2",
+      "title": "Provision of Water Risk Assessments",
+      "description": "Draft Terms and Conditions governing the supply of Water Risk Assessment services in Council Buildings by a Contractor to The Mayor and Burgesses of the London Borough of Bexley, under Framework 6278 (Lot 2). The Services are described in the document as 'Water Risk Assessments services in Council Buildings as defined in the attached Specification', with the detailed scope held in Schedule 1 (Specification) and the Pricing Schedule held in Schedule 2. The document sets out general contractual obligations (A-I), special conditions (Part 3), and TUPE provisions (S1) but the Schedule 1 Specification body is a placeholder in this draft and does not expose substantive technical requirements for water risk assessments in this extraction.",
+      "requirements": [
+        "Contractor shall supply the Services during the Contract Period in accordance with the Council's requirements set out in the Specification (Schedule 1), the Code of Conduct (Appendix D to the Invitation to Tender), and the provisions of the Contract (Clause B1.1).",
+        "Contractor shall ensure all Staff supplying the Services possess the qualifications, skills and experience set out in the Specification and necessary for proper supply of the Services (Clause B3.2).",
+        "Contractor shall provide all Equipment necessary for the supply of the Services at its own risk, and remove Equipment on completion (Clauses B2.1, B2.3, B2.6).",
+        "Contractor shall carry out satisfactory DBS checks on all Staff, maintain a DBS policy and supply it to the Council at commencement, and keep records of all checks (Clauses B4.9, B4.11-B4.13).",
+        "Where the Services include a Regulated Activity, the Contractor acknowledges it is a Regulated Activity Provider under the Safeguarding Vulnerable Groups Act 2006 (Clause B4.17).",
+        "Contractor shall comply with Key Performance Indicators (KPIs) as set out in Appendix E to the Invitation to Tender, with Service Credits payable for Service Failures (Clauses F5.1-F5.4, C3A).",
+        "Contractor shall comply with the monitoring arrangements set out in the Specification, including provision of Management Reports to the Authorised Officer and Contract Manager (Clauses F7.1-F7.2).",
+        "Contractor shall comply with all applicable health and safety Law, including the Health and Safety at Work etc. Act 1974, codes of practice, and any requirements referenced in the Specification (Clauses D6.4, D6.7).",
+        "Contractor acts as Processor for any Council Personal Data processing; processing must be performed only in accordance with Schedule 1, using appropriate Protective Measures including pseudonymisation/encryption and integrity, availability and resilience controls (Clauses E1.1, 'Protective Measures' definition, E1.15).",
+        "Contractor shall use anti-virus definitions from an industry-accepted vendor on ICT systems interfacing with the Council and cooperate to contain malicious software (Clauses E1A.9-E1A.10).",
+        "Contractor shall obtain and maintain all Necessary Consents (approvals, certifications, licences, permits) to provide the Services at no additional cost to the Council (Clause A7.1).",
+        "Contract Period template runs from 1 September 2020 to 31 August 2022 subject to agreed extension (Recital A); note the framework-level dates in the published notice differ and govern the live procurement.",
+        "Contractor shall transfer to the Council on request data on persons employed in the provision of the Services to enable re-letting and shall not artificially restructure its workforce near contract expiry (Clauses S1.6-S1.7)."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bexley-6278-lot2-water-risk-assessment-service",
+          "summary": "Provision of Water Risk Assessment services in Council Buildings across the London Borough of Bexley operational estate under Framework 6278 Lot 2; detailed scope, frequency, building schedule and competence requirements are referenced to Schedule 1 (Specification) which is a placeholder in this draft Terms and Conditions document.",
+          "requirement_type": "service",
+          "technical_attributes": [
+            "Service type: Water Risk Assessment (covering water systems in Council Buildings)",
+            "Premises: Council Buildings / Premises as defined in the Specification or Special Conditions",
+            "Staff competence: qualifications, skills and experience 'as are set out in the Specification' (placeholder)",
+            "Monitoring: Management Reports and KPI reporting per Appendix E to ITT",
+            "Service Credits payable under Clause C3A for Service Failure against KPIs"
+          ],
+          "quantity_hint": "Not specified in this document; scope, buildings list, frequency and volumes are held in Schedule 1 (Specification) and/or Schedule 2 (Pricing Schedule), which are placeholders in this draft.",
+          "evidence_anchor": {
+            "page_ref": "document-start",
+            "anchor_text": "The Council wishes to secure the provision of Water Risk Assessments services in Council Buildings as defined in the attached Specification",
+            "section_ref": "Part 1 Form of Contract, Recital A"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "document-start",
+        "anchor_text": "RELATING TO THE PROVISION OF WATER RISK ASSESSMENTS SERVICES",
+        "section_ref": "Part 1 Form of Contract, cover page"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "bexley-6278-lot2-water-risk-assessment-service",
+      "lot_number": "2",
+      "candidate_name": "Water Risk Assessment Services (London Borough of Bexley, Framework 6278 Lot 2)",
+      "summary": "Candidate seed for the overarching Water Risk Assessment service under Lot 2 of the London Borough of Bexley Building Services Framework 6278. Derived from the document cover page and Recital A, which state the Council's intention to secure 'the provision of Water Risk Assessments services in Council Buildings as defined in the attached Specification'. Detailed technical attributes, frequencies and per-building volumes are held in Schedule 1 (Specification) which is a placeholder in this draft document.",
+      "requirements": [
+        "Deliver Water Risk Assessment services to Council Buildings across the London Borough of Bexley estate.",
+        "Provide Equipment required for the Services at Contractor risk (Clause B2.1).",
+        "Staff supplying the Services shall possess qualifications, skills and experience as specified in Schedule 1 (Clause B3.2).",
+        "Perform satisfactory DBS checks on all Staff engaged in the Services (Clauses B4.9, B4.11-B4.13).",
+        "Report against Key Performance Indicators set out in Appendix E to the Invitation to Tender (Clauses F5, F7).",
+        "Comply with all Law, health and safety legislation, and any additional requirements referenced in the Specification (Clauses D6.7, A7.1)."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "document-start",
+        "anchor_text": "The Council wishes to secure the provision of Water Risk Assessments services in Council Buildings as defined in the attached Specification",
+        "section_ref": "Part 1 Form of Contract, Recital A"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9800,
+    "lots.title": 9500,
+    "lots.description": 7200,
+    "lots.requirements": 7500,
+    "lots.evaluation_criteria": 500,
+    "lots.cpv_codes": 500,
+    "lots.product_requirements": 4800,
+    "lots.technical_standards": 500,
+    "product_requirement_seeds": 4800,
+    "overall_document_role_match": 3500
+  },
+  "extraction_confidence_bps": 4200,
+  "warnings": [
+    {
+      "code": "SPECIFICATION_BODY_PLACEHOLDER",
+      "message": "Schedule 1 (Specification) is a bare heading with no substantive body in the supplied Docling markdown; the document is a draft Terms and Conditions template. Detailed Water Risk Assessment scope, buildings list, frequencies, competence requirements, standards (e.g. HSG274, ACoP L8) and evaluation criteria cannot be extracted from this document and must be obtained from the standalone Specification document in the tender pack.",
+      "evidence_refs": [
+        "Schedule 1 SPECIFICATION (heading only, no body)",
+        "Schedule 2 PRICING SCHEDULE (heading only, no body)"
+      ]
+    },
+    {
+      "code": "NO_EVALUATION_CRITERIA_IN_DOCUMENT",
+      "message": "Evaluation criteria are not stated in this document. The T&Cs repeatedly defer to 'Appendix E to the Invitation to Tender' for KPIs and Service Credits, and to Schedule 1/Schedule 4 for qualification and scoring detail. Evaluation criteria should be extracted from the ITT document, not from this T&Cs draft.",
+      "evidence_refs": [
+        "Definition: 'Key Performance Indicators' ... 'included in Appendix E to the Invitation to Tender'",
+        "Clause F5.1, F7.1"
+      ]
+    },
+    {
+      "code": "NO_CPV_CODES_IN_DOCUMENT",
+      "message": "No CPV codes are quoted anywhere in the supplied markdown of this T&Cs document. CPV classifications for this lot should be derived from the published Contract Notice / Find-a-Tender record for Framework 6278, not from this document.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_TECHNICAL_STANDARDS_IN_DOCUMENT",
+      "message": "No water-risk-specific technical standards (e.g. HSG274 Parts 1-3, ACoP L8, BS 8580, BS 7592, HTM 04-01) are cited in this T&Cs document. Standards are only referenced generically via phrases such as 'qualifications, skills and experience as are set out in the Specification'. Since Schedule 1 body is missing, no technical standards could be anchored in this extraction.",
+      "evidence_refs": [
+        "Clause B3.2 (generic reference to Specification)",
+        "Schedule 1 SPECIFICATION (heading only)"
+      ]
+    },
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH_SUSPECTED",
+      "message": "Document role was resolved as 'technical_specification' but the supplied content is a contractual T&Cs template (Parts 1-3 plus empty Schedules). Daemon-side role classification may need to be re-examined — this document behaves as a 'draft_tcs' or 'contract_form' rather than a tender specification with substantive requirements.",
+      "evidence_refs": [
+        "Document filename: '6278 - Draft T&CS - Lot 2 - Provision of Water Risk Assessments'",
+        "PART 1 FORM OF CONTRACT / PART 2 GENERAL TERMS AND CONDITIONS / PART 3 SPECIAL CONDITIONS section structure"
+      ]
+    },
+    {
+      "code": "CONTRACT_DATES_ARE_TEMPLATE_PLACEHOLDERS",
+      "message": "The contract period stated in Recital A ('1 September 2020 to 31 August 2022') is a template placeholder carried over from a 2020 document (filename footer 'FM Water Risk Assessment Services T&Cs 6 August 2020'). The live Framework 6278 notice advertises start date 01/09/2026 and end date 30/08/2030; authoritative dates live on the notice, not in this draft.",
+      "evidence_refs": [
+        "Recital A: 'during the period 1 September 2020 to 31 August 2022'",
+        "Document footer: 'FM Water Risk Assessment Services T&Cs 6 August 2020'"
+      ]
+    },
+    {
+      "code": "SINGLE_LOT_SCOPE",
+      "message": "This document is scoped to Lot 2 (Provision of Water Risk Assessments) only. The parent framework 6278 has 11 lots; this extraction intentionally does not synthesise lot rows for Lots 1, 3-11, which have their own lot-specific documents.",
+      "evidence_refs": [
+        "Document cover page: 'RELATING TO THE PROVISION OF WATER RISK ASSESSMENTS'",
+        "Filename: 'Lot 2 - Provision of Water Risk Assessments.doc'"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "document-start",
+      "anchor_text": "RELATING TO THE PROVISION OF WATER RISK ASSESSMENTS SERVICES",
+      "section_ref": "Part 1 Form of Contract, cover page"
+    },
+    {
+      "page_ref": "document-start",
+      "anchor_text": "The Council wishes to secure the provision of Water Risk Assessments services in Council Buildings as defined in the attached Specification",
+      "section_ref": "Part 1 Form of Contract, Recital A"
+    },
+    {
+      "page_ref": "part-1",
+      "anchor_text": "(d) The Specification appended hereto as Schedule 1; (e) The Pricing Schedule appended hereto as Schedule 2; (f) The Council's ITT appended hereto as Schedule 3;",
+      "section_ref": "Part 1 Form of Contract, Clause 1.2 (documents forming part of Contract)"
+    },
+    {
+      "page_ref": "part-2-b",
+      "anchor_text": "The Contractor shall supply the Services during the Contract Period in accordance with the Council's requirements as set out in the Specification the Code of Conduct set out at Appendix D to the Invitation to Tender",
+      "section_ref": "Part 2 General Terms and Conditions, Clause B1.1"
+    },
+    {
+      "page_ref": "part-2-b",
+      "anchor_text": "The Contractor shall ensure that all Staff supplying the Services shall do so with all due skill, care and diligence and shall possess such qualifications, skills and experience as are set out in the Specification",
+      "section_ref": "Part 2 General Terms and Conditions, Clause B3.2"
+    },
+    {
+      "page_ref": "part-2-b",
+      "anchor_text": "satisfactory DBS checks in accordance with Clause B4.11 below",
+      "section_ref": "Part 2 General Terms and Conditions, Clause B4.9"
+    },
+    {
+      "page_ref": "part-2-f",
+      "anchor_text": "Where any part of the Services is stated in Appendix E to the Invitation to Tender to be the subject of a specific KPI the Contractor shall perform the Services in such a manner as will ensure that the Indicator ... is met",
+      "section_ref": "Part 2 General Terms and Conditions, Clause F5.1"
+    },
+    {
+      "page_ref": "part-2-f",
+      "anchor_text": "The Contractor shall comply with the monitoring arrangements set out in the Specification including, but not limited to, providing Management Reports",
+      "section_ref": "Part 2 General Terms and Conditions, Clause F7.1"
+    },
+    {
+      "page_ref": "part-2-d",
+      "anchor_text": "The Contractor shall comply with all applicable Law regarding health and safety including (without limitation) the requirements of the Health and Safety at Work etc. Act 1974",
+      "section_ref": "Part 2 General Terms and Conditions, Clause D6.7"
+    },
+    {
+      "page_ref": "part-2-e",
+      "anchor_text": "for the purposes of the Data Protection Legislation, the Council is the Controller and that the Contractor is the Processor unless otherwise specified in Schedule 1",
+      "section_ref": "Part 2 General Terms and Conditions, Clause E1.1"
+    },
+    {
+      "page_ref": "schedules",
+      "anchor_text": "SCHEDULE 1 SPECIFICATION",
+      "section_ref": "Schedules (placeholder heading; body empty in supplied markdown)"
+    },
+    {
+      "page_ref": "schedules",
+      "anchor_text": "SCHEDULE 2 PRICING SCHEDULE",
+      "section_ref": "Schedules (placeholder heading; body empty in supplied markdown)"
+    },
+    {
+      "page_ref": "document-footer",
+      "anchor_text": "FM Water Risk Assessment Services T&Cs 6 August 2020",
+      "section_ref": "Document footer"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "cf5f21b8680d3abd9673431f623307df6d717a98d1289718eca3fa3d5b4a54ca",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

@@ -1,199 +1,282 @@
-# Harmonization Optimization — Worker-Validator & Run Manifest System
+# Harmonization Optimization — PDF Extraction Toolkit (Retroactive)
 
-> **Run:** 002
-> **Purpose:** Fresh-eyes verification and consistency audit after harmonization handoff execution
-> **Source material:** `docs/research/2026-03-15-worker-validator-run-manifest-research.md`
-> **Target doc:** `docs/research/2026-03-08-public-procurement-intelligence-platform-research.md`
-> **Generated:** 2026-03-15
+> **Run:** 003
+> **Mode:** RETROACTIVE
+> **Purpose:** Fresh-eyes verification and consistency audit after the harmonization handoff has been executed. This prompt is run by a DIFFERENT agent session than the one that performed the harmonization.
+> **Source material:** `docs/research/2026-04-11-pdf-extraction-toolkit-research.md` (~776 lines)
+> **Target doc set:** `docs/strategy/` (10 files)
 
 ---
 
-## Mission
+## 1. Your Role
 
-You are a fresh-eyes architecture auditor. The main research document has just been updated to absorb the worker-validator and run manifest system from a standalone research doc. Your job is to verify that the integration is flawless — no contradictions, no stale terminology, no silent drops, no overreach.
+You are a documentation quality auditor performing a post-integration review of the strategy documentation for the UK Procurement Intelligence Platform. A prior session just harmonized the strategy docs to reflect a new capability: the **PDF Extraction Toolkit** — a hybrid two-stage pipeline (Docling structural extraction + Claude semantic mapping) for extracting structured data from procurement PDF documents.
+
+The feature is ALREADY IMPLEMENTED in the codebase. The strategy docs should now accurately describe the system as it exists.
+
+**Your job:** verify the harmonization was done correctly, find any remaining inconsistencies, and fix them.
 
 **You are editing documentation only. Do not change code.**
 
-The standard is "boringly consistent" — every section that mentions validation, manifests, OQG, skill execution, or job flow should tell the same story.
+---
+
+## 2. Deep Re-Read (Mandatory Before Any Audit)
+
+Before auditing, you must build a fresh mental model:
+
+1. **Read the research doc** in full: `docs/research/2026-04-11-pdf-extraction-toolkit-research.md`
+   - Note every concept, table, component, skill, job kind, and pipeline change it describes
+
+2. **Read the implementation code** for ground truth (do NOT modify):
+   - `crates/daemon/src/pdf/engine.rs` — structural extraction engine API
+   - `crates/daemon/src/pdf/policy.rs` — document role classification + extraction policy
+   - `crates/daemon/src/pdf/chunking.rs` — deterministic chunking design
+   - `migrations/0006_pdf_extraction_toolkit.sql` — actual DDL
+   - `skills/pdf-extraction/base/SKILL.md` — base skill metadata
+   - `skills/pdf-extraction/tender-specification/SKILL.md` — domain skill pattern
+
+3. **Read every target strategy doc** in full — ALL 10 files, not just the ones marked as modified:
+   - `docs/strategy/layer-strategy.md`
+   - `docs/strategy/layers/layer-0-gold-set-evaluation.md`
+   - `docs/strategy/layers/layer-1-thin-local-runner.md`
+   - `docs/strategy/layers/layer-2-single-operator-desktop.md`
+   - `docs/strategy/layers/layer-3-operational-hardening.md`
+   - `docs/strategy/layers/layer-4-shared-visibility.md`
+   - `docs/strategy/layers/layer-5-expanded-commercial-intelligence.md`
+   - `docs/strategy/layers/layer-6-request-pipeline-automation.md`
+   - `docs/strategy/cross-reference-index.md`
+   - `docs/strategy/README.md`
+
+4. **Note any remaining divergences** — places where the docs don't match the research doc or the code.
 
 ---
 
-## 1. MANDATORY Deep Re-Read
+## 3. Contradiction Hunt
 
-Before any audit, you MUST:
+For each term below, search EVERY strategy doc for mentions and verify consistency:
 
-1. **Re-read the source material in full:** `docs/research/2026-03-15-worker-validator-run-manifest-research.md` (all ~2256 lines). Build a checklist of every concept it contains.
+### 3.1 Table Names
+- **`document_extractions`** — Must appear in: L1 data introduced, layer-strategy schema stability matrix, layer-4 Supabase projections, cross-reference-index. Must NOT appear in L0 DDL (it's an L1-introduced table).
+- **`document_semantic_extractions`** — Same locations as above.
+- **`extraction_state`** — Must appear ONLY on `tender_document_sets` in L0 DDL as a forward-compatibility column. Must not be confused with `semantic_extraction_state` (which is a column on `document_extractions`).
+- **`tender_document_sets`** — Verify that everywhere this table is mentioned, the `extraction_state` column is acknowledged if relevant to the context.
 
-2. **Re-read the entire target document:** `docs/research/2026-03-08-public-procurement-intelligence-platform-research.md` (all lines — it's now ~7500+ lines). Not just the modified sections — ALL of it. Cross-cutting dependencies are only visible after reading everything.
+### 3.2 Job Kinds
+- **`extract_document_structure`** — Must appear in: layer-strategy §9 rule 6 (job kind taxonomy). Must be described as runner-native (daemon subprocess, no agent adapter). Must NOT consume browser_slots or agent_slots.
+- **`extract_document_semantics`** — Must appear alongside above. Must be described as standard agent adapter execution (headless_contract). Consumes 1 agent_slot.
 
-3. **Note any remaining divergences** between the source and target.
+### 3.3 Daemon Components and Counts
+- **"17 core files"** → must be **"20 core files"** in ALL 7 occurrences across 5 files. Search for the literal "17" in every strategy doc and verify. The 7 known locations are:
+  1. `layer-1-thin-local-runner.md` §1.5 heading
+  2. `layer-1-thin-local-runner.md` requirement `L1-FR-DAEMON.2 AC1`
+  3. `layer-strategy.md` §2 per-layer doc table
+  4. `layer-strategy.md` §3 L1 Components Touched
+  5. `layer-strategy.md` Appendix: Component Activation Sequence
+  6. `README.md` L1 description
+  7. `cross-reference-index.md` Skills section
+- **`pdf/engine.rs`**, **`pdf/chunking.rs`**, **`pdf/policy.rs`** — Must appear in L1's daemon file table.
+- **"47 tables"** → must be **"49 tables"** in:
+  1. `cross-reference-index.md` first entry
+  2. `layer-strategy.md` §2 per-layer doc table (L0 row)
+
+### 3.4 Skills
+- **`skills/pdf-extraction/`** — Must appear in L0 monorepo layout (§1.7). Must appear in cross-reference-index.
+- **`pdf-extraction/tender-specification`**, **`pdf-extraction/pricing-schedule`**, **`pdf-extraction/bill-of-quantities`**, **`pdf-extraction/base`** — Must be mentioned in L1 skills listing.
+- All skills must be described with `interaction_profile: headless_contract` and `model_profile: structured_extract_low_cost`.
+
+### 3.5 Pipeline
+- **"15-stage pipeline"** — The number of stages must NOT change. PDF extraction is a capability within Stage 5, not new stages.
+- **"Acquire docs"** / **Stage 5** — Must mention structural and semantic extraction sub-capabilities wherever the pipeline is described in detail (L0 §3, layer-strategy §10).
+- **"capability not stage"** — The language must make clear that PDF extraction is a reusable capability, not a fixed pipeline step.
+
+### 3.6 Testing
+- Test count numbers in layer-strategy §11 — L1 must show **15** new test files (was 10, +5 extraction). All cumulative counts shift by +5: L1=19, L2=30, L3=48, L4=52, L5=57, L6=60. Verify the math adds up.
+
+### 3.8 Ingestion Flow and Definition of Done
+- **L1 ingestion flow step 11** (pipeline processing table list) — Must include `document_extractions` and `document_semantic_extractions` alongside existing tables.
+- **L1 Definition of Done flow** — Must mention "structural extraction → semantic extraction" between "acquire docs" and "extract lots."
+- **L1-FR-DAEMON.2** — Requirement AC1 must update ALL three stale values: 17→20 daemon files, "two new skills"→"six skills", and add 0006 migration alongside existing 0003.
+- **L1 "New skills" heading** — Must say "New skills (6)" (was "New skills (2)") and include 4 pdf-extraction skill rows.
+
+### 3.9 Supabase Projection Completeness
+- **layer-strategy.md §6 (L4 section)** inline enumeration (~line 785) — Lists all push-owned tables that get Supabase counterparts. Must include `document_extractions` and `document_semantic_extractions`.
+- **L4 layer doc** projection table section — Same tables must appear.
+
+### 3.10 Components Touched Table (layer-strategy.md §3, L1 section)
+- **Skills row**: Must show 6 skills (was 2). Must include the 4 pdf-extraction skills alongside existing FTS and manifest-generation.
+- **`crates/daemon` row**: Must show "20 core files" (was 17). Must mention pdf/ module in the parenthetical.
+- **Database row**: Must mention `0006_pdf_extraction_toolkit.sql` alongside existing `0003_sqlite_runtime.sql`.
+
+### 3.11 Cross-References
+- Every new concept in the cross-reference-index must point to the correct file and section.
+- Verify no stale section references (section numbers may have shifted after edits).
 
 ---
 
-## 2. Contradiction Hunt
-
-For each core concept from the source material, search every section of the target doc for statements about that concept. Verify all statements are mutually consistent. Flag any remaining stale or conflicting language.
-
-### Target terms and concepts to hunt:
-
-| Term / Concept | Search Pattern | What to verify |
-|---|---|---|
-| **"run manifest"** | `run manifest`, `run_manifest`, `runManifest` | Always full term. Never confused with "error manifest" or "opportunity manifest". Storage location consistent (artifact store). Hash and path columns in agent_session_logs. |
-| **"manifest"** (unqualified) | `manifest` | Every unqualified use must clearly refer to either "opportunity manifest" (Manifest Generator, manifests table) or "error manifest" (Error Manifest System). No ambiguous uses that could mean "run manifest". |
-| **"Output Quality Gate" / "OQG"** | `Output Quality Gate`, `OQG`, `quality gate` | OQG role is augmented (signals feed validator), not replaced. OQG still performs syntactic/semantic/behavioral-drift checks. Validator is a separate, optional gate AFTER OQG. |
-| **"AGENT_SUSPECT_OUTPUT"** | `AGENT_SUSPECT_OUTPUT`, `suspect_output`, `suspect output` | Both OQG failures AND validator rejections can trigger this status. The error manifest must indicate which gate triggered quarantine. |
-| **"validation"** | `validation`, `validate`, `validator` | No pre-existing use of "validation" conflicts with the new validation layer. The existing three validation layers (syntactic/semantic/behavioral-drift) in §4.10 are code-based checks BY the skill. The new validator is an AGENT-based check OF the skill's output. These must not be confused. |
-| **"workflow_jobs"** | `workflow_jobs`, `WorkflowJob` | parent_job_id and validation_required fields present in TS interface AND SQL table. |
-| **"agent_session_logs"** | `agent_session_logs`, `AgentSessionLog` | run_manifest_path and run_manifest_hash fields present in TS interface AND SQL table. |
-| **"promotion"** | `promotion`, `promote`, `promotion flow` | Validation pass rates mentioned as optional promotion gate (canary → shadow → stable). |
-| **"plug-and-play"** | `plug-and-play`, `composab`, `no daemon code`, `no schema change`, `no recompilation` | Validation design preserves plug-and-play composability. Adding a validator overlay to a skill directory requires NO daemon code changes. |
-| **"validation_verdicts"** | `validation_verdicts`, `ValidationVerdict` | Table exists in SQL, TS interface exists, appears in authority split table as local-only. |
-| **"validation_verdict_summaries"** | `validation_verdict_summaries` | Table exists in SQL, appears in authority split table as push-owned projection. |
-| **"Validation Policy Engine"** | `Validation Policy`, `validation_policy` | Component described in §5.2. Metadata field in skill metadata table. Policy modes (always/sample/trigger/skip) documented. |
-| **"Validation Executor"** | `Validation Executor` | Component described in §5.2. Spawns validator sub-jobs via Job Runner. |
-| **"validator skill"** | `validator skill`, `validator overlay`, `base validator` | Category 6 in skill types table. Uses headless_contract mode. Follows same directory standard. |
-| **"dry-run"** | `dry-run`, `dry_run`, `dryRun` | Described consistently — verdicts logged but not enforced. Default initial deployment mode. |
-| **"authority split" / "authority matrix"** | `authority`, `push-owned`, `local-only` | New tables correctly classified in §4.7 table. |
-
----
-
-## 3. Doc Boundary Sanity
+## 4. Doc Boundary Sanity
 
 Verify concept ownership hasn't drifted:
 
-- [ ] Run manifests are described in §4.10 (what they are), §5.2 (who writes/stores them), §5.4 (DB columns), §6.6 (artifact storage). No section contradicts another.
-- [ ] Validation policy is owned by skill metadata (§4.10) and the Validation Policy Engine component (§5.2). Not duplicated in a different section with different rules.
-- [ ] Validator skills are listed in the skill types table (§4.10) and in the files-to-create list (§8.2). Both lists agree.
-- [ ] Validation verdicts are described in §5.4 (data model), §4.7 (authority split), and §5.11 (error handling). All descriptions are compatible.
-- [ ] The Job Runner description (§5.2) mentions spawning validator sub-jobs. The ingestion flow (§5.6) and intelligence flow (§5.7) show the validation step in the right place. These are consistent.
-- [ ] §6.2 risks, §6.5 testing, §6.6 observability, and Appendix E all cover validation-related concerns. No risk is mentioned in one place and contradicted in another.
+- **L0** owns: constitutional DDL (including `extraction_state` forward-compatibility column on `tender_document_sets`), monorepo layout, pipeline stage logic, skill standard
+- **L1** owns: daemon component listing (including pdf/ module), new tables introduced with the daemon, job kind implementation, test scenarios, run manifest + error manifest for extraction jobs
+- **L3** owns: resource arbiter treatment of extraction jobs, extraction validation through dry-run validator
+- **L4** owns: Supabase projections for extraction tables
+- **layer-strategy.md** owns: schema stability matrix, schema evolution rules (job kinds), stage scope matrix, stage boundary contracts, testing evolution, component activation sequence
+- **cross-reference-index** owns: navigation only (no planning authority)
+
+Check:
+- [ ] No layer doc has accidentally absorbed material that belongs in another layer doc
+- [ ] Cross-references between docs are correct and bidirectional where appropriate
+- [ ] Authority split (layer-strategy vs layer docs) is maintained — layer-strategy has cross-layer tables, layer docs have layer-local detail
 
 ---
 
-## 4. Implementation Readiness
+## 5. Implementation Readiness
 
-Ask: could an engineer implement the worker-validator system from only the harmonized research doc?
+Ask: could an engineer implement PDF extraction from only the strategy docs (without reading the research doc)?
 
-- [ ] Are the integrated validation concepts clear enough to implement without reading the source doc?
-- [ ] Is the boundary between OQG and semantic validation unmistakable?
-- [ ] Could engineers reading §5.2 (components) and §5.6 (data flow) derive compatible implementations?
-- [ ] Is the run manifest format described well enough? (MD artifact, human-readable narrative, what sections to include)
-- [ ] Is the validation verdict schema described well enough? (verdict enum, issues array, severity levels, categories)
-- [ ] Is the validation policy engine's decision logic described well enough? (always/sample/trigger/skip modes, trigger conditions)
-- [ ] Is the relationship between worker job and validator job clear? (parent_job_id, validation_required, how verdict affects job advancement)
-- [ ] Is the dry-run vs enforcement mode distinction clear? (when verdicts block vs when they only log)
-- [ ] Is the fail-open behavior clear? (validator itself failing does not block worker results)
-- [ ] Could the engineer still misread any integrated concept?
+- [ ] Are the extraction tables fully described (columns, indexes, authority classification)?
+- [ ] Is the daemon pdf/ module clearly specified (responsibilities, public API sketch)?
+- [ ] Are the skill directories and their purpose clear?
+- [ ] Are the job kinds clearly specified (trigger, resource consumption, execution mode, output)?
+- [ ] Is the extraction orchestration flow clear (structural → semantic → domain table writes)?
+- [ ] Is the caching/reuse mechanism described (content hash + engine version + strategy)?
+- [ ] Is the extraction policy (document role → overlay mapping) described?
+- [ ] Is the chunking strategy described?
+- [ ] Could engineers reading L1 vs L3 vs layer-strategy derive compatible implementations?
+
+If any answer is "no," add the missing detail. But be careful not to duplicate implementation details that belong in the research doc — the strategy docs should describe WHAT and WHERE, not HOW at the code level.
 
 ---
 
-## 5. Overreach Check
+## 6. Overreach Check
 
 Verify the harmonization didn't:
 
-- [ ] Add implementation sequencing or task planning ("first build X, then Y")
-- [ ] Include bead/issue tracking instructions
+- [ ] Add implementation sequencing or task planning ("first implement the engine, then the skills")
+- [ ] Include "first implement X, then Y" language
 - [ ] Blur into execution guidance
-- [ ] Over-specify things that are still design choices (e.g., exact trigger condition formulas for the validation policy engine)
-- [ ] Modify sections unrelated to the worker-validator system
-- [ ] Change existing skill outcome classes (they should remain exactly 6)
-- [ ] Replace or weaken the existing OQG description
-- [ ] Add unnecessary complexity to sections that were fine before
+- [ ] Over-specify implementation choices that should remain at the code level (e.g., specific Python Docling API calls, subprocess management details)
+- [ ] Add cost model numbers from the research doc (those belong in the research doc only)
+- [ ] Add benchmark accuracy numbers (those belong in the research doc only)
 
 ---
 
-## 6. Absorption Completeness
+## 7. Absorption Completeness
 
-Verify the source material is FULLY absorbed:
+Verify every concept from the research doc has a home in the strategy docs:
 
-- [ ] **Run manifests** — described in the target doc? Format, storage, when generated, by whom?
-- [ ] **Validator skills** — described in the target doc? Category, mode, base + overlay pattern?
-- [ ] **Validation policy engine** — described? Modes, trigger conditions, metadata?
-- [ ] **Dry-run mode** — described? What it does, when to use it?
-- [ ] **Manual mode** — described? Kickoff prompt rendering for human-initiated validation?
-- [ ] **New DB entities** — validation_verdicts, validation_verdict_summaries?
-- [ ] **Modified DB entities** — workflow_jobs (parent_job_id, validation_required), agent_session_logs (run_manifest_path, run_manifest_hash)?
-- [ ] **Integration with Job Runner** — described? Sub-job spawning, verdict processing?
-- [ ] **Integration with OQG** — described? OQG signals as validator inputs?
-- [ ] **Integration with promotion flow** — described? Validation as promotion gate?
-- [ ] **Integration with error manifests** — described? Rejections create error manifests?
-- [ ] **Plug-and-play composability** — described? No daemon code changes for new validators?
-- [ ] **New files** — listed in §8.2, §8.3?
-- [ ] **Milestone assignment** — files assigned in §8.4?
-- [ ] **Risks** — listed in §6.2 and Appendix E?
-- [ ] **Testing** — validator testing described in §6.5?
-- [ ] **Observability** — validation metrics described in §6.6?
+| Research Doc Concept | Expected Location | Status |
+|---------------------|-------------------|--------|
+| Two-stage hybrid architecture (Docling + Claude) | L1 component description | Check |
+| Structural extraction engine (PdfExtractionEngine) | L1 daemon file table | Check |
+| Deterministic chunking (synopsis, section-aware) | L1 daemon file table | Check |
+| Extraction policy (document role → overlay mapping) | L1 daemon file table | Check |
+| `document_extractions` table | L1 data introduced + layer-strategy §9 | Check |
+| `document_semantic_extractions` table | Same | Check |
+| `extraction_state` on `tender_document_sets` | L0 DDL | Check |
+| Processing strategies (standard, force_full_page_ocr, fast_table_structure) | L1 component description | Check |
+| Content-hash cache/reuse | L1 component or data description | Check |
+| Supercession tracking (is_current, superseded_by) | L1 data description | Check |
+| Base skill + 3 domain overlay skills | L1 skills listing + L0 monorepo | Check |
+| headless_contract execution for semantic skills | L1 skill listing | Check |
+| extract_document_structure job kind | layer-strategy §9 rule 6 | Check |
+| extract_document_semantics job kind | Same | Check |
+| Extraction substages within Stage 5 | L0 §3 pipeline + layer-strategy §10 | Check |
+| Stage boundary: structural extraction → lot/product extraction | layer-strategy §10 | Check |
+| Resource consumption: structural = no slots, semantic = agent_slot | L3 §1.4 | Check |
+| Supabase projection for extraction tables | L4 projections | Check |
+| Future overlays: compliance-certificate (L5), bid-template (L6) | L5/L6 forward-compatibility | Check |
+| MIME-aware backend abstraction (future DOCX/HTML/XLSX) | L1 forward-compatibility | Check |
+| 5 test files | layer-strategy §11 + L1 tests | Check |
+| Migration 0006 | L1 data introduced | Check |
+| Parent-child job cascade (first consumer of parent_job_id) | L1 data introduced or component desc | Check |
+| Daemon-side persistence boundary (skills are side_effect_class: none) | L1 component or skill desc | Check |
+| Entity relationship chain (raw_documents → extractions → semantic) | L1 data introduced | Check |
+| Cross-authority FK discipline (raw_document_id is opaque ref, no SQL FK) | L1 data introduced | Check |
+| "47 tables" → "49 tables" (2 locations) | cross-reference-index + layer-strategy §2 | Check |
+| "17 core files" → "20 core files" (7 locations, 5 files) | L1 + layer-strategy + README + index | Check |
+| L1-FR-DAEMON.2 requirement updated (17 → 20) | layer-1 §1.5 | Check |
+| L1 ingestion flow step 11 includes extraction tables | layer-1 §1.6 | Check |
+| L1 Definition of Done flow includes extraction steps | layer-1 DoD | Check |
+| L4 Supabase inline enumeration (layer-strategy §6) | layer-strategy ~line 785 | Check |
+| layer-strategy §3 Components Touched: Skills=6, daemon=20, DB adds 0006 | layer-strategy §3 (L1 table) | Check |
 
-For any concept NOT found in the target doc, flag it as a silent drop and integrate it.
-
-The source doc (`docs/research/2026-03-15-worker-validator-run-manifest-research.md`) should now be genuinely redundant — an engineer does NOT need to read it to get the full picture.
+If anything is missing, add it. If something was intentionally excluded (e.g., cost model stays in research doc only), verify the exclusion is correct.
 
 ---
 
-## 7. Terminology Consistency
+## 8. Terminology Consistency
 
-Verify all sections use identical terminology for:
+Verify all documents use identical terminology for:
 
-- **"run manifest"** — never "run log", "execution manifest", "session manifest", "skill manifest", or unqualified "manifest"
-- **"validation verdict"** — never "validation result", "validation outcome", or "validation decision" (these overlap with existing terms)
-- **"validator skill"** — never "validation skill", "checker skill", "audit skill"
-- **"validation policy"** — never "validation config", "validation setting", "validation mode" (the MODES are always/sample/trigger/skip; the POLICY is the overall concept)
-- **"approved" / "rejected" / "flagged"** — these are the three verdict values, used consistently everywhere
-- **"VALIDATION_REJECTED" / "VALIDATION_FLAGGED"** — these are the error codes, distinct from the verdict values
-- **"dry-run mode"** — never "test mode", "passive mode", "non-blocking mode"
-- **"validator overlay"** — never "validation template", "validation rules", "domain validator" (the overlay IS domain-specific rules, but the term is "overlay")
+- "structural extraction" (not "structure extraction" or "structural parse")
+- "semantic extraction" / "semantic mapping" (these may both appear — verify consistent usage)
+- "PDF extraction toolkit" (the overall capability name)
+- "document extraction" (may refer to the full pipeline or just structural — verify no ambiguity)
+- "extraction overlay" / "semantic overlay" (verify consistent naming for the Claude skills)
+- "document_extractions" (table name — singular "extraction" in column refs, plural in table name)
+- "processing_strategy" (not "extraction_strategy" or "processing_mode")
+- "document_role" (not "document_type" — avoid confusion with MIME type)
+- "extraction_state" on tender_document_sets vs "semantic_extraction_state" on document_extractions — these must be clearly distinct
 
 ---
 
-## 8. Fix and Final Fresh-Eyes Pass
+## 9. Fix and Final Fresh-Eyes Pass
 
-Fix any issues found above with targeted edits, not wholesale rewrites.
+Fix any issues found above with **targeted edits, not wholesale rewrites**.
 
-After all fixes, re-read everything ONE MORE TIME:
+After all fixes, re-read everything ONE MORE TIME. Imagine you are the implementation engineer and the strategy docs are the only thing you get. Could you still misread anything about:
 
-**"Imagine you are the implementation engineer and the docs are the only thing you get. You need to implement the worker-validator system. Could you still misread anything about:**
-
-1. **When validation runs?** (Policy engine decides based on skill metadata)
-2. **Who writes the run manifest?** (The agent, as part of its skill execution)
-3. **Who reads the run manifest?** (The validator agent, spawned as a sub-job)
-4. **What happens on approval?** (Worker job advances normally)
-5. **What happens on rejection?** (Results quarantined as AGENT_SUSPECT_OUTPUT, error manifest created, operator alerted)
-6. **What happens on flagging?** (Results advance with flag for operator review)
-7. **What happens if the validator itself fails?** (Fail-open — worker results not blocked)
-8. **What's the difference between OQG and semantic validation?** (OQG = code-based structural/statistical; validator = agent-based contextual/semantic)
-9. **Where are run manifests stored?** (Artifact store, path in agent_session_logs)
-10. **Where are validation verdicts stored?** (validation_verdicts table locally, summaries pushed to Supabase)
-11. **How does this preserve plug-and-play?** (Validation policy in skill metadata, overlay in skill directory — no daemon code changes)
-12. **What's the difference between the three kinds of 'manifest'?** (Opportunity manifest, error manifest, run manifest — all different things)**"
+- Where the PDF extraction code lives in the daemon?
+- What tables it uses and what they store?
+- How extraction fits into the 15-stage pipeline?
+- What skills perform semantic mapping and how they're routed?
+- How extraction jobs interact with the resource arbiter?
+- What the extraction_state vs semantic_extraction_state distinction is?
+- Whether extraction adds new pipeline stages (it doesn't)?
 
 Fix anything that fails this test.
 
 ---
 
-## 9. Required Output Format
+## 10. Required Output
 
-When complete, provide:
+Provide a concise summary:
 
-1. **Docs changed:** List every file and section modified.
-2. **Contradictions removed:** List specific contradictions that were fixed.
-3. **Ambiguities tightened:** List specific ambiguities that were resolved.
-4. **Remaining concerns:** List any issues that could not be resolved or require user input.
+1. **Documents changed** — list each file and what was modified
+2. **Contradictions found and resolved** — specific contradictions removed
+3. **Terminology corrections** — terms that were inconsistent and how they were unified
+4. **Ambiguities tightened** — vague language that was made precise
+5. **Missing content added** — concepts that were absent and where they were placed
+6. **Issues NOT resolved** — anything that requires user input or further investigation
 
 ---
 
-## 10. Follow-Up Fresh-Eyes Pass
+## 11. Follow-Up Fresh-Eyes Pass
 
-> **Send this as a follow-up message in the same session after the optimization is complete.**
+> **Send this as a follow-up message in the same session after the optimization audit is complete.**
 
-One final pass. Re-read:
-1. §1 (Executive Summary) — does it mention worker-validator?
-2. §4.10 (Skills) — is the validator skill category present? Is run manifest generation in the lifecycle?
-3. §5.2 (Components) — are all new components present? Is Job Runner updated?
-4. §5.4 (Data Model) — are all new/modified entities present in BOTH TS and SQL?
-5. §5.6 (Ingestion Flow) — is the validation step present after OQG?
-6. §5.11 (Error Handling) — are validation error types present?
-7. §8.2 + §8.3 + §8.4 — are all files listed and assigned to milestones?
+With completely fresh eyes, re-read just these sections (the highest-risk areas for post-harmonization inconsistency):
 
-For each section, ask: "If I only read this section, would I know about the worker-validator system?" For §1, §4.10, §5.2, §5.4, §5.6, §5.11 — the answer must be yes. For other sections, it depends on relevance.
+1. **layer-strategy.md §9** — Schema stability matrix. Count the table rows. Does the count match the "N tables" mentioned anywhere else? Are `document_extractions` and `document_semantic_extractions` in the right position (alphabetical or grouped with related tables)?
 
-Fix anything missing.
+2. **layer-strategy.md §10** — Stage scope matrix. Does "Acquire docs" now mention extraction? Does the stage boundary contract for acquire_docs → extract_lots reference extraction output?
+
+3. **layer-strategy.md §11** — Test count growth. Do the cumulative numbers add up? Does L1's count include the 5 new extraction test files?
+
+4. **layer-1 §1.5** — Daemon file table. Count the files. Does the stated total match the actual count? Is the pdf/ module entry formatted like the existing entries?
+
+5. **layer-0 §2** — DDL. Does `tender_document_sets` have `extraction_state`? Is it described as forward-compatibility (not as an active feature in L0)?
+
+6. **cross-reference-index** — Do all new entries point to valid files and sections? Do any section numbers reference stale locations (shifted by prior edits)?
+
+7. **Grep for "17" across ALL strategy docs** — Run: search every file in `docs/strategy/` for the literal string "17". Every hit that refers to daemon file count must now say "20." If any survive, fix them.
+
+8. **Grep for "47" across ALL strategy docs** — Similarly, every reference to "47 tables" must now say "49 tables."
+
+9. **L1 ingestion flow step 11** — Does the pipeline processing table list include `document_extractions` and `document_semantic_extractions`?
+
+10. **L1 requirement L1-FR-DAEMON.2** — Does AC1 say "20 daemon files" (not 17)?
+
+Fix any final issues. Report what you fixed.

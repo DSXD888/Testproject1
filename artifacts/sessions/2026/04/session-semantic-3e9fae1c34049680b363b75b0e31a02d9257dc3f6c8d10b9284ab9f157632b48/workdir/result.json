@@ -1,0 +1,352 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment",
+      "description": "ESPO Framework Agreement reference 107_26 between Leicestershire County Council (trading as ESPO) and an appointed Supplier for the provision of inspection & maintenance of indoor gymnasium, fitness & sport equipment and outdoor schools play & sport equipment services to Customers under the Procurement Act 2023 (PA23). The framework is established as a single non-lotted arrangement; substantive product/service specifications are incorporated from Section 2 (Requirement) of the Invitation to Tender, and commercial pricing is held in Framework Schedule 2 (Charging Structure). Commencement Date is stated as 09 June 2026 (or as otherwise stipulated by ESPO).",
+      "requirements": [
+        "Supplier shall provide Goods and/or Services as specified in Framework Schedule 1 (Goods and/or Services), with substantive specification incorporated from Section 2 of the Invitation to Tender.",
+        "Supplier shall comply with the Standards (British Standards produced by BSI Group, international standards, ESPO's internal policies and Government codes of practice referenced in Framework Schedule 1) and the Law when performing its obligations.",
+        "Supplier must have Employment Checks in place for Staff, including verification of identity, right to work, registration/qualification, employment history/references, criminal record (DBS) and occupational health checks where applicable.",
+        "Where provision of the Goods and/or Services may bring Supplier's employees or volunteers into contact with children and/or vulnerable adults, additional safeguarding checks apply (clause 13.7).",
+        "Supplier shall pay a Framework Fee of 3.5% of net turnover, paid in accordance with clause 16 of the Framework Agreement and Framework Schedule 2.",
+        "Framework Prices (per Framework Schedule 2) are the maximum Charges payable under any Call-Off Contract; any increase requires objective justification and written agreement of ESPO.",
+        "Every 6 months the Supplier shall assess whether Framework Prices can be reduced and report the outcome in writing to ESPO within one Month of each Price Assessment Date.",
+        "Supplier shall nominate a Framework Manager as the single point of responsibility, with a suitably qualified deputy, and maintain the framework management structure set out in Framework Schedule 10.",
+        "Supplier shall attend Framework Review Meetings with ESPO every 12 Months covering strategic and operational performance (including KPIs, customer satisfaction, new product plans, environmental initiatives).",
+        "Supplier shall submit quarterly Management Information (MI) Reports using the ESPO MI Reporting Template by the 5th Working Day after each Quarter, including Nil Returns where applicable, until all Contract transactions cease.",
+        "On MI Default ESPO may charge a Default Framework Fee (the higher of the 12-month average Framework Fee or an ESPO-estimated equivalent).",
+        "Supplier shall participate in Benchmark Reviews on ESPO's request (not more frequently than every 12 Months) producing a written benchmark report covering rates, methodology, comparators and market intelligence.",
+        "Supplier shall adopt a continuous improvement policy and regularly review Goods and/or Services, costs, and efficiency with ESPO.",
+        "Supplier shall undertake marketing of the Framework Agreement and Goods and/or Services to Customers in accordance with Framework Schedule 8 (Marketing).",
+        "Supplier shall not offer or pay inducements in relation to any tender for Goods and/or Services under the Framework and shall comply with anti-bribery, anti-fraud and conflict-of-interest obligations in clauses 9, 10 and 11.",
+        "Supplier shall not increase tendered Framework Prices before the first anniversary of the Commencement Date; subsequent increases are only permitted via the review procedure in Framework Schedule 2 paragraph 3."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Further Competitive Selection Process Award Criteria",
+          "summary": "For Call-Off via further competitive selection, Customers apply the Further Competitive Selection Process Award Criteria defined in Framework Schedule 5, typically re-using ESPO's framework evaluation scheme with the option to vary weightings (in particular, increased weighting on price at call-off stage).",
+          "weighting_text": "Scheme and weightings set per Customer requirement (may increase Price weighting at Call-Off)",
+          "evidence_anchor": {
+            "page_ref": "67",
+            "anchor_text": "When evaluating a further competitive selection process, Customers may adopt a scheme similar to that used by ESPO in establishing the Framework or may advise Suppliers that a revised scheme will be used",
+            "section_ref": "#/texts/926"
+          }
+        },
+        {
+          "criterion": "Call-Off Without Competition (objective mechanism)",
+          "summary": "Call-Off without competition uses the objective mechanism in Framework Schedule 4 paragraph 2.1: (i) select the cheapest Supplier at Framework Prices, or (ii) the only Supplier able to deliver in the geography, or (iii) a Supplier with prior involvement on equivalent Goods/Services in the preceding 12 months where switching would cause demonstrable inefficiencies.",
+          "weighting_text": "Objective selection mechanism (no weighted scoring)",
+          "evidence_anchor": {
+            "page_ref": "63",
+            "anchor_text": "2. AWARD PROCEDURE (CALL OFF WITHOUT COMPETITION)",
+            "section_ref": "#/texts/866"
+          }
+        },
+        {
+          "criterion": "Key Performance Indicators (post-award monitoring)",
+          "summary": "Ongoing performance is monitored quarterly against KPIs in Framework Schedule 10 Annex A: (1) 100% of complaints responded to within 2 Working Days and 98% resolved (or with agreed action plan) within 10 Working Days; (2) at least 3 accurate/on-time Quarterly MI Reports per Contract Year; (3) no more than 1 information-update discrepancy per Contract Year; (4) 98% of invoices accurate in amount each Month; (5) Social Value delivered per Contract and measured/reported.",
+          "weighting_text": "KPI-based performance monitoring (not a tender scoring weighting)",
+          "evidence_anchor": {
+            "page_ref": "78",
+            "anchor_text": "KEY PERFORMANCE INDICATORS",
+            "section_ref": "#/texts/1059"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "37400000",
+        "50000000"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "indoor_gymnasium_fitness_sport_equipment_inspection_maintenance",
+          "summary": "Inspection and maintenance services for indoor gymnasium, fitness and sport equipment held by Customers, covered as a single Framework service offering.",
+          "requirement_type": "inspection_maintenance_service",
+          "technical_attributes": [
+            "indoor_gymnasium_equipment",
+            "fitness_equipment",
+            "sport_equipment"
+          ],
+          "evidence_anchor": {
+            "page_ref": "1",
+            "anchor_text": "FRAMEWORK AGREEMENT FOR INSPECTION & MAINTENANCE OF INDOOR GYMNASIUM, FITNESS & SPORT EQUIPMENT AND OUTDOOR SCHOOLS PLAY & SPORT EQUIPMENT",
+            "section_ref": "#/texts/7"
+          }
+        },
+        {
+          "seed_key": "outdoor_schools_play_sport_equipment_inspection_maintenance",
+          "summary": "Inspection and maintenance services for outdoor schools play and sport equipment held by Customers, covered under the same Framework.",
+          "requirement_type": "inspection_maintenance_service",
+          "technical_attributes": [
+            "outdoor_play_equipment",
+            "outdoor_sport_equipment",
+            "schools_estate"
+          ],
+          "evidence_anchor": {
+            "page_ref": "1",
+            "anchor_text": "OUTDOOR SCHOOLS PLAY & SPORT EQUIPMENT",
+            "section_ref": "#/texts/7"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "British Standards (BSI Group)",
+          "context": "Supplier must comply with 'the Standards' when performing its obligations; 'Standards' is defined in clause 1 Interpretation as the British Standards produced by the BSI Group and international standards, together with ESPO's internal policies and Government codes of practice referenced in Framework Schedule 1.",
+          "evidence_anchor": {
+            "page_ref": "12",
+            "anchor_text": "'Standards' means the British Standards (produced by the BSI Group) and international standards, ESPO's reasonable internal policies and procedures, Government codes of practice and guidance referred to in Framework Schedule 1",
+            "section_ref": "#/texts/47"
+          }
+        },
+        {
+          "standard_ref": "International standards (referenced via 'Standards' definition)",
+          "context": "Referenced generically alongside British Standards in the contractual Standards definition; specific international standard references (e.g. BS EN series) are to be enumerated in Framework Schedule 1 as incorporated from Section 2 of the Invitation to Tender.",
+          "evidence_anchor": {
+            "page_ref": "12",
+            "anchor_text": "British Standards (produced by the BSI Group) and international standards",
+            "section_ref": "#/texts/47"
+          }
+        },
+        {
+          "standard_ref": "Procurement Act 2023 (PA23)",
+          "context": "Framework Agreement is established under and governed by the Procurement Act 2023; award, ordering, exclusion and variation procedures explicitly reference PA23 sections (e.g. s.2, s.26(4), s.45(4)(b)(i), s.46, s.57, s.62, Schedules 6 and 7).",
+          "evidence_anchor": {
+            "page_ref": "5",
+            "anchor_text": "ESPO placed a Tender Notice 2026/S 000-002119 on 12 January 2026 on the central digital platform operated pursuant to section 95(4) of the PA23",
+            "section_ref": "#/texts/42"
+          }
+        },
+        {
+          "standard_ref": "UK GDPR / Data Protection Act 2018 / PECR 2003",
+          "context": "Supplier and ESPO must comply with the Data Protection Legislation including UK GDPR, the Data Protection Act 2018 and the Privacy and Electronic Communications Regulations 2003; EU GDPR applies to the extent applicable.",
+          "evidence_anchor": {
+            "page_ref": "8",
+            "anchor_text": "'Data Protection Legislation' means all applicable data protection and privacy legislation in force from time to time in the UK including without limitation the UK GDPR; the Data Protection Act 2018 (and regulations made thereunder) (DPA 2018); and the Privacy and Electronic Communications Regulations 2003",
+            "section_ref": "#/texts/47"
+          }
+        },
+        {
+          "standard_ref": "Freedom of Information Act 2000 (FOIA) & Environmental Information Regulations (EIR)",
+          "context": "ESPO may be obliged to disclose information about the Supplier or the Goods and/or Services under FOIA or the EIR; supplier must provide reasonable assistance.",
+          "evidence_anchor": {
+            "page_ref": "9",
+            "anchor_text": "'FOIA' means the Freedom of Information Act 2000 and any subordinate legislation made under that Act",
+            "section_ref": "#/texts/47"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "56",
+        "anchor_text": "FRAMEWORK SCHEDULE 1 -THE GOODS AND/OR SERVICES",
+        "section_ref": "#/texts/772"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "indoor_gymnasium_fitness_sport_equipment_inspection_maintenance",
+      "lot_number": "1",
+      "candidate_name": "Inspection & Maintenance Service — Indoor Gymnasium, Fitness & Sport Equipment",
+      "summary": "Framework-scope inspection and maintenance service covering indoor gymnasium equipment, fitness equipment and sports equipment held by ESPO Customers. The substantive item-level service catalogue (e.g. per-category inspection scope, rates and unit-of-measure) is held in Section 2 of the Invitation to Tender and Framework Schedule 2 Annex (Charging Structure), not in this Framework Agreement document.",
+      "requirements": [
+        "Provide inspection and maintenance services for indoor gymnasium, fitness and sport equipment to Customers as ordered via the Ordering Procedure in Framework Schedule 4.",
+        "Comply with the Standards defined in clause 1 of the Framework Agreement, including British Standards and applicable international standards.",
+        "Meet the KPIs in Framework Schedule 10 Annex A (Complaints Resolution, MI Reporting, Invoice Accuracy, Social Value).",
+        "Maintain Framework Prices (Framework Schedule 2) as maximum Charges; any at-call-off reduction is permitted via the Further Competitive Selection Process."
+      ],
+      "technical_standards": [
+        "British Standards (BSI Group)",
+        "International standards (as referenced in 'Standards' definition)",
+        "Procurement Act 2023 (PA23)"
+      ],
+      "cpv_codes": [
+        "37400000",
+        "50000000"
+      ],
+      "evidence_anchor": {
+        "page_ref": "1",
+        "anchor_text": "FRAMEWORK AGREEMENT FOR INSPECTION & MAINTENANCE OF INDOOR GYMNASIUM, FITNESS & SPORT EQUIPMENT AND OUTDOOR SCHOOLS PLAY & SPORT EQUIPMENT",
+        "section_ref": "#/texts/7"
+      }
+    },
+    {
+      "seed_key": "outdoor_schools_play_sport_equipment_inspection_maintenance",
+      "lot_number": "1",
+      "candidate_name": "Inspection & Maintenance Service — Outdoor Schools Play & Sport Equipment",
+      "summary": "Framework-scope inspection and maintenance service covering outdoor schools play equipment and outdoor sports equipment. As with the indoor service, the item-level catalogue is held in Section 2 of the Invitation to Tender and Framework Schedule 2 Annex.",
+      "requirements": [
+        "Provide inspection and maintenance services for outdoor schools fixed playground equipment and outdoor sport equipment to Customers as ordered via the Ordering Procedure.",
+        "Comply with the Standards defined in clause 1 of the Framework Agreement (including any applicable BS EN playground equipment standards to be enumerated in Framework Schedule 1).",
+        "Meet the KPIs in Framework Schedule 10 Annex A.",
+        "Maintain Framework Prices as maximum Charges under Framework Schedule 2."
+      ],
+      "technical_standards": [
+        "British Standards (BSI Group)",
+        "International standards (as referenced in 'Standards' definition)",
+        "Procurement Act 2023 (PA23)"
+      ],
+      "cpv_codes": [
+        "37400000",
+        "50000000"
+      ],
+      "evidence_anchor": {
+        "page_ref": "1",
+        "anchor_text": "OUTDOOR SCHOOLS PLAY & SPORT EQUIPMENT",
+        "section_ref": "#/texts/7"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 8500,
+    "lots.title": 9500,
+    "lots.description": 8500,
+    "lots.requirements": 7500,
+    "lots.evaluation_criteria": 6000,
+    "lots.cpv_codes": 5000,
+    "lots.product_requirements": 5500,
+    "lots.technical_standards": 5000,
+    "product_requirement_seeds": 5500,
+    "extraction_metadata.target_domain": 10000,
+    "extraction_metadata.extraction_scope": 10000
+  },
+  "extraction_confidence_bps": 6000,
+  "warnings": [
+    {
+      "code": "DOCUMENT_IS_CONTRACTUAL_TEMPLATE",
+      "message": "This document is ESPO 107_26 Appendix A - Framework Agreement, which is the contractual template. Framework Schedule 1 (Goods and/or Services) is itself a placeholder paragraph stating that the substantive Specification will be 'incorporated' from Section 2 (Requirement) of the Invitation to Tender post award. As a result, line-level product/service rate items, per-category inspection scope, pricing and specific BS EN standard numbers are not present in this document and should be sourced from the ITT and Pricing Schedule overlays (pdf-extraction/tender-specification on the ITT document and pdf-extraction/pricing-schedule on Appendix B).",
+      "evidence_refs": [
+        "#/texts/772 FRAMEWORK SCHEDULE 1 - THE GOODS AND/OR SERVICES (p56)",
+        "Framework Schedule 1 §1.8: 'Upon completion of the tender evaluation exercise and prior to the entry into the Framework Agreement, ESPO will incorporate into this Framework Schedule the Specification (contained within Section 2 of the Invitation to Tender, Requirement) and the Supplier's response to the Statement of Requirements (contained within Section 1 of the Tender Submission Document).'"
+      ]
+    },
+    {
+      "code": "SINGLE_LOT_NO_LOT_SPLIT",
+      "message": "The procurement is explicitly not split into lots (notice metadata: 'The Framework is NOT divided into lots'), and this Framework Agreement document treats the entire scope as a single agreement. A single lot with lot_number='1' is emitted, matching the existing notice_lots row for cross-reference continuity.",
+      "evidence_refs": [
+        "process_context: 'The Framework is NOT divided into lots.'",
+        "#/texts/7 INSPECTION & MAINTENANCE OF INDOOR GYMNASIUM, FITNESS & SPORT EQUIPMENT AND OUTDOOR SCHOOLS PLAY & SPORT EQUIPMENT (p1)"
+      ]
+    },
+    {
+      "code": "CPV_CODES_FROM_NOTICE_METADATA",
+      "message": "CPV codes 37400000 (Sports goods and equipment) and 50000000 (Repair and maintenance services) are not observed verbatim in the Framework Agreement markdown. They are carried from process_context / notice main_category metadata for cross-reference. Confidence on lots.cpv_codes is therefore reduced.",
+      "evidence_refs": [
+        "process_context.main_category='37400000-2 - Sports goods and equipment | 50000000-5 - Repair and maintenance services'"
+      ]
+    },
+    {
+      "code": "EVALUATION_CRITERIA_DEFERRED_TO_ITT",
+      "message": "The Framework Agreement does not enumerate the price/non-price weightings or individual evaluation questions used to establish the Framework; it describes the call-off evaluation machinery only (Framework Schedule 4 and 5). The definitive tender evaluation criteria (e.g. price 40% / non-price 60%, Q1-Q6) live in the Invitation to Tender (Section 5 Evaluation of Tenders).",
+      "evidence_refs": [
+        "#/texts/926 FRAMEWORK SCHEDULE 5 - FURTHER COMPETITIVE SELECTION PROCESS AWARD CRITERIA (p67)",
+        "#/texts/866 FRAMEWORK SCHEDULE 4 §2 AWARD PROCEDURE (CALL OFF WITHOUT COMPETITION) (p63)"
+      ]
+    },
+    {
+      "code": "TECHNICAL_STANDARDS_GENERIC_ONLY",
+      "message": "The Framework Agreement cites 'the Standards' generically (British Standards produced by the BSI Group, international standards, ESPO's internal policies and Government codes of practice) but does not list specific standard numbers (e.g. BS EN 1176, BS EN 1177, BS EN 916, PUWER 1998, HSWA 1974). Those numeric references should be extracted from Section 2 of the ITT, not from this document.",
+      "evidence_refs": [
+        "#/texts/47 clause 1 Interpretation, 'Standards' definition (p12)",
+        "clause 13.2: 'The Supplier shall comply with the Standards and the Law in performing its obligations under this Framework Agreement.'"
+      ]
+    },
+    {
+      "code": "COMMENCEMENT_DATE_CONDITIONAL",
+      "message": "The Commencement Date is stated as 09 June 2026 in the 'Commencement Date' definition but is qualified with: 'if this date is not completed in this Framework Agreement, it shall be the date stipulated in writing by ESPO by letter to the Supplier.' The framework term therefore ultimately depends on the executed instance.",
+      "evidence_refs": [
+        "#/texts/47 'Commencement Date' means 09 June 2026 or, if this date is not completed in this Framework Agreement, it shall be the date stipulated in writing by ESPO by letter to the Supplier"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "1",
+      "anchor_text": "FRAMEWORK AGREEMENT FOR INSPECTION & MAINTENANCE OF INDOOR GYMNASIUM, FITNESS & SPORT EQUIPMENT AND OUTDOOR SCHOOLS PLAY & SPORT EQUIPMENT",
+      "section_ref": "#/texts/7"
+    },
+    {
+      "page_ref": "1",
+      "anchor_text": "Agreement Ref: 107_26",
+      "section_ref": "#/texts/9"
+    },
+    {
+      "page_ref": "5",
+      "anchor_text": "ESPO placed a Tender Notice 2026/S 000-002119 on 12 January 2026 on the central digital platform operated pursuant to section 95(4) of the PA23",
+      "section_ref": "#/texts/42"
+    },
+    {
+      "page_ref": "12",
+      "anchor_text": "'Standards' means the British Standards (produced by the BSI Group) and international standards, ESPO's reasonable internal policies and procedures, Government codes of practice and guidance referred to in Framework Schedule 1 (Goods and/or Services)",
+      "section_ref": "#/texts/47"
+    },
+    {
+      "page_ref": "12",
+      "anchor_text": "'Commencement Date' means 09 June 2026 or, if this date is not completed in this Framework Agreement, it shall be the date stipulated in writing by ESPO by letter to the Supplier",
+      "section_ref": "#/texts/47"
+    },
+    {
+      "page_ref": "17",
+      "anchor_text": "2. TERM OF FRAMEWORK AGREEMENT",
+      "section_ref": "#/texts/123"
+    },
+    {
+      "page_ref": "17",
+      "anchor_text": "3. SCOPE OF FRAMEWORK AGREEMENT",
+      "section_ref": "#/texts/125"
+    },
+    {
+      "page_ref": "26",
+      "anchor_text": "13.2 The Supplier shall comply with the Standards and the Law in performing its obligations under this Framework Agreement.",
+      "section_ref": "#/texts/47"
+    },
+    {
+      "page_ref": "56",
+      "anchor_text": "FRAMEWORK SCHEDULE 1 -THE GOODS AND/OR SERVICES",
+      "section_ref": "#/texts/772"
+    },
+    {
+      "page_ref": "58",
+      "anchor_text": "The Framework Fee is 3.5%.",
+      "section_ref": "#/texts/797"
+    },
+    {
+      "page_ref": "63",
+      "anchor_text": "2. AWARD PROCEDURE (CALL OFF WITHOUT COMPETITION)",
+      "section_ref": "#/texts/866"
+    },
+    {
+      "page_ref": "63",
+      "anchor_text": "3. AWARD PROCEDURE (FURTHER COMPETITIVE SELECTION PROCESS)",
+      "section_ref": "#/texts/866"
+    },
+    {
+      "page_ref": "67",
+      "anchor_text": "FRAMEWORK SCHEDULE 5 - FURTHER COMPETITIVE SELECTION PROCESS AWARD CRITERIA",
+      "section_ref": "#/texts/926"
+    },
+    {
+      "page_ref": "70",
+      "anchor_text": "FRAMEWORK SCHEDULE 7 - MANAGEMENT INFORMATION REQUIREMENTS",
+      "section_ref": "#/texts/965"
+    },
+    {
+      "page_ref": "75",
+      "anchor_text": "FRAMEWORK SCHEDULE 10 - FRAMEWORK MANAGEMENT INCLUDING SERVICE LEVELS AND KEY PERFORMANCE INDICATORS",
+      "section_ref": "#/texts/1007"
+    },
+    {
+      "page_ref": "78",
+      "anchor_text": "KEY PERFORMANCE INDICATORS — 100% of complaints to be responded to within two Working Days of Supplier's receipt of the Complaint. 98% of Complaints to be resolved or have an agreed action plan in place within ten Working Days",
+      "section_ref": "#/texts/1059"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "2ca06eb018d3736486b447f498bf82f0faf203b9fb0110ffe8750cb3ad1af855",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

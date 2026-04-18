@@ -1,0 +1,773 @@
+{
+  "lots": [
+    {
+      "lot_number": "8",
+      "title": "Building Services Specification - Planned Maintenance and Remedial Works (Lot 8)",
+      "description": "London Borough of Bexley contract for delivery of Planned Preventive Maintenance (PPM), Reactive/Remedial Maintenance, and Specialist Building Services across the Council's operational estate, contract commencing SEPT 2026. Supplier is responsible for safe, compliant, and efficient operation of all mechanical, electrical, building fabric, and specialist facilities management assets, with full integration into the Council's CAFM system (Civica/TF Cloud).",
+      "requirements": [
+        "Planned Preventive Maintenance (PPM) scheduled in accordance with statutory requirements, SFG20, CIBSE Guide M, and manufacturer recommendations.",
+        "Statutory compliance inspections and certification within legally required timeframes.",
+        "Minor building fabric repairs to maintain integrity and safety of building structures.",
+        "Specialist services support for BMS, fire detection/suppression, generators, UPS, lightning protection, and structural surveys.",
+        "Mobilisation and asset collection: comprehensive asset verification, tagging, and CAFM onboarding.",
+        "Environmental and social value delivery aligned with Council objectives.",
+        "24/7 helpdesk and emergency response capability for all critical systems (BMS alarms, life safety systems, essential plant).",
+        "Adherence to agreed SLAs for response and resolution times, prioritising critical failures.",
+        "Reactive works carried out by certified, competent engineers with manufacturer accreditations where applicable.",
+        "Root cause analysis and corrective actions for all failures.",
+        "All completed tasks, service reports, and certificates uploaded to CAFM (Civica/TF Cloud) within 48 hours of completion.",
+        "Preparation and submission of site-specific Risk Assessment and Method Statements (RAMS) for all works.",
+        "Dynamic risk assessments to address changing site conditions.",
+        "Asbestos register checks prior to any work and immediate stop-work if ACMs encountered.",
+        "Strict adherence to permit-to-work systems for hot works, electrical isolations, confined spaces, and roof access.",
+        "Operation of an ISO 14001-compliant Environmental Management System.",
+        "Segregation of waste streams and legal disposal via approved licensed carriers.",
+        "Implementation of carbon reduction and energy efficiency measures; recommendations for low-carbon asset replacements.",
+        "Delivery of measurable social value outcomes: local employment, apprenticeships, SME engagement, sustainability initiatives.",
+        "Mobilisation plan submission within 10 working days of award; mobilisation period 6-12 weeks covering asset collection/tagging, condition/lifecycle/criticality assessment, Year 1 PPM schedules, competency matrix and staffing plan, and CAFM system integration.",
+        "Identification and maintenance of agreed critical spares stock, available on-site or within 12-24 hour delivery, reviewed annually or after major plant changes.",
+        "100% asset audit within the first three (3) months of contract commencement capturing asset type/model/serial, age/condition, compliance status, lifecycle analysis, and criticality rating.",
+        "Production of monthly operational reports (PPM completion, statutory compliance tracker, risk register, social value tracker, energy-saving opportunities, performance dashboard, exception reporting, continuous improvement, financial summary, forward look) submitted electronically and presented at monthly contract review meetings."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Statutory compliance",
+          "summary": "100% statutory compliance across all assets and inspections.",
+          "weighting_text": "100%",
+          "evidence_anchor": {
+            "page_ref": "section-13",
+            "section_ref": "13. KPI Framework",
+            "anchor_text": "100% statutory compliance"
+          }
+        },
+        {
+          "criterion": "PPM completion rate",
+          "summary": "95% of planned preventive maintenance tasks completed on time each month.",
+          "weighting_text": "95% monthly",
+          "evidence_anchor": {
+            "page_ref": "section-13",
+            "section_ref": "13. KPI Framework",
+            "anchor_text": "95% PPM completion monthly"
+          }
+        },
+        {
+          "criterion": "Reactive response compliance",
+          "summary": "Reactive response SLA compliance between 90% and 95%.",
+          "weighting_text": "90-95%",
+          "evidence_anchor": {
+            "page_ref": "section-13",
+            "section_ref": "13. KPI Framework",
+            "anchor_text": "90-95% reactive response compliance"
+          }
+        },
+        {
+          "criterion": "First-time fix rate",
+          "summary": "At least 80% of reactive faults resolved on first visit.",
+          "weighting_text": "80%",
+          "evidence_anchor": {
+            "page_ref": "section-13",
+            "section_ref": "13. KPI Framework",
+            "anchor_text": "80% first-time fix rate"
+          }
+        },
+        {
+          "criterion": "Data upload timeliness",
+          "summary": "All task records, reports, and certificates uploaded to Council CAFM within 48 hours of completion.",
+          "weighting_text": "48 hours",
+          "evidence_anchor": {
+            "page_ref": "section-13",
+            "section_ref": "13. KPI Framework",
+            "anchor_text": "Data upload within 48 hours"
+          }
+        },
+        {
+          "criterion": "Health & Safety performance",
+          "summary": "Zero major Health & Safety breaches.",
+          "weighting_text": "Zero tolerance",
+          "evidence_anchor": {
+            "page_ref": "section-13",
+            "section_ref": "13. KPI Framework",
+            "anchor_text": "Zero major H&S breaches"
+          }
+        },
+        {
+          "criterion": "Social value delivery",
+          "summary": "Quarterly social value delivery against agreed commitments (local employment, apprenticeships, SME engagement, sustainability).",
+          "weighting_text": "Quarterly",
+          "evidence_anchor": {
+            "page_ref": "section-13",
+            "section_ref": "13. KPI Framework",
+            "anchor_text": "Quarterly social value delivery"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot8-bms-trend-iqvision",
+          "summary": "Certified specialist support for Trend IQvision and other open-protocol Building Management Systems (BMS), including 24/7 emergency response capability for critical BMS alarms.",
+          "requirement_type": "specialist_service",
+          "technical_attributes": [
+            "Trend IQvision",
+            "open-protocol BMS",
+            "24/7 emergency response for critical BMS alarms",
+            "manufacturer accreditation evidence required"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-6",
+            "section_ref": "6. Statutory Inspection & Certification",
+            "anchor_text": "Trend IQvison and other open-protocol Building Management Systems (BMS)"
+          }
+        },
+        {
+          "seed_key": "lot8-helvar-dali-lighting",
+          "summary": "Certified specialist support for Helvar DALI lighting control systems.",
+          "requirement_type": "specialist_service",
+          "technical_attributes": [
+            "Helvar DALI lighting control",
+            "certified specialist"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-6",
+            "section_ref": "6. Statutory Inspection & Certification",
+            "anchor_text": "Helvar DALI lighting control systems"
+          }
+        },
+        {
+          "seed_key": "lot8-gent-fire-alarm",
+          "summary": "Gent Fire Alarm software support including programming, commissioning, and BMS integration tools.",
+          "requirement_type": "specialist_service",
+          "technical_attributes": [
+            "Gent Fire Alarm",
+            "software programming & commissioning",
+            "BMS integration"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-6",
+            "section_ref": "6. Statutory Inspection & Certification",
+            "anchor_text": "Gent Fire Alarm Software Support"
+          }
+        },
+        {
+          "seed_key": "lot8-ups-systems",
+          "summary": "Maintenance of Uninterruptible Power Supply (UPS) systems by certified specialists.",
+          "requirement_type": "specialist_service",
+          "technical_attributes": [
+            "UPS",
+            "certified specialist"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-6",
+            "section_ref": "6. Statutory Inspection & Certification",
+            "anchor_text": "Uninterruptible Power Supply (UPS) systems"
+          }
+        },
+        {
+          "seed_key": "lot8-standby-generators",
+          "summary": "Maintenance of standby generators by certified specialists.",
+          "requirement_type": "specialist_service",
+          "technical_attributes": [
+            "standby generators",
+            "certified specialist"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-6",
+            "section_ref": "6. Statutory Inspection & Certification",
+            "anchor_text": "Standby generators"
+          }
+        },
+        {
+          "seed_key": "lot8-fire-suppression",
+          "summary": "Maintenance of fire suppression systems by certified specialists.",
+          "requirement_type": "specialist_service",
+          "technical_attributes": [
+            "fire suppression systems",
+            "certified specialist"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-6",
+            "section_ref": "6. Statutory Inspection & Certification",
+            "anchor_text": "Fire suppression systems"
+          }
+        },
+        {
+          "seed_key": "lot8-hvac-controls",
+          "summary": "Maintenance of complex HVAC control systems by certified specialists.",
+          "requirement_type": "specialist_service",
+          "technical_attributes": [
+            "complex HVAC control",
+            "certified specialist"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-6",
+            "section_ref": "6. Statutory Inspection & Certification",
+            "anchor_text": "Complex HVAC control systems"
+          }
+        },
+        {
+          "seed_key": "lot8-lightning-protection",
+          "summary": "Maintenance and inspection of lightning protection systems as part of specialist services.",
+          "requirement_type": "specialist_service",
+          "technical_attributes": [
+            "lightning protection"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2. Scope of Services",
+            "anchor_text": "Lightning protection"
+          }
+        },
+        {
+          "seed_key": "lot8-structural-surveys",
+          "summary": "Structural surveys as part of specialist services within the scope.",
+          "requirement_type": "specialist_service",
+          "technical_attributes": [
+            "structural surveys"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-2",
+            "section_ref": "2. Scope of Services",
+            "anchor_text": "Structural surveys"
+          }
+        },
+        {
+          "seed_key": "lot8-cafm-integration",
+          "summary": "System integration and onboarding with the Council's CAFM system (Civica/TF Cloud), including data migration, validation, and 48-hour upload of task/compliance records.",
+          "requirement_type": "system_integration",
+          "technical_attributes": [
+            "Civica/TF Cloud CAFM",
+            "data migration & validation",
+            "48-hour upload SLA"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-10",
+            "section_ref": "10. Mobilisation Requirements",
+            "anchor_text": "full onboarding and integration with the Council's CAFM system (TF Cloud)"
+          }
+        },
+        {
+          "seed_key": "lot8-critical-spares",
+          "summary": "Provision and management of an agreed critical spares stock for all installed plant and equipment, available on-site or via 12-24 hour guaranteed delivery, reviewed annually.",
+          "requirement_type": "consumables_stock",
+          "technical_attributes": [
+            "critical spares",
+            "on-site or 12-24h delivery",
+            "annual review"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-11",
+            "section_ref": "11. Critical Spares List",
+            "anchor_text": "detailed list of recommended critical spares for all installed plant and equipment"
+          }
+        },
+        {
+          "seed_key": "lot8-asset-tagging",
+          "summary": "100% asset audit and tagging within first three months of contract commencement; asset data recorded in CAFM with type, model, serial, age, condition, compliance status, lifecycle, and criticality rating.",
+          "requirement_type": "service_delivery",
+          "technical_attributes": [
+            "100% asset audit",
+            "3-month completion",
+            "asset tagging",
+            "lifecycle and criticality assessment"
+          ],
+          "evidence_anchor": {
+            "page_ref": "section-12",
+            "section_ref": "12. Asset Verification Requirements",
+            "anchor_text": "100% asset audit across all buildings within scope"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "SFG20",
+          "context": "Planned preventive maintenance scheduling standard referenced throughout specification.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "SFG20"
+          }
+        },
+        {
+          "standard_ref": "CIBSE Guide M",
+          "context": "Maintenance engineering and management best practice guide for building services.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "CIBSE Guide M"
+          }
+        },
+        {
+          "standard_ref": "Fire Safety Act 2021",
+          "context": "Legislative compliance requirement for the contract.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Fire Safety Act 2021"
+          }
+        },
+        {
+          "standard_ref": "CDM 2015 (Construction (Design and Management) Regulations 2015)",
+          "context": "Legislative compliance requirement for all construction/maintenance activities.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Construction (Design and Management) Regulations 2015 (CDM 2015)"
+          }
+        },
+        {
+          "standard_ref": "Control of Asbestos Regulations 2012",
+          "context": "Mandatory compliance; asbestos register checks and stop-work on ACM discovery.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Control of Asbestos Regulations 2012"
+          }
+        },
+        {
+          "standard_ref": "PUWER (Provision and Use of Work Equipment Regulations)",
+          "context": "Mandatory compliance for work equipment.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Provision and Use of Work Equipment Regulations (PUWER)"
+          }
+        },
+        {
+          "standard_ref": "LOLER (Lifting Operations and Lifting Equipment Regulations)",
+          "context": "Mandatory compliance for lifting equipment.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Lifting Operations and Lifting Equipment Regulations (LOLER)"
+          }
+        },
+        {
+          "standard_ref": "PSSR (Pressure Systems Safety Regulations)",
+          "context": "Mandatory compliance for pressure systems.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Pressure Systems Safety Regulations (PSSR)"
+          }
+        },
+        {
+          "standard_ref": "HSE Approved Code of Practice L8",
+          "context": "Legionella control in water systems.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "HSE Approved Code of Practice L8 (Legionella control)"
+          }
+        },
+        {
+          "standard_ref": "BS EN (relevant standards)",
+          "context": "Compliance with applicable BS EN standards for building services.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Relevant BS EN standards"
+          }
+        },
+        {
+          "standard_ref": "ISO 14001",
+          "context": "Environmental Management System compliance required for the Supplier.",
+          "evidence_anchor": {
+            "page_ref": "section-8",
+            "section_ref": "8. Environmental & Sustainability Requirements",
+            "anchor_text": "ISO 14001-compliant Environmental Management System"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work",
+          "context": "Overarching legislative compliance obligation.",
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Legislative & Regulatory Compliance",
+            "anchor_text": "Health and Safety at Work"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "section-1",
+        "section_ref": "Building Services Specification - Planned Maintenance and Remedial works",
+        "anchor_text": "Building Services Specification Planned Maintenance and Remedial works"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot8-bms-trend-iqvision",
+      "lot_number": "8",
+      "candidate_name": "Trend IQvision / open-protocol BMS specialist maintenance service",
+      "summary": "Certified specialist maintenance and 24/7 emergency response for Trend IQvision and other open-protocol Building Management Systems across Council estate.",
+      "requirements": [
+        "Manufacturer accreditation for Trend IQvision",
+        "Open-protocol BMS competency",
+        "24/7 emergency response for critical BMS alarms",
+        "Evidence of specialist training kept current"
+      ],
+      "technical_standards": [
+        "CIBSE Guide M",
+        "SFG20"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-6",
+        "section_ref": "6. Statutory Inspection & Certification",
+        "anchor_text": "Trend IQvison and other open-protocol Building Management Systems (BMS)"
+      }
+    },
+    {
+      "seed_key": "lot8-helvar-dali-lighting",
+      "lot_number": "8",
+      "candidate_name": "Helvar DALI lighting control maintenance service",
+      "summary": "Certified specialist maintenance of Helvar DALI lighting control systems.",
+      "requirements": [
+        "Certified Helvar DALI specialist",
+        "Programming and commissioning capability"
+      ],
+      "technical_standards": [
+        "SFG20"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-6",
+        "section_ref": "6. Statutory Inspection & Certification",
+        "anchor_text": "Helvar DALI lighting control systems"
+      }
+    },
+    {
+      "seed_key": "lot8-gent-fire-alarm",
+      "lot_number": "8",
+      "candidate_name": "Gent Fire Alarm software support service",
+      "summary": "Software support for Gent Fire Alarm systems covering programming, commissioning, and integration with BMS platforms.",
+      "requirements": [
+        "Gent Fire Alarm software tools and programming capability",
+        "BMS integration capability",
+        "Commissioning competence"
+      ],
+      "technical_standards": [
+        "Fire Safety Act 2021",
+        "BS EN (relevant standards)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-6",
+        "section_ref": "6. Statutory Inspection & Certification",
+        "anchor_text": "Gent Fire Alarm Software Support"
+      }
+    },
+    {
+      "seed_key": "lot8-ups-systems",
+      "lot_number": "8",
+      "candidate_name": "Uninterruptible Power Supply (UPS) maintenance service",
+      "summary": "Certified specialist maintenance of UPS systems with emergency response for critical power continuity.",
+      "requirements": [
+        "Certified UPS maintenance specialist",
+        "Manufacturer accreditations where applicable",
+        "Emergency response for critical plant"
+      ],
+      "technical_standards": [
+        "SFG20",
+        "CIBSE Guide M"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-6",
+        "section_ref": "6. Statutory Inspection & Certification",
+        "anchor_text": "Uninterruptible Power Supply (UPS) systems"
+      }
+    },
+    {
+      "seed_key": "lot8-standby-generators",
+      "lot_number": "8",
+      "candidate_name": "Standby generator maintenance service",
+      "summary": "Maintenance of standby generators by certified specialists with emergency response capability.",
+      "requirements": [
+        "Certified generator maintenance specialist",
+        "Manufacturer accreditation where applicable"
+      ],
+      "technical_standards": [
+        "SFG20",
+        "CIBSE Guide M"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-6",
+        "section_ref": "6. Statutory Inspection & Certification",
+        "anchor_text": "Standby generators"
+      }
+    },
+    {
+      "seed_key": "lot8-fire-suppression",
+      "lot_number": "8",
+      "candidate_name": "Fire suppression systems maintenance service",
+      "summary": "Certified specialist maintenance of fire suppression systems.",
+      "requirements": [
+        "Certified fire suppression specialist",
+        "Compliance with fire safety legislation"
+      ],
+      "technical_standards": [
+        "Fire Safety Act 2021",
+        "BS EN (relevant standards)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-6",
+        "section_ref": "6. Statutory Inspection & Certification",
+        "anchor_text": "Fire suppression systems"
+      }
+    },
+    {
+      "seed_key": "lot8-hvac-controls",
+      "lot_number": "8",
+      "candidate_name": "Complex HVAC control systems maintenance service",
+      "summary": "Certified specialist maintenance of complex HVAC control systems integrated with BMS.",
+      "requirements": [
+        "Certified HVAC controls specialist",
+        "Integration with open-protocol BMS"
+      ],
+      "technical_standards": [
+        "CIBSE Guide M",
+        "SFG20"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-6",
+        "section_ref": "6. Statutory Inspection & Certification",
+        "anchor_text": "Complex HVAC control systems"
+      }
+    },
+    {
+      "seed_key": "lot8-lightning-protection",
+      "lot_number": "8",
+      "candidate_name": "Lightning protection maintenance and inspection service",
+      "summary": "Inspection and maintenance of lightning protection systems as part of specialist building services scope.",
+      "requirements": [
+        "Competent lightning protection inspector/tester",
+        "Certification of test results"
+      ],
+      "technical_standards": [
+        "BS EN (relevant standards)"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-2",
+        "section_ref": "2. Scope of Services",
+        "anchor_text": "Lightning protection"
+      }
+    },
+    {
+      "seed_key": "lot8-structural-surveys",
+      "lot_number": "8",
+      "candidate_name": "Structural surveys service",
+      "summary": "Provision of structural surveys as part of specialist services within the maintenance scope.",
+      "requirements": [
+        "Qualified structural surveyor",
+        "Written survey reports"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-2",
+        "section_ref": "2. Scope of Services",
+        "anchor_text": "Structural surveys"
+      }
+    },
+    {
+      "seed_key": "lot8-cafm-integration",
+      "lot_number": "8",
+      "candidate_name": "CAFM system integration (Civica/TF Cloud)",
+      "summary": "Integration, onboarding, data migration, and ongoing 48-hour record upload to the Council's Civica/TF Cloud CAFM system.",
+      "requirements": [
+        "Civica/TF Cloud CAFM integration expertise",
+        "Data migration and validation",
+        "48-hour upload of all task, service, and compliance records"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-10",
+        "section_ref": "10. Mobilisation Requirements",
+        "anchor_text": "full onboarding and integration with the Council's CAFM system (TF Cloud)"
+      }
+    },
+    {
+      "seed_key": "lot8-critical-spares",
+      "lot_number": "8",
+      "candidate_name": "Critical spares stock management",
+      "summary": "Provision and active management of an agreed critical spares list for all installed plant and equipment, with on-site availability or guaranteed 12-24 hour delivery.",
+      "requirements": [
+        "Critical spares list for all installed plant",
+        "On-site stock or 12-24h guaranteed delivery",
+        "Annual review and post-major-change review",
+        "Stock level tracking and usage records"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-11",
+        "section_ref": "11. Critical Spares List",
+        "anchor_text": "detailed list of recommended critical spares for all installed plant and equipment"
+      }
+    },
+    {
+      "seed_key": "lot8-asset-tagging",
+      "lot_number": "8",
+      "candidate_name": "Asset audit, tagging and condition/lifecycle assessment service",
+      "summary": "Delivery of 100% asset audit, tagging, and CAFM onboarding within three months of contract commencement; captures type, model, serial number, age, condition, compliance status, lifecycle, and criticality rating.",
+      "requirements": [
+        "100% asset audit within 3 months of commencement",
+        "Asset tagging with CAFM onboarding",
+        "Condition, lifecycle, and criticality assessment",
+        "Data integrity and gap reporting"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-12",
+        "section_ref": "12. Asset Verification Requirements",
+        "anchor_text": "100% asset audit across all buildings within scope"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots": 9500,
+    "lot_number": 9600,
+    "title": 9700,
+    "description": 9400,
+    "requirements": 9300,
+    "evaluation_criteria": 9000,
+    "cpv_codes": 2000,
+    "product_requirements": 8800,
+    "technical_standards": 9500,
+    "product_requirement_seeds": 8700,
+    "evidence_anchors": 9200
+  },
+  "extraction_confidence_bps": 8900,
+  "warnings": [
+    {
+      "code": "CPV_CODES_NOT_STATED",
+      "message": "No CPV codes are declared within this Lot 8 specification document. CPV classification must be sourced from notice-level metadata or other documents in the tender pack.",
+      "evidence_refs": [
+        "document-wide: no CPV code references found in markdown body"
+      ]
+    },
+    {
+      "code": "PAGE_METADATA_ABSENT",
+      "message": "Source extraction reports page_count=0 (DOCX source with a single-page layout section); evidence anchors use section headings rather than page numbers.",
+      "evidence_refs": [
+        "document_extractions.page_count = 0",
+        "raw_documents.content_type = application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ]
+    },
+    {
+      "code": "MOBILISATION_DURATION_INCONSISTENCY",
+      "message": "Specification states mobilisation period '6-12 weeks' in section 10 body and '6-8 weeks' in the bulleted summary within the same section. Flagged for operator clarification.",
+      "evidence_refs": [
+        "section-10: The mobilisation period (typically 6-12 weeks)",
+        "section-10: Within the mobilisation period (6-8 weeks)"
+      ]
+    },
+    {
+      "code": "SINGLE_LOT_CONTEXT_ONLY",
+      "message": "Document is a per-lot specification (Lot 8) and does not describe sibling lots. Treat other lot metadata as non-authoritative from this extraction.",
+      "evidence_refs": [
+        "source filename: 6278 - Draft specification - Lot 8.docx",
+        "document_title: 6278 - Draft specification - Lot 8"
+      ]
+    },
+    {
+      "code": "TREND_IQVISION_SPELLING_VARIANT",
+      "message": "Document contains both 'Trend IQvison' (likely typo) and 'Trend IQVision' for the same BMS product. Preserved seed under canonical 'Trend IQvision'.",
+      "evidence_refs": [
+        "section-6: Trend IQvison",
+        "section-6: Trend IQVision"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "section-1",
+      "section_ref": "Building Services Specification - Planned Maintenance and Remedial works",
+      "anchor_text": "Building Services Specification Planned Maintenance and Remedial works"
+    },
+    {
+      "page_ref": "section-1-intro",
+      "section_ref": "1. Introduction & Purpose of the Specification",
+      "anchor_text": "This specification sets out the requirements for the delivery of Planned Preventive Maintenance (PPM), Reactive Maintenance, and Specialist Building Services"
+    },
+    {
+      "page_ref": "section-2",
+      "section_ref": "2. Scope of Services",
+      "anchor_text": "The Supplier shall deliver the following services across all Council-operated buildings"
+    },
+    {
+      "page_ref": "section-3",
+      "section_ref": "3. Legislative & Regulatory Compliance",
+      "anchor_text": "The Supplier shall ensure full compliance with all relevant legislative and regulatory requirements"
+    },
+    {
+      "page_ref": "section-4",
+      "section_ref": "4. Compliance Management for Planned Preventive Maintenance (PPM)",
+      "anchor_text": "The Supplier shall assume full responsibility for the delivery and management of compliance"
+    },
+    {
+      "page_ref": "section-5",
+      "section_ref": "5. Remedial Maintenance Requirements",
+      "anchor_text": "24/7 helpdesk and emergency response capability for all critical systems"
+    },
+    {
+      "page_ref": "section-6",
+      "section_ref": "6. Statutory Inspection & Certification",
+      "anchor_text": "certified and competent specialists"
+    },
+    {
+      "page_ref": "section-7",
+      "section_ref": "7. Health & Safety Requirements",
+      "anchor_text": "site-specific Risk Assessment and Method Statements (RAMS)"
+    },
+    {
+      "page_ref": "section-8",
+      "section_ref": "8. Environmental & Sustainability Requirements",
+      "anchor_text": "ISO 14001-compliant Environmental Management System"
+    },
+    {
+      "page_ref": "section-9",
+      "section_ref": "9. Social Value Requirements",
+      "anchor_text": "measurable social value outcomes"
+    },
+    {
+      "page_ref": "section-10",
+      "section_ref": "10. Mobilisation Requirements",
+      "anchor_text": "comprehensive mobilisation plan within 10 working days of contract award"
+    },
+    {
+      "page_ref": "section-11",
+      "section_ref": "11. Critical Spares List",
+      "anchor_text": "agreed stock of critical spare parts necessary to ensure the continued operation"
+    },
+    {
+      "page_ref": "section-12",
+      "section_ref": "12. Asset Verification Requirements",
+      "anchor_text": "100% asset audit across all buildings within scope"
+    },
+    {
+      "page_ref": "section-13",
+      "section_ref": "13. KPI Framework",
+      "anchor_text": "Core KPIs"
+    },
+    {
+      "page_ref": "section-14",
+      "section_ref": "14. Operational Reporting & Contract Management Requirements",
+      "anchor_text": "monthly operational reports to support effective contract management"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "c6341a98aeadfbe1d87de6a56190d23a2201ddd093631fb57d9e897ee2c935f1",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

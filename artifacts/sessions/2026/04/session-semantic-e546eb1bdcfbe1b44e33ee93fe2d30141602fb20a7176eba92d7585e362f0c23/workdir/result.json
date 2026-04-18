@@ -1,0 +1,535 @@
+{
+  "lots": [
+    {
+      "lot_number": "2",
+      "title": "Provision of Water Risk Assessments (Legionella Survey)",
+      "description": "Lot 2 of the London Borough of Bexley Building Services Framework 6278. Single-lot Specification ('Schedule 1') for the provision of Water Risk Assessments / Legionella Surveys across the Council's operational estate, commencing April 2026 for a period of 3 + 2 years. The Supplier (Contractor) provides all expertise, staff, labour, materials, equipment and resources to deliver Water Management Surveys that enable, support and evidence the Council's statutory compliance obligations under the Health and Safety at Work Act 1974, the Approved Code of Practice (ACOP) L8, HSE Guidance HSG 274 Parts 1-3 and BSI 8580:2010. Core services include Water Hygiene Assessments of hot and cold water systems (mains distribution, stored water tanks, calorifiers and outlets), production of site Water Hygiene Management Plans, monitoring programmes (temperature checks, flushing, inspection regimes), annual review of WRAs, production of risk-rated (high / medium / low) electronic reports within ten (10) days of each inspection with 48-hour high-priority remedial notifications, consolidation of remedial works into a RAG-rated programme of works in Microsoft Excel via the Council's CAFM system (TF Cloud / Civica), operative training in Legionella control, Water Management awareness training for Council staff and partners, and specialist advice on ACOP L8 compliance. The Contractor must operate a Dynamic Risk Assessment process prior to any planned or reactive works. The schedule of buildings and indicative volumes is governed by Appendix 1 - Bexley Water Risk Assessment - Price Matrix; environmental obligations by Appendix C; and the Code of Conduct by Appendix D.",
+      "requirements": [
+        "Provide all expertise, staff, labour, materials, equipment and resources for the undertaking of Legionella Surveys / Water Risk Assessments (section 1).",
+        "Provide a named representative to oversee the provision of the Service and work with the Council and the Service Manager to develop and improve the Services within the scope and financial limits of the Contract (section 1).",
+        "Conduct Water Risk Assessments as instructed, ensuring a high-quality service in line with this Specification and the Contract, respecting site-specific requirements that may differ across Sites and building types (section 2).",
+        "In collaboration with the Council, prepare an annual schedule of Water Risk Assessments aligned with this Specification and Appendix 1 - Bexley Water Risk Assessment - Price Matrix, submit for Council approval, and indicate whether each activity is a statutory compliance requirement or a best practice service (section 2).",
+        "If asbestos is discovered or suspected, immediately cease work, notify the Council, and not disturb or remove any Asbestos Containing Material without Council agreement and full compliance with the Control of Asbestos Regulations 2012; consult and sign the site-specific Asbestos Risk Management Plan and register before commencing any work (section 2).",
+        "Agree access and security arrangements for each Site during mobilisation (including any necessary alarm-setting training), maintain the Council's key handover and return system, nominate a key-holder, provide 24-hour access contact details in writing to the FM Team, and report loss or misplacement of Keys immediately (section 2).",
+        "Reimburse the Council for all costs arising from lost or damaged Keys, including lock changes, door/gate replacements and security-system reprogramming (section 2).",
+        "Ensure all Employees comply with the No-Smoking designation covering all Sites and external areas; do not move Council equipment, furniture or specialist items unless expressly authorised (section 2).",
+        "Comply fully with the Approved Code of Practice (ACOP) L8 for the control of Legionella bacteria in water systems, HSE Guidance HSG 274 Parts 1-3, and BSI 8580:2010 (section 3).",
+        "Inspect the hygiene conditions of hot and cold water systems across all contracted sites, including mains distribution, stored water tanks, calorifiers and outlets (wash hand basins, showers), as outlined in the Building List (Appendix A) (section 3).",
+        "Produce a Water Hygiene Assessment report per site within ten (10) days of inspection, containing a summary of assessed risks, an executive summary, site details, schematic drawings of all water systems, risk estimation methodology, photographic evidence, and clear recommendations with risks categorised as high / medium / low (section 3).",
+        "Report any immediate risks to the FM Team while the inspector is still on site and communicate any high-priority remedial work to the FM Team via email within 48 hours of the inspection, prior to formal report submission (section 3).",
+        "Provide all monitoring and reporting documents electronically through the CAFM system (TF Cloud) or by email until system integration is complete; produce the consolidated prioritised remedial works programme (RAG-rated) in Microsoft Excel from the start of the contract and update it monthly (section 3).",
+        "Maintain a site-specific Water Hygiene Management Plan for each location incorporating WRA findings, with control measures, monitoring regimes and responsibilities; implement a proactive monitoring programme (temperature checks, flushing regimes, inspection of tanks and calorifiers, biocide dosing where applicable); review WRAs annually or sooner if there are significant changes to water systems, occupancy or usage (section 3).",
+        "Ensure all operatives involved in water hygiene management are trained in Legionella control procedures, hold relevant certifications, and submit training records to the Council annually (section 3).",
+        "Identify and report any areas of perceived or actual risk to Bexley's compliance with regulations and ACOPs, recommending remedial actions; review the adequacy of existing risk assessments and advise on updates or revisions (section 3).",
+        "Submit sample documentation demonstrating all site-report, RAG, schematic, photographic and methodology requirements with the bid (section 3).",
+        "Use the Council's Asset Management System (TF Cloud / Civica) to record job completion, upload documentation, and process payment applications; attend provided training; no invoices accepted outside this system; no further claims accepted after an invoice has been raised (section 4).",
+        "Quote the system-generated reference number issued with each statutory compliance inspection instruction in all communications with the Council regarding that job (section 4).",
+        "Carry out all statutory inspections in accordance with the standards specified by the Council; the schedule of buildings where inspections may be instructed is detailed in Appendix 1 - Bexley Water Risk Assessment - Price Matrix (section 4).",
+        "Comply with all applicable health and safety legislation, including the Health and Safety at Work Act 1974 and all relevant statutory provisions, codes of practice and HSE Good Practice Guidance Notes; promptly advise the Council of any areas of non-compliance and obtain prior written approval for any remedial works (section 5).",
+        "Provide all necessary equipment and safe power provision; formally train all operatives in the safe use of tools and supply appropriate Personal Protective Equipment (PPE); maintain comprehensive training and assessment records and submit them to the Council annually (section 5).",
+        "Ensure all operatives and staff are familiar with the Council's emergency evacuation procedures for each building; assume the presence of asbestos-containing materials in plant rooms and appliances unless proven otherwise (section 5).",
+        "Submit a Risk Assessment and Method Statement (RAMS) for Council approval prior to commencing any works on site, covering all Services detailed in the Specification; maintain and update Workplace Risk Assessments covering both Contractor and Council work areas; keep them accessible to the Council (section 5).",
+        "Designate a single point of contact for professional health and safety advice and report all near misses and RIDDOR-reportable incidents to the Council (section 5).",
+        "Undertake the 'Authorised Person' duties required under Health and Safety regulations and complete a Dynamic Risk Assessment before any planned or reactive works, uploading it to the CAFM system (TF Cloud) per the process agreed during mobilisation (section 6).",
+        "Adhere to the Council's Environmental Policy (Appendix C) where possible, reduce the Borough's Carbon Emissions, support the Council's Social Value objectives, and submit details of the Contractor's Company Environmental Policy with illustrations and any current experience or initiatives in this field (section 7).",
+        "Provide Water Management awareness training courses for Council staff and suppliers, train and inform the Council and partners in relation to existing and future changes in Regulation and duties under ACOP L8, and provide specialist advice on all matters relating to ACOP L8 (section 8).",
+        "Provide a detailed organisational structure (escalation routes, roles and responsibilities) during mobilisation; ensure staff competence and adequate cover for absence; senior staff must have excellent English verbal and written communication skills; all staff (including subcontractors) must be DBS-checked with records available on request; Council may require removal and replacement of underperforming staff within five (5) working days (section 9).",
+        "Ensure day-to-day operational matters are managed by a designated competent resource in addition to an appointed Contract Manager; adhere to Council staffing policies; sign and adhere to a Council-agreed confidentiality policy; follow sign-in/out procedures; carry company-issued identification at all times on Council premises (section 9).",
+        "Obtain Council prior approval for any sub-contracting; retain full responsibility for subcontracted performance; vet all sub-contractors (including DBS); flow down contractual performance standards; monitor via KPIs, spot-checks and regular management meetings (section 10).",
+        "Immediately refer all complaints to the FM Client Unit, rectify service-failure complaints within SLA timeframes, log all complaints, notify the Contract Administrator within 24 hours with full details and corrective actions, and respond promptly and professionally to ensure satisfactory resolution (section 11).",
+        "Treat all users (Council Members, Representatives and stakeholders) promptly, courteously and effectively; implement a formal complaints procedure submitted as part of the tender; submit a schedule of all complaints and actions taken to the Authorised Officer at monthly operational meetings (section 12).",
+        "During mobilisation, configure all necessary IT and reporting systems; agree report format and content; establish meeting and reporting schedule; finalise the Water Risk Assessment programme of work; confirm KPIs; present all initialisation documents and files at the mobilisation meeting; agree any revised regimes via the Contract Change Mechanism (section 13).",
+        "Proactively propose new technologies, materials and methods that support greater efficiency, improved service outcomes and better value for money, in support of the Council's commitment to continuous improvement (section 14)."
+      ],
+      "evaluation_criteria": [],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "bexley-6278-lot2-water-risk-assessment-service",
+          "summary": "Core Water Risk Assessment / Water Hygiene Assessment service: inspection of hot and cold water systems (mains distribution, stored water tanks, calorifiers, outlets) across the contracted estate, production of per-site electronic reports within ten days with risk ratings, schematic diagrams, photographic evidence and recommendations, 48-hour high-priority email notification of remedial actions, and a consolidated RAG-rated programme of works maintained in Microsoft Excel.",
+          "requirement_type": "water_risk_assessment_service",
+          "technical_attributes": [
+            "Compliant with ACOP L8, HSG 274 Parts 1-3 and BSI 8580:2010 (section 3)",
+            "Inspects mains distribution, stored water tanks, calorifiers and outlets including wash hand basins and showers per Building List Appendix A (section 3)",
+            "Delivers Water Hygiene Assessment report per site within 10 days of inspection (section 3)",
+            "Risk ratings categorised high / medium / low with photographic evidence, schematic line diagrams and risk estimation methodology (section 3)",
+            "Immediate risks reported on-site to FM Team; high-priority remedial actions emailed within 48 hours (section 3)",
+            "Monitoring and reporting delivered electronically via CAFM (TF Cloud) or email (section 3)",
+            "Consolidated RAG-rated programme of works produced in Microsoft Excel from contract start, updated monthly (section 3)",
+            "Sample documentation demonstrating all of the above required with the bid (section 3)"
+          ],
+          "quantity_hint": "Schedule of buildings and indicative frequencies are held in Appendix 1 - Bexley Water Risk Assessment - Price Matrix, which is not present in this Specification extraction; bidders must refer to the Pricing Schedule / Price Matrix for estate size and cadence",
+          "evidence_anchor": {
+            "page_ref": "5",
+            "anchor_text": "The Water Hygiene service must comply with the Approved Code of Practice (ACOP) L8, HSG 274 Parts 1-3, and BSI 8580:2010. The contractor shall inspect hot and cold water systems, including mains distribution, tanks, calorifiers, and outlets. Each site must receive a Water Hygiene Assessment report within ten days",
+            "section_ref": "section 3 - Specification of Services"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot2-water-hygiene-management-plan-monitoring",
+          "summary": "Production and maintenance of a site-specific Water Hygiene Management Plan per location and delivery of a proactive monitoring programme (temperature checks, flushing regimes, inspection of tanks and calorifiers, biocide dosing where applicable), with annual review of WRAs and triggered re-assessment on significant changes to systems, occupancy or usage.",
+          "requirement_type": "water_hygiene_management_plan_service",
+          "technical_attributes": [
+            "Site-specific Water Hygiene Management Plan incorporating WRA findings, control measures, monitoring regimes and responsibilities (section 3)",
+            "Proactive monitoring programme: temperature checks, flushing regimes, inspection of tanks and calorifiers, biocide dosing where applicable (section 3)",
+            "Monitoring records captured electronically via CAFM (TF Cloud) or email until system integration is complete (section 3)",
+            "WRAs reviewed annually or sooner on significant change to water systems, occupancy or usage (section 3)",
+            "Support for internal and external audits via maintained records and demonstrated compliance with HSE guidance (section 3)",
+            "Monthly performance reports covering water hygiene KPIs, risk status updates and remedial progress (section 3)"
+          ],
+          "quantity_hint": "One plan per contracted site; site list held in Appendix A Building List / Appendix 1 Price Matrix (not in this extraction)",
+          "evidence_anchor": {
+            "page_ref": "5",
+            "anchor_text": "The contractor must develop and maintain a site-specific Water Hygiene Management Plan for each location, incorporating findings from Water Risk Assessments (WRAs). This plan must detail control measures, monitoring regimes, and responsibilities for managing Legionella risks.",
+            "section_ref": "section 3 - Specification of Services"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot2-dynamic-risk-assessment-service",
+          "summary": "Dynamic Risk Assessment service completed prior to any planned or reactive works under the Authorised Person regime, uploaded to the CAFM system (TF Cloud) per the process agreed during mobilisation, to ensure safe working practices and compliance with HSE Authorised Person protocols.",
+          "requirement_type": "dynamic_risk_assessment_service",
+          "technical_attributes": [
+            "Mandatory for any planned or reactive works (section 6)",
+            "Format and copy provided during mobilisation; process for completion and upload agreed during mobilisation (section 6)",
+            "Uploaded to CAFM (TF Cloud) to evidence completion (section 6)",
+            "Aligned with HSE Authorised Person protocols (section 3 / section 6)"
+          ],
+          "evidence_anchor": {
+            "page_ref": "9",
+            "anchor_text": "The Contractor will provide a Dynamic Risk Assessment which MUST be completed prior to any works (planned or reactive).",
+            "section_ref": "section 6 - Permits to Work"
+          }
+        },
+        {
+          "seed_key": "bexley-6278-lot2-water-management-training-service",
+          "summary": "Water Management awareness training courses for Council staff and suppliers, plus training and informing the Council and its partners on existing and future changes in Regulation and duties under ACOP L8, and provision of specialist advice on ACOP L8 to the Council, consultants and suppliers.",
+          "requirement_type": "training_and_advisory_service",
+          "technical_attributes": [
+            "Provides Water Management awareness training courses to Council staff and suppliers (section 8)",
+            "Trains and informs the Council and partners on current and future Regulation under ACOP L8 (section 8)",
+            "Provides specialist advice and assistance on all matters relating to ACOP L8 (section 8)",
+            "All contractor operatives delivering water hygiene services are themselves trained in Legionella control, hold relevant certifications and submit training records annually (section 3 / section 5)"
+          ],
+          "evidence_anchor": {
+            "page_ref": "11",
+            "anchor_text": "The ability to provide Water Management awareness training courses for Council staff and suppliers",
+            "section_ref": "section 8 - Training"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "ACOP L8 - Approved Code of Practice for the control of Legionella bacteria in water systems",
+          "context": "Primary statutory code governing the Water Hygiene service; compliance is mandatory for inspection, monitoring, management plans, training and specialist advice under this contract.",
+          "evidence_anchor": {
+            "page_ref": "5",
+            "anchor_text": "The Water Hygiene service must comply with the Approved Code of Practice (ACOP) L8",
+            "section_ref": "section 3 - Specification of Services"
+          }
+        },
+        {
+          "standard_ref": "HSG 274 Parts 1-3 - HSE Guidance: Legionnaires' disease: Technical guidance",
+          "context": "HSE technical guidance on Legionella control in hot and cold water systems, cooling systems and other risk systems; compliance is mandatory alongside ACOP L8.",
+          "evidence_anchor": {
+            "page_ref": "5",
+            "anchor_text": "HSG 274 Parts 1 to 3",
+            "section_ref": "section 3 - Specification of Services"
+          }
+        },
+        {
+          "standard_ref": "BS 8580:2010 - Water quality. Risk assessments for Legionella control. Code of Practice",
+          "context": "British Standard governing the methodology for Legionella Risk Assessments; compliance is mandatory for all WRAs produced under this contract.",
+          "evidence_anchor": {
+            "page_ref": "5",
+            "anchor_text": "BSI 8580:2010",
+            "section_ref": "section 3 - Specification of Services"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work Act 1974 and subordinate statutory provisions",
+          "context": "Umbrella statutory framework for health and safety; the Contractor and all personnel (including sub-contractors) must comply with the Act, statutory provisions made under it, and HSE Good Practice Guidance Notes.",
+          "evidence_anchor": {
+            "page_ref": "8",
+            "anchor_text": "the Health and Safety at Work Act 1974, all relevant statutory provisions under that Act, and all other applicable safety legislation, codes of practice, and Health and Safety Executive (HSE) Good Practice Guidance Notes",
+            "section_ref": "section 5 - Health and Safety Compliance"
+          }
+        },
+        {
+          "standard_ref": "Control of Asbestos Regulations 2012",
+          "context": "Asbestos handling on Council premises must comply with CAR 2012; Contractor must cease work on discovery/suspicion of asbestos, sign and comply with the site-specific Asbestos Risk Management Plan, and assume asbestos presence in plant rooms unless proven otherwise.",
+          "evidence_anchor": {
+            "page_ref": "4",
+            "anchor_text": "No Asbestos Containing Material shall be disturbed or removed without Council agreement and full compliance with the Control of Asbestos Regulations 2012",
+            "section_ref": "section 2 - General"
+          }
+        },
+        {
+          "standard_ref": "RIDDOR - Reporting of Injuries, Diseases and Dangerous Occurrences Regulations",
+          "context": "Contractor must report all near-misses and understand which incidents are reportable under RIDDOR and direct them to the Council accordingly.",
+          "evidence_anchor": {
+            "page_ref": "8",
+            "anchor_text": "which incidents are reportable under the Reporting of Injuries, Diseases and Dangerous Occurrences Regulations (RIDDOR)",
+            "section_ref": "section 5 - Health and Safety Compliance"
+          }
+        },
+        {
+          "standard_ref": "HSE 'Authorised Person' protocols",
+          "context": "Monitoring and professional oversight duties for water systems are vested in an Authorised Person as required under Health and Safety regulations; Dynamic Risk Assessment is mandatory prior to any works under this regime.",
+          "evidence_anchor": {
+            "page_ref": "9",
+            "anchor_text": "compliance with HSE's Authorised Person protocols",
+            "section_ref": "section 6 - Permits to Work"
+          }
+        },
+        {
+          "standard_ref": "Disability discrimination and equalities legislation",
+          "context": "Contractor must ensure ongoing compliance with relevant disability-discrimination and equalities legislation in addition to health and safety requirements.",
+          "evidence_anchor": {
+            "page_ref": "8",
+            "anchor_text": "as well as relevant disability discrimination and equalities legislation",
+            "section_ref": "section 5 - Health and Safety Compliance"
+          }
+        },
+        {
+          "standard_ref": "Risk Assessment and Method Statement (RAMS) submission",
+          "context": "Contractor must submit RAMS for Council approval prior to commencing any works on site, covering all Services detailed in the Specification; Workplace Risk Assessments must also be maintained and updated.",
+          "evidence_anchor": {
+            "page_ref": "8",
+            "anchor_text": "Prior to commencing any works on site, the Contractor shall submit a Risk Assessment and Method Statement (RAMS) for Council approval",
+            "section_ref": "section 5 - Health and Safety Compliance"
+          }
+        },
+        {
+          "standard_ref": "Disclosure and Barring Service (DBS) checks",
+          "context": "Contractor is responsible for ensuring all staff (and sub-contractors) have undergone appropriate DBS checks, with records available for inspection by the Council.",
+          "evidence_anchor": {
+            "page_ref": "11",
+            "anchor_text": "The Contractor is responsible for ensuring that all staff have undergone appropriate Disclosure and Barring Service (DBS) checks",
+            "section_ref": "section 9 - Organisational Structure and Mobilisation"
+          }
+        },
+        {
+          "standard_ref": "Council's Environmental Policy (Appendix C) and Social Value objectives",
+          "context": "Contractor must adhere to Bexley's Environmental Policy where possible, commit to reducing the Borough's Carbon Emissions, and support the Council's Social Value objectives, submitting details of the Contractor's own Environmental Policy with tender.",
+          "evidence_anchor": {
+            "page_ref": "9",
+            "anchor_text": "The Contractor will agree to adhere to the Environmental Policy (Appendix C) where possible and commit to reducing the Boroughs Carbon Emissions, supporting the Council's Social Value objectives",
+            "section_ref": "section 7 - Energy & Environmental Assessments"
+          }
+        },
+        {
+          "standard_ref": "Council's CAFM platform - TF Cloud / Civica Asset Management System",
+          "context": "All monitoring, reporting, job completion, documentation upload, invoicing and Dynamic Risk Assessments are recorded electronically in the Council's CAFM / Asset Management System; training on its use is provided by the Council's supplier; no invoices are accepted outside this system.",
+          "evidence_anchor": {
+            "page_ref": "7",
+            "anchor_text": "The contractor is required to use the Council's Asset Management System(TF Cloud/Civica) to complete work and manage invoicing",
+            "section_ref": "section 4 - Job Completion"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "1",
+        "anchor_text": "London Borough of Bexley / Legionella Survey / Specification / Contract Commencement April 2026",
+        "section_ref": "front matter"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "bexley-6278-lot2-water-risk-assessment-service",
+      "lot_number": "2",
+      "candidate_name": "Water Risk Assessment / Water Hygiene Assessment service (ACOP L8 / HSG 274 / BS 8580:2010)",
+      "summary": "Inspection of hot and cold water systems (mains distribution, stored water tanks, calorifiers, outlets) across the contracted Bexley estate, per-site electronic Water Hygiene Assessment report within 10 days with high/medium/low risk ratings, schematic diagrams, photographic evidence, methodology, and a consolidated RAG-rated programme of works in Microsoft Excel.",
+      "requirements": [
+        "ACOP L8, HSG 274 Parts 1-3 and BS 8580:2010 compliant inspection and reporting methodology",
+        "Report per site within 10 days of inspection with executive summary, schematic diagrams and technical data",
+        "Risk rating (high / medium / low) with photographic evidence and clear remedial recommendations",
+        "Immediate risks reported on-site to the FM Team; high-priority remedial actions emailed within 48 hours",
+        "Electronic reporting via CAFM (TF Cloud) or email until system integration completes",
+        "Consolidated RAG-rated prioritised remedial programme produced and maintained in Microsoft Excel from contract start, updated monthly",
+        "Sample documentation demonstrating all of the above submitted with the bid"
+      ],
+      "technical_standards": [
+        "ACOP L8",
+        "HSG 274 Parts 1-3",
+        "BS 8580:2010",
+        "HSE Authorised Person protocols"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "5",
+        "anchor_text": "The Water Hygiene service must comply with the Approved Code of Practice (ACOP) L8, HSG 274 Parts 1-3, and BSI 8580:2010. The contractor shall inspect hot and cold water systems, including mains distribution, tanks, calorifiers, and outlets. Each site must receive a Water Hygiene Assessment report within ten days",
+        "section_ref": "section 3 - Specification of Services"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot2-water-hygiene-management-plan-monitoring",
+      "lot_number": "2",
+      "candidate_name": "Site-specific Water Hygiene Management Plan and proactive monitoring programme",
+      "summary": "Production and maintenance of a per-site Water Hygiene Management Plan incorporating WRA findings, plus delivery of a proactive monitoring programme (temperature checks, flushing regimes, tank and calorifier inspection, biocide dosing where applicable), annual WRA review, and CAFM-based evidence capture.",
+      "requirements": [
+        "One Water Hygiene Management Plan per site with control measures, monitoring regimes and responsibilities",
+        "Proactive monitoring programme: temperature checks, flushing, inspection of tanks and calorifiers, biocide dosing where applicable",
+        "Monitoring records captured electronically via CAFM (TF Cloud) or email",
+        "Annual review of WRAs; ad-hoc re-assessment on significant change to systems, occupancy or usage",
+        "Support for internal and external audits; monthly performance reports covering water hygiene KPIs, risk status and remedial progress"
+      ],
+      "technical_standards": [
+        "ACOP L8",
+        "HSG 274 Parts 1-3",
+        "BS 8580:2010"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "5",
+        "anchor_text": "The contractor must develop and maintain a site-specific Water Hygiene Management Plan for each location, incorporating findings from Water Risk Assessments (WRAs).",
+        "section_ref": "section 3 - Specification of Services"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot2-dynamic-risk-assessment-service",
+      "lot_number": "2",
+      "candidate_name": "Dynamic Risk Assessment (Authorised Person) pre-works service",
+      "summary": "Mandatory Dynamic Risk Assessment completed by the Contractor before any planned or reactive works, delivered under the Authorised Person regime and uploaded to the Council's CAFM (TF Cloud) per the process agreed at mobilisation.",
+      "requirements": [
+        "DRA completed prior to any planned or reactive works",
+        "Format and copy provided during mobilisation",
+        "Uploaded to CAFM (TF Cloud) following the process agreed during mobilisation",
+        "Aligned with HSE Authorised Person protocols"
+      ],
+      "technical_standards": [
+        "HSE Authorised Person protocols",
+        "Health and Safety at Work Act 1974"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "9",
+        "anchor_text": "The Contractor will provide a Dynamic Risk Assessment which MUST be completed prior to any works (planned or reactive).",
+        "section_ref": "section 6 - Permits to Work"
+      }
+    },
+    {
+      "seed_key": "bexley-6278-lot2-water-management-training-service",
+      "lot_number": "2",
+      "candidate_name": "Water Management awareness training and ACOP L8 specialist advice",
+      "summary": "Water Management awareness training for Council staff and suppliers, ongoing training and briefings on current and future changes to regulation and duties under ACOP L8, and specialist advice and assistance on all ACOP L8 matters to the Council, its consultants and suppliers.",
+      "requirements": [
+        "Water Management awareness training courses for Council staff and suppliers",
+        "Training and information on current and future changes in Regulation and duties under ACOP L8",
+        "Specialist advice on all matters relating to ACOP L8",
+        "All contractor operatives delivering the service certified in Legionella control with annual training records submitted"
+      ],
+      "technical_standards": [
+        "ACOP L8",
+        "HSG 274 Parts 1-3"
+      ],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "11",
+        "anchor_text": "The ability to provide Water Management awareness training courses for Council staff and suppliers",
+        "section_ref": "section 8 - Training"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lot_identity": 9500,
+    "lot_title": 9500,
+    "lot_description": 9000,
+    "requirements": 8800,
+    "evaluation_criteria": 2000,
+    "cpv_codes": 1000,
+    "product_requirements": 8200,
+    "technical_standards": 9200,
+    "product_requirement_seeds": 8200,
+    "contract_value": 500,
+    "contract_duration": 7500,
+    "contract_commencement_date": 8500
+  },
+  "extraction_confidence_bps": 7800,
+  "warnings": [
+    {
+      "code": "EVALUATION_CRITERIA_NOT_IN_DOCUMENT",
+      "message": "No award / scoring criteria, weightings or MEAT criteria are stated in this Specification. Evaluation criteria live in the ITT / award pack, not in this Schedule 1. Emitted empty array and flagged rather than guessing.",
+      "evidence_refs": [
+        "section 3 references 'Sample documentation demonstrating all the above requirements must be submitted with the bid' but does not set a weighted evaluation framework"
+      ]
+    },
+    {
+      "code": "CPV_CODES_NOT_IN_DOCUMENT",
+      "message": "No CPV codes are stated in this Specification. Classification must be taken from the Find a Tender / Contracts Finder notice record and the ITT pack, not this document.",
+      "evidence_refs": []
+    },
+    {
+      "code": "CONTRACT_VALUE_NOT_IN_DOCUMENT",
+      "message": "Contract value / budget is not stated in this Specification. Pricing and indicative volumes are held in the separately issued Appendix 1 - Bexley Water Risk Assessment - Price Matrix, which is not present in this extraction.",
+      "evidence_refs": [
+        "section 2: 'aligned with this Specification and Appendix 1 - Bexley Water Risk Assessment - Price Matrix'",
+        "section 4: 'The schedule of buildings where inspections may be instructed is detailed in Appendix 1'"
+      ]
+    },
+    {
+      "code": "BUILDING_LIST_APPENDIX_NOT_IN_EXTRACTION",
+      "message": "Appendix A Building List (site schedule) is referenced by section 3 but not present in this extracted Specification document; downstream site-count, frequency and pricing decisions must wait for the Appendix / Price Matrix.",
+      "evidence_refs": [
+        "section 3: 'as outlined in the Building List (Appendix A)'"
+      ]
+    },
+    {
+      "code": "ENVIRONMENTAL_POLICY_APPENDIX_NOT_IN_EXTRACTION",
+      "message": "Appendix C - Council's Environmental Policy and Appendix D - Code of Conduct are referenced (sections 7 and 9) but not present in this extraction. Downstream social-value and conduct obligations must reference those appendices when they are acquired.",
+      "evidence_refs": [
+        "section 7: 'adhere to the Environmental Policy (Appendix C)'",
+        "section 9: 'Code of Conduct (Appendix D)'"
+      ]
+    },
+    {
+      "code": "CONTRACT_DURATION_AS_OPTION_STRUCTURE",
+      "message": "Contract period stated as '3 + 2 years' in section 1, commencement April 2026 - confirmed on the front matter. Firm extension mechanics and notice periods are not in this Specification and must be taken from the Form of Contract / Terms and Conditions.",
+      "evidence_refs": [
+        "section 1: 'The contract will be for a period of 3 + 2 years.'",
+        "front matter: 'Contract Commencement / April 2026'"
+      ]
+    },
+    {
+      "code": "NUMBERING_GAP_IN_CONTENTS",
+      "message": "The Specification's contents skips section 10 (jumps from 9 to 11); Sub Contractors is numbered section 10 in the body. Minor structural artefact and does not affect lot / seed extraction.",
+      "evidence_refs": [
+        "contents lists '9. Organisational and Structure ... 11 Complaints ... 12 Customer Care' but body has '10 Sub Contractors'"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "1",
+      "anchor_text": "London Borough of Bexley / Legionella Survey / Specification / Contract Commencement April 2026",
+      "section_ref": "front matter"
+    },
+    {
+      "page_ref": "3",
+      "anchor_text": "This Service Specification provides an outline of Water Management Surveys that are required to support the management of the Council's operational estate. The contract will be for a period of 3 + 2 years.",
+      "section_ref": "section 1 - Introduction and Context"
+    },
+    {
+      "page_ref": "4",
+      "anchor_text": "The Contractor shall conduct Water Risk Assessments as instructed, ensuring a high-quality service in line with this Specification and the Contract.",
+      "section_ref": "section 2 - General"
+    },
+    {
+      "page_ref": "4",
+      "anchor_text": "the Contractor shall prepare an annual schedule of Water Risk Assessments, aligned with this Specification and Appendix 1 - Bexley Water Risk Assessment - Price Matrix",
+      "section_ref": "section 2 - General"
+    },
+    {
+      "page_ref": "4",
+      "anchor_text": "If asbestos is discovered or suspected, the Contractor must immediately cease work and notify the Council ... full compliance with the Control of Asbestos Regulations 2012",
+      "section_ref": "section 2 - General"
+    },
+    {
+      "page_ref": "5",
+      "anchor_text": "The Water Hygiene service must comply with the Approved Code of Practice (ACOP) L8, HSG 274 Parts 1-3, and BSI 8580:2010.",
+      "section_ref": "section 3 - Specification of Services"
+    },
+    {
+      "page_ref": "5",
+      "anchor_text": "Each site must receive a Water Hygiene Assessment report within ten days, including risk summaries, site details, schematic diagrams, and technical data.",
+      "section_ref": "section 3 - Specification of Services"
+    },
+    {
+      "page_ref": "5",
+      "anchor_text": "Immediate risks must be reported on-site to the FM Team, and high-priority remedial actions must be emailed within 48 hours.",
+      "section_ref": "section 3 - Specification of Services"
+    },
+    {
+      "page_ref": "5",
+      "anchor_text": "Risks must be rated (high, medium, low), and reports must include photographic evidence and clear recommendations.",
+      "section_ref": "section 3 - Specification of Services"
+    },
+    {
+      "page_ref": "5",
+      "anchor_text": "The contractor must maintain a Water Hygiene Management Plan for each site, implement a monitoring programme (temperature checks, flushing, inspections), and ensure annual review of WRAs.",
+      "section_ref": "section 3 - Specification of Services"
+    },
+    {
+      "page_ref": "5",
+      "anchor_text": "Dynamic Risk Assessments must be completed before any work and uploaded to CAFM.",
+      "section_ref": "section 3 - Specification of Services"
+    },
+    {
+      "page_ref": "6",
+      "anchor_text": "A RAG report must be produced electronically in Microsoft Excel format from the start of the contract.",
+      "section_ref": "section 3 - Specification of Services"
+    },
+    {
+      "page_ref": "7",
+      "anchor_text": "The contractor is required to use the Council's Asset Management System(TF Cloud/Civica) to complete work and manage invoicing.",
+      "section_ref": "section 4 - Job Completion"
+    },
+    {
+      "page_ref": "7",
+      "anchor_text": "Applications for payment must be submitted through the Asset Management System. The Council will not accept invoices in any other format.",
+      "section_ref": "section 4 - Job Completion"
+    },
+    {
+      "page_ref": "7",
+      "anchor_text": "the schedule of buildings where inspections may be instructed is detailed in Appendix 1 - Bexley Water Risk Assessment - Price Matrix.",
+      "section_ref": "section 4 - Job Completion"
+    },
+    {
+      "page_ref": "8",
+      "anchor_text": "the Health and Safety at Work Act 1974, all relevant statutory provisions under that Act, and all other applicable safety legislation, codes of practice, and Health and Safety Executive (HSE) Good Practice Guidance Notes",
+      "section_ref": "section 5 - Health and Safety Compliance"
+    },
+    {
+      "page_ref": "8",
+      "anchor_text": "Prior to commencing any works on site, the Contractor shall submit a Risk Assessment and Method Statement (RAMS) for Council approval",
+      "section_ref": "section 5 - Health and Safety Compliance"
+    },
+    {
+      "page_ref": "8",
+      "anchor_text": "which incidents are reportable under the Reporting of Injuries, Diseases and Dangerous Occurrences Regulations (RIDDOR)",
+      "section_ref": "section 5 - Health and Safety Compliance"
+    },
+    {
+      "page_ref": "9",
+      "anchor_text": "The Contractor will provide a Dynamic Risk Assessment which MUST be completed prior to any works (planned or reactive).",
+      "section_ref": "section 6 - Permits to Work"
+    },
+    {
+      "page_ref": "9",
+      "anchor_text": "The Contractor will agree to adhere to the Environmental Policy (Appendix C) where possible and commit to reducing the Boroughs Carbon Emissions, supporting the Council's Social Value objectives.",
+      "section_ref": "section 7 - Energy & Environmental Assessments"
+    },
+    {
+      "page_ref": "11",
+      "anchor_text": "The ability to provide Water Management awareness training courses for Council staff and suppliers",
+      "section_ref": "section 8 - Training"
+    },
+    {
+      "page_ref": "11",
+      "anchor_text": "The Contractor is responsible for ensuring that all staff have undergone appropriate Disclosure and Barring Service (DBS) checks.",
+      "section_ref": "section 9 - Organisational Structure and Mobilisation"
+    },
+    {
+      "page_ref": "12",
+      "anchor_text": "All complaints must be immediately referred to the FM Client Unit.",
+      "section_ref": "section 11 - Complaints"
+    },
+    {
+      "page_ref": "12",
+      "anchor_text": "During the mobilisation period, the Contractor shall: Configure all necessary IT and reporting systems; Agree the format and content of reports; ... Finalise the Water Risk Assessment programme of work; Confirm Key Performance Indicators (KPIs)",
+      "section_ref": "section 13 - Mobilisation"
+    },
+    {
+      "page_ref": "13",
+      "anchor_text": "The Contractor shall proactively propose new technologies, materials and methods that support greater efficiency, improved service outcomes, and better value for money.",
+      "section_ref": "section 14 - Continuous Improvement"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "sha256:5b458f2e44333e1f77430edc846b3d0d065c5c53bd56ae90fd81edd8903a7681",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

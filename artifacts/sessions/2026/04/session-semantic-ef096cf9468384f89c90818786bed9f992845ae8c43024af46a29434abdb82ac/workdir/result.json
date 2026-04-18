@@ -1,0 +1,527 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Supply of Double Glazed Units",
+      "description": "Lot 1 of the Bristol City Council 'Supply of Double Glazed Units and Sheet Glass – DPS' (ProContract reference DN625136 / FTS notice BRISTOLCC001-DN625136-76775102). Providers admitted to Lot 1 are entitled to participate in Call-Off competitions for the supply of double-glazed units across the 48-month DPS term commencing 1 December 2022. The ITT does not enumerate detailed technical specifications for the units within Lot 1 itself; product technical requirements (e.g. BS EN 1279 compliance, dimensions, sealing, spacers) are deferred to per-call-off ITTs and to the separate Appendix 1 – Evaluation Criteria document referenced by the procurement.",
+      "requirements": [
+        "Procurement run under the Public Contracts Regulations 2015 using the Open procedure (§1 SECTION ONE – Procurement Process, 1.1).",
+        "DPS contract length: 48 months from anticipated commencement 1 December 2022, no option to extend (§1 SECTION ONE – Proposed Contract, 1.1.–1.2.).",
+        "Estimated total contract value (inclusive of options) across both lots: £700,000 (§1 SECTION ONE – Proposed Contract, 1.3).",
+        "All bid responses, queries, and clarifications must be submitted via the ProContract e-Tendering System (§2 General 1.2; §2 Submission of Bid; §2 Clarification Questions).",
+        "Bids must remain open for acceptance for 180 days from the tender return closing date (§2 Bid Validity, 1.1).",
+        "Bids must be unqualified and unconditional; bidders must not propose alternative payment terms, insurance, guarantees, or conditions or risk rejection (§2 General, 1.6).",
+        "Bidders must accept the Council's bid documentation without reservation; failure to comply may exclude the bid from further consideration (§2 Preparation of Bid, 1.4).",
+        "Provider must comply with the Bribery Act 2010, Fraud Act 2006, Data Protection Act 2018 / GDPR (§2 Bribery Act 2010 & Whistleblowing; §2 Fraud Act 2006; §2 Data Protection (GDPR)).",
+        "Provider must pay staff engaged on Council contracts at least the Living Wage Foundation rate (§2 Living Wage Foundation, 1.3).",
+        "Suppliers are expected to align with the Council's Climate Emergency targets (carbon-neutral by 2030, scope 1/2/3 GHG measurement) and the Sustainable Procurement Policy; Clean Air Zone charges are borne by the supplier (FOREWORD §1 Climate Change and the Environment Sustainability, 1.1.1–1.1.5).",
+        "Pricing must be quoted in pounds sterling (GBP), exclusive of VAT, and must include all costs (collection, design, delivery, labour, materials, transport, plant, fuel, training, monitoring, disposal, software/hardware, third-party charges, etc.) (§3 Pricing, 1.2–1.3).",
+        "Submitted prices remain fixed for the duration of the contract (§3 Price Adjustment, 1.1).",
+        "Council reserves the right to reject bids that appear abnormally low after a request for explanation (§3 Abnormally Low Tenders, 1.1).",
+        "Bid submissions are publicly inaccessible until notification of the successful bidder; total bid price of the successful bidder becomes accessible between notification and contract signature (§2 Freedom of Information Act table).",
+        "Consortium bids permitted as either lead-partner consortium or joint-and-several-liability consortium; if any consortium member fails Stage 1 Selection Criteria the whole consortium fails (§2 Collaboration Arrangements / Lead partner consortium / Joint and several liability consortia; §3 Stage 1 Selection Criteria, 1.2).",
+        "Sub-contracting permitted but lead provider remains responsible; material changes to sub-contracting arrangements may disqualify the bidder (§2 Sub-contracting, 1.2).",
+        "Council may make contact post-deadline only to clarify, confirm Selection Criteria evidence, notify award decisions, or agree commencement (§2 Submission of Bid, 1.7.1–1.7.6).",
+        "Winning supplier must submit monitoring information demonstrating commitments are being delivered (§3 Monitoring and Contract Management, 1.1).",
+        "Contract documents are located in the attachments tab on ProContract; bidder submissions form part of the successful bidder's Contract Documents (§4 SECTION FOUR: CONTRACT, 1.1–1.2)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Stage 1 – Selection Criteria",
+          "summary": "Pass/Fail gate. Bidders are assessed against the Selection Criteria in Table A of Appendix 1 – Evaluation Criteria. Failure on any Table A question excludes the bidder from further evaluation. For consortium bids, failure of any member is failure of the whole consortium.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Bidders will be assessed against the Selection Criteria as set out in Table A of Appendix 1: Evaluation Criteria. Should a bidder not satisfactorily confirm any of the questions in Table A they will not be considered for further evaluation.",
+            "section_ref": "§3 SECTION THREE – Evaluation of the Bidder Submission, Stage 1: Selection Criteria"
+          }
+        },
+        {
+          "criterion": "Stage 2 – Award Criteria (Technical Assessment)",
+          "summary": "Stage 2 evaluation is conducted on the basis of Technical Assessment. The detailed scoring, weightings, and call-off mechanics are tabulated in Appendix 1 – Evaluation Criteria; this ITT enumerates only the headline call-off price/quality/social-value mix.",
+          "weighting_text": "Technical Assessment (per Appendix 1)",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "The council will evaluate on the basis of Technical Assessment.",
+            "section_ref": "§3 SECTION THREE – Evaluation of the Bidder Submission, Stage 2: Award Criteria"
+          }
+        },
+        {
+          "criterion": "Call-Off below £25,000 – Price",
+          "summary": "For Call-Offs valued between £0 and £25,000, evaluation is 100% Price.",
+          "weighting_text": "Price 100%",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Call Off between £0 and £25k – Will be 100% Price",
+            "section_ref": "§3 SECTION THREE – Evaluation of the Bidder Submission, Call Off Process"
+          }
+        },
+        {
+          "criterion": "Call-Off above £25,000 – Price / Quality / Social Value",
+          "summary": "For Call-Offs above £25,000, the award mix is Price 60%–80%, Quality 0%–20%, and Social Value 20%, tailored per call-off ITT within those ranges.",
+          "weighting_text": "Price 60%–80%; Quality 0%–20%; Social Value 20%",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Call Off above £25k – Will be 60% - 80% Price and Quality 0% - 20% and Social Value 20%",
+            "section_ref": "§3 SECTION THREE – Evaluation of the Bidder Submission, Call Off Process"
+          }
+        },
+        {
+          "criterion": "Pricing rules",
+          "summary": "Prices in pounds sterling, exclusive of VAT, all-inclusive of works/materials/transport/etc. Council checks Pricing Schedule for computation errors. Lump-sum prices over 100% above the lowest score zero for that section.",
+          "weighting_text": "Applies within Price-weighted award sections",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "The minimum marks for a lump sum price will be zero. Therefore, if a bidder submitted lump sum price that is over 100% higher than the lowest submitted lump sum price this bidder will receive a score of zero for that section of the overall price award criteria.",
+            "section_ref": "§3 SECTION THREE – Pricing, 1.5"
+          }
+        },
+        {
+          "criterion": "Quality scoring",
+          "summary": "Bidders must demonstrate relevant experience using evidence-based, self-contained answers. Cross-references between answers may lose marks. Detailed scoring matrix is held in Appendix 1.",
+          "weighting_text": "Within the 0%–20% Quality envelope (call-offs ≥£25k)",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "It is important that bidder's demonstrate relevant experience when answering any 'Quality Commitment Questions'.",
+            "section_ref": "§3 SECTION THREE – Quality, 1.1–1.3"
+          }
+        },
+        {
+          "criterion": "Social Value evaluation",
+          "summary": "Social Value applies only to projects above £25,000 and forms 20% of the award. Evaluation approach is set out in Appendix 2 – Social Value Evaluation. Bidder commitments are embedded in ProContract questions.",
+          "weighting_text": "Social Value 20% (call-offs >£25k)",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Social Value will only apply for project over £25,000",
+            "section_ref": "§3 SECTION THREE – Social Value, lead-in line"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "44221111-6"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot1-double-glazed-units-dps",
+          "summary": "Supply of double-glazed units to Bristol City Council under the 'Glazing Supplies DPS'. The ITT itself defers detailed product specification to per-Call-Off ITTs and to Appendix 1 – Evaluation Criteria; downstream extractions of the Appendix 1 / Schedule 7 / Call-Off ITT documents will populate concrete product attributes (BS EN 1279 compliance, dimensions, sealing system, spacers, gas fill, guarantees, lead times).",
+          "requirement_type": "product",
+          "technical_attributes": [
+            "Product family: factory-assembled insulating (double-glazed) glass units for building applications",
+            "Lot 1 scope is the DPS-wide supply category for double-glazed units; no detailed specification is enumerated in this ITT body"
+          ],
+          "quantity_hint": "Volumes are call-off-driven across the 48-month DPS; combined lot-1+lot-2 estimated total contract value £700,000 inclusive of options",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Lot 1 - Supply of Double Glazed Units",
+            "section_ref": "§1 SECTION ONE – Lots, 1.1.1"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "unknown",
+        "anchor_text": "Lot 1 - Supply of Double Glazed Units",
+        "section_ref": "§1 SECTION ONE – Lots, 1.1.1"
+      }
+    },
+    {
+      "lot_number": "2",
+      "title": "Supply of Sheet Glass",
+      "description": "Lot 2 of the Bristol City Council 'Supply of Double Glazed Units and Sheet Glass – DPS' (ProContract reference DN625136 / FTS notice BRISTOLCC001-DN625136-76775102). Providers admitted to Lot 2 are entitled to participate in Call-Off competitions for the supply of sheet glass across the 48-month DPS term commencing 1 December 2022. The ITT does not enumerate detailed technical specifications for sheet glass within Lot 2 itself; product technical requirements (glass type, thickness, cut-to-size tolerances, safety/lamination standards, etc.) are deferred to per-call-off ITTs and to the separate Appendix 1 – Evaluation Criteria document referenced by the procurement.",
+      "requirements": [
+        "Procurement run under the Public Contracts Regulations 2015 using the Open procedure (§1 SECTION ONE – Procurement Process, 1.1).",
+        "DPS contract length: 48 months from anticipated commencement 1 December 2022, no option to extend (§1 SECTION ONE – Proposed Contract, 1.1.–1.2.).",
+        "Estimated total contract value (inclusive of options) across both lots: £700,000 (§1 SECTION ONE – Proposed Contract, 1.3).",
+        "All bid responses, queries, and clarifications must be submitted via the ProContract e-Tendering System (§2 General 1.2; §2 Submission of Bid; §2 Clarification Questions).",
+        "Bids must remain open for acceptance for 180 days from the tender return closing date (§2 Bid Validity, 1.1).",
+        "Bids must be unqualified and unconditional; bidders must not propose alternative payment terms, insurance, guarantees, or conditions or risk rejection (§2 General, 1.6).",
+        "Bidders must accept the Council's bid documentation without reservation; failure to comply may exclude the bid from further consideration (§2 Preparation of Bid, 1.4).",
+        "Provider must comply with the Bribery Act 2010, Fraud Act 2006, Data Protection Act 2018 / GDPR (§2 Bribery Act 2010 & Whistleblowing; §2 Fraud Act 2006; §2 Data Protection (GDPR)).",
+        "Provider must pay staff engaged on Council contracts at least the Living Wage Foundation rate (§2 Living Wage Foundation, 1.3).",
+        "Suppliers are expected to align with the Council's Climate Emergency targets (carbon-neutral by 2030, scope 1/2/3 GHG measurement) and the Sustainable Procurement Policy; Clean Air Zone charges are borne by the supplier (FOREWORD §1 Climate Change and the Environment Sustainability, 1.1.1–1.1.5).",
+        "Pricing must be quoted in pounds sterling (GBP), exclusive of VAT, and must include all costs (collection, design, delivery, labour, materials, transport, plant, fuel, training, monitoring, disposal, software/hardware, third-party charges, etc.) (§3 Pricing, 1.2–1.3).",
+        "Submitted prices remain fixed for the duration of the contract (§3 Price Adjustment, 1.1).",
+        "Council reserves the right to reject bids that appear abnormally low after a request for explanation (§3 Abnormally Low Tenders, 1.1).",
+        "Bid submissions are publicly inaccessible until notification of the successful bidder; total bid price of the successful bidder becomes accessible between notification and contract signature (§2 Freedom of Information Act table).",
+        "Consortium bids permitted as either lead-partner consortium or joint-and-several-liability consortium; if any consortium member fails Stage 1 Selection Criteria the whole consortium fails (§2 Collaboration Arrangements / Lead partner consortium / Joint and several liability consortia; §3 Stage 1 Selection Criteria, 1.2).",
+        "Sub-contracting permitted but lead provider remains responsible; material changes to sub-contracting arrangements may disqualify the bidder (§2 Sub-contracting, 1.2).",
+        "Council may make contact post-deadline only to clarify, confirm Selection Criteria evidence, notify award decisions, or agree commencement (§2 Submission of Bid, 1.7.1–1.7.6).",
+        "Winning supplier must submit monitoring information demonstrating commitments are being delivered (§3 Monitoring and Contract Management, 1.1).",
+        "Contract documents are located in the attachments tab on ProContract; bidder submissions form part of the successful bidder's Contract Documents (§4 SECTION FOUR: CONTRACT, 1.1–1.2)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Stage 1 – Selection Criteria",
+          "summary": "Pass/Fail gate. Bidders are assessed against the Selection Criteria in Table A of Appendix 1 – Evaluation Criteria. Failure on any Table A question excludes the bidder from further evaluation. For consortium bids, failure of any member is failure of the whole consortium.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Bidders will be assessed against the Selection Criteria as set out in Table A of Appendix 1: Evaluation Criteria. Should a bidder not satisfactorily confirm any of the questions in Table A they will not be considered for further evaluation.",
+            "section_ref": "§3 SECTION THREE – Evaluation of the Bidder Submission, Stage 1: Selection Criteria"
+          }
+        },
+        {
+          "criterion": "Stage 2 – Award Criteria (Technical Assessment)",
+          "summary": "Stage 2 evaluation is conducted on the basis of Technical Assessment. Detailed scoring, weightings, and call-off mechanics are tabulated in Appendix 1 – Evaluation Criteria; this ITT enumerates only the headline call-off price/quality/social-value mix.",
+          "weighting_text": "Technical Assessment (per Appendix 1)",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "The council will evaluate on the basis of Technical Assessment.",
+            "section_ref": "§3 SECTION THREE – Evaluation of the Bidder Submission, Stage 2: Award Criteria"
+          }
+        },
+        {
+          "criterion": "Call-Off below £25,000 – Price",
+          "summary": "For Call-Offs valued between £0 and £25,000, evaluation is 100% Price.",
+          "weighting_text": "Price 100%",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Call Off between £0 and £25k – Will be 100% Price",
+            "section_ref": "§3 SECTION THREE – Evaluation of the Bidder Submission, Call Off Process"
+          }
+        },
+        {
+          "criterion": "Call-Off above £25,000 – Price / Quality / Social Value",
+          "summary": "For Call-Offs above £25,000, the award mix is Price 60%–80%, Quality 0%–20%, and Social Value 20%, tailored per call-off ITT within those ranges.",
+          "weighting_text": "Price 60%–80%; Quality 0%–20%; Social Value 20%",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Call Off above £25k – Will be 60% - 80% Price and Quality 0% - 20% and Social Value 20%",
+            "section_ref": "§3 SECTION THREE – Evaluation of the Bidder Submission, Call Off Process"
+          }
+        },
+        {
+          "criterion": "Pricing rules",
+          "summary": "Prices in pounds sterling, exclusive of VAT, all-inclusive of works/materials/transport/etc. Council checks Pricing Schedule for computation errors. Lump-sum prices over 100% above the lowest score zero for that section.",
+          "weighting_text": "Applies within Price-weighted award sections",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "The minimum marks for a lump sum price will be zero. Therefore, if a bidder submitted lump sum price that is over 100% higher than the lowest submitted lump sum price this bidder will receive a score of zero for that section of the overall price award criteria.",
+            "section_ref": "§3 SECTION THREE – Pricing, 1.5"
+          }
+        },
+        {
+          "criterion": "Quality scoring",
+          "summary": "Bidders must demonstrate relevant experience using evidence-based, self-contained answers. Cross-references between answers may lose marks. Detailed scoring matrix is held in Appendix 1.",
+          "weighting_text": "Within the 0%–20% Quality envelope (call-offs ≥£25k)",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "It is important that bidder's demonstrate relevant experience when answering any 'Quality Commitment Questions'.",
+            "section_ref": "§3 SECTION THREE – Quality, 1.1–1.3"
+          }
+        },
+        {
+          "criterion": "Social Value evaluation",
+          "summary": "Social Value applies only to projects above £25,000 and forms 20% of the award. Evaluation approach is set out in Appendix 2 – Social Value Evaluation. Bidder commitments are embedded in ProContract questions.",
+          "weighting_text": "Social Value 20% (call-offs >£25k)",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Social Value will only apply for project over £25,000",
+            "section_ref": "§3 SECTION THREE – Social Value, lead-in line"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "14820000-5"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot2-sheet-glass-dps",
+          "summary": "Supply of sheet glass to Bristol City Council under the 'Glazing Supplies DPS'. The ITT itself defers detailed product specification to per-Call-Off ITTs and to Appendix 1 – Evaluation Criteria; downstream extractions of the Appendix 1 / Schedule 7 / Call-Off ITT documents will populate concrete product attributes (glass type, thickness, lamination/safety standards, cut-to-size tolerances, finishes such as Stippolytte, etc.).",
+          "requirement_type": "product",
+          "technical_attributes": [
+            "Product family: flat sheet glass for building / glazing applications",
+            "Lot 2 scope is the DPS-wide supply category for sheet glass; no detailed specification is enumerated in this ITT body"
+          ],
+          "quantity_hint": "Volumes are call-off-driven across the 48-month DPS; combined lot-1+lot-2 estimated total contract value £700,000 inclusive of options",
+          "evidence_anchor": {
+            "page_ref": "unknown",
+            "anchor_text": "Lot 2 - Supply of Sheet Glass",
+            "section_ref": "§1 SECTION ONE – Lots, 1.1.2"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "unknown",
+        "anchor_text": "Lot 2 - Supply of Sheet Glass",
+        "section_ref": "§1 SECTION ONE – Lots, 1.1.2"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot1-double-glazed-units-dps",
+      "lot_number": "1",
+      "candidate_name": "Double-glazed unit (DPS supply category)",
+      "summary": "DPS supply category for factory-assembled insulating (double-glazed) glass units. The ITT body identifies the product family but defers all detailed technical attributes (BS EN 1279 compliance, sealing, spacers, gas fill, dimensions, lead times, guarantees) to per-Call-Off ITTs and to the separate Appendix 1 – Evaluation Criteria document already extracted under the same procurement.",
+      "requirements": [
+        "Lot 1 scope: supply of double-glazed units across a 48-month DPS commencing 1 December 2022 (combined lot-1+lot-2 estimated total contract value £700,000)",
+        "Detailed technical specification, lead times, packaging, and delivery service levels are not enumerated in this ITT; they are surfaced in Appendix 1 – Evaluation Criteria (Section 14 Contract Specific Questions)",
+        "Pricing must be in GBP exclusive of VAT and inclusive of all costs (§3 Pricing)",
+        "Goods/services are procured via Call-Off competitions on ProContract; Call-Offs ≤£25k score 100% Price, Call-Offs >£25k score Price 60–80% / Quality 0–20% / Social Value 20%"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [
+        "44221111-6"
+      ],
+      "evidence_anchor": {
+        "page_ref": "unknown",
+        "anchor_text": "Lot 1 - Supply of Double Glazed Units",
+        "section_ref": "§1 SECTION ONE – Lots, 1.1.1"
+      }
+    },
+    {
+      "seed_key": "lot2-sheet-glass-dps",
+      "lot_number": "2",
+      "candidate_name": "Sheet glass (DPS supply category)",
+      "summary": "DPS supply category for flat sheet glass used in building / glazing applications. The ITT body identifies the product family but defers all detailed technical attributes (glass type, thickness, lamination/safety, cut-to-size tolerances, finishes such as Stippolytte, lead times, guarantees) to per-Call-Off ITTs and to the separate Appendix 1 – Evaluation Criteria document already extracted under the same procurement.",
+      "requirements": [
+        "Lot 2 scope: supply of sheet glass across a 48-month DPS commencing 1 December 2022 (combined lot-1+lot-2 estimated total contract value £700,000)",
+        "Detailed technical specification, lead times, packaging, and delivery service levels are not enumerated in this ITT; they are surfaced in Appendix 1 – Evaluation Criteria (Section 14 Contract Specific Questions)",
+        "Pricing must be in GBP exclusive of VAT and inclusive of all costs (§3 Pricing)",
+        "Goods/services are procured via Call-Off competitions on ProContract; Call-Offs ≤£25k score 100% Price, Call-Offs >£25k score Price 60–80% / Quality 0–20% / Social Value 20%"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [
+        "14820000-5"
+      ],
+      "evidence_anchor": {
+        "page_ref": "unknown",
+        "anchor_text": "Lot 2 - Supply of Sheet Glass",
+        "section_ref": "§1 SECTION ONE – Lots, 1.1.2"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.count": 9500,
+    "lots[0].title": 9800,
+    "lots[0].description": 8500,
+    "lots[0].requirements": 9000,
+    "lots[0].evaluation_criteria": 9300,
+    "lots[0].cpv_codes": 7000,
+    "lots[0].product_requirements": 6500,
+    "lots[0].technical_standards": 9500,
+    "lots[1].title": 9800,
+    "lots[1].description": 8500,
+    "lots[1].requirements": 9000,
+    "lots[1].evaluation_criteria": 9300,
+    "lots[1].cpv_codes": 7000,
+    "lots[1].product_requirements": 6500,
+    "lots[1].technical_standards": 9500,
+    "product_requirement_seeds": 6500
+  },
+  "extraction_confidence_bps": 7800,
+  "warnings": [
+    {
+      "code": "PAGE_ANCHORS_UNAVAILABLE",
+      "message": "Source Docling extraction has page_count=0 and contains no inline page markers; every evidence anchor uses section/clause refs (e.g. '§1 SECTION ONE – Lots, 1.1.1') with page_ref='unknown'.",
+      "evidence_refs": [
+        "document_extractions.page_count=0",
+        "no page delimiters present in extracted_markdown"
+      ]
+    },
+    {
+      "code": "DETAILED_PRODUCT_SPEC_DEFERRED",
+      "message": "The ITT body identifies two clearly named lots ('Supply of Double Glazed Units' and 'Supply of Sheet Glass') but does not enumerate detailed product technical specifications (e.g. BS EN 1279, dimensions, lamination, finishes, lead times). Concrete product attributes are deferred to per-Call-Off ITTs and to the sibling 'Appendix 1 – Evaluation Criteria' document, which is processed under the same procurement.",
+      "evidence_refs": [
+        "§1 SECTION ONE – Lots, 1.1.1 / 1.1.2 (lot titles only)",
+        "§4 SECTION FOUR: CONTRACT, 1.1 – contract documents on ProContract",
+        "Notice context: documents_downloaded includes 'Appendix 1 - Evaluation Criteria Sheet Glass.docx' and 'Schedule 7 - Call-Off Contract - Glazing Supplies.docx'"
+      ]
+    },
+    {
+      "code": "CPV_FROM_NOTICE_CONTEXT",
+      "message": "CPV codes 14820000-5 (Glass) and 44221111-6 (Double-glazed units) are attached from the parent contract notice's main_category, not from the ITT body. The ITT does not cite CPV numbers directly. Allocation to lots: 44221111-6 → Lot 1 (DGUs), 14820000-5 → Lot 2 (Sheet Glass).",
+      "evidence_refs": [
+        "contract_notices.main_category = '14820000-5 - Glass | 44221111-6 - Double-glazed units'",
+        "Notice title: BSH/HRA/Supply of Double Glazed Units and Sheet Glass - DPS - Acceptance Round 5"
+      ]
+    },
+    {
+      "code": "STAGE2_AWARD_DETAILS_IN_APPENDIX",
+      "message": "Stage 2 Award Criteria are described in the ITT only at the headline level ('Technical Assessment' and the Call-Off price/quality/social-value mix). Detailed weightings, scoring matrices, and pricing-document mechanics live in Appendix 1 – Evaluation Criteria and are surfaced by that document's separate extraction.",
+      "evidence_refs": [
+        "§3 SECTION THREE – Stage 2: Award Criteria, 1.1 ('The council will evaluate on the basis of Technical Assessment.')",
+        "§3 SECTION THREE – Call Off Process (high-level percentage ranges)"
+      ]
+    },
+    {
+      "code": "DOCLING_LIST_NUMBERING_QUIRK",
+      "message": "Docling output reuses '1.1.', '1.1.2', etc. across many sub-sections (formatting artefact of the source DOCX). Some lot/clause references in the ITT therefore appear out-of-order in the markdown (e.g. the bullet '1.1.1. Lot 1 - Supply of Double Glazed Units' is rendered separately from the surrounding '### Lots' heading). Evidence anchors quote the exact text and pin the section ref to make retrieval unambiguous.",
+      "evidence_refs": [
+        "Repeated '- 1.1.' bullets across §2 General, §3 Pricing, §3 Quality, §3 Social Value",
+        "Lot 1 / Lot 2 bullets appearing under §4 SECTION FOUR (an out-of-order Docling artefact) — text content matches §1 SECTION ONE – Lots"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Supply of Double Glazed Units and Sheet Glass – DPS",
+      "section_ref": "Document title block – Project Title"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "ProContract Reference ID: DN625136",
+      "section_ref": "Document title block – ProContract Reference"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "The procurement process will be conducted in accordance with the requirements of the Public Contracts Regulations 2015. Specifically, the Council will be using the Open procedure. Find a Tender Service (FTS) Contract Notice reference number BRISTOLCC001-DN625136-76775102 dated 14/09/2022.",
+      "section_ref": "§1 SECTION ONE – Procurement Process, 1.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "The contract length will be for 48 months, with no option to extend.",
+      "section_ref": "§1 SECTION ONE – Proposed Contract, 1.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "The anticipated commencement date is 1 December 2022.",
+      "section_ref": "§1 SECTION ONE – Proposed Contract, 1.2"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "The estimated total value of this contract (inclusive of options) is £700,000.00.",
+      "section_ref": "§1 SECTION ONE – Proposed Contract, 1.3"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "The council intents to split the contract into the following lots:",
+      "section_ref": "§1 SECTION ONE – Lots, 1.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Lot 1 - Supply of Double Glazed Units",
+      "section_ref": "§1 SECTION ONE – Lots, 1.1.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Lot 2 - Supply of Sheet Glass",
+      "section_ref": "§1 SECTION ONE – Lots, 1.1.2"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "The bid is an unconditional offer and should remain open for acceptance for a period of 180 days from the tender return closing date.",
+      "section_ref": "§2 SECTION TWO – Bid Validity, 1.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Bid & clarification process opens | 14/09/2022",
+      "section_ref": "§2 SECTION TWO – Timescales, table"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Closing date and time for receipt by the Council of completed bidder responses via the ProContract tendering system. | 12:00hrs Noon 14/102022 Local Time",
+      "section_ref": "§2 SECTION TWO – Timescales, table"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Commencement date of contract. | 01/12/2022",
+      "section_ref": "§2 SECTION TWO – Timescales, table"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Bidders will be assessed against the Selection Criteria as set out in Table A of Appendix 1: Evaluation Criteria. Should a bidder not satisfactorily confirm any of the questions in Table A they will not be considered for further evaluation.",
+      "section_ref": "§3 SECTION THREE – Evaluation of the Bidder Submission, Stage 1: Selection Criteria"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "With consortium bids, if any member of a consortium fails any question within the Evaluation Criteria (Stage 1), the whole consortium will fail to be considered for further evaluation.",
+      "section_ref": "§3 SECTION THREE – Stage 1: Selection Criteria, 1.2"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "The council will evaluate on the basis of Technical Assessment.",
+      "section_ref": "§3 SECTION THREE – Stage 2: Award Criteria"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Call Off between £0 and £25k – Will be 100% Price",
+      "section_ref": "§3 SECTION THREE – Call Off Process"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Call Off above £25k – Will be 60% - 80% Price and Quality 0% - 20% and Social Value 20%",
+      "section_ref": "§3 SECTION THREE – Call Off Process"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "All rates and prices must be quoted in pounds sterling (GBP).",
+      "section_ref": "§3 SECTION THREE – Pricing, 1.2"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "VAT should not be included in the bid rates and prices.",
+      "section_ref": "§3 SECTION THREE – Pricing, 1.3"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "The minimum marks for a lump sum price will be zero. Therefore, if a bidder submitted lump sum price that is over 100% higher than the lowest submitted lump sum price this bidder will receive a score of zero for that section of the overall price award criteria.",
+      "section_ref": "§3 SECTION THREE – Pricing, 1.5"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "The proposed prices submitted will remain for the duration in accordance with the contract.",
+      "section_ref": "§3 SECTION THREE – Price Adjustment, 1.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Bristol City Council shall require bidders to explain the price or costs proposed in the tender bid where tenders appear to be abnormally low",
+      "section_ref": "§3 SECTION THREE – Abnormally Low Tenders, 1.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "It is important that bidder's demonstrate relevant experience when answering any 'Quality Commitment Questions'.",
+      "section_ref": "§3 SECTION THREE – Quality, 1.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Social Value will only apply for project over £25,000",
+      "section_ref": "§3 SECTION THREE – Social Value, lead-in line"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Contract Management – It is a contractual requirement that the winning supplier(s) must submit monitoring information to the Council, to demonstrate commitments are being delivered.",
+      "section_ref": "§3 SECTION THREE – Monitoring and Contract Management, 1.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Contract documents are located in the attachments tab on ProContract",
+      "section_ref": "§4 SECTION FOUR: CONTRACT, 1.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Bidder submissions will form part of the successful bidder's Contract Documents.",
+      "section_ref": "§4 SECTION FOUR: CONTRACT, 1.2"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "we require our providers and suppliers to pay staff, employed to deliver our contracts, at least the Living Wage Foundation rate.",
+      "section_ref": "§2 SECTION TWO – Living Wage Foundation, 1.3"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "The Council has signed up to the Climate Emergency and set a target for all businesses and organisations in Bristol to be carbon neutral by 2030 (direct and supply chain emissions)",
+      "section_ref": "FOREWORD §1 Climate Change and the Environment Sustainability, 1.1.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "Council contracts include provisions under which the contract will be terminated if the service provider or anyone on its behalf bribes or tries to bribe anyone in connection with any contract",
+      "section_ref": "§2 SECTION TWO – Bribery Act 2010 & Whistleblowing, 1.1"
+    },
+    {
+      "page_ref": "unknown",
+      "anchor_text": "The Council requires the bidder to comply with the Data Protection Act 2018 and The General Data Protection Regulations",
+      "section_ref": "§2 SECTION TWO – Data Protection (GDPR), 1.1"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "0c39ce627306de09ea22221ad64033e13cb443826b6f19d37fc7bd85c62c4543",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

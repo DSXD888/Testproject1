@@ -1,0 +1,176 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment",
+      "description": "Synthetic single-scope lot representing the framework's undivided service scope. This document (107_26 Form of Contract and Call-Off Terms template) is the template used when ESPO-framework Customers (Contracting Authorities) place call-off contracts under Framework Agreement reference 107_26. The framework scope recited in this document covers inspection & maintenance of (a) indoor gymnasium, fitness & sport equipment and (b) outdoor schools play & sport equipment. The document itself does not subdivide the scope into lots, nor does it itemise goods, technical standards, quality standards, service levels or CPV codes — those are deferred to the Master Contract Schedule (populated per call-off), Framework Schedule 1, and the Framework Schedule 2 charging structure.",
+      "requirements": [
+        "Supplier to deliver the Goods and/or Services in accordance with the Master Contract Schedule and any other Contract Document (per clause 6.3.4).",
+        "Goods to be free from defects in design and workmanship and fit for ordinary purpose and any particular purpose notified to the Supplier (clause 6.3.5.1).",
+        "Supplier to maintain business continuity arrangements throughout the Contract Period to minimise disruption to delivery (clause 8.1 / section 8).",
+        "Supplier to meet or exceed Service Levels; Critical Service Failure triggers a Customer termination right (clause 11.1, Schedule 1 Part A).",
+        "Supplier to provide Management Information in the form and periodicity specified in the Master Contract Schedule (clause 9.2).",
+        "Supplier to comply with Data Protection Legislation in the role (Controller / Joint Controllers / Independent Controllers) set out in section 9 of the Master Contract Schedule."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Service Level performance",
+          "summary": "Service Credits are calculated as (100% − % of Service Level achieved) × Contract Charges and deducted from the next invoice, measured across bands 60-70% / 71-90% / 91-95% / 96-100%. Service Levels themselves are drafted at call-off time and populated into the Appendix to Part A of Schedule 1.",
+          "weighting_text": "Formula-based deduction (not a tender-award weighting).",
+          "evidence_anchor": {
+            "page_ref": "line-1565",
+            "section_ref": "Schedule 1 Part A Appendix — Service Levels and Service Credits",
+            "anchor_text": "SERVICE LEVELS AND SERVICE CREDITS | Service Level | Level achieved | 60-70% | 71-90% | 91-95% | 96-100%"
+          }
+        },
+        {
+          "criterion": "Critical Service Failure threshold",
+          "summary": "A delay in servicing demand in excess of 24 consecutive hours during Normal Business Hours/Working Days more than once in any consecutive three (3) Month period, or more than three times in any consecutive twelve (12) Month period. Alternate formulation: loss of two (2) or more consecutive hours during Normal Business Hours accumulated beyond 24 such hours in any three (3) Months or 48 hours in any twelve (12) Months.",
+          "weighting_text": "Triggers Customer termination right under clause 9.1 / 19.3.",
+          "evidence_anchor": {
+            "page_ref": "line-99",
+            "section_ref": "Master Contract Schedule §4 Performance of the Goods and/or Services and Deliverables — Critical Service Failure",
+            "anchor_text": "Critical Service Failure shall mean a delay in servicing the demand … in excess of 24 consecutive hours during [Normal Business Hours/Working Days] more than once in any consecutive [three (3) Month period]"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "line-13",
+        "section_ref": "Form of Contract — Call-Off Terms subject",
+        "anchor_text": "CALL-OFF TERMS relating to Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment CONTRACT REF 107_26"
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lot_structure": 3500,
+    "lot_title": 9000,
+    "lot_description": 7500,
+    "requirements": 4500,
+    "evaluation_criteria": 6000,
+    "cpv_codes": 0,
+    "product_requirements": 0,
+    "technical_standards": 0,
+    "document_role_match": 1000
+  },
+  "extraction_confidence_bps": 3500,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "Document is tagged document_role='technical_specification' but its actual structure is a Form of Contract / Call-Off Terms legal template for Framework 107_26. It does not contain a technical specification, lot subdivision, or statement-of-requirements content. Strong candidate for role reclassification to 'form_of_contract' or 'call_off_terms'.",
+      "evidence_refs": [
+        "line-1",
+        "line-13",
+        "line-19",
+        "line-73"
+      ]
+    },
+    {
+      "code": "SPECIFICATION_PLACEHOLDERS_ONLY",
+      "message": "Master Contract Schedule fields for Goods required, Services and Deliverables required, Performance/Delivery Location, Quality Standards, Technical Standards, Supplier Solution, Key Personnel, Monitoring, Management Information, Customer's Responsibilities, Contract Charges, and Commercially Sensitive Information are all unfilled placeholders of the form '[     ]' or '[insert …]' pending per-call-off completion. No concrete technical standard, product, or quantity can be extracted from this document.",
+      "evidence_refs": [
+        "line-89",
+        "line-91",
+        "line-94",
+        "line-96",
+        "line-100",
+        "line-101",
+        "line-103",
+        "line-106",
+        "line-108"
+      ]
+    },
+    {
+      "code": "NO_LOT_SUBDIVISION",
+      "message": "Document does not subdivide the framework into multiple lots. A single synthetic lot has been emitted representing the undivided framework scope (inspection & maintenance of indoor gym/fitness/sport equipment AND outdoor schools play/sport equipment).",
+      "evidence_refs": [
+        "line-33",
+        "line-37"
+      ]
+    },
+    {
+      "code": "NO_CPV_CODES_IN_DOCUMENT",
+      "message": "No CPV codes are cited in the call-off terms template. CPV classification must be sourced from the Tender Notice (2026/S 000-002119) or Framework Agreement Schedule 1, not from this document.",
+      "evidence_refs": [
+        "line-33"
+      ]
+    },
+    {
+      "code": "NO_TECHNICAL_STANDARDS_IN_DOCUMENT",
+      "message": "Technical Standards field in the Master Contract Schedule is an unfilled placeholder. Contract text notes that 'Details of technical standards can be found in clause 13 of the Framework Agreement' — that document is not provided as part of this extraction, and clause 13 of the call-off terms (NOT USED) is empty.",
+      "evidence_refs": [
+        "line-91",
+        "line-380"
+      ]
+    },
+    {
+      "code": "NO_PRODUCT_SEEDS_EXTRACTABLE",
+      "message": "No concrete product requirements are extractable. Services described are abstract (inspection & maintenance services) rather than procurable goods, and placeholders dominate the Goods Required and Services and Deliverables Required fields.",
+      "evidence_refs": [
+        "line-89"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "line-13",
+      "section_ref": "Form of Contract — Call-Off Terms subject line",
+      "anchor_text": "CALL-OFF TERMS relating to Inspection & Maintenance of Indoor Gymnasium, Fitness & Sport Equipment and Outdoor Schools Play & Sport Equipment"
+    },
+    {
+      "page_ref": "line-17",
+      "section_ref": "Form of Contract — Contract Ref",
+      "anchor_text": "CONTRACT REF 107_26"
+    },
+    {
+      "page_ref": "line-33",
+      "section_ref": "Form of Contract — Recital (A) / WHEREAS #1",
+      "anchor_text": "ESPO placed a Tender Notice 2026/S 000-002119 on 12 January 2026 … seeking expressions of interest from providers of inspection & maintenance of indoor gymnasium, fitness & sport equipment and outdoor schools play & sport equipment services"
+    },
+    {
+      "page_ref": "line-37",
+      "section_ref": "Form of Contract — Recital (E)",
+      "anchor_text": "pursuant to the ESPO Framework Agreement (reference 107_26)"
+    },
+    {
+      "page_ref": "line-73",
+      "section_ref": "Master Contract Schedule — header",
+      "anchor_text": "MASTER CONTRACT SCHEDULE … (ESPO Framework Reference 107_26)"
+    },
+    {
+      "page_ref": "line-89",
+      "section_ref": "Master Contract Schedule §2 — Goods and/or Services Requirements",
+      "anchor_text": "Goods required [     ] … Services and Deliverables required [     ]"
+    },
+    {
+      "page_ref": "line-91",
+      "section_ref": "Master Contract Schedule §2 — Standards",
+      "anchor_text": "Standards: Quality Standards [     ] Technical Standards [     ]"
+    },
+    {
+      "page_ref": "line-99",
+      "section_ref": "Master Contract Schedule §4 — Critical Service Failure definition",
+      "anchor_text": "Critical Service Failure shall mean a delay in servicing the demand … in excess of 24 consecutive hours"
+    },
+    {
+      "page_ref": "line-1565",
+      "section_ref": "Schedule 1 Part A Appendix — Service Levels and Service Credits",
+      "anchor_text": "SERVICE LEVELS AND SERVICE CREDITS | Service Level | Level achieved | 60-70% | 71-90% | 91-95% | 96-100%"
+    },
+    {
+      "page_ref": "line-1579",
+      "section_ref": "Schedule 1 Part A Appendix — Service Credit formula",
+      "anchor_text": "Formula: 100% minus % of Service Level achieved = x% of the Contract Charges to be deducted from the next invoice"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "083c26c4f86d913df3c83f3f942831b6ce5e59923b26ffcd08b39165b69116b5",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

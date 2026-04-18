@@ -1,0 +1,72 @@
+{
+  "cursor": "{\"last_checked_at\":\"2026-04-13T19:02:18Z\"}",
+  "continuation_required": false,
+  "enriched_tenders": [
+    {
+      "notice_id": "538242",
+      "process_id": null,
+      "rfx_id": "8a3e07ac-bd00-ec11-810d-005056b64545",
+      "rfx_url": "https://procontract.due-north.com/RfxResponse/Index?rfxId=8a3e07ac-bd00-ec11-810d-005056b64545",
+      "updated_title": "Provision and maintenance of Mobile Plant",
+      "updated_description": "In relation to the Public Contract Regulations 2015 regulation 33 (Framework Agreements), the Company is inviting Suppliers to tender for a multi-provider framework (\"Framework\") for the provision and maintenance of mobile plant to be utilised on a number of the Company's waste management sites.\n\nThe scope of the Framework will be for the provision of a variety of mobile plant including excavators, loading shovels, tele handlers and fork-lift trucks.",
+      "updated_deadline_at": "2021-08-25T17:00:00Z",
+      "buyer_name": "Yorwaste Ltd",
+      "buyer_contact": null,
+      "documents_downloaded": [
+        {
+          "filename": "1 - ITT part 1 - Information and Instructions.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 82898,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-8f350d096a6157c60653cd87be8c7be2c78a155cd002e2537df01aa41271dbcb/workdir/artifacts/downloads/procontract/538242/1-ITT-part-1-Information-and-Instructions.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=a524b99c-2600-ec11-810d-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "invitation_to_tender",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "2 - ITT part 2 - Specification (All Lots).docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 83824,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-8f350d096a6157c60653cd87be8c7be2c78a155cd002e2537df01aa41271dbcb/workdir/artifacts/downloads/procontract/538242/2-ITT-part-2-Specification-All-Lots.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=b424b99c-2600-ec11-810d-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "technical_specification",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "3 - ITT part 3 - Questionairre.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 105849,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-8f350d096a6157c60653cd87be8c7be2c78a155cd002e2537df01aa41271dbcb/workdir/artifacts/downloads/procontract/538242/3-ITT-part-3-Questionairre.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=0425b99c-2600-ec11-810d-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "response_document",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "5 - ITT Part 5 - T&Cs.docx",
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size_bytes": 138736,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-8f350d096a6157c60653cd87be8c7be2c78a155cd002e2537df01aa41271dbcb/workdir/artifacts/downloads/procontract/538242/5-ITT-Part-5-TandCs.docx",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=6b25b99c-2600-ec11-810d-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": false
+        },
+        {
+          "filename": "Appendix 2 - Yorwaste HSEQ Policy 2021.pdf",
+          "content_type": "application/pdf",
+          "size_bytes": 139539,
+          "local_path": "/Users/alinaaitova/Desktop/Testproject1/artifacts/sessions/2026/04/session-pty-8f350d096a6157c60653cd87be8c7be2c78a155cd002e2537df01aa41271dbcb/workdir/artifacts/downloads/procontract/538242/Appendix-2-Yorwaste-HSEQ-Policy-2021.pdf",
+          "download_url": "https://procontract.due-north.com/FileUploads/ViewAttachment?attachmentId=2a26b99c-2600-ec11-810d-005056b64545&entityTypeId=9b214c2e-2d7d-432b-bced-4df247225fb3&attachmentTypeId=Rfx",
+          "document_role_hint": "terms_and_conditions",
+          "extracted_from_archive": false
+        }
+      ],
+      "documents_count": 5,
+      "enriched_at": "2026-04-13T19:02:18Z"
+    }
+  ],
+  "summary": {
+    "total_checked": 27,
+    "enriched": 1,
+    "not_yet_responded": 26,
+    "failed": 0
+  }
+}

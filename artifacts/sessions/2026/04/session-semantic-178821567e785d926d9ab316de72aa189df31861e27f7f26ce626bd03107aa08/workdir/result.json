@@ -1,0 +1,578 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Repairs and/or modification to metal items",
+      "description": "Lot 1 covers repairs and/or modification to metal items under the Metal Works Dynamic Purchasing System. The Invitation to Tender body states only the lot title; detailed specification is deferred to Appendix 1: Evaluation Criteria and the contract documents attached on ProContract.",
+      "requirements": [
+        "Bidder must accept the Conditions of Bidders set out in Section 2 (General) without qualification.",
+        "Bidder must submit bid via the ProContract e-Tendering System before the closing deadline (12:00 noon 23/09/2022).",
+        "Bid must remain open for acceptance for 180 days from the tender return closing date (Bid Validity).",
+        "Bidder must provide pricing inclusive of all design, delivery, labour, materials, transport, plant, fuel, travel, management reports, disposal and third-party charges; prices in pounds sterling (GBP) exclusive of VAT (Pricing)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Selection Criteria (Stage 1)",
+          "summary": "Pass/fail assessment against Table A of Appendix 1: Evaluation Criteria. A failure against any Table A question eliminates the bid from further evaluation.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-evaluation",
+            "anchor_text": "Stage 1: Selection Criteria ... Bidders will be assessed against the Selection Criteria as set out in Table A of Appendix 1: Evaluation Criteria.",
+            "section_ref": "#/texts/eval-stage-1"
+          }
+        },
+        {
+          "criterion": "Technical Assessment (Stage 2)",
+          "summary": "Award-stage technical assessment of the bidder's response, per Appendix 1: Evaluation Criteria.",
+          "weighting_text": "Technical Assessment",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-evaluation",
+            "anchor_text": "Stage 2: Award Criteria ... The council will evaluate on the basis of Technical Assessment.",
+            "section_ref": "#/texts/eval-stage-2"
+          }
+        },
+        {
+          "criterion": "Call-off weighting (\u2264 \u00a325k)",
+          "summary": "For call-offs between \u00a30 and \u00a325k, evaluation is 100% Price.",
+          "weighting_text": "Price 100%",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-call-off",
+            "anchor_text": "Call Off between \u00a30 and \u00a325k \u2013 Will be 100% Price",
+            "section_ref": "#/texts/eval-call-off"
+          }
+        },
+        {
+          "criterion": "Call-off weighting (> \u00a325k)",
+          "summary": "For call-offs above \u00a325k, evaluation is 60\u201380% Price, 0\u201320% Quality, and 20% Social Value.",
+          "weighting_text": "Price 60\u201380% / Quality 0\u201320% / Social Value 20%",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-call-off",
+            "anchor_text": "Call Off above \u00a325k \u2013 Will be 60% - 80% Price and Quality 0% - 20% and Social Value 20%",
+            "section_ref": "#/texts/eval-call-off"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "markdown:sec-4-lot-1",
+        "anchor_text": "1.1.1. Lot 1 - Repairs and/or modification to metal items",
+        "section_ref": "#/texts/sec-4-lot-1"
+      }
+    },
+    {
+      "lot_number": "2",
+      "title": "Supply only or Supply and Installation of metal items",
+      "description": "Lot 2 covers supply only, or supply and installation, of metal items. The Invitation to Tender body states only the lot title; no concrete product list is provided in the ITT prose (detailed specification deferred to Appendix 1 and ProContract attachments).",
+      "requirements": [
+        "Bidder must accept the Conditions of Bidders set out in Section 2 (General) without qualification.",
+        "Bidder must submit bid via the ProContract e-Tendering System before the closing deadline.",
+        "Bid must remain open for acceptance for 180 days from the tender return closing date.",
+        "Pricing must be in GBP excluding VAT and inclusive of all delivery, installation, labour, materials, transport and associated costs (Pricing)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Selection Criteria (Stage 1)",
+          "summary": "Pass/fail assessment against Table A of Appendix 1: Evaluation Criteria.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-evaluation",
+            "anchor_text": "Stage 1: Selection Criteria",
+            "section_ref": "#/texts/eval-stage-1"
+          }
+        },
+        {
+          "criterion": "Technical Assessment (Stage 2)",
+          "summary": "Award-stage technical assessment per Appendix 1.",
+          "weighting_text": "Technical Assessment",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-evaluation",
+            "anchor_text": "The council will evaluate on the basis of Technical Assessment.",
+            "section_ref": "#/texts/eval-stage-2"
+          }
+        },
+        {
+          "criterion": "Call-off weighting",
+          "summary": "Call-offs \u2264\u00a325k scored 100% Price; call-offs >\u00a325k scored 60\u201380% Price, 0\u201320% Quality, 20% Social Value.",
+          "weighting_text": "See Call Off Process",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-call-off",
+            "anchor_text": "Call Off Process ... Call Off above \u00a325k \u2013 Will be 60% - 80% Price and Quality 0% - 20% and Social Value 20%",
+            "section_ref": "#/texts/eval-call-off"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "markdown:sec-1-lots",
+        "anchor_text": "1.1.2. Lot 2 - Supply only or Supply and Installation of metal items",
+        "section_ref": "#/texts/121"
+      }
+    },
+    {
+      "lot_number": "3",
+      "title": "Fabrication of bespoke metal work items",
+      "description": "Lot 3 covers fabrication of bespoke metal work items. The Invitation to Tender body explicitly names examples: lockers for parking meters, water taps, signs, and specialist artwork.",
+      "requirements": [
+        "Bidder must accept the Conditions of Bidders set out in Section 2 (General) without qualification.",
+        "Bidder must submit bid via ProContract before the closing deadline.",
+        "Pricing must be in GBP excluding VAT and inclusive of all design, fabrication, delivery, labour, materials, transport and associated costs.",
+        "Bid must remain open for acceptance for 180 days from the tender return closing date."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Selection Criteria (Stage 1)",
+          "summary": "Pass/fail assessment against Table A of Appendix 1: Evaluation Criteria.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-evaluation",
+            "anchor_text": "Stage 1: Selection Criteria",
+            "section_ref": "#/texts/eval-stage-1"
+          }
+        },
+        {
+          "criterion": "Technical Assessment (Stage 2)",
+          "summary": "Award-stage technical assessment per Appendix 1.",
+          "weighting_text": "Technical Assessment",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-evaluation",
+            "anchor_text": "The council will evaluate on the basis of Technical Assessment.",
+            "section_ref": "#/texts/eval-stage-2"
+          }
+        },
+        {
+          "criterion": "Call-off weighting",
+          "summary": "Call-offs \u2264\u00a325k scored 100% Price; call-offs >\u00a325k scored 60\u201380% Price, 0\u201320% Quality, 20% Social Value.",
+          "weighting_text": "See Call Off Process",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-call-off",
+            "anchor_text": "Call Off above \u00a325k \u2013 Will be 60% - 80% Price and Quality 0% - 20% and Social Value 20%",
+            "section_ref": "#/texts/eval-call-off"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot3-parking-meter-lockers",
+          "summary": "Bespoke metal lockers for parking meters (fabricated to order).",
+          "requirement_type": "bespoke_fabrication",
+          "technical_attributes": [
+            "bespoke_metal_fabrication",
+            "enclosure_for_parking_meter_hardware"
+          ],
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-1-lots",
+            "anchor_text": "Lot 3 - Fabrication of bespoke metal work items, such as lockers for parking meters",
+            "section_ref": "#/texts/121"
+          }
+        },
+        {
+          "seed_key": "lot3-metal-water-taps",
+          "summary": "Bespoke metal water tap units (fabricated to order as part of Lot 3).",
+          "requirement_type": "bespoke_fabrication",
+          "technical_attributes": [
+            "bespoke_metal_fabrication",
+            "water_tap_assembly"
+          ],
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-1-lots",
+            "anchor_text": "Lot 3 - Fabrication of bespoke metal work items, such as lockers for parking meters, water taps",
+            "section_ref": "#/texts/121"
+          }
+        },
+        {
+          "seed_key": "lot3-metal-signs",
+          "summary": "Bespoke fabricated metal signs (to be fabricated to Council requirements).",
+          "requirement_type": "bespoke_fabrication",
+          "technical_attributes": [
+            "bespoke_metal_fabrication",
+            "signage"
+          ],
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-1-lots",
+            "anchor_text": "Lot 3 - Fabrication of bespoke metal work items, such as ... signs",
+            "section_ref": "#/texts/121"
+          }
+        },
+        {
+          "seed_key": "lot3-specialist-artwork",
+          "summary": "Bespoke fabricated metal specialist artwork pieces.",
+          "requirement_type": "bespoke_fabrication",
+          "technical_attributes": [
+            "bespoke_metal_fabrication",
+            "artwork"
+          ],
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-1-lots",
+            "anchor_text": "Lot 3 - Fabrication of bespoke metal work items, such as ... specialist artwork",
+            "section_ref": "#/texts/121"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "markdown:sec-1-lots",
+        "anchor_text": "1.1.3. Lot 3 - Fabrication of bespoke metal work items, such as lockers for parking meters, water taps, signs, specialist artwork",
+        "section_ref": "#/texts/121"
+      }
+    },
+    {
+      "lot_number": "4",
+      "title": "Repair or Replace balcony balustrades",
+      "description": "Lot 4 covers repair or replacement of balcony balustrades. The Invitation to Tender body states the lot title only; detailed specification deferred to Appendix 1 and ProContract contract documents.",
+      "requirements": [
+        "Bidder must accept the Conditions of Bidders set out in Section 2 (General) without qualification.",
+        "Bidder must submit bid via ProContract before the closing deadline.",
+        "Pricing must be in GBP excluding VAT and inclusive of all costs required for the works (Pricing).",
+        "Bid must remain open for acceptance for 180 days from the tender return closing date."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Selection Criteria (Stage 1)",
+          "summary": "Pass/fail assessment against Table A of Appendix 1: Evaluation Criteria.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-evaluation",
+            "anchor_text": "Stage 1: Selection Criteria",
+            "section_ref": "#/texts/eval-stage-1"
+          }
+        },
+        {
+          "criterion": "Technical Assessment (Stage 2)",
+          "summary": "Award-stage technical assessment per Appendix 1.",
+          "weighting_text": "Technical Assessment",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-evaluation",
+            "anchor_text": "The council will evaluate on the basis of Technical Assessment.",
+            "section_ref": "#/texts/eval-stage-2"
+          }
+        },
+        {
+          "criterion": "Call-off weighting",
+          "summary": "Call-offs \u2264\u00a325k scored 100% Price; call-offs >\u00a325k scored 60\u201380% Price, 0\u201320% Quality, 20% Social Value.",
+          "weighting_text": "See Call Off Process",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-call-off",
+            "anchor_text": "Call Off above \u00a325k \u2013 Will be 60% - 80% Price and Quality 0% - 20% and Social Value 20%",
+            "section_ref": "#/texts/eval-call-off"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot4-balcony-balustrades",
+          "summary": "Balcony balustrades for repair or replacement (typically on residential balconies).",
+          "requirement_type": "repair_or_replace",
+          "technical_attributes": [
+            "balcony_balustrade",
+            "metal_work"
+          ],
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-1-lots",
+            "anchor_text": "1.1.4. Lot 4 - Repair or Replace balcony balustrades",
+            "section_ref": "#/texts/121"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "markdown:sec-1-lots",
+        "anchor_text": "1.1.4. Lot 4 - Repair or Replace balcony balustrades",
+        "section_ref": "#/texts/121"
+      }
+    },
+    {
+      "lot_number": "5",
+      "title": "Chute Repairs",
+      "description": "Lot 5 covers on-site repairs to refuse chutes. The Invitation to Tender body states the lot title only; detailed scope and performance requirements are deferred to Appendix 1 and ProContract contract documents.",
+      "requirements": [
+        "Bidder must accept the Conditions of Bidders set out in Section 2 (General) without qualification.",
+        "Bidder must submit bid via ProContract before the closing deadline.",
+        "Pricing must be in GBP excluding VAT and inclusive of all costs required for the works (Pricing).",
+        "Bid must remain open for acceptance for 180 days from the tender return closing date."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Selection Criteria (Stage 1)",
+          "summary": "Pass/fail assessment against Table A of Appendix 1: Evaluation Criteria.",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-evaluation",
+            "anchor_text": "Stage 1: Selection Criteria",
+            "section_ref": "#/texts/eval-stage-1"
+          }
+        },
+        {
+          "criterion": "Technical Assessment (Stage 2)",
+          "summary": "Award-stage technical assessment per Appendix 1.",
+          "weighting_text": "Technical Assessment",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-evaluation",
+            "anchor_text": "The council will evaluate on the basis of Technical Assessment.",
+            "section_ref": "#/texts/eval-stage-2"
+          }
+        },
+        {
+          "criterion": "Call-off weighting",
+          "summary": "Call-offs \u2264\u00a325k scored 100% Price; call-offs >\u00a325k scored 60\u201380% Price, 0\u201320% Quality, 20% Social Value.",
+          "weighting_text": "See Call Off Process",
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-3-call-off",
+            "anchor_text": "Call Off above \u00a325k \u2013 Will be 60% - 80% Price and Quality 0% - 20% and Social Value 20%",
+            "section_ref": "#/texts/eval-call-off"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot5-refuse-chute-repairs",
+          "summary": "On-site repair of refuse chutes (ITT body does not include detailed scope; examples drawn from lot title).",
+          "requirement_type": "repair_service",
+          "technical_attributes": [
+            "refuse_chute",
+            "repair_only"
+          ],
+          "evidence_anchor": {
+            "page_ref": "markdown:sec-1-lots",
+            "anchor_text": "1.1.5. Lot 5 - Chute Repairs",
+            "section_ref": "#/texts/121"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "markdown:sec-1-lots",
+        "anchor_text": "1.1.5. Lot 5 - Chute Repairs",
+        "section_ref": "#/texts/121"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot3-parking-meter-lockers",
+      "lot_number": "3",
+      "candidate_name": "Bespoke metal lockers for parking meters",
+      "summary": "Fabricated metal lockers that enclose parking meter hardware. Explicitly named in the ITT as an example of Lot 3 bespoke fabrication.",
+      "requirements": [
+        "Fabricated to Council specification (bespoke).",
+        "Metal construction suitable for outdoor municipal street furniture."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "markdown:sec-1-lots",
+        "anchor_text": "Lot 3 - Fabrication of bespoke metal work items, such as lockers for parking meters",
+        "section_ref": "#/texts/121"
+      }
+    },
+    {
+      "seed_key": "lot3-metal-water-taps",
+      "lot_number": "3",
+      "candidate_name": "Bespoke metal water tap units",
+      "summary": "Fabricated metal water tap units named as an example of Lot 3 bespoke fabrication.",
+      "requirements": [
+        "Fabricated to Council specification (bespoke)."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "markdown:sec-1-lots",
+        "anchor_text": "Lot 3 - Fabrication of bespoke metal work items, such as lockers for parking meters, water taps",
+        "section_ref": "#/texts/121"
+      }
+    },
+    {
+      "seed_key": "lot3-metal-signs",
+      "lot_number": "3",
+      "candidate_name": "Bespoke fabricated metal signs",
+      "summary": "Fabricated metal signage named as an example of Lot 3 bespoke fabrication.",
+      "requirements": [
+        "Fabricated to Council specification (bespoke)."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "markdown:sec-1-lots",
+        "anchor_text": "Lot 3 - Fabrication of bespoke metal work items, such as ... signs",
+        "section_ref": "#/texts/121"
+      }
+    },
+    {
+      "seed_key": "lot3-specialist-artwork",
+      "lot_number": "3",
+      "candidate_name": "Bespoke fabricated metal specialist artwork",
+      "summary": "Bespoke metal artwork pieces named as an example of Lot 3 bespoke fabrication.",
+      "requirements": [
+        "Fabricated to Council specification (bespoke)."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "markdown:sec-1-lots",
+        "anchor_text": "Lot 3 - Fabrication of bespoke metal work items, such as ... specialist artwork",
+        "section_ref": "#/texts/121"
+      }
+    },
+    {
+      "seed_key": "lot4-balcony-balustrades",
+      "lot_number": "4",
+      "candidate_name": "Balcony balustrades (repair or replacement)",
+      "summary": "Balcony balustrade units to be repaired or replaced under Lot 4.",
+      "requirements": [
+        "Suitable for installation on residential balconies.",
+        "Compatible with repair or full-replacement scope (no unit specification provided in ITT body)."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "markdown:sec-1-lots",
+        "anchor_text": "1.1.4. Lot 4 - Repair or Replace balcony balustrades",
+        "section_ref": "#/texts/121"
+      }
+    },
+    {
+      "seed_key": "lot5-refuse-chute-repairs",
+      "lot_number": "5",
+      "candidate_name": "Refuse chute repair components",
+      "summary": "On-site repair of refuse chutes (scope beyond the lot title is not stated in the ITT body).",
+      "requirements": [
+        "Repair service for existing refuse chute infrastructure (no part-level requirements stated in ITT body)."
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "markdown:sec-1-lots",
+        "anchor_text": "1.1.5. Lot 5 - Chute Repairs",
+        "section_ref": "#/texts/121"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9800,
+    "lots.title": 9700,
+    "lots.description": 6500,
+    "lots.requirements": 6000,
+    "lots.evaluation_criteria": 8200,
+    "lots.cpv_codes": 3000,
+    "lots.product_requirements": 7000,
+    "lots.technical_standards": 3000,
+    "product_requirement_seeds.lot3": 8500,
+    "product_requirement_seeds.lot4": 6500,
+    "product_requirement_seeds.lot5": 5500
+  },
+  "extraction_confidence_bps": 7200,
+  "warnings": [
+    {
+      "code": "LOT_DESCRIPTIONS_DEFERRED_TO_ATTACHMENTS",
+      "message": "The Invitation to Tender body specifies only short lot titles in Section 1 (Lots). Detailed lot scope, quantities, technical standards and product specifications are deferred to Appendix 1: Evaluation Criteria and the contract documents attached on ProContract, which are not present in this structural extraction. Downstream product-candidate matching should treat these lot descriptions as indicative only.",
+      "evidence_refs": [
+        "markdown:sec-1-lots",
+        "markdown:sec-4-contract"
+      ]
+    },
+    {
+      "code": "NO_LOT_LEVEL_CPV_CODES",
+      "message": "The ITT body does not assign CPV codes to individual lots. Notice-level CPV codes (44221300-8 Gates, 44400000-4 Miscellaneous fabricated products, 45223100-7 Assembly of metal structures) were available in process_context but not asserted in the document text; lots.cpv_codes left empty to avoid hallucinated per-lot attribution.",
+      "evidence_refs": [
+        "markdown:sec-1-lots"
+      ]
+    },
+    {
+      "code": "NO_TECHNICAL_PRODUCT_STANDARDS_STATED",
+      "message": "The document cites legal and procurement standards (Public Contracts Regulations 2015, Bribery Act 2010, Fraud Act 2006, GDPR/Data Protection Act 2018, Housing Grants Construction and Regeneration Act 1996, Living Wage Foundation rate, CLOCS, FORS, Equality Act 2010) but does not state any product-level technical standards (no BS/EN/ISO references). lots.technical_standards left empty.",
+      "evidence_refs": [
+        "markdown:foreword",
+        "markdown:sec-1-procurement-process"
+      ]
+    },
+    {
+      "code": "SOURCE_PAGINATION_NOT_PRESERVED",
+      "message": "Docling structural extraction records page_count=0 and all sections reported as page_start=1/page_end=1, so evidence anchors use section-name / markdown-region refs rather than true page numbers.",
+      "evidence_refs": [
+        "extraction_metadata.page_count"
+      ]
+    },
+    {
+      "code": "LOT_1_TITLE_IN_SECTION_FOUR",
+      "message": "Lot 1 title appears only as a stray bullet in Section Four (1.1.1. Lot 1 - Repairs and/or modification to metal items) rather than in the Section One (Lots) enumeration, which begins at 1.1.2. Likely an OCR/flow artefact; the lot is treated as in-scope.",
+      "evidence_refs": [
+        "markdown:sec-4-lot-1"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "markdown:sec-1-lots",
+      "anchor_text": "1.1. The council intents to split the contract into the following lots:",
+      "section_ref": "#/texts/121"
+    },
+    {
+      "page_ref": "markdown:sec-1-lots",
+      "anchor_text": "1.1.2. Lot 2 - Supply only or Supply and Installation of metal items",
+      "section_ref": "#/texts/121"
+    },
+    {
+      "page_ref": "markdown:sec-1-lots",
+      "anchor_text": "1.1.3. Lot 3 - Fabrication of bespoke metal work items, such as lockers for parking meters, water taps, signs, specialist artwork",
+      "section_ref": "#/texts/121"
+    },
+    {
+      "page_ref": "markdown:sec-1-lots",
+      "anchor_text": "1.1.4. Lot 4 - Repair or Replace balcony balustrades",
+      "section_ref": "#/texts/121"
+    },
+    {
+      "page_ref": "markdown:sec-1-lots",
+      "anchor_text": "1.1.5. Lot 5 - Chute Repairs",
+      "section_ref": "#/texts/121"
+    },
+    {
+      "page_ref": "markdown:sec-4-lot-1",
+      "anchor_text": "1.1.1. Lot 1 - Repairs and/or modification to metal items",
+      "section_ref": "#/texts/sec-4-lot-1"
+    },
+    {
+      "page_ref": "markdown:sec-1-proposed-contract",
+      "anchor_text": "The contract length will be for 36 months, with the option to extend for 24 months. ... The estimated total value of this contract (inclusive of options) is \u00a3600,000.00.",
+      "section_ref": "#/texts/117"
+    },
+    {
+      "page_ref": "markdown:sec-1-procurement-process",
+      "anchor_text": "The procurement process will be conducted in accordance with the requirements of the Public Contracts Regulations 2015.  Specifically, the Council will be using the Open procedure.  Find a Tender Service (FTS) Contract Notice reference number BRISTOLCC001-DN583419-83047745 dated 26/8/2022.",
+      "section_ref": "#/texts/115"
+    },
+    {
+      "page_ref": "markdown:sec-3-evaluation",
+      "anchor_text": "Stage 1: Selection Criteria ... Stage 2: Award Criteria ... The council will evaluate on the basis of Technical Assessment.",
+      "section_ref": "#/texts/eval-stage-1"
+    },
+    {
+      "page_ref": "markdown:sec-3-call-off",
+      "anchor_text": "Call Off between \u00a30 and \u00a325k \u2013 Will be 100% Price ... Call Off above \u00a325k \u2013 Will be 60% - 80% Price and Quality 0% - 20% and Social Value 20%",
+      "section_ref": "#/texts/eval-call-off"
+    },
+    {
+      "page_ref": "markdown:sec-3-pricing",
+      "anchor_text": "All rates and prices must be quoted in pounds sterling (GBP). ... VAT should not be included in the bid rates and prices.",
+      "section_ref": "#/texts/pricing"
+    },
+    {
+      "page_ref": "markdown:sec-2-timescales",
+      "anchor_text": "12:00hrs Noon 23/09/2022 Local Time | Closing date and time for receipt by the Council of completed bidder responses via the ProContract tendering system.",
+      "section_ref": "#/texts/150"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "0c7844b0644f3f463e4e66ce2193ecddba6643853c02729083f95af6fd15f9db",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

@@ -1,0 +1,171 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "C3S2_413_bis Lot 2 Maintenance and Extension of C3S Windstorm and Storm Surge Services (ITT scope)",
+      "description": "Invitation to Tender issued by ECMWF for the Copernicus Climate Change Service (C3S) covering the Services scoped in the process notice. Volume I provides instructions and conditions only; detailed technical specifications, deliverables, KPIs and milestones are contained in Volume II Specification (see section 4.5) and are not present in this document.",
+      "requirements": [
+        "Tenderer must read all ITT documents and comply with ECMWF instructions for submission (section 3.1).",
+        "Tenderer and all subcontractors must meet EU/Copernicus eligibility criteria throughout the procurement and any ensuing contract (sections 3.2.1, 3.2.2); UK entities eligible from 1 January 2024, Swiss entities currently ineligible.",
+        "Tenderer must confirm absence from the EDES exclusion database and accept rejection if listed (section 3.4).",
+        "Tenderer must complete EU Restrictive Measures checks (country, organisation, individual) and form for at least four persons with powers of representation, decision-making or control (section 3.5).",
+        "Tenderer must confirm non-application of EU Conditionality Measures to itself and subcontractors for the Framework Agreement lifetime (section 3.6).",
+        "Tenderer shall not consult, communicate or agree with other Tenderers on the ITT response, shall not disclose proposed prices, and shall not induce others to submit or not submit (Code of Conduct, section 3.7).",
+        "Tender shall remain valid for nine months after the closing date unless Volume IA specifies otherwise (section 3.8).",
+        "ECMWF may require a parent-company guarantee if the Tenderer is a subsidiary (section 3.9).",
+        "All Tender documentation, manuals and diagram labelling shall be written in English (section 3.11).",
+        "Tenderer must register its organisation on the ProContract eProcurement Portal before accessing ITT documents or submitting a response (section 5.1).",
+        "Tenderer must complete the online questionnaire on the Portal and click 'Submit response' so that status reads 'Submitted' by the closing date (section 5.2).",
+        "All correspondence, including Clarification Questions, shall be conducted via the eProcurement Portal; Clarification Questions must be submitted more than fifteen (15) days before the closing date (section 6)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Compliance with ITT requirements and Volume II Specification",
+          "summary": "ECMWF evaluates the Tender based on the Tenderer's responses to ECMWF's requirements set out in Volume II of this ITT and the questions in the eProcurement Portal, together with compliance with Volume I paragraphs 3, 4, 5, 6 and 7.",
+          "evidence_anchor": {
+            "page_ref": "section 3.3",
+            "section_ref": "3.3 Evaluation",
+            "anchor_text": "ECMWF will evaluate the Tender based on the Tenderer's responses to ECMWF's requirements (Volume II of this ITT) and the questions in the eProcurement Portal as well as Tenderer's compliance with paragraphs 3, 4, 5, 6 and 7 of this Volume I."
+          }
+        },
+        {
+          "criterion": "Diversity and inclusion tiebreaker",
+          "summary": "Where multiple Tenders are equally qualified (discrepancy lower than 1%), ECMWF applies diversity and gender balance of the Tenderer's organisation as a tiebreaker.",
+          "weighting_text": "Applies only as a tiebreaker when qualified Tenders are within a 1% discrepancy.",
+          "evidence_anchor": {
+            "page_ref": "section 3.16",
+            "section_ref": "3.16 Diversity and inclusion",
+            "anchor_text": "In the event that multiple Tenderers present equally qualified Tenders (discrepancy lower than 1%), ECMWF will take into consideration the diversity and gender balance of each Tenderer's organisation as a tiebreaker when making the final decision."
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "section 4.5",
+        "section_ref": "4.5 Volume II Specification",
+        "anchor_text": "Volume II Specification - This contains detailed technical specifications and requirements for each ITT."
+      }
+    }
+  ],
+  "product_requirement_seeds": [],
+  "field_confidences": {
+    "lots": 3500,
+    "lot_number": 2000,
+    "lot_title": 5500,
+    "lot_description": 4500,
+    "requirements": 7500,
+    "evaluation_criteria": 4500,
+    "cpv_codes": 0,
+    "product_requirements": 0,
+    "technical_standards": 0,
+    "product_requirement_seeds": 0,
+    "evidence_anchors": 7000
+  },
+  "extraction_confidence_bps": 2500,
+  "warnings": [
+    {
+      "code": "DOCUMENT_ROLE_MISMATCH",
+      "message": "Input document is 'Volume I: Instructions for respondents and Conditions of tender', not the Volume II technical specification. The document_role metadata supplied by upstream was 'technical_specification', but the document itself is an ITT instructions/conditions volume and explicitly defers detailed technical specifications and requirements to Volume II (section 4.5). Product requirements, technical standards and detailed evaluation weightings are therefore not extractable from this document.",
+      "evidence_refs": [
+        "VOLUME I: Instructions for respondents and Conditions of tender",
+        "4.5 Volume II Specification",
+        "3.3 Evaluation"
+      ]
+    },
+    {
+      "code": "NO_EXPLICIT_LOT_STRUCTURE",
+      "message": "Volume I does not enumerate lots or sub-lots. The single lot emitted is synthesised from the process/notice title ('C3S2_413_bis Lot 2 Maintenance and Extension of C3S Windstorm and Storm Surge Services') supplied via process_context. No in-document evidence defines lot boundaries beyond the ITT-level scope; the lot anchor points to section 4.5 where Volume II is referenced for specifications.",
+      "evidence_refs": [
+        "4.5 Volume II Specification",
+        "4. Structure of this ITT"
+      ]
+    },
+    {
+      "code": "NO_CPV_IN_DOCUMENT",
+      "message": "No CPV codes appear anywhere in the Docling markdown. The CPV 73000000-2 held on the contract_notice row was not emitted on the lot because evidence anchors require in-document text per SKILL.md non-goals (no guessing without evidence anchors).",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_TECHNICAL_STANDARDS_IN_DOCUMENT",
+      "message": "The document contains no references to EN/ISO/BS/IEC or other technical standards. Any standards governing the Services are expected to appear in Volume II Specification, which is a separate document and was not provided in this extraction packet.",
+      "evidence_refs": []
+    },
+    {
+      "code": "NO_PRODUCT_REQUIREMENT_SEEDS",
+      "message": "Volume I describes procedural and contractual obligations only; it contains no product-like items, quantities, technical attributes or deliverable definitions that can be translated into product_requirement_seeds. Volume III A (Pricing and deliverables) and Volume II Specification carry those fields and are separate documents.",
+      "evidence_refs": [
+        "4.5 Volume II Specification",
+        "4.6 Volume III Templates for Suppliers to Complete"
+      ]
+    },
+    {
+      "code": "NO_EXPLICIT_EVALUATION_WEIGHTINGS",
+      "message": "Volume I states evaluation is based on Volume II requirements but does not disclose quality/price weightings, scoring thresholds, or mandatory-gate criteria. Those are expected in Volume II or Volume IA (Timetable). Only the two evaluation signals present in-document (reference to Volume II requirements and the 3.16 diversity tiebreaker) are emitted.",
+      "evidence_refs": [
+        "3.3 Evaluation",
+        "3.16 Diversity and inclusion"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "section title",
+      "section_ref": "VOLUME I: Instructions for respondents and Conditions of tender",
+      "anchor_text": "VOLUME I: Instructions for respondents and Conditions of tender - ISSUED BY: ECMWF Administration Department Procurement Section - Date: 30 January 2026 - Version: Final"
+    },
+    {
+      "page_ref": "section 1",
+      "section_ref": "1. Introduction to the ECMWF & European Copernicus Programme",
+      "anchor_text": "The European Centre for Medium-Range Weather Forecasts (ECMWF) is an independent intergovernmental organisation supported by 35 states."
+    },
+    {
+      "page_ref": "section 3.3",
+      "section_ref": "3.3 Evaluation",
+      "anchor_text": "ECMWF will evaluate the Tender based on the Tenderer's responses to ECMWF's requirements (Volume II of this ITT) and the questions in the eProcurement Portal as well as Tenderer's compliance with paragraphs 3, 4, 5, 6 and 7 of this Volume I."
+    },
+    {
+      "page_ref": "section 3.8",
+      "section_ref": "3.8 Validity",
+      "anchor_text": "Unless otherwise specified in Volume IA, the Tender shall remain valid for nine months after the closing date for this ITT."
+    },
+    {
+      "page_ref": "section 3.11",
+      "section_ref": "3.11 Language for responses",
+      "anchor_text": "All Tender documentation, manuals and diagram labelling shall be written in English."
+    },
+    {
+      "page_ref": "section 3.16",
+      "section_ref": "3.16 Diversity and inclusion",
+      "anchor_text": "In the event that multiple Tenderers present equally qualified Tenders (discrepancy lower than 1%), ECMWF will take into consideration the diversity and gender balance of each Tenderer's organisation as a tiebreaker when making the final decision."
+    },
+    {
+      "page_ref": "section 4.5",
+      "section_ref": "4.5 Volume II Specification",
+      "anchor_text": "Volume II Specification - This contains detailed technical specifications and requirements for each ITT."
+    },
+    {
+      "page_ref": "section 5.1",
+      "section_ref": "5.1 Supplier registration on the eProcurement Portal",
+      "anchor_text": "To take part in any procurement exercise and to be able to express an interest in an opportunity, first you must register on the eProcurement Portal (ProContract) with details of your organisation."
+    },
+    {
+      "page_ref": "section 5.2",
+      "section_ref": "5.2 Online questionnaire",
+      "anchor_text": "You must click the 'Submit response' button and the status of your response should read 'Submitted', otherwise your response will not be accessible to ECMWF and hence will be ineligible for evaluation."
+    },
+    {
+      "page_ref": "section 6",
+      "section_ref": "6. Clarification questions",
+      "anchor_text": "Any questions concerning this ITT ('Clarification Questions') shall be submitted via the eProcurement Portal and must be received by ECMWF more than fifteen (15) days before the closing date."
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "982304ae02cae9dd63283bb146359198706f2aa239778930cba54ec092ab43f3",
+    "policy_version": "2026.04.12",
+    "document_role": "tender_instructions_and_conditions"
+  }
+}

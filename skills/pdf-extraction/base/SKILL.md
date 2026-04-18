@@ -28,6 +28,10 @@ Do not use this skill for raw PDF parsing, browser navigation, authoritative dat
 - `extraction_warnings` describing ambiguity, thin evidence, or missing expected content.
 - `extraction_metadata` describing scope, policy version, and source-hash lineage for daemon persistence.
 
+## CRITICAL: Result Contract
+
+You MUST write your output as a valid JSON file named `result.json` in the current working directory. The JSON must match `result.schema.json` exactly. Do NOT output a narrative text response. Write ONLY the structured JSON result file. The daemon reads this file after the session completes.
+
 ## Non-goals
 - Reconstructing layout that should already be present in Docling output.
 - Mutating authoritative procurement tables or deciding supersession.

@@ -28,6 +28,10 @@ Do not use this skill for tender specifications whose primary output is lot stru
 - `field_confidences` keyed by stable field paths so daemon-side persistence can reason about thin evidence.
 - `warnings`, `evidence_anchors`, and `extraction_metadata` that make repeated-header normalization and extraction scope auditable.
 
+## CRITICAL: Result Contract
+
+You MUST write your output as a valid JSON file named `result.json` in the current working directory. The JSON must match `result.schema.json` exactly. Do NOT output a narrative text response. Write ONLY the structured JSON result file. The daemon reads this file after the session completes.
+
 ## Non-goals
 - Reconstructing layout or OCR that should already exist in the Docling structural output.
 - Guessing currencies, unit rates, or totals when the source table is ambiguous or incomplete.

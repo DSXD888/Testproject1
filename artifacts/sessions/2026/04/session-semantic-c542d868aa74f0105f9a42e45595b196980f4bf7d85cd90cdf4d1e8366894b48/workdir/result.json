@@ -1,0 +1,476 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Supply and delivery of Softwood Timbers",
+      "description": "Bristol City Council (BSH/HRA) Lot 1 under the Joinery Timber Supplies Dynamic Purchasing System. Scope is the supply and delivery of softwood timbers for the Council's in-house joinery shop. The DPS is a framework (no minimum volume guarantee); individual orders are awarded through call-off competitions under this Lot.",
+      "requirements": [
+        "Provider must have been admitted to the DPS for Lot 1 (Softwood Timbers) to be eligible to receive Call-Off invitations for softwood timber supply.",
+        "Provider must sign and return the DPS Agreement; until it is signed no Call-Off tenders may be bid.",
+        "Provider performance for Call-Off Contracts is governed by the General Terms & Conditions of the DPS Agreement and Schedule 7 Call-Off Terms & Conditions (separate document).",
+        "Provider must maintain Employer's Liability Insurance of £10,000,000 each and every claim.",
+        "Provider must maintain Public Liability Insurance of £5,000,000 each and every claim.",
+        "Provider must maintain Professional Indemnity Insurance of £2,500,000 each and every claim.",
+        "Provider must deliver Goods in a conscientious and timely manner with all due skill, care and diligence, applying Good Industry Practice.",
+        "Detailed product specification (species, grades, sizes, moisture content, certification) is not set out in the DPS Agreement and will be issued with each Call for Further Competition (Schedule 1 placeholder)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Establishment on the DPS Criteria (Quality only)",
+          "summary": "Schedule 2 states admission-stage award criteria are Quality-only, with the detailed criteria table empty in the DPS Agreement and referred to as '[See Technical Assessment Criteria]'. The actual scoring grid is issued separately (Appendix 1 - Evaluation Criteria Joinery Timber Supplies).",
+          "weighting_text": "Quality only (detailed weighting table blank in this document; see Appendix 1 - Evaluation Criteria)",
+          "evidence_anchor": {
+            "page_ref": "Schedule 2",
+            "anchor_text": "Goods, Services and/or Works (if applicable) - Establishment on the DPS Criteria (Quality only) | Criterion Number | Criterion | Percentage Weightings ... [See Technical Assessment Criteria]",
+            "section_ref": "Schedule 2 Award Criteria - DPS Admission"
+          }
+        },
+        {
+          "criterion": "Call-Off Award Criteria",
+          "summary": "Where the Council issues a Call for Competition to admitted Providers the contract will be awarded on the basis of the award criteria set out in the Invitation to Tender documentation for that specific call-off; no fixed price/quality split is stated at DPS level.",
+          "weighting_text": "Defined per Call-Off ITT (not fixed in the DPS Agreement)",
+          "evidence_anchor": {
+            "page_ref": "Schedule 2",
+            "anchor_text": "Where the Council issues a Call for Competition to participating providers this will be awarded on the basis of the award criteria set out in the Invitation to Tender documentation.",
+            "section_ref": "Schedule 2 Award Criteria - Call-Off"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot1-softwood-timber-generic",
+          "summary": "Softwood timber supply for joinery manufacturing — species, grades, sizes and certification to be specified per call-off.",
+          "requirement_type": "product_family_placeholder",
+          "technical_attributes": [
+            "Product family: softwood timber (sawn / machined sections for joinery use)",
+            "End use: Bristol City Council's in-house joinery shop (BSH/HRA)",
+            "Detailed specification deferred to Call-Off ITT documentation (Schedule 1 placeholder in this Agreement)"
+          ],
+          "quantity_hint": "Call-off volumes scheduled throughout the 4-year DPS term; no minimum volume or exclusivity granted (Clause 5 Non-Exclusivity).",
+          "evidence_anchor": {
+            "page_ref": "Cover page",
+            "anchor_text": "Lot 1 – Supply and delivery of Softwood Timbers",
+            "section_ref": "Cover / Background clause 1"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "Cover page",
+        "anchor_text": "Lot 1 – Supply and delivery of Softwood Timbers",
+        "section_ref": "Cover / Background clause 1 / Background clause 3"
+      }
+    },
+    {
+      "lot_number": "2",
+      "title": "Supply and delivery of Plywood and Door Blanks",
+      "description": "Bristol City Council (BSH/HRA) Lot 2 under the Joinery Timber Supplies Dynamic Purchasing System. Scope is the supply and delivery of plywood boards and door blanks for the Council's in-house joinery shop. Awards made through call-off competitions under the 4-year DPS; no minimum order quantity is guaranteed.",
+      "requirements": [
+        "Provider must have been admitted to the DPS for Lot 2 (Plywood and Door Blanks) to be eligible for Call-Off invitations.",
+        "DPS Agreement must be signed and returned before any Call-Off tenders may be bid.",
+        "Provider must comply with the General Terms & Conditions and Schedule 7 Call-Off Terms & Conditions.",
+        "Provider must maintain Employer's Liability Insurance of £10,000,000 each and every claim.",
+        "Provider must maintain Public Liability Insurance of £5,000,000 each and every claim.",
+        "Provider must maintain Professional Indemnity Insurance of £2,500,000 each and every claim.",
+        "Detailed product specification (board grades, thicknesses, core type, formaldehyde class, door blank sizes) is not in the DPS Agreement and will be issued with each Call for Further Competition (Schedule 1 placeholder)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Establishment on the DPS Criteria (Quality only)",
+          "summary": "Schedule 2 declares admission criteria Quality-only; detailed criterion table is blank in this Agreement and references '[See Technical Assessment Criteria]'. Applied at Lot 2 admission stage in the same way as Lots 1 and 3.",
+          "weighting_text": "Quality only (detailed weighting table blank in this document)",
+          "evidence_anchor": {
+            "page_ref": "Schedule 2",
+            "anchor_text": "Goods, Services and/or Works (if applicable) - Establishment on the DPS Criteria (Quality only)",
+            "section_ref": "Schedule 2 Award Criteria - DPS Admission"
+          }
+        },
+        {
+          "criterion": "Call-Off Award Criteria",
+          "summary": "Per-call-off award criteria defined in each Invitation to Tender (not fixed at DPS level).",
+          "weighting_text": "Defined per Call-Off ITT",
+          "evidence_anchor": {
+            "page_ref": "Schedule 2",
+            "anchor_text": "Where the Council issues a Call for Competition to participating providers this will be awarded on the basis of the award criteria set out in the Invitation to Tender documentation.",
+            "section_ref": "Schedule 2 Award Criteria - Call-Off"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot2-plywood-boards-generic",
+          "summary": "Plywood boards for joinery manufacture — thicknesses, sizes, core species and bond class to be specified per call-off.",
+          "requirement_type": "product_family_placeholder",
+          "technical_attributes": [
+            "Product family: plywood boards",
+            "End use: joinery manufacture at Bristol City Council's in-house joinery shop",
+            "Detailed specification deferred to Call-Off ITT documentation"
+          ],
+          "quantity_hint": "Call-off volumes scheduled across the 48-month DPS term; non-exclusive framework.",
+          "evidence_anchor": {
+            "page_ref": "Cover page",
+            "anchor_text": "Lot 2 – Supply and delivery of Plywood and Door Blanks",
+            "section_ref": "Cover / Background clause 1 / Background clause 3"
+          }
+        },
+        {
+          "seed_key": "lot2-door-blanks-generic",
+          "summary": "Door blanks (doorset blanks) for joinery shop use — size, core construction and facing specified per call-off.",
+          "requirement_type": "product_family_placeholder",
+          "technical_attributes": [
+            "Product family: door blanks / doorset blanks",
+            "End use: joinery shop manufacture (e.g. flush doors, fire doors, standard internal doors)",
+            "Detailed specification deferred to Call-Off ITT documentation"
+          ],
+          "quantity_hint": "Call-off volumes scheduled across the DPS term; non-exclusive framework.",
+          "evidence_anchor": {
+            "page_ref": "Cover page",
+            "anchor_text": "Lot 2 – Supply and delivery of Plywood and Door Blanks",
+            "section_ref": "Cover / Background clause 1 / Background clause 3"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "Cover page",
+        "anchor_text": "Lot 2 – Supply and delivery of Plywood and Door Blanks",
+        "section_ref": "Cover / Background clause 1 / Background clause 3"
+      }
+    },
+    {
+      "lot_number": "3",
+      "title": "Supply and delivery of Hardwood and Hemlock",
+      "description": "Bristol City Council (BSH/HRA) Lot 3 under the Joinery Timber Supplies Dynamic Purchasing System. Scope is the supply and delivery of hardwood timbers and hemlock (a softwood species grouped with hardwoods for joinery use) for the Council's in-house joinery shop. Awards made through call-off competitions under the 4-year DPS.",
+      "requirements": [
+        "Provider must have been admitted to the DPS for Lot 3 (Hardwood and Hemlock) to be eligible for Call-Off invitations.",
+        "DPS Agreement must be signed and returned before any Call-Off tenders may be bid.",
+        "Provider must comply with the General Terms & Conditions and Schedule 7 Call-Off Terms & Conditions.",
+        "Provider must maintain Employer's Liability Insurance of £10,000,000 each and every claim.",
+        "Provider must maintain Public Liability Insurance of £5,000,000 each and every claim.",
+        "Provider must maintain Professional Indemnity Insurance of £2,500,000 each and every claim.",
+        "Detailed product specification (species, grades, sizes, moisture content, certification) is not in the DPS Agreement and will be issued with each Call for Further Competition (Schedule 1 placeholder)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Establishment on the DPS Criteria (Quality only)",
+          "summary": "Schedule 2 states admission criteria are Quality-only; the detailed criterion table is blank in this Agreement.",
+          "weighting_text": "Quality only (detailed weighting table blank in this document)",
+          "evidence_anchor": {
+            "page_ref": "Schedule 2",
+            "anchor_text": "Goods, Services and/or Works (if applicable) - Establishment on the DPS Criteria (Quality only)",
+            "section_ref": "Schedule 2 Award Criteria - DPS Admission"
+          }
+        },
+        {
+          "criterion": "Call-Off Award Criteria",
+          "summary": "Per-call-off award criteria are defined in each Invitation to Tender (not fixed at DPS level).",
+          "weighting_text": "Defined per Call-Off ITT",
+          "evidence_anchor": {
+            "page_ref": "Schedule 2",
+            "anchor_text": "Where the Council issues a Call for Competition to participating providers this will be awarded on the basis of the award criteria set out in the Invitation to Tender documentation.",
+            "section_ref": "Schedule 2 Award Criteria - Call-Off"
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot3-hardwood-timber-generic",
+          "summary": "Hardwood timber supply for joinery — species, grades, sizes and certification to be specified per call-off.",
+          "requirement_type": "product_family_placeholder",
+          "technical_attributes": [
+            "Product family: hardwood timber (sawn / machined sections for joinery use)",
+            "End use: Bristol City Council's in-house joinery shop",
+            "Detailed specification deferred to Call-Off ITT documentation"
+          ],
+          "quantity_hint": "Call-off volumes across the 48-month DPS term; non-exclusive framework.",
+          "evidence_anchor": {
+            "page_ref": "Cover page",
+            "anchor_text": "Lot 3 – Supply and delivery of Hardwood and Hemlock",
+            "section_ref": "Cover / Background clause 1 / Background clause 3"
+          }
+        },
+        {
+          "seed_key": "lot3-hemlock-timber-generic",
+          "summary": "Hemlock timber supply for joinery — grouped in this Lot with hardwood for joinery-use purposes; grades, sizes, moisture content to be specified per call-off.",
+          "requirement_type": "product_family_placeholder",
+          "technical_attributes": [
+            "Product family: hemlock (Western Hemlock / Tsuga-type softwood grouped with hardwoods in this Lot)",
+            "End use: Bristol City Council's in-house joinery shop",
+            "Detailed specification deferred to Call-Off ITT documentation"
+          ],
+          "quantity_hint": "Call-off volumes across the DPS term; non-exclusive framework.",
+          "evidence_anchor": {
+            "page_ref": "Cover page",
+            "anchor_text": "Lot 3 – Supply and delivery of Hardwood and Hemlock",
+            "section_ref": "Cover / Background clause 1 / Background clause 3"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "Cover page",
+        "anchor_text": "Lot 3 – Supply and delivery of Hardwood and Hemlock",
+        "section_ref": "Cover / Background clause 1 / Background clause 3"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot1-softwood-timber-generic",
+      "lot_number": "1",
+      "candidate_name": "Softwood timber for joinery (generic placeholder)",
+      "summary": "Generic softwood timber product family seed. The DPS Agreement names the Lot as 'Supply and delivery of Softwood Timbers' but defers all detailed product attributes (species, grade, sizes, moisture, certification) to the Call-Off ITT stage.",
+      "requirements": [
+        "Softwood timber for Bristol City Council joinery shop use",
+        "Supplied against per-call-off specifications issued with each Invitation to Tender",
+        "No guaranteed volume — DPS is non-exclusive (Clause 5)"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Cover page",
+        "anchor_text": "Lot 1 – Supply and delivery of Softwood Timbers",
+        "section_ref": "Cover / Background clause 1"
+      }
+    },
+    {
+      "seed_key": "lot2-plywood-boards-generic",
+      "lot_number": "2",
+      "candidate_name": "Plywood boards for joinery (generic placeholder)",
+      "summary": "Generic plywood boards product family seed. The DPS Agreement names the Lot as 'Supply and delivery of Plywood and Door Blanks' but defers detailed product attributes (thickness, size, core species, bond class, formaldehyde class) to the Call-Off ITT stage.",
+      "requirements": [
+        "Plywood boards for Bristol City Council joinery shop manufacture",
+        "Supplied against per-call-off specifications issued with each Invitation to Tender",
+        "No guaranteed volume — DPS is non-exclusive (Clause 5)"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Cover page",
+        "anchor_text": "Lot 2 – Supply and delivery of Plywood and Door Blanks",
+        "section_ref": "Cover / Background clause 1"
+      }
+    },
+    {
+      "seed_key": "lot2-door-blanks-generic",
+      "lot_number": "2",
+      "candidate_name": "Door blanks for joinery (generic placeholder)",
+      "summary": "Generic door blanks product family seed. Named in the Lot title; detailed dimensional, core-construction and facing attributes deferred to Call-Off ITT stage.",
+      "requirements": [
+        "Door blanks for Bristol City Council joinery shop manufacture",
+        "Supplied against per-call-off specifications issued with each Invitation to Tender",
+        "No guaranteed volume — DPS is non-exclusive (Clause 5)"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Cover page",
+        "anchor_text": "Lot 2 – Supply and delivery of Plywood and Door Blanks",
+        "section_ref": "Cover / Background clause 1"
+      }
+    },
+    {
+      "seed_key": "lot3-hardwood-timber-generic",
+      "lot_number": "3",
+      "candidate_name": "Hardwood timber for joinery (generic placeholder)",
+      "summary": "Generic hardwood timber product family seed. The DPS Agreement names the Lot as 'Supply and delivery of Hardwood and Hemlock'; detailed product attributes deferred to Call-Off ITT stage.",
+      "requirements": [
+        "Hardwood timber for Bristol City Council joinery shop use",
+        "Supplied against per-call-off specifications issued with each Invitation to Tender",
+        "No guaranteed volume — DPS is non-exclusive (Clause 5)"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Cover page",
+        "anchor_text": "Lot 3 – Supply and delivery of Hardwood and Hemlock",
+        "section_ref": "Cover / Background clause 1"
+      }
+    },
+    {
+      "seed_key": "lot3-hemlock-timber-generic",
+      "lot_number": "3",
+      "candidate_name": "Hemlock timber for joinery (generic placeholder)",
+      "summary": "Generic hemlock timber product family seed. Named in the Lot title alongside hardwood; detailed product attributes deferred to Call-Off ITT stage.",
+      "requirements": [
+        "Hemlock timber for Bristol City Council joinery shop use",
+        "Supplied against per-call-off specifications issued with each Invitation to Tender",
+        "No guaranteed volume — DPS is non-exclusive (Clause 5)"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "Cover page",
+        "anchor_text": "Lot 3 – Supply and delivery of Hardwood and Hemlock",
+        "section_ref": "Cover / Background clause 1"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lot_structure": 9700,
+    "lots.lot_number": 9800,
+    "lots.title": 9800,
+    "lots.description": 8500,
+    "lots.requirements": 7000,
+    "lots.evaluation_criteria": 6000,
+    "lots.evaluation_criteria.weighting_text": 3000,
+    "lots.cpv_codes": 2000,
+    "lots.product_requirements": 4000,
+    "lots.technical_standards": 9000,
+    "lots.evidence_anchor": 9200,
+    "product_requirement_seeds": 4500,
+    "product_requirement_seeds.candidate_name": 4500,
+    "product_requirement_seeds.requirements": 5000,
+    "insurance_requirements": 9500,
+    "contract_term": 9500,
+    "buyer_name": 9800,
+    "contract_title": 9800
+  },
+  "extraction_confidence_bps": 6800,
+  "warnings": [
+    {
+      "code": "SPECIFICATION_SCHEDULE_EMPTY",
+      "message": "Schedule 1 'The Goods, Services and/or Works Specification' is a placeholder — its body states 'AS SPECIFIED IN ANY CALL FOR FURTHER COMPETITION IN RESPECT OF THE LOTS FOR WHICH THE PROVIDER IS ADMITTED TO THE DPS.' No product-level technical requirements (species, grades, sizes, moisture, certification) are set out in this DPS Agreement. All product_requirement_seeds emitted here are placeholder families at Lot grain; downstream candidate typing should treat them as product_family_placeholder not as concrete specs.",
+      "evidence_refs": [
+        "Schedule 1 / THE GOODS, SERVICES AND/OR WORKS SPECIFICATION / AS SPECIFIED IN ANY CALL FOR FURTHER COMPETITION"
+      ]
+    },
+    {
+      "code": "AWARD_CRITERIA_WEIGHTINGS_MISSING",
+      "message": "Schedule 2 DPS admission award-criteria table is blank: no criterion rows or percentage weightings are populated; the text refers to '[See Technical Assessment Criteria]' — the real evaluation grid lives in the separate 'Appendix 1 - Evaluation Criteria Joinery Timber Supplies' document. Weightings were therefore not extractable from this file.",
+      "evidence_refs": [
+        "Schedule 2 Award Criteria / Criterion Number | Criterion | Percentage Weightings (blank row)",
+        "Schedule 2 / [See Technical Assessment Criteria]"
+      ]
+    },
+    {
+      "code": "CPV_CODES_NOT_IN_DOCUMENT",
+      "message": "CPV codes are not quoted inside the DPS Agreement body. The containing notice metadata identifies CPV 03419000 (Timber) and 44220000 (Builders' joinery), but neither is anchored to any passage in this file. cpv_codes is therefore left empty per lot; downstream the notice-level CPVs can be attached if authority policy allows.",
+      "evidence_refs": []
+    },
+    {
+      "code": "PRICING_SCHEDULE_DEFERRED",
+      "message": "Schedule 3 Pricing Matrices is marked 'NOT REQUIRED UNTIL CALL FOR FURTHER COMPETITION STAGE'. Price methodology, rate structures and bill-of-quantities content are therefore not present in this document and must be obtained from per-call-off pricing schedules.",
+      "evidence_refs": [
+        "Schedule 3 PRICING MATRICES / NOT REQUIRED UNTIL CALL FOR FURTHER COMPETITION STAGE"
+      ]
+    },
+    {
+      "code": "CALL_OFF_TERMS_EXTERNAL",
+      "message": "Schedule 7 Call-Off Terms and Conditions is a stub pointing to a separate document ('Schedule 7 - Call-Off Contract - Timber Supplies.docx'); the actual call-off T&Cs text is not inside this DPS Agreement.",
+      "evidence_refs": [
+        "Schedule 7 CALL-OFF TERMS AND CONDITIONS / [Supply Call-Off Contract – See separate document]"
+      ]
+    },
+    {
+      "code": "TECHNICAL_STANDARDS_ABSENT",
+      "message": "No explicit technical standards (e.g. BS EN, ISO, FSC/PEFC chain-of-custody) are named in this DPS Agreement. The document refers only to generic 'Good Industry Practice' and to Call-Off-level 'Contracts Standard'. technical_standards arrays are therefore empty.",
+      "evidence_refs": [
+        "Clause 1.1 definition 'Good Industry Practice'",
+        "Clause 1.1 definition 'Contracts Standard'"
+      ]
+    },
+    {
+      "code": "DOCUMENT_ROLE_NOTE",
+      "message": "Per document_set_hash the source file is tagged document_role_hint=terms_and_conditions; the extraction.document_role is technical_specification and the overlay policy routed it to pdf-extraction/tender-specification. The content is primarily a DPS framework agreement with Lot headers — suitable for lot-structure extraction but not for product-level technical requirement extraction.",
+      "evidence_refs": []
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "Cover page",
+      "anchor_text": "A DYNAMIC PURCHASING SYSTEM AGREEMENT FOR THE PROVISION OF JOINERY TIMBER SUPPLIES DIVIDED INTO 3 CATEGORIES",
+      "section_ref": "Cover / Document title block"
+    },
+    {
+      "page_ref": "Cover page",
+      "anchor_text": "Lot 1 – Supply and delivery of Softwood Timbers",
+      "section_ref": "Cover / Lot list"
+    },
+    {
+      "page_ref": "Cover page",
+      "anchor_text": "Lot 2 – Supply and delivery of Plywood and Door Blanks",
+      "section_ref": "Cover / Lot list"
+    },
+    {
+      "page_ref": "Cover page",
+      "anchor_text": "Lot 3 – Supply and delivery of Hardwood and Hemlock",
+      "section_ref": "Cover / Lot list"
+    },
+    {
+      "page_ref": "Background",
+      "anchor_text": "The Council placed a contract notice ... under the provision of a Dynamic Purchasing System (\"DPS\") established for the provision of Joinery Timber Supplies which divided into 3 Categories. Lot 1 – Supply and delivery of Softwood Timbers, Lot 2 – Supply and delivery of Plywood and Door Blanks, and Lot 3 –Supply and delivery of Hardwood and Hemlock.",
+      "section_ref": "Background clause 1"
+    },
+    {
+      "page_ref": "Background",
+      "anchor_text": "On the basis of the Provider's Request to Participate, the Council admitted the Provider onto the DPS to be able to provide Goods, Services and/or Works in respect of the following Categories Lot 1 – [Supply and delivery of Softwood Timbers], Lot 2 – [Supply and delivery of Plywood and Door Blanks], and Lot 3 – [Supply and delivery of Hardwood and Hemlock].",
+      "section_ref": "Background clause 3"
+    },
+    {
+      "page_ref": "Articles of Agreement §2 Term",
+      "anchor_text": "The DPS is expected to run for an initial period of 4 (four) years, from 1st December 2022.",
+      "section_ref": "Articles of Agreement / Clause 2 Term"
+    },
+    {
+      "page_ref": "Articles of Agreement §6-9 Insurance",
+      "anchor_text": "Employer's liability insurance | £10M each and every claim ... Public Liability Insurance | £5M each and every claim ... Professional indemnity Insurance | £2.5M each and every claim",
+      "section_ref": "Articles of Agreement / Insurance table"
+    },
+    {
+      "page_ref": "Clause 5",
+      "anchor_text": "the Provider acknowledges that, in entering into this Agreement, no form of exclusivity or volume guarantee has been granted by the Council",
+      "section_ref": "Clause 5 Non-Exclusivity"
+    },
+    {
+      "page_ref": "Clause 9",
+      "anchor_text": "All admitted Providers shall be invited to submit a tender for each specific procurement under the DPS. Where the DPS has been divided into Lots, Providers which have been admitted to the relevant Lot corresponding to the specific procurement concerned will be invited to submit a Tender.",
+      "section_ref": "Clause 9 Tendering from the DPS - Call for Competition Procedure"
+    },
+    {
+      "page_ref": "Clause 10",
+      "anchor_text": "The prices offered by the Provider for Call-Off Contracts for Goods, Services and/or Works (if applicable) shall be the prices listed in the Pricing Schedule submitted with the Provider's tender response for the Call-Off contract.",
+      "section_ref": "Clause 10 Prices for Goods, Services and/or Works"
+    },
+    {
+      "page_ref": "Schedule 1",
+      "anchor_text": "THE GOODS, SERVICES AND/OR WORKS SPECIFICATION — AS SPECIFIED IN ANY CALL FOR FURTHER COMPETITION IN RESPECT OF THE LOTS FOR WHICH THE PROVIDER IS ADMITTED TO THE DPS.",
+      "section_ref": "Schedule 1 Specification (placeholder)"
+    },
+    {
+      "page_ref": "Schedule 2",
+      "anchor_text": "Goods, Services and/or Works (if applicable) - Establishment on the DPS Criteria (Quality only) | Criterion Number | Criterion | Percentage Weightings | [See Technical Assessment Criteria]",
+      "section_ref": "Schedule 2 Award Criteria"
+    },
+    {
+      "page_ref": "Schedule 2",
+      "anchor_text": "Where the Council issues a Call for Competition to participating providers this will be awarded on the basis of the award criteria set out in the Invitation to Tender documentation.",
+      "section_ref": "Schedule 2 Award Criteria - Call-Off"
+    },
+    {
+      "page_ref": "Schedule 3",
+      "anchor_text": "schedule 3 PRICING MATRICES — NOT REQUIRED UNTIL CALL FOR FURTHER COMPETITION STAGE",
+      "section_ref": "Schedule 3 Pricing Matrices (deferred)"
+    },
+    {
+      "page_ref": "Schedule 5",
+      "anchor_text": "The Council's Management Information Requirements and KPI's supplied at the point of further competition for a Call-Off Contract shall form part of such Call-Off Contract.",
+      "section_ref": "Schedule 5 Management Information Requirements"
+    },
+    {
+      "page_ref": "Schedule 7",
+      "anchor_text": "SCHEDULE 7 CALL-OFF TERMS AND CONDITIONS — [Supply Call-Off Contract – See separate document]",
+      "section_ref": "Schedule 7 Call-Off Terms and Conditions (external)"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "5ddbab28177bafa48ee96a0e4c6918efd170993e93bea1b96a2310ca65cb23af",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

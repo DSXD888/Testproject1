@@ -1,0 +1,581 @@
+{
+  "lots": [
+    {
+      "lot_number": "11",
+      "title": "Measured Term Contract – Provision of Minor Disability Adaptations (minor building works)",
+      "description": "Provision of minor disability adaptations (under £1,000 per order) to residential properties within the London Borough of Bexley under a JCT Measured Term Contract 2024. Four-year fixed term running 1 November 2026 to 31 October 2030 with no extension option. Works are instructed via electronic orders from the Contract Administrator and prioritised across four response bands from Standard through to Hospital Discharge. Contractor acts as Principal Contractor where required and must hold SSIP-accredited H&S certification (e.g. CHAS).",
+      "requirements": [
+        "Works executed under the JCT Measured Term Contract 2024 including Conditions, Contract Particulars, Schedule of Rates / Pricing Schedule and Contract Specification.",
+        "Fixed 4-year initial term 1 November 2026 – 31 October 2030 with no extension option.",
+        "All works to residential properties located within the London Borough of Bexley.",
+        "No works to commence until a valid electronic Order has been issued by the Contract Administrator, specifying description of works, priority category, property location and cost allowance where applicable.",
+        "Priority response times: Standard (D) complete within 15 working days; Urgent (C) respond same or next day, complete within 5 working days; Emergency (B) immediate response, complete within 48 hours; Hospital Discharge (A) immediate response, complete within 24 hours.",
+        "Payments made under the Housing Grants, Construction and Regeneration Act 1996 and Section 4 of the JCT Measured Term Contract 2024: monthly applications, electronic invoices, final date for payment 30 days, VAT at prevailing rate, invoices submitted within 6 months of order issue.",
+        "Statutory compliance including Building Regulations 2010, Building Safety Act 2022, CDM Regulations 2015, Gas Safety (Installation and Use) Regulations, IET Wiring Regulations BS 7671, Regulatory Reform (Fire Safety) Order, Environmental Protection Act and Data Protection legislation.",
+        "Health and Safety at Work etc. Act 1974 and CDM 2015 duties; Principal Contractor role where required; SSIP accredited H&S certification (e.g. CHAS) maintained.",
+        "All staff must hold relevant trade qualifications, valid CSCS cards, carry photographic identification and hold enhanced DBS clearance where required.",
+        "Waste disposal under the Environmental Protection Act 1990; Contractor must be a registered waste carrier and provide waste transfer documentation upon request.",
+        "Contract documents include: JCT MTC 2024 Conditions, Contract Particulars, Contract Specification, Schedule of Rates / Pricing Schedule, Property Schedule and any further referenced documents."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "KPI 1 – Completion of Minor Adaptation Works",
+          "summary": "Minimum 90% compliance with response and completion times across minor adaptation works orders, measured monthly using works order data.",
+          "weighting_text": "Minimum 90% compliance",
+          "evidence_anchor": {
+            "page_ref": "section-8",
+            "section_ref": "8. Key Performance Indicators (KPIs) – KPI 1",
+            "anchor_text": "KPI 1 – Completion of Minor Adaptation Works ... Minimum 90% compliance with response and completion times. Measured monthly using works order data."
+          }
+        },
+        {
+          "criterion": "KPI 2 – Completion of Hospital Discharge Works",
+          "summary": "Minimum 95% compliance with response and completion times on hospital discharge works, measured monthly using works order data.",
+          "weighting_text": "Minimum 95% compliance",
+          "evidence_anchor": {
+            "page_ref": "section-8",
+            "section_ref": "8. Key Performance Indicators (KPIs) – KPI 2",
+            "anchor_text": "KPI 2 – Completion of Hospital Discharge Works ... Minimum 95% compliance with response and completion times. Measured monthly using works order data."
+          }
+        }
+      ],
+      "cpv_codes": [],
+      "product_requirements": [
+        {
+          "seed_key": "lot11-grab-rails",
+          "summary": "Installation of grab rails in residential properties as minor disability adaptation.",
+          "requirement_type": "installation",
+          "technical_attributes": ["residential adaptation", "under £1k per order"],
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Description of the Works – bullet 1",
+            "anchor_text": "Installation of grab rails"
+          }
+        },
+        {
+          "seed_key": "lot11-mopstick-stair-rails",
+          "summary": "Installation of mopstick stair rails.",
+          "requirement_type": "installation",
+          "technical_attributes": ["stair rail", "mopstick profile"],
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Description of the Works – bullet 2",
+            "anchor_text": "Installation of mopstick stair rails"
+          }
+        },
+        {
+          "seed_key": "lot11-galvanised-hand-rails",
+          "summary": "Installation of galvanised hand rails.",
+          "requirement_type": "installation",
+          "technical_attributes": ["galvanised finish", "external/internal hand rail"],
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Description of the Works – bullet 3",
+            "anchor_text": "Installation of galvanised hand rails"
+          }
+        },
+        {
+          "seed_key": "lot11-half-steps",
+          "summary": "Construction of half steps to assist residents with mobility.",
+          "requirement_type": "construction",
+          "technical_attributes": ["masonry / builder work"],
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Description of the Works – bullet 4",
+            "anchor_text": "Construction of half steps"
+          }
+        },
+        {
+          "seed_key": "lot11-small-access-ramps",
+          "summary": "Construction of small access ramps to residential properties.",
+          "requirement_type": "construction",
+          "technical_attributes": ["access ramp", "small-scale"],
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Description of the Works – bullet 5",
+            "anchor_text": "Construction of small access ramps"
+          }
+        },
+        {
+          "seed_key": "lot11-minor-electrical-power-sockets",
+          "summary": "Minor electrical works including installing additional power sockets.",
+          "requirement_type": "electrical_installation",
+          "technical_attributes": ["power socket addition", "IET Wiring Regulations BS 7671 compliance"],
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Description of the Works – bullet 6",
+            "anchor_text": "Minor electrical works including increasing power sockets"
+          }
+        },
+        {
+          "seed_key": "lot11-furniture-moves-hospital-discharge",
+          "summary": "Furniture moves to facilitate hospital discharge.",
+          "requirement_type": "service",
+          "technical_attributes": ["hospital discharge support", "priority A response"],
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Description of the Works – bullet 7",
+            "anchor_text": "Furniture moves to facilitate hospital discharge"
+          }
+        },
+        {
+          "seed_key": "lot11-raised-height-toilets",
+          "summary": "Installation of raised-height toilets for accessibility.",
+          "requirement_type": "plumbing_installation",
+          "technical_attributes": ["raised-height WC", "bathroom adaptation"],
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Description of the Works – bullet 8",
+            "anchor_text": "Installation of raised height toilets"
+          }
+        },
+        {
+          "seed_key": "lot11-shower-seats",
+          "summary": "Installation of shower seats in residential bathrooms.",
+          "requirement_type": "installation",
+          "technical_attributes": ["bathroom adaptation", "shower seat fitting"],
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Description of the Works – bullet 9",
+            "anchor_text": "Installation of shower seats"
+          }
+        },
+        {
+          "seed_key": "lot11-key-safes",
+          "summary": "Installation of key safes at residential properties.",
+          "requirement_type": "installation",
+          "technical_attributes": ["external key safe", "security hardware"],
+          "evidence_anchor": {
+            "page_ref": "section-3",
+            "section_ref": "3. Description of the Works – bullet 10",
+            "anchor_text": "Installation of key safes"
+          }
+        }
+      ],
+      "technical_standards": [
+        {
+          "standard_ref": "JCT Measured Term Contract 2024",
+          "context": "Form of contract (Conditions, Contract Particulars, Schedule of Rates / Pricing Schedule, Contract Specification).",
+          "evidence_anchor": {
+            "page_ref": "section-contract-form",
+            "section_ref": "Contract Form",
+            "anchor_text": "This Contract shall be executed under the JCT Measured Term Contract 2024"
+          }
+        },
+        {
+          "standard_ref": "Housing Grants, Construction and Regeneration Act 1996",
+          "context": "Statutory framework governing payments (Section 7 – Payment Provisions).",
+          "evidence_anchor": {
+            "page_ref": "section-7",
+            "section_ref": "7. Payment Provisions",
+            "anchor_text": "Housing Grants, Construction and Regeneration Act 1996"
+          }
+        },
+        {
+          "standard_ref": "Building Regulations 2010",
+          "context": "Statutory compliance with building works.",
+          "evidence_anchor": {
+            "page_ref": "section-9",
+            "section_ref": "9. Statutory and Regulatory Compliance",
+            "anchor_text": "Building Regulations 2010"
+          }
+        },
+        {
+          "standard_ref": "Building Safety Act 2022",
+          "context": "Statutory compliance with building safety regime.",
+          "evidence_anchor": {
+            "page_ref": "section-9",
+            "section_ref": "9. Statutory and Regulatory Compliance",
+            "anchor_text": "Building Safety Act 2022"
+          }
+        },
+        {
+          "standard_ref": "Construction (Design and Management) Regulations 2015 (CDM 2015)",
+          "context": "Statutory H&S regime; Contractor acts as Principal Contractor where required.",
+          "evidence_anchor": {
+            "page_ref": "section-9",
+            "section_ref": "9. Statutory and Regulatory Compliance / 10. Health and Safety",
+            "anchor_text": "CDM Regulations 2015 ... Construction (Design and Management) Regulations 2015 ... Principal Contractor where required"
+          }
+        },
+        {
+          "standard_ref": "Gas Safety (Installation and Use) Regulations",
+          "context": "Gas safety compliance for relevant works.",
+          "evidence_anchor": {
+            "page_ref": "section-9",
+            "section_ref": "9. Statutory and Regulatory Compliance",
+            "anchor_text": "Gas Safety (Installation and Use) Regulations"
+          }
+        },
+        {
+          "standard_ref": "BS 7671 (IET Wiring Regulations)",
+          "context": "Electrical installation standard for minor electrical works (e.g. power sockets).",
+          "evidence_anchor": {
+            "page_ref": "section-9",
+            "section_ref": "9. Statutory and Regulatory Compliance",
+            "anchor_text": "IET Wiring Regulations BS 7671"
+          }
+        },
+        {
+          "standard_ref": "Regulatory Reform (Fire Safety) Order",
+          "context": "Fire safety compliance.",
+          "evidence_anchor": {
+            "page_ref": "section-9",
+            "section_ref": "9. Statutory and Regulatory Compliance",
+            "anchor_text": "Regulatory Reform (Fire Safety) Order"
+          }
+        },
+        {
+          "standard_ref": "Environmental Protection Act 1990",
+          "context": "Waste disposal and environmental compliance (section 12).",
+          "evidence_anchor": {
+            "page_ref": "section-12",
+            "section_ref": "12. Waste Management",
+            "anchor_text": "All waste shall be disposed of in accordance with the Environmental Protection Act 1990"
+          }
+        },
+        {
+          "standard_ref": "Data Protection legislation (UK GDPR / DPA 2018)",
+          "context": "Data protection compliance referenced in statutory list.",
+          "evidence_anchor": {
+            "page_ref": "section-9",
+            "section_ref": "9. Statutory and Regulatory Compliance",
+            "anchor_text": "Data Protection legislation"
+          }
+        },
+        {
+          "standard_ref": "Health and Safety at Work etc. Act 1974",
+          "context": "Overarching H&S statute.",
+          "evidence_anchor": {
+            "page_ref": "section-10",
+            "section_ref": "10. Health and Safety",
+            "anchor_text": "Comply with the Health and Safety at Work etc. Act 1974"
+          }
+        },
+        {
+          "standard_ref": "SSIP-accredited H&S certification (e.g. CHAS)",
+          "context": "Required H&S pre-qualification accreditation for the Contractor.",
+          "evidence_anchor": {
+            "page_ref": "section-10",
+            "section_ref": "10. Health and Safety",
+            "anchor_text": "Maintain SSIP accredited health and safety certification (e.g. CHAS)"
+          }
+        },
+        {
+          "standard_ref": "CSCS (Construction Skills Certification Scheme) card",
+          "context": "Staff competence requirement.",
+          "evidence_anchor": {
+            "page_ref": "section-11",
+            "section_ref": "11. Staff Competence and DBS",
+            "anchor_text": "hold valid CSCS cards"
+          }
+        },
+        {
+          "standard_ref": "Enhanced DBS clearance",
+          "context": "Staff vetting requirement for work in residential properties.",
+          "evidence_anchor": {
+            "page_ref": "section-11",
+            "section_ref": "11. Staff Competence and DBS",
+            "anchor_text": "hold enhanced DBS clearance where required"
+          }
+        }
+      ],
+      "evidence_anchor": {
+        "page_ref": "section-1",
+        "section_ref": "1. Contract Title",
+        "anchor_text": "Measured Term Contract – Provision of Minor Disability Adaptations (minor building works)"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot11-grab-rails",
+      "lot_number": "11",
+      "candidate_name": "Grab rail (residential disability adaptation)",
+      "summary": "Supply and install grab rails in residential properties within the London Borough of Bexley.",
+      "requirements": [
+        "Residential disability adaptation",
+        "Installed on electronic works order",
+        "Typical order value under £1,000"
+      ],
+      "technical_standards": ["Building Regulations 2010", "Health and Safety at Work etc. Act 1974"],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3",
+        "section_ref": "3. Description of the Works – bullet 1",
+        "anchor_text": "Installation of grab rails"
+      }
+    },
+    {
+      "seed_key": "lot11-mopstick-stair-rails",
+      "lot_number": "11",
+      "candidate_name": "Mopstick stair rail",
+      "summary": "Supply and install mopstick stair rails on residential staircases.",
+      "requirements": [
+        "Mopstick profile handrail",
+        "Installed on staircase within residential property"
+      ],
+      "technical_standards": ["Building Regulations 2010"],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3",
+        "section_ref": "3. Description of the Works – bullet 2",
+        "anchor_text": "Installation of mopstick stair rails"
+      }
+    },
+    {
+      "seed_key": "lot11-galvanised-hand-rails",
+      "lot_number": "11",
+      "candidate_name": "Galvanised hand rail",
+      "summary": "Supply and install galvanised hand rails at residential properties.",
+      "requirements": [
+        "Galvanised finish hand rail",
+        "Suitable for external and/or internal residential use"
+      ],
+      "technical_standards": ["Building Regulations 2010"],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3",
+        "section_ref": "3. Description of the Works – bullet 3",
+        "anchor_text": "Installation of galvanised hand rails"
+      }
+    },
+    {
+      "seed_key": "lot11-half-steps",
+      "lot_number": "11",
+      "candidate_name": "Half step (builders work)",
+      "summary": "Construct half steps at residential property entrances and internal thresholds.",
+      "requirements": [
+        "Small-scale builders work",
+        "Designed to reduce step rise for disability access"
+      ],
+      "technical_standards": ["Building Regulations 2010", "CDM Regulations 2015"],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3",
+        "section_ref": "3. Description of the Works – bullet 4",
+        "anchor_text": "Construction of half steps"
+      }
+    },
+    {
+      "seed_key": "lot11-small-access-ramps",
+      "lot_number": "11",
+      "candidate_name": "Small access ramp",
+      "summary": "Design, supply and install small access ramps to residential properties.",
+      "requirements": [
+        "Small-scale access ramp suitable for residential dwellings",
+        "Compliant with accessibility and building regulations"
+      ],
+      "technical_standards": ["Building Regulations 2010"],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3",
+        "section_ref": "3. Description of the Works – bullet 5",
+        "anchor_text": "Construction of small access ramps"
+      }
+    },
+    {
+      "seed_key": "lot11-minor-electrical-power-sockets",
+      "lot_number": "11",
+      "candidate_name": "Minor electrical works – additional power sockets",
+      "summary": "Minor electrical alteration works including installing additional power sockets to support residents' equipment.",
+      "requirements": [
+        "Minor electrical alterations in occupied residential properties",
+        "Works by competent electrician with trade qualifications"
+      ],
+      "technical_standards": ["BS 7671 (IET Wiring Regulations)", "Building Regulations 2010"],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3",
+        "section_ref": "3. Description of the Works – bullet 6",
+        "anchor_text": "Minor electrical works including increasing power sockets"
+      }
+    },
+    {
+      "seed_key": "lot11-furniture-moves-hospital-discharge",
+      "lot_number": "11",
+      "candidate_name": "Furniture move service (hospital discharge)",
+      "summary": "Attend residential properties at short notice to move furniture in order to facilitate hospital discharge.",
+      "requirements": [
+        "Immediate response within 24 hours (Priority A – Hospital Discharge)",
+        "Operative holds enhanced DBS clearance where required"
+      ],
+      "technical_standards": ["Health and Safety at Work etc. Act 1974"],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3",
+        "section_ref": "3. Description of the Works – bullet 7",
+        "anchor_text": "Furniture moves to facilitate hospital discharge"
+      }
+    },
+    {
+      "seed_key": "lot11-raised-height-toilets",
+      "lot_number": "11",
+      "candidate_name": "Raised-height toilet",
+      "summary": "Supply and install raised-height toilet (WC) in residential bathrooms as a disability adaptation.",
+      "requirements": [
+        "Raised-height WC suitable for disability adaptation",
+        "Plumbing works compliant with building regulations"
+      ],
+      "technical_standards": ["Building Regulations 2010"],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3",
+        "section_ref": "3. Description of the Works – bullet 8",
+        "anchor_text": "Installation of raised height toilets"
+      }
+    },
+    {
+      "seed_key": "lot11-shower-seats",
+      "lot_number": "11",
+      "candidate_name": "Shower seat",
+      "summary": "Supply and install shower seats in residential bathrooms as a disability adaptation.",
+      "requirements": [
+        "Wall-mounted or folding shower seat suitable for residential bathrooms",
+        "Installation to manufacturer's loading specification"
+      ],
+      "technical_standards": ["Building Regulations 2010"],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3",
+        "section_ref": "3. Description of the Works – bullet 9",
+        "anchor_text": "Installation of shower seats"
+      }
+    },
+    {
+      "seed_key": "lot11-key-safes",
+      "lot_number": "11",
+      "candidate_name": "External key safe",
+      "summary": "Supply and install external key safes at residential properties to support access for carers.",
+      "requirements": [
+        "External wall-mounted key safe suitable for residential use",
+        "Installed in a location agreed with the occupant"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [],
+      "evidence_anchor": {
+        "page_ref": "section-3",
+        "section_ref": "3. Description of the Works – bullet 10",
+        "anchor_text": "Installation of key safes"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots.lot_number": 9000,
+    "lots.title": 9500,
+    "lots.description": 9000,
+    "lots.requirements": 9000,
+    "lots.evaluation_criteria": 6500,
+    "lots.cpv_codes": 2000,
+    "lots.product_requirements": 9200,
+    "lots.technical_standards": 9300,
+    "product_requirement_seeds": 9000
+  },
+  "extraction_confidence_bps": 8300,
+  "warnings": [
+    {
+      "code": "KPI_COUNT_MISMATCH",
+      "message": "Section 8 states the Contractor's performance will be monitored against 'three core Key Performance Indicators' but only KPI 1 (Minor Adaptation Works, 90%) and KPI 2 (Hospital Discharge Works, 95%) are defined in the document. A third KPI is referenced but not described — downstream evaluation-criteria consumers should flag this as incomplete.",
+      "evidence_refs": ["section-8"]
+    },
+    {
+      "code": "NO_CPV_IN_DOCUMENT",
+      "message": "This Lot 11 tender document does not cite explicit CPV codes. Process-level CPVs (50700000-2, 50750000-7, 71315000-9) are available on the parent notice '6278 - Building Services Framework - Lots 1-11' but cannot be anchored to this document's text, so cpv_codes is left empty to avoid fabricated evidence.",
+      "evidence_refs": []
+    },
+    {
+      "code": "DRAFT_DOCUMENT",
+      "message": "Document title is '6278 - Draft T&Cs - Lot 11' and the first heading is 'Draft Contract – JCT Measured Term Contract 2024'. All extracted facts should be treated as provisional until the final executed contract is available.",
+      "evidence_refs": ["title-line", "contract-form"]
+    },
+    {
+      "code": "SINGLE_LOT_OF_MULTI_LOT_FRAMEWORK",
+      "message": "The parent notice '6278 - Building Services Framework - Lots 1-11' covers 11 lots; this extraction only sees Lot 11 (Minor Disability Adaptations). Lots 1-10 are not described in this document and are not emitted as lot rows.",
+      "evidence_refs": ["title-line"]
+    },
+    {
+      "code": "NO_PAGE_METADATA_IN_MARKDOWN",
+      "message": "Docling extracted this document with page_count=0 and no inline page markers. Evidence anchors use section-level references (e.g. 'section-3') in the page_ref slot because no page numbers are available.",
+      "evidence_refs": []
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "title-line",
+      "section_ref": "Document Title",
+      "anchor_text": "6278 - Draft T&Cs - Lot 11"
+    },
+    {
+      "page_ref": "contract-form",
+      "section_ref": "Contract Form",
+      "anchor_text": "This Contract shall be executed under the JCT Measured Term Contract 2024"
+    },
+    {
+      "page_ref": "section-1",
+      "section_ref": "1. Contract Title",
+      "anchor_text": "Measured Term Contract – Provision of Minor Disability Adaptations (minor building works)"
+    },
+    {
+      "page_ref": "section-2",
+      "section_ref": "2. Contract Period",
+      "anchor_text": "1 November 2026 – 31 October 2030 ... 4 Years Fixed Term ... No extension option."
+    },
+    {
+      "page_ref": "section-3",
+      "section_ref": "3. Description of the Works",
+      "anchor_text": "The Contract covers the provision of minor disability adaptations (under £1k) to residential properties within the London Borough of Bexley."
+    },
+    {
+      "page_ref": "section-4",
+      "section_ref": "4. Property Portfolio",
+      "anchor_text": "The Contract will cover all residential property located within the London Borough Of Bexley"
+    },
+    {
+      "page_ref": "section-6",
+      "section_ref": "6. Priority Categories and Response Times",
+      "anchor_text": "Standard (D) ... Urgent (C) ... Emergency (B) ... Hospital Discharge (A) ..."
+    },
+    {
+      "page_ref": "section-7",
+      "section_ref": "7. Payment Provisions",
+      "anchor_text": "Housing Grants, Construction and Regeneration Act 1996 ... Final date for payment: 30 days ... invoices must be submitted within 6 months of order issue"
+    },
+    {
+      "page_ref": "section-8",
+      "section_ref": "8. Key Performance Indicators (KPIs)",
+      "anchor_text": "three core Key Performance Indicators ... KPI 1 – Completion of Minor Adaptation Works ... Minimum 90% compliance ... KPI 2 – Completion of Hospital Discharge Works ... Minimum 95% compliance"
+    },
+    {
+      "page_ref": "section-9",
+      "section_ref": "9. Statutory and Regulatory Compliance",
+      "anchor_text": "Building Regulations 2010 ... Building Safety Act 2022 ... CDM Regulations 2015 ... Gas Safety (Installation and Use) Regulations ... IET Wiring Regulations BS 7671 ... Regulatory Reform (Fire Safety) Order ... Environmental Protection Act ... Data Protection legislation"
+    },
+    {
+      "page_ref": "section-10",
+      "section_ref": "10. Health and Safety",
+      "anchor_text": "Health and Safety at Work etc. Act 1974 ... CDM 2015 ... Principal Contractor where required ... SSIP accredited health and safety certification (e.g. CHAS)"
+    },
+    {
+      "page_ref": "section-11",
+      "section_ref": "11. Staff Competence and DBS",
+      "anchor_text": "relevant trade qualifications ... valid CSCS cards ... photographic identification ... enhanced DBS clearance where required"
+    },
+    {
+      "page_ref": "section-12",
+      "section_ref": "12. Waste Management",
+      "anchor_text": "All waste shall be disposed of in accordance with the Environmental Protection Act 1990 ... registered waste carrier"
+    },
+    {
+      "page_ref": "section-13",
+      "section_ref": "13. Contract Documents",
+      "anchor_text": "JCT Measured Term Contract 2024 Conditions ... Contract Particulars ... Contract Specification ... Schedule of Rates / Pricing Schedule ... Property Schedule"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "44f65b2240ddf211a82c5326a9621550cefe251987cb11df1a273842d3b8cba6",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}

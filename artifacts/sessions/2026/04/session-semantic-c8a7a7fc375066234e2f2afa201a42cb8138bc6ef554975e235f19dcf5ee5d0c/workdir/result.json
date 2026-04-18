@@ -1,0 +1,533 @@
+{
+  "lots": [
+    {
+      "lot_number": "1",
+      "title": "Supply and delivery of Soft wood timbers",
+      "description": "Bristol City Council (BSH/HRA) requires supply and delivery of softwood timbers for its in-house joinery shop under a 48-month Dynamic Purchasing System (DPS). Lot covers softwood timber stock used by the Council's joinery manufacturing operations. Call-off volumes will be scheduled during the DPS term.",
+      "requirements": [
+        "Contract term: 48 months commencing 01/12/2022 with no option to extend (§1 Proposed Contract 1.1-1.2).",
+        "Pricing quoted in pounds sterling (GBP) exclusive of VAT; prices remain fixed for the duration per §3 Price Adjustment 1.1.",
+        "Pricing must include collection, design, delivery, labour, materials, transport, plant, fuel, training, monitoring, management reports, disposal and recycling, and third-party charges (§3 Pricing 1.2).",
+        "Bids must be submitted via the ProContract e-Tendering System; no hard-copy submissions accepted (§2 Submission of Bid 1.1-1.5).",
+        "Bids to remain open for acceptance for 180 days from closing date (§2 Bid Validity 1.1).",
+        "Bidders must comply with Public Contracts Regulations 2015 under the Open procedure (§1 Procurement Process 1.1).",
+        "Supplier commitment to Living Wage Foundation rate expected for staff employed on this contract (§2 Living Wage Foundation 1.3).",
+        "Compliance with Bristol Clean Air Zone requirements expected; any CAZ charges borne by the supplier (FOREWORD 1.4 on Climate Change).",
+        "Suppliers must record and report Scope 1, 2 and 3 Greenhouse Gas emissions per the GHG Protocol (FOREWORD on Climate Emergency).",
+        "Contract Management: winning supplier(s) must submit monitoring information to demonstrate commitments are being delivered (§3 Monitoring and Contract Management 1.1)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Stage 1: Selection Criteria",
+          "summary": "Bidders assessed against Selection Criteria in Table A of Appendix 1: Evaluation Criteria. Failure to satisfactorily confirm any Table A question disqualifies the bidder from further evaluation. For consortium bids, failure by any member fails the whole consortium.",
+          "weighting_text": "Pass/Fail gate (Table A of Appendix 1)",
+          "evidence_anchor": {
+            "page_ref": "17",
+            "section_ref": "§3 Evaluation of the Bidder Submission / Stage 1",
+            "anchor_text": "Stage 1: Selection Criteria ... Bidders will be assessed against the Selection Criteria as set out in Table A of Appendix 1: Evaluation Criteria. Should a bidder not satisfactorily confirm any of the questions in Table A they will not be considered for further evaluation."
+          }
+        },
+        {
+          "criterion": "Stage 2: Award Criteria - Technical Assessment",
+          "summary": "Council evaluates bidders on Technical Assessment at DPS admission stage per Appendix 1: Evaluation Criteria.",
+          "weighting_text": "Technical Assessment (details in Appendix 1)",
+          "evidence_anchor": {
+            "page_ref": "17",
+            "section_ref": "§3 Stage 2: Award Criteria",
+            "anchor_text": "Stage 2: Award Criteria ... The council will evaluate on the basis of Technical Assessment."
+          }
+        },
+        {
+          "criterion": "Call-off award - orders up to £25,000",
+          "summary": "Call-offs between £0 and £25,000 are awarded on 100% Price.",
+          "weighting_text": "Price 100%",
+          "evidence_anchor": {
+            "page_ref": "17",
+            "section_ref": "§3 Call Off Process",
+            "anchor_text": "Call Off between £0 and £25k - Will be 100% Price"
+          }
+        },
+        {
+          "criterion": "Call-off award - orders above £25,000",
+          "summary": "Call-offs above £25,000 use a blended score: Price 60-80%, Quality 0-20%, Social Value 20%.",
+          "weighting_text": "Price 60-80% + Quality 0-20% + Social Value 20%",
+          "evidence_anchor": {
+            "page_ref": "17",
+            "section_ref": "§3 Call Off Process",
+            "anchor_text": "Call Off above £25k - Will be 60% - 80% Price and Quality 0% - 20% and Social Value 20%"
+          }
+        },
+        {
+          "criterion": "Pricing rules",
+          "summary": "Pricing evaluated against cost to provide the goods in the specification. All rates in GBP, VAT excluded. Council checks submitted Pricing Schedule for computation errors and may invite bid amendment or withdrawal. Lump-sum scoring floors at zero if >100% higher than lowest submitted price.",
+          "weighting_text": "Net Price used for price element calculation",
+          "evidence_anchor": {
+            "page_ref": "18",
+            "section_ref": "§3 Pricing",
+            "anchor_text": "Pricing will be evaluated against the cost to provide the goods/works/service in the specification."
+          }
+        },
+        {
+          "criterion": "Abnormally Low Tenders",
+          "summary": "Council may require bidders to explain price or costs where tenders appear abnormally low relative to section or total cost; bid may be rejected if evidence unsatisfactory.",
+          "evidence_anchor": {
+            "page_ref": "19",
+            "section_ref": "§3 Abnormally Low Tenders",
+            "anchor_text": "Bristol City Council shall require bidders to explain the price or costs proposed in the tender bid where tenders appear to be abnormally low"
+          }
+        },
+        {
+          "criterion": "Social Value",
+          "summary": "Social Value applies only for projects over £25,000; evaluated per Appendix 2 - Social Value Evaluation.",
+          "weighting_text": "20% weighting for call-offs above £25k",
+          "evidence_anchor": {
+            "page_ref": "19",
+            "section_ref": "§3 Social Value",
+            "anchor_text": "Social Value will only apply for project over £25,000"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "03419000-0",
+        "44220000-8"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot1-softwood-timber",
+          "summary": "Softwood timbers for supply and delivery to the Council's joinery shop, used in manufacture of high-quality joinery (per notice summary).",
+          "requirement_type": "goods_supply_category",
+          "technical_attributes": [
+            "material_family: softwood",
+            "use_case: joinery manufacture (Council in-house joinery shop)",
+            "delivery_mode: scheduled call-off over DPS term",
+            "unit_pricing: GBP ex-VAT"
+          ],
+          "quantity_hint": "Call-off volumes scheduled over 48-month DPS term; total process estimated value £1,400,000 ex-VAT across all lots (not itemised per lot in this document).",
+          "evidence_anchor": {
+            "page_ref": "20",
+            "section_ref": "§4 SECTION FOUR: CONTRACT / 1.1.1",
+            "anchor_text": "1.1.1. Lot 1 - Supply and delivery of Soft wood timbers"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "20",
+        "section_ref": "§4 SECTION FOUR: CONTRACT / 1.1.1",
+        "anchor_text": "1.1.1. Lot 1 - Supply and delivery of Soft wood timbers"
+      }
+    },
+    {
+      "lot_number": "2",
+      "title": "Supply and delivery of Plywood and Door Blanks",
+      "description": "Supply and delivery of plywood boards and door blanks used by Bristol City Council's joinery shop under the 48-month DPS. Call-off volumes scheduled over the DPS term.",
+      "requirements": [
+        "Contract term and conditions identical to Lot 1 (48-month DPS, GBP ex-VAT, LWF compliance, CAZ/GHG reporting, ProContract submission).",
+        "Pricing must include collection, design, delivery, labour, materials, transport, plant, fuel, training, monitoring, management reports, disposal and recycling, and third-party charges (§3 Pricing 1.2).",
+        "Bids must remain open for acceptance for 180 days from the closing date (§2 Bid Validity 1.1)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Stage 1: Selection Criteria",
+          "summary": "Same Table A selection gate as Lot 1 (Appendix 1).",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "17",
+            "section_ref": "§3 Evaluation of the Bidder Submission / Stage 1",
+            "anchor_text": "Stage 1: Selection Criteria ... Bidders will be assessed against the Selection Criteria as set out in Table A of Appendix 1"
+          }
+        },
+        {
+          "criterion": "Stage 2: Award Criteria - Technical Assessment",
+          "summary": "Technical Assessment per Appendix 1 at DPS admission (shared across lots).",
+          "evidence_anchor": {
+            "page_ref": "17",
+            "section_ref": "§3 Stage 2: Award Criteria",
+            "anchor_text": "The council will evaluate on the basis of Technical Assessment."
+          }
+        },
+        {
+          "criterion": "Call-off award up to £25k / above £25k",
+          "summary": "Same call-off model as Lot 1: 100% Price under £25k; 60-80% Price + 0-20% Quality + 20% Social Value above £25k.",
+          "weighting_text": "Price 100% (<=£25k) OR Price 60-80% + Quality 0-20% + Social Value 20% (>£25k)",
+          "evidence_anchor": {
+            "page_ref": "17",
+            "section_ref": "§3 Call Off Process",
+            "anchor_text": "Call Off between £0 and £25k - Will be 100% Price ... Call Off above £25k - Will be 60% - 80% Price and Quality 0% - 20% and Social Value 20%"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "03419000-0",
+        "44220000-8"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot2-plywood",
+          "summary": "Plywood boards for supply and delivery to the Council's joinery shop.",
+          "requirement_type": "goods_supply_category",
+          "technical_attributes": [
+            "material_family: plywood (engineered wood panel)",
+            "use_case: joinery manufacture",
+            "delivery_mode: scheduled call-off over DPS term"
+          ],
+          "quantity_hint": "Call-off volumes scheduled over 48-month DPS term; total process estimated value £1,400,000 across all lots (not itemised per lot).",
+          "evidence_anchor": {
+            "page_ref": "5",
+            "section_ref": "§1 Lots / 1.1.2",
+            "anchor_text": "1.1.2. Lot 2 - Supply and delivery of Plywood and Door Blanks"
+          }
+        },
+        {
+          "seed_key": "lot2-door-blanks",
+          "summary": "Door blanks for supply and delivery to the Council's joinery shop (grouped with plywood within Lot 2).",
+          "requirement_type": "goods_supply_category",
+          "technical_attributes": [
+            "product_family: door blanks (unfinished door cores/leaves)",
+            "use_case: joinery manufacture - door assembly",
+            "delivery_mode: scheduled call-off over DPS term"
+          ],
+          "quantity_hint": "Call-off volumes scheduled over 48-month DPS term; not itemised per lot in this document.",
+          "evidence_anchor": {
+            "page_ref": "5",
+            "section_ref": "§1 Lots / 1.1.2",
+            "anchor_text": "1.1.2. Lot 2 - Supply and delivery of Plywood and Door Blanks"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "5",
+        "section_ref": "§1 Lots / 1.1.2",
+        "anchor_text": "1.1.2. Lot 2 - Supply and delivery of Plywood and Door Blanks"
+      }
+    },
+    {
+      "lot_number": "3",
+      "title": "Supply and delivery of Hardwood and Hemlock",
+      "description": "Supply and delivery of hardwood timber and hemlock (a softwood species frequently grouped with hardwoods for joinery applications) to Bristol City Council's in-house joinery shop under the 48-month DPS.",
+      "requirements": [
+        "Contract term and conditions identical to Lot 1 (48-month DPS, GBP ex-VAT, LWF compliance, CAZ/GHG reporting, ProContract submission).",
+        "Pricing must include collection, design, delivery, labour, materials, transport, plant, fuel, training, monitoring, management reports, disposal and recycling, and third-party charges (§3 Pricing 1.2).",
+        "Bids must remain open for acceptance for 180 days from the closing date (§2 Bid Validity 1.1)."
+      ],
+      "evaluation_criteria": [
+        {
+          "criterion": "Stage 1: Selection Criteria",
+          "summary": "Same Table A selection gate as Lot 1 (Appendix 1).",
+          "weighting_text": "Pass/Fail",
+          "evidence_anchor": {
+            "page_ref": "17",
+            "section_ref": "§3 Evaluation of the Bidder Submission / Stage 1",
+            "anchor_text": "Bidders will be assessed against the Selection Criteria as set out in Table A of Appendix 1"
+          }
+        },
+        {
+          "criterion": "Stage 2: Award Criteria - Technical Assessment",
+          "summary": "Technical Assessment per Appendix 1 at DPS admission (shared across lots).",
+          "evidence_anchor": {
+            "page_ref": "17",
+            "section_ref": "§3 Stage 2: Award Criteria",
+            "anchor_text": "The council will evaluate on the basis of Technical Assessment."
+          }
+        },
+        {
+          "criterion": "Call-off award up to £25k / above £25k",
+          "summary": "Same call-off model as Lot 1: 100% Price under £25k; 60-80% Price + 0-20% Quality + 20% Social Value above £25k.",
+          "weighting_text": "Price 100% (<=£25k) OR Price 60-80% + Quality 0-20% + Social Value 20% (>£25k)",
+          "evidence_anchor": {
+            "page_ref": "17",
+            "section_ref": "§3 Call Off Process",
+            "anchor_text": "Call Off between £0 and £25k - Will be 100% Price ... Call Off above £25k - Will be 60% - 80% Price and Quality 0% - 20% and Social Value 20%"
+          }
+        }
+      ],
+      "cpv_codes": [
+        "03419000-0",
+        "44220000-8"
+      ],
+      "product_requirements": [
+        {
+          "seed_key": "lot3-hardwood-timber",
+          "summary": "Hardwood timber for supply and delivery to the Council's joinery shop.",
+          "requirement_type": "goods_supply_category",
+          "technical_attributes": [
+            "material_family: hardwood",
+            "use_case: joinery manufacture",
+            "delivery_mode: scheduled call-off over DPS term"
+          ],
+          "quantity_hint": "Call-off volumes scheduled over 48-month DPS term; not itemised per lot.",
+          "evidence_anchor": {
+            "page_ref": "5",
+            "section_ref": "§1 Lots / 1.1.3",
+            "anchor_text": "1.1.3. Lot 3 - Supply and delivery of Hardwood and Hemlock"
+          }
+        },
+        {
+          "seed_key": "lot3-hemlock",
+          "summary": "Hemlock timber for supply and delivery to the Council's joinery shop (grouped with hardwood within Lot 3 per tender).",
+          "requirement_type": "goods_supply_category",
+          "technical_attributes": [
+            "species: hemlock (Tsuga spp.)",
+            "material_family: softwood (grouped with hardwoods in this tender)",
+            "use_case: joinery manufacture",
+            "delivery_mode: scheduled call-off over DPS term"
+          ],
+          "quantity_hint": "Call-off volumes scheduled over 48-month DPS term; not itemised per lot.",
+          "evidence_anchor": {
+            "page_ref": "5",
+            "section_ref": "§1 Lots / 1.1.3",
+            "anchor_text": "1.1.3. Lot 3 - Supply and delivery of Hardwood and Hemlock"
+          }
+        }
+      ],
+      "technical_standards": [],
+      "evidence_anchor": {
+        "page_ref": "5",
+        "section_ref": "§1 Lots / 1.1.3",
+        "anchor_text": "1.1.3. Lot 3 - Supply and delivery of Hardwood and Hemlock"
+      }
+    }
+  ],
+  "product_requirement_seeds": [
+    {
+      "seed_key": "lot1-softwood-timber",
+      "lot_number": "1",
+      "candidate_name": "Softwood timber (joinery grade)",
+      "summary": "Softwood timber supply for Bristol City Council's joinery shop under Lot 1 of the Joinery Timber Supplies DPS.",
+      "requirements": [
+        "Material family: softwood",
+        "Intended end-use: Council in-house joinery manufacturing",
+        "Pricing in GBP ex-VAT, inclusive of delivery, packaging and disposal per §3 Pricing 1.2",
+        "Call-off-based delivery over 48-month DPS term"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [
+        "03419000-0",
+        "44220000-8"
+      ],
+      "evidence_anchor": {
+        "page_ref": "20",
+        "section_ref": "§4 SECTION FOUR: CONTRACT / 1.1.1",
+        "anchor_text": "1.1.1. Lot 1 - Supply and delivery of Soft wood timbers"
+      }
+    },
+    {
+      "seed_key": "lot2-plywood",
+      "lot_number": "2",
+      "candidate_name": "Plywood boards",
+      "summary": "Plywood boards for Bristol City Council's joinery shop under Lot 2 (Plywood and Door Blanks).",
+      "requirements": [
+        "Material family: engineered wood panel (plywood)",
+        "Intended end-use: joinery manufacture",
+        "Pricing in GBP ex-VAT, inclusive of delivery, packaging and disposal per §3 Pricing 1.2"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [
+        "03419000-0",
+        "44220000-8"
+      ],
+      "evidence_anchor": {
+        "page_ref": "5",
+        "section_ref": "§1 Lots / 1.1.2",
+        "anchor_text": "1.1.2. Lot 2 - Supply and delivery of Plywood and Door Blanks"
+      }
+    },
+    {
+      "seed_key": "lot2-door-blanks",
+      "lot_number": "2",
+      "candidate_name": "Door blanks",
+      "summary": "Door blanks (unfinished door cores/leaves) for Bristol City Council's joinery shop under Lot 2.",
+      "requirements": [
+        "Product family: door blanks",
+        "Intended end-use: joinery manufacture - door assembly",
+        "Pricing in GBP ex-VAT per §3 Pricing 1.2"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [
+        "03419000-0",
+        "44220000-8"
+      ],
+      "evidence_anchor": {
+        "page_ref": "5",
+        "section_ref": "§1 Lots / 1.1.2",
+        "anchor_text": "1.1.2. Lot 2 - Supply and delivery of Plywood and Door Blanks"
+      }
+    },
+    {
+      "seed_key": "lot3-hardwood-timber",
+      "lot_number": "3",
+      "candidate_name": "Hardwood timber (joinery grade)",
+      "summary": "Hardwood timber supply for Bristol City Council's joinery shop under Lot 3 (Hardwood and Hemlock).",
+      "requirements": [
+        "Material family: hardwood",
+        "Intended end-use: joinery manufacture",
+        "Pricing in GBP ex-VAT per §3 Pricing 1.2"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [
+        "03419000-0",
+        "44220000-8"
+      ],
+      "evidence_anchor": {
+        "page_ref": "5",
+        "section_ref": "§1 Lots / 1.1.3",
+        "anchor_text": "1.1.3. Lot 3 - Supply and delivery of Hardwood and Hemlock"
+      }
+    },
+    {
+      "seed_key": "lot3-hemlock",
+      "lot_number": "3",
+      "candidate_name": "Hemlock timber",
+      "summary": "Hemlock timber supply for Bristol City Council's joinery shop under Lot 3 (grouped with hardwood).",
+      "requirements": [
+        "Species: hemlock (Tsuga spp.)",
+        "Intended end-use: joinery manufacture",
+        "Pricing in GBP ex-VAT per §3 Pricing 1.2"
+      ],
+      "technical_standards": [],
+      "cpv_codes": [
+        "03419000-0",
+        "44220000-8"
+      ],
+      "evidence_anchor": {
+        "page_ref": "5",
+        "section_ref": "§1 Lots / 1.1.3",
+        "anchor_text": "1.1.3. Lot 3 - Supply and delivery of Hardwood and Hemlock"
+      }
+    }
+  ],
+  "field_confidences": {
+    "lots[0].lot_number": 7500,
+    "lots[0].title": 9500,
+    "lots[0].description": 6500,
+    "lots[0].requirements": 7000,
+    "lots[0].evaluation_criteria": 8500,
+    "lots[0].cpv_codes": 6000,
+    "lots[0].product_requirements": 6500,
+    "lots[0].technical_standards": 3000,
+    "lots[1].lot_number": 9500,
+    "lots[1].title": 9500,
+    "lots[1].description": 7500,
+    "lots[1].requirements": 7000,
+    "lots[1].evaluation_criteria": 8500,
+    "lots[1].cpv_codes": 6000,
+    "lots[1].product_requirements": 7000,
+    "lots[1].technical_standards": 3000,
+    "lots[2].lot_number": 9500,
+    "lots[2].title": 9500,
+    "lots[2].description": 7000,
+    "lots[2].requirements": 7000,
+    "lots[2].evaluation_criteria": 8500,
+    "lots[2].cpv_codes": 6000,
+    "lots[2].product_requirements": 7000,
+    "lots[2].technical_standards": 3000,
+    "product_requirement_seeds": 7000,
+    "cpv_codes_attribution": 5000,
+    "technical_standards_present": 3000
+  },
+  "extraction_confidence_bps": 7000,
+  "warnings": [
+    {
+      "code": "LOT_ORDERING_OUT_OF_SEQUENCE",
+      "message": "Lot 1 (Softwood timbers) is numbered first in the tender's own sequence (1.1.1) but appears later in the Docling-extracted markdown (§4 SECTION FOUR: CONTRACT region) than Lots 2 and 3, which both appear together at §1 Lots (1.1.2, 1.1.3). The three-lot structure is therefore reconstructed from numbered enumeration markers rather than contiguous list order.",
+      "evidence_refs": [
+        "§1 Lots / 1.1.2 / 1.1.3",
+        "§4 SECTION FOUR: CONTRACT / 1.1.1"
+      ]
+    },
+    {
+      "code": "PRODUCT_TECHNICAL_STANDARDS_MISSING",
+      "message": "No product technical standards (e.g., BS EN 14081 for graded softwood, BS EN 1995 timber design, FSC/PEFC chain-of-custody, BS EN 636/BS EN 314 for plywood, BS 1186 for joinery) are cited in this document. The markdown only cites procedural/legal standards (Public Contracts Regulations 2015, Equality Act 2010, Bribery Act 2010, Fraud Act 2006, Data Protection Act 2018, GHG Protocol, Social Value Act 2012) plus fleet safety schemes (CLOCS, FORS). Product-level standards are likely in a separate technical specification document that was not included in this extraction.",
+      "evidence_refs": [
+        "FOREWORD",
+        "§2 Data Protection (GDPR)",
+        "§2 Freedom of Information Act"
+      ]
+    },
+    {
+      "code": "DOCUMENT_ROLE_VS_CONTENT_MISMATCH",
+      "message": "Document was tagged document_role = technical_specification but the content is structurally an Invitation to Tender (ITT / Instructions to Bidders) with procedural rather than product-specification content. Lot titles, evaluation gates, and call-off mechanics are recoverable; product technical attributes (species grades, dimensional specs, tolerances) are not present.",
+      "evidence_refs": [
+        "Document title: Invitation to Tender",
+        "§§1-3 are procedural"
+      ]
+    },
+    {
+      "code": "LOT_LEVEL_CPV_NOT_CITED_IN_DOCUMENT",
+      "message": "CPV codes (03419000-0 Timber, 44220000-8 Builders' joinery) are attributed to all three lots based on notice-level main_category metadata passed in process_context, not from explicit CPV references in this tender-spec markdown. Lot-specific CPV refinement is not possible from this document alone.",
+      "evidence_refs": [
+        "process_context.main_category",
+        "notice normalized_payload.categories"
+      ]
+    },
+    {
+      "code": "LOT_VALUES_NOT_ITEMISED",
+      "message": "Only the total estimated contract value is stated (£1,400,000.00 ex-VAT across all lots and 48 months, §1 Proposed Contract 1.3). Per-lot values are not broken out in the document.",
+      "evidence_refs": [
+        "§1 Proposed Contract / 1.3"
+      ]
+    },
+    {
+      "code": "ESTIMATED_PAGE_REFS",
+      "message": "Docling-extracted markdown does not expose explicit page-level anchors; page_ref values were estimated from the document's own Table of Contents page numbers (e.g. FOREWORD=3, Lots=5, Evaluation=17, Pricing=18, Social Value=19). Section refs are authoritative.",
+      "evidence_refs": [
+        "Table of Contents (lines 23-94 of markdown)"
+      ]
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "page_ref": "1",
+      "section_ref": "Header",
+      "anchor_text": "Bristol City Council - Project Title: Joinery Timber Supplies - DPS - Invitation to Tender - ProContract Reference ID: DN625127"
+    },
+    {
+      "page_ref": "5",
+      "section_ref": "§1 SECTION ONE: BACKGROUND AND OVERVIEW / Proposed Contract",
+      "anchor_text": "The contract length will be for 48 months, with no option to extend. The anticipated commencement date is 1 December 2022. The estimated total value of this contract (inclusive of options) is £1,400,000.00."
+    },
+    {
+      "page_ref": "5",
+      "section_ref": "§1 Lots",
+      "anchor_text": "The council intents to split the contract into the following lots: 1.1.2. Lot 2 - Supply and delivery of Plywood and Door Blanks; 1.1.3. Lot 3 - Supply and delivery of Hardwood and Hemlock"
+    },
+    {
+      "page_ref": "20",
+      "section_ref": "§4 SECTION FOUR: CONTRACT",
+      "anchor_text": "1.1.1. Lot 1 - Supply and delivery of Soft wood timbers"
+    },
+    {
+      "page_ref": "5",
+      "section_ref": "§1 Procurement Process",
+      "anchor_text": "The procurement process will be conducted in accordance with the requirements of the Public Contracts Regulations 2015. Specifically, the Council will be using the Open procedure. Find a Tender Service (FTS) Contract Notice reference number BRISTOLCC001-DN625127-70301139 dated 14/09/2022."
+    },
+    {
+      "page_ref": "17",
+      "section_ref": "§3 Evaluation of the Bidder Submission",
+      "anchor_text": "Bids will be assessed in accordance Appendix 1: Evaluation Criteria. Evaluation will consist of one stage. Stage 1: Selection Criteria ... Stage 2: Award Criteria ... The council will evaluate on the basis of Technical Assessment."
+    },
+    {
+      "page_ref": "17",
+      "section_ref": "§3 Call Off Process",
+      "anchor_text": "Call Off between £0 and £25k - Will be 100% Price. Call Off above £25k - Will be 60% - 80% Price and Quality 0% - 20% and Social Value 20%"
+    },
+    {
+      "page_ref": "18",
+      "section_ref": "§3 Pricing",
+      "anchor_text": "Pricing will be evaluated against the cost to provide the goods/works/service in the specification. The pricing must include and allow for everything that might be required under the contract ... All rates and prices must be quoted in pounds sterling (GBP). VAT should not be included in the bid rates and prices."
+    },
+    {
+      "page_ref": "19",
+      "section_ref": "§3 Social Value",
+      "anchor_text": "Social Value will only apply for project over £25,000"
+    }
+  ],
+  "extraction_metadata": {
+    "target_domain": "lots",
+    "extraction_scope": "full_document",
+    "source_markdown_hash": "c4913611dfdd1bc1186cb11c192f9ffd82015dcd806acc255d5720d9e5c58aa9",
+    "policy_version": "2026.04.12",
+    "document_role": "technical_specification"
+  }
+}
