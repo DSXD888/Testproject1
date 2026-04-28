@@ -271,6 +271,88 @@ Use this map to avoid wandering:
 
 Line numbers are a starting point. Re-run `rg` before editing because this repo moves quickly.
 
+### 3.5 Skill Loading Contract
+
+Every new Stage 11 skill must be loadable by `load_skill(skill_root, relative_skill_path)`. That function requires:
+
+1. `SKILL.md` at the skill root.
+2. YAML frontmatter in `SKILL.md` containing at least these fields:
+   - `skill_id`
+   - `skill_version`
+   - `interaction_profile`
+   - `result_schema_version`
+   - `model_profile`
+3. `result.schema.json` at the same skill root.
+
+Current daemon support for `interaction_profile` is narrow:
+
+```rust
+fn skill_manifest(skill: &LoadedSkill) -> Result<SkillManifest> {
+    let interaction_profile = match skill.metadata.interaction_profile.as_str() {
+        "pty_interactive" => InteractionProfile::PtyRequired,
+        "headless_contract" => InteractionProfile::ContractRequired,
+        other => bail!("unsupported interaction_profile `{other}`"),
+    };
+    Ok(SkillManifest {
+        interaction_profile,
+    })
+}
+```
+
+For these MVP skills, use `pty_interactive`. The HMRC skill may be API-heavy, but it still benefits from an agent session for classification judgment. SeaRates and Alibaba-backed shipment sizing require browser/CDP behavior.
+
+Important persistence trap: `cargo run -p daemon -- --skill-path <path>` can run arbitrary skills, but the current manual persistence branch only auto-persists procurement, marketplace-search, and PDF extraction outputs. A new `landed-cost/*` skill will not automatically write `landed_cost_estimates` from `--skill-path`. Use `--skill-path` only for canary/debug runs unless you also add explicit landed-cost manual persistence. The real Stage 11 MVP persistence should happen in `run_landed_cost_live_loop()` or the queued Stage 11 jobs that read `result.json`, validate it, and assemble the landed-cost row.
+
+Recommended frontmatter:
+
+```yaml
+---
+skill_id: landed-cost/hmrc-customs-classification
+skill_version: 1.0.0
+interaction_profile: pty_interactive
+result_schema_version: 1.0.0
+model_profile: browse_stable_low_cost
+agent_cli: claude
+side_effect_class: none
+maxPages: 8
+maxScrollCycles: 2
+---
+```
+
+```yaml
+---
+skill_id: landed-cost/shipment-sizing
+skill_version: 1.0.0
+interaction_profile: pty_interactive
+result_schema_version: 1.0.0
+model_profile: browse_stable_low_cost
+agent_cli: claude
+side_effect_class: none
+requires_cdp: true
+cdp_default_port: 9222
+maxPages: 8
+maxScrollCycles: 3
+---
+```
+
+```yaml
+---
+skill_id: landed-cost/searates-freight-estimate
+skill_version: 1.0.0
+interaction_profile: pty_interactive
+result_schema_version: 1.0.0
+model_profile: browse_stable_low_cost
+agent_cli: claude
+side_effect_class: none
+requires_cdp: true
+cdp_default_port: 9222
+maxPages: 8
+maxScrollCycles: 3
+---
+```
+
+For optional `landed-cost/simple-fx-lookup`, use the same shape with `requires_cdp: true` only if the chosen implementation uses browser/Google rather than a deterministic API/helper.
+
 ---
 
 ## 4. Data Contracts to Preserve
@@ -873,6 +955,24 @@ agent-browser --cdp ${CDP_PORT} open "https://www.searates.com/"
 ```
 
 Do not log out, alter account settings, contact carriers, book shipments, or create orders. This is quote lookup only.
+
+If CDP is unreachable, do not launch a fresh anonymous browser and do not silently fall back to a made-up freight number. The skill should emit a structured blocker such as:
+
+```json
+{
+  "freight_status": "blocked",
+  "warnings": [],
+  "blockers": [
+    {
+      "code": "CDP_CONNECT_FAILED",
+      "message": "Persistent browser CDP endpoint was not reachable on the configured port.",
+      "severity": "blocked"
+    }
+  ]
+}
+```
+
+The Stage 11 live-loop should persist a blocked landed-cost row from that result. That row is valid MVP output because it tells the operator exactly what setup is missing.
 
 ### 8.1 SeaRates Input
 
