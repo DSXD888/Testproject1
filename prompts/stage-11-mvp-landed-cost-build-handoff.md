@@ -439,6 +439,38 @@ Suggested MVP row vocabulary:
 - `warnings`: JSON array string. Prefer arrays of objects with `code`, `message`, and `severity`.
 - `blockers`: JSON array string. Prefer arrays of objects with `code`, `message`, and `severity`.
 
+### 4.4 Minimum Row Population Rules
+
+Blocked rows still have to satisfy the executable schema. Use this matrix when assembling `landed_cost_estimates` so every attempted assessment can persist a valid row.
+
+| Column group | Domestic UK quote | Import complete | Import blocked |
+|---|---|---|---|
+| Identity FKs | Copy from Stage 10 assessment and selected quote. | Copy from Stage 10 assessment and selected quote. | Copy from Stage 10 assessment and selected quote. |
+| `shipping_mode` | `"domestic"` | `"sea_freight"` / `"lcl"` / `"fcl"` from sizing/freight. | Best known mode, usually `"unknown_import"` or sizing output. |
+| `mode_confidence_bps` | 5000-7000 depending on evidence. | From sizing/freight confidence. | Low confidence such as 1000-3000. |
+| `commodity_confidence_bps` | 10000 only if no import classification is required; otherwise 0 with warning. | HMRC skill confidence. | 0 unless HMRC produced a candidate but blocked later. |
+| `classification_stability_bps` | 10000 for no-import domestic path. | HMRC skill stability. | 0 unless HMRC produced a candidate set. |
+| `customs_fx_rate` / `commercial_fx_rate` | 1.0 / 1.0. | 1.0 when all source amounts are GBP; live FX result otherwise. | 1.0 when no conversion happened; live FX result if available. |
+| `fx_basis_delta_bps` | 0. | 0 for MVP unless two different rates are intentionally compared. | 0. |
+| `supplier_cost_gbp_pence` | Computed selected-quote cost basis. | Computed selected-quote cost basis. | Computed selected-quote cost basis, or unit price with warning if quantity unknown. |
+| `freight_low/base/high_gbp_pence` | 0 or domestic final-mile estimate. | SeaRates low/base/high converted to GBP. | 0 only with freight blocker, or conservative fallback only if explicitly warned. |
+| `customs_duty_gbp_pence` | 0. | HMRC basic duty amount. | 0 if customs blocked before duty; partial amount if HMRC produced it. |
+| `trade_remedy_duty_gbp_pence` | 0. | HMRC safeguard/AD/CVD amount if applicable, else 0. | 0 or partial amount if discovered. |
+| `import_vat_gbp_pence` | 0 unless deliberately modeling VAT on domestic quote. | Computed VAT amount. | 0 if required inputs are missing; include blocker/warning. |
+| `uk_final_mile_cost_gbp_pence` | 0 or domestic delivery estimate. | Included if SeaRates gives door delivery; otherwise 0 with warning. | 0 with warning if unknown. |
+| `other_fees_gbp_pence` | 0 unless known. | MVP conservative clearance/broker fee if chosen, else 0 with warning. | 0 unless known. |
+| `economic_landed_cost_gbp_pence` | Supplier cost + domestic freight/final mile + chosen VAT policy. | Supplier + freight base + duties + VAT policy + other/final mile. | Sum of known components only; blocker explains missing component. |
+| `cash_outlay_gbp_pence` | At least supplier cost plus modeled delivery/VAT if included. | Supplier + freight + duty + remedy + VAT + fees. | Sum of known cash components; blocker explains missing component. |
+| `cash_to_clear_gbp_pence` | 0 for domestic no-import path unless VAT modeled. | Duty + remedy + import VAT + clearance fees. | Known customs cash only, often 0 with blocker. |
+| `revenue_basis_type` / `revenue_confidence_bps` | Copy from Stage 10. | Copy from Stage 10. | Copy from Stage 10. |
+| `net_margin_low/base/high_bps` | Compute from Stage 10 revenue, or 0 for RFQ-required revenue. | Compute from low/base/high landed costs. | 0 if revenue missing; otherwise compute from known components and keep blockers. |
+| `decision_grade` | `"review"`. | `"review"` for MVP screening-grade. | `"blocked"`. |
+| `confidence_bps` | Minimum of pricing, shipping, and domestic confidence. | Minimum/weighted minimum of customs, sizing, freight, FX, pricing. | Low confidence such as 0-3000. |
+| `warnings` | JSON array, may include `DOMESTIC_QUOTE_NO_IMPORT_CUSTOMS`. | JSON array of assumptions. | JSON array of partial assumptions. |
+| `blockers` | Usually `[]`. | Usually `[]`; if not empty, grade should be `"blocked"`. | Non-empty array with machine-readable codes. |
+
+Do not use SQL `NULL` for NOT NULL fields to signal uncertainty. Use numeric zero plus a blocker/warning when the field cannot be honestly estimated.
+
 ---
 
 ## 5. MVP Cost Equation
@@ -1106,6 +1138,15 @@ scope_id = "{product_candidate_id}::{selected_quote_id}"
 
 Keep this stage name/scope stable and document it in the manifest.
 
+### 10.2A Stage Validation State for Blocked Rows
+
+There is a difference between a **blocked estimate** and a **failed stage execution**.
+
+- If Stage 11 successfully examined a candidate and persisted a `landed_cost_estimates` row whose `blockers` explain missing dimensions, no SeaRates quote, uncertain customs code, or missing FX, the stage execution should be considered accepted/succeeded. Use `persist_stage(...)` or an accepted `ValidationOutcome` so `process_stage_heads` advances.
+- If the Rust code panics, the skill result contract is invalid, the database write fails, or the live-loop cannot parse its inputs, that is a failed execution and should not advance the head as a valid Stage 11 result.
+
+This matters because the MVP's job is to make missing landed-cost evidence visible in the database. A blocked row is a successful visibility outcome, not a crash.
+
 ### 10.3 Domestic Quote Handling
 
 For selected quotes with `ship_from_country = "GB"` and no import evidence:
@@ -1135,6 +1176,17 @@ For selected quotes with `ship_from_country != "GB"` or source `alibaba-search`:
 ## 11. Required Skill Result Schemas
 
 Every new skill must have a `result.schema.json`, and the daemon must validate enough of the result before persistence to avoid panics or nonsense rows.
+
+The existing `validate_result_schema` helper in `crates/daemon/src/agents/contracts.rs` checks top-level required fields and simple top-level types. Treat it as a first pass, not complete semantic validation. Stage 11 should also manually validate domain invariants before writing a row:
+
+- status fields are one of the documented values;
+- basis-point fields are between 0 and 10000;
+- money fields are non-negative integers;
+- `blockers` is non-empty when status is `"blocked"`;
+- `declarable_commodity_code_10` is present when customs status is `"classified"`;
+- SeaRates quoted output has a currency and base amount;
+- shipment sizing output has positive `total_weight_kg` and `total_volume_cbm` when status is `"sized"`;
+- FX output includes source, rate, checked timestamp, and currency pair when non-GBP conversion is used.
 
 Recommended shared conventions:
 
@@ -1298,6 +1350,15 @@ SELECT stage, scope_kind, COUNT(*)
 FROM process_stage_heads
 WHERE stage = 'landed cost'
 GROUP BY stage, scope_kind;
+
+SELECT COUNT(*) AS stage10_selected_without_landed_row
+FROM candidate_pricing_assessments cpa
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM landed_cost_estimates lce
+  WHERE lce.product_candidate_id = cpa.product_candidate_id
+    AND lce.supplier_quote_id = cpa.selected_quote_id
+);
 ```
 
 Quality gates after code changes:
@@ -1401,6 +1462,7 @@ The task is complete only when all of these are true:
 - `cargo run -p daemon -- --ingest landed-cost` or the chosen Stage 11 trigger runs without crashing.
 - `landed_cost_estimates` contains real rows.
 - Every attempted Stage 10 selected quote either has a landed-cost row or a documented reason in the manifest why it was excluded.
+- The validation query `stage10_selected_without_landed_row` is 0, or every remaining row is explicitly justified in the manifest.
 - The China Alibaba DGU row is attempted and does not vanish silently.
 - Customs classification is skill-backed and HMRC-sourced.
 - Customs parsing catches additional import measures, demonstrated by the steel rebar canary.
