@@ -553,6 +553,45 @@ Blocked rows still have to satisfy the executable schema. Use this matrix when a
 
 Do not use SQL `NULL` for NOT NULL fields to signal uncertainty. Use numeric zero plus a blocker/warning when the field cannot be honestly estimated.
 
+### 4.5 Provenance to Store in `confidence_breakdown`
+
+The `landed_cost_estimates` schema does not have a dedicated `selected_quote_row_version` column, but Stage 10 records `candidate_pricing_assessments.selected_quote_row_version` for staleness detection. Store Stage 11 provenance in `confidence_breakdown` as JSON so reruns can detect drift.
+
+Minimum recommended shape:
+
+```json
+{
+  "schema": "stage11_mvp_confidence_breakdown_v1",
+  "pricing_assessment_id": "pricing-...",
+  "selected_quote_id": "sq-...",
+  "selected_quote_row_version": 1,
+  "supplier_cost_basis": {
+    "basis": "quoted_quantity|minimum_order_quantity|unit_price_only|offer_total",
+    "quantity": 10000,
+    "quantity_unit": "square meter"
+  },
+  "skill_versions": {
+    "hmrc_customs": "1.0.0",
+    "shipment_sizing": "1.0.0",
+    "searates_freight": "1.0.0",
+    "simple_fx": null
+  },
+  "skill_session_ids": {
+    "hmrc_customs": "session-...",
+    "shipment_sizing": "session-...",
+    "searates_freight": "session-..."
+  },
+  "customs_status": "classified|blocked|domestic_no_import",
+  "shipment_sizing_status": "sized|blocked|not_required",
+  "freight_status": "quoted|blocked|not_required",
+  "fx_status": "not_required|converted|blocked",
+  "vat_policy": "include_unknown_recovery_in_economic_cost|cash_only_unknown_recovery",
+  "checked_at": "2026-04-28T00:00:00Z"
+}
+```
+
+The exact fields can grow, but do not omit `selected_quote_row_version`, skill versions, statuses, and timestamp. Without them the next rerun cannot tell whether a landed-cost row is stale.
+
 ---
 
 ## 5. MVP Cost Equation
@@ -1157,8 +1196,39 @@ SELECT
   cpa.revenue_confidence_bps,
   cpa.gross_margin_bps,
   cpa.gross_estimate_confidence_bps,
-  sq.*,
-  pc.*,
+  sq.id AS quote_id,
+  sq.row_version AS quote_row_version,
+  sq.product_name AS quote_product_name,
+  sq.source_name,
+  sq.source_url,
+  sq.source_listing_id,
+  sq.ship_from_country,
+  sq.country_of_origin,
+  sq.country_of_dispatch,
+  sq.incoterm,
+  sq.quoted_quantity,
+  sq.quoted_quantity_unit,
+  sq.unit_price_original_minor,
+  sq.currency,
+  sq.unit_price_gbp_pence,
+  sq.offer_total_gbp_pence,
+  sq.minimum_order_quantity,
+  sq.lead_time_days,
+  sq.includes_shipping,
+  sq.price_signal_role,
+  sq.listing_pack_qty,
+  sq.listing_pack_unit,
+  sq.vat_inclusive,
+  sq.evidence AS quote_evidence,
+  pc.name AS candidate_name,
+  pc.head_noun,
+  pc.specification_text,
+  pc.standards_json,
+  pc.critical_attributes_json,
+  pc.numeric_specs_json,
+  pc.material,
+  pc.quantity,
+  pc.quantity_unit,
   nl.title,
   nl.description,
   cn.title,
@@ -1178,6 +1248,8 @@ WHERE NOT EXISTS (
 ORDER BY cpa.created_at, cpa.id
 LIMIT ?;
 ```
+
+This missing-row query is the first slice. A production-ready MVP should also select stale rows using the provenance stored in `confidence_breakdown`; see the rerun rules below.
 
 The live-loop should:
 
@@ -1238,7 +1310,30 @@ scope_id = "{product_candidate_id}::{selected_quote_id}"
 
 Keep this stage name/scope stable and document it in the manifest.
 
-### 10.2A Stage Validation State for Blocked Rows
+### 10.2A Idempotency and Rerun Rules
+
+Stage 11 must be safe to run repeatedly.
+
+Use a stable row id:
+
+```text
+landed-{product_candidate_id}-{selected_quote_id}
+```
+
+Then `ON CONFLICT(id) DO UPDATE` should update all computed cost, confidence, warning, blocker, freshness, and `stage_run_id` fields and increment `row_version`.
+
+Rerun a landed-cost row when any of these are true:
+
+1. No row exists for `(product_candidate_id, selected_quote_id)`.
+2. Stage 10 now points to a different `selected_quote_id`; this naturally creates a new stable id.
+3. `candidate_pricing_assessments.selected_quote_row_version` differs from `confidence_breakdown.selected_quote_row_version`.
+4. `supplier_quotes.row_version` differs from the version recorded in `confidence_breakdown`.
+5. A prior row has non-empty `blockers` and the relevant missing input may now be available, such as CDP restored, dimensions now visible, or SeaRates quote now available.
+6. `fx_rate_checked_at`, `tariff_checked_at`, `classification_fresh_until`, or `measures_fresh_until` is stale according to the MVP policy documented in the validation manifest.
+
+Do not skip all existing rows forever. The simplest first build can process missing rows, but the validation manifest must say whether stale-row reruns are implemented or deferred. If deferred, create a follow-up issue in Beads and keep the stale-detection query in the manifest.
+
+### 10.2B Stage Validation State for Blocked Rows
 
 There is a difference between a **blocked estimate** and a **failed stage execution**.
 
@@ -1459,6 +1554,16 @@ WHERE NOT EXISTS (
   WHERE lce.product_candidate_id = cpa.product_candidate_id
     AND lce.supplier_quote_id = cpa.selected_quote_id
 );
+
+SELECT COUNT(*) AS landed_rows_with_stale_quote_version
+FROM landed_cost_estimates lce
+JOIN candidate_pricing_assessments cpa
+  ON cpa.product_candidate_id = lce.product_candidate_id
+ AND cpa.selected_quote_id = lce.supplier_quote_id
+WHERE COALESCE(
+  CAST(json_extract(lce.confidence_breakdown, '$.selected_quote_row_version') AS INTEGER),
+  -1
+) != cpa.selected_quote_row_version;
 ```
 
 Quality gates after code changes:
@@ -1563,6 +1668,7 @@ The task is complete only when all of these are true:
 - `landed_cost_estimates` contains real rows.
 - Every attempted Stage 10 selected quote either has a landed-cost row or a documented reason in the manifest why it was excluded.
 - The validation query `stage10_selected_without_landed_row` is 0, or every remaining row is explicitly justified in the manifest.
+- The validation query `landed_rows_with_stale_quote_version` is 0, or stale-row reruns are explicitly documented as deferred with a follow-up issue.
 - The China Alibaba DGU row is attempted and does not vanish silently.
 - Customs classification is skill-backed and HMRC-sourced.
 - Customs parsing catches additional import measures, demonstrated by the steel rebar canary.
