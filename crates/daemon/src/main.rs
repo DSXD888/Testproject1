@@ -107,11 +107,14 @@ use std::convert::TryFrom;
 use std::ffi::OsString;
 use std::fs;
 use std::io::ErrorKind;
+use std::net::{Shutdown, SocketAddr, TcpStream};
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::process::Stdio;
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use agents::adapter::{
     AgentAdapter, CapabilityReport, ControlEvent, ExecutionMode, InteractionProfile, LaunchSpec,
@@ -132,7 +135,7 @@ use std::collections::BTreeSet;
 use agents::codex::CodexAdapter;
 use agents::contracts::{
     OqgCheckInput, StageValidationWrite, ValidationDisposition, ValidationOutcome,
-    persist_stage_validation, validate_final_result,
+    persist_stage_validation, validate_final_result, validate_result_schema,
 };
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use bytes::Bytes;
@@ -161,6 +164,7 @@ use jobs::runner::{
     decide_validator_verdict, set_stage_head_freshness, skill_telemetry_thresholds,
     start_job_lease_heartbeat,
 };
+use nix::sys::signal::{Signal, kill};
 use nix::unistd::{Pid, getpgid, getsid};
 use pdf::engine::{
     EngineConfig as PdfEngineConfig, PdfExtractionEngine, PdfInput, PersistStructuralExtractionRow,
@@ -205,6 +209,48 @@ const DEFAULT_AGENT_CLI: &str = "claude";
 const LOCAL_EXECUTOR_ID: &str = "local-daemon";
 const DEFAULT_RESTART_DELAY_MS: u64 = 250;
 const RESTART_DELAY_ENV: &str = "DAEMON_RESTART_DELAY_MS";
+
+/// Default wholesale discount applied by downstream margin math to UK retail
+/// benchmark prices (Amazon / eBay consumer listings).
+///
+/// 3000 bps = 30 % → estimated wholesale ≈ retail × 0.70.
+///
+/// Store RAW retail in `supplier_quotes.unit_price_gbp_pence` and tag with
+/// `price_signal_role = "uk_retail_benchmark"`. Do NOT apply this discount at
+/// quote-write time — Stage 10+ margin computation multiplies `(10000 - bps)`
+/// so this constant can be tuned without re-scraping.
+///
+/// Operator-adjustable range: 2000..=4000 bps (20 %..=40 %).
+#[allow(dead_code)]
+const DEFAULT_UK_RETAIL_WHOLESALE_DISCOUNT_BPS: i64 = 3000;
+
+/// How many `product_candidates` a single marketplace-search PTY session
+/// should handle. Keeps session token budgets tractable and bounds
+/// blast-radius on a single skill failure.
+///
+/// Tuned down from 5 → 3 on 2026-04-21 after observing that Alibaba's
+/// per-session anti-bot rate limiter started CAPTCHA-blocking candidates
+/// 4 and 5 in a 5-candidate batch, even with CDP attached to a logged-in
+/// Chrome. Three candidates per session lets the Alibaba skill finish
+/// all three cleanly; the 57 searchable-candidate pool now needs ~2
+/// back-to-back runs per source instead of 1.
+const MARKETPLACE_SEARCH_BATCH_SIZE: i64 = 3;
+
+/// Minimum seconds a marketplace-search source must idle before we spawn
+/// another PTY run against it, IF the source was recently CAPTCHA-blocked.
+/// Computed from `MAX(executed_at)` of rows with
+/// `search_failure_mode = 'SOURCE_CAPTCHA_BLOCKED'` for the source.
+///
+/// Clean sources (Gem Imports, MX Wholesale, eBay UK) have zero such rows
+/// so the cool-down is effectively skipped for them. It only binds on
+/// CAPTCHA-prone sources (Alibaba, Amazon UK). First-cut value: 180 s.
+/// Tune up to 300-600 s if operator observes repeat CAPTCHAs even with
+/// the cool-down active.
+const MARKETPLACE_SEARCH_INTER_SESSION_COOLDOWN_SECONDS: i64 = 180;
+const LANDED_COST_BATCH_SIZE: i64 = 20;
+const LANDED_COST_SKILL_TIMEOUT_SECONDS: u64 = 90;
+const LANDED_COST_STAGE_NAME: &str = "landed cost";
+const LANDED_COST_SCOPE_KIND: &str = "candidate_quote";
 #[cfg(test)]
 const ACTIVE_STAGES: [&str; 12] = [
     "Normalize",
@@ -1109,6 +1155,10 @@ async fn main() -> Result<()> {
             }
             "procontract-enrich" => {
                 run_procontract_enrich_tender_live_loop(&mut runtime, &cli).await?
+            }
+            "landed-cost" => run_landed_cost_live_loop(&mut runtime, &cli).await?,
+            "gem-imports" | "mx-wholesale" | "amazon-uk" | "ebay-uk" | "alibaba-search" => {
+                run_marketplace_search_live_loop(&mut runtime, source_id, &cli).await?
             }
             other => bail!("unsupported source: {other}"),
         };
@@ -2892,6 +2942,2385 @@ fn read_result_contract(result_path: &Path) -> Result<Value> {
     serde_json::from_str(&result_text).context("parsing result contract JSON")
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+struct LandedCostAssessmentRow {
+    pricing_assessment_id: String,
+    process_id: String,
+    notice_id: String,
+    product_candidate_id: String,
+    selected_quote_id: String,
+    selected_quote_row_version: i64,
+    quote_cost_boundary: String,
+    expected_addressable_revenue_ex_vat_pence: i64,
+    revenue_basis_type: String,
+    revenue_confidence_bps: i64,
+    gross_estimate_confidence_bps: i64,
+    pricing_input_confidence_bps: i64,
+    quote_row_version: i64,
+    quote_product_name: String,
+    source_name: String,
+    source_url: Option<String>,
+    source_listing_id: Option<String>,
+    ship_from_country: Option<String>,
+    country_of_origin: Option<String>,
+    country_of_dispatch: Option<String>,
+    incoterm: Option<String>,
+    quoted_quantity: Option<f64>,
+    quoted_quantity_unit: Option<String>,
+    unit_price_original_minor: i64,
+    currency: String,
+    unit_price_gbp_pence: i64,
+    offer_total_gbp_pence: Option<i64>,
+    minimum_order_quantity: Option<f64>,
+    lead_time_days: Option<i64>,
+    includes_shipping: i64,
+    price_signal_role: String,
+    listing_pack_qty: Option<f64>,
+    listing_pack_unit: Option<String>,
+    vat_inclusive: Option<i64>,
+    quote_evidence: String,
+    candidate_name: String,
+    head_noun: String,
+    specification_text: Option<String>,
+    standards_json: Option<String>,
+    critical_attributes_json: Option<String>,
+    numeric_specs_json: Option<String>,
+    material: Option<String>,
+    candidate_quantity: Option<f64>,
+    candidate_quantity_unit: Option<String>,
+    lot_title: Option<String>,
+    lot_description: Option<String>,
+    notice_title: String,
+    notice_summary: Option<String>,
+    buyer_name: Option<String>,
+    main_category: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Stage11Issue {
+    code: String,
+    message: String,
+    severity: String,
+}
+
+impl Stage11Issue {
+    fn warning(code: &str, message: impl Into<String>) -> Self {
+        Self {
+            code: code.to_owned(),
+            message: message.into(),
+            severity: "warning".to_owned(),
+        }
+    }
+
+    fn blocked(code: &str, message: impl Into<String>) -> Self {
+        Self {
+            code: code.to_owned(),
+            message: message.into(),
+            severity: "blocked".to_owned(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct SupplierCostBasis {
+    supplier_cost_gbp_pence: i64,
+    basis: String,
+    quantity: f64,
+    quantity_unit: Option<String>,
+    warnings: Vec<Stage11Issue>,
+}
+
+#[derive(Debug, Clone)]
+struct LandedCostSkillRunOutcome {
+    job_id: String,
+    session_id: String,
+    skill_version: String,
+    result_json: Option<Value>,
+    failure_message: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Deserialize)]
+struct HmrcCustomsClassificationResult {
+    #[serde(default)]
+    source: Option<String>,
+    product_candidate_id: String,
+    selected_quote_id: String,
+    classification_status: String,
+    #[serde(default)]
+    declarable_commodity_code_10: Option<String>,
+    #[serde(default)]
+    commodity_description: Option<String>,
+    #[serde(default)]
+    candidate_commodity_codes: Vec<Value>,
+    #[serde(default)]
+    commodity_confidence_bps: Option<i64>,
+    #[serde(default)]
+    classification_stability_bps: Option<i64>,
+    #[serde(default)]
+    origin_country: Option<String>,
+    #[serde(default)]
+    origin_evidence_state: Option<String>,
+    #[serde(default)]
+    basic_duty_rate_bps: Option<i64>,
+    #[serde(default)]
+    vat_rate_bps: Option<i64>,
+    #[serde(default)]
+    customs_duty_gbp_pence: Option<i64>,
+    #[serde(default)]
+    trade_remedy_duty_gbp_pence: Option<i64>,
+    #[serde(default)]
+    trade_remedy_state: Option<String>,
+    #[serde(default)]
+    trade_remedy_cases: Vec<Value>,
+    #[serde(default)]
+    duty_breakdown: Vec<Value>,
+    #[serde(default)]
+    additional_codes: Option<Value>,
+    #[serde(default)]
+    additional_code_requirements: Option<Value>,
+    #[serde(default)]
+    supplementary_units_required: Vec<Value>,
+    #[serde(default)]
+    measure_interaction: Option<Value>,
+    #[serde(default)]
+    tariff_checked_at: Option<String>,
+    #[serde(default)]
+    measures_fresh_until: Option<String>,
+    #[serde(default)]
+    classification_fresh_until: Option<String>,
+    #[serde(default)]
+    warnings: Vec<Stage11Issue>,
+    #[serde(default)]
+    blockers: Vec<Stage11Issue>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Deserialize)]
+struct ShipmentSizingResult {
+    product_candidate_id: String,
+    selected_quote_id: String,
+    sizing_status: String,
+    #[serde(default)]
+    units_required: Option<f64>,
+    #[serde(default)]
+    unit_basis: Option<String>,
+    #[serde(default)]
+    unit_weight_kg: Option<f64>,
+    #[serde(default)]
+    unit_volume_cbm: Option<f64>,
+    #[serde(default)]
+    total_weight_kg: Option<f64>,
+    #[serde(default)]
+    total_volume_cbm: Option<f64>,
+    #[serde(default)]
+    package_count: Option<i64>,
+    #[serde(default)]
+    container_plan: Option<Value>,
+    #[serde(default)]
+    evidence: Vec<Value>,
+    #[serde(default)]
+    confidence_bps: Option<i64>,
+    #[serde(default)]
+    warnings: Vec<Stage11Issue>,
+    #[serde(default)]
+    blockers: Vec<Stage11Issue>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Deserialize)]
+struct SeaRatesFreightResult {
+    #[serde(default)]
+    source: Option<String>,
+    product_candidate_id: String,
+    selected_quote_id: String,
+    freight_status: String,
+    #[serde(default)]
+    freight_currency: Option<String>,
+    #[serde(default)]
+    freight_amount_minor: Option<i64>,
+    #[serde(default)]
+    freight_low_amount_minor: Option<i64>,
+    #[serde(default)]
+    freight_base_amount_minor: Option<i64>,
+    #[serde(default)]
+    freight_high_amount_minor: Option<i64>,
+    #[serde(default)]
+    route: Option<Value>,
+    #[serde(default)]
+    transit_time_days: Option<i64>,
+    #[serde(default)]
+    quote_expired: bool,
+    #[serde(default)]
+    source_url: Option<String>,
+    #[serde(default)]
+    evidence: Vec<Value>,
+    #[serde(default)]
+    warnings: Vec<Stage11Issue>,
+    #[serde(default)]
+    blockers: Vec<Stage11Issue>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Deserialize)]
+struct SimpleFxLookupResult {
+    fx_status: String,
+    source_currency: String,
+    target_currency: String,
+    rate: f64,
+    checked_at: String,
+    #[serde(default)]
+    converted_amount_gbp_pence: Option<i64>,
+    #[serde(default)]
+    source: Option<String>,
+    #[serde(default)]
+    warnings: Vec<Stage11Issue>,
+    #[serde(default)]
+    blockers: Vec<Stage11Issue>,
+}
+
+#[derive(Debug, Clone)]
+struct FreightScenarioGbp {
+    low_gbp_pence: i64,
+    base_gbp_pence: i64,
+    high_gbp_pence: i64,
+    fx_rate: f64,
+    fx_checked_at: Option<String>,
+    fx_status: String,
+    warnings: Vec<Stage11Issue>,
+    blockers: Vec<Stage11Issue>,
+}
+
+#[derive(Debug, Clone)]
+struct LandedCostEstimateWrite {
+    id: String,
+    process_id: String,
+    notice_id: String,
+    product_candidate_id: String,
+    supplier_quote_id: String,
+    shipping_mode: String,
+    mode_confidence_bps: i64,
+    packing_scenario: Option<String>,
+    declarable_commodity_code_10: Option<String>,
+    candidate_commodity_codes_json: Option<String>,
+    additional_codes: Option<String>,
+    additional_code_requirements_json: Option<String>,
+    supplementary_units_required_json: Option<String>,
+    commodity_confidence_bps: i64,
+    classification_stability_bps: i64,
+    customs_valuation_method: Option<String>,
+    valuation_mode: Option<String>,
+    customs_fx_rate: f64,
+    commercial_fx_rate: f64,
+    fx_basis_delta_bps: i64,
+    fx_rate_checked_at: Option<String>,
+    supplier_cost_gbp_pence: i64,
+    freight_low_gbp_pence: i64,
+    freight_base_gbp_pence: i64,
+    freight_high_gbp_pence: i64,
+    customs_duty_gbp_pence: i64,
+    trade_remedy_duty_gbp_pence: Option<i64>,
+    duty_outcome_min_gbp_pence: Option<i64>,
+    duty_outcome_max_gbp_pence: Option<i64>,
+    customs_cost_spread_bps: Option<i64>,
+    trade_remedy_state: Option<String>,
+    trade_remedy_cases_json: Option<String>,
+    duty_breakdown_json: Option<String>,
+    measure_interaction_json: Option<String>,
+    exporter_rate_basis: Option<String>,
+    exporter_identity_confidence_bps: Option<i64>,
+    origin_evidence_state: Option<String>,
+    import_vat_gbp_pence: i64,
+    vat_rate_state: Option<String>,
+    import_vat_treatment: String,
+    vat_recovery_rate_bps: Option<i64>,
+    uk_final_mile_cost_gbp_pence: i64,
+    other_fees_gbp_pence: i64,
+    economic_landed_cost_gbp_pence: i64,
+    cash_outlay_gbp_pence: i64,
+    cash_to_clear_gbp_pence: i64,
+    working_capital_cost_gbp_pence: Option<i64>,
+    revenue_basis_type: String,
+    revenue_confidence_bps: i64,
+    customs_resolution_confidence_bps: Option<i64>,
+    commercial_estimate_confidence_bps: Option<i64>,
+    net_margin_low_bps: i64,
+    net_margin_base_bps: i64,
+    net_margin_high_bps: i64,
+    decision_grade: String,
+    confidence_bps: i64,
+    confidence_breakdown: String,
+    warnings: String,
+    blockers: String,
+    tariff_checked_at: Option<String>,
+    measures_fresh_until: Option<String>,
+    classification_fresh_until: Option<String>,
+    trade_remedy_watch_state: Option<String>,
+    cbam_exposure_flag: Option<i64>,
+    cbam_estimate_gbp_pence: Option<i64>,
+    stage_run_id: String,
+}
+
+fn clamp_bps(value: i64) -> i64 {
+    value.clamp(0, 10_000)
+}
+
+fn non_negative_money(value: i64, field_name: &str) -> Result<i64> {
+    ensure!(value >= 0, "{field_name} must be non-negative");
+    Ok(value)
+}
+
+fn optional_json_string(value: Option<Value>) -> Option<String> {
+    value
+        .filter(|payload| !payload.is_null())
+        .map(|payload| payload.to_string())
+}
+
+fn json_array_string(values: &[Stage11Issue]) -> Result<String> {
+    serde_json::to_string(values).context("serializing Stage 11 issue array")
+}
+
+fn parse_json_or_null(raw: Option<&str>) -> Value {
+    raw.and_then(|text| serde_json::from_str::<Value>(text).ok())
+        .unwrap_or(Value::Null)
+}
+
+fn stage11_scope_id(row: &LandedCostAssessmentRow) -> String {
+    format!("{}::{}", row.product_candidate_id, row.selected_quote_id)
+}
+
+fn is_domestic_uk_quote(row: &LandedCostAssessmentRow) -> bool {
+    row.ship_from_country
+        .as_deref()
+        .or(row.country_of_dispatch.as_deref())
+        .or(row.country_of_origin.as_deref())
+        .is_some_and(|country| country.eq_ignore_ascii_case("GB"))
+}
+
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::option_if_let_else
+)]
+fn compute_supplier_cost_basis(row: &LandedCostAssessmentRow) -> SupplierCostBasis {
+    let mut warnings = Vec::new();
+    if let Some(total) = row.offer_total_gbp_pence.filter(|total| *total > 0) {
+        return SupplierCostBasis {
+            supplier_cost_gbp_pence: total,
+            basis: "offer_total".to_owned(),
+            quantity: 1.0,
+            quantity_unit: row.quoted_quantity_unit.clone(),
+            warnings,
+        };
+    }
+
+    let (basis, quantity, quantity_unit) = if let Some(quantity) =
+        row.candidate_quantity.filter(|quantity| *quantity > 0.0)
+    {
+        (
+            "product_candidate_quantity".to_owned(),
+            quantity,
+            row.candidate_quantity_unit.clone(),
+        )
+    } else if let Some(quantity) = row.quoted_quantity.filter(|quantity| *quantity > 0.0) {
+        (
+            "quoted_quantity".to_owned(),
+            quantity,
+            row.quoted_quantity_unit.clone(),
+        )
+    } else if let Some(quantity) = row
+        .minimum_order_quantity
+        .filter(|quantity| *quantity > 0.0)
+    {
+        (
+            "minimum_order_quantity".to_owned(),
+            quantity,
+            row.quoted_quantity_unit.clone(),
+        )
+    } else {
+        warnings.push(Stage11Issue::warning(
+                "QUANTITY_UNKNOWN_USED_UNIT_PRICE",
+                "No candidate quantity, quote quantity, MOQ, or offer total was available; Stage 11 used one unit of the selected quote.",
+            ));
+        (
+            "unit_price_only".to_owned(),
+            1.0,
+            row.quoted_quantity_unit.clone(),
+        )
+    };
+
+    let supplier_cost_gbp_pence = ((row.unit_price_gbp_pence as f64) * quantity).round() as i64;
+    SupplierCostBasis {
+        supplier_cost_gbp_pence,
+        basis,
+        quantity,
+        quantity_unit,
+        warnings,
+    }
+}
+
+fn stage11_candidate_context(row: &LandedCostAssessmentRow) -> Value {
+    json!({
+        "name": row.candidate_name,
+        "head_noun": row.head_noun,
+        "specification_text": row.specification_text,
+        "standards": parse_json_or_null(row.standards_json.as_deref()),
+        "critical_attributes": parse_json_or_null(row.critical_attributes_json.as_deref()),
+        "numeric_specs": parse_json_or_null(row.numeric_specs_json.as_deref()),
+        "material": row.material,
+        "quantity": row.candidate_quantity,
+        "quantity_unit": row.candidate_quantity_unit,
+        "lot_title": row.lot_title,
+        "lot_description": row.lot_description,
+        "notice_title": row.notice_title,
+        "notice_summary": row.notice_summary,
+        "buyer_name": row.buyer_name,
+        "cpv_codes": row.main_category,
+    })
+}
+
+fn stage11_quote_context(row: &LandedCostAssessmentRow) -> Value {
+    json!({
+        "source_name": row.source_name,
+        "product_name": row.quote_product_name,
+        "source_url": row.source_url,
+        "source_listing_id": row.source_listing_id,
+        "ship_from_country": row.ship_from_country,
+        "country_of_origin": row.country_of_origin,
+        "country_of_dispatch": row.country_of_dispatch,
+        "incoterm": row.incoterm,
+        "quoted_quantity": row.quoted_quantity,
+        "quoted_quantity_unit": row.quoted_quantity_unit,
+        "unit_price_gbp_pence": row.unit_price_gbp_pence,
+        "currency": row.currency,
+        "unit_price_original_minor": row.unit_price_original_minor,
+        "offer_total_gbp_pence": row.offer_total_gbp_pence,
+        "minimum_order_quantity": row.minimum_order_quantity,
+        "lead_time_days": row.lead_time_days,
+        "includes_shipping": row.includes_shipping != 0,
+        "price_signal_role": row.price_signal_role,
+        "listing_pack_qty": row.listing_pack_qty,
+        "listing_pack_unit": row.listing_pack_unit,
+        "vat_inclusive": row.vat_inclusive.map(|value| value != 0),
+        "evidence": row.quote_evidence,
+    })
+}
+
+fn base_landed_cost_job_parameters(
+    row: &LandedCostAssessmentRow,
+    supplier_cost: &SupplierCostBasis,
+) -> Value {
+    json!({
+        "process_id": row.process_id,
+        "notice_id": row.notice_id,
+        "product_candidate_id": row.product_candidate_id,
+        "pricing_assessment_id": row.pricing_assessment_id,
+        "selected_quote_id": row.selected_quote_id,
+        "candidate": stage11_candidate_context(row),
+        "quote": stage11_quote_context(row),
+        "customs_value_gbp_pence": supplier_cost.supplier_cost_gbp_pence,
+        "supplier_cost_basis": {
+            "basis": supplier_cost.basis,
+            "quantity": supplier_cost.quantity,
+            "quantity_unit": supplier_cost.quantity_unit,
+        },
+        "destination_country": "GB",
+    })
+}
+
+fn parse_hmrc_customs_result(value: &Value) -> Result<HmrcCustomsClassificationResult> {
+    let result: HmrcCustomsClassificationResult = serde_json::from_value(value.clone())
+        .context("parsing HMRC customs classification result")?;
+    ensure!(
+        matches!(
+            result.classification_status.as_str(),
+            "classified" | "blocked" | "domestic_no_import"
+        ),
+        "unsupported customs classification_status `{}`",
+        result.classification_status
+    );
+    ensure!(
+        !result.product_candidate_id.trim().is_empty(),
+        "HMRC result missing product_candidate_id"
+    );
+    ensure!(
+        !result.selected_quote_id.trim().is_empty(),
+        "HMRC result missing selected_quote_id"
+    );
+    if result.classification_status == "classified" {
+        ensure!(
+            result
+                .declarable_commodity_code_10
+                .as_deref()
+                .is_some_and(|code| code.len() == 10 && code.chars().all(|ch| ch.is_ascii_digit())),
+            "classified HMRC result must include a declarable 10 digit commodity code"
+        );
+    }
+    if result.classification_status == "blocked" {
+        ensure!(
+            !result.blockers.is_empty(),
+            "blocked HMRC result must include blockers"
+        );
+    }
+    if let Some(confidence) = result.commodity_confidence_bps {
+        ensure!(
+            (0..=10_000).contains(&confidence),
+            "commodity_confidence_bps out of range"
+        );
+    }
+    if let Some(stability) = result.classification_stability_bps {
+        ensure!(
+            (0..=10_000).contains(&stability),
+            "classification_stability_bps out of range"
+        );
+    }
+    non_negative_money(
+        result.customs_duty_gbp_pence.unwrap_or(0),
+        "customs_duty_gbp_pence",
+    )?;
+    non_negative_money(
+        result.trade_remedy_duty_gbp_pence.unwrap_or(0),
+        "trade_remedy_duty_gbp_pence",
+    )?;
+    Ok(result)
+}
+
+fn parse_shipment_sizing_result(value: &Value) -> Result<ShipmentSizingResult> {
+    let result: ShipmentSizingResult =
+        serde_json::from_value(value.clone()).context("parsing shipment sizing result")?;
+    ensure!(
+        matches!(result.sizing_status.as_str(), "sized" | "blocked"),
+        "unsupported shipment sizing_status `{}`",
+        result.sizing_status
+    );
+    ensure!(
+        !result.product_candidate_id.trim().is_empty(),
+        "shipment sizing result missing product_candidate_id"
+    );
+    ensure!(
+        !result.selected_quote_id.trim().is_empty(),
+        "shipment sizing result missing selected_quote_id"
+    );
+    if result.sizing_status == "sized" {
+        ensure!(
+            result.total_weight_kg.is_some_and(|weight| weight > 0.0),
+            "sized shipment result must include positive total_weight_kg"
+        );
+        ensure!(
+            result.total_volume_cbm.is_some_and(|volume| volume > 0.0),
+            "sized shipment result must include positive total_volume_cbm"
+        );
+    }
+    if result.sizing_status == "blocked" {
+        ensure!(
+            !result.blockers.is_empty(),
+            "blocked shipment sizing result must include blockers"
+        );
+    }
+    if let Some(confidence) = result.confidence_bps {
+        ensure!(
+            (0..=10_000).contains(&confidence),
+            "shipment sizing confidence_bps out of range"
+        );
+    }
+    Ok(result)
+}
+
+fn parse_searates_freight_result(value: &Value) -> Result<SeaRatesFreightResult> {
+    let result: SeaRatesFreightResult =
+        serde_json::from_value(value.clone()).context("parsing SeaRates freight result")?;
+    ensure!(
+        matches!(result.freight_status.as_str(), "quoted" | "blocked"),
+        "unsupported freight_status `{}`",
+        result.freight_status
+    );
+    ensure!(
+        !result.product_candidate_id.trim().is_empty(),
+        "SeaRates result missing product_candidate_id"
+    );
+    ensure!(
+        !result.selected_quote_id.trim().is_empty(),
+        "SeaRates result missing selected_quote_id"
+    );
+    if result.freight_status == "quoted" {
+        ensure!(
+            result
+                .freight_currency
+                .as_deref()
+                .is_some_and(|currency| currency.len() == 3),
+            "quoted SeaRates result must include a currency"
+        );
+        non_negative_money(
+            result.freight_base_amount_minor.unwrap_or(-1),
+            "freight_base_amount_minor",
+        )?;
+    }
+    if result.freight_status == "blocked" {
+        ensure!(
+            !result.blockers.is_empty(),
+            "blocked SeaRates result must include blockers"
+        );
+    }
+    Ok(result)
+}
+
+fn parse_simple_fx_lookup_result(value: &Value) -> Result<SimpleFxLookupResult> {
+    let result: SimpleFxLookupResult =
+        serde_json::from_value(value.clone()).context("parsing simple FX lookup result")?;
+    ensure!(
+        matches!(result.fx_status.as_str(), "converted" | "blocked"),
+        "unsupported fx_status `{}`",
+        result.fx_status
+    );
+    ensure!(
+        result.source_currency.len() == 3 && result.target_currency == "GBP",
+        "simple FX result must be a 3-letter source currency to GBP"
+    );
+    if result.fx_status == "converted" {
+        ensure!(
+            result.rate > 0.0,
+            "converted FX result must include positive rate"
+        );
+        ensure!(
+            !result.checked_at.trim().is_empty(),
+            "converted FX result must include checked_at"
+        );
+    }
+    if result.fx_status == "blocked" {
+        ensure!(
+            !result.blockers.is_empty(),
+            "blocked FX result must include blockers"
+        );
+    }
+    Ok(result)
+}
+
+#[allow(clippy::too_many_lines)]
+fn load_landed_cost_assessments(
+    conn: &Connection,
+    limit: i64,
+) -> Result<Vec<LandedCostAssessmentRow>> {
+    let mut stmt = conn.prepare(
+        "\
+        SELECT
+          cpa.id,
+          cpa.process_id,
+          cpa.notice_id,
+          cpa.product_candidate_id,
+          cpa.selected_quote_id,
+          cpa.selected_quote_row_version,
+          cpa.quote_cost_boundary,
+          cpa.expected_addressable_revenue_ex_vat_pence,
+          cpa.revenue_basis_type,
+          cpa.revenue_confidence_bps,
+          cpa.gross_estimate_confidence_bps,
+          cpa.pricing_input_confidence_bps,
+          sq.row_version AS quote_row_version,
+          sq.product_name AS quote_product_name,
+          sq.source_name,
+          sq.source_url,
+          sq.source_listing_id,
+          sq.ship_from_country,
+          sq.country_of_origin,
+          sq.country_of_dispatch,
+          sq.incoterm,
+          sq.quoted_quantity,
+          sq.quoted_quantity_unit,
+          sq.unit_price_original_minor,
+          sq.currency,
+          sq.unit_price_gbp_pence,
+          sq.offer_total_gbp_pence,
+          sq.minimum_order_quantity,
+          sq.lead_time_days,
+          sq.includes_shipping,
+          sq.price_signal_role,
+          sq.listing_pack_qty,
+          sq.listing_pack_unit,
+          sq.vat_inclusive,
+          sq.evidence AS quote_evidence,
+          pc.name AS candidate_name,
+          pc.head_noun,
+          pc.specification_text,
+          pc.standards_json,
+          pc.critical_attributes_json,
+          pc.numeric_specs_json,
+          pc.material,
+          pc.quantity,
+          pc.quantity_unit,
+          nl.title AS lot_title,
+          nl.description AS lot_description,
+          cn.title AS notice_title,
+          cn.summary AS notice_summary,
+          cn.buyer_name,
+          cn.main_category
+        FROM candidate_pricing_assessments cpa
+        JOIN supplier_quotes sq ON sq.id = cpa.selected_quote_id
+        JOIN product_candidates pc ON pc.id = cpa.product_candidate_id
+        JOIN contract_notices cn ON cn.id = cpa.notice_id
+        LEFT JOIN notice_lots nl ON nl.id = pc.lot_id
+        LEFT JOIN landed_cost_estimates lce
+          ON lce.product_candidate_id = cpa.product_candidate_id
+         AND lce.supplier_quote_id = cpa.selected_quote_id
+        WHERE lce.id IS NULL
+           OR COALESCE(
+                CAST(json_extract(lce.confidence_breakdown, '$.selected_quote_row_version')
+                     AS INTEGER),
+                -1
+              ) != cpa.selected_quote_row_version
+           OR COALESCE(
+                CAST(json_extract(lce.confidence_breakdown, '$.supplier_quote_row_version')
+                     AS INTEGER),
+                -1
+              ) != sq.row_version
+           OR COALESCE(lce.blockers, '[]') != '[]'
+        ORDER BY cpa.created_at, cpa.id
+        LIMIT ?1
+        ",
+    )?;
+
+    let rows = stmt.query_map(params![limit], |row| {
+        Ok(LandedCostAssessmentRow {
+            pricing_assessment_id: row.get(0)?,
+            process_id: row.get(1)?,
+            notice_id: row.get(2)?,
+            product_candidate_id: row.get(3)?,
+            selected_quote_id: row.get(4)?,
+            selected_quote_row_version: row.get(5)?,
+            quote_cost_boundary: row.get(6)?,
+            expected_addressable_revenue_ex_vat_pence: row.get(7)?,
+            revenue_basis_type: row.get(8)?,
+            revenue_confidence_bps: row.get(9)?,
+            gross_estimate_confidence_bps: row.get(10)?,
+            pricing_input_confidence_bps: row.get(11)?,
+            quote_row_version: row.get(12)?,
+            quote_product_name: row.get(13)?,
+            source_name: row.get(14)?,
+            source_url: row.get(15)?,
+            source_listing_id: row.get(16)?,
+            ship_from_country: row.get(17)?,
+            country_of_origin: row.get(18)?,
+            country_of_dispatch: row.get(19)?,
+            incoterm: row.get(20)?,
+            quoted_quantity: row.get(21)?,
+            quoted_quantity_unit: row.get(22)?,
+            unit_price_original_minor: row.get(23)?,
+            currency: row.get(24)?,
+            unit_price_gbp_pence: row.get(25)?,
+            offer_total_gbp_pence: row.get(26)?,
+            minimum_order_quantity: row.get(27)?,
+            lead_time_days: row.get(28)?,
+            includes_shipping: row.get(29)?,
+            price_signal_role: row.get(30)?,
+            listing_pack_qty: row.get(31)?,
+            listing_pack_unit: row.get(32)?,
+            vat_inclusive: row.get(33)?,
+            quote_evidence: row.get(34)?,
+            candidate_name: row.get(35)?,
+            head_noun: row.get(36)?,
+            specification_text: row.get(37)?,
+            standards_json: row.get(38)?,
+            critical_attributes_json: row.get(39)?,
+            numeric_specs_json: row.get(40)?,
+            material: row.get(41)?,
+            candidate_quantity: row.get(42)?,
+            candidate_quantity_unit: row.get(43)?,
+            lot_title: row.get(44)?,
+            lot_description: row.get(45)?,
+            notice_title: row.get(46)?,
+            notice_summary: row.get(47)?,
+            buyer_name: row.get(48)?,
+            main_category: row.get(49)?,
+        })
+    })?;
+    rows.collect::<std::result::Result<Vec<_>, _>>()
+        .context("loading Stage 11 landed-cost assessments")
+}
+
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
+async fn run_landed_cost_skill(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+    skill: &LoadedSkill,
+    kind: &str,
+    row: &LandedCostAssessmentRow,
+    job_parameters: &Value,
+) -> Result<LandedCostSkillRunOutcome> {
+    let adapter_config = adapter_runtime_config(cli, skill)?;
+    let job_id = format!("job-stage11-{kind}-{}", Uuid::new_v4().simple());
+    let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
+    let input_payload = json!({
+        "trigger": "manual_cli",
+        "kind": kind,
+        "skill_binding": skill_binding_payload(skill),
+        "agent_cli": adapter_config.kind.as_str(),
+        "job_parameters": job_parameters,
+        "durable_step_surfaces": live_loop_surfaces_json(),
+    })
+    .to_string();
+    let scope_id = stage11_scope_id(row);
+    runtime.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, process_id, notice_id, scope_kind, scope_id, status,
+              input_payload, validation_required, parent_job_id, validation_verdict_id
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', ?7, 0, NULL, NULL)
+            ",
+            params![
+                job_id,
+                kind,
+                row.process_id,
+                row.notice_id,
+                LANDED_COST_SCOPE_KIND,
+                scope_id,
+                input_payload,
+            ],
+        )?;
+        Ok(())
+    })?;
+
+    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+    let _claimed = runner
+        .claim_job_by_id(runtime.state_db.connection(), &job_id)?
+        .ok_or_else(|| anyhow!("expected claimed Stage 11 workflow job `{job_id}`"))?;
+
+    let execution = match execute_landed_cost_skill_session(
+        runtime,
+        skill,
+        &job_id,
+        &session_id,
+        job_parameters,
+        cli,
+    )
+    .await
+    {
+        Ok(executed) => executed,
+        Err(error) => {
+            mark_landed_cost_skill_job_failed(runtime, &job_id, &error.to_string())?;
+            return Ok(LandedCostSkillRunOutcome {
+                job_id,
+                session_id,
+                skill_version: skill.metadata.skill_version.clone(),
+                result_json: None,
+                failure_message: Some(error.to_string()),
+            });
+        }
+    };
+
+    insert_executed_session_log(runtime.state_db.connection(), skill, &job_id, &execution)?;
+
+    let Some(result_path) = execution.result_path.as_ref() else {
+        let message = format!(
+            "Stage 11 skill `{}` did not produce a result contract",
+            skill.metadata.skill_id
+        );
+        mark_landed_cost_skill_job_failed(runtime, &job_id, &message)?;
+        return Ok(LandedCostSkillRunOutcome {
+            job_id,
+            session_id,
+            skill_version: skill.metadata.skill_version.clone(),
+            result_json: None,
+            failure_message: Some(message),
+        });
+    };
+
+    let result_json = match read_result_contract(result_path).and_then(|payload| {
+        validate_result_schema(&skill.result_schema, &payload)?;
+        Ok(payload)
+    }) {
+        Ok(payload) => payload,
+        Err(error) => {
+            let message = error.to_string();
+            mark_landed_cost_skill_job_failed(runtime, &job_id, &message)?;
+            return Ok(LandedCostSkillRunOutcome {
+                job_id,
+                session_id,
+                skill_version: skill.metadata.skill_version.clone(),
+                result_json: None,
+                failure_message: Some(message),
+            });
+        }
+    };
+
+    let output_payload = json!({
+        "job_id": job_id,
+        "kind": kind,
+        "session_id": session_id,
+        "result_path": result_path,
+        "skill_binding": skill_binding_payload(skill),
+    })
+    .to_string();
+    runtime.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            UPDATE workflow_jobs
+            SET status = 'completed',
+                completed_at = ?1,
+                output_payload = ?2
+            WHERE id = ?3
+            ",
+            params![Utc::now().to_rfc3339(), output_payload, job_id],
+        )?;
+        Ok(())
+    })?;
+
+    Ok(LandedCostSkillRunOutcome {
+        job_id,
+        session_id,
+        skill_version: skill.metadata.skill_version.clone(),
+        result_json: Some(result_json),
+        failure_message: None,
+    })
+}
+
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
+async fn execute_landed_cost_skill_session(
+    runtime: &RuntimeBootstrap,
+    skill: &LoadedSkill,
+    job_id: &str,
+    session_id: &str,
+    job_parameters: &Value,
+    cli: &Cli,
+) -> Result<ExecutedSession> {
+    let adapter_config = adapter_runtime_config(cli, skill)?;
+    let adapter = build_adapter(&adapter_config);
+    let probe_ctx = ProbeCtx {
+        working_directory: repo_root()?,
+    };
+    let caps = adapter.probe(&probe_ctx).await?;
+    let mode = adapter.resolve_mode(&skill_manifest(skill)?, &caps)?;
+    let started_at = Utc::now();
+    let session_dir =
+        ArtifactStore::new(&runtime.artifact_root)?.session_dir(session_id, started_at)?;
+    let workdir = session_dir.join("workdir");
+    fs::create_dir_all(&workdir).with_context(|| format!("creating {}", workdir.display()))?;
+    let prompt = PromptRenderer::render(&PromptRendererInput {
+        skill_id: skill.metadata.skill_id.clone(),
+        skill_version: skill.metadata.skill_version.clone(),
+        skill_markdown: skill.skill_markdown.clone(),
+        job_id: job_id.to_owned(),
+        session_id: session_id.to_owned(),
+        execution_mode: execution_mode_label(mode).to_owned(),
+        job_parameters: job_parameters.clone(),
+        resume_token: None,
+        company_profile: None,
+    })?;
+    let request = SpawnRequest {
+        program: adapter_config
+            .program
+            .clone()
+            .unwrap_or_else(|| PathBuf::from(adapter_config.kind.as_str())),
+        args: launch_args_for_skill(&adapter_config, mode, &prompt),
+        env: std::collections::BTreeMap::default(),
+        cwd: workdir.clone(),
+    };
+    let launch_spec = adapter.build_launch_spec(&request, mode)?;
+    let config_hash = sha256_hex(
+        format!(
+            "{}:{}",
+            skill_config_hash(skill),
+            launch_spec_hash(&launch_spec)
+        )
+        .as_bytes(),
+    );
+
+    let stdout_path = session_dir.join("stdout.ndjson");
+    let stderr_path = session_dir.join("stderr.txt");
+    let stdout_file = fs::File::create(&stdout_path)
+        .with_context(|| format!("creating {}", stdout_path.display()))?;
+    let stderr_file = fs::File::create(&stderr_path)
+        .with_context(|| format!("creating {}", stderr_path.display()))?;
+    let mut command = process::Command::new(&launch_spec.program);
+    command
+        .args(&launch_spec.args)
+        .envs(launch_spec.env.iter())
+        .current_dir(&launch_spec.cwd)
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(stdout_file))
+        .stderr(Stdio::from(stderr_file));
+    #[cfg(unix)]
+    command.process_group(0);
+
+    let mut child = command.spawn().with_context(|| {
+        format!(
+            "spawning Stage 11 skill `{}` via `{}`",
+            skill.metadata.skill_id,
+            launch_spec.program.display()
+        )
+    })?;
+    let runtime_ids = child_runtime_ids(child.id()).ok();
+    let deadline = Instant::now() + Duration::from_secs(LANDED_COST_SKILL_TIMEOUT_SECONDS);
+    let status = loop {
+        if let Some(status) = child.try_wait().context("polling Stage 11 skill process")? {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            terminate_landed_cost_child(&mut child, runtime_ids);
+            bail!(
+                "Stage 11 skill `{}` timed out after {} seconds",
+                skill.metadata.skill_id,
+                LANDED_COST_SKILL_TIMEOUT_SECONDS
+            );
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    };
+
+    let stdout_bytes =
+        fs::read(&stdout_path).with_context(|| format!("reading {}", stdout_path.display()))?;
+    let stderr_bytes =
+        fs::read(&stderr_path).with_context(|| format!("reading {}", stderr_path.display()))?;
+    let result_path =
+        materialize_landed_cost_result_contract(&workdir, &stdout_bytes, &stderr_bytes)?;
+
+    let terminal_output_path = session_dir.join("terminal-output.txt");
+    let mut terminal_output = Vec::new();
+    terminal_output.extend_from_slice(b"--- stdout ---\n");
+    terminal_output.extend_from_slice(&stdout_bytes);
+    terminal_output.extend_from_slice(b"\n--- stderr ---\n");
+    terminal_output.extend_from_slice(&stderr_bytes);
+    fs::write(&terminal_output_path, &terminal_output)
+        .with_context(|| format!("writing {}", terminal_output_path.display()))?;
+    let terminal_output_hash = sha256_hex(&terminal_output);
+    let terminal_output_tail = String::from_utf8_lossy(&terminal_output)
+        .chars()
+        .rev()
+        .take(4000)
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect::<String>();
+    let terminal_output_bytes =
+        i64::try_from(terminal_output.len()).context("converting terminal-output size")?;
+
+    let mut parser = adapter.parser(mode);
+    let mut events = Vec::new();
+    if let Some(runtime_ids) = runtime_ids {
+        events.push(ControlEvent::Started {
+            pid: runtime_ids.pid,
+            pgid: runtime_ids.pgid,
+            sid: runtime_ids.sid,
+            mode,
+        });
+    }
+    events.extend(
+        parser
+            .on_output(&OutputFrame::Stdout(Bytes::from(stdout_bytes)))
+            .await?,
+    );
+    events.extend(
+        parser
+            .on_output(&OutputFrame::Stderr(Bytes::from(stderr_bytes)))
+            .await?,
+    );
+    events.push(ControlEvent::Exited {
+        status: portable_pty::ExitStatus::from(status),
+    });
+    events.extend(parser.finish().await?);
+    let phase_history = [
+        "created", "spawned", "active", "exited", "reaped", "archived",
+    ];
+    let structured_trace = json!({
+        "execution_mode": execution_mode_label(mode),
+        "phase_history": phase_history,
+        "capability_report": {
+            "cli_version": caps.cli_version,
+            "auth_healthy": caps.auth_healthy,
+            "structured_output": caps.structured_output,
+            "pty_viable": caps.pty_viable,
+            "browser_tools": caps.browser_tools,
+            "is_canary": caps.is_canary
+        },
+        "event_count": events.len(),
+        "terminal_output_path": terminal_output_path,
+        "bounded_stage11_runner": true,
+        "timeout_seconds": LANDED_COST_SKILL_TIMEOUT_SECONDS
+    })
+    .to_string();
+
+    Ok(ExecutedSession {
+        session_id: session_id.to_owned(),
+        started_at,
+        execution_mode: mode,
+        adapter_id: adapter.id().to_owned(),
+        cli_vendor: adapter.id().to_owned(),
+        config_hash,
+        pty_session_id: (mode == ExecutionMode::Pty).then(|| session_id.to_owned()),
+        runtime_ids,
+        completed_at: Utc::now().to_rfc3339(),
+        terminal_output_path: Some(terminal_output_path.to_string_lossy().into_owned()),
+        terminal_output_hash: Some(terminal_output_hash),
+        terminal_output_bytes: Some(terminal_output_bytes),
+        terminal_output_tail: Some(terminal_output_tail),
+        structured_trace,
+        exit_code: status.code().unwrap_or(-1),
+        cleanup_verdict: "clean".to_owned(),
+        last_checkpoint_seq: None,
+        result_path,
+        artifact_refs: vec![
+            stdout_path.to_string_lossy().into_owned(),
+            stderr_path.to_string_lossy().into_owned(),
+        ],
+    })
+}
+
+fn terminate_landed_cost_child(child: &mut process::Child, runtime_ids: Option<PtyRuntimeIds>) {
+    if let Some(runtime_ids) = runtime_ids
+        && let Ok(process_group_id) = i32::try_from(runtime_ids.pgid)
+        && current_runtime_ids().map_or(true, |current| current.pgid != runtime_ids.pgid)
+    {
+        let _ = kill(Pid::from_raw(-process_group_id), Signal::SIGTERM);
+        std::thread::sleep(Duration::from_millis(750));
+        if child.try_wait().ok().flatten().is_none() {
+            let _ = kill(Pid::from_raw(-process_group_id), Signal::SIGKILL);
+        }
+        let _ = child.wait();
+        return;
+    }
+
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+fn materialize_landed_cost_result_contract(
+    workdir: &Path,
+    stdout_bytes: &[u8],
+    stderr_bytes: &[u8],
+) -> Result<Option<PathBuf>> {
+    let result_path = workdir.join("result.json");
+    if result_path.exists() {
+        return Ok(Some(result_path));
+    }
+
+    let stdout_text = String::from_utf8_lossy(stdout_bytes);
+    let stderr_text = String::from_utf8_lossy(stderr_bytes);
+    for line in stdout_text.lines().rev().chain(stderr_text.lines().rev()) {
+        let Some(result_json) = extract_agent_message_json(line) else {
+            continue;
+        };
+        fs::write(&result_path, serde_json::to_vec_pretty(&result_json)?)
+            .with_context(|| format!("writing {}", result_path.display()))?;
+        return Ok(Some(result_path));
+    }
+
+    Ok(None)
+}
+
+fn extract_agent_message_json(line: &str) -> Option<Value> {
+    let envelope = serde_json::from_str::<Value>(line.trim()).ok()?;
+    let item = envelope.get("item")?;
+    let text = item
+        .get("text")
+        .and_then(Value::as_str)
+        .or_else(|| item.get("aggregated_output").and_then(Value::as_str))?
+        .trim();
+    let parsed = serde_json::from_str::<Value>(text).ok()?;
+    parsed.is_object().then_some(parsed)
+}
+
+fn mark_landed_cost_skill_job_failed(
+    runtime: &mut RuntimeBootstrap,
+    job_id: &str,
+    message: &str,
+) -> Result<()> {
+    runtime.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            UPDATE workflow_jobs
+            SET status = 'failed',
+                last_error = ?1,
+                completed_at = ?2,
+                output_payload = ?3
+            WHERE id = ?4
+            ",
+            params![
+                message,
+                Utc::now().to_rfc3339(),
+                json!({"error": message}).to_string(),
+                job_id,
+            ],
+        )?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
+const fn net_margin_bps(revenue_pence: i64, landed_cost_pence: i64) -> i64 {
+    if revenue_pence <= 0 {
+        0
+    } else {
+        (revenue_pence - landed_cost_pence) * 10_000 / revenue_pence
+    }
+}
+
+const fn import_vat_for_base(vat_rate_bps: i64, base_gbp_pence: i64) -> i64 {
+    if vat_rate_bps <= 0 || base_gbp_pence <= 0 {
+        0
+    } else {
+        base_gbp_pence.saturating_mul(vat_rate_bps) / 10_000
+    }
+}
+
+fn confidence_breakdown(
+    row: &LandedCostAssessmentRow,
+    supplier_cost: &SupplierCostBasis,
+    statuses: &Value,
+    skill_versions: &Value,
+    skill_session_ids: &Value,
+    vat_policy: &str,
+) -> String {
+    json!({
+        "schema": "stage11_mvp_confidence_breakdown_v1",
+        "pricing_assessment_id": row.pricing_assessment_id,
+        "selected_quote_id": row.selected_quote_id,
+        "selected_quote_row_version": row.selected_quote_row_version,
+        "supplier_quote_row_version": row.quote_row_version,
+        "supplier_cost_basis": {
+            "basis": supplier_cost.basis,
+            "quantity": supplier_cost.quantity,
+            "quantity_unit": supplier_cost.quantity_unit,
+        },
+        "skill_versions": skill_versions,
+        "skill_session_ids": skill_session_ids,
+        "statuses": statuses,
+        "vat_policy": vat_policy,
+        "checked_at": Utc::now().to_rfc3339(),
+    })
+    .to_string()
+}
+
+#[allow(clippy::too_many_lines)]
+fn build_domestic_landed_cost_estimate(
+    row: &LandedCostAssessmentRow,
+    supplier_cost: &SupplierCostBasis,
+    stage_run_id: &str,
+    skill_versions: &Value,
+) -> Result<LandedCostEstimateWrite> {
+    let mut warnings = supplier_cost.warnings.clone();
+    warnings.push(Stage11Issue::warning(
+        "DOMESTIC_QUOTE_NO_IMPORT_CUSTOMS",
+        "Selected quote ships from GB, so MVP Stage 11 did not run import customs classification.",
+    ));
+    warnings.push(Stage11Issue::warning(
+        "DOMESTIC_FINAL_MILE_NOT_MODELED",
+        "MVP domestic policy records zero final-mile freight unless supplier evidence includes it.",
+    ));
+    if row.revenue_basis_type == "rfq_required"
+        || row.expected_addressable_revenue_ex_vat_pence <= 0
+    {
+        warnings.push(Stage11Issue::warning(
+            "REVENUE_BASIS_RFQ_REQUIRED",
+            "Stage 10 revenue is unavailable, so Stage 11 net-margin columns are persisted as 0.",
+        ));
+    }
+
+    let economic_landed_cost_gbp_pence = supplier_cost.supplier_cost_gbp_pence;
+    let confidence_bps = clamp_bps(
+        row.pricing_input_confidence_bps
+            .min(row.gross_estimate_confidence_bps)
+            .min(6500),
+    );
+    let statuses = json!({
+        "customs_status": "domestic_no_import",
+        "shipment_sizing_status": "not_required",
+        "freight_status": "not_required",
+        "fx_status": "not_required",
+    });
+    let skill_session_ids = json!({
+        "hmrc_customs": null,
+        "shipment_sizing": null,
+        "searates_freight": null,
+        "simple_fx": null,
+    });
+
+    Ok(LandedCostEstimateWrite {
+        id: format!(
+            "landed-{}-{}",
+            row.product_candidate_id, row.selected_quote_id
+        ),
+        process_id: row.process_id.clone(),
+        notice_id: row.notice_id.clone(),
+        product_candidate_id: row.product_candidate_id.clone(),
+        supplier_quote_id: row.selected_quote_id.clone(),
+        shipping_mode: "domestic".to_owned(),
+        mode_confidence_bps: 6500,
+        packing_scenario: Some("domestic_quote_no_import".to_owned()),
+        declarable_commodity_code_10: None,
+        candidate_commodity_codes_json: None,
+        additional_codes: None,
+        additional_code_requirements_json: None,
+        supplementary_units_required_json: Some("[]".to_owned()),
+        commodity_confidence_bps: 10_000,
+        classification_stability_bps: 10_000,
+        customs_valuation_method: Some("not_required_domestic".to_owned()),
+        valuation_mode: Some("mvp_proxy".to_owned()),
+        customs_fx_rate: 1.0,
+        commercial_fx_rate: 1.0,
+        fx_basis_delta_bps: 0,
+        fx_rate_checked_at: Some(Utc::now().to_rfc3339()),
+        supplier_cost_gbp_pence: supplier_cost.supplier_cost_gbp_pence,
+        freight_low_gbp_pence: 0,
+        freight_base_gbp_pence: 0,
+        freight_high_gbp_pence: 0,
+        customs_duty_gbp_pence: 0,
+        trade_remedy_duty_gbp_pence: Some(0),
+        duty_outcome_min_gbp_pence: Some(0),
+        duty_outcome_max_gbp_pence: Some(0),
+        customs_cost_spread_bps: Some(0),
+        trade_remedy_state: Some("not_required_domestic".to_owned()),
+        trade_remedy_cases_json: Some("[]".to_owned()),
+        duty_breakdown_json: Some("[]".to_owned()),
+        measure_interaction_json: None,
+        exporter_rate_basis: None,
+        exporter_identity_confidence_bps: None,
+        origin_evidence_state: Some("domestic_ship_from_country".to_owned()),
+        import_vat_gbp_pence: 0,
+        vat_rate_state: Some("not_import".to_owned()),
+        import_vat_treatment: "not_applicable_domestic".to_owned(),
+        vat_recovery_rate_bps: None,
+        uk_final_mile_cost_gbp_pence: 0,
+        other_fees_gbp_pence: 0,
+        economic_landed_cost_gbp_pence,
+        cash_outlay_gbp_pence: economic_landed_cost_gbp_pence,
+        cash_to_clear_gbp_pence: 0,
+        working_capital_cost_gbp_pence: None,
+        revenue_basis_type: row.revenue_basis_type.clone(),
+        revenue_confidence_bps: row.revenue_confidence_bps,
+        customs_resolution_confidence_bps: Some(10_000),
+        commercial_estimate_confidence_bps: Some(confidence_bps),
+        net_margin_low_bps: net_margin_bps(
+            row.expected_addressable_revenue_ex_vat_pence,
+            economic_landed_cost_gbp_pence,
+        ),
+        net_margin_base_bps: net_margin_bps(
+            row.expected_addressable_revenue_ex_vat_pence,
+            economic_landed_cost_gbp_pence,
+        ),
+        net_margin_high_bps: net_margin_bps(
+            row.expected_addressable_revenue_ex_vat_pence,
+            economic_landed_cost_gbp_pence,
+        ),
+        decision_grade: "review".to_owned(),
+        confidence_bps,
+        confidence_breakdown: confidence_breakdown(
+            row,
+            supplier_cost,
+            &statuses,
+            skill_versions,
+            &skill_session_ids,
+            "domestic_no_import_vat_not_modelled",
+        ),
+        warnings: json_array_string(&warnings)?,
+        blockers: "[]".to_owned(),
+        tariff_checked_at: None,
+        measures_fresh_until: None,
+        classification_fresh_until: None,
+        trade_remedy_watch_state: Some("not_required_domestic".to_owned()),
+        cbam_exposure_flag: Some(0),
+        cbam_estimate_gbp_pence: None,
+        stage_run_id: stage_run_id.to_owned(),
+    })
+}
+
+#[allow(
+    clippy::assigning_clones,
+    clippy::single_match_else,
+    clippy::too_many_arguments,
+    clippy::too_many_lines
+)]
+fn build_import_landed_cost_estimate(
+    row: &LandedCostAssessmentRow,
+    supplier_cost: &SupplierCostBasis,
+    stage_run_id: &str,
+    customs: Option<&HmrcCustomsClassificationResult>,
+    sizing: Option<&ShipmentSizingResult>,
+    freight: &FreightScenarioGbp,
+    skill_versions: &Value,
+    skill_session_ids: &Value,
+) -> Result<LandedCostEstimateWrite> {
+    let mut warnings = supplier_cost.warnings.clone();
+    let mut blockers = Vec::new();
+    let mut customs_status = "blocked";
+    let mut sizing_status = "blocked";
+    let mut freight_status = freight.fx_status.as_str();
+
+    let mut customs_duty_gbp_pence = 0;
+    let mut trade_remedy_duty_gbp_pence = 0;
+    let mut vat_rate_bps = 2000;
+    let mut commodity_confidence_bps = 0;
+    let mut classification_stability_bps = 0;
+    let mut declarable_commodity_code_10 = None;
+    let mut candidate_commodity_codes_json = None;
+    let mut additional_codes = None;
+    let mut additional_code_requirements_json = None;
+    let mut supplementary_units_required_json = Some("[]".to_owned());
+    let mut trade_remedy_state = Some("unknown".to_owned());
+    let mut trade_remedy_cases_json = Some("[]".to_owned());
+    let mut duty_breakdown_json = Some("[]".to_owned());
+    let mut measure_interaction_json = None;
+    let mut origin_evidence_state = row
+        .country_of_origin
+        .as_ref()
+        .map(|_| "quote_country_of_origin".to_owned())
+        .or_else(|| {
+            row.ship_from_country
+                .as_ref()
+                .map(|_| "quote_ship_from_country".to_owned())
+        });
+    let mut tariff_checked_at = None;
+    let mut measures_fresh_until = None;
+    let mut classification_fresh_until = None;
+    let mut customs_resolution_confidence_bps = Some(0);
+
+    match customs {
+        Some(result) if result.classification_status == "classified" => {
+            customs_status = "classified";
+            warnings.extend(result.warnings.clone());
+            blockers.extend(result.blockers.clone());
+            declarable_commodity_code_10 = result.declarable_commodity_code_10.clone();
+            candidate_commodity_codes_json =
+                Some(json!(result.candidate_commodity_codes).to_string());
+            additional_codes = optional_json_string(result.additional_codes.clone());
+            additional_code_requirements_json =
+                optional_json_string(result.additional_code_requirements.clone());
+            supplementary_units_required_json =
+                Some(json!(result.supplementary_units_required).to_string());
+            commodity_confidence_bps = clamp_bps(result.commodity_confidence_bps.unwrap_or(0));
+            classification_stability_bps =
+                clamp_bps(result.classification_stability_bps.unwrap_or(0));
+            customs_duty_gbp_pence = result.customs_duty_gbp_pence.unwrap_or(0);
+            trade_remedy_duty_gbp_pence = result.trade_remedy_duty_gbp_pence.unwrap_or(0);
+            vat_rate_bps = result.vat_rate_bps.unwrap_or(2000);
+            trade_remedy_state = result.trade_remedy_state.clone();
+            trade_remedy_cases_json = Some(json!(result.trade_remedy_cases).to_string());
+            duty_breakdown_json = Some(json!(result.duty_breakdown).to_string());
+            measure_interaction_json = optional_json_string(result.measure_interaction.clone());
+            origin_evidence_state = result
+                .origin_evidence_state
+                .clone()
+                .or(origin_evidence_state);
+            tariff_checked_at = result.tariff_checked_at.clone();
+            measures_fresh_until = result.measures_fresh_until.clone();
+            classification_fresh_until = result.classification_fresh_until.clone();
+            customs_resolution_confidence_bps = Some(commodity_confidence_bps);
+        }
+        Some(result) => {
+            warnings.extend(result.warnings.clone());
+            blockers.extend(result.blockers.clone());
+            if result.blockers.is_empty() {
+                blockers.push(Stage11Issue::blocked(
+                    "CUSTOMS_CLASSIFICATION_BLOCKED",
+                    "HMRC customs skill did not produce a classified import result.",
+                ));
+            }
+            customs_status = result.classification_status.as_str();
+            commodity_confidence_bps = clamp_bps(result.commodity_confidence_bps.unwrap_or(0));
+            classification_stability_bps =
+                clamp_bps(result.classification_stability_bps.unwrap_or(0));
+            candidate_commodity_codes_json =
+                Some(json!(result.candidate_commodity_codes).to_string());
+            customs_duty_gbp_pence = result.customs_duty_gbp_pence.unwrap_or(0);
+            trade_remedy_duty_gbp_pence = result.trade_remedy_duty_gbp_pence.unwrap_or(0);
+            if let Some(rate) = result.vat_rate_bps {
+                vat_rate_bps = rate;
+            } else {
+                warnings.push(Stage11Issue::warning(
+                    "VAT_STANDARD_ASSUMED",
+                    "Customs VAT rate was unavailable; MVP Stage 11 assumed the UK standard import VAT rate.",
+                ));
+            }
+            tariff_checked_at = result.tariff_checked_at.clone();
+        }
+        None => {
+            blockers.push(Stage11Issue::blocked(
+                "CUSTOMS_SKILL_NO_RESULT",
+                "HMRC customs skill did not return a usable result contract.",
+            ));
+            warnings.push(Stage11Issue::warning(
+                "VAT_STANDARD_ASSUMED",
+                "Customs skill failed before VAT rate resolution; MVP Stage 11 assumed the UK standard import VAT rate for cash visibility.",
+            ));
+        }
+    }
+
+    let mut shipping_mode = "unknown_import".to_owned();
+    let mut mode_confidence_bps = 1000;
+    let mut packing_scenario = None;
+    let mut commercial_estimate_confidence_bps = Some(1000);
+    if let Some(result) = sizing {
+        warnings.extend(result.warnings.clone());
+        match result.sizing_status.as_str() {
+            "sized" => {
+                sizing_status = "sized";
+                mode_confidence_bps = clamp_bps(result.confidence_bps.unwrap_or(5000));
+                commercial_estimate_confidence_bps = Some(mode_confidence_bps);
+                packing_scenario = result.container_plan.as_ref().map(Value::to_string);
+                shipping_mode = result
+                    .container_plan
+                    .as_ref()
+                    .and_then(|plan| plan.get("mode"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("sea_freight")
+                    .to_owned();
+            }
+            _ => {
+                blockers.extend(result.blockers.clone());
+                if result.blockers.is_empty() {
+                    blockers.push(Stage11Issue::blocked(
+                        "SHIPMENT_SIZING_BLOCKED",
+                        "Shipment sizing skill did not produce total weight and CBM.",
+                    ));
+                }
+            }
+        }
+    } else {
+        blockers.push(Stage11Issue::blocked(
+            "SHIPMENT_SIZING_NO_RESULT",
+            "Shipment sizing skill did not return a usable result contract.",
+        ));
+    }
+
+    warnings.extend(freight.warnings.clone());
+    blockers.extend(freight.blockers.clone());
+    if freight.base_gbp_pence > 0 {
+        freight_status = "quoted";
+        if shipping_mode == "unknown_import" {
+            shipping_mode = "sea_freight".to_owned();
+        }
+        mode_confidence_bps = mode_confidence_bps.max(4000);
+    }
+
+    if row.revenue_basis_type == "rfq_required"
+        || row.expected_addressable_revenue_ex_vat_pence <= 0
+    {
+        warnings.push(Stage11Issue::warning(
+            "REVENUE_BASIS_RFQ_REQUIRED",
+            "Stage 10 revenue is unavailable, so Stage 11 net-margin columns are persisted as 0.",
+        ));
+    }
+
+    warnings.push(Stage11Issue::warning(
+        "IMPORT_VAT_RECOVERABILITY_UNKNOWN_INCLUDED_IN_ECONOMIC_COST",
+        "MVP policy includes import VAT in economic landed cost when recoverability is unknown.",
+    ));
+    warnings.push(Stage11Issue::warning(
+        "CLEARANCE_FEES_NOT_MODELED",
+        "MVP Stage 11 records zero broker/clearance/other fees unless evidence provides them.",
+    ));
+
+    let duty_total = customs_duty_gbp_pence.saturating_add(trade_remedy_duty_gbp_pence);
+    let base_import_vat = import_vat_for_base(
+        vat_rate_bps,
+        supplier_cost
+            .supplier_cost_gbp_pence
+            .saturating_add(freight.base_gbp_pence)
+            .saturating_add(duty_total),
+    );
+    let low_import_vat = import_vat_for_base(
+        vat_rate_bps,
+        supplier_cost
+            .supplier_cost_gbp_pence
+            .saturating_add(freight.low_gbp_pence)
+            .saturating_add(duty_total),
+    );
+    let high_import_vat = import_vat_for_base(
+        vat_rate_bps,
+        supplier_cost
+            .supplier_cost_gbp_pence
+            .saturating_add(freight.high_gbp_pence)
+            .saturating_add(duty_total),
+    );
+    let low_landed_cost = supplier_cost
+        .supplier_cost_gbp_pence
+        .saturating_add(freight.low_gbp_pence)
+        .saturating_add(duty_total)
+        .saturating_add(low_import_vat);
+    let base_landed_cost = supplier_cost
+        .supplier_cost_gbp_pence
+        .saturating_add(freight.base_gbp_pence)
+        .saturating_add(duty_total)
+        .saturating_add(base_import_vat);
+    let high_landed_cost = supplier_cost
+        .supplier_cost_gbp_pence
+        .saturating_add(freight.high_gbp_pence)
+        .saturating_add(duty_total)
+        .saturating_add(high_import_vat);
+    let confidence_bps = if blockers.is_empty() {
+        [
+            row.pricing_input_confidence_bps,
+            commodity_confidence_bps,
+            mode_confidence_bps,
+            commercial_estimate_confidence_bps.unwrap_or(0),
+        ]
+        .into_iter()
+        .min()
+        .unwrap_or(0)
+    } else {
+        [
+            row.pricing_input_confidence_bps.min(3000),
+            commodity_confidence_bps,
+            mode_confidence_bps,
+        ]
+        .into_iter()
+        .min()
+        .unwrap_or(0)
+    };
+    let statuses = json!({
+        "customs_status": customs_status,
+        "shipment_sizing_status": sizing_status,
+        "freight_status": freight_status,
+        "fx_status": freight.fx_status,
+    });
+
+    Ok(LandedCostEstimateWrite {
+        id: format!(
+            "landed-{}-{}",
+            row.product_candidate_id, row.selected_quote_id
+        ),
+        process_id: row.process_id.clone(),
+        notice_id: row.notice_id.clone(),
+        product_candidate_id: row.product_candidate_id.clone(),
+        supplier_quote_id: row.selected_quote_id.clone(),
+        shipping_mode,
+        mode_confidence_bps: clamp_bps(mode_confidence_bps),
+        packing_scenario,
+        declarable_commodity_code_10,
+        candidate_commodity_codes_json,
+        additional_codes,
+        additional_code_requirements_json,
+        supplementary_units_required_json,
+        commodity_confidence_bps,
+        classification_stability_bps,
+        customs_valuation_method: Some("transaction_value_proxy".to_owned()),
+        valuation_mode: Some("mvp_proxy".to_owned()),
+        customs_fx_rate: 1.0,
+        commercial_fx_rate: freight.fx_rate,
+        fx_basis_delta_bps: 0,
+        fx_rate_checked_at: freight.fx_checked_at.clone(),
+        supplier_cost_gbp_pence: supplier_cost.supplier_cost_gbp_pence,
+        freight_low_gbp_pence: freight.low_gbp_pence,
+        freight_base_gbp_pence: freight.base_gbp_pence,
+        freight_high_gbp_pence: freight.high_gbp_pence,
+        customs_duty_gbp_pence,
+        trade_remedy_duty_gbp_pence: Some(trade_remedy_duty_gbp_pence),
+        duty_outcome_min_gbp_pence: Some(customs_duty_gbp_pence),
+        duty_outcome_max_gbp_pence: Some(customs_duty_gbp_pence + trade_remedy_duty_gbp_pence),
+        customs_cost_spread_bps: Some(0),
+        trade_remedy_state,
+        trade_remedy_cases_json,
+        duty_breakdown_json,
+        measure_interaction_json,
+        exporter_rate_basis: None,
+        exporter_identity_confidence_bps: None,
+        origin_evidence_state,
+        import_vat_gbp_pence: base_import_vat,
+        vat_rate_state: Some("standard_or_hmrc_rate".to_owned()),
+        import_vat_treatment: "recoverability_unknown".to_owned(),
+        vat_recovery_rate_bps: None,
+        uk_final_mile_cost_gbp_pence: 0,
+        other_fees_gbp_pence: 0,
+        economic_landed_cost_gbp_pence: base_landed_cost,
+        cash_outlay_gbp_pence: base_landed_cost,
+        cash_to_clear_gbp_pence: duty_total.saturating_add(base_import_vat),
+        working_capital_cost_gbp_pence: None,
+        revenue_basis_type: row.revenue_basis_type.clone(),
+        revenue_confidence_bps: row.revenue_confidence_bps,
+        customs_resolution_confidence_bps,
+        commercial_estimate_confidence_bps,
+        net_margin_low_bps: net_margin_bps(
+            row.expected_addressable_revenue_ex_vat_pence,
+            high_landed_cost,
+        ),
+        net_margin_base_bps: net_margin_bps(
+            row.expected_addressable_revenue_ex_vat_pence,
+            base_landed_cost,
+        ),
+        net_margin_high_bps: net_margin_bps(
+            row.expected_addressable_revenue_ex_vat_pence,
+            low_landed_cost,
+        ),
+        decision_grade: if blockers.is_empty() {
+            "review".to_owned()
+        } else {
+            "blocked".to_owned()
+        },
+        confidence_bps: clamp_bps(confidence_bps),
+        confidence_breakdown: confidence_breakdown(
+            row,
+            supplier_cost,
+            &statuses,
+            skill_versions,
+            skill_session_ids,
+            "include_unknown_recovery_in_economic_cost",
+        ),
+        warnings: json_array_string(&warnings)?,
+        blockers: json_array_string(&blockers)?,
+        tariff_checked_at,
+        measures_fresh_until,
+        classification_fresh_until,
+        trade_remedy_watch_state: Some("not_watched_mvp".to_owned()),
+        cbam_exposure_flag: Some(0),
+        cbam_estimate_gbp_pence: None,
+        stage_run_id: stage_run_id.to_owned(),
+    })
+}
+
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::future_not_send,
+    clippy::too_many_lines
+)]
+async fn freight_scenario_from_searates(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+    fx_skill: &LoadedSkill,
+    row: &LandedCostAssessmentRow,
+    freight_result: Option<&SeaRatesFreightResult>,
+) -> Result<FreightScenarioGbp> {
+    let Some(result) = freight_result else {
+        return Ok(FreightScenarioGbp {
+            low_gbp_pence: 0,
+            base_gbp_pence: 0,
+            high_gbp_pence: 0,
+            fx_rate: 1.0,
+            fx_checked_at: Some(Utc::now().to_rfc3339()),
+            fx_status: "not_required".to_owned(),
+            warnings: Vec::new(),
+            blockers: vec![Stage11Issue::blocked(
+                "SEARATES_NO_RESULT",
+                "SeaRates freight skill did not return a usable result contract.",
+            )],
+        });
+    };
+
+    if result.freight_status != "quoted" {
+        return Ok(FreightScenarioGbp {
+            low_gbp_pence: 0,
+            base_gbp_pence: 0,
+            high_gbp_pence: 0,
+            fx_rate: 1.0,
+            fx_checked_at: Some(Utc::now().to_rfc3339()),
+            fx_status: "blocked".to_owned(),
+            warnings: result.warnings.clone(),
+            blockers: if result.blockers.is_empty() {
+                vec![Stage11Issue::blocked(
+                    "SEARATES_FREIGHT_BLOCKED",
+                    "SeaRates freight skill did not produce a quote.",
+                )]
+            } else {
+                result.blockers.clone()
+            },
+        });
+    }
+
+    let currency = result
+        .freight_currency
+        .as_deref()
+        .unwrap_or("GBP")
+        .to_ascii_uppercase();
+    let base_minor = result
+        .freight_base_amount_minor
+        .or(result.freight_amount_minor)
+        .unwrap_or(0);
+    let low_minor = result.freight_low_amount_minor.unwrap_or(base_minor);
+    let high_minor = result.freight_high_amount_minor.unwrap_or(base_minor);
+    let mut warnings = result.warnings.clone();
+    if result.quote_expired {
+        warnings.push(Stage11Issue::warning(
+            "SEARATES_PRICE_EXPIRED",
+            "SeaRates displayed an expired estimate; MVP Stage 11 retained it as reference evidence.",
+        ));
+    }
+
+    if currency == "GBP" {
+        return Ok(FreightScenarioGbp {
+            low_gbp_pence: low_minor,
+            base_gbp_pence: base_minor,
+            high_gbp_pence: high_minor,
+            fx_rate: 1.0,
+            fx_checked_at: Some(Utc::now().to_rfc3339()),
+            fx_status: "not_required".to_owned(),
+            warnings,
+            blockers: Vec::new(),
+        });
+    }
+
+    let fx_parameters = json!({
+        "product_candidate_id": row.product_candidate_id,
+        "selected_quote_id": row.selected_quote_id,
+        "source_currency": currency,
+        "target_currency": "GBP",
+        "amount_minor": base_minor,
+        "source_amounts_minor": {
+            "low": low_minor,
+            "base": base_minor,
+            "high": high_minor,
+        },
+    });
+    let fx_outcome = run_landed_cost_skill(
+        runtime,
+        cli,
+        fx_skill,
+        "landed_cost_simple_fx",
+        row,
+        &fx_parameters,
+    )
+    .await?;
+    let Some(fx_json) = fx_outcome.result_json.as_ref() else {
+        let mut blockers = result.blockers.clone();
+        blockers.push(Stage11Issue::blocked(
+            "FX_LOOKUP_FAILED",
+            fx_outcome
+                .failure_message
+                .unwrap_or_else(|| "Simple FX lookup did not return a result.".to_owned()),
+        ));
+        return Ok(FreightScenarioGbp {
+            low_gbp_pence: 0,
+            base_gbp_pence: 0,
+            high_gbp_pence: 0,
+            fx_rate: 1.0,
+            fx_checked_at: Some(Utc::now().to_rfc3339()),
+            fx_status: "blocked".to_owned(),
+            warnings,
+            blockers,
+        });
+    };
+    let fx = match parse_simple_fx_lookup_result(fx_json) {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            return Ok(FreightScenarioGbp {
+                low_gbp_pence: 0,
+                base_gbp_pence: 0,
+                high_gbp_pence: 0,
+                fx_rate: 1.0,
+                fx_checked_at: Some(Utc::now().to_rfc3339()),
+                fx_status: "blocked".to_owned(),
+                warnings,
+                blockers: vec![Stage11Issue::blocked(
+                    "FX_RESULT_INVALID",
+                    error.to_string(),
+                )],
+            });
+        }
+    };
+    warnings.extend(fx.warnings.clone());
+    if fx.fx_status == "blocked" {
+        return Ok(FreightScenarioGbp {
+            low_gbp_pence: 0,
+            base_gbp_pence: 0,
+            high_gbp_pence: 0,
+            fx_rate: 1.0,
+            fx_checked_at: Some(fx.checked_at),
+            fx_status: "blocked".to_owned(),
+            warnings,
+            blockers: fx.blockers,
+        });
+    }
+
+    let convert = |amount_minor: i64| ((amount_minor as f64) * fx.rate).round() as i64;
+    Ok(FreightScenarioGbp {
+        low_gbp_pence: convert(low_minor),
+        base_gbp_pence: fx
+            .converted_amount_gbp_pence
+            .unwrap_or_else(|| convert(base_minor)),
+        high_gbp_pence: convert(high_minor),
+        fx_rate: fx.rate,
+        fx_checked_at: Some(fx.checked_at),
+        fx_status: "converted".to_owned(),
+        warnings,
+        blockers: Vec::new(),
+    })
+}
+
+#[allow(clippy::too_many_lines)]
+fn persist_landed_cost_estimate(
+    state_db: &mut StateDb,
+    estimate: &LandedCostEstimateWrite,
+) -> Result<()> {
+    state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        tx.execute(
+            "\
+            INSERT INTO landed_cost_estimates (
+              id, process_id, notice_id, product_candidate_id, supplier_quote_id,
+              shipping_mode, mode_confidence_bps, packing_scenario,
+              declarable_commodity_code_10, candidate_commodity_codes_json,
+              additional_codes, additional_code_requirements_json,
+              supplementary_units_required_json, commodity_confidence_bps,
+              classification_stability_bps, customs_valuation_method, valuation_mode,
+              customs_fx_rate, commercial_fx_rate, fx_basis_delta_bps, fx_rate_checked_at,
+              supplier_cost_gbp_pence, freight_low_gbp_pence, freight_base_gbp_pence,
+              freight_high_gbp_pence, customs_duty_gbp_pence,
+              trade_remedy_duty_gbp_pence, duty_outcome_min_gbp_pence,
+              duty_outcome_max_gbp_pence, customs_cost_spread_bps, trade_remedy_state,
+              trade_remedy_cases_json, duty_breakdown_json, measure_interaction_json,
+              exporter_rate_basis, exporter_identity_confidence_bps, origin_evidence_state,
+              import_vat_gbp_pence, vat_rate_state, import_vat_treatment,
+              vat_recovery_rate_bps, uk_final_mile_cost_gbp_pence, other_fees_gbp_pence,
+              economic_landed_cost_gbp_pence, cash_outlay_gbp_pence,
+              cash_to_clear_gbp_pence, working_capital_cost_gbp_pence,
+              revenue_basis_type, revenue_confidence_bps,
+              customs_resolution_confidence_bps, commercial_estimate_confidence_bps,
+              net_margin_low_bps, net_margin_base_bps, net_margin_high_bps,
+              decision_grade, confidence_bps, confidence_breakdown, warnings, blockers,
+              tariff_checked_at, measures_fresh_until, classification_fresh_until,
+              trade_remedy_watch_state, cbam_exposure_flag, cbam_estimate_gbp_pence,
+              owner_id, last_local_seq, stage_run_id
+            ) VALUES (
+              ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15,
+              ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28,
+              ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41,
+              ?42, ?43, ?44, ?45, ?46, ?47, ?48, ?49, ?50, ?51, ?52, ?53, ?54,
+              ?55, ?56, ?57, ?58, ?59, ?60, ?61, ?62, ?63, ?64, ?65, ?66, ?67,
+              ?68
+            )
+            ON CONFLICT(id) DO UPDATE SET
+              process_id = excluded.process_id,
+              notice_id = excluded.notice_id,
+              product_candidate_id = excluded.product_candidate_id,
+              supplier_quote_id = excluded.supplier_quote_id,
+              shipping_mode = excluded.shipping_mode,
+              mode_confidence_bps = excluded.mode_confidence_bps,
+              packing_scenario = excluded.packing_scenario,
+              declarable_commodity_code_10 = excluded.declarable_commodity_code_10,
+              candidate_commodity_codes_json = excluded.candidate_commodity_codes_json,
+              additional_codes = excluded.additional_codes,
+              additional_code_requirements_json = excluded.additional_code_requirements_json,
+              supplementary_units_required_json = excluded.supplementary_units_required_json,
+              commodity_confidence_bps = excluded.commodity_confidence_bps,
+              classification_stability_bps = excluded.classification_stability_bps,
+              customs_valuation_method = excluded.customs_valuation_method,
+              valuation_mode = excluded.valuation_mode,
+              customs_fx_rate = excluded.customs_fx_rate,
+              commercial_fx_rate = excluded.commercial_fx_rate,
+              fx_basis_delta_bps = excluded.fx_basis_delta_bps,
+              fx_rate_checked_at = excluded.fx_rate_checked_at,
+              supplier_cost_gbp_pence = excluded.supplier_cost_gbp_pence,
+              freight_low_gbp_pence = excluded.freight_low_gbp_pence,
+              freight_base_gbp_pence = excluded.freight_base_gbp_pence,
+              freight_high_gbp_pence = excluded.freight_high_gbp_pence,
+              customs_duty_gbp_pence = excluded.customs_duty_gbp_pence,
+              trade_remedy_duty_gbp_pence = excluded.trade_remedy_duty_gbp_pence,
+              duty_outcome_min_gbp_pence = excluded.duty_outcome_min_gbp_pence,
+              duty_outcome_max_gbp_pence = excluded.duty_outcome_max_gbp_pence,
+              customs_cost_spread_bps = excluded.customs_cost_spread_bps,
+              trade_remedy_state = excluded.trade_remedy_state,
+              trade_remedy_cases_json = excluded.trade_remedy_cases_json,
+              duty_breakdown_json = excluded.duty_breakdown_json,
+              measure_interaction_json = excluded.measure_interaction_json,
+              exporter_rate_basis = excluded.exporter_rate_basis,
+              exporter_identity_confidence_bps = excluded.exporter_identity_confidence_bps,
+              origin_evidence_state = excluded.origin_evidence_state,
+              import_vat_gbp_pence = excluded.import_vat_gbp_pence,
+              vat_rate_state = excluded.vat_rate_state,
+              import_vat_treatment = excluded.import_vat_treatment,
+              vat_recovery_rate_bps = excluded.vat_recovery_rate_bps,
+              uk_final_mile_cost_gbp_pence = excluded.uk_final_mile_cost_gbp_pence,
+              other_fees_gbp_pence = excluded.other_fees_gbp_pence,
+              economic_landed_cost_gbp_pence = excluded.economic_landed_cost_gbp_pence,
+              cash_outlay_gbp_pence = excluded.cash_outlay_gbp_pence,
+              cash_to_clear_gbp_pence = excluded.cash_to_clear_gbp_pence,
+              working_capital_cost_gbp_pence = excluded.working_capital_cost_gbp_pence,
+              revenue_basis_type = excluded.revenue_basis_type,
+              revenue_confidence_bps = excluded.revenue_confidence_bps,
+              customs_resolution_confidence_bps = excluded.customs_resolution_confidence_bps,
+              commercial_estimate_confidence_bps = excluded.commercial_estimate_confidence_bps,
+              net_margin_low_bps = excluded.net_margin_low_bps,
+              net_margin_base_bps = excluded.net_margin_base_bps,
+              net_margin_high_bps = excluded.net_margin_high_bps,
+              decision_grade = excluded.decision_grade,
+              confidence_bps = excluded.confidence_bps,
+              confidence_breakdown = excluded.confidence_breakdown,
+              warnings = excluded.warnings,
+              blockers = excluded.blockers,
+              tariff_checked_at = excluded.tariff_checked_at,
+              measures_fresh_until = excluded.measures_fresh_until,
+              classification_fresh_until = excluded.classification_fresh_until,
+              trade_remedy_watch_state = excluded.trade_remedy_watch_state,
+              cbam_exposure_flag = excluded.cbam_exposure_flag,
+              cbam_estimate_gbp_pence = excluded.cbam_estimate_gbp_pence,
+              owner_id = excluded.owner_id,
+              row_version = landed_cost_estimates.row_version + 1,
+              last_local_seq = excluded.last_local_seq,
+              stage_run_id = excluded.stage_run_id,
+              updated_at = CURRENT_TIMESTAMP
+            ",
+            params![
+                estimate.id,
+                estimate.process_id,
+                estimate.notice_id,
+                estimate.product_candidate_id,
+                estimate.supplier_quote_id,
+                estimate.shipping_mode,
+                estimate.mode_confidence_bps,
+                estimate.packing_scenario,
+                estimate.declarable_commodity_code_10,
+                estimate.candidate_commodity_codes_json,
+                estimate.additional_codes,
+                estimate.additional_code_requirements_json,
+                estimate.supplementary_units_required_json,
+                estimate.commodity_confidence_bps,
+                estimate.classification_stability_bps,
+                estimate.customs_valuation_method,
+                estimate.valuation_mode,
+                estimate.customs_fx_rate,
+                estimate.commercial_fx_rate,
+                estimate.fx_basis_delta_bps,
+                estimate.fx_rate_checked_at,
+                estimate.supplier_cost_gbp_pence,
+                estimate.freight_low_gbp_pence,
+                estimate.freight_base_gbp_pence,
+                estimate.freight_high_gbp_pence,
+                estimate.customs_duty_gbp_pence,
+                estimate.trade_remedy_duty_gbp_pence,
+                estimate.duty_outcome_min_gbp_pence,
+                estimate.duty_outcome_max_gbp_pence,
+                estimate.customs_cost_spread_bps,
+                estimate.trade_remedy_state,
+                estimate.trade_remedy_cases_json,
+                estimate.duty_breakdown_json,
+                estimate.measure_interaction_json,
+                estimate.exporter_rate_basis,
+                estimate.exporter_identity_confidence_bps,
+                estimate.origin_evidence_state,
+                estimate.import_vat_gbp_pence,
+                estimate.vat_rate_state,
+                estimate.import_vat_treatment,
+                estimate.vat_recovery_rate_bps,
+                estimate.uk_final_mile_cost_gbp_pence,
+                estimate.other_fees_gbp_pence,
+                estimate.economic_landed_cost_gbp_pence,
+                estimate.cash_outlay_gbp_pence,
+                estimate.cash_to_clear_gbp_pence,
+                estimate.working_capital_cost_gbp_pence,
+                estimate.revenue_basis_type,
+                estimate.revenue_confidence_bps,
+                estimate.customs_resolution_confidence_bps,
+                estimate.commercial_estimate_confidence_bps,
+                estimate.net_margin_low_bps,
+                estimate.net_margin_base_bps,
+                estimate.net_margin_high_bps,
+                estimate.decision_grade,
+                estimate.confidence_bps,
+                estimate.confidence_breakdown,
+                estimate.warnings,
+                estimate.blockers,
+                estimate.tariff_checked_at,
+                estimate.measures_fresh_until,
+                estimate.classification_fresh_until,
+                estimate.trade_remedy_watch_state,
+                estimate.cbam_exposure_flag,
+                estimate.cbam_estimate_gbp_pence,
+                LOCAL_EXECUTOR_ID,
+                visible_after_seq,
+                estimate.stage_run_id,
+            ],
+        )?;
+
+        persist_stage(
+            tx,
+            &estimate.process_id,
+            LANDED_COST_STAGE_NAME,
+            LANDED_COST_SCOPE_KIND,
+            &format!(
+                "{}::{}",
+                estimate.product_candidate_id, estimate.supplier_quote_id
+            ),
+            &estimate.stage_run_id,
+        )?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
+async fn run_landed_cost_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+) -> Result<LiveLoopReport> {
+    let repo_root = repo_root()?;
+    let hmrc_skill = load_skill(
+        &repo_root.join("skills/landed-cost/hmrc-customs-classification"),
+        "skills/landed-cost/hmrc-customs-classification/SKILL.md",
+    )?;
+    let sizing_skill = load_skill(
+        &repo_root.join("skills/landed-cost/shipment-sizing"),
+        "skills/landed-cost/shipment-sizing/SKILL.md",
+    )?;
+    let searates_skill = load_skill(
+        &repo_root.join("skills/landed-cost/searates-freight-estimate"),
+        "skills/landed-cost/searates-freight-estimate/SKILL.md",
+    )?;
+    let fx_skill = load_skill(
+        &repo_root.join("skills/landed-cost/simple-fx-lookup"),
+        "skills/landed-cost/simple-fx-lookup/SKILL.md",
+    )?;
+
+    let assessments =
+        load_landed_cost_assessments(runtime.state_db.connection(), LANDED_COST_BATCH_SIZE)?;
+    if assessments.is_empty() {
+        return Ok(LiveLoopReport {
+            summary_line: "landed-cost live loop found no Stage 10 assessments needing Stage 11"
+                .to_owned(),
+            status: "completed".to_owned(),
+        });
+    }
+
+    let mut attempted = 0_usize;
+    let mut completed = 0_usize;
+    let mut blocked = 0_usize;
+    let mut domestic = 0_usize;
+    let mut import = 0_usize;
+    let mut customs_skill_runs = 0_usize;
+    let mut sizing_skill_runs = 0_usize;
+    let mut searates_skill_runs = 0_usize;
+    let mut fx_skill_runs = 0_usize;
+
+    for row in &assessments {
+        attempted += 1;
+        let stage_run_id = allocate_stage_run_id();
+        let supplier_cost = compute_supplier_cost_basis(row);
+        let skill_versions = json!({
+            "hmrc_customs": hmrc_skill.metadata.skill_version,
+            "shipment_sizing": sizing_skill.metadata.skill_version,
+            "searates_freight": searates_skill.metadata.skill_version,
+            "simple_fx": fx_skill.metadata.skill_version,
+        });
+
+        if is_domestic_uk_quote(row) {
+            domestic += 1;
+            let estimate = build_domestic_landed_cost_estimate(
+                row,
+                &supplier_cost,
+                &stage_run_id,
+                &skill_versions,
+            )?;
+            persist_landed_cost_estimate(&mut runtime.state_db, &estimate)?;
+            completed += 1;
+            continue;
+        }
+
+        import += 1;
+        let base_parameters = base_landed_cost_job_parameters(row, &supplier_cost);
+
+        customs_skill_runs += 1;
+        let customs_outcome = run_landed_cost_skill(
+            runtime,
+            cli,
+            &hmrc_skill,
+            "landed_cost_customs_classification",
+            row,
+            &base_parameters,
+        )
+        .await?;
+        let customs =
+            customs_outcome
+                .result_json
+                .as_ref()
+                .and_then(|value| match parse_hmrc_customs_result(value) {
+                    Ok(result) => Some(result),
+                    Err(error) => {
+                        ::tracing::warn!(
+                            candidate_id = %row.product_candidate_id,
+                            error = %error,
+                            "HMRC customs result failed Stage 11 domain validation"
+                        );
+                        None
+                    }
+                });
+
+        let (sizing, sizing_outcome) = if row.source_name == "alibaba-search"
+            && row.source_url.is_some()
+            && !cdp_port_reachable(9222)
+        {
+            (Some(cdp_blocked_sizing_result(row)), None)
+        } else {
+            sizing_skill_runs += 1;
+            let outcome = run_landed_cost_skill(
+                runtime,
+                cli,
+                &sizing_skill,
+                "landed_cost_shipment_sizing",
+                row,
+                &base_parameters,
+            )
+            .await?;
+            let parsed = outcome.result_json.as_ref().and_then(|value| {
+                match parse_shipment_sizing_result(value) {
+                    Ok(result) => Some(result),
+                    Err(error) => {
+                        ::tracing::warn!(
+                            candidate_id = %row.product_candidate_id,
+                            error = %error,
+                            "shipment sizing result failed Stage 11 domain validation"
+                        );
+                        None
+                    }
+                }
+            });
+            (parsed, Some(outcome))
+        };
+
+        let mut searates_outcome: Option<LandedCostSkillRunOutcome> = None;
+        let mut searates_result: Option<SeaRatesFreightResult> = None;
+        if let Some(sizing_result) = sizing
+            .as_ref()
+            .filter(|result| result.sizing_status == "sized")
+        {
+            searates_skill_runs += 1;
+            let freight_parameters = json!({
+                "product_candidate_id": row.product_candidate_id,
+                "selected_quote_id": row.selected_quote_id,
+                "origin": {
+                    "country": row.ship_from_country,
+                    "city_or_port": default_origin_port(row),
+                    "basis": "stage11_mvp_country_default_or_quote_context",
+                },
+                "destination": {
+                    "country": "GB",
+                    "city_or_postcode_or_port": "London, GB",
+                    "basis": "stage11_mvp_uk_default_when_buyer_delivery_location_missing",
+                },
+                "ship_date": (Utc::now() + chrono::Duration::days(45))
+                    .date_naive()
+                    .to_string(),
+                "shipment": {
+                    "total_weight_kg": sizing_result.total_weight_kg,
+                    "total_volume_cbm": sizing_result.total_volume_cbm,
+                    "container_plan": sizing_result.container_plan,
+                },
+                "source_quote_url": row.source_url,
+            });
+            let outcome = run_landed_cost_skill(
+                runtime,
+                cli,
+                &searates_skill,
+                "landed_cost_searates_freight",
+                row,
+                &freight_parameters,
+            )
+            .await?;
+            searates_result =
+                outcome
+                    .result_json
+                    .as_ref()
+                    .and_then(|value| match parse_searates_freight_result(value) {
+                        Ok(result) => Some(result),
+                        Err(error) => {
+                            ::tracing::warn!(
+                                candidate_id = %row.product_candidate_id,
+                                error = %error,
+                                "SeaRates result failed Stage 11 domain validation"
+                            );
+                            None
+                        }
+                    });
+            searates_outcome = Some(outcome);
+        }
+
+        let freight =
+            freight_scenario_from_searates(runtime, cli, &fx_skill, row, searates_result.as_ref())
+                .await?;
+        if freight.fx_status == "converted" {
+            fx_skill_runs += 1;
+        }
+
+        let skill_session_ids = json!({
+            "hmrc_customs": customs_outcome.session_id,
+            "shipment_sizing": sizing_outcome
+                .as_ref()
+                .map(|outcome| outcome.session_id.clone()),
+            "searates_freight": searates_outcome.as_ref().map(|outcome| outcome.session_id.clone()),
+            "simple_fx": null,
+            "hmrc_job_id": customs_outcome.job_id,
+            "shipment_sizing_job_id": sizing_outcome
+                .as_ref()
+                .map(|outcome| outcome.job_id.clone()),
+            "searates_job_id": searates_outcome.as_ref().map(|outcome| outcome.job_id.clone()),
+        });
+        let skill_versions = json!({
+            "hmrc_customs": customs_outcome.skill_version,
+            "shipment_sizing": sizing_outcome.as_ref().map_or_else(
+                || sizing_skill.metadata.skill_version.clone(),
+                |outcome| outcome.skill_version.clone()
+            ),
+            "searates_freight": searates_outcome.as_ref().map_or_else(
+                || searates_skill.metadata.skill_version.clone(),
+                |outcome| outcome.skill_version.clone()
+            ),
+            "simple_fx": fx_skill.metadata.skill_version,
+        });
+
+        let estimate = build_import_landed_cost_estimate(
+            row,
+            &supplier_cost,
+            &stage_run_id,
+            customs.as_ref(),
+            sizing.as_ref(),
+            &freight,
+            &skill_versions,
+            &skill_session_ids,
+        )?;
+        if estimate.decision_grade == "blocked" {
+            blocked += 1;
+        } else {
+            completed += 1;
+        }
+        persist_landed_cost_estimate(&mut runtime.state_db, &estimate)?;
+    }
+
+    Ok(LiveLoopReport {
+        summary_line: format!(
+            "landed-cost live loop completed: attempted={attempted} completed={completed} blocked={blocked} domestic={domestic} import={import} customs_skill_runs={customs_skill_runs} sizing_skill_runs={sizing_skill_runs} searates_skill_runs={searates_skill_runs} fx_skill_runs={fx_skill_runs}"
+        ),
+        status: "completed".to_owned(),
+    })
+}
+
+fn default_origin_port(row: &LandedCostAssessmentRow) -> String {
+    match row.ship_from_country.as_deref().unwrap_or_default() {
+        "CN" => "Shanghai, CN".to_owned(),
+        "GB" => "London, GB".to_owned(),
+        "" => "unknown".to_owned(),
+        country => country.to_owned(),
+    }
+}
+
+fn cdp_port_reachable(port: u16) -> bool {
+    TcpStream::connect_timeout(
+        &SocketAddr::from(([127, 0, 0, 1], port)),
+        Duration::from_millis(500),
+    )
+    .is_ok_and(|stream| {
+        let _ = stream.shutdown(Shutdown::Both);
+        true
+    })
+}
+
+fn cdp_blocked_sizing_result(row: &LandedCostAssessmentRow) -> ShipmentSizingResult {
+    ShipmentSizingResult {
+        product_candidate_id: row.product_candidate_id.clone(),
+        selected_quote_id: row.selected_quote_id.clone(),
+        sizing_status: "blocked".to_owned(),
+        units_required: None,
+        unit_basis: None,
+        unit_weight_kg: None,
+        unit_volume_cbm: None,
+        total_weight_kg: None,
+        total_volume_cbm: None,
+        package_count: None,
+        container_plan: None,
+        evidence: Vec::new(),
+        confidence_bps: Some(0),
+        warnings: Vec::new(),
+        blockers: vec![Stage11Issue::blocked(
+            "CDP_CONNECT_FAILED",
+            "Persistent browser CDP endpoint was not reachable on port 9222, so source listing dimensions could not be inspected.",
+        )],
+    }
+}
+
 fn load_procontract_interest_candidates(
     conn: &Connection,
 ) -> Result<Vec<ProcontractInterestCandidate>> {
@@ -2992,7 +5421,7 @@ fn candidate_deadline_check(deadline_at: Option<&str>) -> (bool, Option<i64>) {
     let deadline_utc = deadline.with_timezone(&Utc);
     let days_until_deadline = deadline_utc.signed_duration_since(now).num_days();
     (
-        deadline_utc > now + chrono::Duration::days(30),
+        deadline_utc > now + chrono::Duration::days(14),
         Some(days_until_deadline),
     )
 }
@@ -3667,6 +6096,561 @@ fn procurement_skill_requires_result_contract(skill_id: &str) -> bool {
     skill_id.starts_with("procurement-ingestion/")
 }
 
+/// Returns `true` when `skill_id` is a marketplace-search (Stage 9) skill.
+fn is_marketplace_search_skill(skill_id: &str) -> bool {
+    skill_id.starts_with("marketplace-search/")
+}
+
+/// Resolve the registry `source_id` for a marketplace-search skill, preferring
+/// `job_parameters.source_id`, then `job_parameters.source`, then the
+/// `marketplace-search/<suffix>` skill-id suffix. The folder
+/// `marketplace-search/alibaba` registers as `alibaba-search` to keep
+/// namespace distinct from the existing `alibaba` canary source.
+fn marketplace_search_source_id(skill_id: &str, job_parameters: &Value) -> String {
+    if let Some(source) = job_parameters.get("source_id").and_then(Value::as_str) {
+        return source.to_owned();
+    }
+    if let Some(source) = job_parameters.get("source").and_then(Value::as_str) {
+        return source.to_owned();
+    }
+    let suffix = skill_id
+        .strip_prefix("marketplace-search/")
+        .unwrap_or("unknown");
+    if suffix == "alibaba" {
+        "alibaba-search".to_owned()
+    } else {
+        suffix.to_owned()
+    }
+}
+
+/// Convert a raw source-currency minor-unit price to GBP pence using a fixed
+/// approximation table. `unit_price_gbp_pence` is a display / ranking
+/// convenience; a downstream reprice pass can rerun against live FX if
+/// tighter accuracy is needed.
+fn convert_to_gbp_pence(raw_minor: i64, currency: &str) -> i64 {
+    match currency {
+        "USD" => (raw_minor.saturating_mul(79)) / 100,
+        "EUR" => (raw_minor.saturating_mul(85)) / 100,
+        // "GBP" and any unknown currency: store the raw minor units as a
+        // best-effort lower bound. Downstream repricing can correct.
+        _ => raw_minor,
+    }
+}
+
+/// Persist a marketplace-search skill's result contract. Each
+/// `search_results[]` entry produces one row in `search_attempts`; each
+/// `quotes[]` within an entry produces one row in `supplier_quotes`. Source
+/// metadata (`price_signal_role`, `region`, `quote_class`) is read from the
+/// source registry config so the skill itself doesn't need to hard-code it.
+#[allow(clippy::too_many_lines)]
+fn persist_marketplace_search_results(
+    state_db: &mut StateDb,
+    source_id: &str,
+    result_json: &Value,
+) -> Result<(usize, usize)> {
+    let definition = SourceRegistry::builtin_definition(source_id)
+        .ok_or_else(|| anyhow!("marketplace-search source `{source_id}` not registered"))?;
+    let price_signal_role = definition
+        .config
+        .get("price_signal_role")
+        .and_then(Value::as_str)
+        .unwrap_or("uk_retail_benchmark")
+        .to_owned();
+    let region = definition
+        .config
+        .get("region")
+        .and_then(Value::as_str)
+        .unwrap_or("GB")
+        .to_owned();
+    let quote_class = definition
+        .config
+        .get("quote_class")
+        .and_then(Value::as_str)
+        .unwrap_or("spot")
+        .to_owned();
+
+    let search_results = result_json
+        .get("search_results")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+
+    let stage_run_id = allocate_stage_run_id();
+    let source_id_owned = source_id.to_owned();
+    let ((attempts_written, quotes_written), _commit_seq) = state_db.with_write_transaction(|tx| {
+        let mut attempts = 0_usize;
+        let mut quotes = 0_usize;
+        for entry in &search_results {
+            let Some(product_candidate_id) =
+                entry.get("product_candidate_id").and_then(Value::as_str)
+            else {
+                ::tracing::warn!("marketplace-search search_results[] missing product_candidate_id");
+                continue;
+            };
+            let Some(search_profile_id) =
+                entry.get("search_profile_id").and_then(Value::as_str)
+            else {
+                ::tracing::warn!(
+                    %product_candidate_id,
+                    "marketplace-search search_results[] missing search_profile_id"
+                );
+                continue;
+            };
+
+            let lookup: Option<(String, String)> = tx
+                .query_row(
+                    "SELECT process_id, notice_id FROM product_candidates WHERE id = ?1",
+                    params![product_candidate_id],
+                    |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+                )
+                .optional()?;
+            let Some((process_id, notice_id)) = lookup else {
+                ::tracing::warn!(
+                    %product_candidate_id,
+                    "marketplace-search result referenced unknown product_candidate_id"
+                );
+                continue;
+            };
+
+            let query_text = entry
+                .get("query_used")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_owned();
+            let wave_number = entry.get("wave_number").and_then(Value::as_i64).unwrap_or(0);
+            let is_recovery_wave = i64::from(
+                entry
+                    .get("is_recovery_wave")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
+            );
+            let result_count = entry
+                .get("result_count")
+                .and_then(Value::as_i64)
+                .unwrap_or(0);
+            let hard_rejected_count = entry
+                .get("hard_rejected_count")
+                .and_then(Value::as_i64)
+                .unwrap_or(0);
+            let shortlisted_count = entry
+                .get("shortlisted_count")
+                .and_then(Value::as_i64)
+                .unwrap_or(0);
+            let search_failure_mode = entry
+                .get("search_failure_mode")
+                .and_then(Value::as_str)
+                .map(str::to_owned);
+            let locale = entry
+                .get("locale")
+                .and_then(Value::as_str)
+                .unwrap_or(if region == "CN" { "en-US" } else { "en-GB" })
+                .to_owned();
+            let filters_json = entry.get("filters_applied").map(Value::to_string);
+
+            // Per-iteration v4 UUID so multiple attempts in the same
+            // millisecond do not collide on sha256-of-timestamp.
+            let attempt_id = format!("sa-{}", Uuid::new_v4().simple());
+            tx.execute(
+                "\
+                INSERT INTO search_attempts (
+                    id, product_candidate_id, search_profile_id, source, locale,
+                    wave_number, query_text, filters_json, is_recovery_wave,
+                    result_count, hard_rejected_count, shortlisted_count,
+                    search_failure_mode, owner_id, stage_run_id
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
+                ",
+                params![
+                    attempt_id,
+                    product_candidate_id,
+                    search_profile_id,
+                    source_id_owned,
+                    locale,
+                    wave_number,
+                    query_text,
+                    filters_json,
+                    is_recovery_wave,
+                    result_count,
+                    hard_rejected_count,
+                    shortlisted_count,
+                    search_failure_mode,
+                    LOCAL_EXECUTOR_ID,
+                    stage_run_id,
+                ],
+            )?;
+            attempts += 1;
+
+            let quotes_arr = entry
+                .get("quotes")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            for (qidx, quote) in quotes_arr.iter().enumerate() {
+                let product_name = quote
+                    .get("product_name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_owned();
+                let source_url = quote
+                    .get("source_url")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                let source_listing_id = quote
+                    .get("source_listing_id")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                let unit_price_original_minor = quote
+                    .get("unit_price_minor")
+                    .and_then(Value::as_i64)
+                    .unwrap_or(0);
+                let currency = quote
+                    .get("currency")
+                    .and_then(Value::as_str)
+                    .unwrap_or("GBP")
+                    .to_owned();
+                let unit_price_gbp_pence = convert_to_gbp_pence(unit_price_original_minor, &currency);
+                let vat_inclusive = quote.get("vat_inclusive").and_then(Value::as_bool).map(i64::from);
+                let quoted_quantity = quote.get("quantity").and_then(Value::as_f64);
+                let quoted_quantity_unit = quote
+                    .get("quantity_unit")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                let minimum_order_quantity = quote
+                    .get("minimum_order_quantity")
+                    .and_then(Value::as_f64);
+                let ship_from_country = quote
+                    .get("ship_from_country")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                let includes_shipping = i64::from(
+                    quote
+                        .get("includes_shipping")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false),
+                );
+                let is_used_or_refurbished = i64::from(
+                    quote
+                        .get("is_used_or_refurbished")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false),
+                );
+                let is_ready_to_ship = quote
+                    .get("is_ready_to_ship")
+                    .and_then(Value::as_bool)
+                    .map(i64::from);
+                let lead_time_days = quote.get("lead_time_days").and_then(Value::as_i64);
+                let incoterm = quote
+                    .get("incoterm")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                let match_confidence_bps = quote
+                    .get("match_confidence_bps")
+                    .and_then(Value::as_i64)
+                    .unwrap_or(0);
+                let evidence_text = quote
+                    .get("evidence")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_owned();
+                let evidence_bundle = json!({
+                    "rationale": evidence_text,
+                    "price_tiers": quote.get("price_tiers").cloned().unwrap_or(Value::Null),
+                    "seller_identifier": quote.get("seller_identifier").cloned().unwrap_or(Value::Null),
+                });
+
+                let quote_id = format!("sq-{}-{qidx}", &attempt_id[3..]);
+                tx.execute(
+                    "\
+                    INSERT INTO supplier_quotes (
+                        id, process_id, notice_id, product_candidate_id,
+                        search_attempt_id, product_name, region, quote_class,
+                        source_name, source_url, source_listing_id,
+                        ship_from_country, incoterm,
+                        quoted_quantity, quoted_quantity_unit,
+                        unit_price_original_minor, currency, unit_price_gbp_pence,
+                        price_basis_qty, price_basis_unit,
+                        minimum_order_quantity, lead_time_days, includes_shipping,
+                        price_signal_role, listing_pack_qty, listing_pack_unit,
+                        is_used_or_refurbished, is_ready_to_ship, vat_inclusive,
+                        match_confidence_bps, query_wave_number,
+                        evidence, owner_id, stage_run_id
+                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13,
+                              ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24,
+                              ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34)
+                    ",
+                    params![
+                        quote_id,
+                        process_id,
+                        notice_id,
+                        product_candidate_id,
+                        attempt_id,
+                        product_name,
+                        region,
+                        quote_class,
+                        source_id_owned,
+                        source_url,
+                        source_listing_id,
+                        ship_from_country,
+                        incoterm,
+                        quoted_quantity,
+                        quoted_quantity_unit,
+                        unit_price_original_minor,
+                        currency,
+                        unit_price_gbp_pence,
+                        quoted_quantity,
+                        quoted_quantity_unit,
+                        minimum_order_quantity,
+                        lead_time_days,
+                        includes_shipping,
+                        price_signal_role,
+                        quoted_quantity,
+                        quoted_quantity_unit,
+                        is_used_or_refurbished,
+                        is_ready_to_ship,
+                        vat_inclusive,
+                        match_confidence_bps,
+                        wave_number,
+                        evidence_bundle.to_string(),
+                        LOCAL_EXECUTOR_ID,
+                        stage_run_id,
+                    ],
+                )?;
+                quotes += 1;
+            }
+
+            // Stage head tracking: "Price-signal match" stage,
+            // scope_kind = "candidate_source_pair".
+            let scope_id = format!("{product_candidate_id}::{source_id_owned}");
+            persist_stage(
+                tx,
+                &process_id,
+                "price_signal_match",
+                "candidate_source_pair",
+                &scope_id,
+                &stage_run_id,
+            )?;
+        }
+        Ok((attempts, quotes))
+    })?;
+
+    Ok((attempts_written, quotes_written))
+}
+
+/// Select up to `limit` passed-goods candidates (qualified via notice-basis
+/// goods + expiry) whose `search_profile` is eligible or marginal AND that do
+/// not already have a recent `search_attempts` row for this source. Rows are
+/// ordered by ascending `recall_risk_score_bps` so the most tractable
+/// (well-specified) candidates are searched first.
+#[allow(clippy::too_many_lines)]
+fn load_candidates_for_marketplace_search(
+    conn: &Connection,
+    source_id: &str,
+    limit: i64,
+) -> Result<Vec<Value>> {
+    // DPS / framework-panel exclusion: operator goal is to bid only on
+    // direct product-order contracts, NOT on Dynamic Purchasing Systems,
+    // Flexible Procurement Systems, or Approved-Provider / Approved-Supplier
+    // List frameworks. Those are multi-year supplier-admission panels whose
+    // notice bodies only carry lot-scope labels — the per-call-off product
+    // spec lives in appendices released after a supplier joins the panel,
+    // so marketplace-search has no usable anchor at Stage 9 and the
+    // contracts aren't what the operator intends to pursue anyway.
+    //
+    // Architecturally this filter belongs upstream in the qualification
+    // stage (ideally a new `direct_order_qualified` column on
+    // `qualification_runs`, so the desktop viewer, manifest renderer, and
+    // any future stages pick up the same exclusion). For now we filter at
+    // the Stage-9 candidate picker to avoid wasting PTY budget; the same
+    // clauses can be lifted into `run_qualify_lot_stage` when we're ready
+    // to do it properly.
+    //
+    // Patterns matched (case-insensitive via SQLite's default ASCII LIKE):
+    //   "%DPS%"                           — e.g. "…DPS - Acceptance Round 6"
+    //   "%Dynamic Purchasing System%"     — verbose form
+    //   "%Flexible Procurement System%"   — DPS synonym (FPS)
+    //   "%Acceptance Round%"              — strong DPS signal on UK notices
+    //   "%Approved Provider List%"        — panel-model framework
+    //   "%Approved Supplier List%"        — panel-model framework
+    //
+    // On 2026-04-21 data: 22 of 103 ingested notices match (21 %), and all
+    // 5 currently-passed-goods contracts match — after this filter ships,
+    // `load_candidates_for_marketplace_search` will return empty until new
+    // direct-order notices are ingested. This is the intended behaviour.
+    let mut stmt = conn.prepare(
+        "\
+        SELECT sp.id, sp.product_candidate_id, pc.name, pc.head_noun,
+               pc.specification_text, sp.query_waves_json,
+               pc.standards_json, pc.critical_attributes_json, pc.numeric_specs_json,
+               pc.material, pc.quantity, pc.quantity_unit,
+               nl.title, nl.description,
+               cn.title, cn.summary, cn.buyer_name, cn.main_category
+        FROM search_profiles sp
+        JOIN product_candidates pc ON pc.id = sp.product_candidate_id
+        JOIN qualification_runs qr ON qr.process_id = pc.process_id
+        JOIN contract_notices cn ON cn.id = pc.notice_id
+        LEFT JOIN notice_lots nl ON nl.id = pc.lot_id
+        WHERE sp.search_eligibility_state IN ('eligible', 'marginal')
+          AND qr.qualification_basis = 'notice_only'
+          AND qr.goods_qualified = 1
+          AND qr.expiry_qualified = 1
+          -- Exclude service candidates (repair/maintenance/consultancy/etc).
+          -- candidate_type is set by classify_candidate_type at Stage 7 /
+          -- the reclassify-candidates backfill stage; it's a physical-goods
+          -- vs service split, not a SKU-archetype tag. Marketplace-search
+          -- cannot price services.
+          AND pc.candidate_type != 'service'
+          -- DPS / framework-panel exclusion (see full rationale below).
+          AND cn.title NOT LIKE '%DPS%'
+          AND cn.title NOT LIKE '%Dynamic Purchasing System%'
+          AND cn.title NOT LIKE '%Flexible Procurement System%'
+          AND cn.title NOT LIKE '%Acceptance Round%'
+          AND cn.title NOT LIKE '%Approved Provider List%'
+          AND cn.title NOT LIKE '%Approved Supplier List%'
+          AND NOT EXISTS (
+            SELECT 1 FROM search_attempts sa
+            WHERE sa.product_candidate_id = pc.id
+              AND sa.source = ?1
+              AND sa.executed_at > datetime('now', '-7 days')
+          )
+        ORDER BY sp.recall_risk_score_bps ASC
+        LIMIT ?2
+        ",
+    )?;
+    #[allow(clippy::type_complexity)]
+    let rows = stmt.query_map(params![source_id, limit], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, Option<String>>(4)?,
+            row.get::<_, Option<String>>(5)?,
+            row.get::<_, Option<String>>(6)?,
+            row.get::<_, Option<String>>(7)?,
+            row.get::<_, Option<String>>(8)?,
+            row.get::<_, Option<String>>(9)?,
+            row.get::<_, Option<f64>>(10)?,
+            row.get::<_, Option<String>>(11)?,
+            row.get::<_, Option<String>>(12)?,
+            row.get::<_, Option<String>>(13)?,
+            row.get::<_, String>(14)?,
+            row.get::<_, Option<String>>(15)?,
+            row.get::<_, Option<String>>(16)?,
+            row.get::<_, Option<String>>(17)?,
+        ))
+    })?;
+    let mut candidates = Vec::new();
+    for row in rows {
+        let (
+            sp_id,
+            pc_id,
+            name,
+            head_noun,
+            spec,
+            waves_json,
+            standards_json,
+            critical_attrs_json,
+            numeric_specs_json,
+            material,
+            quantity,
+            quantity_unit,
+            lot_title,
+            lot_description,
+            notice_title,
+            notice_summary,
+            buyer_name,
+            cpv_codes,
+        ) = row?;
+        let query_waves = waves_json
+            .as_deref()
+            .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+            .unwrap_or_else(|| Value::Array(Vec::new()));
+        // Parse the structured JSON columns so the agent sees real arrays /
+        // objects rather than embedded JSON strings.
+        let parse_json_field = |raw: Option<String>| -> Value {
+            raw.as_deref()
+                .and_then(|r| serde_json::from_str::<Value>(r).ok())
+                .unwrap_or(Value::Null)
+        };
+        let standards = parse_json_field(standards_json);
+        let critical_attributes = parse_json_field(critical_attrs_json);
+        let numeric_specs = parse_json_field(numeric_specs_json);
+
+        candidates.push(json!({
+            // Identity + search plan (existing 6 fields — unchanged).
+            "product_candidate_id": pc_id,
+            "search_profile_id": sp_id,
+            "name": name,
+            "head_noun": head_noun,
+            "specification_text": spec.unwrap_or_default(),
+            "query_waves": query_waves,
+            // Structured attributes pulled from Stage 7 PDF extraction.
+            // `standards` carries the actual compliance-standard list (e.g.
+            // `["BS EN 1279"]`) — the single strongest anchor for match
+            // judgment on specialist goods. `critical_attributes` and
+            // `numeric_specs` are currently mostly null in 2026-04-21 data
+            // but flow through as soon as upstream extraction populates them.
+            "standards": standards,
+            "critical_attributes": critical_attributes,
+            "numeric_specs": numeric_specs,
+            "material": material,
+            "quantity": quantity,
+            "quantity_unit": quantity_unit,
+            // Parent-lot + parent-notice context. Gives the agent the
+            // "what is this tender ACTUALLY buying, at what level of
+            // specificity" anchor — e.g. knowing the lot is titled
+            // "Supply of Double Glazed Units" and the notice's CPV is
+            // `44221111-6 - Double-glazed units` lets the agent validate
+            // an Alibaba listing against the EU-standardised category
+            // code, not just loose English text matches.
+            "lot_title": lot_title,
+            "lot_description": lot_description,
+            "notice_title": notice_title,
+            "notice_summary": notice_summary,
+            "buyer_name": buyer_name,
+            "cpv_codes": cpv_codes,
+        }));
+    }
+    Ok(candidates)
+}
+
+/// Returns how many seconds the caller should sleep before spawning another
+/// marketplace-search PTY run for `source_id`, given the age of the most
+/// recent `SOURCE_CAPTCHA_BLOCKED` row in `search_attempts` for that source.
+///
+/// - If no such row exists (source has never been CAPTCHA-blocked): `None`.
+/// - If the most recent block is older than
+///   `MARKETPLACE_SEARCH_INTER_SESSION_COOLDOWN_SECONDS`: `None`.
+/// - Otherwise: `Some(remaining_seconds)` where the caller should
+///   `tokio::time::sleep` for at least that many seconds.
+///
+/// The lookup is case-insensitive on `search_failure_mode` because skill
+/// authors sometimes emit lowercase variants (`source_captcha_blocked`).
+fn marketplace_search_cooldown_remaining_secs(
+    conn: &Connection,
+    source_id: &str,
+) -> Result<Option<i64>> {
+    let elapsed: Option<i64> = conn.query_row(
+        "\
+        SELECT CAST(
+            strftime('%s','now') - strftime('%s', MAX(executed_at))
+            AS INTEGER
+        )
+        FROM search_attempts
+        WHERE source = ?1
+          AND LOWER(search_failure_mode) = 'source_captcha_blocked'
+        ",
+        params![source_id],
+        |row| row.get::<_, Option<i64>>(0),
+    )?;
+    Ok(elapsed.and_then(|e| {
+        if e < MARKETPLACE_SEARCH_INTER_SESSION_COOLDOWN_SECONDS {
+            Some(MARKETPLACE_SEARCH_INTER_SESSION_COOLDOWN_SECONDS - e)
+        } else {
+            None
+        }
+    }))
+}
+
 fn manual_procurement_persist_count_label(skill_id: &str) -> &'static str {
     match skill_id {
         "procurement-ingestion/procontract-register-interest" => "registrations",
@@ -3715,13 +6699,24 @@ async fn run_bound_skill(
     insert_executed_session_log(runtime.state_db.connection(), &skill, &job_id, &executed)?;
 
     let is_procurement_skill = procurement_skill_requires_result_contract(&skill.metadata.skill_id);
+    let is_marketplace = is_marketplace_search_skill(&skill.metadata.skill_id);
 
-    if is_procurement_skill && executed.result_path.is_none() {
+    if (is_procurement_skill || is_marketplace) && executed.result_path.is_none() {
+        let (kind_label, source_id) = if is_procurement_skill {
+            (
+                "procurement",
+                procurement_manual_source_id(&skill.metadata.skill_id, &job_parameters),
+            )
+        } else {
+            (
+                "marketplace-search",
+                marketplace_search_source_id(&skill.metadata.skill_id, &job_parameters),
+            )
+        };
         let message = format!(
-            "procurement skill `{}` exited without writing a result contract",
+            "{kind_label} skill `{}` exited without writing a result contract",
             skill.metadata.skill_id
         );
-        let source_id = procurement_manual_source_id(&skill.metadata.skill_id, &job_parameters);
         return fail_with_manifest(
             runtime,
             &job_id,
@@ -3752,6 +6747,14 @@ async fn run_bound_skill(
         eprintln!(
             "Persisted {persisted_count} {} from agent output for source {source_id}",
             manual_procurement_persist_count_label(&skill.metadata.skill_id)
+        );
+    } else if is_marketplace && let Some(ref result_path) = executed.result_path {
+        let result_json = read_result_contract(result_path)?;
+        let source_id = marketplace_search_source_id(&skill.metadata.skill_id, &job_parameters);
+        let (attempts, quotes) =
+            persist_marketplace_search_results(&mut runtime.state_db, &source_id, &result_json)?;
+        eprintln!(
+            "Persisted {attempts} search attempts and {quotes} supplier quotes for source {source_id}"
         );
     } else if skill.metadata.skill_id.starts_with("pdf-extraction/")
         && let Some(ref result_path) = executed.result_path
@@ -4858,6 +7861,16 @@ fn source_lane_request(skill: &LoadedSkill, job_parameters: &Value) -> Option<So
         .map(str::to_owned)
         .or_else(|| {
             let skill_id = skill.metadata.skill_id.as_str();
+            // Marketplace-search skills map by suffix. Note: the skill folder
+            // `marketplace-search/alibaba` registers under `alibaba-search` to
+            // avoid colliding with the existing `alibaba` canary/auth source.
+            if let Some(suffix) = skill_id.strip_prefix("marketplace-search/") {
+                let source_id = match suffix {
+                    "alibaba" => "alibaba-search",
+                    other => other,
+                };
+                return Some(source_id.to_owned());
+            }
             ["fts", "contracts-finder", "alibaba", "1688"]
                 .into_iter()
                 .find(|candidate| skill_id.contains(candidate))
@@ -4865,7 +7878,8 @@ fn source_lane_request(skill: &LoadedSkill, job_parameters: &Value) -> Option<So
         })?;
 
     let source_kind = match source_id.as_str() {
-        "alibaba" | "1688" => SourceKind::Supplier,
+        "alibaba" | "1688" | "gem-imports" | "mx-wholesale" | "amazon-uk" | "ebay-uk"
+        | "alibaba-search" => SourceKind::Supplier,
         _ => SourceKind::Procurement,
     };
 
@@ -5445,10 +8459,9 @@ async fn run_contracts_finder_live_loop(
 
     // Claim job.
     let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
-    let claimed = runner
-        .claim_next_job(runtime.state_db.connection())?
+    let _claimed = runner
+        .claim_job_by_id(runtime.state_db.connection(), &job_id)?
         .ok_or_else(|| anyhow!("expected claimed workflow job for contracts-finder"))?;
-    ensure!(claimed.id == job_id, "claimed unexpected workflow job");
 
     // Execute PTY skill session.
     let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
@@ -5630,10 +8643,9 @@ async fn run_procontract_discover_live_loop(
         adapter_config.kind,
     )?;
     let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
-    let claimed = runner
-        .claim_next_job(runtime.state_db.connection())?
+    let _claimed = runner
+        .claim_job_by_id(runtime.state_db.connection(), &job_id)?
         .ok_or_else(|| anyhow!("expected claimed workflow job for procontract"))?;
-    ensure!(claimed.id == job_id, "claimed unexpected workflow job");
 
     let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
     let executed = execute_skill_session(
@@ -5722,10 +8734,9 @@ async fn run_procontract_register_interest_live_loop(
         adapter_config.kind,
     )?;
     let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
-    let claimed = runner
-        .claim_next_job(runtime.state_db.connection())?
+    let _claimed = runner
+        .claim_job_by_id(runtime.state_db.connection(), &job_id)?
         .ok_or_else(|| anyhow!("expected claimed workflow job for procontract-interest"))?;
-    ensure!(claimed.id == job_id, "claimed unexpected workflow job");
 
     if evaluations.is_empty() {
         return complete_source_job(
@@ -5877,10 +8888,9 @@ async fn run_procontract_enrich_tender_live_loop(
         adapter_config.kind,
     )?;
     let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
-    let claimed = runner
-        .claim_next_job(runtime.state_db.connection())?
+    let _claimed = runner
+        .claim_job_by_id(runtime.state_db.connection(), &job_id)?
         .ok_or_else(|| anyhow!("expected claimed workflow job for procontract-enrich"))?;
-    ensure!(claimed.id == job_id, "claimed unexpected workflow job");
 
     let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
     let executed =
@@ -5967,6 +8977,177 @@ async fn drain_pending_extraction_jobs(runtime: &mut RuntimeBootstrap, cli: &Cli
     Ok(processed)
 }
 
+/// Stage 9 manual live-loop trigger. Picks a batch of eligible/marginal
+/// `product_candidates` that do not yet have a recent `search_attempts` row
+/// for `source_id`, runs the bound marketplace-search skill as a PTY session,
+/// and persists `search_attempts` + `supplier_quotes` from the skill's result
+/// contract.
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
+async fn run_marketplace_search_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    source_id: &str,
+    cli: &Cli,
+) -> Result<LiveLoopReport> {
+    let skill_subdir = match source_id {
+        "gem-imports" => "gem-imports",
+        "mx-wholesale" => "mx-wholesale",
+        "amazon-uk" => "amazon-uk",
+        "ebay-uk" => "ebay-uk",
+        "alibaba-search" => "alibaba",
+        other => bail!("unknown marketplace-search source: {other}"),
+    };
+    let repo_root = repo_root()?;
+    let skill_dir = repo_root.join(format!("skills/marketplace-search/{skill_subdir}"));
+    let skill_md_rel = format!("skills/marketplace-search/{skill_subdir}/SKILL.md");
+    let skill = load_skill(&skill_dir, &skill_md_rel)?;
+
+    let candidates = load_candidates_for_marketplace_search(
+        runtime.state_db.connection(),
+        source_id,
+        MARKETPLACE_SEARCH_BATCH_SIZE,
+    )?;
+    if candidates.is_empty() {
+        return Ok(LiveLoopReport {
+            summary_line: format!(
+                "marketplace-search `{source_id}` found no candidates needing search"
+            ),
+            status: "completed".to_owned(),
+        });
+    }
+
+    // Smart cool-down: if the most recent SOURCE_CAPTCHA_BLOCKED row for this
+    // source is within the cool-down window, sleep until it's outside before
+    // spawning another PTY run. Zero-cost on sources that have never been
+    // CAPTCHA-blocked.
+    if let Some(sleep_secs) =
+        marketplace_search_cooldown_remaining_secs(runtime.state_db.connection(), source_id)?
+    {
+        ::tracing::info!(
+            source_id = %source_id,
+            sleep_secs = sleep_secs,
+            "marketplace-search cool-down: recent CAPTCHA detected; sleeping before spawning PTY"
+        );
+        eprintln!(
+            "marketplace-search `{source_id}` cool-down: recent CAPTCHA detected, sleeping {sleep_secs}s before spawning PTY session"
+        );
+        tokio::time::sleep(std::time::Duration::from_secs(
+            u64::try_from(sleep_secs).unwrap_or(0),
+        ))
+        .await;
+    }
+
+    let candidate_count = candidates.len();
+    let job_parameters = json!({
+        "source_id": source_id,
+        "source": source_id,
+        "candidates": candidates,
+        "max_candidates": MARKETPLACE_SEARCH_BATCH_SIZE,
+    });
+
+    let adapter_config = adapter_runtime_config(cli, &skill)?;
+    let job_id = format!(
+        "job-{}",
+        sha256_hex(&UuidSeed::from_time(Utc::now()).as_bytes())
+    );
+    let scope_id_owned = source_id.to_owned();
+    let job_id_for_insert = job_id.clone();
+    let input_payload = json!({
+        "source_id": source_id,
+        "trigger": "manual_cli",
+        "skill_binding": skill_binding_payload(&skill),
+        "agent_cli": adapter_config.kind.as_str(),
+        "job_parameters": job_parameters,
+        "durable_step_surfaces": live_loop_surfaces_json(),
+    })
+    .to_string();
+    runtime.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, scope_kind, scope_id, status, input_payload, validation_required,
+              parent_job_id, validation_verdict_id
+            ) VALUES (?1, 'marketplace_search', 'source', ?2, 'pending', ?3, 0, NULL, NULL)
+            ",
+            params![job_id_for_insert, scope_id_owned, input_payload],
+        )?;
+        Ok(())
+    })?;
+
+    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+    let _claimed = runner
+        .claim_job_by_id(runtime.state_db.connection(), &job_id)?
+        .ok_or_else(|| {
+            anyhow!("expected claimed workflow job for marketplace-search {source_id}")
+        })?;
+
+    let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
+    let executed =
+        execute_skill_session(runtime, &skill, &job_id, &session_id, &job_parameters, cli).await?;
+
+    insert_executed_session_log(runtime.state_db.connection(), &skill, &job_id, &executed)?;
+
+    let result_path = match executed.result_path.as_ref() {
+        Some(path) => path.clone(),
+        None => {
+            return fail_job(
+                runtime,
+                &job_id,
+                &format!(
+                    "marketplace-search skill `{source_id}` did not produce a result contract"
+                ),
+                json!({"error_code": "AGENT_RUN_FAILED"}),
+            );
+        }
+    };
+    let result_text = fs::read_to_string(&result_path).with_context(|| {
+        format!(
+            "reading marketplace-search result contract from {}",
+            result_path.display()
+        )
+    })?;
+    let result_json: Value =
+        serde_json::from_str(&result_text).context("parsing marketplace-search result JSON")?;
+
+    let (attempts_written, quotes_written) =
+        persist_marketplace_search_results(&mut runtime.state_db, source_id, &result_json)?;
+
+    let summary_payload = json!({
+        "job_id": job_id,
+        "source_id": source_id,
+        "candidates_sent": candidate_count,
+        "search_attempts_written": attempts_written,
+        "supplier_quotes_written": quotes_written,
+        "session_id": session_id,
+        "durable_step_surfaces": live_loop_surfaces_json(),
+    });
+    let summary_payload_str = summary_payload.to_string();
+    let job_id_for_update = job_id.clone();
+    runtime.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            UPDATE workflow_jobs
+            SET status = 'completed',
+                completed_at = ?1,
+                output_payload = ?2
+            WHERE id = ?3
+            ",
+            params![
+                Utc::now().to_rfc3339(),
+                summary_payload_str,
+                job_id_for_update
+            ],
+        )?;
+        Ok(())
+    })?;
+
+    Ok(LiveLoopReport {
+        summary_line: format!(
+            "marketplace-search live loop completed: source={source_id} job_id={job_id} candidates={candidate_count} attempts={attempts_written} quotes={quotes_written}"
+        ),
+        status: "completed".to_owned(),
+    })
+}
+
 #[allow(
     clippy::too_many_lines,
     clippy::needless_pass_by_value,
@@ -6000,9 +9181,8 @@ async fn run_fts_live_loop(
     )?;
     let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
     let claimed = runner
-        .claim_next_job(runtime.state_db.connection())?
+        .claim_job_by_id(runtime.state_db.connection(), &job_id)?
         .ok_or_else(|| anyhow!("expected claimed workflow job"))?;
-    ensure!(claimed.id == job_id, "claimed unexpected workflow job");
     if fixture.capture_write_failure {
         return fail_job_with_code(
             runtime,
@@ -7786,10 +10966,13 @@ fn persist_tender_spec_domain_writes(
             let candidate_key = seed_key(seed);
             let candidate_id = format!("{lot_id}-candidate-{}", slug_token(&candidate_key));
             let candidate_name = seed_name(seed);
-            let head_noun = candidate_name
-                .split_whitespace()
-                .next()
-                .map_or_else(|| "item".to_owned(), str::to_ascii_lowercase);
+            let spec_text = seed_specification_text(seed);
+            // 2026-04-21: replaced the old `first_word.lowercase()` head-noun
+            // extractor with a real noun-phrase normaliser, and classify
+            // service-contract candidates properly (was hardcoded 'sku').
+            // See extract_head_noun + classify_candidate_type for the rules.
+            let head_noun = extract_head_noun(&candidate_name);
+            let candidate_type = classify_candidate_type(&candidate_name, spec_text.as_deref());
             let source_evidence_json = json!([build_document_derived_evidence(
                 "pdf-extraction/tender-specification",
                 context.document_extraction_id,
@@ -7804,11 +10987,13 @@ fn persist_tender_spec_domain_writes(
                   source_evidence_json, spec_confidence_bps, quantity_confidence_bps,
                   owner_id, row_version, last_local_seq, stage_run_id
                 ) VALUES (
-                  ?1, ?2, ?3, ?4, ?5, ?6, 'sku', 'direct_match', ?7, ?8, ?9, ?10, ?11, ?12,
-                  9200, 9200, ?13, 1, ?14, ?15
+                  ?1, ?2, ?3, ?4, ?5, ?6, ?7, 'direct_match', ?8, ?9, ?10, ?11, ?12, ?13,
+                  9200, 9200, ?14, 1, ?15, ?16
                 )
                 ON CONFLICT(id) DO UPDATE SET
                   name = excluded.name,
+                  candidate_type = excluded.candidate_type,
+                  head_noun = excluded.head_noun,
                   quantity = excluded.quantity,
                   quantity_unit = excluded.quantity_unit,
                   specification_text = excluded.specification_text,
@@ -7828,10 +11013,11 @@ fn persist_tender_spec_domain_writes(
                     lot_id,
                     candidate_key,
                     candidate_name,
+                    candidate_type,
                     head_noun,
                     optional_numeric_at(seed, &["quantity"]),
                     optional_string_at(seed, &["quantity_unit"]),
-                    seed_specification_text(seed),
+                    spec_text,
                     json!(seed_technical_standards(seed)).to_string(),
                     source_evidence_json,
                     DEFAULT_OWNER_ID,
@@ -9054,6 +12240,18 @@ fn run_deterministic_pipeline(
     let lots_qualified = run_qualify_lot_stage(&mut runtime.state_db)?;
     ::tracing::info!(lots_qualified, "qualify-lot stage complete");
 
+    // Back-fill head_noun / candidate_type against the current helpers for any
+    // rows the old extractor got wrong. Runs before score-quoteability so
+    // Stage 8 re-emits fresh search_profiles for reclassified candidates.
+    let reclassified = run_reclassify_candidates_stage(&mut runtime.state_db)?;
+    ::tracing::info!(reclassified, "reclassify-candidates stage complete");
+
+    let quoteability_scored = run_score_quoteability_stage(&mut runtime.state_db)?;
+    ::tracing::info!(quoteability_scored, "score-quoteability stage complete");
+
+    let margins_assessed = run_gross_margin_gate_stage(&mut runtime.state_db)?;
+    ::tracing::info!(margins_assessed, "gross-margin-gate stage complete");
+
     let relations_found = run_relate_stage(&mut runtime.state_db)?;
     ::tracing::info!(relations_found, "relate stage complete");
 
@@ -9061,7 +12259,8 @@ fn run_deterministic_pipeline(
         summary_line: format!(
             "deterministic pipeline complete: lots_created={lots_created} \
              prequalified={prequalified} lots_qualified={lots_qualified} \
-             relations={relations_found}"
+             reclassified={reclassified} quoteability_scored={quoteability_scored} \
+             margins_assessed={margins_assessed} relations={relations_found}"
         ),
         status: "completed".to_owned(),
     })
@@ -9141,6 +12340,22 @@ fn run_extract_lots_stage(state_db: &mut StateDb, source_id: &str) -> Result<usi
     Ok(count)
 }
 
+/// Parse a CPV division (first two digits) from a classification code string.
+///
+/// Accepts EU CPV-8 codes with an optional check digit, e.g. `45210000-2`.
+/// Rejects the 6-digit proprietary taxonomy codes some portals emit alongside
+/// real CPV (e.g. `150000 - Consultancy`).
+fn parse_cpv_division(code: &str) -> Option<u32> {
+    let bytes = code.trim().as_bytes();
+    if bytes.len() < 8 || !bytes[..8].iter().all(u8::is_ascii_digit) {
+        return None;
+    }
+    if matches!(bytes.get(8), Some(b) if b.is_ascii_digit()) {
+        return None;
+    }
+    std::str::from_utf8(&bytes[..2]).ok()?.parse::<u32>().ok()
+}
+
 /// Stage: Prequalify Notice — classify goods/services using CPV codes from raw OCDS payloads.
 #[allow(clippy::too_many_lines, clippy::type_complexity)]
 fn run_prequalify_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize> {
@@ -9209,11 +12424,39 @@ fn run_prequalify_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize
                 .as_deref()
                 .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
                 .and_then(|doc| {
-                    doc.get("tender")
+                    let ocds = doc
+                        .get("tender")
                         .and_then(|t| t.get("classification"))
                         .and_then(|c| c.get("id"))
                         .and_then(Value::as_str)
-                        .and_then(|code| code.chars().take(2).collect::<String>().parse::<u32>().ok())
+                        .and_then(parse_cpv_division);
+                    if ocds.is_some() {
+                        return ocds;
+                    }
+                    // ProContract HTML-scraped notices carry CPV codes in a
+                    // `categories` field, which may be at root or nested under
+                    // `detail`, and may be:
+                    //   - pipe/newline-separated string: "45210000-2 - X | 45221111-3 - Y"
+                    //     or "33141112-8 - Plasters\n44111000-1 - Building materials"
+                    //   - JSON array of strings: ["72000000-5 - IT services"]
+                    // First valid 8-digit CPV code wins; 6-digit ProContract
+                    // proprietary taxonomy codes are ignored.
+                    let categories_value = doc
+                        .get("categories")
+                        .or_else(|| doc.get("detail").and_then(|d| d.get("categories")));
+                    categories_value.and_then(|v| match v {
+                        Value::String(s) => s
+                            .split(['|', '\n'])
+                            .map(str::trim)
+                            .find_map(parse_cpv_division),
+                        Value::Array(arr) => arr
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .flat_map(|s| s.split(['|', '\n']))
+                            .map(str::trim)
+                            .find_map(parse_cpv_division),
+                        _ => None,
+                    })
                 });
 
             // CPV classification per EU procurement vocabulary:
@@ -9425,6 +12668,1068 @@ fn run_qualify_lot_stage(state_db: &mut StateDb) -> Result<usize> {
             qualified += 1;
         }
         Ok(qualified)
+    })?;
+
+    Ok(count)
+}
+
+/// Stage: Reclassify Candidates — a one-shot-safe backfill pass that re-runs
+/// the deterministic `extract_head_noun` + `classify_candidate_type` helpers
+/// over every existing `product_candidates` row. Runs between qualify-lot
+/// and score-quoteability in the deterministic pipeline.
+///
+/// Rationale (2026-04-21): the original Stage-7 extractor at the semantic
+/// INSERT site used `candidate_name.split_whitespace().next().to_lowercase()`
+/// for `head_noun` (literally "first word of name") and hard-coded
+/// `candidate_type = 'sku'`. That produced:
+/// - `head_noun = "metal"` for "Metal railings / gates / fencing — repair…"
+/// - `head_noun = "manufactured"` (an adjective) for "Manufactured metal
+///   railings — supply and installation"
+/// - 100 % of rows classified as `sku`, including pure contractor services
+///   like "Print Services (DPS umbrella)" and "repair and modification service".
+///
+/// The marketplace-search layer could never find matches for these.
+///
+/// After the Stage-7 INSERT was fixed, this stage back-fills the existing 545
+/// rows by recomputing both fields and, where either changed:
+/// - UPDATEs `product_candidates.head_noun` / `.candidate_type`
+/// - DELETEs the candidate's `search_profiles` row
+/// - DELETEs the candidate's Stage-8 `process_stage_heads` entry
+///
+/// so that the subsequent `run_score_quoteability_stage` pass re-emits a
+/// fresh `search_profiles` row (with correct `head_noun`, `candidate_type`,
+/// and regenerated `query_waves_json`) for every reclassified candidate.
+///
+/// Idempotent on re-run: rows whose classification already matches the
+/// current helpers are skipped.
+fn run_reclassify_candidates_stage(state_db: &mut StateDb) -> Result<usize> {
+    // Pull all existing candidates (id + current classification + raw inputs).
+    let rows: Vec<(String, String, Option<String>, String, String)> = {
+        let conn = state_db.connection();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, specification_text, head_noun, candidate_type
+             FROM product_candidates",
+        )?;
+        stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+            ))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+
+    if rows.is_empty() {
+        return Ok(0);
+    }
+
+    let stage_run_id = allocate_stage_run_id();
+    let (reclassified, _) = state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        let mut count = 0_usize;
+
+        for (id, name, spec, old_head, old_type) in &rows {
+            let new_head = extract_head_noun(name);
+            let new_type = classify_candidate_type(name, spec.as_deref());
+
+            if new_head == *old_head && new_type == *old_type {
+                continue; // already correctly classified
+            }
+
+            tx.execute(
+                "UPDATE product_candidates
+                 SET head_noun = ?1,
+                     candidate_type = ?2,
+                     row_version = row_version + 1,
+                     last_local_seq = ?3,
+                     stage_run_id = ?4,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?5",
+                params![new_head, new_type, visible_after_seq, stage_run_id, id],
+            )?;
+
+            // Invalidate Stage 8 outputs so score-quoteability re-processes
+            // the candidate. We do NOT delete `search_profiles` directly —
+            // `search_attempts.search_profile_id` has an FK onto it, so
+            // dropping the profile would orphan every prior search attempt.
+            // Stage 8's INSERT is already an UPSERT on `search_profiles.id`,
+            // so re-running it will UPDATE the existing row in place with
+            // the new head_noun / candidate_type / regenerated query waves.
+            tx.execute(
+                "DELETE FROM process_stage_status
+                 WHERE stage = 'Score quoteability' AND scope_kind = 'candidate'
+                   AND scope_id = ?1",
+                params![id],
+            )?;
+            tx.execute(
+                "DELETE FROM process_stage_heads
+                 WHERE stage = 'Score quoteability' AND scope_kind = 'candidate'
+                   AND scope_id = ?1",
+                params![id],
+            )?;
+
+            count += 1;
+        }
+
+        Ok(count)
+    })?;
+
+    Ok(reclassified)
+}
+
+/// A single row of input for the Score Quoteability stage.
+struct QuoteabilityRow {
+    id: String,
+    process_id: String,
+    name: String,
+    head_noun: String,
+    candidate_type: String,
+    match_archetype: String,
+    specification_text: Option<String>,
+    quantity: Option<f64>,
+    quantity_unit: Option<String>,
+    material: Option<String>,
+    standards_json: Option<String>,
+    critical_attributes_json: Option<String>,
+    numeric_specs_json: Option<String>,
+}
+
+/// Returns true when a JSON-encoded field contains at least one usable entry.
+fn quoteability_json_has_entries(raw: Option<&str>) -> bool {
+    let Some(text) = raw else {
+        return false;
+    };
+    let trimmed = text.trim();
+    if trimmed.is_empty() || trimmed == "[]" || trimmed == "{}" || trimmed == "null" {
+        return false;
+    }
+    match serde_json::from_str::<Value>(trimmed) {
+        Ok(Value::Array(items)) => !items.is_empty(),
+        Ok(Value::Object(map)) => !map.is_empty(),
+        Ok(_) => false,
+        Err(_) => true,
+    }
+}
+
+/// Scoring weights (all expressed in bps so 10000 = 1.0).
+///
+/// Signals deliberately lean on what is actually populated for the current
+/// 545 candidates: `specification_text` length, `standards_json` presence,
+/// name word count, and `head_noun` well-formedness. Structured fields
+/// (`critical_attributes_json`, `numeric_specs_json`, `quantity`, `material`)
+/// add meaningful bonuses when upstream extraction starts to fill them.
+fn score_quoteability_bps(row: &QuoteabilityRow) -> i64 {
+    let mut score: i64 = 1000; // baseline
+
+    // Head noun well-formedness: length floor, no trailing comma noise.
+    let head = row.head_noun.trim();
+    let head_ok = head.len() >= 4 && !head.contains(',');
+    if head_ok {
+        score += 1500;
+    } else if head.len() >= 4 {
+        score += 500;
+    }
+
+    // Name richness via word count — longer names encode more descriptive signal.
+    let name_words = row.name.split_whitespace().count();
+    if name_words >= 6 {
+        score += 1500;
+    } else if name_words >= 4 {
+        score += 1000;
+    } else if name_words >= 2 {
+        score += 500;
+    }
+
+    // Specification text length — the strongest differentiator in current data.
+    let spec_len = row.specification_text.as_deref().map_or(0, str::len);
+    if spec_len >= 200 {
+        score += 2500;
+    } else if spec_len >= 100 {
+        score += 1800;
+    } else if spec_len >= 50 {
+        score += 1000;
+    } else if spec_len >= 20 {
+        score += 500;
+    }
+
+    if quoteability_json_has_entries(row.standards_json.as_deref()) {
+        score += 1500;
+    }
+    if quoteability_json_has_entries(row.critical_attributes_json.as_deref()) {
+        score += 1000;
+    }
+    if quoteability_json_has_entries(row.numeric_specs_json.as_deref()) {
+        score += 1000;
+    }
+
+    if row.quantity.is_some_and(|q| q > 0.0) {
+        score += 500;
+    }
+    if row
+        .quantity_unit
+        .as_deref()
+        .is_some_and(|u| !u.trim().is_empty())
+    {
+        score += 200;
+    }
+    if row
+        .material
+        .as_deref()
+        .is_some_and(|m| !m.trim().is_empty())
+    {
+        score += 500;
+    }
+
+    score.clamp(0, 10_000)
+}
+
+/// Identity confidence is our estimate of "do we know WHAT this thing is?"
+/// It rewards descriptive names, long specs, and declared standards.
+fn identity_confidence_bps(row: &QuoteabilityRow) -> i64 {
+    let mut score: i64 = 2000;
+
+    let name_words = row.name.split_whitespace().count();
+    if name_words >= 6 {
+        score += 2500;
+    } else if name_words >= 4 {
+        score += 1800;
+    } else if name_words >= 2 {
+        score += 1000;
+    }
+
+    let spec_len = row.specification_text.as_deref().map_or(0, str::len);
+    if spec_len >= 200 {
+        score += 2500;
+    } else if spec_len >= 100 {
+        score += 1500;
+    } else if spec_len >= 50 {
+        score += 800;
+    }
+
+    if quoteability_json_has_entries(row.standards_json.as_deref()) {
+        score += 1500;
+    }
+
+    score.clamp(0, 10_000)
+}
+
+const fn eligibility_state_for(score_bps: i64) -> &'static str {
+    if score_bps >= 6500 {
+        "eligible"
+    } else if score_bps >= 4500 {
+        "marginal"
+    } else {
+        "ineligible"
+    }
+}
+
+/// Words that add no lexical signal when building a search query.
+const QUOTEABILITY_STOPWORDS: &[&str] = &[
+    "the",
+    "a",
+    "an",
+    "and",
+    "or",
+    "of",
+    "for",
+    "in",
+    "on",
+    "to",
+    "with",
+    "by",
+    "at",
+    "as",
+    "is",
+    "are",
+    "be",
+    "this",
+    "that",
+    "from",
+    "up",
+    "it",
+    "its",
+    "etc",
+    "including",
+    "e.g",
+    "eg",
+    "i.e",
+    "ie",
+    "per",
+    "via",
+    "any",
+    "all",
+    "may",
+    "also",
+];
+
+/// Extracts up to `limit` distinct alphanumeric tokens from free text,
+/// dropping stopwords and fragments shorter than three characters.
+fn extract_spec_keywords(text: &str, limit: usize) -> Vec<String> {
+    // NOTE 2026-04-21: hyphens are treated as WORD SEPARATORS, not part of
+    // tokens. The previous behaviour kept tokens like "double-glazed" intact,
+    // which broke Amazon UK's search tokenizer ("?k=double-glazed" → 0
+    // results, while "?k=double+glazed" → 10 000+). Splitting on hyphens
+    // fixes this globally for every marketplace skill.
+    let mut out: Vec<String> = Vec::new();
+    for raw in text.split(|c: char| !c.is_alphanumeric() && c != '.') {
+        if raw.is_empty() {
+            continue;
+        }
+        let cleaned = raw.trim_matches(|c: char| c == '.');
+        if cleaned.len() < 3 {
+            continue;
+        }
+        let lower = cleaned.to_ascii_lowercase();
+        if QUOTEABILITY_STOPWORDS.contains(&lower.as_str()) {
+            continue;
+        }
+        if !out
+            .iter()
+            .any(|existing| existing.eq_ignore_ascii_case(cleaned))
+        {
+            out.push(cleaned.to_owned());
+        }
+        if out.len() >= limit {
+            break;
+        }
+    }
+    out
+}
+
+/// Derive a marketplace-searchable noun phrase from a full candidate name.
+///
+/// The old Stage-7 extractor was `candidate_name.split_whitespace().next()` —
+/// just the first word, lowercased. That broke badly on real UK procurement
+/// names (all real examples from the 2026-04-19 data):
+/// - "Manufactured metal railings — supply and installation" → `"manufactured"`
+/// - "Metal railings / gates / fencing — repair service"     → `"metal"`
+/// - "Double-glazed unit (sealed insulating glass unit)"     → `"double-glazed"`
+///
+/// The new algorithm:
+/// 1. Strip parentheticals — internal taxonomy tags (e.g. "(CCP074 DPS umbrella)").
+/// 2. Truncate at the first service-descriptor separator (em-dash, en-dash,
+///    or " - ") so "Foo — repair service" becomes just "Foo".
+/// 3. Split on "/" and keep the first segment — for "Foo / Bar / Baz" we
+///    pick "Foo" as the primary noun phrase (the agent's stated head item).
+/// 4. Replace hyphens with spaces — hyphens break Amazon-style search
+///    tokenizers ("double-glazed" → 0 Amazon results, "double glazed" → 10k+).
+/// 5. Collapse whitespace, trim, lowercase.
+///
+/// Examples (verified in unit tests):
+/// - "Double-glazed unit (sealed insulating glass unit, …)" → "double glazed unit"
+/// - "Metal railings / gates / fencing — repair service"     → "metal railings"
+/// - "Manufactured metal railings — supply and installation" → "manufactured metal railings"
+/// - "Chute / balcony balustrade — general repair"            → "chute"
+/// - "Print Services (CCP074 DPS umbrella)"                   → "print services"
+fn extract_head_noun(candidate_name: &str) -> String {
+    let mut s = candidate_name.to_owned();
+
+    // 1. Strip parentheticals (handle nested/multiple by looping).
+    loop {
+        let open = s.find('(');
+        let close = s.find(')');
+        match (open, close) {
+            (Some(o), Some(c)) if o < c => {
+                s.replace_range(o..=c, "");
+            }
+            _ => break,
+        }
+    }
+
+    // 2. Truncate at service-descriptor separator. Order matters: longest
+    //    separator first to avoid partial matches (" - " inside " — " etc.).
+    for sep in [" — ", " – ", " - "] {
+        if let Some(idx) = s.find(sep) {
+            s.truncate(idx);
+        }
+    }
+
+    // 3. Take the first slash-separated segment.
+    if let Some(idx) = s.find('/') {
+        s.truncate(idx);
+    }
+
+    // 4. Replace hyphens with spaces (search-tokenizer friendliness).
+    let s = s.replace('-', " ");
+
+    // 5. Collapse whitespace, lowercase.
+    let collapsed: String = s
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase();
+
+    if collapsed.is_empty() {
+        "item".to_owned()
+    } else {
+        collapsed
+    }
+}
+
+/// Phrases that reliably mark a candidate as a procurement **service** rather
+/// than a buyable SKU. Order: longest phrase first (substring-matches are
+/// non-greedy so this doesn't matter functionally, but reads clearly).
+/// Case-insensitive — the caller lowercases before matching.
+const SERVICE_SIGNAL_PHRASES: &[&str] = &[
+    "repair and modification",
+    "repair and maintenance",
+    "repair service",
+    "maintenance service",
+    "consultancy service",
+    "advisory service",
+    "managed service",
+    "management service",
+    "support service",
+    "training service",
+    "inspection service",
+    "monitoring service",
+    "assessment service",
+    "cleaning service",
+    "outsourced",
+    "consultancy",
+    "advisory",
+    "general repair",
+    "modification service",
+    "refurbishment service",
+];
+
+/// Name-suffix endings that indicate a candidate is a service contract.
+/// Checked against the *primary* part of the name (before any parenthetical).
+const SERVICE_NAME_SUFFIXES: &[&str] = &[
+    " services",
+    " service",
+    " works",
+    " maintenance",
+    " consultancy",
+    " management",
+    " support",
+    " advisory",
+];
+
+/// Classify a candidate as `"sku"` (physical buyable product) or `"service"`.
+///
+/// Signals checked (any match ⇒ service):
+/// - Service phrase appears in name OR specification text
+/// - Primary name (before any `(...)` tag) ends with a service suffix
+///   (e.g. "Print Services", "Metal Works", "Advisory")
+///
+/// The hybrid "supply and installation" phrasing is treated as SKU, not
+/// service — the supply half is a concrete product and the installation half
+/// is a separable service line the operator can drop at call-off.
+fn classify_candidate_type(candidate_name: &str, specification_text: Option<&str>) -> &'static str {
+    let name_l = candidate_name.to_lowercase();
+    let spec_l = specification_text.unwrap_or("").to_lowercase();
+
+    for phrase in SERVICE_SIGNAL_PHRASES {
+        if name_l.contains(phrase) || spec_l.contains(phrase) {
+            return "service";
+        }
+    }
+
+    // Check primary name suffix (before any parenthetical).
+    let primary = name_l.split('(').next().unwrap_or(&name_l).trim();
+    for suffix in SERVICE_NAME_SUFFIXES {
+        if primary.ends_with(suffix) {
+            return "service";
+        }
+    }
+
+    "sku"
+}
+
+/// Extracts the first human-readable label from a standards JSON blob.
+fn first_standard_label(raw: Option<&str>) -> Option<String> {
+    let text = raw?.trim();
+    if text.is_empty() || text == "[]" || text == "{}" || text == "null" {
+        return None;
+    }
+    let value: Value = serde_json::from_str(text).ok()?;
+    match value {
+        Value::Array(arr) => arr.into_iter().find_map(standard_label_from_value),
+        Value::Object(_) => standard_label_from_value(value),
+        Value::String(s) if !s.trim().is_empty() => Some(s),
+        _ => None,
+    }
+}
+
+fn standard_label_from_value(value: Value) -> Option<String> {
+    match value {
+        Value::String(s) if !s.trim().is_empty() => Some(s),
+        Value::Object(map) => [
+            "code",
+            "standard",
+            "name",
+            "reference",
+            "label",
+            "id",
+            "title",
+        ]
+        .iter()
+        .find_map(|key| {
+            map.get(*key)
+                .and_then(Value::as_str)
+                .filter(|s| !s.trim().is_empty())
+                .map(str::to_owned)
+        }),
+        _ => None,
+    }
+}
+
+/// Builds a broader-noun query from the candidate name: the first one or two
+/// meaningful tokens, stripped of punctuation. Falls back to head noun.
+fn broader_noun_from_name(name: &str, fallback: &str) -> String {
+    // Hyphens are treated as word SEPARATORS (see extract_spec_keywords for
+    // the 2026-04-21 Amazon-tokenization rationale). "Double-glazed unit"
+    // becomes ["double","glazed","unit"] → first two = "double glazed".
+    let tokens: Vec<String> = name
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|s| !s.is_empty() && s.len() >= 2)
+        .take(2)
+        .map(str::to_owned)
+        .collect();
+    if tokens.is_empty() {
+        return fallback.to_owned();
+    }
+    tokens.join(" ").to_lowercase()
+}
+
+/// Constructs the query wave plan as a JSON array string.
+///
+/// Waves progress from most specific (head noun + distinctive spec tokens)
+/// to broadest (head noun alone). Stage 9 agents decide which waves to
+/// actually execute based on zero-result recovery policy.
+#[allow(clippy::option_if_let_else)]
+fn build_query_waves(row: &QuoteabilityRow) -> String {
+    let head = row.head_noun.trim();
+    let spec_keywords = row
+        .specification_text
+        .as_deref()
+        .map(|text| extract_spec_keywords(text, 6))
+        .unwrap_or_default();
+    let standard = first_standard_label(row.standards_json.as_deref());
+
+    let wave1 = if spec_keywords.is_empty() {
+        head.to_owned()
+    } else {
+        let top: Vec<String> = spec_keywords.iter().take(3).cloned().collect();
+        format!("{head} {}", top.join(" ")).trim().to_owned()
+    };
+
+    let wave2 = if let Some(std) = standard.as_deref() {
+        format!("{head} {std}")
+    } else if let Some(material) = row.material.as_deref().filter(|m| !m.trim().is_empty()) {
+        format!("{head} {material}")
+    } else if spec_keywords.len() >= 4 {
+        let tail: Vec<String> = spec_keywords.iter().skip(3).take(2).cloned().collect();
+        format!("{head} {}", tail.join(" "))
+    } else if let Some(last) = spec_keywords.last() {
+        format!("{head} {last}")
+    } else {
+        head.to_owned()
+    };
+
+    let wave3 = broader_noun_from_name(&row.name, head);
+    let wave4 = head.to_owned();
+
+    let plan = json!([
+        { "wave": 1, "strategy": "exact_noun",      "query": wave1 },
+        { "wave": 2, "strategy": "noun_with_spec",  "query": wave2 },
+        { "wave": 3, "strategy": "broader_noun",    "query": wave3 },
+        { "wave": 4, "strategy": "existence_check", "query": wave4 },
+    ]);
+    plan.to_string()
+}
+
+/// Stage: Score Quoteability — compute deterministic scoring signals for every
+/// product candidate whose lot has been qualified, and emit a `search_profiles`
+/// row for each with a query wave plan ready for Stage 9 marketplace search.
+#[allow(clippy::too_many_lines)]
+fn run_score_quoteability_stage(state_db: &mut StateDb) -> Result<usize> {
+    // Find qualified-lot candidates that haven't been scored yet.
+    let rows: Vec<QuoteabilityRow> = {
+        let conn = state_db.connection();
+        let mut stmt = conn.prepare(
+            "SELECT pc.id, pc.process_id, pc.name, pc.head_noun,
+                    pc.candidate_type, pc.match_archetype,
+                    pc.specification_text, pc.quantity, pc.quantity_unit,
+                    pc.material, pc.standards_json,
+                    pc.critical_attributes_json, pc.numeric_specs_json
+             FROM product_candidates pc
+             WHERE EXISTS (
+               SELECT 1 FROM process_stage_heads h
+               WHERE h.process_id = pc.process_id
+                 AND h.stage = 'qualify lot'
+                 AND h.scope_kind = 'lot'
+                 AND h.scope_id = pc.lot_id
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM process_stage_heads h
+               WHERE h.process_id = pc.process_id
+                 AND h.stage = 'Score quoteability'
+                 AND h.scope_kind = 'candidate'
+                 AND h.scope_id = pc.id
+             )",
+        )?;
+        stmt.query_map([], |row| {
+            Ok(QuoteabilityRow {
+                id: row.get::<_, String>(0)?,
+                process_id: row.get::<_, String>(1)?,
+                name: row.get::<_, String>(2)?,
+                head_noun: row.get::<_, String>(3)?,
+                candidate_type: row.get::<_, String>(4)?,
+                match_archetype: row.get::<_, String>(5)?,
+                specification_text: row.get::<_, Option<String>>(6)?,
+                quantity: row.get::<_, Option<f64>>(7)?,
+                quantity_unit: row.get::<_, Option<String>>(8)?,
+                material: row.get::<_, Option<String>>(9)?,
+                standards_json: row.get::<_, Option<String>>(10)?,
+                critical_attributes_json: row.get::<_, Option<String>>(11)?,
+                numeric_specs_json: row.get::<_, Option<String>>(12)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+
+    if rows.is_empty() {
+        return Ok(0);
+    }
+
+    let stage_run_id = allocate_stage_run_id();
+    let (count, _) = state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        let mut scored = 0_usize;
+
+        for row in &rows {
+            let quoteability_bps = score_quoteability_bps(row);
+            let recall_risk_bps = 10_000 - quoteability_bps;
+            let identity_bps = identity_confidence_bps(row);
+            let eligibility = eligibility_state_for(quoteability_bps);
+            let query_waves = build_query_waves(row);
+            let profile_id = format!("sp-{}", row.id);
+
+            tx.execute(
+                "UPDATE product_candidates
+                 SET quoteability_score_bps = ?1,
+                     recall_risk_score_bps = ?2,
+                     identity_confidence_bps = ?3,
+                     row_version = row_version + 1,
+                     last_local_seq = ?4,
+                     stage_run_id = ?5,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?6",
+                params![
+                    quoteability_bps,
+                    recall_risk_bps,
+                    identity_bps,
+                    visible_after_seq,
+                    stage_run_id,
+                    row.id,
+                ],
+            )?;
+
+            tx.execute(
+                "INSERT INTO search_profiles (
+                   id, product_candidate_id, head_noun, candidate_type, match_archetype,
+                   critical_attributes_json, standards_json, numeric_specs_json,
+                   query_waves_json, recall_risk_score_bps, search_eligibility_state,
+                   owner_id, row_version, last_local_seq, stage_run_id
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 1, ?13, ?14)
+                 ON CONFLICT(id) DO UPDATE SET
+                   head_noun = excluded.head_noun,
+                   candidate_type = excluded.candidate_type,
+                   match_archetype = excluded.match_archetype,
+                   critical_attributes_json = excluded.critical_attributes_json,
+                   standards_json = excluded.standards_json,
+                   numeric_specs_json = excluded.numeric_specs_json,
+                   query_waves_json = excluded.query_waves_json,
+                   recall_risk_score_bps = excluded.recall_risk_score_bps,
+                   search_eligibility_state = excluded.search_eligibility_state,
+                   row_version = search_profiles.row_version + 1,
+                   last_local_seq = excluded.last_local_seq,
+                   stage_run_id = excluded.stage_run_id,
+                   updated_at = CURRENT_TIMESTAMP",
+                params![
+                    profile_id,
+                    row.id,
+                    row.head_noun,
+                    row.candidate_type,
+                    row.match_archetype,
+                    row.critical_attributes_json,
+                    row.standards_json,
+                    row.numeric_specs_json,
+                    query_waves,
+                    recall_risk_bps,
+                    eligibility,
+                    LOCAL_EXECUTOR_ID,
+                    visible_after_seq,
+                    stage_run_id,
+                ],
+            )?;
+
+            persist_stage(
+                tx,
+                &row.process_id,
+                "Score quoteability",
+                "candidate",
+                &row.id,
+                &stage_run_id,
+            )?;
+            scored += 1;
+        }
+        Ok(scored)
+    })?;
+
+    Ok(count)
+}
+
+struct GrossMarginCandidateRow {
+    id: String,
+    process_id: String,
+    notice_id: String,
+    lot_id: String,
+    candidate_value_share_bps: Option<i64>,
+}
+
+struct GrossMarginQuoteRow {
+    id: String,
+    row_version: i64,
+    quote_cost_boundary: Option<String>,
+    unit_price_gbp_pence: i64,
+    price_signal_role: String,
+    match_confidence_bps: Option<i64>,
+    quote_usability_confidence_bps: Option<i64>,
+    quote_realism_confidence_bps: Option<i64>,
+    source_name: String,
+}
+
+struct RevenueAllocation {
+    revenue_basis_type: &'static str,
+    revenue_pence: i64,
+    confidence_bps: i64,
+}
+
+fn effective_quote_cost_pence(quote: &GrossMarginQuoteRow) -> i64 {
+    if quote.price_signal_role == "uk_retail_benchmark" {
+        quote.unit_price_gbp_pence * (10_000 - DEFAULT_UK_RETAIL_WHOLESALE_DISCOUNT_BPS) / 10_000
+    } else {
+        quote.unit_price_gbp_pence
+    }
+}
+
+fn quote_identity_gate_passed(quote: &GrossMarginQuoteRow) -> bool {
+    quote.match_confidence_bps.unwrap_or(0) >= 5000
+}
+
+fn quote_usability_gate_passed(quote: &GrossMarginQuoteRow) -> bool {
+    quote
+        .quote_usability_confidence_bps
+        .is_some_and(|confidence| confidence >= 5000)
+        || (quote.quote_usability_confidence_bps.is_none()
+            && quote.price_signal_role != "uk_retail_benchmark")
+}
+
+fn quote_realism_gate_passed(quote: &GrossMarginQuoteRow) -> bool {
+    quote
+        .quote_realism_confidence_bps
+        .is_none_or(|confidence| confidence >= 4000)
+}
+
+fn quote_passes_gross_margin_gates(quote: &GrossMarginQuoteRow) -> bool {
+    quote_identity_gate_passed(quote)
+        && quote_usability_gate_passed(quote)
+        && quote_realism_gate_passed(quote)
+}
+
+fn gross_margin_quote_selection_key(quote: &GrossMarginQuoteRow) -> (bool, bool, bool, i64) {
+    (
+        !quote_identity_gate_passed(quote),
+        !quote_usability_gate_passed(quote),
+        !quote_realism_gate_passed(quote),
+        effective_quote_cost_pence(quote),
+    )
+}
+
+fn quote_cost_boundary_for_assessment(quote: &GrossMarginQuoteRow) -> &str {
+    match quote.quote_cost_boundary.as_deref() {
+        Some("pack") => "pack",
+        Some("project") => "project",
+        _ => "unit",
+    }
+}
+
+fn count_non_service_candidates(
+    tx: &Transaction<'_>,
+    predicate_sql: &str,
+    id: &str,
+) -> Result<i64> {
+    let sql = format!(
+        "SELECT COUNT(*) FROM product_candidates WHERE {predicate_sql} = ?1 AND candidate_type != 'service'"
+    );
+    tx.query_row(&sql, params![id], |row| row.get::<_, i64>(0))
+        .context("counting non-service product candidates")
+}
+
+fn allocate_gross_margin_revenue(
+    tx: &Transaction<'_>,
+    candidate: &GrossMarginCandidateRow,
+) -> Result<RevenueAllocation> {
+    let lot_value_pence: Option<i64> = tx
+        .query_row(
+            "SELECT estimated_value_pence FROM notice_lots WHERE id = ?1",
+            params![candidate.lot_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .flatten()
+        .filter(|value| *value > 0);
+
+    if let Some(lot_value) = lot_value_pence {
+        if let Some(share_bps) = candidate.candidate_value_share_bps {
+            let clamped_share = share_bps.clamp(0, 10_000);
+            return Ok(RevenueAllocation {
+                revenue_basis_type: "expected_value",
+                revenue_pence: lot_value * clamped_share / 10_000,
+                confidence_bps: 8500,
+            });
+        }
+
+        let lot_candidate_count = count_non_service_candidates(tx, "lot_id", &candidate.lot_id)?;
+        return Ok(RevenueAllocation {
+            revenue_basis_type: "expected_value",
+            revenue_pence: lot_value / lot_candidate_count.max(1),
+            confidence_bps: 6500,
+        });
+    }
+
+    let contract_value_pence: Option<i64> = tx
+        .query_row(
+            "SELECT estimated_value_original_minor FROM contract_notices WHERE id = ?1",
+            params![candidate.notice_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .flatten()
+        .filter(|value| *value > 0);
+
+    if let Some(contract_value) = contract_value_pence {
+        let process_candidate_count =
+            count_non_service_candidates(tx, "process_id", &candidate.process_id)?;
+        return Ok(RevenueAllocation {
+            revenue_basis_type: "expected_value",
+            revenue_pence: contract_value / process_candidate_count.max(1),
+            confidence_bps: 4500,
+        });
+    }
+
+    Ok(RevenueAllocation {
+        revenue_basis_type: "rfq_required",
+        revenue_pence: 0,
+        confidence_bps: 1000,
+    })
+}
+
+fn load_gross_margin_quotes(
+    tx: &Transaction<'_>,
+    candidate_id: &str,
+) -> Result<Vec<GrossMarginQuoteRow>> {
+    let mut statement = tx.prepare(
+        "SELECT id, row_version, quote_cost_boundary, unit_price_gbp_pence,
+                price_signal_role, match_confidence_bps,
+                quote_usability_confidence_bps, quote_realism_confidence_bps,
+                source_name
+         FROM supplier_quotes
+         WHERE product_candidate_id = ?1",
+    )?;
+    statement
+        .query_map(params![candidate_id], |row| {
+            Ok(GrossMarginQuoteRow {
+                id: row.get(0)?,
+                row_version: row.get(1)?,
+                quote_cost_boundary: row.get(2)?,
+                unit_price_gbp_pence: row.get(3)?,
+                price_signal_role: row.get(4)?,
+                match_confidence_bps: row.get(5)?,
+                quote_usability_confidence_bps: row.get(6)?,
+                quote_realism_confidence_bps: row.get(7)?,
+                source_name: row.get(8)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("loading supplier quotes for gross margin gate")
+}
+
+/// Stage: Gross Margin Gate — select the cheapest viable quote and compute raw margin.
+#[allow(clippy::too_many_lines)]
+fn run_gross_margin_gate_stage(state_db: &mut StateDb) -> Result<usize> {
+    let rows: Vec<GrossMarginCandidateRow> = {
+        let conn = state_db.connection();
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT pc.id, pc.process_id, pc.notice_id, pc.lot_id,
+                    pc.candidate_value_share_bps
+             FROM product_candidates pc
+             JOIN supplier_quotes sq ON sq.product_candidate_id = pc.id
+             WHERE pc.candidate_type != 'service'
+               AND EXISTS (
+                 SELECT 1 FROM process_stage_heads h
+                 WHERE h.process_id = pc.process_id
+                   AND h.stage = 'qualify lot'
+                   AND h.scope_kind = 'lot'
+                   AND h.scope_id = pc.lot_id
+               )
+               AND NOT EXISTS (
+                 SELECT 1 FROM process_stage_heads h
+                 WHERE h.process_id = pc.process_id
+                   AND h.stage = 'gross margin gate'
+                   AND h.scope_kind = 'candidate'
+                   AND h.scope_id = pc.id
+               )",
+        )?;
+        stmt.query_map([], |row| {
+            Ok(GrossMarginCandidateRow {
+                id: row.get(0)?,
+                process_id: row.get(1)?,
+                notice_id: row.get(2)?,
+                lot_id: row.get(3)?,
+                candidate_value_share_bps: row.get(4)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+
+    if rows.is_empty() {
+        return Ok(0);
+    }
+
+    let stage_run_id = allocate_stage_run_id();
+    let (count, _) = state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        let mut assessed = 0_usize;
+
+        for candidate in &rows {
+            let quotes = load_gross_margin_quotes(tx, &candidate.id)?;
+            let fully_passing_quote = quotes
+                .iter()
+                .filter(|quote| quote_passes_gross_margin_gates(quote))
+                .min_by_key(|quote| effective_quote_cost_pence(quote));
+            let selected_quote =
+                fully_passing_quote.or_else(|| quotes.iter().min_by_key(|quote| {
+                    gross_margin_quote_selection_key(quote)
+                }));
+
+            let Some(selected_quote) = selected_quote
+            else {
+                ::tracing::warn!(
+                    candidate_id = %candidate.id,
+                    quote_count = quotes.len(),
+                    "gross margin gate skipped candidate because no quotes were available"
+                );
+                continue;
+            };
+
+            if !quote_passes_gross_margin_gates(selected_quote) {
+                ::tracing::warn!(
+                    candidate_id = %candidate.id,
+                    selected_quote_id = %selected_quote.id,
+                    identity_gate_passed = quote_identity_gate_passed(selected_quote),
+                    usability_gate_passed = quote_usability_gate_passed(selected_quote),
+                    realism_gate_passed = quote_realism_gate_passed(selected_quote),
+                    "gross margin gate using best available quote after strict gates rejected all quotes"
+                );
+            }
+
+            let revenue = allocate_gross_margin_revenue(tx, candidate)?;
+            let effective_cost = effective_quote_cost_pence(selected_quote);
+            let gross_margin_bps = if revenue.revenue_pence == 0 {
+                0
+            } else {
+                (revenue.revenue_pence - effective_cost) * 10_000 / revenue.revenue_pence
+            };
+            let quote_confidence_bps = selected_quote.match_confidence_bps.unwrap_or(0).min(
+                selected_quote
+                    .quote_usability_confidence_bps
+                    .unwrap_or(7000),
+            );
+            let gross_estimate_confidence_bps = revenue.confidence_bps.min(quote_confidence_bps);
+            let pricing_input_confidence_bps =
+                i64::midpoint(revenue.confidence_bps, gross_estimate_confidence_bps);
+            let assessment_id = format!("pricing-{}", candidate.id);
+            let quote_cost_boundary = quote_cost_boundary_for_assessment(selected_quote);
+
+            tx.execute(
+                "INSERT INTO candidate_pricing_assessments (
+                   id, process_id, notice_id, product_candidate_id, selected_quote_id,
+                   selected_quote_row_version, quote_cost_boundary, revenue_basis_type,
+                   expected_addressable_revenue_ex_vat_pence, revenue_confidence_bps,
+                   gross_margin_bps, gross_estimate_confidence_bps, identity_gate_passed,
+                   usability_gate_passed, pricing_input_confidence_bps, owner_id,
+                   row_version, last_local_seq, stage_run_id
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
+                           ?13, ?14, ?15, ?16, 1, ?17, ?18)
+                 ON CONFLICT(id) DO UPDATE SET
+                   selected_quote_id = excluded.selected_quote_id,
+                   selected_quote_row_version = excluded.selected_quote_row_version,
+                   quote_cost_boundary = excluded.quote_cost_boundary,
+                   revenue_basis_type = excluded.revenue_basis_type,
+                   expected_addressable_revenue_ex_vat_pence =
+                     excluded.expected_addressable_revenue_ex_vat_pence,
+                   revenue_confidence_bps = excluded.revenue_confidence_bps,
+                   gross_margin_bps = excluded.gross_margin_bps,
+                   gross_estimate_confidence_bps = excluded.gross_estimate_confidence_bps,
+                   identity_gate_passed = excluded.identity_gate_passed,
+                   usability_gate_passed = excluded.usability_gate_passed,
+                   pricing_input_confidence_bps = excluded.pricing_input_confidence_bps,
+                   owner_id = excluded.owner_id,
+                   row_version = candidate_pricing_assessments.row_version + 1,
+                   last_local_seq = excluded.last_local_seq,
+                   stage_run_id = excluded.stage_run_id,
+                   updated_at = CURRENT_TIMESTAMP",
+                params![
+                    assessment_id,
+                    candidate.process_id,
+                    candidate.notice_id,
+                    candidate.id,
+                    selected_quote.id,
+                    selected_quote.row_version,
+                    quote_cost_boundary,
+                    revenue.revenue_basis_type,
+                    revenue.revenue_pence,
+                    revenue.confidence_bps,
+                    gross_margin_bps,
+                    gross_estimate_confidence_bps,
+                    i32::from(quote_identity_gate_passed(selected_quote)),
+                    i32::from(quote_usability_gate_passed(selected_quote)),
+                    pricing_input_confidence_bps,
+                    LOCAL_EXECUTOR_ID,
+                    visible_after_seq,
+                    stage_run_id,
+                ],
+            )?;
+
+            persist_stage(
+                tx,
+                &candidate.process_id,
+                "gross margin gate",
+                "candidate",
+                &candidate.id,
+                &stage_run_id,
+            )?;
+
+            ::tracing::info!(
+                candidate_id = %candidate.id,
+                selected_source = %selected_quote.source_name,
+                cost_pence = effective_cost,
+                revenue_pence = revenue.revenue_pence,
+                margin_bps = gross_margin_bps,
+                "gross margin assessment"
+            );
+
+            assessed += 1;
+        }
+
+        Ok(assessed)
     })?;
 
     Ok(count)
@@ -9993,6 +14298,96 @@ mod tests {
                       '2026-03-30T00:00:00Z', 'local-owner')
             ",
             params![process_id],
+        )?;
+        Ok(())
+    }
+
+    fn seed_stage11_minimal_graph(conn: &Connection, quote_country: &str) -> Result<()> {
+        conn.execute(
+            "INSERT OR IGNORE INTO sources (id, kind, config) VALUES ('stage11-test', 'fixture', '{}')",
+            [],
+        )?;
+        seed_process(conn, "process-stage11")?;
+        conn.execute(
+            "\
+            INSERT INTO raw_documents (
+              id, source_id, content_type, source_url, payload_json, metadata
+            ) VALUES ('raw-stage11', 'stage11-test', 'application/json',
+                      'https://example.test/stage11', '{}', '{}')
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO contract_notices (
+              id, process_id, source_id, source_notice_id, raw_document_id, title,
+              summary, buyer_name, procurement_stage, published_at, source_updated_at,
+              normalized_payload, owner_id
+            ) VALUES (
+              'notice-stage11', 'process-stage11', 'stage11-test', 'source-stage11',
+              'raw-stage11', 'Stage 11 notice', 'Supply test goods', 'Buyer',
+              'tender', '2026-04-01T00:00:00Z', '2026-04-01T00:00:00Z', '{}',
+              'local-owner'
+            )
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO notice_lots (
+              id, notice_id, title, description, owner_id
+            ) VALUES (
+              'lot-stage11', 'notice-stage11', 'Stage 11 lot', 'Test lot',
+              'local-owner'
+            )
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO product_candidates (
+              id, process_id, notice_id, lot_id, name, candidate_type,
+              match_archetype, head_noun, quantity, quantity_unit, owner_id
+            ) VALUES (
+              'candidate-stage11', 'process-stage11', 'notice-stage11',
+              'lot-stage11', 'Test goods', 'goods', 'product', 'goods',
+              2, 'unit', 'local-owner'
+            )
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO supplier_quotes (
+              id, process_id, notice_id, product_candidate_id, product_name, region,
+              quote_class, source_name, ship_from_country, quoted_quantity,
+              quoted_quantity_unit, unit_price_original_minor, currency,
+              unit_price_gbp_pence, includes_shipping, price_signal_role,
+              evidence, owner_id
+            ) VALUES (
+              'quote-stage11', 'process-stage11', 'notice-stage11',
+              'candidate-stage11', 'Test goods quote', 'GB', 'spot',
+              'test-source', ?1, 2, 'unit', 100, 'GBP', 100, 0,
+              'test_quote', '{}', 'local-owner'
+            )
+            ",
+            params![quote_country],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO candidate_pricing_assessments (
+              id, process_id, notice_id, product_candidate_id, selected_quote_id,
+              selected_quote_row_version, quote_cost_boundary, revenue_basis_type,
+              expected_addressable_revenue_ex_vat_pence, revenue_confidence_bps,
+              gross_margin_bps, gross_estimate_confidence_bps, identity_gate_passed,
+              usability_gate_passed, pricing_input_confidence_bps, owner_id
+            ) VALUES (
+              'pricing-stage11', 'process-stage11', 'notice-stage11',
+              'candidate-stage11', 'quote-stage11', 1, 'unit', 'expected_value',
+              1000, 8000, 8000, 7000, 1, 1, 7000, 'local-owner'
+            )
+            ",
+            [],
         )?;
         Ok(())
     }
@@ -11083,6 +15478,429 @@ mod tests {
         )?;
         assert_eq!(extraction_state, "pending");
         Ok(())
+    }
+
+    #[test]
+    fn domestic_landed_cost_row_persists_with_stage_head() -> Result<()> {
+        let (_temp, mut runtime) = bootstrap_validation_runtime()?;
+        seed_stage11_minimal_graph(runtime.state_db.connection(), "GB")?;
+        let rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
+        assert_eq!(rows.len(), 1);
+        let supplier_cost = super::compute_supplier_cost_basis(&rows[0]);
+        let estimate = super::build_domestic_landed_cost_estimate(
+            &rows[0],
+            &supplier_cost,
+            "stage-run-domestic-test",
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+            }),
+        )?;
+        super::persist_landed_cost_estimate(&mut runtime.state_db, &estimate)?;
+
+        let (count, net_margin_base_bps, decision_grade): (i64, i64, String) =
+            runtime.state_db.connection().query_row(
+                "\
+                SELECT COUNT(*), MAX(net_margin_base_bps), MAX(decision_grade)
+                FROM landed_cost_estimates
+                ",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )?;
+        assert_eq!(count, 1);
+        assert_eq!(net_margin_base_bps, 8000);
+        assert_eq!(decision_grade, "review");
+
+        let stage_heads: i64 = runtime.state_db.connection().query_row(
+            "\
+            SELECT COUNT(*)
+            FROM process_stage_heads
+            WHERE stage = 'landed cost'
+              AND scope_kind = 'candidate_quote'
+            ",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(stage_heads, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn blocked_import_landed_cost_row_persists_with_blockers() -> Result<()> {
+        let (_temp, mut runtime) = bootstrap_validation_runtime()?;
+        seed_stage11_minimal_graph(runtime.state_db.connection(), "CN")?;
+        let rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
+        let supplier_cost = super::compute_supplier_cost_basis(&rows[0]);
+        let sizing = super::ShipmentSizingResult {
+            product_candidate_id: rows[0].product_candidate_id.clone(),
+            selected_quote_id: rows[0].selected_quote_id.clone(),
+            sizing_status: "blocked".to_owned(),
+            units_required: None,
+            unit_basis: None,
+            unit_weight_kg: None,
+            unit_volume_cbm: None,
+            total_weight_kg: None,
+            total_volume_cbm: None,
+            package_count: None,
+            container_plan: None,
+            evidence: Vec::new(),
+            confidence_bps: Some(0),
+            warnings: Vec::new(),
+            blockers: vec![super::Stage11Issue::blocked(
+                "SHIPMENT_DIMENSIONS_MISSING",
+                "No reliable dimensions were available in the quote evidence.",
+            )],
+        };
+        let freight = super::FreightScenarioGbp {
+            low_gbp_pence: 0,
+            base_gbp_pence: 0,
+            high_gbp_pence: 0,
+            fx_rate: 1.0,
+            fx_checked_at: Some("2026-04-28T00:00:00Z".to_owned()),
+            fx_status: "blocked".to_owned(),
+            warnings: Vec::new(),
+            blockers: vec![super::Stage11Issue::blocked(
+                "SEARATES_NOT_RUN_SHIPMENT_SIZING_BLOCKED",
+                "SeaRates was not run because shipment sizing blocked first.",
+            )],
+        };
+        let estimate = super::build_import_landed_cost_estimate(
+            &rows[0],
+            &supplier_cost,
+            "stage-run-import-blocked-test",
+            None,
+            Some(&sizing),
+            &freight,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+            }),
+            &json!({
+                "hmrc_customs": "session-customs",
+                "shipment_sizing": "session-sizing",
+                "searates_freight": null,
+                "simple_fx": null,
+            }),
+        )?;
+        super::persist_landed_cost_estimate(&mut runtime.state_db, &estimate)?;
+
+        let (decision_grade, blockers): (String, String) =
+            runtime.state_db.connection().query_row(
+                "SELECT decision_grade, blockers FROM landed_cost_estimates LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+        assert_eq!(decision_grade, "blocked");
+        assert!(blockers.contains("SHIPMENT_DIMENSIONS_MISSING"));
+        assert!(blockers.contains("CUSTOMS_SKILL_NO_RESULT"));
+        Ok(())
+    }
+
+    #[test]
+    fn landed_cost_arithmetic_populates_net_margin_band() -> Result<()> {
+        let (_temp, runtime) = bootstrap_validation_runtime()?;
+        seed_stage11_minimal_graph(runtime.state_db.connection(), "CN")?;
+        let rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
+        let supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: 10_000,
+            basis: "test".to_owned(),
+            quantity: 1.0,
+            quantity_unit: Some("unit".to_owned()),
+            warnings: Vec::new(),
+        };
+        let customs = super::HmrcCustomsClassificationResult {
+            source: Some("hmrc-trade-tariff".to_owned()),
+            product_candidate_id: rows[0].product_candidate_id.clone(),
+            selected_quote_id: rows[0].selected_quote_id.clone(),
+            classification_status: "classified".to_owned(),
+            declarable_commodity_code_10: Some("7214200020".to_owned()),
+            commodity_description: Some("Concrete reinforcement bars".to_owned()),
+            candidate_commodity_codes: vec![json!({"code": "7214200020"})],
+            commodity_confidence_bps: Some(7000),
+            classification_stability_bps: Some(6500),
+            origin_country: Some("CN".to_owned()),
+            origin_evidence_state: Some("quote_ship_from_country".to_owned()),
+            basic_duty_rate_bps: Some(1000),
+            vat_rate_bps: Some(2000),
+            customs_duty_gbp_pence: Some(1000),
+            trade_remedy_duty_gbp_pence: Some(2500),
+            trade_remedy_state: Some("possible_or_applied".to_owned()),
+            trade_remedy_cases: Vec::new(),
+            duty_breakdown: vec![json!({"measure_type": "safeguard_additional_duty"})],
+            additional_codes: None,
+            additional_code_requirements: None,
+            supplementary_units_required: Vec::new(),
+            measure_interaction: None,
+            tariff_checked_at: Some("2026-04-28T00:00:00Z".to_owned()),
+            measures_fresh_until: None,
+            classification_fresh_until: None,
+            warnings: Vec::new(),
+            blockers: Vec::new(),
+        };
+        let sizing = super::ShipmentSizingResult {
+            product_candidate_id: rows[0].product_candidate_id.clone(),
+            selected_quote_id: rows[0].selected_quote_id.clone(),
+            sizing_status: "sized".to_owned(),
+            units_required: Some(1.0),
+            unit_basis: Some("unit".to_owned()),
+            unit_weight_kg: Some(200.0),
+            unit_volume_cbm: Some(1.0),
+            total_weight_kg: Some(200.0),
+            total_volume_cbm: Some(1.0),
+            package_count: Some(1),
+            container_plan: Some(json!({"mode": "lcl"})),
+            evidence: Vec::new(),
+            confidence_bps: Some(6000),
+            warnings: Vec::new(),
+            blockers: Vec::new(),
+        };
+        let freight = super::FreightScenarioGbp {
+            low_gbp_pence: 1000,
+            base_gbp_pence: 2000,
+            high_gbp_pence: 3000,
+            fx_rate: 1.0,
+            fx_checked_at: Some("2026-04-28T00:00:00Z".to_owned()),
+            fx_status: "not_required".to_owned(),
+            warnings: Vec::new(),
+            blockers: Vec::new(),
+        };
+        let mut row = rows[0].clone();
+        row.expected_addressable_revenue_ex_vat_pence = 50_000;
+        let estimate = super::build_import_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            "stage-run-arithmetic-test",
+            Some(&customs),
+            Some(&sizing),
+            &freight,
+            &json!({}),
+            &json!({}),
+        )?;
+        assert_eq!(estimate.import_vat_gbp_pence, 3100);
+        assert_eq!(estimate.economic_landed_cost_gbp_pence, 18_600);
+        assert_eq!(estimate.cash_to_clear_gbp_pence, 6600);
+        assert_eq!(estimate.net_margin_base_bps, 6280);
+        assert_eq!(estimate.decision_grade, "review");
+        Ok(())
+    }
+
+    #[test]
+    fn searates_output_parser_accepts_quoted_result() -> Result<()> {
+        let parsed = super::parse_searates_freight_result(&json!({
+            "source": "searates",
+            "product_candidate_id": "candidate",
+            "selected_quote_id": "quote",
+            "freight_status": "quoted",
+            "freight_currency": "USD",
+            "freight_amount_minor": 125_000,
+            "freight_low_amount_minor": 110_000,
+            "freight_base_amount_minor": 125_000,
+            "freight_high_amount_minor": 150_000,
+            "route": {"origin": "Shanghai, CN", "destination": "London, GB"},
+            "transit_time_days": 35,
+            "quote_expired": true,
+            "source_url": "https://www.searates.com/",
+            "evidence": [{"kind": "raw_text", "value": "USD 1250"}],
+            "warnings": [],
+            "blockers": []
+        }))?;
+        assert_eq!(parsed.freight_status, "quoted");
+        assert_eq!(parsed.freight_currency.as_deref(), Some("USD"));
+        assert!(parsed.quote_expired);
+        Ok(())
+    }
+
+    #[test]
+    fn hmrc_customs_output_parser_accepts_rebar_safeguard_result() -> Result<()> {
+        let parsed = super::parse_hmrc_customs_result(&json!({
+            "source": "hmrc-trade-tariff",
+            "product_candidate_id": "candidate",
+            "selected_quote_id": "quote",
+            "classification_status": "classified",
+            "declarable_commodity_code_10": "7214200020",
+            "commodity_description": "Concrete reinforcement bars and rods",
+            "candidate_commodity_codes": [{
+                "code": "7214200020",
+                "declarable": true
+            }],
+            "commodity_confidence_bps": 7000,
+            "classification_stability_bps": 6500,
+            "origin_country": "CN",
+            "origin_evidence_state": "quote_ship_from_country",
+            "basic_duty_rate_bps": 0,
+            "vat_rate_bps": 2000,
+            "customs_duty_gbp_pence": 0,
+            "trade_remedy_duty_gbp_pence": 2500,
+            "trade_remedy_state": "possible_or_applied",
+            "trade_remedy_cases": [],
+            "duty_breakdown": [{
+                "measure_type": "safeguard_additional_duty",
+                "rate_bps": 2500
+            }],
+            "supplementary_units_required": [],
+            "tariff_checked_at": "2026-04-28T00:00:00Z",
+            "warnings": [],
+            "blockers": []
+        }))?;
+        assert_eq!(
+            parsed.declarable_commodity_code_10.as_deref(),
+            Some("7214200020")
+        );
+        assert_eq!(parsed.trade_remedy_duty_gbp_pence, Some(2500));
+        assert!(
+            parsed
+                .duty_breakdown
+                .iter()
+                .any(|entry| entry.to_string().contains("safeguard"))
+        );
+        Ok(())
+    }
+
+    #[test]
+    #[allow(clippy::cast_possible_truncation, clippy::too_many_lines)]
+    fn hmrc_rebar_api_measure_canary_detects_safeguard_branch() {
+        let payload = json!({
+            "data": {
+                "attributes": {
+                    "goods_nomenclature_item_id": "7214200020",
+                    "producline_suffix": "80"
+                }
+            },
+            "included": [
+                {
+                    "type": "measure_type",
+                    "id": "103",
+                    "attributes": {"description": "Third country duty"}
+                },
+                {
+                    "type": "measure_type",
+                    "id": "305",
+                    "attributes": {"description": "Value added tax"}
+                },
+                {
+                    "type": "measure_type",
+                    "id": "696",
+                    "attributes": {"description": "Additional duties (safeguard)"}
+                },
+                {
+                    "type": "measure_component",
+                    "id": "component-basic",
+                    "attributes": {"duty_amount": 0.0}
+                },
+                {
+                    "type": "measure_component",
+                    "id": "component-vat",
+                    "attributes": {"duty_amount": 20.0}
+                },
+                {
+                    "type": "measure_component",
+                    "id": "component-safeguard",
+                    "attributes": {"duty_amount": 25.0}
+                },
+                {
+                    "type": "measure",
+                    "id": "measure-basic",
+                    "attributes": {"import": true},
+                    "relationships": {
+                        "measure_type": {"data": {"id": "103", "type": "measure_type"}},
+                        "measure_components": {
+                            "data": [{"id": "component-basic", "type": "measure_component"}]
+                        }
+                    }
+                },
+                {
+                    "type": "measure",
+                    "id": "measure-vat",
+                    "attributes": {"import": true},
+                    "relationships": {
+                        "measure_type": {"data": {"id": "305", "type": "measure_type"}},
+                        "measure_components": {
+                            "data": [{"id": "component-vat", "type": "measure_component"}]
+                        }
+                    }
+                },
+                {
+                    "type": "measure",
+                    "id": "measure-safeguard",
+                    "attributes": {"import": true},
+                    "relationships": {
+                        "measure_type": {"data": {"id": "696", "type": "measure_type"}},
+                        "measure_components": {
+                            "data": [{"id": "component-safeguard", "type": "measure_component"}]
+                        }
+                    }
+                }
+            ]
+        });
+        let included = payload
+            .get("included")
+            .and_then(Value::as_array)
+            .expect("included array");
+        let description_for_type = |type_id: &str| {
+            included
+                .iter()
+                .find(|entry| {
+                    entry.get("type").and_then(Value::as_str) == Some("measure_type")
+                        && entry.get("id").and_then(Value::as_str) == Some(type_id)
+                })
+                .and_then(|entry| entry.pointer("/attributes/description"))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_ascii_lowercase()
+        };
+        let amount_for_component = |component_id: &str| {
+            included
+                .iter()
+                .find(|entry| {
+                    entry.get("type").and_then(Value::as_str) == Some("measure_component")
+                        && entry.get("id").and_then(Value::as_str) == Some(component_id)
+                })
+                .and_then(|entry| entry.pointer("/attributes/duty_amount"))
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0)
+        };
+
+        let mut basic_bps = None;
+        let mut vat_bps = None;
+        let mut safeguard_bps = None;
+        for measure in included
+            .iter()
+            .filter(|entry| entry.get("type").and_then(Value::as_str) == Some("measure"))
+        {
+            let type_id = measure
+                .pointer("/relationships/measure_type/data/id")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let description = description_for_type(type_id);
+            let component_id = measure
+                .pointer("/relationships/measure_components/data/0/id")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let amount_bps = (amount_for_component(component_id) * 100.0).round() as i64;
+            if description.contains("third country duty") {
+                basic_bps = Some(amount_bps);
+            } else if description.contains("value added tax") {
+                vat_bps = Some(amount_bps);
+            } else if description.contains("safeguard") {
+                safeguard_bps = Some(amount_bps);
+            }
+        }
+
+        assert_eq!(
+            payload.pointer("/data/attributes/goods_nomenclature_item_id"),
+            Some(&Value::String("7214200020".to_owned()))
+        );
+        assert_eq!(
+            payload.pointer("/data/attributes/producline_suffix"),
+            Some(&Value::String("80".to_owned()))
+        );
+        assert_eq!(basic_bps, Some(0));
+        assert_eq!(vat_bps, Some(2000));
+        assert_eq!(safeguard_bps, Some(2500));
     }
 
     /// Regression: `run_bound_skill` used to mark procurement ingestion jobs

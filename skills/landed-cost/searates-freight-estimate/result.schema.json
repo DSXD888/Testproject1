@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "product_candidate_id",
+    "selected_quote_id",
+    "freight_status",
+    "warnings",
+    "blockers"
+  ],
+  "properties": {
+    "source": { "type": "string" },
+    "product_candidate_id": { "type": "string" },
+    "selected_quote_id": { "type": "string" },
+    "freight_status": { "type": "string" },
+    "freight_currency": { "type": ["string", "null"] },
+    "freight_amount_minor": { "type": ["integer", "null"] },
+    "freight_low_amount_minor": { "type": ["integer", "null"] },
+    "freight_base_amount_minor": { "type": ["integer", "null"] },
+    "freight_high_amount_minor": { "type": ["integer", "null"] },
+    "route": { "type": ["object", "null"] },
+    "transit_time_days": { "type": ["integer", "null"] },
+    "quote_expired": { "type": "boolean" },
+    "source_url": { "type": ["string", "null"] },
+    "evidence": { "type": "array" },
+    "warnings": { "type": "array" },
+    "blockers": { "type": "array" }
+  }
+}
