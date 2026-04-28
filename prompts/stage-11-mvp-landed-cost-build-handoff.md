@@ -4,7 +4,7 @@ ULTRATHINK and be meticulous.
 
 This is an implementation handoff for a fresh coding agent. It is **not** a research-only task. Your mission is to build the **MVP-grade Stage 11 landed-cost workflow** using the platform's existing skill/agent-runner architecture, validate it against live L1-L3 data, and loop until real `landed_cost_estimates` rows are saved in SQLite.
 
-The user has explicitly chosen a simpler MVP than the prior decision-grade/L5 research:
+This handoff targets a simpler MVP than the prior decision-grade/L5 research:
 
 - One customs source: **HMRC Trade Tariff**, reached through a skill-backed agent workflow because commodity classification and measure interpretation require judgment.
 - One freight source: **SeaRates**, reached through a skill-backed browser workflow connected to the existing persistent CDP browser.
@@ -12,6 +12,8 @@ The user has explicitly chosen a simpler MVP than the prior decision-grade/L5 re
 - Critical pre-step before SeaRates: derive shipment weight, dimensions, and cubic metres from the selected quote/listing/product quantity. If the selected supplier quote does not contain enough dimensional data, the workflow must revisit the source evidence/listing through a skill or persist an explicit blocker/warning instead of pretending precision.
 
 The target is **L1-L3 MVP screening-grade landed cost**, not L5 decision-grade customs intelligence. Do not implement FPO, Freightos, Xe, CBAM, TRA daily watchers, multi-source recall, full measure-interaction engines, or broker-grade declaration logic unless absolutely required to make the MVP honest.
+
+Fresh-eye audit note: this prompt is intentionally an implementation handoff, not another planning document. A receiving agent should build, run, validate, fix, and loop until the database contains real Stage 11 rows. If a component cannot complete because live data is missing, the correct MVP behavior is to persist a row with explicit blockers rather than skip the candidate.
 
 ---
 
@@ -36,6 +38,27 @@ SELECT COUNT(*) FROM landed_cost_estimates;
 ```
 
 It must be greater than zero after a real Stage 11 MVP run. Rows with honest blockers are acceptable for incomplete data; silent skips are not.
+
+### 0.1 Concrete Deliverables
+
+Deliver these artifacts:
+
+1. New or updated landed-cost skills:
+   - `skills/landed-cost/hmrc-customs-classification/SKILL.md`
+   - `skills/landed-cost/hmrc-customs-classification/result.schema.json`
+   - `skills/landed-cost/shipment-sizing/SKILL.md`
+   - `skills/landed-cost/shipment-sizing/result.schema.json`
+   - `skills/landed-cost/searates-freight-estimate/SKILL.md`
+   - `skills/landed-cost/searates-freight-estimate/result.schema.json`
+   - optional `skills/landed-cost/simple-fx-lookup/*` if non-GBP freight requires a separate skill
+2. Rust support for Stage 11 MVP orchestration, preferably via `cargo run -p daemon -- --ingest landed-cost`.
+3. Rust parsers/validators for every new skill result contract.
+4. Idempotent persistence into `landed_cost_estimates`.
+5. Stage tracking rows for stage `"landed cost"`.
+6. Tests/canaries for domestic row persistence, blocked import row persistence, landed-cost arithmetic, HMRC rebar parsing, and SeaRates output parsing.
+7. Validation manifest at `docs/pipeline/stage-11-mvp-validation-manifest.md`.
+
+Do not mark the work complete if only the skills exist. The stage must write database rows.
 
 ---
 
@@ -64,7 +87,19 @@ Read these files before editing:
 10. `apps/desktop/src-tauri/src/query_service.rs`
     - Existing desktop VM reads a compact subset of landed-cost rows.
 
-Do not assume the prior L5 plan is the build target. The user wants the smaller, practical MVP.
+Do not assume the prior L5 plan is the build target. This handoff is the smaller, practical MVP build.
+
+### 1.1 Understanding Checkpoints
+
+Before editing, be able to answer these questions:
+
+1. Why can Stage 11 not be implemented purely inside the current synchronous `run_deterministic_pipeline()`?
+2. Which table/row selects the supplier quote that Stage 11 must cost?
+3. Which `landed_cost_estimates` columns are NOT NULL and therefore must always be populated even for blocked rows?
+4. What is the difference between a domestic UK benchmark quote and an import quote for MVP Stage 11?
+5. Why is `7214200000` not enough for the steel rebar customs canary, and why must the HMRC skill inspect import measures beyond the basic duty summary?
+6. What exact evidence does SeaRates need before it can produce a useful freight estimate?
+7. How will `net_margin_low_bps`, `net_margin_base_bps`, and `net_margin_high_bps` be populated when Stage 12 is not yet implemented?
 
 ---
 
@@ -129,6 +164,8 @@ product_candidates.numeric_specs_json present: 2/820
 ```
 
 This means the MVP must handle incomplete input gracefully. For the China Alibaba DGU row, Stage 11 will likely need to inspect evidence/listing context for dimensions and origin assumptions. For UK retail benchmark rows, landed-cost can be domestic/no-import with simple freight/final-mile assumptions or an explicit `domestic_quote_no_import` warning.
+
+Always re-run the baseline SQLite queries before building. These counts are a verified snapshot, not permission to hard-code assumptions.
 
 ---
 
@@ -208,6 +245,31 @@ Study these existing patterns in `crates/daemon/src/main.rs`:
   - Currently supports only extraction jobs. Add Stage 11 job kinds here if you choose a queued-job architecture.
 
 MVP recommendation: implement `--ingest landed-cost` as an async live-loop that mirrors marketplace search and internally runs the Stage 11 skills. This avoids forcing long browser tasks through the synchronous pipeline while still producing durable DB rows.
+
+### 3.4 Verified Code Location Map
+
+Use this map to avoid wandering:
+
+| Surface | File / current line | Why it matters |
+|---|---:|---|
+| CLI struct | `crates/daemon/src/main.rs:355` | `--ingest`, `--pipeline`, `--skill-path`, and `--run-next-job` are defined here. |
+| CLI dispatch | `crates/daemon/src/main.rs:1095-1178` | Add the `"landed-cost"` ingest branch here if using the recommended live-loop trigger. |
+| `LiveLoopReport` | `crates/daemon/src/main.rs:739` | Return the same summary/status shape as existing live loops. |
+| `run_next_workflow_job` | `crates/daemon/src/main.rs:1288` | Extend only if you choose queued Stage 11 jobs. |
+| Semantic skill job pattern | `crates/daemon/src/main.rs:1632` | Shows `execute_skill_session`, `result.json` read, domain persistence, and `persist_success`. |
+| Marketplace persistence | `crates/daemon/src/main.rs:3758` | Shows how skill result JSON is turned into durable domain rows. |
+| Existing static FX helper | `crates/daemon/src/main.rs:3742` | This is fallback-grade only for Stage 11; do not silently use static rates as live FX. |
+| Marketplace candidate loader | `crates/daemon/src/main.rs:4056` | Useful pattern for assembling rich candidate/notice/lot context. |
+| `execute_skill_session` | `crates/daemon/src/main.rs:4436` | Central skill runner entry point. |
+| Marketplace live-loop | `crates/daemon/src/main.rs:6598` | Best local model for `run_landed_cost_live_loop`. |
+| Deterministic pipeline | `crates/daemon/src/main.rs:9840` | Currently stops before Stage 11; do not place long browser work here. |
+| Stage 10 writer | `crates/daemon/src/main.rs:11178` | Direct upstream contract for Stage 11. |
+| `persist_stage` | `crates/daemon/src/main.rs:11446` | Writes accepted validation/status/head rows through `persist_stage_validation`. |
+| `landed_cost_estimates` schema | `migrations/0001_sqlite_state_initial.sql:322` | Executable schema truth. |
+| Stage tracking schema | `migrations/0001_sqlite_state_initial.sql:453` and `:477` | `process_stage_status` and `process_stage_heads`. |
+| Desktop landed-cost VM | `apps/desktop/src-tauri/src/query_service.rs:508` and `:1188` | Desktop reads only id/candidate/quote/economic cost/base net margin/grade/confidence. |
+
+Line numbers are a starting point. Re-run `rg` before editing because this repo moves quickly.
 
 ---
 
@@ -374,8 +436,8 @@ Suggested MVP row vocabulary:
 - `valuation_mode`: use `"mvp_proxy"` unless an actual invoice/declaration basis exists.
 - `customs_valuation_method`: use `"transaction_value_proxy"` for selected quote value.
 - `import_vat_treatment`: use `"recoverability_unknown"` unless the buyer/accounting treatment is known.
-- `warnings`: JSON array string.
-- `blockers`: JSON array string.
+- `warnings`: JSON array string. Prefer arrays of objects with `code`, `message`, and `severity`.
+- `blockers`: JSON array string. Prefer arrays of objects with `code`, `message`, and `severity`.
 
 ---
 
@@ -420,6 +482,40 @@ economic_landed_cost_gbp_pence =
   + other_fees
   + working_capital_cost_if_used
 ```
+
+### 5.1 Required Net-Margin Columns
+
+`landed_cost_estimates` has NOT NULL net-margin columns, and the desktop VM already reads `net_margin_base_bps`. Stage 12 is not built yet, so Stage 11 MVP must populate these fields itself from Stage 10 revenue and the landed-cost scenarios.
+
+Use this formula:
+
+```text
+net_margin_low_bps =
+  if expected_addressable_revenue_ex_vat_pence <= 0:
+    0
+  else:
+    (revenue - high_landed_cost) * 10000 / revenue
+
+net_margin_base_bps =
+  if expected_addressable_revenue_ex_vat_pence <= 0:
+    0
+  else:
+    (revenue - base_landed_cost) * 10000 / revenue
+
+net_margin_high_bps =
+  if expected_addressable_revenue_ex_vat_pence <= 0:
+    0
+  else:
+    (revenue - low_landed_cost) * 10000 / revenue
+```
+
+Scenario mapping:
+
+- `low_landed_cost` uses `freight_low_gbp_pence` and the lowest defensible duty/freight assumptions.
+- `base_landed_cost` uses `freight_base_gbp_pence`.
+- `high_landed_cost` uses `freight_high_gbp_pence` and conservative blockers/warnings.
+
+If Stage 10 revenue is zero or `revenue_basis_type = "rfq_required"`, persist all three net-margin fields as `0` and add a warning object with code `REVENUE_BASIS_RFQ_REQUIRED`. Do not divide by zero, and do not invent revenue to make net margin look meaningful.
 
 Conservative MVP VAT handling:
 
@@ -576,7 +672,11 @@ Pass a single candidate/quote context object per run:
   "supplementary_units_required": [],
   "tariff_checked_at": "2026-04-28T00:00:00Z",
   "warnings": [
-    "origin inferred from ship_from_country; country_of_origin missing"
+    {
+      "code": "ORIGIN_INFERRED_FROM_SHIP_FROM",
+      "message": "Origin inferred from ship_from_country because country_of_origin is missing.",
+      "severity": "warning"
+    }
   ],
   "blockers": []
 }
@@ -799,7 +899,7 @@ The skill should:
    - screenshot or raw evidence text,
    - caveats.
 
-If SeaRates shows an expired estimate, **record the price anyway** and set `expired = true`. The user explicitly wants expired prices retained as useful reference data.
+If SeaRates shows an expired estimate, **record the price anyway** and set `expired = true`. This MVP treats expired prices as useful reference evidence, but the row must carry an explicit warning.
 
 ### 8.3 SeaRates Output
 
@@ -911,7 +1011,7 @@ Add CLI dispatch:
 "landed-cost" => run_landed_cost_live_loop(&mut runtime, &cli).await?
 ```
 
-Selection query:
+Selection query shape. Do not use `SELECT *` in the final Rust implementation because rusqlite row indices become fragile; list the columns you map into structs. This sketch shows the joins and filters that matter:
 
 ```sql
 SELECT
@@ -1015,7 +1115,7 @@ For selected quotes with `ship_from_country = "GB"` and no import evidence:
 - `import_vat_gbp_pence = 0` unless you explicitly model VAT on quote price
 - `shipping_mode = "domestic"`
 - `freight_base_gbp_pence = 0` or conservative final-mile estimate if available
-- `warnings` must include `"domestic_quote_no_import_customs"`
+- `warnings` must include an object with code `"DOMESTIC_QUOTE_NO_IMPORT_CUSTOMS"`
 - `decision_grade = "review"`
 
 This lets Stage 12/desktop coverage progress without pretending HMRC classification is needed for Amazon UK retail benchmark rows.
@@ -1286,6 +1386,7 @@ Do not build these for the MVP:
 - CBAM engine.
 - Xe integration.
 - Freightos integration.
+- Production Stage 12 Net Margin Gate.
 - L5 decision-grade output grading.
 - L6 bid-workflow readiness gates.
 
@@ -1353,6 +1454,6 @@ When done, report:
 - SeaRates canary result.
 - Validation manifest path.
 - Quality gate results.
-- Any remaining blockers that require user/business input.
+- Any remaining blockers that require operator/business input.
 
 Do not end with "ready to push when you are." Follow repository session-completion rules.
