@@ -387,6 +387,26 @@ struct Cli {
         ]
     )]
     run_next_job: bool,
+
+    /// Dispatch the supplier-price-enrichment skill for auto-search-eligible
+    /// search_profiles whose source is `<source_id>` (e.g. `alibaba`). Batches
+    /// profiles into a single skill invocation so the agent receives the full
+    /// SearchProfile JSON, not just head_noun + name.
+    #[arg(long)]
+    enrich_pricing: Option<String>,
+
+    /// Maximum number of search_profiles to batch into a single enrichment
+    /// skill invocation. Defaults to 4. Increase carefully: agent context
+    /// cost scales with batch size.
+    #[arg(long, default_value_t = 4)]
+    enrich_pricing_limit: usize,
+
+    /// Dry-run mode for `--enrich-pricing`. Resolves the target skill path,
+    /// builds the job_parameters JSON, and prints both to stdout — does NOT
+    /// spawn the agent session. Use to validate per-source routing + inspect
+    /// what the agent would see in its prompt.
+    #[arg(long, default_value_t = false)]
+    enrich_pricing_dry_run: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1124,6 +1144,17 @@ async fn main() -> Result<()> {
         let report = run_deterministic_pipeline(&mut runtime, source_id)?;
         println!("{}", report.summary_line);
         return Ok(());
+    }
+
+    if let Some(source_id) = &cli.enrich_pricing {
+        let report =
+            run_enrich_pricing(&mut runtime, source_id, cli.enrich_pricing_limit, &cli).await?;
+        if report.status == "completed" {
+            println!("{}", report.summary_line);
+            return Ok(());
+        }
+        eprintln!("{}", report.summary_line);
+        bail!(report.summary_line);
     }
 
     if cli.run_next_job {
@@ -2981,6 +3012,16 @@ fn build_procontract_interest_evaluations(
         .collect()
 }
 
+/// Minimum days remaining on a tender deadline for the interest-registration
+/// candidate filter to admit the notice. Previously 30; lowered to 14 on
+/// 2026-04-21 because the 30-day rule was starving the pipeline of candidates
+/// relative to the deadline mix actually present on procontract (see
+/// `docs/stage-9-supplier-price-enrichment-manifest.md` §7 command list for
+/// the re-evaluation workflow). The threshold is a business-rule trade-off
+/// between bid-prep lead time and pipeline recall; flip back via git history
+/// if procurement discovers 14 days is too aggressive for their RFP cycles.
+const INTEREST_REGISTRATION_MIN_DEADLINE_DAYS: i64 = 14;
+
 fn candidate_deadline_check(deadline_at: Option<&str>) -> (bool, Option<i64>) {
     let Some(deadline_at) = deadline_at else {
         return (false, None);
@@ -2992,7 +3033,7 @@ fn candidate_deadline_check(deadline_at: Option<&str>) -> (bool, Option<i64>) {
     let deadline_utc = deadline.with_timezone(&Utc);
     let days_until_deadline = deadline_utc.signed_duration_since(now).num_days();
     (
-        deadline_utc > now + chrono::Duration::days(30),
+        deadline_utc > now + chrono::Duration::days(INTEREST_REGISTRATION_MIN_DEADLINE_DAYS),
         Some(days_until_deadline),
     )
 }
@@ -7738,6 +7779,24 @@ fn persist_tender_spec_domain_writes(
 ) -> Result<Vec<Value>> {
     let mut refs = Vec::new();
     let lots = required_array_at(result_json, &["lots"], "lots")?;
+
+    // Gate product-candidate creation on the notice's qualification result.
+    // When qualify has rejected the notice (services, works, DPS, expired),
+    // skip enumerating product_candidates from the tender-spec seeds — lot
+    // metadata still persists for audit, but no downstream supplier enrichment
+    // budget is spent on candidates we've already decided not to bid on.
+    // Unknown state (qualify hasn't run yet) defaults to ALLOW so we preserve
+    // historical behavior until the pipeline is reordered.
+    let notice_rejected_by_qualify = tx
+        .query_row(
+            "SELECT goods_qualified FROM qualification_runs \
+             WHERE notice_id = ?1 ORDER BY created_at DESC LIMIT 1",
+            params![notice_id],
+            |row| row.get::<_, i32>(0),
+        )
+        .optional()?
+        .is_some_and(|goods_q| goods_q == 0);
+
     for lot in lots {
         let lot_number_text =
             required_string_at(lot, &["lot_number"], "lots[].lot_number")?.to_owned();
@@ -7782,14 +7841,34 @@ fn persist_tender_spec_domain_writes(
         )?;
         refs.push(json!({"table": "notice_lots", "id": lot_id.clone()}));
 
+        if notice_rejected_by_qualify {
+            continue;
+        }
+
         for seed in lot_product_requirement_seeds(result_json, &lot_number_text) {
+            let candidate_type = seed_candidate_type(seed);
+
+            // Skip service-shaped seeds that the PDF extraction flagged as
+            // non-product. The qualify stage already rejects pure-services
+            // notices; this handles mixed lots where a few seeds per lot are
+            // services even though the notice itself cleared qualify.
+            if candidate_type == "service_not_applicable" {
+                continue;
+            }
+
             let candidate_key = seed_key(seed);
             let candidate_id = format!("{lot_id}-candidate-{}", slug_token(&candidate_key));
             let candidate_name = seed_name(seed);
-            let head_noun = candidate_name
-                .split_whitespace()
-                .next()
-                .map_or_else(|| "item".to_owned(), str::to_ascii_lowercase);
+            let head_noun = seed_head_noun(seed, &candidate_name);
+            let match_archetype = seed_match_archetype(seed);
+            let material = optional_string_at(seed, &["material"]);
+            let brand_model = optional_string_at(seed, &["brand_model"]);
+            let critical_attributes_json = seed_object_json(seed, "critical_attributes");
+            let numeric_specs_json = seed_object_json(seed, "numeric_specs");
+            let preferred_terms_json = seed_string_array_json(seed, "preferred_terms");
+            let excluded_terms_json = seed_string_array_json(seed, "excluded_terms");
+            let identity_confidence_bps = seed_confidence_bps(seed, "identity_confidence_bps", 5000);
+            let spec_confidence_bps = seed_confidence_bps(seed, "spec_confidence_bps", 9200);
             let source_evidence_json = json!([build_document_derived_evidence(
                 "pdf-extraction/tender-specification",
                 context.document_extraction_id,
@@ -7800,20 +7879,40 @@ fn persist_tender_spec_domain_writes(
                 "\
                 INSERT INTO product_candidates (
                   id, process_id, notice_id, lot_id, candidate_key, name, candidate_type, match_archetype,
-                  head_noun, quantity, quantity_unit, specification_text, standards_json,
-                  source_evidence_json, spec_confidence_bps, quantity_confidence_bps,
+                  head_noun, material, brand_model,
+                  quantity, quantity_unit, specification_text, standards_json,
+                  critical_attributes_json, numeric_specs_json,
+                  preferred_terms_json, excluded_terms_json,
+                  source_evidence_json,
+                  identity_confidence_bps, spec_confidence_bps, quantity_confidence_bps,
                   owner_id, row_version, last_local_seq, stage_run_id
                 ) VALUES (
-                  ?1, ?2, ?3, ?4, ?5, ?6, 'sku', 'direct_match', ?7, ?8, ?9, ?10, ?11, ?12,
-                  9200, 9200, ?13, 1, ?14, ?15
+                  ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
+                  ?9, ?10, ?11,
+                  ?12, ?13, ?14, ?15,
+                  ?16, ?17,
+                  ?18, ?19,
+                  ?20,
+                  ?21, ?22, 9200,
+                  ?23, 1, ?24, ?25
                 )
                 ON CONFLICT(id) DO UPDATE SET
                   name = excluded.name,
+                  candidate_type = excluded.candidate_type,
+                  match_archetype = excluded.match_archetype,
+                  head_noun = excluded.head_noun,
+                  material = excluded.material,
+                  brand_model = excluded.brand_model,
                   quantity = excluded.quantity,
                   quantity_unit = excluded.quantity_unit,
                   specification_text = excluded.specification_text,
                   standards_json = excluded.standards_json,
+                  critical_attributes_json = excluded.critical_attributes_json,
+                  numeric_specs_json = excluded.numeric_specs_json,
+                  preferred_terms_json = excluded.preferred_terms_json,
+                  excluded_terms_json = excluded.excluded_terms_json,
                   source_evidence_json = excluded.source_evidence_json,
+                  identity_confidence_bps = excluded.identity_confidence_bps,
                   spec_confidence_bps = excluded.spec_confidence_bps,
                   quantity_confidence_bps = excluded.quantity_confidence_bps,
                   row_version = product_candidates.row_version + 1,
@@ -7828,12 +7927,22 @@ fn persist_tender_spec_domain_writes(
                     lot_id,
                     candidate_key,
                     candidate_name,
+                    candidate_type,
+                    match_archetype,
                     head_noun,
+                    material,
+                    brand_model,
                     optional_numeric_at(seed, &["quantity"]),
                     optional_string_at(seed, &["quantity_unit"]),
                     seed_specification_text(seed),
                     json!(seed_technical_standards(seed)).to_string(),
+                    critical_attributes_json,
+                    numeric_specs_json,
+                    preferred_terms_json,
+                    excluded_terms_json,
                     source_evidence_json,
+                    identity_confidence_bps,
+                    spec_confidence_bps,
                     DEFAULT_OWNER_ID,
                     context.visible_after_seq,
                     context.stage_run_id,
@@ -8230,6 +8339,86 @@ fn seed_technical_standards(seed: &Value) -> Vec<String> {
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default()
+}
+
+/// Reads the seed's `head_noun` if the PDF-extraction skill set one explicitly,
+/// otherwise falls back to the legacy "first whitespace token" heuristic. The
+/// fallback keeps old extractions (pre-2026-04-21 enrichment spec) readable
+/// until their tenders are reprocessed against the updated skill prompt.
+fn seed_head_noun(seed: &Value, candidate_name: &str) -> String {
+    optional_string_at(seed, &["head_noun"])
+        .map(|s| s.trim().to_ascii_lowercase())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| {
+            candidate_name
+                .split_whitespace()
+                .next()
+                .map_or_else(|| "item".to_owned(), str::to_ascii_lowercase)
+        })
+}
+
+/// Candidate-type enum extracted from the seed. See
+/// `skills/pdf-extraction/tender-specification/result.schema.json`. Legacy seeds
+/// (which hardcoded `'sku'` on the Rust side) get `standard_commodity` — the
+/// neutral open-brand default — instead of the invalid `sku` string.
+fn seed_candidate_type(seed: &Value) -> &'static str {
+    match optional_string_at(seed, &["candidate_type"]).as_deref() {
+        Some("exact_sku") => "exact_sku",
+        Some("standard_commodity") => "standard_commodity",
+        Some("brand_family") => "brand_family",
+        Some("bundle") => "bundle",
+        Some("custom_or_fabricated") => "custom_or_fabricated",
+        Some("installed_goods") => "installed_goods",
+        Some("regulated_goods") => "regulated_goods",
+        Some("service_not_applicable") => "service_not_applicable",
+        Some("unknown") => "unknown",
+        _ => "standard_commodity",
+    }
+}
+
+/// Match-archetype enum extracted from the seed. Legacy seeds get `unknown`
+/// (was `direct_match`, which is not a valid archetype per the research doc).
+fn seed_match_archetype(seed: &Value) -> &'static str {
+    match optional_string_at(seed, &["match_archetype"]).as_deref() {
+        Some("standard_class_led") => "standard_class_led",
+        Some("dimension_material_led") => "dimension_material_led",
+        Some("electrical_spec_led") => "electrical_spec_led",
+        Some("pack_count_led") => "pack_count_led",
+        Some("compatibility_led") => "compatibility_led",
+        Some("model_exact") => "model_exact",
+        _ => "unknown",
+    }
+}
+
+/// Serialize an optional seed object (e.g. `critical_attributes`, `numeric_specs`)
+/// to its JSON string form for persistence. Returns `None` when the seed omits the
+/// key or it is not an object — the DB column is nullable.
+fn seed_object_json(seed: &Value, key: &str) -> Option<String> {
+    seed.get(key)
+        .filter(|v| v.is_object() && !v.as_object().is_some_and(serde_json::Map::is_empty))
+        .map(ToString::to_string)
+}
+
+/// Serialize an optional string-array seed field (e.g. `preferred_terms`,
+/// `excluded_terms`) to JSON. `None` when missing or empty.
+fn seed_string_array_json(seed: &Value, key: &str) -> Option<String> {
+    seed.get(key)
+        .and_then(Value::as_array)
+        .filter(|arr| !arr.is_empty())
+        .map(|arr| {
+            let strings: Vec<&str> = arr.iter().filter_map(Value::as_str).collect();
+            json!(strings).to_string()
+        })
+}
+
+/// Read `identity_confidence_bps` / `spec_confidence_bps` from the seed, clamping
+/// into the 0-10000 range the schema mandates. Falls back to `default_bps` when
+/// the seed omits the field (common for legacy extractions).
+fn seed_confidence_bps(seed: &Value, key: &str, default_bps: i64) -> i64 {
+    optional_numeric_at(seed, &[key])
+        .map(|v| v.round() as i64)
+        .unwrap_or(default_bps)
+        .clamp(0, 10000)
 }
 
 fn slug_token(raw: &str) -> String {
@@ -9036,6 +9225,249 @@ fn insert_raw_document(
 }
 
 // ---------------------------------------------------------------------------
+// Stage 9 dispatcher: supplier-price-enrichment
+// Pulls auto-search-eligible search_profiles from the DB, batches them into
+// one job_parameters payload, and invokes the per-source enrichment skill via
+// the existing PTY path. The full SearchProfile JSON (including head_noun,
+// candidate_type, match_archetype, critical_attributes, numeric_specs,
+// standards, noun_aliases, query_waves, recall_risk) travels unchanged into
+// the rendered prompt — see `PromptRenderer::render` which stringifies
+// `job_parameters` into the SKILL.md preamble verbatim.
+// ---------------------------------------------------------------------------
+
+/// Returns the repo-relative skill path for the named source. Every source the
+/// dispatcher can target is registered here — add a match arm alongside a new
+/// `skills/supplier-price-enrichment/<source>/` directory to enable a source.
+fn enrichment_skill_path_for(source_id: &str) -> Result<PathBuf> {
+    match source_id {
+        "alibaba" => Ok(PathBuf::from("skills/supplier-price-enrichment/alibaba")),
+        "1688" => Ok(PathBuf::from("skills/supplier-price-enrichment/1688")),
+        "ebay" => Ok(PathBuf::from("skills/supplier-price-enrichment/ebay")),
+        "amazon" => Ok(PathBuf::from("skills/supplier-price-enrichment/amazon")),
+        other => bail!(
+            "no supplier-price-enrichment skill registered for source '{other}' \
+             — add one under skills/supplier-price-enrichment/ and register it \
+             in enrichment_skill_path_for()"
+        ),
+    }
+}
+
+#[allow(clippy::future_not_send)]
+async fn run_enrich_pricing(
+    runtime: &mut RuntimeBootstrap,
+    source_id: &str,
+    limit: usize,
+    cli: &Cli,
+) -> Result<LiveLoopReport> {
+    if limit == 0 {
+        bail!("--enrich-pricing-limit must be >= 1");
+    }
+
+    let skill_path = enrichment_skill_path_for(source_id)?;
+
+    // Pull auto_search-eligible profiles that have no supplier_quotes yet.
+    // Select the full SearchProfile row shape so we can pass the rich context
+    // straight through to the agent without a lossy projection.
+    #[allow(clippy::type_complexity)]
+    let profile_rows: Vec<(
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<i64>,
+        String,
+        String,
+    )> = {
+        let conn = runtime.state_db.connection();
+        let mut stmt = conn.prepare(
+            "SELECT sp.id, sp.product_candidate_id,
+                    pc.name, sp.head_noun, sp.candidate_type, sp.match_archetype,
+                    sp.critical_attributes_json, sp.numeric_specs_json,
+                    sp.standards_json, sp.noun_aliases_en,
+                    sp.preferred_terms, sp.excluded_terms,
+                    sp.query_waves_json, sp.recall_risk_score_bps,
+                    sp.search_eligibility_state, pc.notice_id
+             FROM search_profiles sp
+             JOIN product_candidates pc ON pc.id = sp.product_candidate_id
+             WHERE sp.search_eligibility_state = 'auto_search'
+               AND NOT EXISTS (
+                 SELECT 1 FROM supplier_quotes sq
+                 WHERE sq.product_candidate_id = sp.product_candidate_id
+                   AND sq.source_name = ?1
+               )
+             ORDER BY sp.recall_risk_score_bps ASC, sp.created_at ASC
+             LIMIT ?2",
+        )?;
+        let source_name = source_name_for_source_id(source_id);
+        stmt.query_map(params![source_name, limit as i64], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, Option<String>>(6)?,
+                row.get::<_, Option<String>>(7)?,
+                row.get::<_, Option<String>>(8)?,
+                row.get::<_, Option<String>>(9)?,
+                row.get::<_, Option<String>>(10)?,
+                row.get::<_, Option<String>>(11)?,
+                row.get::<_, Option<String>>(12)?,
+                row.get::<_, Option<i64>>(13)?,
+                row.get::<_, String>(14)?,
+                row.get::<_, String>(15)?,
+            ))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+
+    if profile_rows.is_empty() {
+        return Ok(LiveLoopReport {
+            summary_line: format!(
+                "no search_profiles eligible for supplier-price-enrichment on source='{source_id}' \
+                 (all quoted already, or none scored high enough for auto_search)"
+            ),
+            status: "completed".to_owned(),
+        });
+    }
+
+    let profiles_count = profile_rows.len();
+    let mut profiles = Vec::with_capacity(profiles_count);
+    let mut notice_ids: Vec<String> = Vec::with_capacity(profiles_count);
+
+    for (
+        profile_id,
+        candidate_id,
+        candidate_name,
+        head_noun,
+        candidate_type,
+        match_archetype,
+        critical_attributes_json,
+        numeric_specs_json,
+        standards_json,
+        noun_aliases_en,
+        preferred_terms,
+        excluded_terms,
+        query_waves_json,
+        recall_risk_score_bps,
+        eligibility,
+        notice_id,
+    ) in profile_rows
+    {
+        notice_ids.push(notice_id);
+        profiles.push(json!({
+            "id": profile_id,
+            "product_candidate_id": candidate_id,
+            "candidate_name": candidate_name,
+            "head_noun": head_noun,
+            "candidate_type": candidate_type,
+            "match_archetype": match_archetype,
+            "critical_attributes_json":
+                critical_attributes_json.and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+            "numeric_specs_json":
+                numeric_specs_json.and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+            "standards_json":
+                standards_json.and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+            "noun_aliases_en":
+                noun_aliases_en.and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+            "preferred_terms":
+                preferred_terms.and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+            "excluded_terms":
+                excluded_terms.and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+            "query_waves_json":
+                query_waves_json.and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+            "recall_risk_score_bps": recall_risk_score_bps,
+            "search_eligibility_state": eligibility,
+        }));
+    }
+
+    let job_parameters = json!({
+        "source_id": source_id,
+        "search_profiles": profiles,
+        "per_candidate_budget": {
+            "max_query_waves": 3,
+            "shortlist_size": 8,
+            "max_detail_fetches": 3,
+        },
+        "notice_ids": notice_ids,
+    });
+
+    ::tracing::info!(
+        source_id,
+        profiles_count,
+        "dispatching supplier-price-enrichment batch"
+    );
+
+    if cli.enrich_pricing_dry_run {
+        // Emit a machine-parseable summary on stdout and a pretty version on
+        // stderr so operators can diff routing across sources quickly.
+        eprintln!(
+            "[dry-run] source_id={source_id} skill_path={} profiles={profiles_count}",
+            skill_path.display()
+        );
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&json!({
+                "dry_run": true,
+                "source_id": source_id,
+                "skill_path": skill_path.display().to_string(),
+                "profiles_count": profiles_count,
+                "job_parameters": job_parameters,
+            }))?
+        );
+        return Ok(LiveLoopReport {
+            summary_line: format!(
+                "dry-run resolved source='{source_id}' -> skill='{}' with {profiles_count} profile(s); no agent invoked",
+                skill_path.display(),
+            ),
+            status: "completed".to_owned(),
+        });
+    }
+
+    run_bound_skill(runtime, &skill_path, job_parameters, cli).await
+}
+
+/// Maps an internal source_id (`alibaba`) to the verbatim `source_name` string
+/// that downstream consumers (supplier_quotes.source_name) use. Kept separate
+/// so `alibaba` -> `Alibaba` capitalization lives in one place.
+fn source_name_for_source_id(source_id: &str) -> &'static str {
+    match source_id {
+        "alibaba" => "Alibaba",
+        "1688" => "1688",
+        "ebay" => "eBay",
+        "amazon" => "Amazon",
+        _ => "unknown",
+    }
+}
+
+/// Routing matrix by `candidate_type`: which sources this platform searches
+/// for each commercial shape. Mirrors research doc §4.3. Returned slice is
+/// the canonical source order — dispatch code should iterate in this order
+/// so price-signal quality stays consistent across runs.
+#[allow(dead_code)]
+fn supplier_sources_for_candidate_type(candidate_type: &str) -> &'static [&'static str] {
+    match candidate_type {
+        "exact_sku" => &["amazon", "ebay"], // UK retail only — brand+model is UK-discoverable
+        "brand_family" => &["amazon", "ebay", "alibaba"],
+        "standard_commodity" => &["amazon", "ebay", "alibaba", "1688"],
+        "regulated_goods" => &["amazon", "ebay"], // compliance more trustworthy on UK sources
+        "bundle" => &["alibaba", "1688"],         // wholesale bundling
+        "installed_goods" | "custom_or_fabricated" | "service_not_applicable" | "unknown" => &[],
+        _ => &[],
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Deterministic pipeline stages — run on already-ingested data
 // ---------------------------------------------------------------------------
 
@@ -9054,6 +9486,13 @@ fn run_deterministic_pipeline(
     let lots_qualified = run_qualify_lot_stage(&mut runtime.state_db)?;
     ::tracing::info!(lots_qualified, "qualify-lot stage complete");
 
+    let search_profiles_built =
+        run_build_search_profiles_stage(&mut runtime.state_db, source_id)?;
+    ::tracing::info!(
+        search_profiles_built,
+        "build-search-profiles stage complete"
+    );
+
     let relations_found = run_relate_stage(&mut runtime.state_db)?;
     ::tracing::info!(relations_found, "relate stage complete");
 
@@ -9061,7 +9500,7 @@ fn run_deterministic_pipeline(
         summary_line: format!(
             "deterministic pipeline complete: lots_created={lots_created} \
              prequalified={prequalified} lots_qualified={lots_qualified} \
-             relations={relations_found}"
+             search_profiles={search_profiles_built} relations={relations_found}"
         ),
         status: "completed".to_owned(),
     })
@@ -9141,6 +9580,208 @@ fn run_extract_lots_stage(state_db: &mut StateDb, source_id: &str) -> Result<usi
     Ok(count)
 }
 
+/// Whole-word ASCII substring search. Pass lowercased inputs for case-insensitive match.
+/// Returns true when `needle` appears in `haystack` bounded by non-alphanumeric characters
+/// or string edges. Used by [`notice_looks_like_dps`] so "DPS" matches "Passenger Transport DPS"
+/// but not "DPSi" or "XDPS".
+fn contains_whole_word_ascii(haystack: &str, needle: &str) -> bool {
+    let hb = haystack.as_bytes();
+    let nb = needle.as_bytes();
+    let n = hb.len();
+    let m = nb.len();
+    if m == 0 || m > n {
+        return false;
+    }
+    for i in 0..=n - m {
+        if &hb[i..i + m] == nb {
+            let before_ok = i == 0 || !hb[i - 1].is_ascii_alphanumeric();
+            let after_ok = i + m == n || !hb[i + m].is_ascii_alphanumeric();
+            if before_ok && after_ok {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Heuristically detects services / care / framework-services notices when CPV
+/// classification is absent or unreliable (common for procontract-sourced data
+/// where raw payloads don't carry OCDS `tender.classification.id`).
+///
+/// Two-stage match:
+///   1. Strong phrase hit (`"consultancy"`, `"managed service(s)"`, `"care home"`,
+///      etc.) — immediate match.
+///   2. Whole-word `"service"` / `"services"` with NO countervailing goods cue
+///      (`"supply of"`, `"supplies"`, `"purchase of"`) — match.
+///
+/// Designed for aggressive recall with bounded precision. False positives land
+/// in `rejection_reason=services_title_heuristic` so operators can audit and
+/// tune the phrase list; false negatives still filter via CPV when available.
+fn notice_looks_like_services(title: &str) -> bool {
+    let t = title.to_ascii_lowercase();
+
+    const SERVICES_PHRASES: &[&str] = &[
+        "consultancy",
+        "consulting",
+        "managed service",
+        "maintenance contract",
+        "maintenance of",
+        "contract hire",
+        "care home",
+        "extra care",
+        "social care",
+        "mental health",
+        "psychological and therapeutic",
+        "placements for",
+        "placements -",
+        "placements flexible",
+        "advisory service",
+        "professional service",
+        "support service",
+        "framework for ",
+        "framework services",
+        "provider list",
+        "agency & landlord",
+        "event management",
+        "training framework",
+        "training and assessment",
+        "education budget",
+        "advocacy service",
+        "catering service",
+        "housing partnership",
+        "leasing contract",
+        "supported living",
+        "commissioning",
+        "procurement system",
+        "flexible procurement",
+        "franchising",
+        "tenant census",
+        "early intervention",
+        "alternative provision",
+        "alternative (education) provision",
+        "alternative education",
+        "quality control for",
+        "evaluation and quality",
+        "digital platform",
+        "contract management project",
+        "design team",
+        "management system",
+        "management solutions",
+        "research management",
+        "support fund",
+        "approved list",
+        "risk assessment",
+        "adoption support",
+        "open framework",
+        "care & repair",
+        "care and repair",
+        "bed framework",
+        "nursing framework",
+        "development of",
+        "training",
+        "advertising",
+        "postgraduate",
+    ];
+
+    for phrase in SERVICES_PHRASES {
+        if t.contains(phrase) {
+            return true;
+        }
+    }
+
+    let service_wordhit = contains_whole_word_ascii(&t, "service")
+        || contains_whole_word_ascii(&t, "services");
+
+    if service_wordhit {
+        // Countervailing goods cues — if present, treat as goods despite the
+        // word "service" appearing. Keep this list tight; weakening it floods
+        // the pipeline with services contracts again.
+        let goods_counter = t.contains("supply of ")
+            || t.contains(" supplies")
+            || t.contains("supplies ")
+            || t.contains("purchase of ")
+            || t.contains(" products")
+            || t.contains("equipment supply");
+        if !goods_counter {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Heuristically detects construction / civil-engineering (CPV 45-ish) notices by
+/// title, for sources (like procontract) that don't carry CPV codes. Keeps the
+/// rejection reason distinct from services so operators can tune per-category.
+fn notice_looks_like_works(title: &str) -> bool {
+    let t = title.to_ascii_lowercase();
+    const WORKS_PHRASES: &[&str] = &[
+        "highways maintenance",
+        "culvert",
+        "junction improvement",
+        "waterproofing",
+        "refurbishment",
+        "renovation",
+        "construction of",
+        "re-roofing",
+        "reroofing",
+        "demolition",
+        "civil engineering",
+        "civil works",
+        "bridge works",
+        "road improvement",
+        "resurfacing",
+        "building works",
+        "groundworks",
+        "ground works",
+        "retender",
+        "external works",
+        "internal works",
+        "fire risk assessment works",
+        "fit out",
+        "fit-out",
+    ];
+    WORKS_PHRASES.iter().any(|p| t.contains(p))
+}
+
+/// Heuristically detects Dynamic Purchasing System / Dynamic Market notices.
+/// DPS notices require framework membership rather than a one-shot product bid,
+/// so this platform's operator has opted to reject them at qualify time.
+///
+/// Detection sweeps the notice title plus common description paths in the raw
+/// payload. Triggers on `"dynamic purchasing"` / `"dynamic market"` substrings,
+/// or on `"dps"` / `"dm"` as whole ASCII words.
+fn notice_looks_like_dps(title: &str, payload_json: Option<&str>) -> bool {
+    let title_lower = title.to_ascii_lowercase();
+    if title_lower.contains("dynamic purchasing") || title_lower.contains("dynamic market") {
+        return true;
+    }
+    if contains_whole_word_ascii(&title_lower, "dps") {
+        return true;
+    }
+    if let Some(raw) = payload_json {
+        if let Ok(doc) = serde_json::from_str::<Value>(raw) {
+            for path in [
+                "/detail/description",
+                "/tender/description",
+                "/detail/title",
+                "/listing/description",
+            ] {
+                if let Some(text) = doc.pointer(path).and_then(Value::as_str) {
+                    let lowered = text.to_ascii_lowercase();
+                    if lowered.contains("dynamic purchasing")
+                        || lowered.contains("dynamic market")
+                        || contains_whole_word_ascii(&lowered, "dps")
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
 /// Stage: Prequalify Notice — classify goods/services using CPV codes from raw OCDS payloads.
 #[allow(clippy::too_many_lines, clippy::type_complexity)]
 fn run_prequalify_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize> {
@@ -9202,7 +9843,7 @@ fn run_prequalify_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize
         let visible_after_seq = next_commit_seq(tx)?;
         let mut qualified_count = 0_usize;
 
-        for (notice_id, process_id, _title, deadline_at, value_pence, payload_json, lot_id) in
+        for (notice_id, process_id, title, deadline_at, value_pence, payload_json, lot_id) in
             &notice_rows
         {
             let cpv_division = payload_json
@@ -9246,27 +9887,78 @@ fn run_prequalify_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize
                     remaining.num_days() >= 0
                 });
 
-            let goods_qualified = legal_category == "goods" || legal_category == "mixed";
+            let goods_qualified_cpv = legal_category == "goods" || legal_category == "mixed";
+            let dps_detected = notice_looks_like_dps(title, payload_json.as_deref());
+            let services_title_detected = notice_looks_like_services(title);
+            let works_title_detected = notice_looks_like_works(title);
 
-            let qualification_result = if !expiry_qualified {
-                "reject"
-            } else if goods_qualified && goods_density_score_bps >= 6000 {
-                "pass"
-            } else if goods_qualified || legal_category == "unknown" {
-                "review"
+            // Platform policy: product-only bidding. Reject DPS (framework membership),
+            // services, and works at qualify time so downstream stages don't spend
+            // document-acquisition or extraction budget on them. The services gate
+            // runs twice: once via CPV (trusted for contracts-finder-style sources),
+            // once via title heuristic (fallback for procontract which doesn't carry
+            // CPV — see docs/session-log-2026-04-21).
+            let (qualification_result, rejection_reason) = if dps_detected {
+                ("reject", Some("dynamic_purchasing_system"))
+            } else if !expiry_qualified {
+                ("reject", Some("expired"))
+            } else if legal_category == "services" {
+                ("reject", Some("services_category"))
+            } else if legal_category == "works" {
+                ("reject", Some("works_category"))
+            } else if works_title_detected {
+                ("reject", Some("works_title_heuristic"))
+            } else if services_title_detected {
+                ("reject", Some("services_title_heuristic"))
+            } else if goods_qualified_cpv && goods_density_score_bps >= 6000 {
+                ("pass", None)
+            } else if goods_qualified_cpv || legal_category == "unknown" {
+                ("review", None)
             } else {
-                "reject"
+                ("reject", Some("non_goods_unclassified"))
             };
 
-            let addressable_value = if legal_category == "goods" {
+            // access_route is the durable semantic signal downstream stages read. DPS
+            // is explicitly `dynamic_market`; otherwise mirror the category so
+            // rejected routes (services/works) are distinguishable from pass/review.
+            let access_route = if dps_detected {
+                "dynamic_market"
+            } else if legal_category == "services" || services_title_detected {
+                "services"
+            } else if legal_category == "works" || works_title_detected {
+                "works"
+            } else {
+                "open_tender"
+            };
+
+            // Persist access_route back to the notice too, so any consumer that
+            // reads `contract_notices.access_route` directly (UI, projections) sees
+            // the correct value. This closes the "DPS notice tagged portal_authenticated"
+            // gap surfaced 2026-04-21 during the qualify backfill audit.
+            tx.execute(
+                "UPDATE contract_notices SET access_route = ?1, \
+                 row_version = row_version + 1, updated_at = CURRENT_TIMESTAMP \
+                 WHERE id = ?2",
+                params![access_route, notice_id],
+            )?;
+
+            // goods_qualified (persisted) is the "is this worth advancing?" signal.
+            // Force 0 when rejected so downstream gates (e.g. tender-spec product
+            // extraction) skip even when they don't read the rationale text.
+            let goods_qualified_persisted =
+                qualification_result == "pass" || qualification_result == "review";
+
+            let addressable_value = if legal_category == "goods" && goods_qualified_persisted {
                 *value_pence
             } else {
                 None
             };
 
             let rationale = format!(
-                "CPV division {}: legal_category={legal_category}, density={goods_density_score_bps}bps, \
-                 expiry={expiry_qualified}, result={qualification_result}",
+                "result={qualification_result}; reason={}; access_route={access_route}; \
+                 legal_category={legal_category}; cpv_div={}; \
+                 goods_density={goods_density_score_bps}bps; expiry_qualified={expiry_qualified}",
+                rejection_reason.unwrap_or("-"),
                 cpv_division.map_or_else(|| "unknown".to_owned(), |d| d.to_string()),
             );
 
@@ -9276,14 +9968,15 @@ fn run_prequalify_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize
                 "INSERT INTO qualification_runs (
                    id, process_id, notice_id, lot_id, expiry_qualified, goods_qualified,
                    goods_confidence_bps, legal_category, goods_density_score_bps,
-                   qualification_basis, addressable_value_pence, rationale,
+                   qualification_basis, addressable_value_pence, rationale, access_route,
                    owner_id, row_version, last_local_seq, stage_run_id
                  ) VALUES (?1, ?2, ?3, ?14, ?4, ?5, ?6, ?7, ?8, 'notice_only', ?9, ?10,
-                           ?11, 1, ?12, ?13)
+                           ?15, ?11, 1, ?12, ?13)
                  ON CONFLICT(id) DO UPDATE SET
                    goods_qualified = excluded.goods_qualified,
                    goods_confidence_bps = excluded.goods_confidence_bps,
                    legal_category = excluded.legal_category,
+                   access_route = excluded.access_route,
                    rationale = excluded.rationale,
                    row_version = qualification_runs.row_version + 1,
                    updated_at = CURRENT_TIMESTAMP",
@@ -9292,7 +9985,7 @@ fn run_prequalify_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize
                     process_id,
                     notice_id,
                     i32::from(expiry_qualified),
-                    i32::from(goods_qualified),
+                    i32::from(goods_qualified_persisted),
                     goods_density_score_bps,
                     legal_category,
                     goods_density_score_bps,
@@ -9302,6 +9995,7 @@ fn run_prequalify_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize
                     visible_after_seq,
                     stage_run_id,
                     lot_id,
+                    access_route,
                 ],
             )?;
 
@@ -9368,10 +10062,12 @@ fn run_qualify_lot_stage(state_db: &mut StateDb) -> Result<usize> {
         let mut qualified = 0_usize;
 
         for (lot_id, notice_id, process_id, _cn_id, lot_value) in &lot_rows {
-            // Inherit from notice-level qualification.
-            let parent_qual: Option<(i32, i32, i64, String)> = tx
+            // Inherit from notice-level qualification, including access_route so
+            // downstream lot-scoped consumers see the same rejection signal.
+            let parent_qual: Option<(i32, i32, i64, String, Option<String>)> = tx
                 .query_row(
-                    "SELECT expiry_qualified, goods_qualified, goods_confidence_bps, legal_category
+                    "SELECT expiry_qualified, goods_qualified, goods_confidence_bps, \
+                     legal_category, access_route
                      FROM qualification_runs
                      WHERE notice_id = ?1
                      ORDER BY created_at DESC LIMIT 1",
@@ -9382,27 +10078,30 @@ fn run_qualify_lot_stage(state_db: &mut StateDb) -> Result<usize> {
                             row.get::<_, i32>(1)?,
                             row.get::<_, i64>(2)?,
                             row.get::<_, String>(3)?,
+                            row.get::<_, Option<String>>(4)?,
                         ))
                     },
                 )
                 .optional()?;
 
-            let (expiry_q, goods_q, confidence, category) =
-                parent_qual.unwrap_or_else(|| (1, 0, 4500, "unknown".to_owned()));
+            let (expiry_q, goods_q, confidence, category, access_route) = parent_qual
+                .unwrap_or_else(|| (1, 0, 4500, "unknown".to_owned(), None));
 
             let qual_id = format!("qual-lot-{lot_id}");
             let rationale = format!(
-                "Inherited from notice {notice_id}: category={category}, confidence={confidence}bps"
+                "Inherited from notice {notice_id}: category={category}, \
+                 access_route={}, confidence={confidence}bps",
+                access_route.as_deref().unwrap_or("-"),
             );
 
             tx.execute(
                 "INSERT INTO qualification_runs (
                    id, process_id, notice_id, lot_id, expiry_qualified, goods_qualified,
                    goods_confidence_bps, legal_category, qualification_basis,
-                   addressable_value_pence, rationale,
+                   addressable_value_pence, rationale, access_route,
                    owner_id, row_version, last_local_seq, stage_run_id
                  ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'lot_level', ?9, ?10,
-                           ?11, 1, ?12, ?13)
+                           ?14, ?11, 1, ?12, ?13)
                  ON CONFLICT(id) DO NOTHING",
                 params![
                     qual_id,
@@ -9418,6 +10117,7 @@ fn run_qualify_lot_stage(state_db: &mut StateDb) -> Result<usize> {
                     LOCAL_EXECUTOR_ID,
                     visible_after_seq,
                     stage_run_id,
+                    access_route,
                 ],
             )?;
 
@@ -9425,6 +10125,541 @@ fn run_qualify_lot_stage(state_db: &mut StateDb) -> Result<usize> {
             qualified += 1;
         }
         Ok(qualified)
+    })?;
+
+    Ok(count)
+}
+
+// ---------------------------------------------------------------------------
+// Stage 8.5: build_search_profiles
+// Projects qualify-passed product_candidates into search_profiles rows with
+// pre-computed query waves, noun aliases, market framing terms, and
+// recall-risk / quoteability scores. The downstream supplier-price-enrichment
+// skill consumes these profiles wholesale — so the agent sees the entire
+// structured product context, not just head_noun.
+// ---------------------------------------------------------------------------
+
+/// Picks the single strongest identity anchor the tender specifies for this
+/// product. Priority: exact brand+model → first `required`-criticality critical
+/// attribute value → first numeric spec rendered as `"<nominal><unit>"` → first
+/// standards token. Returns `None` when the candidate has no structured hooks,
+/// in which case query waves fall back to the candidate's free-text name.
+fn strongest_search_anchor(
+    brand_model: Option<&str>,
+    critical_attributes_json: Option<&str>,
+    numeric_specs_json: Option<&str>,
+    standards_json: Option<&str>,
+) -> Option<String> {
+    if let Some(bm) = brand_model {
+        let trimmed = bm.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_owned());
+        }
+    }
+
+    if let Some(raw) = critical_attributes_json {
+        if let Ok(Value::Object(map)) = serde_json::from_str::<Value>(raw) {
+            for (_, entry) in &map {
+                let crit = entry.get("criticality").and_then(Value::as_str);
+                let value = entry.get("value").and_then(Value::as_str);
+                if crit == Some("required")
+                    && let Some(v) = value
+                    && !v.trim().is_empty()
+                {
+                    return Some(v.trim().to_owned());
+                }
+            }
+        }
+    }
+
+    if let Some(raw) = numeric_specs_json {
+        if let Ok(Value::Object(map)) = serde_json::from_str::<Value>(raw) {
+            for (_, entry) in &map {
+                let nominal = entry.get("nominal").and_then(Value::as_f64);
+                let unit = entry
+                    .get("unit")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                if let Some(n) = nominal {
+                    let trimmed_unit = unit.trim();
+                    let rendered = if trimmed_unit.is_empty() {
+                        format!("{n}")
+                    } else {
+                        format!("{n}{trimmed_unit}")
+                    };
+                    return Some(rendered);
+                }
+            }
+        }
+    }
+
+    if let Some(raw) = standards_json {
+        if let Ok(Value::Array(arr)) = serde_json::from_str::<Value>(raw) {
+            for entry in &arr {
+                if let Some(s) = entry.as_str() {
+                    let trimmed = s.trim();
+                    if !trimmed.is_empty() {
+                        return Some(trimmed.to_owned());
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Generates the 5-wave query ladder the supplier-search agent walks when
+/// searching each source (precise → broad). Wave 4 is only populated for
+/// regulated_goods candidates per the research spec — for other archetypes a
+/// compliance-off retry is a no-op.
+///
+/// Returned JSON has the shape the `search_profiles.query_waves_json` column
+/// expects: `[{wave, strategy, query_en, query_zh?, filters_hint}]`.
+#[allow(clippy::too_many_arguments)]
+fn build_query_waves_json(
+    head_noun: &str,
+    candidate_name: &str,
+    candidate_type: &str,
+    brand_model: Option<&str>,
+    material: Option<&str>,
+    critical_attributes_json: Option<&str>,
+    numeric_specs_json: Option<&str>,
+    standards_json: Option<&str>,
+    preferred_terms_json: Option<&str>,
+) -> String {
+    let anchor = strongest_search_anchor(
+        brand_model,
+        critical_attributes_json,
+        numeric_specs_json,
+        standards_json,
+    );
+    let anchor_str = anchor.as_deref();
+
+    let preferred_terms: Vec<String> = preferred_terms_json
+        .and_then(|raw| serde_json::from_str::<Vec<String>>(raw).ok())
+        .unwrap_or_default();
+    let alias = preferred_terms
+        .first()
+        .map(String::as_str)
+        .unwrap_or(head_noun);
+
+    let material_frag = material
+        .map(|m| format!(" {m}"))
+        .unwrap_or_default();
+
+    let wave0 = match (brand_model, anchor_str) {
+        (Some(bm), _) if !bm.trim().is_empty() => bm.trim().to_owned(),
+        (_, Some(a)) => format!("{head_noun} {a}"),
+        (_, None) => candidate_name.to_owned(),
+    };
+
+    let wave1 = match anchor_str {
+        Some(a) => format!("{alias} {a}"),
+        None => alias.to_owned(),
+    };
+
+    let wave2 = format!("industrial commercial {head_noun}{material_frag}");
+    let wave3 = head_noun.to_owned();
+
+    let mut waves = vec![
+        json!({
+            "wave": 0,
+            "strategy": "exact_anchor",
+            "query_en": wave0.trim(),
+            "filters_hint": {
+                "require_head_noun": true,
+                "require_anchor": anchor.is_some(),
+            },
+        }),
+        json!({
+            "wave": 1,
+            "strategy": "alias_swap",
+            "query_en": wave1.trim(),
+            "filters_hint": { "require_head_noun": true },
+        }),
+        json!({
+            "wave": 2,
+            "strategy": "market_frame",
+            "query_en": wave2.trim(),
+            "filters_hint": { "require_head_noun": true, "relaxed_material": true },
+        }),
+        json!({
+            "wave": 3,
+            "strategy": "broad_existence",
+            "query_en": wave3.trim(),
+            "filters_hint": { "require_head_noun": true, "existence_check_only": true },
+        }),
+    ];
+
+    if candidate_type == "regulated_goods" {
+        waves.push(json!({
+            "wave": 4,
+            "strategy": "compliance_off",
+            "query_en": format!("{head_noun}{material_frag}").trim().to_owned(),
+            "filters_hint": {
+                "standards_as_post_filter": true,
+            },
+        }));
+    }
+
+    Value::Array(waves).to_string()
+}
+
+/// Deterministic quoteability score for gating marketplace search.
+/// `auto_search` >= 6500, `manual_only` 4500..=6499, `skip` < 4500.
+/// Mirrors the research doc §8 additive-penalty model — not an agent call.
+fn compute_quoteability_score_bps(
+    candidate_type: &str,
+    match_archetype: &str,
+    head_noun: &str,
+    has_critical_attrs: bool,
+    has_numeric_specs: bool,
+    has_standards: bool,
+    has_quantity_unit: bool,
+    has_brand_model: bool,
+    access_route: Option<&str>,
+) -> i64 {
+    let mut score: i64 = 5000;
+
+    if !head_noun.trim().is_empty() && head_noun != "item" {
+        score += 500;
+    }
+    if has_critical_attrs {
+        score += 1000;
+    }
+    if has_numeric_specs {
+        score += 1000;
+    }
+    if has_standards {
+        score += 500;
+    }
+    if has_quantity_unit {
+        score += 500;
+    }
+    if has_brand_model && candidate_type == "exact_sku" {
+        score += 1500;
+    }
+
+    match candidate_type {
+        "custom_or_fabricated" => score -= 3000,
+        "installed_goods" => score -= 2000,
+        "bundle" => score -= 500,
+        _ => {}
+    }
+
+    if candidate_type == "regulated_goods" && !has_standards {
+        score -= 1500;
+    }
+    if match_archetype == "standard_class_led" && !has_standards {
+        score -= 1000;
+    }
+    if match_archetype == "dimension_material_led" && !has_numeric_specs {
+        score -= 1000;
+    }
+    if match_archetype == "model_exact" && !has_brand_model {
+        score -= 2000;
+    }
+
+    if matches!(access_route, Some("dynamic_market" | "services" | "works")) {
+        score -= 2000;
+    }
+
+    score.clamp(0, 10000)
+}
+
+/// Deterministic recall-risk score (0-10000 bps). Higher = more vocabulary drift,
+/// wider search budget required. Drives the supplier-search agent's shortlist
+/// size (low risk → top 8 results; high risk → top 20).
+fn compute_recall_risk_bps(
+    candidate_type: &str,
+    match_archetype: &str,
+    has_critical_attrs: bool,
+    has_numeric_specs: bool,
+    has_standards: bool,
+    has_brand_model: bool,
+    has_preferred_terms: bool,
+) -> i64 {
+    let mut risk: i64 = 2000;
+
+    if !has_critical_attrs {
+        risk += 1500;
+    }
+    if !has_numeric_specs && match_archetype == "dimension_material_led" {
+        risk += 2000;
+    }
+    if !has_standards && match_archetype == "standard_class_led" {
+        risk += 2500;
+    }
+    if !has_brand_model && candidate_type == "exact_sku" {
+        risk += 3000;
+    }
+    if !has_preferred_terms {
+        risk += 1000;
+    }
+    if candidate_type == "unknown" {
+        risk += 1500;
+    }
+
+    risk.clamp(0, 10000)
+}
+
+fn search_eligibility_state(quoteability_bps: i64) -> &'static str {
+    if quoteability_bps >= 6500 {
+        "auto_search"
+    } else if quoteability_bps >= 4500 {
+        "manual_only"
+    } else {
+        "skip"
+    }
+}
+
+/// Derives English noun aliases from the head_noun. Placeholder for the full
+/// lexicon work called out in the research doc §5.4 — for now just reflects the
+/// head_noun plus any preferred terms the skill already emitted, so downstream
+/// alias-swap queries have something to work with.
+fn derive_noun_aliases_en(head_noun: &str, preferred_terms_json: Option<&str>) -> String {
+    let mut aliases = vec![head_noun.to_owned()];
+    if let Some(raw) = preferred_terms_json {
+        if let Ok(arr) = serde_json::from_str::<Vec<String>>(raw) {
+            for term in arr {
+                if !aliases.iter().any(|a| a.eq_ignore_ascii_case(&term)) {
+                    aliases.push(term);
+                }
+            }
+        }
+    }
+    json!(aliases).to_string()
+}
+
+/// Stage: build_search_profiles — project qualify-passed product_candidates into
+/// search_profiles rows. Gated on `qualification_runs.goods_qualified = 1` so
+/// services / DPS / works / expired notices do not produce profiles.
+fn run_build_search_profiles_stage(state_db: &mut StateDb, source_id: &str) -> Result<usize> {
+    #[allow(clippy::type_complexity)]
+    let candidate_rows: Vec<(
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    )> = {
+        let conn = state_db.connection();
+        let mut stmt = conn.prepare(
+            "SELECT pc.id, pc.process_id, pc.notice_id, pc.name, pc.head_noun,
+                    pc.candidate_type, pc.match_archetype,
+                    pc.brand_model, pc.material, pc.quantity_unit,
+                    pc.critical_attributes_json, pc.numeric_specs_json,
+                    pc.standards_json, pc.preferred_terms_json,
+                    cn.access_route
+             FROM product_candidates pc
+             JOIN contract_notices cn ON cn.id = pc.notice_id
+             JOIN qualification_runs qr ON qr.notice_id = pc.notice_id
+               AND qr.qualification_basis = 'notice_only'
+             WHERE cn.source_id = ?1
+               AND qr.goods_qualified = 1
+               AND NOT EXISTS (
+                 SELECT 1 FROM search_profiles sp
+                 WHERE sp.product_candidate_id = pc.id
+               )",
+        )?;
+        stmt.query_map(params![source_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, String>(6)?,
+                row.get::<_, Option<String>>(7)?,
+                row.get::<_, Option<String>>(8)?,
+                row.get::<_, Option<String>>(9)?,
+                row.get::<_, Option<String>>(10)?,
+                row.get::<_, Option<String>>(11)?,
+                row.get::<_, Option<String>>(12)?,
+                row.get::<_, Option<String>>(13)?,
+                row.get::<_, Option<String>>(14)?,
+            ))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+
+    if candidate_rows.is_empty() {
+        return Ok(0);
+    }
+
+    let stage_run_id = allocate_stage_run_id();
+    let (count, _) = state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        let mut profiles_written = 0_usize;
+
+        for (
+            candidate_id,
+            process_id,
+            notice_id,
+            candidate_name,
+            head_noun,
+            candidate_type,
+            match_archetype,
+            brand_model,
+            material,
+            quantity_unit,
+            critical_attributes_json,
+            numeric_specs_json,
+            standards_json,
+            preferred_terms_json,
+            access_route,
+        ) in &candidate_rows
+        {
+            let has_critical_attrs = critical_attributes_json
+                .as_deref()
+                .is_some_and(|s| s.trim() != "" && s.trim() != "{}" && s.trim() != "null");
+            let has_numeric_specs = numeric_specs_json
+                .as_deref()
+                .is_some_and(|s| s.trim() != "" && s.trim() != "{}" && s.trim() != "null");
+            let has_standards = standards_json.as_deref().is_some_and(|s| {
+                let trimmed = s.trim();
+                !trimmed.is_empty() && trimmed != "[]" && trimmed != "null"
+            });
+            let has_preferred_terms = preferred_terms_json.as_deref().is_some_and(|s| {
+                let trimmed = s.trim();
+                !trimmed.is_empty() && trimmed != "[]" && trimmed != "null"
+            });
+            let has_brand_model = brand_model
+                .as_deref()
+                .is_some_and(|v| !v.trim().is_empty());
+            let has_quantity_unit = quantity_unit
+                .as_deref()
+                .is_some_and(|v| !v.trim().is_empty());
+
+            let quoteability_bps = compute_quoteability_score_bps(
+                candidate_type,
+                match_archetype,
+                head_noun,
+                has_critical_attrs,
+                has_numeric_specs,
+                has_standards,
+                has_quantity_unit,
+                has_brand_model,
+                access_route.as_deref(),
+            );
+            let recall_risk_bps = compute_recall_risk_bps(
+                candidate_type,
+                match_archetype,
+                has_critical_attrs,
+                has_numeric_specs,
+                has_standards,
+                has_brand_model,
+                has_preferred_terms,
+            );
+            let eligibility = search_eligibility_state(quoteability_bps);
+
+            let query_waves_json = build_query_waves_json(
+                head_noun,
+                candidate_name,
+                candidate_type,
+                brand_model.as_deref(),
+                material.as_deref(),
+                critical_attributes_json.as_deref(),
+                numeric_specs_json.as_deref(),
+                standards_json.as_deref(),
+                preferred_terms_json.as_deref(),
+            );
+
+            let noun_aliases_en =
+                derive_noun_aliases_en(head_noun, preferred_terms_json.as_deref());
+
+            let profile_id = format!("sp-{candidate_id}");
+
+            tx.execute(
+                "INSERT INTO search_profiles (
+                   id, product_candidate_id, head_noun, head_noun_family,
+                   candidate_type, match_archetype,
+                   critical_attributes_json, standards_json, numeric_specs_json,
+                   noun_aliases_en, noun_aliases_zh, market_frame_en, market_frame_zh,
+                   use_context, sector_context,
+                   required_anchors, optional_anchors, must_not_have,
+                   preferred_terms, excluded_terms,
+                   query_waves_json, recall_risk_score_bps, search_eligibility_state,
+                   owner_id, row_version, last_local_seq, stage_run_id
+                 ) VALUES (
+                   ?1, ?2, ?3, ?4, ?5, ?6,
+                   ?7, ?8, ?9,
+                   ?10, NULL, NULL, NULL,
+                   NULL, NULL,
+                   NULL, NULL, NULL,
+                   ?11, NULL,
+                   ?12, ?13, ?14,
+                   ?15, 1, ?16, ?17
+                 )
+                 ON CONFLICT(id) DO UPDATE SET
+                   head_noun = excluded.head_noun,
+                   candidate_type = excluded.candidate_type,
+                   match_archetype = excluded.match_archetype,
+                   critical_attributes_json = excluded.critical_attributes_json,
+                   standards_json = excluded.standards_json,
+                   numeric_specs_json = excluded.numeric_specs_json,
+                   noun_aliases_en = excluded.noun_aliases_en,
+                   preferred_terms = excluded.preferred_terms,
+                   query_waves_json = excluded.query_waves_json,
+                   recall_risk_score_bps = excluded.recall_risk_score_bps,
+                   search_eligibility_state = excluded.search_eligibility_state,
+                   row_version = search_profiles.row_version + 1,
+                   updated_at = CURRENT_TIMESTAMP",
+                params![
+                    profile_id,
+                    candidate_id,
+                    head_noun,
+                    Option::<&str>::None, // head_noun_family: lexicon TBD
+                    candidate_type,
+                    match_archetype,
+                    critical_attributes_json,
+                    standards_json,
+                    numeric_specs_json,
+                    noun_aliases_en,
+                    preferred_terms_json,
+                    query_waves_json,
+                    recall_risk_bps,
+                    eligibility,
+                    LOCAL_EXECUTOR_ID,
+                    visible_after_seq,
+                    stage_run_id,
+                ],
+            )?;
+
+            // Mirror the quoteability score back to the candidate so any consumer
+            // that reads product_candidates directly (desktop UI, projections) sees
+            // the gated score rather than a stale null.
+            tx.execute(
+                "UPDATE product_candidates SET quoteability_score_bps = ?1, \
+                 recall_risk_score_bps = ?2, row_version = row_version + 1, \
+                 updated_at = CURRENT_TIMESTAMP WHERE id = ?3",
+                params![quoteability_bps, recall_risk_bps, candidate_id],
+            )?;
+
+            persist_stage(
+                tx,
+                process_id,
+                "build search profile",
+                "notice",
+                notice_id,
+                &stage_run_id,
+            )?;
+            profiles_written += 1;
+        }
+
+        Ok(profiles_written)
     })?;
 
     Ok(count)
