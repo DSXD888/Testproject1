@@ -90,6 +90,32 @@ pub(super) fn claim_next_job(conn: &Connection, executor_id: &str) -> Result<Opt
     Ok(Some(claimed_job))
 }
 
+pub(super) fn claim_job_by_id(
+    conn: &Connection,
+    executor_id: &str,
+    job_id: &str,
+) -> Result<Option<ClaimedJob>> {
+    let now = Utc::now();
+    let tx = Transaction::new_unchecked(conn, TransactionBehavior::Immediate)
+        .context("starting immediate transaction for workflow job claim by id")?;
+
+    recycle_expired_leases(&tx, now)?;
+
+    let Some(row) = select_claimable_job_by_id(&tx, job_id)? else {
+        tx.commit()
+            .context("committing empty workflow job claim-by-id transaction")?;
+        return Ok(None);
+    };
+
+    let claimed_job = build_claimed_job(row)?;
+    apply_claim(&tx, &claimed_job.id, executor_id, now)?;
+
+    tx.commit()
+        .with_context(|| format!("committing workflow job claim for {job_id}"))?;
+
+    Ok(Some(claimed_job))
+}
+
 fn recycle_expired_leases(tx: &Transaction<'_>, now: DateTime<Utc>) -> Result<()> {
     tx.execute(
         "\
@@ -133,6 +159,35 @@ fn select_next_claimable_job(tx: &Transaction<'_>) -> Result<Option<ClaimableJob
         })
         .optional()
         .context("selecting next claimable workflow job")
+}
+
+fn select_claimable_job_by_id(
+    tx: &Transaction<'_>,
+    job_id: &str,
+) -> Result<Option<ClaimableJobRow>> {
+    let mut statement = tx.prepare(
+        "\
+        SELECT id, kind, process_id, scope_kind, scope_id, input_payload
+        FROM workflow_jobs
+        WHERE id = ?1
+          AND status IN ('pending', 'retry')
+        LIMIT 1
+        ",
+    )?;
+
+    statement
+        .query_row(params![job_id], |row| {
+            Ok(ClaimableJobRow {
+                id: row.get(0)?,
+                kind: row.get(1)?,
+                process_id: row.get(2)?,
+                scope_kind: row.get(3)?,
+                scope_id: row.get(4)?,
+                input_payload: row.get(5)?,
+            })
+        })
+        .optional()
+        .with_context(|| format!("selecting claimable workflow job {job_id}"))
 }
 
 fn build_claimed_job(row: ClaimableJobRow) -> Result<ClaimedJob> {

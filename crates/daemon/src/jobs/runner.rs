@@ -246,6 +246,12 @@ impl JobRunner {
         claim::claim_next_job(conn, &self.executor_id).context("claiming next workflow job")
     }
 
+    pub fn claim_job_by_id(&self, conn: &Connection, job_id: &str) -> Result<Option<ClaimedJob>> {
+        touch_executor(conn, &self.executor_id)?;
+        claim::claim_job_by_id(conn, &self.executor_id, job_id)
+            .with_context(|| format!("claiming workflow job {job_id}"))
+    }
+
     pub fn persist_success(
         &self,
         state_db: &mut StateDb,
