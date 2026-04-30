@@ -155,14 +155,14 @@ fn role_from_structural_content(markdown: &str, tables_json: &Value) -> Document
     let normalized = normalize(markdown);
     let pricing = looks_like_pricing_schedule(markdown, tables_json);
     let boq = looks_like_boq(markdown, tables_json);
-    let tender = normalized.contains("lot ")
-        || normalized.contains("technical specification")
-        || normalized.contains("statement of requirements")
-        || normalized.contains("invitation to tender")
+    let tender = contains_lot_heading(markdown)
+        || normalized.contains("technicalspecification")
+        || normalized.contains("statementofrequirements")
+        || normalized.contains("invitationtotender")
         || normalized.contains("standard")
-        || normalized.contains("bs en");
+        || normalized.contains("bsen");
 
-    if normalized.contains("combined pack") {
+    if normalized.contains("combinedpack") {
         return DocumentRole::CombinedPack;
     }
     if tender && (pricing || boq) {
@@ -174,19 +174,19 @@ fn role_from_structural_content(markdown: &str, tables_json: &Value) -> Document
     if pricing {
         return DocumentRole::PricingSchedule;
     }
-    if normalized.contains("statement of requirements") {
+    if normalized.contains("statementofrequirements") {
         return DocumentRole::StatementOfRequirements;
     }
-    if normalized.contains("invitation to tender") {
+    if normalized.contains("invitationtotender") {
         return DocumentRole::InvitationToTender;
     }
     if tender {
         return DocumentRole::TechnicalSpecification;
     }
-    if normalized.contains("cover letter") {
+    if normalized.contains("coverletter") {
         return DocumentRole::CoverLetter;
     }
-    if normalized.contains("terms and conditions") {
+    if normalized.contains("termsandconditions") {
         return DocumentRole::TermsAndConditions;
     }
     DocumentRole::Unknown
@@ -194,9 +194,9 @@ fn role_from_structural_content(markdown: &str, tables_json: &Value) -> Document
 
 fn looks_like_pricing_schedule(markdown: &str, tables_json: &Value) -> bool {
     let normalized = normalize(markdown);
-    if normalized.contains("pricing schedule")
-        || normalized.contains("schedule of rates")
-        || normalized.contains("rate card")
+    if normalized.contains("pricingschedule")
+        || normalized.contains("scheduleofrates")
+        || normalized.contains("ratecard")
     {
         return true;
     }
@@ -207,15 +207,24 @@ fn looks_like_pricing_schedule(markdown: &str, tables_json: &Value) -> bool {
 
 fn looks_like_boq(markdown: &str, tables_json: &Value) -> bool {
     let normalized = normalize(markdown);
-    if normalized.contains("bill of quantities")
+    if normalized.contains("billofquantities")
         || normalized.contains("boq")
-        || normalized.contains("schedule of quantities")
+        || normalized.contains("scheduleofquantities")
     {
         return true;
     }
     table_headers(tables_json)
         .iter()
-        .any(|header| header.contains("item ref") || header.contains("continuation"))
+        .any(|header| header.contains("itemref") || header.contains("continuation"))
+}
+
+fn contains_lot_heading(markdown: &str) -> bool {
+    markdown.lines().any(|line| {
+        let line = normalize(line);
+        line.as_bytes()
+            .strip_prefix(b"lot")
+            .is_some_and(|suffix| suffix.first().is_some_and(u8::is_ascii_digit))
+    })
 }
 
 fn table_headers(tables_json: &Value) -> Vec<String> {
