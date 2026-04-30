@@ -246,10 +246,13 @@ impl JobRunner {
         claim::claim_next_job(conn, &self.executor_id).context("claiming next workflow job")
     }
 
+    /// Claim a specific job by id, bypassing FIFO ordering. Intended for
+    /// `--ingest` callers that have just enqueued a job and need to run it
+    /// immediately regardless of what else is pending in the queue.
     pub fn claim_job_by_id(&self, conn: &Connection, job_id: &str) -> Result<Option<ClaimedJob>> {
         touch_executor(conn, &self.executor_id)?;
         claim::claim_job_by_id(conn, &self.executor_id, job_id)
-            .with_context(|| format!("claiming workflow job {job_id}"))
+            .context("claiming workflow job by id")
     }
 
     pub fn persist_success(

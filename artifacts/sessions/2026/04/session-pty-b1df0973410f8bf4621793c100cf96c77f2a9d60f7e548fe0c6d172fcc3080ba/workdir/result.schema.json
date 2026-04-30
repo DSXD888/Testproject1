@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "blockers": {
+      "type": "array"
+    },
+    "checked_at": {
+      "type": "string"
+    },
+    "converted_amount_gbp_pence": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "fx_status": {
+      "type": "string"
+    },
+    "rate": {
+      "type": "number"
+    },
+    "source": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_currency": {
+      "type": "string"
+    },
+    "target_currency": {
+      "type": "string"
+    },
+    "warnings": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "fx_status",
+    "source_currency",
+    "target_currency",
+    "rate",
+    "checked_at",
+    "warnings",
+    "blockers"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["seq", "cursor", "candidates_processed"],
+  "properties": {
+    "seq": { "type": "integer", "minimum": 0 },
+    "cursor": { "type": "string" },
+    "candidates_processed": { "type": "integer", "minimum": 0 },
+    "candidates_with_quotes": { "type": "integer", "minimum": 0 },
+    "last_candidate_id": { "type": ["string", "null"] }
+  }
+}

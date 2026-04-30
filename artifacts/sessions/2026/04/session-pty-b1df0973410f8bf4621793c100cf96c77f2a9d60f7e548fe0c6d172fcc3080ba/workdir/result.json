@@ -1,0 +1,39 @@
+{
+  "fx_status": "converted",
+  "source_currency": "USD",
+  "target_currency": "GBP",
+  "rate": 0.74026,
+  "checked_at": "2026-04-30T21:14:52Z",
+  "converted_amount_gbp_pence": 17692,
+  "source": "Frankfurter ECB latest endpoint: https://api.frankfurter.app/latest?from=USD&to=GBP; redirected to https://api.frankfurter.dev/v1/latest?from=USD&to=GBP; returned date 2026-04-30; fetched_at 2026-04-30T21:14:52Z",
+  "product_candidate_id": "pc-7046e8ec-2734-ed11-8119-005056b64545-lot-1-candidate-glass-dgu-bs-en-1279",
+  "selected_quote_id": "sq-b22fcf00b7a545d699c3438c42b9027c-1",
+  "amount_minor": 23900,
+  "source_amounts_minor": {
+    "low": 23900,
+    "base": 23900,
+    "high": 28100
+  },
+  "converted_source_amounts_gbp_pence": {
+    "low": 17692,
+    "base": 17692,
+    "high": 20801
+  },
+  "evidence": {
+    "api_url": "https://api.frankfurter.app/latest?from=USD&to=GBP",
+    "effective_url": "https://api.frankfurter.dev/v1/latest?from=USD&to=GBP",
+    "returned_date": "2026-04-30",
+    "rate": 0.74026,
+    "fetched_at": "2026-04-30T21:14:52Z",
+    "raw_response": {
+      "amount": 1.0,
+      "base": "USD",
+      "date": "2026-04-30",
+      "rates": {
+        "GBP": 0.74026
+      }
+    }
+  },
+  "warnings": [],
+  "blockers": []
+}

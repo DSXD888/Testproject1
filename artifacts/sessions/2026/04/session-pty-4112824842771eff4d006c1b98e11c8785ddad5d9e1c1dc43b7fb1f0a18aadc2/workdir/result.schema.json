@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "blockers": {
+      "type": "array"
+    },
+    "confidence_bps": {
+      "maximum": 10000,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "container_plan": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "evidence": {
+      "type": "array"
+    },
+    "package_count": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "product_candidate_id": {
+      "type": "string"
+    },
+    "selected_quote_id": {
+      "type": "string"
+    },
+    "sizing_status": {
+      "type": "string"
+    },
+    "total_volume_cbm": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "total_weight_kg": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "unit_basis": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "unit_volume_cbm": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "unit_weight_kg": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "units_required": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "warnings": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "product_candidate_id",
+    "selected_quote_id",
+    "sizing_status",
+    "confidence_bps",
+    "warnings",
+    "blockers"
+  ],
+  "type": "object"
+}

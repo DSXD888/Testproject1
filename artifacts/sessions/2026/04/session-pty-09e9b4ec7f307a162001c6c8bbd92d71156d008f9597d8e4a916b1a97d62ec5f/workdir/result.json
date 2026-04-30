@@ -1,0 +1,214 @@
+{
+  "product_candidate_id": "pc-7046e8ec-2734-ed11-8119-005056b64545-lot-1-candidate-glass-dgu-bs-en-1279",
+  "selected_quote_id": "sq-b22fcf00b7a545d699c3438c42b9027c-1",
+  "freight_status": "quoted",
+  "freight_amount_minor": 23900,
+  "freight_base_amount_minor": 23900,
+  "freight_low_amount_minor": 23900,
+  "freight_high_amount_minor": 28100,
+  "freight_currency": "USD",
+  "quote_expired": true,
+  "source": "SeaRates Logistics Explorer GraphQL",
+  "source_url": "https://www.searates.com/logistics-explorer/",
+  "transit_time_days": 36,
+  "route": {
+    "origin": {
+      "input": "Shanghai, CN",
+      "coordinates": [
+        31.2304,
+        121.4737
+      ]
+    },
+    "destination": {
+      "input": "London, GB",
+      "coordinates": [
+        51.5072,
+        -0.1276
+      ]
+    },
+    "mode": "LCL",
+    "included_services": "d2d",
+    "port_from_fees": false,
+    "port_to_fees": false,
+    "ship_date": "2026-06-14",
+    "load": {
+      "weight_kg": 300,
+      "volume_cbm": 0.315
+    },
+    "selected_port_legs": [
+      {
+        "name": "Shanghai",
+        "country": "CN",
+        "code": null,
+        "point_type": "PLACE",
+        "shipping_type": "LTL",
+        "provider": "Carrier TBN",
+        "total_price": 105,
+        "total_currency": "USD",
+        "transit_time_days": 1
+      },
+      {
+        "name": "Shanghai",
+        "country": "CN",
+        "code": "CNSHA",
+        "point_type": "PORT",
+        "shipping_type": "LCL",
+        "provider": "CP World",
+        "total_price": 29,
+        "total_currency": "USD",
+        "transit_time_days": 30,
+        "terms": "FIFO"
+      },
+      {
+        "name": "Le Havre",
+        "country": "FR",
+        "code": "FRLEH",
+        "point_type": "PORT",
+        "shipping_type": "LTL",
+        "provider": "Carrier TBN",
+        "total_price": 105,
+        "total_currency": "USD",
+        "transit_time_days": 1
+      },
+      {
+        "name": "London",
+        "country": "GB",
+        "code": null,
+        "point_type": "PLACE",
+        "shipping_type": "LTL",
+        "provider": null,
+        "total_price": 0,
+        "total_currency": "USD",
+        "transit_time_days": null
+      }
+    ]
+  },
+  "warnings": [
+    {
+      "code": "SEARATES_PRICE_EXPIRED",
+      "message": "SeaRates returned concrete LCL prices for the sized shipment, but all LCL candidates were expired as of 2026-04-30. The selected price is the cheapest expired LCL candidate and should be treated as evidence, not a currently valid offer.",
+      "severity": "warning"
+    }
+  ],
+  "blockers": [],
+  "evidence": [
+    {
+      "type": "cdp_session",
+      "cdp_port": 9222,
+      "browser": "Chrome/147.0.7727.119",
+      "page_title": "Logistics Explorer App | Freight Calculator to Get Freight Rates Today Online",
+      "page_url": "https://www.searates.com/logistics-explorer/",
+      "token_state": "s-token present in localStorage"
+    },
+    {
+      "type": "graphql_query",
+      "endpoint": "https://rates.searates.com/graphql",
+      "query_basis": {
+        "shippingType": "LCL",
+        "includedServices": "d2d",
+        "portFromFees": false,
+        "portToFees": false,
+        "coordinatesFrom": [
+          31.2304,
+          121.4737
+        ],
+        "coordinatesTo": [
+          51.5072,
+          -0.1276
+        ],
+        "date": "2026-06-14",
+        "weight": 300,
+        "weightUnit": "KG",
+        "volume": 0.315,
+        "volumeUnit": "M3"
+      },
+      "raw_evidence_text": "SeaRates GraphQL returned 3 LCL candidates for Shanghai to London with 300 kg and 0.315 m3. All candidates had general.expired=true."
+    },
+    {
+      "type": "selected_rate",
+      "shipmentId": "54532949",
+      "totalPrice": 239,
+      "totalCurrency": "USD",
+      "totalPriceMinor": 23900,
+      "totalTransitTime": 36,
+      "expired": true,
+      "validityFrom": "2024-10-04",
+      "validityTo": "2026-04-13",
+      "queryShippingType": "LCL",
+      "providers": [
+        "Carrier TBN",
+        "CP World"
+      ],
+      "route_summary": "Shanghai place -> Shanghai port CNSHA -> Le Havre port FRLEH -> London place",
+      "raw_evidence_text": "Selected cheapest expired LCL candidate: shipmentId 54532949, totalPrice 239 USD, totalTransitTime 36 days. Leg prices were 105 USD pre-carriage, 29 USD ocean freight, 105 USD on-carriage, and 0 USD final London place point."
+    },
+    {
+      "type": "candidate_range",
+      "basis": "expired LCL candidates returned for the sized shipment",
+      "candidate_count": 3,
+      "low": {
+        "shipmentId": "54532949",
+        "amount": 239,
+        "currency": "USD",
+        "amount_minor": 23900,
+        "validityTo": "2026-04-13",
+        "totalTransitTime": 36
+      },
+      "high": {
+        "shipmentId": "54532948",
+        "amount": 281,
+        "currency": "USD",
+        "amount_minor": 28100,
+        "validityTo": "2026-04-29",
+        "totalTransitTime": 41
+      },
+      "all_candidates": [
+        {
+          "shipmentId": "54532949",
+          "totalPrice": 239,
+          "totalCurrency": "USD",
+          "totalPriceMinor": 23900,
+          "totalTransitTime": 36,
+          "expired": true,
+          "validityFrom": "2024-10-04",
+          "validityTo": "2026-04-13",
+          "route": "Shanghai CNSHA to Le Havre FRLEH to London"
+        },
+        {
+          "shipmentId": "54532950",
+          "totalPrice": 250,
+          "totalCurrency": "USD",
+          "totalPriceMinor": 25000,
+          "totalTransitTime": 41,
+          "expired": true,
+          "validityFrom": "2024-10-04",
+          "validityTo": "2026-04-03",
+          "route": "Shanghai CNSHA to Felixstowe GBFXT to London"
+        },
+        {
+          "shipmentId": "54532948",
+          "totalPrice": 281,
+          "totalCurrency": "USD",
+          "totalPriceMinor": 28100,
+          "totalTransitTime": 41,
+          "expired": true,
+          "validityFrom": "2024-10-04",
+          "validityTo": "2026-04-29",
+          "route": "Shanghai CNSHA to Manchester GBMNC to London"
+        }
+      ]
+    },
+    {
+      "type": "fcl_probe_not_selected",
+      "reason": "The mandatory FCL GraphQL path was tried first and returned non-expired 40 ft container rates, but the job shipment plan is LCL with container_count 0, 300 kg, and 0.315 CBM. The final result therefore uses the LCL query basis.",
+      "observed_low_non_expired_fcl": {
+        "shipmentId": "54532878",
+        "totalPrice": 3720,
+        "totalCurrency": "USD",
+        "totalTransitTime": 41,
+        "expired": false,
+        "container": "ST40"
+      }
+    }
+  ]
+}

@@ -1,0 +1,175 @@
+{
+  "product_candidate_id": "pc-7046e8ec-2734-ed11-8119-005056b64545-lot-1-candidate-glass-dgu-bs-en-1279",
+  "selected_quote_id": "sq-b22fcf00b7a545d699c3438c42b9027c-1",
+  "classification_status": "classified",
+  "commodity_confidence_bps": 8400,
+  "classification_stability_bps": 8200,
+  "source": "https://www.trade-tariff.service.gov.uk/uk/api/commodities/7008002000",
+  "tariff_checked_at": "2026-04-30T21:03:06Z",
+  "classification_fresh_until": "2026-05-30",
+  "measures_fresh_until": "2026-05-30",
+  "origin_country": "CN",
+  "origin_evidence_state": "inferred_from_ship_from_country",
+  "declarable_commodity_code_10": "7008002000",
+  "commodity_description": "Coloured throughout the mass (body tinted), opacified, flashed or having an absorbent or reflecting layer",
+  "candidate_commodity_codes": [
+    {
+      "code": "7008002000",
+      "declarable": true,
+      "selected": true,
+      "description": "Coloured throughout the mass (body tinted), opacified, flashed or having an absorbent or reflecting layer",
+      "reason": "Quote title states Low E tempered insulated glass; Low-E coating is treated as evidence for the absorbent/reflecting-layer branch for screening."
+    },
+    {
+      "code": "7008008100",
+      "declarable": true,
+      "selected": false,
+      "description": "Consisting of two panels of glass sealed around the edges by an airtight joint and separated by a layer of air, other gases or a vacuum",
+      "reason": "Matches a generic two-panel sealed insulating glass unit if the Low-E reflecting-layer evidence is absent or rejected."
+    },
+    {
+      "code": "7008008900",
+      "declarable": true,
+      "selected": false,
+      "description": "Other",
+      "reason": "Fallback branch for multiple-walled insulating glass not covered by the coated or two-panel branch."
+    }
+  ],
+  "basic_duty_rate_bps": 0,
+  "customs_duty_gbp_pence": 0,
+  "trade_remedy_duty_gbp_pence": 0,
+  "vat_rate_bps": 2000,
+  "vat_gbp_pence": 1032,
+  "additional_codes": [],
+  "additional_code_requirements": [],
+  "supplementary_units_required": [
+    {
+      "measure_id": "2982726",
+      "measurement_unit_code": "MTK",
+      "unit": "square metre (m2)",
+      "basis_available": true,
+      "provided_quantity": 10.0,
+      "provided_quantity_unit": "square meter",
+      "source": "inferred_order_quantity_basis"
+    }
+  ],
+  "duty_breakdown": [
+    {
+      "kind": "basic_import_duty",
+      "measure_id": "20008809",
+      "measure_type": "Third country duty",
+      "geographical_area_id": "1011",
+      "geographical_area": "ERGA OMNES",
+      "rate_bps": 0,
+      "basis_gbp_pence": 5160,
+      "amount_gbp_pence": 0,
+      "legal_acts": [
+        "P2014301"
+      ]
+    },
+    {
+      "kind": "supplementary_unit",
+      "measure_id": "2982726",
+      "measure_type": "Supplementary unit",
+      "geographical_area_id": "1011",
+      "geographical_area": "ERGA OMNES",
+      "measurement_unit_code": "MTK",
+      "unit": "square metre (m2)",
+      "provided_quantity": 10.0,
+      "amount_gbp_pence": 0,
+      "legal_acts": [
+        "R8726581"
+      ]
+    },
+    {
+      "kind": "import_vat",
+      "measure_id": "-1012545445",
+      "measure_type": "Value added tax",
+      "geographical_area_id": "1400",
+      "geographical_area": "Areas subject to VAT or Excise",
+      "rate_bps": 2000,
+      "basis_gbp_pence": 5160,
+      "amount_gbp_pence": 1032
+    }
+  ],
+  "trade_remedy_state": "no_cn_trade_remedy_measure_found",
+  "trade_remedy_cases": [
+    {
+      "measure_type": "Additional duties",
+      "geographical_area_id": "BY",
+      "origin_country": "BY",
+      "rate_bps": 3500,
+      "applicable_to_origin_country": false,
+      "condition_ids": [
+        "20182131",
+        "20182132"
+      ],
+      "legal_acts": [
+        "X2203760"
+      ]
+    },
+    {
+      "measure_type": "Additional duties",
+      "geographical_area_id": "RU",
+      "origin_country": "RU",
+      "rate_bps": 3500,
+      "applicable_to_origin_country": false,
+      "condition_ids": [
+        "20182079",
+        "20182080"
+      ],
+      "legal_acts": [
+        "X2203760"
+      ]
+    },
+    {
+      "measure_type": "Restriction on entry into free circulation",
+      "geographical_area_id": "UA",
+      "origin_country": "UA",
+      "rate_bps": null,
+      "applicable_to_origin_country": false,
+      "condition_ids": [
+        "20182380",
+        "20182381",
+        "20182382",
+        "20204540"
+      ],
+      "legal_acts": [
+        "X2203950"
+      ]
+    }
+  ],
+  "measure_interaction": [
+    {
+      "origin_country": "CN",
+      "applicable_import_measures": [
+        "Third country duty 0.00%",
+        "Supplementary unit: square metre (m2)",
+        "Value added tax 20.00%"
+      ],
+      "non_applicable_trade_defence_measures_observed": [
+        "Additional duties 35.00% for Belarus",
+        "Additional duties 35.00% for Russia",
+        "Restriction on entry into free circulation for Ukraine"
+      ]
+    }
+  ],
+  "warnings": [
+    {
+      "code": "ORIGIN_INFERRED_FROM_SHIP_FROM",
+      "message": "country_of_origin was absent; ship_from_country CN was used as the origin proxy for screening.",
+      "severity": "warning"
+    },
+    {
+      "code": "CUSTOMS_VALUE_MAY_EXCLUDE_SHIPPING",
+      "message": "The quote states includes_shipping=false and no Incoterm was provided. Import duty is 0%, but VAT and final landed-cost bases may be understated until freight and insurance are added.",
+      "severity": "warning"
+    },
+    {
+      "code": "LOW_E_BRANCH_SELECTED_FROM_TITLE",
+      "message": "The selected HMRC branch relies on the quote title's Low-E evidence. If the imported goods do not have an absorbent or reflecting layer, 7008008100 may be the closer alternative.",
+      "severity": "info"
+    }
+  ],
+  "blockers": []
+}

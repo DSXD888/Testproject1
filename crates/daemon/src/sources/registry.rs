@@ -721,6 +721,134 @@ fn builtin_definitions() -> BTreeMap<String, SourceDefinition> {
             default_health_state: HealthState::Unknown,
         },
     );
+    // Stage 9 — marketplace-search sources. Candidate-driven, not cron-driven;
+    // the manual live-loop trigger assembles a batch of product_candidates
+    // from search_profiles and passes them to the skill as job_parameters.
+    definitions.insert(
+        "gem-imports".to_owned(),
+        SourceDefinition {
+            source_id: "gem-imports".to_owned(),
+            kind: SourceKind::Supplier,
+            enabled: true,
+            source_structure_version: "gem-imports-2026-04-19".to_owned(),
+            config: json!({
+                "price_signal_role": "uk_wholesale",
+                "region": "GB",
+                "quote_class": "wholesale",
+            }),
+            production_binding: Some(stable_binding(
+                "marketplace-search/gem-imports",
+                DEFAULT_SOURCE_SKILL_VERSION,
+                None,
+                "marketplace-search",
+                "gem-imports",
+            )),
+            canary_binding: None,
+            auth_refresh_binding: None,
+            policy: SourcePolicy::default(),
+            default_health_state: HealthState::Unknown,
+        },
+    );
+    definitions.insert(
+        "mx-wholesale".to_owned(),
+        SourceDefinition {
+            source_id: "mx-wholesale".to_owned(),
+            kind: SourceKind::Supplier,
+            enabled: true,
+            source_structure_version: "mx-wholesale-2026-04-19".to_owned(),
+            config: json!({
+                "price_signal_role": "uk_wholesale",
+                "region": "GB",
+                "quote_class": "wholesale",
+            }),
+            production_binding: Some(stable_binding(
+                "marketplace-search/mx-wholesale",
+                DEFAULT_SOURCE_SKILL_VERSION,
+                None,
+                "marketplace-search",
+                "mx-wholesale",
+            )),
+            canary_binding: None,
+            auth_refresh_binding: None,
+            policy: SourcePolicy::default(),
+            default_health_state: HealthState::Unknown,
+        },
+    );
+    definitions.insert(
+        "amazon-uk".to_owned(),
+        SourceDefinition {
+            source_id: "amazon-uk".to_owned(),
+            kind: SourceKind::Supplier,
+            enabled: true,
+            source_structure_version: "amazon-uk-2026-04-19".to_owned(),
+            config: json!({
+                "price_signal_role": "uk_retail_benchmark",
+                "region": "GB",
+                "quote_class": "spot",
+            }),
+            production_binding: Some(stable_binding(
+                "marketplace-search/amazon-uk",
+                DEFAULT_SOURCE_SKILL_VERSION,
+                None,
+                "marketplace-search",
+                "amazon-uk",
+            )),
+            canary_binding: None,
+            auth_refresh_binding: None,
+            policy: SourcePolicy::default(),
+            default_health_state: HealthState::Unknown,
+        },
+    );
+    definitions.insert(
+        "ebay-uk".to_owned(),
+        SourceDefinition {
+            source_id: "ebay-uk".to_owned(),
+            kind: SourceKind::Supplier,
+            enabled: true,
+            source_structure_version: "ebay-uk-2026-04-19".to_owned(),
+            config: json!({
+                "price_signal_role": "uk_retail_benchmark",
+                "region": "GB",
+                "quote_class": "spot",
+            }),
+            production_binding: Some(stable_binding(
+                "marketplace-search/ebay-uk",
+                DEFAULT_SOURCE_SKILL_VERSION,
+                None,
+                "marketplace-search",
+                "ebay-uk",
+            )),
+            canary_binding: None,
+            auth_refresh_binding: None,
+            policy: SourcePolicy::default(),
+            default_health_state: HealthState::Unknown,
+        },
+    );
+    definitions.insert(
+        "alibaba-search".to_owned(),
+        SourceDefinition {
+            source_id: "alibaba-search".to_owned(),
+            kind: SourceKind::Supplier,
+            enabled: true,
+            source_structure_version: "alibaba-search-2026-04-19".to_owned(),
+            config: json!({
+                "price_signal_role": "cn_supplier_floor",
+                "region": "CN",
+                "quote_class": "trade",
+            }),
+            production_binding: Some(stable_binding(
+                "marketplace-search/alibaba",
+                DEFAULT_SOURCE_SKILL_VERSION,
+                None,
+                "marketplace-search",
+                "alibaba-search",
+            )),
+            canary_binding: None,
+            auth_refresh_binding: None,
+            policy: SourcePolicy::default(),
+            default_health_state: HealthState::Unknown,
+        },
+    );
     definitions
 }
 

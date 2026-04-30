@@ -90,6 +90,10 @@ pub(super) fn claim_next_job(conn: &Connection, executor_id: &str) -> Result<Opt
     Ok(Some(claimed_job))
 }
 
+/// Claim a specific pending/retry job by id, bypassing FIFO ordering.
+/// Used by `--ingest` flows so they can reliably claim the job they just
+/// enqueued even when older unrelated jobs (extraction, validation, etc.)
+/// are also pending.
 pub(super) fn claim_job_by_id(
     conn: &Connection,
     executor_id: &str,
@@ -97,7 +101,7 @@ pub(super) fn claim_job_by_id(
 ) -> Result<Option<ClaimedJob>> {
     let now = Utc::now();
     let tx = Transaction::new_unchecked(conn, TransactionBehavior::Immediate)
-        .context("starting immediate transaction for workflow job claim by id")?;
+        .context("starting immediate transaction for workflow job claim-by-id")?;
 
     recycle_expired_leases(&tx, now)?;
 
@@ -110,10 +114,38 @@ pub(super) fn claim_job_by_id(
     let claimed_job = build_claimed_job(row)?;
     apply_claim(&tx, &claimed_job.id, executor_id, now)?;
 
-    tx.commit()
-        .with_context(|| format!("committing workflow job claim for {job_id}"))?;
+    tx.commit().context("committing workflow job claim-by-id")?;
 
     Ok(Some(claimed_job))
+}
+
+fn select_claimable_job_by_id(
+    tx: &Transaction<'_>,
+    job_id: &str,
+) -> Result<Option<ClaimableJobRow>> {
+    let mut statement = tx.prepare(
+        "\
+        SELECT id, kind, process_id, scope_kind, scope_id, input_payload
+        FROM workflow_jobs
+        WHERE id = ?1
+          AND status IN ('pending', 'retry')
+        LIMIT 1
+        ",
+    )?;
+
+    statement
+        .query_row(params![job_id], |row| {
+            Ok(ClaimableJobRow {
+                id: row.get(0)?,
+                kind: row.get(1)?,
+                process_id: row.get(2)?,
+                scope_kind: row.get(3)?,
+                scope_id: row.get(4)?,
+                input_payload: row.get(5)?,
+            })
+        })
+        .optional()
+        .context("selecting claimable workflow job by id")
 }
 
 fn recycle_expired_leases(tx: &Transaction<'_>, now: DateTime<Utc>) -> Result<()> {
@@ -159,35 +191,6 @@ fn select_next_claimable_job(tx: &Transaction<'_>) -> Result<Option<ClaimableJob
         })
         .optional()
         .context("selecting next claimable workflow job")
-}
-
-fn select_claimable_job_by_id(
-    tx: &Transaction<'_>,
-    job_id: &str,
-) -> Result<Option<ClaimableJobRow>> {
-    let mut statement = tx.prepare(
-        "\
-        SELECT id, kind, process_id, scope_kind, scope_id, input_payload
-        FROM workflow_jobs
-        WHERE id = ?1
-          AND status IN ('pending', 'retry')
-        LIMIT 1
-        ",
-    )?;
-
-    statement
-        .query_row(params![job_id], |row| {
-            Ok(ClaimableJobRow {
-                id: row.get(0)?,
-                kind: row.get(1)?,
-                process_id: row.get(2)?,
-                scope_kind: row.get(3)?,
-                scope_id: row.get(4)?,
-                input_payload: row.get(5)?,
-            })
-        })
-        .optional()
-        .with_context(|| format!("selecting claimable workflow job {job_id}"))
 }
 
 fn build_claimed_job(row: ClaimableJobRow) -> Result<ClaimedJob> {
@@ -271,4 +274,113 @@ fn renew_job_lease(
 
 fn lease_deadline(now: DateTime<Utc>) -> DateTime<Utc> {
     now + TimeDelta::seconds(DEFAULT_WORKFLOW_JOB_LEASE_SECONDS)
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+    use rusqlite::{Connection, params};
+    use serde_json::json;
+
+    use super::claim_job_by_id;
+
+    fn workflow_jobs_conn() -> Result<Connection> {
+        let conn = Connection::open_in_memory()?;
+        conn.execute_batch(
+            "\
+            CREATE TABLE workflow_jobs (
+              id TEXT PRIMARY KEY,
+              kind TEXT NOT NULL,
+              process_id TEXT,
+              notice_id TEXT,
+              scope_kind TEXT,
+              scope_id TEXT,
+              parent_job_id TEXT,
+              continuation_chain_id TEXT,
+              chain_closed INTEGER NOT NULL DEFAULT 0,
+              validation_required INTEGER NOT NULL DEFAULT 0,
+              validation_verdict_id TEXT,
+              status TEXT NOT NULL,
+              scheduled_for TEXT,
+              lease_owner TEXT,
+              lease_expires_at TEXT,
+              attempt_count INTEGER NOT NULL DEFAULT 0,
+              input_payload TEXT NOT NULL,
+              output_payload TEXT,
+              last_error TEXT,
+              started_at TEXT,
+              completed_at TEXT,
+              created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            ",
+        )?;
+        Ok(conn)
+    }
+
+    fn insert_job(conn: &Connection, job_id: &str, status: &str, created_at: &str) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, process_id, scope_kind, scope_id, status, input_payload, created_at
+            ) VALUES (?1, 'landed_cost_test', 'process-test', 'candidate_quote', ?1, ?2, ?3, ?4)
+            ",
+            params![
+                job_id,
+                status,
+                json!({"job_id": job_id}).to_string(),
+                created_at
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn claim_job_by_id_returns_specific_job_when_older_jobs_exist() -> Result<()> {
+        let conn = workflow_jobs_conn()?;
+        insert_job(&conn, "older-job", "pending", "2026-04-01T00:00:00Z")?;
+        insert_job(&conn, "newer-job", "pending", "2026-04-02T00:00:00Z")?;
+
+        let claimed = claim_job_by_id(&conn, "executor-test", "newer-job")?
+            .ok_or_else(|| anyhow::anyhow!("newer job should be claimable"))?;
+
+        assert_eq!(claimed.id, "newer-job");
+        let (status, lease_owner, attempt_count): (String, String, i64) = conn.query_row(
+            "\
+            SELECT status, lease_owner, attempt_count
+            FROM workflow_jobs
+            WHERE id = 'newer-job'
+            ",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+        assert_eq!(status, "running");
+        assert_eq!(lease_owner, "executor-test");
+        assert_eq!(attempt_count, 1);
+
+        let older_status: String = conn.query_row(
+            "SELECT status FROM workflow_jobs WHERE id = 'older-job'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(older_status, "pending");
+        Ok(())
+    }
+
+    #[test]
+    fn claim_job_by_id_returns_none_for_nonexistent_or_completed_jobs() -> Result<()> {
+        let conn = workflow_jobs_conn()?;
+        insert_job(&conn, "completed-job", "completed", "2026-04-01T00:00:00Z")?;
+
+        assert!(claim_job_by_id(&conn, "executor-test", "missing-job")?.is_none());
+        assert!(claim_job_by_id(&conn, "executor-test", "completed-job")?.is_none());
+
+        let (status, attempt_count): (String, i64) = conn.query_row(
+            "SELECT status, attempt_count FROM workflow_jobs WHERE id = 'completed-job'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        assert_eq!(status, "completed");
+        assert_eq!(attempt_count, 0);
+        Ok(())
+    }
 }

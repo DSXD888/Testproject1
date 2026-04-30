@@ -55,6 +55,6 @@ For a steel rebar / concrete reinforcement bars input with origin CN:
 - inspect additional import measures enough to catch safeguard/additional duty branches around 25% where applicable.
 
 ## Output
-Write the final JSON object to `result.json` in the current working directory, matching `result.schema.json`. Also keep the final response to the daemon as the same raw JSON object; do not wrap it in Markdown.
+Write the final JSON object to `result.json` in the current working directory, matching `result.schema.json`. `warnings` and `blockers` must be arrays of objects with `code`, `message`, and `severity`; never emit bare string warning codes or omit severity. Also keep the final response to the daemon as the same raw JSON object; do not wrap it in Markdown.
 
 Use integer GBP pence for money. Use basis points for percentages: `2000` means 20%, `2500` means 25%.

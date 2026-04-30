@@ -248,7 +248,9 @@ const MARKETPLACE_SEARCH_BATCH_SIZE: i64 = 3;
 /// the cool-down active.
 const MARKETPLACE_SEARCH_INTER_SESSION_COOLDOWN_SECONDS: i64 = 180;
 const LANDED_COST_BATCH_SIZE: i64 = 20;
-const LANDED_COST_SKILL_TIMEOUT_SECONDS: u64 = 90;
+// Live customs, marketplace sizing, and freight lookups can each involve
+// browser/API evidence gathering before the skill writes its result contract.
+const LANDED_COST_SKILL_TIMEOUT_SECONDS: u64 = 300;
 const LANDED_COST_STAGE_NAME: &str = "landed cost";
 const LANDED_COST_SCOPE_KIND: &str = "candidate_quote";
 #[cfg(test)]
@@ -3000,8 +3002,14 @@ struct LandedCostAssessmentRow {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Stage11Issue {
     code: String,
+    #[serde(default)]
     message: String,
+    #[serde(default = "stage11_default_issue_severity")]
     severity: String,
+}
+
+fn stage11_default_issue_severity() -> String {
+    "warning".to_owned()
 }
 
 impl Stage11Issue {
@@ -3029,6 +3037,105 @@ struct SupplierCostBasis {
     quantity: f64,
     quantity_unit: Option<String>,
     warnings: Vec<Stage11Issue>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum OrderQuantityBasis {
+    FromContractValue {
+        qty: f64,
+        contract_value_gbp_pence: i64,
+        basis_unit: Option<String>,
+    },
+    FromLotQuantity {
+        qty: f64,
+        basis_unit: Option<String>,
+    },
+    RfqRequired {
+        fallback_qty: f64,
+        basis_unit: Option<String>,
+    },
+    SupplierCapacity {
+        qty: f64,
+        basis_unit: Option<String>,
+    },
+}
+
+impl OrderQuantityBasis {
+    const fn kind(&self) -> &'static str {
+        match self {
+            Self::FromContractValue { .. } => "from_contract_value",
+            Self::FromLotQuantity { .. } => "from_lot_quantity",
+            Self::RfqRequired { .. } => "rfq_required",
+            Self::SupplierCapacity { .. } => "supplier_capacity",
+        }
+    }
+
+    const fn source(&self) -> &'static str {
+        match self {
+            Self::FromContractValue { .. } => "expected_value_divided_by_unit_price",
+            Self::FromLotQuantity { .. } => "product_candidate_quantity",
+            Self::RfqRequired { .. } => "minimum_order_quantity_or_one_unit_fallback",
+            Self::SupplierCapacity { .. } => "supplier_quote_quoted_quantity",
+        }
+    }
+
+    const fn supplier_cost_basis(&self) -> &'static str {
+        match self {
+            Self::FromContractValue { .. } => "contract_value_order_quantity",
+            Self::FromLotQuantity { .. } => "lot_quantity_order_quantity",
+            Self::RfqRequired { .. } => "rfq_required_minimum_order_quantity",
+            Self::SupplierCapacity { .. } => "supplier_capacity_quoted_quantity",
+        }
+    }
+
+    const fn quantity(&self) -> f64 {
+        match self {
+            Self::FromContractValue { qty, .. }
+            | Self::FromLotQuantity { qty, .. }
+            | Self::SupplierCapacity { qty, .. } => *qty,
+            Self::RfqRequired { fallback_qty, .. } => *fallback_qty,
+        }
+    }
+
+    fn unit(&self) -> Option<&str> {
+        match self {
+            Self::FromContractValue { basis_unit, .. }
+            | Self::FromLotQuantity { basis_unit, .. }
+            | Self::RfqRequired { basis_unit, .. }
+            | Self::SupplierCapacity { basis_unit, .. } => basis_unit.as_deref(),
+        }
+    }
+
+    fn to_json(&self) -> Value {
+        let mut payload = json!({
+            "kind": self.kind(),
+            "qty": self.quantity(),
+            "unit": self.unit(),
+            "source": self.source(),
+        });
+        if let Self::FromContractValue {
+            contract_value_gbp_pence,
+            ..
+        } = self
+        {
+            payload["contract_value_gbp_pence"] = json!(contract_value_gbp_pence);
+        }
+        payload
+    }
+
+    fn screening_uncertainty_warning(&self) -> Option<Stage11Issue> {
+        match self {
+            Self::RfqRequired { .. } => Some(Stage11Issue::warning(
+                "screening_only_quantity_uncertainty",
+                "Stage 11 did not have an order quantity, so shipment and supplier cost use the selected quote minimum-order fallback until an RFQ quantity is known.",
+            )),
+            Self::SupplierCapacity { .. } => Some(Stage11Issue::warning(
+                "screening_only_quantity_uncertainty",
+                "Stage 11 had no order quantity or MOQ, so shipment and supplier cost use the supplier listing quantity as a screening-only capacity fallback.",
+            )),
+            Self::FromContractValue { .. } | Self::FromLotQuantity { .. } => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -3188,6 +3295,8 @@ struct FreightScenarioGbp {
     fx_rate: f64,
     fx_checked_at: Option<String>,
     fx_status: String,
+    fx_session_id: Option<String>,
+    fx_job_id: Option<String>,
     warnings: Vec<Stage11Issue>,
     blockers: Vec<Stage11Issue>,
 }
@@ -3298,6 +3407,62 @@ fn is_domestic_uk_quote(row: &LandedCostAssessmentRow) -> bool {
         .is_some_and(|country| country.eq_ignore_ascii_case("GB"))
 }
 
+fn positive_finite_quantity(quantity: Option<f64>) -> Option<f64> {
+    quantity.filter(|value| value.is_finite() && *value > 0.0)
+}
+
+fn preferred_order_quantity_unit(row: &LandedCostAssessmentRow) -> Option<String> {
+    row.candidate_quantity_unit
+        .clone()
+        .or_else(|| row.quoted_quantity_unit.clone())
+        .or_else(|| row.listing_pack_unit.clone())
+}
+
+#[allow(clippy::cast_precision_loss)]
+fn infer_order_quantity_basis(row: &LandedCostAssessmentRow) -> OrderQuantityBasis {
+    let preferred_unit = preferred_order_quantity_unit(row);
+    if row.revenue_basis_type == "expected_value"
+        && row.expected_addressable_revenue_ex_vat_pence > 0
+        && row.unit_price_gbp_pence > 0
+    {
+        let qty = (row.expected_addressable_revenue_ex_vat_pence as f64)
+            / (row.unit_price_gbp_pence as f64);
+        if qty.is_finite() && qty > 0.0 {
+            return OrderQuantityBasis::FromContractValue {
+                qty,
+                contract_value_gbp_pence: row.expected_addressable_revenue_ex_vat_pence,
+                basis_unit: preferred_unit,
+            };
+        }
+    }
+
+    if let Some(qty) = positive_finite_quantity(row.candidate_quantity) {
+        return OrderQuantityBasis::FromLotQuantity {
+            qty,
+            basis_unit: row.candidate_quantity_unit.clone().or(preferred_unit),
+        };
+    }
+
+    if let Some(fallback_qty) = positive_finite_quantity(row.minimum_order_quantity) {
+        return OrderQuantityBasis::RfqRequired {
+            fallback_qty,
+            basis_unit: row.quoted_quantity_unit.clone().or(preferred_unit),
+        };
+    }
+
+    if let Some(qty) = positive_finite_quantity(row.quoted_quantity) {
+        return OrderQuantityBasis::SupplierCapacity {
+            qty,
+            basis_unit: row.quoted_quantity_unit.clone().or(preferred_unit),
+        };
+    }
+
+    OrderQuantityBasis::RfqRequired {
+        fallback_qty: 1.0,
+        basis_unit: preferred_unit,
+    }
+}
+
 #[allow(
     clippy::cast_possible_truncation,
     clippy::cast_precision_loss,
@@ -3305,57 +3470,49 @@ fn is_domestic_uk_quote(row: &LandedCostAssessmentRow) -> bool {
 )]
 fn compute_supplier_cost_basis(row: &LandedCostAssessmentRow) -> SupplierCostBasis {
     let mut warnings = Vec::new();
+    let order_quantity_basis = infer_order_quantity_basis(row);
     if let Some(total) = row.offer_total_gbp_pence.filter(|total| *total > 0) {
         return SupplierCostBasis {
             supplier_cost_gbp_pence: total,
             basis: "offer_total".to_owned(),
-            quantity: 1.0,
-            quantity_unit: row.quoted_quantity_unit.clone(),
+            quantity: order_quantity_basis.quantity(),
+            quantity_unit: order_quantity_basis.unit().map(str::to_owned),
             warnings,
         };
     }
 
-    let (basis, quantity, quantity_unit) = if let Some(quantity) =
-        row.candidate_quantity.filter(|quantity| *quantity > 0.0)
+    if let Some(quantity) = positive_finite_quantity(row.candidate_quantity) {
+        let supplier_cost_gbp_pence = ((row.unit_price_gbp_pence as f64) * quantity).round() as i64;
+        return SupplierCostBasis {
+            supplier_cost_gbp_pence,
+            basis: "product_candidate_quantity".to_owned(),
+            quantity,
+            quantity_unit: row.candidate_quantity_unit.clone(),
+            warnings,
+        };
+    }
+
+    if row.minimum_order_quantity.is_none()
+        && row.quoted_quantity.is_none()
+        && row.candidate_quantity.is_none()
+        && !matches!(
+            order_quantity_basis,
+            OrderQuantityBasis::FromContractValue { .. }
+        )
     {
-        (
-            "product_candidate_quantity".to_owned(),
-            quantity,
-            row.candidate_quantity_unit.clone(),
-        )
-    } else if let Some(quantity) = row.quoted_quantity.filter(|quantity| *quantity > 0.0) {
-        (
-            "quoted_quantity".to_owned(),
-            quantity,
-            row.quoted_quantity_unit.clone(),
-        )
-    } else if let Some(quantity) = row
-        .minimum_order_quantity
-        .filter(|quantity| *quantity > 0.0)
-    {
-        (
-            "minimum_order_quantity".to_owned(),
-            quantity,
-            row.quoted_quantity_unit.clone(),
-        )
-    } else {
         warnings.push(Stage11Issue::warning(
                 "QUANTITY_UNKNOWN_USED_UNIT_PRICE",
                 "No candidate quantity, quote quantity, MOQ, or offer total was available; Stage 11 used one unit of the selected quote.",
             ));
-        (
-            "unit_price_only".to_owned(),
-            1.0,
-            row.quoted_quantity_unit.clone(),
-        )
-    };
+    }
 
+    let quantity = order_quantity_basis.quantity();
     let supplier_cost_gbp_pence = ((row.unit_price_gbp_pence as f64) * quantity).round() as i64;
     SupplierCostBasis {
         supplier_cost_gbp_pence,
-        basis,
+        basis: order_quantity_basis.supplier_cost_basis().to_owned(),
         quantity,
-        quantity_unit,
+        quantity_unit: order_quantity_basis.unit().map(str::to_owned),
         warnings,
     }
 }
@@ -3410,6 +3567,7 @@ fn stage11_quote_context(row: &LandedCostAssessmentRow) -> Value {
 fn base_landed_cost_job_parameters(
     row: &LandedCostAssessmentRow,
     supplier_cost: &SupplierCostBasis,
+    order_quantity_basis: &OrderQuantityBasis,
 ) -> Value {
     json!({
         "process_id": row.process_id,
@@ -3425,6 +3583,7 @@ fn base_landed_cost_job_parameters(
             "quantity": supplier_cost.quantity,
             "quantity_unit": supplier_cost.quantity_unit,
         },
+        "inferred_order_quantity_basis": order_quantity_basis.to_json(),
         "destination_country": "GB",
     })
 }
@@ -3594,6 +3753,24 @@ fn parse_simple_fx_lookup_result(value: &Value) -> Result<SimpleFxLookupResult> 
         );
     }
     Ok(result)
+}
+
+fn landed_cost_skill_session_ids(
+    customs_outcome: &LandedCostSkillRunOutcome,
+    sizing_outcome: Option<&LandedCostSkillRunOutcome>,
+    searates_outcome: Option<&LandedCostSkillRunOutcome>,
+    freight: &FreightScenarioGbp,
+) -> Value {
+    json!({
+        "hmrc_customs": customs_outcome.session_id.clone(),
+        "shipment_sizing": sizing_outcome.map(|outcome| outcome.session_id.clone()),
+        "searates_freight": searates_outcome.map(|outcome| outcome.session_id.clone()),
+        "simple_fx": freight.fx_session_id.clone(),
+        "hmrc_job_id": customs_outcome.job_id.clone(),
+        "shipment_sizing_job_id": sizing_outcome.map(|outcome| outcome.job_id.clone()),
+        "searates_job_id": searates_outcome.map(|outcome| outcome.job_id.clone()),
+        "simple_fx_job_id": freight.fx_job_id.clone(),
+    })
 }
 
 #[allow(clippy::too_many_lines)]
@@ -3895,6 +4072,11 @@ async fn execute_landed_cost_skill_session(
         ArtifactStore::new(&runtime.artifact_root)?.session_dir(session_id, started_at)?;
     let workdir = session_dir.join("workdir");
     fs::create_dir_all(&workdir).with_context(|| format!("creating {}", workdir.display()))?;
+    fs::write(
+        workdir.join("result.schema.json"),
+        serde_json::to_vec_pretty(&skill.result_schema)?,
+    )
+    .with_context(|| format!("writing {}", workdir.join("result.schema.json").display()))?;
     let prompt = PromptRenderer::render(&PromptRendererInput {
         skill_id: skill.metadata.skill_id.clone(),
         skill_version: skill.metadata.skill_version.clone(),
@@ -3951,17 +4133,19 @@ async fn execute_landed_cost_skill_session(
     })?;
     let runtime_ids = child_runtime_ids(child.id()).ok();
     let deadline = Instant::now() + Duration::from_secs(LANDED_COST_SKILL_TIMEOUT_SECONDS);
+    let mut timed_out = false;
     let status = loop {
         if let Some(status) = child.try_wait().context("polling Stage 11 skill process")? {
             break status;
         }
         if Instant::now() >= deadline {
-            terminate_landed_cost_child(&mut child, runtime_ids);
-            bail!(
-                "Stage 11 skill `{}` timed out after {} seconds",
-                skill.metadata.skill_id,
-                LANDED_COST_SKILL_TIMEOUT_SECONDS
-            );
+            timed_out = true;
+            break terminate_landed_cost_child(&mut child, runtime_ids).with_context(|| {
+                format!(
+                    "terminating timed-out Stage 11 skill `{}`",
+                    skill.metadata.skill_id
+                )
+            })?;
         }
         tokio::time::sleep(Duration::from_millis(250)).await;
     };
@@ -3972,6 +4156,19 @@ async fn execute_landed_cost_skill_session(
         fs::read(&stderr_path).with_context(|| format!("reading {}", stderr_path.display()))?;
     let result_path =
         materialize_landed_cost_result_contract(&workdir, &stdout_bytes, &stderr_bytes)?;
+    decide_landed_cost_outcome(
+        &skill.metadata.skill_id,
+        timed_out,
+        None,
+        result_path.is_some(),
+    )?;
+    if timed_out && result_path.is_some() {
+        ::tracing::warn!(
+            skill_id = %skill.metadata.skill_id,
+            timeout_seconds = LANDED_COST_SKILL_TIMEOUT_SECONDS,
+            "Stage 11 skill timed out after writing a result contract; accepting recovered contract"
+        );
+    }
 
     let terminal_output_path = session_dir.join("terminal-output.txt");
     let mut terminal_output = Vec::new();
@@ -3995,6 +4192,7 @@ async fn execute_landed_cost_skill_session(
 
     let mut parser = adapter.parser(mode);
     let mut events = Vec::new();
+    let mut parser_errors = Vec::new();
     if let Some(runtime_ids) = runtime_ids {
         events.push(ControlEvent::Started {
             pid: runtime_ids.pid,
@@ -4003,20 +4201,45 @@ async fn execute_landed_cost_skill_session(
             mode,
         });
     }
-    events.extend(
-        parser
-            .on_output(&OutputFrame::Stdout(Bytes::from(stdout_bytes)))
-            .await?,
-    );
-    events.extend(
-        parser
-            .on_output(&OutputFrame::Stderr(Bytes::from(stderr_bytes)))
-            .await?,
-    );
+    match parser
+        .on_output(&OutputFrame::Stdout(Bytes::copy_from_slice(&stdout_bytes)))
+        .await
+    {
+        Ok(parsed_events) => events.extend(parsed_events),
+        Err(error) => parser_errors.push(format!("stdout: {error:#}")),
+    }
+    if parser_errors.is_empty() {
+        match parser
+            .on_output(&OutputFrame::Stderr(Bytes::copy_from_slice(&stderr_bytes)))
+            .await
+        {
+            Ok(parsed_events) => events.extend(parsed_events),
+            Err(error) => parser_errors.push(format!("stderr: {error:#}")),
+        }
+    }
     events.push(ControlEvent::Exited {
         status: portable_pty::ExitStatus::from(status),
     });
-    events.extend(parser.finish().await?);
+    if parser_errors.is_empty() {
+        match parser.finish().await {
+            Ok(parsed_events) => events.extend(parsed_events),
+            Err(error) => parser_errors.push(format!("finish: {error:#}")),
+        }
+    }
+    let protocol_parser_error = (!parser_errors.is_empty()).then(|| parser_errors.join("; "));
+    let outcome_decision = decide_landed_cost_outcome(
+        &skill.metadata.skill_id,
+        timed_out,
+        protocol_parser_error.as_deref(),
+        result_path.is_some(),
+    )?;
+    if let Some(error) = protocol_parser_error.as_deref() {
+        ::tracing::warn!(
+            skill_id = %skill.metadata.skill_id,
+            error = %error,
+            "Stage 11 skill protocol parser failed after writing a result contract; accepting recovered contract"
+        );
+    }
     let phase_history = [
         "created", "spawned", "active", "exited", "reaped", "archived",
     ];
@@ -4034,7 +4257,11 @@ async fn execute_landed_cost_skill_session(
         "event_count": events.len(),
         "terminal_output_path": terminal_output_path,
         "bounded_stage11_runner": true,
-        "timeout_seconds": LANDED_COST_SKILL_TIMEOUT_SECONDS
+        "timeout_seconds": LANDED_COST_SKILL_TIMEOUT_SECONDS,
+        "timed_out": timed_out,
+        "recovered_result_after_timeout": outcome_decision.recovered_result_after_timeout,
+        "protocol_parser_error": protocol_parser_error,
+        "recovered_result_after_protocol_error": outcome_decision.recovered_result_after_protocol_error
     })
     .to_string();
 
@@ -4064,22 +4291,57 @@ async fn execute_landed_cost_skill_session(
     })
 }
 
-fn terminate_landed_cost_child(child: &mut process::Child, runtime_ids: Option<PtyRuntimeIds>) {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LandedCostOutcomeDecision {
+    recovered_result_after_timeout: bool,
+    recovered_result_after_protocol_error: bool,
+}
+
+fn decide_landed_cost_outcome(
+    skill_id: &str,
+    timed_out: bool,
+    protocol_parser_error: Option<&str>,
+    result_present: bool,
+) -> Result<LandedCostOutcomeDecision> {
+    if timed_out && !result_present {
+        bail!(
+            "Stage 11 skill `{skill_id}` timed out after {LANDED_COST_SKILL_TIMEOUT_SECONDS} seconds"
+        );
+    }
+    if let Some(error) = protocol_parser_error
+        && !result_present
+    {
+        bail!(
+            "Stage 11 skill `{skill_id}` protocol parser failed without result contract: {error}"
+        );
+    }
+    Ok(LandedCostOutcomeDecision {
+        recovered_result_after_timeout: timed_out && result_present,
+        recovered_result_after_protocol_error: protocol_parser_error.is_some() && result_present,
+    })
+}
+
+fn terminate_landed_cost_child(
+    child: &mut process::Child,
+    runtime_ids: Option<PtyRuntimeIds>,
+) -> std::io::Result<process::ExitStatus> {
     if let Some(runtime_ids) = runtime_ids
         && let Ok(process_group_id) = i32::try_from(runtime_ids.pgid)
         && current_runtime_ids().map_or(true, |current| current.pgid != runtime_ids.pgid)
     {
         let _ = kill(Pid::from_raw(-process_group_id), Signal::SIGTERM);
         std::thread::sleep(Duration::from_millis(750));
-        if child.try_wait().ok().flatten().is_none() {
+        if let Some(status) = child.try_wait()? {
+            return Ok(status);
+        }
+        {
             let _ = kill(Pid::from_raw(-process_group_id), Signal::SIGKILL);
         }
-        let _ = child.wait();
-        return;
+        return child.wait();
     }
 
     let _ = child.kill();
-    let _ = child.wait();
+    child.wait()
 }
 
 fn materialize_landed_cost_result_contract(
@@ -4109,13 +4371,23 @@ fn materialize_landed_cost_result_contract(
 fn extract_agent_message_json(line: &str) -> Option<Value> {
     let envelope = serde_json::from_str::<Value>(line.trim()).ok()?;
     let item = envelope.get("item")?;
+    if item.get("type").and_then(Value::as_str) != Some("agent_message") {
+        return None;
+    }
     let text = item
         .get("text")
         .and_then(Value::as_str)
         .or_else(|| item.get("aggregated_output").and_then(Value::as_str))?
         .trim();
     let parsed = serde_json::from_str::<Value>(text).ok()?;
-    parsed.is_object().then_some(parsed)
+    (parsed.is_object()
+        && parsed.get("product_candidate_id").is_some()
+        && parsed.get("selected_quote_id").is_some()
+        && (parsed.get("classification_status").is_some()
+            || parsed.get("sizing_status").is_some()
+            || parsed.get("freight_status").is_some()
+            || parsed.get("fx_status").is_some()))
+    .then_some(parsed)
 }
 
 fn mark_landed_cost_skill_job_failed(
@@ -4164,6 +4436,7 @@ const fn import_vat_for_base(vat_rate_bps: i64, base_gbp_pence: i64) -> i64 {
 fn confidence_breakdown(
     row: &LandedCostAssessmentRow,
     supplier_cost: &SupplierCostBasis,
+    order_quantity_basis: Option<&OrderQuantityBasis>,
     statuses: &Value,
     skill_versions: &Value,
     skill_session_ids: &Value,
@@ -4180,6 +4453,7 @@ fn confidence_breakdown(
             "quantity": supplier_cost.quantity,
             "quantity_unit": supplier_cost.quantity_unit,
         },
+        "order_quantity_basis": order_quantity_basis.map(OrderQuantityBasis::to_json),
         "skill_versions": skill_versions,
         "skill_session_ids": skill_session_ids,
         "statuses": statuses,
@@ -4305,6 +4579,7 @@ fn build_domestic_landed_cost_estimate(
         confidence_breakdown: confidence_breakdown(
             row,
             supplier_cost,
+            None,
             &statuses,
             skill_versions,
             &skill_session_ids,
@@ -4322,6 +4597,73 @@ fn build_domestic_landed_cost_estimate(
     })
 }
 
+fn stage11_issue_has_code(issue: &Stage11Issue, code: &str) -> bool {
+    issue.code.eq_ignore_ascii_case(code)
+}
+
+fn shipment_sizing_had_cdp_captcha(result: &ShipmentSizingResult) -> bool {
+    result
+        .warnings
+        .iter()
+        .chain(result.blockers.iter())
+        .any(|issue| {
+            stage11_issue_has_code(issue, "CDP_CAPTCHA_INTERCEPTION")
+                || stage11_issue_has_code(issue, "CDP_CAPTCHA_BLOCKED")
+        })
+}
+
+fn captcha_fallback_kind_is_deterministic(kind: &str) -> bool {
+    matches!(
+        kind,
+        "cached_listing_metadata" | "indexed_listing_evidence" | "search_attempt_evidence"
+    )
+}
+
+fn evidence_matches_listing_url(evidence: &Value, source_url: &str) -> bool {
+    ["source_url", "listing_url", "url"].iter().any(|field| {
+        evidence
+            .get(field)
+            .and_then(Value::as_str)
+            .is_some_and(|url| url == source_url)
+    })
+}
+
+fn shipment_sizing_has_deterministic_captcha_fallback(
+    row: &LandedCostAssessmentRow,
+    result: &ShipmentSizingResult,
+) -> bool {
+    let Some(source_url) = row.source_url.as_deref() else {
+        return false;
+    };
+
+    result.evidence.iter().any(|evidence| {
+        let deterministic_flag = evidence
+            .get("deterministic_captcha_fallback")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let deterministic_kind = evidence
+            .get("kind")
+            .and_then(Value::as_str)
+            .is_some_and(captcha_fallback_kind_is_deterministic);
+        (deterministic_flag || deterministic_kind)
+            && evidence_matches_listing_url(evidence, source_url)
+    })
+}
+
+fn captcha_blocker_for_sizing_result(
+    row: &LandedCostAssessmentRow,
+    result: &ShipmentSizingResult,
+) -> Option<Stage11Issue> {
+    (shipment_sizing_had_cdp_captcha(result)
+        && !shipment_sizing_has_deterministic_captcha_fallback(row, result))
+    .then(|| {
+        Stage11Issue::blocked(
+            "CDP_CAPTCHA_BLOCKED_NO_DETERMINISTIC_FALLBACK",
+            "The source listing hit a CDP captcha and shipment sizing did not provide deterministic cached/indexed evidence for the same listing URL.",
+        )
+    })
+}
+
 #[allow(
     clippy::assigning_clones,
     clippy::single_match_else,
@@ -4335,10 +4677,14 @@ fn build_import_landed_cost_estimate(
     customs: Option<&HmrcCustomsClassificationResult>,
     sizing: Option<&ShipmentSizingResult>,
     freight: &FreightScenarioGbp,
+    order_quantity_basis: &OrderQuantityBasis,
     skill_versions: &Value,
     skill_session_ids: &Value,
 ) -> Result<LandedCostEstimateWrite> {
     let mut warnings = supplier_cost.warnings.clone();
+    if let Some(warning) = order_quantity_basis.screening_uncertainty_warning() {
+        warnings.push(warning);
+    }
     let mut blockers = Vec::new();
     let mut customs_status = "blocked";
     let mut sizing_status = "blocked";
@@ -4449,6 +4795,9 @@ fn build_import_landed_cost_estimate(
     let mut commercial_estimate_confidence_bps = Some(1000);
     if let Some(result) = sizing {
         warnings.extend(result.warnings.clone());
+        if let Some(blocker) = captcha_blocker_for_sizing_result(row, result) {
+            blockers.push(blocker);
+        }
         match result.sizing_status.as_str() {
             "sized" => {
                 sizing_status = "sized";
@@ -4648,6 +4997,7 @@ fn build_import_landed_cost_estimate(
         confidence_breakdown: confidence_breakdown(
             row,
             supplier_cost,
+            Some(order_quantity_basis),
             &statuses,
             skill_versions,
             skill_session_ids,
@@ -4686,6 +5036,8 @@ async fn freight_scenario_from_searates(
             fx_rate: 1.0,
             fx_checked_at: Some(Utc::now().to_rfc3339()),
             fx_status: "not_required".to_owned(),
+            fx_session_id: None,
+            fx_job_id: None,
             warnings: Vec::new(),
             blockers: vec![Stage11Issue::blocked(
                 "SEARATES_NO_RESULT",
@@ -4702,6 +5054,8 @@ async fn freight_scenario_from_searates(
             fx_rate: 1.0,
             fx_checked_at: Some(Utc::now().to_rfc3339()),
             fx_status: "blocked".to_owned(),
+            fx_session_id: None,
+            fx_job_id: None,
             warnings: result.warnings.clone(),
             blockers: if result.blockers.is_empty() {
                 vec![Stage11Issue::blocked(
@@ -4741,6 +5095,8 @@ async fn freight_scenario_from_searates(
             fx_rate: 1.0,
             fx_checked_at: Some(Utc::now().to_rfc3339()),
             fx_status: "not_required".to_owned(),
+            fx_session_id: None,
+            fx_job_id: None,
             warnings,
             blockers: Vec::new(),
         });
@@ -4767,6 +5123,8 @@ async fn freight_scenario_from_searates(
         &fx_parameters,
     )
     .await?;
+    let fx_session_id = Some(fx_outcome.session_id.clone());
+    let fx_job_id = Some(fx_outcome.job_id.clone());
     let Some(fx_json) = fx_outcome.result_json.as_ref() else {
         let mut blockers = result.blockers.clone();
         blockers.push(Stage11Issue::blocked(
@@ -4782,6 +5140,8 @@ async fn freight_scenario_from_searates(
             fx_rate: 1.0,
             fx_checked_at: Some(Utc::now().to_rfc3339()),
             fx_status: "blocked".to_owned(),
+            fx_session_id,
+            fx_job_id,
             warnings,
             blockers,
         });
@@ -4796,6 +5156,8 @@ async fn freight_scenario_from_searates(
                 fx_rate: 1.0,
                 fx_checked_at: Some(Utc::now().to_rfc3339()),
                 fx_status: "blocked".to_owned(),
+                fx_session_id,
+                fx_job_id,
                 warnings,
                 blockers: vec![Stage11Issue::blocked(
                     "FX_RESULT_INVALID",
@@ -4813,6 +5175,8 @@ async fn freight_scenario_from_searates(
             fx_rate: 1.0,
             fx_checked_at: Some(fx.checked_at),
             fx_status: "blocked".to_owned(),
+            fx_session_id,
+            fx_job_id,
             warnings,
             blockers: fx.blockers,
         });
@@ -4828,6 +5192,8 @@ async fn freight_scenario_from_searates(
         fx_rate: fx.rate,
         fx_checked_at: Some(fx.checked_at),
         fx_status: "converted".to_owned(),
+        fx_session_id,
+        fx_job_id,
         warnings,
         blockers: Vec::new(),
     })
@@ -5081,6 +5447,7 @@ async fn run_landed_cost_live_loop(
         attempted += 1;
         let stage_run_id = allocate_stage_run_id();
         let supplier_cost = compute_supplier_cost_basis(row);
+        let order_quantity_basis = infer_order_quantity_basis(row);
         let skill_versions = json!({
             "hmrc_customs": hmrc_skill.metadata.skill_version,
             "shipment_sizing": sizing_skill.metadata.skill_version,
@@ -5102,7 +5469,8 @@ async fn run_landed_cost_live_loop(
         }
 
         import += 1;
-        let base_parameters = base_landed_cost_job_parameters(row, &supplier_cost);
+        let base_parameters =
+            base_landed_cost_job_parameters(row, &supplier_cost, &order_quantity_basis);
 
         customs_skill_runs += 1;
         let customs_outcome = run_landed_cost_skill(
@@ -5226,19 +5594,12 @@ async fn run_landed_cost_live_loop(
             fx_skill_runs += 1;
         }
 
-        let skill_session_ids = json!({
-            "hmrc_customs": customs_outcome.session_id,
-            "shipment_sizing": sizing_outcome
-                .as_ref()
-                .map(|outcome| outcome.session_id.clone()),
-            "searates_freight": searates_outcome.as_ref().map(|outcome| outcome.session_id.clone()),
-            "simple_fx": null,
-            "hmrc_job_id": customs_outcome.job_id,
-            "shipment_sizing_job_id": sizing_outcome
-                .as_ref()
-                .map(|outcome| outcome.job_id.clone()),
-            "searates_job_id": searates_outcome.as_ref().map(|outcome| outcome.job_id.clone()),
-        });
+        let skill_session_ids = landed_cost_skill_session_ids(
+            &customs_outcome,
+            sizing_outcome.as_ref(),
+            searates_outcome.as_ref(),
+            &freight,
+        );
         let skill_versions = json!({
             "hmrc_customs": customs_outcome.skill_version,
             "shipment_sizing": sizing_outcome.as_ref().map_or_else(
@@ -5259,6 +5620,7 @@ async fn run_landed_cost_live_loop(
             customs.as_ref(),
             sizing.as_ref(),
             &freight,
+            &order_quantity_basis,
             &skill_versions,
             &skill_session_ids,
         )?;
@@ -14392,6 +14754,130 @@ mod tests {
         Ok(())
     }
 
+    fn stage11_row_fixture() -> super::LandedCostAssessmentRow {
+        super::LandedCostAssessmentRow {
+            pricing_assessment_id: "pricing-fixture".to_owned(),
+            process_id: "process-fixture".to_owned(),
+            notice_id: "notice-fixture".to_owned(),
+            product_candidate_id: "candidate-fixture".to_owned(),
+            selected_quote_id: "quote-fixture".to_owned(),
+            selected_quote_row_version: 1,
+            quote_cost_boundary: "unit".to_owned(),
+            expected_addressable_revenue_ex_vat_pence: 0,
+            revenue_basis_type: "rfq_required".to_owned(),
+            revenue_confidence_bps: 0,
+            gross_estimate_confidence_bps: 7000,
+            pricing_input_confidence_bps: 7000,
+            quote_row_version: 1,
+            quote_product_name: "DGU glass panel".to_owned(),
+            source_name: "alibaba-search".to_owned(),
+            source_url: Some("https://example.test/alibaba-listing".to_owned()),
+            source_listing_id: Some("listing-fixture".to_owned()),
+            ship_from_country: Some("CN".to_owned()),
+            country_of_origin: None,
+            country_of_dispatch: None,
+            incoterm: None,
+            quoted_quantity: Some(10_000.0),
+            quoted_quantity_unit: Some("square meter".to_owned()),
+            unit_price_original_minor: 650,
+            currency: "USD".to_owned(),
+            unit_price_gbp_pence: 516,
+            offer_total_gbp_pence: None,
+            minimum_order_quantity: Some(10.0),
+            lead_time_days: Some(30),
+            includes_shipping: 0,
+            price_signal_role: "test_quote".to_owned(),
+            listing_pack_qty: None,
+            listing_pack_unit: None,
+            vat_inclusive: None,
+            quote_evidence: "{}".to_owned(),
+            candidate_name: "Double glazed unit".to_owned(),
+            head_noun: "glass".to_owned(),
+            specification_text: Some("6mm+9A+6mm Low-E DGU".to_owned()),
+            standards_json: None,
+            critical_attributes_json: None,
+            numeric_specs_json: None,
+            material: Some("glass".to_owned()),
+            candidate_quantity: None,
+            candidate_quantity_unit: None,
+            lot_title: Some("DGU supply".to_owned()),
+            lot_description: Some("Supply double glazed units".to_owned()),
+            notice_title: "DGU notice".to_owned(),
+            notice_summary: Some("DGU supply".to_owned()),
+            buyer_name: Some("Buyer".to_owned()),
+            main_category: Some("Glass".to_owned()),
+        }
+    }
+
+    fn classified_customs_for(
+        row: &super::LandedCostAssessmentRow,
+    ) -> super::HmrcCustomsClassificationResult {
+        super::HmrcCustomsClassificationResult {
+            source: Some("hmrc-trade-tariff".to_owned()),
+            product_candidate_id: row.product_candidate_id.clone(),
+            selected_quote_id: row.selected_quote_id.clone(),
+            classification_status: "classified".to_owned(),
+            declarable_commodity_code_10: Some("7008008900".to_owned()),
+            commodity_description: Some("Multiple-walled insulating units of glass".to_owned()),
+            candidate_commodity_codes: vec![json!({"code": "7008008900"})],
+            commodity_confidence_bps: Some(7000),
+            classification_stability_bps: Some(6500),
+            origin_country: Some("CN".to_owned()),
+            origin_evidence_state: Some("quote_ship_from_country".to_owned()),
+            basic_duty_rate_bps: Some(0),
+            vat_rate_bps: Some(2000),
+            customs_duty_gbp_pence: Some(0),
+            trade_remedy_duty_gbp_pence: Some(0),
+            trade_remedy_state: Some("none_found".to_owned()),
+            trade_remedy_cases: Vec::new(),
+            duty_breakdown: Vec::new(),
+            additional_codes: None,
+            additional_code_requirements: None,
+            supplementary_units_required: Vec::new(),
+            measure_interaction: None,
+            tariff_checked_at: Some("2026-04-28T00:00:00Z".to_owned()),
+            measures_fresh_until: None,
+            classification_fresh_until: None,
+            warnings: Vec::new(),
+            blockers: Vec::new(),
+        }
+    }
+
+    fn sized_shipment_for(row: &super::LandedCostAssessmentRow) -> super::ShipmentSizingResult {
+        super::ShipmentSizingResult {
+            product_candidate_id: row.product_candidate_id.clone(),
+            selected_quote_id: row.selected_quote_id.clone(),
+            sizing_status: "sized".to_owned(),
+            units_required: Some(10.0),
+            unit_basis: Some("square meter".to_owned()),
+            unit_weight_kg: Some(30.0),
+            unit_volume_cbm: Some(0.021),
+            total_weight_kg: Some(300.0),
+            total_volume_cbm: Some(0.21),
+            package_count: Some(1),
+            container_plan: Some(json!({"mode": "lcl"})),
+            evidence: Vec::new(),
+            confidence_bps: Some(6000),
+            warnings: Vec::new(),
+            blockers: Vec::new(),
+        }
+    }
+
+    fn freight_not_required() -> super::FreightScenarioGbp {
+        super::FreightScenarioGbp {
+            low_gbp_pence: 1000,
+            base_gbp_pence: 2000,
+            high_gbp_pence: 3000,
+            fx_rate: 1.0,
+            fx_checked_at: Some("2026-04-28T00:00:00Z".to_owned()),
+            fx_status: "not_required".to_owned(),
+            fx_session_id: None,
+            fx_job_id: None,
+            warnings: Vec::new(),
+            blockers: Vec::new(),
+        }
+    }
+
     fn set_source_health(conn: &Connection, source_id: &str, health_state: &str) -> Result<()> {
         conn.execute(
             "UPDATE source_runtime_state SET last_health_state = ?1 WHERE source_id = ?2",
@@ -15481,6 +15967,313 @@ mod tests {
     }
 
     #[test]
+    fn infer_order_quantity_basis_prefers_contract_value() {
+        let mut row = stage11_row_fixture();
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.expected_addressable_revenue_ex_vat_pence = 20_640;
+        row.unit_price_gbp_pence = 516;
+        row.candidate_quantity = Some(12.0);
+
+        let basis = super::infer_order_quantity_basis(&row);
+
+        assert_eq!(
+            basis,
+            super::OrderQuantityBasis::FromContractValue {
+                qty: 40.0,
+                contract_value_gbp_pence: 20_640,
+                basis_unit: Some("square meter".to_owned()),
+            }
+        );
+    }
+
+    #[test]
+    fn infer_order_quantity_basis_uses_lot_quantity_when_value_absent() {
+        let mut row = stage11_row_fixture();
+        row.candidate_quantity = Some(25.0);
+        row.candidate_quantity_unit = Some("piece".to_owned());
+
+        let basis = super::infer_order_quantity_basis(&row);
+
+        assert_eq!(
+            basis,
+            super::OrderQuantityBasis::FromLotQuantity {
+                qty: 25.0,
+                basis_unit: Some("piece".to_owned()),
+            }
+        );
+    }
+
+    #[test]
+    fn infer_order_quantity_basis_uses_moq_for_rfq_required() {
+        let row = stage11_row_fixture();
+
+        let basis = super::infer_order_quantity_basis(&row);
+
+        assert_eq!(
+            basis,
+            super::OrderQuantityBasis::RfqRequired {
+                fallback_qty: 10.0,
+                basis_unit: Some("square meter".to_owned()),
+            }
+        );
+    }
+
+    #[test]
+    fn infer_order_quantity_basis_marks_supplier_capacity_as_last_resort() {
+        let mut row = stage11_row_fixture();
+        row.minimum_order_quantity = None;
+
+        let basis = super::infer_order_quantity_basis(&row);
+
+        assert_eq!(
+            basis,
+            super::OrderQuantityBasis::SupplierCapacity {
+                qty: 10_000.0,
+                basis_unit: Some("square meter".to_owned()),
+            }
+        );
+    }
+
+    #[test]
+    fn dgu_rfq_quantity_basis_uses_moq_in_shipment_input() {
+        let row = stage11_row_fixture();
+        let basis = super::infer_order_quantity_basis(&row);
+        let supplier_cost = super::compute_supplier_cost_basis(&row);
+        let parameters = super::base_landed_cost_job_parameters(&row, &supplier_cost, &basis);
+
+        assert!((supplier_cost.quantity - 10.0).abs() < f64::EPSILON);
+        assert_eq!(supplier_cost.supplier_cost_gbp_pence, 5160);
+        assert_eq!(
+            parameters["inferred_order_quantity_basis"]["kind"],
+            json!("rfq_required")
+        );
+        assert_eq!(
+            parameters["inferred_order_quantity_basis"]["qty"],
+            json!(10.0)
+        );
+        assert_ne!(
+            parameters["inferred_order_quantity_basis"]["qty"],
+            json!(10_000.0)
+        );
+    }
+
+    #[test]
+    fn stage11_issue_defaults_severity_when_skill_omits_field() -> Result<()> {
+        let issue: super::Stage11Issue = serde_json::from_value(json!({
+            "code": "X",
+            "message": "M"
+        }))?;
+
+        assert_eq!(issue.severity, "warning");
+        Ok(())
+    }
+
+    #[test]
+    fn stage11_issue_defaults_message_when_skill_omits_field() -> Result<()> {
+        let issue: super::Stage11Issue = serde_json::from_value(json!({
+            "code": "X",
+            "severity": "blocked"
+        }))?;
+
+        assert_eq!(issue.message, "");
+        assert_eq!(issue.severity, "blocked");
+        Ok(())
+    }
+
+    #[test]
+    fn extract_agent_message_json_rejects_non_agent_message_envelopes() {
+        let line = json!({
+            "item": {
+                "type": "tool_use",
+                "text": json!({
+                    "product_candidate_id": "candidate",
+                    "selected_quote_id": "quote",
+                    "freight_status": "quoted"
+                }).to_string()
+            }
+        })
+        .to_string();
+
+        assert!(super::extract_agent_message_json(&line).is_none());
+    }
+
+    #[test]
+    fn extract_agent_message_json_rejects_envelopes_missing_status_fields() {
+        let line = json!({
+            "item": {
+                "type": "agent_message",
+                "text": json!({
+                    "product_candidate_id": "candidate",
+                    "selected_quote_id": "quote"
+                }).to_string()
+            }
+        })
+        .to_string();
+
+        assert!(super::extract_agent_message_json(&line).is_none());
+    }
+
+    #[test]
+    fn extract_agent_message_json_accepts_well_formed_freight_result() -> Result<()> {
+        let line = json!({
+            "item": {
+                "type": "agent_message",
+                "text": json!({
+                    "product_candidate_id": "candidate",
+                    "selected_quote_id": "quote",
+                    "freight_status": "quoted",
+                    "freight_currency": "USD"
+                }).to_string()
+            }
+        })
+        .to_string();
+
+        let parsed = super::extract_agent_message_json(&line)
+            .ok_or_else(|| anyhow::anyhow!("freight result should parse"))?;
+        assert_eq!(parsed["freight_status"], json!("quoted"));
+        Ok(())
+    }
+
+    #[test]
+    fn landed_cost_recovers_result_after_timeout() -> Result<()> {
+        let decision = super::decide_landed_cost_outcome("test-skill", true, None, true)?;
+
+        assert!(decision.recovered_result_after_timeout);
+        assert!(!decision.recovered_result_after_protocol_error);
+        Ok(())
+    }
+
+    #[test]
+    fn landed_cost_bails_on_timeout_without_result() -> Result<()> {
+        let result = super::decide_landed_cost_outcome("test-skill", true, None, false);
+        assert!(result.is_err());
+        let error = result
+            .err()
+            .ok_or_else(|| anyhow::anyhow!("expected error"))?;
+
+        assert!(error.to_string().contains("timed out after"));
+        Ok(())
+    }
+
+    #[test]
+    fn landed_cost_recovers_result_after_protocol_parse_error() -> Result<()> {
+        let decision = super::decide_landed_cost_outcome(
+            "test-skill",
+            false,
+            Some("stdout: invalid ndjson"),
+            true,
+        )?;
+
+        assert!(!decision.recovered_result_after_timeout);
+        assert!(decision.recovered_result_after_protocol_error);
+        Ok(())
+    }
+
+    #[test]
+    fn landed_cost_bails_on_protocol_parse_error_without_result() -> Result<()> {
+        let result = super::decide_landed_cost_outcome(
+            "test-skill",
+            false,
+            Some("stdout: invalid ndjson"),
+            false,
+        );
+        assert!(result.is_err());
+        let error = result
+            .err()
+            .ok_or_else(|| anyhow::anyhow!("expected error"))?;
+
+        assert!(error.to_string().contains("protocol parser failed"));
+        Ok(())
+    }
+
+    #[test]
+    fn captcha_interception_without_deterministic_fallback_blocks_review() -> Result<()> {
+        let mut row = stage11_row_fixture();
+        row.expected_addressable_revenue_ex_vat_pence = 50_000;
+        row.revenue_basis_type = "expected_value".to_owned();
+        let supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: 10_000,
+            basis: "test".to_owned(),
+            quantity: 10.0,
+            quantity_unit: Some("square meter".to_owned()),
+            warnings: Vec::new(),
+        };
+        let mut sizing = sized_shipment_for(&row);
+        sizing.warnings.push(super::Stage11Issue::warning(
+            "CDP_CAPTCHA_INTERCEPTION",
+            "Alibaba returned captcha.",
+        ));
+        let order_quantity_basis = super::infer_order_quantity_basis(&row);
+        let estimate = super::build_import_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            "stage-run-captcha-blocked",
+            Some(&classified_customs_for(&row)),
+            Some(&sizing),
+            &freight_not_required(),
+            &order_quantity_basis,
+            &json!({}),
+            &json!({}),
+        )?;
+
+        assert_eq!(estimate.decision_grade, "blocked");
+        assert!(
+            estimate
+                .blockers
+                .contains("CDP_CAPTCHA_BLOCKED_NO_DETERMINISTIC_FALLBACK")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn captcha_interception_with_matching_cached_fallback_can_review() -> Result<()> {
+        let mut row = stage11_row_fixture();
+        row.expected_addressable_revenue_ex_vat_pence = 50_000;
+        row.revenue_basis_type = "expected_value".to_owned();
+        let supplier_cost = super::SupplierCostBasis {
+            supplier_cost_gbp_pence: 10_000,
+            basis: "test".to_owned(),
+            quantity: 10.0,
+            quantity_unit: Some("square meter".to_owned()),
+            warnings: Vec::new(),
+        };
+        let mut sizing = sized_shipment_for(&row);
+        sizing.warnings.push(super::Stage11Issue::warning(
+            "CDP_CAPTCHA_INTERCEPTION",
+            "Alibaba returned captcha.",
+        ));
+        let source_url = row
+            .source_url
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("fixture source URL should be set"))?;
+        sizing.evidence.push(json!({
+            "kind": "indexed_listing_evidence",
+            "source_url": source_url,
+            "deterministic_captcha_fallback": true,
+        }));
+        let order_quantity_basis = super::infer_order_quantity_basis(&row);
+        let estimate = super::build_import_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            "stage-run-captcha-fallback",
+            Some(&classified_customs_for(&row)),
+            Some(&sizing),
+            &freight_not_required(),
+            &order_quantity_basis,
+            &json!({}),
+            &json!({}),
+        )?;
+
+        assert_eq!(estimate.decision_grade, "review");
+        assert!(
+            !estimate
+                .blockers
+                .contains("CDP_CAPTCHA_BLOCKED_NO_DETERMINISTIC_FALLBACK")
+        );
+        Ok(())
+    }
+
+    #[test]
     fn domestic_landed_cost_row_persists_with_stage_head() -> Result<()> {
         let (_temp, mut runtime) = bootstrap_validation_runtime()?;
         seed_stage11_minimal_graph(runtime.state_db.connection(), "GB")?;
@@ -15560,6 +16353,8 @@ mod tests {
             fx_rate: 1.0,
             fx_checked_at: Some("2026-04-28T00:00:00Z".to_owned()),
             fx_status: "blocked".to_owned(),
+            fx_session_id: None,
+            fx_job_id: None,
             warnings: Vec::new(),
             blockers: vec![super::Stage11Issue::blocked(
                 "SEARATES_NOT_RUN_SHIPMENT_SIZING_BLOCKED",
@@ -15573,6 +16368,7 @@ mod tests {
             None,
             Some(&sizing),
             &freight,
+            &super::infer_order_quantity_basis(&rows[0]),
             &json!({
                 "hmrc_customs": "1.0.0",
                 "shipment_sizing": "1.0.0",
@@ -15597,6 +16393,90 @@ mod tests {
         assert_eq!(decision_grade, "blocked");
         assert!(blockers.contains("SHIPMENT_DIMENSIONS_MISSING"));
         assert!(blockers.contains("CUSTOMS_SKILL_NO_RESULT"));
+        Ok(())
+    }
+
+    #[test]
+    fn fx_session_ids_persist_when_freight_fx_converted() -> Result<()> {
+        let (_temp, mut runtime) = bootstrap_validation_runtime()?;
+        seed_stage11_minimal_graph(runtime.state_db.connection(), "CN")?;
+        let rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
+        let row = &rows[0];
+        let supplier_cost = super::compute_supplier_cost_basis(row);
+        let sizing = sized_shipment_for(row);
+        let customs = classified_customs_for(row);
+        let freight = super::FreightScenarioGbp {
+            low_gbp_pence: 1000,
+            base_gbp_pence: 2000,
+            high_gbp_pence: 3000,
+            fx_rate: 0.78,
+            fx_checked_at: Some("2026-04-28T00:00:00Z".to_owned()),
+            fx_status: "converted".to_owned(),
+            fx_session_id: Some("session-fx-known".to_owned()),
+            fx_job_id: Some("job-fx-known".to_owned()),
+            warnings: Vec::new(),
+            blockers: Vec::new(),
+        };
+        let customs_outcome = super::LandedCostSkillRunOutcome {
+            job_id: "job-customs-known".to_owned(),
+            session_id: "session-customs-known".to_owned(),
+            skill_version: "1.0.0".to_owned(),
+            result_json: None,
+            failure_message: None,
+        };
+        let sizing_outcome = super::LandedCostSkillRunOutcome {
+            job_id: "job-sizing-known".to_owned(),
+            session_id: "session-sizing-known".to_owned(),
+            skill_version: "1.0.0".to_owned(),
+            result_json: None,
+            failure_message: None,
+        };
+        let searates_outcome = super::LandedCostSkillRunOutcome {
+            job_id: "job-searates-known".to_owned(),
+            session_id: "session-searates-known".to_owned(),
+            skill_version: "1.0.0".to_owned(),
+            result_json: None,
+            failure_message: None,
+        };
+        let skill_session_ids = super::landed_cost_skill_session_ids(
+            &customs_outcome,
+            Some(&sizing_outcome),
+            Some(&searates_outcome),
+            &freight,
+        );
+        let order_quantity_basis = super::infer_order_quantity_basis(row);
+        let estimate = super::build_import_landed_cost_estimate(
+            row,
+            &supplier_cost,
+            "stage-run-fx-session-test",
+            Some(&customs),
+            Some(&sizing),
+            &freight,
+            &order_quantity_basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+            }),
+            &skill_session_ids,
+        )?;
+        super::persist_landed_cost_estimate(&mut runtime.state_db, &estimate)?;
+
+        let (fx_session_id, fx_job_id): (String, String) =
+            runtime.state_db.connection().query_row(
+                "\
+                SELECT json_extract(confidence_breakdown, '$.skill_session_ids.simple_fx'),
+                       json_extract(confidence_breakdown, '$.skill_session_ids.simple_fx_job_id')
+                FROM landed_cost_estimates
+                LIMIT 1
+                ",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+
+        assert_eq!(fx_session_id, "session-fx-known");
+        assert_eq!(fx_job_id, "job-fx-known");
         Ok(())
     }
 
@@ -15665,6 +16545,8 @@ mod tests {
             fx_rate: 1.0,
             fx_checked_at: Some("2026-04-28T00:00:00Z".to_owned()),
             fx_status: "not_required".to_owned(),
+            fx_session_id: None,
+            fx_job_id: None,
             warnings: Vec::new(),
             blockers: Vec::new(),
         };
@@ -15677,6 +16559,7 @@ mod tests {
             Some(&customs),
             Some(&sizing),
             &freight,
+            &super::infer_order_quantity_basis(&row),
             &json!({}),
             &json!({}),
         )?;

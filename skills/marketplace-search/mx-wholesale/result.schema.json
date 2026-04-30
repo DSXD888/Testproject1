@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["source", "cursor", "continuation_required", "search_results"],
+  "properties": {
+    "source": { "type": "string" },
+    "cursor": { "type": "string" },
+    "continuation_required": { "type": "boolean" },
+    "search_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "product_candidate_id",
+          "search_profile_id",
+          "query_used",
+          "wave_number",
+          "result_count",
+          "shortlisted_count",
+          "quotes"
+        ],
+        "properties": {
+          "product_candidate_id": { "type": "string" },
+          "search_profile_id": { "type": "string" },
+          "query_used": { "type": "string" },
+          "wave_number": { "type": "integer", "minimum": 1 },
+          "is_recovery_wave": { "type": "boolean" },
+          "result_count": { "type": "integer", "minimum": 0 },
+          "hard_rejected_count": { "type": "integer", "minimum": 0 },
+          "shortlisted_count": { "type": "integer", "minimum": 0 },
+          "search_failure_mode": { "type": ["string", "null"] },
+          "locale": { "type": "string" },
+          "filters_applied": { "type": ["object", "null"] },
+          "quotes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "product_name",
+                "source_url",
+                "unit_price_minor",
+                "currency",
+                "match_confidence_bps",
+                "evidence"
+              ],
+              "properties": {
+                "product_name": { "type": "string" },
+                "source_url": { "type": "string" },
+                "source_listing_id": { "type": ["string", "null"] },
+                "unit_price_minor": { "type": "integer", "minimum": 0 },
+                "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+                "vat_inclusive": { "type": ["boolean", "null"] },
+                "quantity": { "type": ["number", "null"] },
+                "quantity_unit": { "type": ["string", "null"] },
+                "minimum_order_quantity": { "type": ["number", "null"] },
+                "price_tiers": {
+                  "type": ["array", "null"],
+                  "items": {
+                    "type": "object",
+                    "required": ["min_qty", "unit_price_minor"],
+                    "properties": {
+                      "min_qty": { "type": "number", "minimum": 0 },
+                      "unit_price_minor": { "type": "integer", "minimum": 0 },
+                      "currency": { "type": ["string", "null"] }
+                    }
+                  }
+                },
+                "ship_from_country": { "type": ["string", "null"] },
+                "includes_shipping": { "type": ["boolean", "null"] },
+                "lead_time_days": { "type": ["integer", "null"] },
+                "is_used_or_refurbished": { "type": ["boolean", "null"] },
+                "is_ready_to_ship": { "type": ["boolean", "null"] },
+                "incoterm": { "type": ["string", "null"] },
+                "seller_identifier": { "type": ["string", "null"] },
+                "match_confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+                "evidence": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

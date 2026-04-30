@@ -1,0 +1,120 @@
+{
+  "product_candidate_id": "pc-7046e8ec-2734-ed11-8119-005056b64545-lot-1-candidate-glass-dgu-bs-en-1279",
+  "selected_quote_id": "sq-b22fcf00b7a545d699c3438c42b9027c-1",
+  "sizing_status": "sized",
+  "confidence_bps": 6500,
+  "unit_basis": "square meter",
+  "units_required": 10.0,
+  "unit_weight_kg": 30.0,
+  "total_weight_kg": 300.0,
+  "unit_volume_cbm": 0.0315,
+  "total_volume_cbm": 0.315,
+  "package_count": null,
+  "container_plan": {
+    "mode": "LCL",
+    "fcl_required": false,
+    "package_plan": "Package count not asserted because the listing does not provide a crate schedule mapped to the 10 square metre RFQ basis.",
+    "base_geometric_unit_volume_cbm": 0.021,
+    "base_geometric_total_volume_cbm": 0.21,
+    "packing_uplift_factor": 1.5,
+    "planning_unit_volume_cbm": 0.0315,
+    "planning_total_volume_cbm": 0.315,
+    "chargeable_basis": "ocean_lcl_w_m_screening",
+    "estimated_revenue_tons": 0.315,
+    "fcl_reference": {
+      "container_type": "40ft",
+      "payload_kg": 26000,
+      "usable_volume_cbm": 67
+    },
+    "container_count": 0,
+    "weight_utilization_of_40ft": 0.0115,
+    "volume_utilization_of_40ft": 0.0047,
+    "reasoning": "The 10 square metre order sizes to about 300 kg glass mass and 0.315 CBM planning volume after a conservative crating uplift. This is well below 40 ft payload and volume thresholds, so LCL is the appropriate shipment plan."
+  },
+  "warnings": [
+    {
+      "code": "FLAT_GLASS_PHYSICS_ESTIMATE",
+      "message": "Used the Alibaba listing thickness 6mm+9A+6mm for a screening-grade insulating-glass-unit estimate. Glass mass uses only the two 6 mm panes and density 2500 kg/m3; the 9 mm argon/air cavity is excluded from weight and included in geometric volume.",
+      "severity": "warning"
+    },
+    {
+      "code": "PACKING_SCHEDULE_MISSING",
+      "message": "The listing states sea-worthy strong wooden crates but does not provide crate count, crate dimensions, or packing weight for the 10 square metre order basis. Package count is left null and CBM includes a 50% crating/handling uplift for freight screening.",
+      "severity": "warning"
+    },
+    {
+      "code": "AMBIGUOUS_SINGLE_ITEM_PACKAGE_IGNORED",
+      "message": "Alibaba displays single item package size 35X35X20 cm and single gross weight 10.000 kg, but these fields do not explicitly map to one square metre or one finished DGU and were not used as the sizing basis.",
+      "severity": "warning"
+    }
+  ],
+  "blockers": [],
+  "evidence": [
+    {
+      "kind": "order_quantity_basis",
+      "source": "job_parameters.inferred_order_quantity_basis",
+      "basis_kind": "rfq_required",
+      "quantity": 10.0,
+      "unit": "square meter",
+      "note": "Sized from inferred_order_quantity_basis rather than quote.quoted_quantity because the quote quantity is supplier listing tier evidence."
+    },
+    {
+      "kind": "cdp_listing_evidence",
+      "source_url": "https://www.alibaba.com/product-detail/Low-E-Tempered-Insulated-Glass-Clear_1600798460524.html",
+      "deterministic_captcha_fallback": false,
+      "browser_state": {
+        "cdp_port": 9222,
+        "captcha_blocked": false,
+        "locale_delivery": "Deliver to GB",
+        "language_currency": "English-GBP"
+      },
+      "observed_fields": {
+        "title": "Low E Tempered Insulated Glass Clear Tempered Insulated Glass Office Curtain Wall Double Glazed Glass",
+        "seller_identifier": "Shenzhen Sun Global Glass Co., Ltd.",
+        "product": "Argon fill insulating glass",
+        "structure": "Hollow",
+        "thickness": "6mm+9A+6mm",
+        "size": "Custom Sizes",
+        "material": "Qualified Tempered Float Glass",
+        "packing": "Sea Worthy Strong Wooden Crates",
+        "selling_units": "Single item",
+        "single_package_size": "35X35X20 cm",
+        "single_gross_weight": "10.000 kg"
+      },
+      "ignored_fields": [
+        "single_package_size",
+        "single_gross_weight"
+      ],
+      "ignored_fields_reason": "The Alibaba single-item package fields are ambiguous and do not explicitly map to one square metre or one finished DGU."
+    },
+    {
+      "kind": "candidate_specification_evidence",
+      "source": "job_parameters.candidate.specification_text",
+      "observed_fields": {
+        "product_type": "Flat hermetically-sealed double-glazed unit",
+        "maximum_total_thickness": "28mm",
+        "spacer": "A-rated warm-edge spacer",
+        "fill": "argon-filled",
+        "standard": "BS EN 1279"
+      }
+    },
+    {
+      "kind": "calculation",
+      "formula": "glass_weight_kg = 10 sqm * ((6mm + 6mm) / 1000) * 2500 kg/m3; geometric_cbm = 10 sqm * ((6mm + 9mm + 6mm) / 1000); planning_cbm = geometric_cbm * 1.5 crating uplift",
+      "inputs": {
+        "area_sqm": 10.0,
+        "glass_thickness_mm": 12.0,
+        "total_unit_thickness_mm": 21.0,
+        "glass_density_kg_per_m3": 2500,
+        "packing_uplift_factor": 1.5
+      },
+      "outputs": {
+        "unit_weight_kg_per_sqm": 30.0,
+        "total_weight_kg": 300.0,
+        "geometric_unit_volume_cbm_per_sqm": 0.021,
+        "geometric_total_volume_cbm": 0.21,
+        "planning_total_volume_cbm": 0.315
+      }
+    }
+  ]
+}

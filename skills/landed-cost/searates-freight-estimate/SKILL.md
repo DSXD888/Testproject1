@@ -32,17 +32,79 @@ agent-browser --cdp ${CDP_PORT} ...
 ```
 
 ## Workflow
-1. Open `https://www.searates.com/`.
-2. Enter origin and destination.
-3. Enter ship date.
-4. Enter total weight and CBM, or FCL container type/count.
-5. Search for freight estimates.
-6. Capture price, currency, route, mode/container basis, transit time if shown, source URL, raw evidence text, and caveats.
+1. Prefer the Logistics Explorer GraphQL path below. Do not inspect application bundles before trying it.
+2. Open `https://www.searates.com/logistics-explorer/` through CDP and confirm the title contains Logistics Explorer.
+3. Read `s-token` from page `localStorage` with `agent-browser --cdp ${CDP_PORT} eval "localStorage.getItem('s-token')"`. If missing, call `https://www.searates.com/auth/platform-token?id=1` from the page and re-read `s-token`.
+4. Build a SeaRates `rates(...)` GraphQL query against `https://rates.searates.com/graphql` with the documented coordinate arguments:
+   - `shippingType:FCL`
+   - `includedServices:d2d`
+   - `portFromFees:false`
+   - `portToFees:false`
+   - `date:"${job_parameters.ship_date}"` in `YYYY-MM-DD`
+   - `container:ST40` for a 40-foot plan, otherwise map the visible plan to the closest documented container enum.
+   - `coordinatesFrom` / `coordinatesTo`.
+5. For the canonical Stage 11 DGU route, use coordinates `coordinatesFrom:[31.2304,121.4737]` for Shanghai, China and `coordinatesTo:[51.5072,-0.1276]` for London, GB. These are only routing seeds; SeaRates resolves them to the actual port legs in its response.
+6. If the sizing payload has `shipment.container_plan.container_count`, call `recalculateRate(shipmentId:<id>, containerAmount:<container_count>)` for each non-expired candidate rate before choosing the freight amount. For the DGU FCL plan this is 12 x 40-foot containers.
+7. Select the cheapest non-expired recalculated SeaRates rate as `freight_base_amount_minor`. Use the minimum non-expired recalculated amount as `freight_low_amount_minor` and maximum as `freight_high_amount_minor`. Currency minor units are cents for USD and pence for GBP.
+8. Capture price, currency, route, mode/container basis, transit time if shown, source URL, raw evidence text, and caveats.
+
+The coordinate GraphQL path is still live SeaRates data: it uses the operator's CDP browser session token and SeaRates' public Logistics Explorer endpoint. If GraphQL returns a validation error, record that exact response in evidence and then use the visible UI workflow as fallback.
+
+### GraphQL command shape
+
+Use this shape inside `agent-browser --cdp ${CDP_PORT} eval '...'`; adjust constants from `job_parameters` and the selected quote:
+
+```js
+(async () => {
+  const token = localStorage.getItem("s-token");
+  const query = `{ rates(includedServices:d2d,portFromFees:false,portToFees:false,shippingType:FCL,coordinatesFrom:[31.2304,121.4737],coordinatesTo:[51.5072,-0.1276],date:"2026-06-14",container:ST40){ points{ id rateId location{ id name country lat lng code inaccessible pointType dry } shippingType provider providerLogo loads{ id unit amount shortCode type } routeTariff{ name abbr price currency } lumpsumTariff{ price currency } transitTime{ rate port route } distance totalPrice totalCurrency pointTotal routeTotal terms } general{ shipmentId validityFrom validityTo individual totalPrice totalCurrency totalTransitTime expired spot indicative standard queryShippingType shipmentCreatedAt interpolationInfo } request{ request_key } } }`;
+  const response = await fetch("https://rates.searates.com/graphql", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify({ query }),
+  });
+  return await response.text();
+})()
+```
+
+Then recalculate the chosen `general.shipmentId` for the planned container count:
+
+```js
+(async () => {
+  const token = localStorage.getItem("s-token");
+  const query = `{ recalculateRate(shipmentId: 54530266, containerAmount: 12) { points { id rateId location { id name country lat lng code inaccessible pointType } shippingType provider providerLogo loads { id unit amount shortCode type } routeTariff { name abbr price currency terms } lumpsumTariff { price currency } transitTime { rate port route } distance totalPrice totalCurrency pointTotal routeTotal } general { shipmentId validityFrom validityTo individual totalPrice totalCurrency totalTransitTime expired spot standard indicative rateOwner queryShippingType promotionObligations interpolationInfo } request { date shipping_type container_type } } }`;
+  const response = await fetch("https://rates.searates.com/graphql", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify({ query }),
+  });
+  return await response.text();
+})()
+```
+
+For the final `result.json`, include the selected recalculated rate under `evidence`, including `shipmentId`, `totalPrice`, `totalCurrency`, `totalTransitTime`, provider/carrier, port legs, and the route/query URL.
+
+When SeaRates returns a concrete non-expired amount from either the visible UI or the Logistics Explorer GraphQL path, the successful result status is exactly:
+
+```json
+"freight_status": "quoted"
+```
+
+Do not emit `freight_status: "estimated"` or any other success status. `blocked` is the only non-success status accepted by the daemon.
 
 If SeaRates shows an expired estimate, record the price and set `quote_expired: true` with warning `SEARATES_PRICE_EXPIRED`.
+If SeaRates cannot return a price within the bounded run, emit `freight_status: "blocked"` with the blocker that names the observed UI/network reason. Do not copy `result.schema.json` into `result.json`, and do not leave `result.json` as a schema or partial scratch object.
 
 ## Safety
 Do not log in/out, contact carriers, book shipments, create orders, change account settings, or write server-side state.
 
 ## Output
-Write the final JSON object to `result.json` in the current working directory, matching `result.schema.json`. Also keep the final response to the daemon as the same raw JSON object; do not wrap it in Markdown.
+Write the final JSON object to `result.json` in the current working directory, matching `result.schema.json`. `warnings` and `blockers` must be arrays of objects with `code`, `message`, and `severity`; never emit bare string warning codes or omit severity. Also keep the final response to the daemon as the same raw JSON object; do not wrap it in Markdown.

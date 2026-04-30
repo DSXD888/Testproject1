@@ -1,0 +1,40 @@
+expected_fields:
+  - source
+  - cursor
+  - continuation_required
+  - search_results
+expected_source_value: alibaba
+expected_interaction_profile: pty_interactive
+requires_cdp: true
+cdp_default_port: 9222
+# Currency is operator-locale-dependent (Alibaba serves the symbol
+# that matches the logged-in profile's "Deliver to"). A UK profile
+# sees GBP; a US profile sees USD. The daemon's convert_to_gbp_pence
+# handles GBP (passthrough), USD (×0.79), EUR (×0.85).
+allowed_currencies: [GBP, USD, EUR]
+expected_price_signal_role: cn_supplier_floor
+expected_region: CN
+expected_ship_from_country: CN
+expected_minimum_search_results: 1
+quote_required_fields:
+  - product_name
+  - source_url
+  - unit_price_minor
+  - currency
+  - match_confidence_bps
+  - evidence
+  - price_tiers
+  - minimum_order_quantity
+match_confidence_range: [0, 10000]
+price_tiers_required: true
+price_tiers_min_entries: 1
+# Must NOT appear in the run — these indicate a broken CDP setup:
+forbidden_failure_modes:
+  - source_captcha_blocked  # tolerated only when session goes stale mid-run
+fingerprint_states:
+  preferred: cdp_attached_logged_in
+  acceptable: [cdp_attached_logged_in, cdp_attached_anonymous]
+  unacceptable: [cdp_unreachable, native_chrome_for_testing]
+# Tier-pricing DOM selectors verified on 2026-04-21:
+tier_container_selector: '[class*="module_price"]'
+tier_row_selector: '[class*="price-item"]'

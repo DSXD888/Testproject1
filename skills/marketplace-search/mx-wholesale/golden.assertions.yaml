@@ -1,0 +1,22 @@
+expected_fields:
+  - source
+  - cursor
+  - continuation_required
+  - search_results
+expected_source_value: mx-wholesale
+expected_interaction_profile: pty_interactive
+expected_language: en-GB
+expected_currency: GBP
+expected_price_signal_role: uk_wholesale
+expected_region: GB
+expected_minimum_search_results: 1
+quote_required_fields:
+  - product_name
+  - source_url
+  - unit_price_minor
+  - currency
+  - match_confidence_bps
+  - evidence
+price_minor_units: pence
+match_confidence_range: [0, 10000]
+expected_ship_from_country: GB
