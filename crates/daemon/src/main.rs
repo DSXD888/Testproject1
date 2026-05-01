@@ -105,12 +105,15 @@ mod support {
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::ffi::OsString;
+use std::fmt::Write as _;
 use std::fs;
+use std::future::Future;
 use std::io::ErrorKind;
 use std::net::{Shutdown, SocketAddr, TcpStream};
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::process;
 use std::process::Stdio;
 use std::sync::Mutex;
@@ -263,6 +266,18 @@ const NET_MARGIN_COMMERCIAL_ESTIMATE_CONFIDENCE_FLOOR_BPS: i64 = 4_000;
 const NET_MARGIN_THRESHOLDS_VERSION: &str = "v1.0-2026-05-01";
 const NET_MARGIN_ROLLUP_VERSION: &str = "v1.0-2026-05-01";
 const NET_MARGIN_REVIEW_STAGE: &str = "net_margin_gate";
+const MANIFEST_STAGE_NAME: &str = "manifest";
+const MANIFEST_TEMPLATE_VERSION: &str = "v1.0-2026-05-01";
+const STAGE13_RENDERER_MODE_ENV: &str = "STAGE13_RENDERER_MODE";
+const STAGE13_SKILL_TIMEOUT_SECONDS_ENV: &str = "STAGE13_SKILL_TIMEOUT_SECONDS";
+const STAGE13_SKILL_TIMEOUT_SECONDS_DEFAULT: u64 = 600;
+const STAGE13_SKILL_CONCURRENCY_ENV: &str = "STAGE13_SKILL_CONCURRENCY";
+const STAGE13_SKILL_CONCURRENCY_DEFAULT: usize = 3;
+const STAGE13_CLAUDE_MODEL_ENV: &str = "STAGE13_CLAUDE_MODEL";
+const STAGE13_CLAUDE_MODEL_DEFAULT: &str = "haiku";
+const STAGE13_RENDERER_MODE_SKILL: &str = "skill";
+const STAGE13_RENDERER_MODE_DAEMON: &str = "daemon";
+const STAGE13_RENDERER_MODE_AUTO_FALLBACK: &str = "auto_fallback_to_daemon";
 #[cfg(test)]
 const ACTIVE_STAGES: [&str; 12] = [
     "Normalize",
@@ -366,7 +381,7 @@ const LIVE_LOOP_STEP_SURFACES: [StepSurface; 14] = [
 ];
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Parser)]
+#[derive(Debug, Clone, Parser)]
 #[command(
     name = "daemon",
     version,
@@ -1170,6 +1185,7 @@ async fn main() -> Result<()> {
             }
             "landed-cost" => run_landed_cost_live_loop(&mut runtime, &cli).await?,
             "net-gate" => run_net_margin_gate_live_loop(&mut runtime, &cli)?,
+            "manifest" => run_manifest_generation_live_loop(&mut runtime, &cli).await?,
             "gem-imports" | "mx-wholesale" | "amazon-uk" | "ebay-uk" | "alibaba-search" => {
                 run_marketplace_search_live_loop(&mut runtime, source_id, &cli).await?
             }
@@ -5821,6 +5837,327 @@ struct NetMarginProcessRollup {
     decision_basis_hash: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum ManifestStoplight {
+    Pursue,
+    Clarify,
+    Pass,
+    Review,
+}
+
+impl ManifestStoplight {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Pursue => "pursue",
+            Self::Clarify => "clarify",
+            Self::Pass => "pass",
+            Self::Review => "review",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Stage13RendererMode {
+    Skill,
+    Daemon,
+    Auto,
+}
+
+impl Stage13RendererMode {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Skill => "skill",
+            Self::Daemon => "daemon",
+            Self::Auto => "auto",
+        }
+    }
+}
+
+fn parse_stage13_renderer_mode(
+    raw: Option<&str>,
+    default_mode: Stage13RendererMode,
+) -> Stage13RendererMode {
+    match raw {
+        Some("skill") => Stage13RendererMode::Skill,
+        Some("daemon") => Stage13RendererMode::Daemon,
+        Some("auto") => Stage13RendererMode::Auto,
+        Some(other) => {
+            ::tracing::warn!(
+                mode = %other,
+                default_mode = %default_mode.as_str(),
+                "unknown STAGE13_RENDERER_MODE; defaulting"
+            );
+            default_mode
+        }
+        None => default_mode,
+    }
+}
+
+fn read_stage13_renderer_mode() -> Stage13RendererMode {
+    let raw = std::env::var(STAGE13_RENDERER_MODE_ENV).ok();
+    parse_stage13_renderer_mode(raw.as_deref(), Stage13RendererMode::Skill)
+}
+
+fn read_stage13_skill_timeout_seconds() -> u64 {
+    std::env::var(STAGE13_SKILL_TIMEOUT_SECONDS_ENV)
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(STAGE13_SKILL_TIMEOUT_SECONDS_DEFAULT)
+}
+
+fn read_stage13_skill_concurrency() -> usize {
+    std::env::var(STAGE13_SKILL_CONCURRENCY_ENV)
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(STAGE13_SKILL_CONCURRENCY_DEFAULT)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ManifestCandidatePolicyInput {
+    verdict: NetMarginVerdict,
+    re_evaluation_eligible: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ManifestHeader {
+    notice_id: Option<String>,
+    title: String,
+    buyer_name: Option<String>,
+    deadline_at: Option<String>,
+    contract_value_pence: Option<i64>,
+    currency: Option<String>,
+    source_id: Option<String>,
+    source_notice_id: Option<String>,
+    notice_url: Option<String>,
+    published_at: Option<String>,
+    source_updated_at: Option<String>,
+    process_latest_published_at: String,
+    process_latest_updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ManifestDecisionSummary {
+    pipeline_state: String,
+    review_required: i64,
+    review_reason: Option<String>,
+    stage12_decision_basis_hash: String,
+    verdict_counts: BTreeMap<String, i64>,
+}
+
+#[allow(clippy::struct_field_names)]
+#[derive(Debug, Clone, Serialize)]
+struct ManifestMarginBand {
+    low_bps: Option<i64>,
+    base_bps: Option<i64>,
+    high_bps: Option<i64>,
+}
+
+#[allow(clippy::struct_field_names)]
+#[derive(Debug, Clone, Serialize)]
+struct ManifestConfidence {
+    revenue_bps: Option<i64>,
+    pricing_input_bps: Option<i64>,
+    customs_resolution_bps: Option<i64>,
+    commercial_estimate_bps: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ManifestSelectedQuote {
+    supplier_quote_id: Option<String>,
+    source_name: Option<String>,
+    region: Option<String>,
+    unit_price_gbp_pence: Option<i64>,
+    price_basis_qty: Option<f64>,
+    price_basis_unit: Option<String>,
+    source_url: Option<String>,
+    raw_price_original_minor: Option<i64>,
+    currency: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ManifestLandedCost {
+    landed_cost_estimate_id: Option<String>,
+    shipping_mode: Option<String>,
+    supplier_cost_gbp_pence: Option<i64>,
+    freight_base_gbp_pence: Option<i64>,
+    customs_duty_gbp_pence: Option<i64>,
+    import_vat_gbp_pence: Option<i64>,
+    economic_landed_cost_gbp_pence: Option<i64>,
+    declarable_commodity_code_10: Option<String>,
+    exporter_rate_basis: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ManifestSearchEvidence {
+    search_attempt_id: String,
+    source: String,
+    query_text: String,
+    result_count: i64,
+    search_failure_mode: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ManifestCandidateDetail {
+    candidate_id: String,
+    candidate_key: Option<String>,
+    candidate_name: String,
+    candidate_type: String,
+    lot_id: Option<String>,
+    lot_title: Option<String>,
+    verdict: String,
+    reasons: Vec<String>,
+    re_evaluation_eligible: i64,
+    margin_band: Option<ManifestMarginBand>,
+    revenue_used_pence: Option<i64>,
+    revenue_basis_type: Option<String>,
+    economic_landed_cost_pence: Option<i64>,
+    confidence: ManifestConfidence,
+    selected_quote: ManifestSelectedQuote,
+    landed_cost: ManifestLandedCost,
+    pricing_assessment_id: Option<String>,
+    search_attempts: Vec<ManifestSearchEvidence>,
+    #[serde(skip_serializing)]
+    confidence_breakdown_json: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ManifestCoverage {
+    priced_coverage_bps: Option<i64>,
+    landed_cost_coverage_bps: Option<i64>,
+    net_qualified_coverage_bps: Option<i64>,
+    priced_value_coverage_bps: Option<i64>,
+    landed_cost_value_coverage_bps: Option<i64>,
+    net_qualified_value_coverage_bps: Option<i64>,
+    unresolved_mandatory_lots: i64,
+    gross_margin_bps: Option<i64>,
+    net_margin_bps: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct ClarificationPrompt {
+    candidate_id: String,
+    candidate_name: String,
+    lot_id: Option<String>,
+    reason_code: String,
+    prompt_text: String,
+    prompt_unit: Option<String>,
+    prompt_type: String,
+    #[serde(default)]
+    default_value: Value,
+    rationale: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    options: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ManifestSkillBundle {
+    stage: &'static str,
+    process_id: String,
+    manifest_template_version: &'static str,
+    manifest_basis_hash: String,
+    stoplight: ManifestStoplight,
+    suggested_action: String,
+    header: ManifestHeader,
+    decision_summary: ManifestDecisionSummary,
+    candidates: Vec<ManifestCandidateDetail>,
+    coverage: ManifestCoverage,
+    clarification_prompts: Vec<ClarificationPrompt>,
+    candidate_count: usize,
+    priced_candidate_count: usize,
+    clarification_prompt_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ManifestSkillOutput {
+    process_id: String,
+    #[serde(rename = "decisionBasisHash")]
+    decision_basis_hash: String,
+    #[serde(rename = "manifestMarkdown")]
+    manifest_markdown: String,
+    stoplight: ManifestStoplight,
+    suggested_action: String,
+    suggested_action_reasoning: String,
+    clarification_prompts: Vec<ClarificationPrompt>,
+    candidate_count: usize,
+    #[serde(default)]
+    priced_candidate_count: usize,
+    #[serde(default)]
+    clarification_prompt_count: usize,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct ManifestGenerationSummary {
+    attempted: usize,
+    processes_rendered: usize,
+    stoplight_pursue: usize,
+    stoplight_clarify: usize,
+    stoplight_pass: usize,
+    stoplight_review: usize,
+    skipped_unchanged: usize,
+}
+
+#[derive(Debug, Clone)]
+struct ManifestSkillInvocation {
+    job_id: Option<String>,
+    session_id: Option<String>,
+    result_json: Value,
+}
+
+impl ManifestSkillInvocation {
+    #[cfg(test)]
+    #[allow(clippy::missing_const_for_fn)]
+    fn mock(result_json: Value) -> Self {
+        Self {
+            job_id: None,
+            session_id: None,
+            result_json,
+        }
+    }
+}
+
+type ManifestSkillInvocationFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<ManifestSkillInvocation>> + 'a>>;
+
+trait ManifestSkillInvoker {
+    fn invoke_manifest_skill<'a>(
+        &'a mut self,
+        runtime: &'a mut RuntimeBootstrap,
+        skill: &'a LoadedSkill,
+        bundle: &'a ManifestSkillBundle,
+        cli: &'a Cli,
+        timeout_seconds: u64,
+    ) -> ManifestSkillInvocationFuture<'a>;
+}
+
+struct LiveManifestSkillInvoker;
+
+impl ManifestSkillInvoker for LiveManifestSkillInvoker {
+    fn invoke_manifest_skill<'a>(
+        &'a mut self,
+        runtime: &'a mut RuntimeBootstrap,
+        skill: &'a LoadedSkill,
+        bundle: &'a ManifestSkillBundle,
+        cli: &'a Cli,
+        timeout_seconds: u64,
+    ) -> ManifestSkillInvocationFuture<'a> {
+        Box::pin(execute_manifest_skill_session(
+            runtime,
+            skill,
+            bundle,
+            cli,
+            timeout_seconds,
+        ))
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ManifestRenderOutcome {
+    output: ManifestSkillOutput,
+    renderer_mode: &'static str,
+}
+
 fn canonical_reason_json(reasons: &[&str]) -> Result<String> {
     serde_json::to_string(reasons).context("serializing net margin reasons")
 }
@@ -6602,6 +6939,2551 @@ fn run_net_margin_gate_live_loop(
             summary.reject,
             summary.no_pricing_signal,
             summary.processes_rolled_up,
+            summary.skipped_unchanged,
+        ),
+        status: "completed".to_owned(),
+    })
+}
+
+fn manifest_basis_hash(process_id: &str, stage12_decision_basis_hash: &str) -> String {
+    sha256_hex(
+        format!("{process_id}:{stage12_decision_basis_hash}:{MANIFEST_TEMPLATE_VERSION}")
+            .as_bytes(),
+    )
+}
+
+fn derive_manifest_stoplight(
+    candidates: &[ManifestCandidatePolicyInput],
+    priced_coverage_bps: i64,
+) -> ManifestStoplight {
+    if candidates
+        .iter()
+        .any(|candidate| candidate.verdict == NetMarginVerdict::Pass)
+        && priced_coverage_bps >= 5_000
+    {
+        return ManifestStoplight::Pursue;
+    }
+    if candidates
+        .iter()
+        .any(|candidate| candidate.re_evaluation_eligible)
+    {
+        return ManifestStoplight::Clarify;
+    }
+    if candidates
+        .iter()
+        .all(|candidate| candidate.verdict == NetMarginVerdict::Reject)
+        || priced_coverage_bps == 0
+    {
+        return ManifestStoplight::Pass;
+    }
+    ManifestStoplight::Review
+}
+
+fn suggested_action_label(
+    stoplight: ManifestStoplight,
+    re_evaluation_candidate_count: usize,
+) -> String {
+    match stoplight {
+        ManifestStoplight::Pursue => "Pursue this opportunity".to_owned(),
+        ManifestStoplight::Clarify => {
+            format!("Clarify {re_evaluation_candidate_count} candidate(s) before deciding")
+        }
+        ManifestStoplight::Pass => "Pass on this opportunity".to_owned(),
+        ManifestStoplight::Review => "Operator review required".to_owned(),
+    }
+}
+
+fn sort_clarification_prompts(prompts: &mut [ClarificationPrompt]) {
+    prompts.sort_by(|left, right| {
+        left.candidate_id
+            .cmp(&right.candidate_id)
+            .then_with(|| left.reason_code.cmp(&right.reason_code))
+    });
+}
+
+fn canonical_clarification_prompts_json(prompts: &[ClarificationPrompt]) -> Result<String> {
+    let mut sorted = prompts.to_vec();
+    sort_clarification_prompts(&mut sorted);
+    serde_json::to_string(&sorted).context("serializing clarification prompts")
+}
+
+fn order_quantity_unit_from_breakdown(raw: Option<&str>) -> Option<String> {
+    let value = serde_json::from_str::<Value>(raw?).ok()?;
+    value
+        .get("order_quantity_basis")?
+        .get("unit")?
+        .as_str()
+        .map(str::to_owned)
+}
+
+fn clarification_prompts_for_candidate(
+    candidate: &ManifestCandidateDetail,
+) -> Vec<ClarificationPrompt> {
+    let quote_unit = candidate
+        .selected_quote
+        .price_basis_unit
+        .clone()
+        .or_else(|| {
+            order_quantity_unit_from_breakdown(candidate.confidence_breakdown_json.as_deref())
+        });
+    let mut prompts = Vec::new();
+    for reason in &candidate.reasons {
+        let prompt = match reason.as_str() {
+            REASON_QUANTITY_BASIS_UNDETERMINED => Some(ClarificationPrompt {
+                candidate_id: candidate.candidate_id.clone(),
+                candidate_name: candidate.candidate_name.clone(),
+                lot_id: candidate.lot_id.clone(),
+                reason_code: reason.clone(),
+                prompt_text: "Provide framework annual usage estimate".to_owned(),
+                prompt_unit: quote_unit.clone(),
+                prompt_type: "number".to_owned(),
+                default_value: Value::Null,
+                rationale: Some(
+                    "Revenue scope and quote cost scope are mismatched; provide quantity to scale supplier cost."
+                        .to_owned(),
+                ),
+                options: None,
+            }),
+            REASON_QUANTITY_BASIS_UNALIGNED => Some(ClarificationPrompt {
+                candidate_id: candidate.candidate_id.clone(),
+                candidate_name: candidate.candidate_name.clone(),
+                lot_id: candidate.lot_id.clone(),
+                reason_code: reason.clone(),
+                prompt_text: "Provide actual order quantity (Stage 11 inferred basis is misaligned)"
+                    .to_owned(),
+                prompt_unit: quote_unit.clone(),
+                prompt_type: "number".to_owned(),
+                default_value: Value::Null,
+                rationale: Some(
+                    "Stage 11 inferred a quantity basis that is not the buyer order quantity."
+                        .to_owned(),
+                ),
+                options: None,
+            }),
+            REASON_AWAITING_RFQ_QUOTE => Some(ClarificationPrompt {
+                candidate_id: candidate.candidate_id.clone(),
+                candidate_name: candidate.candidate_name.clone(),
+                lot_id: candidate.lot_id.clone(),
+                reason_code: reason.clone(),
+                prompt_text: "Provide RFQ quote: per-unit price (GBP), lead time (days), MOQ"
+                    .to_owned(),
+                prompt_unit: None,
+                prompt_type: "object".to_owned(),
+                default_value: Value::Null,
+                rationale: Some(
+                    "The revenue basis requires an RFQ before addressable revenue can be evaluated."
+                        .to_owned(),
+                ),
+                options: None,
+            }),
+            REASON_NO_PRICING_SIGNAL => Some(ClarificationPrompt {
+                candidate_id: candidate.candidate_id.clone(),
+                candidate_name: candidate.candidate_name.clone(),
+                lot_id: candidate.lot_id.clone(),
+                reason_code: reason.clone(),
+                prompt_text: "Manually price candidate or flag as un-pursueable".to_owned(),
+                prompt_unit: None,
+                prompt_type: "choice".to_owned(),
+                default_value: Value::Null,
+                rationale: Some(
+                    "Stage 9 produced no usable supplier quote; the operator must price, defer, or rule out the candidate."
+                        .to_owned(),
+                ),
+                options: Some(vec![
+                    "manual_price".to_owned(),
+                    "un_pursueable".to_owned(),
+                    "defer".to_owned(),
+                ]),
+            }),
+            reason if reason.starts_with("confidence_") => None,
+            _ => None,
+        };
+        if let Some(prompt) = prompt {
+            prompts.push(prompt);
+        }
+    }
+    prompts
+}
+
+fn manifest_artifact_path(artifact_root: &Path, process_id: &str) -> PathBuf {
+    artifact_root
+        .join("manifests")
+        .join(process_id)
+        .join("manifest.md")
+}
+
+fn should_skip_manifest_generation(
+    existing_manifest_basis_hash: Option<&str>,
+    manifest_basis_hash: &str,
+) -> bool {
+    existing_manifest_basis_hash == Some(manifest_basis_hash)
+}
+
+fn load_manifest_generation_process_ids(conn: &Connection) -> Result<Vec<String>> {
+    let mut statement = conn.prepare(
+        "\
+        SELECT process_id
+        FROM pipeline_assessments
+        ORDER BY process_id
+        ",
+    )?;
+    statement
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("loading Stage 13 process input set")
+}
+
+fn existing_manifest_basis_hash(conn: &Connection, process_id: &str) -> Result<Option<String>> {
+    conn.query_row(
+        "SELECT manifest_basis_hash FROM manifests WHERE process_id = ?1",
+        params![process_id],
+        |row| row.get(0),
+    )
+    .optional()
+    .context("loading existing manifest basis hash")
+}
+
+fn load_manifest_search_evidence(
+    conn: &Connection,
+    product_candidate_id: &str,
+) -> Result<Vec<ManifestSearchEvidence>> {
+    let mut statement = conn.prepare(
+        "\
+        SELECT id, source, query_text, result_count, search_failure_mode
+        FROM search_attempts
+        WHERE product_candidate_id = ?1
+        ORDER BY executed_at DESC, id DESC
+        LIMIT 5
+        ",
+    )?;
+    statement
+        .query_map(params![product_candidate_id], |row| {
+            Ok(ManifestSearchEvidence {
+                search_attempt_id: row.get(0)?,
+                source: row.get(1)?,
+                query_text: row.get(2)?,
+                result_count: row.get(3)?,
+                search_failure_mode: row.get(4)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("loading manifest search evidence")
+}
+
+#[allow(clippy::too_many_lines, clippy::type_complexity)]
+fn load_manifest_skill_bundle(conn: &Connection, process_id: &str) -> Result<ManifestSkillBundle> {
+    let (
+        process_title,
+        process_buyer_name,
+        process_deadline_at,
+        process_latest_published_at,
+        process_latest_updated_at,
+        notice_id,
+        notice_title,
+        notice_buyer_name,
+        notice_deadline_at,
+        contract_value_pence,
+        currency,
+        source_id,
+        source_notice_id,
+        published_at,
+        source_updated_at,
+        notice_url,
+        pipeline_state,
+        review_required,
+        review_reason,
+        stage12_decision_basis_hash,
+        priced_coverage_bps,
+        landed_cost_coverage_bps,
+        net_qualified_coverage_bps,
+        priced_value_coverage_bps,
+        landed_cost_value_coverage_bps,
+        net_qualified_value_coverage_bps,
+        unresolved_mandatory_lots,
+        gross_margin_bps,
+        net_margin_bps,
+    ): (
+        String,
+        Option<String>,
+        Option<String>,
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<i64>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        String,
+        i64,
+        Option<String>,
+        String,
+        Option<i64>,
+        Option<i64>,
+        Option<i64>,
+        Option<i64>,
+        Option<i64>,
+        Option<i64>,
+        i64,
+        Option<i64>,
+        Option<i64>,
+    ) = conn.query_row(
+        "\
+        SELECT
+          p.title,
+          p.buyer_name,
+          p.latest_deadline_at,
+          p.latest_published_at,
+          p.latest_updated_at,
+          cn.id,
+          cn.title,
+          cn.buyer_name,
+          cn.deadline_at,
+          COALESCE(cn.estimated_value_gbp_ex_vat_pence, cn.estimated_value_original_minor),
+          cn.estimated_value_currency,
+          cn.source_id,
+          cn.source_notice_id,
+          cn.published_at,
+          cn.source_updated_at,
+          rd.source_url,
+          pa.pipeline_state,
+          pa.review_required,
+          pa.review_reason,
+          pa.decision_basis_hash,
+          pa.priced_coverage_bps,
+          pa.landed_cost_coverage_bps,
+          pa.net_qualified_coverage_bps,
+          pa.priced_value_coverage_bps,
+          pa.landed_cost_value_coverage_bps,
+          pa.net_qualified_value_coverage_bps,
+          pa.unresolved_mandatory_lots,
+          pa.gross_margin_bps,
+          pa.net_margin_bps
+        FROM pipeline_assessments pa
+        JOIN procurement_processes p
+          ON p.id = pa.process_id
+        LEFT JOIN contract_notices cn
+          ON cn.id = p.primary_notice_id
+        LEFT JOIN raw_documents rd
+          ON rd.id = cn.raw_document_id
+        WHERE pa.process_id = ?1
+        ",
+        params![process_id],
+        |row| {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+                row.get(7)?,
+                row.get(8)?,
+                row.get(9)?,
+                row.get(10)?,
+                row.get(11)?,
+                row.get(12)?,
+                row.get(13)?,
+                row.get(14)?,
+                row.get(15)?,
+                row.get(16)?,
+                row.get(17)?,
+                row.get(18)?,
+                row.get(19)?,
+                row.get(20)?,
+                row.get(21)?,
+                row.get(22)?,
+                row.get(23)?,
+                row.get(24)?,
+                row.get(25)?,
+                row.get(26)?,
+                row.get(27)?,
+                row.get(28)?,
+            ))
+        },
+    )?;
+
+    let stage12_decision_basis_hash = if stage12_decision_basis_hash.trim().is_empty() {
+        bail!("pipeline_assessments.decision_basis_hash is empty for {process_id}");
+    } else {
+        stage12_decision_basis_hash
+    };
+    let manifest_basis = manifest_basis_hash(process_id, &stage12_decision_basis_hash);
+
+    let mut statement = conn.prepare(
+        "\
+        SELECT
+          cnma.product_candidate_id,
+          pc.candidate_key,
+          pc.name,
+          pc.candidate_type,
+          cnma.lot_id,
+          nl.title,
+          cnma.verdict,
+          cnma.reasons_json,
+          cnma.re_evaluation_eligible,
+          cnma.net_margin_low_bps,
+          cnma.net_margin_base_bps,
+          cnma.net_margin_high_bps,
+          cnma.revenue_used_pence,
+          cnma.revenue_basis_type,
+          cnma.economic_landed_cost_used_pence,
+          cnma.revenue_confidence_bps,
+          cnma.pricing_input_confidence_bps,
+          cnma.customs_resolution_confidence_bps,
+          cnma.commercial_estimate_confidence_bps,
+          cnma.pricing_assessment_id,
+          cpa.selected_quote_id,
+          sq.source_name,
+          sq.region,
+          sq.unit_price_gbp_pence,
+          sq.price_basis_qty,
+          sq.price_basis_unit,
+          sq.source_url,
+          sq.unit_price_original_minor,
+          sq.currency,
+          lce.id,
+          lce.shipping_mode,
+          lce.supplier_cost_gbp_pence,
+          lce.freight_base_gbp_pence,
+          lce.customs_duty_gbp_pence,
+          lce.import_vat_gbp_pence,
+          lce.economic_landed_cost_gbp_pence,
+          lce.declarable_commodity_code_10,
+          lce.exporter_rate_basis,
+          lce.confidence_breakdown
+        FROM candidate_net_margin_assessments cnma
+        JOIN product_candidates pc
+          ON pc.id = cnma.product_candidate_id
+        LEFT JOIN notice_lots nl
+          ON nl.id = cnma.lot_id
+        LEFT JOIN candidate_pricing_assessments cpa
+          ON cpa.id = cnma.pricing_assessment_id
+        LEFT JOIN supplier_quotes sq
+          ON sq.id = cpa.selected_quote_id
+        LEFT JOIN landed_cost_estimates lce
+          ON lce.id = cnma.landed_cost_estimate_id
+        WHERE cnma.process_id = ?1
+        ORDER BY cnma.product_candidate_id
+        ",
+    )?;
+    let rows = statement.query_map(params![process_id], |row| {
+        let verdict_raw: String = row.get(6)?;
+        let reasons_json: String = row.get(7)?;
+        let reasons = parse_reason_json(&reasons_json)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(error.into()))?;
+        Ok(ManifestCandidateDetail {
+            candidate_id: row.get(0)?,
+            candidate_key: row.get(1)?,
+            candidate_name: row.get(2)?,
+            candidate_type: row.get(3)?,
+            lot_id: row.get(4)?,
+            lot_title: row.get(5)?,
+            verdict: verdict_raw,
+            reasons,
+            re_evaluation_eligible: row.get(8)?,
+            margin_band: Some(ManifestMarginBand {
+                low_bps: row.get(9)?,
+                base_bps: row.get(10)?,
+                high_bps: row.get(11)?,
+            }),
+            revenue_used_pence: row.get(12)?,
+            revenue_basis_type: row.get(13)?,
+            economic_landed_cost_pence: row.get(14)?,
+            confidence: ManifestConfidence {
+                revenue_bps: row.get(15)?,
+                pricing_input_bps: row.get(16)?,
+                customs_resolution_bps: row.get(17)?,
+                commercial_estimate_bps: row.get(18)?,
+            },
+            pricing_assessment_id: row.get(19)?,
+            selected_quote: ManifestSelectedQuote {
+                supplier_quote_id: row.get(20)?,
+                source_name: row.get(21)?,
+                region: row.get(22)?,
+                unit_price_gbp_pence: row.get(23)?,
+                price_basis_qty: row.get(24)?,
+                price_basis_unit: row.get(25)?,
+                source_url: row.get(26)?,
+                raw_price_original_minor: row.get(27)?,
+                currency: row.get(28)?,
+            },
+            landed_cost: ManifestLandedCost {
+                landed_cost_estimate_id: row.get(29)?,
+                shipping_mode: row.get(30)?,
+                supplier_cost_gbp_pence: row.get(31)?,
+                freight_base_gbp_pence: row.get(32)?,
+                customs_duty_gbp_pence: row.get(33)?,
+                import_vat_gbp_pence: row.get(34)?,
+                economic_landed_cost_gbp_pence: row.get(35)?,
+                declarable_commodity_code_10: row.get(36)?,
+                exporter_rate_basis: row.get(37)?,
+            },
+            search_attempts: Vec::new(),
+            confidence_breakdown_json: row.get(38)?,
+        })
+    })?;
+    let mut candidates = rows
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("loading manifest candidates")?;
+    for candidate in &mut candidates {
+        candidate.search_attempts = load_manifest_search_evidence(conn, &candidate.candidate_id)?;
+    }
+
+    let mut verdict_counts = BTreeMap::new();
+    let mut policy_candidates = Vec::new();
+    let mut re_evaluation_candidate_count = 0_usize;
+    let mut priced_candidate_count = 0_usize;
+    for candidate in &candidates {
+        *verdict_counts
+            .entry(candidate.verdict.clone())
+            .or_insert(0_i64) += 1;
+        let verdict = NetMarginVerdict::from_str(&candidate.verdict)?;
+        let re_evaluation_eligible = candidate.re_evaluation_eligible != 0;
+        if re_evaluation_eligible {
+            re_evaluation_candidate_count += 1;
+        }
+        if candidate.pricing_assessment_id.is_some() {
+            priced_candidate_count += 1;
+        }
+        policy_candidates.push(ManifestCandidatePolicyInput {
+            verdict,
+            re_evaluation_eligible,
+        });
+    }
+
+    let stoplight =
+        derive_manifest_stoplight(&policy_candidates, priced_coverage_bps.unwrap_or_default());
+    let suggested_action = suggested_action_label(stoplight, re_evaluation_candidate_count);
+    let mut clarification_prompts = candidates
+        .iter()
+        .filter(|candidate| candidate.re_evaluation_eligible != 0)
+        .flat_map(clarification_prompts_for_candidate)
+        .collect::<Vec<_>>();
+    sort_clarification_prompts(&mut clarification_prompts);
+
+    let candidate_count = candidates.len();
+    let clarification_prompt_count = clarification_prompts.len();
+    Ok(ManifestSkillBundle {
+        stage: MANIFEST_STAGE_NAME,
+        process_id: process_id.to_owned(),
+        manifest_template_version: MANIFEST_TEMPLATE_VERSION,
+        manifest_basis_hash: manifest_basis,
+        stoplight,
+        suggested_action,
+        header: ManifestHeader {
+            notice_id,
+            title: notice_title.unwrap_or(process_title),
+            buyer_name: notice_buyer_name.or(process_buyer_name),
+            deadline_at: notice_deadline_at.or(process_deadline_at),
+            contract_value_pence,
+            currency,
+            source_id,
+            source_notice_id,
+            notice_url,
+            published_at,
+            source_updated_at,
+            process_latest_published_at,
+            process_latest_updated_at,
+        },
+        decision_summary: ManifestDecisionSummary {
+            pipeline_state,
+            review_required,
+            review_reason,
+            stage12_decision_basis_hash,
+            verdict_counts,
+        },
+        candidates,
+        coverage: ManifestCoverage {
+            priced_coverage_bps,
+            landed_cost_coverage_bps,
+            net_qualified_coverage_bps,
+            priced_value_coverage_bps,
+            landed_cost_value_coverage_bps,
+            net_qualified_value_coverage_bps,
+            unresolved_mandatory_lots,
+            gross_margin_bps,
+            net_margin_bps,
+        },
+        clarification_prompts,
+        candidate_count,
+        priced_candidate_count,
+        clarification_prompt_count,
+    })
+}
+
+fn markdown_cell(value: Option<&str>) -> String {
+    value.filter(|raw| !raw.trim().is_empty()).map_or_else(
+        || "n/a".to_owned(),
+        |raw| raw.replace('\n', " ").replace('|', "\\|"),
+    )
+}
+
+fn manifest_money_pence(value: Option<i64>, currency: Option<&str>) -> String {
+    value.map_or_else(
+        || "n/a".to_owned(),
+        |pence| {
+            let pounds = pence / 100;
+            let remainder = pence.abs() % 100;
+            format!("{} {}.{:02}", currency.unwrap_or("GBP"), pounds, remainder)
+        },
+    )
+}
+
+fn manifest_option_i64(value: Option<i64>) -> String {
+    value.map_or_else(|| "n/a".to_owned(), |actual| actual.to_string())
+}
+
+fn manifest_option_f64(value: Option<f64>) -> String {
+    value.map_or_else(|| "n/a".to_owned(), |actual| format!("{actual:.4}"))
+}
+
+fn render_manifest_frontmatter(
+    bundle: &ManifestSkillBundle,
+    renderer_mode: &str,
+) -> Result<String> {
+    let frontmatter = json!({
+        "manifest_version": bundle.manifest_template_version,
+        "process_id": bundle.process_id,
+        "basis_hash": bundle.manifest_basis_hash,
+        "stoplight": bundle.stoplight.as_str(),
+        "suggested_action": bundle.suggested_action,
+        "renderer_mode": renderer_mode,
+        "clarification_prompts": bundle.clarification_prompts,
+    });
+    serde_yaml::to_string(&frontmatter).context("serializing manifest frontmatter")
+}
+
+fn render_manifest_reasoning(bundle: &ManifestSkillBundle) -> String {
+    let anchor = bundle
+        .clarification_prompts
+        .first()
+        .map(|prompt| {
+            format!(
+                "{} is blocked by {}",
+                prompt.candidate_name, prompt.reason_code
+            )
+        })
+        .or_else(|| {
+            bundle.candidates.first().and_then(|candidate| {
+                candidate
+                    .reasons
+                    .first()
+                    .map(|reason| format!("{} carries {}", candidate.candidate_name, reason))
+            })
+        })
+        .unwrap_or_else(|| format!("{} has no Stage 12 candidates", bundle.process_id));
+
+    match bundle.stoplight {
+        ManifestStoplight::Pursue => format!(
+            "{anchor}, while Stage 12 still shows enough priced coverage for the daemon to recommend pursuit. The suggested action follows the pursue stoplight and should be checked against the listed evidence before bid work starts."
+        ),
+        ManifestStoplight::Clarify => format!(
+            "{anchor}, and Stage 13 generated {} structured clarification prompt(s). The daemon therefore recommends `{}` before the operator makes the final pursue/pass decision.",
+            bundle.clarification_prompt_count, bundle.suggested_action
+        ),
+        ManifestStoplight::Pass => format!(
+            "{anchor}, and the deterministic stoplight rules found no actionable clarification path. The suggested action is to pass unless upstream pricing or Stage 12 evidence changes."
+        ),
+        ManifestStoplight::Review => format!(
+            "{anchor}, but the deterministic stoplight rules did not classify the process as pursue, clarify, or pass. The suggested action is operator review against the candidate evidence and coverage metrics."
+        ),
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn render_manifest_markdown(
+    bundle: &ManifestSkillBundle,
+    suggested_action_reasoning: &str,
+    renderer_mode: &str,
+) -> Result<String> {
+    let mut markdown = String::new();
+    write!(
+        markdown,
+        "---\n{}---\n# Opportunity Manifest: {}\n\n",
+        render_manifest_frontmatter(bundle, renderer_mode)?,
+        markdown_cell(Some(&bundle.header.title)),
+    )?;
+
+    writeln!(markdown, "## Header")?;
+    writeln!(markdown, "| Field | Value |")?;
+    writeln!(markdown, "| --- | --- |")?;
+    writeln!(
+        markdown,
+        "| process_id | {} |",
+        markdown_cell(Some(&bundle.process_id))
+    )?;
+    writeln!(
+        markdown,
+        "| notice_id | {} |",
+        markdown_cell(bundle.header.notice_id.as_deref())
+    )?;
+    writeln!(
+        markdown,
+        "| notice_title | {} |",
+        markdown_cell(Some(&bundle.header.title))
+    )?;
+    writeln!(
+        markdown,
+        "| buyer_name | {} |",
+        markdown_cell(bundle.header.buyer_name.as_deref())
+    )?;
+    writeln!(
+        markdown,
+        "| deadline_at | {} |",
+        markdown_cell(bundle.header.deadline_at.as_deref())
+    )?;
+    writeln!(
+        markdown,
+        "| contract_value | {} |",
+        manifest_money_pence(
+            bundle.header.contract_value_pence,
+            bundle.header.currency.as_deref(),
+        )
+    )?;
+    writeln!(
+        markdown,
+        "| source | {} |",
+        markdown_cell(bundle.header.source_id.as_deref())
+    )?;
+    writeln!(
+        markdown,
+        "| source_notice_id | {} |",
+        markdown_cell(bundle.header.source_notice_id.as_deref())
+    )?;
+    writeln!(
+        markdown,
+        "| notice_url | {} |",
+        markdown_cell(bundle.header.notice_url.as_deref())
+    )?;
+    writeln!(
+        markdown,
+        "| published_at | {} |",
+        markdown_cell(bundle.header.published_at.as_deref())
+    )?;
+    writeln!(
+        markdown,
+        "| source_updated_at | {} |",
+        markdown_cell(bundle.header.source_updated_at.as_deref())
+    )?;
+    writeln!(
+        markdown,
+        "| process_latest_published_at | {} |",
+        markdown_cell(Some(&bundle.header.process_latest_published_at))
+    )?;
+    writeln!(
+        markdown,
+        "| process_latest_updated_at | {} |\n",
+        markdown_cell(Some(&bundle.header.process_latest_updated_at))
+    )?;
+
+    writeln!(markdown, "## Decision Summary")?;
+    writeln!(
+        markdown,
+        "- Pipeline state: `{}`",
+        bundle.decision_summary.pipeline_state
+    )?;
+    writeln!(
+        markdown,
+        "- Review required: `{}`",
+        bundle.decision_summary.review_required
+    )?;
+    writeln!(
+        markdown,
+        "- Review reason: `{}`",
+        markdown_cell(bundle.decision_summary.review_reason.as_deref())
+    )?;
+    writeln!(
+        markdown,
+        "- Verdict counts: `{}`",
+        serde_json::to_string(&bundle.decision_summary.verdict_counts)?
+    )?;
+    writeln!(
+        markdown,
+        "- Stage 12 decision_basis_hash: `{}`",
+        bundle.decision_summary.stage12_decision_basis_hash
+    )?;
+    writeln!(
+        markdown,
+        "- Stage 13 manifest_basis_hash: `{}`",
+        bundle.manifest_basis_hash
+    )?;
+    writeln!(markdown, "- Stoplight: `{}`", bundle.stoplight.as_str())?;
+    writeln!(
+        markdown,
+        "- Suggested action: `{}`",
+        bundle.suggested_action
+    )?;
+    writeln!(
+        markdown,
+        "- Suggested action reasoning: {suggested_action_reasoning}"
+    )?;
+    if bundle.priced_candidate_count == 0 {
+        writeln!(
+            markdown,
+            "- No priced candidates yet - operator manual evaluation required."
+        )?;
+    }
+    writeln!(markdown)?;
+
+    writeln!(markdown, "## Per-Candidate Detail")?;
+    for candidate in &bundle.candidates {
+        writeln!(
+            markdown,
+            "### {}",
+            markdown_cell(Some(&candidate.candidate_name))
+        )?;
+        writeln!(markdown, "- Candidate ID: `{}`", candidate.candidate_id)?;
+        writeln!(
+            markdown,
+            "- Candidate key: `{}`",
+            markdown_cell(candidate.candidate_key.as_deref())
+        )?;
+        writeln!(markdown, "- Candidate type: `{}`", candidate.candidate_type)?;
+        writeln!(
+            markdown,
+            "- Lot: `{}` / `{}`",
+            markdown_cell(candidate.lot_id.as_deref()),
+            markdown_cell(candidate.lot_title.as_deref())
+        )?;
+        writeln!(markdown, "- Verdict: `{}`", candidate.verdict)?;
+        writeln!(markdown, "- Reasons: `{}`", candidate.reasons.join(", "))?;
+        writeln!(
+            markdown,
+            "- Re-evaluation eligible: `{}`",
+            candidate.re_evaluation_eligible
+        )?;
+        if let Some(margin) = candidate.margin_band.as_ref() {
+            writeln!(
+                markdown,
+                "- Margin band bps: low=`{}`, base=`{}`, high=`{}`",
+                manifest_option_i64(margin.low_bps),
+                manifest_option_i64(margin.base_bps),
+                manifest_option_i64(margin.high_bps)
+            )?;
+        }
+        writeln!(
+            markdown,
+            "- Revenue used pence: `{}`",
+            manifest_option_i64(candidate.revenue_used_pence)
+        )?;
+        writeln!(
+            markdown,
+            "- Revenue basis type: `{}`",
+            markdown_cell(candidate.revenue_basis_type.as_deref())
+        )?;
+        writeln!(
+            markdown,
+            "- Economic landed cost pence: `{}`",
+            manifest_option_i64(candidate.economic_landed_cost_pence)
+        )?;
+        writeln!(
+            markdown,
+            "- Confidence bps: revenue=`{}`, pricing_input=`{}`, customs_resolution=`{}`, commercial_estimate=`{}`",
+            manifest_option_i64(candidate.confidence.revenue_bps),
+            manifest_option_i64(candidate.confidence.pricing_input_bps),
+            manifest_option_i64(candidate.confidence.customs_resolution_bps),
+            manifest_option_i64(candidate.confidence.commercial_estimate_bps),
+        )?;
+        writeln!(
+            markdown,
+            "- Selected quote: id=`{}`, source=`{}`, region=`{}`, unit_price_gbp_pence=`{}`, price_basis_qty=`{}`, price_basis_unit=`{}`, source_url=`{}`",
+            markdown_cell(candidate.selected_quote.supplier_quote_id.as_deref()),
+            markdown_cell(candidate.selected_quote.source_name.as_deref()),
+            markdown_cell(candidate.selected_quote.region.as_deref()),
+            manifest_option_i64(candidate.selected_quote.unit_price_gbp_pence),
+            manifest_option_f64(candidate.selected_quote.price_basis_qty),
+            markdown_cell(candidate.selected_quote.price_basis_unit.as_deref()),
+            markdown_cell(candidate.selected_quote.source_url.as_deref()),
+        )?;
+        writeln!(
+            markdown,
+            "- Landed cost: id=`{}`, shipping_mode=`{}`, supplier_cost_gbp_pence=`{}`, freight_base_gbp_pence=`{}`, customs_duty_gbp_pence=`{}`, import_vat_gbp_pence=`{}`, economic_landed_cost_gbp_pence=`{}`, commodity_code_10=`{}`, exporter_rate_basis=`{}`",
+            markdown_cell(candidate.landed_cost.landed_cost_estimate_id.as_deref()),
+            markdown_cell(candidate.landed_cost.shipping_mode.as_deref()),
+            manifest_option_i64(candidate.landed_cost.supplier_cost_gbp_pence),
+            manifest_option_i64(candidate.landed_cost.freight_base_gbp_pence),
+            manifest_option_i64(candidate.landed_cost.customs_duty_gbp_pence),
+            manifest_option_i64(candidate.landed_cost.import_vat_gbp_pence),
+            manifest_option_i64(candidate.landed_cost.economic_landed_cost_gbp_pence),
+            markdown_cell(
+                candidate
+                    .landed_cost
+                    .declarable_commodity_code_10
+                    .as_deref()
+            ),
+            markdown_cell(candidate.landed_cost.exporter_rate_basis.as_deref()),
+        )?;
+        writeln!(markdown)?;
+    }
+
+    writeln!(markdown, "## Operator Input Requests")?;
+    if bundle.clarification_prompts.is_empty() {
+        writeln!(
+            markdown,
+            "No direct operator clarification prompt was generated."
+        )?;
+    } else {
+        for prompt in &bundle.clarification_prompts {
+            writeln!(
+                markdown,
+                "- `{}` / `{}`: {} (type `{}`, unit `{}`). Rationale: {}",
+                prompt.candidate_id,
+                prompt.reason_code,
+                prompt.prompt_text,
+                prompt.prompt_type,
+                markdown_cell(prompt.prompt_unit.as_deref()),
+                markdown_cell(prompt.rationale.as_deref()),
+            )?;
+        }
+    }
+    writeln!(markdown)?;
+
+    writeln!(markdown, "## Evidence Trail")?;
+    writeln!(
+        markdown,
+        "- Source notice URL: `{}`",
+        markdown_cell(bundle.header.notice_url.as_deref())
+    )?;
+    for candidate in &bundle.candidates {
+        writeln!(
+            markdown,
+            "- Candidate `{}` evidence: pricing_assessment_id=`{}`, selected_quote_id=`{}`, landed_cost_estimate_id=`{}`",
+            candidate.candidate_id,
+            markdown_cell(candidate.pricing_assessment_id.as_deref()),
+            markdown_cell(candidate.selected_quote.supplier_quote_id.as_deref()),
+            markdown_cell(candidate.landed_cost.landed_cost_estimate_id.as_deref()),
+        )?;
+        if candidate.search_attempts.is_empty() {
+            writeln!(markdown, "  - Search attempts: n/a")?;
+        } else {
+            for attempt in &candidate.search_attempts {
+                writeln!(
+                    markdown,
+                    "  - Search attempt `{}`: source=`{}`, query=`{}`, result_count=`{}`, failure_mode=`{}`",
+                    attempt.search_attempt_id,
+                    markdown_cell(Some(&attempt.source)),
+                    markdown_cell(Some(&attempt.query_text)),
+                    attempt.result_count,
+                    markdown_cell(attempt.search_failure_mode.as_deref()),
+                )?;
+            }
+        }
+    }
+    writeln!(markdown)?;
+
+    writeln!(markdown, "## Coverage Metrics")?;
+    writeln!(markdown, "- Candidate count: `{}`", bundle.candidate_count)?;
+    writeln!(
+        markdown,
+        "- Priced candidate count: `{}`",
+        bundle.priced_candidate_count
+    )?;
+    writeln!(
+        markdown,
+        "- Clarification prompt count: `{}`",
+        bundle.clarification_prompt_count
+    )?;
+    writeln!(
+        markdown,
+        "- priced_coverage_bps: `{}`",
+        manifest_option_i64(bundle.coverage.priced_coverage_bps)
+    )?;
+    writeln!(
+        markdown,
+        "- landed_cost_coverage_bps: `{}`",
+        manifest_option_i64(bundle.coverage.landed_cost_coverage_bps)
+    )?;
+    writeln!(
+        markdown,
+        "- net_qualified_coverage_bps: `{}`",
+        manifest_option_i64(bundle.coverage.net_qualified_coverage_bps)
+    )?;
+    writeln!(
+        markdown,
+        "- priced_value_coverage_bps: `{}`",
+        manifest_option_i64(bundle.coverage.priced_value_coverage_bps)
+    )?;
+    writeln!(
+        markdown,
+        "- landed_cost_value_coverage_bps: `{}`",
+        manifest_option_i64(bundle.coverage.landed_cost_value_coverage_bps)
+    )?;
+    writeln!(
+        markdown,
+        "- net_qualified_value_coverage_bps: `{}`",
+        manifest_option_i64(bundle.coverage.net_qualified_value_coverage_bps)
+    )?;
+    writeln!(
+        markdown,
+        "- unresolved_mandatory_lots: `{}`",
+        bundle.coverage.unresolved_mandatory_lots
+    )?;
+    writeln!(
+        markdown,
+        "- gross_margin_bps: `{}`",
+        manifest_option_i64(bundle.coverage.gross_margin_bps)
+    )?;
+    writeln!(
+        markdown,
+        "- net_margin_bps: `{}`",
+        manifest_option_i64(bundle.coverage.net_margin_bps)
+    )?;
+
+    Ok(markdown)
+}
+
+fn render_manifest_skill_output_from_bundle(
+    bundle: &ManifestSkillBundle,
+    renderer_mode: &str,
+) -> Result<ManifestSkillOutput> {
+    let suggested_action_reasoning = render_manifest_reasoning(bundle);
+    let manifest_markdown =
+        render_manifest_markdown(bundle, &suggested_action_reasoning, renderer_mode)?;
+    Ok(ManifestSkillOutput {
+        process_id: bundle.process_id.clone(),
+        decision_basis_hash: bundle.manifest_basis_hash.clone(),
+        manifest_markdown,
+        stoplight: bundle.stoplight,
+        suggested_action: bundle.suggested_action.clone(),
+        suggested_action_reasoning,
+        clarification_prompts: bundle.clarification_prompts.clone(),
+        candidate_count: bundle.candidate_count,
+        priced_candidate_count: bundle.priced_candidate_count,
+        clarification_prompt_count: bundle.clarification_prompt_count,
+    })
+}
+
+fn manifest_contract_error(reason: &str, detail: impl std::fmt::Display) -> anyhow::Error {
+    anyhow!("AGENT_OUTPUT_CONTRACT_INVALID: {reason}: {detail}")
+}
+
+fn manifest_suspect_error(reason: &str, detail: impl std::fmt::Display) -> anyhow::Error {
+    anyhow!("AGENT_SUSPECT_OUTPUT: {reason}: {detail}")
+}
+
+fn extract_manifest_frontmatter(markdown: &str) -> Result<serde_yaml::Value> {
+    let trimmed = markdown.trim_start();
+    let after_open = trimmed
+        .strip_prefix("---\n")
+        .ok_or_else(|| anyhow!("manifest markdown does not start with `---\\n` frontmatter"))?;
+    let close_index = after_open
+        .find("\n---\n")
+        .ok_or_else(|| anyhow!("manifest markdown frontmatter is not closed with `\\n---\\n`"))?;
+    let yaml_text = &after_open[..close_index];
+    serde_yaml::from_str(yaml_text)
+        .with_context(|| format!("parsing manifest frontmatter:\n{yaml_text}"))
+}
+
+fn raw_manifest_frontmatter(markdown: &str) -> Result<&str> {
+    let trimmed = markdown.trim_start();
+    let after_open = trimmed
+        .strip_prefix("---\n")
+        .ok_or_else(|| anyhow!("manifest markdown does not start with `---\\n` frontmatter"))?;
+    let close_index = after_open
+        .find("\n---\n")
+        .ok_or_else(|| anyhow!("manifest markdown frontmatter is not closed with `\\n---\\n`"))?;
+    Ok(&after_open[..close_index])
+}
+
+fn manifest_markdown_body_after_frontmatter(markdown: &str) -> Result<&str> {
+    let trimmed = markdown.trim_start();
+    let after_open = trimmed
+        .strip_prefix("---\n")
+        .ok_or_else(|| anyhow!("manifest markdown does not start with `---\\n` frontmatter"))?;
+    let close_index = after_open
+        .find("\n---\n")
+        .ok_or_else(|| anyhow!("manifest markdown frontmatter is not closed with `\\n---\\n`"))?;
+    Ok(&after_open[close_index + "\n---\n".len()..])
+}
+
+fn scan_manifest_renderer_mode(markdown: &str) -> Result<String> {
+    raw_manifest_frontmatter(markdown)?
+        .lines()
+        .find_map(|line| {
+            line.trim()
+                .strip_prefix("renderer_mode:")
+                .map(str::trim)
+                .map(|value| value.trim_matches('"').trim_matches('\'').to_owned())
+        })
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| anyhow!("manifest frontmatter missing renderer_mode"))
+}
+
+fn normalize_manifest_frontmatter(
+    bundle: &ManifestSkillBundle,
+    markdown: &str,
+    renderer_mode: &str,
+) -> Result<String> {
+    let body = manifest_markdown_body_after_frontmatter(markdown)?;
+    Ok(format!(
+        "---\n{}---\n{}",
+        render_manifest_frontmatter(bundle, renderer_mode)?,
+        body
+    ))
+}
+
+fn manifest_frontmatter_json(markdown: &str) -> Result<Value> {
+    let frontmatter = extract_manifest_frontmatter(markdown)?;
+    serde_json::to_value(frontmatter).context("converting manifest frontmatter to JSON")
+}
+
+fn manifest_frontmatter_renderer_mode(markdown: &str) -> Result<String> {
+    manifest_frontmatter_json(markdown)?
+        .get("renderer_mode")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_owned)
+        .ok_or_else(|| anyhow!("manifest frontmatter missing renderer_mode"))
+}
+
+fn validate_manifest_expected_renderer_mode(markdown: &str, expected: &str) -> Result<()> {
+    let actual = manifest_frontmatter_renderer_mode(markdown)
+        .map_err(|error| manifest_contract_error("renderer_mode_invalid", error))?;
+    ensure!(
+        actual == expected,
+        "{}",
+        manifest_contract_error(
+            "renderer_mode_invalid",
+            format!("expected `{expected}`, got `{actual}`")
+        )
+    );
+    Ok(())
+}
+
+fn manifest_reasoning_is_anchored(bundle: &ManifestSkillBundle, reasoning: &str) -> bool {
+    let reasoning_lower = reasoning.to_ascii_lowercase();
+    bundle.candidates.iter().any(|candidate| {
+        reasoning_lower.contains(&candidate.candidate_name.to_ascii_lowercase())
+            || candidate
+                .reasons
+                .iter()
+                .any(|reason| reasoning_lower.contains(&reason.to_ascii_lowercase()))
+    })
+}
+
+fn manifest_required_reasoning_anchor(bundle: &ManifestSkillBundle) -> String {
+    bundle
+        .clarification_prompts
+        .first()
+        .map(|prompt| prompt.reason_code.clone())
+        .or_else(|| {
+            bundle
+                .candidates
+                .iter()
+                .find_map(|candidate| candidate.reasons.first().cloned())
+        })
+        .or_else(|| {
+            bundle
+                .candidates
+                .first()
+                .map(|candidate| candidate.candidate_name.clone())
+        })
+        .unwrap_or_else(|| bundle.process_id.clone())
+}
+
+#[allow(clippy::too_many_lines)]
+fn validate_manifest_skill_output(
+    schema: &Value,
+    bundle: &ManifestSkillBundle,
+    payload: &Value,
+) -> Result<ManifestSkillOutput> {
+    validate_result_schema(schema, payload)
+        .map_err(|error| manifest_contract_error("schema_validation_failed", error))?;
+    let mut output = serde_json::from_value::<ManifestSkillOutput>(payload.clone())
+        .map_err(|error| manifest_contract_error("typed_deserialization_failed", error))?;
+
+    ensure!(
+        output.process_id == bundle.process_id,
+        "{}",
+        manifest_contract_error("process_id_drifted_from_bundle", &output.process_id)
+    );
+    ensure!(
+        output.decision_basis_hash == bundle.manifest_basis_hash,
+        "{}",
+        manifest_contract_error(
+            "decision_basis_hash_drifted_from_bundle",
+            &output.decision_basis_hash
+        )
+    );
+    ensure!(
+        output.stoplight == bundle.stoplight,
+        "{}",
+        manifest_contract_error("stoplight_drifted_from_bundle", output.stoplight.as_str())
+    );
+    ensure!(
+        output.suggested_action == bundle.suggested_action,
+        "{}",
+        manifest_contract_error(
+            "suggested_action_drifted_from_bundle",
+            &output.suggested_action
+        )
+    );
+    ensure!(
+        output.candidate_count == bundle.candidate_count,
+        "{}",
+        manifest_contract_error(
+            "candidate_count_drifted_from_bundle",
+            output.candidate_count
+        )
+    );
+    ensure!(
+        output.priced_candidate_count == bundle.priced_candidate_count,
+        "{}",
+        manifest_contract_error(
+            "priced_candidate_count_drifted_from_bundle",
+            output.priced_candidate_count
+        )
+    );
+    ensure!(
+        output.clarification_prompt_count == bundle.clarification_prompt_count,
+        "{}",
+        manifest_contract_error(
+            "clarification_prompt_count_drifted_from_bundle",
+            output.clarification_prompt_count
+        )
+    );
+
+    let bundle_prompts_json = canonical_clarification_prompts_json(&bundle.clarification_prompts)?;
+    let output_prompts_json = canonical_clarification_prompts_json(&output.clarification_prompts)?;
+    ensure!(
+        output_prompts_json == bundle_prompts_json,
+        "{}",
+        manifest_contract_error("clarification_prompts_drifted", output_prompts_json)
+    );
+
+    let reasoning = output.suggested_action_reasoning.trim();
+    ensure!(
+        !reasoning.is_empty() && reasoning.len() <= 2_000,
+        "{}",
+        manifest_contract_error("suggested_action_reasoning_length_invalid", reasoning.len())
+    );
+    ensure!(
+        manifest_reasoning_is_anchored(bundle, reasoning),
+        "{}",
+        manifest_suspect_error("suggested_action_reasoning_not_anchored", reasoning)
+    );
+
+    let frontmatter_json = match manifest_frontmatter_json(&output.manifest_markdown) {
+        Ok(frontmatter_json) => frontmatter_json,
+        Err(parse_error) => {
+            let renderer_mode =
+                scan_manifest_renderer_mode(&output.manifest_markdown).map_err(|error| {
+                    manifest_contract_error("frontmatter_drifted_from_bundle", error)
+                })?;
+            ensure!(
+                matches!(
+                    renderer_mode.as_str(),
+                    STAGE13_RENDERER_MODE_SKILL
+                        | STAGE13_RENDERER_MODE_DAEMON
+                        | STAGE13_RENDERER_MODE_AUTO_FALLBACK
+                ),
+                "{}",
+                manifest_contract_error(
+                    "frontmatter_drifted_from_bundle",
+                    "renderer_mode missing or unsupported"
+                )
+            );
+            output.manifest_markdown =
+                normalize_manifest_frontmatter(bundle, &output.manifest_markdown, &renderer_mode)
+                    .map_err(|error| {
+                    manifest_contract_error("frontmatter_drifted_from_bundle", error)
+                })?;
+            manifest_frontmatter_json(&output.manifest_markdown).map_err(|error| {
+                manifest_contract_error(
+                    "frontmatter_drifted_from_bundle",
+                    format!("{parse_error}; after normalization: {error}"),
+                )
+            })?
+        }
+    };
+    ensure!(
+        frontmatter_json.get("process_id").and_then(Value::as_str)
+            == Some(bundle.process_id.as_str())
+            && frontmatter_json.get("basis_hash").and_then(Value::as_str)
+                == Some(bundle.manifest_basis_hash.as_str())
+            && frontmatter_json.get("stoplight").and_then(Value::as_str)
+                == Some(bundle.stoplight.as_str())
+            && frontmatter_json
+                .get("suggested_action")
+                .and_then(Value::as_str)
+                == Some(bundle.suggested_action.as_str()),
+        "{}",
+        manifest_contract_error("frontmatter_drifted_from_bundle", "scalar field mismatch")
+    );
+    let parsed_renderer_mode = frontmatter_json
+        .get("renderer_mode")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    ensure!(
+        matches!(
+            parsed_renderer_mode,
+            STAGE13_RENDERER_MODE_SKILL
+                | STAGE13_RENDERER_MODE_DAEMON
+                | STAGE13_RENDERER_MODE_AUTO_FALLBACK
+        ),
+        "{}",
+        manifest_contract_error(
+            "frontmatter_drifted_from_bundle",
+            "renderer_mode missing or unsupported"
+        )
+    );
+    let frontmatter_prompts = serde_json::from_value::<Vec<ClarificationPrompt>>(
+        frontmatter_json
+            .get("clarification_prompts")
+            .cloned()
+            .unwrap_or_else(|| Value::Array(Vec::new())),
+    )
+    .map_err(|error| manifest_contract_error("frontmatter_drifted_from_bundle", error))?;
+    let frontmatter_prompts_json = canonical_clarification_prompts_json(&frontmatter_prompts)?;
+    ensure!(
+        frontmatter_prompts_json == bundle_prompts_json,
+        "{}",
+        manifest_contract_error(
+            "frontmatter_drifted_from_bundle",
+            "clarification prompts mismatch"
+        )
+    );
+
+    Ok(output)
+}
+
+fn persist_manifest_generation_output(
+    state_db: &mut StateDb,
+    artifact_root: &Path,
+    bundle: &ManifestSkillBundle,
+    output: &ManifestSkillOutput,
+    stage_run_id: &str,
+) -> Result<()> {
+    let artifact_path = manifest_artifact_path(artifact_root, &bundle.process_id);
+    let parent = artifact_path
+        .parent()
+        .ok_or_else(|| anyhow!("manifest artifact path has no parent"))?;
+    fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+    fs::write(&artifact_path, output.manifest_markdown.as_bytes())
+        .with_context(|| format!("writing {}", artifact_path.display()))?;
+    let artifact_hash = sha256_hex(output.manifest_markdown.as_bytes());
+    let artifact_locator = artifact_path.to_string_lossy().into_owned();
+    let clarification_prompts_json =
+        canonical_clarification_prompts_json(&bundle.clarification_prompts)?;
+
+    state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        tx.execute(
+            "\
+            INSERT INTO manifests (
+              id, process_id, markdown, artifact_hash, artifact_locator, owner_id,
+              last_local_seq, stage_run_id, manifest_basis_hash, stoplight, suggested_action,
+              suggested_action_reasoning, clarification_prompts_json, manifest_template_version,
+              candidate_count, priced_candidate_count, clarification_prompt_count
+            ) VALUES (
+              ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17
+            )
+            ON CONFLICT(id) DO UPDATE SET
+              process_id = excluded.process_id,
+              markdown = excluded.markdown,
+              artifact_hash = excluded.artifact_hash,
+              artifact_locator = excluded.artifact_locator,
+              owner_id = excluded.owner_id,
+              last_local_seq = excluded.last_local_seq,
+              stage_run_id = excluded.stage_run_id,
+              manifest_basis_hash = excluded.manifest_basis_hash,
+              stoplight = excluded.stoplight,
+              suggested_action = excluded.suggested_action,
+              suggested_action_reasoning = excluded.suggested_action_reasoning,
+              clarification_prompts_json = excluded.clarification_prompts_json,
+              manifest_template_version = excluded.manifest_template_version,
+              candidate_count = excluded.candidate_count,
+              priced_candidate_count = excluded.priced_candidate_count,
+              clarification_prompt_count = excluded.clarification_prompt_count,
+              updated_at = CURRENT_TIMESTAMP
+            ",
+            params![
+                format!("manifest-{}", bundle.process_id),
+                bundle.process_id,
+                output.manifest_markdown,
+                artifact_hash,
+                artifact_locator,
+                DEFAULT_OWNER_ID,
+                visible_after_seq,
+                stage_run_id,
+                bundle.manifest_basis_hash,
+                bundle.stoplight.as_str(),
+                bundle.suggested_action,
+                output.suggested_action_reasoning,
+                clarification_prompts_json,
+                MANIFEST_TEMPLATE_VERSION,
+                i64::try_from(bundle.candidate_count).context("candidate count exceeds i64")?,
+                i64::try_from(bundle.priced_candidate_count)
+                    .context("priced candidate count exceeds i64")?,
+                i64::try_from(bundle.clarification_prompt_count)
+                    .context("clarification prompt count exceeds i64")?,
+            ],
+        )
+        .context("upserting manifest row")?;
+
+        tx.execute(
+            "\
+            UPDATE pipeline_assessments
+            SET pipeline_state = 'manifest_ready',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE process_id = ?1
+              AND pipeline_state IN ('net_qualified', 'manifest_ready')
+            ",
+            params![bundle.process_id],
+        )
+        .context("transitioning pipeline assessment to manifest_ready")?;
+
+        persist_stage(
+            tx,
+            &bundle.process_id,
+            MANIFEST_STAGE_NAME,
+            "process",
+            &bundle.process_id,
+            stage_run_id,
+        )?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
+fn complete_manifest_skill_job(
+    state_db: &mut StateDb,
+    job_id: &str,
+    bundle: &ManifestSkillBundle,
+    output: &ManifestSkillOutput,
+) -> Result<()> {
+    state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            UPDATE workflow_jobs
+            SET status = 'completed',
+                completed_at = ?1,
+                output_payload = ?2
+            WHERE id = ?3
+            ",
+            params![
+                Utc::now().to_rfc3339(),
+                json!({
+                    "job_id": job_id,
+                    "process_id": bundle.process_id,
+                    "manifest_basis_hash": bundle.manifest_basis_hash,
+                    "stoplight": bundle.stoplight.as_str(),
+                    "candidate_count": output.candidate_count,
+                    "clarification_prompt_count": output.clarification_prompt_count,
+                })
+                .to_string(),
+                job_id,
+            ],
+        )?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
+fn mark_manifest_skill_job_failed(
+    runtime: &mut RuntimeBootstrap,
+    job_id: &str,
+    message: &str,
+) -> Result<()> {
+    mark_manifest_skill_job_failed_in_state_db(&mut runtime.state_db, job_id, message)
+}
+
+fn mark_manifest_agent_session_status(
+    conn: &Connection,
+    session_id: &str,
+    status: &str,
+    error_message: Option<&str>,
+) -> Result<()> {
+    conn.execute(
+        "\
+        UPDATE agent_session_logs
+        SET status = ?1,
+            error_message = ?2
+        WHERE id = ?3
+        ",
+        params![status, error_message, session_id],
+    )
+    .context("updating manifest agent session status")?;
+    Ok(())
+}
+
+fn validate_manifest_render_payload(
+    schema: &Value,
+    bundle: &ManifestSkillBundle,
+    result_json: &Value,
+    expected_renderer_mode: &str,
+) -> Result<ManifestSkillOutput> {
+    let output = validate_manifest_skill_output(schema, bundle, result_json)?;
+    validate_manifest_expected_renderer_mode(&output.manifest_markdown, expected_renderer_mode)?;
+    Ok(output)
+}
+
+fn render_manifest_output_via_daemon(
+    schema: &Value,
+    bundle: &ManifestSkillBundle,
+    renderer_mode: &'static str,
+) -> Result<ManifestSkillOutput> {
+    let rendered_output = render_manifest_skill_output_from_bundle(bundle, renderer_mode)?;
+    let result_json =
+        serde_json::to_value(&rendered_output).context("serializing manifest result payload")?;
+    validate_manifest_render_payload(schema, bundle, &result_json, renderer_mode)
+}
+
+#[allow(
+    clippy::future_not_send,
+    clippy::too_many_arguments,
+    clippy::too_many_lines
+)]
+async fn render_manifest_output_for_mode<I: ManifestSkillInvoker>(
+    runtime: &mut RuntimeBootstrap,
+    skill: &LoadedSkill,
+    bundle: &ManifestSkillBundle,
+    cli: &Cli,
+    mode: Stage13RendererMode,
+    timeout_seconds: u64,
+    invoker: &mut I,
+) -> Result<ManifestRenderOutcome> {
+    match mode {
+        Stage13RendererMode::Skill => {
+            let invocation = invoker
+                .invoke_manifest_skill(runtime, skill, bundle, cli, timeout_seconds)
+                .await?;
+            match validate_manifest_render_payload(
+                &skill.result_schema,
+                bundle,
+                &invocation.result_json,
+                STAGE13_RENDERER_MODE_SKILL,
+            ) {
+                Ok(output) => {
+                    if let Some(job_id) = invocation.job_id.as_deref() {
+                        complete_manifest_skill_job(
+                            &mut runtime.state_db,
+                            job_id,
+                            bundle,
+                            &output,
+                        )?;
+                    }
+                    if let Some(session_id) = invocation.session_id.as_deref() {
+                        mark_manifest_agent_session_status(
+                            runtime.state_db.connection(),
+                            session_id,
+                            "succeeded",
+                            None,
+                        )?;
+                    }
+                    Ok(ManifestRenderOutcome {
+                        output,
+                        renderer_mode: STAGE13_RENDERER_MODE_SKILL,
+                    })
+                }
+                Err(error) => {
+                    if let Some(job_id) = invocation.job_id.as_deref() {
+                        mark_manifest_skill_job_failed(runtime, job_id, &error.to_string())?;
+                    }
+                    if let Some(session_id) = invocation.session_id.as_deref() {
+                        mark_manifest_agent_session_status(
+                            runtime.state_db.connection(),
+                            session_id,
+                            "failed",
+                            Some(&error.to_string()),
+                        )?;
+                    }
+                    Err(error)
+                }
+            }
+        }
+        Stage13RendererMode::Daemon => {
+            let output = render_manifest_output_via_daemon(
+                &skill.result_schema,
+                bundle,
+                STAGE13_RENDERER_MODE_DAEMON,
+            )?;
+            Ok(ManifestRenderOutcome {
+                output,
+                renderer_mode: STAGE13_RENDERER_MODE_DAEMON,
+            })
+        }
+        Stage13RendererMode::Auto => {
+            let skill_attempt = invoker
+                .invoke_manifest_skill(runtime, skill, bundle, cli, timeout_seconds)
+                .await
+                .and_then(|invocation| {
+                    match validate_manifest_render_payload(
+                        &skill.result_schema,
+                        bundle,
+                        &invocation.result_json,
+                        STAGE13_RENDERER_MODE_SKILL,
+                    ) {
+                        Ok(output) => {
+                            if let Some(job_id) = invocation.job_id.as_deref() {
+                                complete_manifest_skill_job(
+                                    &mut runtime.state_db,
+                                    job_id,
+                                    bundle,
+                                    &output,
+                                )?;
+                            }
+                            if let Some(session_id) = invocation.session_id.as_deref() {
+                                mark_manifest_agent_session_status(
+                                    runtime.state_db.connection(),
+                                    session_id,
+                                    "succeeded",
+                                    None,
+                                )?;
+                            }
+                            Ok(output)
+                        }
+                        Err(error) => {
+                            if let Some(job_id) = invocation.job_id.as_deref() {
+                                mark_manifest_skill_job_failed(
+                                    runtime,
+                                    job_id,
+                                    &error.to_string(),
+                                )?;
+                            }
+                            if let Some(session_id) = invocation.session_id.as_deref() {
+                                mark_manifest_agent_session_status(
+                                    runtime.state_db.connection(),
+                                    session_id,
+                                    "failed",
+                                    Some(&error.to_string()),
+                                )?;
+                            }
+                            Err(error)
+                        }
+                    }
+                });
+
+            match skill_attempt {
+                Ok(output) => Ok(ManifestRenderOutcome {
+                    output,
+                    renderer_mode: STAGE13_RENDERER_MODE_SKILL,
+                }),
+                Err(error) => {
+                    ::tracing::warn!(
+                        error = %error,
+                        process_id = %bundle.process_id,
+                        "manifest skill invocation failed; falling back to daemon renderer"
+                    );
+                    let output = render_manifest_output_via_daemon(
+                        &skill.result_schema,
+                        bundle,
+                        STAGE13_RENDERER_MODE_AUTO_FALLBACK,
+                    )?;
+                    Ok(ManifestRenderOutcome {
+                        output,
+                        renderer_mode: STAGE13_RENDERER_MODE_AUTO_FALLBACK,
+                    })
+                }
+            }
+        }
+    }
+}
+
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
+async fn execute_manifest_skill_session(
+    runtime: &mut RuntimeBootstrap,
+    skill: &LoadedSkill,
+    bundle: &ManifestSkillBundle,
+    cli: &Cli,
+    timeout_seconds: u64,
+) -> Result<ManifestSkillInvocation> {
+    let adapter_config = adapter_runtime_config(cli, skill)?;
+    let job_parameters = manifest_skill_job_parameters(bundle)?;
+    let job_id = format!("job-stage13-manifest-{}", Uuid::new_v4().simple());
+    let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
+    let input_payload = json!({
+        "trigger": "manual_cli",
+        "kind": "generate_manifest",
+        "skill_binding": skill_binding_payload(skill),
+        "agent_cli": adapter_config.kind.as_str(),
+        "job_parameters": job_parameters.clone(),
+        "durable_step_surfaces": live_loop_surfaces_json(),
+    })
+    .to_string();
+    runtime.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, process_id, notice_id, scope_kind, scope_id, status,
+              input_payload, validation_required, parent_job_id, validation_verdict_id
+            ) VALUES (?1, 'generate_manifest', ?2, ?3, 'process', ?4, 'pending', ?5, 0, NULL, NULL)
+            ",
+            params![
+                job_id,
+                bundle.process_id.as_str(),
+                bundle.header.notice_id.as_deref(),
+                bundle.process_id.as_str(),
+                input_payload,
+            ],
+        )?;
+        Ok(())
+    })?;
+
+    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+    let _claimed = runner
+        .claim_job_by_id(runtime.state_db.connection(), &job_id)?
+        .ok_or_else(|| anyhow!("expected claimed Stage 13 workflow job `{job_id}`"))?;
+
+    let execution = match execute_bounded_manifest_skill_session(
+        &runtime.artifact_root,
+        skill,
+        &job_id,
+        &session_id,
+        &job_parameters,
+        cli,
+        timeout_seconds,
+    )
+    .await
+    {
+        Ok(executed) => executed,
+        Err(error) => {
+            mark_manifest_skill_job_failed(runtime, &job_id, &error.to_string())?;
+            return Err(error);
+        }
+    };
+
+    insert_executed_session_log(runtime.state_db.connection(), skill, &job_id, &execution)?;
+
+    let Some(result_path) = execution.result_path.as_ref() else {
+        let message = format!(
+            "Stage 13 skill `{}` did not produce a result contract",
+            skill.metadata.skill_id
+        );
+        mark_manifest_skill_job_failed(runtime, &job_id, &message)?;
+        mark_manifest_agent_session_status(
+            runtime.state_db.connection(),
+            &execution.session_id,
+            "failed",
+            Some(&message),
+        )?;
+        bail!("{message}");
+    };
+
+    let result_json = match read_result_contract(result_path) {
+        Ok(payload) => payload,
+        Err(error) => {
+            let message = error.to_string();
+            mark_manifest_skill_job_failed(runtime, &job_id, &message)?;
+            mark_manifest_agent_session_status(
+                runtime.state_db.connection(),
+                &execution.session_id,
+                "failed",
+                Some(&message),
+            )?;
+            return Err(error);
+        }
+    };
+
+    Ok(ManifestSkillInvocation {
+        job_id: Some(job_id),
+        session_id: Some(session_id),
+        result_json,
+    })
+}
+
+fn manifest_skill_job_parameters(bundle: &ManifestSkillBundle) -> Result<Value> {
+    let mut job_parameters =
+        serde_json::to_value(bundle).context("serializing manifest skill bundle")?;
+    if let Some(parameters) = job_parameters.as_object_mut() {
+        parameters.insert(
+            "required_reasoning_anchor".to_owned(),
+            Value::String(manifest_required_reasoning_anchor(bundle)),
+        );
+    }
+    Ok(job_parameters)
+}
+
+fn mark_manifest_skill_job_failed_in_state_db(
+    state_db: &mut StateDb,
+    job_id: &str,
+    message: &str,
+) -> Result<()> {
+    state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "\
+            UPDATE workflow_jobs
+            SET status = 'failed',
+                last_error = ?1,
+                completed_at = ?2,
+                output_payload = ?3
+            WHERE id = ?4
+            ",
+            params![
+                message,
+                Utc::now().to_rfc3339(),
+                json!({"error": message}).to_string(),
+                job_id,
+            ],
+        )?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
+#[allow(clippy::too_many_lines)]
+async fn execute_manifest_skill_session_owned(
+    state_db_path: PathBuf,
+    artifact_root: PathBuf,
+    skill: LoadedSkill,
+    bundle: ManifestSkillBundle,
+    cli: Cli,
+    timeout_seconds: u64,
+) -> Result<(ManifestSkillBundle, ManifestSkillInvocation)> {
+    let adapter_config = adapter_runtime_config(&cli, &skill)?;
+    let job_parameters = manifest_skill_job_parameters(&bundle)?;
+    let job_id = format!("job-stage13-manifest-{}", Uuid::new_v4().simple());
+    let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
+    let input_payload = json!({
+        "trigger": "manual_cli",
+        "kind": "generate_manifest",
+        "skill_binding": skill_binding_payload(&skill),
+        "agent_cli": adapter_config.kind.as_str(),
+        "job_parameters": job_parameters.clone(),
+        "durable_step_surfaces": live_loop_surfaces_json(),
+    })
+    .to_string();
+
+    {
+        let mut state_db = open_state_db(&state_db_path, DEFAULT_SCHEMA_EPOCH)?;
+        state_db.with_write_transaction(|tx| {
+            tx.execute(
+                "\
+                INSERT INTO workflow_jobs (
+                  id, kind, process_id, notice_id, scope_kind, scope_id, status,
+                  input_payload, validation_required, parent_job_id, validation_verdict_id
+                ) VALUES (?1, 'generate_manifest', ?2, ?3, 'process', ?4, 'pending', ?5, 0, NULL, NULL)
+                ",
+                params![
+                    job_id,
+                    bundle.process_id.as_str(),
+                    bundle.header.notice_id.as_deref(),
+                    bundle.process_id.as_str(),
+                    input_payload,
+                ],
+            )?;
+            Ok(())
+        })?;
+
+        let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+        let _claimed = runner
+            .claim_job_by_id(state_db.connection(), &job_id)?
+            .ok_or_else(|| anyhow!("expected claimed Stage 13 workflow job `{job_id}`"))?;
+    }
+
+    let execution = match execute_bounded_manifest_skill_session(
+        &artifact_root,
+        &skill,
+        &job_id,
+        &session_id,
+        &job_parameters,
+        &cli,
+        timeout_seconds,
+    )
+    .await
+    {
+        Ok(executed) => executed,
+        Err(error) => {
+            let mut state_db = open_state_db(&state_db_path, DEFAULT_SCHEMA_EPOCH)?;
+            mark_manifest_skill_job_failed_in_state_db(&mut state_db, &job_id, &error.to_string())?;
+            return Err(error);
+        }
+    };
+
+    let mut state_db = open_state_db(&state_db_path, DEFAULT_SCHEMA_EPOCH)?;
+    insert_executed_session_log(state_db.connection(), &skill, &job_id, &execution)?;
+
+    let Some(result_path) = execution.result_path.as_ref() else {
+        let message = format!(
+            "Stage 13 skill `{}` did not produce a result contract",
+            skill.metadata.skill_id
+        );
+        mark_manifest_skill_job_failed_in_state_db(&mut state_db, &job_id, &message)?;
+        mark_manifest_agent_session_status(
+            state_db.connection(),
+            &execution.session_id,
+            "failed",
+            Some(&message),
+        )?;
+        bail!("{message}");
+    };
+
+    let result_json = match read_result_contract(result_path) {
+        Ok(payload) => payload,
+        Err(error) => {
+            let message = error.to_string();
+            mark_manifest_skill_job_failed_in_state_db(&mut state_db, &job_id, &message)?;
+            mark_manifest_agent_session_status(
+                state_db.connection(),
+                &execution.session_id,
+                "failed",
+                Some(&message),
+            )?;
+            return Err(error);
+        }
+    };
+
+    Ok((
+        bundle,
+        ManifestSkillInvocation {
+            job_id: Some(job_id),
+            session_id: Some(session_id),
+            result_json,
+        },
+    ))
+}
+
+async fn invoke_manifest_skills_concurrently(
+    state_db_path: PathBuf,
+    artifact_root: PathBuf,
+    skill: LoadedSkill,
+    bundles: Vec<ManifestSkillBundle>,
+    cli: Cli,
+    timeout_seconds: u64,
+    concurrency: usize,
+) -> Result<Vec<(usize, ManifestSkillBundle, ManifestSkillInvocation)>> {
+    let concurrency = concurrency.max(1);
+    let mut indexed_bundles = bundles.into_iter().enumerate();
+    let mut outputs = Vec::new();
+
+    loop {
+        let mut handles = Vec::new();
+        for _ in 0..concurrency {
+            let Some((index, bundle)) = indexed_bundles.next() else {
+                break;
+            };
+            let state_db_path = state_db_path.clone();
+            let artifact_root = artifact_root.clone();
+            let skill = skill.clone();
+            let cli = cli.clone();
+            handles.push(tokio::task::spawn_blocking(move || {
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .context("building Stage 13 skill worker runtime")?;
+                runtime.block_on(async move {
+                    let (bundle, invocation) = execute_manifest_skill_session_owned(
+                        state_db_path,
+                        artifact_root,
+                        skill,
+                        bundle,
+                        cli,
+                        timeout_seconds,
+                    )
+                    .await?;
+                    Ok::<_, anyhow::Error>((index, bundle, invocation))
+                })
+            }));
+        }
+
+        if handles.is_empty() {
+            break;
+        }
+
+        for handle in handles {
+            outputs.push(handle.await.context("joining Stage 13 skill worker")??);
+        }
+    }
+
+    outputs.sort_by_key(|(index, _, _)| *index);
+    Ok(outputs)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ManifestSkillOutcomeDecision {
+    recovered_result_after_timeout: bool,
+    recovered_result_after_protocol_error: bool,
+    recovered_result_after_nonzero_exit: bool,
+}
+
+fn decide_manifest_skill_outcome(
+    skill_id: &str,
+    timed_out: bool,
+    timeout_seconds: u64,
+    protocol_parser_error: Option<&str>,
+    result_present: bool,
+    exit_code: i32,
+) -> Result<ManifestSkillOutcomeDecision> {
+    if timed_out && !result_present {
+        bail!("Stage 13 skill `{skill_id}` timed out after {timeout_seconds} seconds");
+    }
+    if let Some(error) = protocol_parser_error
+        && !result_present
+    {
+        bail!(
+            "Stage 13 skill `{skill_id}` protocol parser failed without result contract: {error}"
+        );
+    }
+    if exit_code != 0 && !result_present {
+        bail!("Stage 13 skill `{skill_id}` exited with code {exit_code} and no result contract");
+    }
+    Ok(ManifestSkillOutcomeDecision {
+        recovered_result_after_timeout: timed_out && result_present,
+        recovered_result_after_protocol_error: protocol_parser_error.is_some() && result_present,
+        recovered_result_after_nonzero_exit: exit_code != 0 && result_present,
+    })
+}
+
+fn manifest_result_payload_like(value: &Value) -> bool {
+    value.is_object()
+        && value.get("process_id").is_some()
+        && value.get("decisionBasisHash").is_some()
+        && value.get("manifestMarkdown").is_some()
+        && value.get("suggested_action_reasoning").is_some()
+}
+
+fn parse_manifest_result_text(text: &str) -> Option<Value> {
+    let trimmed = text.trim();
+    if let Ok(value) = serde_json::from_str::<Value>(trimmed)
+        && manifest_result_payload_like(&value)
+    {
+        return Some(value);
+    }
+    let fenced = trimmed
+        .strip_prefix("```json")
+        .and_then(|rest| rest.strip_suffix("```"))
+        .map(str::trim)
+        .or_else(|| {
+            trimmed
+                .strip_prefix("```")
+                .and_then(|rest| rest.strip_suffix("```"))
+                .map(str::trim)
+        })?;
+    let value = serde_json::from_str::<Value>(fenced).ok()?;
+    manifest_result_payload_like(&value).then_some(value)
+}
+
+fn extract_manifest_message_json(line: &str) -> Option<Value> {
+    let envelope = serde_json::from_str::<Value>(line.trim()).ok()?;
+    if envelope.get("type").and_then(Value::as_str) == Some("result")
+        && let Some(result_text) = envelope.get("result").and_then(Value::as_str)
+    {
+        return parse_manifest_result_text(result_text);
+    }
+    let item = envelope.get("item")?;
+    if item.get("type").and_then(Value::as_str) != Some("agent_message") {
+        return None;
+    }
+    let text = item
+        .get("text")
+        .and_then(Value::as_str)
+        .or_else(|| item.get("aggregated_output").and_then(Value::as_str))?;
+    parse_manifest_result_text(text)
+}
+
+fn materialize_manifest_result_contract(
+    workdir: &Path,
+    stdout_bytes: &[u8],
+    stderr_bytes: &[u8],
+) -> Result<Option<PathBuf>> {
+    let result_path = workdir.join("result.json");
+    if result_path.exists() {
+        return Ok(Some(result_path));
+    }
+
+    let stdout_text = String::from_utf8_lossy(stdout_bytes);
+    let stderr_text = String::from_utf8_lossy(stderr_bytes);
+    for line in stdout_text.lines().rev().chain(stderr_text.lines().rev()) {
+        let Some(result_json) = extract_manifest_message_json(line) else {
+            continue;
+        };
+        fs::write(&result_path, serde_json::to_vec_pretty(&result_json)?)
+            .with_context(|| format!("writing {}", result_path.display()))?;
+        return Ok(Some(result_path));
+    }
+
+    Ok(None)
+}
+
+fn claude_model_for_skill_profile(skill: &LoadedSkill) -> Option<String> {
+    if skill.metadata.skill_id == "manifest-generation" {
+        return Some(
+            std::env::var(STAGE13_CLAUDE_MODEL_ENV)
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| STAGE13_CLAUDE_MODEL_DEFAULT.to_owned()),
+        );
+    }
+    match skill.metadata.model_profile.as_str() {
+        "structured_extract_low_cost" => Some("haiku".to_owned()),
+        _ => None,
+    }
+}
+
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
+async fn execute_bounded_manifest_skill_session(
+    artifact_root: &Path,
+    skill: &LoadedSkill,
+    job_id: &str,
+    session_id: &str,
+    job_parameters: &Value,
+    cli: &Cli,
+    timeout_seconds: u64,
+) -> Result<ExecutedSession> {
+    let adapter_config = adapter_runtime_config(cli, skill)?;
+    let adapter = build_adapter(&adapter_config);
+    let probe_ctx = ProbeCtx {
+        working_directory: repo_root()?,
+    };
+    let caps = adapter.probe(&probe_ctx).await?;
+    let mode = adapter.resolve_mode(&skill_manifest(skill)?, &caps)?;
+    ensure!(
+        mode == ExecutionMode::Contract,
+        "Stage 13 manifest skill must resolve to contract mode"
+    );
+    let started_at = Utc::now();
+    let session_dir = ArtifactStore::new(artifact_root)?.session_dir(session_id, started_at)?;
+    let workdir = session_dir.join("workdir");
+    fs::create_dir_all(&workdir).with_context(|| format!("creating {}", workdir.display()))?;
+    fs::write(
+        workdir.join("result.schema.json"),
+        serde_json::to_vec_pretty(&skill.result_schema)?,
+    )
+    .with_context(|| format!("writing {}", workdir.join("result.schema.json").display()))?;
+    let prompt = PromptRenderer::render(&PromptRendererInput {
+        skill_id: skill.metadata.skill_id.clone(),
+        skill_version: skill.metadata.skill_version.clone(),
+        skill_markdown: skill.skill_markdown.clone(),
+        job_id: job_id.to_owned(),
+        session_id: session_id.to_owned(),
+        execution_mode: execution_mode_label(mode).to_owned(),
+        job_parameters: job_parameters.clone(),
+        resume_token: None,
+        company_profile: None,
+    })?;
+    let mut launch_args = launch_args_for_skill(&adapter_config, mode, &prompt);
+    if adapter_config.kind == AgentCliKind::Claude
+        && let Some(model) = claude_model_for_skill_profile(skill)
+    {
+        launch_args.push(OsString::from("--model"));
+        launch_args.push(OsString::from(model));
+    }
+    let request = SpawnRequest {
+        program: adapter_config
+            .program
+            .clone()
+            .unwrap_or_else(|| PathBuf::from(adapter_config.kind.as_str())),
+        args: launch_args,
+        env: std::collections::BTreeMap::default(),
+        cwd: workdir.clone(),
+    };
+    let launch_spec = adapter.build_launch_spec(&request, mode)?;
+    let config_hash = sha256_hex(
+        format!(
+            "{}:{}",
+            skill_config_hash(skill),
+            launch_spec_hash(&launch_spec)
+        )
+        .as_bytes(),
+    );
+
+    let stdout_path = session_dir.join("stdout.ndjson");
+    let stderr_path = session_dir.join("stderr.txt");
+    let stdout_file = fs::File::create(&stdout_path)
+        .with_context(|| format!("creating {}", stdout_path.display()))?;
+    let stderr_file = fs::File::create(&stderr_path)
+        .with_context(|| format!("creating {}", stderr_path.display()))?;
+    let mut command = process::Command::new(&launch_spec.program);
+    command
+        .args(&launch_spec.args)
+        .envs(launch_spec.env.iter())
+        .current_dir(&launch_spec.cwd)
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(stdout_file))
+        .stderr(Stdio::from(stderr_file));
+    #[cfg(unix)]
+    command.process_group(0);
+
+    let mut child = command.spawn().with_context(|| {
+        format!(
+            "spawning Stage 13 skill `{}` via `{}`",
+            skill.metadata.skill_id,
+            launch_spec.program.display()
+        )
+    })?;
+    let runtime_ids = child_runtime_ids(child.id()).ok();
+    let deadline = Instant::now() + Duration::from_secs(timeout_seconds);
+    let mut timed_out = false;
+    let mut terminated_after_result = false;
+    let mut first_output_at: Option<DateTime<Utc>> = None;
+    let mut result_seen_at: Option<DateTime<Utc>> = None;
+    let mut result_ready_since: Option<Instant> = None;
+    let workdir_result_path = workdir.join("result.json");
+    let status = loop {
+        if first_output_at.is_none()
+            && (fs::metadata(&stdout_path).map_or(0, |metadata| metadata.len()) > 0
+                || fs::metadata(&stderr_path).map_or(0, |metadata| metadata.len()) > 0)
+        {
+            first_output_at = Some(Utc::now());
+        }
+        if result_seen_at.is_none() && workdir_result_path.exists() {
+            result_seen_at = Some(Utc::now());
+        }
+        if workdir_result_path.exists() && read_result_contract(&workdir_result_path).is_ok() {
+            if let Some(ready_since) = result_ready_since {
+                if ready_since.elapsed() >= Duration::from_millis(750) {
+                    terminated_after_result = true;
+                    break terminate_landed_cost_child(&mut child, runtime_ids).with_context(
+                        || {
+                            format!(
+                                "terminating Stage 13 skill `{}` after result contract was written",
+                                skill.metadata.skill_id
+                            )
+                        },
+                    )?;
+                }
+            } else {
+                result_ready_since = Some(Instant::now());
+            }
+        } else {
+            result_ready_since = None;
+        }
+        if let Some(status) = child
+            .try_wait()
+            .context("polling Stage 13 manifest skill process")?
+        {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            timed_out = true;
+            break terminate_landed_cost_child(&mut child, runtime_ids).with_context(|| {
+                format!(
+                    "terminating timed-out Stage 13 skill `{}`",
+                    skill.metadata.skill_id
+                )
+            })?;
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    };
+    let completed_at = Utc::now();
+
+    let stdout_bytes =
+        fs::read(&stdout_path).with_context(|| format!("reading {}", stdout_path.display()))?;
+    let stderr_bytes =
+        fs::read(&stderr_path).with_context(|| format!("reading {}", stderr_path.display()))?;
+    let result_path = materialize_manifest_result_contract(&workdir, &stdout_bytes, &stderr_bytes)?;
+    if result_seen_at.is_none() && result_path.is_some() {
+        result_seen_at = Some(Utc::now());
+    }
+
+    let terminal_output_path = session_dir.join("terminal-output.txt");
+    let mut terminal_output = Vec::new();
+    terminal_output.extend_from_slice(b"--- stdout ---\n");
+    terminal_output.extend_from_slice(&stdout_bytes);
+    terminal_output.extend_from_slice(b"\n--- stderr ---\n");
+    terminal_output.extend_from_slice(&stderr_bytes);
+    fs::write(&terminal_output_path, &terminal_output)
+        .with_context(|| format!("writing {}", terminal_output_path.display()))?;
+    let terminal_output_hash = sha256_hex(&terminal_output);
+    let terminal_output_tail = String::from_utf8_lossy(&terminal_output)
+        .chars()
+        .rev()
+        .take(4000)
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect::<String>();
+    let terminal_output_bytes =
+        i64::try_from(terminal_output.len()).context("converting terminal-output size")?;
+
+    let mut parser = adapter.parser(mode);
+    let mut events = Vec::new();
+    let mut parser_errors = Vec::new();
+    if let Some(runtime_ids) = runtime_ids {
+        events.push(ControlEvent::Started {
+            pid: runtime_ids.pid,
+            pgid: runtime_ids.pgid,
+            sid: runtime_ids.sid,
+            mode,
+        });
+    }
+    match parser
+        .on_output(&OutputFrame::Stdout(Bytes::copy_from_slice(&stdout_bytes)))
+        .await
+    {
+        Ok(parsed_events) => events.extend(parsed_events),
+        Err(error) => parser_errors.push(format!("stdout: {error:#}")),
+    }
+    if parser_errors.is_empty() {
+        match parser
+            .on_output(&OutputFrame::Stderr(Bytes::copy_from_slice(&stderr_bytes)))
+            .await
+        {
+            Ok(parsed_events) => events.extend(parsed_events),
+            Err(error) => parser_errors.push(format!("stderr: {error:#}")),
+        }
+    }
+    events.push(ControlEvent::Exited {
+        status: portable_pty::ExitStatus::from(status),
+    });
+    if parser_errors.is_empty() {
+        match parser.finish().await {
+            Ok(parsed_events) => events.extend(parsed_events),
+            Err(error) => parser_errors.push(format!("finish: {error:#}")),
+        }
+    }
+    let protocol_parser_error = (!parser_errors.is_empty()).then(|| parser_errors.join("; "));
+    let exit_code = status.code().unwrap_or(-1);
+    let outcome_decision = decide_manifest_skill_outcome(
+        &skill.metadata.skill_id,
+        timed_out,
+        timeout_seconds,
+        protocol_parser_error.as_deref(),
+        result_path.is_some(),
+        exit_code,
+    )?;
+    if let Some(error) = protocol_parser_error.as_deref() {
+        ::tracing::warn!(
+            skill_id = %skill.metadata.skill_id,
+            error = %error,
+            "Stage 13 skill protocol parser failed after writing a result contract; accepting recovered contract"
+        );
+    }
+    if timed_out && result_path.is_some() {
+        ::tracing::warn!(
+            skill_id = %skill.metadata.skill_id,
+            timeout_seconds,
+            "Stage 13 skill timed out after writing a result contract; accepting recovered contract"
+        );
+    }
+    if exit_code != 0 && result_path.is_some() {
+        ::tracing::warn!(
+            skill_id = %skill.metadata.skill_id,
+            exit_code,
+            "Stage 13 skill exited non-zero after writing a result contract; accepting recovered contract"
+        );
+    }
+
+    let phase_history = [
+        "created", "spawned", "active", "exited", "reaped", "archived",
+    ];
+    let structured_trace = json!({
+        "execution_mode": execution_mode_label(mode),
+        "phase_history": phase_history,
+        "capability_report": {
+            "cli_version": caps.cli_version,
+            "auth_healthy": caps.auth_healthy,
+            "structured_output": caps.structured_output,
+            "pty_viable": caps.pty_viable,
+            "browser_tools": caps.browser_tools,
+            "is_canary": caps.is_canary
+        },
+        "event_count": events.len(),
+        "terminal_output_path": terminal_output_path,
+        "bounded_stage13_runner": true,
+        "timeout_seconds": timeout_seconds,
+        "timed_out": timed_out,
+        "terminated_after_result": terminated_after_result,
+        "first_output_at": first_output_at.map(|value| value.to_rfc3339()),
+        "result_seen_at": result_seen_at.map(|value| value.to_rfc3339()),
+        "completed_at": completed_at.to_rfc3339(),
+        "recovered_result_after_timeout": outcome_decision.recovered_result_after_timeout,
+        "protocol_parser_error": protocol_parser_error,
+        "recovered_result_after_protocol_error": outcome_decision.recovered_result_after_protocol_error,
+        "recovered_result_after_nonzero_exit": outcome_decision.recovered_result_after_nonzero_exit
+    })
+    .to_string();
+
+    Ok(ExecutedSession {
+        session_id: session_id.to_owned(),
+        started_at,
+        execution_mode: mode,
+        adapter_id: adapter.id().to_owned(),
+        cli_vendor: adapter.id().to_owned(),
+        config_hash,
+        pty_session_id: Some(session_id.to_owned()),
+        runtime_ids,
+        completed_at: completed_at.to_rfc3339(),
+        terminal_output_path: Some(terminal_output_path.to_string_lossy().into_owned()),
+        terminal_output_hash: Some(terminal_output_hash),
+        terminal_output_bytes: Some(terminal_output_bytes),
+        terminal_output_tail: Some(terminal_output_tail),
+        structured_trace,
+        exit_code,
+        cleanup_verdict: if timed_out {
+            "terminated_after_timeout".to_owned()
+        } else if terminated_after_result {
+            "terminated_after_result".to_owned()
+        } else {
+            "clean".to_owned()
+        },
+        last_checkpoint_seq: None,
+        result_path,
+        artifact_refs: vec![
+            stdout_path.to_string_lossy().into_owned(),
+            stderr_path.to_string_lossy().into_owned(),
+        ],
+    })
+}
+
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
+async fn run_manifest_generation_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+) -> Result<LiveLoopReport> {
+    let repo_root = repo_root()?;
+    let manifest_skill = load_skill(
+        &repo_root.join("skills/manifest-generation"),
+        "skills/manifest-generation/SKILL.md",
+    )?;
+    let renderer_mode = read_stage13_renderer_mode();
+    let stage13_skill_timeout_seconds = read_stage13_skill_timeout_seconds();
+    let stage13_skill_concurrency = read_stage13_skill_concurrency();
+    let process_ids = load_manifest_generation_process_ids(runtime.state_db.connection())?;
+    if process_ids.is_empty() {
+        return Ok(LiveLoopReport {
+            summary_line: "manifest live loop found no pipeline assessments".to_owned(),
+            status: "completed".to_owned(),
+        });
+    }
+
+    let stage_run_id = allocate_stage_run_id();
+    let mut summary = ManifestGenerationSummary {
+        attempted: process_ids.len(),
+        ..ManifestGenerationSummary::default()
+    };
+    let mut pending_bundles = Vec::new();
+
+    for process_id in &process_ids {
+        let bundle = load_manifest_skill_bundle(runtime.state_db.connection(), process_id)?;
+        let existing_basis =
+            existing_manifest_basis_hash(runtime.state_db.connection(), process_id)?;
+        if should_skip_manifest_generation(existing_basis.as_deref(), &bundle.manifest_basis_hash) {
+            summary.skipped_unchanged += 1;
+            continue;
+        }
+
+        pending_bundles.push(bundle);
+    }
+
+    let render_outcomes = if renderer_mode == Stage13RendererMode::Skill
+        && pending_bundles.len() > 1
+    {
+        let state_db_path = Path::new(&runtime.descriptor.state_root).join("state.db");
+        let invocations = invoke_manifest_skills_concurrently(
+            state_db_path,
+            runtime.artifact_root.clone(),
+            manifest_skill.clone(),
+            pending_bundles,
+            cli.clone(),
+            stage13_skill_timeout_seconds,
+            stage13_skill_concurrency,
+        )
+        .await?;
+        let mut validated = Vec::new();
+        let mut validation_errors = Vec::new();
+        for (_, bundle, invocation) in invocations {
+            let output = match validate_manifest_render_payload(
+                &manifest_skill.result_schema,
+                &bundle,
+                &invocation.result_json,
+                STAGE13_RENDERER_MODE_SKILL,
+            ) {
+                Ok(output) => output,
+                Err(error) => {
+                    let message = error.to_string();
+                    if let Some(job_id) = invocation.job_id.as_deref() {
+                        mark_manifest_skill_job_failed(runtime, job_id, &message)?;
+                    }
+                    if let Some(session_id) = invocation.session_id.as_deref() {
+                        mark_manifest_agent_session_status(
+                            runtime.state_db.connection(),
+                            session_id,
+                            "failed",
+                            Some(&message),
+                        )?;
+                    }
+                    validation_errors.push(error.context(format!(
+                        "validating Stage 13 manifest skill output for {}",
+                        bundle.process_id
+                    )));
+                    continue;
+                }
+            };
+            if let Some(job_id) = invocation.job_id.as_deref() {
+                complete_manifest_skill_job(&mut runtime.state_db, job_id, &bundle, &output)?;
+            }
+            if let Some(session_id) = invocation.session_id.as_deref() {
+                mark_manifest_agent_session_status(
+                    runtime.state_db.connection(),
+                    session_id,
+                    "succeeded",
+                    None,
+                )?;
+            }
+            validated.push((
+                bundle,
+                ManifestRenderOutcome {
+                    output,
+                    renderer_mode: STAGE13_RENDERER_MODE_SKILL,
+                },
+            ));
+        }
+        if let Some(error) = validation_errors.into_iter().next() {
+            return Err(error);
+        }
+        validated
+    } else {
+        let mut invoker = LiveManifestSkillInvoker;
+        let mut validated = Vec::new();
+        for bundle in pending_bundles {
+            let render_outcome = render_manifest_output_for_mode(
+                runtime,
+                &manifest_skill,
+                &bundle,
+                cli,
+                renderer_mode,
+                stage13_skill_timeout_seconds,
+                &mut invoker,
+            )
+            .await
+            .with_context(|| format!("rendering Stage 13 manifest for {}", bundle.process_id))?;
+            validated.push((bundle, render_outcome));
+        }
+        validated
+    };
+
+    for (bundle, render_outcome) in render_outcomes {
+        ::tracing::info!(
+            process_id = %bundle.process_id,
+            renderer_mode = render_outcome.renderer_mode,
+            "manifest render contract validated"
+        );
+
+        let artifact_root = runtime.artifact_root.clone();
+        persist_manifest_generation_output(
+            &mut runtime.state_db,
+            &artifact_root,
+            &bundle,
+            &render_outcome.output,
+            &stage_run_id,
+        )?;
+
+        summary.processes_rendered += 1;
+        match bundle.stoplight {
+            ManifestStoplight::Pursue => summary.stoplight_pursue += 1,
+            ManifestStoplight::Clarify => summary.stoplight_clarify += 1,
+            ManifestStoplight::Pass => summary.stoplight_pass += 1,
+            ManifestStoplight::Review => summary.stoplight_review += 1,
+        }
+    }
+
+    Ok(LiveLoopReport {
+        summary_line: format!(
+            "manifest live loop completed: attempted={} processes_rendered={} stoplight_pursue={} stoplight_clarify={} stoplight_pass={} stoplight_review={} skipped_unchanged={}",
+            summary.attempted,
+            summary.processes_rendered,
+            summary.stoplight_pursue,
+            summary.stoplight_clarify,
+            summary.stoplight_pass,
+            summary.stoplight_review,
             summary.skipped_unchanged,
         ),
         status: "completed".to_owned(),
@@ -15482,8 +18364,9 @@ impl UuidSeed {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
+    use std::path::Path;
 
     use anyhow::Result;
     use clap::Parser;
@@ -15525,6 +18408,894 @@ mod tests {
         Option<String>,
         Option<i64>,
     );
+
+    fn manifest_policy_candidate(
+        verdict: super::NetMarginVerdict,
+        re_evaluation_eligible: bool,
+    ) -> super::ManifestCandidatePolicyInput {
+        super::ManifestCandidatePolicyInput {
+            verdict,
+            re_evaluation_eligible,
+        }
+    }
+
+    fn test_manifest_candidate(
+        candidate_id: &str,
+        candidate_name: &str,
+        reasons: Vec<String>,
+        re_evaluation_eligible: bool,
+        price_basis_unit: Option<&str>,
+        pricing_assessment_id: Option<&str>,
+    ) -> super::ManifestCandidateDetail {
+        super::ManifestCandidateDetail {
+            candidate_id: candidate_id.to_owned(),
+            candidate_key: Some(candidate_id.to_owned()),
+            candidate_name: candidate_name.to_owned(),
+            candidate_type: "sku".to_owned(),
+            lot_id: Some("lot-test".to_owned()),
+            lot_title: Some("Lot test".to_owned()),
+            verdict: "review".to_owned(),
+            reasons,
+            re_evaluation_eligible: i64::from(re_evaluation_eligible),
+            margin_band: Some(super::ManifestMarginBand {
+                low_bps: Some(1_000),
+                base_bps: Some(2_000),
+                high_bps: Some(3_000),
+            }),
+            revenue_used_pence: Some(100_000),
+            revenue_basis_type: Some("expected_value".to_owned()),
+            economic_landed_cost_pence: Some(50_000),
+            confidence: super::ManifestConfidence {
+                revenue_bps: Some(6_500),
+                pricing_input_bps: Some(5_250),
+                customs_resolution_bps: Some(10_000),
+                commercial_estimate_bps: Some(4_000),
+            },
+            selected_quote: super::ManifestSelectedQuote {
+                supplier_quote_id: Some("sq-test".to_owned()),
+                source_name: Some("amazon-uk".to_owned()),
+                region: Some("GB".to_owned()),
+                unit_price_gbp_pence: Some(88),
+                price_basis_qty: Some(17.5),
+                price_basis_unit: price_basis_unit.map(str::to_owned),
+                source_url: Some("https://example.test/quote".to_owned()),
+                raw_price_original_minor: Some(88),
+                currency: Some("GBP".to_owned()),
+            },
+            landed_cost: super::ManifestLandedCost {
+                landed_cost_estimate_id: Some("landed-test".to_owned()),
+                shipping_mode: Some("domestic".to_owned()),
+                supplier_cost_gbp_pence: Some(1_540),
+                freight_base_gbp_pence: Some(0),
+                customs_duty_gbp_pence: Some(0),
+                import_vat_gbp_pence: Some(0),
+                economic_landed_cost_gbp_pence: Some(1_540),
+                declarable_commodity_code_10: None,
+                exporter_rate_basis: None,
+            },
+            pricing_assessment_id: pricing_assessment_id.map(str::to_owned),
+            search_attempts: Vec::new(),
+            confidence_breakdown_json: None,
+        }
+    }
+
+    fn test_manifest_bundle() -> super::ManifestSkillBundle {
+        let candidates = vec![test_manifest_candidate(
+            "candidate-a",
+            "Aggregates (general framework supply)",
+            vec![super::REASON_QUANTITY_BASIS_UNDETERMINED.to_owned()],
+            true,
+            Some("kg"),
+            Some("pricing-a"),
+        )];
+        let mut clarification_prompts = candidates
+            .iter()
+            .flat_map(super::clarification_prompts_for_candidate)
+            .collect::<Vec<_>>();
+        super::sort_clarification_prompts(&mut clarification_prompts);
+        super::ManifestSkillBundle {
+            stage: super::MANIFEST_STAGE_NAME,
+            process_id: "process-test".to_owned(),
+            manifest_template_version: super::MANIFEST_TEMPLATE_VERSION,
+            manifest_basis_hash: super::manifest_basis_hash("process-test", "stage12-hash"),
+            stoplight: super::ManifestStoplight::Clarify,
+            suggested_action: "Clarify 1 candidate(s) before deciding".to_owned(),
+            header: super::ManifestHeader {
+                notice_id: Some("notice-test".to_owned()),
+                title: "Test manifest notice".to_owned(),
+                buyer_name: Some("Example Council".to_owned()),
+                deadline_at: Some("2026-06-01T12:00:00Z".to_owned()),
+                contract_value_pence: Some(100_000),
+                currency: Some("GBP".to_owned()),
+                source_id: Some("procontract".to_owned()),
+                source_notice_id: Some("pc-test".to_owned()),
+                notice_url: Some("https://example.test/notice".to_owned()),
+                published_at: Some("2026-05-01T09:00:00Z".to_owned()),
+                source_updated_at: Some("2026-05-01T10:00:00Z".to_owned()),
+                process_latest_published_at: "2026-05-01T09:00:00Z".to_owned(),
+                process_latest_updated_at: "2026-05-01T10:00:00Z".to_owned(),
+            },
+            decision_summary: super::ManifestDecisionSummary {
+                pipeline_state: "net_qualified".to_owned(),
+                review_required: 1,
+                review_reason: Some(super::REASON_QUANTITY_BASIS_UNDETERMINED.to_owned()),
+                stage12_decision_basis_hash: "stage12-hash".to_owned(),
+                verdict_counts: BTreeMap::from([("review".to_owned(), 1)]),
+            },
+            candidates,
+            coverage: super::ManifestCoverage {
+                priced_coverage_bps: Some(5_000),
+                landed_cost_coverage_bps: Some(5_000),
+                net_qualified_coverage_bps: Some(0),
+                priced_value_coverage_bps: Some(5_000),
+                landed_cost_value_coverage_bps: Some(5_000),
+                net_qualified_value_coverage_bps: Some(0),
+                unresolved_mandatory_lots: 1,
+                gross_margin_bps: Some(9_500),
+                net_margin_bps: Some(9_500),
+            },
+            clarification_prompt_count: clarification_prompts.len(),
+            priced_candidate_count: 1,
+            candidate_count: 1,
+            clarification_prompts,
+        }
+    }
+
+    fn test_manifest_markdown(
+        bundle: &super::ManifestSkillBundle,
+        stoplight: super::ManifestStoplight,
+        renderer_mode: &str,
+    ) -> Result<String> {
+        let frontmatter = json!({
+            "manifest_version": super::MANIFEST_TEMPLATE_VERSION,
+            "process_id": bundle.process_id,
+            "basis_hash": bundle.manifest_basis_hash,
+            "stoplight": stoplight.as_str(),
+            "suggested_action": bundle.suggested_action,
+            "renderer_mode": renderer_mode,
+            "clarification_prompts": bundle.clarification_prompts,
+        });
+        Ok(format!(
+            "---\n{}---\n# Opportunity Manifest\n\n## Header\n\n## Decision Summary\n\n## Per-Candidate Detail\n\n## Operator Input Requests\n\n## Evidence Trail\n\n## Coverage Metrics\n",
+            serde_yaml::to_string(&frontmatter)?
+        ))
+    }
+
+    fn test_manifest_result_payload(bundle: &super::ManifestSkillBundle) -> Result<Value> {
+        Ok(json!({
+            "process_id": bundle.process_id,
+            "decisionBasisHash": bundle.manifest_basis_hash,
+            "manifestMarkdown": test_manifest_markdown(
+                bundle,
+                bundle.stoplight,
+                super::STAGE13_RENDERER_MODE_SKILL
+            )?,
+            "stoplight": bundle.stoplight,
+            "suggested_action": bundle.suggested_action,
+            "suggested_action_reasoning": "Aggregates (general framework supply) needs clarification for quantity_basis_undetermined before the daemon can rely on the quoted kg basis.",
+            "clarification_prompts": bundle.clarification_prompts,
+            "candidate_count": bundle.candidate_count,
+            "priced_candidate_count": bundle.priced_candidate_count,
+            "clarification_prompt_count": bundle.clarification_prompt_count,
+        }))
+    }
+
+    fn test_manifest_result_schema() -> Value {
+        json!({
+            "type": "object",
+            "required": [
+                "process_id",
+                "decisionBasisHash",
+                "manifestMarkdown",
+                "stoplight",
+                "suggested_action",
+                "suggested_action_reasoning",
+                "clarification_prompts",
+                "candidate_count"
+            ],
+            "properties": {
+                "process_id": {"type": "string"},
+                "decisionBasisHash": {"type": "string"},
+                "manifestMarkdown": {"type": "string"},
+                "stoplight": {"type": "string"},
+                "suggested_action": {"type": "string"},
+                "suggested_action_reasoning": {"type": "string"},
+                "clarification_prompts": {"type": "array"},
+                "candidate_count": {"type": "integer"},
+                "priced_candidate_count": {"type": "integer"},
+                "clarification_prompt_count": {"type": "integer"}
+            }
+        })
+    }
+
+    fn test_manifest_loaded_skill() -> LoadedSkill {
+        LoadedSkill {
+            skill_path: "skills/manifest-generation/SKILL.md".into(),
+            skill_markdown: String::new(),
+            metadata: SkillFrontmatter {
+                skill_id: "manifest-generation".to_owned(),
+                skill_version: "1.0.0".to_owned(),
+                interaction_profile: "headless_contract".to_owned(),
+                result_schema_version: "1.0.0".to_owned(),
+                checkpoint_schema_version: None,
+                validator_overlay_version: Some("2026.03.30-1".to_owned()),
+                model_profile: "structured_extract_low_cost".to_owned(),
+                agent_cli: Some(DEFAULT_AGENT_CLI.to_owned()),
+                source_structure_version: None,
+                worker_behavior_version: None,
+                validator_behavior_version: None,
+                validation_policy: None,
+                validation_sample_rate: None,
+                validation_triggers: None,
+                promotion_stage: SkillPromotionStageMetadata::Stable,
+                version_change_affects_behavior: true,
+                gate_a_family_key: None,
+                gate_a_family_prequalified: true,
+                gate_b_exact_slice_key: None,
+                gate_b_exact_slice_ready: true,
+            },
+            result_schema: test_manifest_result_schema(),
+        }
+    }
+
+    fn bootstrap_manifest_render_runtime()
+    -> Result<(tempfile::TempDir, super::RuntimeBootstrap, Cli)> {
+        let temp = tempdir()?;
+        let state_root = temp.path().join("state");
+        let runtime_dir = temp.path().join("runtime");
+        let artifact_root = temp.path().join("artifacts");
+        let cli = Cli::parse_from([
+            "daemon",
+            "--serve",
+            "--state-root",
+            state_root.to_str().expect("utf8 state root"),
+            "--runtime-dir",
+            runtime_dir.to_str().expect("utf8 runtime dir"),
+            "--artifact-root",
+            artifact_root.to_str().expect("utf8 artifact root"),
+        ]);
+        let runtime = bootstrap_runtime(&cli)?;
+        Ok((temp, runtime, cli))
+    }
+
+    struct FakeManifestSkillInvoker {
+        payload: Option<Value>,
+        fail: bool,
+        invocations: usize,
+    }
+
+    impl FakeManifestSkillInvoker {
+        fn success(payload: Value) -> Self {
+            Self {
+                payload: Some(payload),
+                fail: false,
+                invocations: 0,
+            }
+        }
+
+        fn failure() -> Self {
+            Self {
+                payload: None,
+                fail: true,
+                invocations: 0,
+            }
+        }
+    }
+
+    impl super::ManifestSkillInvoker for FakeManifestSkillInvoker {
+        fn invoke_manifest_skill<'a>(
+            &'a mut self,
+            _runtime: &'a mut super::RuntimeBootstrap,
+            _skill: &'a LoadedSkill,
+            _bundle: &'a super::ManifestSkillBundle,
+            _cli: &'a Cli,
+            _timeout_seconds: u64,
+        ) -> super::ManifestSkillInvocationFuture<'a> {
+            self.invocations += 1;
+            let fail = self.fail;
+            let payload = self.payload.clone();
+            Box::pin(async move {
+                if fail {
+                    Err(anyhow::anyhow!("mock skill failed"))
+                } else {
+                    Ok(super::ManifestSkillInvocation::mock(
+                        payload.unwrap_or_else(|| json!({})),
+                    ))
+                }
+            })
+        }
+    }
+
+    #[test]
+    fn stage13_renderer_mode_defaults_to_daemon_when_env_unset() {
+        assert_eq!(
+            super::parse_stage13_renderer_mode(None, super::Stage13RendererMode::Daemon),
+            super::Stage13RendererMode::Daemon
+        );
+    }
+
+    #[tokio::test]
+    async fn stage13_renderer_mode_skill_routes_through_skill_path() -> Result<()> {
+        let (_temp, mut runtime, cli) = bootstrap_manifest_render_runtime()?;
+        let skill = test_manifest_loaded_skill();
+        let bundle = test_manifest_bundle();
+        let payload = test_manifest_result_payload(&bundle)?;
+        let mut invoker = FakeManifestSkillInvoker::success(payload);
+
+        let outcome = super::render_manifest_output_for_mode(
+            &mut runtime,
+            &skill,
+            &bundle,
+            &cli,
+            super::Stage13RendererMode::Skill,
+            30,
+            &mut invoker,
+        )
+        .await?;
+
+        assert_eq!(invoker.invocations, 1);
+        assert_eq!(outcome.renderer_mode, super::STAGE13_RENDERER_MODE_SKILL);
+        assert_eq!(
+            super::manifest_frontmatter_renderer_mode(&outcome.output.manifest_markdown)?,
+            super::STAGE13_RENDERER_MODE_SKILL
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn stage13_renderer_mode_auto_falls_back_when_skill_errors() -> Result<()> {
+        let (_temp, mut runtime, cli) = bootstrap_manifest_render_runtime()?;
+        let skill = test_manifest_loaded_skill();
+        let bundle = test_manifest_bundle();
+        let mut invoker = FakeManifestSkillInvoker::failure();
+
+        let outcome = super::render_manifest_output_for_mode(
+            &mut runtime,
+            &skill,
+            &bundle,
+            &cli,
+            super::Stage13RendererMode::Auto,
+            30,
+            &mut invoker,
+        )
+        .await?;
+
+        assert_eq!(invoker.invocations, 1);
+        assert_eq!(
+            outcome.renderer_mode,
+            super::STAGE13_RENDERER_MODE_AUTO_FALLBACK
+        );
+        assert_eq!(
+            super::manifest_frontmatter_renderer_mode(&outcome.output.manifest_markdown)?,
+            super::STAGE13_RENDERER_MODE_AUTO_FALLBACK
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn stage13_renderer_mode_unknown_value_logs_warning_and_defaults_to_daemon() {
+        assert_eq!(
+            super::parse_stage13_renderer_mode(Some("garbage"), super::Stage13RendererMode::Daemon),
+            super::Stage13RendererMode::Daemon
+        );
+    }
+
+    #[test]
+    fn skill_invocation_outcome_persisted_in_frontmatter() -> Result<()> {
+        let bundle = test_manifest_bundle();
+        let payload = test_manifest_result_payload(&bundle)?;
+        let output: super::ManifestSkillOutput = serde_json::from_value(payload)?;
+        assert_eq!(
+            super::manifest_frontmatter_renderer_mode(&output.manifest_markdown)?,
+            super::STAGE13_RENDERER_MODE_SKILL
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn auto_fallback_outcome_persisted_in_frontmatter() -> Result<()> {
+        let (_temp, mut runtime, cli) = bootstrap_manifest_render_runtime()?;
+        let skill = test_manifest_loaded_skill();
+        let bundle = test_manifest_bundle();
+        let mut invoker = FakeManifestSkillInvoker::failure();
+
+        let outcome = super::render_manifest_output_for_mode(
+            &mut runtime,
+            &skill,
+            &bundle,
+            &cli,
+            super::Stage13RendererMode::Auto,
+            30,
+            &mut invoker,
+        )
+        .await?;
+
+        assert_eq!(
+            super::manifest_frontmatter_renderer_mode(&outcome.output.manifest_markdown)?,
+            super::STAGE13_RENDERER_MODE_AUTO_FALLBACK
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn deterministic_fields_byte_stable_across_skill_renders() -> Result<()> {
+        let (_temp, mut runtime, cli) = bootstrap_manifest_render_runtime()?;
+        let skill = test_manifest_loaded_skill();
+        let bundle = test_manifest_bundle();
+        let mut first_invoker =
+            FakeManifestSkillInvoker::success(test_manifest_result_payload(&bundle)?);
+        let mut second_payload = test_manifest_result_payload(&bundle)?;
+        second_payload["suggested_action_reasoning"] = json!(
+            "Aggregates (general framework supply) remains anchored to quantity_basis_undetermined; only the prose wording changed."
+        );
+        let mut second_invoker = FakeManifestSkillInvoker::success(second_payload);
+
+        let first = super::render_manifest_output_for_mode(
+            &mut runtime,
+            &skill,
+            &bundle,
+            &cli,
+            super::Stage13RendererMode::Skill,
+            30,
+            &mut first_invoker,
+        )
+        .await?;
+        let second = super::render_manifest_output_for_mode(
+            &mut runtime,
+            &skill,
+            &bundle,
+            &cli,
+            super::Stage13RendererMode::Skill,
+            30,
+            &mut second_invoker,
+        )
+        .await?;
+
+        assert_eq!(first.output.stoplight, second.output.stoplight);
+        assert_eq!(
+            first.output.suggested_action,
+            second.output.suggested_action
+        );
+        assert_eq!(
+            super::canonical_clarification_prompts_json(&first.output.clarification_prompts)?,
+            super::canonical_clarification_prompts_json(&second.output.clarification_prompts)?
+        );
+        assert_eq!(first.output.candidate_count, second.output.candidate_count);
+        assert_eq!(
+            first.output.priced_candidate_count,
+            second.output.priced_candidate_count
+        );
+        assert_eq!(
+            first.output.clarification_prompt_count,
+            second.output.clarification_prompt_count
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn skill_render_drift_detection_rejects_diverging_stoplight() -> Result<()> {
+        let bundle = test_manifest_bundle();
+        let mut payload = test_manifest_result_payload(&bundle)?;
+        payload["stoplight"] = json!("pursue");
+        let error = super::validate_manifest_skill_output(
+            &test_manifest_result_schema(),
+            &bundle,
+            &payload,
+        )
+        .expect_err("stoplight drift must fail");
+        assert!(error.to_string().contains("stoplight_drifted_from_bundle"));
+        Ok(())
+    }
+
+    #[test]
+    fn skill_render_reasoning_anchored_to_candidate_names_or_reason_codes() -> Result<()> {
+        let bundle = test_manifest_bundle();
+        let mut payload = test_manifest_result_payload(&bundle)?;
+        payload["suggested_action_reasoning"] = json!("This opportunity needs review.");
+        let error = super::validate_manifest_skill_output(
+            &test_manifest_result_schema(),
+            &bundle,
+            &payload,
+        )
+        .expect_err("generic reasoning must fail anchoring");
+        assert!(
+            error
+                .to_string()
+                .contains("suggested_action_reasoning_not_anchored")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn stoplight_pursue_when_any_pass_and_priced_coverage_above_5000() {
+        let candidates = vec![manifest_policy_candidate(
+            super::NetMarginVerdict::Pass,
+            false,
+        )];
+        assert_eq!(
+            super::derive_manifest_stoplight(&candidates, 6_000),
+            super::ManifestStoplight::Pursue
+        );
+    }
+
+    #[test]
+    fn stoplight_clarify_when_re_evaluation_eligible_and_no_pass() {
+        let candidates = vec![manifest_policy_candidate(
+            super::NetMarginVerdict::Review,
+            true,
+        )];
+        assert_eq!(
+            super::derive_manifest_stoplight(&candidates, 0),
+            super::ManifestStoplight::Clarify
+        );
+    }
+
+    #[test]
+    fn stoplight_pass_when_all_reject() {
+        let candidates = vec![
+            manifest_policy_candidate(super::NetMarginVerdict::Reject, false),
+            manifest_policy_candidate(super::NetMarginVerdict::Reject, false),
+        ];
+        assert_eq!(
+            super::derive_manifest_stoplight(&candidates, 10_000),
+            super::ManifestStoplight::Pass
+        );
+    }
+
+    #[test]
+    fn stoplight_pass_when_zero_coverage_no_re_eval_eligible() {
+        let candidates = vec![manifest_policy_candidate(
+            super::NetMarginVerdict::Review,
+            false,
+        )];
+        assert_eq!(
+            super::derive_manifest_stoplight(&candidates, 0),
+            super::ManifestStoplight::Pass
+        );
+    }
+
+    #[test]
+    fn stoplight_review_otherwise() {
+        let candidates = vec![manifest_policy_candidate(
+            super::NetMarginVerdict::Review,
+            false,
+        )];
+        assert_eq!(
+            super::derive_manifest_stoplight(&candidates, 6_000),
+            super::ManifestStoplight::Review
+        );
+    }
+
+    #[test]
+    fn suggested_action_label_includes_re_eval_count_for_clarify() {
+        assert_eq!(
+            super::suggested_action_label(super::ManifestStoplight::Clarify, 3),
+            "Clarify 3 candidate(s) before deciding"
+        );
+    }
+
+    #[test]
+    fn clarification_prompt_for_quantity_basis_undetermined_includes_unit_from_quote() {
+        let candidate = test_manifest_candidate(
+            "candidate-kg",
+            "Aggregates",
+            vec![super::REASON_QUANTITY_BASIS_UNDETERMINED.to_owned()],
+            true,
+            Some("kg"),
+            Some("pricing-kg"),
+        );
+        let prompts = super::clarification_prompts_for_candidate(&candidate);
+        assert_eq!(prompts.len(), 1);
+        assert_eq!(prompts[0].prompt_unit.as_deref(), Some("kg"));
+        assert_eq!(prompts[0].prompt_type, "number");
+    }
+
+    #[test]
+    fn clarification_prompt_for_awaiting_rfq_quote_has_object_type() {
+        let candidate = test_manifest_candidate(
+            "candidate-rfq",
+            "DGU",
+            vec![super::REASON_AWAITING_RFQ_QUOTE.to_owned()],
+            true,
+            Some("square meter"),
+            Some("pricing-rfq"),
+        );
+        let prompts = super::clarification_prompts_for_candidate(&candidate);
+        assert_eq!(prompts.len(), 1);
+        assert_eq!(prompts[0].prompt_type, "object");
+    }
+
+    #[test]
+    fn clarification_prompt_for_no_pricing_signal_has_choice_type() {
+        let candidate = test_manifest_candidate(
+            "candidate-unpriced",
+            "Asphalts",
+            vec![super::REASON_NO_PRICING_SIGNAL.to_owned()],
+            true,
+            None,
+            None,
+        );
+        let prompts = super::clarification_prompts_for_candidate(&candidate);
+        assert_eq!(prompts.len(), 1);
+        assert_eq!(prompts[0].prompt_type, "choice");
+        assert_eq!(
+            prompts[0].options.as_ref().expect("choice options"),
+            &vec![
+                "manual_price".to_owned(),
+                "un_pursueable".to_owned(),
+                "defer".to_owned()
+            ]
+        );
+    }
+
+    #[test]
+    fn confidence_below_floor_alone_yields_no_prompt() {
+        let candidate = test_manifest_candidate(
+            "candidate-confidence",
+            "Low confidence item",
+            vec![
+                super::REASON_CONFIDENCE_PRICING_INPUT_BELOW_FLOOR.to_owned(),
+                super::REASON_CONFIDENCE_REVENUE_BELOW_FLOOR.to_owned(),
+            ],
+            true,
+            Some("unit"),
+            Some("pricing-confidence"),
+        );
+        assert!(super::clarification_prompts_for_candidate(&candidate).is_empty());
+    }
+
+    #[test]
+    fn multiple_actionable_reasons_yield_multiple_prompts_per_candidate() {
+        let candidate = test_manifest_candidate(
+            "candidate-dgu",
+            "Double-glazed unit",
+            vec![
+                super::REASON_QUANTITY_BASIS_UNALIGNED.to_owned(),
+                super::REASON_AWAITING_RFQ_QUOTE.to_owned(),
+                super::REASON_CONFIDENCE_PRICING_INPUT_BELOW_FLOOR.to_owned(),
+                super::REASON_CONFIDENCE_REVENUE_BELOW_FLOOR.to_owned(),
+            ],
+            true,
+            Some("square meter"),
+            Some("pricing-dgu"),
+        );
+        let prompts = super::clarification_prompts_for_candidate(&candidate);
+        assert_eq!(prompts.len(), 2);
+        assert!(
+            prompts
+                .iter()
+                .any(|prompt| prompt.reason_code == super::REASON_QUANTITY_BASIS_UNALIGNED)
+        );
+        assert!(
+            prompts
+                .iter()
+                .any(|prompt| prompt.reason_code == super::REASON_AWAITING_RFQ_QUOTE)
+        );
+    }
+
+    #[test]
+    fn manifest_basis_hash_stable_across_runs_with_identical_inputs() {
+        let first = super::manifest_basis_hash("process-a", "stage12-hash");
+        let second = super::manifest_basis_hash("process-a", "stage12-hash");
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn manifest_basis_hash_changes_when_pipeline_assessments_decision_basis_hash_changes() {
+        let first = super::manifest_basis_hash("process-a", "stage12-hash-a");
+        let second = super::manifest_basis_hash("process-a", "stage12-hash-b");
+        assert_ne!(first, second);
+    }
+
+    #[test]
+    fn idempotent_no_op_when_manifest_basis_hash_matches_persisted() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_process(state_db.connection(), "process-test")?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO pipeline_assessments (
+              process_id, pipeline_state, review_required, decision_basis_hash, owner_id
+            ) VALUES ('process-test', 'net_qualified', 1, 'stage12-hash', 'local-owner')
+            ",
+            [],
+        )?;
+        let bundle = test_manifest_bundle();
+        let payload = test_manifest_result_payload(&bundle)?;
+        let output: super::ManifestSkillOutput = serde_json::from_value(payload)?;
+        super::persist_manifest_generation_output(
+            &mut state_db,
+            temp.path(),
+            &bundle,
+            &output,
+            "stage-run-test",
+        )?;
+
+        let existing =
+            super::existing_manifest_basis_hash(state_db.connection(), &bundle.process_id)?;
+        assert!(super::should_skip_manifest_generation(
+            existing.as_deref(),
+            &bundle.manifest_basis_hash
+        ));
+        let row_count: i64 =
+            state_db
+                .connection()
+                .query_row("SELECT COUNT(*) FROM manifests", [], |row| row.get(0))?;
+        assert_eq!(row_count, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn unpriced_process_yields_stub_manifest_with_zero_priced_count() {
+        let candidates = [
+            test_manifest_candidate(
+                "candidate-unpriced-a",
+                "Manual item A",
+                vec![super::REASON_NO_PRICING_SIGNAL.to_owned()],
+                true,
+                None,
+                None,
+            ),
+            test_manifest_candidate(
+                "candidate-unpriced-b",
+                "Manual item B",
+                vec![super::REASON_NO_PRICING_SIGNAL.to_owned()],
+                true,
+                None,
+                None,
+            ),
+        ];
+        let prompt_count = candidates
+            .iter()
+            .flat_map(super::clarification_prompts_for_candidate)
+            .count();
+        assert_eq!(
+            candidates
+                .iter()
+                .filter(|candidate| candidate.pricing_assessment_id.is_some())
+                .count(),
+            0
+        );
+        assert_eq!(prompt_count, 2);
+    }
+
+    #[test]
+    fn clarification_prompts_json_serializes_alphabetically_by_candidate_id() -> Result<()> {
+        let mut prompts = vec![
+            super::ClarificationPrompt {
+                candidate_id: "candidate-b".to_owned(),
+                candidate_name: "B".to_owned(),
+                lot_id: None,
+                reason_code: super::REASON_NO_PRICING_SIGNAL.to_owned(),
+                prompt_text: "Manually price candidate or flag as un-pursueable".to_owned(),
+                prompt_unit: None,
+                prompt_type: "choice".to_owned(),
+                default_value: Value::Null,
+                rationale: None,
+                options: None,
+            },
+            super::ClarificationPrompt {
+                candidate_id: "candidate-a".to_owned(),
+                candidate_name: "A".to_owned(),
+                lot_id: None,
+                reason_code: super::REASON_AWAITING_RFQ_QUOTE.to_owned(),
+                prompt_text: "Provide RFQ quote: per-unit price (GBP), lead time (days), MOQ"
+                    .to_owned(),
+                prompt_unit: None,
+                prompt_type: "object".to_owned(),
+                default_value: Value::Null,
+                rationale: None,
+                options: None,
+            },
+        ];
+        super::sort_clarification_prompts(&mut prompts);
+        assert_eq!(prompts[0].candidate_id, "candidate-a");
+        let serialized = super::canonical_clarification_prompts_json(&prompts)?;
+        assert!(
+            serialized.find("candidate-a").expect("candidate-a present")
+                < serialized.find("candidate-b").expect("candidate-b present")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn pipeline_state_transitions_to_manifest_ready_after_stage13() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_process(state_db.connection(), "process-test")?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO pipeline_assessments (
+              process_id, pipeline_state, review_required, decision_basis_hash, owner_id
+            ) VALUES ('process-test', 'net_qualified', 1, 'stage12-hash', 'local-owner')
+            ",
+            [],
+        )?;
+        let bundle = test_manifest_bundle();
+        let payload = test_manifest_result_payload(&bundle)?;
+        let output: super::ManifestSkillOutput = serde_json::from_value(payload)?;
+        super::persist_manifest_generation_output(
+            &mut state_db,
+            temp.path(),
+            &bundle,
+            &output,
+            "stage-run-test",
+        )?;
+        let state: String = state_db.connection().query_row(
+            "SELECT pipeline_state FROM pipeline_assessments WHERE process_id = 'process-test'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(state, "manifest_ready");
+        Ok(())
+    }
+
+    #[test]
+    fn markdown_artifact_path_uses_per_process_subdir() {
+        let path = super::manifest_artifact_path(Path::new("artifacts"), "process-test");
+        assert_eq!(
+            path,
+            Path::new("artifacts")
+                .join("manifests")
+                .join("process-test")
+                .join("manifest.md")
+        );
+    }
+
+    #[test]
+    fn stoplight_drift_in_skill_output_rejects_with_specific_reason() -> Result<()> {
+        let bundle = test_manifest_bundle();
+        let mut payload = test_manifest_result_payload(&bundle)?;
+        payload["stoplight"] = json!("pursue");
+        let error = super::validate_manifest_skill_output(
+            &test_manifest_result_schema(),
+            &bundle,
+            &payload,
+        )
+        .expect_err("stoplight drift must fail");
+        assert!(error.to_string().contains("stoplight_drifted_from_bundle"));
+        Ok(())
+    }
+
+    #[test]
+    fn clarification_prompts_drift_in_skill_output_rejects_with_specific_reason() -> Result<()> {
+        let bundle = test_manifest_bundle();
+        let mut payload = test_manifest_result_payload(&bundle)?;
+        payload["clarification_prompts"] = json!([]);
+        let error = super::validate_manifest_skill_output(
+            &test_manifest_result_schema(),
+            &bundle,
+            &payload,
+        )
+        .expect_err("prompt drift must fail");
+        assert!(error.to_string().contains("clarification_prompts_drifted"));
+        Ok(())
+    }
+
+    #[test]
+    fn frontmatter_drift_in_markdown_rejects_with_specific_reason() -> Result<()> {
+        let bundle = test_manifest_bundle();
+        let mut payload = test_manifest_result_payload(&bundle)?;
+        payload["manifestMarkdown"] = json!(test_manifest_markdown(
+            &bundle,
+            super::ManifestStoplight::Pursue,
+            super::STAGE13_RENDERER_MODE_SKILL
+        )?);
+        let error = super::validate_manifest_skill_output(
+            &test_manifest_result_schema(),
+            &bundle,
+            &payload,
+        )
+        .expect_err("frontmatter drift must fail");
+        assert!(
+            error
+                .to_string()
+                .contains("frontmatter_drifted_from_bundle")
+        );
+        Ok(())
+    }
 
     fn insert_sync_source_job(conn: &Connection, job_id: &str, status: &str) -> Result<()> {
         conn.execute(
