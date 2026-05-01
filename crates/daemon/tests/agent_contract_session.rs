@@ -1032,11 +1032,33 @@ mod tests {
         })
         .to_string();
         let decision_basis_hash = format!("{:x}", Sha256::digest(basis_input.as_bytes()));
+        let clarification_prompts = json!([
+            {
+                "candidate_id": "candidate-123",
+                "candidate_name": "Aggregates",
+                "lot_id": null,
+                "reason_code": "quantity_basis_undetermined",
+                "prompt_text": "Provide framework annual usage estimate",
+                "prompt_unit": "kg",
+                "prompt_type": "number",
+                "default_value": null,
+                "rationale": "Revenue scope and quote cost scope are mismatched."
+            }
+        ]);
+        let manifest_markdown = format!(
+            "---\nmanifest_version: v1.0-2026-05-01\nprocess_id: process-123\nbasis_hash: {decision_basis_hash}\nstoplight: clarify\nsuggested_action: Clarify 1 candidate(s) before deciding\nclarification_prompts:\n  - candidate_id: candidate-123\n    candidate_name: Aggregates\n    lot_id: null\n    reason_code: quantity_basis_undetermined\n    prompt_text: Provide framework annual usage estimate\n    prompt_unit: kg\n    prompt_type: number\n    default_value: null\n    rationale: Revenue scope and quote cost scope are mismatched.\n---\n# Opportunity Manifest\n\n## Header\n\n## Decision Summary\n\n## Per-Candidate Detail\n\n## Operator Input Requests\n\n## Evidence Trail\n\n## Coverage Metrics\n"
+        );
         let result_payload = json!({
             "process_id": "process-123",
             "decisionBasisHash": decision_basis_hash,
-            "manifestMarkdown": "# Opportunity Manifest\n\nStrong opportunity.",
-            "candidate_count": 2
+            "manifestMarkdown": manifest_markdown,
+            "stoplight": "clarify",
+            "suggested_action": "Clarify 1 candidate(s) before deciding",
+            "suggested_action_reasoning": "Aggregates needs clarification for quantity_basis_undetermined before the manifest can support a decision.",
+            "clarification_prompts": clarification_prompts,
+            "candidate_count": 2,
+            "priced_candidate_count": 1,
+            "clarification_prompt_count": 1
         });
         validate_result_payload(&result_schema, &result_payload)?;
         Ok(result_payload)

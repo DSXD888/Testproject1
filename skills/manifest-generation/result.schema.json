@@ -4,7 +4,12 @@
   "required": [
     "process_id",
     "decisionBasisHash",
-    "manifestMarkdown"
+    "manifestMarkdown",
+    "stoplight",
+    "suggested_action",
+    "suggested_action_reasoning",
+    "clarification_prompts",
+    "candidate_count"
   ],
   "properties": {
     "process_id": {
@@ -16,8 +21,77 @@
     "manifestMarkdown": {
       "type": "string"
     },
+    "stoplight": {
+      "type": "string",
+      "enum": ["pursue", "clarify", "pass", "review"]
+    },
+    "suggested_action": {
+      "type": "string",
+      "minLength": 1
+    },
+    "suggested_action_reasoning": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "clarification_prompts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "candidate_id",
+          "candidate_name",
+          "reason_code",
+          "prompt_text",
+          "prompt_type"
+        ],
+        "properties": {
+          "candidate_id": {
+            "type": "string"
+          },
+          "candidate_name": {
+            "type": "string"
+          },
+          "lot_id": {
+            "type": ["string", "null"]
+          },
+          "reason_code": {
+            "type": "string"
+          },
+          "prompt_text": {
+            "type": "string"
+          },
+          "prompt_unit": {
+            "type": ["string", "null"]
+          },
+          "prompt_type": {
+            "type": "string",
+            "enum": ["number", "object", "choice"]
+          },
+          "default_value": {},
+          "rationale": {
+            "type": ["string", "null"]
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
     "candidate_count": {
-      "type": "integer"
+      "type": "integer",
+      "minimum": 0
+    },
+    "priced_candidate_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "clarification_prompt_count": {
+      "type": "integer",
+      "minimum": 0
     }
   }
 }

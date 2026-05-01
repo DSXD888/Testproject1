@@ -8,3 +8,26 @@ required_sections:
   - Decisions Made
   - Warnings
   - Evidence
+required_result_fields:
+  - process_id
+  - decisionBasisHash
+  - manifestMarkdown
+  - stoplight
+  - suggested_action
+  - suggested_action_reasoning
+  - clarification_prompts
+  - candidate_count
+required_markdown_sections:
+  - "## Header"
+  - "## Decision Summary"
+  - "## Per-Candidate Detail"
+  - "## Operator Input Requests"
+  - "## Evidence Trail"
+  - "## Coverage Metrics"
+required_frontmatter_fields:
+  - manifest_version
+  - process_id
+  - basis_hash
+  - stoplight
+  - suggested_action
+  - clarification_prompts

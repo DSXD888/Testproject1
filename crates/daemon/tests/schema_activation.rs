@@ -909,6 +909,68 @@ mod tests {
     }
 
     #[test]
+    fn mfg_t_schema_activation_008_upgrade_path_applies_0008_cleanly() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let conn = Connection::open(&db_path)?;
+
+        for migration_path in [
+            "migrations/0001_sqlite_state_initial.sql",
+            "migrations/0003_sqlite_runtime.sql",
+            "migrations/0004_l2_pending_operator_intents.sql",
+            "migrations/0005_l3_operational_hardening.sql",
+            "migrations/0006_pdf_extraction_toolkit.sql",
+            "migrations/0007_net_margin_gate_assessments.sql",
+        ] {
+            apply_migration(&conn, migration_path)?;
+        }
+        seed_applied_migrations(
+            &conn,
+            &[
+                "0001_sqlite_state_initial",
+                "0003_sqlite_runtime",
+                "0004_l2_pending_operator_intents",
+                "0005_l3_operational_hardening",
+                "0006_pdf_extraction_toolkit",
+                "0007_net_margin_gate_assessments",
+            ],
+            4,
+        )?;
+        drop(conn);
+
+        let state_db = StateDb::open(&db_path)?;
+        let conn = state_db.connection();
+        let manifest_columns = table_columns(conn, "manifests")?;
+        let manifest_migration_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM schema_migrations WHERE id = '0008_manifest_generation_columns'",
+            [],
+            |row| row.get(0),
+        )?;
+
+        for column in [
+            "stoplight",
+            "suggested_action",
+            "suggested_action_reasoning",
+            "clarification_prompts_json",
+            "manifest_basis_hash",
+            "manifest_template_version",
+            "candidate_count",
+            "priced_candidate_count",
+            "clarification_prompt_count",
+        ] {
+            ensure!(
+                manifest_columns.iter().any(|candidate| candidate == column),
+                "MFG-T-schema_activation-008 manifests missing column {column}"
+            );
+        }
+        ensure!(
+            manifest_migration_count == 1,
+            "MFG-T-schema_activation-008 expected 0008 migration log entry"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn pdf_t_schema_activation_003_document_extractions_columns_match_contract() -> Result<()> {
         let state_db = TestStateDb::new()?;
         let columns = table_columns(state_db.connection(), "document_extractions")?;
@@ -1105,19 +1167,19 @@ mod tests {
     }
 
     #[test]
-    fn pdf_t_schema_activation_009_default_schema_epoch_is_4() -> Result<()> {
+    fn pdf_t_schema_activation_009_default_schema_epoch_is_5() -> Result<()> {
         let state_db = TestStateDb::new()?;
         let user_version: i64 =
             state_db
                 .connection()
                 .pragma_query_value(None, "user_version", |row| row.get(0))?;
         ensure!(
-            crate::support::db::DEFAULT_SCHEMA_EPOCH == 4,
-            "PDF-T-schema_activation-009 expected DEFAULT_SCHEMA_EPOCH to be 4"
+            crate::support::db::DEFAULT_SCHEMA_EPOCH == 5,
+            "PDF-T-schema_activation-009 expected DEFAULT_SCHEMA_EPOCH to be 5"
         );
         ensure!(
-            user_version == 4,
-            "PDF-T-schema_activation-009 expected user_version to be 4"
+            user_version == 5,
+            "PDF-T-schema_activation-009 expected user_version to be 5"
         );
         Ok(())
     }

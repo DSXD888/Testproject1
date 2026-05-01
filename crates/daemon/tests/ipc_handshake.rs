@@ -988,7 +988,7 @@ impl HandshakeHarness {
         let mut client = UnixStream::connect(&socket_path)
             .with_context(|| format!("connecting to {}", socket_path.display()))?;
         let reader_stream = client.try_clone()?;
-        reader_stream.set_read_timeout(Some(std::time::Duration::from_millis(25)))?;
+        reader_stream.set_read_timeout(Some(std::time::Duration::from_millis(250)))?;
         let mut reader = BufReader::new(reader_stream);
         let mut frames = Vec::new();
         for message in messages {

@@ -146,11 +146,20 @@ impl RunHarness {
 
 fn manifest_result_payload(fixture: &Value) -> Result<Value> {
     if fixture["notices"].as_array().is_some_and(Vec::is_empty) {
+        let markdown = "# Opportunity Manifest\n\n## Header\n\n- Process: process-empty\n- Title: Empty batch\n\n## Decision Summary\n\n## Per-Candidate Detail\n\n## Operator Input Requests\n\n## Evidence Trail\n\n## Coverage Metrics\n\n- Candidate count: 0\n";
         return Ok(json!({
             "process_id": "process-empty",
             "decisionBasisHash": "empty",
-            "manifestMarkdown": "# Opportunity Manifest\n\n- Process: process-empty\n- Title: Empty batch\n- Candidate count: 0\n",
+            "manifestMarkdown": format!(
+                "---\nmanifest_version: v1.0-2026-05-01\nprocess_id: process-empty\nbasis_hash: empty\nstoplight: review\nsuggested_action: Operator review required\nclarification_prompts: []\n---\n{markdown}"
+            ),
+            "stoplight": "review",
+            "suggested_action": "Operator review required",
+            "suggested_action_reasoning": "process-empty has no Stage 12 candidates, so the manifest remains in review.",
+            "clarification_prompts": [],
             "candidate_count": 0,
+            "priced_candidate_count": 0,
+            "clarification_prompt_count": 0,
         }));
     }
     let process_id = fixture["notices"][0]["processId"]
@@ -165,15 +174,24 @@ fn manifest_result_payload(fixture: &Value) -> Result<Value> {
         .iter()
         .filter_map(|lot| lot["candidateCount"].as_u64())
         .sum::<u64>();
-    let markdown = format!(
-        "# Opportunity Manifest\n\n- Process: {process_id}\n- Title: {title}\n- Candidate count: {candidate_count}\n"
+    let body = format!(
+        "# Opportunity Manifest\n\n## Header\n\n- Process: {process_id}\n- Title: {title}\n\n## Decision Summary\n\n## Per-Candidate Detail\n\n## Operator Input Requests\n\n## Evidence Trail\n\n## Coverage Metrics\n\n- Candidate count: {candidate_count}\n"
     );
-    let decision_basis_hash = format!("{:x}", Sha256::digest(markdown.as_bytes()));
+    let decision_basis_hash = format!("{:x}", Sha256::digest(body.as_bytes()));
+    let markdown = format!(
+        "---\nmanifest_version: v1.0-2026-05-01\nprocess_id: {process_id}\nbasis_hash: {decision_basis_hash}\nstoplight: review\nsuggested_action: Operator review required\nclarification_prompts: []\n---\n{body}"
+    );
     let mut payload = json!({
         "process_id": process_id,
         "decisionBasisHash": decision_basis_hash,
         "manifestMarkdown": markdown,
+        "stoplight": "review",
+        "suggested_action": "Operator review required",
+        "suggested_action_reasoning": format!("{title} requires operator review before the manifest can drive a decision."),
+        "clarification_prompts": [],
         "candidate_count": candidate_count,
+        "priced_candidate_count": 0,
+        "clarification_prompt_count": 0,
     });
     if fixture["manifestSchemaInvalid"] == json!(true) {
         payload
