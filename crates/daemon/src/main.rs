@@ -460,6 +460,75 @@ struct Cli {
         ]
     )]
     run_next_job: bool,
+
+    // -- Stage 14 — operator decision capture (CLI Phase 1) ---------------
+    /// Capture a final operator disposition (`approve`/`reject`/`watch`) for a
+    /// process whose Stage 13 manifest already exists. Inserts a row into
+    /// `pending_operator_intents` and supersedes any prior active intent.
+    #[arg(long, value_name = "PROCESS_ID")]
+    capture_decision: Option<String>,
+
+    /// Disposition for `--capture-decision`. One of: approve, reject, watch.
+    #[arg(long, requires = "capture_decision")]
+    disposition: Option<String>,
+
+    /// Idempotency key for `--capture-decision`. Required and UNIQUE — re-running
+    /// with the same key is a no-op.
+    #[arg(long, requires = "capture_decision")]
+    idempotency_key: Option<String>,
+
+    /// Optional free-form reasoning saved as `decision_note` on the intent row.
+    #[arg(long)]
+    reasoning: Option<String>,
+
+    /// Capture a clarification override for a candidate. Persists into
+    /// `operator_input_overrides`; Stages 10/11 read it on next pipeline run.
+    #[arg(long, value_name = "PROCESS_ID")]
+    capture_clarification: Option<String>,
+
+    /// `product_candidate_id` for `--capture-clarification` /
+    /// `--withdraw-clarification`.
+    #[arg(long)]
+    candidate_id: Option<String>,
+
+    /// `reason_code` for `--capture-clarification` / `--withdraw-clarification`.
+    /// One of: `quantity_basis_undetermined`, `quantity_basis_unaligned`,
+    /// `awaiting_rfq_quote`, `no_pricing_signal`.
+    #[arg(long)]
+    reason_code: Option<String>,
+
+    /// JSON payload string for `--capture-clarification`. Schema depends on
+    /// `--reason-code`.
+    #[arg(long)]
+    payload: Option<String>,
+
+    /// Optional operator note attached to the override row.
+    #[arg(long)]
+    note: Option<String>,
+
+    /// Withdraw an active clarification override. Sets `withdrawn_at`; row stays
+    /// in the table for audit.
+    #[arg(long, value_name = "PROCESS_ID")]
+    withdraw_clarification: Option<String>,
+
+    /// Withdraw a captured decision by `idempotency_key`. Sets the intent's
+    /// `status='withdrawn'`.
+    #[arg(long, value_name = "IDEMPOTENCY_KEY")]
+    withdraw_decision: Option<String>,
+
+    /// List captured decisions (read-only). Optional filters: `--process-id` and
+    /// `--list-status-filter`.
+    #[arg(long, default_value_t = false)]
+    list_decisions: bool,
+
+    /// Optional filter: limit `--list-decisions` to one process.
+    #[arg(long, value_name = "PROCESS_ID")]
+    process_id: Option<String>,
+
+    /// Optional filter: limit `--list-decisions` to a single status
+    /// (`queued`/`stale`/`superseded`/`withdrawn`).
+    #[arg(long)]
+    list_status_filter: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1142,6 +1211,11 @@ async fn main() -> Result<()> {
     maybe_delay_for_restart();
 
     let mut runtime = bootstrap_runtime(&cli)?;
+
+    if let Some(report) = dispatch_operator_action(&mut runtime, &cli)? {
+        println!("{report}");
+        return Ok(());
+    }
 
     if cli.serve {
         serve_handshake_service(&mut runtime)?;
@@ -2971,6 +3045,288 @@ fn read_result_contract(result_path: &Path) -> Result<Value> {
     serde_json::from_str(&result_text).context("parsing result contract JSON")
 }
 
+// ---------------------------------------------------------------------------
+// Stage 14 — operator input override types
+//
+// Operator clarifications captured via `--capture-clarification` are persisted
+// to `operator_input_overrides`. Stages 10 and 11 read active overrides at
+// row-load time and short-circuit their inference logic accordingly.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OperatorOverrideReason {
+    QuantityBasisUndetermined,
+    QuantityBasisUnaligned,
+    AwaitingRfqQuote,
+    NoPricingSignal,
+}
+
+impl OperatorOverrideReason {
+    const ALL: &'static [Self] = &[
+        Self::QuantityBasisUndetermined,
+        Self::QuantityBasisUnaligned,
+        Self::AwaitingRfqQuote,
+        Self::NoPricingSignal,
+    ];
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::QuantityBasisUndetermined => "quantity_basis_undetermined",
+            Self::QuantityBasisUnaligned => "quantity_basis_unaligned",
+            Self::AwaitingRfqQuote => "awaiting_rfq_quote",
+            Self::NoPricingSignal => "no_pricing_signal",
+        }
+    }
+
+    fn parse(raw: &str) -> Result<Self> {
+        for variant in Self::ALL {
+            if variant.as_str() == raw {
+                return Ok(*variant);
+            }
+        }
+        bail!(
+            "unknown operator override reason_code `{raw}` (expected one of: {})",
+            Self::ALL
+                .iter()
+                .map(|reason| reason.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
+/// Operator-supplied order quantity captured by either of the
+/// `quantity_basis_*` reason codes. Read by `infer_order_quantity_basis` to
+/// short-circuit Stage 11's inference ladder.
+#[derive(Debug, Clone, PartialEq)]
+struct OperatorQuantityOverride {
+    qty: f64,
+    unit: String,
+}
+
+/// Operator-supplied RFQ quote captured by `awaiting_rfq_quote`. Read by
+/// `allocate_gross_margin_revenue` to synthesize a Stage 10 revenue basis when
+/// the candidate would otherwise be flagged `rfq_required`.
+#[derive(Debug, Clone, PartialEq)]
+struct OperatorRfqOverride {
+    unit_price_gbp_pence: i64,
+    /// Lead time and validity are recorded for downstream Stage 15 use; not
+    /// consumed by Stages 10/11 today, but the validator enforces presence.
+    #[allow(dead_code)]
+    lead_time_days: i64,
+    moq: f64,
+    #[allow(dead_code)]
+    currency: String,
+    #[allow(dead_code)]
+    valid_until: Option<String>,
+}
+
+#[allow(clippy::too_many_lines)]
+fn validate_operator_override_payload(
+    reason: OperatorOverrideReason,
+    payload: &Value,
+) -> Result<()> {
+    let object = payload
+        .as_object()
+        .ok_or_else(|| anyhow!("override payload must be a JSON object"))?;
+    match reason {
+        OperatorOverrideReason::QuantityBasisUndetermined
+        | OperatorOverrideReason::QuantityBasisUnaligned => {
+            let qty = object
+                .get("qty")
+                .and_then(Value::as_f64)
+                .ok_or_else(|| anyhow!("override payload missing numeric `qty`"))?;
+            ensure!(
+                qty.is_finite() && qty > 0.0,
+                "override `qty` must be a positive finite number"
+            );
+            let unit = object
+                .get("unit")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("override payload missing string `unit`"))?;
+            ensure!(!unit.trim().is_empty(), "override `unit` must be non-empty");
+        }
+        OperatorOverrideReason::AwaitingRfqQuote => {
+            let unit_price = object
+                .get("unit_price_gbp_pence")
+                .and_then(Value::as_i64)
+                .ok_or_else(|| anyhow!("RFQ override missing integer `unit_price_gbp_pence`"))?;
+            ensure!(
+                unit_price > 0,
+                "RFQ override `unit_price_gbp_pence` must be positive"
+            );
+            let lead_time_days = object
+                .get("lead_time_days")
+                .and_then(Value::as_i64)
+                .ok_or_else(|| anyhow!("RFQ override missing integer `lead_time_days`"))?;
+            ensure!(
+                lead_time_days >= 0,
+                "RFQ override `lead_time_days` must be non-negative"
+            );
+            let moq = object
+                .get("moq")
+                .and_then(Value::as_f64)
+                .ok_or_else(|| anyhow!("RFQ override missing numeric `moq`"))?;
+            ensure!(
+                moq.is_finite() && moq > 0.0,
+                "RFQ override `moq` must be a positive finite number"
+            );
+            let currency = object
+                .get("currency")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("RFQ override missing string `currency`"))?;
+            ensure!(
+                currency == "GBP",
+                "Phase 1 only supports GBP RFQ overrides; got `{currency}`"
+            );
+            if let Some(valid_until) = object.get("valid_until") {
+                ensure!(
+                    valid_until.is_null() || valid_until.is_string(),
+                    "RFQ override `valid_until` must be a string or null"
+                );
+            }
+        }
+        OperatorOverrideReason::NoPricingSignal => {
+            let variant = object
+                .get("variant")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("no_pricing_signal override missing `variant`"))?;
+            match variant {
+                "manual_price" => {
+                    let unit_price = object
+                        .get("unit_price_gbp_pence")
+                        .and_then(Value::as_i64)
+                        .ok_or_else(|| {
+                            anyhow!("manual_price override missing integer `unit_price_gbp_pence`")
+                        })?;
+                    ensure!(
+                        unit_price > 0,
+                        "manual_price `unit_price_gbp_pence` must be positive"
+                    );
+                    let unit = object
+                        .get("unit")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| anyhow!("manual_price override missing `unit`"))?;
+                    ensure!(
+                        !unit.trim().is_empty(),
+                        "manual_price `unit` must be non-empty"
+                    );
+                }
+                "un_pursueable" | "defer" => {
+                    let reason_text = object
+                        .get("reason")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| anyhow!("`{variant}` override missing string `reason`"))?;
+                    ensure!(
+                        !reason_text.trim().is_empty(),
+                        "`{variant}` override `reason` must be non-empty"
+                    );
+                }
+                other => {
+                    bail!(
+                        "unknown no_pricing_signal variant `{other}` (expected manual_price | un_pursueable | defer)"
+                    );
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn read_active_quantity_override(
+    conn: &Connection,
+    process_id: &str,
+    candidate_id: &str,
+) -> Result<Option<OperatorQuantityOverride>> {
+    let payload: Option<String> = conn
+        .query_row(
+            "SELECT payload_json
+             FROM operator_input_overrides
+             WHERE process_id = ?1
+               AND product_candidate_id = ?2
+               AND reason_code IN ('quantity_basis_undetermined', 'quantity_basis_unaligned')
+               AND withdrawn_at IS NULL
+               AND superseded_by_override_id IS NULL
+             ORDER BY provided_at DESC
+             LIMIT 1",
+            params![process_id, candidate_id],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .context("reading active quantity override")?;
+    let Some(payload) = payload else {
+        return Ok(None);
+    };
+    let parsed: Value =
+        serde_json::from_str(&payload).context("parsing quantity override payload_json")?;
+    let qty = parsed
+        .get("qty")
+        .and_then(Value::as_f64)
+        .ok_or_else(|| anyhow!("stored quantity override missing numeric `qty`"))?;
+    let unit = parsed
+        .get("unit")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow!("stored quantity override missing string `unit`"))?
+        .to_owned();
+    Ok(Some(OperatorQuantityOverride { qty, unit }))
+}
+
+fn read_active_rfq_override(
+    conn: &Connection,
+    process_id: &str,
+    candidate_id: &str,
+) -> Result<Option<OperatorRfqOverride>> {
+    let payload: Option<String> = conn
+        .query_row(
+            "SELECT payload_json
+             FROM operator_input_overrides
+             WHERE process_id = ?1
+               AND product_candidate_id = ?2
+               AND reason_code = 'awaiting_rfq_quote'
+               AND withdrawn_at IS NULL
+               AND superseded_by_override_id IS NULL
+             ORDER BY provided_at DESC
+             LIMIT 1",
+            params![process_id, candidate_id],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .context("reading active RFQ override")?;
+    let Some(payload) = payload else {
+        return Ok(None);
+    };
+    let parsed: Value =
+        serde_json::from_str(&payload).context("parsing RFQ override payload_json")?;
+    let unit_price_gbp_pence = parsed
+        .get("unit_price_gbp_pence")
+        .and_then(Value::as_i64)
+        .ok_or_else(|| anyhow!("stored RFQ override missing `unit_price_gbp_pence`"))?;
+    let lead_time_days = parsed
+        .get("lead_time_days")
+        .and_then(Value::as_i64)
+        .ok_or_else(|| anyhow!("stored RFQ override missing `lead_time_days`"))?;
+    let moq = parsed
+        .get("moq")
+        .and_then(Value::as_f64)
+        .ok_or_else(|| anyhow!("stored RFQ override missing `moq`"))?;
+    let currency = parsed
+        .get("currency")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow!("stored RFQ override missing `currency`"))?
+        .to_owned();
+    let valid_until = parsed
+        .get("valid_until")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    Ok(Some(OperatorRfqOverride {
+        unit_price_gbp_pence,
+        lead_time_days,
+        moq,
+        currency,
+        valid_until,
+    }))
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 struct LandedCostAssessmentRow {
@@ -3024,6 +3380,11 @@ struct LandedCostAssessmentRow {
     notice_summary: Option<String>,
     buyer_name: Option<String>,
     main_category: Option<String>,
+    /// Active operator-supplied quantity override read from
+    /// `operator_input_overrides` at row-load time. When `Some(...)`, Stage 11
+    /// short-circuits into `OrderQuantityBasis::FromOperatorOverride` instead
+    /// of running the normal inference ladder.
+    operator_override: Option<OperatorQuantityOverride>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3085,6 +3446,10 @@ enum OrderQuantityBasis {
         qty: f64,
         basis_unit: Option<String>,
     },
+    FromOperatorOverride {
+        qty: f64,
+        basis_unit: Option<String>,
+    },
 }
 
 impl OrderQuantityBasis {
@@ -3094,6 +3459,7 @@ impl OrderQuantityBasis {
             Self::FromLotQuantity { .. } => "from_lot_quantity",
             Self::RfqRequired { .. } => "rfq_required",
             Self::SupplierCapacity { .. } => "supplier_capacity",
+            Self::FromOperatorOverride { .. } => "from_operator_override",
         }
     }
 
@@ -3103,6 +3469,7 @@ impl OrderQuantityBasis {
             Self::FromLotQuantity { .. } => "product_candidate_quantity",
             Self::RfqRequired { .. } => "minimum_order_quantity_or_one_unit_fallback",
             Self::SupplierCapacity { .. } => "supplier_quote_quoted_quantity",
+            Self::FromOperatorOverride { .. } => "operator_input_overrides",
         }
     }
 
@@ -3112,6 +3479,7 @@ impl OrderQuantityBasis {
             Self::FromLotQuantity { .. } => "lot_quantity_order_quantity",
             Self::RfqRequired { .. } => "rfq_required_minimum_order_quantity",
             Self::SupplierCapacity { .. } => "supplier_capacity_quoted_quantity",
+            Self::FromOperatorOverride { .. } => "operator_override_order_quantity",
         }
     }
 
@@ -3119,7 +3487,8 @@ impl OrderQuantityBasis {
         match self {
             Self::FromContractValue { qty, .. }
             | Self::FromLotQuantity { qty, .. }
-            | Self::SupplierCapacity { qty, .. } => *qty,
+            | Self::SupplierCapacity { qty, .. }
+            | Self::FromOperatorOverride { qty, .. } => *qty,
             Self::RfqRequired { fallback_qty, .. } => *fallback_qty,
         }
     }
@@ -3129,7 +3498,8 @@ impl OrderQuantityBasis {
             Self::FromContractValue { basis_unit, .. }
             | Self::FromLotQuantity { basis_unit, .. }
             | Self::RfqRequired { basis_unit, .. }
-            | Self::SupplierCapacity { basis_unit, .. } => basis_unit.as_deref(),
+            | Self::SupplierCapacity { basis_unit, .. }
+            | Self::FromOperatorOverride { basis_unit, .. } => basis_unit.as_deref(),
         }
     }
 
@@ -3160,7 +3530,9 @@ impl OrderQuantityBasis {
                 "screening_only_quantity_uncertainty",
                 "Stage 11 had no order quantity or MOQ, so shipment and supplier cost use the supplier listing quantity as a screening-only capacity fallback.",
             )),
-            Self::FromContractValue { .. } | Self::FromLotQuantity { .. } => None,
+            Self::FromContractValue { .. }
+            | Self::FromLotQuantity { .. }
+            | Self::FromOperatorOverride { .. } => None,
         }
     }
 }
@@ -3447,6 +3819,13 @@ fn preferred_order_quantity_unit(row: &LandedCostAssessmentRow) -> Option<String
 
 #[allow(clippy::cast_precision_loss)]
 fn infer_order_quantity_basis(row: &LandedCostAssessmentRow) -> OrderQuantityBasis {
+    if let Some(override_qty) = &row.operator_override {
+        return OrderQuantityBasis::FromOperatorOverride {
+            qty: override_qty.qty,
+            basis_unit: Some(override_qty.unit.clone()),
+        };
+    }
+
     let preferred_unit = preferred_order_quantity_unit(row);
     if row.revenue_basis_type == "expected_value"
         && row.expected_addressable_revenue_ex_vat_pence > 0
@@ -3498,6 +3877,18 @@ fn infer_order_quantity_basis(row: &LandedCostAssessmentRow) -> OrderQuantityBas
 fn compute_supplier_cost_basis(row: &LandedCostAssessmentRow) -> SupplierCostBasis {
     let mut warnings = Vec::new();
     let order_quantity_basis = infer_order_quantity_basis(row);
+
+    if let OrderQuantityBasis::FromOperatorOverride { qty, basis_unit } = &order_quantity_basis {
+        let supplier_cost_gbp_pence = ((row.unit_price_gbp_pence as f64) * *qty).round() as i64;
+        return SupplierCostBasis {
+            supplier_cost_gbp_pence,
+            basis: "operator_override_order_quantity".to_owned(),
+            quantity: *qty,
+            quantity_unit: basis_unit.clone(),
+            warnings,
+        };
+    }
+
     if let Some(total) = row.offer_total_gbp_pence.filter(|total| *total > 0) {
         return SupplierCostBasis {
             supplier_cost_gbp_pence: total,
@@ -3525,6 +3916,7 @@ fn compute_supplier_cost_basis(row: &LandedCostAssessmentRow) -> SupplierCostBas
         && !matches!(
             order_quantity_basis,
             OrderQuantityBasis::FromContractValue { .. }
+                | OrderQuantityBasis::FromOperatorOverride { .. }
         )
     {
         warnings.push(Stage11Issue::warning(
@@ -3878,6 +4270,18 @@ fn load_landed_cost_assessments(
                 -1
               ) != sq.row_version
            OR COALESCE(lce.blockers, '[]') != '[]'
+           OR EXISTS (
+                SELECT 1
+                FROM operator_input_overrides oio
+                WHERE oio.process_id = cpa.process_id
+                  AND oio.product_candidate_id = cpa.product_candidate_id
+                  AND oio.reason_code IN (
+                    'quantity_basis_undetermined',
+                    'quantity_basis_unaligned',
+                    'awaiting_rfq_quote'
+                  )
+                  AND (lce.id IS NULL OR oio.updated_at > lce.updated_at)
+              )
         ORDER BY cpa.created_at, cpa.id
         LIMIT ?1
         ",
@@ -3935,10 +4339,21 @@ fn load_landed_cost_assessments(
             notice_summary: row.get(47)?,
             buyer_name: row.get(48)?,
             main_category: row.get(49)?,
+            operator_override: None,
         })
     })?;
-    rows.collect::<std::result::Result<Vec<_>, _>>()
-        .context("loading Stage 11 landed-cost assessments")
+    let mut collected: Vec<LandedCostAssessmentRow> = rows
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("loading Stage 11 landed-cost assessments")?;
+    drop(stmt);
+    for assessment in &mut collected {
+        assessment.operator_override = read_active_quantity_override(
+            conn,
+            &assessment.process_id,
+            &assessment.product_candidate_id,
+        )?;
+    }
+    Ok(collected)
 }
 
 #[allow(clippy::future_not_send, clippy::too_many_lines)]
@@ -8348,6 +8763,9 @@ fn persist_manifest_generation_output(
             &bundle.process_id,
             stage_run_id,
         )?;
+
+        mark_intents_stale_on_basis_drift(tx, &bundle.process_id, &bundle.manifest_basis_hash)?;
+
         Ok(())
     })?;
     Ok(())
@@ -17684,10 +18102,22 @@ fn count_non_service_candidates(
         .context("counting non-service product candidates")
 }
 
+#[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
 fn allocate_gross_margin_revenue(
     tx: &Transaction<'_>,
     candidate: &GrossMarginCandidateRow,
 ) -> Result<RevenueAllocation> {
+    if let Some(rfq) = read_active_rfq_override(tx, &candidate.process_id, &candidate.id)? {
+        let qty = read_active_quantity_override(tx, &candidate.process_id, &candidate.id)?
+            .map_or(rfq.moq, |quantity| quantity.qty);
+        let revenue_pence = ((rfq.unit_price_gbp_pence as f64) * qty).round() as i64;
+        return Ok(RevenueAllocation {
+            revenue_basis_type: "expected_value",
+            revenue_pence,
+            confidence_bps: 8000,
+        });
+    }
+
     let lot_value_pence: Option<i64> = tx
         .query_row(
             "SELECT estimated_value_pence FROM notice_lots WHERE id = ?1",
@@ -18360,6 +18790,592 @@ impl UuidSeed {
     const fn as_bytes(self) -> [u8; 16] {
         self.0.to_be_bytes()
     }
+}
+
+// ---------------------------------------------------------------------------
+// Stage 14 — operator decision capture (Phase 1 CLI)
+// ---------------------------------------------------------------------------
+
+const OPERATOR_DECISION_STAGE_NAME: &str = "operator decision";
+const OPERATOR_DECISION_DISPOSITIONS: &[&str] = &["approve", "reject", "watch"];
+const OPERATOR_DECISION_STATUSES: &[&str] = &["queued", "stale", "superseded", "withdrawn"];
+const DEFAULT_LOCAL_OPERATOR_ID: &str = "local-operator";
+
+#[derive(Debug, Clone)]
+#[allow(clippy::struct_field_names)]
+struct ManifestSnapshot {
+    manifest_basis_hash: String,
+    artifact_hash: String,
+    decision_basis_hash: String,
+}
+
+fn read_manifest_snapshot_for_decision(
+    conn: &Connection,
+    process_id: &str,
+) -> Result<ManifestSnapshot> {
+    let manifest = conn
+        .query_row(
+            "SELECT manifest_basis_hash, artifact_hash
+             FROM manifests
+             WHERE process_id = ?1",
+            params![process_id],
+            |row| {
+                Ok((
+                    row.get::<_, Option<String>>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                ))
+            },
+        )
+        .optional()
+        .context("reading manifest snapshot for decision")?
+        .ok_or_else(|| {
+            anyhow!(
+                "no manifests row found for process_id `{process_id}` — run `--ingest manifest` first"
+            )
+        })?;
+    let manifest_basis_hash = manifest
+        .0
+        .ok_or_else(|| anyhow!("manifest row for `{process_id}` has NULL manifest_basis_hash"))?;
+    let artifact_hash = manifest
+        .1
+        .ok_or_else(|| anyhow!("manifest row for `{process_id}` has NULL artifact_hash"))?;
+    let decision_basis_hash: String = conn
+        .query_row(
+            "SELECT decision_basis_hash
+             FROM pipeline_assessments
+             WHERE process_id = ?1",
+            params![process_id],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .optional()
+        .context("reading pipeline_assessments.decision_basis_hash")?
+        .flatten()
+        .ok_or_else(|| {
+            anyhow!(
+                "no pipeline_assessments.decision_basis_hash for `{process_id}` — Stage 12 must have rolled up"
+            )
+        })?;
+    Ok(ManifestSnapshot {
+        manifest_basis_hash,
+        artifact_hash,
+        decision_basis_hash,
+    })
+}
+
+fn read_latest_manifest_basis_hash(conn: &Connection, process_id: &str) -> Result<Option<String>> {
+    conn.query_row(
+        "SELECT manifest_basis_hash FROM manifests WHERE process_id = ?1",
+        params![process_id],
+        |row| row.get::<_, Option<String>>(0),
+    )
+    .optional()
+    .map(Option::flatten)
+    .context("reading latest manifest basis_hash")
+}
+
+#[allow(clippy::too_many_lines)]
+fn capture_operator_decision(state_db: &mut StateDb, cli: &Cli, process_id: &str) -> Result<Value> {
+    let disposition = cli
+        .disposition
+        .as_deref()
+        .ok_or_else(|| anyhow!("--disposition is required with --capture-decision"))?;
+    ensure!(
+        OPERATOR_DECISION_DISPOSITIONS.contains(&disposition),
+        "invalid disposition `{disposition}` (expected one of: {})",
+        OPERATOR_DECISION_DISPOSITIONS.join(", ")
+    );
+    let idempotency_key = cli
+        .idempotency_key
+        .as_deref()
+        .ok_or_else(|| anyhow!("--idempotency-key is required with --capture-decision"))?;
+    ensure!(
+        !idempotency_key.trim().is_empty(),
+        "--idempotency-key must be non-empty"
+    );
+
+    // Idempotent fast-path: if a row with this key already exists, return it.
+    if let Some(existing) =
+        lookup_intent_by_idempotency_key(state_db.connection(), idempotency_key)?
+    {
+        return Ok(json!({
+            "intent_id": existing.id,
+            "process_id": existing.process_id,
+            "disposition": existing.desired_disposition,
+            "status": existing.status,
+            "idempotency_key": existing.idempotency_key,
+            "superseded_id": null,
+            "idempotent_no_op": true,
+        }));
+    }
+
+    let snapshot = read_manifest_snapshot_for_decision(state_db.connection(), process_id)?;
+    let stage_run_id = jobs::runner::allocate_stage_run_id();
+    let intent_id = format!("intent-{}", Uuid::new_v4().simple());
+    let reasoning = cli.reasoning.clone();
+    let now = Utc::now().to_rfc3339();
+    let disposition_owned = disposition.to_owned();
+    let idempotency_key_owned = idempotency_key.to_owned();
+    let process_id_owned = process_id.to_owned();
+    let intent_id_for_query = intent_id.clone();
+    let stage_run_id_for_query = stage_run_id.clone();
+    let decision_basis_hash_for_query = snapshot.decision_basis_hash.clone();
+    let artifact_hash_for_query = snapshot.artifact_hash.clone();
+
+    let (superseded_id, _) = state_db.with_write_transaction(move |tx| {
+        tx.execute(
+            "INSERT INTO pending_operator_intents (
+               id, process_id, desired_disposition, reviewed_basis_hash,
+               reviewed_manifest_hash, reviewed_at_stage_run_id, reviewed_at,
+               idempotency_key, status, queued_at, decision_note
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'queued', ?7, ?9)",
+            params![
+                intent_id_for_query,
+                process_id_owned,
+                disposition_owned,
+                decision_basis_hash_for_query,
+                artifact_hash_for_query,
+                stage_run_id_for_query,
+                now,
+                idempotency_key_owned,
+                reasoning,
+            ],
+        )
+        .context("inserting pending_operator_intents row")?;
+
+        let supersede_target: Option<String> = tx
+            .query_row(
+                "SELECT id FROM pending_operator_intents
+                 WHERE process_id = ?1
+                   AND id != ?2
+                   AND superseded_by_intent_id IS NULL
+                   AND status IN ('queued', 'stale')
+                 ORDER BY queued_at DESC, id DESC
+                 LIMIT 1",
+                params![process_id_owned, intent_id_for_query],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        if let Some(prior_id) = supersede_target.as_ref() {
+            tx.execute(
+                "UPDATE pending_operator_intents
+                 SET status = 'superseded',
+                     superseded_by_intent_id = ?1
+                 WHERE id = ?2",
+                params![intent_id_for_query, prior_id],
+            )
+            .context("superseding prior intent")?;
+        }
+
+        persist_stage(
+            tx,
+            &process_id_owned,
+            OPERATOR_DECISION_STAGE_NAME,
+            "process",
+            &process_id_owned,
+            &stage_run_id_for_query,
+        )?;
+
+        Ok(supersede_target)
+    })?;
+
+    Ok(json!({
+        "intent_id": intent_id,
+        "process_id": process_id,
+        "disposition": disposition,
+        "status": "queued",
+        "idempotency_key": idempotency_key,
+        "superseded_id": superseded_id,
+        "reviewed_basis_hash": snapshot.decision_basis_hash,
+        "reviewed_manifest_hash": snapshot.artifact_hash,
+        "reviewed_manifest_basis_hash": snapshot.manifest_basis_hash,
+        "stage_run_id": stage_run_id,
+        "idempotent_no_op": false,
+    }))
+}
+
+#[derive(Debug, Clone)]
+struct OperatorIntentRow {
+    id: String,
+    process_id: String,
+    desired_disposition: String,
+    status: String,
+    idempotency_key: String,
+}
+
+fn lookup_intent_by_idempotency_key(
+    conn: &Connection,
+    idempotency_key: &str,
+) -> Result<Option<OperatorIntentRow>> {
+    conn.query_row(
+        "SELECT id, process_id, desired_disposition, status, idempotency_key
+         FROM pending_operator_intents WHERE idempotency_key = ?1",
+        params![idempotency_key],
+        |row| {
+            Ok(OperatorIntentRow {
+                id: row.get(0)?,
+                process_id: row.get(1)?,
+                desired_disposition: row.get(2)?,
+                status: row.get(3)?,
+                idempotency_key: row.get(4)?,
+            })
+        },
+    )
+    .optional()
+    .context("looking up pending_operator_intents by idempotency_key")
+}
+
+#[allow(clippy::too_many_lines)]
+fn capture_operator_clarification(
+    state_db: &mut StateDb,
+    cli: &Cli,
+    process_id: &str,
+) -> Result<Value> {
+    let candidate_id = cli
+        .candidate_id
+        .as_deref()
+        .ok_or_else(|| anyhow!("--candidate-id is required with --capture-clarification"))?;
+    let reason_raw = cli
+        .reason_code
+        .as_deref()
+        .ok_or_else(|| anyhow!("--reason-code is required with --capture-clarification"))?;
+    let reason = OperatorOverrideReason::parse(reason_raw)?;
+    let payload_raw = cli
+        .payload
+        .as_deref()
+        .ok_or_else(|| anyhow!("--payload is required with --capture-clarification"))?;
+    let payload: Value = serde_json::from_str(payload_raw).context("parsing --payload as JSON")?;
+    validate_operator_override_payload(reason, &payload)?;
+    let payload_canonical = serde_json::to_string(&payload).context("serializing payload")?;
+
+    // Verify FK targets exist with friendly errors.
+    let process_exists: i64 = state_db.connection().query_row(
+        "SELECT COUNT(*) FROM procurement_processes WHERE id = ?1",
+        params![process_id],
+        |row| row.get(0),
+    )?;
+    ensure!(
+        process_exists == 1,
+        "no procurement_processes row for process_id `{process_id}`"
+    );
+    let candidate_exists: i64 = state_db.connection().query_row(
+        "SELECT COUNT(*) FROM product_candidates WHERE id = ?1 AND process_id = ?2",
+        params![candidate_id, process_id],
+        |row| row.get(0),
+    )?;
+    ensure!(
+        candidate_exists == 1,
+        "no product_candidates row with id `{candidate_id}` belonging to process `{process_id}`"
+    );
+
+    let basis_hash = read_latest_manifest_basis_hash(state_db.connection(), process_id)?;
+    let stage_run_id = jobs::runner::allocate_stage_run_id();
+    let override_id = format!(
+        "override-{}-{}-{}",
+        sha256_hex(process_id.as_bytes())
+            .chars()
+            .take(8)
+            .collect::<String>(),
+        sha256_hex(candidate_id.as_bytes())
+            .chars()
+            .take(8)
+            .collect::<String>(),
+        reason.as_str()
+    );
+
+    let process_id_owned = process_id.to_owned();
+    let candidate_id_owned = candidate_id.to_owned();
+    let reason_code = reason.as_str().to_owned();
+    let note = cli.note.clone();
+    let stage_run_id_for_query = stage_run_id.clone();
+    let basis_hash_for_query = basis_hash.clone();
+    let override_id_for_query = override_id;
+    let payload_for_query = payload_canonical;
+
+    state_db.with_write_transaction(move |tx| {
+        let existing: Option<(String, i64)> = tx
+            .query_row(
+                "SELECT id, row_version FROM operator_input_overrides
+                 WHERE process_id = ?1 AND product_candidate_id = ?2 AND reason_code = ?3",
+                params![process_id_owned, candidate_id_owned, reason_code],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+            )
+            .optional()?;
+        if let Some((existing_id, row_version)) = existing {
+            tx.execute(
+                "UPDATE operator_input_overrides
+                 SET payload_json = ?1,
+                     notes = ?2,
+                     basis_hash_when_provided = ?3,
+                     provided_at = CURRENT_TIMESTAMP,
+                     withdrawn_at = NULL,
+                     superseded_by_override_id = NULL,
+                     row_version = ?4,
+                     stage_run_id = ?5,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?6",
+                params![
+                    payload_for_query,
+                    note,
+                    basis_hash_for_query,
+                    row_version + 1,
+                    stage_run_id_for_query,
+                    existing_id,
+                ],
+            )
+            .context("updating existing operator_input_overrides row")?;
+        } else {
+            tx.execute(
+                "INSERT INTO operator_input_overrides (
+                   id, process_id, product_candidate_id, reason_code, payload_json, notes,
+                   basis_hash_when_provided, owner_id, row_version, stage_run_id
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9)",
+                params![
+                    override_id_for_query,
+                    process_id_owned,
+                    candidate_id_owned,
+                    reason_code,
+                    payload_for_query,
+                    note,
+                    basis_hash_for_query,
+                    DEFAULT_LOCAL_OPERATOR_ID,
+                    stage_run_id_for_query,
+                ],
+            )
+            .context("inserting operator_input_overrides row")?;
+        }
+
+        persist_stage(
+            tx,
+            &process_id_owned,
+            OPERATOR_DECISION_STAGE_NAME,
+            "process",
+            &process_id_owned,
+            &stage_run_id_for_query,
+        )?;
+        Ok(())
+    })?;
+
+    Ok(json!({
+        "process_id": process_id,
+        "candidate_id": candidate_id,
+        "reason_code": reason.as_str(),
+        "basis_hash_when_provided": basis_hash,
+        "stage_run_id": stage_run_id,
+        "payload": payload,
+    }))
+}
+
+fn withdraw_operator_clarification(
+    state_db: &mut StateDb,
+    cli: &Cli,
+    process_id: &str,
+) -> Result<Value> {
+    let candidate_id = cli
+        .candidate_id
+        .as_deref()
+        .ok_or_else(|| anyhow!("--candidate-id is required with --withdraw-clarification"))?;
+    let reason_raw = cli
+        .reason_code
+        .as_deref()
+        .ok_or_else(|| anyhow!("--reason-code is required with --withdraw-clarification"))?;
+    let reason = OperatorOverrideReason::parse(reason_raw)?;
+    let stage_run_id = jobs::runner::allocate_stage_run_id();
+    let process_id_owned = process_id.to_owned();
+    let candidate_id_owned = candidate_id.to_owned();
+    let reason_code = reason.as_str().to_owned();
+    let stage_run_id_for_query = stage_run_id.clone();
+
+    let (rows_affected, _) = state_db.with_write_transaction(move |tx| {
+        let updated = tx
+            .execute(
+                "UPDATE operator_input_overrides
+                 SET withdrawn_at = CURRENT_TIMESTAMP,
+                     updated_at = CURRENT_TIMESTAMP,
+                     stage_run_id = ?1
+                 WHERE process_id = ?2
+                   AND product_candidate_id = ?3
+                   AND reason_code = ?4
+                   AND withdrawn_at IS NULL",
+                params![
+                    stage_run_id_for_query,
+                    process_id_owned,
+                    candidate_id_owned,
+                    reason_code,
+                ],
+            )
+            .context("withdrawing operator_input_overrides row")?;
+        if updated > 0 {
+            persist_stage(
+                tx,
+                &process_id_owned,
+                OPERATOR_DECISION_STAGE_NAME,
+                "process",
+                &process_id_owned,
+                &stage_run_id_for_query,
+            )?;
+        }
+        Ok(updated)
+    })?;
+    Ok(json!({
+        "process_id": process_id,
+        "candidate_id": candidate_id,
+        "reason_code": reason.as_str(),
+        "rows_affected": rows_affected,
+        "stage_run_id": stage_run_id,
+    }))
+}
+
+fn withdraw_operator_decision(state_db: &mut StateDb, idempotency_key: &str) -> Result<Value> {
+    let existing = lookup_intent_by_idempotency_key(state_db.connection(), idempotency_key)?
+        .ok_or_else(|| {
+            anyhow!("no pending_operator_intents row with idempotency_key `{idempotency_key}`")
+        })?;
+    let stage_run_id = jobs::runner::allocate_stage_run_id();
+    let intent_id = existing.id.clone();
+    let process_id = existing.process_id.clone();
+    let stage_run_id_for_query = stage_run_id.clone();
+
+    state_db.with_write_transaction(move |tx| {
+        tx.execute(
+            "UPDATE pending_operator_intents
+             SET status = 'withdrawn',
+                 last_attempt_at = CURRENT_TIMESTAMP,
+                 last_error = NULL
+             WHERE id = ?1",
+            params![intent_id],
+        )
+        .context("withdrawing pending_operator_intents row")?;
+        persist_stage(
+            tx,
+            &process_id,
+            OPERATOR_DECISION_STAGE_NAME,
+            "process",
+            &process_id,
+            &stage_run_id_for_query,
+        )?;
+        Ok(())
+    })?;
+    Ok(json!({
+        "intent_id": existing.id,
+        "process_id": existing.process_id,
+        "idempotency_key": existing.idempotency_key,
+        "previous_status": existing.status,
+        "previous_disposition": existing.desired_disposition,
+        "status": "withdrawn",
+        "stage_run_id": stage_run_id,
+    }))
+}
+
+fn list_operator_decisions(
+    conn: &Connection,
+    process_filter: Option<&str>,
+    status_filter: Option<&str>,
+) -> Result<Value> {
+    if let Some(status) = status_filter {
+        ensure!(
+            OPERATOR_DECISION_STATUSES.contains(&status),
+            "invalid status filter `{status}` (expected one of: {})",
+            OPERATOR_DECISION_STATUSES.join(", ")
+        );
+    }
+    let mut stmt = conn.prepare(
+        "SELECT id, process_id, desired_disposition, status, idempotency_key,
+                reviewed_at, reviewed_basis_hash, reviewed_manifest_hash,
+                superseded_by_intent_id, decision_note
+         FROM pending_operator_intents
+         WHERE (?1 IS NULL OR process_id = ?1)
+           AND (?2 IS NULL OR status = ?2)
+         ORDER BY queued_at DESC, id DESC
+         LIMIT 100",
+    )?;
+    let rows = stmt
+        .query_map(params![process_filter, status_filter], |row| {
+            Ok(json!({
+                "id": row.get::<_, String>(0)?,
+                "process_id": row.get::<_, String>(1)?,
+                "disposition": row.get::<_, String>(2)?,
+                "status": row.get::<_, String>(3)?,
+                "idempotency_key": row.get::<_, String>(4)?,
+                "reviewed_at": row.get::<_, String>(5)?,
+                "reviewed_basis_hash": row.get::<_, String>(6)?,
+                "reviewed_manifest_hash": row.get::<_, String>(7)?,
+                "superseded_by_intent_id": row.get::<_, Option<String>>(8)?,
+                "decision_note": row.get::<_, Option<String>>(9)?,
+            }))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(json!({
+        "decisions": rows,
+        "process_filter": process_filter,
+        "status_filter": status_filter,
+    }))
+}
+
+fn dispatch_operator_action(runtime: &mut RuntimeBootstrap, cli: &Cli) -> Result<Option<String>> {
+    // Mutual exclusion guard — surfaces sane error if multiple flags are passed.
+    let mut active_actions: Vec<&'static str> = Vec::new();
+    if cli.capture_decision.is_some() {
+        active_actions.push("--capture-decision");
+    }
+    if cli.capture_clarification.is_some() {
+        active_actions.push("--capture-clarification");
+    }
+    if cli.withdraw_clarification.is_some() {
+        active_actions.push("--withdraw-clarification");
+    }
+    if cli.withdraw_decision.is_some() {
+        active_actions.push("--withdraw-decision");
+    }
+    if cli.list_decisions {
+        active_actions.push("--list-decisions");
+    }
+    if active_actions.is_empty() {
+        return Ok(None);
+    }
+    ensure!(
+        active_actions.len() == 1,
+        "Exactly one operator action may be specified per invocation; got: {}",
+        active_actions.join(", ")
+    );
+
+    let payload = if let Some(process_id) = cli.capture_decision.as_deref() {
+        capture_operator_decision(&mut runtime.state_db, cli, process_id)?
+    } else if let Some(process_id) = cli.capture_clarification.as_deref() {
+        capture_operator_clarification(&mut runtime.state_db, cli, process_id)?
+    } else if let Some(process_id) = cli.withdraw_clarification.as_deref() {
+        withdraw_operator_clarification(&mut runtime.state_db, cli, process_id)?
+    } else if let Some(idempotency_key) = cli.withdraw_decision.as_deref() {
+        withdraw_operator_decision(&mut runtime.state_db, idempotency_key)?
+    } else if cli.list_decisions {
+        list_operator_decisions(
+            runtime.state_db.connection(),
+            cli.process_id.as_deref(),
+            cli.list_status_filter.as_deref(),
+        )?
+    } else {
+        unreachable!("dispatch guard already validated exactly one action is active");
+    };
+    Ok(Some(serde_json::to_string_pretty(&payload)?))
+}
+
+fn mark_intents_stale_on_basis_drift(
+    tx: &Transaction<'_>,
+    process_id: &str,
+    new_manifest_basis_hash: &str,
+) -> Result<usize> {
+    let updated = tx
+        .execute(
+            "UPDATE pending_operator_intents
+             SET status = 'stale',
+                 last_attempt_at = CURRENT_TIMESTAMP,
+                 last_error = NULL
+             WHERE process_id = ?1
+               AND status = 'queued'
+               AND reviewed_basis_hash != ?2",
+            params![process_id, new_manifest_basis_hash],
+        )
+        .context("marking pending_operator_intents stale on basis drift")?;
+    Ok(updated)
 }
 
 #[cfg(test)]
@@ -19545,6 +20561,7 @@ mod tests {
             notice_summary: Some("DGU supply".to_owned()),
             buyer_name: Some("Buyer".to_owned()),
             main_category: Some("Glass".to_owned()),
+            operator_override: None,
         }
     }
 
@@ -22006,6 +23023,830 @@ mod tests {
             manifest_rows >= 1,
             "expected at least one error manifest row for failed procurement job"
         );
+        Ok(())
+    }
+
+    // -- Stage 14 — operator decision capture (Phase 1 CLI) ---------------
+
+    fn seed_stage14_process(
+        state_db: &super::StateDb,
+        process_id: &str,
+        notice_id: &str,
+        candidate_id: &str,
+    ) -> Result<()> {
+        let conn = state_db.connection();
+        conn.execute(
+            "INSERT INTO procurement_processes (
+               id, current_stage, title, latest_published_at, latest_updated_at, owner_id
+             ) VALUES (?1, 'qualification', 'Stage 14 fixture',
+                       '2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 'local-owner')",
+            params![process_id],
+        )?;
+        conn.execute(
+            "INSERT INTO contract_notices (
+               id, process_id, source_id, source_notice_id, raw_document_id, title,
+               procurement_stage, published_at, source_updated_at, normalized_payload, owner_id
+             ) VALUES (?1, ?2, 'fts', ?3, ?4, 'Stage 14 notice', 'tender',
+                       '2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', '{}', 'local-owner')",
+            params![
+                notice_id,
+                process_id,
+                format!("source-{notice_id}"),
+                format!("raw-{notice_id}")
+            ],
+        )?;
+        conn.execute(
+            "INSERT INTO notice_lots (
+               id, notice_id, lot_key, title, description, estimated_value_pence, owner_id
+             ) VALUES (?1, ?2, ?3, 'Stage 14 lot', 'Stage 14 lot desc', 200000, 'local-owner')",
+            params![
+                format!("lot-{candidate_id}"),
+                notice_id,
+                format!("lot-key-{candidate_id}")
+            ],
+        )?;
+        conn.execute(
+            "INSERT INTO product_candidates (
+               id, process_id, notice_id, lot_id, candidate_key, name, candidate_type,
+               match_archetype, head_noun, owner_id
+             ) VALUES (?1, ?2, ?3, ?4, ?5, 'Stage 14 widget', 'product', 'direct', 'widget',
+                       'local-owner')",
+            params![
+                candidate_id,
+                process_id,
+                notice_id,
+                format!("lot-{candidate_id}"),
+                format!("key-{candidate_id}")
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn seed_stage14_manifest_and_pipeline(
+        state_db: &super::StateDb,
+        process_id: &str,
+        manifest_basis_hash: &str,
+        artifact_hash: &str,
+        decision_basis_hash: &str,
+    ) -> Result<()> {
+        let conn = state_db.connection();
+        conn.execute(
+            "INSERT INTO pipeline_assessments (
+               process_id, pipeline_state, decision_basis_hash, owner_id
+             ) VALUES (?1, 'manifest_ready', ?2, 'local-owner')
+             ON CONFLICT(process_id) DO UPDATE SET
+               decision_basis_hash = excluded.decision_basis_hash,
+               pipeline_state = excluded.pipeline_state",
+            params![process_id, decision_basis_hash],
+        )?;
+        conn.execute(
+            "INSERT INTO manifests (
+               id, process_id, markdown, artifact_hash, artifact_locator, owner_id,
+               manifest_basis_hash, stoplight, suggested_action, suggested_action_reasoning,
+               clarification_prompts_json
+             ) VALUES (?1, ?2, '# manifest', ?3, ?4, 'local-owner', ?5, 'pursue',
+                       'pursue', 'reasoning', '[]')
+             ON CONFLICT(id) DO UPDATE SET
+               artifact_hash = excluded.artifact_hash,
+               manifest_basis_hash = excluded.manifest_basis_hash",
+            params![
+                format!("manifest-{process_id}"),
+                process_id,
+                artifact_hash,
+                format!("artifacts/manifests/{process_id}/manifest.md"),
+                manifest_basis_hash,
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn open_stage14_state_db(db_path: &Path) -> Result<super::StateDb> {
+        super::open_state_db(db_path, DEFAULT_SCHEMA_EPOCH)
+    }
+
+    fn count_active_overrides(
+        conn: &Connection,
+        process_id: &str,
+        candidate_id: &str,
+        reason: &str,
+    ) -> Result<i64> {
+        Ok(conn.query_row(
+            "SELECT COUNT(*) FROM operator_input_overrides
+             WHERE process_id = ?1 AND product_candidate_id = ?2 AND reason_code = ?3
+               AND withdrawn_at IS NULL AND superseded_by_override_id IS NULL",
+            params![process_id, candidate_id, reason],
+            |row| row.get(0),
+        )?)
+    }
+
+    fn capture_decision_cli(
+        state_root: &Path,
+        process_id: &str,
+        disposition: &str,
+        idempotency_key: &str,
+        reasoning: Option<&str>,
+    ) -> Cli {
+        let mut argv = vec![
+            "daemon".to_owned(),
+            "--state-root".to_owned(),
+            state_root.to_str().expect("utf8 state root").to_owned(),
+            "--capture-decision".to_owned(),
+            process_id.to_owned(),
+            "--disposition".to_owned(),
+            disposition.to_owned(),
+            "--idempotency-key".to_owned(),
+            idempotency_key.to_owned(),
+        ];
+        if let Some(reasoning) = reasoning {
+            argv.push("--reasoning".to_owned());
+            argv.push(reasoning.to_owned());
+        }
+        Cli::parse_from(argv)
+    }
+
+    fn capture_clarification_cli(
+        state_root: &Path,
+        process_id: &str,
+        candidate_id: &str,
+        reason_code: &str,
+        payload: &str,
+        note: Option<&str>,
+    ) -> Cli {
+        let mut argv = vec![
+            "daemon".to_owned(),
+            "--state-root".to_owned(),
+            state_root.to_str().expect("utf8 state root").to_owned(),
+            "--capture-clarification".to_owned(),
+            process_id.to_owned(),
+            "--candidate-id".to_owned(),
+            candidate_id.to_owned(),
+            "--reason-code".to_owned(),
+            reason_code.to_owned(),
+            "--payload".to_owned(),
+            payload.to_owned(),
+        ];
+        if let Some(note) = note {
+            argv.push("--note".to_owned());
+            argv.push(note.to_owned());
+        }
+        Cli::parse_from(argv)
+    }
+
+    #[test]
+    fn capture_decision_inserts_pending_operator_intents_row_with_correct_hashes() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-stage14-001";
+        seed_stage14_process(&state_db, pid, "notice-stage14-001", "cand-stage14-001")?;
+        seed_stage14_manifest_and_pipeline(
+            &state_db,
+            pid,
+            "basis-001",
+            "artifact-001",
+            "decision-001",
+        )?;
+        let cli = capture_decision_cli(
+            temp.path(),
+            pid,
+            "approve",
+            "dec-stage14-001",
+            Some("Pursue"),
+        );
+        let payload = super::capture_operator_decision(&mut state_db, &cli, pid)?;
+        assert_eq!(payload["disposition"], json!("approve"));
+        assert_eq!(payload["status"], json!("queued"));
+        assert_eq!(payload["reviewed_basis_hash"], json!("decision-001"));
+        assert_eq!(payload["reviewed_manifest_hash"], json!("artifact-001"));
+        assert_eq!(payload["idempotent_no_op"], json!(false));
+
+        let count: i64 = state_db.connection().query_row(
+            "SELECT COUNT(*) FROM pending_operator_intents
+             WHERE process_id = ?1 AND idempotency_key = ?2",
+            params![pid, "dec-stage14-001"],
+            |row| row.get(0),
+        )?;
+        assert_eq!(count, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn capture_decision_rejects_invalid_disposition() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-stage14-bad";
+        seed_stage14_process(&state_db, pid, "notice-stage14-bad", "cand-stage14-bad")?;
+        seed_stage14_manifest_and_pipeline(
+            &state_db,
+            pid,
+            "basis-bad",
+            "artifact-bad",
+            "decision-bad",
+        )?;
+        let cli = capture_decision_cli(temp.path(), pid, "hold", "dec-stage14-bad", None);
+        let err = super::capture_operator_decision(&mut state_db, &cli, pid).unwrap_err();
+        assert!(
+            err.to_string().contains("invalid disposition"),
+            "expected invalid disposition error, got: {err}"
+        );
+        let count: i64 = state_db.connection().query_row(
+            "SELECT COUNT(*) FROM pending_operator_intents WHERE process_id = ?1",
+            params![pid],
+            |row| row.get(0),
+        )?;
+        assert_eq!(count, 0, "no row should be inserted on invalid disposition");
+        Ok(())
+    }
+
+    #[test]
+    fn capture_decision_idempotent_on_duplicate_idempotency_key() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-stage14-idem";
+        seed_stage14_process(&state_db, pid, "notice-stage14-idem", "cand-stage14-idem")?;
+        seed_stage14_manifest_and_pipeline(
+            &state_db,
+            pid,
+            "basis-idem",
+            "artifact-idem",
+            "decision-idem",
+        )?;
+        let cli = capture_decision_cli(
+            temp.path(),
+            pid,
+            "approve",
+            "dec-stage14-idem",
+            Some("first"),
+        );
+        let first = super::capture_operator_decision(&mut state_db, &cli, pid)?;
+        let second = super::capture_operator_decision(&mut state_db, &cli, pid)?;
+        assert_eq!(first["intent_id"], second["intent_id"]);
+        assert_eq!(second["idempotent_no_op"], json!(true));
+        let count: i64 = state_db.connection().query_row(
+            "SELECT COUNT(*) FROM pending_operator_intents WHERE idempotency_key = ?1",
+            params!["dec-stage14-idem"],
+            |row| row.get(0),
+        )?;
+        assert_eq!(count, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn re_decision_supersedes_previous_intent() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-stage14-super";
+        seed_stage14_process(&state_db, pid, "notice-stage14-super", "cand-stage14-super")?;
+        seed_stage14_manifest_and_pipeline(
+            &state_db,
+            pid,
+            "basis-super",
+            "artifact-super",
+            "decision-super",
+        )?;
+        let cli_one =
+            capture_decision_cli(temp.path(), pid, "approve", "dec-super-001", Some("first"));
+        super::capture_operator_decision(&mut state_db, &cli_one, pid)?;
+        let cli_two =
+            capture_decision_cli(temp.path(), pid, "watch", "dec-super-002", Some("second"));
+        let second = super::capture_operator_decision(&mut state_db, &cli_two, pid)?;
+
+        let prior_status: String = state_db.connection().query_row(
+            "SELECT status FROM pending_operator_intents WHERE idempotency_key = 'dec-super-001'",
+            [],
+            |row| row.get(0),
+        )?;
+        let prior_supersedes: Option<String> = state_db.connection().query_row(
+            "SELECT superseded_by_intent_id FROM pending_operator_intents
+             WHERE idempotency_key = 'dec-super-001'",
+            [],
+            |row| row.get(0),
+        )?;
+        let new_id = second["intent_id"].as_str().unwrap().to_owned();
+        assert_eq!(prior_status, "superseded");
+        assert_eq!(prior_supersedes, Some(new_id));
+        Ok(())
+    }
+
+    #[test]
+    fn capture_decision_rejects_when_no_manifest_exists() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-stage14-nomanifest";
+        seed_stage14_process(
+            &state_db,
+            pid,
+            "notice-stage14-nomanifest",
+            "cand-stage14-nomanifest",
+        )?;
+        let cli = capture_decision_cli(temp.path(), pid, "approve", "dec-no-manifest", None);
+        let err = super::capture_operator_decision(&mut state_db, &cli, pid).unwrap_err();
+        assert!(
+            err.to_string().contains("no manifests row"),
+            "expected manifest-missing error, got: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn capture_clarification_inserts_operator_input_overrides_row() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-stage14-clar";
+        let cid = "cand-stage14-clar";
+        seed_stage14_process(&state_db, pid, "notice-stage14-clar", cid)?;
+        seed_stage14_manifest_and_pipeline(
+            &state_db,
+            pid,
+            "basis-clar",
+            "artifact-clar",
+            "decision-clar",
+        )?;
+        let cli = capture_clarification_cli(
+            temp.path(),
+            pid,
+            cid,
+            "quantity_basis_unaligned",
+            r#"{"qty":100.0,"unit":"square meter"}"#,
+            Some("Buyer confirmed"),
+        );
+        super::capture_operator_clarification(&mut state_db, &cli, pid)?;
+        let count =
+            count_active_overrides(state_db.connection(), pid, cid, "quantity_basis_unaligned")?;
+        assert_eq!(count, 1);
+        let basis_hash: Option<String> = state_db.connection().query_row(
+            "SELECT basis_hash_when_provided FROM operator_input_overrides
+             WHERE process_id = ?1 AND product_candidate_id = ?2",
+            params![pid, cid],
+            |row| row.get(0),
+        )?;
+        assert_eq!(basis_hash.as_deref(), Some("basis-clar"));
+        Ok(())
+    }
+
+    #[test]
+    fn capture_clarification_replaces_existing_active_override() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-stage14-replace";
+        let cid = "cand-stage14-replace";
+        seed_stage14_process(&state_db, pid, "notice-stage14-replace", cid)?;
+        seed_stage14_manifest_and_pipeline(
+            &state_db,
+            pid,
+            "basis-replace",
+            "artifact-replace",
+            "decision-replace",
+        )?;
+        let cli_one = capture_clarification_cli(
+            temp.path(),
+            pid,
+            cid,
+            "quantity_basis_unaligned",
+            r#"{"qty":50.0,"unit":"meter"}"#,
+            None,
+        );
+        super::capture_operator_clarification(&mut state_db, &cli_one, pid)?;
+        let cli_two = capture_clarification_cli(
+            temp.path(),
+            pid,
+            cid,
+            "quantity_basis_unaligned",
+            r#"{"qty":150.0,"unit":"meter"}"#,
+            None,
+        );
+        super::capture_operator_clarification(&mut state_db, &cli_two, pid)?;
+        let count =
+            count_active_overrides(state_db.connection(), pid, cid, "quantity_basis_unaligned")?;
+        assert_eq!(
+            count, 1,
+            "only one active row per (process, candidate, reason)"
+        );
+
+        let payload: String = state_db.connection().query_row(
+            "SELECT payload_json FROM operator_input_overrides WHERE process_id = ?1",
+            params![pid],
+            |row| row.get(0),
+        )?;
+        let parsed: Value = serde_json::from_str(&payload)?;
+        assert!((parsed["qty"].as_f64().unwrap() - 150.0).abs() < f64::EPSILON);
+        let row_version: i64 = state_db.connection().query_row(
+            "SELECT row_version FROM operator_input_overrides WHERE process_id = ?1",
+            params![pid],
+            |row| row.get(0),
+        )?;
+        assert_eq!(row_version, 2);
+        Ok(())
+    }
+
+    #[test]
+    fn capture_clarification_validates_payload_per_reason_code() -> Result<()> {
+        super::validate_operator_override_payload(
+            super::OperatorOverrideReason::QuantityBasisUnaligned,
+            &json!({ "qty": 100.0, "unit": "square meter" }),
+        )?;
+        let err = super::validate_operator_override_payload(
+            super::OperatorOverrideReason::QuantityBasisUnaligned,
+            &json!({ "foo": 1 }),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("missing numeric `qty`"));
+        let err = super::validate_operator_override_payload(
+            super::OperatorOverrideReason::AwaitingRfqQuote,
+            &json!({ "unit_price_gbp_pence": 4500, "lead_time_days": 21, "moq": 50, "currency": "USD" }),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("only supports GBP"));
+        Ok(())
+    }
+
+    #[test]
+    fn infer_order_quantity_basis_uses_operator_override_when_present() {
+        let mut row = stage11_row_fixture();
+        row.operator_override = Some(super::OperatorQuantityOverride {
+            qty: 100.0,
+            unit: "square meter".to_owned(),
+        });
+        let basis = super::infer_order_quantity_basis(&row);
+        assert_eq!(
+            basis,
+            super::OrderQuantityBasis::FromOperatorOverride {
+                qty: 100.0,
+                basis_unit: Some("square meter".to_owned()),
+            }
+        );
+
+        let row_no_override = stage11_row_fixture();
+        let baseline = super::infer_order_quantity_basis(&row_no_override);
+        assert!(matches!(
+            baseline,
+            super::OrderQuantityBasis::RfqRequired { .. }
+        ));
+    }
+
+    #[test]
+    fn infer_order_quantity_basis_ignores_withdrawn_override() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-stage14-withdrawn";
+        let cid = "cand-stage14-withdrawn";
+        seed_stage14_process(&state_db, pid, "notice-stage14-withdrawn", cid)?;
+        let conn = state_db.connection();
+        conn.execute(
+            "INSERT INTO operator_input_overrides (
+               id, process_id, product_candidate_id, reason_code, payload_json,
+               owner_id, withdrawn_at
+             ) VALUES (?1, ?2, ?3, 'quantity_basis_unaligned', ?4, 'local-operator',
+                       CURRENT_TIMESTAMP)",
+            params![
+                "override-withdrawn",
+                pid,
+                cid,
+                r#"{"qty":100.0,"unit":"square meter"}"#,
+            ],
+        )?;
+        let read = super::read_active_quantity_override(conn, pid, cid)?;
+        assert!(read.is_none(), "withdrawn rows must be ignored");
+        Ok(())
+    }
+
+    #[test]
+    fn awaiting_rfq_override_synthesizes_revenue_in_allocate_gross_margin_revenue() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-stage14-rfq";
+        let cid = "cand-stage14-rfq";
+        let nid = "notice-stage14-rfq";
+        seed_stage14_process(&state_db, pid, nid, cid)?;
+        let lot_id = format!("lot-{cid}");
+        let conn = state_db.connection();
+        conn.execute(
+            "INSERT INTO operator_input_overrides (
+               id, process_id, product_candidate_id, reason_code, payload_json, owner_id
+             ) VALUES (?1, ?2, ?3, 'awaiting_rfq_quote', ?4, 'local-operator')",
+            params![
+                "override-rfq",
+                pid,
+                cid,
+                r#"{"unit_price_gbp_pence":4500,"lead_time_days":21,"moq":50,"currency":"GBP"}"#,
+            ],
+        )?;
+        conn.execute(
+            "INSERT INTO operator_input_overrides (
+               id, process_id, product_candidate_id, reason_code, payload_json, owner_id
+             ) VALUES (?1, ?2, ?3, 'quantity_basis_undetermined', ?4, 'local-operator')",
+            params![
+                "override-qty-rfq",
+                pid,
+                cid,
+                r#"{"qty":80.0,"unit":"each"}"#,
+            ],
+        )?;
+
+        let candidate = super::GrossMarginCandidateRow {
+            id: cid.to_owned(),
+            process_id: pid.to_owned(),
+            notice_id: nid.to_owned(),
+            lot_id,
+            candidate_value_share_bps: None,
+        };
+        let (allocation, _) = state_db
+            .with_write_transaction(|tx| super::allocate_gross_margin_revenue(tx, &candidate))?;
+        assert_eq!(allocation.revenue_basis_type, "expected_value");
+        assert_eq!(allocation.revenue_pence, 4500 * 80);
+        assert!(allocation.confidence_bps >= 8000);
+        Ok(())
+    }
+
+    #[test]
+    fn no_pricing_signal_override_is_recorded_but_does_not_synthesize() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-stage14-noprice";
+        let cid = "cand-stage14-noprice";
+        seed_stage14_process(&state_db, pid, "notice-stage14-noprice", cid)?;
+        seed_stage14_manifest_and_pipeline(
+            &state_db,
+            pid,
+            "basis-noprice",
+            "artifact-noprice",
+            "decision-noprice",
+        )?;
+        let cli = capture_clarification_cli(
+            temp.path(),
+            pid,
+            cid,
+            "no_pricing_signal",
+            r#"{"variant":"manual_price","unit_price_gbp_pence":1200,"unit":"each","source_note":"buyer list"}"#,
+            None,
+        );
+        super::capture_operator_clarification(&mut state_db, &cli, pid)?;
+
+        let override_count: i64 = state_db.connection().query_row(
+            "SELECT COUNT(*) FROM operator_input_overrides
+             WHERE process_id = ?1 AND reason_code = 'no_pricing_signal'",
+            params![pid],
+            |row| row.get(0),
+        )?;
+        assert_eq!(override_count, 1);
+        let pricing_count: i64 = state_db.connection().query_row(
+            "SELECT COUNT(*) FROM candidate_pricing_assessments WHERE process_id = ?1",
+            params![pid],
+            |row| row.get(0),
+        )?;
+        assert_eq!(
+            pricing_count, 0,
+            "no_pricing_signal override must NOT auto-synthesize a pricing assessment"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn no_pricing_signal_override_payload_validates_per_variant() -> Result<()> {
+        super::validate_operator_override_payload(
+            super::OperatorOverrideReason::NoPricingSignal,
+            &json!({"variant":"manual_price","unit_price_gbp_pence":1200,"unit":"each"}),
+        )?;
+        super::validate_operator_override_payload(
+            super::OperatorOverrideReason::NoPricingSignal,
+            &json!({"variant":"un_pursueable","reason":"no UK supplier"}),
+        )?;
+        super::validate_operator_override_payload(
+            super::OperatorOverrideReason::NoPricingSignal,
+            &json!({"variant":"defer","reason":"awaiting Stage 9"}),
+        )?;
+        let err = super::validate_operator_override_payload(
+            super::OperatorOverrideReason::NoPricingSignal,
+            &json!({"variant":"unknown"}),
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("unknown no_pricing_signal variant")
+        );
+        let err = super::validate_operator_override_payload(
+            super::OperatorOverrideReason::NoPricingSignal,
+            &json!({"variant":"manual_price"}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("missing integer"));
+        Ok(())
+    }
+
+    #[test]
+    fn stale_detection_marks_intent_stale_when_manifest_basis_hash_changes() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-stage14-stale";
+        seed_stage14_process(&state_db, pid, "notice-stage14-stale", "cand-stage14-stale")?;
+        seed_stage14_manifest_and_pipeline(
+            &state_db,
+            pid,
+            "basis-old",
+            "artifact-old",
+            "decision-old",
+        )?;
+        let cli = capture_decision_cli(temp.path(), pid, "approve", "dec-stale-001", None);
+        super::capture_operator_decision(&mut state_db, &cli, pid)?;
+        // Simulate Stage 13 re-running with a new manifest_basis_hash.
+        let pid_owned = pid.to_owned();
+        let new_hash = "decision-new".to_owned();
+        state_db.with_write_transaction(move |tx| {
+            super::mark_intents_stale_on_basis_drift(tx, &pid_owned, &new_hash)
+        })?;
+        let status: String = state_db.connection().query_row(
+            "SELECT status FROM pending_operator_intents WHERE idempotency_key = 'dec-stale-001'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(status, "stale");
+        Ok(())
+    }
+
+    #[test]
+    fn stale_detection_does_not_touch_superseded_or_withdrawn_intents() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-stage14-staletouch";
+        seed_stage14_process(
+            &state_db,
+            pid,
+            "notice-stage14-staletouch",
+            "cand-stage14-staletouch",
+        )?;
+        seed_stage14_manifest_and_pipeline(
+            &state_db,
+            pid,
+            "basis-touch",
+            "artifact-touch",
+            "decision-touch",
+        )?;
+        let cli_one = capture_decision_cli(temp.path(), pid, "approve", "dec-touch-001", None);
+        super::capture_operator_decision(&mut state_db, &cli_one, pid)?;
+        let cli_two = capture_decision_cli(temp.path(), pid, "watch", "dec-touch-002", None);
+        super::capture_operator_decision(&mut state_db, &cli_two, pid)?; // dec-touch-001 → superseded
+        super::withdraw_operator_decision(&mut state_db, "dec-touch-002")?; // dec-touch-002 → withdrawn
+
+        let pid_owned = pid.to_owned();
+        let new_hash = "decision-different".to_owned();
+        state_db.with_write_transaction(move |tx| {
+            super::mark_intents_stale_on_basis_drift(tx, &pid_owned, &new_hash)
+        })?;
+        let superseded_status: String = state_db.connection().query_row(
+            "SELECT status FROM pending_operator_intents WHERE idempotency_key = 'dec-touch-001'",
+            [],
+            |row| row.get(0),
+        )?;
+        let withdrawn_status: String = state_db.connection().query_row(
+            "SELECT status FROM pending_operator_intents WHERE idempotency_key = 'dec-touch-002'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(superseded_status, "superseded");
+        assert_eq!(withdrawn_status, "withdrawn");
+        Ok(())
+    }
+
+    #[test]
+    fn withdraw_clarification_marks_withdrawn_at() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-stage14-wd";
+        let cid = "cand-stage14-wd";
+        seed_stage14_process(&state_db, pid, "notice-stage14-wd", cid)?;
+        seed_stage14_manifest_and_pipeline(
+            &state_db,
+            pid,
+            "basis-wd",
+            "artifact-wd",
+            "decision-wd",
+        )?;
+        let cli = capture_clarification_cli(
+            temp.path(),
+            pid,
+            cid,
+            "quantity_basis_unaligned",
+            r#"{"qty":42.0,"unit":"each"}"#,
+            None,
+        );
+        super::capture_operator_clarification(&mut state_db, &cli, pid)?;
+
+        let withdraw_argv = vec![
+            "daemon".to_owned(),
+            "--state-root".to_owned(),
+            temp.path().to_str().unwrap().to_owned(),
+            "--withdraw-clarification".to_owned(),
+            pid.to_owned(),
+            "--candidate-id".to_owned(),
+            cid.to_owned(),
+            "--reason-code".to_owned(),
+            "quantity_basis_unaligned".to_owned(),
+        ];
+        let withdraw_cli = Cli::parse_from(withdraw_argv);
+        super::withdraw_operator_clarification(&mut state_db, &withdraw_cli, pid)?;
+        let read = super::read_active_quantity_override(state_db.connection(), pid, cid)?;
+        assert!(read.is_none());
+        let withdrawn_at: Option<String> = state_db.connection().query_row(
+            "SELECT withdrawn_at FROM operator_input_overrides WHERE process_id = ?1",
+            params![pid],
+            |row| row.get(0),
+        )?;
+        assert!(withdrawn_at.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn withdraw_decision_sets_status_withdrawn() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-stage14-wddec";
+        seed_stage14_process(&state_db, pid, "notice-stage14-wddec", "cand-stage14-wddec")?;
+        seed_stage14_manifest_and_pipeline(
+            &state_db,
+            pid,
+            "basis-wddec",
+            "artifact-wddec",
+            "decision-wddec",
+        )?;
+        let cli = capture_decision_cli(temp.path(), pid, "approve", "dec-wd-decision", None);
+        super::capture_operator_decision(&mut state_db, &cli, pid)?;
+        super::withdraw_operator_decision(&mut state_db, "dec-wd-decision")?;
+        let listed =
+            super::list_operator_decisions(state_db.connection(), Some(pid), Some("queued"))?;
+        assert!(listed["decisions"].as_array().unwrap().is_empty());
+        let status: String = state_db.connection().query_row(
+            "SELECT status FROM pending_operator_intents WHERE idempotency_key = 'dec-wd-decision'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(status, "withdrawn");
+        Ok(())
+    }
+
+    #[test]
+    fn list_decisions_filters_by_process_id_and_status() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid_a = "proc-stage14-list-a";
+        let pid_b = "proc-stage14-list-b";
+        seed_stage14_process(
+            &state_db,
+            pid_a,
+            "notice-stage14-list-a",
+            "cand-stage14-list-a",
+        )?;
+        seed_stage14_process(
+            &state_db,
+            pid_b,
+            "notice-stage14-list-b",
+            "cand-stage14-list-b",
+        )?;
+        seed_stage14_manifest_and_pipeline(
+            &state_db,
+            pid_a,
+            "basis-list-a",
+            "artifact-list-a",
+            "decision-list-a",
+        )?;
+        seed_stage14_manifest_and_pipeline(
+            &state_db,
+            pid_b,
+            "basis-list-b",
+            "artifact-list-b",
+            "decision-list-b",
+        )?;
+        let cli_alpha = capture_decision_cli(temp.path(), pid_a, "approve", "dec-list-a-1", None);
+        super::capture_operator_decision(&mut state_db, &cli_alpha, pid_a)?;
+        let cli_beta = capture_decision_cli(temp.path(), pid_a, "watch", "dec-list-a-2", None);
+        super::capture_operator_decision(&mut state_db, &cli_beta, pid_a)?;
+        let cli_gamma = capture_decision_cli(temp.path(), pid_b, "approve", "dec-list-b-1", None);
+        super::capture_operator_decision(&mut state_db, &cli_gamma, pid_b)?;
+
+        let all = super::list_operator_decisions(state_db.connection(), None, None)?;
+        assert_eq!(all["decisions"].as_array().unwrap().len(), 3);
+        let only_a = super::list_operator_decisions(state_db.connection(), Some(pid_a), None)?;
+        assert_eq!(only_a["decisions"].as_array().unwrap().len(), 2);
+        let only_queued =
+            super::list_operator_decisions(state_db.connection(), None, Some("queued"))?;
+        // dec-list-a-1 → superseded by a-2; b-1 still queued; a-2 still queued. So 2 queued.
+        assert_eq!(only_queued["decisions"].as_array().unwrap().len(), 2);
+        let a_superseded =
+            super::list_operator_decisions(state_db.connection(), Some(pid_a), Some("superseded"))?;
+        assert_eq!(a_superseded["decisions"].as_array().unwrap().len(), 1);
         Ok(())
     }
 }

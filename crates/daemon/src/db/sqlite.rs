@@ -18,6 +18,7 @@ const L3_MIGRATION_PATH: &str = "migrations/0005_l3_operational_hardening.sql";
 const L_PDF_MIGRATION_PATH: &str = "migrations/0006_pdf_extraction_toolkit.sql";
 const L_NET_GATE_MIGRATION_PATH: &str = "migrations/0007_net_margin_gate_assessments.sql";
 const L_MANIFEST_MIGRATION_PATH: &str = "migrations/0008_manifest_generation_columns.sql";
+const L_OPERATOR_OVERRIDES_MIGRATION_PATH: &str = "migrations/0009_operator_input_overrides.sql";
 const MIGRATION_LOG_TABLE: &str = "schema_migrations";
 const PRE_L3_SCHEMA_EPOCH: i64 = 1;
 const MIGRATIONS: &[(&str, i64, &str)] = &[
@@ -48,9 +49,14 @@ const MIGRATIONS: &[(&str, i64, &str)] = &[
         5,
         L_MANIFEST_MIGRATION_PATH,
     ),
+    (
+        "0009_operator_input_overrides",
+        6,
+        L_OPERATOR_OVERRIDES_MIGRATION_PATH,
+    ),
 ];
 
-pub const DEFAULT_SCHEMA_EPOCH: i64 = 5;
+pub const DEFAULT_SCHEMA_EPOCH: i64 = 6;
 pub const DEFAULT_OWNER_ID: &str = "local-owner";
 pub const FTS_SOURCE_ID: &str = "fts";
 
@@ -314,6 +320,7 @@ fn verify_l3_schema(conn: &Connection) -> Result<()> {
     ensure_table_exists(conn, "listing_evidence")?;
     ensure_table_exists(conn, "process_relations")?;
     ensure_table_exists(conn, "process_aliases")?;
+    ensure_table_exists(conn, "operator_input_overrides")?;
     ensure_table_columns_present(
         conn,
         "source_runtime_state",

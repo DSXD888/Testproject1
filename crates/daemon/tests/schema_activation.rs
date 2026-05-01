@@ -1167,19 +1167,104 @@ mod tests {
     }
 
     #[test]
-    fn pdf_t_schema_activation_009_default_schema_epoch_is_5() -> Result<()> {
+    fn pdf_t_schema_activation_009_default_schema_epoch_is_6() -> Result<()> {
         let state_db = TestStateDb::new()?;
         let user_version: i64 =
             state_db
                 .connection()
                 .pragma_query_value(None, "user_version", |row| row.get(0))?;
         ensure!(
-            crate::support::db::DEFAULT_SCHEMA_EPOCH == 5,
-            "PDF-T-schema_activation-009 expected DEFAULT_SCHEMA_EPOCH to be 5"
+            crate::support::db::DEFAULT_SCHEMA_EPOCH == 6,
+            "PDF-T-schema_activation-009 expected DEFAULT_SCHEMA_EPOCH to be 6"
         );
         ensure!(
-            user_version == 5,
-            "PDF-T-schema_activation-009 expected user_version to be 5"
+            user_version == 6,
+            "PDF-T-schema_activation-009 expected user_version to be 6"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn opd_t_schema_activation_009_upgrade_path_applies_0009_cleanly() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let conn = Connection::open(&db_path)?;
+
+        for migration_path in [
+            "migrations/0001_sqlite_state_initial.sql",
+            "migrations/0003_sqlite_runtime.sql",
+            "migrations/0004_l2_pending_operator_intents.sql",
+            "migrations/0005_l3_operational_hardening.sql",
+            "migrations/0006_pdf_extraction_toolkit.sql",
+            "migrations/0007_net_margin_gate_assessments.sql",
+            "migrations/0008_manifest_generation_columns.sql",
+        ] {
+            apply_migration(&conn, migration_path)?;
+        }
+        seed_applied_migrations(
+            &conn,
+            &[
+                "0001_sqlite_state_initial",
+                "0003_sqlite_runtime",
+                "0004_l2_pending_operator_intents",
+                "0005_l3_operational_hardening",
+                "0006_pdf_extraction_toolkit",
+                "0007_net_margin_gate_assessments",
+                "0008_manifest_generation_columns",
+            ],
+            5,
+        )?;
+        drop(conn);
+
+        let state_db = StateDb::open(&db_path)?;
+        let conn = state_db.connection();
+        let override_columns = table_columns(conn, "operator_input_overrides")?;
+        let override_migration_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM schema_migrations WHERE id = '0009_operator_input_overrides'",
+            [],
+            |row| row.get(0),
+        )?;
+
+        for column in [
+            "id",
+            "process_id",
+            "product_candidate_id",
+            "reason_code",
+            "payload_json",
+            "notes",
+            "basis_hash_when_provided",
+            "provided_at",
+            "provided_by",
+            "withdrawn_at",
+            "superseded_by_override_id",
+            "owner_id",
+            "row_version",
+            "last_local_seq",
+            "stage_run_id",
+            "created_at",
+            "updated_at",
+        ] {
+            ensure!(
+                override_columns.iter().any(|candidate| candidate == column),
+                "OPD-T-schema_activation-009 operator_input_overrides missing column {column}"
+            );
+        }
+        ensure!(
+            override_migration_count == 1,
+            "OPD-T-schema_activation-009 expected 0009 migration log entry"
+        );
+        ensure!(
+            index_sql(conn, "idx_oio_active")?.is_some(),
+            "OPD-T-schema_activation-009 expected idx_oio_active index"
+        );
+        ensure!(
+            index_sql(conn, "idx_oio_process")?.is_some(),
+            "OPD-T-schema_activation-009 expected idx_oio_process index"
+        );
+        let user_version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
+        ensure!(
+            user_version == 6,
+            "OPD-T-schema_activation-009 expected user_version 6 after upgrade"
         );
         Ok(())
     }
