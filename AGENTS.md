@@ -132,6 +132,24 @@ cargo fmt --check
 
 If you see errors, **carefully understand and resolve each issue**. Read sufficient context to fix them the RIGHT way.
 
+### Stage Validation Test Gate
+
+When validating a pipeline stage (writing or reviewing a `docs/pipeline/stage-N-*-manifest.md`), `cargo test -p daemon --bin daemon` is **insufficient**. It only runs the binary unit tests and silently excludes the 39 integration test files in `crates/daemon/tests/*.rs`. Two prior Stage 11 manifests claimed GREEN under this narrow command while 13 integration tests were failing.
+
+The minimum quality gate for any stage validation manifest is:
+
+```bash
+cargo fmt --check
+cargo check --all-targets
+cargo clippy --all-targets -- -D warnings
+cargo test -p daemon --bin daemon                      # binary unit tests
+for t in crates/daemon/tests/*.rs; do                  # integration test files
+  cargo test --test "$(basename "$t" .rs)" || exit 1
+done
+```
+
+If any individual integration test target fails, fix or properly skip it before declaring green — do not narrow the gate to bypass it. Environment-dependent tests (e.g. ones that need `docling` installed) must auto-skip via runtime probes, not via `#[ignore]`.
+
 ---
 
 ## Procurement Intelligence Platform — This Project
