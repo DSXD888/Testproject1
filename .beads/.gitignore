@@ -41,6 +41,7 @@ redirect
 
 # Recovery and backup artifacts
 .br_recovery/
+manual_backups/
 *.corrupted
 *.corrupt_*
 *.pre_*_backup_*

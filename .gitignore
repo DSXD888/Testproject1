@@ -4,6 +4,11 @@
 *.mcp.json
 opencode.json
 storage.sqlite3*
+state/*.db*
+runtime/*.db*
+runtime/*.info.json
+runtime/*.lock
+runtime/*.sock
 target/
 node_modules/
 
