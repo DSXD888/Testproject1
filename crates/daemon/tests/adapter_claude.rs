@@ -338,6 +338,11 @@ mod tests {
         )?;
         let adapter = ClaudeAdapter::new(cli.program.clone(), known_versions());
         let session_root = TempDir::new()?;
+        // Pre-seed auth.json so CLAUDE_CONFIG_DIR is exported (the adapter only sets
+        // the env var when the session-local config has already been provisioned).
+        let session_config = session_root.path().join(".claude").join("config");
+        fs::create_dir_all(&session_config)?;
+        fs::write(session_config.join("auth.json"), "{}")?;
         let request = SpawnRequest {
             program: PathBuf::from("/ignored/by/adapter"),
             args: vec![OsString::from("--headless")],
@@ -356,6 +361,7 @@ mod tests {
                 == vec![
                     OsString::from("--output-format"),
                     OsString::from("stream-json"),
+                    OsString::from("--verbose"),
                     OsString::from("--headless"),
                 ],
             "unexpected contract launch arguments"

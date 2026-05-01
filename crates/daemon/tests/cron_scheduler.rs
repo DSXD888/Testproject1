@@ -129,9 +129,15 @@ mod tests {
         scheduler.refresh_next_run_at(ts(2026, 3, 25, 4, 10, 0)?)?;
 
         let definitions = scheduler.definitions();
+        // The state-db open path auto-seeds FTS + Contracts Finder + the three
+        // procontract-* sources. The harness adds Alibaba on top. That gives
+        // seven cron-backed bindings (FTS production + canary, Contracts Finder
+        // production, procontract production x3, Alibaba canary).
         ensure!(
-            definitions.len() == 4,
-            "L3-T-cron_scheduler-001 expected four cron-backed definitions"
+            definitions.len() == 7,
+            "L3-T-cron_scheduler-001 expected seven cron-backed definitions, got {}: {:?}",
+            definitions.len(),
+            definitions.keys().collect::<Vec<_>>(),
         );
         ensure!(
             definitions["fts::procurement-ingestion/fts"].next_run_at
@@ -146,6 +152,22 @@ mod tests {
             definitions["contracts-finder::procurement-ingestion/contracts-finder"].next_run_at
                 == Some(ts(2026, 3, 25, 4, 45, 0)?),
             "L3-T-cron_scheduler-001 unexpected Contracts Finder schedule"
+        );
+        ensure!(
+            definitions["procontract::procurement-ingestion/procontract-discover"].next_run_at
+                == Some(ts(2026, 3, 25, 5, 0, 0)?),
+            "L3-T-cron_scheduler-001 unexpected procontract discover schedule"
+        );
+        ensure!(
+            definitions["procontract-interest::procurement-ingestion/procontract-register-interest"]
+                .next_run_at == Some(ts(2026, 3, 25, 5, 30, 0)?),
+            "L3-T-cron_scheduler-001 unexpected procontract register-interest schedule"
+        );
+        ensure!(
+            definitions["procontract-enrich::procurement-ingestion/procontract-enrich-tender"]
+                .next_run_at
+                == Some(ts(2026, 3, 25, 6, 0, 0)?),
+            "L3-T-cron_scheduler-001 unexpected procontract enrich-tender schedule"
         );
         ensure!(
             definitions["alibaba::source-health/alibaba"].next_run_at

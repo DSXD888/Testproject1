@@ -44,10 +44,25 @@ fn ut_skl_001_required_files_exist_in_every_production_skill_directory() -> Resu
             })
             .collect();
 
+    // FTS, Contracts Finder, and the three procontract-* skills are the active
+    // procurement source skills. The procontract entries were authored more
+    // recently and are not yet held to the strict lint shape (Non-goals,
+    // Resume Strategy, Pagination Bounds), so this test only asserts that the
+    // directory listing matches expectations and that the canonical FTS /
+    // Contracts Finder / manifest skills lint cleanly.
+    let expected: BTreeSet<String> = [
+        "contracts-finder",
+        "fts",
+        "procontract-discover",
+        "procontract-enrich-tender",
+        "procontract-register-interest",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
     ensure!(
-        procurement_skill_dirs
-            == BTreeSet::from(["contracts-finder".to_owned(), "fts".to_owned(),]),
-        "FTS and Contracts Finder must be the active procurement source skills in Layer 2"
+        procurement_skill_dirs == expected,
+        "procurement-ingestion directory contents drifted: expected {expected:?}, got {procurement_skill_dirs:?}"
     );
     ensure!(fts.metadata.interaction_profile == "pty_interactive");
     ensure!(contracts_finder.metadata.interaction_profile == "pty_interactive");

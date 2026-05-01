@@ -288,11 +288,15 @@ mod tests {
         )?;
         assert_eq!(result.error_code, "AGENT_DAEMON_CRASH_DURING_SESSION");
         assert!(result.manifest_path.exists());
+        // The renderer derives the year/month bucket from the current UTC clock,
+        // so build the expected fragment dynamically rather than hardcoding a
+        // month — otherwise this test fails the moment the calendar rolls over.
+        let now = Utc::now();
+        let expected_bucket = now.format("/error-manifests/%Y/%m/").to_string();
+        let actual = result.manifest_path.to_string_lossy().into_owned();
         assert!(
-            result
-                .manifest_path
-                .to_string_lossy()
-                .contains("/error-manifests/2026/03/")
+            actual.contains(&expected_bucket),
+            "manifest path {actual} should contain {expected_bucket}",
         );
         let error_type: String = state_db.connection().query_row(
             "SELECT error_type FROM error_manifests ORDER BY created_at DESC LIMIT 1",

@@ -207,10 +207,15 @@ mod tests {
             persist_runtime_state(state_db.connection(), &next)?;
         }
 
+        // Restrict the assertion to the three sources this test exercises. The
+        // state-db open path also auto-seeds the procontract-* sources whose
+        // runtime rows live in the same table, but they are out of scope for
+        // this canary-outcome check.
         let mut statement = state_db.connection().prepare(
             "\
             SELECT source_id, last_health_state, last_canary_result, last_error_code
             FROM source_runtime_state
+            WHERE source_id IN ('alibaba', 'contracts-finder', 'fts')
             ORDER BY source_id
             ",
         )?;

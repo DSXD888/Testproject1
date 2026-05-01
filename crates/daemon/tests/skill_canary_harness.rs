@@ -78,6 +78,19 @@ fn e2e_can_001_fts_canary_fetches_minimum_viable_notice_set_and_validates_basic_
 -> Result<()> {
     let state_db = TestStateDb::new()?;
     ensure!(state_db.db_path().ends_with("state.db"));
+    // Scope this canary to FTS by explicitly removing every other auto-seeded
+    // procurement source. The state-db open path now also seeds Contracts
+    // Finder and the three procontract-* sources, but this canary is about the
+    // FTS minimum-viable shape, so the harness needs to be hermetic. Drop
+    // dependent rows first to satisfy the foreign-key constraint between
+    // source_runtime_state.source_id and sources.id.
+    state_db.connection().execute(
+        "DELETE FROM source_runtime_state WHERE source_id != ?1",
+        [FTS_SOURCE_ID],
+    )?;
+    state_db
+        .connection()
+        .execute("DELETE FROM sources WHERE id != ?1", [FTS_SOURCE_ID])?;
     let source_count: i64 =
         state_db
             .connection()
@@ -98,7 +111,7 @@ fn e2e_can_001_fts_canary_fetches_minimum_viable_notice_set_and_validates_basic_
 
     ensure!(
         source_count == 1,
-        "FTS must be the only seeded procurement source"
+        "FTS must be the only seeded procurement source after harness filtering"
     );
     ensure!(source_id == FTS_SOURCE_ID, "unexpected seeded source id");
     ensure!(canary_input["limit"] == 5, "unexpected FTS canary limit");
