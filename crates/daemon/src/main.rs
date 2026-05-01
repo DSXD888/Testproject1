@@ -253,6 +253,16 @@ const LANDED_COST_BATCH_SIZE: i64 = 20;
 const LANDED_COST_SKILL_TIMEOUT_SECONDS: u64 = 300;
 const LANDED_COST_STAGE_NAME: &str = "landed cost";
 const LANDED_COST_SCOPE_KIND: &str = "candidate_quote";
+const NET_MARGIN_STAGE_NAME: &str = "net margin gate";
+const NET_MARGIN_PASS_THRESHOLD_BPS: i64 = 2_000;
+const NET_MARGIN_REJECT_THRESHOLD_BPS: i64 = 500;
+const NET_MARGIN_REVENUE_CONFIDENCE_FLOOR_BPS: i64 = 5_000;
+const NET_MARGIN_PRICING_INPUT_CONFIDENCE_FLOOR_BPS: i64 = 5_000;
+const NET_MARGIN_CUSTOMS_RESOLUTION_CONFIDENCE_FLOOR_BPS: i64 = 6_000;
+const NET_MARGIN_COMMERCIAL_ESTIMATE_CONFIDENCE_FLOOR_BPS: i64 = 4_000;
+const NET_MARGIN_THRESHOLDS_VERSION: &str = "v1.0-2026-05-01";
+const NET_MARGIN_ROLLUP_VERSION: &str = "v1.0-2026-05-01";
+const NET_MARGIN_REVIEW_STAGE: &str = "net_margin_gate";
 #[cfg(test)]
 const ACTIVE_STAGES: [&str; 12] = [
     "Normalize",
@@ -1159,6 +1169,7 @@ async fn main() -> Result<()> {
                 run_procontract_enrich_tender_live_loop(&mut runtime, &cli).await?
             }
             "landed-cost" => run_landed_cost_live_loop(&mut runtime, &cli).await?,
+            "net-gate" => run_net_margin_gate_live_loop(&mut runtime, &cli)?,
             "gem-imports" | "mx-wholesale" | "amazon-uk" | "ebay-uk" | "alibaba-search" => {
                 run_marketplace_search_live_loop(&mut runtime, source_id, &cli).await?
             }
@@ -5635,6 +5646,963 @@ async fn run_landed_cost_live_loop(
     Ok(LiveLoopReport {
         summary_line: format!(
             "landed-cost live loop completed: attempted={attempted} completed={completed} blocked={blocked} domestic={domestic} import={import} customs_skill_runs={customs_skill_runs} sizing_skill_runs={sizing_skill_runs} searates_skill_runs={searates_skill_runs} fx_skill_runs={fx_skill_runs}"
+        ),
+        status: "completed".to_owned(),
+    })
+}
+
+const REASON_CONFIDENCE_COMMERCIAL_ESTIMATE_BELOW_FLOOR: &str =
+    "confidence_commercial_estimate_below_floor";
+const REASON_CONFIDENCE_CUSTOMS_RESOLUTION_BELOW_FLOOR: &str =
+    "confidence_customs_resolution_below_floor";
+const REASON_CONFIDENCE_PRICING_INPUT_BELOW_FLOOR: &str = "confidence_pricing_input_below_floor";
+const REASON_CONFIDENCE_REVENUE_BELOW_FLOOR: &str = "confidence_revenue_below_floor";
+const REASON_AWAITING_RFQ_QUOTE: &str = "awaiting_rfq_quote";
+const REASON_QUANTITY_BASIS_UNALIGNED: &str = "quantity_basis_unaligned";
+const REASON_QUANTITY_BASIS_UNDETERMINED: &str = "quantity_basis_undetermined";
+const REASON_NO_PRICING_SIGNAL: &str = "no_pricing_signal";
+const REASON_MARGIN_BELOW_PASS: &str = "margin_below_pass";
+
+const NET_MARGIN_REASON_PRECEDENCE: [&str; 9] = [
+    REASON_QUANTITY_BASIS_UNALIGNED,
+    REASON_QUANTITY_BASIS_UNDETERMINED,
+    REASON_AWAITING_RFQ_QUOTE,
+    REASON_NO_PRICING_SIGNAL,
+    REASON_CONFIDENCE_COMMERCIAL_ESTIMATE_BELOW_FLOOR,
+    REASON_CONFIDENCE_CUSTOMS_RESOLUTION_BELOW_FLOOR,
+    REASON_CONFIDENCE_PRICING_INPUT_BELOW_FLOOR,
+    REASON_CONFIDENCE_REVENUE_BELOW_FLOOR,
+    REASON_MARGIN_BELOW_PASS,
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NetMarginVerdict {
+    Pass,
+    Review,
+    Reject,
+}
+
+impl NetMarginVerdict {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Pass => "pass",
+            Self::Review => "review",
+            Self::Reject => "reject",
+        }
+    }
+
+    fn from_str(raw: &str) -> Result<Self> {
+        match raw {
+            "pass" => Ok(Self::Pass),
+            "review" => Ok(Self::Review),
+            "reject" => Ok(Self::Reject),
+            other => bail!("unknown net margin verdict `{other}`"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct NetMarginDecisionInput<'a> {
+    has_pricing_signal: bool,
+    revenue_basis_type: Option<&'a str>,
+    supplier_price_basis_qty_present: bool,
+    order_quantity_basis_kind: Option<&'a str>,
+    net_margin_low_bps: Option<i64>,
+    net_margin_base_bps: Option<i64>,
+    net_margin_high_bps: Option<i64>,
+    revenue_confidence_bps: Option<i64>,
+    pricing_input_confidence_bps: Option<i64>,
+    customs_resolution_confidence_bps: Option<i64>,
+    commercial_estimate_confidence_bps: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct NetMarginDecision {
+    verdict: NetMarginVerdict,
+    reasons: Vec<&'static str>,
+    re_evaluation_eligible: bool,
+}
+
+#[derive(Debug, Clone)]
+struct NetMarginCandidateInput {
+    process_id: String,
+    notice_id: String,
+    lot_id: String,
+    product_candidate_id: String,
+    candidate_scope_id: String,
+    pricing_assessment_id: Option<String>,
+    pricing_assessment_row_version: Option<i64>,
+    landed_cost_estimate_id: Option<String>,
+    landed_cost_row_version: Option<i64>,
+    revenue_basis_type: Option<String>,
+    expected_addressable_revenue_ex_vat_pence: Option<i64>,
+    pricing_input_confidence_bps: Option<i64>,
+    revenue_confidence_bps: Option<i64>,
+    net_margin_low_bps: Option<i64>,
+    net_margin_base_bps: Option<i64>,
+    net_margin_high_bps: Option<i64>,
+    economic_landed_cost_gbp_pence: Option<i64>,
+    customs_resolution_confidence_bps: Option<i64>,
+    commercial_estimate_confidence_bps: Option<i64>,
+    confidence_breakdown: Option<String>,
+    supplier_price_basis_qty_present: bool,
+}
+
+#[derive(Debug, Clone)]
+struct NetMarginCandidateAssessment {
+    id: String,
+    process_id: String,
+    notice_id: String,
+    lot_id: String,
+    product_candidate_id: String,
+    candidate_scope_id: String,
+    pricing_assessment_id: Option<String>,
+    landed_cost_estimate_id: Option<String>,
+    verdict: NetMarginVerdict,
+    reasons_json: String,
+    re_evaluation_eligible: bool,
+    net_margin_low_bps: Option<i64>,
+    net_margin_base_bps: Option<i64>,
+    net_margin_high_bps: Option<i64>,
+    revenue_used_pence: Option<i64>,
+    revenue_basis_type: Option<String>,
+    economic_landed_cost_used_pence: Option<i64>,
+    revenue_confidence_bps: Option<i64>,
+    pricing_input_confidence_bps: Option<i64>,
+    customs_resolution_confidence_bps: Option<i64>,
+    commercial_estimate_confidence_bps: Option<i64>,
+    basis_hash: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct NetMarginGateSummary {
+    attempted: usize,
+    candidates_assessed: usize,
+    pass: usize,
+    review: usize,
+    reject: usize,
+    no_pricing_signal: usize,
+    processes_rolled_up: usize,
+    skipped_unchanged: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct NetMarginRollupLot {
+    id: String,
+    estimated_value_pence: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct NetMarginRollupCandidate {
+    lot_id: String,
+    verdict: NetMarginVerdict,
+    reasons: Vec<String>,
+    is_priced: bool,
+    has_landed_cost: bool,
+    gross_margin_bps: Option<i64>,
+    net_margin_base_bps: Option<i64>,
+    candidate_value_share_bps: Option<i64>,
+    basis_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct NetMarginProcessRollup {
+    priced_coverage_bps: i64,
+    landed_cost_coverage_bps: i64,
+    net_qualified_coverage_bps: i64,
+    priced_value_coverage_bps: i64,
+    landed_cost_value_coverage_bps: i64,
+    net_qualified_value_coverage_bps: i64,
+    unresolved_mandatory_lots: i64,
+    gross_margin_bps: Option<i64>,
+    net_margin_bps: Option<i64>,
+    review_required: bool,
+    review_reason: Option<String>,
+    decision_basis_hash: String,
+}
+
+fn canonical_reason_json(reasons: &[&str]) -> Result<String> {
+    serde_json::to_string(reasons).context("serializing net margin reasons")
+}
+
+fn parse_reason_json(raw: &str) -> Result<Vec<String>> {
+    serde_json::from_str(raw).with_context(|| format!("parsing reasons_json `{raw}`"))
+}
+
+fn order_quantity_basis_kind(confidence_breakdown: Option<&str>) -> Option<String> {
+    let raw = confidence_breakdown?;
+    let value = serde_json::from_str::<Value>(raw).ok()?;
+    value
+        .get("order_quantity_basis")?
+        .get("kind")?
+        .as_str()
+        .map(str::to_owned)
+}
+
+fn below_floor(value: Option<i64>, floor_bps: i64) -> bool {
+    value.is_none_or(|actual| actual < floor_bps)
+}
+
+#[allow(clippy::too_many_lines)]
+fn evaluate_net_margin_decision(input: &NetMarginDecisionInput<'_>) -> NetMarginDecision {
+    if !input.has_pricing_signal {
+        return NetMarginDecision {
+            verdict: NetMarginVerdict::Review,
+            reasons: vec![REASON_NO_PRICING_SIGNAL],
+            re_evaluation_eligible: true,
+        };
+    }
+
+    let mut reasons = Vec::new();
+    let mut has_quantity_basis_blocker = false;
+
+    match input.order_quantity_basis_kind {
+        Some("rfq_required" | "supplier_capacity") => {
+            reasons.push(REASON_QUANTITY_BASIS_UNALIGNED);
+            has_quantity_basis_blocker = true;
+        }
+        None if input.revenue_basis_type == Some("expected_value")
+            && input.supplier_price_basis_qty_present =>
+        {
+            reasons.push(REASON_QUANTITY_BASIS_UNDETERMINED);
+            has_quantity_basis_blocker = true;
+        }
+        _ => {}
+    }
+
+    let awaiting_rfq = input.revenue_basis_type == Some("rfq_required")
+        || input.order_quantity_basis_kind == Some("rfq_required");
+    if awaiting_rfq {
+        reasons.push(REASON_AWAITING_RFQ_QUOTE);
+    }
+
+    let mut confidence_reasons = Vec::new();
+    if below_floor(
+        input.commercial_estimate_confidence_bps,
+        NET_MARGIN_COMMERCIAL_ESTIMATE_CONFIDENCE_FLOOR_BPS,
+    ) {
+        confidence_reasons.push(REASON_CONFIDENCE_COMMERCIAL_ESTIMATE_BELOW_FLOOR);
+    }
+    if below_floor(
+        input.customs_resolution_confidence_bps,
+        NET_MARGIN_CUSTOMS_RESOLUTION_CONFIDENCE_FLOOR_BPS,
+    ) {
+        confidence_reasons.push(REASON_CONFIDENCE_CUSTOMS_RESOLUTION_BELOW_FLOOR);
+    }
+    if below_floor(
+        input.pricing_input_confidence_bps,
+        NET_MARGIN_PRICING_INPUT_CONFIDENCE_FLOOR_BPS,
+    ) {
+        confidence_reasons.push(REASON_CONFIDENCE_PRICING_INPUT_BELOW_FLOOR);
+    }
+    if below_floor(
+        input.revenue_confidence_bps,
+        NET_MARGIN_REVENUE_CONFIDENCE_FLOOR_BPS,
+    ) {
+        confidence_reasons.push(REASON_CONFIDENCE_REVENUE_BELOW_FLOOR);
+    }
+    reasons.extend(confidence_reasons);
+
+    let confidence_floors_clear = !reasons
+        .iter()
+        .any(|reason| reason.starts_with("confidence_"));
+    let high_rejects = input
+        .net_margin_high_bps
+        .is_some_and(|high| high < NET_MARGIN_REJECT_THRESHOLD_BPS);
+    let pass_shape = input
+        .net_margin_base_bps
+        .is_some_and(|base| base >= NET_MARGIN_PASS_THRESHOLD_BPS)
+        && input.net_margin_low_bps.is_some_and(|low| low >= 0);
+
+    let verdict = if awaiting_rfq || has_quantity_basis_blocker {
+        NetMarginVerdict::Review
+    } else if high_rejects {
+        NetMarginVerdict::Reject
+    } else if pass_shape && confidence_floors_clear {
+        NetMarginVerdict::Pass
+    } else {
+        if !pass_shape {
+            reasons.push(REASON_MARGIN_BELOW_PASS);
+        }
+        NetMarginVerdict::Review
+    };
+
+    NetMarginDecision {
+        verdict,
+        reasons,
+        re_evaluation_eligible: verdict == NetMarginVerdict::Review,
+    }
+}
+
+fn net_margin_basis_hash(
+    product_candidate_id: &str,
+    landed_cost_estimate_id: Option<&str>,
+    landed_cost_row_version: Option<i64>,
+    pricing_assessment_id: Option<&str>,
+    pricing_assessment_row_version: Option<i64>,
+) -> String {
+    sha256_hex(
+        format!(
+            "{}:{}:{}:{}:{}:{}",
+            product_candidate_id,
+            landed_cost_estimate_id.unwrap_or("<none>"),
+            landed_cost_row_version.unwrap_or(0),
+            pricing_assessment_id.unwrap_or("<none>"),
+            pricing_assessment_row_version.unwrap_or(0),
+            NET_MARGIN_THRESHOLDS_VERSION,
+        )
+        .as_bytes(),
+    )
+}
+
+fn build_net_margin_candidate_assessment(
+    input: &NetMarginCandidateInput,
+) -> Result<NetMarginCandidateAssessment> {
+    let order_quantity_kind = order_quantity_basis_kind(input.confidence_breakdown.as_deref());
+    let decision = evaluate_net_margin_decision(&NetMarginDecisionInput {
+        has_pricing_signal: input.pricing_assessment_id.is_some(),
+        revenue_basis_type: input.revenue_basis_type.as_deref(),
+        supplier_price_basis_qty_present: input.supplier_price_basis_qty_present,
+        order_quantity_basis_kind: order_quantity_kind.as_deref(),
+        net_margin_low_bps: input.net_margin_low_bps,
+        net_margin_base_bps: input.net_margin_base_bps,
+        net_margin_high_bps: input.net_margin_high_bps,
+        revenue_confidence_bps: input.revenue_confidence_bps,
+        pricing_input_confidence_bps: input.pricing_input_confidence_bps,
+        customs_resolution_confidence_bps: input.customs_resolution_confidence_bps,
+        commercial_estimate_confidence_bps: input.commercial_estimate_confidence_bps,
+    });
+    let has_pricing_signal = input.pricing_assessment_id.is_some();
+    let basis_hash = net_margin_basis_hash(
+        &input.product_candidate_id,
+        input.landed_cost_estimate_id.as_deref(),
+        input.landed_cost_row_version,
+        input.pricing_assessment_id.as_deref(),
+        input.pricing_assessment_row_version,
+    );
+
+    Ok(NetMarginCandidateAssessment {
+        id: format!("net-margin-{}", input.product_candidate_id),
+        process_id: input.process_id.clone(),
+        notice_id: input.notice_id.clone(),
+        lot_id: input.lot_id.clone(),
+        product_candidate_id: input.product_candidate_id.clone(),
+        candidate_scope_id: input.candidate_scope_id.clone(),
+        pricing_assessment_id: input.pricing_assessment_id.clone(),
+        landed_cost_estimate_id: input.landed_cost_estimate_id.clone(),
+        verdict: decision.verdict,
+        reasons_json: canonical_reason_json(&decision.reasons)?,
+        re_evaluation_eligible: decision.re_evaluation_eligible,
+        net_margin_low_bps: has_pricing_signal
+            .then_some(input.net_margin_low_bps)
+            .flatten(),
+        net_margin_base_bps: has_pricing_signal
+            .then_some(input.net_margin_base_bps)
+            .flatten(),
+        net_margin_high_bps: has_pricing_signal
+            .then_some(input.net_margin_high_bps)
+            .flatten(),
+        revenue_used_pence: has_pricing_signal
+            .then_some(input.expected_addressable_revenue_ex_vat_pence)
+            .flatten(),
+        revenue_basis_type: has_pricing_signal
+            .then_some(input.revenue_basis_type.clone())
+            .flatten(),
+        economic_landed_cost_used_pence: has_pricing_signal
+            .then_some(input.economic_landed_cost_gbp_pence)
+            .flatten(),
+        revenue_confidence_bps: has_pricing_signal
+            .then_some(input.revenue_confidence_bps)
+            .flatten(),
+        pricing_input_confidence_bps: has_pricing_signal
+            .then_some(input.pricing_input_confidence_bps)
+            .flatten(),
+        customs_resolution_confidence_bps: has_pricing_signal
+            .then_some(input.customs_resolution_confidence_bps)
+            .flatten(),
+        commercial_estimate_confidence_bps: has_pricing_signal
+            .then_some(input.commercial_estimate_confidence_bps)
+            .flatten(),
+        basis_hash,
+    })
+}
+
+fn load_net_margin_candidate_inputs(conn: &Connection) -> Result<Vec<NetMarginCandidateInput>> {
+    let mut statement = conn.prepare(
+        "\
+        SELECT
+          pc.process_id,
+          pc.notice_id,
+          pc.lot_id,
+          pc.id,
+          COALESCE(NULLIF(pc.candidate_key, ''), pc.id),
+          cpa.id,
+          cpa.row_version,
+          lce.id,
+          lce.row_version,
+          cpa.revenue_basis_type,
+          cpa.expected_addressable_revenue_ex_vat_pence,
+          cpa.pricing_input_confidence_bps,
+          cpa.revenue_confidence_bps,
+          lce.net_margin_low_bps,
+          lce.net_margin_base_bps,
+          lce.net_margin_high_bps,
+          lce.economic_landed_cost_gbp_pence,
+          lce.customs_resolution_confidence_bps,
+          lce.commercial_estimate_confidence_bps,
+          lce.confidence_breakdown,
+          CASE WHEN sq.price_basis_qty IS NOT NULL THEN 1 ELSE 0 END
+        FROM product_candidates pc
+        LEFT JOIN candidate_pricing_assessments cpa
+          ON cpa.product_candidate_id = pc.id
+        LEFT JOIN supplier_quotes sq
+          ON sq.id = cpa.selected_quote_id
+        LEFT JOIN landed_cost_estimates lce
+          ON lce.product_candidate_id = pc.id
+         AND lce.supplier_quote_id = cpa.selected_quote_id
+        WHERE pc.candidate_type != 'service'
+          AND (
+            cpa.id IS NOT NULL
+            OR EXISTS (
+              SELECT 1
+              FROM search_attempts sa
+              WHERE sa.product_candidate_id = pc.id
+            )
+          )
+        ORDER BY pc.process_id, pc.id
+        ",
+    )?;
+    let rows = statement.query_map([], |row| {
+        Ok(NetMarginCandidateInput {
+            process_id: row.get(0)?,
+            notice_id: row.get(1)?,
+            lot_id: row.get(2)?,
+            product_candidate_id: row.get(3)?,
+            candidate_scope_id: row.get(4)?,
+            pricing_assessment_id: row.get(5)?,
+            pricing_assessment_row_version: row.get(6)?,
+            landed_cost_estimate_id: row.get(7)?,
+            landed_cost_row_version: row.get(8)?,
+            revenue_basis_type: row.get(9)?,
+            expected_addressable_revenue_ex_vat_pence: row.get(10)?,
+            pricing_input_confidence_bps: row.get(11)?,
+            revenue_confidence_bps: row.get(12)?,
+            net_margin_low_bps: row.get(13)?,
+            net_margin_base_bps: row.get(14)?,
+            net_margin_high_bps: row.get(15)?,
+            economic_landed_cost_gbp_pence: row.get(16)?,
+            customs_resolution_confidence_bps: row.get(17)?,
+            commercial_estimate_confidence_bps: row.get(18)?,
+            confidence_breakdown: row.get(19)?,
+            supplier_price_basis_qty_present: row.get::<_, i64>(20)? != 0,
+        })
+    })?;
+    rows.collect::<std::result::Result<Vec<_>, _>>()
+        .context("loading net margin candidate inputs")
+}
+
+fn existing_net_margin_basis_hash(
+    tx: &Transaction<'_>,
+    assessment_id: &str,
+) -> Result<Option<String>> {
+    tx.query_row(
+        "SELECT basis_hash FROM candidate_net_margin_assessments WHERE id = ?1",
+        [assessment_id],
+        |row| row.get(0),
+    )
+    .optional()
+    .context("loading existing net margin basis hash")
+}
+
+fn persist_net_margin_candidate_assessment(
+    tx: &Transaction<'_>,
+    assessment: &NetMarginCandidateAssessment,
+    visible_after_seq: i64,
+    stage_run_id: &str,
+) -> Result<()> {
+    tx.execute(
+        "\
+        INSERT INTO candidate_net_margin_assessments (
+          id, process_id, notice_id, lot_id, product_candidate_id, pricing_assessment_id,
+          landed_cost_estimate_id, verdict, reasons_json, re_evaluation_eligible,
+          net_margin_low_bps, net_margin_base_bps, net_margin_high_bps,
+          revenue_used_pence, revenue_basis_type, economic_landed_cost_used_pence,
+          revenue_confidence_bps, pricing_input_confidence_bps,
+          customs_resolution_confidence_bps, commercial_estimate_confidence_bps,
+          pass_threshold_bps, reject_threshold_bps, thresholds_version, basis_hash,
+          stage_run_id, owner_id, last_local_seq
+        ) VALUES (
+          ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16,
+          ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          process_id = excluded.process_id,
+          notice_id = excluded.notice_id,
+          lot_id = excluded.lot_id,
+          product_candidate_id = excluded.product_candidate_id,
+          pricing_assessment_id = excluded.pricing_assessment_id,
+          landed_cost_estimate_id = excluded.landed_cost_estimate_id,
+          verdict = excluded.verdict,
+          reasons_json = excluded.reasons_json,
+          re_evaluation_eligible = excluded.re_evaluation_eligible,
+          net_margin_low_bps = excluded.net_margin_low_bps,
+          net_margin_base_bps = excluded.net_margin_base_bps,
+          net_margin_high_bps = excluded.net_margin_high_bps,
+          revenue_used_pence = excluded.revenue_used_pence,
+          revenue_basis_type = excluded.revenue_basis_type,
+          economic_landed_cost_used_pence = excluded.economic_landed_cost_used_pence,
+          revenue_confidence_bps = excluded.revenue_confidence_bps,
+          pricing_input_confidence_bps = excluded.pricing_input_confidence_bps,
+          customs_resolution_confidence_bps = excluded.customs_resolution_confidence_bps,
+          commercial_estimate_confidence_bps = excluded.commercial_estimate_confidence_bps,
+          pass_threshold_bps = excluded.pass_threshold_bps,
+          reject_threshold_bps = excluded.reject_threshold_bps,
+          thresholds_version = excluded.thresholds_version,
+          basis_hash = excluded.basis_hash,
+          stage_run_id = excluded.stage_run_id,
+          owner_id = excluded.owner_id,
+          row_version = candidate_net_margin_assessments.row_version + 1,
+          last_local_seq = excluded.last_local_seq,
+          updated_at = CURRENT_TIMESTAMP
+        ",
+        params![
+            assessment.id,
+            assessment.process_id,
+            assessment.notice_id,
+            assessment.lot_id,
+            assessment.product_candidate_id,
+            assessment.pricing_assessment_id,
+            assessment.landed_cost_estimate_id,
+            assessment.verdict.as_str(),
+            assessment.reasons_json,
+            i64::from(assessment.re_evaluation_eligible),
+            assessment.net_margin_low_bps,
+            assessment.net_margin_base_bps,
+            assessment.net_margin_high_bps,
+            assessment.revenue_used_pence,
+            assessment.revenue_basis_type,
+            assessment.economic_landed_cost_used_pence,
+            assessment.revenue_confidence_bps,
+            assessment.pricing_input_confidence_bps,
+            assessment.customs_resolution_confidence_bps,
+            assessment.commercial_estimate_confidence_bps,
+            NET_MARGIN_PASS_THRESHOLD_BPS,
+            NET_MARGIN_REJECT_THRESHOLD_BPS,
+            NET_MARGIN_THRESHOLDS_VERSION,
+            assessment.basis_hash,
+            stage_run_id,
+            DEFAULT_OWNER_ID,
+            visible_after_seq,
+        ],
+    )
+    .context("persisting candidate net margin assessment")?;
+    persist_stage(
+        tx,
+        &assessment.process_id,
+        NET_MARGIN_STAGE_NAME,
+        "candidate",
+        &assessment.candidate_scope_id,
+        stage_run_id,
+    )
+}
+
+fn load_net_margin_rollup_inputs(
+    conn: &Connection,
+    process_id: &str,
+) -> Result<(Vec<NetMarginRollupLot>, Vec<NetMarginRollupCandidate>)> {
+    let mut lot_statement = conn.prepare(
+        "\
+        SELECT DISTINCT nl.id, nl.estimated_value_pence
+        FROM notice_lots nl
+        JOIN contract_notices cn
+          ON cn.id = nl.notice_id
+        JOIN process_stage_heads psh
+          ON psh.process_id = cn.process_id
+         AND psh.stage = 'qualify lot'
+         AND psh.scope_kind = 'lot'
+         AND (psh.scope_id = nl.id OR psh.scope_id = nl.lot_key)
+        JOIN process_stage_status pss
+          ON pss.process_id = psh.process_id
+         AND pss.stage = psh.stage
+         AND pss.scope_kind = psh.scope_kind
+         AND pss.scope_id = psh.scope_id
+         AND pss.stage_run_id = psh.current_stage_run_id
+        WHERE cn.process_id = ?1
+          AND pss.state = 'succeeded'
+        ORDER BY nl.id
+        ",
+    )?;
+    let lot_rows = lot_statement.query_map([process_id], |row| {
+        Ok(NetMarginRollupLot {
+            id: row.get(0)?,
+            estimated_value_pence: row.get(1)?,
+        })
+    })?;
+    let lots = lot_rows
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("loading net margin rollup lots")?;
+
+    let mut candidate_statement = conn.prepare(
+        "\
+        SELECT
+          cnma.lot_id,
+          cnma.verdict,
+          cnma.reasons_json,
+          CASE WHEN cnma.pricing_assessment_id IS NOT NULL THEN 1 ELSE 0 END,
+          CASE WHEN cnma.landed_cost_estimate_id IS NOT NULL THEN 1 ELSE 0 END,
+          cpa.gross_margin_bps,
+          cnma.net_margin_base_bps,
+          pc.candidate_value_share_bps,
+          cnma.basis_hash
+        FROM candidate_net_margin_assessments cnma
+        JOIN product_candidates pc
+          ON pc.id = cnma.product_candidate_id
+        LEFT JOIN candidate_pricing_assessments cpa
+          ON cpa.id = cnma.pricing_assessment_id
+        WHERE cnma.process_id = ?1
+        ORDER BY cnma.product_candidate_id
+        ",
+    )?;
+    let candidate_rows = candidate_statement.query_map([process_id], |row| {
+        let verdict_raw: String = row.get(1)?;
+        let reasons_json: String = row.get(2)?;
+        let verdict = NetMarginVerdict::from_str(&verdict_raw)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(error.into()))?;
+        let reasons = parse_reason_json(&reasons_json)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(error.into()))?;
+        Ok(NetMarginRollupCandidate {
+            lot_id: row.get(0)?,
+            verdict,
+            reasons,
+            is_priced: row.get::<_, i64>(3)? != 0,
+            has_landed_cost: row.get::<_, i64>(4)? != 0,
+            gross_margin_bps: row.get(5)?,
+            net_margin_base_bps: row.get(6)?,
+            candidate_value_share_bps: row.get(7)?,
+            basis_hash: row.get(8)?,
+        })
+    })?;
+    let candidates = candidate_rows
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("loading net margin rollup candidates")?;
+
+    Ok((lots, candidates))
+}
+
+fn ratio_bps(numerator: i64, denominator: i64) -> i64 {
+    if numerator <= 0 || denominator <= 0 {
+        return 0;
+    }
+    let value =
+        (i128::from(numerator) * 10_000_i128 / i128::from(denominator)).clamp(0_i128, 10_000_i128);
+    i64::try_from(value).unwrap_or_default()
+}
+
+fn average_margin_bps(values: &[(i64, Option<i64>)]) -> Option<i64> {
+    if values.is_empty() {
+        return None;
+    }
+    let all_have_weights = values.iter().all(|(_, weight)| weight.is_some());
+    if all_have_weights {
+        let weight_sum = values
+            .iter()
+            .filter_map(|(_, weight)| *weight)
+            .filter(|weight| *weight > 0)
+            .sum::<i64>();
+        if weight_sum > 0 {
+            let weighted_sum = values
+                .iter()
+                .filter_map(|(value, weight)| weight.map(|actual| (*value, actual)))
+                .filter(|(_, weight)| *weight > 0)
+                .map(|(value, weight)| i128::from(value) * i128::from(weight))
+                .sum::<i128>();
+            let averaged = weighted_sum / i128::from(weight_sum);
+            return i64::try_from(averaged).ok();
+        }
+    }
+
+    let sum = values
+        .iter()
+        .map(|(value, _)| i128::from(*value))
+        .sum::<i128>();
+    let count = i128::try_from(values.len()).ok()?;
+    i64::try_from(sum / count).ok()
+}
+
+fn review_reason_for_candidates(candidates: &[NetMarginRollupCandidate]) -> Option<String> {
+    NET_MARGIN_REASON_PRECEDENCE.iter().find_map(|precedence| {
+        candidates
+            .iter()
+            .filter(|candidate| candidate.verdict == NetMarginVerdict::Review)
+            .any(|candidate| {
+                candidate
+                    .reasons
+                    .iter()
+                    .any(|reason| reason.as_str() == *precedence)
+            })
+            .then(|| (*precedence).to_owned())
+    })
+}
+
+fn net_margin_rollup_basis_hash(candidates: &[NetMarginRollupCandidate]) -> String {
+    let mut child_hashes = candidates
+        .iter()
+        .map(|candidate| candidate.basis_hash.clone())
+        .collect::<Vec<_>>();
+    child_hashes.sort();
+    sha256_hex(
+        format!(
+            "{}|pass_threshold_bps={}|reject_threshold_bps={}|thresholds_version={}|rollup_version={}",
+            child_hashes.join("|"),
+            NET_MARGIN_PASS_THRESHOLD_BPS,
+            NET_MARGIN_REJECT_THRESHOLD_BPS,
+            NET_MARGIN_THRESHOLDS_VERSION,
+            NET_MARGIN_ROLLUP_VERSION,
+        )
+        .as_bytes(),
+    )
+}
+
+fn compute_net_margin_process_rollup(
+    lots: &[NetMarginRollupLot],
+    candidates: &[NetMarginRollupCandidate],
+) -> NetMarginProcessRollup {
+    let qualifying_lot_ids = lots
+        .iter()
+        .map(|lot| lot.id.as_str())
+        .collect::<BTreeSet<_>>();
+    let total_qualifying_lots = i64::try_from(qualifying_lot_ids.len()).unwrap_or_default();
+    let total_estimated_value = lots
+        .iter()
+        .filter_map(|lot| lot.estimated_value_pence)
+        .sum::<i64>();
+
+    let mut priced_lots = BTreeSet::new();
+    let mut landed_cost_lots = BTreeSet::new();
+    let mut net_qualified_lots = BTreeSet::new();
+    let mut gross_margin_values = Vec::new();
+    let mut net_margin_values = Vec::new();
+
+    for candidate in candidates {
+        if !qualifying_lot_ids.contains(candidate.lot_id.as_str()) {
+            continue;
+        }
+        if candidate.is_priced
+            && matches!(
+                candidate.verdict,
+                NetMarginVerdict::Pass | NetMarginVerdict::Review
+            )
+        {
+            priced_lots.insert(candidate.lot_id.as_str());
+            if let Some(gross_margin_bps) = candidate.gross_margin_bps {
+                gross_margin_values.push((gross_margin_bps, candidate.candidate_value_share_bps));
+            }
+            if let Some(net_margin_base_bps) = candidate.net_margin_base_bps {
+                net_margin_values.push((net_margin_base_bps, candidate.candidate_value_share_bps));
+            }
+        }
+        if candidate.has_landed_cost {
+            landed_cost_lots.insert(candidate.lot_id.as_str());
+        }
+        if candidate.verdict == NetMarginVerdict::Pass {
+            net_qualified_lots.insert(candidate.lot_id.as_str());
+        }
+    }
+
+    let value_for_lots = |covered_lots: &BTreeSet<&str>| -> i64 {
+        if total_estimated_value <= 0 {
+            return 0;
+        }
+        lots.iter()
+            .filter(|lot| covered_lots.contains(lot.id.as_str()))
+            .filter_map(|lot| lot.estimated_value_pence)
+            .sum::<i64>()
+    };
+
+    NetMarginProcessRollup {
+        priced_coverage_bps: ratio_bps(
+            i64::try_from(priced_lots.len()).unwrap_or_default(),
+            total_qualifying_lots,
+        ),
+        landed_cost_coverage_bps: ratio_bps(
+            i64::try_from(landed_cost_lots.len()).unwrap_or_default(),
+            total_qualifying_lots,
+        ),
+        net_qualified_coverage_bps: ratio_bps(
+            i64::try_from(net_qualified_lots.len()).unwrap_or_default(),
+            total_qualifying_lots,
+        ),
+        priced_value_coverage_bps: ratio_bps(value_for_lots(&priced_lots), total_estimated_value),
+        landed_cost_value_coverage_bps: ratio_bps(
+            value_for_lots(&landed_cost_lots),
+            total_estimated_value,
+        ),
+        net_qualified_value_coverage_bps: ratio_bps(
+            value_for_lots(&net_qualified_lots),
+            total_estimated_value,
+        ),
+        unresolved_mandatory_lots: if total_qualifying_lots == 0 {
+            0
+        } else {
+            total_qualifying_lots - i64::try_from(priced_lots.len()).unwrap_or_default()
+        },
+        gross_margin_bps: average_margin_bps(&gross_margin_values),
+        net_margin_bps: average_margin_bps(&net_margin_values),
+        review_required: candidates
+            .iter()
+            .any(|candidate| candidate.verdict == NetMarginVerdict::Review),
+        review_reason: review_reason_for_candidates(candidates),
+        decision_basis_hash: net_margin_rollup_basis_hash(candidates),
+    }
+}
+
+fn persist_net_margin_process_rollup(
+    tx: &Transaction<'_>,
+    process_id: &str,
+    rollup: &NetMarginProcessRollup,
+    visible_after_seq: i64,
+    stage_run_id: &str,
+) -> Result<()> {
+    tx.execute(
+        "\
+        INSERT INTO pipeline_assessments (
+          process_id, pipeline_state, review_required, gross_margin_bps, net_margin_bps,
+          priced_coverage_bps, landed_cost_coverage_bps, net_qualified_coverage_bps,
+          priced_value_coverage_bps, landed_cost_value_coverage_bps,
+          net_qualified_value_coverage_bps, unresolved_mandatory_lots,
+          decision_basis_hash, review_stage, review_reason, owner_id, last_local_seq,
+          stage_run_id
+        ) VALUES (
+          ?1, 'net_qualified', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
+          ?12, ?13, ?14, ?15, ?16, ?17
+        )
+        ON CONFLICT(process_id) DO UPDATE SET
+          pipeline_state = excluded.pipeline_state,
+          review_required = excluded.review_required,
+          gross_margin_bps = excluded.gross_margin_bps,
+          net_margin_bps = excluded.net_margin_bps,
+          priced_coverage_bps = excluded.priced_coverage_bps,
+          landed_cost_coverage_bps = excluded.landed_cost_coverage_bps,
+          net_qualified_coverage_bps = excluded.net_qualified_coverage_bps,
+          priced_value_coverage_bps = excluded.priced_value_coverage_bps,
+          landed_cost_value_coverage_bps = excluded.landed_cost_value_coverage_bps,
+          net_qualified_value_coverage_bps = excluded.net_qualified_value_coverage_bps,
+          unresolved_mandatory_lots = excluded.unresolved_mandatory_lots,
+          decision_basis_hash = excluded.decision_basis_hash,
+          review_stage = excluded.review_stage,
+          review_reason = excluded.review_reason,
+          owner_id = excluded.owner_id,
+          last_local_seq = excluded.last_local_seq,
+          stage_run_id = excluded.stage_run_id,
+          updated_at = CURRENT_TIMESTAMP
+        ",
+        params![
+            process_id,
+            i64::from(rollup.review_required),
+            rollup.gross_margin_bps,
+            rollup.net_margin_bps,
+            rollup.priced_coverage_bps,
+            rollup.landed_cost_coverage_bps,
+            rollup.net_qualified_coverage_bps,
+            rollup.priced_value_coverage_bps,
+            rollup.landed_cost_value_coverage_bps,
+            rollup.net_qualified_value_coverage_bps,
+            rollup.unresolved_mandatory_lots,
+            rollup.decision_basis_hash,
+            rollup.review_required.then_some(NET_MARGIN_REVIEW_STAGE),
+            rollup.review_reason,
+            DEFAULT_OWNER_ID,
+            visible_after_seq,
+            stage_run_id,
+        ],
+    )
+    .context("persisting net margin process rollup")?;
+    persist_stage(
+        tx,
+        process_id,
+        NET_MARGIN_STAGE_NAME,
+        "process",
+        process_id,
+        stage_run_id,
+    )
+}
+
+#[allow(clippy::too_many_lines)]
+fn run_net_margin_gate_once(
+    state_db: &mut StateDb,
+    stage_run_id: &str,
+) -> Result<NetMarginGateSummary> {
+    let inputs = load_net_margin_candidate_inputs(state_db.connection())?;
+    let (summary, _) = state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        let mut summary = NetMarginGateSummary {
+            attempted: inputs.len(),
+            ..NetMarginGateSummary::default()
+        };
+        let mut affected_processes = BTreeSet::new();
+
+        for input in &inputs {
+            let assessment = build_net_margin_candidate_assessment(input)?;
+            if existing_net_margin_basis_hash(tx, &assessment.id)?.as_deref()
+                == Some(assessment.basis_hash.as_str())
+            {
+                summary.skipped_unchanged += 1;
+                continue;
+            }
+
+            persist_net_margin_candidate_assessment(
+                tx,
+                &assessment,
+                visible_after_seq,
+                stage_run_id,
+            )?;
+            summary.candidates_assessed += 1;
+            match assessment.verdict {
+                NetMarginVerdict::Pass => summary.pass += 1,
+                NetMarginVerdict::Review => summary.review += 1,
+                NetMarginVerdict::Reject => summary.reject += 1,
+            }
+            if assessment.reasons_json == canonical_reason_json(&[REASON_NO_PRICING_SIGNAL])? {
+                summary.no_pricing_signal += 1;
+            }
+            affected_processes.insert(assessment.process_id.clone());
+        }
+
+        summary.processes_rolled_up = affected_processes.len();
+        for process_id in &affected_processes {
+            let (lots, candidates) = load_net_margin_rollup_inputs(tx, process_id)?;
+            let rollup = compute_net_margin_process_rollup(&lots, &candidates);
+            persist_net_margin_process_rollup(
+                tx,
+                process_id,
+                &rollup,
+                visible_after_seq,
+                stage_run_id,
+            )?;
+        }
+
+        Ok(summary)
+    })?;
+    Ok(summary)
+}
+
+fn run_net_margin_gate_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    _cli: &Cli,
+) -> Result<LiveLoopReport> {
+    let stage_run_id = allocate_stage_run_id();
+    let summary = run_net_margin_gate_once(&mut runtime.state_db, &stage_run_id)?;
+    Ok(LiveLoopReport {
+        summary_line: format!(
+            "net-margin-gate live loop completed: attempted={} candidates_assessed={} pass={} review={} reject={} no_pricing_signal={} processes_rolled_up={} skipped_unchanged={}",
+            summary.attempted,
+            summary.candidates_assessed,
+            summary.pass,
+            summary.review,
+            summary.reject,
+            summary.no_pricing_signal,
+            summary.processes_rolled_up,
+            summary.skipped_unchanged,
         ),
         status: "completed".to_owned(),
     })
@@ -15001,6 +15969,404 @@ mod tests {
             cleanup_verdict: None,
             last_checkpoint_seq,
         }
+    }
+
+    fn pass_shape_net_margin_input() -> super::NetMarginDecisionInput<'static> {
+        super::NetMarginDecisionInput {
+            has_pricing_signal: true,
+            revenue_basis_type: Some("expected_value"),
+            supplier_price_basis_qty_present: false,
+            order_quantity_basis_kind: Some("from_contract_value"),
+            net_margin_low_bps: Some(100),
+            net_margin_base_bps: Some(2_500),
+            net_margin_high_bps: Some(4_000),
+            revenue_confidence_bps: Some(5_000),
+            pricing_input_confidence_bps: Some(5_000),
+            customs_resolution_confidence_bps: Some(6_000),
+            commercial_estimate_confidence_bps: Some(4_000),
+        }
+    }
+
+    fn rollup_lot(id: &str, estimated_value_pence: Option<i64>) -> super::NetMarginRollupLot {
+        super::NetMarginRollupLot {
+            id: id.to_owned(),
+            estimated_value_pence,
+        }
+    }
+
+    fn rollup_candidate(
+        lot_id: &str,
+        verdict: super::NetMarginVerdict,
+        reasons: &[&str],
+        is_priced: bool,
+        has_landed_cost: bool,
+    ) -> super::NetMarginRollupCandidate {
+        super::NetMarginRollupCandidate {
+            lot_id: lot_id.to_owned(),
+            verdict,
+            reasons: reasons.iter().map(|reason| (*reason).to_owned()).collect(),
+            is_priced,
+            has_landed_cost,
+            gross_margin_bps: Some(1_000),
+            net_margin_base_bps: Some(800),
+            candidate_value_share_bps: Some(10_000),
+            basis_hash: format!("basis-{lot_id}-{}", verdict.as_str()),
+        }
+    }
+
+    fn seed_net_margin_idempotency_fixture(state_db: &super::StateDb) -> Result<()> {
+        let conn = state_db.connection();
+        conn.execute(
+            "\
+            INSERT INTO procurement_processes (
+              id, current_stage, title, latest_published_at, latest_updated_at, owner_id
+            ) VALUES ('proc-net-test', 'qualification', 'Net test', '2026-05-01T00:00:00Z',
+                      '2026-05-01T00:00:00Z', 'local-owner')
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO contract_notices (
+              id, process_id, source_id, source_notice_id, raw_document_id, title,
+              procurement_stage, published_at, source_updated_at, normalized_payload, owner_id
+            ) VALUES ('notice-net-test', 'proc-net-test', 'fts', 'source-net-test',
+                      'raw-net-test', 'Net notice', 'tender', '2026-05-01T00:00:00Z',
+                      '2026-05-01T00:00:00Z', '{}', 'local-owner')
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO notice_lots (
+              id, notice_id, lot_key, title, description, estimated_value_pence, owner_id
+            ) VALUES ('lot-net-test', 'notice-net-test', 'lot-net-test', 'Lot', 'Lot desc',
+                      100000, 'local-owner')
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO product_candidates (
+              id, process_id, notice_id, lot_id, candidate_key, name, candidate_type,
+              match_archetype, head_noun, owner_id
+            ) VALUES ('candidate-net-test', 'proc-net-test', 'notice-net-test', 'lot-net-test',
+                      'candidate-key-net-test', 'Widget', 'product', 'direct', 'widget',
+                      'local-owner')
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO supplier_quotes (
+              id, process_id, notice_id, product_candidate_id, product_name, region,
+              quote_class, source_name, unit_price_original_minor, currency,
+              unit_price_gbp_pence, price_signal_role, evidence, owner_id
+            ) VALUES ('quote-net-test', 'proc-net-test', 'notice-net-test', 'candidate-net-test',
+                      'Widget', 'GB', 'marketplace', 'fixture', 1000, 'GBP', 1000,
+                      'supplier_quote', '{}', 'local-owner')
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO candidate_pricing_assessments (
+              id, process_id, notice_id, product_candidate_id, selected_quote_id,
+              selected_quote_row_version, quote_cost_boundary, revenue_basis_type,
+              expected_addressable_revenue_ex_vat_pence, revenue_confidence_bps,
+              gross_margin_bps, gross_estimate_confidence_bps, identity_gate_passed,
+              usability_gate_passed, pricing_input_confidence_bps, owner_id
+            ) VALUES ('pricing-net-test', 'proc-net-test', 'notice-net-test',
+                      'candidate-net-test', 'quote-net-test', 1, 'unit', 'expected_value',
+                      100000, 7000, 8000, 7000, 1, 1, 7000, 'local-owner')
+            ",
+            [],
+        )?;
+        conn.execute(
+            "\
+            INSERT INTO landed_cost_estimates (
+              id, process_id, notice_id, product_candidate_id, supplier_quote_id,
+              shipping_mode, mode_confidence_bps, commodity_confidence_bps,
+              classification_stability_bps, customs_fx_rate, commercial_fx_rate,
+              fx_basis_delta_bps, supplier_cost_gbp_pence, freight_low_gbp_pence,
+              freight_base_gbp_pence, freight_high_gbp_pence, customs_duty_gbp_pence,
+              import_vat_gbp_pence, import_vat_treatment, uk_final_mile_cost_gbp_pence,
+              other_fees_gbp_pence, economic_landed_cost_gbp_pence, cash_outlay_gbp_pence,
+              cash_to_clear_gbp_pence, revenue_basis_type, revenue_confidence_bps,
+              customs_resolution_confidence_bps, commercial_estimate_confidence_bps,
+              net_margin_low_bps, net_margin_base_bps, net_margin_high_bps,
+              decision_grade, confidence_bps, confidence_breakdown, warnings, owner_id
+            ) VALUES ('landed-net-test', 'proc-net-test', 'notice-net-test',
+                      'candidate-net-test', 'quote-net-test', 'domestic', 10000, 10000,
+                      10000, 1.0, 1.0, 0, 70000, 0, 0, 0, 0, 0, 'not_applicable',
+                      0, 0, 70000, 70000, 0, 'expected_value', 7000, 10000, 7000,
+                      3000, 3000, 3000, 'review', 7000,
+                      '{\"order_quantity_basis\":{\"kind\":\"from_contract_value\"}}',
+                      '[]', 'local-owner')
+            ",
+            [],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn net_margin_pass_when_base_meets_threshold_and_low_nonneg_and_floors_clear() {
+        let decision = super::evaluate_net_margin_decision(&pass_shape_net_margin_input());
+        assert_eq!(decision.verdict, super::NetMarginVerdict::Pass);
+        assert!(decision.reasons.is_empty());
+    }
+
+    #[test]
+    fn net_margin_review_when_base_below_pass() {
+        let mut input = pass_shape_net_margin_input();
+        input.net_margin_base_bps = Some(1_500);
+        let decision = super::evaluate_net_margin_decision(&input);
+        assert_eq!(decision.verdict, super::NetMarginVerdict::Review);
+        assert_eq!(decision.reasons, vec![super::REASON_MARGIN_BELOW_PASS]);
+    }
+
+    #[test]
+    fn net_margin_review_when_low_negative() {
+        let mut input = pass_shape_net_margin_input();
+        input.net_margin_low_bps = Some(-200);
+        let decision = super::evaluate_net_margin_decision(&input);
+        assert_eq!(decision.verdict, super::NetMarginVerdict::Review);
+        assert_eq!(decision.reasons, vec![super::REASON_MARGIN_BELOW_PASS]);
+    }
+
+    #[test]
+    fn net_margin_reject_when_high_below_reject_threshold() {
+        let mut input = pass_shape_net_margin_input();
+        input.net_margin_base_bps = Some(100);
+        input.net_margin_high_bps = Some(400);
+        let decision = super::evaluate_net_margin_decision(&input);
+        assert_eq!(decision.verdict, super::NetMarginVerdict::Reject);
+    }
+
+    #[test]
+    fn net_margin_review_when_revenue_confidence_below_floor() {
+        let mut input = pass_shape_net_margin_input();
+        input.revenue_confidence_bps = Some(4_000);
+        let decision = super::evaluate_net_margin_decision(&input);
+        assert_eq!(decision.verdict, super::NetMarginVerdict::Review);
+        assert_eq!(
+            decision.reasons,
+            vec![super::REASON_CONFIDENCE_REVENUE_BELOW_FLOOR]
+        );
+    }
+
+    #[test]
+    fn net_margin_review_when_customs_confidence_below_floor() {
+        let mut input = pass_shape_net_margin_input();
+        input.customs_resolution_confidence_bps = Some(5_500);
+        let decision = super::evaluate_net_margin_decision(&input);
+        assert_eq!(decision.verdict, super::NetMarginVerdict::Review);
+        assert_eq!(
+            decision.reasons,
+            vec![super::REASON_CONFIDENCE_CUSTOMS_RESOLUTION_BELOW_FLOOR]
+        );
+    }
+
+    #[test]
+    fn net_margin_review_when_rfq_required_revenue_basis() {
+        let mut input = pass_shape_net_margin_input();
+        input.revenue_basis_type = Some("rfq_required");
+        input.net_margin_high_bps = Some(400);
+        let decision = super::evaluate_net_margin_decision(&input);
+        assert_eq!(decision.verdict, super::NetMarginVerdict::Review);
+        assert!(decision.reasons.contains(&super::REASON_AWAITING_RFQ_QUOTE));
+    }
+
+    #[test]
+    fn net_margin_review_when_quantity_basis_unaligned() {
+        let mut input = pass_shape_net_margin_input();
+        input.order_quantity_basis_kind = Some("rfq_required");
+        let decision = super::evaluate_net_margin_decision(&input);
+        assert_eq!(decision.verdict, super::NetMarginVerdict::Review);
+        assert!(
+            decision
+                .reasons
+                .contains(&super::REASON_QUANTITY_BASIS_UNALIGNED)
+        );
+    }
+
+    #[test]
+    fn net_margin_review_when_quantity_basis_undetermined() {
+        let mut input = pass_shape_net_margin_input();
+        input.order_quantity_basis_kind = None;
+        input.revenue_basis_type = Some("expected_value");
+        input.supplier_price_basis_qty_present = true;
+        let decision = super::evaluate_net_margin_decision(&input);
+        assert_eq!(decision.verdict, super::NetMarginVerdict::Review);
+        assert_eq!(
+            decision.reasons,
+            vec![super::REASON_QUANTITY_BASIS_UNDETERMINED]
+        );
+    }
+
+    #[test]
+    fn net_margin_no_pricing_signal_skips_confidence_floors() {
+        let input = super::NetMarginDecisionInput {
+            has_pricing_signal: false,
+            revenue_basis_type: None,
+            supplier_price_basis_qty_present: false,
+            order_quantity_basis_kind: None,
+            net_margin_low_bps: None,
+            net_margin_base_bps: None,
+            net_margin_high_bps: None,
+            revenue_confidence_bps: None,
+            pricing_input_confidence_bps: None,
+            customs_resolution_confidence_bps: None,
+            commercial_estimate_confidence_bps: None,
+        };
+        let decision = super::evaluate_net_margin_decision(&input);
+        assert_eq!(decision.verdict, super::NetMarginVerdict::Review);
+        assert_eq!(decision.reasons, vec![super::REASON_NO_PRICING_SIGNAL]);
+    }
+
+    #[test]
+    fn basis_hash_stable_across_runs_with_identical_inputs() {
+        let first = super::net_margin_basis_hash(
+            "candidate-1",
+            Some("landed-1"),
+            Some(1),
+            Some("pricing-1"),
+            Some(1),
+        );
+        let second = super::net_margin_basis_hash(
+            "candidate-1",
+            Some("landed-1"),
+            Some(1),
+            Some("pricing-1"),
+            Some(1),
+        );
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn basis_hash_changes_when_landed_cost_row_version_changes() {
+        let first = super::net_margin_basis_hash(
+            "candidate-1",
+            Some("landed-1"),
+            Some(1),
+            Some("pricing-1"),
+            Some(1),
+        );
+        let second = super::net_margin_basis_hash(
+            "candidate-1",
+            Some("landed-1"),
+            Some(2),
+            Some("pricing-1"),
+            Some(1),
+        );
+        assert_ne!(first, second);
+    }
+
+    #[test]
+    fn idempotent_no_op_when_basis_hash_matches_persisted() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_net_margin_idempotency_fixture(&state_db)?;
+
+        let first = super::run_net_margin_gate_once(&mut state_db, "stage-run-net-first")?;
+        let row_count_after_first: i64 = state_db.connection().query_row(
+            "SELECT COUNT(*) FROM candidate_net_margin_assessments",
+            [],
+            |row| row.get(0),
+        )?;
+        let second = super::run_net_margin_gate_once(&mut state_db, "stage-run-net-second")?;
+        let row_count_after_second: i64 = state_db.connection().query_row(
+            "SELECT COUNT(*) FROM candidate_net_margin_assessments",
+            [],
+            |row| row.get(0),
+        )?;
+
+        assert_eq!(first.candidates_assessed, 1);
+        assert_eq!(first.skipped_unchanged, 0);
+        assert_eq!(second.candidates_assessed, 0);
+        assert_eq!(second.skipped_unchanged, 1);
+        assert_eq!(row_count_after_first, row_count_after_second);
+        Ok(())
+    }
+
+    #[test]
+    fn coverage_rollup_zero_qualifying_lots_yields_zero_metrics_no_panic() {
+        let candidate = rollup_candidate(
+            "lot-a",
+            super::NetMarginVerdict::Review,
+            &[super::REASON_NO_PRICING_SIGNAL],
+            false,
+            false,
+        );
+        let rollup = super::compute_net_margin_process_rollup(&[], &[candidate]);
+        assert_eq!(rollup.priced_coverage_bps, 0);
+        assert_eq!(rollup.landed_cost_coverage_bps, 0);
+        assert_eq!(rollup.net_qualified_coverage_bps, 0);
+        assert_eq!(rollup.priced_value_coverage_bps, 0);
+        assert_eq!(rollup.unresolved_mandatory_lots, 0);
+    }
+
+    #[test]
+    fn coverage_rollup_priced_value_weights_by_lot_estimated_value() {
+        let lots = [
+            rollup_lot("lot-a", Some(100_000)),
+            rollup_lot("lot-b", Some(300_000)),
+        ];
+        let candidate = rollup_candidate("lot-a", super::NetMarginVerdict::Pass, &[], true, true);
+        let rollup = super::compute_net_margin_process_rollup(&lots, &[candidate]);
+        assert_eq!(rollup.priced_value_coverage_bps, 2_500);
+    }
+
+    #[test]
+    fn coverage_rollup_unresolved_mandatory_excludes_no_pricing_signal_reviews() {
+        let lots = [rollup_lot("lot-a", Some(100_000))];
+        let candidate = rollup_candidate(
+            "lot-a",
+            super::NetMarginVerdict::Review,
+            &[super::REASON_NO_PRICING_SIGNAL],
+            false,
+            false,
+        );
+        let rollup = super::compute_net_margin_process_rollup(&lots, &[candidate]);
+        assert_eq!(rollup.priced_coverage_bps, 0);
+        assert_eq!(rollup.unresolved_mandatory_lots, 1);
+    }
+
+    #[test]
+    fn review_reason_precedence_picks_quantity_basis_over_confidence() {
+        let lots = [rollup_lot("lot-a", Some(100_000))];
+        let candidate = rollup_candidate(
+            "lot-a",
+            super::NetMarginVerdict::Review,
+            &[
+                super::REASON_QUANTITY_BASIS_UNALIGNED,
+                super::REASON_CONFIDENCE_REVENUE_BELOW_FLOOR,
+            ],
+            true,
+            true,
+        );
+        let rollup = super::compute_net_margin_process_rollup(&lots, &[candidate]);
+        assert_eq!(
+            rollup.review_reason.as_deref(),
+            Some(super::REASON_QUANTITY_BASIS_UNALIGNED)
+        );
+    }
+
+    #[test]
+    fn reasons_array_serializes_to_json_string_array_in_deterministic_order() -> Result<()> {
+        let reasons = [
+            super::REASON_AWAITING_RFQ_QUOTE,
+            super::REASON_CONFIDENCE_REVENUE_BELOW_FLOOR,
+        ];
+        let first = super::canonical_reason_json(&reasons)?;
+        let second = super::canonical_reason_json(&reasons)?;
+        assert_eq!(
+            first,
+            "[\"awaiting_rfq_quote\",\"confidence_revenue_below_floor\"]"
+        );
+        assert_eq!(first, second);
+        Ok(())
     }
 
     #[test]

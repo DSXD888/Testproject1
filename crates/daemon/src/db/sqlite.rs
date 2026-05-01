@@ -16,6 +16,7 @@ const L1_MIGRATION_PATH: &str = "migrations/0003_sqlite_runtime.sql";
 const L2_MIGRATION_PATH: &str = "migrations/0004_l2_pending_operator_intents.sql";
 const L3_MIGRATION_PATH: &str = "migrations/0005_l3_operational_hardening.sql";
 const L_PDF_MIGRATION_PATH: &str = "migrations/0006_pdf_extraction_toolkit.sql";
+const L_NET_GATE_MIGRATION_PATH: &str = "migrations/0007_net_margin_gate_assessments.sql";
 const MIGRATION_LOG_TABLE: &str = "schema_migrations";
 const PRE_L3_SCHEMA_EPOCH: i64 = 1;
 const MIGRATIONS: &[(&str, i64, &str)] = &[
@@ -36,9 +37,14 @@ const MIGRATIONS: &[(&str, i64, &str)] = &[
     ),
     ("0005_l3_operational_hardening", 2, L3_MIGRATION_PATH),
     ("0006_pdf_extraction_toolkit", 3, L_PDF_MIGRATION_PATH),
+    (
+        "0007_net_margin_gate_assessments",
+        4,
+        L_NET_GATE_MIGRATION_PATH,
+    ),
 ];
 
-pub const DEFAULT_SCHEMA_EPOCH: i64 = 3;
+pub const DEFAULT_SCHEMA_EPOCH: i64 = 4;
 pub const DEFAULT_OWNER_ID: &str = "local-owner";
 pub const FTS_SOURCE_ID: &str = "fts";
 

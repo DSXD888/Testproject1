@@ -827,6 +827,88 @@ mod tests {
     }
 
     #[test]
+    fn ngg_t_schema_activation_007_upgrade_path_applies_0007_cleanly() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let conn = Connection::open(&db_path)?;
+
+        for migration_path in [
+            "migrations/0001_sqlite_state_initial.sql",
+            "migrations/0003_sqlite_runtime.sql",
+            "migrations/0004_l2_pending_operator_intents.sql",
+            "migrations/0005_l3_operational_hardening.sql",
+            "migrations/0006_pdf_extraction_toolkit.sql",
+        ] {
+            apply_migration(&conn, migration_path)?;
+        }
+        seed_applied_migrations(
+            &conn,
+            &[
+                "0001_sqlite_state_initial",
+                "0003_sqlite_runtime",
+                "0004_l2_pending_operator_intents",
+                "0005_l3_operational_hardening",
+                "0006_pdf_extraction_toolkit",
+            ],
+            3,
+        )?;
+        drop(conn);
+
+        let state_db = StateDb::open(&db_path)?;
+        let conn = state_db.connection();
+        let net_margin_columns = table_columns(conn, "candidate_net_margin_assessments")?;
+        let net_gate_migration_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM schema_migrations WHERE id = '0007_net_margin_gate_assessments'",
+            [],
+            |row| row.get(0),
+        )?;
+
+        ensure!(
+            table_exists(conn, "candidate_net_margin_assessments")?,
+            "NGG-T-schema_activation-007 expected candidate_net_margin_assessments after upgrade"
+        );
+        for column in [
+            "id",
+            "process_id",
+            "notice_id",
+            "lot_id",
+            "product_candidate_id",
+            "pricing_assessment_id",
+            "landed_cost_estimate_id",
+            "verdict",
+            "reasons_json",
+            "re_evaluation_eligible",
+            "net_margin_low_bps",
+            "net_margin_base_bps",
+            "net_margin_high_bps",
+            "revenue_used_pence",
+            "revenue_basis_type",
+            "economic_landed_cost_used_pence",
+            "revenue_confidence_bps",
+            "pricing_input_confidence_bps",
+            "customs_resolution_confidence_bps",
+            "commercial_estimate_confidence_bps",
+            "pass_threshold_bps",
+            "reject_threshold_bps",
+            "thresholds_version",
+            "basis_hash",
+            "stage_run_id",
+        ] {
+            ensure!(
+                net_margin_columns
+                    .iter()
+                    .any(|candidate| candidate == column),
+                "NGG-T-schema_activation-007 candidate_net_margin_assessments missing column {column}"
+            );
+        }
+        ensure!(
+            net_gate_migration_count == 1,
+            "NGG-T-schema_activation-007 expected 0007 migration log entry"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn pdf_t_schema_activation_003_document_extractions_columns_match_contract() -> Result<()> {
         let state_db = TestStateDb::new()?;
         let columns = table_columns(state_db.connection(), "document_extractions")?;
@@ -1023,19 +1105,19 @@ mod tests {
     }
 
     #[test]
-    fn pdf_t_schema_activation_009_default_schema_epoch_is_3() -> Result<()> {
+    fn pdf_t_schema_activation_009_default_schema_epoch_is_4() -> Result<()> {
         let state_db = TestStateDb::new()?;
         let user_version: i64 =
             state_db
                 .connection()
                 .pragma_query_value(None, "user_version", |row| row.get(0))?;
         ensure!(
-            crate::support::db::DEFAULT_SCHEMA_EPOCH == 3,
-            "PDF-T-schema_activation-009 expected DEFAULT_SCHEMA_EPOCH to be 3"
+            crate::support::db::DEFAULT_SCHEMA_EPOCH == 4,
+            "PDF-T-schema_activation-009 expected DEFAULT_SCHEMA_EPOCH to be 4"
         );
         ensure!(
-            user_version == 3,
-            "PDF-T-schema_activation-009 expected user_version to be 3"
+            user_version == 4,
+            "PDF-T-schema_activation-009 expected user_version to be 4"
         );
         Ok(())
     }
