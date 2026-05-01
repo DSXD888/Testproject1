@@ -23,3 +23,29 @@ apps/desktop/test-results/
 
 # Claude Code worktree backups
 .claude/worktree-backups/
+
+# Worktrees / worktree backups at repo root
+/worktrees/
+/worktree-backups/
+
+# Pipeline runtime artifacts (agent session captures, downloaded source docs).
+# Each --ingest invocation writes here; outputs are reproducible from inputs.
+artifacts/
+
+# Additional runtime dirs created by parallel daemon runs (runtime/ already covered above)
+runtime[0-9]/
+
+# Scheduled-task lock files written by the harness
+.claude/scheduled_tasks.lock
+
+# Timestamped backups created by the agent-mail coordination repair on 2026-05-01
+*.mcp.json.*.bak
+.opencode.json.*.bak
+.claude/.settings.local.json.*.bak
+
+# One-off diagnostic screenshots from skill investigation runs
+searates-logistics-explorer.png
+
+# Personal new-laptop setup file — explicitly self-marked "do NOT commit"
+# (contains placeholders for secrets; copy from source machine, don't share)
+new-laptop-setup.md
