@@ -11,6 +11,7 @@ import {
   getCoverageDecisionSupport,
   type CoverageMetrics,
 } from '../../../../packages/intelligence/src/margins/coverage-rollup';
+import { OperatorDecisionPanel } from './OperatorDecisionPanel';
 
 type DetailState =
   | { status: 'idle' | 'loading' }
@@ -77,6 +78,10 @@ type DetailState =
             sections: string[];
             artifactHash?: string | null;
             stageRunId?: string | null;
+            clarificationPromptsJson?: string | null;
+            manifestBasisHash?: string | null;
+            stoplight?: string | null;
+            suggestedAction?: string | null;
           } | null;
           manifestError: { code: string; message: string } | null;
           coverage: CoverageMetrics;
@@ -133,6 +138,7 @@ export function ContractDetail({
   onCaptureDecision,
   onTriggerEnrichment,
   onTriggerIngestion,
+  onPanelChanged,
   decisionStatus,
   actionStatus,
 }: {
@@ -143,6 +149,9 @@ export function ContractDetail({
   onCaptureDecision: (processId: string, disposition: 'approve' | 'reject' | 'watch') => Promise<void>;
   onTriggerEnrichment: (processId: string) => Promise<void>;
   onTriggerIngestion: (sourceId: string) => Promise<void>;
+  /** Stage 14 Phase 2 — fired by `OperatorDecisionPanel` after a successful
+   * mutation so the parent can refetch the detail view. */
+  onPanelChanged?: () => void;
   decisionStatus: {
     status: 'idle' | 'saving' | 'error';
     message: string | null;
@@ -346,6 +355,18 @@ export function ContractDetail({
           ) : null}
         </article>
       </section>
+
+      <OperatorDecisionPanel
+        processId={data.processId}
+        manifestBasisHash={
+          data.manifest?.manifestBasisHash ?? data.manifest?.basisHash ?? null
+        }
+        manifestHash={data.manifest?.artifactHash ?? null}
+        manifestStageRunId={data.manifest?.stageRunId ?? null}
+        clarificationPromptsJson={data.manifest?.clarificationPromptsJson ?? null}
+        latestDecision={data.decision}
+        onChanged={() => onPanelChanged?.()}
+      />
 
       <section className="detail-grid">
         <article className="detail-card">

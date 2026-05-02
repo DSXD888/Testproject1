@@ -419,9 +419,14 @@ fn rs_dbr_007_closed_method_set_stays_stable() {
         .iter()
         .map(|method| method.as_str())
         .collect::<Vec<_>>();
-    assert_eq!(methods.len(), 11);
+    // Stage 14 Phase 2 added 3 new operator-decision IPC methods
+    // (capture_clarification, withdraw_clarification, withdraw_decision).
+    assert_eq!(methods.len(), 14);
     assert_eq!(methods[0], "get_daemon_info");
     assert!(methods.contains(&"capture_decision"));
+    assert!(methods.contains(&"capture_clarification"));
+    assert!(methods.contains(&"withdraw_clarification"));
+    assert!(methods.contains(&"withdraw_decision"));
     assert!(methods.contains(&"resolve_error"));
     assert!(methods.contains(&"rerun_from_error"));
 }

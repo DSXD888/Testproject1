@@ -49,6 +49,8 @@ pub struct CaptureDecisionParams {
     pub reviewed_basis_hash: String,
     pub reviewed_manifest_hash: String,
     pub reviewed_at_stage_run_id: String,
+    #[serde(default)]
+    pub decision_note: Option<String>,
 }
 
 pub fn capture_decision(
@@ -83,7 +85,7 @@ pub fn capture_decision(
                 ) VALUES (
                   ?1, ?2, ?3, ?4, ?5,
                   ?6, ?7, 0, ?8, 'queued',
-                  NULL, ?7, NULL, NULL, NULL
+                  NULL, ?7, ?9, NULL, NULL
                 )
                 ",
                 params![
@@ -95,6 +97,7 @@ pub fn capture_decision(
                     params.reviewed_at_stage_run_id,
                     reviewed_at,
                     idempotency_key,
+                    params.decision_note,
                 ],
             )?;
 

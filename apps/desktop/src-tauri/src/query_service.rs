@@ -216,6 +216,32 @@ impl QueryService {
         })
     }
 
+    pub fn list_manifests(
+        &self,
+    ) -> Result<QueryEnvelope<Vec<ManifestInboxRow>>, QueryServiceError> {
+        self.with_snapshot(load_manifest_inbox_rows)
+    }
+
+    pub fn get_decision_history(
+        &self,
+        process_id: &str,
+    ) -> Result<QueryEnvelope<Vec<DecisionHistoryEntry>>, QueryServiceError> {
+        self.with_snapshot(|conn| {
+            let canonical = resolve_process_id(conn, process_id)?;
+            load_decision_history_rows(conn, &canonical)
+        })
+    }
+
+    pub fn get_active_overrides(
+        &self,
+        process_id: &str,
+    ) -> Result<QueryEnvelope<Vec<ActiveOverrideEntry>>, QueryServiceError> {
+        self.with_snapshot(|conn| {
+            let canonical = resolve_process_id(conn, process_id)?;
+            load_active_override_rows(conn, &canonical)
+        })
+    }
+
     #[cfg(test)]
     pub fn open_read_connection_for_test(&self) -> Result<Connection, QueryServiceError> {
         Self::open_read_connection(&self.db_path, EXPECTED_SCHEMA_EPOCH)
@@ -524,6 +550,21 @@ pub struct ManifestVm {
     pub sections: Vec<String>,
     pub artifact_hash: Option<String>,
     pub stage_run_id: Option<String>,
+    /// Stage 14 Phase 2 — raw `clarification_prompts_json` from the
+    /// `manifests` table. Parsed on the React side into per-prompt input
+    /// controls in the clarification form.
+    #[serde(default)]
+    pub clarification_prompts_json: Option<String>,
+    /// Stage 14 Phase 2 — `manifest_basis_hash` directly from the manifest
+    /// row, used by the desktop UI's stale banner to detect basis drift.
+    #[serde(default)]
+    pub manifest_basis_hash: Option<String>,
+    /// Stage 14 Phase 2 — `stoplight` directly from the manifest row.
+    #[serde(default)]
+    pub stoplight: Option<String>,
+    /// Stage 14 Phase 2 — `suggested_action` directly from the manifest row.
+    #[serde(default)]
+    pub suggested_action: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -544,6 +585,53 @@ pub struct ReviewMetadataVm {
     pub basis_hash: Option<String>,
     pub manifest_hash: Option<String>,
     pub stage_run_id: Option<String>,
+}
+
+/// Stage 14 Phase 2 — one row in the Manifest Inbox.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ManifestInboxRow {
+    pub process_id: String,
+    pub canonical_process_id: String,
+    pub title: Option<String>,
+    pub buyer_name: Option<String>,
+    pub estimated_value_pence: Option<i64>,
+    pub stoplight: Option<String>,
+    pub suggested_action: Option<String>,
+    pub clarification_prompt_count: i64,
+    pub manifest_basis_hash: Option<String>,
+    pub generated_at: String,
+    pub decision: DecisionStatus,
+}
+
+/// Stage 14 Phase 2 — one entry in the decision-history audit chain.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DecisionHistoryEntry {
+    pub intent_id: String,
+    pub idempotency_key: String,
+    pub disposition: String,
+    pub status: String,
+    pub reviewed_basis_hash: String,
+    pub reviewed_manifest_hash: String,
+    pub reviewed_at: String,
+    pub queued_at: String,
+    pub superseded_by_intent_id: Option<String>,
+    pub decision_note: Option<String>,
+}
+
+/// Stage 14 Phase 2 — one active operator override.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveOverrideEntry {
+    pub override_id: String,
+    pub product_candidate_id: String,
+    pub reason_code: String,
+    pub payload_json: String,
+    pub notes: Option<String>,
+    pub basis_hash_when_provided: Option<String>,
+    pub provided_at: String,
+    pub provided_by: String,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -1223,7 +1311,8 @@ fn load_manifest(
     let manifest_row = conn
         .query_row(
             "\
-            SELECT markdown, artifact_locator, artifact_hash, stage_run_id, created_at
+            SELECT markdown, artifact_locator, artifact_hash, stage_run_id, created_at,
+                   clarification_prompts_json, manifest_basis_hash, stoplight, suggested_action
             FROM manifests
             WHERE process_id = ?1
             ORDER BY created_at DESC, id DESC
@@ -1237,14 +1326,27 @@ fn load_manifest(
                     row.get::<_, Option<String>>(2)?,
                     row.get::<_, Option<String>>(3)?,
                     row.get::<_, String>(4)?,
+                    row.get::<_, Option<String>>(5)?,
+                    row.get::<_, Option<String>>(6)?,
+                    row.get::<_, Option<String>>(7)?,
+                    row.get::<_, Option<String>>(8)?,
                 ))
             },
         )
         .optional()
         .map_err(storage_unreadable)?;
 
-    let Some((markdown, artifact_locator, artifact_hash, stage_run_id, generated_at)) =
-        manifest_row
+    let Some((
+        markdown,
+        artifact_locator,
+        artifact_hash,
+        stage_run_id,
+        generated_at,
+        clarification_prompts_json,
+        manifest_basis_hash,
+        stoplight,
+        suggested_action,
+    )) = manifest_row
     else {
         return Ok((None, None));
     };
@@ -1269,6 +1371,10 @@ fn load_manifest(
                 .collect(),
             artifact_hash,
             stage_run_id: stage_run_id.or_else(|| pipeline_stage_run_id.map(ToOwned::to_owned)),
+            clarification_prompts_json,
+            manifest_basis_hash,
+            stoplight,
+            suggested_action,
         }),
         None,
     ))
@@ -1634,6 +1740,157 @@ fn latest_decisions(
         decisions.entry(process_id).or_insert(record);
     }
     Ok(decisions)
+}
+
+fn load_manifest_inbox_rows(conn: &Connection) -> Result<Vec<ManifestInboxRow>, QueryServiceError> {
+    if !table_exists(conn, "manifests")? {
+        return Ok(Vec::new());
+    }
+    let decisions = latest_decisions(conn)?;
+    let mut stmt = conn
+        .prepare(
+            "\
+            SELECT m.process_id,
+                   COALESCE(p.canonical_process_id, m.process_id) AS canonical_process_id,
+                   m.stoplight,
+                   m.suggested_action,
+                   m.clarification_prompt_count,
+                   m.manifest_basis_hash,
+                   COALESCE(m.updated_at, m.created_at) AS generated_at,
+                   (
+                     SELECT COALESCE(SUM(nl.estimated_value_pence), 0)
+                     FROM notice_lots nl
+                     INNER JOIN contract_notices cn ON cn.id = nl.notice_id
+                     WHERE cn.process_id = m.process_id
+                   ) AS estimated_value_pence,
+                   (
+                     SELECT n.title
+                     FROM contract_notices n
+                     WHERE n.process_id = m.process_id
+                     ORDER BY n.published_at DESC, n.id ASC
+                     LIMIT 1
+                   ) AS title,
+                   (
+                     SELECT n.buyer_name
+                     FROM contract_notices n
+                     WHERE n.process_id = m.process_id
+                     ORDER BY n.published_at DESC, n.id ASC
+                     LIMIT 1
+                   ) AS buyer_name
+            FROM manifests m
+            LEFT JOIN procurement_processes p ON p.id = m.process_id
+            ORDER BY m.updated_at DESC, m.process_id ASC
+            ",
+        )
+        .map_err(storage_unreadable)?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(ManifestInboxRow {
+                process_id: row.get::<_, String>(0)?,
+                canonical_process_id: row.get::<_, String>(1)?,
+                title: row.get::<_, Option<String>>(8)?,
+                buyer_name: row.get::<_, Option<String>>(9)?,
+                estimated_value_pence: row.get::<_, Option<i64>>(7)?,
+                stoplight: row.get::<_, Option<String>>(2)?,
+                suggested_action: row.get::<_, Option<String>>(3)?,
+                clarification_prompt_count: row.get::<_, i64>(4)?,
+                manifest_basis_hash: row.get::<_, Option<String>>(5)?,
+                generated_at: row.get::<_, String>(6)?,
+                decision: DecisionStatus {
+                    disposition: None,
+                    is_stale: false,
+                    decided_at: None,
+                },
+            })
+        })
+        .map_err(storage_unreadable)?;
+    let mut out: Vec<ManifestInboxRow> = Vec::new();
+    for row in rows {
+        let mut row = row.map_err(storage_unreadable)?;
+        row.decision = decision_status_for_process(
+            decisions.get(&row.canonical_process_id),
+            row.manifest_basis_hash.as_deref(),
+        );
+        out.push(row);
+    }
+    Ok(out)
+}
+
+fn load_decision_history_rows(
+    conn: &Connection,
+    process_id: &str,
+) -> Result<Vec<DecisionHistoryEntry>, QueryServiceError> {
+    if !table_exists(conn, "pending_operator_intents")? {
+        return Ok(Vec::new());
+    }
+    let mut stmt = conn
+        .prepare(
+            "\
+            SELECT id, idempotency_key, desired_disposition, status,
+                   reviewed_basis_hash, reviewed_manifest_hash, reviewed_at,
+                   queued_at, superseded_by_intent_id, decision_note
+            FROM pending_operator_intents
+            WHERE process_id = ?1
+            ORDER BY queued_at DESC, id DESC
+            ",
+        )
+        .map_err(storage_unreadable)?;
+    let rows = stmt
+        .query_map(params![process_id], |row| {
+            Ok(DecisionHistoryEntry {
+                intent_id: row.get::<_, String>(0)?,
+                idempotency_key: row.get::<_, String>(1)?,
+                disposition: row.get::<_, String>(2)?,
+                status: row.get::<_, String>(3)?,
+                reviewed_basis_hash: row.get::<_, String>(4)?,
+                reviewed_manifest_hash: row.get::<_, String>(5)?,
+                reviewed_at: row.get::<_, String>(6)?,
+                queued_at: row.get::<_, String>(7)?,
+                superseded_by_intent_id: row.get::<_, Option<String>>(8)?,
+                decision_note: row.get::<_, Option<String>>(9)?,
+            })
+        })
+        .map_err(storage_unreadable)?;
+    rows.collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(storage_unreadable)
+}
+
+fn load_active_override_rows(
+    conn: &Connection,
+    process_id: &str,
+) -> Result<Vec<ActiveOverrideEntry>, QueryServiceError> {
+    if !table_exists(conn, "operator_input_overrides")? {
+        return Ok(Vec::new());
+    }
+    let mut stmt = conn
+        .prepare(
+            "\
+            SELECT id, product_candidate_id, reason_code, payload_json, notes,
+                   basis_hash_when_provided, provided_at, provided_by
+            FROM operator_input_overrides
+            WHERE process_id = ?1
+              AND withdrawn_at IS NULL
+              AND superseded_by_override_id IS NULL
+            ORDER BY provided_at DESC, id ASC
+            ",
+        )
+        .map_err(storage_unreadable)?;
+    let rows = stmt
+        .query_map(params![process_id], |row| {
+            Ok(ActiveOverrideEntry {
+                override_id: row.get::<_, String>(0)?,
+                product_candidate_id: row.get::<_, String>(1)?,
+                reason_code: row.get::<_, String>(2)?,
+                payload_json: row.get::<_, String>(3)?,
+                notes: row.get::<_, Option<String>>(4)?,
+                basis_hash_when_provided: row.get::<_, Option<String>>(5)?,
+                provided_at: row.get::<_, String>(6)?,
+                provided_by: row.get::<_, String>(7)?,
+            })
+        })
+        .map_err(storage_unreadable)?;
+    rows.collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(storage_unreadable)
 }
 
 fn resolve_process_id(

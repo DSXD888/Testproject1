@@ -14,6 +14,7 @@ import {
   parseContractListQuery,
 } from './pages/ContractList';
 import { ErrorsPage } from './pages/Errors';
+import { ManifestInbox } from './pages/ManifestInbox';
 import SessionsPage from './pages/Sessions';
 import SessionViewer from './pages/SessionViewer';
 
@@ -147,6 +148,10 @@ type ProcessDetailVm = {
     sections: string[];
     artifactHash?: string | null;
     stageRunId?: string | null;
+    clarificationPromptsJson?: string | null;
+    manifestBasisHash?: string | null;
+    stoplight?: string | null;
+    suggestedAction?: string | null;
   } | null;
   reviewMetadata?: {
     basisHash: string | null;
@@ -189,6 +194,9 @@ type RouteState =
       validationError: string | null;
     }
   | {
+      kind: 'inbox';
+    }
+  | {
       kind: 'detail';
       processId: string;
     }
@@ -213,6 +221,9 @@ type RouteState =
 function currentRoute(pathnameOverride?: string): RouteState {
   const pathname = pathnameOverride ?? globalThis.location?.pathname ?? '/';
   const search = globalThis.location?.search ?? '';
+  if (pathname === '/inbox') {
+    return { kind: 'inbox' };
+  }
   if (pathname.startsWith('/process/')) {
     return {
       kind: 'detail',
@@ -657,6 +668,9 @@ export function App({ pathname }: AppProps = {}): ReactElement {
           <button type="button" onClick={() => navigate('/')}>
             Queue
           </button>
+          <button type="button" onClick={() => navigate('/inbox')}>
+            Manifest Inbox
+          </button>
           <button type="button" onClick={() => navigate('/errors')}>
             Errors
           </button>
@@ -725,6 +739,16 @@ export function App({ pathname }: AppProps = {}): ReactElement {
               onRefresh={() => setRefreshTick((value) => value + 1)}
             />
           </>
+        ) : route.kind === 'inbox' ? (
+          <>
+            <span hidden>Manifest Inbox route</span>
+            <ManifestInbox
+              onOpenProcess={(processId) => {
+                setSelectedProcessId(processId);
+                navigate(`/process/${encodeURIComponent(processId)}`);
+              }}
+            />
+          </>
         ) : route.kind === 'detail' ? (
           <>
             <span hidden>Process route for {route.processId}</span>
@@ -736,6 +760,17 @@ export function App({ pathname }: AppProps = {}): ReactElement {
               onCaptureDecision={handleCaptureDecision}
               onTriggerEnrichment={handleTriggerEnrichment}
               onTriggerIngestion={handleTriggerIngestion}
+              onPanelChanged={() => {
+                if (route.kind === 'detail') {
+                  void invokeQuery<ProcessDetailVm>('get_process_detail', {
+                    processId: route.processId,
+                  })
+                    .then((payload) => setDetailState({ status: 'ready', payload }))
+                    .catch(() => {
+                      // refetch errors surfaced via existing detail-state machinery
+                    });
+                }
+              }}
               decisionStatus={decisionState}
               actionStatus={detailActionState}
             />

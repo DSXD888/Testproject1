@@ -286,6 +286,33 @@ pub struct CaptureDecisionParams {
     pub reviewed_basis_hash: String,
     pub reviewed_manifest_hash: String,
     pub reviewed_at_stage_run_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision_note: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CaptureClarificationParams {
+    pub process_id: String,
+    pub candidate_id: String,
+    pub reason_code: String,
+    pub payload: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WithdrawClarificationParams {
+    pub process_id: String,
+    pub candidate_id: String,
+    pub reason_code: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WithdrawDecisionParams {
+    pub idempotency_key: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -345,6 +372,9 @@ pub enum DaemonCommandMethod {
     TriggerIngestion,
     TriggerEnrichment,
     CaptureDecision,
+    CaptureClarification,
+    WithdrawClarification,
+    WithdrawDecision,
     ResolveError,
     StopSession,
     SendSessionInput,
@@ -355,11 +385,14 @@ pub enum DaemonCommandMethod {
 }
 
 impl DaemonCommandMethod {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 14] = [
         Self::GetDaemonInfo,
         Self::TriggerIngestion,
         Self::TriggerEnrichment,
         Self::CaptureDecision,
+        Self::CaptureClarification,
+        Self::WithdrawClarification,
+        Self::WithdrawDecision,
         Self::ResolveError,
         Self::StopSession,
         Self::SendSessionInput,
@@ -375,6 +408,9 @@ impl DaemonCommandMethod {
             Self::TriggerIngestion => "trigger_ingestion",
             Self::TriggerEnrichment => "trigger_enrichment",
             Self::CaptureDecision => "capture_decision",
+            Self::CaptureClarification => "capture_clarification",
+            Self::WithdrawClarification => "withdraw_clarification",
+            Self::WithdrawDecision => "withdraw_decision",
             Self::ResolveError => "resolve_error",
             Self::StopSession => "stop_session",
             Self::SendSessionInput => "send_session_input",
@@ -566,6 +602,45 @@ impl DaemonBridgeConnection {
     ) -> Result<MutationAck, BridgeError> {
         self.call_mutation(
             DaemonCommandMethod::CaptureDecision,
+            params,
+            idempotency_key,
+            None,
+        )
+    }
+
+    pub fn capture_clarification(
+        &mut self,
+        params: &CaptureClarificationParams,
+        idempotency_key: &str,
+    ) -> Result<MutationAck, BridgeError> {
+        self.call_mutation(
+            DaemonCommandMethod::CaptureClarification,
+            params,
+            idempotency_key,
+            None,
+        )
+    }
+
+    pub fn withdraw_clarification(
+        &mut self,
+        params: &WithdrawClarificationParams,
+        idempotency_key: &str,
+    ) -> Result<MutationAck, BridgeError> {
+        self.call_mutation(
+            DaemonCommandMethod::WithdrawClarification,
+            params,
+            idempotency_key,
+            None,
+        )
+    }
+
+    pub fn withdraw_decision(
+        &mut self,
+        params: &WithdrawDecisionParams,
+        idempotency_key: &str,
+    ) -> Result<MutationAck, BridgeError> {
+        self.call_mutation(
+            DaemonCommandMethod::WithdrawDecision,
             params,
             idempotency_key,
             None,

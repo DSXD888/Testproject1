@@ -4,6 +4,11 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
+use crate::ipc::handlers::clarifications::{
+    CaptureClarificationParams, ClarificationsHandlerContext, ClarificationsHandlerError,
+    WithdrawClarificationParams, WithdrawDecisionParams, capture_clarification,
+    withdraw_clarification, withdraw_decision,
+};
 use crate::ipc::handlers::control::{
     ControlHandlerContext, ControlHandlerError, get_daemon_info, restart_daemon,
 };
@@ -168,6 +173,36 @@ impl<'a> CommandRouter<'a> {
                     .map_err(map_decisions_error)?;
                 Ok(DispatchOutcome::Response(to_value(ack)?))
             }
+            "capture_clarification" => {
+                let idempotency_key = required_idempotency_key(idempotency_key, method)?;
+                let params: CaptureClarificationParams = parse_params(params)?;
+                let mut clarifications = ClarificationsHandlerContext {
+                    state_db: self.jobs.state_db,
+                };
+                let ack = capture_clarification(&mut clarifications, &params, idempotency_key)
+                    .map_err(map_clarifications_error)?;
+                Ok(DispatchOutcome::Response(to_value(ack)?))
+            }
+            "withdraw_clarification" => {
+                let idempotency_key = required_idempotency_key(idempotency_key, method)?;
+                let params: WithdrawClarificationParams = parse_params(params)?;
+                let mut clarifications = ClarificationsHandlerContext {
+                    state_db: self.jobs.state_db,
+                };
+                let ack = withdraw_clarification(&mut clarifications, &params, idempotency_key)
+                    .map_err(map_clarifications_error)?;
+                Ok(DispatchOutcome::Response(to_value(ack)?))
+            }
+            "withdraw_decision" => {
+                let idempotency_key = required_idempotency_key(idempotency_key, method)?;
+                let params: WithdrawDecisionParams = parse_params(params)?;
+                let mut clarifications = ClarificationsHandlerContext {
+                    state_db: self.jobs.state_db,
+                };
+                let ack = withdraw_decision(&mut clarifications, &params, idempotency_key)
+                    .map_err(map_clarifications_error)?;
+                Ok(DispatchOutcome::Response(to_value(ack)?))
+            }
             "resolve_error" => {
                 let idempotency_key = required_idempotency_key(idempotency_key, method)?;
                 let params: ResolveErrorParams = parse_params(params)?;
@@ -274,6 +309,15 @@ fn map_jobs_error(error: JobsHandlerError) -> BridgeError {
 }
 
 fn map_decisions_error(error: DecisionsHandlerError) -> BridgeError {
+    BridgeError {
+        code: error.code,
+        message: error.message,
+        retryable: error.retryable,
+        details: None,
+    }
+}
+
+fn map_clarifications_error(error: ClarificationsHandlerError) -> BridgeError {
     BridgeError {
         code: error.code,
         message: error.message,

@@ -15,9 +15,9 @@ mod query_service_impl;
 mod sqlite_impl;
 
 use query_service_impl::{
-    CleanupVerdictVm, ErrorSeverity, ExecutionModeVm, PipelineState, ProcessListFilters,
-    QueryService, QueryServiceErrorCode, ReplayAvailability, SessionFrame, SessionHistoryRequest,
-    SessionListFilters, SessionPhaseVm,
+    ActiveOverrideEntry, CleanupVerdictVm, DecisionHistoryEntry, ErrorSeverity, ExecutionModeVm,
+    ManifestInboxRow, PipelineState, ProcessListFilters, QueryService, QueryServiceErrorCode,
+    ReplayAvailability, SessionFrame, SessionHistoryRequest, SessionListFilters, SessionPhaseVm,
 };
 use sqlite_impl::{DEFAULT_OWNER_ID, DEFAULT_SCHEMA_EPOCH, StateDb, StateDbConfig};
 
@@ -898,6 +898,280 @@ fn rs_qs_012_data_version_changes_do_not_replace_commit_seq() -> Result<()> {
     assert!(data_version_after >= data_version_before);
     assert_eq!(snapshot_after.snapshot_seq, harness.commit_seq()?);
     assert!(snapshot_after.snapshot_seq >= snapshot_before.snapshot_seq);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Stage 14 Phase 2 — RT.1..RT.4
+// ---------------------------------------------------------------------------
+
+/// Stage 14 Phase 2 helper — seeds a manifests row with stoplight, suggested
+/// action, prompt count + stored `clarification_prompts_json` so the inbox
+/// loader returns the row with all UI metadata populated.
+fn seed_inbox_manifest(
+    state_db: &mut sqlite_impl::StateDb,
+    process_id: &str,
+    stoplight: &str,
+    prompt_count: i64,
+    prompts_json: &str,
+) -> Result<()> {
+    state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "UPDATE manifests
+             SET stoplight = ?2,
+                 suggested_action = ?3,
+                 clarification_prompt_count = ?4,
+                 manifest_basis_hash = ?5,
+                 clarification_prompts_json = ?6
+             WHERE process_id = ?1",
+            params![
+                process_id,
+                stoplight,
+                "Capture clarification",
+                prompt_count,
+                format!("basis-{process_id}"),
+                prompts_json,
+            ],
+        )?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
+/// Stage 14 Phase 2 helper — inserts a `pending_operator_intents` row so the
+/// audit-chain loader can return non-empty history.
+#[allow(clippy::too_many_arguments)]
+fn seed_intent(
+    state_db: &mut sqlite_impl::StateDb,
+    intent_id: &str,
+    process_id: &str,
+    disposition: &str,
+    status: &str,
+    idempotency_key: &str,
+    superseded_by: Option<&str>,
+    decision_note: Option<&str>,
+    queued_at_override: Option<&str>,
+) -> Result<()> {
+    let queued_at = queued_at_override
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+    state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "INSERT INTO pending_operator_intents (
+               id, process_id, desired_disposition, reviewed_basis_hash, reviewed_manifest_hash,
+               reviewed_at_stage_run_id, reviewed_at, base_remote_revision, idempotency_key,
+               status, superseded_by_intent_id, queued_at, decision_note
+             ) VALUES (
+               ?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, ?8, ?9, ?10, ?7, ?11
+             )",
+            params![
+                intent_id,
+                process_id,
+                disposition,
+                format!("basis-{process_id}"),
+                format!("manifest-{process_id}"),
+                format!("run-{intent_id}"),
+                queued_at,
+                idempotency_key,
+                status,
+                superseded_by,
+                decision_note,
+            ],
+        )?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
+/// Stage 14 Phase 2 helper — inserts an `operator_input_overrides` row so the
+/// active-override loader returns non-empty data.
+fn seed_override(
+    state_db: &mut sqlite_impl::StateDb,
+    override_id: &str,
+    process_id: &str,
+    candidate_id: &str,
+    reason_code: &str,
+    payload_json: &str,
+) -> Result<()> {
+    state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "INSERT INTO operator_input_overrides (
+               id, process_id, product_candidate_id, reason_code, payload_json, notes,
+               basis_hash_when_provided, owner_id, row_version, stage_run_id
+             ) VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, ?7, 1, ?8)",
+            params![
+                override_id,
+                process_id,
+                candidate_id,
+                reason_code,
+                payload_json,
+                format!("basis-{process_id}"),
+                DEFAULT_OWNER_ID,
+                format!("run-{override_id}"),
+            ],
+        )?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
+#[test]
+fn rt_1_list_manifests_returns_all_manifest_rows() -> Result<()> {
+    let mut harness = Harness::new()?;
+    harness.seed_process("p1", "2026-04-01T10:00:00Z", "review")?;
+    harness.seed_candidate_and_quote("p1")?;
+    harness.seed_process("p2", "2026-04-01T11:00:00Z", "review")?;
+    harness.seed_candidate_and_quote("p2")?;
+    seed_inbox_manifest(&mut harness.state_db, "p1", "clarify", 2, "[]")?;
+    seed_inbox_manifest(&mut harness.state_db, "p2", "pursue", 0, "[]")?;
+
+    let service = harness.service()?;
+    let envelope = service
+        .list_manifests()
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+    let rows: &[ManifestInboxRow] = &envelope.data;
+    assert_eq!(rows.len(), 2);
+    let p1 = rows
+        .iter()
+        .find(|row| row.process_id == "p1")
+        .ok_or_else(|| anyhow!("p1 not found"))?;
+    assert_eq!(p1.stoplight.as_deref(), Some("clarify"));
+    assert_eq!(p1.clarification_prompt_count, 2);
+    assert_eq!(
+        p1.suggested_action.as_deref(),
+        Some("Capture clarification")
+    );
+    assert!(p1.manifest_basis_hash.is_some());
+    Ok(())
+}
+
+#[test]
+fn rt_2_get_manifest_returns_clarification_prompts_json() -> Result<()> {
+    let mut harness = Harness::new()?;
+    harness.seed_process("p1", "2026-04-01T10:00:00Z", "review")?;
+    harness.seed_candidate_and_quote("p1")?;
+    let prompts = serde_json::json!([
+        {
+            "candidate_id": "candidate-p1",
+            "candidate_name": "DGU 1.2m²",
+            "lot_id": null,
+            "reason_code": "quantity_basis_unaligned",
+            "prompt_text": "How many?",
+            "prompt_unit": "m²",
+            "prompt_type": "number",
+            "default_value": 250,
+            "rationale": "Unknown",
+            "options": null,
+        }
+    ])
+    .to_string();
+    seed_inbox_manifest(&mut harness.state_db, "p1", "clarify", 1, &prompts)?;
+
+    let service = harness.service()?;
+    let detail = service
+        .get_process_detail("p1")
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+    let manifest = detail
+        .data
+        .manifest
+        .ok_or_else(|| anyhow!("manifest is None"))?;
+    let parsed_prompts = manifest
+        .clarification_prompts_json
+        .ok_or_else(|| anyhow!("clarification_prompts_json is None"))?;
+    ensure!(parsed_prompts.contains("quantity_basis_unaligned"));
+    ensure!(parsed_prompts.contains("DGU 1.2m\\u00b2") || parsed_prompts.contains("DGU 1.2m²"));
+    assert_eq!(manifest.stoplight.as_deref(), Some("clarify"));
+    Ok(())
+}
+
+#[test]
+fn rt_3_get_decision_history_returns_audit_chain() -> Result<()> {
+    let mut harness = Harness::new()?;
+    harness.seed_process("p1", "2026-04-01T10:00:00Z", "review")?;
+    harness.seed_candidate_and_quote("p1")?;
+    // Insert newer intent first so the older intent's superseded_by FK resolves.
+    // Explicit queued_at timestamps make ordering deterministic.
+    seed_intent(
+        &mut harness.state_db,
+        "intent-new",
+        "p1",
+        "approve",
+        "queued",
+        "key-new",
+        None,
+        Some("Looks good"),
+        Some("2026-04-02T12:00:00Z"),
+    )?;
+    seed_intent(
+        &mut harness.state_db,
+        "intent-old",
+        "p1",
+        "watch",
+        "superseded",
+        "key-old",
+        Some("intent-new"),
+        None,
+        Some("2026-04-01T12:00:00Z"),
+    )?;
+
+    let service = harness.service()?;
+    let envelope = service
+        .get_decision_history("p1")
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+    let entries: &[DecisionHistoryEntry] = &envelope.data;
+    assert_eq!(entries.len(), 2);
+    // Sorted DESC by queued_at — most recent intent first.
+    assert_eq!(entries[0].intent_id, "intent-new");
+    assert_eq!(entries[0].disposition, "approve");
+    assert_eq!(entries[0].status, "queued");
+    assert_eq!(entries[0].decision_note.as_deref(), Some("Looks good"));
+    assert_eq!(entries[1].intent_id, "intent-old");
+    assert_eq!(entries[1].status, "superseded");
+    assert_eq!(
+        entries[1].superseded_by_intent_id.as_deref(),
+        Some("intent-new")
+    );
+    Ok(())
+}
+
+#[test]
+fn rt_4_get_active_overrides_returns_only_active_rows() -> Result<()> {
+    let mut harness = Harness::new()?;
+    harness.seed_process("p1", "2026-04-01T10:00:00Z", "review")?;
+    harness.seed_candidate_and_quote("p1")?;
+    seed_override(
+        &mut harness.state_db,
+        "override-active",
+        "p1",
+        "candidate-p1",
+        "quantity_basis_unaligned",
+        r#"{"qty": 250, "unit": "m^2"}"#,
+    )?;
+    seed_override(
+        &mut harness.state_db,
+        "override-withdrawn",
+        "p1",
+        "candidate-p1",
+        "awaiting_rfq_quote",
+        r#"{"unit_price_gbp_pence": 100, "lead_time_days": 30, "moq": 1, "currency": "GBP"}"#,
+    )?;
+    // Withdraw the second one
+    harness.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "UPDATE operator_input_overrides SET withdrawn_at = CURRENT_TIMESTAMP WHERE id = ?1",
+            params!["override-withdrawn"],
+        )?;
+        Ok(())
+    })?;
+
+    let service = harness.service()?;
+    let envelope = service
+        .get_active_overrides("p1")
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+    let rows: &[ActiveOverrideEntry] = &envelope.data;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].override_id, "override-active");
+    assert_eq!(rows[0].reason_code, "quantity_basis_unaligned");
     Ok(())
 }
 

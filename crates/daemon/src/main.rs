@@ -8,6 +8,7 @@ mod ipc {
     pub mod command_router;
     pub mod descriptor;
     pub mod handlers {
+        pub mod clarifications;
         pub mod control;
         pub mod decisions;
         pub mod errors;
@@ -3054,7 +3055,7 @@ fn read_result_contract(result_path: &Path) -> Result<Value> {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum OperatorOverrideReason {
+pub(crate) enum OperatorOverrideReason {
     QuantityBasisUndetermined,
     QuantityBasisUnaligned,
     AwaitingRfqQuote,
@@ -3069,7 +3070,7 @@ impl OperatorOverrideReason {
         Self::NoPricingSignal,
     ];
 
-    const fn as_str(self) -> &'static str {
+    pub(crate) const fn as_str(self) -> &'static str {
         match self {
             Self::QuantityBasisUndetermined => "quantity_basis_undetermined",
             Self::QuantityBasisUnaligned => "quantity_basis_unaligned",
@@ -3078,7 +3079,7 @@ impl OperatorOverrideReason {
         }
     }
 
-    fn parse(raw: &str) -> Result<Self> {
+    pub(crate) fn parse(raw: &str) -> Result<Self> {
         for variant in Self::ALL {
             if variant.as_str() == raw {
                 return Ok(*variant);
@@ -3122,7 +3123,7 @@ struct OperatorRfqOverride {
 }
 
 #[allow(clippy::too_many_lines)]
-fn validate_operator_override_payload(
+pub(crate) fn validate_operator_override_payload(
     reason: OperatorOverrideReason,
     payload: &Value,
 ) -> Result<()> {
@@ -3376,6 +3377,11 @@ struct LandedCostAssessmentRow {
     candidate_quantity_unit: Option<String>,
     lot_title: Option<String>,
     lot_description: Option<String>,
+    /// `notice_lots.estimated_value_pence` for the lot this candidate belongs
+    /// to. Used by Stage 11's order-quantity inference ladder when the
+    /// candidate-level quantity is missing — `lot_value / unit_price` can
+    /// approximate an order qty if the cost basis looks plausible.
+    lot_estimated_value_pence: Option<i64>,
     notice_title: String,
     notice_summary: Option<String>,
     buyer_name: Option<String>,
@@ -3427,6 +3433,30 @@ struct SupplierCostBasis {
     warnings: Vec<Stage11Issue>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BasisUndeterminedReason {
+    /// Revenue and the supplier's cost basis are on incompatible scales (e.g.
+    /// framework-total revenue vs per-pack listing price), so dividing one by
+    /// the other yields a meaningless order quantity.
+    RevenueCostScaleMismatch,
+    /// No quantity signal of any kind is available (no candidate qty, no lot
+    /// estimated value, no MOQ, no plausible `quoted_quantity`).
+    NoQuantityAnywhere,
+    /// Multiple signals are present but disagree, and no rule chooses among
+    /// them safely.
+    ConflictingSignals,
+}
+
+impl BasisUndeterminedReason {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::RevenueCostScaleMismatch => "revenue_cost_scale_mismatch",
+            Self::NoQuantityAnywhere => "no_quantity_anywhere",
+            Self::ConflictingSignals => "conflicting_signals",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 enum OrderQuantityBasis {
     FromContractValue {
@@ -3450,6 +3480,14 @@ enum OrderQuantityBasis {
         qty: f64,
         basis_unit: Option<String>,
     },
+    /// Stage 11 cannot infer a meaningful order quantity from the available
+    /// inputs. Margins must be persisted as zero with low commercial confidence
+    /// until an operator override or richer evidence resolves the ambiguity.
+    BasisUndetermined {
+        reason: BasisUndeterminedReason,
+        note: String,
+        basis_unit: Option<String>,
+    },
 }
 
 impl OrderQuantityBasis {
@@ -3460,6 +3498,7 @@ impl OrderQuantityBasis {
             Self::RfqRequired { .. } => "rfq_required",
             Self::SupplierCapacity { .. } => "supplier_capacity",
             Self::FromOperatorOverride { .. } => "from_operator_override",
+            Self::BasisUndetermined { .. } => "basis_undetermined",
         }
     }
 
@@ -3470,6 +3509,7 @@ impl OrderQuantityBasis {
             Self::RfqRequired { .. } => "minimum_order_quantity_or_one_unit_fallback",
             Self::SupplierCapacity { .. } => "supplier_quote_quoted_quantity",
             Self::FromOperatorOverride { .. } => "operator_input_overrides",
+            Self::BasisUndetermined { .. } => "insufficient_inputs",
         }
     }
 
@@ -3480,9 +3520,13 @@ impl OrderQuantityBasis {
             Self::RfqRequired { .. } => "rfq_required_minimum_order_quantity",
             Self::SupplierCapacity { .. } => "supplier_capacity_quoted_quantity",
             Self::FromOperatorOverride { .. } => "operator_override_order_quantity",
+            Self::BasisUndetermined { .. } => "basis_undetermined_per_unit_screening",
         }
     }
 
+    /// Returns the inferred order quantity. For `BasisUndetermined` we return
+    /// 1.0 so per-unit landed cost remains meaningful — net margin is forced
+    /// to zero in persistence regardless.
     const fn quantity(&self) -> f64 {
         match self {
             Self::FromContractValue { qty, .. }
@@ -3490,6 +3534,7 @@ impl OrderQuantityBasis {
             | Self::SupplierCapacity { qty, .. }
             | Self::FromOperatorOverride { qty, .. } => *qty,
             Self::RfqRequired { fallback_qty, .. } => *fallback_qty,
+            Self::BasisUndetermined { .. } => 1.0,
         }
     }
 
@@ -3499,7 +3544,8 @@ impl OrderQuantityBasis {
             | Self::FromLotQuantity { basis_unit, .. }
             | Self::RfqRequired { basis_unit, .. }
             | Self::SupplierCapacity { basis_unit, .. }
-            | Self::FromOperatorOverride { basis_unit, .. } => basis_unit.as_deref(),
+            | Self::FromOperatorOverride { basis_unit, .. }
+            | Self::BasisUndetermined { basis_unit, .. } => basis_unit.as_deref(),
         }
     }
 
@@ -3510,12 +3556,18 @@ impl OrderQuantityBasis {
             "unit": self.unit(),
             "source": self.source(),
         });
-        if let Self::FromContractValue {
-            contract_value_gbp_pence,
-            ..
-        } = self
-        {
-            payload["contract_value_gbp_pence"] = json!(contract_value_gbp_pence);
+        match self {
+            Self::FromContractValue {
+                contract_value_gbp_pence,
+                ..
+            } => {
+                payload["contract_value_gbp_pence"] = json!(contract_value_gbp_pence);
+            }
+            Self::BasisUndetermined { reason, note, .. } => {
+                payload["reason"] = json!(reason.as_str());
+                payload["note"] = json!(note);
+            }
+            _ => {}
         }
         payload
     }
@@ -3530,10 +3582,27 @@ impl OrderQuantityBasis {
                 "screening_only_quantity_uncertainty",
                 "Stage 11 had no order quantity or MOQ, so shipment and supplier cost use the supplier listing quantity as a screening-only capacity fallback.",
             )),
+            Self::BasisUndetermined { reason, note, .. } => Some(Stage11Issue::warning(
+                "QUANTITY_BASIS_UNDETERMINED_NO_OPERATOR_OVERRIDE",
+                format!(
+                    "Stage 11 could not infer a meaningful order quantity ({reason}); gross and net margins are persisted as zero until an operator override clarifies the basis. Detail: {note}",
+                    reason = reason.as_str(),
+                ),
+            )),
             Self::FromContractValue { .. }
             | Self::FromLotQuantity { .. }
             | Self::FromOperatorOverride { .. } => None,
         }
+    }
+
+    /// True when the persistence layer must zero out margins and pin
+    /// commercial confidence to the screening floor (1000 bps) — i.e. the
+    /// basis is honestly low signal without an operator-supplied quantity.
+    const fn requires_zero_margin_calibration(&self) -> bool {
+        matches!(
+            self,
+            Self::BasisUndetermined { .. } | Self::RfqRequired { .. }
+        )
     }
 }
 
@@ -3768,6 +3837,20 @@ struct LandedCostEstimateWrite {
     cbam_exposure_flag: Option<i64>,
     cbam_estimate_gbp_pence: Option<i64>,
     stage_run_id: String,
+    /// Stage 10's pricing assessment row id this estimate is bound to. Used by
+    /// `persist_landed_cost_estimate` to apply the Stage 11 D5 calibration —
+    /// when the basis is screening-only (`BasisUndetermined` or `RfqRequired`
+    /// without an operator override), the joined `gross_margin_bps` must be
+    /// zeroed so downstream consumers see honest numbers, not Stage 10's raw
+    /// revenue-divided-by-unit-price ratio.
+    pricing_assessment_id: String,
+    /// When true, `persist_landed_cost_estimate` issues an UPDATE on
+    /// `candidate_pricing_assessments.gross_margin_bps = 0` for the row
+    /// identified by `pricing_assessment_id`. Set by build functions when the
+    /// inferred order-quantity basis is `BasisUndetermined` (new) or
+    /// `RfqRequired` (existing — already produces 0 from Stage 10 when revenue
+    /// is also zero, but we keep the calibration explicit for safety).
+    force_pricing_assessment_zero_gross_margin: bool,
 }
 
 fn clamp_bps(value: i64) -> i64 {
@@ -3817,8 +3900,106 @@ fn preferred_order_quantity_unit(row: &LandedCostAssessmentRow) -> Option<String
         .or_else(|| row.listing_pack_unit.clone())
 }
 
+/// Outcome of the D4 plausibility inspection on `row.quoted_quantity`. Used
+/// by `infer_order_quantity_basis` to choose between `FromContractValue`,
+/// `SupplierCapacity`, and `BasisUndetermined`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum QuotedQuantityShape {
+    /// `quoted_quantity` is missing or non-positive — no signal at all.
+    Absent,
+    /// `quoted_quantity` looks like an order-quantity proxy that is safe to
+    /// pair with `unit_price` (no pack/capacity/scale red flags).
+    Plausible,
+    /// `quoted_quantity` matches `listing_pack_qty` exactly — the row is a
+    /// per-pack listing, not a per-order signal.
+    PackListing,
+    /// `quoted_quantity` is in a bulk range with no MOQ (or MOQ == 1 / MOQ ==
+    /// `quoted_quantity`) — looks like supplier total capacity.
+    SupplierCapacity,
+    /// `revenue_basis_type='expected_value'`, revenue is set, but the cost
+    /// implied by `quoted_quantity * unit_price` is < 1% of the revenue scope
+    /// — Aggregates-shape pack-vs-framework mismatch.
+    RevenueCostScaleMismatch,
+}
+
 #[allow(clippy::cast_precision_loss)]
+fn classify_quoted_quantity_shape(row: &LandedCostAssessmentRow) -> QuotedQuantityShape {
+    let Some(quoted_qty) = positive_finite_quantity(row.quoted_quantity) else {
+        return QuotedQuantityShape::Absent;
+    };
+
+    if let Some(pack_qty) = positive_finite_quantity(row.listing_pack_qty)
+        && (quoted_qty - pack_qty).abs() < f64::EPSILON.max(pack_qty * 1e-6)
+    {
+        return QuotedQuantityShape::PackListing;
+    }
+
+    if quoted_qty > 1000.0 {
+        let moq_signal = row.minimum_order_quantity;
+        let looks_like_capacity = match moq_signal {
+            None => true,
+            Some(moq) if !moq.is_finite() || moq <= 1.0 => true,
+            Some(moq) if (moq - quoted_qty).abs() < f64::EPSILON.max(quoted_qty * 1e-6) => true,
+            // quoted_quantity vastly exceeds MOQ (>100x): supplier listed total
+            // capacity, not an order signal.
+            Some(moq) if moq > 0.0 && quoted_qty / moq > 100.0 => true,
+            _ => false,
+        };
+        if looks_like_capacity {
+            return QuotedQuantityShape::SupplierCapacity;
+        }
+    }
+
+    if row.revenue_basis_type == "expected_value"
+        && row.expected_addressable_revenue_ex_vat_pence > 0
+        && row.unit_price_gbp_pence > 0
+    {
+        let cost_at_quoted = quoted_qty * (row.unit_price_gbp_pence as f64);
+        let revenue = row.expected_addressable_revenue_ex_vat_pence as f64;
+        if cost_at_quoted > 0.0 && cost_at_quoted < revenue / 100.0 {
+            return QuotedQuantityShape::RevenueCostScaleMismatch;
+        }
+    }
+
+    QuotedQuantityShape::Plausible
+}
+
+/// Try to derive an order quantity from the lot's `estimated_value_pence` and
+/// the supplier's `unit_price`. Returns `Some(qty)` only when the math is
+/// finite, positive, and the implied cost basis is plausible relative to the
+/// pricing-assessment revenue scope.
+///
+/// Reject when revenue is set and `lot_value` is more than 2× the candidate's
+/// allocated revenue — the lot covers multiple candidates, so dividing the
+/// whole lot value by the unit price overcounts the order qty for any single
+/// candidate (this is what would happen with the Aggregates row).
+#[allow(clippy::cast_precision_loss)]
+fn lot_value_derived_quantity(row: &LandedCostAssessmentRow) -> Option<f64> {
+    let lot_value = row.lot_estimated_value_pence.filter(|value| *value > 0)?;
+    if row.unit_price_gbp_pence <= 0 {
+        return None;
+    }
+    let qty = (lot_value as f64) / (row.unit_price_gbp_pence as f64);
+    if !qty.is_finite() || qty <= 0.0 {
+        return None;
+    }
+    if row.expected_addressable_revenue_ex_vat_pence > 0 {
+        let lot_value_f = lot_value as f64;
+        let revenue = row.expected_addressable_revenue_ex_vat_pence as f64;
+        // The candidate's allocated revenue should be on the same scale as
+        // lot value if the candidate covers the whole lot. Outside [1/2, 2x]
+        // we treat the derivation as unsafe.
+        if lot_value_f > revenue * 2.0 || lot_value_f < revenue / 2.0 {
+            return None;
+        }
+    }
+    Some(qty)
+}
+
+#[allow(clippy::cast_precision_loss, clippy::too_many_lines)]
 fn infer_order_quantity_basis(row: &LandedCostAssessmentRow) -> OrderQuantityBasis {
+    // Stage 14: an active operator-supplied quantity override beats every
+    // inferred signal. Preserve this short-circuit at the very top.
     if let Some(override_qty) = &row.operator_override {
         return OrderQuantityBasis::FromOperatorOverride {
             qty: override_qty.qty,
@@ -3827,9 +4008,44 @@ fn infer_order_quantity_basis(row: &LandedCostAssessmentRow) -> OrderQuantityBas
     }
 
     let preferred_unit = preferred_order_quantity_unit(row);
+    let quoted_shape = classify_quoted_quantity_shape(row);
+
+    // Priority 1: revenue_basis_type == "rfq_required" — Stage 10 already said
+    // there is no expected revenue without an RFQ; we cannot back out an order
+    // qty. Fall back to MOQ (or 1) as a screening proxy.
+    if row.revenue_basis_type == "rfq_required" {
+        let fallback_qty = positive_finite_quantity(row.minimum_order_quantity).unwrap_or(1.0);
+        return OrderQuantityBasis::RfqRequired {
+            fallback_qty,
+            basis_unit: row
+                .quoted_quantity_unit
+                .clone()
+                .or_else(|| preferred_unit.clone()),
+        };
+    }
+
+    // Priority 2: expected_value revenue AND a plausible cost basis. Reject
+    // pack listings, supplier capacity, and Aggregates-shape scale mismatches
+    // — those are handled lower down. Require at least one *supporting*
+    // quantity signal (plausible quoted_quantity, candidate_quantity, lot
+    // estimated value, or MOQ) before committing to revenue / unit_price.
+    // Without any of those, the assumption that unit_price represents the
+    // per-order unit is unverified and we'd rather fall through to
+    // BasisUndetermined.
+    let has_supporting_signal = matches!(quoted_shape, QuotedQuantityShape::Plausible)
+        || positive_finite_quantity(row.candidate_quantity).is_some()
+        || row.lot_estimated_value_pence.is_some_and(|value| value > 0)
+        || positive_finite_quantity(row.minimum_order_quantity).is_some();
     if row.revenue_basis_type == "expected_value"
         && row.expected_addressable_revenue_ex_vat_pence > 0
         && row.unit_price_gbp_pence > 0
+        && !matches!(
+            quoted_shape,
+            QuotedQuantityShape::PackListing
+                | QuotedQuantityShape::SupplierCapacity
+                | QuotedQuantityShape::RevenueCostScaleMismatch
+        )
+        && has_supporting_signal
     {
         let qty = (row.expected_addressable_revenue_ex_vat_pence as f64)
             / (row.unit_price_gbp_pence as f64);
@@ -3842,6 +4058,7 @@ fn infer_order_quantity_basis(row: &LandedCostAssessmentRow) -> OrderQuantityBas
         }
     }
 
+    // Priority 3a: candidate-level quantity (pc.quantity).
     if let Some(qty) = positive_finite_quantity(row.candidate_quantity) {
         return OrderQuantityBasis::FromLotQuantity {
             qty,
@@ -3849,22 +4066,66 @@ fn infer_order_quantity_basis(row: &LandedCostAssessmentRow) -> OrderQuantityBas
         };
     }
 
-    if let Some(fallback_qty) = positive_finite_quantity(row.minimum_order_quantity) {
-        return OrderQuantityBasis::RfqRequired {
-            fallback_qty,
-            basis_unit: row.quoted_quantity_unit.clone().or(preferred_unit),
+    // Priority 3b: derive from `notice_lots.estimated_value_pence` when the
+    // implied cost basis is plausible vs the pricing-assessment revenue scope.
+    if let Some(qty) = lot_value_derived_quantity(row) {
+        return OrderQuantityBasis::FromLotQuantity {
+            qty,
+            basis_unit: row.candidate_quantity_unit.clone().or(preferred_unit),
         };
     }
 
-    if let Some(qty) = positive_finite_quantity(row.quoted_quantity) {
+    // Priority 4: if `quoted_quantity` is present, even if it looks like
+    // supplier capacity, fall back to it as a screening-only basis (with a
+    // warning emitted by `screening_uncertainty_warning`). This preserves
+    // existing behavior for cases without revenue, candidate qty, or lot
+    // value but a quoted quantity.
+    if matches!(
+        quoted_shape,
+        QuotedQuantityShape::SupplierCapacity | QuotedQuantityShape::Plausible
+    ) && let Some(qty) = positive_finite_quantity(row.quoted_quantity)
+    {
         return OrderQuantityBasis::SupplierCapacity {
             qty,
             basis_unit: row.quoted_quantity_unit.clone().or(preferred_unit),
         };
     }
 
-    OrderQuantityBasis::RfqRequired {
-        fallback_qty: 1.0,
+    // Priority 5: BasisUndetermined catch-all. Pick the most descriptive
+    // reason based on whatever signals the row exposes.
+    let reason = match quoted_shape {
+        QuotedQuantityShape::PackListing | QuotedQuantityShape::RevenueCostScaleMismatch => {
+            BasisUndeterminedReason::RevenueCostScaleMismatch
+        }
+        QuotedQuantityShape::Absent
+            if row.minimum_order_quantity.is_none()
+                && row.candidate_quantity.is_none()
+                && row.lot_estimated_value_pence.is_none() =>
+        {
+            BasisUndeterminedReason::NoQuantityAnywhere
+        }
+        _ => BasisUndeterminedReason::ConflictingSignals,
+    };
+    let note = match reason {
+        BasisUndeterminedReason::RevenueCostScaleMismatch => format!(
+            "supplier listing appears to be a per-pack/capacity quote (quoted_quantity={qq:?}, listing_pack_qty={pack:?}, unit_price_gbp_pence={up}); cannot derive an order qty from contract value without operator input.",
+            qq = row.quoted_quantity,
+            pack = row.listing_pack_qty,
+            up = row.unit_price_gbp_pence,
+        ),
+        BasisUndeterminedReason::NoQuantityAnywhere => {
+            "no candidate quantity, lot estimated value, supplier MOQ, or quoted quantity is available; Stage 11 cannot infer an order quantity.".to_owned()
+        }
+        BasisUndeterminedReason::ConflictingSignals => format!(
+            "supplier and revenue signals disagree (revenue_basis_type={rbt}, expected_revenue={rev}, quoted_quantity={qq:?}); operator clarification required.",
+            rbt = row.revenue_basis_type,
+            rev = row.expected_addressable_revenue_ex_vat_pence,
+            qq = row.quoted_quantity,
+        ),
+    };
+    OrderQuantityBasis::BasisUndetermined {
+        reason,
+        note,
         basis_unit: preferred_unit,
     }
 }
@@ -3917,6 +4178,7 @@ fn compute_supplier_cost_basis(row: &LandedCostAssessmentRow) -> SupplierCostBas
             order_quantity_basis,
             OrderQuantityBasis::FromContractValue { .. }
                 | OrderQuantityBasis::FromOperatorOverride { .. }
+                | OrderQuantityBasis::BasisUndetermined { .. }
         )
     {
         warnings.push(Stage11Issue::warning(
@@ -4246,6 +4508,7 @@ fn load_landed_cost_assessments(
           pc.quantity_unit,
           nl.title AS lot_title,
           nl.description AS lot_description,
+          nl.estimated_value_pence AS lot_estimated_value_pence,
           cn.title AS notice_title,
           cn.summary AS notice_summary,
           cn.buyer_name,
@@ -4335,10 +4598,11 @@ fn load_landed_cost_assessments(
             candidate_quantity_unit: row.get(43)?,
             lot_title: row.get(44)?,
             lot_description: row.get(45)?,
-            notice_title: row.get(46)?,
-            notice_summary: row.get(47)?,
-            buyer_name: row.get(48)?,
-            main_category: row.get(49)?,
+            lot_estimated_value_pence: row.get(46)?,
+            notice_title: row.get(47)?,
+            notice_summary: row.get(48)?,
+            buyer_name: row.get(49)?,
+            main_category: row.get(50)?,
             operator_override: None,
         })
     })?;
@@ -4910,6 +5174,7 @@ fn build_domestic_landed_cost_estimate(
     row: &LandedCostAssessmentRow,
     supplier_cost: &SupplierCostBasis,
     stage_run_id: &str,
+    order_quantity_basis: &OrderQuantityBasis,
     skill_versions: &Value,
 ) -> Result<LandedCostEstimateWrite> {
     let mut warnings = supplier_cost.warnings.clone();
@@ -4929,12 +5194,50 @@ fn build_domestic_landed_cost_estimate(
             "Stage 10 revenue is unavailable, so Stage 11 net-margin columns are persisted as 0.",
         ));
     }
+    if let Some(warning) = order_quantity_basis.screening_uncertainty_warning() {
+        warnings.push(warning);
+    }
 
     let economic_landed_cost_gbp_pence = supplier_cost.supplier_cost_gbp_pence;
+    let calibrate_zero_margin = order_quantity_basis.requires_zero_margin_calibration();
+    let commercial_estimate_confidence_bps = if calibrate_zero_margin {
+        Some(1000)
+    } else {
+        Some(clamp_bps(
+            row.pricing_input_confidence_bps
+                .min(row.gross_estimate_confidence_bps)
+                .min(6500),
+        ))
+    };
+    let net_margin_low_bps = if calibrate_zero_margin {
+        0
+    } else {
+        net_margin_bps(
+            row.expected_addressable_revenue_ex_vat_pence,
+            economic_landed_cost_gbp_pence,
+        )
+    };
+    let net_margin_base_bps = if calibrate_zero_margin {
+        0
+    } else {
+        net_margin_bps(
+            row.expected_addressable_revenue_ex_vat_pence,
+            economic_landed_cost_gbp_pence,
+        )
+    };
+    let net_margin_high_bps = if calibrate_zero_margin {
+        0
+    } else {
+        net_margin_bps(
+            row.expected_addressable_revenue_ex_vat_pence,
+            economic_landed_cost_gbp_pence,
+        )
+    };
     let confidence_bps = clamp_bps(
         row.pricing_input_confidence_bps
             .min(row.gross_estimate_confidence_bps)
-            .min(6500),
+            .min(6500)
+            .min(commercial_estimate_confidence_bps.unwrap_or(0).max(1000)),
     );
     let statuses = json!({
         "customs_status": "domestic_no_import",
@@ -5003,25 +5306,16 @@ fn build_domestic_landed_cost_estimate(
         revenue_basis_type: row.revenue_basis_type.clone(),
         revenue_confidence_bps: row.revenue_confidence_bps,
         customs_resolution_confidence_bps: Some(10_000),
-        commercial_estimate_confidence_bps: Some(confidence_bps),
-        net_margin_low_bps: net_margin_bps(
-            row.expected_addressable_revenue_ex_vat_pence,
-            economic_landed_cost_gbp_pence,
-        ),
-        net_margin_base_bps: net_margin_bps(
-            row.expected_addressable_revenue_ex_vat_pence,
-            economic_landed_cost_gbp_pence,
-        ),
-        net_margin_high_bps: net_margin_bps(
-            row.expected_addressable_revenue_ex_vat_pence,
-            economic_landed_cost_gbp_pence,
-        ),
+        commercial_estimate_confidence_bps,
+        net_margin_low_bps,
+        net_margin_base_bps,
+        net_margin_high_bps,
         decision_grade: "review".to_owned(),
         confidence_bps,
         confidence_breakdown: confidence_breakdown(
             row,
             supplier_cost,
-            None,
+            Some(order_quantity_basis),
             &statuses,
             skill_versions,
             &skill_session_ids,
@@ -5036,6 +5330,8 @@ fn build_domestic_landed_cost_estimate(
         cbam_exposure_flag: Some(0),
         cbam_estimate_gbp_pence: None,
         stage_run_id: stage_run_id.to_owned(),
+        pricing_assessment_id: row.pricing_assessment_id.clone(),
+        force_pricing_assessment_zero_gross_margin: calibrate_zero_margin,
     })
 }
 
@@ -5234,6 +5530,7 @@ fn build_import_landed_cost_estimate(
     let mut shipping_mode = "unknown_import".to_owned();
     let mut mode_confidence_bps = 1000;
     let mut packing_scenario = None;
+    let calibrate_zero_margin = order_quantity_basis.requires_zero_margin_calibration();
     let mut commercial_estimate_confidence_bps = Some(1000);
     if let Some(result) = sizing {
         warnings.extend(result.warnings.clone());
@@ -5288,6 +5585,15 @@ fn build_import_landed_cost_estimate(
             "REVENUE_BASIS_RFQ_REQUIRED",
             "Stage 10 revenue is unavailable, so Stage 11 net-margin columns are persisted as 0.",
         ));
+    }
+
+    // Stage 11 hardening (D5 calibration): when the inferred order-quantity
+    // basis is screening-only (BasisUndetermined or RfqRequired without an
+    // operator override), pin commercial confidence to 1000 bps regardless of
+    // what shipment sizing reported. Honest signal beats inflated confidence
+    // when the cost basis itself is undetermined.
+    if calibrate_zero_margin {
+        commercial_estimate_confidence_bps = Some(1000);
     }
 
     warnings.push(Stage11Issue::warning(
@@ -5418,18 +5724,30 @@ fn build_import_landed_cost_estimate(
         revenue_confidence_bps: row.revenue_confidence_bps,
         customs_resolution_confidence_bps,
         commercial_estimate_confidence_bps,
-        net_margin_low_bps: net_margin_bps(
-            row.expected_addressable_revenue_ex_vat_pence,
-            high_landed_cost,
-        ),
-        net_margin_base_bps: net_margin_bps(
-            row.expected_addressable_revenue_ex_vat_pence,
-            base_landed_cost,
-        ),
-        net_margin_high_bps: net_margin_bps(
-            row.expected_addressable_revenue_ex_vat_pence,
-            low_landed_cost,
-        ),
+        net_margin_low_bps: if calibrate_zero_margin {
+            0
+        } else {
+            net_margin_bps(
+                row.expected_addressable_revenue_ex_vat_pence,
+                high_landed_cost,
+            )
+        },
+        net_margin_base_bps: if calibrate_zero_margin {
+            0
+        } else {
+            net_margin_bps(
+                row.expected_addressable_revenue_ex_vat_pence,
+                base_landed_cost,
+            )
+        },
+        net_margin_high_bps: if calibrate_zero_margin {
+            0
+        } else {
+            net_margin_bps(
+                row.expected_addressable_revenue_ex_vat_pence,
+                low_landed_cost,
+            )
+        },
         decision_grade: if blockers.is_empty() {
             "review".to_owned()
         } else {
@@ -5454,6 +5772,8 @@ fn build_import_landed_cost_estimate(
         cbam_exposure_flag: Some(0),
         cbam_estimate_gbp_pence: None,
         stage_run_id: stage_run_id.to_owned(),
+        pricing_assessment_id: row.pricing_assessment_id.clone(),
+        force_pricing_assessment_zero_gross_margin: calibrate_zero_margin,
     })
 }
 
@@ -5837,6 +6157,26 @@ fn persist_landed_cost_estimate(
             ),
             &estimate.stage_run_id,
         )?;
+
+        // Stage 11 hardening (D5 calibration cross-table write): when the
+        // inferred order-quantity basis is screening-only, Stage 10's raw
+        // `gross_margin_bps` (e.g. Aggregates' 9999, computed from contract
+        // value / per-pack unit price) is operationally meaningless. Force it
+        // to 0 so downstream consumers see honest numbers. Idempotent —
+        // skipped when the column is already 0.
+        if estimate.force_pricing_assessment_zero_gross_margin {
+            tx.execute(
+                "UPDATE candidate_pricing_assessments
+                 SET gross_margin_bps = 0,
+                     row_version = row_version + 1,
+                     last_local_seq = ?1,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?2
+                   AND gross_margin_bps != 0",
+                params![visible_after_seq, estimate.pricing_assessment_id],
+            )?;
+        }
+
         Ok(())
     })?;
     Ok(())
@@ -5903,6 +6243,7 @@ async fn run_landed_cost_live_loop(
                 row,
                 &supplier_cost,
                 &stage_run_id,
+                &order_quantity_basis,
                 &skill_versions,
             )?;
             persist_landed_cost_estimate(&mut runtime.state_db, &estimate)?;
@@ -18473,7 +18814,7 @@ fn run_relate_stage(state_db: &mut StateDb) -> Result<usize> {
     Ok(relations_count)
 }
 
-fn persist_stage(
+pub(crate) fn persist_stage(
     tx: &Transaction<'_>,
     process_id: &str,
     stage: &str,
@@ -18633,7 +18974,7 @@ fn repo_root() -> Result<PathBuf> {
         .ok_or_else(|| anyhow!("failed to resolve repository root"))
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
@@ -18796,10 +19137,10 @@ impl UuidSeed {
 // Stage 14 — operator decision capture (Phase 1 CLI)
 // ---------------------------------------------------------------------------
 
-const OPERATOR_DECISION_STAGE_NAME: &str = "operator decision";
+pub(crate) const OPERATOR_DECISION_STAGE_NAME: &str = "operator decision";
 const OPERATOR_DECISION_DISPOSITIONS: &[&str] = &["approve", "reject", "watch"];
 const OPERATOR_DECISION_STATUSES: &[&str] = &["queued", "stale", "superseded", "withdrawn"];
-const DEFAULT_LOCAL_OPERATOR_ID: &str = "local-operator";
+pub(crate) const DEFAULT_LOCAL_OPERATOR_ID: &str = "local-operator";
 
 #[derive(Debug, Clone)]
 #[allow(clippy::struct_field_names)]
@@ -18862,7 +19203,10 @@ fn read_manifest_snapshot_for_decision(
     })
 }
 
-fn read_latest_manifest_basis_hash(conn: &Connection, process_id: &str) -> Result<Option<String>> {
+pub(crate) fn read_latest_manifest_basis_hash(
+    conn: &Connection,
+    process_id: &str,
+) -> Result<Option<String>> {
     conn.query_row(
         "SELECT manifest_basis_hash FROM manifests WHERE process_id = ?1",
         params![process_id],
@@ -18994,15 +19338,15 @@ fn capture_operator_decision(state_db: &mut StateDb, cli: &Cli, process_id: &str
 }
 
 #[derive(Debug, Clone)]
-struct OperatorIntentRow {
-    id: String,
-    process_id: String,
-    desired_disposition: String,
-    status: String,
-    idempotency_key: String,
+pub(crate) struct OperatorIntentRow {
+    pub(crate) id: String,
+    pub(crate) process_id: String,
+    pub(crate) desired_disposition: String,
+    pub(crate) status: String,
+    pub(crate) idempotency_key: String,
 }
 
-fn lookup_intent_by_idempotency_key(
+pub(crate) fn lookup_intent_by_idempotency_key(
     conn: &Connection,
     idempotency_key: &str,
 ) -> Result<Option<OperatorIntentRow>> {
@@ -19379,6 +19723,7 @@ fn mark_intents_stale_on_basis_drift(
 }
 
 #[cfg(test)]
+#[allow(clippy::doc_markdown)]
 mod tests {
     use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
@@ -20557,6 +20902,7 @@ mod tests {
             candidate_quantity_unit: None,
             lot_title: Some("DGU supply".to_owned()),
             lot_description: Some("Supply double glazed units".to_owned()),
+            lot_estimated_value_pence: None,
             notice_title: "DGU notice".to_owned(),
             notice_summary: Some("DGU supply".to_owned()),
             buyer_name: Some("Buyer".to_owned()),
@@ -22122,11 +22468,19 @@ mod tests {
 
     #[test]
     fn infer_order_quantity_basis_prefers_contract_value() {
+        // Stage 11 hardening (order-quantity): under the new D3 priority, the
+        // FromContractValue branch only fires when quoted_quantity is plausible
+        // (not pack-listing / supplier-capacity / scale-mismatch). The default
+        // fixture has quoted_quantity=10000 with MOQ=10 (ratio 1000x), which
+        // the new D4 plausibility check classifies as supplier capacity. Clear
+        // it so the row's only quantity signal is the contract revenue.
         let mut row = stage11_row_fixture();
         row.revenue_basis_type = "expected_value".to_owned();
         row.expected_addressable_revenue_ex_vat_pence = 20_640;
         row.unit_price_gbp_pence = 516;
         row.candidate_quantity = Some(12.0);
+        row.quoted_quantity = None;
+        row.minimum_order_quantity = None;
 
         let basis = super::infer_order_quantity_basis(&row);
 
@@ -22142,7 +22496,13 @@ mod tests {
 
     #[test]
     fn infer_order_quantity_basis_uses_lot_quantity_when_value_absent() {
+        // Stage 11 hardening: under D3 Priority 1, revenue_basis_type ==
+        // "rfq_required" short-circuits to RfqRequired regardless of
+        // candidate_quantity. To reach the FromLotQuantity branch (Priority 3a)
+        // we need expected_value-with-no-revenue (so Priority 2 cannot fire).
         let mut row = stage11_row_fixture();
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.expected_addressable_revenue_ex_vat_pence = 0;
         row.candidate_quantity = Some(25.0);
         row.candidate_quantity_unit = Some("piece".to_owned());
 
@@ -22174,7 +22534,14 @@ mod tests {
 
     #[test]
     fn infer_order_quantity_basis_marks_supplier_capacity_as_last_resort() {
+        // Stage 11 hardening: SupplierCapacity now lives at Priority 4 — only
+        // reachable when (a) revenue_basis is not "rfq_required" (Priority 1
+        // skipped), (b) revenue is unavailable so Priority 2 cannot fire, (c)
+        // there is no candidate quantity or lot estimated value, and (d)
+        // quoted_quantity is present and classified as supplier-capacity.
         let mut row = stage11_row_fixture();
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.expected_addressable_revenue_ex_vat_pence = 0;
         row.minimum_order_quantity = None;
 
         let basis = super::infer_order_quantity_basis(&row);
@@ -22209,6 +22576,325 @@ mod tests {
             parameters["inferred_order_quantity_basis"]["qty"],
             json!(10_000.0)
         );
+    }
+
+    // ── Stage 11 hardening (order-quantity) — OQ.1..OQ.10 ───────────────────
+
+    /// Helper for the BasisUndetermined / RFQ persistence tests: a domestic-UK
+    /// `LandedCostAssessmentRow` that — by default — has no quantity signals
+    /// at all (no quoted_quantity, no MOQ, no candidate qty, no lot value).
+    fn stage11_undetermined_row_fixture() -> super::LandedCostAssessmentRow {
+        let mut row = stage11_row_fixture();
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.expected_addressable_revenue_ex_vat_pence = 16_722_222;
+        row.unit_price_gbp_pence = 88;
+        row.ship_from_country = Some("GB".to_owned());
+        row.country_of_origin = Some("GB".to_owned());
+        row.source_name = "amazon-uk".to_owned();
+        row.source_url = Some("https://amazon.co.uk/dp/listing".to_owned());
+        row.quoted_quantity = None;
+        row.quoted_quantity_unit = None;
+        row.minimum_order_quantity = None;
+        row.candidate_quantity = None;
+        row.candidate_quantity_unit = None;
+        row.listing_pack_qty = None;
+        row.listing_pack_unit = None;
+        row.lot_estimated_value_pence = None;
+        row.gross_estimate_confidence_bps = 4000;
+        row.pricing_input_confidence_bps = 5250;
+        row.revenue_confidence_bps = 6500;
+        row
+    }
+
+    /// Aggregates-shape: revenue=£167k, supplier listing is a per-pack quote
+    /// (quoted_quantity = listing_pack_qty = 17.5kg @ 88p).
+    fn stage11_aggregates_row_fixture() -> super::LandedCostAssessmentRow {
+        let mut row = stage11_undetermined_row_fixture();
+        row.quoted_quantity = Some(17.5);
+        row.quoted_quantity_unit = Some("kg".to_owned());
+        row.listing_pack_qty = Some(17.5);
+        row.listing_pack_unit = Some("kg".to_owned());
+        row
+    }
+
+    /// OQ.1: synthetic row with revenue_basis_type=expected_value but every
+    /// quantity signal is absent — must return BasisUndetermined with reason
+    /// NoQuantityAnywhere.
+    #[test]
+    fn infer_order_quantity_basis_returns_basis_undetermined_when_no_signals() {
+        let row = stage11_undetermined_row_fixture();
+        let basis = super::infer_order_quantity_basis(&row);
+        match basis {
+            super::OrderQuantityBasis::BasisUndetermined { reason, .. } => {
+                assert_eq!(reason, super::BasisUndeterminedReason::NoQuantityAnywhere);
+            }
+            other => panic!("expected BasisUndetermined::NoQuantityAnywhere, got {other:?}"),
+        }
+    }
+
+    /// OQ.2: Aggregates-shape — pack-listing + scale mismatch — must classify
+    /// as BasisUndetermined with reason RevenueCostScaleMismatch.
+    #[test]
+    fn infer_order_quantity_basis_returns_basis_undetermined_on_revenue_cost_scale_mismatch() {
+        let row = stage11_aggregates_row_fixture();
+        let basis = super::infer_order_quantity_basis(&row);
+        match basis {
+            super::OrderQuantityBasis::BasisUndetermined { reason, .. } => {
+                assert_eq!(
+                    reason,
+                    super::BasisUndeterminedReason::RevenueCostScaleMismatch
+                );
+            }
+            other => panic!("expected BasisUndetermined::RevenueCostScaleMismatch, got {other:?}"),
+        }
+    }
+
+    /// OQ.3: DGU-shape (no override) with quoted_quantity=10000 + MOQ=10 +
+    /// expected_value revenue must classify as SupplierCapacity (D4 quoted/MOQ
+    /// ratio > 100x heuristic) — and NOT FromContractValue.
+    #[test]
+    fn infer_order_quantity_basis_returns_supplier_capacity_when_quoted_qty_suspect() {
+        let mut row = stage11_row_fixture();
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.expected_addressable_revenue_ex_vat_pence = 250_000;
+        row.unit_price_gbp_pence = 516;
+        row.candidate_quantity = None;
+        row.lot_estimated_value_pence = None;
+        // Default fixture: quoted_quantity=10000 sqm, MOQ=10 sqm — ratio 1000x.
+        let basis = super::infer_order_quantity_basis(&row);
+        assert_eq!(
+            basis,
+            super::OrderQuantityBasis::SupplierCapacity {
+                qty: 10_000.0,
+                basis_unit: Some("square meter".to_owned()),
+            }
+        );
+    }
+
+    /// OQ.4: lot.estimated_value_pence is set and per-unit math is plausible —
+    /// must derive qty via FromLotQuantity (Priority 3b lot-value path).
+    #[test]
+    fn infer_order_quantity_basis_uses_lot_estimated_value_when_present() {
+        let mut row = stage11_row_fixture();
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.expected_addressable_revenue_ex_vat_pence = 0;
+        row.unit_price_gbp_pence = 200;
+        row.candidate_quantity = None;
+        row.candidate_quantity_unit = None;
+        row.lot_estimated_value_pence = Some(10_000);
+        row.quoted_quantity = None;
+        row.minimum_order_quantity = None;
+        let basis = super::infer_order_quantity_basis(&row);
+        assert_eq!(
+            basis,
+            super::OrderQuantityBasis::FromLotQuantity {
+                qty: 50.0, // 10_000 / 200
+                basis_unit: Some("square meter".to_owned()),
+            }
+        );
+    }
+
+    /// OQ.5: Aggregates-shape + active operator override — Stage 14's path
+    /// short-circuits at the top of inference, returning FromOperatorOverride
+    /// regardless of the otherwise-undetermined basis.
+    #[test]
+    fn infer_order_quantity_basis_operator_override_short_circuits_basis_undetermined() {
+        let mut row = stage11_aggregates_row_fixture();
+        row.operator_override = Some(super::OperatorQuantityOverride {
+            qty: 250.0,
+            unit: "square meter".to_owned(),
+        });
+        let basis = super::infer_order_quantity_basis(&row);
+        assert_eq!(
+            basis,
+            super::OrderQuantityBasis::FromOperatorOverride {
+                qty: 250.0,
+                basis_unit: Some("square meter".to_owned()),
+            }
+        );
+    }
+
+    /// OQ.6: when basis is BasisUndetermined, build_domestic_landed_cost_estimate
+    /// persists gross_margin = 0 (via force flag), net_margin_*_bps = 0, and
+    /// commercial_estimate_confidence_bps = 1000.
+    #[test]
+    fn stage11_persists_zero_margin_when_basis_undetermined() -> Result<()> {
+        let row = stage11_aggregates_row_fixture();
+        let basis = super::infer_order_quantity_basis(&row);
+        assert!(matches!(
+            basis,
+            super::OrderQuantityBasis::BasisUndetermined { .. }
+        ));
+        let supplier_cost = super::compute_supplier_cost_basis(&row);
+        let estimate = super::build_domestic_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            "stage-run-oq6",
+            &basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+            }),
+        )?;
+        assert_eq!(estimate.net_margin_low_bps, 0);
+        assert_eq!(estimate.net_margin_base_bps, 0);
+        assert_eq!(estimate.net_margin_high_bps, 0);
+        assert_eq!(estimate.commercial_estimate_confidence_bps, Some(1000));
+        assert!(estimate.force_pricing_assessment_zero_gross_margin);
+        Ok(())
+    }
+
+    /// OQ.7: when basis is RfqRequired (no override), the same calibration
+    /// fires. Even if Stage 10 already produces gross=0 for these rows, the
+    /// build path is exercised and the flag is set so persistence is
+    /// idempotent if Stage 10's number ever drifts.
+    #[test]
+    fn stage11_persists_zero_margin_when_rfq_required_no_override() -> Result<()> {
+        let mut row = stage11_undetermined_row_fixture();
+        row.revenue_basis_type = "rfq_required".to_owned();
+        row.expected_addressable_revenue_ex_vat_pence = 0;
+        row.minimum_order_quantity = Some(5.0);
+        row.quoted_quantity_unit = Some("piece".to_owned());
+        let basis = super::infer_order_quantity_basis(&row);
+        assert!(matches!(
+            basis,
+            super::OrderQuantityBasis::RfqRequired { .. }
+        ));
+        let supplier_cost = super::compute_supplier_cost_basis(&row);
+        let estimate = super::build_domestic_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            "stage-run-oq7",
+            &basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+            }),
+        )?;
+        assert_eq!(estimate.net_margin_base_bps, 0);
+        assert_eq!(estimate.commercial_estimate_confidence_bps, Some(1000));
+        assert!(estimate.force_pricing_assessment_zero_gross_margin);
+        Ok(())
+    }
+
+    /// OQ.8: BasisUndetermined causes the
+    /// `QUANTITY_BASIS_UNDETERMINED_NO_OPERATOR_OVERRIDE` warning to land in
+    /// the persisted warnings JSON.
+    #[test]
+    fn basis_undetermined_warning_emitted_in_warnings_array() -> Result<()> {
+        let row = stage11_aggregates_row_fixture();
+        let basis = super::infer_order_quantity_basis(&row);
+        let supplier_cost = super::compute_supplier_cost_basis(&row);
+        let estimate = super::build_domestic_landed_cost_estimate(
+            &row,
+            &supplier_cost,
+            "stage-run-oq8",
+            &basis,
+            &json!({
+                "hmrc_customs": "1.0.0",
+                "shipment_sizing": "1.0.0",
+                "searates_freight": "1.0.0",
+                "simple_fx": "1.0.0",
+            }),
+        )?;
+        let warnings: serde_json::Value = serde_json::from_str(&estimate.warnings)?;
+        let codes: Vec<String> = warnings
+            .as_array()
+            .expect("warnings array")
+            .iter()
+            .filter_map(|item| item.get("code").and_then(|v| v.as_str()).map(str::to_owned))
+            .collect();
+        assert!(
+            codes
+                .iter()
+                .any(|c| c == "QUANTITY_BASIS_UNDETERMINED_NO_OPERATOR_OVERRIDE"),
+            "expected QUANTITY_BASIS_UNDETERMINED_NO_OPERATOR_OVERRIDE in warnings, got {codes:?}"
+        );
+        Ok(())
+    }
+
+    /// OQ.9: kind/source/screening_uncertainty_warning helpers all return the
+    /// expected strings for the new BasisUndetermined variant.
+    #[test]
+    fn kind_source_warning_helpers_return_expected_strings_for_basis_undetermined() {
+        let basis = super::OrderQuantityBasis::BasisUndetermined {
+            reason: super::BasisUndeterminedReason::RevenueCostScaleMismatch,
+            note: "test".to_owned(),
+            basis_unit: Some("kg".to_owned()),
+        };
+        assert_eq!(basis.kind(), "basis_undetermined");
+        assert_eq!(basis.source(), "insufficient_inputs");
+        let warning = basis
+            .screening_uncertainty_warning()
+            .expect("BasisUndetermined must emit a screening_uncertainty_warning");
+        assert_eq!(
+            warning.code,
+            "QUANTITY_BASIS_UNDETERMINED_NO_OPERATOR_OVERRIDE"
+        );
+        let json = basis.to_json();
+        assert_eq!(json["kind"], json!("basis_undetermined"));
+        assert_eq!(json["source"], json!("insufficient_inputs"));
+        assert_eq!(json["reason"], json!("revenue_cost_scale_mismatch"));
+    }
+
+    /// OQ.10: regression — adding the BasisUndetermined variant must not
+    /// break the existing variants' kind/source/quantity/unit/to_json shape.
+    #[test]
+    fn existing_4_variants_unchanged_after_addition() {
+        let from_contract = super::OrderQuantityBasis::FromContractValue {
+            qty: 40.0,
+            contract_value_gbp_pence: 20_640,
+            basis_unit: Some("square meter".to_owned()),
+        };
+        assert_eq!(from_contract.kind(), "from_contract_value");
+        assert_eq!(
+            from_contract.source(),
+            "expected_value_divided_by_unit_price"
+        );
+        assert!((from_contract.quantity() - 40.0).abs() < f64::EPSILON);
+        assert_eq!(from_contract.unit(), Some("square meter"));
+        assert_eq!(
+            from_contract.to_json()["contract_value_gbp_pence"],
+            json!(20_640)
+        );
+        assert!(from_contract.screening_uncertainty_warning().is_none());
+
+        let from_lot = super::OrderQuantityBasis::FromLotQuantity {
+            qty: 25.0,
+            basis_unit: Some("piece".to_owned()),
+        };
+        assert_eq!(from_lot.kind(), "from_lot_quantity");
+        assert_eq!(from_lot.source(), "product_candidate_quantity");
+        assert!(from_lot.screening_uncertainty_warning().is_none());
+
+        let rfq = super::OrderQuantityBasis::RfqRequired {
+            fallback_qty: 10.0,
+            basis_unit: Some("square meter".to_owned()),
+        };
+        assert_eq!(rfq.kind(), "rfq_required");
+        assert_eq!(rfq.source(), "minimum_order_quantity_or_one_unit_fallback");
+        assert!((rfq.quantity() - 10.0).abs() < f64::EPSILON);
+        assert!(rfq.screening_uncertainty_warning().is_some());
+
+        let supplier = super::OrderQuantityBasis::SupplierCapacity {
+            qty: 10_000.0,
+            basis_unit: Some("square meter".to_owned()),
+        };
+        assert_eq!(supplier.kind(), "supplier_capacity");
+        assert_eq!(supplier.source(), "supplier_quote_quoted_quantity");
+        assert!(supplier.screening_uncertainty_warning().is_some());
+
+        let override_basis = super::OrderQuantityBasis::FromOperatorOverride {
+            qty: 250.0,
+            basis_unit: Some("square meter".to_owned()),
+        };
+        assert_eq!(override_basis.kind(), "from_operator_override");
+        assert_eq!(override_basis.source(), "operator_input_overrides");
+        assert!(override_basis.screening_uncertainty_warning().is_none());
     }
 
     #[test]
@@ -22434,10 +23120,12 @@ mod tests {
         let rows = super::load_landed_cost_assessments(runtime.state_db.connection(), 10)?;
         assert_eq!(rows.len(), 1);
         let supplier_cost = super::compute_supplier_cost_basis(&rows[0]);
+        let order_quantity_basis = super::infer_order_quantity_basis(&rows[0]);
         let estimate = super::build_domestic_landed_cost_estimate(
             &rows[0],
             &supplier_cost,
             "stage-run-domestic-test",
+            &order_quantity_basis,
             &json!({
                 "hmrc_customs": "1.0.0",
                 "shipment_sizing": "1.0.0",

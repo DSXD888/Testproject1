@@ -18,16 +18,19 @@ use std::thread;
 use std::time::Duration;
 
 use self::daemon_bridge::{
-    BridgeError as DaemonBridgeError, CaptureDecisionParams as BridgeCaptureDecisionParams,
-    DaemonBridge, DecisionDisposition as BridgeDecisionDisposition,
-    MutationAck as BridgeMutationAck, NativeSubscriptionEvent,
-    RerunFromErrorParams as BridgeRerunFromErrorParams,
+    BridgeError as DaemonBridgeError,
+    CaptureClarificationParams as BridgeCaptureClarificationParams,
+    CaptureDecisionParams as BridgeCaptureDecisionParams, DaemonBridge,
+    DecisionDisposition as BridgeDecisionDisposition, MutationAck as BridgeMutationAck,
+    NativeSubscriptionEvent, RerunFromErrorParams as BridgeRerunFromErrorParams,
     ResizeSessionParams as BridgeResizeSessionParams,
     ResolveErrorParams as BridgeResolveErrorParams, RestartDaemonParams,
     RetryJobParams as BridgeRetryJobParams, SendSessionInputParams as BridgeSendSessionInputParams,
     StopSessionParams as BridgeStopSessionParams,
     TriggerEnrichmentParams as BridgeTriggerEnrichmentParams,
     TriggerIngestionParams as BridgeTriggerIngestionParams,
+    WithdrawClarificationParams as BridgeWithdrawClarificationParams,
+    WithdrawDecisionParams as BridgeWithdrawDecisionParams,
 };
 use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
@@ -65,6 +68,9 @@ pub fn configure_builder<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri
             refresh_bootstrap_snapshot,
             list_processes,
             get_process_detail,
+            list_manifests,
+            get_decision_history,
+            get_active_overrides,
             list_sessions,
             get_session_history,
             list_errors,
@@ -83,6 +89,10 @@ pub fn configure_builder<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri
             open_logs,
             open_artifacts,
             capture_decision,
+            capture_clarification,
+            withdraw_clarification,
+            withdraw_decision,
+            trigger_pipeline_rerun,
             resolve_error,
             rerun_from_error
         ])
@@ -293,9 +303,52 @@ struct CaptureDecisionParams {
     reviewed_basis_hash: Option<String>,
     reviewed_manifest_hash: Option<String>,
     reviewed_at_stage_run_id: Option<String>,
-    #[allow(dead_code)]
     decision_note: Option<String>,
     idempotency_key: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CaptureClarificationFrontendParams {
+    process_id: String,
+    candidate_id: String,
+    reason_code: String,
+    payload: Value,
+    note: Option<String>,
+    idempotency_key: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WithdrawClarificationFrontendParams {
+    process_id: String,
+    candidate_id: String,
+    reason_code: String,
+    idempotency_key: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WithdrawDecisionFrontendParams {
+    idempotency_key: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TriggerPipelineRerunParams {
+    process_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GetDecisionHistoryParams {
+    process_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GetActiveOverridesParams {
+    process_id: String,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
@@ -1586,6 +1639,124 @@ fn capture_decision<R: tauri::Runtime>(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
+fn capture_clarification<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    params: CaptureClarificationFrontendParams,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    let idempotency_key = params
+        .idempotency_key
+        .clone()
+        .unwrap_or_else(|| next_idempotency_key("desktop-clarification"));
+    let bridge_params = BridgeCaptureClarificationParams {
+        process_id: params.process_id,
+        candidate_id: params.candidate_id,
+        reason_code: params.reason_code,
+        payload: params.payload,
+        note: params.note,
+    };
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.capture_clarification(&bridge_params, idempotency_key.as_str())
+    }))
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn withdraw_clarification<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    params: WithdrawClarificationFrontendParams,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    let idempotency_key = params
+        .idempotency_key
+        .clone()
+        .unwrap_or_else(|| next_idempotency_key("desktop-withdraw-clarification"));
+    let bridge_params = BridgeWithdrawClarificationParams {
+        process_id: params.process_id,
+        candidate_id: params.candidate_id,
+        reason_code: params.reason_code,
+    };
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.withdraw_clarification(&bridge_params, idempotency_key.as_str())
+    }))
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn withdraw_decision<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    params: WithdrawDecisionFrontendParams,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    let bridge_params = BridgeWithdrawDecisionParams {
+        idempotency_key: params.idempotency_key,
+    };
+    let bridge_idempotency_key = next_idempotency_key("desktop-withdraw-decision");
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.withdraw_decision(&bridge_params, bridge_idempotency_key.as_str())
+    }))
+}
+
+/// Stage 14 Phase 2 — kicks off Stage 12 (gross/net margin gate) so the
+/// pipeline regenerates Stage 13's manifest with any new operator overrides
+/// applied. Reuses the existing `trigger_enrichment` IPC; the React side
+/// polls for an updated `manifest_basis_hash` to detect completion.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn trigger_pipeline_rerun<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    params: TriggerPipelineRerunParams,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    let idempotency_key = next_idempotency_key("desktop-pipeline-rerun");
+    let bridge_params = BridgeTriggerEnrichmentParams {
+        process_id: params.process_id,
+    };
+    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
+        connection.trigger_enrichment(&bridge_params, idempotency_key.as_str())
+    }))
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn list_manifests<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    serialize_query_result(
+        query_service::QueryService::open(paths.state_db_path(), EXPECTED_SCHEMA_EPOCH)
+            .and_then(|service| service.list_manifests()),
+    )
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn get_decision_history<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    params: GetDecisionHistoryParams,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    serialize_query_result(
+        query_service::QueryService::open(paths.state_db_path(), EXPECTED_SCHEMA_EPOCH)
+            .and_then(|service| service.get_decision_history(params.process_id.as_str())),
+    )
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn get_active_overrides<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    params: GetActiveOverridesParams,
+) -> std::result::Result<Value, String> {
+    let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    serialize_query_result(
+        query_service::QueryService::open(paths.state_db_path(), EXPECTED_SCHEMA_EPOCH)
+            .and_then(|service| service.get_active_overrides(params.process_id.as_str())),
+    )
+}
+
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 fn resolve_error<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     params: BridgeResolveErrorParams,
@@ -1788,6 +1959,7 @@ fn bridge_capture_decision_params(
             params.reviewed_at_stage_run_id.clone(),
             "reviewedAtStageRunId",
         )?,
+        decision_note: params.decision_note.clone(),
     })
 }
 
