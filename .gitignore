@@ -31,10 +31,12 @@ apps/desktop/test-results/
 # Pipeline runtime artifacts (agent session captures, downloaded source docs).
 # Each --ingest invocation writes here; outputs are reproducible from inputs.
 artifacts/
+artifacts-*/
 
 # Additional runtime dirs created by parallel daemon runs (runtime/ already covered above)
 runtime[0-9]/
 runtime-*/
+state-*/
 
 # Scheduled-task lock files written by the harness
 .claude/scheduled_tasks.lock

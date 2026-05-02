@@ -115,6 +115,51 @@ mod tests {
         Ok(())
     }
 
+    fn seed_operator_override_audit_fixture(conn: &Connection) -> Result<()> {
+        conn.execute(
+            "INSERT INTO sources (id, kind, enabled, config)
+             VALUES ('fts', 'procurement', 1, '{}')",
+            [],
+        )?;
+        conn.execute(
+            "INSERT INTO source_runtime_state (source_id, last_health_state)
+             VALUES ('fts', 'unknown')",
+            [],
+        )?;
+        seed_process(conn, "proc-override-audit")?;
+        seed_notice(conn, "proc-override-audit", "notice-override-audit")?;
+        conn.execute(
+            "INSERT INTO notice_lots (
+               id, notice_id, lot_key, title, description, owner_id
+             ) VALUES (
+               'lot-override-audit', 'notice-override-audit', 'lot-override-audit',
+               'Override audit lot', 'Override audit lot', 'local-owner'
+             )",
+            [],
+        )?;
+        conn.execute(
+            "INSERT INTO product_candidates (
+               id, process_id, notice_id, lot_id, name, candidate_type, match_archetype,
+               head_noun, candidate_value_share_bps, quoteability_score_bps, owner_id
+             ) VALUES (
+               'cand-override-audit', 'proc-override-audit', 'notice-override-audit',
+               'lot-override-audit', 'Candidate', 'sku', 'direct_match',
+               'candidate', 10000, 8000, 'local-owner'
+             )",
+            [],
+        )?;
+        conn.execute(
+            "INSERT INTO operator_input_overrides (
+               id, process_id, product_candidate_id, reason_code, payload_json, owner_id
+             ) VALUES (
+               'override-existing', 'proc-override-audit', 'cand-override-audit',
+               'quantity_basis_unaligned', '{\"qty\":250,\"unit\":\"square meter\"}', 'local-owner'
+             )",
+            [],
+        )?;
+        Ok(())
+    }
+
     fn seed_document_set(
         conn: &Connection,
         document_set_id: &str,
@@ -1167,19 +1212,19 @@ mod tests {
     }
 
     #[test]
-    fn pdf_t_schema_activation_009_default_schema_epoch_is_6() -> Result<()> {
+    fn pdf_t_schema_activation_009_default_schema_epoch_is_7() -> Result<()> {
         let state_db = TestStateDb::new()?;
         let user_version: i64 =
             state_db
                 .connection()
                 .pragma_query_value(None, "user_version", |row| row.get(0))?;
         ensure!(
-            crate::support::db::DEFAULT_SCHEMA_EPOCH == 6,
-            "PDF-T-schema_activation-009 expected DEFAULT_SCHEMA_EPOCH to be 6"
+            crate::support::db::DEFAULT_SCHEMA_EPOCH == 7,
+            "PDF-T-schema_activation-009 expected DEFAULT_SCHEMA_EPOCH to be 7"
         );
         ensure!(
-            user_version == 6,
-            "PDF-T-schema_activation-009 expected user_version to be 6"
+            user_version == 7,
+            "PDF-T-schema_activation-009 expected user_version to be 7"
         );
         Ok(())
     }
@@ -1263,8 +1308,82 @@ mod tests {
         );
         let user_version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
         ensure!(
-            user_version == 6,
-            "OPD-T-schema_activation-009 expected user_version 6 after upgrade"
+            user_version == 7,
+            "expected user_version 7 after full upgrade"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn opd_t_schema_activation_010_operator_overrides_are_audit_rows() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let conn = Connection::open(&db_path)?;
+
+        for migration_path in [
+            "migrations/0001_sqlite_state_initial.sql",
+            "migrations/0003_sqlite_runtime.sql",
+            "migrations/0004_l2_pending_operator_intents.sql",
+            "migrations/0005_l3_operational_hardening.sql",
+            "migrations/0006_pdf_extraction_toolkit.sql",
+            "migrations/0007_net_margin_gate_assessments.sql",
+            "migrations/0008_manifest_generation_columns.sql",
+            "migrations/0009_operator_input_overrides.sql",
+        ] {
+            apply_migration(&conn, migration_path)?;
+        }
+        seed_applied_migrations(
+            &conn,
+            &[
+                "0001_sqlite_state_initial",
+                "0003_sqlite_runtime",
+                "0004_l2_pending_operator_intents",
+                "0005_l3_operational_hardening",
+                "0006_pdf_extraction_toolkit",
+                "0007_net_margin_gate_assessments",
+                "0008_manifest_generation_columns",
+                "0009_operator_input_overrides",
+            ],
+            6,
+        )?;
+        seed_operator_override_audit_fixture(&conn)?;
+        drop(conn);
+
+        let state_db = StateDb::open(&db_path)?;
+        let conn = state_db.connection();
+        conn.execute(
+            "INSERT INTO operator_input_overrides (
+               id, process_id, product_candidate_id, reason_code, payload_json, owner_id
+             ) VALUES (
+               'override-new', 'proc-override-audit', 'cand-override-audit',
+               'quantity_basis_unaligned', '{\"qty\":150,\"unit\":\"square meter\"}', 'local-owner'
+             )",
+            [],
+        )?;
+        let total: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM operator_input_overrides
+             WHERE process_id = 'proc-override-audit'",
+            [],
+            |row| row.get(0),
+        )?;
+        let migration_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM schema_migrations
+             WHERE id = '0010_operator_override_audit_rows'",
+            [],
+            |row| row.get(0),
+        )?;
+        ensure!(
+            total == 2,
+            "OPD-T-schema_activation-010 expected repeated clarification rows to be retained"
+        );
+        ensure!(
+            migration_count == 1,
+            "OPD-T-schema_activation-010 expected 0010 migration log entry"
+        );
+        let user_version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
+        ensure!(
+            user_version == 7,
+            "OPD-T-schema_activation-010 expected user_version 7 after upgrade"
         );
         Ok(())
     }

@@ -17,6 +17,26 @@ maxScrollCycles: 3
 ## Mission
 Use SeaRates in the operator's persistent CDP browser to estimate sea freight for an already-sized shipment. This is quote lookup only.
 
+## Stage 11 Attempt Budget
+
+The daemon kills each SeaRates attempt after its configured per-attempt budget (180 seconds by default, env-overridable). Complete the happy path in one pass:
+
+1. Check CDP.
+2. Open Logistics Explorer.
+3. Read or refresh `s-token`.
+4. Run the GraphQL query.
+5. Write `result.json`.
+
+The result schema is fully summarized in this SKILL.md. Do not run setup or discovery commands: no `pwd`, `ls`, `rg`, `find`, `command -v`, `sed result.schema.json`, `agent-browser --help`, accessibility snapshots, title checks, broad page inspection, repository searches, or exploratory schema discovery. These commands already consumed an entire daemon attempt in live validation.
+
+Use at most three shell commands total in the success path:
+
+1. `curl` CDP check.
+2. `agent-browser --cdp ${CDP_PORT} open https://www.searates.com/logistics-explorer/`.
+3. `agent-browser --cdp ${CDP_PORT} eval '...'` for token + GraphQL.
+
+After command 3, immediately write `result.json`. If a required value is unavailable after the fast path, immediately write a structured `blocked` result with `cdp_state`, `captcha_intercepted`, and a Stage11Issue-shaped blocker. Never leave the workdir without `result.json`.
+
 ## Mandatory CDP Discipline
 Before navigation:
 
@@ -69,10 +89,10 @@ If `job_parameters.simulate_captcha` is `true` (the daemon injects this when the
 This lets the daemon exercise its retry/cache/operator-notification paths without needing a real captcha to occur.
 
 ## Workflow
-1. Prefer the Logistics Explorer GraphQL path below. Do not inspect application bundles before trying it.
-2. Open `https://www.searates.com/logistics-explorer/` through CDP and confirm the title contains Logistics Explorer.
-3. Read `s-token` from page `localStorage` with `agent-browser --cdp ${CDP_PORT} eval "localStorage.getItem('s-token')"`. If missing, call `https://www.searates.com/auth/platform-token?id=1` from the page and re-read `s-token`.
-4. Build a SeaRates `rates(...)` GraphQL query against `https://rates.searates.com/graphql` with the documented coordinate arguments:
+1. Prefer the Logistics Explorer GraphQL path below. Do not inspect application bundles or run exploratory browser commands before trying it.
+2. Open `https://www.searates.com/logistics-explorer/` through CDP. Do not run a separate title or snapshot command.
+3. In a single `agent-browser --cdp ${CDP_PORT} eval '...'` call, read `s-token` from page `localStorage`; if missing, fetch `https://www.searates.com/auth/platform-token?id=1` from the page, store the returned token if present, and continue.
+4. In the same eval call, build a SeaRates `rates(...)` GraphQL query against `https://rates.searates.com/graphql` with the documented coordinate arguments:
    - `shippingType:FCL`
    - `includedServices:d2d`
    - `portFromFees:false`
@@ -81,7 +101,7 @@ This lets the daemon exercise its retry/cache/operator-notification paths withou
    - `container:ST40` for a 40-foot plan, otherwise map the visible plan to the closest documented container enum.
    - `coordinatesFrom` / `coordinatesTo`.
 5. For the canonical Stage 11 DGU route, use coordinates `coordinatesFrom:[31.2304,121.4737]` for Shanghai, China and `coordinatesTo:[51.5072,-0.1276]` for London, GB. These are only routing seeds; SeaRates resolves them to the actual port legs in its response.
-6. If the sizing payload has `shipment.container_plan.container_count`, call `recalculateRate(shipmentId:<id>, containerAmount:<container_count>)` for each non-expired candidate rate before choosing the freight amount. For the DGU FCL plan this is 12 x 40-foot containers.
+6. If the sizing payload has `shipment.container_plan.containers_required` or `shipment.container_plan.container_count`, use that exact value as `containerAmount` when calling `recalculateRate(shipmentId:<id>, containerAmount:<count>)` for each non-expired candidate rate before choosing the freight amount. Do not hard-code a container count; the current DGU operator-override sizing commonly produces 1 x 40-foot container.
 7. Select the cheapest non-expired recalculated SeaRates rate as `freight_base_amount_minor`. Use the minimum non-expired recalculated amount as `freight_low_amount_minor` and maximum as `freight_high_amount_minor`. Currency minor units are cents for USD and pence for GBP.
 8. Capture price, currency, route, mode/container basis, transit time if shown, source URL, raw evidence text, and caveats.
 
@@ -89,11 +109,26 @@ The coordinate GraphQL path is still live SeaRates data: it uses the operator's 
 
 ### GraphQL command shape
 
-Use this shape inside `agent-browser --cdp ${CDP_PORT} eval '...'`; adjust constants from `job_parameters` and the selected quote:
+Use this shape inside `agent-browser --cdp ${CDP_PORT} eval '...'`; adjust constants from `job_parameters` and the selected quote. Keep the browser-side timeout so the command returns with enough time to write `result.json`:
 
 ```js
 (async () => {
-  const token = localStorage.getItem("s-token");
+  let token = localStorage.getItem("s-token");
+  if (!token) {
+    try {
+      const tokenResponse = await fetch("https://www.searates.com/auth/platform-token?id=1", { signal: AbortSignal.timeout(8000) });
+      const tokenText = await tokenResponse.text();
+      try {
+        const tokenJson = JSON.parse(tokenText);
+        token = tokenJson.token || tokenJson.data?.token || tokenJson.access_token || tokenText.replace(/^"|"$/g, "");
+      } catch (_) {
+        token = tokenText.replace(/^"|"$/g, "");
+      }
+      if (token) localStorage.setItem("s-token", token);
+    } catch (error) {
+      return JSON.stringify({ stage11_error: "SEARATES_SESSION_EXPIRED", message: String(error) });
+    }
+  }
   const query = `{ rates(includedServices:d2d,portFromFees:false,portToFees:false,shippingType:FCL,coordinatesFrom:[31.2304,121.4737],coordinatesTo:[51.5072,-0.1276],date:"2026-06-14",container:ST40){ points{ id rateId location{ id name country lat lng code inaccessible pointType dry } shippingType provider providerLogo loads{ id unit amount shortCode type } routeTariff{ name abbr price currency } lumpsumTariff{ price currency } transitTime{ rate port route } distance totalPrice totalCurrency pointTotal routeTotal terms } general{ shipmentId validityFrom validityTo individual totalPrice totalCurrency totalTransitTime expired spot indicative standard queryShippingType shipmentCreatedAt interpolationInfo } request{ request_key } } }`;
   const response = await fetch("https://rates.searates.com/graphql", {
     method: "POST",
@@ -103,6 +138,7 @@ Use this shape inside `agent-browser --cdp ${CDP_PORT} eval '...'`; adjust const
       "authorization": `Bearer ${token}`,
     },
     body: JSON.stringify({ query }),
+    signal: AbortSignal.timeout(15000),
   });
   return await response.text();
 })()
@@ -128,6 +164,10 @@ Then recalculate the chosen `general.shipmentId` for the planned container count
 ```
 
 For the final `result.json`, include the selected recalculated rate under `evidence`, including `shipmentId`, `totalPrice`, `totalCurrency`, `totalTransitTime`, provider/carrier, port legs, and the route/query URL.
+
+If the 60-second budget is tight, skip recalculate and emit the cheapest concrete non-expired `rates(...)` candidate directly. The daemon acceptance criterion is a fresh positive freight amount with explicit CDP/captcha fields; recalculate is a refinement, not a reason to miss the contract deadline.
+
+If `rates(...)` times out or returns a network error, write `result.json` immediately with `freight_status:"blocked"`, `cdp_state:"connected"`, `captcha_intercepted:false`, and blocker code `SEARATES_GRAPHQL_TIMEOUT_OR_ERROR`. Do not start fallback UI exploration inside this bounded attempt.
 
 When SeaRates returns a concrete non-expired amount from either the visible UI or the Logistics Explorer GraphQL path, the successful result fields are exactly:
 

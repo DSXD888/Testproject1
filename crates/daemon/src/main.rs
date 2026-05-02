@@ -258,10 +258,13 @@ const LANDED_COST_SKILL_TIMEOUT_SECONDS: u64 = 300;
 const LANDED_COST_STAGE_NAME: &str = "landed cost";
 const LANDED_COST_SCOPE_KIND: &str = "candidate_quote";
 // Stage 11 CDP / captcha resilience knobs (handoff stage-11-hardening-cdp-resilience).
-// `STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS` shrinks the per-attempt budget for
-// SeaRates only — the outer 300s bound still gates total time.
+// `STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS` bounds each SeaRates attempt only —
+// the outer 300s bound still gates total time. Live CDP validation showed the
+// Codex-backed skill can exceed 60s before writing its result even on the fast
+// GraphQL path, so the default leaves enough room for model startup plus one
+// browser query while preserving the 15s/45s retry backoff contract.
 const STAGE11_SKILL_RETRY_MAX_ATTEMPTS: u32 = 3;
-const STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS_DEFAULT: u64 = 60;
+const STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS_DEFAULT: u64 = 180;
 const STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS_ENV: &str = "STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS";
 const STAGE11_SKILL_RETRY_BACKOFF_1_SECONDS_DEFAULT: u64 = 15;
 const STAGE11_SKILL_RETRY_BACKOFF_2_SECONDS_DEFAULT: u64 = 45;
@@ -19868,7 +19871,7 @@ fn capture_operator_clarification(
     let basis_hash = read_latest_manifest_basis_hash(state_db.connection(), process_id)?;
     let stage_run_id = jobs::runner::allocate_stage_run_id();
     let override_id = format!(
-        "override-{}-{}-{}",
+        "override-{}-{}-{}-{}",
         sha256_hex(process_id.as_bytes())
             .chars()
             .take(8)
@@ -19877,7 +19880,11 @@ fn capture_operator_clarification(
             .chars()
             .take(8)
             .collect::<String>(),
-        reason.as_str()
+        reason.as_str(),
+        sha256_hex(stage_run_id.as_bytes())
+            .chars()
+            .take(12)
+            .collect::<String>()
     );
 
     let process_id_owned = process_id.to_owned();
@@ -19890,57 +19897,45 @@ fn capture_operator_clarification(
     let payload_for_query = payload_canonical;
 
     state_db.with_write_transaction(move |tx| {
-        let existing: Option<(String, i64)> = tx
-            .query_row(
-                "SELECT id, row_version FROM operator_input_overrides
-                 WHERE process_id = ?1 AND product_candidate_id = ?2 AND reason_code = ?3",
-                params![process_id_owned, candidate_id_owned, reason_code],
-                |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
-            )
-            .optional()?;
-        if let Some((existing_id, row_version)) = existing {
-            tx.execute(
-                "UPDATE operator_input_overrides
-                 SET payload_json = ?1,
-                     notes = ?2,
-                     basis_hash_when_provided = ?3,
-                     provided_at = CURRENT_TIMESTAMP,
-                     withdrawn_at = NULL,
-                     superseded_by_override_id = NULL,
-                     row_version = ?4,
-                     stage_run_id = ?5,
-                     updated_at = CURRENT_TIMESTAMP
-                 WHERE id = ?6",
-                params![
-                    payload_for_query,
-                    note,
-                    basis_hash_for_query,
-                    row_version + 1,
-                    stage_run_id_for_query,
-                    existing_id,
-                ],
-            )
-            .context("updating existing operator_input_overrides row")?;
-        } else {
-            tx.execute(
-                "INSERT INTO operator_input_overrides (
-                   id, process_id, product_candidate_id, reason_code, payload_json, notes,
-                   basis_hash_when_provided, owner_id, row_version, stage_run_id
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9)",
-                params![
-                    override_id_for_query,
-                    process_id_owned,
-                    candidate_id_owned,
-                    reason_code,
-                    payload_for_query,
-                    note,
-                    basis_hash_for_query,
-                    DEFAULT_LOCAL_OPERATOR_ID,
-                    stage_run_id_for_query,
-                ],
-            )
-            .context("inserting operator_input_overrides row")?;
-        }
+        tx.execute(
+            "INSERT INTO operator_input_overrides (
+               id, process_id, product_candidate_id, reason_code, payload_json, notes,
+               basis_hash_when_provided, owner_id, row_version, stage_run_id
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9)",
+            params![
+                override_id_for_query,
+                process_id_owned,
+                candidate_id_owned,
+                reason_code,
+                payload_for_query,
+                note,
+                basis_hash_for_query,
+                DEFAULT_LOCAL_OPERATOR_ID,
+                stage_run_id_for_query,
+            ],
+        )
+        .context("inserting operator_input_overrides row")?;
+        tx.execute(
+            "UPDATE operator_input_overrides
+             SET superseded_by_override_id = ?1,
+                 row_version = row_version + 1,
+                 stage_run_id = ?2,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE process_id = ?3
+               AND product_candidate_id = ?4
+               AND reason_code = ?5
+               AND id <> ?1
+               AND withdrawn_at IS NULL
+               AND superseded_by_override_id IS NULL",
+            params![
+                override_id_for_query,
+                stage_run_id_for_query,
+                process_id_owned,
+                candidate_id_owned,
+                reason_code,
+            ],
+        )
+        .context("superseding existing operator_input_overrides rows")?;
 
         persist_stage(
             tx,
@@ -24947,7 +24942,7 @@ mod tests {
     }
 
     #[test]
-    fn capture_clarification_replaces_existing_active_override() -> Result<()> {
+    fn capture_clarification_supersedes_existing_active_override() -> Result<()> {
         let temp = tempdir()?;
         let db_path = temp.path().join("state.db");
         let mut state_db = open_stage14_state_db(&db_path)?;
@@ -24986,19 +24981,38 @@ mod tests {
             "only one active row per (process, candidate, reason)"
         );
 
+        let total: i64 = state_db.connection().query_row(
+            "SELECT COUNT(*) FROM operator_input_overrides WHERE process_id = ?1",
+            params![pid],
+            |row| row.get(0),
+        )?;
+        assert_eq!(
+            total, 2,
+            "both the original and superseding rows are retained for audit"
+        );
+
         let payload: String = state_db.connection().query_row(
-            "SELECT payload_json FROM operator_input_overrides WHERE process_id = ?1",
+            "SELECT payload_json FROM operator_input_overrides
+             WHERE process_id = ?1
+               AND withdrawn_at IS NULL
+               AND superseded_by_override_id IS NULL",
             params![pid],
             |row| row.get(0),
         )?;
         let parsed: Value = serde_json::from_str(&payload)?;
         assert!((parsed["qty"].as_f64().unwrap() - 150.0).abs() < f64::EPSILON);
-        let row_version: i64 = state_db.connection().query_row(
-            "SELECT row_version FROM operator_input_overrides WHERE process_id = ?1",
+        let superseded_target: Option<String> = state_db.connection().query_row(
+            "SELECT superseded_by_override_id
+             FROM operator_input_overrides
+             WHERE process_id = ?1
+               AND superseded_by_override_id IS NOT NULL",
             params![pid],
             |row| row.get(0),
         )?;
-        assert_eq!(row_version, 2);
+        assert!(
+            superseded_target.is_some(),
+            "the original row points at the superseding override"
+        );
         Ok(())
     }
 

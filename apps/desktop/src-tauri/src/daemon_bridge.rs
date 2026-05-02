@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 pub const DEFAULT_PROTOCOL_VERSION: u32 = 1;
-pub const DEFAULT_SCHEMA_EPOCH: i64 = 6;
+pub const DEFAULT_SCHEMA_EPOCH: i64 = 7;
 const DESCRIPTOR_FILENAME: &str = "daemon.info.json";
 const DESKTOP_VERSION: &str = "procintel-desktop";
 static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(1);

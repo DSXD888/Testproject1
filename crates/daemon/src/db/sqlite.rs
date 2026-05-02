@@ -19,6 +19,8 @@ const L_PDF_MIGRATION_PATH: &str = "migrations/0006_pdf_extraction_toolkit.sql";
 const L_NET_GATE_MIGRATION_PATH: &str = "migrations/0007_net_margin_gate_assessments.sql";
 const L_MANIFEST_MIGRATION_PATH: &str = "migrations/0008_manifest_generation_columns.sql";
 const L_OPERATOR_OVERRIDES_MIGRATION_PATH: &str = "migrations/0009_operator_input_overrides.sql";
+const L_OPERATOR_OVERRIDE_AUDIT_MIGRATION_PATH: &str =
+    "migrations/0010_operator_override_audit_rows.sql";
 const MIGRATION_LOG_TABLE: &str = "schema_migrations";
 const PRE_L3_SCHEMA_EPOCH: i64 = 1;
 const MIGRATIONS: &[(&str, i64, &str)] = &[
@@ -54,9 +56,14 @@ const MIGRATIONS: &[(&str, i64, &str)] = &[
         6,
         L_OPERATOR_OVERRIDES_MIGRATION_PATH,
     ),
+    (
+        "0010_operator_override_audit_rows",
+        7,
+        L_OPERATOR_OVERRIDE_AUDIT_MIGRATION_PATH,
+    ),
 ];
 
-pub const DEFAULT_SCHEMA_EPOCH: i64 = 6;
+pub const DEFAULT_SCHEMA_EPOCH: i64 = 7;
 pub const DEFAULT_OWNER_ID: &str = "local-owner";
 pub const FTS_SOURCE_ID: &str = "fts";
 

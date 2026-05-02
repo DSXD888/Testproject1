@@ -48,9 +48,12 @@ const RUNTIME_DIRNAME: &str = "runtime";
 const ARTIFACT_DIRNAME: &str = "artifacts";
 const STATE_DB_FILENAME: &str = "state.db";
 const EXPECTED_PROTOCOL_VERSION: u32 = 1;
-const EXPECTED_SCHEMA_EPOCH: i64 = 6;
+const EXPECTED_SCHEMA_EPOCH: i64 = 7;
 const DEFAULT_DAEMON_PROGRAM: &str = "daemon";
 const DESKTOP_BASE_DIR_ENV: &str = "PROCINTEL_DESKTOP_BASE_DIR";
+const DESKTOP_STATE_ROOT_ENV: &str = "PROCINTEL_DESKTOP_STATE_ROOT";
+const DESKTOP_RUNTIME_DIR_ENV: &str = "PROCINTEL_DESKTOP_RUNTIME_DIR";
+const DESKTOP_ARTIFACT_ROOT_ENV: &str = "PROCINTEL_DESKTOP_ARTIFACT_ROOT";
 const HANDSHAKE_RETRY_BACKOFF_MS: [u64; 6] = [150, 300, 600, 1_000, 1_500, 2_000];
 const NATIVE_SUBSCRIPTION_POLL_MS: u64 = 250;
 
@@ -502,15 +505,30 @@ impl DesktopPaths {
                 },
                 Ok,
             )?;
-        Ok(Self::from_base_dir(base_dir))
+        Ok(Self::from_base_dir_with_overrides(
+            base_dir,
+            env_path(DESKTOP_STATE_ROOT_ENV),
+            env_path(DESKTOP_RUNTIME_DIR_ENV),
+            env_path(DESKTOP_ARTIFACT_ROOT_ENV),
+        ))
     }
 
+    #[cfg(test)]
     fn from_base_dir(base_dir: impl Into<PathBuf>) -> Self {
+        Self::from_base_dir_with_overrides(base_dir, None, None, None)
+    }
+
+    fn from_base_dir_with_overrides(
+        base_dir: impl Into<PathBuf>,
+        state_root: Option<PathBuf>,
+        runtime_dir: Option<PathBuf>,
+        artifact_root: Option<PathBuf>,
+    ) -> Self {
         let base_dir = base_dir.into();
         Self {
-            state_root: base_dir.join(STATE_DIRNAME),
-            runtime_dir: base_dir.join(RUNTIME_DIRNAME),
-            artifact_root: base_dir.join(ARTIFACT_DIRNAME),
+            state_root: state_root.unwrap_or_else(|| base_dir.join(STATE_DIRNAME)),
+            runtime_dir: runtime_dir.unwrap_or_else(|| base_dir.join(RUNTIME_DIRNAME)),
+            artifact_root: artifact_root.unwrap_or_else(|| base_dir.join(ARTIFACT_DIRNAME)),
         }
     }
 
@@ -525,6 +543,12 @@ impl DesktopPaths {
     fn socket_path(&self) -> PathBuf {
         self.runtime_dir.join(SOCKET_FILENAME)
     }
+}
+
+fn env_path(name: &str) -> Option<PathBuf> {
+    std::env::var_os(name)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2482,6 +2506,36 @@ mod tests {
             ",
         )?;
         Ok((temp, db_path))
+    }
+
+    #[test]
+    fn bug_runtime_dir_override_regression_desktop_paths_can_isolate_daemon_runtime() -> Result<()>
+    {
+        let temp = tempdir()?;
+        let base_dir = temp.path().join("base");
+        let state_root = temp.path().join("state-root");
+        let runtime_dir = temp.path().join("isolated-runtime");
+        let artifact_root = temp.path().join("artifact-root");
+
+        let paths = DesktopPaths::from_base_dir_with_overrides(
+            base_dir.clone(),
+            Some(state_root.clone()),
+            Some(runtime_dir.clone()),
+            Some(artifact_root.clone()),
+        );
+
+        anyhow::ensure!(paths.state_root == state_root);
+        anyhow::ensure!(paths.runtime_dir == runtime_dir);
+        anyhow::ensure!(paths.artifact_root == artifact_root);
+        anyhow::ensure!(paths.state_db_path() == state_root.join(STATE_DB_FILENAME));
+        anyhow::ensure!(paths.descriptor_path() == runtime_dir.join(DESCRIPTOR_FILENAME));
+        anyhow::ensure!(paths.socket_path() == runtime_dir.join(SOCKET_FILENAME));
+
+        let default_paths = DesktopPaths::from_base_dir(base_dir.clone());
+        anyhow::ensure!(default_paths.state_root == base_dir.join(STATE_DIRNAME));
+        anyhow::ensure!(default_paths.runtime_dir == base_dir.join(RUNTIME_DIRNAME));
+        anyhow::ensure!(default_paths.artifact_root == base_dir.join(ARTIFACT_DIRNAME));
+        Ok(())
     }
 
     #[test]

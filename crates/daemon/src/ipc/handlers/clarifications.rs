@@ -7,7 +7,7 @@
 //! spawning the daemon as a subprocess.
 
 use anyhow::Context;
-use rusqlite::{OptionalExtension, params};
+use rusqlite::params;
 use serde::Deserialize;
 use serde_json::Value;
 use thiserror::Error;
@@ -136,7 +136,7 @@ pub fn capture_clarification(
             .map_err(|error| ClarificationsHandlerError::busy(error.to_string()))?;
     let stage_run_id = allocate_stage_run_id();
     let override_id = format!(
-        "override-{}-{}-{}",
+        "override-{}-{}-{}-{}",
         sha256_hex(params.process_id.as_bytes())
             .chars()
             .take(8)
@@ -145,7 +145,11 @@ pub fn capture_clarification(
             .chars()
             .take(8)
             .collect::<String>(),
-        reason.as_str()
+        reason.as_str(),
+        sha256_hex(stage_run_id.as_bytes())
+            .chars()
+            .take(12)
+            .collect::<String>()
     );
 
     let process_id_owned = params.process_id.clone();
@@ -159,57 +163,45 @@ pub fn capture_clarification(
     let ((), visible_after_seq) = context
         .state_db
         .with_write_transaction(move |tx| {
-            let existing: Option<(String, i64)> = tx
-                .query_row(
-                    "SELECT id, row_version FROM operator_input_overrides
-                     WHERE process_id = ?1 AND product_candidate_id = ?2 AND reason_code = ?3",
-                    params![process_id_owned, candidate_id_owned, reason_code_str],
-                    |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
-                )
-                .optional()?;
-            if let Some((existing_id, row_version)) = existing {
-                tx.execute(
-                    "UPDATE operator_input_overrides
-                     SET payload_json = ?1,
-                         notes = ?2,
-                         basis_hash_when_provided = ?3,
-                         provided_at = CURRENT_TIMESTAMP,
-                         withdrawn_at = NULL,
-                         superseded_by_override_id = NULL,
-                         row_version = ?4,
-                         stage_run_id = ?5,
-                         updated_at = CURRENT_TIMESTAMP
-                     WHERE id = ?6",
-                    params![
-                        payload_for_query,
-                        note,
-                        basis_hash_for_query,
-                        row_version + 1,
-                        stage_run_id_for_query,
-                        existing_id,
-                    ],
-                )
-                .context("updating existing operator_input_overrides row")?;
-            } else {
-                tx.execute(
-                    "INSERT INTO operator_input_overrides (
-                       id, process_id, product_candidate_id, reason_code, payload_json, notes,
-                       basis_hash_when_provided, owner_id, row_version, stage_run_id
-                     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9)",
-                    params![
-                        override_id,
-                        process_id_owned,
-                        candidate_id_owned,
-                        reason_code_str,
-                        payload_for_query,
-                        note,
-                        basis_hash_for_query,
-                        DEFAULT_LOCAL_OPERATOR_ID,
-                        stage_run_id_for_query,
-                    ],
-                )
-                .context("inserting operator_input_overrides row")?;
-            }
+            tx.execute(
+                "INSERT INTO operator_input_overrides (
+                   id, process_id, product_candidate_id, reason_code, payload_json, notes,
+                   basis_hash_when_provided, owner_id, row_version, stage_run_id
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9)",
+                params![
+                    override_id,
+                    process_id_owned,
+                    candidate_id_owned,
+                    reason_code_str,
+                    payload_for_query,
+                    note,
+                    basis_hash_for_query,
+                    DEFAULT_LOCAL_OPERATOR_ID,
+                    stage_run_id_for_query,
+                ],
+            )
+            .context("inserting operator_input_overrides row")?;
+            tx.execute(
+                "UPDATE operator_input_overrides
+                 SET superseded_by_override_id = ?1,
+                     row_version = row_version + 1,
+                     stage_run_id = ?2,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE process_id = ?3
+                   AND product_candidate_id = ?4
+                   AND reason_code = ?5
+                   AND id <> ?1
+                   AND withdrawn_at IS NULL
+                   AND superseded_by_override_id IS NULL",
+                params![
+                    override_id,
+                    stage_run_id_for_query,
+                    process_id_owned,
+                    candidate_id_owned,
+                    reason_code_str,
+                ],
+            )
+            .context("superseding existing operator_input_overrides rows")?;
 
             persist_stage(
                 tx,
