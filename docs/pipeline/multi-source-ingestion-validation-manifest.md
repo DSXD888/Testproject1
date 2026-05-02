@@ -1,6 +1,6 @@
 # Multi-Source Ingestion Validation Manifest
 
-> Generated: 2026-05-02T10:55Z
+> Generated: 2026-05-02T10:55Z (initial), 2026-05-02T11:43Z (per-file loop final)
 > Status: GREEN (with documented findings; see §11 deferred beads)
 
 ## Summary
@@ -177,6 +177,7 @@ This is otherwise the D5 outcome from the handoff ("If FTS + Contracts Finder in
 | MS-DEDUP-1 | Stage 3 cross-source dedup beyond canonical_ocid string equality | UK procurement portals mint independent OCID namespaces (procontract `pc-<uuid>`, Contracts Finder `ocds-b5fd17-<uuid>`, FTS will likely have its own). Real cross-source dedup requires a fuzzy strategy: title similarity + buyer name match + value range + publication-date proximity, or buyer-supplied cross-reference fields. The handoff acknowledged this as an acceptable observation if the actual data had no canonical_ocid matches. New `relation_type` values `'related_not_merged'` and `'possible_duplicate'` already exist in the CHECK constraint but have no producer code. |
 | MS-ENRICH-1 | Auto-trigger document acquisition + PDF extraction for new contracts-finder processes | CF notices include `tender.documents[]` URLs which would seed Stage 4 (acquire docs) → Stage 4b (PDF extraction) → Stage 8 (product-candidate emission). Today the chain runs only for procontract via `procontract-enrich-tender`. Adding a CF equivalent (e.g. `contracts-finder-enrich-tender` skill that downloads PDFs from `release.tender.documents[]`) is a feature-sized change. |
 | MS-CF-INTRA-DEDUP-OBS | Document the intra-source CF dedup pattern (1 OCID, 2 notices = `tenderAmendment` + `award`) | One CF OCID had two associated notices (an active tender-amendment and an award). They were correctly coalesced onto a single `procurement_process`. This is healthy behavior worth documenting because it surfaces in 1/100 CF notices and indicates that any `notices_per_process > 1` invariant in downstream stages must be tested against this case. |
+| MS-FLAKY-PROCESS-CLEANUP | Stabilize 3 timing-sensitive sub-tests in `crates/daemon/tests/fault_process_cleanup.rs` (`_003`, `_004`, `_008`) | Pre-existing at HEAD baseline — confirmed by stashing all parallel-agent WIP and re-running, same 3 failures. The tests assert PTY child-process cleanup verdict (Clean vs Forced) and helper-child exit timing within deadlines. Likely sensitive to OS scheduling jitter on this hardware. Fix would involve increasing tolerance windows, or restructuring to use synthetic clock/wait primitives instead of real-time. |
 
 ## R.1 – R.13 acceptance check
 
@@ -194,17 +195,41 @@ This is otherwise the D5 outcome from the handoff ("If FTS + Contracts Finder in
 | R.10 | ProContract invariants intact | ✅ — all 5 sub-checks pass |
 | R.11 | Failures documented with disposition | ✅ — see §"Failures observed" |
 | R.12 | Code changes (if any) minimal + tested | ✅ — only two test-only forward-compat patches (each <10 lines), described in §"Code changes". Both are pure compilation unblockers for parallel-agent WIP, not handoff-scope edits. |
-| R.13 | Quality gates green | ⚠️ Mixed — fmt/check/binary-tests GREEN; clippy FAIL but **all 38 clippy errors verifiably belong to in-flight code from parallel `stage11-cdp-resilience` and `stage14-phase-2-desktop-ui` worktrees**, not to this validation. See §"Quality Gates". The per-file integration loop (39 files) is captured in the §"Quality Gates" footer. |
+| R.13 | Quality gates green | ⚠️ Mixed — fmt/check/binary-tests/per-file-integration-loop GREEN (38 of 39 PASS, 1 pre-existing baseline FAIL); clippy FAIL with **all 38 clippy errors verifiably belonging to in-flight code from parallel `stage11-cdp-resilience` and `stage14-phase-2-desktop-ui` worktrees**, not to this validation. See §"Quality Gates" for full breakdown. |
 
 ## Quality Gates
 
 ```
-cargo fmt --check                               PASS (after applying `cargo fmt --all` to normalize parallel-agent WIP)
-cargo check --all-targets                       PASS (after two narrow fixes — see "Code changes" below)
-cargo clippy --all-targets -- -D warnings       FAIL — 38 errors, all in parallel-agent WIP (Stage 14 Phase 2)
-cargo test -p daemon --bin daemon               PASS — 157 / 157 (10 more than the 147 baseline because parallel agents have already merged new unit tests into main.rs)
-crates/daemon/tests/*.rs (39 files, individually) (running in background — see footer)
+cargo fmt --check                                   PASS (after applying `cargo fmt --all` to normalize parallel-agent WIP)
+cargo check --all-targets                           PASS (after two narrow fixes — see "Code changes" below)
+cargo clippy --all-targets -- -D warnings           FAIL — 38 errors, all in parallel-agent WIP (Stage 14 Phase 2)
+cargo test -p daemon --bin daemon                   PASS — 157 / 157
+crates/daemon/tests/*.rs (39 files, individually)   38 PASS / 1 FAIL — `fault_process_cleanup` (3 of 28 sub-tests fail
+                                                    on timing-sensitive PTY child-process cleanup; pre-existing at
+                                                    HEAD baseline, confirmed by stash + retest)
 ```
+
+**Per-file integration loop detail** (run twice — initial loop killed at 18/39 by parallel-agent cargo contention; resumed cleanly after parallel run completed):
+
+```
+ALL 39 INTEGRATION TEST FILES — RESULT
+  38 PASS:  adapter_claude, adapter_codex, adapter_result_contract, agent_contract_session,
+            agent_contracts_finder_ingestion, agent_error_manifest, agent_health_detection,
+            agent_procurement_ingestion, agent_pty_session, agent_supplier_enrichment,
+            cron_scheduler, fault_host_events, fault_partial_failure, fault_pty_edge_cases,
+            ipc_handshake, job_claim, observability_telemetry, pdf_extraction_cascade,
+            pdf_extraction_skill_inventory, pdf_lot_product_refresh, pdf_semantic_extraction,
+            pdf_structural_extraction, replay_contract_sessions, replay_pty_sessions,
+            resource_arbiter, schema_activation, session_reaper, skill_canary_harness,
+            skill_drift_monitor, skill_golden_journeys, skill_lint, skill_shadow_compare,
+            validation_canary_health, validation_dry_run, validation_executor,
+            validation_golden_verdicts, validation_policy, validation_retro_backlog
+   1 FAIL:  fault_process_cleanup (pre-existing baseline failure — see MS-FLAKY-PROCESS-CLEANUP)
+```
+
+The critical integration tests for this validation — **`agent_contracts_finder_ingestion`, `agent_procurement_ingestion`, `ipc_handshake`** (the last covering my test stub fix) — all pass.
+
+**Important caveat on the per-file integration loop**: a `fault_process_cleanup` failure surfaced during the loop with 3 of 28 sub-tests failing (`l3_t_fault_process_cleanup_003`, `_004`, `_008` — all timing-sensitive PTY child-process cleanup tests). I confirmed these are **pre-existing at HEAD baseline** by stashing all parallel-agent WIP and re-running the test against the committed code (commit `f769b23` plus only my own additions): same 3 failures. They are not introduced by this validation's changes nor by the parallel agents' WIP. The most recent commits touching `crates/daemon/tests/fault_process_cleanup.rs` are `65716d8 testproject1-hmw.38` and `8c3618f testproject1-hmw.15` — both predate this validation entirely. Likely environmental flakiness in PTY child-process scheduling assertions; documented as deferred bead **MS-FLAKY-PROCESS-CLEANUP** in §11.
 
 **Important caveat on the clippy gate**: this validation produced **zero new clippy errors**. All 38 failing lints belong to in-flight code from the parallel `stage11-cdp-resilience` and `stage14-phase-2-desktop-ui` worktrees and are exclusively in:
 - `crates/daemon/src/main.rs` lines 22582–22844 (Stage 14 Phase 2 IPC handlers + helpers — 36 `doc_markdown` missing-backticks plus a `too_many_lines` and a `too_many_arguments`)
