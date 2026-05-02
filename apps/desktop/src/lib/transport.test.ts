@@ -43,11 +43,25 @@ describe('transport shim', () => {
 
     await transport.invoke('list_processes', { limit: 10 });
     await transport.invoke('capture_decision', { processId: 'proc-1' });
+    await transport.invoke('get_decision_history', { processId: 'proc-1' });
+    await transport.invoke('capture_clarification', {
+      processId: 'proc-1',
+      candidateId: 'candidate-1',
+    });
     transport.subscribe('sessions', 12, () => undefined);
 
     expect(invoke).toHaveBeenCalledWith('list_processes', { limit: 10 });
     expect(invoke).toHaveBeenCalledWith('capture_decision', {
       params: { processId: 'proc-1' },
+    });
+    expect(invoke).toHaveBeenCalledWith('get_decision_history', {
+      params: { processId: 'proc-1' },
+    });
+    expect(invoke).toHaveBeenCalledWith('capture_clarification', {
+      params: {
+        processId: 'proc-1',
+        candidateId: 'candidate-1',
+      },
     });
     expect(subscribe).toHaveBeenCalledWith('sessions', 12, expect.any(Function));
     expect(fetch).not.toHaveBeenCalled();

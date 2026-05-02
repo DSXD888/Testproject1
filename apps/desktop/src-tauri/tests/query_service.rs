@@ -1233,6 +1233,49 @@ fn bug_withdrawn_decision_regression_does_not_roll_up_as_stale() -> Result<()> {
 }
 
 #[test]
+fn bug_manifest_inbox_regression_compares_decision_basis_not_manifest_basis() -> Result<()> {
+    let mut harness = Harness::new()?;
+    harness.seed_process("p1", "2026-04-01T10:00:00Z", "review")?;
+    harness.seed_candidate_and_quote("p1")?;
+    seed_inbox_manifest(&mut harness.state_db, "p1", "clarify", 1, "[]")?;
+    seed_intent(
+        &mut harness.state_db,
+        "intent-queued",
+        "p1",
+        "approve",
+        "queued",
+        "key-queued",
+        None,
+        Some("Fresh decision after manifest regeneration"),
+        Some("2026-04-02T12:00:00Z"),
+    )?;
+    harness.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "UPDATE manifests SET manifest_basis_hash = 'manifest-basis-p1-new' WHERE process_id = 'p1'",
+            [],
+        )?;
+        Ok(())
+    })?;
+
+    let service = harness.service()?;
+    let inbox = service
+        .list_manifests()
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+    let row = inbox
+        .data
+        .iter()
+        .find(|row| row.process_id == "p1")
+        .ok_or_else(|| anyhow!("p1 manifest row not found"))?;
+    assert_eq!(row.decision.disposition.as_deref(), Some("approve"));
+    assert_eq!(row.decision.status.as_deref(), Some("queued"));
+    assert!(
+        !row.decision.is_stale,
+        "fresh queued decisions compare reviewed_basis_hash to pipeline decision_basis_hash, not manifest_basis_hash"
+    );
+    Ok(())
+}
+
+#[test]
 fn rt_4_get_active_overrides_returns_only_active_rows() -> Result<()> {
     let mut harness = Harness::new()?;
     harness.seed_process("p1", "2026-04-01T10:00:00Z", "review")?;

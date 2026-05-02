@@ -148,7 +148,7 @@ describe('FT.8 — Decision history audit chain renders entries with status', ()
         intentId: 'intent-2',
         idempotencyKey: 'key-2',
         disposition: 'watch',
-        status: 'superseded',
+        status: 'stale',
         reviewedBasisHash: 'h0',
         reviewedManifestHash: 'm0',
         reviewedAt: '2026-04-01T11:00:00Z',
@@ -159,10 +159,22 @@ describe('FT.8 — Decision history audit chain renders entries with status', ()
       {
         intentId: 'intent-3',
         idempotencyKey: 'key-3',
-        disposition: 'reject',
-        status: 'withdrawn',
+        disposition: 'watch',
+        status: 'superseded',
         reviewedBasisHash: 'h2',
         reviewedManifestHash: 'm2',
+        reviewedAt: '2026-04-01T10:30:00Z',
+        queuedAt: '2026-04-01T10:30:00Z',
+        supersededByIntentId: 'intent-1',
+        decisionNote: null,
+      },
+      {
+        intentId: 'intent-4',
+        idempotencyKey: 'key-4',
+        disposition: 'reject',
+        status: 'withdrawn',
+        reviewedBasisHash: 'h3',
+        reviewedManifestHash: 'm3',
         reviewedAt: '2026-04-01T10:00:00Z',
         queuedAt: '2026-04-01T10:00:00Z',
         supersededByIntentId: null,
@@ -171,10 +183,31 @@ describe('FT.8 — Decision history audit chain renders entries with status', ()
     ];
     const html = panel({ history });
     expect(html).toContain('data-status="queued"');
+    expect(html).toContain('data-status="stale"');
     expect(html).toContain('data-status="superseded"');
     expect(html).toContain('data-status="withdrawn"');
-    // Withdraw button only appears for the queued intent
-    expect(html.match(/data-testid="withdraw-decision-button"/g)?.length).toBe(1);
+    // Withdraw button appears for queued and stale intents.
+    expect(html.match(/data-testid="withdraw-decision-button"/g)?.length).toBe(2);
     expect(html).toContain('Looks good'); // decision_note rendered
+  });
+
+  it('bug_stale_decision_withdraw_regression_renders_withdraw_button', () => {
+    const history: DecisionHistoryEntry[] = [
+      {
+        intentId: 'intent-stale',
+        idempotencyKey: 'key-stale',
+        disposition: 'approve',
+        status: 'stale',
+        reviewedBasisHash: 'h1',
+        reviewedManifestHash: 'm1',
+        reviewedAt: '2026-04-01T12:00:00Z',
+        queuedAt: '2026-04-01T12:00:00Z',
+        supersededByIntentId: null,
+        decisionNote: null,
+      },
+    ];
+    const html = panel({ history });
+    expect(html).toContain('data-status="stale"');
+    expect(html).toContain('data-testid="withdraw-decision-button"');
   });
 });

@@ -1795,41 +1795,46 @@ fn load_manifest_inbox_rows(conn: &Connection) -> Result<Vec<ManifestInboxRow>, 
                      WHERE n.process_id = m.process_id
                      ORDER BY n.published_at DESC, n.id ASC
                      LIMIT 1
-                   ) AS buyer_name
+                   ) AS buyer_name,
+                   pa.decision_basis_hash AS decision_basis_hash
             FROM manifests m
             LEFT JOIN procurement_processes p ON p.id = m.process_id
+            LEFT JOIN pipeline_assessments pa ON pa.process_id = m.process_id
             ORDER BY m.updated_at DESC, m.process_id ASC
             ",
         )
         .map_err(storage_unreadable)?;
     let rows = stmt
         .query_map([], |row| {
-            Ok(ManifestInboxRow {
-                process_id: row.get::<_, String>(0)?,
-                canonical_process_id: row.get::<_, String>(1)?,
-                title: row.get::<_, Option<String>>(8)?,
-                buyer_name: row.get::<_, Option<String>>(9)?,
-                estimated_value_pence: row.get::<_, Option<i64>>(7)?,
-                stoplight: row.get::<_, Option<String>>(2)?,
-                suggested_action: row.get::<_, Option<String>>(3)?,
-                clarification_prompt_count: row.get::<_, i64>(4)?,
-                manifest_basis_hash: row.get::<_, Option<String>>(5)?,
-                generated_at: row.get::<_, String>(6)?,
-                decision: DecisionStatus {
-                    disposition: None,
-                    status: None,
-                    is_stale: false,
-                    decided_at: None,
+            Ok((
+                ManifestInboxRow {
+                    process_id: row.get::<_, String>(0)?,
+                    canonical_process_id: row.get::<_, String>(1)?,
+                    title: row.get::<_, Option<String>>(8)?,
+                    buyer_name: row.get::<_, Option<String>>(9)?,
+                    estimated_value_pence: row.get::<_, Option<i64>>(7)?,
+                    stoplight: row.get::<_, Option<String>>(2)?,
+                    suggested_action: row.get::<_, Option<String>>(3)?,
+                    clarification_prompt_count: row.get::<_, i64>(4)?,
+                    manifest_basis_hash: row.get::<_, Option<String>>(5)?,
+                    generated_at: row.get::<_, String>(6)?,
+                    decision: DecisionStatus {
+                        disposition: None,
+                        status: None,
+                        is_stale: false,
+                        decided_at: None,
+                    },
                 },
-            })
+                row.get::<_, Option<String>>(10)?,
+            ))
         })
         .map_err(storage_unreadable)?;
     let mut out: Vec<ManifestInboxRow> = Vec::new();
     for row in rows {
-        let mut row = row.map_err(storage_unreadable)?;
+        let (mut row, current_decision_basis_hash) = row.map_err(storage_unreadable)?;
         row.decision = decision_status_for_process(
             decisions.get(&row.canonical_process_id),
-            row.manifest_basis_hash.as_deref(),
+            current_decision_basis_hash.as_deref(),
         );
         out.push(row);
     }

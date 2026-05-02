@@ -633,7 +633,7 @@ export function OperatorDecisionPanel({
                 {entry.decisionNote ? (
                   <p style={{ fontSize: '0.9em' }}>{entry.decisionNote}</p>
                 ) : null}
-                {entry.status === 'queued' ? (
+                {entry.status === 'queued' || entry.status === 'stale' ? (
                   <button
                     type="button"
                     data-testid="withdraw-decision-button"
