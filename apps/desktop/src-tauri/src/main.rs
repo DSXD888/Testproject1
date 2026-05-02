@@ -48,8 +48,9 @@ const RUNTIME_DIRNAME: &str = "runtime";
 const ARTIFACT_DIRNAME: &str = "artifacts";
 const STATE_DB_FILENAME: &str = "state.db";
 const EXPECTED_PROTOCOL_VERSION: u32 = 1;
-const EXPECTED_SCHEMA_EPOCH: i64 = 2;
+const EXPECTED_SCHEMA_EPOCH: i64 = 6;
 const DEFAULT_DAEMON_PROGRAM: &str = "daemon";
+const DESKTOP_BASE_DIR_ENV: &str = "PROCINTEL_DESKTOP_BASE_DIR";
 const HANDSHAKE_RETRY_BACKOFF_MS: [u64; 6] = [150, 300, 600, 1_000, 1_500, 2_000];
 const NATIVE_SUBSCRIPTION_POLL_MS: u64 = 250;
 
@@ -491,10 +492,16 @@ impl DesktopPaths {
             return Ok(Self::from_base_dir(harness.base_dir()));
         }
 
-        let base_dir = app
-            .path()
-            .app_local_data_dir()
-            .context("resolving app-local data directory")?;
+        let base_dir = std::env::var_os(DESKTOP_BASE_DIR_ENV)
+            .map(PathBuf::from)
+            .map_or_else(
+                || {
+                    app.path()
+                        .app_local_data_dir()
+                        .context("resolving app-local data directory")
+                },
+                Ok,
+            )?;
         Ok(Self::from_base_dir(base_dir))
     }
 
@@ -1884,7 +1891,10 @@ fn run_native_subscription_loop<R: tauri::Runtime>(
                 topic: emitted_topic,
                 payload,
             })) => {
-                let _ = app.emit(emitted_topic.as_str(), payload);
+                let _ = app.emit(
+                    native_event_name_for_topic(emitted_topic.as_str()).as_str(),
+                    payload,
+                );
             }
             Ok(Some(NativeSubscriptionEvent::Lifecycle {
                 seq,
@@ -1894,7 +1904,7 @@ fn run_native_subscription_loop<R: tauri::Runtime>(
                 archive_seq,
             })) => {
                 let _ = app.emit(
-                    topic.as_str(),
+                    native_event_name_for_topic(topic.as_str()).as_str(),
                     json!({
                         "sessionId": session_id,
                         "frame": {
@@ -1914,6 +1924,18 @@ fn run_native_subscription_loop<R: tauri::Runtime>(
     }
 
     let _ = connection.unsubscribe(topic.as_str());
+}
+
+fn native_event_name_for_topic(topic: &str) -> String {
+    let mut event_name = String::from("procintel/topic/");
+    for value in topic.chars() {
+        if value.is_ascii_alphanumeric() || matches!(value, '-' | '_' | '/' | ':') {
+            event_name.push(value);
+        } else {
+            event_name.push('_');
+        }
+    }
+    event_name
 }
 
 fn with_daemon_connection<T, F>(
@@ -2594,5 +2616,17 @@ mod tests {
         anyhow::ensure!(superseded.is_some());
         anyhow::ensure!(latest_count == 1);
         Ok(())
+    }
+
+    #[test]
+    fn bug_native_subscription_event_name_regression_sanitizes_topic_dots() {
+        assert_eq!(
+            native_event_name_for_topic("daemon.health"),
+            "procintel/topic/daemon_health"
+        );
+        assert_eq!(
+            native_event_name_for_topic("sessions"),
+            "procintel/topic/sessions"
+        );
     }
 }

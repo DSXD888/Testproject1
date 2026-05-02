@@ -20,10 +20,13 @@ mod reaper_impl;
 
 #[cfg(unix)]
 mod tests {
-    use anyhow::Result;
+    use anyhow::{Context, Result, anyhow};
     use chrono::{DateTime, Utc};
     use serial_test::serial;
+    use std::io::{BufRead, BufReader};
+    use std::os::unix::process::CommandExt;
     use std::path::Path;
+    use std::process::{Child, Command, Stdio};
     use std::time::Duration;
 
     use crate::errors_manifest_impl::ErrorRuntimeContext;
@@ -39,6 +42,45 @@ mod tests {
 
     fn wait_for_signal_ignoring_helper() {
         std::thread::sleep(Duration::from_millis(200));
+    }
+
+    fn exited_child_before_cleanup() -> Result<(u32, i32)> {
+        let mut child = ProcessTreeHelper::spawn(&["sleep", "5"])?;
+        let root_pid = child.id();
+        let pgid = ProcessTreeHelper::process_group(&child)?;
+        child.kill()?;
+        let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(5))?;
+        Ok((root_pid, pgid))
+    }
+
+    fn spawn_signal_ignoring_child() -> Result<Child> {
+        let mut child = Command::new("python3")
+            .arg("-c")
+            .arg(
+                "import signal, time; \
+                 signal.signal(signal.SIGINT, signal.SIG_IGN); \
+                 signal.signal(signal.SIGTERM, signal.SIG_IGN); \
+                 print('ready', flush=True); \
+                 time.sleep(5)",
+            )
+            .process_group(0)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .context("spawning signal-ignoring cleanup fixture")?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow!("signal-ignoring fixture stdout was not piped"))?;
+        let mut ready = String::new();
+        let _ = BufReader::new(stdout)
+            .read_line(&mut ready)
+            .context("waiting for signal-ignoring fixture readiness")?;
+        anyhow::ensure!(
+            ready.trim_end() == "ready",
+            "signal-ignoring fixture did not report readiness: {ready:?}"
+        );
+        Ok(child)
     }
 
     #[test]
@@ -111,14 +153,12 @@ mod tests {
     -> Result<()> {
         let ctx = TestContext::new()?;
         let reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
-        let mut child = ProcessTreeHelper::spawn(&["sleep", "0"])?;
-        let pgid = ProcessTreeHelper::process_group(&child)?;
-        let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(1))?;
+        let (root_pid, pgid) = exited_child_before_cleanup()?;
         let outcome = reaper.cleanup_process_group(&CleanupRequest {
             session_id: "session-clean".to_owned(),
             started_at: fixed_started_at()?,
             process_group_id: pgid,
-            root_pid: Some(child.id()),
+            root_pid: Some(root_pid),
             observed_descendant_pids: Vec::new(),
             send_pty_interrupt: false,
         })?;
@@ -131,9 +171,14 @@ mod tests {
     fn l3_t_fault_process_cleanup_004_forced_verdict_when_kill_is_required() -> Result<()> {
         let ctx = TestContext::new()?;
         let reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
-        let child = ProcessTreeHelper::spawn(&["ignore-int-term", "5"])?;
-        wait_for_signal_ignoring_helper();
+        let mut guard = ProcessIsolationGuard::new("l3_t_fault_process_cleanup_004");
+        let child = spawn_signal_ignoring_child()?;
         let pgid = ProcessTreeHelper::process_group(&child)?;
+        guard.register_pgid(pgid);
+        assert!(
+            !SessionReaper::process_group_members(pgid)?.is_empty(),
+            "signal-ignoring fixture process group was not visible before cleanup"
+        );
         let outcome = reaper.cleanup_process_group(&CleanupRequest {
             session_id: "session-forced".to_owned(),
             started_at: fixed_started_at()?,
@@ -267,14 +312,12 @@ mod tests {
         let ctx = TestContext::new()?;
         let reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
         for index in 0..5 {
-            let mut child = ProcessTreeHelper::spawn(&["sleep", "0"])?;
-            let pgid = ProcessTreeHelper::process_group(&child)?;
-            let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(1))?;
+            let (root_pid, pgid) = exited_child_before_cleanup()?;
             let outcome = reaper.cleanup_process_group(&CleanupRequest {
                 session_id: format!("batch-{index}"),
                 started_at: fixed_started_at()?,
                 process_group_id: pgid,
-                root_pid: Some(child.id()),
+                root_pid: Some(root_pid),
                 observed_descendant_pids: Vec::new(),
                 send_pty_interrupt: false,
             })?;

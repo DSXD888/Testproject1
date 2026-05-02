@@ -18,6 +18,8 @@ use support::native_shell::{
     DaemonServer, NativeAppHarness, desktop_main, welcome_message, write_descriptor,
 };
 
+const EXPECTED_SCHEMA_EPOCH_FOR_TEST: i64 = 6;
+
 struct TestStateReset;
 static TEST_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
 
@@ -63,7 +65,7 @@ fn write_custom_descriptor(
             "pid": pid,
             "socketPath": runtime.socket_path().display().to_string(),
             "protocolVersion": 1,
-            "schemaEpoch": 1,
+            "schemaEpoch": EXPECTED_SCHEMA_EPOCH_FOR_TEST,
             "stateRoot": runtime.state_root().display().to_string(),
             "startedAt": "2026-03-29T12:00:00Z",
             "ready": true
@@ -82,7 +84,7 @@ fn welcome_with_reconnect(
         "selectedProtocolVersion": 1,
         "daemonVersion": "1.2.3",
         "instanceId": instance_id,
-        "schemaEpoch": 1,
+        "schemaEpoch": EXPECTED_SCHEMA_EPOCH_FOR_TEST,
         "commitSeq": 77,
         "healthState": { "status": "ready" },
         "mutationsAllowed": true,
@@ -208,7 +210,7 @@ fn tau_int_003_startup_autolaunch_reaches_full_control_from_native_bootstrap() -
                 "pid": 5150,
                 "socketPath": socket_path.display().to_string(),
                 "protocolVersion": 1,
-                "schemaEpoch": 1,
+                "schemaEpoch": EXPECTED_SCHEMA_EPOCH_FOR_TEST,
                 "stateRoot": runtime_for_hook.state_root().display().to_string(),
                 "startedAt": "2026-03-29T12:30:00Z",
                 "ready": true
@@ -318,7 +320,11 @@ fn tau_int_007_degraded_daemon_maps_to_control_limited() -> Result<()> {
     )?;
     let limited =
         NativeAppHarness::build(&runtime)?.invoke_value("get_bootstrap_snapshot", Value::Null)?;
-    anyhow::ensure!(json_mode(&limited) == Some("control_limited"));
+    anyhow::ensure!(
+        json_mode(&limited) == Some("control_limited"),
+        "unexpected limited snapshot: {}",
+        serde_json::to_string_pretty(&limited)?
+    );
 
     Ok(())
 }

@@ -17,6 +17,8 @@ use tauri::{WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 #[allow(dead_code)]
 pub mod desktop_main;
 
+const EXPECTED_SCHEMA_EPOCH_FOR_TEST: i64 = 6;
+
 pub struct NativeAppHarness {
     #[allow(dead_code)]
     pub app: tauri::App<MockRuntime>,
@@ -103,7 +105,7 @@ pub fn write_descriptor(runtime: &desktop_main::TestRuntimeHarness, ready: bool)
             "pid": 4242,
             "socketPath": runtime.socket_path().display().to_string(),
             "protocolVersion": 1,
-            "schemaEpoch": 1,
+            "schemaEpoch": EXPECTED_SCHEMA_EPOCH_FOR_TEST,
             "stateRoot": runtime.state_root().display().to_string(),
             "startedAt": "2026-03-29T12:00:00Z",
             "ready": ready
@@ -123,7 +125,7 @@ pub fn welcome_message(
         "selectedProtocolVersion": 1,
         "daemonVersion": "1.2.3",
         "instanceId": instance_id,
-        "schemaEpoch": 1,
+        "schemaEpoch": EXPECTED_SCHEMA_EPOCH_FOR_TEST,
         "commitSeq": 77,
         "healthState": { "status": health_status },
         "mutationsAllowed": true,
