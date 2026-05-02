@@ -1,12 +1,12 @@
 # Post-Merge Quality Gate Sweep - Validation Manifest
 
 > Generated: 2026-05-02T13:47:23Z
-> HEAD: 5a8f4fd
+> HEAD: 8abb619
 > Status: RED
 
 ## Summary
 
-All compiler, lint, Rust test, and Vitest gates passed on the final stable worktree snapshot. The requested baseline drifted during execution: the handoff expected HEAD `4ba771d`, but `main` advanced to `5a8f4fd` while gates were running, adding the flake-cleanup, documentation, and Contracts Finder walkthrough commits. That explains the positive count deltas: `native_shell` now passes `16/16`, `fault_process_cleanup` passes in the per-file loop, `query_service` now has `22` tests, and Vitest now has `36` tests. Status is RED only because the live ignored `state/state.db` contains an extra Contracts Finder manifest/assessment row beyond the requested invariant counts; the expected Stage 14 DGU rows and multi-source source counts are intact. No destructive DB cleanup was performed.
+All compiler, lint, Rust test, and Vitest gates passed on the final stable worktree snapshot. The requested baseline drifted during execution: the handoff expected HEAD `4ba771d`, but `main` advanced to `8abb619` while gates were running, adding the flake-cleanup, documentation, and Contracts Finder walkthrough commits. That explains the positive count deltas: `native_shell` now passes `16/16`, `fault_process_cleanup` passes in the per-file loop, `query_service` now has `22` tests, and Vitest now has `36` tests. Status is RED only because the live ignored `state/state.db` contains an extra Contracts Finder manifest/assessment row beyond the requested invariant counts; the expected Stage 14 DGU rows and multi-source source counts are intact. No destructive DB cleanup was performed.
 
 ## Gate-by-gate results
 
@@ -29,7 +29,7 @@ All compiler, lint, Rust test, and Vitest gates passed on the final stable workt
 1. Requested HEAD did not match current `main`.
    - Reproduction: `git log --oneline 91a1484..HEAD`
    - Expected by handoff: HEAD `4ba771d`, 4 commits since `91a1484`.
-   - Observed: HEAD `5a8f4fd`, 10 commits since `91a1484`.
+   - Observed: HEAD `8abb619`, 10 commits since `91a1484`.
    - Disposition: Documented. Later commits explain the native-shell and integration-loop positive deltas.
 
 2. Clippy failure in Stage 14 query-service test helper.
@@ -61,7 +61,7 @@ All compiler, lint, Rust test, and Vitest gates passed on the final stable workt
 | File | Change | Justification |
 |---|---|---|
 | `apps/desktop/src-tauri/tests/query_service.rs` | Replaced `map(...).unwrap_or_else(...)` with `map_or_else(...)`. | Required for `cargo clippy --all-targets -- -D warnings`. |
-| `apps/desktop/src-tauri/src/query_service.rs` | Completed `DecisionStatus.status` projection from `pending_operator_intents.status`; made stale calculation explicit. | Required to compile and to expose decision lifecycle state consistently. Landed in `5a8f4fd`. |
+| `apps/desktop/src-tauri/src/query_service.rs` | Completed `DecisionStatus.status` projection from `pending_operator_intents.status`; made stale calculation explicit. | Required to compile and to expose decision lifecycle state consistently. Landed in `8abb619`. |
 | `apps/desktop/src-tauri/tests/query_service.rs` | Added regression assertions for process-list and manifest-inbox decision status. | Covers the read-model fix. |
 | `.gitignore` | Ignored `runtime-*/` directories. | Keeps generated runtime walkthrough state out of Git without deleting local files. |
 
