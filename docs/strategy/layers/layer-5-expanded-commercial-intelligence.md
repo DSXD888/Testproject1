@@ -6,6 +6,8 @@
 > **Dependencies:** Layers 0-4 (full pipeline, sync, web portal)
 > **Exit criteria:** System handles >=3 goods categories with decision-grade landed cost and >=2 supplier sources per category.
 
+> **Implementation Status (as of 2026-05-02):** Layer 5 is **PLANNED — not yet built**. No production decision-grade customs classification engine, expanded supplier-source portfolio, or L5 commercial-intelligence authority exists yet. This doc remains a planned execution-grade specification and intentionally has no inline implementation markers.
+
 ---
 
 ## 1. Overview & Customs Classification Engine

@@ -6,6 +6,15 @@
 >
 > **Layers:** 7 layers (0–6), each independently deployable, testable, and incrementally valuable.
 
+> **Build status (2026-05-02):**
+> - Layer 0 (Gold Set + Evaluation): partially built (gold-set fixtures exist; evaluation harness scaffolding in `crates/daemon/tests/`).
+> - Layer 1 (Thin Local Runner): **BUILT**. Daemon binary, PTY-based skill execution, cron scheduler, agent error manifest.
+> - Layer 2 (Single-Operator Desktop): **BUILT**. Tauri desktop app, IPC bridge, `ContractList`/`ContractDetail`/`ManifestInbox`/`OperatorDecisionPanel` pages.
+> - Layer 3 (Operational Hardening): **BUILT**. Stages 1-14 of the pipeline, multi-source ingestion, Stage 11 hardening, Stage 14 Phase 1+2.
+> - Layer 4 (Shared Visibility): NOT BUILT.
+> - Layer 5 (Expanded Commercial Intelligence): NOT BUILT.
+> - Layer 6 (Request Pipeline Automation): NOT BUILT. Stage 15 (`bid_workflow`) blocked on this layer.
+
 ---
 
 ## Glossary

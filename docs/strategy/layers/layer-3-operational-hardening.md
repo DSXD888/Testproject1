@@ -6,6 +6,8 @@
 > **Dependencies:** Layer 0 (intelligence pipeline, gold set for validator calibration), Layer 1 (daemon runtime, agent adapter), Layer 2 (desktop shell, pipeline data model)
 > **Exit criteria:** System runs unattended for 5 consecutive days with >=95% skill success rate and no manual intervention.
 
+> **Implementation Status (as of 2026-05-02):** Layer 3 is **BUILT** around Stages 1-14 of the daemon pipeline, multi-source ingestion, Stage 11 landed-cost hardening, and Stage 14 operator decision/clarification flow. See `docs/pipeline/stage-11-hardening-order-quantity-validation-manifest.md`, `docs/pipeline/stage-11-hardening-cdp-resilience-validation-manifest.md`, `docs/pipeline/stage-14-validation-manifest.md`, `docs/pipeline/stage-14-phase-2-validation-manifest.md`, and `docs/pipeline/multi-source-ingestion-validation-manifest.md` for per-stage evidence. This doc has been annotated to reflect actual implementation choices — search for `[IMPL]` markers. Where actual implementation diverged from the pre-build spec, the rationale is in a `> **[IMPL] ⚠ Deviation:**` callout.
+
 ---
 
 ## 1. Overview & Daemon Additions
@@ -30,6 +32,10 @@ System runs unattended for 5 consecutive days with >=95% skill success rate:
 - **Skill promotion flow** — draft -> candidate -> canary -> shadow -> stable -> rollback
 - **Worker-validator dry-run** — run manifests generated, base validator renders verdicts, verdicts logged without pipeline enforcement
 
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): L3 is built as a staged production pipeline and hardening layer, but the evidence is per-stage validation rather than a single documented five-day unattended run. Current hardening includes scheduler/resource/source/validation modules plus Stages 1-14 in `crates/daemon/src/main.rs:1259`, Stage 11 landed-cost hardening, and Stage 14 operator decision/clarification flow; use the Stage 11/14 and multi-source validation manifests as the implementation snapshot.
+
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): Stage 11 added landed-cost order-quantity basis hardening that is not reflected in this pre-build L3 narrative. `OrderQuantityBasis` now includes `BasisUndetermined` and operator-override paths in `crates/daemon/src/main.rs:3473`, `crates/daemon/src/main.rs:4058`, and `crates/daemon/src/main.rs:4197`; `docs/pipeline/stage-11-hardening-order-quantity-validation-manifest.md` documents the zero-margin calibration and warning behavior.
+
 **Traceability rule:** Every testable Layer 3 behavior below is identified by an inline `L3-FR-*` marker using the stable pattern `L3-FR-{section}.{subsection}.{item}`. Later verification artifacts may reference these requirement IDs without restating the full contract.
 
 ### 1.3 Layer 3 Modules (12 surfaces)
@@ -50,6 +56,8 @@ System runs unattended for 5 consecutive days with >=95% skill success rate:
 | `validation/manifest_writer.rs` | Run Manifest Writer | Produce hybrid-authored run manifest after every skill run. Agent narrative + daemon evidence appendix. Fallback machine-authored manifest if agent fails to narrate. |
 
 Existing repo surfaces intentionally reused rather than forked: `jobs/runner.rs` remains the authoritative enqueue/order/idempotency boundary; `agents/artifacts.rs` remains the authoritative run-manifest struct/size-budget surface; `agents/contracts.rs` remains the authoritative OQG/checkpoint/`ValidationDisposition` surface; `pty/health.rs` remains the host/session health-code surface; `db/sqlite.rs` remains the seeded source/runtime-state entry point; and `ipc/command_router.rs` remains the manual-trigger command boundary. Layer 3 adds modules where needed, but it does not silently create duplicate contracts for those existing types.
+
+> **[IMPL] ✓ As designed** — All 12 named L3 module surfaces exist in the daemon tree: `crates/daemon/src/scheduler/cron.rs`, `crates/daemon/src/sources/registry.rs`, `crates/daemon/src/jobs/claim.rs`, `crates/daemon/src/sessions/reaper.rs`, `crates/daemon/src/pty/hardening.rs`, `crates/daemon/src/agents/arbiter.rs`, `crates/daemon/src/db/checkpoints.rs`, `crates/daemon/src/tracing/structured.rs`, `crates/daemon/src/tracing/forensic.rs`, `crates/daemon/src/validation/policy.rs`, `crates/daemon/src/validation/executor.rs`, and `crates/daemon/src/validation/manifest_writer.rs`.
 
 **L3-FR-1.3.1 — `scheduler/cron.rs` owns daemon-local cron scheduling**
 - AC1: Layer 3 includes `scheduler/cron.rs`.
@@ -139,6 +147,8 @@ Three quota types with ordered admission priority:
 
 Skill-level `max_concurrency` can lower these ceilings but never raise them.
 
+> **[IMPL] ✓ As designed** — Typed resource admission is implemented by `ResourceArbiter` in `crates/daemon/src/agents/arbiter.rs:152`, initialized in daemon runtime state at `crates/daemon/src/main.rs:2172`, and covered by `crates/daemon/tests/resource_arbiter.rs`.
+
 **Admission and release semantics:**
 - Resource units are acquired when a runnable job is admitted and are released on pre-spawn failure or once the session reaches a terminal cleanup point (`reaped`/`archived`).
 - Validator sub-jobs consume `agent_slots` only. In Layer 3 they never consume `browser_slots` or `source_lanes` because `headless_contract` validation does not touch source websites.
@@ -188,6 +198,8 @@ struct CronJobDefinition {
 
 **Source circuit breaker interaction:** If `source_runtime_state` shows an open circuit or active cooldown for a source, the scheduler suppresses normal ingestion and only allows `source-health/*` or `auth-refresh/*` jobs for that source.
 
+> **[IMPL] ✓ As designed** — Cron scheduling freezes source/skill/version definitions in `crates/daemon/src/scheduler/cron.rs:15`, dispatches due startup jobs through `crates/daemon/src/main.rs:2177`, and applies source-circuit suppression in `crates/daemon/src/scheduler/cron.rs:140`.
+
 **L3-FR-1.5.1 — Cron scheduling freezes the executable skill binding at enqueue time**
 - AC1: Every cron-enqueued job stores `source_id`, `skill_id`, `skill_version`, `cron_expression`, and enablement/next-run state as part of its scheduling definition.
 - AC2: The scheduler freezes `skill_id + skill_version` when the job is enqueued and does not resolve a newer skill version later at execution time.
@@ -208,6 +220,8 @@ struct CronJobDefinition {
 | **Terminal geometry** | Fix PTY size for headless runs (e.g., 120x40) | CLI formatting and browser/tool behavior must be stable. Only resize when operator attaches for live viewing |
 | **Signal handling** | Use signals only as wakeups, then drain waitpid/wait loops until nothing left to reap | Signals may be coalesced by Tokio's Unix signal streams |
 
+> **[IMPL] ✓ As designed** — PTY hardening has a dedicated module in `crates/daemon/src/pty/hardening.rs`, while default terminal geometry and phase names are implemented in `crates/daemon/src/pty/session.rs:19`.
+
 **L3-FR-1.6.1 — PTY sessions apply the full hardening bundle before being treated as reliable**
 - AC1: Child exec paths aggressively close inherited fds before exec so unrelated parent fds are not leaked into browser/CLI descendants.
 - AC2: `EIO` on PTY master read after slave closure is treated as expected hangup, while unexpected active-session PTY read failure still follows an explicit cleanup/error path.
@@ -220,6 +234,8 @@ struct CronJobDefinition {
 
 - **Sleep/wake:** If host suspends during active session, assume browser-driven PTY sessions are tainted. Use monotonic time for stall detection. Emit `HOST_SLEEP_INTERRUPTED` if suspend gap exceeds configurable threshold.
 - **Missed runs:** On daemon start after extended downtime, catchup sweep checks for overdue jobs. Jobs executed in priority order via resource arbiter.
+
+> **[IMPL] ✓ As designed** — Host and operational snapshots are surfaced through the daemon status model: cron status at `crates/daemon/src/main.rs:2370`, source health at `crates/daemon/src/main.rs:2397`, validation status at `crates/daemon/src/main.rs:2430`, and resource status at `crates/daemon/src/main.rs:2516`.
 
 **L3-FR-1.7.1 — Host sleep/wake and downtime are first-class runtime conditions**
 - AC1: Active browser-driven PTY sessions are treated as tainted if the host suspends during execution.
@@ -236,6 +252,8 @@ struct CronJobDefinition {
 | `packages/intelligence` | `src/relations/resolve-process-relations.ts` | Relation resolution engine (see §3) |
 | `packages/manifests` | `render-error-manifest.ts` | Error manifest Markdown rendering from error context |
 | `packages/manifests` | `error.md.ts` | Error manifest Markdown template: error chain, job context, skill info, suggested resolution |
+
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): relation computation is currently daemon-owned rather than implemented as the full TypeScript package algorithm described here. The runtime relation stage lives in `crates/daemon/src/main.rs:19175` and writes OCID-exact `merged_same_process` edges; richer heuristic/scored relation logic remains a future extension.
 
 **L3-FR-1.8.1 — Layer 3 activates the shared-library modules needed for relations and error rendering**
 - AC1: `packages/intelligence/src/relations/resolve-process-relations.ts` exists as the Layer 3 relation-resolution engine surface referenced by §3.6.
@@ -271,6 +289,8 @@ struct CronJobDefinition {
 - AC3: The base validator skill inventory includes the six standard skill files plus `references/manifest-corpus-index.md` under `skills/validation/base/`.
 - AC4: The Layer 3 skill inventory is sufficient to implement auth refresh, source health, and generic semantic validation without introducing undocumented directories or files.
 
+> **[IMPL] ✓ As designed** — The operational skill families and validator base directory exist under `skills/auth-refresh/`, `skills/source-health/`, and `skills/validation/base/`; validation execution code consumes the base validator contract through `crates/daemon/src/validation/executor.rs:25`.
+
 ### 1.10 What's Stubbed in This Layer
 
 | Feature | Layer 3 Stub | Full Implementation |
@@ -280,6 +300,8 @@ struct CronJobDefinition {
 | Validator calibration | Initial calibration against gold-set manifests | Layer 4: formal calibration harness with 3 corpora |
 | Sync | Tracking columns populated, no outbox/push/pull | Layer 4: full sync engine |
 | Multi-user | Single operator only | Layer 4: multi-user via web portal |
+
+> **[IMPL] ↻ Superseded** — The “L3 stub” rows remain accurate only for L4/L5/L6 dependencies. L3 itself has since landed Stage 14 operator clarification/override data in `migrations/0009_operator_input_overrides.sql:1` and desktop IPC handlers in `crates/daemon/src/ipc/handlers/clarifications.rs:90`; validation enforcement, sync, multi-user web, and domain validator overlays remain planned L4 work.
 
 ---
 
@@ -374,6 +396,8 @@ Daemon evidence appendix (machine-authored, immutable)
 - AC4: Target manifest size remains under `50 KB` by summarizing patterns/anomalies rather than enumerating every extracted item.
 - AC5: Size-budget overflow is handled by bounded evidence elision before fallback rather than by failing the worker run for manifest verbosity alone.
 
+> **[IMPL] ✓ As designed** — Run-manifest frontmatter, six outcome classes, daemon appendix fields, and the 50 KB target are implemented in `crates/daemon/src/agents/artifacts.rs:15` and written through `crates/daemon/src/validation/manifest_writer.rs:9`.
+
 **L3-FR-2.1.5 — Claim/observation disagreements are explicit review artifacts**
 - AC1: Disagreements between agent-claimed and daemon-observed fields render as an explicit claim/observation disagreement section rather than being hidden in free text.
 - AC2: Stored-manifest metadata may derive `warning_review_required = true` when disagreements exist, but that storage flag is derived metadata rather than additional frontmatter.
@@ -404,6 +428,8 @@ Layer 3 treats the following appendix fields as validator-required. Most are new
 - AC2: `validator_rubric_hash` binds the rendered verdict to the exact `validator-rubric.yaml` in effect for that run.
 - AC3: `drift_delta_json` stays structured and machine-comparable rather than narrative-only history.
 - AC4: If OQG signals or drift deltas are unavailable, the appendix records explicit absence and the validator lowers `basis_sufficiency` instead of inferring a clean run from missing inputs.
+
+> **[IMPL] ✓ As designed** — The validator-specific appendix fields are part of `DaemonEvidenceAppendix` in `crates/daemon/src/agents/artifacts.rs:48`, so validators can consume bounded evidence without reading raw forensic bytes.
 
 ### 2.3 Validation Policy Engine
 
@@ -523,6 +549,8 @@ This ladder fits the existing design because `incident_signature` and `enforceme
 - AC3: `Signature-limited enforcement` allows quarantine only for calibrated high-precision incident signatures while all other cases remain flag-only.
 - AC4: `Full slice enforcement` remains gated by the existing `30/60 + Wilson + false-pass` criteria.
 
+> **[IMPL] ✓ As designed** — Validation policy modes, risk triggers, dry-run ladder phase derivation, and blind demotion logic are implemented in `crates/daemon/src/validation/policy.rs:14`, `crates/daemon/src/validation/policy.rs:238`, and `crates/daemon/src/validation/policy.rs:352`, with coverage in `crates/daemon/tests/validation_policy.rs` and `crates/daemon/tests/validation_canary_health.rs`.
+
 ### 2.4 Validation Executor
 
 Spawns validator sub-jobs via the Job Runner. Links validator job to worker job via `parent_job_id`.
@@ -609,6 +637,8 @@ Execution reuses the Layer 1 agent-runtime contracts rather than inventing a val
 - AC6: Unknown verdict strings, schema-invalid validator outputs, and rendered-but-unpersisted verdicts are treated as validator failure, never silently coerced to `approved`/`flagged`.
 - AC7: Verdict persistence commits the `validation_verdicts` row and the worker-job linkage atomically so later audits never observe a half-written semantic-validation state.
 
+> **[IMPL] ✓ As designed** — Validator execution, fail-open marker handling, and atomic verdict persistence are implemented in `crates/daemon/src/validation/executor.rs:25`, `crates/daemon/src/validation/executor.rs:637`, and `crates/daemon/src/validation/executor.rs:1046`.
+
 ### 2.5 Outcome Classes
 
 Skills return one of six standard outcome classes (replacing binary success/failure):
@@ -637,6 +667,8 @@ Skills return one of six standard outcome classes (replacing binary success/fail
 - AC2: The Job Runner enqueues the follow-on segment when a continuation contract is emitted.
 - AC3: The final stage head does not advance until chain-close aggregate validation has passed or been dry-run-cleared for all segments in the chain.
 
+> **[IMPL] ✓ As designed** — The six `OutcomeClass` variants are implemented in `crates/daemon/src/agents/artifacts.rs:19`, including `SuspectOutput` and `Failed`, so the current code now matches the full L3 outcome-class set.
+
 ### 2.6 Dry-Run Mode
 
 Dry-run is the default calibration path before enforcement is enabled. Isolation guarantees:
@@ -661,6 +693,8 @@ Dry-run is the default calibration path before enforcement is enabled. Isolation
 - AC1: Dry-run accumulates a run-manifest corpus for calibration analysis.
 - AC2: The system tracks false-positive and false-negative behavior on both gold-set and live manifests.
 - AC3: Layer 4 enforcement remains blocked until the dry-run system reaches acceptable rates on those corpora.
+
+> **[IMPL] ✓ As designed** — Dry-run validation verdict storage is materialized in `migrations/0005_l3_operational_hardening.sql:14`, and schema activation is covered by `crates/daemon/tests/schema_activation.rs:214`.
 
 ### 2.7 Fail-Open Semantics (Constitutional)
 
@@ -773,6 +807,8 @@ Backlog items do **not** silently expire in Layer 3. They remain queued until su
 - AC4: On validator recovery, backlog revalidation can mark underlying outputs `suspect`, re-flag process rollups, stale affected decisions, push updated portal status, and surface a recovery summary in the operator dashboard.
 - AC5: Backlog items do not silently expire in Layer 3; any future expiry/pruning action must be explicit and auditable.
 
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): the validation health and fail-open code paths are implemented, but L4-facing portal push behavior in the retroactive recovery bullets is not built because L4 sync/web is still planned. Current evidence is local daemon behavior in `crates/daemon/src/validation/executor.rs`, `crates/daemon/src/validation/policy.rs`, and `crates/daemon/tests/validation_canary_health.rs`.
+
 ### 2.8 Base Validator Skill
 
 **Directory:** `skills/validation/base/`
@@ -869,6 +905,8 @@ Gate A is reusable across versions within a skill family. Gate B is per-slice. G
 - AC3: Gate A must pass before Gate B evidence acquisition begins.
 - AC4: Long-tail slices may remain permanently dry-run or flag-only, and that steady state is explicitly acceptable rather than treated as a spec failure.
 
+> **[IMPL] ✗ Deferred** — Formal three-corpus enforcement calibration remains L4-blocked. L3 has validator policy/executor/schema surfaces and canary fixtures, but the full adjudicated enforcement-readiness corpus and cross-model audit workflow described here are not production gates as of 2026-05-02.
+
 ---
 
 ## 3. Skill Promotion, Source Health & Relations
@@ -925,6 +963,8 @@ Every skill follows a linear promotion path. No stage can be skipped. Skills in 
 - AC2: Promotion gates include validator approval rate alongside fill-rate/precision/recall quality metrics.
 - AC3: A skill may not promote from `canary` to `shadow` unless validator approval meets the declared threshold.
 
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): promotion-stage and version metadata structures exist in the source registry (`crates/daemon/src/sources/registry.rs:103`), but a complete automated promotion controller is not a production workflow yet. Current scheduling binds stable/default source definitions; future promotion work should extend the registry surfaces rather than assuming this six-stage process is already fully automated.
+
 ### 3.2 Five Independent Version Dimensions
 
 Skill versioning tracks five dimensions independently. Only `skill_version` is manually bumped.
@@ -950,6 +990,8 @@ Skill versioning tracks five dimensions independently. Only `skill_version` is m
 - AC1: `worker_behavior_version` derives from semantic worker changes (`skill_version` + `result_schema_version`), and `validator_behavior_version` derives from `validator_overlay_version`.
 - AC2: Cosmetic prompt edits, observability-only edits, and cost-tuning edits do not reset behavior-version-based readiness.
 - AC3: Skill metadata must declare whether a version change is behavior-affecting so slice enforcement readiness can be evaluated mechanically.
+
+> **[IMPL] ✓ As designed** — The source registry models independent version dimensions and behavior-version fields in `crates/daemon/src/sources/registry.rs:103`, with runtime source loading in `crates/daemon/src/sources/registry.rs:210`.
 
 ### 3.3 New Skills Introduced in Layer 3
 
@@ -1018,6 +1060,8 @@ Source-health canary skills run at higher frequency than production jobs. Each c
 - AC2: If the most recent canary failed or timed out, production ingestion/enrichment jobs for that source are suppressed until health recovers.
 - AC3: Canary success, failure, and timeout outcomes are all persisted as explicit source-runtime signals rather than inferred later from missing work.
 
+> **[IMPL] ✓ As designed** — Source runtime health state and canary/circuit fields are implemented by the migration in `migrations/0005_l3_operational_hardening.sql:3`, loaded through `crates/daemon/src/sources/registry.rs:210`, and exposed as status snapshots by `crates/daemon/src/main.rs:2397`.
+
 ### 3.5 Source Circuit Breaker
 
 Repeated challenge-class failures trigger a circuit breaker that protects the source account/IP.
@@ -1069,6 +1113,8 @@ OPEN
 - AC2: Challenge-class failures include `AGENT_AUTH_CHALLENGE`, `SOURCE_CAPTCHA_BLOCKED`, and `SOURCE_SOFT_BLOCKED` with structured blocker class `source_blocked` or `source_rate_limited`.
 - AC3: `source_runtime_state` persists the last health state, circuit state, challenge-window counters, cooldown timestamps, latest canary outcome, and last error code so state transitions are auditable.
 - AC4: Circuit transitions execute transactionally per `source_id`; newer canary timestamps win over stale writes, and a stale success may not silently close a more recent `open`/`half_open` state.
+
+> **[IMPL] ✓ As designed** — Circuit state semantics are implemented in `crates/daemon/src/sources/registry.rs:20`, effective-source suppression in `crates/daemon/src/sources/registry.rs:264`, and scheduler suppression in `crates/daemon/src/scheduler/cron.rs:140`.
 
 ### 3.6 Relation Resolution Engine
 
@@ -1136,6 +1182,8 @@ OPEN
 
 **Conservative thresholds:** Default thresholds are deliberately conservative. False merges are harder to undo than false separations. The operator can manually merge `possible_duplicate` pairs.
 
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): the relation stage is much narrower than this full four-classifier design. `crates/daemon/src/main.rs:19175` only creates `merged_same_process` relations for processes sharing the same canonical OCID, and `docs/pipeline/multi-source-ingestion-validation-manifest.md` records that Contracts Finder and ProContract produced zero relations because their OCID namespaces were disjoint. Do not assume title/CPV/value heuristic merging exists yet.
+
 **Weight variation by context:** The global weights above are a bootstrap default. Weights should eventually vary by source-pair and notice-stage-pair:
 - Planning → tender → award: values drift significantly across lifecycle stages
 - Call-offs share buyer/CPV/title but may differ on reference semantics
@@ -1191,6 +1239,8 @@ For MVP, the global weights are acceptable. A simple interpretable logistic mode
 - AC2: Cache sharing inside a cluster remains cautious and trust-aware rather than equivalent to merged identity.
 - AC3: Cluster grouping reduces duplicate operator effort without forcing destructive auto-merge.
 
+> **[IMPL] ✗ Deferred** — Operator-facing relation cluster grouping for `related_not_merged` and `possible_duplicate` is not built because those relation classes are not yet produced by the daemon relation stage. The implemented relation surface is the OCID-exact `process_relations` writer plus schema support.
+
 ### 3.7 Anti-Bot Classification Table
 
 Per-source anti-bot difficulty rating and mitigation strategy:
@@ -1244,6 +1294,8 @@ Per-source anti-bot difficulty rating and mitigation strategy:
 - AC2: Browser skills verify expected locale and currency before extraction and abort with `SOURCE_LOCALE_DRIFT` on mismatch.
 - AC3: Extraction begins only after page fingerprint proof confirms the correct page and rejects login/CAPTCHA/access-denied/wrong-locale states.
 
+> **[IMPL] ✓ As designed** — Browser-source resilience is reflected in Stage 11 CDP/captcha hardening, including fallback and operator-action blocker behavior in `crates/daemon/src/main.rs:6757` and validated by `docs/pipeline/stage-11-hardening-cdp-resilience-validation-manifest.md`.
+
 ---
 
 ## 4. Schema, Telemetry & Observability
@@ -1253,6 +1305,8 @@ Per-source anti-bot difficulty rating and mitigation strategy:
 All DDL in Postgres syntax (SQLite mirrors with type substitutions per L0 §2.1). The authoritative table shapes are reserved in L0 §2; this section restates the tables that become operationally active in Layer 3.
 
 **Repo-alignment note:** The checked-in SQLite migration surface does not yet fully materialize every L3-ready shape described in the constitutional docs. Before the first Layer 3 write, implementation must reconcile the migration surface so `source_runtime_state` includes `circuit_state` + `last_canary_result`, `process_relations` and `listing_evidence` are materialized, and `process_aliases` keeps the standard push-owned sync columns. Do not rely on opportunistic per-daemon `ALTER TABLE` drift to "discover" the Layer 3 schema at runtime.
+
+> **[IMPL] ↻ Superseded** — The migration surface has been reconciled. `migrations/0005_l3_operational_hardening.sql:3` materializes `source_runtime_state`, `validation_verdicts`, `listing_evidence`, `process_relations`, and `process_aliases`; schema coverage is tested in `crates/daemon/tests/schema_activation.rs`.
 
 #### validation_verdicts (local-only)
 
@@ -1408,6 +1462,8 @@ create table process_aliases (
 - AC2: Alias rows preserve deep-link stability after relation-driven merges.
 - AC3: The alias table is push-owned and remains separate from the full cluster model carried by `canonical_process_id`.
 
+> **[IMPL] ✓ As designed** — The L3 schema activation tables exist in `migrations/0005_l3_operational_hardening.sql`; `process_relations` and `process_aliases` include sync tracking columns and `stage_run_id` at `migrations/0005_l3_operational_hardening.sql:75` and `migrations/0005_l3_operational_hardening.sql:97`.
+
 ### 4.2 Modified Tables
 
 | Table | Field | Change in L3 |
@@ -1422,6 +1478,8 @@ create table process_aliases (
 - AC1: `workflow_jobs.parent_job_id` links validator sub-jobs to worker jobs in live Layer 3 behavior.
 - AC2: `workflow_jobs.validation_required` and `workflow_jobs.validation_verdict_id` are actively populated by validation policy/execution.
 - AC3: `agent_session_logs.run_manifest_path` and `agent_session_logs.run_manifest_hash` are populated for every manifest-producing session.
+
+> **[IMPL] ✓ As designed** — Job claiming and validator linkage are active in `crates/daemon/src/jobs/claim.rs:72`, `crates/daemon/src/jobs/runner.rs:244`, and `crates/daemon/src/validation/executor.rs:1046`; run-manifest path/hash columns are in `migrations/0003_sqlite_runtime.sql:29`.
 
 ### 4.3 Authority Classification (L3 Additions)
 
@@ -1468,6 +1526,8 @@ All four layers capture data from both PTY and contract-mode sessions.
 - AC1: Verdicts, manifests, forensic bytes, and structured traces remain joinable by explicit job/session/process identifiers plus `run_manifest_hash`.
 - AC2: A validator rejection or fail-open incident can be traced from verdict to manifest to forensic artifact without transcript scraping or operator memory.
 - AC3: Retention minima follow the policy in this section and do not prune raw bytes before the linked manifest/verdict/error surfaces remain reviewable.
+
+> **[IMPL] ✓ As designed** — The four-layer observability model is represented by structured trace/artifact/session/manifest surfaces in `migrations/0003_sqlite_runtime.sql:3`, `crates/daemon/src/tracing/structured.rs`, `crates/daemon/src/tracing/forensic.rs`, and `crates/daemon/src/agents/artifacts.rs`.
 
 ### 4.5 Skill-Level Telemetry (13 Metrics)
 
@@ -1523,6 +1583,8 @@ Validation telemetry updates at three fixed points: verdict persistence, synthet
 - AC1: `validator_execution_failure_rate_bps` above `2000` over `1h` can drive `degraded`, and above `5000` over `1h` can drive `blind`, as defined in §2.7.
 - AC2: `validator_canary_pass_rate_bps` reflects the required known-good/known-bad/known-insufficient-basis synthetic canaries from §2.7, and any canary misclassification can force `degraded` or `blind`.
 - AC3: Operator override rate and execution failure telemetry remain available as demotion/calibration inputs rather than only as dashboards.
+
+> **[IMPL] ✓ As designed** — Validation status snapshots are built in `crates/daemon/src/main.rs:2430`, policy health/demotion logic is in `crates/daemon/src/validation/policy.rs:352`, and telemetry behavior is covered by `crates/daemon/tests/observability_telemetry.rs` plus validation tests.
 
 ---
 

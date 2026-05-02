@@ -4,6 +4,25 @@
 >
 > **Normative planning docs:** `layer-strategy.md` + 7 per-layer docs in `layers/`. **Navigation aids (no planning authority):** this index + `README.md`.
 
+## Implementation Status Snapshot (2026-05-02)
+
+Entries in this index that point at L1-L3 strategy sections describe **built** code unless their layer doc says otherwise in an inline status callout. Use the implementation references below before treating historical strategy prose as future work.
+
+| Layer / Topic | Strategy Entry | Impl |
+|---------------|----------------|------|
+| L1 daemon bootstrap and runtime state | `layers/layer-1-thin-local-runner.md` §§1-2 | `crates/daemon/src/main.rs:2148`, `crates/daemon/src/main.rs:2172` |
+| L1 PTY and adapter execution | `layers/layer-1-thin-local-runner.md` §§1.7-1.8, §2.3 | `crates/daemon/src/agents/adapter.rs:12`, `crates/daemon/src/agents/adapter.rs:103`, `crates/daemon/src/pty/session.rs:19` |
+| L1 artifact and run-manifest system | `layers/layer-1-thin-local-runner.md` §§2.5, 4.2 | `crates/daemon/src/agents/artifacts.rs:15`, `crates/daemon/src/validation/manifest_writer.rs:9`, `migrations/0003_sqlite_runtime.sql:3` |
+| L1 stage tracking | `layers/layer-1-thin-local-runner.md` §3.3 | `migrations/0001_sqlite_state_initial.sql:453`, `migrations/0003_sqlite_runtime.sql:99`, `crates/daemon/src/main.rs:259` (`candidate_quote` landed-cost scope) |
+| L2 Tauri desktop shell and command surface | `layers/layer-2-single-operator-desktop.md` §§1.3-1.5 | `apps/desktop/src-tauri/src/main.rs:66`, `apps/desktop/src-tauri/src/main.rs:1919`, `crates/daemon/src/ipc/command_router.rs:95` |
+| L2 read models and manifest inbox | `layers/layer-2-single-operator-desktop.md` §§1.4, 1.9, 3 | `apps/desktop/src-tauri/src/query_service.rs:219`, `apps/desktop/src-tauri/src/query_service.rs:593`, `apps/desktop/src/pages/ManifestInbox.tsx:143` |
+| L2 operator decisions and clarifications | `layers/layer-2-single-operator-desktop.md` §3.2 | `migrations/0004_l2_pending_operator_intents.sql:3`, `migrations/0009_operator_input_overrides.sql:1`, `crates/daemon/src/ipc/handlers/decisions.rs:56`, `crates/daemon/src/ipc/handlers/clarifications.rs:90`, `apps/desktop/src/pages/OperatorDecisionPanel.tsx:247` |
+| L3 scheduler, source registry, and resource arbiter | `layers/layer-3-operational-hardening.md` §§1.3-1.5, 3.4-3.5 | `crates/daemon/src/scheduler/cron.rs:15`, `crates/daemon/src/scheduler/cron.rs:140`, `crates/daemon/src/sources/registry.rs:210`, `crates/daemon/src/agents/arbiter.rs:152` |
+| L3 job claiming and validation dry-run | `layers/layer-3-operational-hardening.md` §§1.3, 2, 4.1-4.2 | `crates/daemon/src/jobs/claim.rs:72`, `crates/daemon/src/validation/policy.rs:238`, `crates/daemon/src/validation/executor.rs:25`, `migrations/0005_l3_operational_hardening.sql:14` |
+| L3 relation resolution | `layers/layer-3-operational-hardening.md` §3.6 | Implemented narrowly as OCID-exact `merged_same_process` only in `crates/daemon/src/main.rs:19175`; heuristic relation classes remain deferred. |
+| L3 landed-cost hardening | `layers/layer-3-operational-hardening.md` (implementation addendum) | `OrderQuantityBasis::BasisUndetermined` and operator overrides in `crates/daemon/src/main.rs:3473`, `crates/daemon/src/main.rs:4058`, `crates/daemon/src/main.rs:4197`; see `docs/pipeline/stage-11-hardening-order-quantity-validation-manifest.md`. |
+| L4-L6 planned layers | `layers/layer-4-shared-visibility.md`, `layers/layer-5-expanded-commercial-intelligence.md`, `layers/layer-6-request-pipeline-automation.md` | Not built as of 2026-05-02. Stage 15 is L6-blocked by `prompts/stage-15-bid-workflow-handoff-DEFERRED.md`. |
+
 ## By Topic
 
 ### Data & Schema

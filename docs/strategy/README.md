@@ -2,7 +2,7 @@
 
 ## Overview
 
-This directory contains the layer decomposition strategy for building the procurement intelligence platform in 7 sequentially-shippable layers (L0-L6).
+This directory contains the layer decomposition strategy for building the procurement intelligence platform in 7 sequentially-shippable layers (L0-L6). As of 2026-05-02, L1-L3 are built and annotated in place; L4-L6 remain planned.
 
 ## Maintained Doc Set
 
@@ -26,22 +26,33 @@ This directory contains the layer decomposition strategy for building the procur
 | `cross-reference-index.md` | Topic lookup: "if you're looking for X, it's in file Y, section Z" |
 | `README.md` | This file — reading order and overview |
 
+## Implementation Status Convention
+
+Each layer doc has a top-of-file **Implementation Status** callout dated to the current annotation pass. L1-L3 also include inline status callouts for load-bearing design decisions:
+
+- `✓ As designed` means the implementation follows the strategy choice.
+- `⚠ Deviation` records what was actually built when reality differs from the pre-build spec.
+- `✗ Deferred` marks planned work that has not landed.
+- `↻ Superseded` marks a historical design replaced by a later decision.
+
+Future readers should treat L1-L3 annotations as the 2026-05-02 implementation snapshot, not as a request to rebuild existing code. L4-L6 intentionally have top-of-file status only because they are not built.
+
 ## Layer Summary
 
-| Layer | Name | Milestone | Key Capability | Exit Criteria |
-|-------|------|-----------|----------------|---------------|
-| 0 | Gold Set + Evaluation Harness | M0 | Intelligence thesis validation on curated corpus (≥80 lots: gating + challenge) | Experiments 1–3b pass (incl. hard-negative correctness) |
-| 1 | Thin Local Runner | M1 | Daemon-managed skill execution with process supervision | 10 batch runs, >=90% success, 0 orphans |
-| 2 | Single-Operator Desktop MVP | M2 | Desktop control panel with live procurement data | Operator runs daily for 1 week |
-| 3 | Operational Hardening | M3 | Cron automation, resource management, dry-run validation | 5 days unattended, >=95% success |
-| 4 | Shared Visibility | M4 | Sync engine, web portal, validation enforcement | 2 users view same pipeline |
-| 5 | Expanded Commercial Intelligence | M5 | Decision-grade customs, multi-source pricing | >=3 categories, >=2 sources each |
-| 6 | Request Pipeline Automation | M6 | Portal-specific bid skills | 1 portal submission end-to-end |
+| Layer | Name | Status (2026-05-02) | Milestone | Key Capability | Exit Criteria |
+|-------|------|---------------------|-----------|----------------|---------------|
+| 0 | Gold Set + Evaluation Harness | Partially built | M0 | Intelligence thesis validation on curated corpus (≥80 lots: gating + challenge) | Experiments 1–3b pass (incl. hard-negative correctness) |
+| 1 | Thin Local Runner | Built | M1 | Daemon-managed skill execution with process supervision | 10 batch runs, >=90% success, 0 orphans |
+| 2 | Single-Operator Desktop MVP | Built | M2 | Desktop control panel with live procurement data | Operator runs daily for 1 week |
+| 3 | Operational Hardening | Built | M3 | Cron automation, resource management, dry-run validation | 5 days unattended, >=95% success |
+| 4 | Shared Visibility | Not built | M4 | Sync engine, web portal, validation enforcement | 2 users view same pipeline |
+| 5 | Expanded Commercial Intelligence | Not built | M5 | Decision-grade customs, multi-source pricing | >=3 categories, >=2 sources each |
+| 6 | Request Pipeline Automation | Not built; Stage 15 blocked | M6 | Portal-specific bid skills | 1 portal submission end-to-end |
 
 ## Reading Order
 
 1. Start with `layer-strategy.md` §1 (Design Rationale) for the decomposition philosophy
-2. Read layer docs sequentially (L0-L6) for the build order — each is self-contained
+2. Read each layer doc's top-of-file implementation status callout before relying on its body text
 3. Consult `layer-strategy.md` §9-§13 for cross-layer concerns (schema stability, interface contracts, testing evolution)
 4. Use `cross-reference-index.md` to find specific topics across layers
 

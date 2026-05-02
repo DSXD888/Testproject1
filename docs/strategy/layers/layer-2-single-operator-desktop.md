@@ -6,6 +6,8 @@
 > **Dependencies:** Layer 0 (intelligence pipeline, skills, contracts-schema), Layer 1 (daemon runtime, artifact capture, process supervision)
 > **Exit criteria:** Single operator runs system daily for 1 week, making real accept/reject decisions on genuine opportunities.
 
+> **Implementation Status (as of 2026-05-02):** Layer 2 is **BUILT**. See `docs/pipeline/stage-14-validation-manifest.md` and `docs/pipeline/stage-14-phase-2-validation-manifest.md` for the operator-decision and desktop IPC evidence. This doc has been annotated to reflect actual implementation choices — search for `[IMPL]` markers. Where actual implementation diverged from the pre-build spec, the rationale is in a `> **[IMPL] ⚠ Deviation:**` callout.
+
 ---
 
 ## 1. Overview, Capability & Desktop Architecture
@@ -28,6 +30,8 @@ Single operator runs system daily for one week, making real accept/reject decisi
 - Decision capture (approve/reject/watch) with staleness tracking
 - Coverage metrics display
 - Error manifest view
+
+> **[IMPL] ✓ As designed** — The desktop shell and daily review surfaces exist in `apps/desktop/src/App.tsx`, `apps/desktop/src/pages/ContractList.tsx`, `apps/desktop/src/pages/ContractDetail.tsx`, `apps/desktop/src/pages/Sessions.tsx`, `apps/desktop/src/pages/SessionViewer.tsx`, `apps/desktop/src/pages/Errors.tsx`, and `apps/desktop/src/pages/DaemonStatus.tsx`.
 
 ### 1.3 Desktop Architecture
 
@@ -55,6 +59,8 @@ React SPA (Vite)
 
 **Why the Tauri backend is not the daemon:** The daemon is a background scheduler/executor. It must survive UI close, restart independently, and have its own lifecycle. Embedding it makes shutdown, crash recovery, and "app closed but cron still runs" (Layer 3) architecturally unsound.
 
+> **[IMPL] ✓ As designed** — The desktop backend is a Tauri client over QueryService and DaemonBridge, with native commands registered in `apps/desktop/src-tauri/src/main.rs:66` and the daemon socket bridge routed through `with_daemon_connection` at `apps/desktop/src-tauri/src/main.rs:1919`.
+
 **Traceability rule:** Every testable Layer 2 behavior in this document is identified by an inline `L2-FR-*` marker. Later sections may reference an existing requirement ID instead of restating the full contract. File, command, component, Definition of Done, and test-scenario tables must all map back to these requirement IDs mechanically.
 
 **L2-FR-BOOT.1 — The Desktop Shell Uses a Separate Background Daemon**
@@ -70,6 +76,8 @@ React SPA (Vite)
 ### 1.4 QueryService Interface
 
 The QueryService opens **read-only** SQLite connections and returns page-specific read models. It enforces: read-only/query-only connections, page-limited queries, no streaming cursors held open, no generic SQL from the frontend, no transcript/blob reads in hot queries.
+
+> **[IMPL] ✓ As designed** — QueryService is the read model boundary for list/detail/session/error/manifest/decision queries in `apps/desktop/src-tauri/src/query_service.rs`, including Manifest Inbox read models at `apps/desktop/src-tauri/src/query_service.rs:219` and `apps/desktop/src-tauri/src/query_service.rs:593`.
 
 This is the desktop-side implementation of the snapshot-envelope and commit-fence contracts summarized in [layer-strategy.md](/Users/alinaaitova/Desktop/Testproject1/docs/strategy/layer-strategy.md#L1177) and first defined operationally in [layer-1-thin-local-runner.md](/Users/alinaaitova/Desktop/Testproject1/docs/strategy/layers/layer-1-thin-local-runner.md#L717).
 
@@ -113,6 +121,8 @@ The daemon increments a monotonic `commit_seq` on every successful write transac
 5. The UI only treats a mutation as visible when `snapshotSeq >= visibleAfterSeq`
 
 Without this fence, the desktop will show ghost states: mutation succeeded, live stream shows progress, but list/detail page still shows an older DB snapshot.
+
+> **[IMPL] ✓ As designed** — The commit-fence model is implemented with daemon-authored `commit_clock` in `migrations/0003_sqlite_runtime.sql:79`, and desktop mutation paths return `MutationAck` through DaemonBridge/Tauri commands such as `apps/desktop/src-tauri/src/main.rs:1441`.
 
 **`snapshotSeq` source:** Do NOT use `PRAGMA data_version` as the user-visible snapshot clock. SQLite documents `data_version` as meaningful only when comparing values from the same connection at two different points in time. Use `data_version` for QueryService cache invalidation; use `commit_seq` (from the daemon-authored `commit_clock` table) as the global visibility fence.
 
@@ -471,6 +481,8 @@ type RerunFromErrorParams = { errorManifestId: string }
 
 **Layer-1 cross-check:** `crates/daemon/src/ipc/handshake.rs` currently accepts `Hello` and rejects mutation traffic with `mutations_unavailable`. Layer 2 extends that handshake-only socket into the typed request model in this section by adding command dispatch and stream subscription on the same authenticated local IPC channel.
 
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): L2 did extend the handshake-only IPC channel, but Stage 14 Phase 2 also added dedicated domain handlers for operator decisions and clarifications instead of keeping all mutation SQL in the Tauri shell or a monolithic router. Current daemon dispatch is in `crates/daemon/src/ipc/command_router.rs:95`; decision handling is in `crates/daemon/src/ipc/handlers/decisions.rs:56`; clarification and withdrawal handling is in `crates/daemon/src/ipc/handlers/clarifications.rs:90`.
+
 ```typescript
 type DaemonHealthPayload = {
   status: string
@@ -508,6 +520,8 @@ type BridgeEvent =
 | `retry_job` | `L2-FR-DB.11` | `RetryJobParams` | `MutationAck` with new `jobId` | Required `idempotencyKey` dedupes repeated retry creation | `ipc/handlers/jobs.rs::retry_job` | Non-retryable or unknown job surfaces explicit refusal/failure |
 | `restart_daemon` | `L2-FR-DB.12` | `RestartDaemonParams` | `MutationAck` (ack sent before restart) | Duplicate request keys collapse to one accepted restart intent | `ipc/handlers/control.rs::restart_daemon` | If restart cannot be accepted, the operator receives an explicit refusal before any disconnect |
 | `rerun_from_error` | `L2-FR-DB.13` | `RerunFromErrorParams` | `MutationAck` with new `jobId` | Required `idempotencyKey` dedupes repeated rerun creation | `ipc/handlers/errors.rs::rerun_from_error` | Unknown or non-rerunnable error manifest surfaces explicit refusal/failure |
+
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): the shipped Tauri invoke surface is broader than this original command table. `apps/desktop/src-tauri/src/main.rs:66` registers manifest inbox and Stage 14 commands including `list_manifests`, `get_decision_history`, `get_active_overrides`, `capture_clarification`, `withdraw_clarification`, `withdraw_decision`, and `trigger_pipeline_rerun`, while the daemon router publishes corresponding post-handshake command methods in `crates/daemon/src/ipc/command_router.rs:95`.
 
 Without at least stop/input/retry/restart, the operator still needs terminal-level escape hatches — undermining the "control panel, not browser" promise.
 
@@ -656,6 +670,8 @@ type SessionReplayRequest = {
 
 **Event projection rule:** `StructuredSessionEvent` is the JSON-serializable projection of the Layer 1 `ControlEvent` union (`Started`, `Checkpoint`, `Progress`, `AuthChallenge`, `Warning`, `FinalResultReady`, `Exited`). No additional semantic event kinds are introduced in Layer 2 without a same-edit update to both this public union and the daemon adapter boundary.
 
+> **[IMPL] ✓ As designed** — The public stream model remains anchored to the L1 adapter control events in `crates/daemon/src/agents/adapter.rs:28`, with desktop stores in `apps/desktop/src/stores/session-registry.ts` and `apps/desktop/src/stores/session-buffer.ts`.
+
 **Sequence rule:** `SessionFrame.seq` is the per-session transport sequence assigned by the daemon/bridge capture pipeline. It is **not** the same field as `checkpointSeq` inside `StructuredSessionEvent { type: 'checkpoint' }`. `checkpointSeq` remains the skill/parser checkpoint number from Layer 1; `SessionFrame.seq` is the delivery/replay cursor.
 
 **Two subscription levels:**
@@ -700,6 +716,8 @@ When daemon restarted (detected by `instanceId` mismatch): PTY streams are NOT r
 | Transcript/history | Contract mode sessions | Virtualized line list, searchable, lazy-loaded from chunked artifact store. Input disabled (clearly indicated). |
 
 **Browser-auth challenge handling:** Some MFA/CAPTCHA flows are browser-only and cannot be resolved via PTY input. For Layer 2, the **minimum required** intervention path is reveal-profile-path plus clear reattach guidance surfaced from session metadata or the structured auth-challenge event. `open_managed_browser_session(session_id)` is forward-compatible but optional in Layer 2; the operator must never be left with an un-actionable auth-challenge banner.
+
+> **[IMPL] ✗ Deferred** — The forward-compatible `open_managed_browser_session(session_id)` command is not a shipped command as of 2026-05-02. Operator intervention is handled through session metadata, PTY input where applicable, and explicit challenge/error surfaces; no code should assume a managed-browser attach command exists yet.
 
 **L2-FR-CH.1 — Session Streams Use a Typed, Sequenced Frame Contract**
 - AC1: Every session frame carries a monotonic `seq` and a stable `kind` drawn from the `SessionFrame` union defined in this section.
@@ -809,6 +827,8 @@ Three flattened states are insufficient — "daemon reachable but unhealthy" is 
 5. else → **Full control**
 
 This precedence makes every reachable combination of `storage × daemon × control × load` map to exactly one mode. In particular, `daemon=starting` is a transient limited mode, not a sixth bootstrap state.
+
+> **[IMPL] ✓ As designed** — Bootstrap and runtime mode derivation are implemented in the Tauri shell entrypoint and bootstrap store in `apps/desktop/src-tauri/src/main.rs`, with frontend gating in `apps/desktop/src/App.tsx`.
 
 **Daemon crash mid-session:**
 1. Stream/heartbeat drops
@@ -943,6 +963,8 @@ All existing hooks (`use-daemon.ts`, `use-control-plane.ts`) and stores (`sessio
 | `vite-plugin-tauri-dev-bridge.ts` | Vite plugin: HTTP handler for `/__tauri_invoke__` (proxies to daemon via UDS) + WebSocket relay at `/__ws__` |
 | `src/lib/transport.ts` | Runtime shim: selects Tauri native bridge or HTTP fallback based on `window.__TAURI_INTERNALS__` presence |
 
+> **[IMPL] ✓ As designed** — The dev-browser bridge and transport shim are present as `apps/desktop/vite-plugin-tauri-dev-bridge.ts` and `apps/desktop/src/lib/transport.ts`, with fixture and transport tests under `apps/desktop/src/lib/`.
+
 **L2-FR-DEV.1 — Dev Browser Invokes the Same Query and Command Surface**
 - AC1: In browser dev mode, `/__tauri_invoke__` proxies the same query and mutation commands that the production Tauri bridge exposes.
 - AC2: Query semantics, mutation semantics, and payload shapes match the production bridge closely enough that Playwright tests exercise the same application contract.
@@ -987,6 +1009,8 @@ All existing hooks (`use-daemon.ts`, `use-control-plane.ts`) and stores (`sessio
 | `src/hooks/use-control-plane.ts` | `useControlPlaneState()` — daemon health separate from query snapshots; consumed via `useSyncExternalStore` | `L2-FR-STATE.1`, `L2-FR-STATE.6`, `L2-FR-BOOT.3` |
 | `src/lib/transport.ts` | **Dev + shipped:** Runtime shim — selects Tauri native bridge or HTTP fallback (see §1.8) | `L2-FR-DEV.1`-`L2-FR-DEV.4`, `L2-FR-STATE.4` |
 | `vite-plugin-tauri-dev-bridge.ts` | **Dev-only (not shipped):** Vite plugin — HTTP proxy for `invoke()` + WebSocket relay for streaming (see §1.8) | `L2-FR-DEV.1`, `L2-FR-DEV.2`, `L2-FR-DEV.4` |
+
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): the desktop file inventory has expanded beyond the original 18-file list. Stage 14 Phase 2 added `apps/desktop/src/pages/ManifestInbox.tsx`, `apps/desktop/src/pages/OperatorDecisionPanel.tsx`, related tests, and Tauri read/mutation commands for manifest inbox, decision history, active overrides, decisions, clarifications, withdrawals, and reruns; future desktop work should build on those surfaces rather than recreating a simpler L2-only page set.
 
 **L2-FR-PAGE.1 — Contract List Surfaces the Daily Opportunity Queue**
 - AC1: The list page renders `list_processes()` results with keyset pagination, pipeline badges, coverage summaries, and current decision status.
@@ -1083,6 +1107,8 @@ type SessionViewerRoute = {
 ### 1.10 React State Management
 
 **Pattern:** Purpose-built external stores with `useSyncExternalStore()` for slice subscriptions. **Not** TanStack Query for streaming state.
+
+> **[IMPL] ✓ As designed** — Session streaming state is implemented in dedicated external stores (`apps/desktop/src/stores/session-registry.ts` and `apps/desktop/src/stores/session-buffer.ts`) rather than raw React component state.
 
 | State Class | Approach |
 |-------------|----------|
@@ -1186,6 +1212,8 @@ type SessionRegistryApi = {
 | `FreshnessBadge` | `L2-FR-UI.5` | Data freshness indicator — accepts surface-neutral `FreshnessBadgeVM` (label, tone, tooltip); desktop and web compute the VM separately | Both surfaces |
 | `ErrorSummaryList` | `L2-FR-UI.6`, `L2-FR-SEC.1` | Compact error manifest list with severity/resolution status | Both surfaces |
 
+> **[IMPL] ✓ As designed** — Shared presentational components live under `packages/ui`, while desktop-only hooks, transport, and mutation flows remain in `apps/desktop/src/`, preserving the intended sharing boundary.
+
 #### `error-summary-list.tsx` — Error Manifest List
 
 ```tsx
@@ -1238,6 +1266,8 @@ The canonical rendering lives here, not in the `manifest-generation` skill. The 
 
 **`decisionBasisHash` ownership:** The hash is daemon-authored from a canonical serialization of operator-relevant fields, NOT computed by the manifest renderer or by a skill. The renderer consumes the already-computed hash. This prevents hash drift across Rust/TS/agent implementations.
 
+> **[IMPL] ✓ As designed** — The manifest renderer package remains deterministic and desktop consumes daemon/query-provided manifest data rather than authoring decision hashes in the UI; see `packages/manifests` and the manifest read models exposed from `apps/desktop/src-tauri/src/query_service.rs:219`.
+
 **L2-FR-MAN.1 — `packages/manifests` Owns Deterministic Opportunity Rendering**
 - AC1: The canonical opportunity manifest renderer lives in `packages/manifests`, not in a skill directory or UI surface.
 - AC2: Skills may contribute optional narrative content, but they do not replace the deterministic renderer contract.
@@ -1286,6 +1316,8 @@ The canonical rendering lives here, not in the `manifest-generation` skill. The 
 
 **Acquisition rule:** Layer 2 continues the project-wide skill-based retrieval rule. The Contracts Finder skill may drive the official OCDS/search endpoints, but the retrieval contract still lives in the skill package rather than in a long-lived bespoke client library.
 
+> **[IMPL] ✓ As designed** — Contracts Finder is a first-class daemon source in the `--ingest` dispatcher at `crates/daemon/src/main.rs:1261`, and the live implementation path is validated alongside ProContract in `docs/pipeline/multi-source-ingestion-validation-manifest.md`.
+
 **L2-FR-CF.1 — Contracts Finder Ingestion Is a First-Class Layer 2 Source Skill**
 - AC1: Layer 2 adds a skill at `skills/procurement-ingestion/contracts-finder/`.
 - AC2: The skill declares a `pty_interactive` interaction profile and targets the documented Contracts Finder search/API parameters in this section.
@@ -1314,6 +1346,8 @@ The canonical rendering lives here, not in the `manifest-generation` skill. The 
 | Validation | Disabled (fields exist) | Layer 3: dry-run |
 | Degraded-mode UX | Five-state structured health (full/limited/browse-only/incompatible/recovery) | Layer 4: adds sync-specific states (sync healthy/degraded/offline as distinct dimension) |
 | Web portal | Not present | Layer 4: read-only viewing portal |
+
+> **[IMPL] ↻ Superseded** — This L2 stub table is no longer current for L3-owned automation: cron scheduling, resource arbitration, relation tables, validation dry-run, and multi-source ingestion now exist. Sync, web portal, remote CAS decisions, expanded supplier search, and decision-grade L5 intelligence remain planned.
 
 ### 1.15 Things NOT Implemented in Layer 2
 
@@ -1685,6 +1719,8 @@ Local single-operator overlay. NOT the authoritative shared decision table (that
 
 **Normative schema alignment:** Layer 0 §2.5.8 owns the SQLite contract for `pending_operator_intents`. The current checked-in `migrations/0001_sqlite_state_initial.sql` does **not** yet define this table, so Layer 2 implementation must add it using the Layer 0 column contract above before decision capture is considered shippable.
 
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): the decision table now exists in `migrations/0004_l2_pending_operator_intents.sql:3`, and Stage 14 added a `decision_note` column plus idempotent receipts. Decision capture is routed through daemon IPC (`crates/daemon/src/ipc/handlers/decisions.rs:56`) and Tauri bridge commands (`apps/desktop/src-tauri/src/main.rs:1622`) rather than only a local Tauri-side write path.
+
 **L2-FR-DEC.1 — Each Local Decision Captures the Reviewed Basis**
 - AC1: Every decision intent persisted in `pending_operator_intents` records the reviewed-basis payload from this section, including `process_id`, `desired_disposition`, `reviewed_basis_hash`, `reviewed_manifest_hash`, `reviewed_at_stage_run_id`, `reviewed_at`, `base_remote_revision`, `idempotency_key`, `status`, `superseded_by_intent_id`, and `queued_at`.
 - AC2: `reviewedBasisHash` is copied from the daemon-authored pipeline assessment rather than recomputed in the UI.
@@ -1713,6 +1749,8 @@ Local single-operator overlay. NOT the authoritative shared decision table (that
 - **Stale decisions block bid workflow** (Layer 6) -- must re-affirm first
 
 **Staleness triggers:** The authoritative trigger is **any** change to `pipeline_assessments.decisionBasisHash`. Typical causes include new/updated quotes, landed-cost recalculation, document-set changes, lot extraction changes, product-candidate changes, relation-resolution changes, manifest regeneration inputs, or any upstream rerun that changes the reviewed basis.
+
+> **[IMPL] ✓ As designed** — Stage 14 staleness marking is implemented in `crates/daemon/src/main.rs:20159`, and decision/clarification read models are exposed for the desktop through `apps/desktop/src-tauri/src/query_service.rs`.
 
 **L2-FR-DEC.3 — Decision Staleness Is Hash-Based and Operator-Visible**
 - AC1: The desktop compares `reviewedBasisHash` against the current `pipeline_assessments.decisionBasisHash`; mismatch means stale.

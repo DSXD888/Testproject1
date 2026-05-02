@@ -6,6 +6,8 @@
 > **Dependencies:** None (greenfield)
 > **Exit criteria:** Experiments 1–3b pass on the gold-set corpus (≥80 lots: gating + challenge).
 
+> **Implementation Status (as of 2026-05-02):** Layer 0 is **PARTIALLY BUILT**. Gold-set fixtures and daemon integration/evaluation harness scaffolding exist in `crates/daemon/tests/`, but the full standalone evaluation pipeline described here is not complete. This layer remains the measurement foundation for L1-L3; no inline implementation markers are added because this pass annotates only built L1-L3 design decisions.
+
 ---
 
 ## 1. Overview, Capability & Project Shape

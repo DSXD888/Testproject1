@@ -6,6 +6,8 @@
 > **Dependencies:** Layers 0-3 (all pipeline data, all push-owned tables with sync tracking columns)
 > **Exit criteria:** Two users view the same pipeline: desktop operator (read-write) + web viewer (read-only). Sync engine operational. Validation enforcement active.
 
+> **Implementation Status (as of 2026-05-02):** Layer 4 is **PLANNED — not yet built**. No production sync engine, read-only web portal, shared Supabase authority, or validation-enforcement code exists for this layer. This doc remains a planned execution-grade specification and intentionally has no inline implementation markers.
+
 ---
 
 ## 1. Overview & Sync Engine

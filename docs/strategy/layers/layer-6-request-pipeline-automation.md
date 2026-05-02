@@ -6,6 +6,8 @@
 > **Dependencies:** Layers 0-5 (full pipeline, desktop, web, sync, decision-grade intelligence)
 > **Exit criteria:** System can prepare and submit one request on a target portal end-to-end with full audit trail.
 
+> **Implementation Status (as of 2026-05-02):** Layer 6 is **PLANNED — not yet built**. No production request pipeline automation or bid-workflow submission code exists for this layer. Stage 15 (`bid_workflow`) is L6-blocked — see `prompts/stage-15-bid-workflow-handoff-DEFERRED.md` for the planned approach once L6 is built. This doc remains a planned execution-grade specification and intentionally has no inline implementation markers.
+
 ---
 
 ## 1. Overview & Bid Workflow System

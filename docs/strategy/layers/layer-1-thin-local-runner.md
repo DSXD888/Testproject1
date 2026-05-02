@@ -6,6 +6,8 @@
 > **Dependencies:** Layer 0 (skills, intelligence pipeline, contracts-schema, SQLite schema)
 > **Exit criteria:** Experiment 4 passes (10 consecutive batch runs, >=90% success rate, 0 orphaned processes) AND first live end-to-end local loop completes.
 
+> **Implementation Status (as of 2026-05-02):** Layer 1 is **BUILT**. See the archived L1 daemon-core evidence under `docs/pipeline/l1-daemon-core/` and the later Stage 11/14 validation manifests for hardening evidence. This doc has been annotated to reflect actual implementation choices — search for `[IMPL]` markers. Where actual implementation diverged from the pre-build spec, the rationale is in a `> **[IMPL] ⚠ Deviation:**` callout.
+
 ---
 
 ## 1. Overview, Capability & Daemon Bootstrap
@@ -38,6 +40,8 @@ notice ingestion -> pipeline processing -> verifiable local output
 ```
 
 The verifiable output is a CLI-visible summary plus a local markdown opportunity manifest/file artifact for at least one live-source batch. This proves the full pipeline works end-to-end on real data, not just gold-set data.
+
+> **[IMPL] ✓ As designed** — The built daemon has the intended runtime bootstrap, session runtime, artifact store, and first local pipeline loop surfaces in `crates/daemon/src/main.rs:2148`, `crates/daemon/src/agents/adapter.rs:147`, `crates/daemon/src/pty/session.rs:19`, and `crates/daemon/src/agents/artifacts.rs:15`.
 
 **L1-FR-DAEMON.1 — Runtime Reliability Gate**
 - AC1: Layer 1 is not complete until Experiment 4 executes 10 consecutive daemon-managed batch runs.
@@ -88,6 +92,8 @@ Procurement Sources (live)         Cost-Estimation APIs
 ```
 
 **Not in Layer 1:** Desktop UI, Supabase sync, cron scheduler, resource arbiter, PTY hardening, relation resolution, Contracts Finder, validation system, multi-source marketplace search.
+
+> **[IMPL] ↻ Superseded** — This sentence is historically correct for the original L1 build boundary, but several listed items are now built by later layers. Cron scheduling and source registry live in `crates/daemon/src/scheduler/cron.rs:15` and `crates/daemon/src/sources/registry.rs:210`; the resource arbiter lives in `crates/daemon/src/agents/arbiter.rs:152`; validation policy/execution lives in `crates/daemon/src/validation/policy.rs:238` and `crates/daemon/src/validation/executor.rs:25`; Contracts Finder dispatch is wired through `crates/daemon/src/main.rs:1259`.
 
 ### 1.4 Relationship to Layer 0
 
@@ -186,9 +192,13 @@ All pdf-extraction skills use `model_profile: structured_extract_low_cost` (Haik
 - AC2: Behavior assigned to a subsystem prefix in this document maps to the files listed in the namespace table above.
 - AC3: New functionality deferred to later layers is not treated as implicitly active in Layer 1 unless a requirement in this document says otherwise.
 
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): the daemon is no longer limited to this L1 inventory. The production crate now includes later-layer modules such as `ipc`, `scheduler`, `sources`, `validation`, resource arbitration, and Stage 14 operator-decision handlers, all visible in the module/import surface at `crates/daemon/src/main.rs:1` and the Stage 14 IPC handlers under `crates/daemon/src/ipc/handlers/`. Future agents should treat this inventory as the L1 seed, not the current implementation boundary.
+
 ### 1.6 Ingestion Flow (End-to-End Live Loop)
 
 The first live operational loop executes this sequence via manual CLI trigger:
+
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): the live loop is now a multi-source/staged dispatcher rather than only the original FTS manual path. `crates/daemon/src/main.rs:1259` dispatches FTS, Contracts Finder, ProContract, ProContract-interest/enrichment, landed-cost, net-gate, manifest, and marketplace sources; `docs/pipeline/multi-source-ingestion-validation-manifest.md` records live Contracts Finder plus ProContract validation evidence.
 
 **L1-FR-PIPELINE.2 — Manual Trigger Starts the Live Loop**
 - AC1: An operator can start the FTS live loop with an explicit CLI command.
@@ -239,6 +249,8 @@ The first live operational loop executes this sequence via manual CLI trigger:
 - AC3: If the agent fails to provide narrative content, the daemon still produces a fallback run manifest with `agent_narrative_missing: true`.
 - AC4: The manifest is stored at `artifacts/sessions/YYYY/MM/<session_id>/run-manifest.md`.
 
+> **[IMPL] ✓ As designed** — The run manifest file name, 50 KB target, frontmatter, daemon appendix, fallback path, and metadata persistence are implemented in `crates/daemon/src/agents/artifacts.rs:15`, `crates/daemon/src/agents/artifacts.rs:107`, and `crates/daemon/src/agents/artifacts.rs:193`.
+
 **L1-FR-PIPELINE.11 — Final Outputs Pass Contract and OQG Validation Before Use**
 - AC1: Final outputs are validated against the skill's `result.schema.json`.
 - AC2: Schema-valid outputs are additionally checked by the Output Quality Gate for semantic and statistical anomalies.
@@ -250,6 +262,8 @@ The first live operational loop executes this sequence via manual CLI trigger:
 - AC2: Layer 1 may record the canonical stage model for `relate`, but full relation-resolution computation remains stubbed until Layer 3.
 - AC3: The active Layer 1 live loop executes `prequalify_notice -> acquire_docs -> extract_lots -> qualify_lot -> extract_products -> quoteability -> price match -> gross gate -> landed cost -> net gate -> coverage rollup -> manifest`.
 - AC4: Stage processing logic reused from Layer 0 stays authoritative for per-stage computation rules.
+
+> **[IMPL] ↻ Superseded** — The relation-resolution stub is no longer the current runtime state: the daemon now runs a Stage 3 `relate` implementation in `crates/daemon/src/main.rs:19175`. That implementation is intentionally conservative and currently creates `merged_same_process` relations for shared canonical OCIDs only; richer heuristic relation classifications remain a documented L3 deviation.
 
 **L1-FR-PIPELINE.13 — Stage Writes Commit Atomically With Stage Tracking**
 - AC1: The SQLite transaction that writes stage outputs also writes the shared `stage_run_id`.
@@ -268,6 +282,8 @@ The first live operational loop executes this sequence via manual CLI trigger:
 - AC2: The daemon writes a local markdown opportunity manifest artifact proving the loop completed.
 - AC3: A `manifests` table row references the emitted opportunity manifest for the completed process.
 - AC4: Failure before artifact emission leaves a failure record, not a missing-output ambiguity.
+
+> **[IMPL] ✓ As designed** — Stage 13 manifest generation is operational and validated by `docs/pipeline/stage-13-validation-manifest.md`; the runtime dispatcher includes the manifest stage at `crates/daemon/src/main.rs:1274`, and session-level manifest artifacts are persisted through `crates/daemon/src/agents/artifacts.rs:107`.
 
 **L1-FR-PIPELINE.22 — Each Ingestion Step Has an Explicit Durable-Write Surface**
 - AC1: Every step in the 14-step live loop either identifies its durable SQLite writes or explicitly states that no new durable SQLite write occurs in that step.
@@ -350,6 +366,8 @@ The adapter produces two independent event lanes:
 
 This separation means PTY stays raw and contract mode stays structured without pretending they are the same transport. The output lane feeds capture and UI streaming; the control lane feeds the Job Runner and session lifecycle.
 
+> **[IMPL] ✓ As designed** — The two-lane adapter boundary is implemented as `OutputFrame::{Pty, Stdout, Stderr}` and `ControlEvent::{Started, Checkpoint, Progress, AuthChallenge, Warning, FinalResultReady, Exited}` in `crates/daemon/src/agents/adapter.rs:12` and `crates/daemon/src/agents/adapter.rs:28`.
+
 **Result validation is NOT an adapter responsibility.** Schema validation against `result.schema.json` lives in `agents/contracts.rs`. OQG semantic/drift checks live in daemon pipeline code. Adapters emit `FinalResultReady` with the artifact path; the daemon validates afterward.
 
 **Canary mode:** Unknown CLI versions enter canary mode — the adapter runs a smoke probe before accepting production traffic.
@@ -357,6 +375,8 @@ This separation means PTY stays raw and contract mode stays structured without p
 **Session isolation:** Concurrent sessions on the same workstation can contaminate each other through shared CLI config. The daemon must: pin `CODEX_HOME`/`.codex` config paths per session, control working directory per run, record CLI version/model/config hash/skill version/adapter version on every session, use per-session browser profiles for browser-backed flows.
 
 **Adapter selection toggle:** Layer 1 supports an explicit agent-CLI selection toggle with two values: `claude` or `codex`. The daemon keeps a default adapter selection in operator-controlled runtime settings (desktop app and equivalent CLI flags), and each skill may optionally override that default with `agent_cli` in `SKILL.md`. Resolution order is: CLI override -> skill-level `agent_cli` -> daemon default setting -> fallback `claude`.
+
+> **[IMPL] ✓ As designed** — The default adapter remains `claude` in `crates/daemon/src/main.rs:212`, and interaction-profile based execution-mode resolution is centralized in `crates/daemon/src/agents/adapter.rs:103`.
 
 **L1-FR-ADAPTER.1 — Interaction Profile Selects the Execution Family**
 - AC1: Skills declaring `pty_interactive` require PTY mode.
@@ -441,6 +461,8 @@ Without session and controlling-terminal setup, some interactive CLIs (especiall
 
 **Terminal geometry:** Set a stable default geometry of `120x40` at PTY creation. PTY geometry is for terminal/UI behavior; browser viewport is a separate explicit browser-launch setting. Do not let browser viewport silently depend on PTY size. A `resize_pty(session_id, cols, rows)` command is available for attached sessions; if never resized, the geometry remains constant so transcripts are reproducible.
 
+> **[IMPL] ✓ As designed** — Default PTY geometry and the seven public session phases are implemented in `crates/daemon/src/pty/session.rs:19` and exposed through the session lifecycle used by IPC and desktop surfaces.
+
 **Session lifecycle (7 phases):**
 
 ```text
@@ -474,6 +496,8 @@ A session is only **complete** after ALL of:
 - `pid → session_id` mapping for associating child exits with sessions
 - Explicit orphan/leak scan after session exit
 - `cleanup_report.json` emission per session
+
+> **[IMPL] ✓ As designed** — Session reaping is a real daemon surface, not only a later-layer design. Startup reconciliation invokes interrupted-session cleanup at `crates/daemon/src/main.rs:2148`, and the reaper module remains at `crates/daemon/src/sessions/reaper.rs`.
 
 **Cleanup verdicts:**
 
@@ -584,6 +608,8 @@ This section is the **condensed runtime overview** for the Layer 1 session-execu
 
 Detailed acceptance criteria for every error requirement ID are defined in §4.3. This section is the condensed runtime overview.
 
+> **[IMPL] ✓ As designed** — Error manifests and session-linked runtime failure metadata are backed by `migrations/0003_sqlite_runtime.sql:49` and rendered through `crates/daemon/src/errors/manifest.rs` plus `crates/daemon/src/errors/markdown.rs`.
+
 ### 1.10 What's Stubbed in This Layer
 
 | Feature | Layer 1 Stub | Full Implementation |
@@ -602,6 +628,8 @@ Detailed acceptance criteria for every error requirement ID are defined in §4.3
 | Sync | Tracking columns populated on every write, no outbox entries | Layer 4: full sync engine (outbox + push + pull) |
 | Relation resolution | Notices processed independently (no merge/relate) | Layer 3: full heuristic resolution engine |
 
+> **[IMPL] ↻ Superseded** — This stub table describes the L1 boundary, not the current product state. Scheduler, resource arbiter, source registry, Contracts Finder ingestion, validation dry-run, relation tables, and desktop/operator surfaces now exist in later-layer code; sync and web portal remain planned L4 work.
+
 ### 1.11 Things NOT Implemented in Layer 1
 
 These are designed but not active. They exist only as forward-compatible schema provisions or structural patterns:
@@ -619,6 +647,8 @@ These are designed but not active. They exist only as forward-compatible schema 
 - Multi-source marketplace search: Alibaba, 1688, Amazon (Layer 5)
 - Decision-grade landed cost (Layer 5)
 - Bid workflow automation (Layer 6)
+
+> **[IMPL] ↻ Superseded** — As of 2026-05-02, items through Layer 3 in this list are implemented or partially implemented by later stages; Layer 4-L6 items remain planned. Stage 15 bid workflow is explicitly deferred by `prompts/stage-15-bid-workflow-handoff-DEFERRED.md`.
 
 ---
 
@@ -1098,6 +1128,8 @@ YAML frontmatter with structured metadata followed by agent narrative sections, 
 - `checkpoint_count`, `result_item_count`
 - `oqg_anomaly_summary`, `representative_item_sample`, `artifact_refs`
 
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): the daemon appendix is larger than the original L1 minimum because L3 validation evidence fields were added directly to the same artifact contract. `crates/daemon/src/agents/artifacts.rs:48` now includes `basis_sufficiency`, `page_fingerprint_hash`, `auth_challenge_detected`, `extraction_fill_rate_bps`, `byte_count_compressed`, `validator_rubric_hash`, and `drift_delta_json`, so future work should extend the current artifact contract rather than reverting to the smaller L1-only appendix.
+
 **Critical naming rule:** Self-reported fields use `agent_claimed_*`. Daemon-observed fields use `daemon_observed_*`. Never ambiguous between "agent claims" and "daemon observed."
 
 **Fallback mode:** If agent fails to emit narrative (crash, timeout) → daemon synthesizes minimum machine-authored manifest from observability layers 1-3 alone, with `agent_narrative_missing: true`. The worst runs must not leave the thinnest review surface.
@@ -1573,6 +1605,8 @@ These tables were created in Layer 0 (with full schema including all future-laye
 
 **`scope_kind`** is constrained to exactly six values: `process`, `notice`, `lot`, `candidate`, `candidate_source_pair`, `candidate_quote_scenario`.
 
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): Stage 11 landed-cost tracking uses `candidate_quote`, not the originally named `candidate_quote_scenario`. The runtime constant is `LANDED_COST_SCOPE_KIND` in `crates/daemon/src/main.rs:259`, and the Stage 11 manifest documents the same scope-kind usage; do not introduce a parallel `candidate_quote_scenario` value without a schema migration and code/data cleanup plan.
+
 **Execution-record rules:**
 
 - `stage_run_id` is allocated before the commit transaction opens for the cohort it names. Retries and reruns always get a fresh `stage_run_id`; failed or obsolete cohorts are never reused.
@@ -1690,6 +1724,8 @@ The `sources` table is a local-only runtime copy. In Layer 4, it will be populat
 | Find a Tender | `procurement` | Base URL, OCDS API endpoint, rate limits |
 
 Contracts Finder is added in Layer 2.
+
+> **[IMPL] ↻ Superseded** — The current source registry is no longer an FTS-only seed. Contracts Finder, ProContract, and enrichment sources are dispatched from `crates/daemon/src/main.rs:1259`, while typed source definitions and runtime state are loaded through `crates/daemon/src/sources/registry.rs:210`.
 
 **L1-FR-DB.10 — Source Configuration Is Locally Seeded in Layer 1**
 - AC1: Layer 1 runs with a local runtime copy of source configuration.
@@ -1832,6 +1868,8 @@ Six skills are introduced in Layer 1. All six follow the production skill direct
 - AC1: The skill executes in `headless_contract` mode.
 - AC2: The skill consumes local pipeline data only and requires no browser or external auth.
 - AC3: The skill emits a process-scoped opportunity manifest and computes `decisionBasisHash`.
+
+> **[IMPL] ⚠ Deviation:** Actual implementation (2026-05-02): opportunity manifest generation is no longer primarily an agent-authored skill artifact. Stage 13 is a deterministic daemon pipeline step validated by `docs/pipeline/stage-13-validation-manifest.md`; the run-manifest artifact system remains in `crates/daemon/src/agents/artifacts.rs`, while operator-facing manifest inbox/read models are exposed by `apps/desktop/src-tauri/src/query_service.rs:219` and the desktop Manifest Inbox page at `apps/desktop/src/pages/ManifestInbox.tsx:143`.
 
 ### 4.2 Run Manifest System (Authoritative Layer 1 Definition)
 
