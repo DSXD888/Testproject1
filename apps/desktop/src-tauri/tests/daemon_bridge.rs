@@ -350,6 +350,7 @@ fn rs_dbr_006_lifecycle_frames_do_not_poison_command_responses() -> TestResult {
             reviewed_basis_hash: "basis-1".to_owned(),
             reviewed_manifest_hash: "manifest-1".to_owned(),
             reviewed_at_stage_run_id: "stage-1".to_owned(),
+            decision_note: None,
         },
         "idem-2",
     )?;
@@ -403,6 +404,7 @@ fn rs_dbr_006b_topic_events_do_not_poison_command_responses() -> TestResult {
             reviewed_basis_hash: "basis-1".to_owned(),
             reviewed_manifest_hash: "manifest-1".to_owned(),
             reviewed_at_stage_run_id: "stage-1".to_owned(),
+            decision_note: None,
         },
         "idem-topic",
     )?;

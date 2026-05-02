@@ -86,6 +86,84 @@ mod ipc {
     }
 
     pub mod handlers {
+        // Stub for Stage 14 Phase 2 clarifications handler. The real
+        // implementation in `src/ipc/handlers/clarifications.rs` pulls a wide
+        // surface of symbols out of the daemon binary's crate root which the
+        // integration-test crate cannot resolve. None of the IPC handshake
+        // tests below call these clarification entry points directly, so a
+        // stub is sufficient to satisfy `command_router_impl`'s imports.
+        pub mod clarifications {
+            use crate::jobs::runner::MutationAck;
+            use serde::Deserialize;
+            use serde_json::Value;
+            use thiserror::Error;
+
+            #[allow(dead_code)]
+            pub struct ClarificationsHandlerContext<'a> {
+                pub state_db: &'a mut crate::support::db::StateDb,
+            }
+
+            #[derive(Debug, Clone, Error)]
+            #[error("{code}: {message}")]
+            #[allow(dead_code)]
+            pub struct ClarificationsHandlerError {
+                pub code: String,
+                pub message: String,
+                pub retryable: bool,
+                pub details: Option<Value>,
+            }
+
+            #[derive(Debug, Deserialize)]
+            #[allow(dead_code)]
+            pub struct CaptureClarificationParams {
+                pub process_id: String,
+                pub candidate_id: String,
+                pub reason_code: String,
+                pub payload: Value,
+                pub note: Option<String>,
+            }
+
+            #[derive(Debug, Deserialize)]
+            #[allow(dead_code)]
+            pub struct WithdrawClarificationParams {
+                pub process_id: String,
+                pub candidate_id: String,
+                pub reason_code: String,
+            }
+
+            #[derive(Debug, Deserialize)]
+            #[allow(dead_code)]
+            pub struct WithdrawDecisionParams {
+                pub idempotency_key: String,
+            }
+
+            #[allow(dead_code)]
+            pub fn capture_clarification(
+                _ctx: &mut ClarificationsHandlerContext<'_>,
+                _params: &CaptureClarificationParams,
+                _idempotency_key: &str,
+            ) -> Result<MutationAck, ClarificationsHandlerError> {
+                unimplemented!("test stub — clarifications handler not exercised here")
+            }
+
+            #[allow(dead_code)]
+            pub fn withdraw_clarification(
+                _ctx: &mut ClarificationsHandlerContext<'_>,
+                _params: &WithdrawClarificationParams,
+                _idempotency_key: &str,
+            ) -> Result<MutationAck, ClarificationsHandlerError> {
+                unimplemented!("test stub — clarifications handler not exercised here")
+            }
+
+            #[allow(dead_code)]
+            pub fn withdraw_decision(
+                _ctx: &mut ClarificationsHandlerContext<'_>,
+                _params: &WithdrawDecisionParams,
+                _idempotency_key: &str,
+            ) -> Result<MutationAck, ClarificationsHandlerError> {
+                unimplemented!("test stub — clarifications handler not exercised here")
+            }
+        }
         pub mod control {
             pub use crate::control_handler_impl::*;
         }
