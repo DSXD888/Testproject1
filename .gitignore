@@ -34,6 +34,7 @@ artifacts/
 
 # Additional runtime dirs created by parallel daemon runs (runtime/ already covered above)
 runtime[0-9]/
+runtime-*/
 
 # Scheduled-task lock files written by the harness
 .claude/scheduled_tasks.lock

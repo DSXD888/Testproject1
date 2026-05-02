@@ -97,7 +97,7 @@ describe('transport shim', () => {
     const unsubscribe = transport.subscribe('daemon.health', undefined, () => undefined);
     await vi.dynamicImportSettled();
 
-    expect(tauriListen).toHaveBeenCalledWith('daemon.health', expect.any(Function));
+    expect(tauriListen).toHaveBeenCalledWith('procintel/topic/daemon_health', expect.any(Function));
     expect(invoke).toHaveBeenCalledWith('subscribe_topic', {
       params: {
         topic: 'daemon.health',

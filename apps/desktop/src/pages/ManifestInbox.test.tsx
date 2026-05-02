@@ -103,4 +103,24 @@ describe('FT.2 — Stoplight badge color maps correctly', () => {
     // Stale flag is rendered as part of the label
     expect(html).toMatch(/data-stale="true"[^>]*>Reject \(stale\)</);
   });
+
+  it('bug_withdrawn_decision_regression_renders_withdrawn_without_stale_label', () => {
+    const rows = [
+      {
+        ...fixture()[0],
+        decision: {
+          disposition: 'watch' as const,
+          status: 'withdrawn',
+          isStale: false,
+          decidedAt: '2026-04-01T16:00:00Z',
+        },
+      },
+    ];
+    const html = renderToStaticMarkup(
+      <ManifestInbox onOpenProcess={() => {}} seedRows={rows} />,
+    );
+    expect(html).toContain('data-status="withdrawn"');
+    expect(html).toContain('>Withdrawn</span>');
+    expect(html).not.toContain('(stale)');
+  });
 });

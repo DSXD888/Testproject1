@@ -87,6 +87,7 @@ type DetailState =
           coverage: CoverageMetrics;
           decision: {
             disposition: 'approve' | 'reject' | 'watch' | null;
+            status?: string | null;
             isStale: boolean;
             decidedAt: string | null;
           };
@@ -212,8 +213,15 @@ export function ContractDetail({
         </div>
         <div className="detail-header__rail">
           <PipelineBadge state={data.pipelineState ?? 'pending'} />
-          <div className="decision-pill" data-stale={data.decision.isStale}>
-            Decision: {data.decision.disposition ?? 'none'}
+          <div
+            className="decision-pill"
+            data-stale={data.decision.isStale}
+            data-status={data.decision.status ?? 'none'}
+          >
+            Decision:{' '}
+            {data.decision.status === 'withdrawn'
+              ? 'withdrawn'
+              : (data.decision.disposition ?? 'none')}
             {data.decision.isStale ? ' • stale' : ''}
           </div>
         </div>

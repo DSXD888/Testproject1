@@ -20,6 +20,7 @@ import SessionViewer from './pages/SessionViewer';
 
 type ProcessDecision = {
   disposition: 'approve' | 'reject' | 'watch' | null;
+  status?: string | null;
   isStale: boolean;
   decidedAt: string | null;
 };

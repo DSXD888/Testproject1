@@ -57,6 +57,7 @@ export type OperatorDecisionPanelProps = {
   /** Latest decision rolled up from the detail view. */
   latestDecision: {
     disposition: 'approve' | 'reject' | 'watch' | null;
+    status?: string | null;
     isStale: boolean;
     decidedAt: string | null;
   };

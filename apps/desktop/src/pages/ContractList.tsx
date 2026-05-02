@@ -35,6 +35,7 @@ type ProcessRow = {
   quotedCandidateCount: number;
   decision: {
     disposition: 'approve' | 'reject' | 'watch' | null;
+    status?: string | null;
     isStale: boolean;
     decidedAt: string | null;
   };

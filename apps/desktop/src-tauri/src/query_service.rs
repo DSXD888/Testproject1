@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 const DEFAULT_PAGE_LIMIT: usize = 25;
 const MAX_PAGE_LIMIT: usize = 100;
 const SQLITE_BUSY_TIMEOUT_MS: u64 = 1_000;
-const EXPECTED_SCHEMA_EPOCH: i64 = 1;
+const EXPECTED_SCHEMA_EPOCH: i64 = 6;
 
 #[derive(Debug)]
 pub struct QueryService {
@@ -454,6 +454,7 @@ pub struct ProcessListItem {
 #[serde(rename_all = "camelCase")]
 pub struct DecisionStatus {
     pub disposition: Option<String>,
+    pub status: Option<String>,
     pub is_stale: bool,
     pub decided_at: Option<String>,
 }
@@ -853,6 +854,7 @@ impl CursorToken {
 #[derive(Clone, Debug)]
 struct DecisionRecord {
     disposition: String,
+    status: String,
     reviewed_basis_hash: Option<String>,
     decided_at: Option<String>,
 }
@@ -953,6 +955,13 @@ fn load_process_list_rows(
                        LIMIT 1
                      ) AS decision_disposition,
                      (
+                       SELECT poi.status
+                       FROM pending_operator_intents poi
+                       WHERE poi.process_id = p.id AND poi.superseded_by_intent_id IS NULL
+                       ORDER BY poi.queued_at DESC, poi.id DESC
+                       LIMIT 1
+                     ) AS decision_status,
+                     (
                        SELECT poi.reviewed_basis_hash
                        FROM pending_operator_intents poi
                        WHERE poi.process_id = p.id AND poi.superseded_by_intent_id IS NULL
@@ -988,6 +997,7 @@ fn load_process_list_rows(
                    candidate_count,
                    quoted_candidate_count,
                    decision_disposition,
+                   decision_status,
                    decision_reviewed_basis_hash,
                    decision_decided_at,
                    decision_basis_hash
@@ -1011,11 +1021,13 @@ fn load_process_list_rows(
                   )
               AND (
                     ?4 = 0
+                    OR decision_status = 'stale'
                     OR (
-                      decision_reviewed_basis_hash IS NOT NULL
-                      AND decision_basis_hash IS NOT NULL
-                      AND decision_reviewed_basis_hash <> decision_basis_hash
-                    )
+                         decision_status = 'queued'
+                         AND decision_reviewed_basis_hash IS NOT NULL
+                         AND decision_basis_hash IS NOT NULL
+                         AND decision_reviewed_basis_hash <> decision_basis_hash
+                       )
                   )
               AND (
                     ?5 IS NULL
@@ -1074,6 +1086,7 @@ fn load_process_list_rows(
                     row.get::<_, Option<String>>(19)?,
                     row.get::<_, Option<String>>(20)?,
                     row.get::<_, Option<String>>(21)?,
+                    row.get::<_, Option<String>>(22)?,
                 ))
             },
         )
@@ -1100,10 +1113,17 @@ fn load_process_list_rows(
             candidate_count,
             quoted_candidate_count,
             decision_disposition,
+            decision_status,
             decision_reviewed_basis_hash,
             decision_decided_at,
             decision_basis_hash,
         ) = row.map_err(storage_unreadable)?;
+        let decision_basis_drifted = matches!(
+            (&decision_reviewed_basis_hash, &decision_basis_hash),
+            (Some(reviewed), Some(current)) if reviewed != current
+        );
+        let decision_is_stale = matches!(decision_status.as_deref(), Some("stale"))
+            || (matches!(decision_status.as_deref(), Some("queued")) && decision_basis_drifted);
 
         Ok(ProcessListItem {
             process_id,
@@ -1126,10 +1146,8 @@ fn load_process_list_rows(
             quoted_candidate_count,
             decision: DecisionStatus {
                 disposition: decision_disposition,
-                is_stale: matches!(
-                    (&decision_reviewed_basis_hash, &decision_basis_hash),
-                    (Some(reviewed), Some(current)) if reviewed != current
-                ),
+                status: decision_status,
+                is_stale: decision_is_stale,
                 decided_at: decision_decided_at,
             },
         })
@@ -1714,7 +1732,7 @@ fn latest_decisions(
     let mut stmt = conn
         .prepare(
             "\
-            SELECT process_id, desired_disposition, reviewed_basis_hash, reviewed_at
+            SELECT process_id, desired_disposition, status, reviewed_basis_hash, reviewed_at
             FROM pending_operator_intents
             WHERE superseded_by_intent_id IS NULL
             ORDER BY queued_at DESC, id DESC
@@ -1727,8 +1745,9 @@ fn latest_decisions(
                 row.get::<_, String>(0)?,
                 DecisionRecord {
                     disposition: row.get(1)?,
-                    reviewed_basis_hash: row.get(2)?,
-                    decided_at: row.get(3)?,
+                    status: row.get(2)?,
+                    reviewed_basis_hash: row.get(3)?,
+                    decided_at: row.get(4)?,
                 },
             ))
         })
@@ -1798,6 +1817,7 @@ fn load_manifest_inbox_rows(conn: &Connection) -> Result<Vec<ManifestInboxRow>, 
                 generated_at: row.get::<_, String>(6)?,
                 decision: DecisionStatus {
                     disposition: None,
+                    status: None,
                     is_stale: false,
                     decided_at: None,
                 },
@@ -2273,16 +2293,19 @@ fn decision_status_for_process(
     let Some(decision) = decision else {
         return DecisionStatus {
             disposition: None,
+            status: None,
             is_stale: false,
             decided_at: None,
         };
     };
-    let is_stale = matches!(
+    let basis_drifted = matches!(
         (&decision.reviewed_basis_hash, current_basis_hash),
         (Some(reviewed), Some(current)) if reviewed != current
     );
+    let is_stale = decision.status == "stale" || (decision.status == "queued" && basis_drifted);
     DecisionStatus {
         disposition: Some(decision.disposition.clone()),
+        status: Some(decision.status.clone()),
         is_stale,
         decided_at: decision.decided_at.clone(),
     }

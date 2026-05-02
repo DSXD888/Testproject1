@@ -5,6 +5,7 @@ import { invoke, parseBridgeError } from '../lib/transport';
 
 export type DecisionStatusVm = {
   disposition: 'approve' | 'reject' | 'watch' | null;
+  status?: string | null;
   isStale: boolean;
   decidedAt: string | null;
 };
@@ -91,6 +92,18 @@ function StoplightBadge({ value }: { value: string | null }): ReactElement {
 }
 
 function DecisionPill({ decision }: { decision: DecisionStatusVm }): ReactElement {
+  if (decision.status === 'withdrawn') {
+    return (
+      <span
+        data-testid="decision-pill"
+        data-disposition={decision.disposition ?? 'none'}
+        data-status="withdrawn"
+        style={pillStyle('#5d6d7e')}
+      >
+        Withdrawn
+      </span>
+    );
+  }
   if (!decision.disposition) {
     return (
       <span data-testid="decision-pill" data-disposition="none" style={pillStyle('#666')}>

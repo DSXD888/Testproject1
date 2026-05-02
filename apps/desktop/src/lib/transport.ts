@@ -151,6 +151,10 @@ function shapeNativeInvokeArgs(
   return args;
 }
 
+function nativeEventNameForTopic(topic: string): string {
+  return `procintel/topic/${topic.replace(/[^A-Za-z0-9_:\-\/]/g, '_')}`;
+}
+
 function subscribeViaNativeTauriEvents<T>(
   runtime: RuntimeLike,
   topic: string,
@@ -167,7 +171,7 @@ function subscribeViaNativeTauriEvents<T>(
 
   void (async () => {
     const { listen } = await loadTauriEventModule();
-    const detach = await listen<T>(topic, (event) => {
+    const detach = await listen<T>(nativeEventNameForTopic(topic), (event) => {
       onEvent(event.payload);
     });
 

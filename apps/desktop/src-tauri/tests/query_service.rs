@@ -39,7 +39,7 @@ impl Harness {
         fs::create_dir_all(&runtime_root)?;
         fs::write(
             runtime_root.join("daemon.info.json"),
-            r#"{"instanceId":"daemon-1","pid":1,"socketPath":"runtime/daemon.sock","protocolVersion":1,"schemaEpoch":1,"stateRoot":"state","startedAt":"2026-03-25T10:00:00Z","ready":true}"#,
+            r#"{"instanceId":"daemon-1","pid":1,"socketPath":"runtime/daemon.sock","protocolVersion":1,"schemaEpoch":6,"stateRoot":"state","startedAt":"2026-03-25T10:00:00Z","ready":true}"#,
         )?;
         let state_db = StateDb::open_in_repo(&db_path, &repo_root()?, StateDbConfig::default())?;
         Ok(Self {
@@ -397,6 +397,17 @@ fn rs_qs_002_process_list_returns_snapshot_page() -> Result<()> {
     let mut harness = Harness::new()?;
     harness.seed_process("process-b", "2026-03-26T11:00:00Z", "review")?;
     harness.seed_candidate_and_quote("process-b")?;
+    seed_intent(
+        &mut harness.state_db,
+        "intent-process-b",
+        "process-b",
+        "approve",
+        "queued",
+        "idem-process-b",
+        None,
+        None,
+        Some("2026-04-01T12:00:00Z"),
+    )?;
     harness.seed_process("process-a", "2026-03-25T10:00:00Z", "qualified")?;
 
     let service = harness.service()?;
@@ -420,6 +431,15 @@ fn rs_qs_002_process_list_returns_snapshot_page() -> Result<()> {
     assert_eq!(envelope.data.items[0].lot_count, 1);
     assert_eq!(envelope.data.items[0].access_route, "public_web");
     assert_eq!(envelope.data.items[0].legal_category, "goods");
+    assert_eq!(
+        envelope.data.items[0].decision.disposition.as_deref(),
+        Some("approve")
+    );
+    assert_eq!(
+        envelope.data.items[0].decision.status.as_deref(),
+        Some("queued")
+    );
+    assert!(!envelope.data.items[0].decision.is_stale);
     Ok(())
 }
 
@@ -952,9 +972,8 @@ fn seed_intent(
     decision_note: Option<&str>,
     queued_at_override: Option<&str>,
 ) -> Result<()> {
-    let queued_at = queued_at_override
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+    let queued_at =
+        queued_at_override.map_or_else(|| chrono::Utc::now().to_rfc3339(), ToOwned::to_owned);
     state_db.with_write_transaction(|tx| {
         tx.execute(
             "INSERT INTO pending_operator_intents (
@@ -1024,6 +1043,17 @@ fn rt_1_list_manifests_returns_all_manifest_rows() -> Result<()> {
     harness.seed_candidate_and_quote("p2")?;
     seed_inbox_manifest(&mut harness.state_db, "p1", "clarify", 2, "[]")?;
     seed_inbox_manifest(&mut harness.state_db, "p2", "pursue", 0, "[]")?;
+    seed_intent(
+        &mut harness.state_db,
+        "intent-p1",
+        "p1",
+        "approve",
+        "queued",
+        "idem-p1",
+        None,
+        None,
+        Some("2026-04-01T12:00:00Z"),
+    )?;
 
     let service = harness.service()?;
     let envelope = service
@@ -1041,6 +1071,9 @@ fn rt_1_list_manifests_returns_all_manifest_rows() -> Result<()> {
         p1.suggested_action.as_deref(),
         Some("Capture clarification")
     );
+    assert_eq!(p1.decision.disposition.as_deref(), Some("approve"));
+    assert_eq!(p1.decision.status.as_deref(), Some("queued"));
+    assert!(!p1.decision.is_stale);
     assert!(p1.manifest_basis_hash.is_some());
     Ok(())
 }
@@ -1130,6 +1163,71 @@ fn rt_3_get_decision_history_returns_audit_chain() -> Result<()> {
     assert_eq!(
         entries[1].superseded_by_intent_id.as_deref(),
         Some("intent-new")
+    );
+    Ok(())
+}
+
+#[test]
+fn bug_withdrawn_decision_regression_does_not_roll_up_as_stale() -> Result<()> {
+    let mut harness = Harness::new()?;
+    harness.seed_process("p1", "2026-04-01T10:00:00Z", "review")?;
+    harness.seed_candidate_and_quote("p1")?;
+    seed_inbox_manifest(&mut harness.state_db, "p1", "clarify", 1, "[]")?;
+    seed_intent(
+        &mut harness.state_db,
+        "intent-withdrawn",
+        "p1",
+        "watch",
+        "withdrawn",
+        "key-withdrawn",
+        None,
+        Some("Withdrawn operator demo decision"),
+        Some("2026-04-02T12:00:00Z"),
+    )?;
+    harness.state_db.with_write_transaction(|tx| {
+        tx.execute(
+            "UPDATE pipeline_assessments SET decision_basis_hash = 'basis-p1-new' WHERE process_id = 'p1'",
+            [],
+        )?;
+        tx.execute(
+            "UPDATE manifests SET manifest_basis_hash = 'basis-p1-new' WHERE process_id = 'p1'",
+            [],
+        )?;
+        Ok(())
+    })?;
+
+    let service = harness.service()?;
+    let inbox = service
+        .list_manifests()
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+    let row = inbox
+        .data
+        .iter()
+        .find(|row| row.process_id == "p1")
+        .ok_or_else(|| anyhow!("p1 manifest row not found"))?;
+    assert_eq!(row.decision.disposition.as_deref(), Some("watch"));
+    assert_eq!(row.decision.status.as_deref(), Some("withdrawn"));
+    assert!(!row.decision.is_stale);
+
+    let detail = service
+        .get_process_detail("p1")
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+    assert_eq!(detail.data.decision.status.as_deref(), Some("withdrawn"));
+    assert!(!detail.data.decision.is_stale);
+
+    let stale_only = service
+        .list_processes(
+            None,
+            25,
+            &ProcessListFilters {
+                stale_only: true,
+                ..ProcessListFilters::default()
+            },
+        )
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+    assert!(
+        stale_only.data.items.is_empty(),
+        "withdrawn decisions must not satisfy the stale-only process filter"
     );
     Ok(())
 }

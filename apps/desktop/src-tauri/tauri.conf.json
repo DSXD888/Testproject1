@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "identifier": "com.procintel.desktop",
   "build": {
+    "beforeDevCommand": "bun run dev",
+    "beforeBuildCommand": "bun run build",
     "devUrl": "http://127.0.0.1:5173",
     "frontendDist": "../dist"
   },
