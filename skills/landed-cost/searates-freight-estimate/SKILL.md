@@ -25,11 +25,48 @@ CDP_PORT=${AGENT_BROWSER_CDP_PORT:-${job_parameters.cdp_port:-9222}}
 curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
 ```
 
-If CDP is unreachable, emit `freight_status: "blocked"` with blocker code `CDP_CONNECT_FAILED`. Do not launch a fresh browser. Every browser command must use:
+If CDP is unreachable, emit `freight_status: "blocked"`, `cdp_state: "unreachable"`, `captcha_intercepted: false`, with blocker code `CDP_CONNECT_FAILED`. Do not launch a fresh browser. Every browser command must use:
 
 ```bash
 agent-browser --cdp ${CDP_PORT} ...
 ```
+
+## Mandatory CDP State + Captcha Reporting
+
+Every result MUST set both `captcha_intercepted` (boolean) and `cdp_state` (one of `connected`, `unreachable`, `captcha_blocked`, `session_expired`). The daemon's resilience logic depends on these signals being explicit — do not stall the session or attempt to solve a captcha.
+
+| Observation | `cdp_state` | `captcha_intercepted` | `freight_status` |
+|---|---|---|---|
+| Normal SeaRates response with a usable quote | `connected` | `false` | `quoted` |
+| Captcha challenge / bot wall served by SeaRates or Cloudflare | `captcha_blocked` | `true` | `blocked` |
+| `localhost:${CDP_PORT}/json/version` returns non-2xx or refuses connection | `unreachable` | `false` | `blocked` |
+| CDP reachable but s-token missing/expired and refresh fails | `session_expired` | `false` | `blocked` |
+
+When `cdp_state` is anything other than `connected`, emit the result IMMEDIATELY (do not retry inside the skill — the daemon's retry loop owns retries). Include a single `Stage11Issue`-shaped blocker in `blockers` describing what was observed (e.g. `CDP_CAPTCHA_INTERCEPTION`, `CDP_CONNECT_FAILED`, `SEARATES_SESSION_EXPIRED`).
+
+## Captcha Simulation (Daemon-driven Test Hook)
+
+If `job_parameters.simulate_captcha` is `true` (the daemon injects this when the operator sets `STAGE11_SIMULATE_CAPTCHA=1` or passes the equivalent override), short-circuit immediately without driving the browser:
+
+```json
+{
+  "product_candidate_id": "...",
+  "selected_quote_id": "...",
+  "freight_status": "blocked",
+  "captcha_intercepted": true,
+  "cdp_state": "captcha_blocked",
+  "warnings": [],
+  "blockers": [
+    {
+      "code": "CDP_CAPTCHA_INTERCEPTION",
+      "message": "Captcha simulation requested via job_parameters.simulate_captcha; browser was not contacted.",
+      "severity": "blocked"
+    }
+  ]
+}
+```
+
+This lets the daemon exercise its retry/cache/operator-notification paths without needing a real captcha to occur.
 
 ## Workflow
 1. Prefer the Logistics Explorer GraphQL path below. Do not inspect application bundles before trying it.
@@ -92,16 +129,18 @@ Then recalculate the chosen `general.shipmentId` for the planned container count
 
 For the final `result.json`, include the selected recalculated rate under `evidence`, including `shipmentId`, `totalPrice`, `totalCurrency`, `totalTransitTime`, provider/carrier, port legs, and the route/query URL.
 
-When SeaRates returns a concrete non-expired amount from either the visible UI or the Logistics Explorer GraphQL path, the successful result status is exactly:
+When SeaRates returns a concrete non-expired amount from either the visible UI or the Logistics Explorer GraphQL path, the successful result fields are exactly:
 
 ```json
-"freight_status": "quoted"
+"freight_status": "quoted",
+"cdp_state": "connected",
+"captcha_intercepted": false
 ```
 
 Do not emit `freight_status: "estimated"` or any other success status. `blocked` is the only non-success status accepted by the daemon.
 
 If SeaRates shows an expired estimate, record the price and set `quote_expired: true` with warning `SEARATES_PRICE_EXPIRED`.
-If SeaRates cannot return a price within the bounded run, emit `freight_status: "blocked"` with the blocker that names the observed UI/network reason. Do not copy `result.schema.json` into `result.json`, and do not leave `result.json` as a schema or partial scratch object.
+If SeaRates cannot return a price within the bounded run, emit `freight_status: "blocked"` with the blocker that names the observed UI/network reason and an appropriate `cdp_state` value (`captcha_blocked` if a challenge was served, `unreachable` if CDP itself failed, `session_expired` if the SeaRates token failed to refresh). Do not copy `result.schema.json` into `result.json`, and do not leave `result.json` as a schema or partial scratch object.
 
 ## Safety
 Do not log in/out, contact carriers, book shipments, create orders, change account settings, or write server-side state.

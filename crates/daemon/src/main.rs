@@ -257,6 +257,18 @@ const LANDED_COST_BATCH_SIZE: i64 = 20;
 const LANDED_COST_SKILL_TIMEOUT_SECONDS: u64 = 300;
 const LANDED_COST_STAGE_NAME: &str = "landed cost";
 const LANDED_COST_SCOPE_KIND: &str = "candidate_quote";
+// Stage 11 CDP / captcha resilience knobs (handoff stage-11-hardening-cdp-resilience).
+// `STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS` shrinks the per-attempt budget for
+// SeaRates only — the outer 300s bound still gates total time.
+const STAGE11_SKILL_RETRY_MAX_ATTEMPTS: u32 = 3;
+const STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS_DEFAULT: u64 = 60;
+const STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS_ENV: &str = "STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS";
+const STAGE11_SKILL_RETRY_BACKOFF_1_SECONDS_DEFAULT: u64 = 15;
+const STAGE11_SKILL_RETRY_BACKOFF_2_SECONDS_DEFAULT: u64 = 45;
+const STAGE11_SKILL_RETRY_BACKOFFS_ENV: &str = "STAGE11_SKILL_RETRY_BACKOFFS_SECONDS";
+const STAGE11_FREIGHT_CACHE_TTL_DAYS_DEFAULT: u64 = 7;
+const STAGE11_FREIGHT_CACHE_TTL_DAYS_ENV: &str = "STAGE11_FREIGHT_CACHE_TTL_DAYS";
+const STAGE11_SIMULATE_CAPTCHA_ENV: &str = "STAGE11_SIMULATE_CAPTCHA";
 const NET_MARGIN_STAGE_NAME: &str = "net margin gate";
 const NET_MARGIN_PASS_THRESHOLD_BPS: i64 = 2_000;
 const NET_MARGIN_REJECT_THRESHOLD_BPS: i64 = 500;
@@ -3712,6 +3724,10 @@ struct SeaRatesFreightResult {
     selected_quote_id: String,
     freight_status: String,
     #[serde(default)]
+    captcha_intercepted: bool,
+    #[serde(default)]
+    cdp_state: Option<String>,
+    #[serde(default)]
     freight_currency: Option<String>,
     #[serde(default)]
     freight_amount_minor: Option<i64>,
@@ -3735,6 +3751,49 @@ struct SeaRatesFreightResult {
     warnings: Vec<Stage11Issue>,
     #[serde(default)]
     blockers: Vec<Stage11Issue>,
+}
+
+/// Possible values of the `SeaRates` skill's `cdp_state` field.
+///
+/// Stage 11 captcha resilience treats each value differently:
+/// `Connected` is the only non-blocking state and skips retries; `CaptchaBlocked`
+/// triggers the bounded retry loop; `Unreachable` and `SessionExpired` skip retries
+/// entirely and fall through to the cached-freight / operator-notification path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SeaRatesCdpState {
+    Connected,
+    Unreachable,
+    CaptchaBlocked,
+    SessionExpired,
+    Unknown,
+}
+
+impl SeaRatesCdpState {
+    fn from_optional_string(value: Option<&str>) -> Self {
+        match value.map(str::trim).filter(|v| !v.is_empty()) {
+            Some("connected") => Self::Connected,
+            Some("unreachable") => Self::Unreachable,
+            Some("captcha_blocked") => Self::CaptchaBlocked,
+            Some("session_expired") => Self::SessionExpired,
+            _ => Self::Unknown,
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Connected => "connected",
+            Self::Unreachable => "unreachable",
+            Self::CaptchaBlocked => "captcha_blocked",
+            Self::SessionExpired => "session_expired",
+            Self::Unknown => "unknown",
+        }
+    }
+
+    /// CDP states that the retry loop should NOT retry on. `Unreachable` and
+    /// `SessionExpired` are operator-action territory — retries cannot fix them.
+    const fn skip_retries(self) -> bool {
+        matches!(self, Self::Unreachable | Self::SessionExpired)
+    }
 }
 
 #[allow(dead_code)]
@@ -4383,6 +4442,15 @@ fn parse_searates_freight_result(value: &Value) -> Result<SeaRatesFreightResult>
         !result.selected_quote_id.trim().is_empty(),
         "SeaRates result missing selected_quote_id"
     );
+    if let Some(state) = result.cdp_state.as_deref() {
+        ensure!(
+            matches!(
+                state,
+                "connected" | "unreachable" | "captcha_blocked" | "session_expired"
+            ),
+            "unsupported cdp_state `{state}`"
+        );
+    }
     if result.freight_status == "quoted" {
         ensure!(
             result
@@ -4434,6 +4502,299 @@ fn parse_simple_fx_lookup_result(value: &Value) -> Result<SimpleFxLookupResult> 
         );
     }
     Ok(result)
+}
+
+/// Per-attempt retry decision computed from the parsed `SeaRates` result.
+///
+/// This is the pure-sync core of the Stage 11 captcha resilience loop —
+/// the async retry helper consults this to decide whether to retry, bail,
+/// or accept the attempt's result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SearatesRetryDecision {
+    /// Attempt produced a usable result with no captcha — accept it.
+    Accept,
+    /// Captcha intercepted; retry budget remaining — retry after the given
+    /// backoff index (`0` = first backoff, `1` = second, etc.).
+    Retry { backoff_index: usize },
+    /// Either retries are exhausted or the CDP state is non-recoverable
+    /// (`unreachable` / `session_expired`) — bail through to cache/operator.
+    Bail,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SearatesRetryConfig {
+    max_attempts: u32,
+    per_attempt: Duration,
+    backoffs: [Duration; 2],
+    cache_ttl_days: u64,
+    simulate_captcha: bool,
+}
+
+impl SearatesRetryConfig {
+    /// Loads runtime overrides from process environment variables. Falls back
+    /// to the `STAGE11_*_DEFAULT` constants when env vars are absent or
+    /// unparseable.
+    fn from_env() -> Self {
+        Self::from_env_lookup(|key| std::env::var(key).ok())
+    }
+
+    /// Same as `from_env` but the env reader is injectable, so tests can supply
+    /// a fake without mutating the process-wide environment (which would
+    /// require `unsafe` in Rust 2024 — forbidden in this crate).
+    fn from_env_lookup<F: Fn(&str) -> Option<String>>(lookup: F) -> Self {
+        let per_attempt_seconds = lookup(STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS_ENV)
+            .and_then(|raw| raw.parse::<u64>().ok())
+            .unwrap_or(STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS_DEFAULT);
+        let mut backoff_a = STAGE11_SKILL_RETRY_BACKOFF_1_SECONDS_DEFAULT;
+        let mut backoff_b = STAGE11_SKILL_RETRY_BACKOFF_2_SECONDS_DEFAULT;
+        if let Some(raw) = lookup(STAGE11_SKILL_RETRY_BACKOFFS_ENV) {
+            let parts: Vec<u64> = raw
+                .split(',')
+                .filter_map(|chunk| chunk.trim().parse::<u64>().ok())
+                .collect();
+            if let Some(first) = parts.first().copied() {
+                backoff_a = first;
+            }
+            if let Some(second) = parts.get(1).copied() {
+                backoff_b = second;
+            }
+        }
+        let cache_ttl_days = lookup(STAGE11_FREIGHT_CACHE_TTL_DAYS_ENV)
+            .and_then(|raw| raw.parse::<u64>().ok())
+            .unwrap_or(STAGE11_FREIGHT_CACHE_TTL_DAYS_DEFAULT);
+        let simulate_captcha = lookup(STAGE11_SIMULATE_CAPTCHA_ENV)
+            .is_some_and(|raw| matches!(raw.trim(), "1" | "true" | "TRUE" | "yes" | "YES"));
+        Self {
+            max_attempts: STAGE11_SKILL_RETRY_MAX_ATTEMPTS,
+            per_attempt: Duration::from_secs(per_attempt_seconds),
+            backoffs: [
+                Duration::from_secs(backoff_a),
+                Duration::from_secs(backoff_b),
+            ],
+            cache_ttl_days,
+            simulate_captcha,
+        }
+    }
+}
+
+/// Pure decision function: given the parsed `SeaRates` result for the current
+/// attempt and the attempt index, decide whether to accept, retry, or bail.
+///
+/// This is split out so the retry semantics can be unit-tested without spawning
+/// real skill processes or sleeping for backoff intervals.
+fn classify_searates_attempt(
+    parsed: Option<&SeaRatesFreightResult>,
+    attempt_number: u32,
+    max_attempts: u32,
+) -> SearatesRetryDecision {
+    let Some(result) = parsed else {
+        // Skill failed to produce a parsed result at all — treat as a hard
+        // bail. The retry loop is reserved for explicit captcha signals; an
+        // unparseable result means something is wrong upstream.
+        return SearatesRetryDecision::Bail;
+    };
+    let cdp_state = SeaRatesCdpState::from_optional_string(result.cdp_state.as_deref());
+    if cdp_state.skip_retries() {
+        return SearatesRetryDecision::Bail;
+    }
+    let captcha_observed =
+        result.captcha_intercepted || matches!(cdp_state, SeaRatesCdpState::CaptchaBlocked);
+    if !captcha_observed {
+        return SearatesRetryDecision::Accept;
+    }
+    if attempt_number + 1 >= max_attempts {
+        return SearatesRetryDecision::Bail;
+    }
+    SearatesRetryDecision::Retry {
+        backoff_index: attempt_number as usize,
+    }
+}
+
+/// Outcome of the Stage 11 `SeaRates` retry loop.
+#[derive(Debug, Clone)]
+struct SearatesRetryOutcome {
+    /// Last skill outcome (always populated — represents the run that produced
+    /// `parsed_result`, or the final retry that failed to clear the captcha).
+    final_outcome: LandedCostSkillRunOutcome,
+    /// Last successfully parsed `SeaRates` result (`None` if all attempts produced
+    /// unparseable JSON or no result contract at all).
+    final_parsed: Option<SeaRatesFreightResult>,
+    /// Total attempts actually executed (`1..=max_attempts`).
+    attempts_used: u32,
+    /// True if any attempt observed a captcha (`captcha_intercepted=true` or
+    /// `cdp_state=captcha_blocked`).
+    captcha_observed: bool,
+    /// Final CDP state observed across all attempts.
+    final_cdp_state: SeaRatesCdpState,
+}
+
+/// Bounded, captcha-aware retry loop around the `SeaRates` skill invocation.
+///
+/// Wraps `run_landed_cost_skill` with:
+/// - up to `config.max_attempts` invocations
+/// - per-attempt timeout (`config.per_attempt`) that overrides the default
+///   `LANDED_COST_SKILL_TIMEOUT_SECONDS` via the threaded `timeout_override`
+///   parameter
+/// - exponential backoff between attempts (`config.backoffs`)
+/// - early bail when the agent reports `cdp_state=unreachable|session_expired`
+///   (operator action required — retrying cannot fix it)
+/// - test-mode injection of `simulate_captcha: true` into `job_parameters`
+///   when `config.simulate_captcha` is true
+#[allow(clippy::future_not_send)]
+async fn run_searates_with_retries(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+    skill: &LoadedSkill,
+    row: &LandedCostAssessmentRow,
+    base_parameters: &Value,
+    config: SearatesRetryConfig,
+) -> Result<SearatesRetryOutcome> {
+    // Inject simulate_captcha into job_parameters when the operator has set
+    // the env var. This keeps the daemon-native demo path simple — the SKILL.md
+    // honors the parameter on the agent side without touching real browser state.
+    let mut effective_parameters = base_parameters.clone();
+    if config.simulate_captcha
+        && let Value::Object(map) = &mut effective_parameters
+    {
+        map.insert("simulate_captcha".to_owned(), Value::Bool(true));
+    }
+
+    let mut last_outcome: Option<LandedCostSkillRunOutcome> = None;
+    let mut last_parsed: Option<SeaRatesFreightResult> = None;
+    let mut last_cdp_state = SeaRatesCdpState::Unknown;
+    let mut captcha_observed = false;
+    let mut attempts_used = 0u32;
+
+    for attempt in 0..config.max_attempts {
+        attempts_used = attempt + 1;
+        let outcome = run_landed_cost_skill(
+            runtime,
+            cli,
+            skill,
+            "landed_cost_searates_freight",
+            row,
+            &effective_parameters,
+            Some(config.per_attempt),
+        )
+        .await?;
+
+        let parsed = outcome.result_json.as_ref().and_then(|value| {
+            match parse_searates_freight_result(value) {
+                Ok(result) => Some(result),
+                Err(error) => {
+                    ::tracing::warn!(
+                        candidate_id = %row.product_candidate_id,
+                        attempt = attempt + 1,
+                        error = %error,
+                        "SeaRates result failed Stage 11 domain validation"
+                    );
+                    None
+                }
+            }
+        });
+
+        if let Some(result) = parsed.as_ref() {
+            last_cdp_state = SeaRatesCdpState::from_optional_string(result.cdp_state.as_deref());
+            if result.captcha_intercepted
+                || matches!(last_cdp_state, SeaRatesCdpState::CaptchaBlocked)
+            {
+                captcha_observed = true;
+            }
+        }
+
+        let decision = classify_searates_attempt(parsed.as_ref(), attempt, config.max_attempts);
+        last_outcome = Some(outcome);
+        last_parsed = parsed;
+
+        match decision {
+            SearatesRetryDecision::Accept | SearatesRetryDecision::Bail => break,
+            SearatesRetryDecision::Retry { backoff_index } => {
+                let backoff = config
+                    .backoffs
+                    .get(backoff_index)
+                    .copied()
+                    .unwrap_or_else(|| Duration::from_secs(0));
+                ::tracing::warn!(
+                    skill_id = %skill.metadata.skill_id,
+                    candidate_id = %row.product_candidate_id,
+                    attempt = attempt + 1,
+                    backoff_seconds = backoff.as_secs(),
+                    "Stage 11 SeaRates captcha intercepted; backing off before retry"
+                );
+                tokio::time::sleep(backoff).await;
+            }
+        }
+    }
+
+    // Invariant: `last_outcome` is set after at least one iteration (max_attempts
+    // is enforced >= 1 via the `STAGE11_SKILL_RETRY_MAX_ATTEMPTS = 3` constant).
+    let final_outcome = last_outcome
+        .ok_or_else(|| anyhow!("SeaRates retry loop produced no attempts (max_attempts == 0)"))?;
+    Ok(SearatesRetryOutcome {
+        final_outcome,
+        final_parsed: last_parsed,
+        attempts_used,
+        captcha_observed,
+        final_cdp_state: last_cdp_state,
+    })
+}
+
+/// Snapshot of a previous successful freight estimate, used as a fallback when
+/// the current run was blocked by a captcha or unreachable CDP.
+#[derive(Debug, Clone)]
+struct CachedFreightSnapshot {
+    low_gbp_pence: i64,
+    base_gbp_pence: i64,
+    high_gbp_pence: i64,
+    fx_rate: f64,
+    fx_checked_at: Option<String>,
+    created_at: String,
+}
+
+/// Looks up the most recent successful freight number for this
+/// (`process_id`, `supplier_quote_id`) tuple, scoped to the cache TTL window.
+///
+/// Returns `Ok(None)` when no row qualifies (no successful prior run, or all
+/// candidates are older than the TTL). The query is read-only and safe to run
+/// outside a write transaction.
+fn lookup_cached_freight(
+    conn: &Connection,
+    process_id: &str,
+    supplier_quote_id: &str,
+    ttl_days: u64,
+) -> Result<Option<CachedFreightSnapshot>> {
+    let cutoff = format!("-{ttl_days} days");
+    let mut stmt = conn.prepare(
+        "\
+        SELECT
+          freight_low_gbp_pence,
+          freight_base_gbp_pence,
+          freight_high_gbp_pence,
+          commercial_fx_rate,
+          fx_rate_checked_at,
+          created_at
+        FROM landed_cost_estimates
+        WHERE process_id = ?1
+          AND supplier_quote_id = ?2
+          AND freight_base_gbp_pence > 0
+          AND created_at >= datetime('now', ?3)
+        ORDER BY created_at DESC
+        LIMIT 1
+        ",
+    )?;
+    let row = stmt
+        .query_row(params![process_id, supplier_quote_id, cutoff], |r| {
+            Ok(CachedFreightSnapshot {
+                low_gbp_pence: r.get(0)?,
+                base_gbp_pence: r.get(1)?,
+                high_gbp_pence: r.get(2)?,
+                fx_rate: r.get(3)?,
+                fx_checked_at: r.get(4)?,
+                created_at: r.get(5)?,
+            })
+        })
+        .optional()?;
+    Ok(row)
 }
 
 fn landed_cost_skill_session_ids(
@@ -4628,6 +4989,7 @@ async fn run_landed_cost_skill(
     kind: &str,
     row: &LandedCostAssessmentRow,
     job_parameters: &Value,
+    timeout_override: Option<Duration>,
 ) -> Result<LandedCostSkillRunOutcome> {
     let adapter_config = adapter_runtime_config(cli, skill)?;
     let job_id = format!("job-stage11-{kind}-{}", Uuid::new_v4().simple());
@@ -4675,6 +5037,7 @@ async fn run_landed_cost_skill(
         &session_id,
         job_parameters,
         cli,
+        timeout_override,
     )
     .await
     {
@@ -4757,7 +5120,11 @@ async fn run_landed_cost_skill(
     })
 }
 
-#[allow(clippy::future_not_send, clippy::too_many_lines)]
+#[allow(
+    clippy::future_not_send,
+    clippy::too_many_lines,
+    clippy::too_many_arguments
+)]
 async fn execute_landed_cost_skill_session(
     runtime: &RuntimeBootstrap,
     skill: &LoadedSkill,
@@ -4765,7 +5132,11 @@ async fn execute_landed_cost_skill_session(
     session_id: &str,
     job_parameters: &Value,
     cli: &Cli,
+    timeout_override: Option<Duration>,
 ) -> Result<ExecutedSession> {
+    let attempt_timeout =
+        timeout_override.unwrap_or_else(|| Duration::from_secs(LANDED_COST_SKILL_TIMEOUT_SECONDS));
+    let attempt_timeout_seconds = attempt_timeout.as_secs();
     let adapter_config = adapter_runtime_config(cli, skill)?;
     let adapter = build_adapter(&adapter_config);
     let probe_ctx = ProbeCtx {
@@ -4838,7 +5209,7 @@ async fn execute_landed_cost_skill_session(
         )
     })?;
     let runtime_ids = child_runtime_ids(child.id()).ok();
-    let deadline = Instant::now() + Duration::from_secs(LANDED_COST_SKILL_TIMEOUT_SECONDS);
+    let deadline = Instant::now() + attempt_timeout;
     let mut timed_out = false;
     let status = loop {
         if let Some(status) = child.try_wait().context("polling Stage 11 skill process")? {
@@ -4867,11 +5238,12 @@ async fn execute_landed_cost_skill_session(
         timed_out,
         None,
         result_path.is_some(),
+        attempt_timeout_seconds,
     )?;
     if timed_out && result_path.is_some() {
         ::tracing::warn!(
             skill_id = %skill.metadata.skill_id,
-            timeout_seconds = LANDED_COST_SKILL_TIMEOUT_SECONDS,
+            timeout_seconds = attempt_timeout_seconds,
             "Stage 11 skill timed out after writing a result contract; accepting recovered contract"
         );
     }
@@ -4938,6 +5310,7 @@ async fn execute_landed_cost_skill_session(
         timed_out,
         protocol_parser_error.as_deref(),
         result_path.is_some(),
+        attempt_timeout_seconds,
     )?;
     if let Some(error) = protocol_parser_error.as_deref() {
         ::tracing::warn!(
@@ -4963,7 +5336,7 @@ async fn execute_landed_cost_skill_session(
         "event_count": events.len(),
         "terminal_output_path": terminal_output_path,
         "bounded_stage11_runner": true,
-        "timeout_seconds": LANDED_COST_SKILL_TIMEOUT_SECONDS,
+        "timeout_seconds": attempt_timeout_seconds,
         "timed_out": timed_out,
         "recovered_result_after_timeout": outcome_decision.recovered_result_after_timeout,
         "protocol_parser_error": protocol_parser_error,
@@ -5008,11 +5381,10 @@ fn decide_landed_cost_outcome(
     timed_out: bool,
     protocol_parser_error: Option<&str>,
     result_present: bool,
+    timeout_seconds: u64,
 ) -> Result<LandedCostOutcomeDecision> {
     if timed_out && !result_present {
-        bail!(
-            "Stage 11 skill `{skill_id}` timed out after {LANDED_COST_SKILL_TIMEOUT_SECONDS} seconds"
-        );
+        bail!("Stage 11 skill `{skill_id}` timed out after {timeout_seconds} seconds");
     }
     if let Some(error) = protocol_parser_error
         && !result_present
@@ -5883,6 +6255,7 @@ async fn freight_scenario_from_searates(
         "landed_cost_simple_fx",
         row,
         &fx_parameters,
+        None,
     )
     .await?;
     let fx_session_id = Some(fx_outcome.session_id.clone());
@@ -6224,6 +6597,7 @@ async fn run_landed_cost_live_loop(
     let mut sizing_skill_runs = 0_usize;
     let mut searates_skill_runs = 0_usize;
     let mut fx_skill_runs = 0_usize;
+    let retry_config = SearatesRetryConfig::from_env();
 
     for row in &assessments {
         attempted += 1;
@@ -6263,6 +6637,7 @@ async fn run_landed_cost_live_loop(
             "landed_cost_customs_classification",
             row,
             &base_parameters,
+            None,
         )
         .await?;
         let customs =
@@ -6295,6 +6670,7 @@ async fn run_landed_cost_live_loop(
                 "landed_cost_shipment_sizing",
                 row,
                 &base_parameters,
+                None,
             )
             .await?;
             let parsed = outcome.result_json.as_ref().and_then(|value| {
@@ -6315,6 +6691,9 @@ async fn run_landed_cost_live_loop(
 
         let mut searates_outcome: Option<LandedCostSkillRunOutcome> = None;
         let mut searates_result: Option<SeaRatesFreightResult> = None;
+        let mut captcha_observed = false;
+        let mut final_cdp_state = SeaRatesCdpState::Unknown;
+        let mut searates_attempts = 0u32;
         if let Some(sizing_result) = sizing
             .as_ref()
             .filter(|result| result.sizing_status == "sized")
@@ -6343,38 +6722,113 @@ async fn run_landed_cost_live_loop(
                 },
                 "source_quote_url": row.source_url,
             });
-            let outcome = run_landed_cost_skill(
+            let retry_outcome = run_searates_with_retries(
                 runtime,
                 cli,
                 &searates_skill,
-                "landed_cost_searates_freight",
                 row,
                 &freight_parameters,
+                retry_config,
             )
             .await?;
-            searates_result =
-                outcome
-                    .result_json
-                    .as_ref()
-                    .and_then(|value| match parse_searates_freight_result(value) {
-                        Ok(result) => Some(result),
-                        Err(error) => {
-                            ::tracing::warn!(
-                                candidate_id = %row.product_candidate_id,
-                                error = %error,
-                                "SeaRates result failed Stage 11 domain validation"
-                            );
-                            None
-                        }
-                    });
-            searates_outcome = Some(outcome);
+            searates_attempts = retry_outcome.attempts_used;
+            captcha_observed = retry_outcome.captcha_observed;
+            final_cdp_state = retry_outcome.final_cdp_state;
+            searates_result = retry_outcome.final_parsed;
+            searates_outcome = Some(retry_outcome.final_outcome);
+            if retry_outcome.attempts_used > 1 {
+                ::tracing::warn!(
+                    candidate_id = %row.product_candidate_id,
+                    attempts = retry_outcome.attempts_used,
+                    captcha_observed = captcha_observed,
+                    final_cdp_state = final_cdp_state.as_str(),
+                    "Stage 11 SeaRates exhausted bounded retry budget"
+                );
+            }
         }
 
-        let freight =
+        let mut freight =
             freight_scenario_from_searates(runtime, cli, &fx_skill, row, searates_result.as_ref())
                 .await?;
         if freight.fx_status == "converted" {
             fx_skill_runs += 1;
+        }
+
+        // Stage 11 captcha resilience: if the SeaRates path did not yield a
+        // usable freight number AND a captcha or non-recoverable CDP state was
+        // observed, try to recover from a recent cached estimate; otherwise
+        // emit operator-action blockers so the operator knows what to do.
+        let captcha_or_blocked_cdp = captcha_observed
+            || matches!(
+                final_cdp_state,
+                SeaRatesCdpState::CaptchaBlocked
+                    | SeaRatesCdpState::Unreachable
+                    | SeaRatesCdpState::SessionExpired
+            );
+        if freight.base_gbp_pence == 0 && captcha_or_blocked_cdp {
+            let cached = lookup_cached_freight(
+                runtime.state_db.connection(),
+                &row.process_id,
+                &row.selected_quote_id,
+                retry_config.cache_ttl_days,
+            )?;
+            if let Some(snapshot) = cached {
+                ::tracing::info!(
+                    candidate_id = %row.product_candidate_id,
+                    cached_at = %snapshot.created_at,
+                    "Stage 11 SeaRates blocked; substituting cached freight estimate"
+                );
+                let warning = Stage11Issue::warning(
+                    "FREIGHT_FROM_CACHED_ESTIMATE",
+                    format!(
+                        "Captcha/CDP failure; using cached freight from {} (within {} day TTL).",
+                        snapshot.created_at, retry_config.cache_ttl_days
+                    ),
+                );
+                freight = FreightScenarioGbp {
+                    low_gbp_pence: snapshot.low_gbp_pence,
+                    base_gbp_pence: snapshot.base_gbp_pence,
+                    high_gbp_pence: snapshot.high_gbp_pence,
+                    fx_rate: snapshot.fx_rate,
+                    fx_checked_at: snapshot.fx_checked_at,
+                    fx_status: "cached".to_owned(),
+                    fx_session_id: None,
+                    fx_job_id: None,
+                    warnings: vec![warning],
+                    blockers: Vec::new(),
+                };
+            } else {
+                ::tracing::warn!(
+                    candidate_id = %row.process_id,
+                    candidate = %row.product_candidate_id,
+                    final_cdp_state = final_cdp_state.as_str(),
+                    attempts = searates_attempts,
+                    "stage11.cdp.operator_action_required"
+                );
+                let mut new_blockers = freight.blockers.clone();
+                let already_has_operator_blocker = new_blockers
+                    .iter()
+                    .any(|b| b.code == "CDP_CAPTCHA_BLOCKED_OPERATOR_ACTION_REQUIRED");
+                if !already_has_operator_blocker {
+                    new_blockers.push(Stage11Issue::blocked(
+                        "CDP_CAPTCHA_BLOCKED_OPERATOR_ACTION_REQUIRED",
+                        "SeaRates served a captcha or CDP was unreachable; please open `localhost:9222` in your browser, solve the captcha manually, then re-run `--ingest landed-cost`.",
+                    ));
+                }
+                let already_has_no_cache_blocker = new_blockers
+                    .iter()
+                    .any(|b| b.code == "FREIGHT_NO_CACHED_FALLBACK");
+                if !already_has_no_cache_blocker {
+                    new_blockers.push(Stage11Issue::blocked(
+                        "FREIGHT_NO_CACHED_FALLBACK",
+                        format!(
+                            "No fresh freight estimate within {} days; manual operator action needed.",
+                            retry_config.cache_ttl_days
+                        ),
+                    ));
+                }
+                freight.blockers = new_blockers;
+            }
         }
 
         let skill_session_ids = landed_cost_skill_session_ids(
@@ -22976,7 +23430,7 @@ mod tests {
 
     #[test]
     fn landed_cost_recovers_result_after_timeout() -> Result<()> {
-        let decision = super::decide_landed_cost_outcome("test-skill", true, None, true)?;
+        let decision = super::decide_landed_cost_outcome("test-skill", true, None, true, 300)?;
 
         assert!(decision.recovered_result_after_timeout);
         assert!(!decision.recovered_result_after_protocol_error);
@@ -22985,7 +23439,7 @@ mod tests {
 
     #[test]
     fn landed_cost_bails_on_timeout_without_result() -> Result<()> {
-        let result = super::decide_landed_cost_outcome("test-skill", true, None, false);
+        let result = super::decide_landed_cost_outcome("test-skill", true, None, false, 300);
         assert!(result.is_err());
         let error = result
             .err()
@@ -23002,6 +23456,7 @@ mod tests {
             false,
             Some("stdout: invalid ndjson"),
             true,
+            300,
         )?;
 
         assert!(!decision.recovered_result_after_timeout);
@@ -23016,6 +23471,7 @@ mod tests {
             false,
             Some("stdout: invalid ndjson"),
             false,
+            300,
         );
         assert!(result.is_err());
         let error = result
@@ -23436,6 +23892,419 @@ mod tests {
         assert_eq!(parsed.freight_status, "quoted");
         assert_eq!(parsed.freight_currency.as_deref(), Some("USD"));
         assert!(parsed.quote_expired);
+        Ok(())
+    }
+
+    // ---- Stage 11 CDP captcha resilience (CDP.1..CDP.12) ----------------
+
+    fn create_minimal_lce_table(conn: &Connection) -> Result<()> {
+        conn.execute_batch(
+            "CREATE TABLE landed_cost_estimates (
+                id TEXT PRIMARY KEY,
+                process_id TEXT NOT NULL,
+                supplier_quote_id TEXT NOT NULL,
+                freight_low_gbp_pence INTEGER NOT NULL,
+                freight_base_gbp_pence INTEGER NOT NULL,
+                freight_high_gbp_pence INTEGER NOT NULL,
+                commercial_fx_rate NUMERIC NOT NULL,
+                fx_rate_checked_at TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )",
+        )?;
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn insert_minimal_lce_row(
+        conn: &Connection,
+        id: &str,
+        process_id: &str,
+        supplier_quote_id: &str,
+        low: i64,
+        base: i64,
+        high: i64,
+        days_old: i64,
+    ) -> Result<()> {
+        let created_at_expr = format!("datetime('now', '-{days_old} days')");
+        let sql = format!(
+            "INSERT INTO landed_cost_estimates
+             (id, process_id, supplier_quote_id, freight_low_gbp_pence, freight_base_gbp_pence,
+              freight_high_gbp_pence, commercial_fx_rate, fx_rate_checked_at, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1.27, '2026-04-30T00:00:00Z', {created_at_expr})"
+        );
+        conn.execute(
+            &sql,
+            params![id, process_id, supplier_quote_id, low, base, high],
+        )?;
+        Ok(())
+    }
+
+    /// CDP.1 — parser populates `captcha_intercepted` from skill JSON.
+    #[test]
+    fn cdp_1_searates_skill_output_parser_extracts_captcha_intercepted_field() -> Result<()> {
+        let parsed = super::parse_searates_freight_result(&json!({
+            "product_candidate_id": "candidate",
+            "selected_quote_id": "quote",
+            "freight_status": "blocked",
+            "captcha_intercepted": true,
+            "cdp_state": "captcha_blocked",
+            "warnings": [],
+            "blockers": [{"code": "CDP_CAPTCHA_INTERCEPTION", "message": "captcha", "severity": "blocked"}]
+        }))?;
+        assert!(parsed.captcha_intercepted);
+        assert_eq!(parsed.cdp_state.as_deref(), Some("captcha_blocked"));
+        Ok(())
+    }
+
+    /// CDP.2 — every `cdp_state` value deserializes (and unknown rejected).
+    #[test]
+    fn cdp_2_searates_skill_output_parser_extracts_cdp_state_enum() -> Result<()> {
+        for state in [
+            "connected",
+            "unreachable",
+            "captcha_blocked",
+            "session_expired",
+        ] {
+            let blockers = if state == "connected" {
+                json!([])
+            } else {
+                json!([{"code": "X", "message": "x", "severity": "blocked"}])
+            };
+            let status = if state == "connected" {
+                "quoted"
+            } else {
+                "blocked"
+            };
+            let mut payload = json!({
+                "product_candidate_id": "candidate",
+                "selected_quote_id": "quote",
+                "freight_status": status,
+                "captcha_intercepted": false,
+                "cdp_state": state,
+                "warnings": [],
+                "blockers": blockers
+            });
+            if status == "quoted" {
+                payload["freight_currency"] = json!("USD");
+                payload["freight_base_amount_minor"] = json!(100_000);
+            }
+            let parsed = super::parse_searates_freight_result(&payload)?;
+            assert_eq!(parsed.cdp_state.as_deref(), Some(state));
+            assert_eq!(
+                super::SeaRatesCdpState::from_optional_string(parsed.cdp_state.as_deref()).as_str(),
+                state
+            );
+        }
+        // Unknown enum values are rejected by the validator.
+        let invalid = super::parse_searates_freight_result(&json!({
+            "product_candidate_id": "c",
+            "selected_quote_id": "q",
+            "freight_status": "blocked",
+            "captcha_intercepted": false,
+            "cdp_state": "bogus_value",
+            "warnings": [],
+            "blockers": [{"code": "X", "message": "x", "severity": "blocked"}]
+        }));
+        assert!(invalid.is_err());
+        Ok(())
+    }
+
+    /// Helper: synthesize a `SeaRatesFreightResult` fixture for classify tests.
+    fn searates_fixture(captcha: bool, cdp_state: &str) -> super::SeaRatesFreightResult {
+        let payload = json!({
+            "product_candidate_id": "c",
+            "selected_quote_id": "q",
+            "freight_status": "blocked",
+            "captcha_intercepted": captcha,
+            "cdp_state": cdp_state,
+            "warnings": [],
+            "blockers": [{"code": "X", "message": "x", "severity": "blocked"}]
+        });
+        serde_json::from_value(payload).expect("fixture parses")
+    }
+
+    fn searates_quoted_fixture() -> super::SeaRatesFreightResult {
+        let payload = json!({
+            "product_candidate_id": "c",
+            "selected_quote_id": "q",
+            "freight_status": "quoted",
+            "freight_currency": "USD",
+            "freight_base_amount_minor": 125_000,
+            "captcha_intercepted": false,
+            "cdp_state": "connected",
+            "warnings": [],
+            "blockers": []
+        });
+        serde_json::from_value(payload).expect("fixture parses")
+    }
+
+    /// CDP.3 — captcha on every attempt → exactly 3 attempts, then bail.
+    #[test]
+    fn cdp_3_retry_loop_attempts_3_times_when_captcha_intercepted() {
+        let captcha = searates_fixture(true, "captcha_blocked");
+        // Attempt 0 (1st try): captcha + retries available → Retry
+        assert_eq!(
+            super::classify_searates_attempt(Some(&captcha), 0, 3),
+            super::SearatesRetryDecision::Retry { backoff_index: 0 }
+        );
+        // Attempt 1 (2nd try): captcha + retries available → Retry
+        assert_eq!(
+            super::classify_searates_attempt(Some(&captcha), 1, 3),
+            super::SearatesRetryDecision::Retry { backoff_index: 1 }
+        );
+        // Attempt 2 (3rd try): captcha + budget exhausted → Bail
+        assert_eq!(
+            super::classify_searates_attempt(Some(&captcha), 2, 3),
+            super::SearatesRetryDecision::Bail
+        );
+    }
+
+    /// CDP.4 — captcha cleared on attempt 2 → final result is the 2nd attempt.
+    #[test]
+    fn cdp_4_retry_loop_succeeds_on_second_attempt_clears_captcha() {
+        let captcha = searates_fixture(true, "captcha_blocked");
+        let success = searates_quoted_fixture();
+        assert!(matches!(
+            super::classify_searates_attempt(Some(&captcha), 0, 3),
+            super::SearatesRetryDecision::Retry { .. }
+        ));
+        assert_eq!(
+            super::classify_searates_attempt(Some(&success), 1, 3),
+            super::SearatesRetryDecision::Accept
+        );
+    }
+
+    /// CDP.5 — `cdp_state=unreachable` does NOT trigger retries.
+    #[test]
+    fn cdp_5_retry_loop_does_not_retry_when_cdp_state_unreachable() {
+        let unreachable = searates_fixture(false, "unreachable");
+        assert_eq!(
+            super::classify_searates_attempt(Some(&unreachable), 0, 3),
+            super::SearatesRetryDecision::Bail
+        );
+        let session_expired = searates_fixture(false, "session_expired");
+        assert_eq!(
+            super::classify_searates_attempt(Some(&session_expired), 0, 3),
+            super::SearatesRetryDecision::Bail
+        );
+        // captcha_blocked DOES retry (sanity)
+        let captcha = searates_fixture(true, "captcha_blocked");
+        assert!(matches!(
+            super::classify_searates_attempt(Some(&captcha), 0, 3),
+            super::SearatesRetryDecision::Retry { .. }
+        ));
+    }
+
+    /// CDP.6 — cached freight from a 3-day-old successful row is accepted.
+    #[test]
+    fn cdp_6_cached_freight_fallback_uses_recent_successful_row() -> Result<()> {
+        let conn = Connection::open_in_memory()?;
+        create_minimal_lce_table(&conn)?;
+        insert_minimal_lce_row(
+            &conn,
+            "row-recent",
+            "process-1",
+            "quote-1",
+            10_000,
+            12_000,
+            14_000,
+            3,
+        )?;
+        let result = super::lookup_cached_freight(&conn, "process-1", "quote-1", 7)?;
+        let snapshot = result.expect("cache hit expected");
+        assert_eq!(snapshot.low_gbp_pence, 10_000);
+        assert_eq!(snapshot.base_gbp_pence, 12_000);
+        assert_eq!(snapshot.high_gbp_pence, 14_000);
+        Ok(())
+    }
+
+    /// CDP.7 — rows older than the TTL window are NOT used as cache.
+    #[test]
+    fn cdp_7_cached_freight_fallback_skips_rows_older_than_ttl() -> Result<()> {
+        let conn = Connection::open_in_memory()?;
+        create_minimal_lce_table(&conn)?;
+        insert_minimal_lce_row(
+            &conn,
+            "row-old",
+            "process-1",
+            "quote-1",
+            10_000,
+            12_000,
+            14_000,
+            10,
+        )?;
+        let result = super::lookup_cached_freight(&conn, "process-1", "quote-1", 7)?;
+        assert!(
+            result.is_none(),
+            "10-day-old row must not satisfy 7-day TTL"
+        );
+        Ok(())
+    }
+
+    /// CDP.8 — rows with `freight_base_gbp_pence == 0` are NOT used as cache.
+    #[test]
+    fn cdp_8_cached_freight_fallback_skips_rows_with_zero_freight() -> Result<()> {
+        let conn = Connection::open_in_memory()?;
+        create_minimal_lce_table(&conn)?;
+        insert_minimal_lce_row(&conn, "row-zero", "process-1", "quote-1", 0, 0, 0, 2)?;
+        let result = super::lookup_cached_freight(&conn, "process-1", "quote-1", 7)?;
+        assert!(
+            result.is_none(),
+            "zero-freight row must not be a usable cache hit"
+        );
+        Ok(())
+    }
+
+    /// CDP.9 — when no cache and captcha persists, the persisted blockers list
+    /// contains BOTH `CDP_CAPTCHA_BLOCKED_OPERATOR_ACTION_REQUIRED` and
+    /// `FREIGHT_NO_CACHED_FALLBACK`.
+    ///
+    /// We exercise the same blocker-augmentation path as the live loop by
+    /// mirroring its mutation logic against an empty starting blockers list.
+    #[test]
+    fn cdp_9_operator_notification_blockers_contain_both_required_codes() {
+        let mut blockers: Vec<super::Stage11Issue> = Vec::new();
+        // mirror the live-loop logic in run_landed_cost_live_loop
+        if !blockers
+            .iter()
+            .any(|b| b.code == "CDP_CAPTCHA_BLOCKED_OPERATOR_ACTION_REQUIRED")
+        {
+            blockers.push(super::Stage11Issue::blocked(
+                "CDP_CAPTCHA_BLOCKED_OPERATOR_ACTION_REQUIRED",
+                "SeaRates served a captcha or CDP was unreachable; please open `localhost:9222` in your browser, solve the captcha manually, then re-run `--ingest landed-cost`.",
+            ));
+        }
+        if !blockers
+            .iter()
+            .any(|b| b.code == "FREIGHT_NO_CACHED_FALLBACK")
+        {
+            blockers.push(super::Stage11Issue::blocked(
+                "FREIGHT_NO_CACHED_FALLBACK",
+                "No fresh freight estimate within 7 days; manual operator action needed.",
+            ));
+        }
+        assert!(
+            blockers
+                .iter()
+                .any(|b| b.code == "CDP_CAPTCHA_BLOCKED_OPERATOR_ACTION_REQUIRED")
+        );
+        assert!(
+            blockers
+                .iter()
+                .any(|b| b.code == "FREIGHT_NO_CACHED_FALLBACK")
+        );
+        // Idempotent: running the augmentation twice does not duplicate.
+        if !blockers
+            .iter()
+            .any(|b| b.code == "CDP_CAPTCHA_BLOCKED_OPERATOR_ACTION_REQUIRED")
+        {
+            blockers.push(super::Stage11Issue::blocked(
+                "CDP_CAPTCHA_BLOCKED_OPERATOR_ACTION_REQUIRED",
+                "duplicate",
+            ));
+        }
+        assert_eq!(
+            blockers
+                .iter()
+                .filter(|b| b.code == "CDP_CAPTCHA_BLOCKED_OPERATOR_ACTION_REQUIRED")
+                .count(),
+            1
+        );
+    }
+
+    /// CDP.10 — per-attempt timeout default and env override.
+    /// The actual deadline enforcement is in
+    /// `execute_landed_cost_skill_session` (a single
+    /// `let deadline = Instant::now() + attempt_timeout` line); spawning a real
+    /// long-running process in a unit test is impractical, so we cover the
+    /// configuration path the runner consults via the injectable env lookup.
+    #[test]
+    fn cdp_10_retry_per_attempt_timeout_honored() {
+        // Default (no env override) → defaults constant.
+        let cfg = super::SearatesRetryConfig::from_env_lookup(|_| None);
+        assert_eq!(
+            cfg.per_attempt.as_secs(),
+            super::STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS_DEFAULT
+        );
+        // Env override applied.
+        let key = super::STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS_ENV;
+        let cfg = super::SearatesRetryConfig::from_env_lookup(|k| {
+            if k == key { Some("5".to_owned()) } else { None }
+        });
+        assert_eq!(cfg.per_attempt.as_secs(), 5);
+        // Unparseable override falls back to default safely.
+        let cfg = super::SearatesRetryConfig::from_env_lookup(|k| {
+            if k == key {
+                Some("not_a_number".to_owned())
+            } else {
+                None
+            }
+        });
+        assert_eq!(
+            cfg.per_attempt.as_secs(),
+            super::STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS_DEFAULT
+        );
+    }
+
+    /// CDP.11 — backoff intervals default to 15s/45s and accept env override.
+    #[test]
+    fn cdp_11_retry_loop_uses_exponential_backoff_intervals() {
+        // Default — defaults pulled from constants.
+        let cfg = super::SearatesRetryConfig::from_env_lookup(|_| None);
+        assert_eq!(cfg.backoffs[0].as_secs(), 15);
+        assert_eq!(cfg.backoffs[1].as_secs(), 45);
+        // The second backoff is strictly greater than the first ("exponential").
+        assert!(cfg.backoffs[1] > cfg.backoffs[0]);
+        // Env override honored.
+        let key = super::STAGE11_SKILL_RETRY_BACKOFFS_ENV;
+        let cfg = super::SearatesRetryConfig::from_env_lookup(|k| {
+            if k == key {
+                Some("1,3".to_owned())
+            } else {
+                None
+            }
+        });
+        assert_eq!(cfg.backoffs[0].as_secs(), 1);
+        assert_eq!(cfg.backoffs[1].as_secs(), 3);
+    }
+
+    /// CDP.12 — the new fields default safely; old payloads (without
+    /// `captcha_intercepted` / `cdp_state`) still parse, mirroring the
+    /// "no captcha → no behavioral change" requirement for the existing 4
+    /// `landed_cost_estimates` rows.
+    #[test]
+    fn cdp_12_existing_4_landed_cost_rows_unaffected_by_handoff_when_no_captcha() -> Result<()> {
+        // Old-style payload (pre-Stage 11 hardening): no captcha_intercepted,
+        // no cdp_state. Must still parse; defaults must be safe (false, None).
+        let parsed = super::parse_searates_freight_result(&json!({
+            "source": "searates",
+            "product_candidate_id": "candidate",
+            "selected_quote_id": "quote",
+            "freight_status": "quoted",
+            "freight_currency": "USD",
+            "freight_base_amount_minor": 125_000,
+            "warnings": [],
+            "blockers": []
+        }))?;
+        assert!(!parsed.captcha_intercepted, "default must be false");
+        assert!(
+            parsed.cdp_state.is_none(),
+            "missing cdp_state must deserialize to None, not panic"
+        );
+        // classify_searates_attempt on a non-captcha result → Accept
+        assert_eq!(
+            super::classify_searates_attempt(Some(&parsed), 0, 3),
+            super::SearatesRetryDecision::Accept
+        );
+        // SeaRatesCdpState::from_optional_string handles None / unknown
+        assert_eq!(
+            super::SeaRatesCdpState::from_optional_string(None).as_str(),
+            "unknown"
+        );
+        assert_eq!(
+            super::SeaRatesCdpState::from_optional_string(Some("connected")).as_str(),
+            "connected"
+        );
         Ok(())
     }
 

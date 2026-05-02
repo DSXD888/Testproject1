@@ -5,6 +5,8 @@
     "product_candidate_id",
     "selected_quote_id",
     "freight_status",
+    "captcha_intercepted",
+    "cdp_state",
     "warnings",
     "blockers"
   ],
@@ -13,6 +15,12 @@
     "product_candidate_id": { "type": "string" },
     "selected_quote_id": { "type": "string" },
     "freight_status": { "type": "string" },
+    "captcha_intercepted": { "type": "boolean", "default": false },
+    "cdp_state": {
+      "type": "string",
+      "enum": ["connected", "unreachable", "captcha_blocked", "session_expired"],
+      "default": "connected"
+    },
     "freight_currency": { "type": ["string", "null"] },
     "freight_amount_minor": { "type": ["integer", "null"] },
     "freight_low_amount_minor": { "type": ["integer", "null"] },
