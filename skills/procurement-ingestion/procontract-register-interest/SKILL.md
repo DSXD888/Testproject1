@@ -1,6 +1,6 @@
 ---
 skill_id: procurement-ingestion/procontract-register-interest
-skill_version: 1.0.0
+skill_version: 1.1.0
 interaction_profile: pty_interactive
 result_schema_version: 1.0.0
 checkpoint_schema_version: 1.0.0
@@ -8,6 +8,8 @@ model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: external_mutation
 source_structure_version: procontract-interest-2026-04-13
+requires_cdp: true
+cdp_default_port: 9222
 maxPages: 5
 maxScrollCycles: 1
 ---
@@ -46,10 +48,57 @@ This skill performs a real external mutation by clicking `Register interest in t
 
 You are a procurement portal action agent. The daemon has already decided which contracts are safe to register. Your job is to carry out the portal action and report what happened.
 
-### Credentials
+### Mandatory CDP Discipline
 
-- Username: `sales@sorellon.com`
-- Password: `9928fJG3!5nk6nc`
+This skill must attach to the operator's already-authenticated persistent browser. Do not launch a fresh browser profile, do not attempt portal login, do not solve captchas, do not log out, and do not close the operator browser.
+
+Before any portal navigation:
+
+```bash
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
+```
+
+If CDP is unreachable, write a valid blocked `result.json` immediately:
+
+```json
+{
+  "cursor": "{}",
+  "continuation_required": false,
+  "registrations": [],
+  "summary": {
+    "total_evaluated": 0,
+    "registered": 0,
+    "already_registered": 0,
+    "skipped_service": 0,
+    "skipped_expiry": 0,
+    "failed": 0
+  },
+  "status": "blocked",
+  "blockers": [
+    {
+      "code": "CDP_CONNECT_FAILED",
+      "message": "ProContract register-interest requires the operator persistent CDP browser on localhost:9222. Start Chrome/Chromium with remote debugging, sign in manually, then rerun.",
+      "severity": "blocked"
+    }
+  ]
+}
+```
+
+Every browser command must use:
+
+```bash
+agent-browser --cdp ${CDP_PORT} ...
+```
+
+If the portal shows `Log In`, `Session expired`, captcha, or another auth challenge, emit a valid blocked result with blocker code `PROCONTRACT_SESSION_EXPIRED` or `AGENT_AUTH_CHALLENGE`. The operator must restore the session manually in the persistent CDP browser.
+
+Before any external mutation, confirm all preconditions:
+
+- CDP preflight succeeded.
+- The current page is authenticated and not an auth challenge.
+- The target contract came from `contracts_to_register`.
+- The advert has been checked for an already-registered state before clicking.
 
 ### Step 1: Read the daemon input
 
@@ -66,25 +115,18 @@ If `pre_filter_evaluated` is present:
 If `contracts_to_register` is empty:
 
 - Write a valid empty result with copied skipped items, if any.
-- Do not attempt any portal navigation beyond optional login verification.
+- Do not attempt portal navigation beyond optional authenticated-session verification.
 
-### Step 2: Authenticate
+### Step 2: Open the authorized advert in the persistent browser
 
 For each contract URL:
 
 ```bash
-agent-browser open "{source_url}"
-agent-browser wait 2000
+agent-browser --cdp ${CDP_PORT} open "{source_url}"
+agent-browser --cdp ${CDP_PORT} wait 2000
 ```
 
-If the page is `Log In`, authenticate:
-
-```bash
-agent-browser fill "User Name" "sales@sorellon.com"
-agent-browser fill "Password" "9928fJG3!5nk6nc"
-agent-browser click "Continue"
-agent-browser wait 2000
-```
+If the page is `Log In`, `Session expired`, captcha, or any auth challenge, stop and write the blocked result described in Mandatory CDP Discipline. Do not click any mutation control when auth state is uncertain.
 
 ### Step 3: Detect already-registered state before clicking
 
@@ -105,9 +147,9 @@ If that section already exists before you click:
 When the advert still shows `Register interest in this opportunity` and no prior registration section:
 
 ```bash
-agent-browser click "Register interest in this opportunity"
-agent-browser wait 3000
-agent-browser snapshot -i
+agent-browser --cdp ${CDP_PORT} click "Register interest in this opportunity"
+agent-browser --cdp ${CDP_PORT} wait 3000
+agent-browser --cdp ${CDP_PORT} snapshot -i
 ```
 
 Success is indicated by a modal/dialog containing:
@@ -130,7 +172,7 @@ If registration cannot be completed, emit:
 - `action: "failed"`
 - `failure_reason`: short machine-readable reason such as:
   - `button_not_found`
-  - `login_failed`
+  - `session_expired`
   - `confirmation_missing`
   - `portal_error`
 
@@ -167,17 +209,15 @@ pre_filter_result:     copy from daemon input when present
 registered_at:         ISO 8601 timestamp when action is registered/already_registered
 ```
 
-### Step 7: Close the browser
+### Step 7: Leave the persistent browser open
 
-```bash
-agent-browser close
-```
+Do not close or reset the operator browser. Leave the last navigated ProContract page available for operator inspection.
 
 ---
 
 ## Canary
 
-Verify that a qualifying ProContract advert can be opened after login, that the `Register interest in this opportunity` control is discoverable, and that the already-registered state can be distinguished from the pre-registration state.
+Verify that a qualifying ProContract advert can be opened through an already-authenticated CDP session, that the `Register interest in this opportunity` control is discoverable, and that the already-registered state can be distinguished from the pre-registration state.
 
 ## Run Manifest Instructions
 

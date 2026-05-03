@@ -1,6 +1,6 @@
 ---
 skill_id: procurement-ingestion/procontract-discover
-skill_version: 1.0.0
+skill_version: 1.1.0
 interaction_profile: pty_interactive
 result_schema_version: 1.0.0
 checkpoint_schema_version: 1.0.0
@@ -8,6 +8,8 @@ model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: none
 source_structure_version: procontract-2026-04-13
+requires_cdp: true
+cdp_default_port: 9222
 maxPages: 10
 maxScrollCycles: 3
 ---
@@ -53,12 +55,42 @@ Do not use this skill for interest registration, RFx response extraction, bid su
 
 You are a procurement data ingestion agent. Retrieve ProContract opportunities, open every advert detail page that you include in the result, and return a valid notice contract.
 
-### Credentials
+### Mandatory CDP Discipline
 
-When a detail page redirects to login, authenticate with:
+This skill must attach to the operator's already-authenticated persistent browser. Do not launch a fresh browser profile, do not attempt portal login, do not solve captchas, do not log out, and do not close the operator browser.
 
-- Username: `sales@sorellon.com`
-- Password: `9928fJG3!5nk6nc`
+Before navigation:
+
+```bash
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
+```
+
+If CDP is unreachable, write a valid blocked `result.json` immediately:
+
+```json
+{
+  "cursor": "{}",
+  "continuation_required": false,
+  "notices": [],
+  "status": "blocked",
+  "blockers": [
+    {
+      "code": "CDP_CONNECT_FAILED",
+      "message": "ProContract discovery requires the operator persistent CDP browser on localhost:9222. Start Chrome/Chromium with remote debugging, sign in manually, then rerun.",
+      "severity": "blocked"
+    }
+  ]
+}
+```
+
+Every browser command must use:
+
+```bash
+agent-browser --cdp ${CDP_PORT} ...
+```
+
+If a detail page shows `Log In`, `Session expired`, captcha, or another auth challenge, do not proceed. Emit a valid blocked result with no notices and blocker code `PROCONTRACT_SESSION_EXPIRED` or `AGENT_AUTH_CHALLENGE`, telling the operator to sign into ProContract in the persistent CDP browser and rerun.
 
 ### Step 1: Read the job parameters
 
@@ -78,9 +110,9 @@ If no `publishedFrom` is supplied, prefer the `cursor.last_published` value. If 
 Open the public opportunities listing:
 
 ```bash
-agent-browser open "https://procontract.due-north.com/Opportunities/Index?tabName=opportunities&resetFilter=True"
-agent-browser wait 2000
-agent-browser snapshot -i
+agent-browser --cdp ${CDP_PORT} open "https://procontract.due-north.com/Opportunities/Index?tabName=opportunities&resetFilter=True"
+agent-browser --cdp ${CDP_PORT} wait 2000
+agent-browser --cdp ${CDP_PORT} snapshot -i
 ```
 
 Important observations from the live page:
@@ -125,17 +157,10 @@ For each advert you plan to include:
 1. Open the advert URL. Prefer the public form first:
 
 ```bash
-agent-browser open "https://procontract.due-north.com/Advert?advertId={advertId}"
+agent-browser --cdp ${CDP_PORT} open "https://procontract.due-north.com/Advert?advertId={advertId}"
 ```
 
-2. If the browser lands on `Log In`, log in with the provided credentials:
-
-```bash
-agent-browser fill "User Name" "sales@sorellon.com"
-agent-browser fill "Password" "9928fJG3!5nk6nc"
-agent-browser click "Continue"
-agent-browser wait 2000
-```
+2. If the browser lands on `Log In`, `Session expired`, captcha, or any auth challenge, stop and write the blocked result described in Mandatory CDP Discipline. The operator must restore the session manually in the persistent CDP browser.
 
 3. Confirm you reached the authenticated advert page. The live detail page contains:
 - `Main contract details`
@@ -218,17 +243,15 @@ If no notices are found, still write a valid empty result:
 }
 ```
 
-### Step 9: Close the browser
+### Step 9: Leave the persistent browser open
 
-```bash
-agent-browser close
-```
+Do not close or reset the operator browser. Leave the last navigated ProContract page available for operator inspection.
 
 ---
 
 ## Canary
 
-Fetch up to three current ProContract opportunities, verify that the public listing is reachable, verify that advert links expose an `advertId`, and verify that at least one authenticated detail page can be opened after login.
+Fetch up to three current ProContract opportunities, verify that the public listing is reachable, verify that advert links expose an `advertId`, and verify that at least one authenticated detail page can be opened when the operator session is already signed in through CDP.
 
 ## Run Manifest Instructions
 

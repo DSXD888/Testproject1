@@ -6,6 +6,8 @@ result_schema_version: 1.0.0
 model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: none
+requires_cdp: true
+cdp_default_port: 9222
 maxPages: 10
 maxScrollCycles: 3
 ---
@@ -74,6 +76,23 @@ Record these cross-references in each quote's `evidence` field.
 You are a UK wholesale price-search agent. Follow the same loop as the
 Gem Imports skill; this playbook only highlights MX Wholesale specifics.
 
+### Mandatory CDP Discipline
+
+Use the operator persistent CDP browser for this public source so the run stays visible on the shared browser surface and preserves locale/session state. Do not launch a fresh browser profile and do not close the operator browser.
+
+Before navigation:
+
+```bash
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
+```
+
+If CDP is unreachable, write a valid blocked `result.json` with `search_failure_mode: "source_soft_blocked"` for every remaining candidate and a warning/blocker code `CDP_CONNECT_FAILED`. Every browser command must use:
+
+```bash
+agent-browser --cdp ${CDP_PORT} ...
+```
+
 ### Step 0: Read Job Parameters
 
 Identical to the Gem Imports playbook — parse `candidates` and their
@@ -82,9 +101,9 @@ Identical to the Gem Imports playbook — parse `candidates` and their
 ### Step 1: Open MX Wholesale
 
 ```
-agent-browser open "https://www.mxwholesale.co.uk/"
-agent-browser wait 3000
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} open "https://www.mxwholesale.co.uk/"
+agent-browser --cdp ${CDP_PORT} wait 3000
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 MX Wholesale is a **trade supplier** that generally shows **ex-VAT
@@ -106,18 +125,18 @@ the first wave that produces ≥1 shortlisted quote.
 Use the site's own search URL when possible:
 
 ```
-agent-browser open "https://www.mxwholesale.co.uk/search?q=<URL-encoded query>"
-agent-browser wait 3000
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} open "https://www.mxwholesale.co.uk/search?q=<URL-encoded query>"
+agent-browser --cdp ${CDP_PORT} wait 3000
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 If that URL shape fails, use the header search box:
 
 ```
-agent-browser fill "input[name='q'], input[type='search']" "<query>"
-agent-browser press Enter
-agent-browser wait 3000
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} fill "input[name='q'], input[type='search']" "<query>"
+agent-browser --cdp ${CDP_PORT} press Enter
+agent-browser --cdp ${CDP_PORT} wait 3000
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 #### 2b. Shortlist up to 3 listings
@@ -172,11 +191,9 @@ attempt. On soft blocks, emit `search_failure_mode: "source_soft_blocked"`.
 Write the result to `result.json` in the working directory following the
 schema (see Gem Imports SKILL.md for the full shape).
 
-### Step 5: Close Browser
+### Step 5: Leave Browser Open
 
-```
-agent-browser close
-```
+Do not close or reset the operator browser. Leave the last page visible for inspection.
 
 ---
 

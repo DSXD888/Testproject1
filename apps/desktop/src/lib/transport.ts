@@ -1,3 +1,8 @@
+import {
+  invoke as invokeTauriCommand,
+  isTauri as isTauriRuntime,
+} from '@tauri-apps/api/core';
+
 export interface InvokePayload {
   cmd: string;
   args?: Record<string, unknown>;
@@ -163,15 +168,11 @@ function nativeEventNameForTopic(topic: string): string {
 
 function subscribeViaNativeTauriEvents<T>(
   runtime: RuntimeLike,
+  nativeInvoke: InvokeFn,
   topic: string,
   fromSeq: number | undefined,
   onEvent: SubscribeHandler<T>,
 ): Unsubscribe {
-  const nativeInvoke = runtime.__TAURI_INTERNALS__?.invoke;
-  if (!nativeInvoke) {
-    return () => undefined;
-  }
-
   let active = true;
   let unlisten: Unsubscribe | null = null;
 
@@ -224,7 +225,20 @@ export function createTransport(runtime: RuntimeLike): DesktopTransport {
         onEvent: SubscribeHandler<T>,
       ) =>
         nativeInternals.subscribe?.(topic, fromSeq, onEvent) ??
-        subscribeViaNativeTauriEvents(runtime, topic, fromSeq, onEvent),
+        subscribeViaNativeTauriEvents(runtime, nativeInternals.invoke, topic, fromSeq, onEvent),
+    };
+  }
+
+  if (isTauriRuntime()) {
+    const nativeInvoke: InvokeFn = (cmd, args) =>
+      invokeTauriCommand(cmd, shapeNativeInvokeArgs(cmd, args));
+    return {
+      invoke: nativeInvoke,
+      subscribe: <T = unknown>(
+        topic: string,
+        fromSeq: number | undefined,
+        onEvent: SubscribeHandler<T>,
+      ) => subscribeViaNativeTauriEvents(runtime, nativeInvoke, topic, fromSeq, onEvent),
     };
   }
 

@@ -6,6 +6,8 @@ result_schema_version: 1.0.0
 model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: none
+requires_cdp: true
+cdp_default_port: 9222
 maxPages: 5
 maxScrollCycles: 2
 ---
@@ -51,6 +53,53 @@ Resume with a cursor backtrack window. Re-fetch a small overlap after each commi
 
 ## Canary
 Fetch the five most recent notices, verify OCDS structure, verify locale/currency expectations, and fail fast if the FTS page fingerprint drifts.
+
+## Playbook
+
+### Mandatory CDP Discipline
+
+Use the operator persistent CDP browser for this public source so the run stays visible on the shared browser surface and preserves locale/session state. Do not launch a fresh browser profile and do not close the operator browser.
+
+Before navigation:
+
+```bash
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
+```
+
+If CDP is unreachable, write a valid blocked `result.json` immediately:
+
+```json
+{
+  "cursor": "{}",
+  "continuation_required": true,
+  "notices": [],
+  "status": "blocked",
+  "blockers": [
+    {
+      "code": "CDP_CONNECT_FAILED",
+      "message": "FTS ingestion uses the operator persistent CDP browser. Start Chrome/Chromium with remote debugging on localhost:9222, then rerun.",
+      "severity": "blocked"
+    }
+  ]
+}
+```
+
+Every browser command must use:
+
+```bash
+agent-browser --cdp ${CDP_PORT} ...
+```
+
+Open the public Find a Tender notice search or OCDS endpoint through CDP, collect the requested notice batch, and write `result.json`:
+
+```bash
+agent-browser --cdp ${CDP_PORT} open "https://www.find-tender.service.gov.uk/Search/Results"
+agent-browser --cdp ${CDP_PORT} wait 2000
+agent-browser --cdp ${CDP_PORT} snapshot
+```
+
+If a challenge page or source block appears, emit `SOURCE_CAPTCHA_BLOCKED` or `SOURCE_SOFT_BLOCKED` as a structured warning/blocker and stop at a safe continuation boundary.
 
 ## Run Manifest Instructions
 Run Manifest Requirements

@@ -17,6 +17,8 @@ gate_a_family_key: source-health
 gate_a_family_prequalified: false
 gate_b_exact_slice_key: source-health/alibaba::alibaba::source-health/alibaba@2026.03.30-1+1.0.0::2026.03.30-1
 gate_b_exact_slice_ready: false
+requires_cdp: true
+cdp_default_port: 9222
 maxPages: 1
 maxScrollCycles: 0
 ---
@@ -65,6 +67,35 @@ Resume is a fresh canary run. If the last canary failed, restart from the Alibab
 
 ## Canary
 Verify Alibaba reachability, authenticated state, expected locale/currency, absence of challenge markers, and the presence of at least one usable result from a known-good search without advancing into full extraction.
+
+## Playbook
+
+### Mandatory CDP Discipline
+
+This canary must attach to the operator's already-authenticated persistent Alibaba browser session. Do not launch a fresh browser profile, do not attempt login, do not solve captchas, do not log out, and do not close the operator browser.
+
+Before navigation:
+
+```bash
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
+```
+
+If CDP is unreachable, write a valid source-health result with `health_state: "red"`, `checks.reachability: "failed"`, `checks.auth_state: "blocked"`, and `failure_classification: "CDP_CONNECT_FAILED"`. Every browser command must use:
+
+```bash
+agent-browser --cdp ${CDP_PORT} ...
+```
+
+Open Alibaba through CDP:
+
+```bash
+agent-browser --cdp ${CDP_PORT} open "https://www.alibaba.com/"
+agent-browser --cdp ${CDP_PORT} wait 2000
+agent-browser --cdp ${CDP_PORT} snapshot
+```
+
+Check whether the persistent session is authenticated, verify locale/currency expectations, and perform only the minimal known-good search needed for source health. If a sign-in page, expired-session page, or captcha appears, write a structured red health result with `failure_classification: "AGENT_AUTH_CHALLENGE"` or `"SOURCE_CAPTCHA_BLOCKED"` and stop.
 
 ## Run Manifest Instructions
 Run Manifest Requirements

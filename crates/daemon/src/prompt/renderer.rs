@@ -43,6 +43,8 @@ pub struct PromptRendererInput {
     pub skill_id: String,
     pub skill_version: String,
     pub skill_markdown: String,
+    pub requires_cdp: bool,
+    pub cdp_default_port: Option<u16>,
     pub job_id: String,
     pub session_id: String,
     pub execution_mode: String,
@@ -70,6 +72,20 @@ impl PromptRenderer {
             || "## Company Profile\nNo company profile was provided for this run.\n\n".to_owned(),
             |profile| format!("## Company Profile\n{profile}\n\n"),
         );
+        let cdp_contract_block = if input.requires_cdp {
+            format!(
+                "\
+## Persistent CDP Browser Contract
+This skill requires the operator persistent CDP browser. The daemon sets `AGENT_BROWSER_CDP_PORT={cdp_port}` for this run.
+Use `agent-browser --cdp ${{AGENT_BROWSER_CDP_PORT}}` for every browser command.
+Do not close the operator browser. If CDP is unreachable, write a blocked `result.json`; do not launch a browser.
+
+",
+                cdp_port = input.cdp_default_port.unwrap_or(9222)
+            )
+        } else {
+            String::new()
+        };
 
         Ok(format!(
             "\
@@ -82,6 +98,7 @@ You are executing the bound Layer 1 skill under daemon supervision.
 - session_id: {session_id}
 - execution_mode: {execution_mode}
 
+{cdp_contract_block}\
 ## Bound SKILL.md
 ```md
 {skill_markdown}
@@ -100,6 +117,7 @@ You are executing the bound Layer 1 skill under daemon supervision.
             job_id = input.job_id,
             session_id = input.session_id,
             execution_mode = input.execution_mode,
+            cdp_contract_block = cdp_contract_block,
             skill_markdown = input.skill_markdown.trim(),
             job_parameters = job_parameters,
             resume_block = resume_block,
@@ -132,4 +150,48 @@ fn validate_input(input: &PromptRendererInput) -> Result<()> {
         "execution_mode must not be empty"
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+    use serde_json::json;
+
+    use super::{PromptRenderer, PromptRendererInput};
+
+    fn input(requires_cdp: bool) -> PromptRendererInput {
+        PromptRendererInput {
+            skill_id: "test-skill".to_owned(),
+            skill_version: "1.0.0".to_owned(),
+            skill_markdown: "# Test Skill\n\nBody".to_owned(),
+            requires_cdp,
+            cdp_default_port: Some(9222),
+            job_id: "job-test".to_owned(),
+            session_id: "session-test".to_owned(),
+            execution_mode: "pty".to_owned(),
+            job_parameters: json!({}),
+            resume_token: None,
+            company_profile: None,
+        }
+    }
+
+    #[test]
+    fn render_includes_persistent_cdp_contract_when_required() -> Result<()> {
+        let rendered = PromptRenderer::render(&input(true))?;
+
+        assert!(rendered.contains("## Persistent CDP Browser Contract"));
+        assert!(rendered.contains("AGENT_BROWSER_CDP_PORT=9222"));
+        assert!(rendered.contains("agent-browser --cdp ${AGENT_BROWSER_CDP_PORT}"));
+        assert!(rendered.contains("write a blocked `result.json`"));
+        Ok(())
+    }
+
+    #[test]
+    fn render_omits_persistent_cdp_contract_when_not_required() -> Result<()> {
+        let rendered = PromptRenderer::render(&input(false))?;
+
+        assert!(!rendered.contains("## Persistent CDP Browser Contract"));
+        assert!(!rendered.contains("AGENT_BROWSER_CDP_PORT=9222"));
+        Ok(())
+    }
 }

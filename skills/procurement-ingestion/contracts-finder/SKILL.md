@@ -6,6 +6,8 @@ result_schema_version: 2.0.0
 model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: none
+requires_cdp: true
+cdp_default_port: 9222
 maxPages: 10
 maxScrollCycles: 2
 ---
@@ -55,6 +57,23 @@ Resume with a cursor backtrack window and a small overlap on the publication bou
 
 You are a procurement data ingestion agent. Your job is to fetch structured contract notice data from the UK Contracts Finder service and return it as a result contract.
 
+### Mandatory CDP Discipline
+
+Use the operator persistent CDP browser for this public source so the run stays visible on the shared browser surface and preserves locale/session state. Do not launch a fresh browser profile and do not close the operator browser.
+
+Before navigation:
+
+```bash
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
+```
+
+If CDP is unreachable, write a valid blocked `result.json` with `continuation_required: true`, an empty notice batch, and blocker code `CDP_CONNECT_FAILED`. Every browser command must use:
+
+```bash
+agent-browser --cdp ${CDP_PORT} ...
+```
+
 ### Step 1: Determine Parameters
 
 Read the job parameters injected by the daemon:
@@ -64,26 +83,26 @@ Read the job parameters injected by the daemon:
 - `stages` (comma-separated) — filter by procurement stage. Default: all stages.
 - `cursor` (JSON string) — previous cursor value from `source_cursors`. Contains `cursor_after` (last page fetched) and `cursor_before` (publication date watermark).
 
-### Step 2: Fetch Data via OCDS API Using agent-browser
+### Step 2: Fetch Data via OCDS API Using CDP
 
-The primary data source is the Contracts Finder OCDS API. Use `agent-browser` to navigate and extract.
+The primary data source is the Contracts Finder OCDS API. Use the CDP browser to navigate and extract.
 
 #### 2a. Open the OCDS API endpoint
 
 ```
-agent-browser open "https://www.contractsfinder.service.gov.uk/Published/Notices/OCDS/Search?publishedFrom={publishedFrom}&publishedTo={publishedTo}&size=100&page=1"
+agent-browser --cdp ${CDP_PORT} open "https://www.contractsfinder.service.gov.uk/Published/Notices/OCDS/Search?publishedFrom={publishedFrom}&publishedTo={publishedTo}&size=100&page=1"
 ```
 
 Wait for the page to load:
 ```
-agent-browser wait
+agent-browser --cdp ${CDP_PORT} wait
 ```
 
 #### 2b. Extract the JSON response
 
 Get the full page text (the API returns raw JSON):
 ```
-agent-browser get text
+agent-browser --cdp ${CDP_PORT} get text
 ```
 
 Parse the JSON response. It will contain:
@@ -95,9 +114,9 @@ Parse the JSON response. It will contain:
 
 If `maxPage > 1` and you haven't reached the `limit`, fetch subsequent pages:
 ```
-agent-browser open "https://www.contractsfinder.service.gov.uk/Published/Notices/OCDS/Search?publishedFrom={publishedFrom}&publishedTo={publishedTo}&size=100&page={nextPage}"
-agent-browser wait
-agent-browser get text
+agent-browser --cdp ${CDP_PORT} open "https://www.contractsfinder.service.gov.uk/Published/Notices/OCDS/Search?publishedFrom={publishedFrom}&publishedTo={publishedTo}&size=100&page={nextPage}"
+agent-browser --cdp ${CDP_PORT} wait
+agent-browser --cdp ${CDP_PORT} get text
 ```
 
 Continue until you've either:
@@ -116,9 +135,9 @@ If you receive an HTTP 403 response or the page text contains an error indicatin
 
 For verification, you may spot-check a few notices against the HTML search:
 ```
-agent-browser open "https://www.contractsfinder.service.gov.uk/Search/Results"
-agent-browser wait
-agent-browser snapshot -i
+agent-browser --cdp ${CDP_PORT} open "https://www.contractsfinder.service.gov.uk/Search/Results"
+agent-browser --cdp ${CDP_PORT} wait
+agent-browser --cdp ${CDP_PORT} snapshot -i
 ```
 
 This step is optional and should only be used to verify data quality, not as a primary extraction path.
@@ -209,11 +228,9 @@ Assemble the result JSON matching `result.schema.json` and **write it to `result
 
 Write this JSON to the file `result.json` in the current directory. The daemon will read this file after the session completes.
 
-### Step 6: Close the Browser Session
+### Step 6: Leave Browser Open
 
-```
-agent-browser close
-```
+Do not close or reset the operator browser. Leave the last page visible for inspection.
 
 ---
 

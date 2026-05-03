@@ -48,6 +48,23 @@ type QueryEnvelope<T> = {
 
 type Disposition = 'approve' | 'reject' | 'watch';
 
+const RERUN_STAGE_DELAY_MS = 3_000;
+
+const PIPELINE_RERUN_STAGES = [
+  { id: 'landed-cost', label: 'landed-cost' },
+  { id: 'net-gate', label: 'net-gate' },
+  { id: 'manifest', label: 'manifest' },
+] as const;
+
+type PipelineRerunStageId = (typeof PIPELINE_RERUN_STAGES)[number]['id'];
+
+type PipelineRerunStatus = {
+  state: 'idle' | 'running' | 'success' | 'error';
+  message: string | null;
+  activeStage: PipelineRerunStageId | null;
+  modalOpen: boolean;
+};
+
 export type OperatorDecisionPanelProps = {
   processId: string;
   manifestBasisHash: string | null;
@@ -86,6 +103,8 @@ export type OperatorDecisionPanelProps = {
   seedHistory?: DecisionHistoryEntry[];
   /** Stage 14 Phase 2 — SSR test seam: pre-populate active overrides. */
   seedActiveOverrides?: ActiveOverrideEntry[];
+  /** Stage 14 Phase 2 — SSR test seam: pre-populate rerun progress UI. */
+  seedRerunStatus?: PipelineRerunStatus;
 };
 
 function parsePrompts(raw: string | null): ClarificationPrompt[] {
@@ -133,6 +152,7 @@ export function OperatorDecisionPanel({
   mutators,
   seedHistory,
   seedActiveOverrides,
+  seedRerunStatus,
 }: OperatorDecisionPanelProps): ReactElement {
   const reasoningId = useId();
   const prompts = useMemo(
@@ -176,10 +196,14 @@ export function OperatorDecisionPanel({
   }>({ state: 'idle', message: null, pendingKey: null });
 
   // ---------- Pipeline rerun state ----------
-  const [rerunStatus, setRerunStatus] = useState<{
-    state: 'idle' | 'running' | 'success' | 'error';
-    message: string | null;
-  }>({ state: 'idle', message: null });
+  const [rerunStatus, setRerunStatus] = useState<PipelineRerunStatus>(
+    seedRerunStatus ?? {
+      state: 'idle',
+      message: null,
+      activeStage: null,
+      modalOpen: false,
+    },
+  );
 
   // Reload history + overrides
   useEffect(() => {
@@ -326,24 +350,66 @@ export function OperatorDecisionPanel({
     }
   }
 
-  async function handlePipelineRerun(): Promise<void> {
-    setRerunStatus({ state: 'running', message: 'Starting pipeline rerun…' });
+  function handlePipelineRerun(): void {
+    setRerunStatus({
+      state: 'running',
+      message: 'Running landed-cost…',
+      activeStage: 'landed-cost',
+      modalOpen: true,
+    });
     try {
       const args = { processId };
       const fn =
         mutators?.triggerPipelineRerun ??
         ((a) => invoke('trigger_pipeline_rerun', a));
-      await fn(args);
-      setRerunStatus({
-        state: 'success',
-        message: 'Pipeline rerun queued. Manifest will refresh shortly.',
+      const commandResult = fn(args)
+        .then(() => ({ ok: true as const }))
+        .catch((error: unknown) => ({ ok: false as const, error }));
+
+      PIPELINE_RERUN_STAGES.forEach((stage, index) => {
+        globalThis.setTimeout(() => {
+          setRerunStatus((current) => {
+            if (current.state !== 'running') {
+              return current;
+            }
+            return {
+              state: 'running',
+              message: `Running ${stage.label}…`,
+              activeStage: stage.id,
+              modalOpen: true,
+            };
+          });
+        }, index * RERUN_STAGE_DELAY_MS);
       });
-      onChanged();
+
+      globalThis.setTimeout(() => {
+        void commandResult.then((result) => {
+          if (!result.ok) {
+            const bridge = parseBridgeError(result.error);
+            setRerunStatus({
+              state: 'error',
+              message: bridge?.message ?? 'Failed to trigger pipeline rerun',
+              activeStage: null,
+              modalOpen: false,
+            });
+            return;
+          }
+          setRerunStatus({
+            state: 'success',
+            message: 'Pipeline rerun queued. Manifest will refresh shortly.',
+            activeStage: 'manifest',
+            modalOpen: false,
+          });
+          onChanged();
+        });
+      }, PIPELINE_RERUN_STAGES.length * RERUN_STAGE_DELAY_MS);
     } catch (error: unknown) {
       const bridge = parseBridgeError(error);
       setRerunStatus({
         state: 'error',
         message: bridge?.message ?? 'Failed to trigger pipeline rerun',
+        activeStage: null,
+        modalOpen: false,
       });
     }
   }
@@ -596,6 +662,39 @@ export function OperatorDecisionPanel({
           >
             {rerunStatus.message}
           </p>
+        ) : null}
+        {rerunStatus.state === 'running' && rerunStatus.modalOpen ? (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pipeline-rerun-progress-title"
+            data-testid="rerun-progress-modal"
+            data-active-stage={rerunStatus.activeStage ?? undefined}
+            style={{
+              border: '1px solid #b6c8db',
+              borderRadius: '6px',
+              padding: '12px',
+              marginTop: '12px',
+              background: '#f7fbff',
+            }}
+          >
+            <h5 id="pipeline-rerun-progress-title">Re-run progress</h5>
+            <ol style={{ display: 'grid', gap: '6px', paddingLeft: '20px' }}>
+              {PIPELINE_RERUN_STAGES.map((stage) => (
+                <li
+                  key={stage.id}
+                  data-testid="rerun-progress-stage"
+                  data-stage={stage.id}
+                  data-active={rerunStatus.activeStage === stage.id}
+                  style={{
+                    fontWeight: rerunStatus.activeStage === stage.id ? 700 : 400,
+                  }}
+                >
+                  {stage.label}
+                </li>
+              ))}
+            </ol>
+          </div>
         ) : null}
       </section>
 

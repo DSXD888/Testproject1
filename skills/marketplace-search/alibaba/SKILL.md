@@ -169,7 +169,7 @@ Protocol. You never spawn a browser yourself.
 Parse `candidates` and `query_waves`. Decide the CDP port:
 
 ```
-CDP_PORT=${AGENT_BROWSER_CDP_PORT:-${job_parameters.cdp_port:-9222}}
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
 ```
 
 ### Step 1: Verify CDP is reachable, then connect
@@ -380,12 +380,11 @@ returned on 2026-04-21):
 
 Write the final JSON to `result.json` in the working directory.
 
-### Step 5: Do NOT close the browser
+### Step 5: Leave Browser Open
 
 Because you did not launch Chrome, you MUST NOT close it. The
-operator's Chrome is persistent and shared across runs. Do NOT call
-`agent-browser close`. You may leave the last navigated tab where
-it is — the daemon's next run will navigate away.
+operator's Chrome is persistent and shared across runs. Leave the last
+navigated tab where it is — the daemon's next run will navigate away.
 
 If you want to be tidy, close only the specific tab you opened
 (keep `about:blank` / existing tabs alive):
@@ -414,8 +413,7 @@ railings, envelopes) via `--cdp ${PORT}`. Verify:
 - Every quote has `currency` ∈ {GBP, USD, EUR}, `ship_from_country`
   populated, `price_tiers` length ≥ 1, and `unit_price_minor` equal
   to the lowest-tier (largest-qty) price.
-- No `agent-browser close` is ever called (the operator's Chrome
-  must survive the run).
+- The operator's Chrome stays open and survives the run.
 
 ## Run Manifest Instructions
 

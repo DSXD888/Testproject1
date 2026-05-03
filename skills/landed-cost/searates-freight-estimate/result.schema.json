@@ -30,7 +30,7 @@
     "transit_time_days": { "type": ["integer", "null"] },
     "quote_expired": { "type": "boolean" },
     "source_url": { "type": ["string", "null"] },
-    "evidence": { "type": "array" },
+    "evidence": { "type": ["array", "object", "null"] },
     "warnings": { "type": "array" },
     "blockers": { "type": "array" }
   }

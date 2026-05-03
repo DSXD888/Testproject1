@@ -10,7 +10,9 @@ use std::collections::BTreeSet;
 
 use anyhow::{Result, ensure};
 
-use skills_support::{TestSkillDir, lint_skill_directory, repo_root, repo_skill_dir};
+use skills_support::{
+    TestSkillDir, lint_skill_directory, load_skill_metadata, repo_root, repo_skill_dir,
+};
 use sources_impl::DEFAULT_SOURCE_SKILL_VERSION;
 
 const RUN_MANIFEST_REQUIRED_TOKENS: &[&str] = &[
@@ -25,6 +27,41 @@ const RUN_MANIFEST_REQUIRED_TOKENS: &[&str] = &[
     "Decisions Made",
     "Warnings",
     "Evidence",
+];
+
+const SIGNED_IN_BROWSER_SKILLS: &[&str] = &[
+    "procurement-ingestion/procontract-discover",
+    "procurement-ingestion/procontract-enrich-tender",
+    "procurement-ingestion/procontract-register-interest",
+    "marketplace-search/alibaba",
+    "landed-cost/shipment-sizing",
+    "landed-cost/searates-freight-estimate",
+    "source-health/alibaba",
+    "auth-refresh/alibaba",
+    "auth-refresh/1688",
+];
+
+const CDP_BROWSER_SKILLS: &[&str] = &[
+    "procurement-ingestion/fts",
+    "procurement-ingestion/contracts-finder",
+    "procurement-ingestion/procontract-discover",
+    "procurement-ingestion/procontract-enrich-tender",
+    "procurement-ingestion/procontract-register-interest",
+    "marketplace-search/alibaba",
+    "marketplace-search/amazon-uk",
+    "marketplace-search/ebay-uk",
+    "marketplace-search/gem-imports",
+    "marketplace-search/mx-wholesale",
+    "landed-cost/shipment-sizing",
+    "landed-cost/searates-freight-estimate",
+    "source-health/alibaba",
+    "source-health/fts",
+    "auth-refresh/alibaba",
+    "auth-refresh/1688",
+];
+
+const AGENT_BROWSER_SUBCOMMANDS: &[&str] = &[
+    "open", "click", "fill", "snapshot", "wait", "scroll", "get", "download", "eval", "press",
 ];
 
 #[test]
@@ -328,5 +365,74 @@ fn ut_skl_010_non_behavior_affecting_changes_require_explicit_behavior_identity(
         error_text.contains("worker_behavior_version")
             || error_text.contains("gate_b_exact_slice_key")
     );
+    Ok(())
+}
+
+#[test]
+fn ut_skl_011_cdp_browser_skills_have_preflight_and_no_bare_agent_browser_commands() -> Result<()> {
+    for relative in CDP_BROWSER_SKILLS {
+        let skill = load_skill_metadata(&repo_skill_dir(relative)?)?;
+        ensure!(
+            skill.metadata.requires_cdp,
+            "{relative} must declare requires_cdp=true"
+        );
+        ensure!(
+            skill.metadata.cdp_default_port == Some(9222),
+            "{relative} must declare cdp_default_port: 9222"
+        );
+        ensure!(
+            skill.skill_markdown.contains("agent-browser --cdp"),
+            "{relative} must show agent-browser --cdp usage"
+        );
+        ensure!(
+            skill
+                .skill_markdown
+                .contains("http://localhost:${CDP_PORT}/json/version"),
+            "{relative} must contain the localhost CDP preflight"
+        );
+        ensure!(
+            !skill.skill_markdown.contains("agent-browser close"),
+            "{relative} must not close the operator browser"
+        );
+        ensure!(
+            !skill.skill_markdown.contains("agent-browser install")
+                && !skill.skill_markdown.contains("agent-browser --help"),
+            "{relative} must not run browser setup/help commands"
+        );
+
+        for subcommand in AGENT_BROWSER_SUBCOMMANDS {
+            let bare_command = format!("agent-browser {subcommand}");
+            ensure!(
+                !skill.skill_markdown.contains(&bare_command),
+                "{relative} contains bare `{bare_command}` instead of `agent-browser --cdp`"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn ut_skl_012_signed_in_browser_skills_require_operator_cdp_session() -> Result<()> {
+    for relative in SIGNED_IN_BROWSER_SKILLS {
+        let skill = load_skill_metadata(&repo_skill_dir(relative)?)?;
+        ensure!(
+            skill.metadata.requires_cdp,
+            "{relative} depends on signed-in browser state and must require CDP"
+        );
+        ensure!(
+            skill.metadata.cdp_default_port == Some(9222),
+            "{relative} must default to operator CDP port 9222"
+        );
+        ensure!(
+            !skill.skill_markdown.contains("Password:")
+                && !skill.skill_markdown.contains("Username:"),
+            "{relative} must not embed credential-driven login instructions"
+        );
+        ensure!(
+            !skill.skill_markdown.contains("log in with")
+                && !skill.skill_markdown.contains("authenticate with"),
+            "{relative} must block for operator auth instead of logging in"
+        );
+    }
     Ok(())
 }

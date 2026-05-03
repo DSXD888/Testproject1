@@ -10,6 +10,7 @@ use serde_json::Value as JsonValue;
 use serde_yaml::Value as YamlValue;
 use tempfile::TempDir;
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LintedSkillMetadata {
     pub skill_id: String,
@@ -19,6 +20,8 @@ pub struct LintedSkillMetadata {
     pub checkpoint_schema_version: Option<String>,
     pub validator_overlay_version: Option<String>,
     pub model_profile: String,
+    pub requires_cdp: bool,
+    pub cdp_default_port: Option<u16>,
     pub side_effect_class: String,
     pub source_structure_version: Option<String>,
     pub promotion_stage: Option<String>,
@@ -39,6 +42,7 @@ pub struct LintedSkill {
     pub skill_markdown: String,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Deserialize)]
 struct SkillFrontmatter {
     skill_id: Option<String>,
@@ -48,6 +52,10 @@ struct SkillFrontmatter {
     checkpoint_schema_version: Option<String>,
     validator_overlay_version: Option<String>,
     model_profile: Option<String>,
+    #[serde(default)]
+    requires_cdp: bool,
+    #[serde(default)]
+    cdp_default_port: Option<u16>,
     side_effect_class: Option<String>,
     source_structure_version: Option<String>,
     promotion_stage: Option<String>,
@@ -142,6 +150,19 @@ pub fn lint_skill_directory(path: &Path) -> Result<LintedSkill> {
     })
 }
 
+#[allow(dead_code)]
+pub fn load_skill_metadata(path: &Path) -> Result<LintedSkill> {
+    let skill_md = path.join("SKILL.md");
+    let skill_markdown =
+        fs::read_to_string(&skill_md).with_context(|| format!("reading {}", skill_md.display()))?;
+    let (frontmatter, _) = split_frontmatter(&skill_markdown)?;
+    let metadata = validate_metadata(frontmatter)?;
+    Ok(LintedSkill {
+        metadata,
+        skill_markdown,
+    })
+}
+
 fn validate_metadata(frontmatter: SkillFrontmatter) -> Result<LintedSkillMetadata> {
     let skill_id = required(frontmatter.skill_id, "skill_id")?;
     let skill_version = required(frontmatter.skill_version, "skill_version")?;
@@ -183,6 +204,12 @@ fn validate_metadata(frontmatter: SkillFrontmatter) -> Result<LintedSkillMetadat
     let gate_a_family_key = optional_required(frontmatter.gate_a_family_key, "gate_a_family_key")?;
     let gate_b_exact_slice_key =
         optional_required(frontmatter.gate_b_exact_slice_key, "gate_b_exact_slice_key")?;
+    if frontmatter.requires_cdp {
+        ensure!(
+            frontmatter.cdp_default_port.is_some(),
+            "requires_cdp=true requires `cdp_default_port`",
+        );
+    }
 
     if frontmatter.gate_a_family_prequalified {
         ensure!(
@@ -215,6 +242,8 @@ fn validate_metadata(frontmatter: SkillFrontmatter) -> Result<LintedSkillMetadat
         checkpoint_schema_version,
         validator_overlay_version,
         model_profile,
+        requires_cdp: frontmatter.requires_cdp,
+        cdp_default_port: frontmatter.cdp_default_port,
         side_effect_class,
         source_structure_version,
         promotion_stage,

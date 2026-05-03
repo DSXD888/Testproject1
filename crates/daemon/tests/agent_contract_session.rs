@@ -1219,6 +1219,8 @@ mod tests {
             skill_id: linted.metadata.skill_id.clone(),
             skill_version: linted.metadata.skill_version.clone(),
             skill_markdown: linted.skill_markdown.clone(),
+            requires_cdp: linted.metadata.requires_cdp,
+            cdp_default_port: linted.metadata.cdp_default_port,
             job_id: "job-manifest".to_owned(),
             session_id: "session-manifest".to_owned(),
             execution_mode: "contract".to_owned(),

@@ -6,6 +6,8 @@ result_schema_version: 1.0.0
 model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: none
+requires_cdp: true
+cdp_default_port: 9222
 maxPages: 10
 maxScrollCycles: 3
 ---
@@ -100,6 +102,23 @@ for supplier prices matching each `product_candidate` in the job parameters,
 and return a result contract documenting every search attempt and every
 usable quote.
 
+### Mandatory CDP Discipline
+
+Use the operator persistent CDP browser for this public source so the run stays visible on the shared browser surface and preserves locale/session state. Do not launch a fresh browser profile and do not close the operator browser.
+
+Before navigation:
+
+```bash
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
+```
+
+If CDP is unreachable, write a valid blocked `result.json` with `search_failure_mode: "source_soft_blocked"` for every remaining candidate and a warning/blocker code `CDP_CONNECT_FAILED`. Every browser command must use:
+
+```bash
+agent-browser --cdp ${CDP_PORT} ...
+```
+
 ### Step 0: Read Job Parameters
 
 The daemon injects JSON into the prompt. Parse the top-level object and
@@ -121,9 +140,9 @@ If `candidates` is empty or missing, write a minimal valid result and exit:
 ### Step 1: Open Gem Imports
 
 ```
-agent-browser open "https://www.gemimports.co.uk/"
-agent-browser wait 3000
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} open "https://www.gemimports.co.uk/"
+agent-browser --cdp ${CDP_PORT} wait 3000
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 Observe the landing page. Find the search input (usually a header search
@@ -147,19 +166,19 @@ For each wave `W`:
 #### 2a. Execute the search
 
 ```
-agent-browser open "https://www.gemimports.co.uk/search?q=<URL-encoded W.query>"
-agent-browser wait 3000
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} open "https://www.gemimports.co.uk/search?q=<URL-encoded W.query>"
+agent-browser --cdp ${CDP_PORT} wait 3000
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 If that URL shape does not work (404 / no results on a wave-1 query you
 expect to match), fall back to the header search bar:
 
 ```
-agent-browser fill "input[name='q'], input[type='search']" "<W.query>"
-agent-browser press Enter
-agent-browser wait 3000
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} fill "input[name='q'], input[type='search']" "<W.query>"
+agent-browser --cdp ${CDP_PORT} press Enter
+agent-browser --cdp ${CDP_PORT} wait 3000
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 Record the `result_count` (visible total) and the `query_used` exactly
@@ -188,9 +207,9 @@ Pick at most 3 candidates to fully quote. Count everything visible under
 For each shortlisted listing, navigate to its detail page:
 
 ```
-agent-browser click "@<ref of listing link>"
-agent-browser wait 3000
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} click "@<ref of listing link>"
+agent-browser --cdp ${CDP_PORT} wait 3000
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 Extract the following **raw** fields (do NOT apply any wholesale discount,
@@ -295,11 +314,9 @@ Build the final JSON matching `result.schema.json` and **write it to
 }
 ```
 
-### Step 5: Close the Browser Session
+### Step 5: Leave Browser Open
 
-```
-agent-browser close
-```
+Do not close or reset the operator browser. Leave the last page visible for inspection.
 
 ---
 

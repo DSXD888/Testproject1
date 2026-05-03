@@ -6,6 +6,8 @@ result_schema_version: 1.0.0
 model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: none
+requires_cdp: true
+cdp_default_port: 9222
 maxPages: 10
 maxScrollCycles: 3
 ---
@@ -78,6 +80,23 @@ eBay is a mixed marketplace: consumers, dropshippers, and trade
 sellers. Your job is to find the **best plausible fixed-price listing**
 for each candidate.
 
+### Mandatory CDP Discipline
+
+Use the operator persistent CDP browser for this public source so the run stays visible on the shared browser surface and preserves locale/session state. Do not launch a fresh browser profile and do not close the operator browser.
+
+Before navigation:
+
+```bash
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
+```
+
+If CDP is unreachable, write a valid blocked `result.json` with `search_failure_mode: "source_soft_blocked"` for every remaining candidate and a warning/blocker code `CDP_CONNECT_FAILED`. Every browser command must use:
+
+```bash
+agent-browser --cdp ${CDP_PORT} ...
+```
+
 ### Step 0: Read Job Parameters
 
 Parse `candidates` and `query_waves`.
@@ -85,9 +104,9 @@ Parse `candidates` and `query_waves`.
 ### Step 1: Open eBay UK
 
 ```
-agent-browser open "https://www.ebay.co.uk/"
-agent-browser wait 3000
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} open "https://www.ebay.co.uk/"
+agent-browser --cdp ${CDP_PORT} wait 3000
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 Dismiss cookie banners. Do NOT log in.
@@ -105,9 +124,9 @@ eBay supports URL-filtered searches. Always append these filters:
 - `LH_ItemCondition=1000|1500` (New or New Other only — exclude used)
 
 ```
-agent-browser open "https://www.ebay.co.uk/sch/i.html?_nkw=<URL-encoded query>&LH_BIN=1&LH_ItemCondition=1000%7C1500&_sop=15"
-agent-browser wait 3000
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} open "https://www.ebay.co.uk/sch/i.html?_nkw=<URL-encoded query>&LH_BIN=1&LH_ItemCondition=1000%7C1500&_sop=15"
+agent-browser --cdp ${CDP_PORT} wait 3000
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 `_sop=15` sorts by "Price + postage: lowest first", which aligns with
@@ -134,16 +153,16 @@ Reject:
 #### 2c. Open each shortlisted detail page
 
 ```
-agent-browser click "@<ref of listing title>"
-agent-browser wait 3000
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} click "@<ref of listing title>"
+agent-browser --cdp ${CDP_PORT} wait 3000
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 Scroll to reveal variation selector / quantity picker:
 
 ```
-agent-browser scroll down 600
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} scroll down 600
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 If the listing has **variations** (e.g. "Colour: White / Size: A4")
@@ -181,11 +200,9 @@ click-through variations.
 
 Write to `result.json` per the schema.
 
-### Step 5: Close Browser
+### Step 5: Leave Browser Open
 
-```
-agent-browser close
-```
+Do not close or reset the operator browser. Leave the last page visible for inspection.
 
 ---
 

@@ -7,6 +7,8 @@ import {
   type DecisionHistoryEntry,
 } from './OperatorDecisionPanel';
 
+const REQUIRED_RERUN_STAGES = ['landed-cost', 'net-gate', 'manifest'] as const;
+
 const PROMPTS_NUMBER: ClarificationPrompt[] = [
   {
     candidate_id: 'cand-1',
@@ -56,6 +58,7 @@ function panel(props: {
   prompts?: ClarificationPrompt[];
   history?: DecisionHistoryEntry[];
   isStale?: boolean;
+  rerunActiveStage?: (typeof REQUIRED_RERUN_STAGES)[number];
 }) {
   return renderToStaticMarkup(
     <OperatorDecisionPanel
@@ -73,6 +76,16 @@ function panel(props: {
       }}
       onChanged={() => {}}
       seedHistory={props.history}
+      seedRerunStatus={
+        props.rerunActiveStage
+          ? {
+              state: 'running',
+              message: `Running ${props.rerunActiveStage}`,
+              activeStage: props.rerunActiveStage,
+              modalOpen: true,
+            }
+          : undefined
+      }
     />,
   );
 }
@@ -209,5 +222,17 @@ describe('FT.8 — Decision history audit chain renders entries with status', ()
     const html = panel({ history });
     expect(html).toContain('data-status="stale"');
     expect(html).toContain('data-testid="withdraw-decision-button"');
+  });
+});
+
+describe('FT.9 — Pipeline rerun progress tracks the Stage 11→12→13 chain', () => {
+  it('bug_pipeline_rerun_progress_regression_renders_required_stage_cycle', () => {
+    const html = panel({ rerunActiveStage: 'net-gate' });
+    expect(html).toContain('data-testid="rerun-progress-modal"');
+    expect(html).toContain('data-active-stage="net-gate"');
+    for (const stage of REQUIRED_RERUN_STAGES) {
+      expect(html).toContain(`data-stage="${stage}"`);
+      expect(html).toContain(stage);
+    }
   });
 });

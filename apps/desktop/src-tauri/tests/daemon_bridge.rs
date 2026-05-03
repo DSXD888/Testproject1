@@ -14,8 +14,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use daemon_bridge_impl::{
     BridgeError, CaptureDecisionParams, DaemonBridge, DaemonBridgeConfig, DaemonCommandMethod,
-    DaemonInfoSnapshot, DecisionDisposition, GetDaemonInfoParams, MutationAck, SessionFrame,
-    TriggerIngestionParams,
+    DaemonInfoSnapshot, DecisionDisposition, GetDaemonInfoParams, MutationAck, ReconnectOutcome,
+    SessionFrame, TriggerIngestionParams,
 };
 use serde_json::{Value, json};
 
@@ -126,10 +126,37 @@ fn welcome_message() -> Value {
             "ids": ["session-1"],
             "states": ["active"]
         },
-        "reconnectOutcome": "fresh_connection",
+        "reconnectOutcome": "freshConnection",
         "streamResumePermitted": false
     }))
     .expect("welcome json should serialize")
+}
+
+#[test]
+fn bug_reconnect_outcome_regression_accepts_camel_case_daemon_welcome() -> TestResult {
+    let runtime = TempRuntime::new()?;
+    runtime.write_descriptor()?;
+    let listener = UnixListener::bind(runtime.socket_path())?;
+    let server = thread::spawn(
+        move || -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let (mut stream, _) = listener.accept()?;
+            let _hello = read_client_value(&stream)?;
+            write_server_message(&mut stream, &welcome_message())?;
+            Ok(())
+        },
+    );
+
+    let bridge = bridge(&runtime);
+    let connection = bridge.connect()?;
+
+    assert_eq!(
+        connection.welcome().reconnect_outcome,
+        ReconnectOutcome::FreshConnection
+    );
+    server
+        .join()
+        .map_err(|_| "camel-case welcome server panicked")??;
+    Ok(())
 }
 
 #[test]

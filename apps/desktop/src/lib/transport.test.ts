@@ -1,13 +1,22 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTransport, devBridgePaths } from './transport';
 import { tauriDevBridge } from '../../vite-plugin-tauri-dev-bridge';
 
+const tauriCore = vi.hoisted(() => ({
+  invoke: vi.fn(),
+  isTauri: vi.fn(() => false),
+}));
 const tauriUnlisten = vi.fn();
 const tauriListen = vi.fn(async (_event: string, _handler: (event: { payload: unknown }) => void) => tauriUnlisten);
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: tauriCore.invoke,
+  isTauri: tauriCore.isTauri,
+}));
 
 vi.mock('@tauri-apps/api/event', () => ({
   listen: tauriListen,
@@ -29,6 +38,16 @@ class MockWebSocket {
 }
 
 describe('transport shim', () => {
+  beforeEach(() => {
+    tauriCore.invoke.mockReset();
+    tauriCore.invoke.mockResolvedValue({ ok: true });
+    tauriCore.isTauri.mockReset();
+    tauriCore.isTauri.mockReturnValue(false);
+    tauriListen.mockClear();
+    tauriUnlisten.mockClear();
+    MockWebSocket.instances = [];
+  });
+
   it('TS-TRN-001 selects native transport when Tauri internals exist', async () => {
     const invoke = vi.fn().mockResolvedValue({ ok: true });
     const subscribe = vi.fn().mockReturnValue(() => undefined);
@@ -64,6 +83,24 @@ describe('transport shim', () => {
       },
     });
     expect(subscribe).toHaveBeenCalledWith('sessions', 12, expect.any(Function));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('bug_tauri_core_invoke_regression_uses_native_invoke_inside_tauri_webview', async () => {
+    tauriCore.isTauri.mockReturnValue(true);
+    const fetch = vi.fn();
+
+    const transport = createTransport({
+      fetch,
+      WebSocket: MockWebSocket as unknown as typeof WebSocket,
+      location: { origin: 'http://127.0.0.1:5173', search: '' },
+    });
+
+    await transport.invoke('trigger_pipeline_rerun', { processId: 'proc-1' });
+
+    expect(tauriCore.invoke).toHaveBeenCalledWith('trigger_pipeline_rerun', {
+      params: { processId: 'proc-1' },
+    });
     expect(fetch).not.toHaveBeenCalled();
   });
 

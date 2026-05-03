@@ -27,7 +27,7 @@ The daemon kills each SeaRates attempt after its configured per-attempt budget (
 4. Run the GraphQL query.
 5. Write `result.json`.
 
-The result schema is fully summarized in this SKILL.md. Do not run setup or discovery commands: no `pwd`, `ls`, `rg`, `find`, `command -v`, `sed result.schema.json`, `agent-browser --help`, accessibility snapshots, title checks, broad page inspection, repository searches, or exploratory schema discovery. These commands already consumed an entire daemon attempt in live validation.
+The result schema is fully summarized in this SKILL.md. Do not run setup or discovery commands: no `pwd`, `ls`, `rg`, `find`, `command -v`, schema printing, browser CLI help output, accessibility snapshots, title checks, broad page inspection, repository searches, or exploratory schema discovery. These commands already consumed an entire daemon attempt in live validation.
 
 Use at most three shell commands total in the success path:
 
@@ -35,13 +35,13 @@ Use at most three shell commands total in the success path:
 2. `agent-browser --cdp ${CDP_PORT} open https://www.searates.com/logistics-explorer/`.
 3. `agent-browser --cdp ${CDP_PORT} eval '...'` for token + GraphQL.
 
-After command 3, immediately write `result.json`. If a required value is unavailable after the fast path, immediately write a structured `blocked` result with `cdp_state`, `captcha_intercepted`, and a Stage11Issue-shaped blocker. Never leave the workdir without `result.json`.
+After command 3, immediately write `result.json`. If a required value is unavailable after the fast path, immediately write a structured `blocked` result with `cdp_state`, `captcha_intercepted`, and a Stage11Issue-shaped blocker. Never leave the workdir without `result.json`. The `evidence` field should be an array of objects, even when there is only one evidence object.
 
 ## Mandatory CDP Discipline
 Before navigation:
 
 ```bash
-CDP_PORT=${AGENT_BROWSER_CDP_PORT:-${job_parameters.cdp_port:-9222}}
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
 curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
 ```
 
@@ -163,7 +163,7 @@ Then recalculate the chosen `general.shipmentId` for the planned container count
 })()
 ```
 
-For the final `result.json`, include the selected recalculated rate under `evidence`, including `shipmentId`, `totalPrice`, `totalCurrency`, `totalTransitTime`, provider/carrier, port legs, and the route/query URL.
+For the final `result.json`, include the selected recalculated rate as an object inside the `evidence` array, including `shipmentId`, `totalPrice`, `totalCurrency`, `totalTransitTime`, provider/carrier, port legs, and the route/query URL.
 
 If the 60-second budget is tight, skip recalculate and emit the cheapest concrete non-expired `rates(...)` candidate directly. The daemon acceptance criterion is a fresh positive freight amount with explicit CDP/captcha fields; recalculate is a refinement, not a reason to miss the contract deadline.
 
@@ -179,11 +179,11 @@ When SeaRates returns a concrete non-expired amount from either the visible UI o
 
 Do not emit `freight_status: "estimated"` or any other success status. `blocked` is the only non-success status accepted by the daemon.
 
-If SeaRates shows an expired estimate, record the price and set `quote_expired: true` with warning `SEARATES_PRICE_EXPIRED`.
+If SeaRates shows only expired estimates, set `quote_expired: true`, add warning `SEARATES_PRICE_EXPIRED`, and do not present the quote as usable freight evidence.
 If SeaRates cannot return a price within the bounded run, emit `freight_status: "blocked"` with the blocker that names the observed UI/network reason and an appropriate `cdp_state` value (`captcha_blocked` if a challenge was served, `unreachable` if CDP itself failed, `session_expired` if the SeaRates token failed to refresh). Do not copy `result.schema.json` into `result.json`, and do not leave `result.json` as a schema or partial scratch object.
 
 ## Safety
 Do not log in/out, contact carriers, book shipments, create orders, change account settings, or write server-side state.
 
 ## Output
-Write the final JSON object to `result.json` in the current working directory, matching `result.schema.json`. `warnings` and `blockers` must be arrays of objects with `code`, `message`, and `severity`; never emit bare string warning codes or omit severity. Also keep the final response to the daemon as the same raw JSON object; do not wrap it in Markdown.
+Write the final JSON object to `result.json` in the current working directory, matching `result.schema.json`. `evidence`, `warnings`, and `blockers` must be arrays; `warnings` and `blockers` entries must be objects with `code`, `message`, and `severity`. Never emit bare string warning codes or omit severity. Also keep the final response to the daemon as the same raw JSON object; do not wrap it in Markdown.

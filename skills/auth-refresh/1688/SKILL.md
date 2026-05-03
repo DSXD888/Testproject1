@@ -16,6 +16,8 @@ gate_a_family_key: auth-refresh
 gate_a_family_prequalified: false
 gate_b_exact_slice_key: auth-refresh/1688::1688::auth-refresh/1688@2026.03.30-1+1.0.0::2026.03.30-1
 gate_b_exact_slice_ready: false
+requires_cdp: true
+cdp_default_port: 9222
 maxPages: 2
 maxScrollCycles: 1
 ---
@@ -32,7 +34,7 @@ Do not use this skill for Chinese product extraction, pricing capture, relation 
 - A source identifier of `1688`.
 - Existing auth-state metadata if available.
 - Expected locale/currency expectations for the 1688 session.
-- A short interactive login recovery budget.
+- A short time budget to verify operator-completed session recovery in CDP.
 
 ## Outputs
 - A refreshed 1688 auth-state handle suitable for later extraction skills.
@@ -54,14 +56,43 @@ Do not use this skill for Chinese product extraction, pricing capture, relation 
 - AGENT_RUN_FAILED
 
 ## Resume Strategy
-Resume from the last checkpointed auth phase if the flow already reached an account or verification boundary. Otherwise restart from the 1688 sign-in landing page with a clean browser context and the prior auth-state handle marked stale.
+Resume by rechecking the operator persistent CDP browser. If the browser still shows an account or verification boundary requiring human action, emit `blocked_human_action` and leave the prior auth-state handle marked stale.
 
 ## Pagination Bounds
 - `maxPages`: 2
 - `maxScrollCycles`: 1
 
 ## Canary
-Verify that a fresh 1688 session reaches an authenticated landing page, preserves the expected Chinese locale and currency context, and emits a reusable auth-state handle without scraping listing data.
+Verify that the operator persistent CDP session reaches an authenticated 1688 landing page, preserves the expected Chinese locale and currency context, and emits a reusable auth-state handle without scraping listing data.
+
+## Playbook
+
+### Mandatory CDP Discipline
+
+This skill must inspect the operator's already-authenticated persistent 1688 browser session and refresh local auth-state metadata only after the operator has completed any interactive login or verification manually. Do not launch a fresh browser profile, do not type credentials, do not solve captchas, do not log out, and do not close the operator browser.
+
+Before navigation:
+
+```bash
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
+```
+
+If CDP is unreachable, write a valid result with `authenticated: false`, `auth_state_handle: ""`, `challenge_detected: false`, `locale_state: "unknown"`, `currency_state: "unknown"`, and `blocked_human_action: "CDP_CONNECT_FAILED"`. Every browser command must use:
+
+```bash
+agent-browser --cdp ${CDP_PORT} ...
+```
+
+Open 1688 through CDP:
+
+```bash
+agent-browser --cdp ${CDP_PORT} open "https://www.1688.com/"
+agent-browser --cdp ${CDP_PORT} wait 2000
+agent-browser --cdp ${CDP_PORT} snapshot
+```
+
+Inspect the visible session state. If authenticated, refresh only local auth-state metadata and write `authenticated: true`. If a sign-in page, expired-session page, verification step, or captcha appears, write `authenticated: false`, set `challenge_detected` appropriately, include `blocked_human_action` with `AGENT_AUTH_CHALLENGE` or `SOURCE_CAPTCHA_BLOCKED`, and stop.
 
 ## Run Manifest Instructions
 Run Manifest Requirements

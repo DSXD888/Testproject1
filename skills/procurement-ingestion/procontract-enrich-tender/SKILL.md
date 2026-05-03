@@ -1,6 +1,6 @@
 ---
 skill_id: procurement-ingestion/procontract-enrich-tender
-skill_version: 1.1.0
+skill_version: 1.2.0
 interaction_profile: pty_interactive
 result_schema_version: 1.0.0
 checkpoint_schema_version: 1.0.0
@@ -8,6 +8,8 @@ model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: none
 source_structure_version: procontract-enrich-2026-04-13
+requires_cdp: true
+cdp_default_port: 9222
 maxPages: 5
 maxScrollCycles: 2
 ---
@@ -42,19 +44,57 @@ Do not use this skill for listing discovery or for clicking the initial interest
 
 You are a procurement enrichment agent. Discover tender-ready ProContract activities from the authenticated portal, open the RFx summary for each one, download every attachment, and report the enriched data.
 
-### Credentials
+### Mandatory CDP Discipline
 
-- Username: `sales@sorellon.com`
-- Password: `9928fJG3!5nk6nc`
+This skill must attach to the operator's already-authenticated persistent browser. Do not launch a fresh browser profile, do not attempt portal login, do not solve captchas, do not log out, and do not close the operator browser.
+
+Before navigation:
+
+```bash
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
+```
+
+If CDP is unreachable, write a valid blocked `result.json` immediately:
+
+```json
+{
+  "cursor": "{}",
+  "continuation_required": false,
+  "enriched_tenders": [],
+  "summary": {
+    "total_checked": 0,
+    "enriched": 0,
+    "not_yet_responded": 0,
+    "failed": 0
+  },
+  "status": "blocked",
+  "blockers": [
+    {
+      "code": "CDP_CONNECT_FAILED",
+      "message": "ProContract enrichment requires the operator persistent CDP browser on localhost:9222. Start Chrome/Chromium with remote debugging, sign in manually, then rerun.",
+      "severity": "blocked"
+    }
+  ]
+}
+```
+
+Every browser command must use:
+
+```bash
+agent-browser --cdp ${CDP_PORT} ...
+```
+
+If the portal shows `Log In`, `Session expired`, captcha, or another auth challenge, emit a valid blocked result with blocker code `PROCONTRACT_SESSION_EXPIRED` or `AGENT_AUTH_CHALLENGE`. The operator must restore the session manually in the persistent CDP browser.
 
 ### Step 1: Open the authenticated home page
 
 ```bash
-agent-browser open "https://procontract.due-north.com/SupplierPostLoginHome#"
-agent-browser wait 2000
+agent-browser --cdp ${CDP_PORT} open "https://procontract.due-north.com/SupplierPostLoginHome#"
+agent-browser --cdp ${CDP_PORT} wait 2000
 ```
 
-If redirected to `Log In`, authenticate with the supplied credentials.
+If redirected to `Log In`, stop and write the blocked result described in Mandatory CDP Discipline.
 
 ### Step 2: Go to the Activities area and paginate through ALL pages
 
@@ -85,8 +125,8 @@ For each candidate row collected from the Recently added list (across all pages)
 1. Navigate back to the home page if needed:
 
 ```bash
-agent-browser open "https://procontract.due-north.com/SupplierPostLoginHome#"
-agent-browser wait 2000
+agent-browser --cdp ${CDP_PORT} open "https://procontract.due-north.com/SupplierPostLoginHome#"
+agent-browser --cdp ${CDP_PORT} wait 2000
 ```
 
 2. Open the row title link to reach the activity dashboard. If you saved the activity URL or title link from Step 2, navigate directly to it.
@@ -133,12 +173,12 @@ Extract:
 
 The RFx page exposes an `Activity documentation, files & links` section with filename, type, and size.
 
-Download every attachment listed there using `agent-browser download`.
+Download every attachment listed there through the CDP browser.
 
 Example:
 
 ```bash
-agent-browser download @e35 "{download_root}/{notice_id}/107_26-invitation-to-tender-final.pdf"
+agent-browser --cdp ${CDP_PORT} download @e35 "{download_root}/{notice_id}/107_26-invitation-to-tender-final.pdf"
 ```
 
 Rules:
@@ -216,11 +256,9 @@ The `total_checked` count must reflect activities checked across ALL pages, not 
 
 If no tender-ready RFx pages are found, return an empty `enriched_tenders` array with a valid summary.
 
-### Step 9: Close the browser
+### Step 9: Leave the persistent browser open
 
-```bash
-agent-browser close
-```
+Do not close or reset the operator browser. Leave the last navigated ProContract page available for operator inspection.
 
 ---
 

@@ -6,6 +6,8 @@ result_schema_version: 1.0.0
 model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: none
+requires_cdp: true
+cdp_default_port: 9222
 maxPages: 10
 maxScrollCycles: 3
 ---
@@ -79,6 +81,23 @@ You are a retail-benchmark price-search agent. Amazon is noisy — your
 job is to find the **best per-unit price** for a product matching each
 candidate, not just the first result.
 
+### Mandatory CDP Discipline
+
+Use the operator persistent CDP browser for this public source so the run stays visible on the shared browser surface and preserves locale/session state. Do not launch a fresh browser profile and do not close the operator browser.
+
+Before navigation:
+
+```bash
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
+```
+
+If CDP is unreachable, write a valid blocked `result.json` with `search_failure_mode: "source_soft_blocked"` for every remaining candidate and a warning/blocker code `CDP_CONNECT_FAILED`. Every browser command must use:
+
+```bash
+agent-browser --cdp ${CDP_PORT} ...
+```
+
 ### Step 0: Read Job Parameters
 
 Parse `candidates` and their `query_waves`.
@@ -86,9 +105,9 @@ Parse `candidates` and their `query_waves`.
 ### Step 1: Open Amazon UK
 
 ```
-agent-browser open "https://www.amazon.co.uk/"
-agent-browser wait 3000
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} open "https://www.amazon.co.uk/"
+agent-browser --cdp ${CDP_PORT} wait 3000
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 Dismiss cookie / consent banners. Do NOT log in.
@@ -108,9 +127,9 @@ produces ≥1 shortlisted quote with `match_confidence_bps >= 4000`.
 Use Amazon's query-string search URL:
 
 ```
-agent-browser open "https://www.amazon.co.uk/s?k=<URL-encoded query>"
-agent-browser wait 3000
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} open "https://www.amazon.co.uk/s?k=<URL-encoded query>"
+agent-browser --cdp ${CDP_PORT} wait 3000
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 #### 2b. Shortlist up to 3 listings — **prefer bulk / multi-pack**
@@ -135,16 +154,16 @@ the candidate is real metal fencing).
 #### 2c. Open each shortlisted detail page
 
 ```
-agent-browser click "@<ref of product title link>"
-agent-browser wait 3000
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} click "@<ref of product title link>"
+agent-browser --cdp ${CDP_PORT} wait 3000
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 Scroll the page to reveal bulk/quantity options:
 
 ```
-agent-browser scroll down 800
-agent-browser snapshot
+agent-browser --cdp ${CDP_PORT} scroll down 800
+agent-browser --cdp ${CDP_PORT} snapshot
 ```
 
 Check whether a "quantity discount" table is shown — some Amazon
@@ -210,11 +229,9 @@ Write to `result.json`. Example quote for an envelopes candidate:
 }
 ```
 
-### Step 5: Close Browser
+### Step 5: Leave Browser Open
 
-```
-agent-browser close
-```
+Do not close or reset the operator browser. Leave the last page visible for inspection.
 
 ---
 

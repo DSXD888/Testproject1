@@ -726,6 +726,7 @@ struct LiveLoopFixture {
     notices: Vec<FixtureNotice>,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Deserialize)]
 struct SkillFrontmatter {
     skill_id: String,
@@ -739,6 +740,10 @@ struct SkillFrontmatter {
     model_profile: String,
     #[serde(default)]
     agent_cli: Option<String>,
+    #[serde(default)]
+    requires_cdp: bool,
+    #[serde(default)]
+    cdp_default_port: Option<u16>,
     #[serde(default)]
     source_structure_version: Option<String>,
     #[serde(default)]
@@ -1151,6 +1156,10 @@ fn skill_binding_payload(skill: &LoadedSkill) -> Value {
         },
         "promotion": {
             "stage": skill.metadata.promotion_stage,
+        },
+        "browser": {
+            "requires_cdp": skill.metadata.requires_cdp,
+            "cdp_default_port": skill.metadata.cdp_default_port,
         },
         "behavior": {
             "worker_behavior_version": skill.metadata.worker_behavior_version(),
@@ -3748,12 +3757,28 @@ struct SeaRatesFreightResult {
     quote_expired: bool,
     #[serde(default)]
     source_url: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_value_array_or_single")]
     evidence: Vec<Value>,
     #[serde(default)]
     warnings: Vec<Stage11Issue>,
     #[serde(default)]
     blockers: Vec<Stage11Issue>,
+}
+
+fn deserialize_value_array_or_single<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<Value>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match Value::deserialize(deserializer)? {
+        Value::Array(items) => Ok(items),
+        Value::Object(map) => Ok(vec![Value::Object(map)]),
+        Value::Null => Ok(Vec::new()),
+        _ => Err(serde::de::Error::custom(
+            "expected evidence to be an array, object, or null",
+        )),
+    }
 }
 
 /// Possible values of the `SeaRates` skill's `cdp_state` field.
@@ -4476,6 +4501,19 @@ fn parse_searates_freight_result(value: &Value) -> Result<SeaRatesFreightResult>
     Ok(result)
 }
 
+fn searates_quote_amount_minor(result: &SeaRatesFreightResult) -> i64 {
+    result
+        .freight_base_amount_minor
+        .or(result.freight_amount_minor)
+        .unwrap_or(0)
+}
+
+fn searates_quote_is_usable(result: &SeaRatesFreightResult) -> bool {
+    result.freight_status == "quoted"
+        && !result.quote_expired
+        && searates_quote_amount_minor(result) > 0
+}
+
 fn parse_simple_fx_lookup_result(value: &Value) -> Result<SimpleFxLookupResult> {
     let result: SimpleFxLookupResult =
         serde_json::from_value(value.clone()).context("parsing simple FX lookup result")?;
@@ -4537,14 +4575,22 @@ impl SearatesRetryConfig {
     /// Loads runtime overrides from process environment variables. Falls back
     /// to the `STAGE11_*_DEFAULT` constants when env vars are absent or
     /// unparseable.
-    fn from_env() -> Self {
-        Self::from_env_lookup(|key| std::env::var(key).ok())
+    fn from_env_and_job_parameters(job_parameters: &Value) -> Self {
+        Self::from_env_lookup_and_job_parameters(|key| std::env::var(key).ok(), job_parameters)
     }
 
     /// Same as `from_env` but the env reader is injectable, so tests can supply
     /// a fake without mutating the process-wide environment (which would
     /// require `unsafe` in Rust 2024 — forbidden in this crate).
+    #[cfg(test)]
     fn from_env_lookup<F: Fn(&str) -> Option<String>>(lookup: F) -> Self {
+        Self::from_env_lookup_and_job_parameters(lookup, &Value::Null)
+    }
+
+    fn from_env_lookup_and_job_parameters<F: Fn(&str) -> Option<String>>(
+        lookup: F,
+        job_parameters: &Value,
+    ) -> Self {
         let per_attempt_seconds = lookup(STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS_ENV)
             .and_then(|raw| raw.parse::<u64>().ok())
             .unwrap_or(STAGE11_SKILL_RETRY_PER_ATTEMPT_SECONDS_DEFAULT);
@@ -4566,7 +4612,11 @@ impl SearatesRetryConfig {
             .and_then(|raw| raw.parse::<u64>().ok())
             .unwrap_or(STAGE11_FREIGHT_CACHE_TTL_DAYS_DEFAULT);
         let simulate_captcha = lookup(STAGE11_SIMULATE_CAPTCHA_ENV)
-            .is_some_and(|raw| matches!(raw.trim(), "1" | "true" | "TRUE" | "yes" | "YES"));
+            .is_some_and(|raw| matches!(raw.trim(), "1" | "true" | "TRUE" | "yes" | "YES"))
+            || job_parameters
+                .get("simulate_captcha")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
         Self {
             max_attempts: STAGE11_SKILL_RETRY_MAX_ATTEMPTS,
             per_attempt: Duration::from_secs(per_attempt_seconds),
@@ -5161,6 +5211,8 @@ async fn execute_landed_cost_skill_session(
         skill_id: skill.metadata.skill_id.clone(),
         skill_version: skill.metadata.skill_version.clone(),
         skill_markdown: skill.skill_markdown.clone(),
+        requires_cdp: skill.metadata.requires_cdp,
+        cdp_default_port: skill.metadata.cdp_default_port,
         job_id: job_id.to_owned(),
         session_id: session_id.to_owned(),
         execution_mode: execution_mode_label(mode).to_owned(),
@@ -5174,7 +5226,7 @@ async fn execute_landed_cost_skill_session(
             .clone()
             .unwrap_or_else(|| PathBuf::from(adapter_config.kind.as_str())),
         args: launch_args_for_skill(&adapter_config, mode, &prompt),
-        env: std::collections::BTreeMap::default(),
+        env: skill_launch_env(skill),
         cwd: workdir.clone(),
     };
     let launch_spec = adapter.build_launch_spec(&request, mode)?;
@@ -6205,24 +6257,55 @@ async fn freight_scenario_from_searates(
         });
     }
 
+    let base_minor = searates_quote_amount_minor(result);
+    if !searates_quote_is_usable(result) && result.quote_expired {
+        let mut warnings = result.warnings.clone();
+        warnings.push(Stage11Issue::warning(
+            "SEARATES_PRICE_EXPIRED",
+            "SeaRates displayed an expired estimate; the daemon did not use it as freight cost evidence.",
+        ));
+        return Ok(FreightScenarioGbp {
+            low_gbp_pence: 0,
+            base_gbp_pence: 0,
+            high_gbp_pence: 0,
+            fx_rate: 1.0,
+            fx_checked_at: Some(Utc::now().to_rfc3339()),
+            fx_status: "blocked".to_owned(),
+            fx_session_id: None,
+            fx_job_id: None,
+            warnings,
+            blockers: vec![Stage11Issue::blocked(
+                "SEARATES_PRICE_EXPIRED",
+                "SeaRates quote was expired and cannot be used as freight cost evidence.",
+            )],
+        });
+    }
+    if !searates_quote_is_usable(result) {
+        return Ok(FreightScenarioGbp {
+            low_gbp_pence: 0,
+            base_gbp_pence: 0,
+            high_gbp_pence: 0,
+            fx_rate: 1.0,
+            fx_checked_at: Some(Utc::now().to_rfc3339()),
+            fx_status: "blocked".to_owned(),
+            fx_session_id: None,
+            fx_job_id: None,
+            warnings: result.warnings.clone(),
+            blockers: vec![Stage11Issue::blocked(
+                "SEARATES_FREIGHT_AMOUNT_INVALID",
+                "SeaRates quote did not include a positive freight amount.",
+            )],
+        });
+    }
+
     let currency = result
         .freight_currency
         .as_deref()
         .unwrap_or("GBP")
         .to_ascii_uppercase();
-    let base_minor = result
-        .freight_base_amount_minor
-        .or(result.freight_amount_minor)
-        .unwrap_or(0);
     let low_minor = result.freight_low_amount_minor.unwrap_or(base_minor);
     let high_minor = result.freight_high_amount_minor.unwrap_or(base_minor);
     let mut warnings = result.warnings.clone();
-    if result.quote_expired {
-        warnings.push(Stage11Issue::warning(
-            "SEARATES_PRICE_EXPIRED",
-            "SeaRates displayed an expired estimate; MVP Stage 11 retained it as reference evidence.",
-        ));
-    }
 
     if currency == "GBP" {
         return Ok(FreightScenarioGbp {
@@ -6580,6 +6663,7 @@ async fn run_landed_cost_live_loop(
         &repo_root.join("skills/landed-cost/simple-fx-lookup"),
         "skills/landed-cost/simple-fx-lookup/SKILL.md",
     )?;
+    let job_parameters = parse_job_parameters(cli.job_parameters_json.as_deref())?;
 
     let assessments =
         load_landed_cost_assessments(runtime.state_db.connection(), LANDED_COST_BATCH_SIZE)?;
@@ -6600,7 +6684,7 @@ async fn run_landed_cost_live_loop(
     let mut sizing_skill_runs = 0_usize;
     let mut searates_skill_runs = 0_usize;
     let mut fx_skill_runs = 0_usize;
-    let retry_config = SearatesRetryConfig::from_env();
+    let retry_config = SearatesRetryConfig::from_env_and_job_parameters(&job_parameters);
 
     for row in &assessments {
         attempted += 1;
@@ -6659,10 +6743,10 @@ async fn run_landed_cost_live_loop(
                     }
                 });
 
-        let (sizing, sizing_outcome) = if row.source_name == "alibaba-search"
+        let cdp_unreachable_before_sizing = row.source_name == "alibaba-search"
             && row.source_url.is_some()
-            && !cdp_port_reachable(9222)
-        {
+            && !cdp_port_reachable(9222);
+        let (sizing, sizing_outcome) = if cdp_unreachable_before_sizing {
             (Some(cdp_blocked_sizing_result(row)), None)
         } else {
             sizing_skill_runs += 1;
@@ -6695,8 +6779,16 @@ async fn run_landed_cost_live_loop(
         let mut searates_outcome: Option<LandedCostSkillRunOutcome> = None;
         let mut searates_result: Option<SeaRatesFreightResult> = None;
         let mut captcha_observed = false;
-        let mut final_cdp_state = SeaRatesCdpState::Unknown;
+        let mut final_cdp_state = initial_searates_cdp_state(cdp_unreachable_before_sizing);
         let mut searates_attempts = 0u32;
+        if cdp_unreachable_before_sizing {
+            ::tracing::warn!(
+                candidate_id = %row.product_candidate_id,
+                attempts = searates_attempts,
+                cdp_state = final_cdp_state.as_str(),
+                "Stage 11 SeaRates skipped because CDP endpoint was unreachable before freight lookup"
+            );
+        }
         if let Some(sizing_result) = sizing
             .as_ref()
             .filter(|result| result.sizing_status == "sized")
@@ -10267,6 +10359,8 @@ async fn execute_bounded_manifest_skill_session(
         skill_id: skill.metadata.skill_id.clone(),
         skill_version: skill.metadata.skill_version.clone(),
         skill_markdown: skill.skill_markdown.clone(),
+        requires_cdp: skill.metadata.requires_cdp,
+        cdp_default_port: skill.metadata.cdp_default_port,
         job_id: job_id.to_owned(),
         session_id: session_id.to_owned(),
         execution_mode: execution_mode_label(mode).to_owned(),
@@ -10287,7 +10381,7 @@ async fn execute_bounded_manifest_skill_session(
             .clone()
             .unwrap_or_else(|| PathBuf::from(adapter_config.kind.as_str())),
         args: launch_args,
-        env: std::collections::BTreeMap::default(),
+        env: skill_launch_env(skill),
         cwd: workdir.clone(),
     };
     let launch_spec = adapter.build_launch_spec(&request, mode)?;
@@ -10746,6 +10840,14 @@ fn cdp_blocked_sizing_result(row: &LandedCostAssessmentRow) -> ShipmentSizingRes
             "CDP_CONNECT_FAILED",
             "Persistent browser CDP endpoint was not reachable on port 9222, so source listing dimensions could not be inspected.",
         )],
+    }
+}
+
+const fn initial_searates_cdp_state(cdp_unreachable_before_sizing: bool) -> SeaRatesCdpState {
+    if cdp_unreachable_before_sizing {
+        SeaRatesCdpState::Unreachable
+    } else {
+        SeaRatesCdpState::Unknown
     }
 }
 
@@ -12273,6 +12375,8 @@ async fn execute_skill_session(
         skill_id: skill.metadata.skill_id.clone(),
         skill_version: skill.metadata.skill_version.clone(),
         skill_markdown: skill.skill_markdown.clone(),
+        requires_cdp: skill.metadata.requires_cdp,
+        cdp_default_port: skill.metadata.cdp_default_port,
         job_id: job_id.to_owned(),
         session_id: session_id.to_owned(),
         execution_mode: execution_mode_label(mode).to_owned(),
@@ -12286,7 +12390,7 @@ async fn execute_skill_session(
             .clone()
             .unwrap_or_else(|| PathBuf::from(adapter_config.kind.as_str())),
         args: launch_args_for_skill(&adapter_config, mode, &prompt),
-        env: std::collections::BTreeMap::default(),
+        env: skill_launch_env(skill),
         cwd: workdir,
     };
     let launch_spec = adapter.build_launch_spec(&request, mode)?;
@@ -13767,6 +13871,17 @@ fn launch_args_for_skill(
             vec![OsString::from(prompt)]
         }
     }
+}
+
+fn skill_launch_env(skill: &LoadedSkill) -> BTreeMap<OsString, OsString> {
+    let mut env = BTreeMap::new();
+    if skill.metadata.requires_cdp {
+        env.insert(
+            OsString::from("AGENT_BROWSER_CDP_PORT"),
+            OsString::from(skill.metadata.cdp_default_port.unwrap_or(9222).to_string()),
+        );
+    }
+    env
 }
 
 fn pty_command_from_launch_spec(spec: &LaunchSpec) -> PtyCommand {
@@ -20431,6 +20546,8 @@ mod tests {
                 validator_overlay_version: Some("2026.03.30-1".to_owned()),
                 model_profile: "structured_extract_low_cost".to_owned(),
                 agent_cli: Some(DEFAULT_AGENT_CLI.to_owned()),
+                requires_cdp: false,
+                cdp_default_port: None,
                 source_structure_version: None,
                 worker_behavior_version: None,
                 validator_behavior_version: None,
@@ -21157,6 +21274,8 @@ mod tests {
                 validator_overlay_version: Some("2026.03.30-1".to_owned()),
                 model_profile: "structured_extract_low_cost".to_owned(),
                 agent_cli: Some(DEFAULT_AGENT_CLI.to_owned()),
+                requires_cdp: false,
+                cdp_default_port: None,
                 source_structure_version: None,
                 worker_behavior_version: worker_behavior_version.map(str::to_owned),
                 validator_behavior_version: None,
@@ -22145,6 +22264,8 @@ mod tests {
                 validator_overlay_version: Some("2026.03.30-1".to_owned()),
                 model_profile: "structured_extract_low_cost".to_owned(),
                 agent_cli: None,
+                requires_cdp: false,
+                cdp_default_port: None,
                 source_structure_version: None,
                 worker_behavior_version: None,
                 validator_behavior_version: None,
@@ -23073,12 +23194,13 @@ mod tests {
     fn infer_order_quantity_basis_returns_basis_undetermined_when_no_signals() {
         let row = stage11_undetermined_row_fixture();
         let basis = super::infer_order_quantity_basis(&row);
-        match basis {
-            super::OrderQuantityBasis::BasisUndetermined { reason, .. } => {
-                assert_eq!(reason, super::BasisUndeterminedReason::NoQuantityAnywhere);
+        assert!(matches!(
+            basis,
+            super::OrderQuantityBasis::BasisUndetermined {
+                reason: super::BasisUndeterminedReason::NoQuantityAnywhere,
+                ..
             }
-            other => panic!("expected BasisUndetermined::NoQuantityAnywhere, got {other:?}"),
-        }
+        ));
     }
 
     /// OQ.2: Aggregates-shape — pack-listing + scale mismatch — must classify
@@ -23087,15 +23209,13 @@ mod tests {
     fn infer_order_quantity_basis_returns_basis_undetermined_on_revenue_cost_scale_mismatch() {
         let row = stage11_aggregates_row_fixture();
         let basis = super::infer_order_quantity_basis(&row);
-        match basis {
-            super::OrderQuantityBasis::BasisUndetermined { reason, .. } => {
-                assert_eq!(
-                    reason,
-                    super::BasisUndeterminedReason::RevenueCostScaleMismatch
-                );
+        assert!(matches!(
+            basis,
+            super::OrderQuantityBasis::BasisUndetermined {
+                reason: super::BasisUndeterminedReason::RevenueCostScaleMismatch,
+                ..
             }
-            other => panic!("expected BasisUndetermined::RevenueCostScaleMismatch, got {other:?}"),
-        }
+        ));
     }
 
     /// OQ.3: DGU-shape (no override) with quoted_quantity=10000 + MOQ=10 +
@@ -23890,6 +24010,37 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn searates_output_parser_wraps_object_evidence_from_live_graphql_result() -> Result<()> {
+        let payload = json!({
+            "product_candidate_id": "candidate",
+            "selected_quote_id": "quote",
+            "freight_status": "quoted",
+            "freight_currency": "USD",
+            "freight_base_amount_minor": 330_400,
+            "captcha_intercepted": false,
+            "cdp_state": "connected",
+            "quote_expired": false,
+            "source_url": "https://www.searates.com/logistics-explorer/",
+            "evidence": {
+                "candidate_count": 58,
+                "recalculated_candidate_count": 48,
+                "raw_evidence_text": "SeaRates Logistics Explorer GraphQL returned a live quote."
+            },
+            "warnings": [],
+            "blockers": []
+        });
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../../skills/landed-cost/searates-freight-estimate/result.schema.json"
+        ))?;
+        super::validate_result_schema(&schema, &payload)?;
+
+        let parsed = super::parse_searates_freight_result(&payload)?;
+        assert_eq!(parsed.evidence.len(), 1);
+        assert_eq!(parsed.evidence[0]["candidate_count"], json!(58));
+        Ok(())
+    }
+
     // ---- Stage 11 CDP captcha resilience (CDP.1..CDP.12) ----------------
 
     fn create_minimal_lce_table(conn: &Connection) -> Result<()> {
@@ -24031,6 +24182,19 @@ mod tests {
             "blockers": []
         });
         serde_json::from_value(payload).expect("fixture parses")
+    }
+
+    #[test]
+    fn searates_quote_usable_requires_positive_non_expired_amount() {
+        let mut usable = searates_quoted_fixture();
+        assert!(super::searates_quote_is_usable(&usable));
+
+        usable.quote_expired = true;
+        assert!(!super::searates_quote_is_usable(&usable));
+
+        let mut zero = searates_quoted_fixture();
+        zero.freight_base_amount_minor = Some(0);
+        assert!(!super::searates_quote_is_usable(&zero));
     }
 
     /// CDP.3 — captcha on every attempt → exactly 3 attempts, then bail.
@@ -24261,6 +24425,44 @@ mod tests {
         });
         assert_eq!(cfg.backoffs[0].as_secs(), 1);
         assert_eq!(cfg.backoffs[1].as_secs(), 3);
+    }
+
+    /// CDP.13 — Scenario B's handoff command drives captcha simulation through
+    /// `--job-parameters-json`, not only through the environment override.
+    #[test]
+    fn cdp_13_retry_config_honors_simulate_captcha_job_parameter() {
+        let cfg = super::SearatesRetryConfig::from_env_lookup_and_job_parameters(
+            |_| None,
+            &json!({"simulate_captcha": true}),
+        );
+        assert!(cfg.simulate_captcha);
+
+        let cfg = super::SearatesRetryConfig::from_env_lookup_and_job_parameters(
+            |key| {
+                if key == super::STAGE11_SIMULATE_CAPTCHA_ENV {
+                    Some("true".to_owned())
+                } else {
+                    None
+                }
+            },
+            &json!({"simulate_captcha": false}),
+        );
+        assert!(cfg.simulate_captcha);
+    }
+
+    /// CDP.14 — when CDP is already unreachable before shipment sizing, the
+    /// freight-side path still records `cdp_state=unreachable`, so the
+    /// cache/operator fallback branch runs without retrying SeaRates.
+    #[test]
+    fn cdp_14_pre_freight_cdp_down_marks_unreachable_state() {
+        assert_eq!(
+            super::initial_searates_cdp_state(true),
+            super::SeaRatesCdpState::Unreachable
+        );
+        assert_eq!(
+            super::initial_searates_cdp_state(false),
+            super::SeaRatesCdpState::Unknown
+        );
     }
 
     /// CDP.12 — the new fields default safely; old payloads (without
