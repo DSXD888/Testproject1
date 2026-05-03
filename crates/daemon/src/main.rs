@@ -283,7 +283,7 @@ const NET_MARGIN_THRESHOLDS_VERSION: &str = "v1.0-2026-05-01";
 const NET_MARGIN_ROLLUP_VERSION: &str = "v1.0-2026-05-01";
 const NET_MARGIN_REVIEW_STAGE: &str = "net_margin_gate";
 const MANIFEST_STAGE_NAME: &str = "manifest";
-const MANIFEST_TEMPLATE_VERSION: &str = "v1.0-2026-05-01";
+const MANIFEST_TEMPLATE_VERSION: &str = "v1.1-2026-05-03";
 const STAGE13_RENDERER_MODE_ENV: &str = "STAGE13_RENDERER_MODE";
 const STAGE13_SKILL_TIMEOUT_SECONDS_ENV: &str = "STAGE13_SKILL_TIMEOUT_SECONDS";
 const STAGE13_SKILL_TIMEOUT_SECONDS_DEFAULT: u64 = 600;
@@ -8263,16 +8263,16 @@ fn derive_manifest_stoplight(
 ) -> ManifestStoplight {
     if candidates
         .iter()
+        .any(|candidate| candidate.re_evaluation_eligible)
+    {
+        return ManifestStoplight::Clarify;
+    }
+    if candidates
+        .iter()
         .any(|candidate| candidate.verdict == NetMarginVerdict::Pass)
         && priced_coverage_bps >= 5_000
     {
         return ManifestStoplight::Pursue;
-    }
-    if candidates
-        .iter()
-        .any(|candidate| candidate.re_evaluation_eligible)
-    {
-        return ManifestStoplight::Clarify;
     }
     if candidates
         .iter()
@@ -20842,6 +20842,18 @@ mod tests {
         assert_eq!(
             super::derive_manifest_stoplight(&candidates, 6_000),
             super::ManifestStoplight::Pursue
+        );
+    }
+
+    #[test]
+    fn bug_mixed_pass_and_re_eval_regression_clarify_precedes_pursue() {
+        let candidates = vec![
+            manifest_policy_candidate(super::NetMarginVerdict::Pass, false),
+            manifest_policy_candidate(super::NetMarginVerdict::Review, true),
+        ];
+        assert_eq!(
+            super::derive_manifest_stoplight(&candidates, 6_000),
+            super::ManifestStoplight::Clarify
         );
     }
 

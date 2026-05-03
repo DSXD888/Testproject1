@@ -102,9 +102,13 @@ impl QueryService {
                 pipeline_basis_hash.as_deref(),
                 pipeline_stage_run_id.as_deref(),
             )?;
+            let current_decision_basis_hash = manifest
+                .as_ref()
+                .and_then(|manifest| manifest.manifest_basis_hash.as_deref())
+                .or(pipeline_basis_hash.as_deref());
             let decision = decision_status_for_process(
                 decisions.get(&canonical_process_id),
-                pipeline_basis_hash.as_deref(),
+                current_decision_basis_hash,
             );
             let review_metadata = ReviewMetadataVm {
                 basis_hash: pipeline_basis_hash,
@@ -1831,10 +1835,10 @@ fn load_manifest_inbox_rows(conn: &Connection) -> Result<Vec<ManifestInboxRow>, 
         .map_err(storage_unreadable)?;
     let mut out: Vec<ManifestInboxRow> = Vec::new();
     for row in rows {
-        let (mut row, current_decision_basis_hash) = row.map_err(storage_unreadable)?;
+        let (mut row, _current_decision_basis_hash) = row.map_err(storage_unreadable)?;
         row.decision = decision_status_for_process(
             decisions.get(&row.canonical_process_id),
-            current_decision_basis_hash.as_deref(),
+            row.manifest_basis_hash.as_deref(),
         );
         out.push(row);
     }

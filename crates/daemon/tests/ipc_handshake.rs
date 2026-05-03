@@ -377,7 +377,7 @@ fn it_ipc_002_lock_file_blocks_second_writer() -> Result<()> {
 #[test]
 fn it_ipc_003_successful_handshake_returns_runtime_compatibility() -> Result<()> {
     let setup = HandshakeHarness::new()?;
-    let response = setup.request(&ClientMessage::Hello {
+    let response = setup.request_after_client_write(&ClientMessage::Hello {
         desktop_version: "desktop-1.0.0".to_owned(),
         supported_protocol_range: ProtocolRange { min: 1, max: 1 },
         expected_schema_epoch: DEFAULT_SCHEMA_EPOCH,
@@ -989,6 +989,41 @@ impl HandshakeHarness {
 
     fn request(&self, message: &ClientMessage) -> Result<ServerMessage> {
         self.request_frames(message)?
+            .into_iter()
+            .next()
+            .ok_or_else(|| anyhow!("daemon closed handshake stream without a response"))
+    }
+
+    fn request_after_client_write(&self, message: &ClientMessage) -> Result<ServerMessage> {
+        let listener = self
+            .listener
+            .as_ref()
+            .ok_or_else(|| anyhow!("handshake listener is not active"))?
+            .try_clone()?;
+        let context = self.context.clone();
+
+        let mut client = UnixStream::connect(&self.socket_path)
+            .with_context(|| format!("connecting to {}", self.socket_path.display()))?;
+        let payload = serde_json::to_string(message)?;
+        client.write_all(payload.as_bytes())?;
+        client.write_all(b"\n")?;
+        client.flush()?;
+
+        let handle = thread::spawn(move || handshake_impl::serve_one(&listener, &context, None));
+        let reader = BufReader::new(client);
+        let mut frames = Vec::new();
+        for line in reader.lines() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            frames.push(serde_json::from_str(&line).context("parsing handshake response")?);
+        }
+
+        handle
+            .join()
+            .map_err(|_| anyhow!("handshake thread panicked"))??;
+        frames
             .into_iter()
             .next()
             .ok_or_else(|| anyhow!("daemon closed handshake stream without a response"))

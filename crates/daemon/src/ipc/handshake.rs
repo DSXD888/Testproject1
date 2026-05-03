@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
+use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, bail};
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -21,6 +22,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::ipc::command_router::{BridgeError, CommandRouter, DispatchOutcome};
+
+const SUBSCRIPTION_IDLE_TIMEOUT: Duration = Duration::from_secs(1);
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -410,12 +413,23 @@ pub fn handle_connection(
             }
 
             if let Some(router) = command_router {
+                let mut close_when_subscription_idle = false;
                 loop {
                     let message = match read_message(&mut reader) {
                         Ok(message) => message,
                         Err(error) if client_closed(&error) => break,
+                        Err(error) if close_when_subscription_idle && read_timed_out(&error) => {
+                            break;
+                        }
                         Err(error) => return Err(error),
                     };
+                    if close_when_subscription_idle {
+                        reader
+                            .get_mut()
+                            .set_read_timeout(None)
+                            .context("clearing subscription idle timeout")?;
+                        close_when_subscription_idle = false;
+                    }
 
                     let outcome = match message {
                         ClientMessage::Command {
@@ -443,6 +457,15 @@ pub fn handle_connection(
                                 &topic,
                                 from_seq,
                             )?;
+                            // Subscriptions currently replay buffered topic frames over the
+                            // accepted socket. The daemon accepts bridge sockets serially, so
+                            // close idle subscription sockets after replay while preserving
+                            // clients that immediately unsubscribe on the same socket.
+                            reader
+                                .get_mut()
+                                .set_read_timeout(Some(SUBSCRIPTION_IDLE_TIMEOUT))
+                                .context("setting subscription idle timeout")?;
+                            close_when_subscription_idle = true;
                             false
                         }
                         ClientMessage::Unsubscribe { request_id, topic } => {
@@ -676,6 +699,19 @@ fn client_closed(error: &anyhow::Error) -> bool {
     error
         .chain()
         .any(|cause| cause.to_string().contains("client closed handshake stream"))
+}
+
+fn read_timed_out(error: &anyhow::Error) -> bool {
+    error.chain().any(|cause| {
+        cause
+            .downcast_ref::<std::io::Error>()
+            .is_some_and(|io_error| {
+                matches!(
+                    io_error.kind(),
+                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                )
+            })
+    })
 }
 
 fn reconnect_outcome(last_seen_instance_id: Option<&str>, instance_id: &str) -> ReconnectOutcome {

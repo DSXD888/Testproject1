@@ -478,15 +478,22 @@ impl DaemonBridge {
 
     pub fn connect(&self) -> Result<DaemonBridgeConnection, BridgeError> {
         let descriptor = read_descriptor(&self.config.descriptor_path())?;
-        let mut stream = UnixStream::connect(&descriptor.socket_path).map_err(|error| {
+        let mut writer = UnixStream::connect(&descriptor.socket_path).map_err(|error| {
             BridgeError::transport_unavailable(format!(
                 "opening daemon socket {} failed: {error}",
                 descriptor.socket_path
             ))
         })?;
+        let reader_stream = writer.try_clone().map_err(|error| {
+            BridgeError::transport_unavailable(format!(
+                "cloning daemon socket {} failed: {error}",
+                descriptor.socket_path
+            ))
+        })?;
+        let mut reader = BufReader::new(reader_stream);
 
         write_frame(
-            &mut stream,
+            &mut writer,
             &DaemonWireRequest::Hello {
                 desktop_version: self.config.desktop_version.clone(),
                 supported_protocol_range: self.config.supported_protocol_range.clone(),
@@ -495,8 +502,12 @@ impl DaemonBridge {
             },
         )?;
 
-        match read_frame(&stream)? {
-            DaemonWireResponse::Welcome(welcome) => Ok(DaemonBridgeConnection { stream, welcome }),
+        match read_frame(&mut reader)? {
+            DaemonWireResponse::Welcome(welcome) => Ok(DaemonBridgeConnection {
+                reader,
+                writer,
+                welcome,
+            }),
             DaemonWireResponse::Rejection(rejection) => Err(rejection.into_bridge_error()),
             frame => Err(BridgeError::transport_unavailable(format!(
                 "expected welcome or rejection during handshake, received {:?}",
@@ -508,7 +519,8 @@ impl DaemonBridge {
 
 #[derive(Debug)]
 pub struct DaemonBridgeConnection {
-    stream: UnixStream,
+    reader: BufReader<UnixStream>,
+    writer: UnixStream,
     welcome: DaemonWireWelcome,
 }
 
@@ -519,15 +531,20 @@ impl DaemonBridgeConnection {
     }
 
     pub fn set_read_timeout(&self, timeout: Option<Duration>) -> Result<(), BridgeError> {
-        self.stream.set_read_timeout(timeout).map_err(|error| {
-            BridgeError::transport_unavailable(format!(
-                "configuring daemon bridge read timeout failed: {error}"
-            ))
-        })
+        self.reader
+            .get_ref()
+            .set_read_timeout(timeout)
+            .map_err(|error| {
+                BridgeError::transport_unavailable(format!(
+                    "configuring daemon bridge read timeout failed: {error}"
+                ))
+            })
     }
 
-    pub fn read_subscription_event(&self) -> Result<Option<NativeSubscriptionEvent>, BridgeError> {
-        match read_frame(&self.stream) {
+    pub fn read_subscription_event(
+        &mut self,
+    ) -> Result<Option<NativeSubscriptionEvent>, BridgeError> {
+        match read_frame(&mut self.reader) {
             Ok(DaemonWireResponse::TopicEvent { topic, payload }) => {
                 Ok(Some(NativeSubscriptionEvent::Topic { topic, payload }))
             }
@@ -736,7 +753,7 @@ impl DaemonBridgeConnection {
     pub fn subscribe(&mut self, topic: &str, from_seq: Option<u64>) -> Result<(), BridgeError> {
         let request_id = next_request_id();
         write_frame(
-            &mut self.stream,
+            &mut self.writer,
             &DaemonWireRequest::Subscribe {
                 request_id: request_id.clone(),
                 topic: topic.to_owned(),
@@ -749,7 +766,7 @@ impl DaemonBridgeConnection {
     pub fn unsubscribe(&mut self, topic: &str) -> Result<(), BridgeError> {
         let request_id = next_request_id();
         write_frame(
-            &mut self.stream,
+            &mut self.writer,
             &DaemonWireRequest::Unsubscribe {
                 request_id: request_id.clone(),
                 topic: topic.to_owned(),
@@ -769,7 +786,7 @@ impl DaemonBridgeConnection {
     {
         let request_id = next_request_id();
         write_frame(
-            &mut self.stream,
+            &mut self.writer,
             &DaemonWireRequest::Command {
                 request_id: request_id.clone(),
                 method: method.as_str().to_owned(),
@@ -792,7 +809,7 @@ impl DaemonBridgeConnection {
     {
         let request_id = next_request_id();
         write_frame(
-            &mut self.stream,
+            &mut self.writer,
             &DaemonWireRequest::Command {
                 request_id: request_id.clone(),
                 method: method.as_str().to_owned(),
@@ -817,7 +834,7 @@ impl DaemonBridgeConnection {
         })
     }
 
-    fn await_empty_response(&self, request_id: &str) -> Result<(), BridgeError> {
+    fn await_empty_response(&mut self, request_id: &str) -> Result<(), BridgeError> {
         let payload: Value = self.await_response(request_id)?;
         if payload != Value::Null {
             return Err(BridgeError::transport_unavailable(
@@ -827,12 +844,12 @@ impl DaemonBridgeConnection {
         Ok(())
     }
 
-    fn await_response<T>(&self, request_id: &str) -> Result<T, BridgeError>
+    fn await_response<T>(&mut self, request_id: &str) -> Result<T, BridgeError>
     where
         T: DeserializeOwned,
     {
         loop {
-            match read_frame(&self.stream)? {
+            match read_frame(&mut self.reader)? {
                 DaemonWireResponse::CommandResponse {
                     request_id: response_id,
                     payload,
@@ -1040,8 +1057,7 @@ fn write_frame<T: Serialize>(stream: &mut UnixStream, message: &T) -> Result<(),
         .map_err(|error| BridgeError::transport_unavailable(error.to_string()))
 }
 
-fn read_frame(stream: &UnixStream) -> Result<DaemonWireResponse, BridgeError> {
-    let mut reader = BufReader::new(stream);
+fn read_frame(reader: &mut impl BufRead) -> Result<DaemonWireResponse, BridgeError> {
     let mut buffer = String::new();
     let bytes = reader.read_line(&mut buffer).map_err(|error| {
         if matches!(

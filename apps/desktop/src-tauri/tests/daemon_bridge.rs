@@ -14,8 +14,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use daemon_bridge_impl::{
     BridgeError, CaptureDecisionParams, DaemonBridge, DaemonBridgeConfig, DaemonCommandMethod,
-    DaemonInfoSnapshot, DecisionDisposition, GetDaemonInfoParams, MutationAck, ReconnectOutcome,
-    SessionFrame, TriggerIngestionParams,
+    DaemonInfoSnapshot, DecisionDisposition, GetDaemonInfoParams, MutationAck,
+    NativeSubscriptionEvent, ReconnectOutcome, SessionFrame, TriggerIngestionParams,
 };
 use serde_json::{Value, json};
 
@@ -437,6 +437,134 @@ fn rs_dbr_006b_topic_events_do_not_poison_command_responses() -> TestResult {
     )?;
     assert_eq!(ack.visible_after_seq, 21);
     server.join().expect("server should join")?;
+    Ok(())
+}
+
+#[test]
+fn bug_buffered_lifecycle_response_regression_preserves_command_response() -> TestResult {
+    let runtime = TempRuntime::new()?;
+    runtime.write_descriptor()?;
+    let listener = UnixListener::bind(runtime.socket_path())?;
+    let server = thread::spawn(
+        move || -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let (mut stream, _) = listener.accept()?;
+            let _hello = read_client_value(&stream)?;
+            write_server_message(&mut stream, &welcome_message())?;
+            let command = read_client_value(&stream)?;
+            let mut payload = String::new();
+            for seq in 1..=8 {
+                payload.push_str(
+                    &json!({
+                        "messageType": "lifecycle",
+                        "seq": seq,
+                        "sessionId": "session-buffered",
+                        "phase": "active"
+                    })
+                    .to_string(),
+                );
+                payload.push('\n');
+            }
+            payload.push_str(
+                &json!({
+                    "messageType": "commandResponse",
+                    "requestId": command["requestId"],
+                    "payload": {
+                        "accepted": true,
+                        "visible_after_seq": 29,
+                        "continuation_job_id": null
+                    }
+                })
+                .to_string(),
+            );
+            payload.push('\n');
+            stream.write_all(payload.as_bytes())?;
+            stream.flush()?;
+            Ok(())
+        },
+    );
+
+    let mut connection = bridge(&runtime).connect()?;
+    let ack = connection.capture_decision(
+        &CaptureDecisionParams {
+            process_id: "proc-1".to_owned(),
+            disposition: DecisionDisposition::Watch,
+            reviewed_basis_hash: "basis-1".to_owned(),
+            reviewed_manifest_hash: "manifest-1".to_owned(),
+            reviewed_at_stage_run_id: "stage-1".to_owned(),
+            decision_note: None,
+        },
+        "idem-buffered-response",
+    )?;
+    assert_eq!(ack.visible_after_seq, 29);
+    server.join().expect("server should join")?;
+    Ok(())
+}
+
+#[test]
+fn bug_subscription_replay_regression_handles_one_shot_topic_replay() -> TestResult {
+    let runtime = TempRuntime::new()?;
+    runtime.write_descriptor()?;
+    let listener = UnixListener::bind(runtime.socket_path())?;
+    let server = thread::spawn(
+        move || -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+            let (mut stream, _) = listener.accept()?;
+            let _hello = read_client_value(&stream)?;
+            write_server_message(&mut stream, &welcome_message())?;
+            let subscribe = read_client_value(&stream)?;
+            write_server_message(
+                &mut stream,
+                &json!({
+                    "messageType": "commandResponse",
+                    "requestId": subscribe["requestId"],
+                    "payload": null
+                }),
+            )?;
+            write_server_message(
+                &mut stream,
+                &json!({
+                    "messageType": "topicEvent",
+                    "topic": "sessions",
+                    "payload": {
+                        "sessionId": "session-1",
+                        "frame": {
+                            "kind": "lifecycle",
+                            "seq": 12,
+                            "state": "active",
+                            "cleanupVerdict": null,
+                            "archiveSeq": null,
+                            "ts": null
+                        }
+                    }
+                }),
+            )?;
+            Ok(subscribe)
+        },
+    );
+
+    let mut connection = bridge(&runtime).connect()?;
+    connection.subscribe("sessions", Some(7))?;
+    match connection.read_subscription_event()? {
+        Some(NativeSubscriptionEvent::Topic { topic, payload }) => {
+            assert_eq!(topic, "sessions");
+            assert_eq!(payload["sessionId"], "session-1");
+            assert_eq!(payload["frame"]["seq"], 12);
+        }
+        event => {
+            return Err(std::io::Error::other(format!(
+                "expected replayed sessions topic event, got {event:?}"
+            ))
+            .into());
+        }
+    }
+    let closed = connection
+        .read_subscription_event()
+        .expect_err("one-shot replay server should close the subscription socket");
+    assert_eq!(closed.code, "transport_unavailable");
+
+    let subscribe = server.join().expect("server should join")?;
+    assert_eq!(subscribe["messageType"], "subscribe");
+    assert_eq!(subscribe["topic"], "sessions");
+    assert_eq!(subscribe["fromSeq"], 7);
     Ok(())
 }
 

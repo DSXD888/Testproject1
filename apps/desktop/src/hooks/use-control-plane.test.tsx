@@ -84,4 +84,35 @@ describe('useControlPlaneState', () => {
     expect(snapshot.mode).toBe('control limited');
     controlPlaneStore.reset();
   });
+
+  it('bug_unavailable_bootstrap_regression_accepts_later_full_control_snapshot', () => {
+    controlPlaneStore.applyBootstrapSnapshot({
+      mode: 'browse_only',
+      controlPlane: makeState({
+        daemon: 'unavailable',
+        control: 'read_only',
+        reasons: ['Bridge unavailable during startup.'],
+      }),
+      descriptor: null,
+      launchedDaemon: false,
+    });
+
+    controlPlaneStore.applyBootstrapSnapshot({
+      mode: 'full_control',
+      controlPlane: makeState({
+        daemon: 'ready',
+        control: 'full',
+        load: 'normal',
+        reasons: ['Daemon handshake recovered.'],
+      }),
+      descriptor: null,
+      launchedDaemon: false,
+    });
+
+    const snapshot = controlPlaneStore.getSnapshot();
+    expect(snapshot.mode).toBe('full control');
+    expect(snapshot.state.daemon).toBe('ready');
+    expect(snapshot.state.control).toBe('full');
+    controlPlaneStore.reset();
+  });
 });

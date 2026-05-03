@@ -115,19 +115,9 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-function shouldPreserveCurrentSnapshot(nextSnapshot: BootstrapSnapshot): boolean {
-  const currentReasons = state.snapshot.controlPlane.reasons.join(' ').toLowerCase();
-  return (
-    state.snapshot.controlPlane.daemon === 'unavailable' &&
-    state.snapshot.controlPlane.control === 'read_only' &&
-    currentReasons.includes('bridge unavailable') &&
-    nextSnapshot.mode === 'full_control'
-  );
-}
-
 function applyBootstrapSnapshot(snapshot: BootstrapSnapshot): void {
   state = {
-    snapshot: shouldPreserveCurrentSnapshot(snapshot) ? state.snapshot : snapshot,
+    snapshot,
     loading: false,
     error: null,
   };
@@ -142,7 +132,7 @@ async function refreshSnapshot(): Promise<void> {
   emitChange();
 
   try {
-    const result = await invoke('get_bootstrap_snapshot');
+    const result = await invoke('refresh_bootstrap_snapshot');
     const snapshot = parseBootstrapResult(result);
     if (snapshot) {
       applyBootstrapSnapshot(snapshot);

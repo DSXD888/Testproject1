@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   OperatorDecisionPanel,
+  assertNotBridgeErrorResponse,
+  type ActiveOverrideEntry,
   type ClarificationPrompt,
   type DecisionHistoryEntry,
 } from './OperatorDecisionPanel';
@@ -57,6 +59,7 @@ const PROMPTS_OBJECT: ClarificationPrompt[] = [
 function panel(props: {
   prompts?: ClarificationPrompt[];
   history?: DecisionHistoryEntry[];
+  activeOverrides?: ActiveOverrideEntry[];
   isStale?: boolean;
   rerunActiveStage?: (typeof REQUIRED_RERUN_STAGES)[number];
 }) {
@@ -76,6 +79,7 @@ function panel(props: {
       }}
       onChanged={() => {}}
       seedHistory={props.history}
+      seedActiveOverrides={props.activeOverrides}
       seedRerunStatus={
         props.rerunActiveStage
           ? {
@@ -118,6 +122,52 @@ describe('FT.5 — Clarification form maps prompt_type to input control', () => 
     const html = panel({ prompts: PROMPTS_OBJECT });
     expect(html).toContain('data-testid="prompt-json-cand-3"');
     expect(html).toContain('unit_price_gbp_pence');
+  });
+
+  it('bug_active_quantity_override_regression_renders_editable_number_prompt', () => {
+    const html = panel({
+      prompts: PROMPTS_OBJECT,
+      activeOverrides: [
+        {
+          overrideId: 'override-1',
+          productCandidateId: 'cand-dgu',
+          reasonCode: 'quantity_basis_unaligned',
+          payloadJson: '{"qty":250,"unit":"square meter"}',
+          notes: null,
+          basisHashWhenProvided: 'hash-0',
+          providedAt: '2026-05-03T12:00:00Z',
+          providedBy: 'operator',
+        },
+      ],
+    });
+
+    expect(html).toContain('Clarifications (2)');
+    expect(html).toContain('quantity_basis_unaligned');
+    expect(html).toContain('data-testid="prompt-input-cand-dgu"');
+    expect(html).toContain('value="250"');
+    expect(html).toContain('data-testid="prompt-json-cand-3"');
+  });
+
+  it('bug_active_override_refresh_regression_renders_latest_refetched_payload', () => {
+    const html = panel({
+      prompts: PROMPTS_OBJECT,
+      activeOverrides: [
+        {
+          overrideId: 'override-latest',
+          productCandidateId: 'cand-dgu',
+          reasonCode: 'quantity_basis_unaligned',
+          payloadJson: '{"qty":150,"unit":"square meter"}',
+          notes: null,
+          basisHashWhenProvided: 'hash-1',
+          providedAt: '2026-05-03T16:21:48Z',
+          providedBy: 'operator',
+        },
+      ],
+    });
+
+    expect(html).toContain('Active overrides (1)');
+    expect(html).toContain('{&quot;qty&quot;:150,&quot;unit&quot;:&quot;square meter&quot;}');
+    expect(html).toContain('value="150"');
   });
 });
 
@@ -233,6 +283,23 @@ describe('FT.9 — Pipeline rerun progress tracks the Stage 11→12→13 chain',
     for (const stage of REQUIRED_RERUN_STAGES) {
       expect(html).toContain(`data-stage="${stage}"`);
       expect(html).toContain(stage);
+    }
+  });
+});
+
+describe('FT.10 — Panel mutations reject bridge error payloads', () => {
+  it('bug_panel_mutation_error_regression_throws_bridge_error_payload', () => {
+    const bridgeError = {
+      code: 'unsupported',
+      message: 'No dev bridge handler for capture_clarification',
+      retryable: false,
+    };
+
+    try {
+      assertNotBridgeErrorResponse(bridgeError);
+      throw new Error('expected bridge error');
+    } catch (error) {
+      expect(error).toMatchObject(bridgeError);
     }
   });
 });

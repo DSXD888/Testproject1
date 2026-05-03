@@ -140,6 +140,82 @@ function defaultPayloadFor(prompt: ClarificationPrompt): Record<string, unknown>
   return {};
 }
 
+function promptKey(prompt: ClarificationPrompt): string {
+  return `${prompt.candidate_id}::${prompt.reason_code}`;
+}
+
+function overridePayload(override: ActiveOverrideEntry): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(override.payloadJson);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function promptFromActiveOverride(
+  override: ActiveOverrideEntry,
+): ClarificationPrompt | null {
+  if (
+    override.reasonCode !== 'quantity_basis_unaligned' &&
+    override.reasonCode !== 'quantity_basis_undetermined'
+  ) {
+    return null;
+  }
+  const payload = overridePayload(override);
+  const qty = Number(payload?.qty);
+  if (!Number.isFinite(qty)) {
+    return null;
+  }
+  const unit = typeof payload?.unit === 'string' ? payload.unit : null;
+  return {
+    candidate_id: override.productCandidateId,
+    candidate_name: override.productCandidateId,
+    lot_id: null,
+    reason_code: override.reasonCode,
+    prompt_text: 'Update active quantity override',
+    prompt_unit: unit,
+    prompt_type: 'number',
+    default_value: qty,
+    rationale:
+      'An active quantity override exists for this candidate; edit it here to supersede the prior value.',
+    options: null,
+  };
+}
+
+function mergePromptsWithActiveOverrides(
+  prompts: ClarificationPrompt[],
+  activeOverrides: ActiveOverrideEntry[],
+): ClarificationPrompt[] {
+  const promptKeys = new Set(prompts.map(promptKey));
+  const overridePrompts = activeOverrides
+    .map(promptFromActiveOverride)
+    .filter((prompt): prompt is ClarificationPrompt => {
+      return prompt !== null && !promptKeys.has(promptKey(prompt));
+    });
+  return [...overridePrompts, ...prompts];
+}
+
+function seedPayloadsForPrompts(
+  prompts: ClarificationPrompt[],
+): Record<string, Record<string, unknown>> {
+  const seed: Record<string, Record<string, unknown>> = {};
+  for (const prompt of prompts) {
+    seed[promptKey(prompt)] = defaultPayloadFor(prompt);
+  }
+  return seed;
+}
+
+export function assertNotBridgeErrorResponse(response: unknown): void {
+  const bridge = parseBridgeError(response);
+  if (bridge) {
+    throw bridge;
+  }
+}
+
 export function OperatorDecisionPanel({
   processId,
   manifestBasisHash,
@@ -179,16 +255,13 @@ export function OperatorDecisionPanel({
   const [overrideError, setOverrideError] = useState<string | null>(null);
 
   // ---------- Clarification form state ----------
+  const displayPrompts = useMemo(
+    () => mergePromptsWithActiveOverrides(prompts, activeOverrides),
+    [activeOverrides, prompts],
+  );
   const [promptPayloads, setPromptPayloads] = useState<
     Record<string, Record<string, unknown>>
-  >(() => {
-    const seed: Record<string, Record<string, unknown>> = {};
-    for (const prompt of prompts) {
-      const key = `${prompt.candidate_id}::${prompt.reason_code}`;
-      seed[key] = defaultPayloadFor(prompt);
-    }
-    return seed;
-  });
+  >(() => seedPayloadsForPrompts(displayPrompts));
   const [clarificationStatus, setClarificationStatus] = useState<{
     state: 'idle' | 'saving' | 'success' | 'error';
     message: string | null;
@@ -250,6 +323,21 @@ export function OperatorDecisionPanel({
     };
   }, [processId, historyTick, loaders]);
 
+  useEffect(() => {
+    setPromptPayloads((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const prompt of displayPrompts) {
+        const key = promptKey(prompt);
+        if (!next[key]) {
+          next[key] = defaultPayloadFor(prompt);
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [displayPrompts]);
+
   async function handleCaptureDecision(disposition: Disposition): Promise<void> {
     if (!manifestBasisHash || !manifestHash || !manifestStageRunId) {
       setDecisionStatus({
@@ -270,7 +358,7 @@ export function OperatorDecisionPanel({
         idempotencyKey: buildIdempotencyKey(`decision-${disposition}`),
       };
       const fn = mutators?.captureDecision ?? ((a) => invoke('capture_decision', a));
-      await fn(args);
+      assertNotBridgeErrorResponse(await fn(args));
       setDecisionStatus({
         state: 'success',
         message: `Decision captured: ${disposition}`,
@@ -288,7 +376,7 @@ export function OperatorDecisionPanel({
   }
 
   async function handleSubmitClarification(prompt: ClarificationPrompt): Promise<void> {
-    const key = `${prompt.candidate_id}::${prompt.reason_code}`;
+    const key = promptKey(prompt);
     setClarificationStatus({ state: 'saving', message: null, pendingKey: key });
     const payload = promptPayloads[key] ?? defaultPayloadFor(prompt);
     try {
@@ -301,12 +389,13 @@ export function OperatorDecisionPanel({
       };
       const fn =
         mutators?.captureClarification ?? ((a) => invoke('capture_clarification', a));
-      await fn(args);
+      assertNotBridgeErrorResponse(await fn(args));
       setClarificationStatus({
         state: 'success',
         message: `Clarification captured for ${prompt.candidate_name}`,
         pendingKey: null,
       });
+      setHistoryTick((tick) => tick + 1);
       onChanged();
     } catch (error: unknown) {
       const bridge = parseBridgeError(error);
@@ -333,12 +422,13 @@ export function OperatorDecisionPanel({
       };
       const fn =
         mutators?.withdrawClarification ?? ((a) => invoke('withdraw_clarification', a));
-      await fn(args);
+      assertNotBridgeErrorResponse(await fn(args));
       setClarificationStatus({
         state: 'success',
         message: `Clarification withdrawn for ${prompt.candidate_name}`,
         pendingKey: null,
       });
+      setHistoryTick((tick) => tick + 1);
       onChanged();
     } catch (error: unknown) {
       const bridge = parseBridgeError(error);
@@ -363,7 +453,10 @@ export function OperatorDecisionPanel({
         mutators?.triggerPipelineRerun ??
         ((a) => invoke('trigger_pipeline_rerun', a));
       const commandResult = fn(args)
-        .then(() => ({ ok: true as const }))
+        .then((response) => {
+          assertNotBridgeErrorResponse(response);
+          return { ok: true as const };
+        })
         .catch((error: unknown) => ({ ok: false as const, error }));
 
       PIPELINE_RERUN_STAGES.forEach((stage, index) => {
@@ -418,7 +511,7 @@ export function OperatorDecisionPanel({
     try {
       const args = { idempotencyKey: intent.idempotencyKey };
       const fn = mutators?.withdrawDecision ?? ((a) => invoke('withdraw_decision', a));
-      await fn(args);
+      assertNotBridgeErrorResponse(await fn(args));
       setHistoryTick((tick) => tick + 1);
       onChanged();
     } catch (error: unknown) {
@@ -509,12 +602,12 @@ export function OperatorDecisionPanel({
       </section>
 
       <section data-testid="clarification-form">
-        <h4>Clarifications ({prompts.length})</h4>
-        {prompts.length === 0 ? (
+        <h4>Clarifications ({displayPrompts.length})</h4>
+        {displayPrompts.length === 0 ? (
           <p className="empty-state">No clarification prompts on this manifest.</p>
         ) : null}
-        {prompts.map((prompt) => {
-          const key = `${prompt.candidate_id}::${prompt.reason_code}`;
+        {displayPrompts.map((prompt) => {
+          const key = promptKey(prompt);
           const payload = promptPayloads[key] ?? defaultPayloadFor(prompt);
           return (
             <fieldset
