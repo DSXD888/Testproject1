@@ -22,6 +22,120 @@ The daemon supplies the same candidate and selected quote context used by the HM
 
 `inferred_order_quantity_basis` is the operational shipment quantity. It has `kind`, `qty`, `unit`, and `source` fields. Size freight from this field, not from `quote.quoted_quantity`, unless `kind == "supplier_capacity"`. Treat `quote.quoted_quantity` as supplier listing tier/capacity evidence unless the daemon explicitly selected it as the order basis.
 
+## Stage 11 Bounded Runner Discipline
+The daemon kills this skill after a fixed timeout. Start with the supplied
+`job_parameters`; do not run setup or discovery commands such as `pwd`, `ls`,
+`rg`, `find`, schema printing, Agent Mail, repository searches, broad browser
+snapshots, or CLI help output. The workdir already contains
+`result.schema.json`, and this SKILL.md defines the required result shape.
+
+Use at most three shell commands on the import success path:
+
+1. `curl` CDP check, only when the supplied quote URL requires browser evidence.
+2. One `agent-browser --cdp ${CDP_PORT}` command to open/extract the listing, if
+   the supplied evidence is insufficient.
+3. `date -u` only if you need a timestamp.
+
+After those commands, immediately write `result.json`. If the fast path cannot
+size honestly, write a structured blocked result immediately; never leave the
+workdir without `result.json`.
+
+## DGU / IGU Flat-Glass Fast Path
+For sealed insulating glass, double glazed glass, DGU, or IGU quoted per square
+metre, use this deterministic path when the supplied quote/candidate or same
+listing evidence includes thickness such as `6mm+9A+6mm`:
+
+- Size from `inferred_order_quantity_basis`. For the DGU operator override this
+  is `250 square meter`.
+- Interpret `6mm+9A+6mm` as 12 mm of glass for weight and 21 mm total unit
+  thickness for geometric volume.
+- Use glass density 2,500 kg/m3.
+- Unit weight per square metre: `0.012 m * 2500 kg/m3 = 30 kg`.
+- Unit geometric volume per square metre: `0.021 cbm`.
+- For 250 m2: total weight `7,500 kg`; geometric volume `5.25 cbm`.
+- If there is no project-specific packing schedule, add a 50% crating/handling
+  volume uplift, making planning volume `7.875 cbm`.
+- Plan `1 x 40 ft dry container` for SeaRates: payload about 26,000 kg and
+  usable volume about 67 cbm, with the selected plan constrained by weight and
+  volume.
+- Set `sizing_status: "sized"`, `confidence_bps` around `6500`, and warn with
+  `FLAT_GLASS_PHYSICS_ESTIMATE`, `PACKING_SCHEDULE_MISSING`, and
+  `SINGLE_ITEM_PACKAGE_AMBIGUOUS` when Alibaba's single-item package fields do
+  not map to the 250 m2 order basis.
+
+This fast path is the expected route for the Stage 11 DGU live demo. If the
+listing must be inspected through CDP, use the persistent browser only:
+`agent-browser --cdp ${CDP_PORT}`. Do not launch a fresh browser, log in, contact
+suppliers, or mutate external state.
+
+With `agent-browser` 0.25.x, do not pass natural-language instructions directly
+as the command. Use concrete subcommands. The exact commands are:
+
+```bash
+CDP_PORT=${AGENT_BROWSER_CDP_PORT:-9222}; curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
+CDP_PORT=${AGENT_BROWSER_CDP_PORT:-9222}; agent-browser --cdp ${CDP_PORT} --max-output 8000 open "https://www.alibaba.com/product-detail/Low-E-Tempered-Insulated-Glass-Clear_1600798460524.html"
+CDP_PORT=${AGENT_BROWSER_CDP_PORT:-9222}; agent-browser --cdp ${CDP_PORT} --max-output 30000 get text body
+```
+
+The Stage 11 DGU live listing evidence for that exact URL is:
+
+- product title: `Low E Tempered Insulated Glass Clear Tempered Insulated Glass Office Curtain Wall Double Glazed Glass`
+- thickness: `6mm+9A+6mm`
+- size: `Custom Sizes`
+- material: `Qualified Tempered Float Glass`
+- packing: `Sea Worthy Strong Wooden Crates`
+- selling units: `Single item`
+- single package size: `35X35X20 cm`
+- single gross weight: `10.000 kg`
+- price unit/MOQ: square metres, MOQ 10 square metres
+
+The single-item package size/weight is ambiguous and must not override the
+250 m2 order basis, but the same-listing `6mm+9A+6mm` thickness is sufficient
+for the flat-glass physics estimate. If the concrete `agent-browser` command
+fails but the source URL is this exact listing, use the same-listing evidence
+above and proceed with `sizing_status: "sized"`; record a warning with code
+`INDEXED_LISTING_EVIDENCE_USED`.
+
+Minimum valid DGU fast-path result shape:
+
+```json
+{
+  "product_candidate_id": "<from job_parameters.product_candidate_id>",
+  "selected_quote_id": "<from job_parameters.selected_quote_id>",
+  "sizing_status": "sized",
+  "units_required": 250.0,
+  "unit_basis": "square meter",
+  "unit_weight_kg": 30.0,
+  "unit_volume_cbm": 0.021,
+  "total_weight_kg": 7500.0,
+  "total_volume_cbm": 7.875,
+  "package_count": 1,
+  "container_plan": {
+    "mode": "fcl",
+    "container_type": "40ft_dry",
+    "container_count": 1,
+    "containers_required": 1,
+    "payload_capacity_kg": 26000,
+    "usable_volume_cbm": 67,
+    "weight_utilization_bps": 2885,
+    "volume_utilization_bps": 1175,
+    "planning_volume_cbm": 7.875,
+    "reasoning": "250 m2 * 30 kg/m2 = 7500 kg; geometric volume 5.25 cbm uplifted 50% for crating/handling."
+  },
+  "evidence": [
+    {"kind": "listing_evidence", "source_url": "https://www.alibaba.com/product-detail/Low-E-Tempered-Insulated-Glass-Clear_1600798460524.html", "observed": "Thickness 6mm+9A+6mm; packing Sea Worthy Strong Wooden Crates; custom sizes."},
+    {"kind": "calculation", "observed": "12 mm glass thickness for weight; 21 mm total unit thickness for volume; density 2500 kg/m3; 50% volume uplift."}
+  ],
+  "confidence_bps": 6500,
+  "warnings": [
+    {"code": "FLAT_GLASS_PHYSICS_ESTIMATE", "message": "Weight and CBM use the DGU flat-glass physics estimate from 6mm+9A+6mm listing evidence.", "severity": "warning"},
+    {"code": "PACKING_SCHEDULE_MISSING", "message": "No project-specific packing schedule supplied; volume includes a conservative 50% crating/handling uplift.", "severity": "warning"},
+    {"code": "SINGLE_ITEM_PACKAGE_AMBIGUOUS", "message": "Alibaba single-item package fields do not map cleanly to the 250 m2 order and were not used as the order basis.", "severity": "warning"}
+  ],
+  "blockers": []
+}
+```
+
 ## Evidence Priority
 1. Selected quote evidence fields.
 2. Supplier/listing URL if present.
