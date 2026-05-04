@@ -136,7 +136,23 @@ WHERE cn.source_id='procontract'
 ORDER BY cn.published_at DESC LIMIT 10;
 ```
 
-Pick the most physical-goods-like candidate. **The Woodhouses boiler shape is an excellent target type — boilers, equipment, ICT, lab supplies, catering — anything with a clear product specification that exercises Stage 9 marketplace search non-trivially.** Document the choice + reasoning.
+**CAVEAT — value column is often NULL for procontract notices**: per the previous CF walkthrough manifest, ProContract's `contract_notices.estimated_value_gbp_ex_vat_pence` is frequently NULL while the value lives in `normalized_payload.tender.value`. The query above will under-return when joined against the table column directly. If it returns 0 rows, fall back to:
+
+```sql
+SELECT cn.id AS notice_id, p.id AS process_id, cn.title, cn.published_at, cn.deadline_at,
+       cn.main_category,
+       COALESCE(cn.estimated_value_gbp_ex_vat_pence,
+                CAST(json_extract(cn.normalized_payload, '$.tender.value.amount') * 100 AS INTEGER)) AS value_pence
+FROM contract_notices cn
+JOIN procurement_processes p ON p.primary_notice_id = cn.id
+WHERE cn.source_id='procontract'
+  AND cn.published_at >= datetime('now','-7 days')
+  AND lower(cn.main_category) NOT LIKE '%construction%'
+  AND lower(cn.main_category) NOT LIKE '%works%'
+ORDER BY cn.published_at DESC LIMIT 20;
+```
+
+Then filter by reasonable value visually before picking. Pick the most physical-goods-like candidate. **The Woodhouses boiler shape is an excellent target type — boilers, equipment, ICT, lab supplies, catering — anything with a clear product specification that exercises Stage 9 marketplace search non-trivially.** Document the choice + reasoning.
 
 If the day's batch is thin on goods, fall back to a category that includes some physical line items (e.g., "Not Elsewhere Classified" caught Woodhouses last time despite being mechanical). Avoid pure construction/services/professional fees.
 
@@ -206,7 +222,7 @@ The previous E2E run found and fixed (or filed-then-fixed) these issues. This re
 | Stage 8 missing product quantities for explicit hints | 3845b1f added quantity persistence | Stage 8: verify product_candidates.quantity populated when source had explicit hint |
 | Stage 11 inferring fractional units from whole-lot value (the "42.39 boilers" bug) | 3845b1f rejects whole-lot quantity derivation when allocated revenue used | Stage 11: verify spotlight's lce confidence_breakdown does NOT contain order_quantity_basis.qty=non-integer-whole-units |
 | Stage 9 stops after one UK-side quote without import attempt | 3845b1f added `--ingest marketplace-coverage` + `candidate_quote_coverage` table | Stage 9: verify spotlight has BOTH uk_side_quote AND china_import_quote attempts in coverage table |
-| Stage 10 treats single-sided quote as normal | 3845b1f added `commercial_basis_kind` discrimination | Stage 10: verify spotlight's pricing_assessment has correct `commercial_basis_kind` (one of `two_sided_supplier_comparison` / `single_side_with_attempted_alternative` / `missing_required_quote_role_attempt` / fallback variants) |
+| Stage 10 treats single-sided quote as normal | 3845b1f added `commercial_basis_kind` discrimination | Stage 10: verify spotlight's pricing_assessment has correct `commercial_basis_kind` (one of the 5 real constants — see Stage 10 protocol in §3 for full list) |
 | Stage 12-13 doesn't surface missing imports / quantity ambiguity | 3845b1f added reasons | Stage 13: verify manifest text mentions UK quote evidence, China/import quote state, commercial basis kind, quantity basis |
 | Schema epoch operational footgun (desktop expected 7 while daemon at 8 mid-rerun) | NOT fully resolved as of this handoff start | §0 hard gate: bump desktop constants if mismatched |
 
@@ -225,7 +241,7 @@ The previous E2E run found and fixed (or filed-then-fixed) these issues. This re
 9. **Stages 5, 6, 7** — re-run `--pipeline procontract` to pick up new lots/qualifications/reclassifications.
 10. **Stage 8 — Extract products** (PDF cascade — structural via docling + semantic via tender-spec skill; verify focused-markdown chunking on any large spec; verify quantities persisted).
 11. **Stage 9 — Marketplace coverage** (`--ingest marketplace-coverage` — new orchestrated path; verify both uk_side and china_import attempted).
-12. **Stage 10 — Gross margin** (`--ingest gross-margin` — new role-coverage-aware path; verify `commercial_basis_kind` correctly set).
+12. **Stage 10 — Gross margin** (re-run `--pipeline procontract` — `run_gross_margin_gate_stage` runs as part of the deterministic pipeline; **`--ingest gross-margin` does NOT exist as a dispatcher arm despite what some earlier docs say**; the role-coverage-aware logic lives inside `run_gross_margin_gate_stage` and reads from `candidate_quote_coverage` populated by Stage 9).
 13. **Stage 11 — Landed cost** (`--ingest landed-cost`; verify NO unsafe quantity inference).
 14. **Stage 12 — Net margin gate** (`--ingest net-gate`; verify reasons surface coverage gaps).
 15. **Stage 13 — Manifest** (`--ingest manifest`; verify text surfaces commercial basis + quantity basis + coverage state).
@@ -433,14 +449,18 @@ FROM supplier_quotes WHERE product_candidate_id IN
 
 **Fix-verification (R.36)**: PTY supervisor must terminate hung marketplace skills. Check `agent_session_logs.cleanup_verdict` for marketplace sessions — should be `clean` or `terminated_after_result_contract`. If `forced` after the per-attempt budget elapsed, that's the supervisor doing its job (acceptable; means a child genuinely hung and was reaped).
 
-### Stage 10 — Gross margin (NEW role-coverage-aware path)
+### Stage 10 — Gross margin (role-coverage-aware logic inside the deterministic pipeline)
 
-**Trigger** (use the NEW orchestrated path):
+**IMPORTANT**: `--ingest gross-margin` is **NOT** a real dispatcher arm. The actual `--ingest` arms are: `fts`, `contracts-finder`, `procontract`, `procontract-interest`, `procontract-enrich`, `landed-cost`, `net-gate`, `manifest`, `marketplace-coverage`, plus the 5 individual marketplace IDs. Stage 10's gross-margin gate (`run_gross_margin_gate_stage` in `crates/daemon/src/main.rs:21062`) runs as part of `run_deterministic_pipeline` invoked via `--pipeline <source>`. The new role-coverage-aware logic lives inside that function and reads from the `candidate_quote_coverage` table populated by Stage 9.
+
+**Trigger** (re-run the deterministic pipeline so gross-margin-gate processes the new coverage rows):
 
 ```bash
 $E2E_DAEMON --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" \
-  --ingest gross-margin 2>&1 | tee /tmp/e2e_v2_stage10_gross.log
+  --pipeline procontract 2>&1 | tee /tmp/e2e_v2_stage10_pipeline.log
 ```
+
+The pipeline log should include `gross-margin-gate stage complete` near the end.
 
 **Validation queries** (commercial basis labelling):
 
@@ -454,14 +474,15 @@ FROM candidate_pricing_assessments cpa
 WHERE cpa.product_candidate_id IN (SELECT id FROM product_candidates WHERE process_id='$SPOTLIGHT_PID');
 ```
 
-**Commercial-basis check (R.37)**: `commercial_basis_kind` MUST be one of:
+**Commercial-basis check (R.37)**: `commercial_basis_kind` MUST be one of the **5 actual constants** declared at `crates/daemon/src/main.rs:238-241`:
 
-- `two_sided_supplier_comparison` (best — both UK + China quote attempted + at least one of each usable)
-- `single_side_with_attempted_alternative` (acceptable — UK quote present; Alibaba attempted but no usable result)
-- `missing_required_quote_role_attempt` (degraded — UK quote present but Alibaba NOT attempted; this should NOT happen if Stage 9 ran cleanly)
-- A labelled fallback variant (e.g., `fallback_after_import_failure`)
+- `two_sided_supplier_comparison` (best — both UK + China quote attempted + at least one usable on each side)
+- `single_side_retail_discount_fallback` (UK retail-side quote, used as fallback after Alibaba/import attempt failed or returned no usable quote)
+- `single_side_wholesale_fallback` (UK wholesale-side quote — same fallback semantics, wholesale source)
+- `missing_required_quote_role_attempt` (degraded — UK quote present but Alibaba/import NOT attempted; this should NOT happen if Stage 9 marketplace-coverage ran cleanly to completion)
+- `legacy_single_quote` (default per migration 0011; expected only on rows that pre-date the new state machine. Spotlight rows freshly created during this run should NOT have this value)
 
-Whichever value it is, it must be HONEST about what happened. The previous bug treated single-sided quotes as normal — verify that doesn't recur.
+Whichever value applies, it must be HONEST about what happened. The previous bug treated single-sided quotes as `legacy_single_quote` (silently `normal`); the fix ensures the labelling distinguishes attempted-but-failed from never-attempted.
 
 ### Stage 11 — Landed cost
 
@@ -512,7 +533,17 @@ FROM candidate_net_margin_assessments WHERE product_candidate_id IN
   (SELECT id FROM product_candidates WHERE process_id='$SPOTLIGHT_PID');
 ```
 
-**Commercial-basis check**: `reasons_json` should explicitly reference the new commercial-basis state when relevant — e.g., `missing_required_quote_role_attempt`, `missing_china_import_quote_after_attempt`, `fallback_screening_basis`, `incomplete_quote_coverage`, `quantity_basis_undetermined`. The previous E2E manifest noted Stage 12 didn't surface these; the fix should now make them visible.
+**Commercial-basis check**: `reasons_json` should explicitly reference the new commercial-basis state when relevant. Verify against the actual REASON_ constants at `crates/daemon/src/main.rs:7508-7522`:
+
+- `missing_required_quote_role_attempt` (UK quote present but Alibaba never attempted)
+- `missing_china_import_quote` (Alibaba attempted but no usable result)
+- `fallback_screening_commercial_basis` (Stage 10 fell back to retail/wholesale single-side after import failure)
+- `incomplete_quote_coverage` (some required role row missing entirely)
+- `quantity_basis_undetermined` (Stage 11 refused to derive — see R.38)
+- `quantity_basis_unaligned` (basis present but inconsistent with revenue allocation)
+- `awaiting_rfq_quote`, `no_pricing_signal`, `margin_below_pass`, plus existing confidence-floor reasons
+
+The previous E2E manifest noted Stage 12 didn't surface the new commercial-basis reasons; the fix should now make them visible.
 
 ### Stage 13 — Manifest
 
@@ -686,7 +717,7 @@ R.31-R.40 are NEW for this re-drive — verify every previously-fixed bug + comm
 | R.34 | **Stage 8 quantity persistence holds**: if any spotlight source document has explicit quantity hints, `product_candidates.quantity` populated (NULL acceptable only when document had no explicit hint) |
 | R.35 | **Marketplace coverage orchestration holds**: spotlight has rows in `candidate_quote_coverage` for BOTH `uk_side_quote` AND `china_import_quote` required_role values (each row has `attempted=1`) |
 | R.36 | **PTY supervisor holds**: marketplace skill sessions in agent_session_logs have `cleanup_verdict` ∈ {`clean`, `terminated_after_result_contract`}. None in `forced` after >`PTY_SKILL_TIMEOUT_SECONDS` (default 1200s). |
-| R.37 | **Stage 10 commercial_basis_kind correctly labelled**: spotlight's `candidate_pricing_assessments.commercial_basis_kind` is one of the legitimate values (not `legacy_single_quote` unless intentional) |
+| R.37 | **Stage 10 commercial_basis_kind correctly labelled**: spotlight's `candidate_pricing_assessments.commercial_basis_kind` is one of the 5 real constants declared at `main.rs:238-241` (`two_sided_supplier_comparison` / `single_side_retail_discount_fallback` / `single_side_wholesale_fallback` / `missing_required_quote_role_attempt` / `legacy_single_quote`); for spotlight rows freshly created during this run, NOT `legacy_single_quote` |
 | R.38 | **Stage 11 quantity safety holds**: spotlight's lce confidence_breakdown does NOT contain non-integer `order_quantity_basis.qty` derived from whole-lot value when Stage 10 used allocated revenue. The "42.39 boilers" pattern must NOT recur. |
 | R.39 | **Stage 11/10 commercial basis consistency**: lce `confidence_breakdown.commercial_basis.kind` matches Stage 10's `commercial_basis_kind` for the same candidate |
 | R.40 | **Contract-mode skill timeout holds**: HMRC/SeaRates/sizing/FX sessions in agent_session_logs do not exceed `CONTRACT_SKILL_TIMEOUT_SECONDS` without termination; `cleanup_verdict` set appropriately |
@@ -803,6 +834,7 @@ Carry forward from previous handoff + new patterns:
 |---|---|
 | Schema epoch mismatch error from desktop bridge | Pre-flight should have caught this. Bump desktop's `EXPECTED_SCHEMA_EPOCH` constant + `daemon_bridge.rs` mirror to match daemon's `DEFAULT_SCHEMA_EPOCH`. Rebuild + commit. |
 | `--ingest marketplace-coverage` not recognized | This subcommand was added in 3845b1f. If not recognized, the daemon binary is older than the migration. Rebuild daemon: `cargo build -p daemon --bin daemon` AND ensure `$E2E_DAEMON` points at the freshly-built binary (D1). |
+| `--ingest gross-margin` rejected as `unsupported source` | This is correct behavior. `--ingest gross-margin` is NOT a real dispatcher arm despite what the earlier commercial-basis follow-up manifest cited as a recommended command. Use `--pipeline procontract` (or `--pipeline contracts-finder`) to re-run the deterministic chain that includes `run_gross_margin_gate_stage`. |
 | Stage 9 produces only `uk_side_quote` rows | Marketplace-coverage orchestration didn't reach Alibaba. Inspect the orchestration log; verify Alibaba marketplace is in the chain. May indicate Alibaba session captcha-blocked or skipped. |
 | Stage 11 lce shows `basis_qty=42.39` (or any non-integer fractional) | THE REGRESSION. Stage 11 should reject this. Inspect `crates/daemon/src/main.rs` around the quantity-derivation logic; verify the `Stage10 used allocated revenue` check is intact. |
 | Stage 10 shows `commercial_basis_kind='legacy_single_quote'` for spotlight | Either (a) the spotlight legitimately has only a UK quote and Alibaba was never attempted (D7 violation; Stage 9 incomplete), or (b) the labelling code regressed. Inspect Stage 9's coverage table first. |
