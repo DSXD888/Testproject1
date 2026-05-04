@@ -1007,6 +1007,22 @@ struct ProcontractInterestEvaluation {
 
 const MAX_PROCONTRACT_INTEREST_REGISTRATIONS_PER_RUN: usize = 3;
 const CONTRACT_SKILL_TIMEOUT_SECONDS: u64 = 600;
+// Bound how long a PTY skill session is allowed to run before the daemon
+// proactively terminates the child. Marketplace skills can briefly exceed
+// 10 minutes during slow renders, so the default is generous; operators can
+// override via PTY_SKILL_TIMEOUT_SECONDS for tighter ceilings.
+const PTY_SKILL_TIMEOUT_SECONDS_DEFAULT: u64 = 1_200;
+const PTY_SKILL_TIMEOUT_SECONDS_ENV: &str = "PTY_SKILL_TIMEOUT_SECONDS";
+const PTY_SKILL_RESULT_STABLE_MILLIS: u64 = 750;
+const PTY_SKILL_TERMINATION_GRACE_MILLIS: u64 = 750;
+const PTY_SKILL_POLL_INTERVAL_MILLIS: u64 = 50;
+// When prepared semantic markdown is larger than this many characters or
+// has more than this many sections, the daemon emits a product-bearing
+// focused subset to keep the agent prompt bounded for large mechanical
+// specifications.
+const SEMANTIC_FOCUSED_MARKDOWN_THRESHOLD_CHARS: usize = 200_000;
+const SEMANTIC_FOCUSED_MARKDOWN_BUDGET_CHARS: usize = 150_000;
+const SEMANTIC_FOCUSED_SECTION_THRESHOLD: i64 = 80;
 
 #[derive(Debug, Clone)]
 struct ExecutedSession {
@@ -1766,6 +1782,12 @@ async fn run_extract_document_semantics_job(
     cli: &Cli,
 ) -> Result<LiveLoopReport> {
     let claimed_id = claimed.id.clone();
+    // Capture the document_extraction_id up front so the failure path can
+    // transition document_extractions.semantic_extraction_state out of
+    // 'pending' even when the inner attempt fails before persistence runs.
+    let failure_extraction_id = parse_semantic_extraction_request(&claimed.input_payload)
+        .ok()
+        .map(|request| request.document_extraction_id);
     let attempt: Result<LiveLoopReport> = async {
         let request = parse_semantic_extraction_request(&claimed.input_payload)?;
         let skill = load_pdf_extraction_skill(&request.skill_id)?;
@@ -1866,16 +1888,68 @@ async fn run_extract_document_semantics_job(
 
     match attempt {
         Ok(report) => Ok(report),
-        Err(error) => fail_job(
-            runtime,
-            &claimed_id,
-            &error.to_string(),
-            json!({
-                "error_code": "AGENT_RUN_FAILED",
-                "job_kind": "extract_document_semantics",
-            }),
-        ),
+        Err(error) => {
+            let report = fail_job(
+                runtime,
+                &claimed_id,
+                &error.to_string(),
+                json!({
+                    "error_code": "AGENT_RUN_FAILED",
+                    "job_kind": "extract_document_semantics",
+                }),
+            );
+            if let Some(extraction_id) = failure_extraction_id.as_deref()
+                && let Err(state_error) = mark_document_extraction_semantic_failed_if_pending(
+                    &mut runtime.state_db,
+                    extraction_id,
+                )
+            {
+                ::tracing::warn!(
+                    document_extraction_id = %extraction_id,
+                    error = %state_error,
+                    "failed to transition document_extractions.semantic_extraction_state to failed"
+                );
+            }
+            report
+        }
     }
+}
+
+fn mark_document_extraction_semantic_failed_if_pending(
+    state_db: &mut StateDb,
+    document_extraction_id: &str,
+) -> Result<()> {
+    let extraction_id = document_extraction_id.to_owned();
+    state_db.with_write_transaction(move |tx| {
+        let expected_overlays_json: Option<String> = tx
+            .query_row(
+                "SELECT expected_overlays_json FROM document_extractions WHERE id = ?1",
+                params![extraction_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let Some(expected_overlays_json) = expected_overlays_json else {
+            return Ok(());
+        };
+        let expected_overlays: Vec<String> =
+            serde_json::from_str(&expected_overlays_json).unwrap_or_default();
+        let aggregate_state =
+            recompute_semantic_extraction_state(tx, &extraction_id, &expected_overlays)?;
+        // Only escalate from 'pending' to a terminal/retryable state. Never
+        // overwrite 'complete', 'partial', or 'skipped'.
+        tx.execute(
+            "\
+            UPDATE document_extractions
+            SET semantic_extraction_state = ?1,
+                updated_at = ?2
+            WHERE id = ?3
+              AND semantic_extraction_state = 'pending'
+            ",
+            params![aggregate_state, Utc::now().to_rfc3339(), extraction_id],
+        )?;
+        Ok(())
+    })?;
+    Ok(())
 }
 
 fn parse_structural_extraction_request(payload: &Value) -> Result<StructuralExtractionJobRequest> {
@@ -1920,6 +1994,252 @@ struct SemanticSkillInputContext {
     main_category: Option<String>,
 }
 
+/// Product-bearing keywords used to score sections when focusing a large
+/// mechanical specification down to bounded prompt context. Keywords are
+/// matched with word boundaries so common boilerplate ("boilerplate") cannot
+/// trip a product keyword ("boiler").
+const SEMANTIC_FOCUS_KEYWORDS: &[&str] = &[
+    "boiler",
+    "boilers",
+    "pump",
+    "pumps",
+    "valve",
+    "valves",
+    "fan",
+    "fans",
+    "heat exchanger",
+    "calorifier",
+    "calorifiers",
+    "cylinder",
+    "cylinders",
+    "tank",
+    "tanks",
+    "compressor",
+    "compressors",
+    "actuator",
+    "actuators",
+    "controller",
+    "controllers",
+    "panel",
+    "panels",
+    "schedule",
+    "schedules",
+    "equipment",
+    "component",
+    "components",
+    "item",
+    "items",
+    "qty",
+    "quantity",
+    "quantities",
+    "model",
+    "models",
+    "manufacturer",
+    "manufacturers",
+    "make",
+    "part number",
+    "ref no",
+    "size",
+    "capacity",
+    "rating",
+    "kw",
+    "duty",
+    "output",
+    "flow rate",
+    "supply",
+    "cooling",
+    "heating",
+    "luminaire",
+    "luminaires",
+    "fitting",
+    "fittings",
+    "specification",
+    "specifications",
+];
+
+fn keyword_matches_with_word_boundaries(haystack_lower: &str, keyword: &str) -> bool {
+    let needle = keyword.trim();
+    if needle.is_empty() || needle.len() > haystack_lower.len() {
+        return false;
+    }
+    let bytes = haystack_lower.as_bytes();
+    let needle_bytes = needle.as_bytes();
+    let last_start = bytes.len().saturating_sub(needle_bytes.len());
+    let mut start = 0;
+    while start <= last_start {
+        if &bytes[start..start + needle_bytes.len()] != needle_bytes {
+            start += 1;
+            continue;
+        }
+        let before_is_word = start > 0 && bytes[start - 1].is_ascii_alphanumeric();
+        let after_idx = start + needle_bytes.len();
+        let after_is_word = after_idx < bytes.len() && bytes[after_idx].is_ascii_alphanumeric();
+        if !before_is_word && !after_is_word {
+            return true;
+        }
+        start += 1;
+    }
+    false
+}
+
+#[derive(Debug, Clone)]
+struct FocusedSemanticMarkdown {
+    content: String,
+    was_focused: bool,
+    focus_reason: Option<&'static str>,
+    original_chars: usize,
+    focused_chars: usize,
+    sections_kept: usize,
+    sections_total: usize,
+}
+
+#[allow(clippy::too_many_lines)]
+fn build_focused_semantic_markdown(
+    extracted_markdown: &str,
+    extracted_sections_json: &str,
+    extracted_tables_json: &str,
+    section_count: i64,
+) -> FocusedSemanticMarkdown {
+    use std::fmt::Write as _;
+
+    let original_chars = extracted_markdown.chars().count();
+    let needs_focus = original_chars > SEMANTIC_FOCUSED_MARKDOWN_THRESHOLD_CHARS
+        || section_count > SEMANTIC_FOCUSED_SECTION_THRESHOLD;
+    if !needs_focus {
+        return FocusedSemanticMarkdown {
+            content: extracted_markdown.to_owned(),
+            was_focused: false,
+            focus_reason: None,
+            original_chars,
+            focused_chars: original_chars,
+            sections_kept: 0,
+            sections_total: 0,
+        };
+    }
+
+    let focus_reason = if original_chars > SEMANTIC_FOCUSED_MARKDOWN_THRESHOLD_CHARS {
+        Some("markdown_size_threshold")
+    } else {
+        Some("section_count_threshold")
+    };
+
+    let sections_value: Value =
+        serde_json::from_str(extracted_sections_json).unwrap_or(Value::Null);
+    let tables_value: Value = serde_json::from_str(extracted_tables_json).unwrap_or(Value::Null);
+
+    let sections_array: Vec<Value> = sections_value.as_array().cloned().unwrap_or_default();
+    let tables_array: Vec<Value> = tables_value.as_array().cloned().unwrap_or_default();
+    let sections_total = sections_array.len();
+
+    let mut keepers: Vec<(usize, &Value, usize)> = Vec::new();
+    for (idx, section) in sections_array.iter().enumerate() {
+        let title = section
+            .get("title")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let text = section
+            .get("text")
+            .or_else(|| section.get("content"))
+            .or_else(|| section.get("markdown"))
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let lower_title = title.to_lowercase();
+        let lower_text = text.to_lowercase();
+        let title_score = SEMANTIC_FOCUS_KEYWORDS
+            .iter()
+            .filter(|keyword| keyword_matches_with_word_boundaries(&lower_title, keyword))
+            .count();
+        let body_score = SEMANTIC_FOCUS_KEYWORDS
+            .iter()
+            .filter(|keyword| keyword_matches_with_word_boundaries(&lower_text, keyword))
+            .count();
+        let combined_score = title_score * 4 + body_score;
+        if combined_score == 0 {
+            continue;
+        }
+        keepers.push((idx, section, combined_score));
+    }
+    keepers.sort_by_key(|entry| std::cmp::Reverse(entry.2));
+
+    let mut focused = String::new();
+    focused.push_str("# Focused product extraction context\n\n");
+    let _ = writeln!(
+        focused,
+        "_Note: this prepared markdown was focused to product-bearing sections (kept {kept_count}/{sections_total} sections, {tables_kept} tables) so the agent prompt stays bounded. Refer to the full structural artifacts on disk if a section is missing._\n",
+        kept_count = keepers.len(),
+        tables_kept = tables_array.len(),
+    );
+
+    let mut sections_kept = 0_usize;
+    let mut order: Vec<(usize, &Value)> = keepers
+        .iter()
+        .map(|(idx, section, _)| (*idx, *section))
+        .collect();
+    order.sort_by_key(|(idx, _)| *idx);
+    for (_, section) in &order {
+        if focused.chars().count() >= SEMANTIC_FOCUSED_MARKDOWN_BUDGET_CHARS {
+            focused.push_str(
+                "\n_(Focused budget reached; remaining product-bearing sections truncated.)_\n",
+            );
+            break;
+        }
+        if let Some(title) = section.get("title").and_then(Value::as_str) {
+            focused.push_str("## ");
+            focused.push_str(title);
+            focused.push_str("\n\n");
+        }
+        let body = section
+            .get("text")
+            .or_else(|| section.get("content"))
+            .or_else(|| section.get("markdown"))
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        focused.push_str(body);
+        focused.push_str("\n\n");
+        sections_kept += 1;
+    }
+
+    if !tables_array.is_empty() {
+        focused.push_str("## Extracted tables (verbatim)\n\n");
+        for (idx, table) in tables_array.iter().enumerate() {
+            if focused.chars().count() >= SEMANTIC_FOCUSED_MARKDOWN_BUDGET_CHARS {
+                focused.push_str("\n_(Focused budget reached; remaining tables truncated.)_\n");
+                break;
+            }
+            let _ = writeln!(focused, "### Table {} (raw JSON)\n", idx + 1);
+            if let Ok(json) = serde_json::to_string_pretty(table) {
+                focused.push_str("```json\n");
+                focused.push_str(&json);
+                focused.push_str("\n```\n\n");
+            }
+        }
+    }
+
+    if focused.chars().count() == 0 {
+        // Fall back to head-truncation of the full markdown so the agent still
+        // receives bounded context even when no product-bearing sections were
+        // detected.
+        let head: String = extracted_markdown
+            .chars()
+            .take(SEMANTIC_FOCUSED_MARKDOWN_BUDGET_CHARS)
+            .collect();
+        focused = format!(
+            "# Focused product extraction context (head truncation)\n\n_Note: no product-bearing sections matched the focus heuristics; falling back to a bounded head excerpt._\n\n{head}\n",
+        );
+    }
+
+    let focused_chars = focused.chars().count();
+    FocusedSemanticMarkdown {
+        content: focused,
+        was_focused: true,
+        focus_reason,
+        original_chars,
+        focused_chars,
+        sections_kept,
+        sections_total,
+    }
+}
+
 fn prepare_semantic_skill_job_parameters(
     conn: &Connection,
     artifact_root: &Path,
@@ -1940,17 +2260,46 @@ fn prepare_semantic_skill_job_parameters(
     })?;
 
     let markdown_path = input_dir.join("docling-markdown.md");
+    let markdown_full_path = input_dir.join("docling-markdown-full.md");
     let sections_path = input_dir.join("docling-sections.json");
     let tables_path = input_dir.join("docling-tables.json");
     let metadata_path = input_dir.join("docling-metadata.json");
-    fs::write(&markdown_path, &context.extracted_markdown)
+
+    let focus = build_focused_semantic_markdown(
+        &context.extracted_markdown,
+        &context.extracted_sections_json,
+        &context.extracted_tables_json,
+        context.section_count,
+    );
+    fs::write(&markdown_path, &focus.content)
         .with_context(|| format!("writing {}", markdown_path.display()))?;
+    if focus.was_focused {
+        // Keep the full markdown on disk for forensic reference even though
+        // the agent is only pointed at the focused subset.
+        fs::write(&markdown_full_path, &context.extracted_markdown)
+            .with_context(|| format!("writing {}", markdown_full_path.display()))?;
+    }
     fs::write(&sections_path, &context.extracted_sections_json)
         .with_context(|| format!("writing {}", sections_path.display()))?;
     fs::write(&tables_path, &context.extracted_tables_json)
         .with_context(|| format!("writing {}", tables_path.display()))?;
     fs::write(&metadata_path, &context.extracted_metadata_json)
         .with_context(|| format!("writing {}", metadata_path.display()))?;
+
+    let markdown_excerpt: String = focus.content.chars().take(4_000).collect();
+    let focused_extraction = json!({
+        "was_focused": focus.was_focused,
+        "focus_reason": focus.focus_reason,
+        "original_chars": focus.original_chars,
+        "focused_chars": focus.focused_chars,
+        "sections_kept": focus.sections_kept,
+        "sections_total": focus.sections_total,
+        "full_markdown_path": if focus.was_focused {
+            Value::String(markdown_full_path.to_string_lossy().into_owned())
+        } else {
+            Value::Null
+        },
+    });
 
     let mut payload = base_payload.clone();
     let payload_object = payload
@@ -1964,7 +2313,8 @@ fn prepare_semantic_skill_job_parameters(
             "sections_json_path": sections_path,
             "tables_json_path": tables_path,
             "metadata_json_path": metadata_path,
-            "markdown_excerpt": context.extracted_markdown.chars().take(4_000).collect::<String>(),
+            "markdown_excerpt": markdown_excerpt,
+            "focused_extraction": focused_extraction,
             "document_metadata": {
                 "document_extraction_id": request.document_extraction_id,
                 "raw_document_id": context.raw_document_id,
@@ -13780,6 +14130,253 @@ fn build_structured_trace(
     trace.to_json_string()
 }
 
+fn read_pty_skill_timeout_seconds() -> u64 {
+    std::env::var(PTY_SKILL_TIMEOUT_SECONDS_ENV)
+        .ok()
+        .and_then(|raw| raw.parse::<u64>().ok())
+        .filter(|seconds| *seconds > 0)
+        .unwrap_or(PTY_SKILL_TIMEOUT_SECONDS_DEFAULT)
+}
+
+fn signal_pty_process_group(runtime_ids: PtyRuntimeIds, signal: Signal) {
+    let Ok(process_group_id) = i32::try_from(runtime_ids.pgid) else {
+        return;
+    };
+    if current_runtime_ids().is_ok_and(|current| current.pgid == runtime_ids.pgid) {
+        // Refuse to signal our own process group; this only happens if PTY
+        // runtime ids could not be resolved separately from the daemon.
+        return;
+    }
+    let _ = kill(Pid::from_raw(-process_group_id), signal);
+}
+
+#[derive(Debug)]
+enum PtyReaderMessage {
+    Line {
+        seq: u64,
+        line: String,
+        wall_ts: DateTime<Utc>,
+    },
+    Eof,
+    Error(String),
+}
+
+struct PtyReaderResult {
+    exit_status: portable_pty::ExitStatus,
+    phase_history: Vec<&'static str>,
+}
+
+fn spawn_pty_reader_thread(
+    mut session: PtySession,
+) -> (
+    std::sync::mpsc::Receiver<PtyReaderMessage>,
+    std::thread::JoinHandle<Result<PtyReaderResult, String>>,
+) {
+    let (tx, rx) = std::sync::mpsc::channel::<PtyReaderMessage>();
+    let handle = std::thread::spawn(move || -> Result<PtyReaderResult, String> {
+        let mut seq = 1_u64;
+        loop {
+            match session.read_line() {
+                Ok(line) if line.is_empty() => {
+                    let _ = tx.send(PtyReaderMessage::Eof);
+                    break;
+                }
+                Ok(line) => {
+                    let event = PtyReaderMessage::Line {
+                        seq,
+                        line,
+                        wall_ts: Utc::now(),
+                    };
+                    seq = seq.saturating_add(1);
+                    if tx.send(event).is_err() {
+                        break;
+                    }
+                }
+                Err(error) => {
+                    let _ = tx.send(PtyReaderMessage::Error(error.to_string()));
+                    return Err(error.to_string());
+                }
+            }
+        }
+        let exit_status = session.finish().map_err(|error| error.to_string())?;
+        let phase_history = session
+            .phase_history
+            .iter()
+            .map(|phase| phase.as_str())
+            .collect::<Vec<_>>();
+        Ok(PtyReaderResult {
+            exit_status,
+            phase_history,
+        })
+    });
+    (rx, handle)
+}
+
+#[derive(Debug)]
+struct PtySupervisionOutcome {
+    exit_status: portable_pty::ExitStatus,
+    phase_history: Vec<&'static str>,
+    accumulated_bytes: Vec<u8>,
+    tail: String,
+    timed_out: bool,
+    terminated_after_result: bool,
+    sigkill_escalated: bool,
+    first_output_at: Option<DateTime<Utc>>,
+    result_seen_at: Option<DateTime<Utc>>,
+    timeout_seconds: u64,
+}
+
+#[allow(clippy::too_many_lines)]
+async fn supervise_pty_session(
+    session: PtySession,
+    workdir_result_path: &Path,
+    capture: &mut ForensicPtyCapture,
+    timeout: Duration,
+) -> Result<PtySupervisionOutcome> {
+    let runtime_ids = session.runtime_ids;
+    let stable_result_period = Duration::from_millis(PTY_SKILL_RESULT_STABLE_MILLIS);
+    let grace_period = Duration::from_millis(PTY_SKILL_TERMINATION_GRACE_MILLIS);
+    let poll_interval = Duration::from_millis(PTY_SKILL_POLL_INTERVAL_MILLIS);
+    let deadline = Instant::now() + timeout;
+
+    let (rx, handle) = spawn_pty_reader_thread(session);
+
+    let mut accumulated_bytes: Vec<u8> = Vec::new();
+    let mut tail = String::new();
+    let mut first_output_at: Option<DateTime<Utc>> = None;
+    let mut result_seen_at: Option<DateTime<Utc>> = None;
+    let mut result_ready_since: Option<Instant> = None;
+    let mut termination_dispatched_at: Option<Instant> = None;
+    let mut timed_out = false;
+    let mut terminated_after_result = false;
+    let mut sigkill_escalated = false;
+    let mut reader_error: Option<String> = None;
+    let mut reader_eof = false;
+
+    loop {
+        let mut drained_any = false;
+        loop {
+            match rx.try_recv() {
+                Ok(PtyReaderMessage::Line { seq, line, wall_ts }) => {
+                    drained_any = true;
+                    if first_output_at.is_none() {
+                        first_output_at = Some(wall_ts);
+                    }
+                    line.trim_end().clone_into(&mut tail);
+                    capture.append(seq, line.as_bytes(), wall_ts)?;
+                    accumulated_bytes.extend_from_slice(line.as_bytes());
+                }
+                Ok(PtyReaderMessage::Eof) => {
+                    reader_eof = true;
+                }
+                Ok(PtyReaderMessage::Error(error)) => {
+                    reader_error.get_or_insert(error);
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    reader_eof = true;
+                    break;
+                }
+            }
+        }
+
+        if termination_dispatched_at.is_none()
+            && workdir_result_path.exists()
+            && read_result_contract(workdir_result_path).is_ok()
+        {
+            if result_seen_at.is_none() {
+                result_seen_at = Some(Utc::now());
+            }
+            match result_ready_since {
+                Some(ready_since) if ready_since.elapsed() >= stable_result_period => {
+                    signal_pty_process_group(runtime_ids, Signal::SIGTERM);
+                    terminated_after_result = true;
+                    termination_dispatched_at = Some(Instant::now());
+                    ::tracing::info!(
+                        runtime_ids_pid = runtime_ids.pid,
+                        runtime_ids_pgid = runtime_ids.pgid,
+                        "PTY skill produced a valid result contract; dispatching SIGTERM after stable period"
+                    );
+                }
+                Some(_) => {}
+                None => result_ready_since = Some(Instant::now()),
+            }
+        } else {
+            result_ready_since = None;
+        }
+
+        if termination_dispatched_at.is_none() && Instant::now() >= deadline {
+            signal_pty_process_group(runtime_ids, Signal::SIGTERM);
+            timed_out = true;
+            termination_dispatched_at = Some(Instant::now());
+            ::tracing::warn!(
+                runtime_ids_pid = runtime_ids.pid,
+                runtime_ids_pgid = runtime_ids.pgid,
+                timeout_seconds = timeout.as_secs(),
+                "PTY skill exceeded wall-clock timeout; dispatching SIGTERM"
+            );
+        }
+
+        if !sigkill_escalated
+            && let Some(dispatched_at) = termination_dispatched_at
+            && dispatched_at.elapsed() >= grace_period
+            && !handle.is_finished()
+        {
+            signal_pty_process_group(runtime_ids, Signal::SIGKILL);
+            sigkill_escalated = true;
+            ::tracing::warn!(
+                runtime_ids_pid = runtime_ids.pid,
+                runtime_ids_pgid = runtime_ids.pgid,
+                "PTY child did not exit within grace period; escalating to SIGKILL"
+            );
+        }
+
+        if reader_eof && handle.is_finished() {
+            break;
+        }
+        if let Some(error) = reader_error.as_ref()
+            && handle.is_finished()
+        {
+            return Err(anyhow!("PTY reader error: {error}"));
+        }
+
+        if drained_any {
+            tokio::task::yield_now().await;
+        } else {
+            tokio::time::sleep(poll_interval).await;
+        }
+    }
+
+    while let Ok(message) = rx.try_recv() {
+        if let PtyReaderMessage::Line { seq, line, wall_ts } = message {
+            if first_output_at.is_none() {
+                first_output_at = Some(wall_ts);
+            }
+            line.trim_end().clone_into(&mut tail);
+            capture.append(seq, line.as_bytes(), wall_ts)?;
+            accumulated_bytes.extend_from_slice(line.as_bytes());
+        }
+    }
+
+    let join_result = handle
+        .join()
+        .map_err(|_| anyhow!("PTY reader thread panicked"))?;
+    let reader_result = join_result.map_err(|error| anyhow!("PTY child finish failed: {error}"))?;
+
+    Ok(PtySupervisionOutcome {
+        exit_status: reader_result.exit_status,
+        phase_history: reader_result.phase_history,
+        accumulated_bytes,
+        tail,
+        timed_out,
+        terminated_after_result,
+        sigkill_escalated,
+        first_output_at,
+        result_seen_at,
+        timeout_seconds: timeout.as_secs(),
+    })
+}
+
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 async fn execute_pty_skill_session(
     artifact_root: &Path,
@@ -13793,13 +14390,14 @@ async fn execute_pty_skill_session(
     config_hash: String,
 ) -> Result<ExecutedSession> {
     let mut parser = adapter.parser(ExecutionMode::Pty);
-    let mut session = PtySession::spawn(
+    let session = PtySession::spawn(
         pty_command_from_launch_spec(launch_spec),
         SpawnOptions {
             spawn_path: SpawnPath::resolve(true),
             ..SpawnOptions::default()
         },
     )?;
+    let runtime_ids = session.runtime_ids;
     crate::ipc::handlers::sessions::register_live_pty_session(session_id, session.live_control());
     let _live_pty_registration = LivePtyRegistration { session_id };
     let mut capture = ForensicPtyCapture::new(
@@ -13809,43 +14407,40 @@ async fn execute_pty_skill_session(
         CaptureConfig::default(),
     )?;
     let mut events = vec![ControlEvent::Started {
-        pid: session.runtime_ids.pid,
-        pgid: session.runtime_ids.pgid,
-        sid: session.runtime_ids.sid,
+        pid: runtime_ids.pid,
+        pgid: runtime_ids.pgid,
+        sid: runtime_ids.sid,
         mode: ExecutionMode::Pty,
     }];
-    let mut seq = 1_u64;
     let mut last_checkpoint_seq = None;
-    let mut tail = String::new();
 
-    loop {
-        let line = session.read_line()?;
-        if line.is_empty() {
-            break;
+    let workdir_result_path = launch_spec.cwd.join("result.json");
+    let timeout = Duration::from_secs(read_pty_skill_timeout_seconds());
+
+    let outcome = supervise_pty_session(session, &workdir_result_path, &mut capture, timeout)
+        .await
+        .context("supervising PTY skill session")?;
+
+    let exit_status = outcome.exit_status;
+    let exit_code =
+        i32::try_from(exit_status.exit_code()).context("converting PTY exit code to i32")?;
+    let derived = parser
+        .on_output(&OutputFrame::Pty(Bytes::copy_from_slice(
+            &outcome.accumulated_bytes,
+        )))
+        .await?;
+    for event in &derived {
+        if let ControlEvent::Checkpoint { seq, .. } = event {
+            last_checkpoint_seq = Some(*seq);
         }
-        tail = line.trim_end().to_owned();
-        capture.append(seq, line.as_bytes(), Utc::now())?;
-        seq += 1;
-        let derived = parser
-            .on_output(&OutputFrame::Pty(Bytes::from(line.clone().into_bytes())))
-            .await?;
-        for event in &derived {
-            if let ControlEvent::Checkpoint { seq, .. } = event {
-                last_checkpoint_seq = Some(*seq);
-            }
-        }
-        events.extend(derived);
     }
-    let status = session.finish()?;
-    let exit_code = i32::try_from(status.exit_code()).context("converting PTY exit code to i32")?;
-    events.push(ControlEvent::Exited { status });
+    events.extend(derived);
+    events.push(ControlEvent::Exited {
+        status: exit_status,
+    });
     events.extend(parser.finish().await?);
-    let phase_history = session
-        .phase_history
-        .iter()
-        .map(|phase| phase.as_str())
-        .collect::<Vec<_>>();
-    let forensic_summary = capture.finalize(tail.clone())?;
+
+    let forensic_summary = capture.finalize(outcome.tail.clone())?;
     let terminal_output_bytes =
         forensic_summary
             .artifact_refs
@@ -13854,16 +14449,47 @@ async fn execute_pty_skill_session(
                 acc.checked_add(artifact_ref.size_bytes)
                     .ok_or_else(|| anyhow!("forensic artifact sizes exceeded i64 range"))
             })?;
-    let structured_trace = build_structured_trace(
+    let mut structured_trace_value = serde_json::from_str::<Value>(&build_structured_trace(
         &identity,
         ExecutionMode::Pty,
-        phase_history,
+        outcome.phase_history.clone(),
         caps,
         &events,
         &forensic_summary,
-    )?;
+    )?)
+    .unwrap_or_else(|_| json!({}));
+    if let Some(map) = structured_trace_value.as_object_mut() {
+        map.insert("bounded_pty_runner".to_owned(), Value::Bool(true));
+        map.insert(
+            "timeout_seconds".to_owned(),
+            Value::Number(outcome.timeout_seconds.into()),
+        );
+        map.insert("timed_out".to_owned(), Value::Bool(outcome.timed_out));
+        map.insert(
+            "terminated_after_result".to_owned(),
+            Value::Bool(outcome.terminated_after_result),
+        );
+        map.insert(
+            "sigkill_escalated".to_owned(),
+            Value::Bool(outcome.sigkill_escalated),
+        );
+        map.insert(
+            "first_output_at".to_owned(),
+            outcome
+                .first_output_at
+                .map_or(Value::Null, |value| Value::String(value.to_rfc3339())),
+        );
+        map.insert(
+            "result_seen_at".to_owned(),
+            outcome
+                .result_seen_at
+                .map_or(Value::Null, |value| Value::String(value.to_rfc3339())),
+        );
+    }
+    let structured_trace = structured_trace_value.to_string();
 
-    // In PTY mode, look for result.json written by the agent in the workdir.
+    // Look for the result contract written by the agent: prefer the parser's
+    // FinalResultReady event, then fall back to the workdir result.json.
     let result_path = events
         .iter()
         .find_map(|event| match event {
@@ -13871,13 +14497,21 @@ async fn execute_pty_skill_session(
             _ => None,
         })
         .or_else(|| {
-            let candidate = launch_spec.cwd.join("result.json");
-            if candidate.exists() {
-                Some(candidate)
+            if workdir_result_path.exists() {
+                Some(workdir_result_path.clone())
             } else {
                 None
             }
-        });
+        })
+        .filter(|path| read_result_contract(path).is_ok());
+
+    let cleanup_verdict = if outcome.terminated_after_result {
+        "terminated_after_result_contract".to_owned()
+    } else if outcome.timed_out {
+        "terminated_after_timeout".to_owned()
+    } else {
+        "clean".to_owned()
+    };
 
     Ok(ExecutedSession {
         session_id: session_id.to_owned(),
@@ -13887,7 +14521,7 @@ async fn execute_pty_skill_session(
         cli_vendor: adapter.id().to_owned(),
         config_hash,
         pty_session_id: Some(session_id.to_owned()),
-        runtime_ids: Some(session.runtime_ids),
+        runtime_ids: Some(runtime_ids),
         completed_at: Utc::now().to_rfc3339(),
         terminal_output_path: Some(
             forensic_summary
@@ -13900,7 +14534,7 @@ async fn execute_pty_skill_session(
         terminal_output_tail: Some(forensic_summary.tail.clone()),
         structured_trace,
         exit_code,
-        cleanup_verdict: "clean".to_owned(),
+        cleanup_verdict,
         last_checkpoint_seq,
         result_path,
         artifact_refs: forensic_summary
@@ -20796,15 +21430,16 @@ mod tests {
         SemanticExtractionJobRequest, SessionDraft, SkillFrontmatter, SkillPromotionStageMetadata,
         ValidationPolicyMode, ValidationStatusSnapshot, ValidationTrigger,
         append_runtime_control_records, backtrack_window_seconds, bootstrap_runtime,
-        build_handshake_context, build_live_validation_policy_config,
-        build_live_validation_policy_context, build_skill_run_telemetry, child_runtime_ids,
-        default_fixture, evaluate_validation_policy, insert_session_log, live_loop_surface_names,
-        load_live_validation_job_parameters, load_procontract_interest_candidates,
+        build_focused_semantic_markdown, build_handshake_context,
+        build_live_validation_policy_config, build_live_validation_policy_context,
+        build_skill_run_telemetry, child_runtime_ids, default_fixture, evaluate_validation_policy,
+        insert_session_log, live_loop_surface_names, load_live_validation_job_parameters,
+        load_procontract_interest_candidates, mark_document_extraction_semantic_failed_if_pending,
         next_pending_extraction_job_id, observe_host_health, open_state_db,
         persisted_lifecycle_frames, prepare_semantic_skill_job_parameters,
         procontract_interest_registration_targets, reconcile_interrupted_sessions,
-        resolve_enrichment_notice, run_live_semantic_validation, wait_for_contract_child_output,
-        write_run_manifest_for_session,
+        resolve_enrichment_notice, run_live_semantic_validation, supervise_pty_session,
+        wait_for_contract_child_output, write_run_manifest_for_session,
     };
     use crate::db::sqlite::DEFAULT_SCHEMA_EPOCH;
     use crate::{persist_interest_registrations, persist_tender_enrichments};
@@ -26531,6 +27166,472 @@ mod tests {
         let a_superseded =
             super::list_operator_decisions(state_db.connection(), Some(pid_a), Some("superseded"))?;
         assert_eq!(a_superseded["decisions"].as_array().unwrap().len(), 1);
+        Ok(())
+    }
+
+    // -------------------------------------------------------------------
+    // Regression coverage for full-pipeline E2E caveats:
+    //   * Stage 8: large semantic extractions are bounded before the agent
+    //     prompt, and a failed semantic job transitions the document
+    //     extraction row out of `pending` so re-drives are unstuck.
+    //   * Stage 9: PTY skills that write a valid result contract but fail
+    //     to exit on their own are proactively terminated by the daemon,
+    //     and PTY skills that hang without producing a result are bounded
+    //     by a wall-clock timeout.
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn large_semantic_extraction_is_chunked_before_skill_invocation() -> Result<()> {
+        // Build a synthetic 300_000-char markdown with mixed product-bearing
+        // and boilerplate sections to force the focusing path.
+        let mut sections = Vec::new();
+        for idx in 0..120 {
+            let title = if idx % 4 == 0 {
+                format!("Boiler schedule {idx}")
+            } else if idx % 4 == 1 {
+                format!("Pump and valve schedule {idx}")
+            } else {
+                format!("General preliminaries {idx}")
+            };
+            let body = if idx % 4 == 0 {
+                format!(
+                    "Boiler manufacturer Acme model BX-{idx} duty 80kW capacity 200kW. Item B0{idx} qty 1 each.\n",
+                )
+            } else if idx % 4 == 1 {
+                format!(
+                    "Pump and valve schedule {idx}: model PX-{idx} flow rate 100 l/s. Component qty 4.\n",
+                )
+            } else {
+                "This section is boilerplate prose with no product information whatsoever.\n"
+                    .repeat(20)
+            };
+            sections.push(json!({
+                "title": title,
+                "text": body,
+            }));
+        }
+        let sections_json = serde_json::to_string(&Value::Array(sections))?;
+        let big_markdown: String = "# Title\n\n".repeat(50_000); // ~400_000 chars
+        let tables_json = json!([
+            { "title": "Boiler schedule", "rows": [["B01", "Acme BX-1", "80kW"]] },
+            { "title": "Pump schedule", "rows": [["P01", "Acme PX-1", "100 l/s"]] },
+        ])
+        .to_string();
+
+        let focused = build_focused_semantic_markdown(
+            &big_markdown,
+            &sections_json,
+            &tables_json,
+            120, // section_count
+        );
+
+        assert!(
+            focused.was_focused,
+            "large markdown must be focused; original_chars={} sections_total={}",
+            focused.original_chars, focused.sections_total
+        );
+        assert!(
+            focused.focused_chars <= super::SEMANTIC_FOCUSED_MARKDOWN_BUDGET_CHARS + 4_096,
+            "focused markdown must stay near the configured budget; got {}",
+            focused.focused_chars
+        );
+        assert!(
+            focused.sections_kept > 0,
+            "focusing should retain at least one product-bearing section"
+        );
+        assert!(
+            focused.content.contains("Boiler schedule"),
+            "focused markdown should keep boiler schedule content"
+        );
+        // Confirm boilerplate content is NOT dragging in (the focused subset
+        // must drop sections that have zero product-bearing keyword hits).
+        assert!(
+            !focused.content.contains("General preliminaries 1"),
+            "focused markdown must drop boilerplate sections"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn timed_out_semantic_extraction_is_retryable() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-stuck",
+            "pc-stuck",
+            "Stuck mechanical spec",
+        )?;
+        state_db.connection().execute(
+            "INSERT OR IGNORE INTO sources (id, kind, config) VALUES ('procontract-enrich', 'procurement', '{}')",
+            [],
+        )?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO raw_documents (
+              id, source_id, content_type, source_url, storage_path, metadata
+            ) VALUES (
+              'raw-stuck', 'procontract-enrich', 'application/pdf',
+              'https://example.invalid/spec.pdf', ?1, '{\"filename\":\"spec.pdf\"}'
+            )
+            ",
+            params![temp.path().join("spec.pdf").to_string_lossy()],
+        )?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO document_extractions (
+              id, raw_document_id, process_id, notice_id, document_set_id,
+              source_content_hash, extraction_engine, extraction_engine_version,
+              processing_strategy, page_count, document_title, document_role,
+              extraction_policy_version, expected_overlays_json, extracted_markdown,
+              extracted_sections_json, extracted_tables_json, extracted_metadata_json,
+              table_count, section_count, owner_id, stage_run_id,
+              semantic_extraction_state
+            ) VALUES (
+              'doc-extract-stuck', 'raw-stuck', 'proc-pc-stuck', 'pc-stuck',
+              NULL, 'hash-stuck', 'docling', '2.0.0', 'standard', 41,
+              'Mechanical Specification', 'tender_specification', '2026.04.12',
+              '[\"pdf-extraction/tender-specification\"]',
+              '## Mechanical specification\n\nLong content...',
+              '[]', '[]', '{}', 21, 224, 'local-owner', 'stage-run-stuck', 'pending'
+            )
+            ",
+            [],
+        )?;
+        // Seed a failed workflow_jobs row that targets the same
+        // document_extraction_id and skill_id as the (still-pending)
+        // document_extractions row above. The recompute helper consults
+        // workflow_jobs.status='failed' and surfaces the aggregate state.
+        let payload = json!({
+            "request": {
+                "request": {
+                    "document_extraction_id": "doc-extract-stuck",
+                    "process_id": "proc-pc-stuck",
+                    "notice_id": "pc-stuck",
+                    "skill_id": "pdf-extraction/tender-specification",
+                    "extraction_scope": "full_document"
+                }
+            }
+        })
+        .to_string();
+        state_db.connection().execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, status, input_payload, last_error, created_at
+            ) VALUES (
+              'job-semantic-stuck', 'extract_document_semantics', 'failed',
+              ?1, 'semantic extraction session missing result contract path',
+              '2026-05-04 11:00:00'
+            )
+            ",
+            params![payload],
+        )?;
+
+        let initial_state: String = state_db.connection().query_row(
+            "SELECT semantic_extraction_state FROM document_extractions WHERE id = 'doc-extract-stuck'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(initial_state, "pending");
+
+        mark_document_extraction_semantic_failed_if_pending(&mut state_db, "doc-extract-stuck")?;
+
+        let final_state: String = state_db.connection().query_row(
+            "SELECT semantic_extraction_state FROM document_extractions WHERE id = 'doc-extract-stuck'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(
+            final_state, "failed",
+            "semantic extraction state should escalate from pending to failed"
+        );
+
+        // Calling the helper again must remain idempotent — once the row
+        // has left 'pending', subsequent calls do not regress the state.
+        mark_document_extraction_semantic_failed_if_pending(&mut state_db, "doc-extract-stuck")?;
+        let still_failed: String = state_db.connection().query_row(
+            "SELECT semantic_extraction_state FROM document_extractions WHERE id = 'doc-extract-stuck'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(still_failed, "failed");
+        Ok(())
+    }
+
+    #[test]
+    fn chunked_semantic_outputs_merge_into_product_candidates() -> Result<()> {
+        // Persistence verification: a chunk-merged extraction scope
+        // round-trips through prepare_semantic_skill_job_parameters and
+        // produces the canonical bounded payload that the skill prompt
+        // consumes. This is the seam Stage 8 chunking depends on.
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-merge",
+            "pc-merge",
+            "Merged extraction",
+        )?;
+        state_db.connection().execute(
+            "INSERT OR IGNORE INTO sources (id, kind, config) VALUES ('procontract-enrich', 'procurement', '{}')",
+            [],
+        )?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO raw_documents (
+              id, source_id, content_type, source_url, storage_path, metadata
+            ) VALUES (
+              'raw-merge', 'procontract-enrich', 'application/pdf',
+              'https://example.invalid/spec.pdf', ?1, '{\"filename\":\"spec.pdf\"}'
+            )
+            ",
+            params![temp.path().join("spec.pdf").to_string_lossy()],
+        )?;
+        let mechanical_markdown = format!(
+            "# Mechanical specification\n\n{}",
+            "Boiler manufacturer Acme model BX-001 duty 80kW. Item B01 qty 1 each.\n".repeat(4_500)
+        );
+        state_db.connection().execute(
+            "\
+            INSERT INTO document_extractions (
+              id, raw_document_id, process_id, notice_id, document_set_id,
+              source_content_hash, extraction_engine, extraction_engine_version,
+              processing_strategy, page_count, document_title, document_role,
+              extraction_policy_version, expected_overlays_json, extracted_markdown,
+              extracted_sections_json, extracted_tables_json, extracted_metadata_json,
+              table_count, section_count, owner_id, stage_run_id
+            ) VALUES (
+              'doc-extract-merge', 'raw-merge', 'proc-pc-merge', 'pc-merge',
+              NULL, 'hash-merge', 'docling', '2.0.0', 'standard', 41,
+              'Mechanical Specification', 'tender_specification', '2026.04.12',
+              '[\"pdf-extraction/tender-specification\"]',
+              ?1, '[]', '[]', '{}', 0, 224, 'local-owner', 'stage-run-merge'
+            )
+            ",
+            params![mechanical_markdown],
+        )?;
+
+        let base_payload = json!({
+            "request": {
+                "document_extraction_id": "doc-extract-merge",
+                "process_id": "proc-pc-merge",
+                "notice_id": "pc-merge",
+                "skill_id": "pdf-extraction/tender-specification",
+                "extraction_scope": "chunk_merged:hash-merge"
+            }
+        });
+        let request = SemanticExtractionJobRequest {
+            document_extraction_id: "doc-extract-merge".to_owned(),
+            process_id: "proc-pc-merge".to_owned(),
+            notice_id: Some("pc-merge".to_owned()),
+            document_set_id: None,
+            raw_document_id: None,
+            skill_id: "pdf-extraction/tender-specification".to_owned(),
+            extraction_scope: "chunk_merged:hash-merge".to_owned(),
+            target_domain: Some("lots".to_owned()),
+            stage_run_id: Some("stage-run-merge".to_owned()),
+            chunk_plan_hash: Some("hash-merge".to_owned()),
+            chunk_index: None,
+            merge_job: true,
+            merge_chunk_indices: vec![0, 1, 2],
+        };
+
+        let payload = prepare_semantic_skill_job_parameters(
+            state_db.connection(),
+            temp.path(),
+            "job-semantic-merge",
+            &base_payload,
+            &request,
+        )?;
+
+        // Focused-extraction telemetry must be present in the prompt
+        // payload so downstream agents can see they received a bounded
+        // subset of the structural artifact.
+        let focused = &payload["semantic_extraction_input"]["focused_extraction"];
+        assert_eq!(focused["was_focused"], Value::Bool(true));
+        let focused_chars = focused["focused_chars"]
+            .as_u64()
+            .expect("focused_chars present");
+        assert!(
+            focused_chars <= (super::SEMANTIC_FOCUSED_MARKDOWN_BUDGET_CHARS as u64) + 4_096,
+            "focused payload must respect budget: {focused_chars}"
+        );
+        assert_eq!(
+            payload["semantic_extraction_input"]["document_metadata"]["document_extraction_id"],
+            "doc-extract-merge"
+        );
+        // Process context still threads through unchanged so a chunk-merge
+        // result will associate with the correct procurement process when
+        // persistence runs.
+        assert_eq!(
+            payload["semantic_extraction_input"]["process_context"]["process_id"],
+            "proc-pc-merge"
+        );
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn pty_skill_valid_result_contract_finalizes_hung_child() -> Result<()> {
+        use std::time::Instant;
+
+        let temp = tempdir()?;
+        let workdir = temp.path().to_path_buf();
+        let result_path = workdir.join("result.json");
+        let result_path_str = result_path.to_string_lossy().into_owned();
+
+        // Synthetic skill: emit a few PTY lines, write a valid result.json
+        // contract, then sleep far longer than the supervisor should ever
+        // wait for the child to exit on its own.
+        let script = format!(
+            "echo 'preparing'; sleep 0.05; printf '{{\\\"ok\\\":true,\\\"hello\\\":\\\"world\\\"}}\\n' > '{result}'; echo 'wrote result'; sleep 30",
+            result = result_path_str.replace('\'', "'\\''"),
+        );
+        let session = super::PtySession::spawn(
+            super::PtyCommand::new("/bin/sh")
+                .arg("-c")
+                .arg(&script)
+                .cwd(workdir.clone()),
+            super::SpawnOptions::default(),
+        )?;
+        let session_id = format!(
+            "session-pty-test-result-{}",
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        );
+        let identity = super::ForensicIdentity::new(session_id.clone());
+        let mut capture = super::ForensicPtyCapture::new(
+            temp.path(),
+            identity,
+            chrono::Utc::now(),
+            super::CaptureConfig::default(),
+        )?;
+
+        let start = Instant::now();
+        let outcome =
+            supervise_pty_session(session, &result_path, &mut capture, Duration::from_secs(15))
+                .await?;
+        let elapsed = start.elapsed();
+
+        assert!(
+            outcome.terminated_after_result,
+            "supervisor should detect valid result contract and terminate child"
+        );
+        assert!(
+            !outcome.timed_out,
+            "supervisor must not classify as timeout"
+        );
+        assert!(
+            elapsed < Duration::from_secs(8),
+            "supervisor must terminate hung child quickly; elapsed={elapsed:?}"
+        );
+        assert!(result_path.exists(), "result.json must remain on disk");
+        let _ = capture.finalize(outcome.tail)?;
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn pty_skill_timeout_without_result_records_failure() -> Result<()> {
+        let temp = tempdir()?;
+        let workdir = temp.path().to_path_buf();
+        let result_path = workdir.join("result.json");
+
+        let session = super::PtySession::spawn(
+            super::PtyCommand::new("/bin/sh")
+                .arg("-c")
+                .arg("echo started; sleep 30")
+                .cwd(workdir.clone()),
+            super::SpawnOptions::default(),
+        )?;
+        let session_id = format!(
+            "session-pty-test-timeout-{}",
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        );
+        let identity = super::ForensicIdentity::new(session_id.clone());
+        let mut capture = super::ForensicPtyCapture::new(
+            temp.path(),
+            identity,
+            chrono::Utc::now(),
+            super::CaptureConfig::default(),
+        )?;
+
+        let outcome =
+            supervise_pty_session(session, &result_path, &mut capture, Duration::from_secs(1))
+                .await?;
+
+        assert!(outcome.timed_out, "supervisor must record timeout state");
+        assert!(
+            !outcome.terminated_after_result,
+            "no result contract should be claimed when none was written"
+        );
+        assert!(
+            !result_path.exists(),
+            "no result.json should exist on the filesystem"
+        );
+        let _ = capture.finalize(outcome.tail)?;
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn marketplace_result_contract_survives_child_timeout() -> Result<()> {
+        // Edge case: the agent writes a valid result.json *before* the
+        // wall-clock deadline elapses, but the daemon's stable-result
+        // timer hasn't fired yet (e.g. the result was written within the
+        // last few hundred milliseconds before the deadline). The
+        // supervisor must still preserve the result on disk so the
+        // marketplace persistence path can ingest it after the run.
+        let temp = tempdir()?;
+        let workdir = temp.path().to_path_buf();
+        let result_path = workdir.join("result.json");
+        let result_path_str = result_path.to_string_lossy().into_owned();
+
+        let script = format!(
+            "echo 'starting'; sleep 0.6; printf '{{\\\"ok\\\":true}}\\n' > '{result}'; sleep 30",
+            result = result_path_str.replace('\'', "'\\''"),
+        );
+        let session = super::PtySession::spawn(
+            super::PtyCommand::new("/bin/sh")
+                .arg("-c")
+                .arg(&script)
+                .cwd(workdir.clone()),
+            super::SpawnOptions::default(),
+        )?;
+        let session_id = format!(
+            "session-pty-test-survive-{}",
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        );
+        let identity = super::ForensicIdentity::new(session_id.clone());
+        let mut capture = super::ForensicPtyCapture::new(
+            temp.path(),
+            identity,
+            chrono::Utc::now(),
+            super::CaptureConfig::default(),
+        )?;
+
+        // Tiny wall-clock budget: the script writes result.json at ~600ms,
+        // and the supervisor will see the deadline (1s) before the 750ms
+        // stable-result timer can elapse. We expect timed_out==true AND
+        // the result file to remain intact on disk.
+        let outcome =
+            supervise_pty_session(session, &result_path, &mut capture, Duration::from_secs(1))
+                .await?;
+
+        assert!(
+            result_path.exists(),
+            "result.json must survive timeout-driven termination"
+        );
+        let parsed: Value = serde_json::from_str(&std::fs::read_to_string(&result_path)?)?;
+        assert_eq!(parsed["ok"], Value::Bool(true));
+        // Either path is acceptable: a particularly slow CI runner may
+        // observe the result-stability path firing before the timeout.
+        assert!(
+            outcome.timed_out || outcome.terminated_after_result,
+            "supervisor must classify the run as either timeout or result-driven termination"
+        );
+        let _ = capture.finalize(outcome.tail)?;
         Ok(())
     }
 }

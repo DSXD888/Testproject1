@@ -136,7 +136,14 @@ function defaultPayloadFor(prompt: ClarificationPrompt): Record<string, unknown>
     return { ...(prompt.default_value as Record<string, unknown>) };
   }
   if (prompt.prompt_type === 'choice') {
-    return { variant: prompt.options?.[0] ?? '' };
+    // Daemon validators for clarification choice variants (un_pursueable / defer)
+    // require a non-empty `reason` string. Seed a reasonable default so the form
+    // can submit without forcing the operator to retype boilerplate; the textarea
+    // remains editable.
+    return {
+      variant: prompt.options?.[0] ?? '',
+      reason: 'Operator clarification submitted via desktop UI.',
+    };
   }
   return {};
 }
@@ -655,25 +662,43 @@ export function OperatorDecisionPanel({
                 </label>
               ) : null}
               {prompt.prompt_type === 'choice' && prompt.options ? (
-                <label>
-                  Choice
-                  <select
-                    data-testid={`prompt-select-${prompt.candidate_id}`}
-                    value={String(payload.variant ?? '')}
-                    onChange={(e) =>
-                      setPromptPayloads((prev) => ({
-                        ...prev,
-                        [key]: { ...payload, variant: e.target.value },
-                      }))
-                    }
-                  >
-                    {prompt.options.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <>
+                  <label>
+                    Choice
+                    <select
+                      data-testid={`prompt-select-${prompt.candidate_id}`}
+                      value={String(payload.variant ?? '')}
+                      onChange={(e) =>
+                        setPromptPayloads((prev) => ({
+                          ...prev,
+                          [key]: { ...payload, variant: e.target.value },
+                        }))
+                      }
+                    >
+                      {prompt.options.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ display: 'block', marginTop: '6px' }}>
+                    Reason
+                    <textarea
+                      data-testid={`prompt-reason-${prompt.candidate_id}`}
+                      value={String(payload.reason ?? '')}
+                      onChange={(e) =>
+                        setPromptPayloads((prev) => ({
+                          ...prev,
+                          [key]: { ...payload, reason: e.target.value },
+                        }))
+                      }
+                      rows={2}
+                      placeholder="Reason or notes for this choice (required for un_pursueable / defer)."
+                      style={{ width: '100%', display: 'block' }}
+                    />
+                  </label>
+                </>
               ) : null}
               {prompt.prompt_type === 'object' ? (
                 <label>

@@ -118,6 +118,11 @@ describe('FT.5 — Clarification form maps prompt_type to input control', () => 
     expect(html).toContain('no_priced_supplier');
   });
 
+  it('renders a reason textarea for prompt_type=choice so un_pursueable/defer payloads include the daemon-required `reason` field', () => {
+    const html = panel({ prompts: PROMPTS_CHOICE });
+    expect(html).toContain('data-testid="prompt-reason-cand-2"');
+  });
+
   it('renders a JSON textarea for prompt_type=object', () => {
     const html = panel({ prompts: PROMPTS_OBJECT });
     expect(html).toContain('data-testid="prompt-json-cand-3"');
