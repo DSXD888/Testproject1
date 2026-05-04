@@ -87,6 +87,8 @@ Read `AGENTS.md` first. This handoff is comprehensive (~1000 lines) by design.
 
 **Parallel-safety**: this handoff runs the full pipeline end-to-end and writes extensively to a NEW isolated state.db. **Do NOT run this concurrently with any other handoff.** Especially do not run alongside any handoff that rebuilds the daemon binary mid-flight (that's how the schema epoch footgun manifested last time).
 
+**Time budget expectation**: the full pipeline against a single spotlight typically takes **3-8 hours** depending on the wait period (D3) and how many marketplaces fail/retry. Stage 1 ingestion: 5-15 min. Stages 2-3: <1 min (deterministic). Stage 4a interest: 2-5 min. Stage 4-wait: 0 to days (D3.1 zero, D3.2 zero, D3.3 hours+). Stage 4b enrich + auto Stage 8: 5-30 min per spotlight. Stage 9 marketplace-coverage: 5-30 min PER MARKETPLACE × 5 marketplaces = potentially 30-150 min. Stage 10 pipeline re-run: <1 min. Stage 11 landed-cost: 5-15 min if domestic, 15-45 min if import (HMRC + sizing + SeaRates + FX chain). Stages 12-14: <2 min each. §4 UI walkthrough: 15-30 min including screenshots. Plan accordingly; don't expect this to fit in 30 min.
+
 ---
 
 ## §1 — DECISIONS ALREADY MADE
@@ -378,34 +380,44 @@ SELECT * FROM lot_qualifications WHERE lot_id IN
 
 ### Stage 8 — Extract products (PDF cascade)
 
-**Trigger**: queue PDF jobs via skill-path or run-next-job:
+**IMPORTANT — this stage is mostly AUTO-TRIGGERED by Stage 4b**. `run_procontract_enrich_tender_live_loop` at `crates/daemon/src/main.rs:15795+` calls `drain_pending_extraction_jobs(runtime, cli, &extraction_process_ids)` at lines 15846 and 15892 — so structural (docling) + semantic (tender-spec skill) extraction runs automatically against the just-enriched documents. **You should normally NOT need to manually queue PDF jobs.** First, verify auto-trigger ran:
 
 ```bash
-# Identify spotlight PDFs
+sqlite3 -header "$E2E_STATE_ROOT/state.db" "
+SELECT id, semantic_extraction_state, structural_extraction_state, page_count
+FROM document_extractions WHERE process_id='$SPOTLIGHT_PID';
+"
+```
+
+If you see rows with both states ∈ {`complete`, `partial`}, auto-trigger worked — proceed to validation queries below.
+
+**Manual fallback (only if auto-trigger silently produced 0 rows OR a stuck `pending` row needs re-driving)**:
+
+```bash
+# Identify spotlight PDFs first
 ls $E2E_ARTIFACT_ROOT/downloads/procontract/*/*.pdf | head -10
 
-# Drive structural extraction (docling) per PDF if not auto-queued, then semantic
-# Semantic extraction is the test target for the "focused markdown" chunking fix.
-# For each PDF, queue:
+# OPTION A — drain any leftover queued PDF jobs (preferred fallback):
+while $E2E_DAEMON --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" \
+        --run-next-job 2>&1 | tee -a /tmp/e2e_v2_stage8_runner.log | grep -q "completed"; do :; done
+
+# OPTION B — explicit per-PDF semantic invocation (debug only; structural must already be done):
 $E2E_DAEMON --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" \
   --skill-path skills/pdf-extraction/tender-specification \
   --job-parameters-json '{"process_id":"'$SPOTLIGHT_PID'", "document_paths":["<absolute pdf path>"]}' \
   2>&1 | tee /tmp/e2e_v2_stage8_pdf.log
-
-# OR drain the queued jobs:
-while $E2E_DAEMON --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" \
-        --run-next-job 2>&1 | tee -a /tmp/e2e_v2_stage8_runner.log | grep -q "completed"; do :; done
 ```
 
 **Validation queries** (Stage 8 + commercial-basis quantity persistence):
 
 ```sql
--- Stage 8 candidates exist
+-- Stage 8 candidates exist (run AFTER both auto-trigger from Stage 4b finishes AND any
+-- subsequent --pipeline procontract that emits product_candidates from semantic extractions)
 SELECT id, name, candidate_kind, identity_confidence_bps, quoteability_score_bps,
        quantity, quantity_unit, quantity_confidence_bps
 FROM product_candidates WHERE process_id='$SPOTLIGHT_PID';
 
--- Document extractions
+-- Document extractions (states should be 'complete' or 'partial', NOT 'pending'/'failed')
 SELECT id, semantic_extraction_state, structural_extraction_state, page_count
 FROM document_extractions WHERE process_id='$SPOTLIGHT_PID';
 
@@ -413,6 +425,8 @@ FROM document_extractions WHERE process_id='$SPOTLIGHT_PID';
 SELECT id, confidence_bps, json_extract(extraction_json, '$.products') AS products
 FROM document_semantic_extractions WHERE process_id='$SPOTLIGHT_PID' LIMIT 5;
 ```
+
+**If `product_candidates` has 0 rows for the spotlight after Stage 8**, the pipeline can still be exercised but Stages 9-13 will produce 0 rows downstream. Document this case honestly in the validation manifest as "spotlight produced no extractable candidates" — pick a different spotlight if R.11+ require non-zero. Common causes: PDFs were boilerplate/legal text only, semantic extraction returned no products, or the spotlight is a service contract where product candidates aren't expected.
 
 **Fix-verification (R.33)**: large mechanical specs must complete (no timeout-pending forever). If a PDF is >40 pages and the semantic skill takes the full markdown, it would timeout. Verify by checking `agent_session_logs` for the semantic skill — should NOT show `AGENT_STALLED` or run >300s. The focused-markdown chunking should have written `docling-markdown.md` (focused) + `docling-markdown-full.md` (preserved) to the job workdir.
 
@@ -461,6 +475,8 @@ FROM supplier_quotes WHERE product_candidate_id IN
 
 **IMPORTANT**: `--ingest gross-margin` is **NOT** a real dispatcher arm. The actual `--ingest` arms are: `fts`, `contracts-finder`, `procontract`, `procontract-interest`, `procontract-enrich`, `landed-cost`, `net-gate`, `manifest`, `marketplace-coverage`, plus the 5 individual marketplace IDs. Stage 10's gross-margin gate (`run_gross_margin_gate_stage` in `crates/daemon/src/main.rs:21062`) runs as part of `run_deterministic_pipeline` invoked via `--pipeline <source>`. The new role-coverage-aware logic lives inside that function and reads from the `candidate_quote_coverage` table populated by Stage 9.
 
+**Why `--pipeline procontract` is run multiple times in this handoff**: `run_gross_margin_gate_stage` queries `product_candidates pc INNER JOIN supplier_quotes sq ON sq.product_candidate_id = pc.id` (verified at `main.rs:21068+`). It only processes candidates that ALREADY HAVE at least one supplier_quote row. So the first `--pipeline procontract` (after Stage 1-3) processes 0 gross-margin rows because no quotes exist yet. Stage 9 marketplace-coverage adds quotes. Then re-running `--pipeline procontract` lets gross-margin-gate finally process them. This is by design, not a bug.
+
 **Trigger** (re-run the deterministic pipeline so gross-margin-gate processes the new coverage rows):
 
 ```bash
@@ -468,7 +484,7 @@ $E2E_DAEMON --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --ar
   --pipeline procontract 2>&1 | tee /tmp/e2e_v2_stage10_pipeline.log
 ```
 
-The pipeline log should include `gross-margin-gate stage complete` near the end.
+The pipeline log should include `gross-margin-gate stage complete` near the end with `margins_assessed > 0` (assuming Stage 9 produced quotes for at least one spotlight candidate).
 
 **Validation queries** (commercial basis labelling):
 
@@ -862,6 +878,7 @@ Carry forward from previous handoff + new patterns:
 3. **No real-money / no real-bid actions.** Stage 15 stays L6-blocked.
 4. **CDP browser launch is operator-driven.**
 5. **DAEMON BINARY PINNED** — use `$E2E_DAEMON` for every daemon invocation. Do NOT let the desktop's third-fallback launcher rebuild from cargo workspace mid-run (that's how the schema epoch footgun manifested last time). This is enforced by `PROCINTEL_DAEMON_PROGRAM=$E2E_DAEMON` in §4.
+6. **POST-RUN HOUSEKEEPING — schema-epoch bump consequences**: if you bumped `EXPECTED_SCHEMA_EPOCH` to 8 in pre-flight, the desktop now refuses to read any state.db that's still at epoch 7. The live `state/state.db` is at epoch 7 (verified 2026-05-04: migration 0011 has not been applied to it). After this handoff, if anyone launches the desktop without `PROCINTEL_DESKTOP_STATE_ROOT` pointing at an epoch-8 DB, the desktop will report `SchemaMismatch` (per the check at `apps/desktop/src-tauri/src/main.rs:884-892`). To migrate live state.db cleanly, run `target/debug/daemon --state-root state --dry-run` against it — the daemon's open path applies pending migrations on first connect. **DOCUMENT** this in the validation manifest's "operational notes" section so future sessions don't assume the live DB is broken.
 6. **Stage 14 demo state in live DB MUST remain intact** — sha256 hash check.
 7. **Bug fixes per D6 scope**.
 8. **Quality gates per R.27/R.28 mandatory** — daemon binary tests at 202 (or 202+N if regressions added).
