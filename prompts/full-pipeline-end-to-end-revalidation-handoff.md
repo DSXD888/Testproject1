@@ -72,7 +72,7 @@ Read `AGENTS.md` first. This handoff is comprehensive (~1000 lines) by design.
 | Daemon binary builds: `target/debug/daemon` exists and is up to date | `cargo build -p daemon --bin daemon; ls -la target/debug/daemon` |
 | `crates/daemon/src/db/sqlite.rs:73` declares `pub const DEFAULT_SCHEMA_EPOCH: i64 = 8` | `grep -n "pub const DEFAULT_SCHEMA_EPOCH" crates/daemon/src/db/sqlite.rs` (expected: 8) |
 | **CRITICAL — SCHEMA EPOCH ALIGNMENT CHECK**: `apps/desktop/src-tauri/src/main.rs:51` declares `const EXPECTED_SCHEMA_EPOCH: i64 = N`. **It MUST match the daemon's value (8)**. If desktop is at 7 and daemon at 8, the UI bridge will refuse with `schema epoch mismatch: database has 8, daemon expects 7`. The previous E2E run hit this footgun mid-flight when a concurrent rebuild bumped the daemon to 8 while desktop was still at 7. | `grep -n "EXPECTED_SCHEMA_EPOCH:" apps/desktop/src-tauri/src/main.rs apps/desktop/src-tauri/src/daemon_bridge.rs` |
-| **IF SCHEMA EPOCHS ARE MISMATCHED**: this is the FIRST FIX of the handoff. Bump `EXPECTED_SCHEMA_EPOCH` (and the matching constant in `apps/desktop/src-tauri/src/daemon_bridge.rs:16`) to match the daemon's `DEFAULT_SCHEMA_EPOCH`. Re-run vitest + Tauri Rust tests. Commit before proceeding. | inline fix |
+| **IF SCHEMA EPOCHS ARE MISMATCHED**: this is the FIRST FIX of the handoff. Bumping `EXPECTED_SCHEMA_EPOCH` requires updating **8 locations** (verified 2026-05-04): `apps/desktop/src-tauri/src/main.rs:51`, `apps/desktop/src-tauri/src/query_service.rs:14`, `apps/desktop/src-tauri/src/daemon_bridge.rs:16` (the constant `DEFAULT_SCHEMA_EPOCH`), `apps/desktop/src-tauri/tests/support/native_shell.rs:20`, `apps/desktop/src-tauri/tests/native_shell.rs:21`, plus 4 fixture JSON values that hard-code `"schemaEpoch": 7` in `apps/desktop/src-tauri/tests/query_service.rs:42`, `apps/desktop/src-tauri/tests/daemon_bridge.rs:59,120,209`. Use `rg -l '\\b7\\b' apps/desktop/src-tauri/ \| xargs grep -n 'EXPECTED_SCHEMA_EPOCH\\|DEFAULT_SCHEMA_EPOCH\\|schemaEpoch' \| grep ': *7\\\|= 7'` to enumerate before editing. After bumping, re-run `cargo test -p procintel-desktop` (all 4 test files) + `cd apps/desktop && bunx vitest run`. Commit BEFORE proceeding. | inline fix |
 | Migration `0011_commercial_basis_coverage.sql` exists; declares `candidate_quote_coverage` table + adds 10 columns to `candidate_pricing_assessments` (`commercial_basis_kind`, `normal_quote_coverage`, `uk_quote_id`, `china_import_quote_id`, `benchmark_quote_id`, `selected_supply_quote_id`, `supplier_spread_bps`, `fallback_discount_bps`, `missing_required_roles_json`, `coverage_evidence_json`) | `cat migrations/0011_commercial_basis_coverage.sql` |
 | New CLI dispatcher wired: `--ingest marketplace-coverage` (Stage 9 orchestration). **Note**: `--ingest gross-margin` is NOT a real dispatcher arm — Stage 10 runs as part of `--pipeline procontract` via `run_gross_margin_gate_stage` in the deterministic chain. Verify only `marketplace-coverage` returns | `grep -n '"marketplace-coverage" =>\|"gross-margin" =>' crates/daemon/src/main.rs` (expected: only `marketplace-coverage` matches) |
 | Stage 1-14 dispatchers all wired (verify with grep — exact lines drift; current ranges fts ~1273+, contracts-finder ~1277, procontract ~1278, marketplace-coverage ~1319+, landed-cost/net-gate/manifest in same block) | `grep -n '"fts" =>\|"contracts-finder" =>\|"procontract" =>\|"manifest" =>\|"net-gate" =>\|"landed-cost" =>\|"marketplace-coverage" =>\|"gross-margin" =>' crates/daemon/src/main.rs \| head -15` |
@@ -99,6 +99,10 @@ export E2E_STATE_ROOT="state-e2e-$E2E_TS"
 export E2E_RUNTIME_DIR="runtime-e2e-$E2E_TS"
 export E2E_ARTIFACT_ROOT="artifacts-e2e-$E2E_TS"
 export E2E_TARGET_DIR="/tmp/testproject1-target-e2e-$E2E_TS"
+
+# RUN_START_AT is the timestamp the agent uses to filter "this run's" rows out of
+# `process_stage_status`, `agent_session_logs`, etc. Capture once at the start.
+export RUN_START_AT="$(date -u -Iseconds)"
 
 mkdir "$E2E_STATE_ROOT" "$E2E_RUNTIME_DIR" "$E2E_ARTIFACT_ROOT"
 
@@ -333,10 +337,10 @@ $E2E_DAEMON --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --ar
 ```sql
 SELECT COUNT(DISTINCT process_id) FROM process_stage_status
 WHERE stage='interest_registration' AND state IN ('succeeded','completed')
-  AND updated_at >= '<run start ISO timestamp>';
+  AND updated_at >= '<insert $RUN_START_AT here, e.g. 2026-05-04T15:30:00+00:00>';
 ```
 
-**Must be ≤3**. If >3, the cap regressed — bug.
+(`$RUN_START_AT` is the env var captured at the top of D1.) **Must be ≤3**. If >3, the cap regressed — bug.
 
 ### Stage 4-wait
 
@@ -412,7 +416,7 @@ FROM document_semantic_extractions WHERE process_id='$SPOTLIGHT_PID' LIMIT 5;
 
 **Fix-verification (R.33)**: large mechanical specs must complete (no timeout-pending forever). If a PDF is >40 pages and the semantic skill takes the full markdown, it would timeout. Verify by checking `agent_session_logs` for the semantic skill — should NOT show `AGENT_STALLED` or run >300s. The focused-markdown chunking should have written `docling-markdown.md` (focused) + `docling-markdown-full.md` (preserved) to the job workdir.
 
-**Commercial-basis check (R.34)**: if spotlight had explicit quantity hints in source documents (e.g., "2no boilers", "qty: 5"), `product_candidates.quantity` should be populated. Verify with the validation query above. NULL is acceptable if the document had no explicit quantity.
+**Commercial-basis check (R.34)**: if spotlight had explicit quantity hints in source documents (e.g., "2no boilers", "qty: 5"), `product_candidates.quantity` should be populated (numeric, NON-NULL) AND `quantity_confidence_bps` should be > 5000 (the typical band for explicit hints; defaults observed: 9200 for direct numeric, 8000 for parseable hint, 7800 for inferred, 1000 for low-confidence). The Woodhouses regression was: high `quantity_confidence_bps` (e.g., 8500) but NULL `quantity` — the fix populates both. NULL `quantity` is acceptable ONLY if the document had no explicit quantity AND `quantity_confidence_bps` is also low (<3000).
 
 ### Stage 9 — Marketplace coverage (NEW orchestrated path)
 
@@ -447,7 +451,11 @@ FROM supplier_quotes WHERE product_candidate_id IN
 
 **Fix-verification (R.35)**: coverage table MUST have rows for BOTH `uk_side_quote` AND `china_import_quote` required_role values for the spotlight. If only `uk_side_quote` exists, the orchestration regressed. Failed Alibaba attempts should persist as `coverage_state='attempted_failed'` with explicit `latest_failure_mode`.
 
-**Fix-verification (R.36)**: PTY supervisor must terminate hung marketplace skills. Check `agent_session_logs.cleanup_verdict` for marketplace sessions — should be `clean` or `terminated_after_result_contract`. If `forced` after the per-attempt budget elapsed, that's the supervisor doing its job (acceptable; means a child genuinely hung and was reaped).
+**Fix-verification (R.36)**: PTY supervisor must terminate hung marketplace skills. Check `agent_session_logs.cleanup_verdict` for marketplace sessions (PTY mode). The PTY producer at `crates/daemon/src/main.rs:14917-14922` emits exactly three values: `"clean"` (default success), `"terminated_after_result_contract"` (child wrote result.json then was SIGTERM'd by the bounded supervisor — this is the FIX in action), or `"terminated_after_timeout"` (hard timeout fired before result.json appeared). All three are acceptable. A session WITHOUT a verdict (NULL) on a PTY skill that ran to completion suggests the bounded supervisor regressed.
+
+**Marketplace-coverage failure-cascade behavior (operational note)**: `run_marketplace_coverage_live_loop` at `crates/daemon/src/main.rs:16225-16258` iterates the 5 marketplaces in this exact order: `amazon-uk` → `ebay-uk` → `gem-imports` → `mx-wholesale` → `alibaba-search`. **It BAILS at the first failure** — if amazon-uk hits captcha or auth, gem/mx/alibaba never run. If coverage bails partway, the agent has two paths:
+- Drive the failed marketplace individually (`--ingest amazon-uk`) to debug the specific failure, then re-run `--ingest marketplace-coverage` to pick up where it left off.
+- OR drive the remaining marketplaces individually and document the partial coverage in the validation manifest. R.35 still requires both `uk_side_quote` AND `china_import_quote` rows in `candidate_quote_coverage` — without alibaba-search running, only `uk_side_quote` rows exist.
 
 ### Stage 10 — Gross margin (role-coverage-aware logic inside the deterministic pipeline)
 
@@ -514,7 +522,7 @@ WHERE lce.product_candidate_id IN (SELECT id FROM product_candidates WHERE proce
 
 **Commercial-basis check (R.39)**: `confidence_breakdown.commercial_basis.kind` should mirror Stage 10's `commercial_basis_kind`. If they disagree, the Stage 11 hand-off reads stale Stage 10 state.
 
-**Fix-verification (R.40)**: contract-mode skills (HMRC customs, SeaRates freight, sizing, FX) must NOT hang. Check agent_session_logs for these sessions — `cleanup_verdict` should be `clean` or `terminated_after_timeout` (if a skill genuinely hung). No session should run >`CONTRACT_SKILL_TIMEOUT_SECONDS` without termination.
+**Fix-verification (R.40)**: contract-mode skills (HMRC customs, SeaRates freight, sizing, FX) must NOT hang. Check `agent_session_logs.cleanup_verdict` for these sessions (contract mode, NOT PTY). The contract-mode producer at `crates/daemon/src/main.rs:11307-11312` emits a DIFFERENT set than PTY: `"clean"`, `"terminated_after_result"` (NOTE: no `_contract` suffix — distinct from the PTY string), or `"terminated_after_timeout"`. Verify no session ran >`CONTRACT_SKILL_TIMEOUT_SECONDS` (default 600s) without termination.
 
 ### Stage 12 — Net margin gate
 
@@ -716,11 +724,11 @@ R.31-R.40 are NEW for this re-drive — verify every previously-fixed bug + comm
 | R.33 | **Semantic chunking fix holds**: any spotlight PDF >40 pages has `docling-markdown.md` (focused) AND `docling-markdown-full.md` (preserved) in its job workdir; semantic skill completed within timeout |
 | R.34 | **Stage 8 quantity persistence holds**: if any spotlight source document has explicit quantity hints, `product_candidates.quantity` populated (NULL acceptable only when document had no explicit hint) |
 | R.35 | **Marketplace coverage orchestration holds**: spotlight has rows in `candidate_quote_coverage` for BOTH `uk_side_quote` AND `china_import_quote` required_role values (each row has `attempted=1`) |
-| R.36 | **PTY supervisor holds**: marketplace skill sessions in agent_session_logs have `cleanup_verdict` ∈ {`clean`, `terminated_after_result_contract`}. None in `forced` after >`PTY_SKILL_TIMEOUT_SECONDS` (default 1200s). |
+| R.36 | **PTY supervisor holds**: marketplace skill sessions (PTY mode) in agent_session_logs have `cleanup_verdict` ∈ {`clean`, `terminated_after_result_contract`, `terminated_after_timeout`} — the 3 strings produced by the PTY path at `main.rs:14917`. No NULL verdict on a completed PTY session. |
 | R.37 | **Stage 10 commercial_basis_kind correctly labelled**: spotlight's `candidate_pricing_assessments.commercial_basis_kind` is one of the 5 real constants declared at `main.rs:238-241` (`two_sided_supplier_comparison` / `single_side_retail_discount_fallback` / `single_side_wholesale_fallback` / `missing_required_quote_role_attempt` / `legacy_single_quote`); for spotlight rows freshly created during this run, NOT `legacy_single_quote` |
 | R.38 | **Stage 11 quantity safety holds**: spotlight's lce confidence_breakdown does NOT contain non-integer `order_quantity_basis.qty` derived from whole-lot value when Stage 10 used allocated revenue. The "42.39 boilers" pattern must NOT recur. |
 | R.39 | **Stage 11/10 commercial basis consistency**: lce `confidence_breakdown.commercial_basis.kind` matches Stage 10's `commercial_basis_kind` for the same candidate |
-| R.40 | **Contract-mode skill timeout holds**: HMRC/SeaRates/sizing/FX sessions in agent_session_logs do not exceed `CONTRACT_SKILL_TIMEOUT_SECONDS` without termination; `cleanup_verdict` set appropriately |
+| R.40 | **Contract-mode skill timeout holds**: HMRC/SeaRates/sizing/FX sessions (contract mode) in agent_session_logs do not exceed `CONTRACT_SKILL_TIMEOUT_SECONDS` (default 600s) without termination; `cleanup_verdict` ∈ {`clean`, `terminated_after_result`, `terminated_after_timeout`} — the 3 strings produced by the contract-mode path at `main.rs:11307` (note: `terminated_after_result` lacks the `_contract` suffix that PTY uses) |
 
 ---
 
@@ -820,7 +828,7 @@ FROM operator_input_overrides WHERE product_candidate_id IN
 echo "=== Fix-verification: agent_session_logs cleanup verdicts ==="
 sqlite3 -header "$DB" "
 SELECT skill_path, status, cleanup_verdict, COUNT(*) FROM agent_session_logs
-WHERE started_at >= '<run start>' GROUP BY 1, 2, 3 ORDER BY 1;
+WHERE started_at >= '${RUN_START_AT:-2026-01-01T00:00:00Z}' GROUP BY 1, 2, 3 ORDER BY 1;
 "
 ```
 
@@ -989,7 +997,7 @@ for t in crates/daemon/tests/*.rs; do cargo test --test "$(basename "$t" .rs)" |
 - This is a **CONFIRMATION run**, not a build run. The point is to verify all the fixes from the previous E2E iteration land correctly under live load. Bugs surfacing here would be REGRESSIONS — treat them seriously.
 - The schema epoch alignment is the hardest pre-flight requirement. Get it right BEFORE starting; fix-and-commit if mismatched; don't try to work around mid-flight.
 - Pin the daemon binary via `$E2E_DAEMON` and `PROCINTEL_DAEMON_PROGRAM` so the desktop never rebuilds it during the run. This eliminates the previous footgun by construction.
-- The Woodhouses boiler spotlight from the previous run remains the canonical "shape" for what this re-drive validates. Today's spotlight will be different but should exercise the same characteristics: physical goods, marketplace-priceable, tender-stage with documents.
+- The Woodhouses boiler spotlight from the previous run is **REFERENCE HISTORY ONLY**, NOT this run's target. Today's spotlight is a fresh process picked from today's `--ingest procontract` batch via the D2 query. Do not try to re-drive Woodhouses; do not touch `state-e2e-20260504T113157Z`. Pick fresh, pick goods-like, pick auto-grant-eligible. The Woodhouses shape (boilers, BMS panels, mechanical schedule) is the validation TARGET TYPE — your spotlight should be similar in character (clear product spec, marketplace-priceable, tender-stage with documents).
 - The new commercial-basis state machine is the most consequential change since the previous run. R.31-R.40 are how we verify it works honestly — a passing R.37 says "Stage 10 told the truth about what coverage it had", which is exactly the kind of operational integrity the platform relies on.
 - The "42.39 boilers" check (R.38) is the single most important regression check. If basis_qty comes back as a non-integer fractional value derived from whole-lot value, the fix regressed and the operator could plan a bid based on garbage quantity inference. Catch this if it recurs.
 - After this handoff lands GREEN, the L1-L3 product can credibly claim "validated end-to-end on real procurement data, with the new commercial-basis state machine demonstrating honest commercial-readiness labelling and quantity safety, AND with every previously-found bug confirmed-not-regressed under continuous live load." That's the threshold for stakeholder demo + L4 build start (whichever comes first).
