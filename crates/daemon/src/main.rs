@@ -109,7 +109,7 @@ use std::ffi::OsString;
 use std::fmt::Write as _;
 use std::fs;
 use std::future::Future;
-use std::io::ErrorKind;
+use std::io::{ErrorKind, Read};
 use std::net::{Shutdown, SocketAddr, TcpStream};
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
@@ -118,6 +118,7 @@ use std::pin::Pin;
 use std::process;
 use std::process::Stdio;
 use std::sync::Mutex;
+use std::thread;
 use std::time::{Duration, Instant};
 
 use agents::adapter::{
@@ -1004,6 +1005,9 @@ struct ProcontractInterestEvaluation {
     pre_filter_result: Value,
 }
 
+const MAX_PROCONTRACT_INTEREST_REGISTRATIONS_PER_RUN: usize = 3;
+const CONTRACT_SKILL_TIMEOUT_SECONDS: u64 = 600;
+
 #[derive(Debug, Clone)]
 struct ExecutedSession {
     session_id: String,
@@ -1766,12 +1770,19 @@ async fn run_extract_document_semantics_job(
         let request = parse_semantic_extraction_request(&claimed.input_payload)?;
         let skill = load_pdf_extraction_skill(&request.skill_id)?;
         let session_id = format!("session-semantic-{}", sha256_hex(claimed.id.as_bytes()));
+        let semantic_job_parameters = prepare_semantic_skill_job_parameters(
+            runtime.state_db.connection(),
+            &runtime.artifact_root,
+            &claimed.id,
+            &claimed.input_payload,
+            &request,
+        )?;
         let executed = execute_skill_session(
             runtime,
             &skill,
             &claimed.id,
             &session_id,
-            &claimed.input_payload,
+            &semantic_job_parameters,
             cli,
         )
         .await?;
@@ -1883,6 +1894,151 @@ fn parse_semantic_extraction_request(payload: &Value) -> Result<SemanticExtracti
         .or_else(|| payload.get("request"))
         .unwrap_or(payload);
     serde_json::from_value(request.clone()).context("parsing semantic extraction job request")
+}
+
+#[derive(Debug, Clone)]
+struct SemanticSkillInputContext {
+    raw_document_id: String,
+    notice_id: Option<String>,
+    document_set_id: Option<String>,
+    document_title: Option<String>,
+    document_role: Option<String>,
+    extraction_policy_version: String,
+    page_count: i64,
+    table_count: i64,
+    section_count: i64,
+    extracted_markdown: String,
+    extracted_sections_json: String,
+    extracted_tables_json: String,
+    extracted_metadata_json: String,
+    raw_content_type: Option<String>,
+    raw_source_url: Option<String>,
+    raw_storage_path: Option<String>,
+    raw_metadata_json: Option<String>,
+    notice_title: Option<String>,
+    buyer_name: Option<String>,
+    main_category: Option<String>,
+}
+
+fn prepare_semantic_skill_job_parameters(
+    conn: &Connection,
+    artifact_root: &Path,
+    job_id: &str,
+    base_payload: &Value,
+    request: &SemanticExtractionJobRequest,
+) -> Result<Value> {
+    let context = load_semantic_skill_input_context(conn, &request.document_extraction_id)?;
+    let input_dir = artifact_root
+        .join("pdf-extraction-inputs")
+        .join(slug_token(&request.document_extraction_id))
+        .join(slug_token(job_id));
+    fs::create_dir_all(&input_dir).with_context(|| {
+        format!(
+            "creating semantic extraction input dir {}",
+            input_dir.display()
+        )
+    })?;
+
+    let markdown_path = input_dir.join("docling-markdown.md");
+    let sections_path = input_dir.join("docling-sections.json");
+    let tables_path = input_dir.join("docling-tables.json");
+    let metadata_path = input_dir.join("docling-metadata.json");
+    fs::write(&markdown_path, &context.extracted_markdown)
+        .with_context(|| format!("writing {}", markdown_path.display()))?;
+    fs::write(&sections_path, &context.extracted_sections_json)
+        .with_context(|| format!("writing {}", sections_path.display()))?;
+    fs::write(&tables_path, &context.extracted_tables_json)
+        .with_context(|| format!("writing {}", tables_path.display()))?;
+    fs::write(&metadata_path, &context.extracted_metadata_json)
+        .with_context(|| format!("writing {}", metadata_path.display()))?;
+
+    let mut payload = base_payload.clone();
+    let payload_object = payload
+        .as_object_mut()
+        .ok_or_else(|| anyhow!("semantic extraction job payload must be a JSON object"))?;
+    payload_object.insert(
+        "semantic_extraction_input".to_owned(),
+        json!({
+            "instruction": "Use these prepared Docling extraction artifacts directly. Do not scan the repository or search the filesystem for this document.",
+            "markdown_path": markdown_path,
+            "sections_json_path": sections_path,
+            "tables_json_path": tables_path,
+            "metadata_json_path": metadata_path,
+            "markdown_excerpt": context.extracted_markdown.chars().take(4_000).collect::<String>(),
+            "document_metadata": {
+                "document_extraction_id": request.document_extraction_id,
+                "raw_document_id": context.raw_document_id,
+                "notice_id": context.notice_id,
+                "document_set_id": context.document_set_id,
+                "document_title": context.document_title,
+                "document_role": context.document_role,
+                "extraction_policy_version": context.extraction_policy_version,
+                "page_count": context.page_count,
+                "table_count": context.table_count,
+                "section_count": context.section_count,
+                "raw_content_type": context.raw_content_type,
+                "raw_source_url": context.raw_source_url,
+                "raw_storage_path": context.raw_storage_path,
+                "raw_metadata": parse_json_or_null(context.raw_metadata_json.as_deref()),
+            },
+            "process_context": {
+                "process_id": request.process_id,
+                "notice_id": context.notice_id,
+                "notice_title": context.notice_title,
+                "buyer_name": context.buyer_name,
+                "main_category": context.main_category,
+            },
+        }),
+    );
+    Ok(payload)
+}
+
+fn load_semantic_skill_input_context(
+    conn: &Connection,
+    document_extraction_id: &str,
+) -> Result<SemanticSkillInputContext> {
+    conn.query_row(
+        "\
+        SELECT de.raw_document_id, de.notice_id, de.document_set_id, de.document_title,
+               de.document_role, de.extraction_policy_version, de.page_count, de.table_count,
+               de.section_count, de.extracted_markdown, de.extracted_sections_json,
+               de.extracted_tables_json, de.extracted_metadata_json, rd.content_type,
+               rd.source_url, rd.storage_path, rd.metadata, cn.title, cn.buyer_name,
+               cn.main_category
+        FROM document_extractions de
+        LEFT JOIN raw_documents rd ON rd.id = de.raw_document_id
+        LEFT JOIN contract_notices cn ON cn.id = de.notice_id
+        WHERE de.id = ?1
+        ",
+        params![document_extraction_id],
+        |row| {
+            Ok(SemanticSkillInputContext {
+                raw_document_id: row.get(0)?,
+                notice_id: row.get(1)?,
+                document_set_id: row.get(2)?,
+                document_title: row.get(3)?,
+                document_role: row.get(4)?,
+                extraction_policy_version: row.get(5)?,
+                page_count: row.get(6)?,
+                table_count: row.get(7)?,
+                section_count: row.get(8)?,
+                extracted_markdown: row.get(9)?,
+                extracted_sections_json: row.get(10)?,
+                extracted_tables_json: row.get(11)?,
+                extracted_metadata_json: row.get(12)?,
+                raw_content_type: row.get(13)?,
+                raw_source_url: row.get(14)?,
+                raw_storage_path: row.get(15)?,
+                raw_metadata_json: row.get(16)?,
+                notice_title: row.get(17)?,
+                buyer_name: row.get(18)?,
+                main_category: row.get(19)?,
+            })
+        },
+    )
+    .with_context(|| {
+        format!("loading semantic extraction input context for {document_extraction_id}")
+    })
 }
 
 fn parse_processing_strategy(raw: Option<&str>) -> Result<ProcessingStrategy> {
@@ -10890,8 +11046,9 @@ fn load_procontract_interest_candidates(
             FROM process_stage_status pss
             WHERE pss.process_id = cn.process_id
               AND pss.stage = 'interest_registration'
+              AND pss.state IN ('completed', 'succeeded', 'skipped')
           )
-        ORDER BY COALESCE(cn.deadline_at, '9999-12-31T23:59:59Z'), cn.source_updated_at DESC, cn.id
+        ORDER BY cn.source_updated_at DESC, COALESCE(cn.deadline_at, '9999-12-31T23:59:59Z'), cn.id
         ",
     )?;
 
@@ -11049,6 +11206,17 @@ fn evaluation_report_entry(evaluation: &ProcontractInterestEvaluation) -> Value 
     })
 }
 
+fn procontract_interest_registration_targets(
+    evaluations: &[ProcontractInterestEvaluation],
+) -> Vec<Value> {
+    evaluations
+        .iter()
+        .filter(|evaluation| evaluation.action == "register")
+        .take(MAX_PROCONTRACT_INTEREST_REGISTRATIONS_PER_RUN)
+        .map(registration_job_entry)
+        .collect()
+}
+
 fn registration_job_entry(evaluation: &ProcontractInterestEvaluation) -> Value {
     json!({
         "notice_id": evaluation.notice_id,
@@ -11175,10 +11343,27 @@ fn resolve_enrichment_notice(
     tx: &Transaction<'_>,
     notice_id: &str,
     title: &str,
+    buyer_name: &str,
     hinted_process_id: Option<&str>,
 ) -> Result<(String, String)> {
-    if let Some(process_id) = hinted_process_id {
-        return Ok((notice_id.to_owned(), process_id.to_owned()));
+    if let Some(process_id) = hinted_process_id
+        && let Some(primary_notice_id) = tx
+            .query_row(
+                "SELECT primary_notice_id FROM procurement_processes WHERE id = ?1",
+                params![process_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+    {
+        let resolved_notice_id = tx
+            .query_row(
+                "SELECT id FROM contract_notices WHERE id = ?1",
+                params![notice_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .unwrap_or(primary_notice_id);
+        return Ok((resolved_notice_id, process_id.to_owned()));
     }
 
     if let Ok(process_id) = tx.query_row(
@@ -11220,7 +11405,81 @@ fn resolve_enrichment_notice(
         }
     }
 
+    if let Some(resolved) = resolve_enrichment_notice_by_similarity(tx, title, buyer_name)? {
+        return Ok(resolved);
+    }
+
     bail!("cannot resolve ProContract notice for id={notice_id} title={title}")
+}
+
+fn title_match_tokens(title: &str) -> BTreeSet<String> {
+    title
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .map(str::to_ascii_lowercase)
+        .filter(|token| token.len() > 2)
+        .collect()
+}
+
+fn title_token_overlap_bps(left: &str, right: &str) -> usize {
+    let left_tokens = title_match_tokens(left);
+    let right_tokens = title_match_tokens(right);
+    let denominator = left_tokens.len().max(right_tokens.len());
+    if denominator == 0 {
+        return 0;
+    }
+    let intersection = left_tokens.intersection(&right_tokens).count();
+    intersection * 10_000 / denominator
+}
+
+fn buyer_names_match(left: &str, right: &str) -> bool {
+    let left = left.trim().to_ascii_lowercase();
+    let right = right.trim().to_ascii_lowercase();
+    left.is_empty()
+        || right.is_empty()
+        || left == right
+        || left.contains(&right)
+        || right.contains(&left)
+}
+
+fn resolve_enrichment_notice_by_similarity(
+    tx: &Transaction<'_>,
+    title: &str,
+    buyer_name: &str,
+) -> Result<Option<(String, String)>> {
+    let mut statement = tx.prepare(
+        "\
+        SELECT id, process_id, title, COALESCE(buyer_name, '')
+        FROM contract_notices
+        WHERE source_id = 'procontract'
+        ",
+    )?;
+    let candidates = statement
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    let mut best_match: Option<(usize, String, String)> = None;
+    for (notice_id, process_id, candidate_title, candidate_buyer) in candidates {
+        let score = title_token_overlap_bps(title, &candidate_title);
+        let buyer_matches = buyer_names_match(buyer_name, &candidate_buyer);
+        if score < 7_000 || !buyer_matches {
+            continue;
+        }
+        if best_match
+            .as_ref()
+            .is_none_or(|(best_score, _, _)| score > *best_score)
+        {
+            best_match = Some((score, notice_id, process_id));
+        }
+    }
+
+    Ok(best_match.map(|(_, notice_id, process_id)| (notice_id, process_id)))
 }
 
 fn load_notice_payload(tx: &Transaction<'_>, notice_id: &str) -> Result<Option<Value>> {
@@ -11340,6 +11599,7 @@ fn persist_tender_enrichments(
                 tx,
                 &tender.notice_id,
                 &tender.updated_title,
+                &tender.buyer_name,
                 tender.process_id.as_deref(),
             ) else {
                 continue;
@@ -13651,6 +13911,79 @@ async fn execute_pty_skill_session(
     })
 }
 
+#[derive(Debug)]
+struct ContractChildOutput {
+    output: process::Output,
+    timed_out: bool,
+}
+
+fn read_contract_skill_timeout_seconds() -> u64 {
+    std::env::var("CONTRACT_SKILL_TIMEOUT_SECONDS")
+        .ok()
+        .and_then(|raw| raw.parse::<u64>().ok())
+        .filter(|seconds| *seconds > 0)
+        .unwrap_or(CONTRACT_SKILL_TIMEOUT_SECONDS)
+}
+
+fn wait_for_contract_child_output(
+    mut child: process::Child,
+    runtime_ids: Option<PtyRuntimeIds>,
+    timeout: Duration,
+) -> Result<ContractChildOutput> {
+    let stdout_reader = child.stdout.take().map(spawn_pipe_reader);
+    let stderr_reader = child.stderr.take().map(spawn_pipe_reader);
+    let deadline = Instant::now() + timeout;
+    let mut timed_out = false;
+
+    let status = loop {
+        if let Some(status) = child.try_wait().context("polling contract child status")? {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            timed_out = true;
+            break terminate_landed_cost_child(&mut child, runtime_ids)
+                .context("terminating timed-out contract child")?;
+        }
+        thread::sleep(Duration::from_millis(100));
+    };
+
+    let stdout = join_pipe_reader(stdout_reader, "stdout")?;
+    let stderr = join_pipe_reader(stderr_reader, "stderr")?;
+
+    Ok(ContractChildOutput {
+        output: process::Output {
+            status,
+            stdout,
+            stderr,
+        },
+        timed_out,
+    })
+}
+
+fn spawn_pipe_reader<T>(mut pipe: T) -> thread::JoinHandle<std::io::Result<Vec<u8>>>
+where
+    T: Read + Send + 'static,
+{
+    thread::spawn(move || {
+        let mut buffer = Vec::new();
+        pipe.read_to_end(&mut buffer)?;
+        Ok(buffer)
+    })
+}
+
+fn join_pipe_reader(
+    reader: Option<thread::JoinHandle<std::io::Result<Vec<u8>>>>,
+    stream_name: &str,
+) -> Result<Vec<u8>> {
+    match reader {
+        Some(handle) => handle
+            .join()
+            .map_err(|_| anyhow!("contract child {stream_name} reader thread panicked"))?
+            .with_context(|| format!("reading contract child {stream_name}")),
+        None => Ok(Vec::new()),
+    }
+}
+
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 async fn execute_contract_skill_session(
     artifact_root: &Path,
@@ -13671,6 +14004,10 @@ async fn execute_contract_skill_session(
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    #[cfg(unix)]
+    {
+        command.process_group(0);
+    }
     let child = command.spawn().with_context(|| {
         format!(
             "spawning contract session `{}`",
@@ -13678,9 +14015,10 @@ async fn execute_contract_skill_session(
         )
     })?;
     let runtime_ids = child_runtime_ids(child.id())?;
-    let output = child
-        .wait_with_output()
+    let contract_timeout = Duration::from_secs(read_contract_skill_timeout_seconds());
+    let child_output = wait_for_contract_child_output(child, Some(runtime_ids), contract_timeout)
         .context("waiting for contract child output")?;
+    let output = child_output.output;
     let mut parser = adapter.parser(ExecutionMode::Contract);
     let mut events = vec![ControlEvent::Started {
         pid: runtime_ids.pid,
@@ -13772,7 +14110,11 @@ async fn execute_contract_skill_session(
         terminal_output_tail: Some(forensic_summary.tail.clone()),
         structured_trace,
         exit_code,
-        cleanup_verdict: "clean".to_owned(),
+        cleanup_verdict: if child_output.timed_out {
+            "terminated_after_timeout".to_owned()
+        } else {
+            "clean".to_owned()
+        },
         last_checkpoint_seq,
         result_path,
         artifact_refs: forensic_summary
@@ -14273,11 +14615,7 @@ async fn run_procontract_register_interest_live_loop(
     let evaluations = build_procontract_interest_evaluations(load_procontract_interest_candidates(
         runtime.state_db.connection(),
     )?);
-    let registration_targets = evaluations
-        .iter()
-        .filter(|evaluation| evaluation.action == "register")
-        .map(registration_job_entry)
-        .collect::<Vec<_>>();
+    let registration_targets = procontract_interest_registration_targets(&evaluations);
     let evaluation_report = evaluations
         .iter()
         .map(evaluation_report_entry)
@@ -14410,7 +14748,7 @@ async fn run_procontract_register_interest_live_loop(
     )
 }
 
-#[allow(clippy::future_not_send)]
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
 async fn run_procontract_enrich_tender_live_loop(
     runtime: &mut RuntimeBootstrap,
     cli: &Cli,
@@ -14454,6 +14792,41 @@ async fn run_procontract_enrich_tender_live_loop(
         .claim_job_by_id(runtime.state_db.connection(), &job_id)?
         .ok_or_else(|| anyhow!("expected claimed workflow job for procontract-enrich"))?;
 
+    if let Ok(replay_result_path) = std::env::var("PROCONTRACT_ENRICH_REPLAY_RESULT_JSON") {
+        let result_path = PathBuf::from(replay_result_path);
+        let result_json = read_result_contract(&result_path)?;
+        let persisted_count =
+            persist_tender_enrichments(&mut runtime.state_db, "procontract-enrich", &result_json)?;
+        let extraction_process_ids =
+            procontract_enrichment_process_ids(runtime.state_db.connection(), &result_json)?;
+        let extraction_jobs_processed =
+            drain_pending_extraction_jobs(runtime, cli, &extraction_process_ids)
+                .await
+                .unwrap_or(0);
+        let summary = result_json
+            .get("summary")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+
+        return complete_source_job(
+            runtime,
+            &job_id,
+            &json!({
+                "job_id": job_id,
+                "source_id": "procontract-enrich",
+                "enriched_tenders": persisted_count,
+                "extraction_jobs_processed": extraction_jobs_processed,
+                "summary": summary,
+                "replay_result_path": result_path.to_string_lossy(),
+                "download_root": download_root.to_string_lossy(),
+                "durable_step_surfaces": live_loop_surfaces_json(),
+            }),
+            format!(
+                "procontract tender enrichment replay completed: job_id={job_id} enriched={persisted_count} extractions={extraction_jobs_processed}"
+            ),
+        );
+    }
+
     let session_id = format!("session-pty-{}", sha256_hex(job_id.as_bytes()));
     let executed =
         execute_skill_session(runtime, &skill, &job_id, &session_id, &job_parameters, cli).await?;
@@ -14470,9 +14843,12 @@ async fn run_procontract_enrich_tender_live_loop(
     let persisted_count =
         persist_tender_enrichments(&mut runtime.state_db, "procontract-enrich", &result_json)?;
 
-    let extraction_jobs_processed = drain_pending_extraction_jobs(runtime, cli)
-        .await
-        .unwrap_or(0);
+    let extraction_process_ids =
+        procontract_enrichment_process_ids(runtime.state_db.connection(), &result_json)?;
+    let extraction_jobs_processed =
+        drain_pending_extraction_jobs(runtime, cli, &extraction_process_ids)
+            .await
+            .unwrap_or(0);
 
     let summary = result_json
         .get("summary")
@@ -14504,12 +14880,21 @@ async fn run_procontract_enrich_tender_live_loop(
 /// trigger.  Each structural extraction job may in turn enqueue semantic
 /// extraction jobs, which are also drained here.
 #[allow(clippy::future_not_send)]
-async fn drain_pending_extraction_jobs(runtime: &mut RuntimeBootstrap, cli: &Cli) -> Result<usize> {
+async fn drain_pending_extraction_jobs(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+    process_ids: &[String],
+) -> Result<usize> {
     let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
     let mut processed = 0_usize;
     loop {
-        let Some(claimed) = runner.claim_next_job(runtime.state_db.connection())? else {
+        let Some(job_id) =
+            next_pending_extraction_job_id(runtime.state_db.connection(), process_ids)?
+        else {
             break;
+        };
+        let Some(claimed) = runner.claim_job_by_id(runtime.state_db.connection(), &job_id)? else {
+            continue;
         };
         match claimed.kind.as_str() {
             "extract_document_structure" => {
@@ -14525,10 +14910,9 @@ async fn drain_pending_extraction_jobs(runtime: &mut RuntimeBootstrap, cli: &Cli
                     ::tracing::warn!(%error, "semantic extraction job failed, continuing drain");
                 }
             }
-            _ => {
-                // Not an extraction job — unclaim by breaking out; the job
-                // stays claimed but will expire and become re-claimable.
-                break;
+            other => {
+                ::tracing::warn!(%job_id, job_kind = other, "selected non-extraction job during extraction drain");
+                continue;
             }
         }
         processed += 1;
@@ -14537,6 +14921,82 @@ async fn drain_pending_extraction_jobs(runtime: &mut RuntimeBootstrap, cli: &Cli
         ::tracing::info!(processed, "extraction job drain complete");
     }
     Ok(processed)
+}
+
+fn next_pending_extraction_job_id(
+    conn: &Connection,
+    process_ids: &[String],
+) -> Result<Option<String>> {
+    let now = Utc::now().to_rfc3339();
+    let process_filter = process_ids
+        .iter()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    let mut statement = conn.prepare(
+        "\
+        SELECT id, process_id
+        FROM workflow_jobs
+        WHERE kind IN ('extract_document_structure', 'extract_document_semantics')
+          AND (
+            status IN ('pending', 'retry')
+            OR (
+              status = 'running'
+              AND completed_at IS NULL
+              AND lease_expires_at IS NOT NULL
+              AND datetime(lease_expires_at) <= datetime(?1)
+            )
+          )
+        ORDER BY COALESCE(scheduled_for, created_at), created_at
+        ",
+    )?;
+    let rows = statement.query_map(params![now], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+    })?;
+    for row in rows {
+        let (job_id, process_id) = row?;
+        if process_filter.is_empty()
+            || process_id
+                .as_deref()
+                .is_some_and(|process_id| process_filter.contains(process_id))
+        {
+            return Ok(Some(job_id));
+        }
+    }
+    Ok(None)
+}
+
+fn procontract_enrichment_process_ids(
+    conn: &Connection,
+    result_json: &Value,
+) -> Result<Vec<String>> {
+    let enriched_tenders = result_json
+        .get("enriched_tenders")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("procontract-enrich result missing enriched_tenders array"))?;
+    let tx = conn.unchecked_transaction()?;
+    let mut process_ids = BTreeSet::new();
+    for tender in enriched_tenders {
+        let Some(notice_id) = tender.get("notice_id").and_then(Value::as_str) else {
+            continue;
+        };
+        let title = tender
+            .get("updated_title")
+            .or_else(|| tender.get("title"))
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let buyer_name = tender
+            .get("buyer_name")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let hinted_process_id = tender.get("process_id").and_then(Value::as_str);
+        if let Ok((_, process_id)) =
+            resolve_enrichment_notice(&tx, notice_id, title, buyer_name, hinted_process_id)
+        {
+            process_ids.insert(process_id);
+        }
+    }
+    tx.commit()?;
+    Ok(process_ids.into_iter().collect())
 }
 
 /// Stage 9 manual live-loop trigger. Picks a batch of eligible/marginal
@@ -20310,7 +20770,10 @@ fn mark_intents_stale_on_basis_drift(
 mod tests {
     use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
+    #[cfg(unix)]
+    use std::os::unix::process::CommandExt;
     use std::path::Path;
+    use std::time::Duration;
 
     use anyhow::Result;
     use clap::Parser;
@@ -20328,15 +20791,20 @@ mod tests {
     use super::{
         ACTIVE_STAGES, Cli, ControlEvent, DEFAULT_AGENT_CLI, ExecutedSession, LOCAL_EXECUTOR_ID,
         LifecyclePhase, LiveLoopFixture, LiveValidationExecution, LoadedSkill,
-        PolicyBasisSufficiency, ProcessValidationState, PtyRuntimeIds, SessionDraft,
-        SkillFrontmatter, SkillPromotionStageMetadata, ValidationPolicyMode,
-        ValidationStatusSnapshot, ValidationTrigger, append_runtime_control_records,
-        backtrack_window_seconds, bootstrap_runtime, build_handshake_context,
-        build_live_validation_policy_config, build_live_validation_policy_context,
-        build_skill_run_telemetry, default_fixture, evaluate_validation_policy, insert_session_log,
-        live_loop_surface_names, load_live_validation_job_parameters, observe_host_health,
-        open_state_db, persisted_lifecycle_frames, reconcile_interrupted_sessions,
-        run_live_semantic_validation, write_run_manifest_for_session,
+        MAX_PROCONTRACT_INTEREST_REGISTRATIONS_PER_RUN, PolicyBasisSufficiency,
+        ProcessValidationState, ProcontractInterestEvaluation, PtyRuntimeIds,
+        SemanticExtractionJobRequest, SessionDraft, SkillFrontmatter, SkillPromotionStageMetadata,
+        ValidationPolicyMode, ValidationStatusSnapshot, ValidationTrigger,
+        append_runtime_control_records, backtrack_window_seconds, bootstrap_runtime,
+        build_handshake_context, build_live_validation_policy_config,
+        build_live_validation_policy_context, build_skill_run_telemetry, child_runtime_ids,
+        default_fixture, evaluate_validation_policy, insert_session_log, live_loop_surface_names,
+        load_live_validation_job_parameters, load_procontract_interest_candidates,
+        next_pending_extraction_job_id, observe_host_health, open_state_db,
+        persisted_lifecycle_frames, prepare_semantic_skill_job_parameters,
+        procontract_interest_registration_targets, reconcile_interrupted_sessions,
+        resolve_enrichment_notice, run_live_semantic_validation, wait_for_contract_child_output,
+        write_run_manifest_for_session,
     };
     use crate::db::sqlite::DEFAULT_SCHEMA_EPOCH;
     use crate::{persist_interest_registrations, persist_tender_enrichments};
@@ -23031,6 +23499,357 @@ mod tests {
             |row| row.get(0),
         )?;
         assert!(head.contains("stage-run-"));
+        Ok(())
+    }
+
+    #[test]
+    fn procontract_interest_registration_targets_are_capped_to_mutation_limit() {
+        let evaluations = (0..5)
+            .map(|index| ProcontractInterestEvaluation {
+                notice_id: format!("pc-test-{index}"),
+                process_id: format!("proc-pc-test-{index}"),
+                source_url: format!("https://example.invalid/pc-test-{index}"),
+                title: format!("Supply of widgets {index}"),
+                action: "register",
+                skip_reason: None,
+                pre_filter_result: json!({
+                    "goods_check": true,
+                    "expiry_check": true,
+                    "days_until_deadline": 30 + index,
+                }),
+            })
+            .collect::<Vec<_>>();
+
+        let targets = procontract_interest_registration_targets(&evaluations);
+
+        assert_eq!(
+            targets.len(),
+            MAX_PROCONTRACT_INTEREST_REGISTRATIONS_PER_RUN
+        );
+        assert_eq!(targets[0]["process_id"], "proc-pc-test-0");
+        assert_eq!(targets[1]["process_id"], "proc-pc-test-1");
+        assert_eq!(targets[2]["process_id"], "proc-pc-test-2");
+    }
+
+    #[test]
+    fn failed_interest_registration_remains_retryable() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-retry",
+            "pc-retry",
+            "Supply of cameras",
+        )?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-completed",
+            "pc-completed",
+            "Supply of completed cameras",
+        )?;
+
+        state_db.connection().execute(
+            "\
+            INSERT INTO process_stage_status (
+              id, process_id, stage, scope_kind, scope_id, stage_run_id, state,
+              started_at, completed_at, owner_id
+            ) VALUES (?1, ?2, 'interest_registration', 'process', ?2, ?3, ?4,
+                      '2026-05-04T00:00:00Z', '2026-05-04T00:00:00Z', 'local-owner')
+            ",
+            params![
+                "pss-retry-failed",
+                "proc-pc-retry",
+                "stage-run-retry-failed",
+                "failed",
+            ],
+        )?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO process_stage_status (
+              id, process_id, stage, scope_kind, scope_id, stage_run_id, state,
+              started_at, completed_at, owner_id
+            ) VALUES (?1, ?2, 'interest_registration', 'process', ?2, ?3, ?4,
+                      '2026-05-04T00:00:00Z', '2026-05-04T00:00:00Z', 'local-owner')
+            ",
+            params![
+                "pss-completed",
+                "proc-pc-completed",
+                "stage-run-completed",
+                "completed",
+            ],
+        )?;
+
+        let process_ids = load_procontract_interest_candidates(state_db.connection())?
+            .into_iter()
+            .map(|candidate| candidate.process_id)
+            .collect::<Vec<_>>();
+
+        assert!(process_ids.iter().any(|id| id == "proc-pc-retry"));
+        assert!(!process_ids.iter().any(|id| id == "proc-pc-completed"));
+        Ok(())
+    }
+
+    #[test]
+    fn enrichment_notice_resolution_ignores_invalid_hinted_process_id() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-cctv",
+            "pc-cctv",
+            "26023 Traffic & Flood Monitoring CCTV Camera Network",
+        )?;
+        state_db.connection().execute(
+            "\
+            UPDATE contract_notices
+            SET buyer_name = 'Cambridgeshire County Council'
+            WHERE id = 'pc-cctv'
+            ",
+            [],
+        )?;
+        let tx = state_db.connection().unchecked_transaction()?;
+
+        let resolved = resolve_enrichment_notice(
+            &tx,
+            "781939",
+            "26023 Traffic & Floor Monitoring CCTV Camera Network",
+            "Cambridgeshire County Council",
+            Some("3dbc97bf-0c17-f111-813c-005056b64545"),
+        )?;
+
+        assert_eq!(resolved, ("pc-cctv".to_owned(), "proc-pc-cctv".to_owned()));
+        Ok(())
+    }
+
+    #[test]
+    fn extraction_drain_selector_ignores_older_source_jobs() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+
+        state_db.connection().execute(
+            "\
+            INSERT INTO workflow_jobs (id, kind, status, input_payload, created_at)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ",
+            params![
+                "job-source-old",
+                "sync_source",
+                "retry",
+                "{}",
+                "2026-05-04 10:00:00",
+            ],
+        )?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO workflow_jobs (id, kind, status, input_payload, created_at)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ",
+            params![
+                "job-extract-new",
+                "extract_document_structure",
+                "pending",
+                "{}",
+                "2026-05-04 11:00:00",
+            ],
+        )?;
+
+        let selected = next_pending_extraction_job_id(state_db.connection(), &[])?;
+
+        assert_eq!(selected.as_deref(), Some("job-extract-new"));
+        Ok(())
+    }
+
+    #[test]
+    fn extraction_drain_selector_retries_expired_running_extraction_jobs() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+
+        state_db.connection().execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, status, lease_owner, lease_expires_at, input_payload, created_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            ",
+            params![
+                "job-expired-semantic",
+                "extract_document_semantics",
+                "running",
+                "local-daemon",
+                "2026-05-04T00:00:00Z",
+                "{}",
+                "2026-05-04 10:00:00",
+            ],
+        )?;
+
+        let selected = next_pending_extraction_job_id(state_db.connection(), &[])?;
+
+        assert_eq!(selected.as_deref(), Some("job-expired-semantic"));
+        Ok(())
+    }
+
+    #[test]
+    fn extraction_drain_selector_respects_process_filter() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-other",
+            "pc-other",
+            "Other tender",
+        )?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-target",
+            "pc-target",
+            "Target tender",
+        )?;
+
+        for (job_id, process_id, created_at) in [
+            ("job-extract-other", "proc-pc-other", "2026-05-04 10:00:00"),
+            (
+                "job-extract-target",
+                "proc-pc-target",
+                "2026-05-04 11:00:00",
+            ),
+        ] {
+            state_db.connection().execute(
+                "\
+                INSERT INTO workflow_jobs (
+                  id, kind, process_id, status, input_payload, created_at
+                ) VALUES (?1, 'extract_document_structure', ?2, 'pending', '{}', ?3)
+                ",
+                params![job_id, process_id, created_at],
+            )?;
+        }
+
+        let selected =
+            next_pending_extraction_job_id(state_db.connection(), &["proc-pc-target".to_owned()])?;
+
+        assert_eq!(selected.as_deref(), Some("job-extract-target"));
+        Ok(())
+    }
+
+    #[test]
+    fn semantic_skill_parameters_include_prepared_extraction_artifacts() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-semantic",
+            "pc-semantic",
+            "Supply of cameras",
+        )?;
+        state_db.connection().execute(
+            "INSERT OR IGNORE INTO sources (id, kind, config) VALUES ('procontract-enrich', 'procurement', '{}')",
+            [],
+        )?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO raw_documents (
+              id, source_id, content_type, source_url, storage_path, metadata
+            ) VALUES (
+              'raw-semantic', 'procontract-enrich', 'application/pdf',
+              'https://example.invalid/spec.pdf', ?1, '{\"filename\":\"spec.pdf\"}'
+            )
+            ",
+            params![temp.path().join("spec.pdf").to_string_lossy()],
+        )?;
+        state_db.connection().execute(
+            "\
+            INSERT INTO document_extractions (
+              id, raw_document_id, process_id, notice_id, document_set_id,
+              source_content_hash, extraction_engine, extraction_engine_version,
+              processing_strategy, page_count, document_title, document_role,
+              extraction_policy_version, expected_overlays_json, extracted_markdown,
+              extracted_sections_json, extracted_tables_json, extracted_metadata_json,
+              table_count, section_count, owner_id, stage_run_id
+            ) VALUES (
+              'doc-extract-semantic', 'raw-semantic', 'proc-pc-semantic', 'pc-semantic',
+              NULL, 'hash-semantic', 'docling', '2.0.0', 'standard', 2,
+              'Specification', 'tender_specification', '2026.04.12',
+              '[\"pdf-extraction/tender-specification\"]',
+              '## Camera requirement\n\nProvide IP CCTV cameras.',
+              '[]', '[]', '{}', 0, 1, 'local-owner', 'stage-run-semantic'
+            )
+            ",
+            [],
+        )?;
+        let base_payload = json!({
+            "request": {
+                "document_extraction_id": "doc-extract-semantic",
+                "process_id": "proc-pc-semantic",
+                "notice_id": "pc-semantic",
+                "skill_id": "pdf-extraction/tender-specification",
+                "extraction_scope": "full_document"
+            }
+        });
+        let request = SemanticExtractionJobRequest {
+            document_extraction_id: "doc-extract-semantic".to_owned(),
+            process_id: "proc-pc-semantic".to_owned(),
+            notice_id: Some("pc-semantic".to_owned()),
+            document_set_id: None,
+            raw_document_id: None,
+            skill_id: "pdf-extraction/tender-specification".to_owned(),
+            extraction_scope: "full_document".to_owned(),
+            target_domain: Some("lots".to_owned()),
+            stage_run_id: Some("stage-run-semantic".to_owned()),
+            chunk_plan_hash: None,
+            chunk_index: None,
+            merge_job: false,
+            merge_chunk_indices: Vec::new(),
+        };
+
+        let payload = prepare_semantic_skill_job_parameters(
+            state_db.connection(),
+            temp.path(),
+            "job-semantic",
+            &base_payload,
+            &request,
+        )?;
+        let markdown_path = payload["semantic_extraction_input"]["markdown_path"]
+            .as_str()
+            .expect("markdown path should be serialized");
+
+        assert_eq!(
+            fs::read_to_string(markdown_path)?,
+            "## Camera requirement\n\nProvide IP CCTV cameras."
+        );
+        assert_eq!(
+            payload["semantic_extraction_input"]["process_context"]["notice_title"],
+            "Supply of cameras"
+        );
+        assert_eq!(
+            payload["semantic_extraction_input"]["document_metadata"]["raw_document_id"],
+            "raw-semantic"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn contract_child_output_timeout_reaps_child() -> Result<()> {
+        let mut command = std::process::Command::new("sh");
+        command
+            .arg("-c")
+            .arg("sleep 5")
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        #[cfg(unix)]
+        {
+            command.process_group(0);
+        }
+        let child = command.spawn()?;
+        let runtime_ids = child_runtime_ids(child.id()).ok();
+
+        let output = wait_for_contract_child_output(child, runtime_ids, Duration::from_millis(25))?;
+
+        assert!(output.timed_out);
+        assert!(!output.output.status.success());
         Ok(())
     }
 
