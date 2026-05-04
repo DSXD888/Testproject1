@@ -315,7 +315,7 @@ impl PipelineState {
             "pending" => Self::Pending,
             "qualifying" => Self::Qualifying,
             "enriching" => Self::Enriching,
-            "qualified" => Self::Qualified,
+            "qualified" | "net_qualified" | "manifest_ready" => Self::Qualified,
             "review" => Self::Review,
             "rejected" => Self::Rejected,
             _ => Self::Error,

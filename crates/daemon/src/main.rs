@@ -279,7 +279,7 @@ const NET_MARGIN_REVENUE_CONFIDENCE_FLOOR_BPS: i64 = 5_000;
 const NET_MARGIN_PRICING_INPUT_CONFIDENCE_FLOOR_BPS: i64 = 5_000;
 const NET_MARGIN_CUSTOMS_RESOLUTION_CONFIDENCE_FLOOR_BPS: i64 = 6_000;
 const NET_MARGIN_COMMERCIAL_ESTIMATE_CONFIDENCE_FLOOR_BPS: i64 = 4_000;
-const NET_MARGIN_THRESHOLDS_VERSION: &str = "v1.0-2026-05-01";
+const NET_MARGIN_THRESHOLDS_VERSION: &str = "v1.2-2026-05-03";
 const NET_MARGIN_ROLLUP_VERSION: &str = "v1.0-2026-05-01";
 const NET_MARGIN_REVIEW_STAGE: &str = "net_margin_gate";
 const MANIFEST_STAGE_NAME: &str = "manifest";
@@ -6983,6 +6983,7 @@ const REASON_QUANTITY_BASIS_UNALIGNED: &str = "quantity_basis_unaligned";
 const REASON_QUANTITY_BASIS_UNDETERMINED: &str = "quantity_basis_undetermined";
 const REASON_NO_PRICING_SIGNAL: &str = "no_pricing_signal";
 const REASON_MARGIN_BELOW_PASS: &str = "margin_below_pass";
+const OPERATOR_RFQ_OVERRIDE_REVENUE_CONFIDENCE_BPS: i64 = 8000;
 
 const NET_MARGIN_REASON_PRECEDENCE: [&str; 9] = [
     REASON_QUANTITY_BASIS_UNALIGNED,
@@ -7199,9 +7200,13 @@ fn parse_stage13_renderer_mode(
     }
 }
 
+const fn default_stage13_renderer_mode() -> Stage13RendererMode {
+    Stage13RendererMode::Auto
+}
+
 fn read_stage13_renderer_mode() -> Stage13RendererMode {
     let raw = std::env::var(STAGE13_RENDERER_MODE_ENV).ok();
-    parse_stage13_renderer_mode(raw.as_deref(), Stage13RendererMode::Skill)
+    parse_stage13_renderer_mode(raw.as_deref(), default_stage13_renderer_mode())
 }
 
 fn read_stage13_skill_timeout_seconds() -> u64 {
@@ -7485,6 +7490,14 @@ fn below_floor(value: Option<i64>, floor_bps: i64) -> bool {
     value.is_none_or(|actual| actual < floor_bps)
 }
 
+fn operator_override_uses_generic_expected_value_revenue(
+    input: &NetMarginDecisionInput<'_>,
+) -> bool {
+    input.order_quantity_basis_kind == Some("from_operator_override")
+        && input.revenue_basis_type == Some("expected_value")
+        && input.revenue_confidence_bps != Some(OPERATOR_RFQ_OVERRIDE_REVENUE_CONFIDENCE_BPS)
+}
+
 #[allow(clippy::too_many_lines)]
 fn evaluate_net_margin_decision(input: &NetMarginDecisionInput<'_>) -> NetMarginDecision {
     if !input.has_pricing_signal {
@@ -7500,6 +7513,12 @@ fn evaluate_net_margin_decision(input: &NetMarginDecisionInput<'_>) -> NetMargin
 
     match input.order_quantity_basis_kind {
         Some("rfq_required" | "supplier_capacity") => {
+            reasons.push(REASON_QUANTITY_BASIS_UNALIGNED);
+            has_quantity_basis_blocker = true;
+        }
+        Some("from_operator_override")
+            if operator_override_uses_generic_expected_value_revenue(input) =>
+        {
             reasons.push(REASON_QUANTITY_BASIS_UNALIGNED);
             has_quantity_basis_blocker = true;
         }
@@ -7558,7 +7577,7 @@ fn evaluate_net_margin_decision(input: &NetMarginDecisionInput<'_>) -> NetMargin
 
     let verdict = if awaiting_rfq || has_quantity_basis_blocker {
         NetMarginVerdict::Review
-    } else if high_rejects {
+    } else if high_rejects && confidence_floors_clear {
         NetMarginVerdict::Reject
     } else if pass_shape && confidence_floors_clear {
         NetMarginVerdict::Pass
@@ -20641,6 +20660,14 @@ mod tests {
         );
     }
 
+    #[test]
+    fn bug_stage13_invalid_json_regression_default_renderer_mode_uses_auto_fallback() {
+        assert_eq!(
+            super::default_stage13_renderer_mode(),
+            super::Stage13RendererMode::Auto
+        );
+    }
+
     #[tokio::test]
     async fn stage13_renderer_mode_skill_routes_through_skill_path() -> Result<()> {
         let (_temp, mut runtime, cli) = bootstrap_manifest_render_runtime()?;
@@ -21858,6 +21885,26 @@ mod tests {
     }
 
     #[test]
+    fn bug_low_confidence_high_reject_regression_remains_review_until_confidence_clear() {
+        let mut input = pass_shape_net_margin_input();
+        input.net_margin_low_bps = Some(0);
+        input.net_margin_base_bps = Some(0);
+        input.net_margin_high_bps = Some(0);
+        input.commercial_estimate_confidence_bps = Some(1_000);
+
+        let decision = super::evaluate_net_margin_decision(&input);
+
+        assert_eq!(decision.verdict, super::NetMarginVerdict::Review);
+        assert_eq!(
+            decision.reasons,
+            vec![
+                super::REASON_CONFIDENCE_COMMERCIAL_ESTIMATE_BELOW_FLOOR,
+                super::REASON_MARGIN_BELOW_PASS
+            ]
+        );
+    }
+
+    #[test]
     fn net_margin_review_when_revenue_confidence_below_floor() {
         let mut input = pass_shape_net_margin_input();
         input.revenue_confidence_bps = Some(4_000);
@@ -21916,6 +21963,39 @@ mod tests {
             decision.reasons,
             vec![super::REASON_QUANTITY_BASIS_UNDETERMINED]
         );
+    }
+
+    #[test]
+    fn bug_operator_quantity_override_expected_value_regression_remains_review_when_revenue_basis_unaligned()
+     {
+        let mut input = pass_shape_net_margin_input();
+        input.order_quantity_basis_kind = Some("from_operator_override");
+        input.revenue_basis_type = Some("expected_value");
+        input.revenue_confidence_bps = Some(6_500);
+        input.net_margin_low_bps = Some(9_973);
+        input.net_margin_base_bps = Some(9_973);
+        input.net_margin_high_bps = Some(9_973);
+
+        let decision = super::evaluate_net_margin_decision(&input);
+
+        assert_eq!(decision.verdict, super::NetMarginVerdict::Review);
+        assert_eq!(
+            decision.reasons,
+            vec![super::REASON_QUANTITY_BASIS_UNALIGNED]
+        );
+    }
+
+    #[test]
+    fn operator_rfq_override_expected_value_revenue_can_pass_when_basis_is_synthesized() {
+        let mut input = pass_shape_net_margin_input();
+        input.order_quantity_basis_kind = Some("from_operator_override");
+        input.revenue_basis_type = Some("expected_value");
+        input.revenue_confidence_bps = Some(super::OPERATOR_RFQ_OVERRIDE_REVENUE_CONFIDENCE_BPS);
+
+        let decision = super::evaluate_net_margin_decision(&input);
+
+        assert_eq!(decision.verdict, super::NetMarginVerdict::Pass);
+        assert!(decision.reasons.is_empty());
     }
 
     #[test]

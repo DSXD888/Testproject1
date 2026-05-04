@@ -444,6 +444,36 @@ fn rs_qs_002_process_list_returns_snapshot_page() -> Result<()> {
 }
 
 #[test]
+fn bug_pipeline_state_regression_net_qualified_is_not_rendered_as_error() -> Result<()> {
+    let mut harness = Harness::new()?;
+    harness.seed_process(
+        "process-net-qualified",
+        "2026-03-25T10:00:00Z",
+        "net_qualified",
+    )?;
+    harness.seed_candidate_and_quote("process-net-qualified")?;
+    harness.seed_process(
+        "process-manifest-ready",
+        "2026-03-24T10:00:00Z",
+        "manifest_ready",
+    )?;
+    harness.seed_candidate_and_quote("process-manifest-ready")?;
+
+    let service = harness.service()?;
+    let list = service
+        .list_processes(None, 25, &ProcessListFilters::default())
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+    let detail = service
+        .get_process_detail("process-net-qualified")
+        .map_err(|error| anyhow!("{:?}: {}", error.code, error.message))?;
+
+    assert_eq!(list.data.items[0].pipeline_state, PipelineState::Qualified);
+    assert_eq!(list.data.items[1].pipeline_state, PipelineState::Qualified);
+    assert_eq!(detail.data.pipeline_state, PipelineState::Qualified);
+    Ok(())
+}
+
+#[test]
 fn rs_qs_002b_process_list_uses_keyset_pagination() -> Result<()> {
     let mut harness = Harness::new()?;
     for index in 0..27 {

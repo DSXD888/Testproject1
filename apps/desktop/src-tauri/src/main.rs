@@ -6,7 +6,7 @@ mod daemon_bridge;
 mod query_service;
 
 use std::collections::HashMap;
-use std::fs;
+use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
@@ -62,6 +62,20 @@ static LAUNCH_GUARD: OnceLock<Mutex<bool>> = OnceLock::new();
 type TestDaemonLaunchHook = Arc<dyn Fn(&Path, &Path, &Path) -> Result<()> + Send + Sync>;
 #[cfg(test)]
 static TEST_DAEMON_LAUNCH_HOOK: OnceLock<Mutex<Option<TestDaemonLaunchHook>>> = OnceLock::new();
+#[cfg(test)]
+type TestPipelineRerunHook = Arc<dyn Fn(&str) -> Result<()> + Send + Sync>;
+#[cfg(test)]
+static TEST_PIPELINE_RERUN_HOOK: OnceLock<Mutex<Option<TestPipelineRerunHook>>> = OnceLock::new();
+#[cfg(test)]
+type TestDaemonStopHook = Arc<dyn Fn(u32) -> Result<()> + Send + Sync>;
+#[cfg(test)]
+static TEST_DAEMON_STOP_HOOK: OnceLock<Mutex<Option<TestDaemonStopHook>>> = OnceLock::new();
+#[cfg(test)]
+type TestProcessRunningHook = Arc<dyn Fn(u32) -> Result<bool> + Send + Sync>;
+#[cfg(test)]
+static TEST_PROCESS_RUNNING_HOOK: OnceLock<Mutex<Option<TestProcessRunningHook>>> = OnceLock::new();
+
+const PIPELINE_RERUN_INGEST_STAGES: [&str; 3] = ["landed-cost", "net-gate", "manifest"];
 
 pub fn configure_builder<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder
@@ -274,6 +288,21 @@ pub fn reset_test_runtime_state() -> Result<()> {
         .lock()
         .map_err(|_| anyhow!("test daemon launch hook lock poisoned"))? = None;
 
+    let rerun_hook = TEST_PIPELINE_RERUN_HOOK.get_or_init(|| Mutex::new(None));
+    *rerun_hook
+        .lock()
+        .map_err(|_| anyhow!("test pipeline rerun hook lock poisoned"))? = None;
+
+    let stop_hook = TEST_DAEMON_STOP_HOOK.get_or_init(|| Mutex::new(None));
+    *stop_hook
+        .lock()
+        .map_err(|_| anyhow!("test daemon stop hook lock poisoned"))? = None;
+
+    let running_hook = TEST_PROCESS_RUNNING_HOOK.get_or_init(|| Mutex::new(None));
+    *running_hook
+        .lock()
+        .map_err(|_| anyhow!("test process-running hook lock poisoned"))? = None;
+
     Ok(())
 }
 
@@ -287,6 +316,42 @@ where
     *slot
         .lock()
         .map_err(|_| anyhow!("test daemon launch hook lock poisoned"))? = Some(Arc::new(hook));
+    Ok(())
+}
+
+#[cfg(test)]
+fn set_test_pipeline_rerun_hook<F>(hook: F) -> Result<()>
+where
+    F: Fn(&str) -> Result<()> + Send + Sync + 'static,
+{
+    let slot = TEST_PIPELINE_RERUN_HOOK.get_or_init(|| Mutex::new(None));
+    *slot
+        .lock()
+        .map_err(|_| anyhow!("test pipeline rerun hook lock poisoned"))? = Some(Arc::new(hook));
+    Ok(())
+}
+
+#[cfg(test)]
+fn set_test_daemon_stop_hook<F>(hook: F) -> Result<()>
+where
+    F: Fn(u32) -> Result<()> + Send + Sync + 'static,
+{
+    let slot = TEST_DAEMON_STOP_HOOK.get_or_init(|| Mutex::new(None));
+    *slot
+        .lock()
+        .map_err(|_| anyhow!("test daemon stop hook lock poisoned"))? = Some(Arc::new(hook));
+    Ok(())
+}
+
+#[cfg(test)]
+fn set_test_process_running_hook<F>(hook: F) -> Result<()>
+where
+    F: Fn(u32) -> Result<bool> + Send + Sync + 'static,
+{
+    let slot = TEST_PROCESS_RUNNING_HOOK.get_or_init(|| Mutex::new(None));
+    *slot
+        .lock()
+        .map_err(|_| anyhow!("test process-running hook lock poisoned"))? = Some(Arc::new(hook));
     Ok(())
 }
 
@@ -408,6 +473,15 @@ struct RestartMutationAck {
     accepted: bool,
     visible_after_seq: i64,
     idempotency_key: String,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct PipelineRerunAck {
+    accepted: bool,
+    visible_after_seq: i64,
+    idempotency_key: String,
+    stages: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -956,6 +1030,14 @@ fn spawn_daemon_process(paths: &DesktopPaths) -> Result<()> {
         );
     }
 
+    if let Some(command) = sibling_daemon_command()? {
+        match spawn_program(command, paths, "daemon binary next to desktop executable") {
+            Ok(()) => return Ok(()),
+            Err(error) if is_not_found_error(&error) => {}
+            Err(error) => return Err(error),
+        }
+    }
+
     match spawn_program(
         Command::new(DEFAULT_DAEMON_PROGRAM),
         paths,
@@ -971,7 +1053,32 @@ fn spawn_daemon_process(paths: &DesktopPaths) -> Result<()> {
     }
 }
 
+fn sibling_daemon_command() -> Result<Option<Command>> {
+    let current_exe = std::env::current_exe().context("resolving desktop executable path")?;
+    let daemon_name = if cfg!(windows) {
+        "daemon.exe"
+    } else {
+        "daemon"
+    };
+    let daemon_path = current_exe.with_file_name(daemon_name);
+    if daemon_path.is_file() {
+        Ok(Some(Command::new(daemon_path)))
+    } else {
+        Ok(None)
+    }
+}
+
 fn spawn_program(mut command: Command, paths: &DesktopPaths, source: &str) -> Result<()> {
+    let launch_log_path = paths.runtime_dir.join("daemon-launch.log");
+    let launch_log = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(launch_log_path.as_path())
+        .with_context(|| format!("opening daemon launch log {}", launch_log_path.display()))?;
+    let launch_error_log = launch_log
+        .try_clone()
+        .with_context(|| format!("cloning daemon launch log {}", launch_log_path.display()))?;
+
     command
         .arg("--serve")
         .arg("--state-root")
@@ -981,8 +1088,8 @@ fn spawn_program(mut command: Command, paths: &DesktopPaths, source: &str) -> Re
         .arg("--artifact-root")
         .arg(&paths.artifact_root)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
+        .stdout(Stdio::from(launch_log))
+        .stderr(Stdio::from(launch_error_log));
 
     command
         .spawn()
@@ -1002,6 +1109,169 @@ fn cargo_daemon_command() -> Result<Command> {
         .current_dir(repo_root)
         .args(["run", "-p", "daemon", "--"]);
     Ok(command)
+}
+
+fn run_daemon_ingest_stage(paths: &DesktopPaths, stage: &str) -> Result<()> {
+    #[cfg(test)]
+    {
+        let hook = TEST_PIPELINE_RERUN_HOOK
+            .get_or_init(|| Mutex::new(None))
+            .lock()
+            .map_err(|_| anyhow!("test pipeline rerun hook lock poisoned"))?
+            .clone();
+        if let Some(hook) = hook {
+            return hook(stage);
+        }
+    }
+
+    let mut command = cargo_daemon_command()?;
+    command
+        .arg("--state-root")
+        .arg(&paths.state_root)
+        .arg("--runtime-dir")
+        .arg(&paths.runtime_dir)
+        .arg("--artifact-root")
+        .arg(&paths.artifact_root)
+        .arg("--ingest")
+        .arg(stage);
+
+    let output = command
+        .output()
+        .with_context(|| format!("running daemon ingest stage `{stage}`"))?;
+    if !output.status.success() {
+        let status = output.status;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        return Err(anyhow!(
+            "daemon ingest stage `{stage}` failed with status {status}; stderr: {stderr}; stdout: {stdout}"
+        ));
+    }
+
+    Ok(())
+}
+
+fn reset_daemon_launch_guard() -> Result<()> {
+    if let Some(guard) = LAUNCH_GUARD.get() {
+        *guard
+            .lock()
+            .map_err(|_| anyhow!("desktop daemon launch guard is poisoned"))? = false;
+    }
+    Ok(())
+}
+
+fn process_is_running(pid: u32) -> Result<bool> {
+    #[cfg(test)]
+    {
+        let hook = TEST_PROCESS_RUNNING_HOOK
+            .get_or_init(|| Mutex::new(None))
+            .lock()
+            .map_err(|_| anyhow!("test process-running hook lock poisoned"))?
+            .clone();
+        if let Some(hook) = hook {
+            return hook(pid);
+        }
+    }
+
+    let status = Command::new("kill")
+        .arg("-0")
+        .arg(pid.to_string())
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .with_context(|| format!("checking daemon pid {pid}"))?;
+    if !status.success() {
+        return Ok(false);
+    }
+    Ok(!process_is_zombie(pid)?)
+}
+
+fn process_is_zombie(pid: u32) -> Result<bool> {
+    let output = Command::new("ps")
+        .arg("-p")
+        .arg(pid.to_string())
+        .arg("-o")
+        .arg("stat=")
+        .stdin(Stdio::null())
+        .output()
+        .with_context(|| format!("checking daemon pid {pid} state"))?;
+    if !output.status.success() {
+        return Ok(false);
+    }
+    let state = String::from_utf8_lossy(&output.stdout);
+    Ok(state.trim().starts_with('Z'))
+}
+
+fn wait_for_daemon_stop(pid: u32) -> Result<()> {
+    for _ in 0..60 {
+        if !process_is_running(pid)? {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    Err(anyhow!("daemon pid {pid} did not stop within 6 seconds"))
+}
+
+fn stop_daemon_for_exclusive_pipeline_rerun(paths: &DesktopPaths) -> Result<bool> {
+    let (descriptor, _) = read_descriptor(paths.descriptor_path().as_path());
+    let Some(descriptor) = descriptor else {
+        return Ok(false);
+    };
+
+    if !process_is_running(descriptor.pid)? {
+        reset_daemon_launch_guard()?;
+        return Ok(false);
+    }
+
+    signal_daemon_stop(descriptor.pid).with_context(|| {
+        format!(
+            "stopping daemon pid {} before pipeline rerun",
+            descriptor.pid
+        )
+    })?;
+    wait_for_daemon_stop(descriptor.pid).with_context(|| {
+        format!(
+            "waiting for daemon pid {} to release runtime lock",
+            descriptor.pid
+        )
+    })?;
+    reset_daemon_launch_guard()?;
+    Ok(true)
+}
+
+fn wait_for_daemon_ready(paths: &DesktopPaths) -> Result<()> {
+    for backoff_ms in HANDSHAKE_RETRY_BACKOFF_MS {
+        thread::sleep(Duration::from_millis(backoff_ms));
+        let (descriptor, _) = read_descriptor(paths.descriptor_path().as_path());
+        if try_handshake(paths, descriptor.as_ref(), None).is_ok() {
+            return Ok(());
+        }
+    }
+    Err(anyhow!(
+        "daemon did not become ready after pipeline rerun restart"
+    ))
+}
+
+fn ensure_daemon_ready_after_pipeline_rerun(paths: &DesktopPaths) -> Result<()> {
+    let (descriptor, _) = read_descriptor(paths.descriptor_path().as_path());
+    if try_handshake(paths, descriptor.as_ref(), None).is_ok() {
+        return Ok(());
+    }
+
+    reset_daemon_launch_guard()?;
+    launch_detached_daemon(paths).context("restarting daemon after pipeline rerun")?;
+    wait_for_daemon_ready(paths)
+}
+
+fn read_commit_seq(db_path: &Path) -> Result<i64> {
+    let conn = Connection::open(db_path)
+        .with_context(|| format!("opening state database {}", db_path.display()))?;
+    conn.query_row(
+        "SELECT commit_seq FROM commit_clock WHERE id = 1",
+        [],
+        |row| row.get::<_, i64>(0),
+    )
+    .context("reading commit_clock after pipeline rerun")
 }
 
 fn snapshot_from_welcome(
@@ -1728,10 +1998,8 @@ fn withdraw_decision<R: tauri::Runtime>(
     }))
 }
 
-/// Stage 14 Phase 2 — kicks off Stage 12 (gross/net margin gate) so the
-/// pipeline regenerates Stage 13's manifest with any new operator overrides
-/// applied. Reuses the existing `trigger_enrichment` IPC; the React side
-/// polls for an updated `manifest_basis_hash` to detect completion.
+/// Stage 14 Phase 2 — re-runs the live Stage 11→12→13 chain so manifest rows
+/// are regenerated with any newly captured operator overrides applied.
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
 fn trigger_pipeline_rerun<R: tauri::Runtime>(
@@ -1739,13 +2007,42 @@ fn trigger_pipeline_rerun<R: tauri::Runtime>(
     params: TriggerPipelineRerunParams,
 ) -> std::result::Result<Value, String> {
     let paths = DesktopPaths::from_handle(&app).map_err(|error| error.to_string())?;
+    stop_daemon_for_exclusive_pipeline_rerun(&paths).map_err(|error| error.to_string())?;
+    let rerun_result = trigger_pipeline_rerun_impl(&paths, &params);
+    let restart_result = ensure_daemon_ready_after_pipeline_rerun(&paths);
+
+    rerun_result
+        .and_then(|ack| {
+            restart_result?;
+            Ok(ack)
+        })
+        .and_then(|ack| serde_json::to_value(ack).context("serializing pipeline rerun ack"))
+        .map_err(|error| error.to_string())
+}
+
+fn trigger_pipeline_rerun_impl(
+    paths: &DesktopPaths,
+    params: &TriggerPipelineRerunParams,
+) -> Result<PipelineRerunAck> {
+    anyhow::ensure!(
+        !params.process_id.trim().is_empty(),
+        "process_id is required for pipeline rerun"
+    );
+
     let idempotency_key = next_idempotency_key("desktop-pipeline-rerun");
-    let bridge_params = BridgeTriggerEnrichmentParams {
-        process_id: params.process_id,
-    };
-    serialize_bridge_result(with_daemon_connection(&paths, |connection| {
-        connection.trigger_enrichment(&bridge_params, idempotency_key.as_str())
-    }))
+    let mut completed_stages = Vec::with_capacity(PIPELINE_RERUN_INGEST_STAGES.len());
+    for stage in PIPELINE_RERUN_INGEST_STAGES {
+        run_daemon_ingest_stage(paths, stage)
+            .with_context(|| format!("running pipeline rerun stage `{stage}`"))?;
+        completed_stages.push(stage.to_owned());
+    }
+
+    Ok(PipelineRerunAck {
+        accepted: true,
+        visible_after_seq: read_commit_seq(paths.state_db_path().as_path())?,
+        idempotency_key,
+        stages: completed_stages,
+    })
 }
 
 #[tauri::command]
@@ -1962,17 +2259,52 @@ fn native_event_name_for_topic(topic: &str) -> String {
     event_name
 }
 
+fn bridge_transport_unavailable(message: impl Into<String>) -> DaemonBridgeError {
+    DaemonBridgeError {
+        code: "transport_unavailable".to_owned(),
+        message: message.into(),
+        retryable: true,
+        details: None,
+    }
+}
+
+fn connect_daemon_bridge(
+    paths: &DesktopPaths,
+) -> std::result::Result<daemon_bridge::DaemonBridgeConnection, DaemonBridgeError> {
+    DaemonBridge::new(&paths.runtime_dir).connect()
+}
+
 fn with_daemon_connection<T, F>(
     paths: &DesktopPaths,
-    operation: F,
+    mut operation: F,
 ) -> std::result::Result<T, DaemonBridgeError>
 where
-    F: FnOnce(
+    F: FnMut(
         &mut daemon_bridge::DaemonBridgeConnection,
     ) -> std::result::Result<T, DaemonBridgeError>,
 {
-    let bridge = DaemonBridge::new(&paths.runtime_dir);
-    let mut connection = bridge.connect()?;
+    let mut connection = match connect_daemon_bridge(paths) {
+        Ok(connection) => connection,
+        Err(error) if error.code == "transport_unavailable" => {
+            reset_daemon_launch_guard().map_err(|restart_error| {
+                bridge_transport_unavailable(format!(
+                    "resetting daemon launch guard after bridge failure failed: {restart_error}"
+                ))
+            })?;
+            launch_detached_daemon(paths).map_err(|restart_error| {
+                bridge_transport_unavailable(format!(
+                    "restarting daemon after bridge connection failure failed: {restart_error}"
+                ))
+            })?;
+            wait_for_daemon_ready(paths).map_err(|restart_error| {
+                bridge_transport_unavailable(format!(
+                    "daemon did not become ready after bridge restart: {restart_error}"
+                ))
+            })?;
+            connect_daemon_bridge(paths)?
+        }
+        Err(error) => return Err(error),
+    };
     operation(&mut connection)
 }
 
@@ -2248,6 +2580,18 @@ fn open_path_in_desktop(path: &Path) -> Result<()> {
 }
 
 fn signal_daemon_stop(pid: u32) -> Result<()> {
+    #[cfg(test)]
+    {
+        let hook = TEST_DAEMON_STOP_HOOK
+            .get_or_init(|| Mutex::new(None))
+            .lock()
+            .map_err(|_| anyhow!("test daemon stop hook lock poisoned"))?
+            .clone();
+        if let Some(hook) = hook {
+            return hook(pid);
+        }
+    }
+
     Command::new("kill")
         .arg("-TERM")
         .arg(pid.to_string())
@@ -2468,7 +2812,18 @@ fn repo_root() -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    use std::os::unix::net::UnixListener;
     use tempfile::tempdir;
+
+    static TEST_RUNTIME_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+    fn lock_test_runtime() -> Result<std::sync::MutexGuard<'static, ()>> {
+        TEST_RUNTIME_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .map_err(|_| anyhow!("test runtime lock poisoned"))
+    }
 
     fn seeded_db() -> Result<(tempfile::TempDir, PathBuf)> {
         let temp = tempdir()?;
@@ -2535,6 +2890,325 @@ mod tests {
         anyhow::ensure!(default_paths.state_root == base_dir.join(STATE_DIRNAME));
         anyhow::ensure!(default_paths.runtime_dir == base_dir.join(RUNTIME_DIRNAME));
         anyhow::ensure!(default_paths.artifact_root == base_dir.join(ARTIFACT_DIRNAME));
+        Ok(())
+    }
+
+    #[test]
+    fn bug_pipeline_rerun_regression_runs_live_ingest_chain_instead_of_unsupported_queue_job()
+    -> Result<()> {
+        let _guard = lock_test_runtime()?;
+        reset_test_runtime_state()?;
+        let temp = tempdir()?;
+        let paths = DesktopPaths::from_base_dir(temp.path());
+        fs::create_dir_all(paths.state_root.as_path())?;
+        let conn = Connection::open(paths.state_db_path())?;
+        conn.execute_batch(
+            "\
+            CREATE TABLE commit_clock (
+              id INTEGER PRIMARY KEY CHECK (id = 1),
+              commit_seq INTEGER NOT NULL
+            );
+            INSERT INTO commit_clock (id, commit_seq) VALUES (1, 42);
+            ",
+        )?;
+
+        let seen = Arc::new(Mutex::new(Vec::<String>::new()));
+        let seen_for_hook = Arc::clone(&seen);
+        set_test_pipeline_rerun_hook(move |stage| {
+            seen_for_hook
+                .lock()
+                .map_err(|_| anyhow!("test stage list lock poisoned"))?
+                .push(stage.to_owned());
+            Ok(())
+        })?;
+
+        let ack = trigger_pipeline_rerun_impl(
+            &paths,
+            &TriggerPipelineRerunParams {
+                process_id: "process-1".to_owned(),
+            },
+        )?;
+
+        anyhow::ensure!(ack.accepted);
+        anyhow::ensure!(ack.visible_after_seq == 42);
+        anyhow::ensure!(
+            ack.stages
+                == vec![
+                    "landed-cost".to_owned(),
+                    "net-gate".to_owned(),
+                    "manifest".to_owned()
+                ]
+        );
+        anyhow::ensure!(
+            *seen
+                .lock()
+                .map_err(|_| anyhow!("test stage list lock poisoned"))?
+                == ack.stages
+        );
+        reset_test_runtime_state()?;
+        Ok(())
+    }
+
+    #[test]
+    fn bug_pipeline_rerun_regression_releases_desktop_daemon_lock_before_ingest() -> Result<()> {
+        let _guard = lock_test_runtime()?;
+        reset_test_runtime_state()?;
+        let temp = tempdir()?;
+        let paths = DesktopPaths::from_base_dir(temp.path());
+        fs::create_dir_all(paths.runtime_dir.as_path())?;
+        fs::create_dir_all(paths.state_root.as_path())?;
+        fs::write(
+            paths.descriptor_path(),
+            serde_json::to_vec(&DaemonDescriptorSnapshot {
+                instance_id: "daemon-for-rerun-test".to_owned(),
+                pid: 4242,
+                socket_path: paths.socket_path().display().to_string(),
+                protocol_version: EXPECTED_PROTOCOL_VERSION,
+                schema_epoch: EXPECTED_SCHEMA_EPOCH,
+                state_root: paths.state_root.display().to_string(),
+                started_at: "2026-05-03T00:00:00Z".to_owned(),
+                ready: true,
+            })?,
+        )?;
+
+        let running = Arc::new(AtomicBool::new(true));
+        let running_for_check = Arc::clone(&running);
+        set_test_process_running_hook(move |pid| {
+            anyhow::ensure!(pid == 4242);
+            Ok(running_for_check.load(Ordering::Relaxed))
+        })?;
+
+        let stopped_pids = Arc::new(Mutex::new(Vec::<u32>::new()));
+        let stopped_pids_for_hook = Arc::clone(&stopped_pids);
+        let running_for_stop = Arc::clone(&running);
+        set_test_daemon_stop_hook(move |pid| {
+            stopped_pids_for_hook
+                .lock()
+                .map_err(|_| anyhow!("test stopped-pids lock poisoned"))?
+                .push(pid);
+            running_for_stop.store(false, Ordering::Relaxed);
+            Ok(())
+        })?;
+
+        anyhow::ensure!(stop_daemon_for_exclusive_pipeline_rerun(&paths)?);
+        anyhow::ensure!(
+            *stopped_pids
+                .lock()
+                .map_err(|_| anyhow!("test stopped-pids lock poisoned"))?
+                == vec![4242]
+        );
+        anyhow::ensure!(!running.load(Ordering::Relaxed));
+
+        reset_test_runtime_state()?;
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bug_pipeline_rerun_regression_defunct_daemon_pid_is_not_running() -> Result<()> {
+        let _guard = lock_test_runtime()?;
+        reset_test_runtime_state()?;
+        let mut child = Command::new("sh")
+            .arg("-c")
+            .arg("exit 0")
+            .spawn()
+            .context("spawning short-lived child process")?;
+        thread::sleep(Duration::from_millis(100));
+
+        let running = process_is_running(child.id())?;
+        let _status = child.wait().context("reaping short-lived child process")?;
+
+        anyhow::ensure!(!running, "defunct child should not count as running");
+        reset_test_runtime_state()?;
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bug_pipeline_rerun_regression_restarts_after_stale_descriptor() -> Result<()> {
+        let _guard = lock_test_runtime()?;
+        reset_test_runtime_state()?;
+        let temp = tempdir()?;
+        let paths = DesktopPaths::from_base_dir(temp.path());
+        fs::create_dir_all(paths.runtime_dir.as_path())?;
+        fs::create_dir_all(paths.state_root.as_path())?;
+        fs::write(
+            paths.descriptor_path(),
+            serde_json::to_vec(&DaemonDescriptorSnapshot {
+                instance_id: "stale-daemon-for-rerun-test".to_owned(),
+                pid: 4242,
+                socket_path: paths.socket_path().display().to_string(),
+                protocol_version: EXPECTED_PROTOCOL_VERSION,
+                schema_epoch: EXPECTED_SCHEMA_EPOCH,
+                state_root: paths.state_root.display().to_string(),
+                started_at: "2026-05-03T00:00:00Z".to_owned(),
+                ready: true,
+            })?,
+        )?;
+        let (stale_descriptor, _) = read_descriptor(paths.descriptor_path().as_path());
+        anyhow::ensure!(
+            try_handshake(&paths, stale_descriptor.as_ref(), None).is_err(),
+            "stale descriptor unexpectedly accepted a daemon handshake"
+        );
+
+        let launches = Arc::new(Mutex::new(0usize));
+        let launches_for_hook = Arc::clone(&launches);
+        set_test_daemon_launch_hook(move |state_root, runtime_dir, _artifact_root| {
+            *launches_for_hook
+                .lock()
+                .map_err(|_| anyhow!("test launch count lock poisoned"))? += 1;
+
+            let socket_path = runtime_dir.join(SOCKET_FILENAME);
+            let listener = UnixListener::bind(socket_path.as_path())
+                .with_context(|| format!("binding fake daemon socket {}", socket_path.display()))?;
+            let descriptor = DaemonDescriptorSnapshot {
+                instance_id: "fresh-daemon-for-rerun-test".to_owned(),
+                pid: 5252,
+                socket_path: socket_path.display().to_string(),
+                protocol_version: EXPECTED_PROTOCOL_VERSION,
+                schema_epoch: EXPECTED_SCHEMA_EPOCH,
+                state_root: state_root.display().to_string(),
+                started_at: "2026-05-03T00:00:01Z".to_owned(),
+                ready: true,
+            };
+            fs::write(
+                runtime_dir.join(DESCRIPTOR_FILENAME),
+                serde_json::to_vec(&descriptor)?,
+            )?;
+
+            thread::spawn(move || {
+                let Ok((mut stream, _addr)) = listener.accept() else {
+                    return;
+                };
+                let mut request = String::new();
+                {
+                    let mut reader = BufReader::new(&mut stream);
+                    if reader.read_line(&mut request).is_err() {
+                        return;
+                    }
+                }
+                let response = json!({
+                    "messageType": "welcome",
+                    "selectedProtocolVersion": EXPECTED_PROTOCOL_VERSION,
+                    "daemonVersion": "test",
+                    "instanceId": "fresh-daemon-for-rerun-test",
+                    "schemaEpoch": EXPECTED_SCHEMA_EPOCH,
+                    "commitSeq": 1,
+                    "healthState": { "status": "ready" },
+                    "mutationsAllowed": true,
+                    "activeSessions": { "count": 0, "ids": [], "states": [] },
+                    "reconnectOutcome": "freshConnection",
+                    "streamResumePermitted": true
+                });
+                let _ = writeln!(stream, "{response}");
+            });
+            Ok(())
+        })?;
+
+        ensure_daemon_ready_after_pipeline_rerun(&paths)?;
+        anyhow::ensure!(
+            *launches
+                .lock()
+                .map_err(|_| anyhow!("test launch count lock poisoned"))?
+                == 1
+        );
+
+        reset_test_runtime_state()?;
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bug_bridge_restart_regression_recovers_from_stale_daemon_socket() -> Result<()> {
+        let _guard = lock_test_runtime()?;
+        reset_test_runtime_state()?;
+        let temp = tempdir()?;
+        let paths = DesktopPaths::from_base_dir(temp.path());
+        fs::create_dir_all(paths.runtime_dir.as_path())?;
+        fs::create_dir_all(paths.state_root.as_path())?;
+        fs::write(
+            paths.descriptor_path(),
+            serde_json::to_vec(&DaemonDescriptorSnapshot {
+                instance_id: "stale-daemon-for-bridge-test".to_owned(),
+                pid: 6262,
+                socket_path: paths.socket_path().display().to_string(),
+                protocol_version: EXPECTED_PROTOCOL_VERSION,
+                schema_epoch: EXPECTED_SCHEMA_EPOCH,
+                state_root: paths.state_root.display().to_string(),
+                started_at: "2026-05-03T00:00:00Z".to_owned(),
+                ready: true,
+            })?,
+        )?;
+
+        let launches = Arc::new(Mutex::new(0usize));
+        let launches_for_hook = Arc::clone(&launches);
+        set_test_daemon_launch_hook(move |state_root, runtime_dir, _artifact_root| {
+            *launches_for_hook
+                .lock()
+                .map_err(|_| anyhow!("test launch count lock poisoned"))? += 1;
+
+            let socket_path = runtime_dir.join(SOCKET_FILENAME);
+            let listener = UnixListener::bind(socket_path.as_path())
+                .with_context(|| format!("binding fake daemon socket {}", socket_path.display()))?;
+            let descriptor = DaemonDescriptorSnapshot {
+                instance_id: "fresh-daemon-for-bridge-test".to_owned(),
+                pid: 6363,
+                socket_path: socket_path.display().to_string(),
+                protocol_version: EXPECTED_PROTOCOL_VERSION,
+                schema_epoch: EXPECTED_SCHEMA_EPOCH,
+                state_root: state_root.display().to_string(),
+                started_at: "2026-05-03T00:00:01Z".to_owned(),
+                ready: true,
+            };
+            fs::write(
+                runtime_dir.join(DESCRIPTOR_FILENAME),
+                serde_json::to_vec(&descriptor)?,
+            )?;
+
+            thread::spawn(move || {
+                for _ in 0..2 {
+                    let Ok((mut stream, _addr)) = listener.accept() else {
+                        return;
+                    };
+                    let mut request = String::new();
+                    {
+                        let mut reader = BufReader::new(&mut stream);
+                        if reader.read_line(&mut request).is_err() {
+                            return;
+                        }
+                    }
+                    let response = json!({
+                        "messageType": "welcome",
+                        "selectedProtocolVersion": EXPECTED_PROTOCOL_VERSION,
+                        "daemonVersion": "test",
+                        "instanceId": "fresh-daemon-for-bridge-test",
+                        "schemaEpoch": EXPECTED_SCHEMA_EPOCH,
+                        "commitSeq": 7,
+                        "healthState": { "status": "ready" },
+                        "mutationsAllowed": true,
+                        "activeSessions": { "count": 0, "ids": [], "states": [] },
+                        "reconnectOutcome": "freshConnection",
+                        "streamResumePermitted": true
+                    });
+                    let _ = writeln!(stream, "{response}");
+                }
+            });
+            Ok(())
+        })?;
+
+        let instance_id = with_daemon_connection(&paths, |connection| {
+            Ok(connection.welcome().instance_id.clone())
+        })?;
+
+        anyhow::ensure!(instance_id == "fresh-daemon-for-bridge-test");
+        anyhow::ensure!(
+            *launches
+                .lock()
+                .map_err(|_| anyhow!("test launch count lock poisoned"))?
+                == 1
+        );
+
+        reset_test_runtime_state()?;
         Ok(())
     }
 

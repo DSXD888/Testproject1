@@ -49,6 +49,7 @@ type QueryEnvelope<T> = {
 type Disposition = 'approve' | 'reject' | 'watch';
 
 const RERUN_STAGE_DELAY_MS = 3_000;
+const RERUN_INVOKE_DEFER_MS = 500;
 
 const PIPELINE_RERUN_STAGES = [
   { id: 'landed-cost', label: 'landed-cost' },
@@ -452,12 +453,18 @@ export function OperatorDecisionPanel({
       const fn =
         mutators?.triggerPipelineRerun ??
         ((a) => invoke('trigger_pipeline_rerun', a));
-      const commandResult = fn(args)
-        .then((response) => {
-          assertNotBridgeErrorResponse(response);
-          return { ok: true as const };
-        })
-        .catch((error: unknown) => ({ ok: false as const, error }));
+      const commandResult = new Promise<
+        { ok: true } | { ok: false; error: unknown }
+      >((resolve) => {
+        globalThis.setTimeout(() => {
+          void fn(args)
+            .then((response) => {
+              assertNotBridgeErrorResponse(response);
+              resolve({ ok: true });
+            })
+            .catch((error: unknown) => resolve({ ok: false, error }));
+        }, RERUN_INVOKE_DEFER_MS);
+      });
 
       PIPELINE_RERUN_STAGES.forEach((stage, index) => {
         globalThis.setTimeout(() => {
@@ -489,7 +496,7 @@ export function OperatorDecisionPanel({
           }
           setRerunStatus({
             state: 'success',
-            message: 'Pipeline rerun queued. Manifest will refresh shortly.',
+            message: 'Pipeline rerun complete. Manifest refreshed.',
             activeStage: 'manifest',
             modalOpen: false,
           });
@@ -764,11 +771,15 @@ export function OperatorDecisionPanel({
             data-testid="rerun-progress-modal"
             data-active-stage={rerunStatus.activeStage ?? undefined}
             style={{
+              position: 'fixed',
+              inset: '96px 96px auto 96px',
+              zIndex: 100,
               border: '1px solid #b6c8db',
               borderRadius: '6px',
               padding: '12px',
               marginTop: '12px',
               background: '#f7fbff',
+              boxShadow: '0 16px 48px rgba(15, 23, 42, 0.18)',
             }}
           >
             <h5 id="pipeline-rerun-progress-title">Re-run progress</h5>

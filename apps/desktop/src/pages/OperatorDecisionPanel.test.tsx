@@ -280,6 +280,7 @@ describe('FT.9 — Pipeline rerun progress tracks the Stage 11→12→13 chain',
     const html = panel({ rerunActiveStage: 'net-gate' });
     expect(html).toContain('data-testid="rerun-progress-modal"');
     expect(html).toContain('data-active-stage="net-gate"');
+    expect(html).toContain('position:fixed');
     for (const stage of REQUIRED_RERUN_STAGES) {
       expect(html).toContain(`data-stage="${stage}"`);
       expect(html).toContain(stage);
