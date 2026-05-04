@@ -1212,19 +1212,19 @@ mod tests {
     }
 
     #[test]
-    fn pdf_t_schema_activation_009_default_schema_epoch_is_7() -> Result<()> {
+    fn pdf_t_schema_activation_009_default_schema_epoch_is_8() -> Result<()> {
         let state_db = TestStateDb::new()?;
         let user_version: i64 =
             state_db
                 .connection()
                 .pragma_query_value(None, "user_version", |row| row.get(0))?;
         ensure!(
-            crate::support::db::DEFAULT_SCHEMA_EPOCH == 7,
-            "PDF-T-schema_activation-009 expected DEFAULT_SCHEMA_EPOCH to be 7"
+            crate::support::db::DEFAULT_SCHEMA_EPOCH == 8,
+            "PDF-T-schema_activation-009 expected DEFAULT_SCHEMA_EPOCH to be 8"
         );
         ensure!(
-            user_version == 7,
-            "PDF-T-schema_activation-009 expected user_version to be 7"
+            user_version == 8,
+            "PDF-T-schema_activation-009 expected user_version to be 8"
         );
         Ok(())
     }
@@ -1308,8 +1308,8 @@ mod tests {
         );
         let user_version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
         ensure!(
-            user_version == 7,
-            "expected user_version 7 after full upgrade"
+            user_version == 8,
+            "expected user_version 8 after full upgrade"
         );
         Ok(())
     }
@@ -1382,8 +1382,111 @@ mod tests {
         );
         let user_version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
         ensure!(
-            user_version == 7,
-            "OPD-T-schema_activation-010 expected user_version 7 after upgrade"
+            user_version == 8,
+            "OPD-T-schema_activation-010 expected user_version 8 after upgrade"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn cb_t_schema_activation_011_commercial_basis_coverage_schema_is_active() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let conn = Connection::open(&db_path)?;
+
+        for migration_path in [
+            "migrations/0001_sqlite_state_initial.sql",
+            "migrations/0003_sqlite_runtime.sql",
+            "migrations/0004_l2_pending_operator_intents.sql",
+            "migrations/0005_l3_operational_hardening.sql",
+            "migrations/0006_pdf_extraction_toolkit.sql",
+            "migrations/0007_net_margin_gate_assessments.sql",
+            "migrations/0008_manifest_generation_columns.sql",
+            "migrations/0009_operator_input_overrides.sql",
+            "migrations/0010_operator_override_audit_rows.sql",
+        ] {
+            apply_migration(&conn, migration_path)?;
+        }
+        seed_applied_migrations(
+            &conn,
+            &[
+                "0001_sqlite_state_initial",
+                "0003_sqlite_runtime",
+                "0004_l2_pending_operator_intents",
+                "0005_l3_operational_hardening",
+                "0006_pdf_extraction_toolkit",
+                "0007_net_margin_gate_assessments",
+                "0008_manifest_generation_columns",
+                "0009_operator_input_overrides",
+                "0010_operator_override_audit_rows",
+            ],
+            7,
+        )?;
+        drop(conn);
+
+        let state_db = StateDb::open(&db_path)?;
+        let conn = state_db.connection();
+        ensure!(
+            table_exists(conn, "candidate_quote_coverage")?,
+            "CB-T-schema_activation-011 expected candidate_quote_coverage table"
+        );
+        let coverage_columns = table_columns(conn, "candidate_quote_coverage")?;
+        for column in [
+            "id",
+            "process_id",
+            "notice_id",
+            "product_candidate_id",
+            "required_role",
+            "attempted",
+            "usable_quote_count",
+            "latest_source",
+            "latest_failure_mode",
+            "coverage_state",
+            "evidence_json",
+            "owner_id",
+            "row_version",
+            "last_local_seq",
+            "stage_run_id",
+            "updated_at",
+            "created_at",
+        ] {
+            ensure!(
+                coverage_columns.iter().any(|candidate| candidate == column),
+                "CB-T-schema_activation-011 candidate_quote_coverage missing column {column}"
+            );
+        }
+        let pricing_columns = table_columns(conn, "candidate_pricing_assessments")?;
+        for column in [
+            "commercial_basis_kind",
+            "normal_quote_coverage",
+            "uk_quote_id",
+            "china_import_quote_id",
+            "benchmark_quote_id",
+            "selected_supply_quote_id",
+            "supplier_spread_bps",
+            "fallback_discount_bps",
+            "missing_required_roles_json",
+            "coverage_evidence_json",
+        ] {
+            ensure!(
+                pricing_columns.iter().any(|candidate| candidate == column),
+                "CB-T-schema_activation-011 candidate_pricing_assessments missing column {column}"
+            );
+        }
+        let migration_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM schema_migrations
+             WHERE id = '0011_commercial_basis_coverage'",
+            [],
+            |row| row.get(0),
+        )?;
+        ensure!(
+            migration_count == 1,
+            "CB-T-schema_activation-011 expected 0011 migration log entry"
+        );
+        let user_version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
+        ensure!(
+            user_version == 8,
+            "CB-T-schema_activation-011 expected user_version 8 after upgrade"
         );
         Ok(())
     }

@@ -160,6 +160,9 @@ fn test_tender_spec_schema_contains_lot_and_product_requirement_fields() -> Resu
     let seed_required = schema["properties"]["product_requirement_seeds"]["items"]["required"]
         .as_array()
         .ok_or_else(|| anyhow!("product_requirement_seeds required array missing"))?;
+    let seed_properties = schema["properties"]["product_requirement_seeds"]["items"]["properties"]
+        .as_object()
+        .ok_or_else(|| anyhow!("product_requirement_seeds properties object missing"))?;
 
     for field in [
         "lot_number",
@@ -189,6 +192,18 @@ fn test_tender_spec_schema_contains_lot_and_product_requirement_fields() -> Resu
         ensure!(
             seed_required.contains(&Value::String(field.to_owned())),
             "tender-spec schema missing product seed field {field}"
+        );
+    }
+    for field in [
+        "quantity_hint",
+        "quantity",
+        "quantity_unit",
+        "quantity_confidence_bps",
+        "quantity_evidence_anchor",
+    ] {
+        ensure!(
+            seed_properties.contains_key(field),
+            "tender-spec schema missing product seed quantity property {field}"
         );
     }
 

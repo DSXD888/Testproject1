@@ -21,6 +21,8 @@ const L_MANIFEST_MIGRATION_PATH: &str = "migrations/0008_manifest_generation_col
 const L_OPERATOR_OVERRIDES_MIGRATION_PATH: &str = "migrations/0009_operator_input_overrides.sql";
 const L_OPERATOR_OVERRIDE_AUDIT_MIGRATION_PATH: &str =
     "migrations/0010_operator_override_audit_rows.sql";
+const L_COMMERCIAL_BASIS_COVERAGE_MIGRATION_PATH: &str =
+    "migrations/0011_commercial_basis_coverage.sql";
 const MIGRATION_LOG_TABLE: &str = "schema_migrations";
 const PRE_L3_SCHEMA_EPOCH: i64 = 1;
 const MIGRATIONS: &[(&str, i64, &str)] = &[
@@ -61,9 +63,14 @@ const MIGRATIONS: &[(&str, i64, &str)] = &[
         7,
         L_OPERATOR_OVERRIDE_AUDIT_MIGRATION_PATH,
     ),
+    (
+        "0011_commercial_basis_coverage",
+        8,
+        L_COMMERCIAL_BASIS_COVERAGE_MIGRATION_PATH,
+    ),
 ];
 
-pub const DEFAULT_SCHEMA_EPOCH: i64 = 7;
+pub const DEFAULT_SCHEMA_EPOCH: i64 = 8;
 pub const DEFAULT_OWNER_ID: &str = "local-owner";
 pub const FTS_SOURCE_ID: &str = "fts";
 

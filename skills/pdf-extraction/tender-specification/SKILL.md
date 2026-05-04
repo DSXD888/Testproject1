@@ -57,8 +57,29 @@ The daemon reads this file after the session completes. If `result.json` is miss
 ## Non-goals
 - Parsing layout or table structure that should already be present in Docling output.
 - Emitting separate semantic rows for `"candidates"` or `"requirements"` target domains.
-- Performing pricing normalization or BoQ quantity extraction.
+- Performing pricing normalization or full bill-of-quantities costing.
+- Ignoring explicit technical quantity requirements. When the tender text or
+  schedule states counts such as `"2no boilers"`, `"1No. cylinder"`, or
+  `"3 units"`, extract them as evidence-backed `quantity_hint` values and,
+  when allocation is unambiguous, structured `quantity` / `quantity_unit`
+  fields on the matching product requirement seed.
 - Guessing lot boundaries, standards, or product requirements without citing evidence anchors.
+
+## Quantity Extraction Rules
+- Do extract explicit product counts that describe what must be supplied or
+  installed. These are technical requirement signals, not pricing
+  normalization.
+- Do not extract money, unit rates, extensions, or BoQ pricing columns as
+  quantities.
+- If a total count maps cleanly to unique schedule references, allocate it
+  deterministically. Example: a boiler schedule has B01 and B02, and prose says
+  `2no gas fired heating boilers`; emit `quantity = 1`,
+  `quantity_unit = "unit"` for each of B01 and B02.
+- If the total count exists but candidate-level allocation is ambiguous, keep
+  `quantity` absent, include an honest `quantity_hint`, and add a warning with
+  evidence references rather than inventing per-candidate quantities.
+- Quantity evidence must cite both the schedule/reference row and the explicit
+  quantity sentence when both are needed to justify allocation.
 
 ## Failure Codes
 - AGENT_OUTPUT_CONTRACT_INVALID

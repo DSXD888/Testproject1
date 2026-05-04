@@ -101,6 +101,21 @@
                 "quantity_hint": {
                   "type": "string"
                 },
+                "quantity": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "quantity_unit": {
+                  "type": "string"
+                },
+                "quantity_confidence_bps": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "quantity_evidence_anchor": {
+                  "$ref": "#/$defs/evidenceAnchor"
+                },
                 "evidence_anchor": {
                   "$ref": "#/$defs/evidenceAnchor"
                 }
@@ -176,6 +191,24 @@
             "items": {
               "type": "string"
             }
+          },
+          "quantity_hint": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "quantity_unit": {
+            "type": "string"
+          },
+          "quantity_confidence_bps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "quantity_evidence_anchor": {
+            "$ref": "#/$defs/evidenceAnchor"
           },
           "evidence_anchor": {
             "$ref": "#/$defs/evidenceAnchor"

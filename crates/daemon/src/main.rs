@@ -228,6 +228,17 @@ const RESTART_DELAY_ENV: &str = "DAEMON_RESTART_DELAY_MS";
 /// Operator-adjustable range: 2000..=4000 bps (20 %..=40 %).
 #[allow(dead_code)]
 const DEFAULT_UK_RETAIL_WHOLESALE_DISCOUNT_BPS: i64 = 3000;
+const QUOTE_ROLE_UK_SIDE: &str = "uk_side_quote";
+const QUOTE_ROLE_CHINA_IMPORT: &str = "china_import_quote";
+const COVERAGE_STATE_ATTEMPTED_NO_QUOTE: &str = "attempted_no_quote";
+const COVERAGE_STATE_ATTEMPTED_FAILED: &str = "attempted_failed";
+const COVERAGE_STATE_USABLE_QUOTE_AVAILABLE: &str = "usable_quote_available";
+const COVERAGE_STATE_BLOCKED_CAPTCHA: &str = "blocked_captcha";
+const COVERAGE_STATE_BLOCKED_AUTH: &str = "blocked_auth";
+const BASIS_TWO_SIDED_SUPPLIER_COMPARISON: &str = "two_sided_supplier_comparison";
+const BASIS_SINGLE_SIDE_RETAIL_DISCOUNT_FALLBACK: &str = "single_side_retail_discount_fallback";
+const BASIS_SINGLE_SIDE_WHOLESALE_FALLBACK: &str = "single_side_wholesale_fallback";
+const BASIS_MISSING_REQUIRED_QUOTE_ROLE_ATTEMPT: &str = "missing_required_quote_role_attempt";
 
 /// How many `product_candidates` a single marketplace-search PTY session
 /// should handle. Keeps session token budgets tractable and bounds
@@ -1305,6 +1316,9 @@ async fn main() -> Result<()> {
             "landed-cost" => run_landed_cost_live_loop(&mut runtime, &cli).await?,
             "net-gate" => run_net_margin_gate_live_loop(&mut runtime, &cli)?,
             "manifest" => run_manifest_generation_live_loop(&mut runtime, &cli).await?,
+            "marketplace-coverage" => {
+                run_marketplace_coverage_live_loop(&mut runtime, &cli).await?
+            }
             "gem-imports" | "mx-wholesale" | "amazon-uk" | "ebay-uk" | "alibaba-search" => {
                 run_marketplace_search_live_loop(&mut runtime, source_id, &cli).await?
             }
@@ -3873,6 +3887,10 @@ struct LandedCostAssessmentRow {
     revenue_confidence_bps: i64,
     gross_estimate_confidence_bps: i64,
     pricing_input_confidence_bps: i64,
+    commercial_basis_kind: String,
+    normal_quote_coverage: bool,
+    missing_required_roles_json: String,
+    coverage_evidence_json: String,
     quote_row_version: i64,
     quote_product_name: String,
     source_name: String,
@@ -4562,10 +4580,10 @@ fn classify_quoted_quantity_shape(row: &LandedCostAssessmentRow) -> QuotedQuanti
 /// finite, positive, and the implied cost basis is plausible relative to the
 /// pricing-assessment revenue scope.
 ///
-/// Reject when revenue is set and `lot_value` is more than 2× the candidate's
-/// allocated revenue — the lot covers multiple candidates, so dividing the
-/// whole lot value by the unit price overcounts the order qty for any single
-/// candidate (this is what would happen with the Aggregates row).
+/// Reject when revenue is set and `lot_value` is outside a tight ±10% band
+/// around the candidate's allocated revenue. Wider divergence means the lot
+/// covers multiple candidates, so dividing the whole lot value by unit price
+/// overcounts the order quantity for a single candidate.
 #[allow(clippy::cast_precision_loss)]
 fn lot_value_derived_quantity(row: &LandedCostAssessmentRow) -> Option<f64> {
     let lot_value = row.lot_estimated_value_pence.filter(|value| *value > 0)?;
@@ -4579,10 +4597,7 @@ fn lot_value_derived_quantity(row: &LandedCostAssessmentRow) -> Option<f64> {
     if row.expected_addressable_revenue_ex_vat_pence > 0 {
         let lot_value_f = lot_value as f64;
         let revenue = row.expected_addressable_revenue_ex_vat_pence as f64;
-        // The candidate's allocated revenue should be on the same scale as
-        // lot value if the candidate covers the whole lot. Outside [1/2, 2x]
-        // we treat the derivation as unsafe.
-        if lot_value_f > revenue * 2.0 || lot_value_f < revenue / 2.0 {
+        if lot_value_f > revenue * 1.10 || lot_value_f < revenue * 0.90 {
             return None;
         }
     }
@@ -4617,19 +4632,34 @@ fn infer_order_quantity_basis(row: &LandedCostAssessmentRow) -> OrderQuantityBas
         };
     }
 
-    // Priority 2: expected_value revenue AND a plausible cost basis. Reject
+    // Priority 2: candidate-level quantity (pc.quantity). Document-derived
+    // quantities must beat any value/unit-price inference.
+    if let Some(qty) = positive_finite_quantity(row.candidate_quantity) {
+        return OrderQuantityBasis::FromLotQuantity {
+            qty,
+            basis_unit: row.candidate_quantity_unit.clone().or(preferred_unit),
+        };
+    }
+
+    // Priority 3: derive from `notice_lots.estimated_value_pence` when the
+    // implied cost basis is plausible vs the pricing-assessment revenue scope.
+    if let Some(qty) = lot_value_derived_quantity(row) {
+        return OrderQuantityBasis::FromLotQuantity {
+            qty,
+            basis_unit: row.candidate_quantity_unit.clone().or(preferred_unit),
+        };
+    }
+
+    // Priority 4: expected_value revenue AND a plausible cost basis. Reject
     // pack listings, supplier capacity, and Aggregates-shape scale mismatches
     // — those are handled lower down. Require at least one *supporting*
-    // quantity signal (plausible quoted_quantity, candidate_quantity, lot
-    // estimated value, or MOQ) before committing to revenue / unit_price.
-    // Without any of those, the assumption that unit_price represents the
-    // per-order unit is unverified and we'd rather fall through to
-    // BasisUndetermined.
+    // quantity signal before committing to revenue / unit_price. Only the
+    // normal two-sided supplier comparison path may use this fallback.
     let has_supporting_signal = matches!(quoted_shape, QuotedQuantityShape::Plausible)
-        || positive_finite_quantity(row.candidate_quantity).is_some()
-        || row.lot_estimated_value_pence.is_some_and(|value| value > 0)
         || positive_finite_quantity(row.minimum_order_quantity).is_some();
     if row.revenue_basis_type == "expected_value"
+        && row.normal_quote_coverage
+        && row.commercial_basis_kind == BASIS_TWO_SIDED_SUPPLIER_COMPARISON
         && row.expected_addressable_revenue_ex_vat_pence > 0
         && row.unit_price_gbp_pence > 0
         && !matches!(
@@ -4651,24 +4681,7 @@ fn infer_order_quantity_basis(row: &LandedCostAssessmentRow) -> OrderQuantityBas
         }
     }
 
-    // Priority 3a: candidate-level quantity (pc.quantity).
-    if let Some(qty) = positive_finite_quantity(row.candidate_quantity) {
-        return OrderQuantityBasis::FromLotQuantity {
-            qty,
-            basis_unit: row.candidate_quantity_unit.clone().or(preferred_unit),
-        };
-    }
-
-    // Priority 3b: derive from `notice_lots.estimated_value_pence` when the
-    // implied cost basis is plausible vs the pricing-assessment revenue scope.
-    if let Some(qty) = lot_value_derived_quantity(row) {
-        return OrderQuantityBasis::FromLotQuantity {
-            qty,
-            basis_unit: row.candidate_quantity_unit.clone().or(preferred_unit),
-        };
-    }
-
-    // Priority 4: if `quoted_quantity` is present, even if it looks like
+    // Priority 5: if `quoted_quantity` is present, even if it looks like
     // supplier capacity, fall back to it as a screening-only basis (with a
     // warning emitted by `screening_uncertainty_warning`). This preserves
     // existing behavior for cases without revenue, candidate qty, or lot
@@ -4684,7 +4697,7 @@ fn infer_order_quantity_basis(row: &LandedCostAssessmentRow) -> OrderQuantityBas
         };
     }
 
-    // Priority 5: BasisUndetermined catch-all. Pick the most descriptive
+    // Priority 6: BasisUndetermined catch-all. Pick the most descriptive
     // reason based on whatever signals the row exposes.
     let reason = match quoted_shape {
         QuotedQuantityShape::PackListing | QuotedQuantityShape::RevenueCostScaleMismatch => {
@@ -5394,6 +5407,10 @@ fn load_landed_cost_assessments(
           cpa.revenue_confidence_bps,
           cpa.gross_estimate_confidence_bps,
           cpa.pricing_input_confidence_bps,
+          cpa.commercial_basis_kind,
+          cpa.normal_quote_coverage,
+          cpa.missing_required_roles_json,
+          cpa.coverage_evidence_json,
           sq.row_version AS quote_row_version,
           sq.product_name AS quote_product_name,
           sq.source_name,
@@ -5484,45 +5501,49 @@ fn load_landed_cost_assessments(
             revenue_confidence_bps: row.get(9)?,
             gross_estimate_confidence_bps: row.get(10)?,
             pricing_input_confidence_bps: row.get(11)?,
-            quote_row_version: row.get(12)?,
-            quote_product_name: row.get(13)?,
-            source_name: row.get(14)?,
-            source_url: row.get(15)?,
-            source_listing_id: row.get(16)?,
-            ship_from_country: row.get(17)?,
-            country_of_origin: row.get(18)?,
-            country_of_dispatch: row.get(19)?,
-            incoterm: row.get(20)?,
-            quoted_quantity: row.get(21)?,
-            quoted_quantity_unit: row.get(22)?,
-            unit_price_original_minor: row.get(23)?,
-            currency: row.get(24)?,
-            unit_price_gbp_pence: row.get(25)?,
-            offer_total_gbp_pence: row.get(26)?,
-            minimum_order_quantity: row.get(27)?,
-            lead_time_days: row.get(28)?,
-            includes_shipping: row.get(29)?,
-            price_signal_role: row.get(30)?,
-            listing_pack_qty: row.get(31)?,
-            listing_pack_unit: row.get(32)?,
-            vat_inclusive: row.get(33)?,
-            quote_evidence: row.get(34)?,
-            candidate_name: row.get(35)?,
-            head_noun: row.get(36)?,
-            specification_text: row.get(37)?,
-            standards_json: row.get(38)?,
-            critical_attributes_json: row.get(39)?,
-            numeric_specs_json: row.get(40)?,
-            material: row.get(41)?,
-            candidate_quantity: row.get(42)?,
-            candidate_quantity_unit: row.get(43)?,
-            lot_title: row.get(44)?,
-            lot_description: row.get(45)?,
-            lot_estimated_value_pence: row.get(46)?,
-            notice_title: row.get(47)?,
-            notice_summary: row.get(48)?,
-            buyer_name: row.get(49)?,
-            main_category: row.get(50)?,
+            commercial_basis_kind: row.get(12)?,
+            normal_quote_coverage: row.get::<_, i64>(13)? != 0,
+            missing_required_roles_json: row.get(14)?,
+            coverage_evidence_json: row.get(15)?,
+            quote_row_version: row.get(16)?,
+            quote_product_name: row.get(17)?,
+            source_name: row.get(18)?,
+            source_url: row.get(19)?,
+            source_listing_id: row.get(20)?,
+            ship_from_country: row.get(21)?,
+            country_of_origin: row.get(22)?,
+            country_of_dispatch: row.get(23)?,
+            incoterm: row.get(24)?,
+            quoted_quantity: row.get(25)?,
+            quoted_quantity_unit: row.get(26)?,
+            unit_price_original_minor: row.get(27)?,
+            currency: row.get(28)?,
+            unit_price_gbp_pence: row.get(29)?,
+            offer_total_gbp_pence: row.get(30)?,
+            minimum_order_quantity: row.get(31)?,
+            lead_time_days: row.get(32)?,
+            includes_shipping: row.get(33)?,
+            price_signal_role: row.get(34)?,
+            listing_pack_qty: row.get(35)?,
+            listing_pack_unit: row.get(36)?,
+            vat_inclusive: row.get(37)?,
+            quote_evidence: row.get(38)?,
+            candidate_name: row.get(39)?,
+            head_noun: row.get(40)?,
+            specification_text: row.get(41)?,
+            standards_json: row.get(42)?,
+            critical_attributes_json: row.get(43)?,
+            numeric_specs_json: row.get(44)?,
+            material: row.get(45)?,
+            candidate_quantity: row.get(46)?,
+            candidate_quantity_unit: row.get(47)?,
+            lot_title: row.get(48)?,
+            lot_description: row.get(49)?,
+            lot_estimated_value_pence: row.get(50)?,
+            notice_title: row.get(51)?,
+            notice_summary: row.get(52)?,
+            buyer_name: row.get(53)?,
+            main_category: row.get(54)?,
             operator_override: None,
         })
     })?;
@@ -6091,6 +6112,12 @@ fn confidence_breakdown(
             "basis": supplier_cost.basis,
             "quantity": supplier_cost.quantity,
             "quantity_unit": supplier_cost.quantity_unit,
+        },
+        "commercial_basis": {
+            "kind": row.commercial_basis_kind,
+            "normal_quote_coverage": row.normal_quote_coverage,
+            "missing_required_roles": parse_json_or_null(Some(&row.missing_required_roles_json)),
+            "coverage_evidence": parse_json_or_null(Some(&row.coverage_evidence_json)),
         },
         "order_quantity_basis": order_quantity_basis.map(OrderQuantityBasis::to_json),
         "skill_versions": skill_versions,
@@ -7489,9 +7516,17 @@ const REASON_QUANTITY_BASIS_UNALIGNED: &str = "quantity_basis_unaligned";
 const REASON_QUANTITY_BASIS_UNDETERMINED: &str = "quantity_basis_undetermined";
 const REASON_NO_PRICING_SIGNAL: &str = "no_pricing_signal";
 const REASON_MARGIN_BELOW_PASS: &str = "margin_below_pass";
+const REASON_MISSING_REQUIRED_QUOTE_ROLE_ATTEMPT: &str = "missing_required_quote_role_attempt";
+const REASON_MISSING_CHINA_IMPORT_QUOTE: &str = "missing_china_import_quote";
+const REASON_FALLBACK_SCREENING_COMMERCIAL_BASIS: &str = "fallback_screening_commercial_basis";
+const REASON_INCOMPLETE_QUOTE_COVERAGE: &str = "incomplete_quote_coverage";
 const OPERATOR_RFQ_OVERRIDE_REVENUE_CONFIDENCE_BPS: i64 = 8000;
 
-const NET_MARGIN_REASON_PRECEDENCE: [&str; 9] = [
+const NET_MARGIN_REASON_PRECEDENCE: [&str; 13] = [
+    REASON_MISSING_REQUIRED_QUOTE_ROLE_ATTEMPT,
+    REASON_MISSING_CHINA_IMPORT_QUOTE,
+    REASON_FALLBACK_SCREENING_COMMERCIAL_BASIS,
+    REASON_INCOMPLETE_QUOTE_COVERAGE,
     REASON_QUANTITY_BASIS_UNALIGNED,
     REASON_QUANTITY_BASIS_UNDETERMINED,
     REASON_AWAITING_RFQ_QUOTE,
@@ -7533,6 +7568,9 @@ impl NetMarginVerdict {
 struct NetMarginDecisionInput<'a> {
     has_pricing_signal: bool,
     revenue_basis_type: Option<&'a str>,
+    commercial_basis_kind: Option<&'a str>,
+    normal_quote_coverage: bool,
+    missing_required_roles_json: Option<&'a str>,
     supplier_price_basis_qty_present: bool,
     order_quantity_basis_kind: Option<&'a str>,
     net_margin_low_bps: Option<i64>,
@@ -7563,6 +7601,9 @@ struct NetMarginCandidateInput {
     landed_cost_estimate_id: Option<String>,
     landed_cost_row_version: Option<i64>,
     revenue_basis_type: Option<String>,
+    commercial_basis_kind: Option<String>,
+    normal_quote_coverage: bool,
+    missing_required_roles_json: Option<String>,
     expected_addressable_revenue_ex_vat_pence: Option<i64>,
     pricing_input_confidence_bps: Option<i64>,
     revenue_confidence_bps: Option<i64>,
@@ -7833,6 +7874,10 @@ struct ManifestCandidateDetail {
     selected_quote: ManifestSelectedQuote,
     landed_cost: ManifestLandedCost,
     pricing_assessment_id: Option<String>,
+    commercial_basis_kind: Option<String>,
+    normal_quote_coverage: Option<i64>,
+    missing_required_roles_json: Option<String>,
+    coverage_evidence_json: Option<String>,
     search_attempts: Vec<ManifestSearchEvidence>,
     #[serde(skip_serializing)]
     confidence_breakdown_json: Option<String>,
@@ -7996,6 +8041,11 @@ fn below_floor(value: Option<i64>, floor_bps: i64) -> bool {
     value.is_none_or(|actual| actual < floor_bps)
 }
 
+fn missing_required_roles_contains(raw: Option<&str>, role: &str) -> bool {
+    raw.and_then(|text| serde_json::from_str::<Vec<String>>(text).ok())
+        .is_some_and(|roles| roles.iter().any(|candidate| candidate == role))
+}
+
 fn operator_override_uses_generic_expected_value_revenue(
     input: &NetMarginDecisionInput<'_>,
 ) -> bool {
@@ -8016,6 +8066,28 @@ fn evaluate_net_margin_decision(input: &NetMarginDecisionInput<'_>) -> NetMargin
 
     let mut reasons = Vec::new();
     let mut has_quantity_basis_blocker = false;
+    let mut has_commercial_basis_blocker = false;
+
+    if input.commercial_basis_kind == Some(BASIS_MISSING_REQUIRED_QUOTE_ROLE_ATTEMPT) {
+        reasons.push(REASON_MISSING_REQUIRED_QUOTE_ROLE_ATTEMPT);
+        has_commercial_basis_blocker = true;
+    } else if matches!(
+        input.commercial_basis_kind,
+        Some(BASIS_SINGLE_SIDE_RETAIL_DISCOUNT_FALLBACK | BASIS_SINGLE_SIDE_WHOLESALE_FALLBACK)
+    ) {
+        reasons.push(REASON_FALLBACK_SCREENING_COMMERCIAL_BASIS);
+        reasons.push(REASON_MISSING_CHINA_IMPORT_QUOTE);
+        has_commercial_basis_blocker = true;
+    } else if !input.normal_quote_coverage {
+        reasons.push(REASON_INCOMPLETE_QUOTE_COVERAGE);
+        has_commercial_basis_blocker = true;
+    }
+    if missing_required_roles_contains(input.missing_required_roles_json, QUOTE_ROLE_CHINA_IMPORT)
+        && !reasons.contains(&REASON_MISSING_REQUIRED_QUOTE_ROLE_ATTEMPT)
+    {
+        reasons.push(REASON_MISSING_REQUIRED_QUOTE_ROLE_ATTEMPT);
+        has_commercial_basis_blocker = true;
+    }
 
     match input.order_quantity_basis_kind {
         Some("rfq_required" | "supplier_capacity") => {
@@ -8081,7 +8153,7 @@ fn evaluate_net_margin_decision(input: &NetMarginDecisionInput<'_>) -> NetMargin
         .is_some_and(|base| base >= NET_MARGIN_PASS_THRESHOLD_BPS)
         && input.net_margin_low_bps.is_some_and(|low| low >= 0);
 
-    let verdict = if awaiting_rfq || has_quantity_basis_blocker {
+    let verdict = if awaiting_rfq || has_quantity_basis_blocker || has_commercial_basis_blocker {
         NetMarginVerdict::Review
     } else if high_rejects && confidence_floors_clear {
         NetMarginVerdict::Reject
@@ -8129,6 +8201,9 @@ fn build_net_margin_candidate_assessment(
     let decision = evaluate_net_margin_decision(&NetMarginDecisionInput {
         has_pricing_signal: input.pricing_assessment_id.is_some(),
         revenue_basis_type: input.revenue_basis_type.as_deref(),
+        commercial_basis_kind: input.commercial_basis_kind.as_deref(),
+        normal_quote_coverage: input.normal_quote_coverage,
+        missing_required_roles_json: input.missing_required_roles_json.as_deref(),
         supplier_price_basis_qty_present: input.supplier_price_basis_qty_present,
         order_quantity_basis_kind: order_quantity_kind.as_deref(),
         net_margin_low_bps: input.net_margin_low_bps,
@@ -8208,6 +8283,9 @@ fn load_net_margin_candidate_inputs(conn: &Connection) -> Result<Vec<NetMarginCa
           lce.id,
           lce.row_version,
           cpa.revenue_basis_type,
+          cpa.commercial_basis_kind,
+          cpa.normal_quote_coverage,
+          cpa.missing_required_roles_json,
           cpa.expected_addressable_revenue_ex_vat_pence,
           cpa.pricing_input_confidence_bps,
           cpa.revenue_confidence_bps,
@@ -8251,17 +8329,20 @@ fn load_net_margin_candidate_inputs(conn: &Connection) -> Result<Vec<NetMarginCa
             landed_cost_estimate_id: row.get(7)?,
             landed_cost_row_version: row.get(8)?,
             revenue_basis_type: row.get(9)?,
-            expected_addressable_revenue_ex_vat_pence: row.get(10)?,
-            pricing_input_confidence_bps: row.get(11)?,
-            revenue_confidence_bps: row.get(12)?,
-            net_margin_low_bps: row.get(13)?,
-            net_margin_base_bps: row.get(14)?,
-            net_margin_high_bps: row.get(15)?,
-            economic_landed_cost_gbp_pence: row.get(16)?,
-            customs_resolution_confidence_bps: row.get(17)?,
-            commercial_estimate_confidence_bps: row.get(18)?,
-            confidence_breakdown: row.get(19)?,
-            supplier_price_basis_qty_present: row.get::<_, i64>(20)? != 0,
+            commercial_basis_kind: row.get(10)?,
+            normal_quote_coverage: row.get::<_, Option<i64>>(11)?.unwrap_or(0) != 0,
+            missing_required_roles_json: row.get(12)?,
+            expected_addressable_revenue_ex_vat_pence: row.get(13)?,
+            pricing_input_confidence_bps: row.get(14)?,
+            revenue_confidence_bps: row.get(15)?,
+            net_margin_low_bps: row.get(16)?,
+            net_margin_base_bps: row.get(17)?,
+            net_margin_high_bps: row.get(18)?,
+            economic_landed_cost_gbp_pence: row.get(19)?,
+            customs_resolution_confidence_bps: row.get(20)?,
+            commercial_estimate_confidence_bps: row.get(21)?,
+            confidence_breakdown: row.get(22)?,
+            supplier_price_basis_qty_present: row.get::<_, i64>(23)? != 0,
         })
     })?;
     rows.collect::<std::result::Result<Vec<_>, _>>()
@@ -8846,6 +8927,7 @@ fn order_quantity_unit_from_breakdown(raw: Option<&str>) -> Option<String> {
         .map(str::to_owned)
 }
 
+#[allow(clippy::too_many_lines)]
 fn clarification_prompts_for_candidate(
     candidate: &ManifestCandidateDetail,
 ) -> Vec<ClarificationPrompt> {
@@ -8922,6 +9004,66 @@ fn clarification_prompts_for_candidate(
                 options: Some(vec![
                     "manual_price".to_owned(),
                     "un_pursueable".to_owned(),
+                    "defer".to_owned(),
+                ]),
+            }),
+            REASON_MISSING_REQUIRED_QUOTE_ROLE_ATTEMPT => Some(ClarificationPrompt {
+                candidate_id: candidate.candidate_id.clone(),
+                candidate_name: candidate.candidate_name.clone(),
+                lot_id: candidate.lot_id.clone(),
+                reason_code: reason.clone(),
+                prompt_text: "Run missing marketplace source role before margin decision".to_owned(),
+                prompt_unit: None,
+                prompt_type: "choice".to_owned(),
+                default_value: Value::Null,
+                rationale: Some(
+                    "Normal commercial basis requires durable UK-side and China/import-side source attempts."
+                        .to_owned(),
+                ),
+                options: Some(vec![
+                    "run_alibaba_import_sourcing".to_owned(),
+                    "record_import_source_failure".to_owned(),
+                    "defer".to_owned(),
+                ]),
+            }),
+            REASON_MISSING_CHINA_IMPORT_QUOTE | REASON_FALLBACK_SCREENING_COMMERCIAL_BASIS => {
+                Some(ClarificationPrompt {
+                    candidate_id: candidate.candidate_id.clone(),
+                    candidate_name: candidate.candidate_name.clone(),
+                    lot_id: candidate.lot_id.clone(),
+                    reason_code: reason.clone(),
+                    prompt_text: "Review fallback screening basis or provide China/import quote"
+                        .to_owned(),
+                    prompt_unit: None,
+                    prompt_type: "choice".to_owned(),
+                    default_value: Value::Null,
+                    rationale: Some(
+                        "The current margin is a single-side screening estimate, not a normal two-sided supplier comparison."
+                            .to_owned(),
+                    ),
+                    options: Some(vec![
+                        "provide_import_quote".to_owned(),
+                        "rerun_import_sourcing".to_owned(),
+                        "accept_screening_only".to_owned(),
+                    ]),
+                })
+            }
+            REASON_INCOMPLETE_QUOTE_COVERAGE => Some(ClarificationPrompt {
+                candidate_id: candidate.candidate_id.clone(),
+                candidate_name: candidate.candidate_name.clone(),
+                lot_id: candidate.lot_id.clone(),
+                reason_code: reason.clone(),
+                prompt_text: "Complete two-sided quote coverage".to_owned(),
+                prompt_unit: None,
+                prompt_type: "choice".to_owned(),
+                default_value: Value::Null,
+                rationale: Some(
+                    "The candidate lacks normal quote coverage for commercial readiness."
+                        .to_owned(),
+                ),
+                options: Some(vec![
+                    "run_uk_side_sourcing".to_owned(),
+                    "run_import_sourcing".to_owned(),
                     "defer".to_owned(),
                 ]),
             }),
@@ -9169,6 +9311,10 @@ fn load_manifest_skill_bundle(conn: &Connection, process_id: &str) -> Result<Man
           cnma.customs_resolution_confidence_bps,
           cnma.commercial_estimate_confidence_bps,
           cnma.pricing_assessment_id,
+          cpa.commercial_basis_kind,
+          cpa.normal_quote_coverage,
+          cpa.missing_required_roles_json,
+          cpa.coverage_evidence_json,
           cpa.selected_quote_id,
           sq.source_name,
           sq.region,
@@ -9233,30 +9379,34 @@ fn load_manifest_skill_bundle(conn: &Connection, process_id: &str) -> Result<Man
                 commercial_estimate_bps: row.get(18)?,
             },
             pricing_assessment_id: row.get(19)?,
+            commercial_basis_kind: row.get(20)?,
+            normal_quote_coverage: row.get(21)?,
+            missing_required_roles_json: row.get(22)?,
+            coverage_evidence_json: row.get(23)?,
             selected_quote: ManifestSelectedQuote {
-                supplier_quote_id: row.get(20)?,
-                source_name: row.get(21)?,
-                region: row.get(22)?,
-                unit_price_gbp_pence: row.get(23)?,
-                price_basis_qty: row.get(24)?,
-                price_basis_unit: row.get(25)?,
-                source_url: row.get(26)?,
-                raw_price_original_minor: row.get(27)?,
-                currency: row.get(28)?,
+                supplier_quote_id: row.get(24)?,
+                source_name: row.get(25)?,
+                region: row.get(26)?,
+                unit_price_gbp_pence: row.get(27)?,
+                price_basis_qty: row.get(28)?,
+                price_basis_unit: row.get(29)?,
+                source_url: row.get(30)?,
+                raw_price_original_minor: row.get(31)?,
+                currency: row.get(32)?,
             },
             landed_cost: ManifestLandedCost {
-                landed_cost_estimate_id: row.get(29)?,
-                shipping_mode: row.get(30)?,
-                supplier_cost_gbp_pence: row.get(31)?,
-                freight_base_gbp_pence: row.get(32)?,
-                customs_duty_gbp_pence: row.get(33)?,
-                import_vat_gbp_pence: row.get(34)?,
-                economic_landed_cost_gbp_pence: row.get(35)?,
-                declarable_commodity_code_10: row.get(36)?,
-                exporter_rate_basis: row.get(37)?,
+                landed_cost_estimate_id: row.get(33)?,
+                shipping_mode: row.get(34)?,
+                supplier_cost_gbp_pence: row.get(35)?,
+                freight_base_gbp_pence: row.get(36)?,
+                customs_duty_gbp_pence: row.get(37)?,
+                import_vat_gbp_pence: row.get(38)?,
+                economic_landed_cost_gbp_pence: row.get(39)?,
+                declarable_commodity_code_10: row.get(40)?,
+                exporter_rate_basis: row.get(41)?,
             },
             search_attempts: Vec::new(),
-            confidence_breakdown_json: row.get(38)?,
+            confidence_breakdown_json: row.get(42)?,
         })
     })?;
     let mut candidates = rows
@@ -9607,6 +9757,18 @@ fn render_manifest_markdown(
             markdown,
             "- Revenue basis type: `{}`",
             markdown_cell(candidate.revenue_basis_type.as_deref())
+        )?;
+        writeln!(
+            markdown,
+            "- Commercial basis: kind=`{}`, normal_quote_coverage=`{}`, missing_required_roles=`{}`",
+            markdown_cell(candidate.commercial_basis_kind.as_deref()),
+            manifest_option_i64(candidate.normal_quote_coverage),
+            markdown_cell(candidate.missing_required_roles_json.as_deref())
+        )?;
+        writeln!(
+            markdown,
+            "- Quote coverage evidence: `{}`",
+            markdown_cell(candidate.coverage_evidence_json.as_deref())
         )?;
         writeln!(
             markdown,
@@ -12296,6 +12458,217 @@ fn convert_to_gbp_pence(raw_minor: i64, currency: &str) -> i64 {
     }
 }
 
+fn required_quote_role_for_price_signal_role(price_signal_role: &str) -> Option<&'static str> {
+    match price_signal_role {
+        "uk_retail_benchmark" | "uk_wholesale" => Some(QUOTE_ROLE_UK_SIDE),
+        "cn_supplier_floor" => Some(QUOTE_ROLE_CHINA_IMPORT),
+        _ => None,
+    }
+}
+
+fn required_quote_role_for_source(source_id: &str) -> Option<&'static str> {
+    let definition = SourceRegistry::builtin_definition(source_id)?;
+    let price_signal_role = definition
+        .config
+        .get("price_signal_role")
+        .and_then(Value::as_str)?;
+    required_quote_role_for_price_signal_role(price_signal_role)
+}
+
+fn coverage_state_for_attempt(
+    search_failure_mode: Option<&str>,
+    usable_quote_count: i64,
+) -> &'static str {
+    if usable_quote_count > 0 {
+        return COVERAGE_STATE_USABLE_QUOTE_AVAILABLE;
+    }
+    match search_failure_mode {
+        Some("SOURCE_CAPTCHA_BLOCKED") => COVERAGE_STATE_BLOCKED_CAPTCHA,
+        Some("AGENT_AUTH_CHALLENGE") => COVERAGE_STATE_BLOCKED_AUTH,
+        Some(_) => COVERAGE_STATE_ATTEMPTED_FAILED,
+        None => COVERAGE_STATE_ATTEMPTED_NO_QUOTE,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn upsert_candidate_quote_coverage(
+    tx: &Transaction<'_>,
+    process_id: &str,
+    notice_id: &str,
+    product_candidate_id: &str,
+    required_role: &str,
+    usable_quote_count: i64,
+    latest_source: &str,
+    latest_failure_mode: Option<&str>,
+    evidence_json: &str,
+    visible_after_seq: i64,
+    stage_run_id: &str,
+) -> Result<()> {
+    let coverage_state = coverage_state_for_attempt(latest_failure_mode, usable_quote_count);
+    let coverage_id = format!("quote-coverage-{product_candidate_id}-{required_role}");
+    tx.execute(
+        "\
+        INSERT INTO candidate_quote_coverage (
+          id, process_id, notice_id, product_candidate_id, required_role,
+          attempted, usable_quote_count, latest_source, latest_failure_mode,
+          coverage_state, evidence_json, owner_id, row_version, last_local_seq,
+          stage_run_id
+        ) VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, ?7, ?8, ?9, ?10, ?11, 1, ?12, ?13)
+        ON CONFLICT(product_candidate_id, required_role) DO UPDATE SET
+          attempted = 1,
+          usable_quote_count = excluded.usable_quote_count,
+          latest_source = excluded.latest_source,
+          latest_failure_mode = excluded.latest_failure_mode,
+          coverage_state = excluded.coverage_state,
+          evidence_json = excluded.evidence_json,
+          owner_id = excluded.owner_id,
+          row_version = candidate_quote_coverage.row_version + 1,
+          last_local_seq = excluded.last_local_seq,
+          stage_run_id = excluded.stage_run_id,
+          updated_at = CURRENT_TIMESTAMP
+        ",
+        params![
+            coverage_id,
+            process_id,
+            notice_id,
+            product_candidate_id,
+            required_role,
+            usable_quote_count,
+            latest_source,
+            latest_failure_mode,
+            coverage_state,
+            evidence_json,
+            LOCAL_EXECUTOR_ID,
+            visible_after_seq,
+            stage_run_id,
+        ],
+    )?;
+    Ok(())
+}
+
+fn marketplace_failure_query_text(candidate: &Value) -> String {
+    candidate
+        .get("query_waves")
+        .and_then(Value::as_array)
+        .and_then(|waves| waves.first())
+        .and_then(|wave| {
+            wave.as_str().or_else(|| {
+                wave.get("query")
+                    .or_else(|| wave.get("query_text"))
+                    .and_then(Value::as_str)
+            })
+        })
+        .or_else(|| candidate.get("name").and_then(Value::as_str))
+        .unwrap_or("")
+        .to_owned()
+}
+
+fn persist_marketplace_search_agent_failure(
+    state_db: &mut StateDb,
+    source_id: &str,
+    candidates: &[Value],
+    failure_mode: &str,
+    stage_run_id: &str,
+) -> Result<usize> {
+    let source_id_owned = source_id.to_owned();
+    let failure_mode_owned = failure_mode.to_owned();
+    let stage_run_id_owned = stage_run_id.to_owned();
+    let required_role = required_quote_role_for_source(source_id);
+    let (attempts_written, _commit_seq) = state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
+        let mut attempts = 0_usize;
+        for candidate in candidates {
+            let Some(product_candidate_id) = candidate
+                .get("product_candidate_id")
+                .and_then(Value::as_str)
+            else {
+                continue;
+            };
+            let Some(search_profile_id) =
+                candidate.get("search_profile_id").and_then(Value::as_str)
+            else {
+                continue;
+            };
+            let lookup: Option<(String, String)> = tx
+                .query_row(
+                    "SELECT process_id, notice_id FROM product_candidates WHERE id = ?1",
+                    params![product_candidate_id],
+                    |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+                )
+                .optional()?;
+            let Some((process_id, notice_id)) = lookup else {
+                continue;
+            };
+            let query_text = marketplace_failure_query_text(candidate);
+            let attempt_id = format!("sa-{}", Uuid::new_v4().simple());
+            tx.execute(
+                "\
+                INSERT INTO search_attempts (
+                    id, product_candidate_id, search_profile_id, source, locale,
+                    wave_number, query_text, filters_json, is_recovery_wave,
+                    result_count, hard_rejected_count, shortlisted_count,
+                    search_failure_mode, owner_id, stage_run_id
+                ) VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, NULL, 0, 0, 0, 0, ?7, ?8, ?9)
+                ",
+                params![
+                    attempt_id,
+                    product_candidate_id,
+                    search_profile_id,
+                    source_id_owned,
+                    if source_id_owned == "alibaba-search" {
+                        "en-US"
+                    } else {
+                        "en-GB"
+                    },
+                    query_text,
+                    failure_mode_owned,
+                    LOCAL_EXECUTOR_ID,
+                    stage_run_id_owned,
+                ],
+            )?;
+            attempts += 1;
+            if let Some(required_role) = required_role {
+                let evidence_json = json!({
+                    "source": source_id_owned.as_str(),
+                    "search_attempt_id": attempt_id.as_str(),
+                    "result_count": 0,
+                    "shortlisted_count": 0,
+                    "hard_rejected_count": 0,
+                    "query_text": query_text.as_str(),
+                    "wave_number": 0,
+                    "search_failure_mode": failure_mode_owned.as_str(),
+                    "agent_failure": true,
+                })
+                .to_string();
+                upsert_candidate_quote_coverage(
+                    tx,
+                    &process_id,
+                    &notice_id,
+                    product_candidate_id,
+                    required_role,
+                    0,
+                    &source_id_owned,
+                    Some(&failure_mode_owned),
+                    &evidence_json,
+                    visible_after_seq,
+                    &stage_run_id_owned,
+                )?;
+            }
+            let scope_id = format!("{product_candidate_id}::{source_id_owned}");
+            persist_stage(
+                tx,
+                &process_id,
+                "price_signal_match",
+                "candidate_source_pair",
+                &scope_id,
+                &stage_run_id_owned,
+            )?;
+        }
+        Ok(attempts)
+    })?;
+    Ok(attempts_written)
+}
+
 /// Persist a marketplace-search skill's result contract. Each
 /// `search_results[]` entry produces one row in `search_attempts`; each
 /// `quotes[]` within an entry produces one row in `supplier_quotes`. Source
@@ -12337,8 +12710,10 @@ fn persist_marketplace_search_results(
     let stage_run_id = allocate_stage_run_id();
     let source_id_owned = source_id.to_owned();
     let ((attempts_written, quotes_written), _commit_seq) = state_db.with_write_transaction(|tx| {
+        let visible_after_seq = next_commit_seq(tx)?;
         let mut attempts = 0_usize;
         let mut quotes = 0_usize;
+        let required_role = required_quote_role_for_source(source_id);
         for entry in &search_results {
             let Some(product_candidate_id) =
                 entry.get("product_candidate_id").and_then(Value::as_str)
@@ -12443,6 +12818,7 @@ fn persist_marketplace_search_results(
                 .and_then(Value::as_array)
                 .cloned()
                 .unwrap_or_default();
+            let mut entry_usable_quote_count = 0_i64;
             for (qidx, quote) in quotes_arr.iter().enumerate() {
                 let product_name = quote
                     .get("product_name")
@@ -12573,7 +12949,40 @@ fn persist_marketplace_search_results(
                         stage_run_id,
                     ],
                 )?;
+                if unit_price_gbp_pence > 0
+                    && match_confidence_bps >= 5000
+                    && is_used_or_refurbished == 0
+                {
+                    entry_usable_quote_count += 1;
+                }
                 quotes += 1;
+            }
+
+            if let Some(required_role) = required_role {
+                let evidence_json = json!({
+                    "source": source_id_owned.as_str(),
+                    "search_attempt_id": attempt_id.as_str(),
+                    "result_count": result_count,
+                    "shortlisted_count": shortlisted_count,
+                    "hard_rejected_count": hard_rejected_count,
+                    "query_text": query_text.as_str(),
+                    "wave_number": wave_number,
+                    "search_failure_mode": search_failure_mode.as_deref(),
+                })
+                .to_string();
+                upsert_candidate_quote_coverage(
+                    tx,
+                    &process_id,
+                    &notice_id,
+                    product_candidate_id,
+                    required_role,
+                    entry_usable_quote_count,
+                    &source_id_owned,
+                    search_failure_mode.as_deref(),
+                    &evidence_json,
+                    visible_after_seq,
+                    &stage_run_id,
+                )?;
             }
 
             // Stage head tracking: "Price-signal match" stage,
@@ -15742,18 +16151,27 @@ async fn run_marketplace_search_live_loop(
 
     insert_executed_session_log(runtime.state_db.connection(), &skill, &job_id, &executed)?;
 
-    let result_path = match executed.result_path.as_ref() {
-        Some(path) => path.clone(),
-        None => {
-            return fail_job(
-                runtime,
-                &job_id,
-                &format!(
-                    "marketplace-search skill `{source_id}` did not produce a result contract"
-                ),
-                json!({"error_code": "AGENT_RUN_FAILED"}),
-            );
-        }
+    let result_path = if let Some(path) = executed.result_path.as_ref() {
+        path.clone()
+    } else {
+        let failure_stage_run_id = allocate_stage_run_id();
+        let attempts_written = persist_marketplace_search_agent_failure(
+            &mut runtime.state_db,
+            source_id,
+            &candidates,
+            "AGENT_RUN_FAILED",
+            &failure_stage_run_id,
+        )?;
+        return fail_job(
+            runtime,
+            &job_id,
+            &format!("marketplace-search skill `{source_id}` did not produce a result contract"),
+            json!({
+                "error_code": "AGENT_RUN_FAILED",
+                "search_attempts_written": attempts_written,
+                "stage_run_id": failure_stage_run_id,
+            }),
+        );
     };
     let result_text = fs::read_to_string(&result_path).with_context(|| {
         format!(
@@ -15799,6 +16217,40 @@ async fn run_marketplace_search_live_loop(
     Ok(LiveLoopReport {
         summary_line: format!(
             "marketplace-search live loop completed: source={source_id} job_id={job_id} candidates={candidate_count} attempts={attempts_written} quotes={quotes_written}"
+        ),
+        status: "completed".to_owned(),
+    })
+}
+
+#[allow(clippy::future_not_send)]
+async fn run_marketplace_coverage_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+) -> Result<LiveLoopReport> {
+    let mut summaries = Vec::new();
+    for source_id in [
+        "amazon-uk",
+        "ebay-uk",
+        "gem-imports",
+        "mx-wholesale",
+        "alibaba-search",
+    ] {
+        let report = run_marketplace_search_live_loop(runtime, source_id, cli).await?;
+        summaries.push(report.summary_line);
+        if report.status != "completed" {
+            return Ok(LiveLoopReport {
+                summary_line: format!(
+                    "marketplace-coverage stopped at source={source_id}: {}",
+                    summaries.join(" | ")
+                ),
+                status: report.status,
+            });
+        }
+    }
+    Ok(LiveLoopReport {
+        summary_line: format!(
+            "marketplace-coverage live loop completed: {}",
+            summaries.join(" | ")
         ),
         status: "completed".to_owned(),
     })
@@ -17618,7 +18070,9 @@ fn persist_tender_spec_domain_writes(
         )?;
         refs.push(json!({"table": "notice_lots", "id": lot_id.clone()}));
 
-        for seed in lot_product_requirement_seeds(result_json, &lot_number_text) {
+        let lot_seeds = lot_product_requirement_seeds(result_json, &lot_number_text);
+        let lot_seed_count = lot_seeds.len();
+        for seed in lot_seeds {
             let candidate_key = seed_key(seed);
             let candidate_id = format!("{lot_id}-candidate-{}", slug_token(&candidate_key));
             let candidate_name = seed_name(seed);
@@ -17629,12 +18083,26 @@ fn persist_tender_spec_domain_writes(
             // See extract_head_noun + classify_candidate_type for the rules.
             let head_noun = extract_head_noun(&candidate_name);
             let candidate_type = classify_candidate_type(&candidate_name, spec_text.as_deref());
-            let source_evidence_json = json!([build_document_derived_evidence(
+            let quantity_resolution =
+                seed_quantity_resolution(seed, result_json, lot_seed_count, &head_noun);
+            let mut source_evidence = vec![build_document_derived_evidence(
                 "pdf-extraction/tender-specification",
                 context.document_extraction_id,
                 seed.get("evidence_anchor").cloned(),
-            )])
-            .to_string();
+            )];
+            if let Some(quantity_evidence) = quantity_resolution.evidence.clone() {
+                source_evidence.push(build_document_derived_evidence(
+                    "pdf-extraction/tender-specification",
+                    context.document_extraction_id,
+                    Some(quantity_evidence),
+                ));
+            }
+            source_evidence.push(json!({
+                "evidence_basis": "quantity_resolution",
+                "quantity_basis": quantity_resolution.basis,
+                "quantity_hint": optional_string_at(seed, &["quantity_hint"]),
+            }));
+            let source_evidence_json = json!(source_evidence).to_string();
             tx.execute(
                 "\
                 INSERT INTO product_candidates (
@@ -17644,7 +18112,7 @@ fn persist_tender_spec_domain_writes(
                   owner_id, row_version, last_local_seq, stage_run_id
                 ) VALUES (
                   ?1, ?2, ?3, ?4, ?5, ?6, ?7, 'direct_match', ?8, ?9, ?10, ?11, ?12, ?13,
-                  9200, 9200, ?14, 1, ?15, ?16
+                  9200, ?14, ?15, 1, ?16, ?17
                 )
                 ON CONFLICT(id) DO UPDATE SET
                   name = excluded.name,
@@ -17671,11 +18139,12 @@ fn persist_tender_spec_domain_writes(
                     candidate_name,
                     candidate_type,
                     head_noun,
-                    optional_numeric_at(seed, &["quantity"]),
-                    optional_string_at(seed, &["quantity_unit"]),
+                    quantity_resolution.quantity,
+                    quantity_resolution.quantity_unit,
                     spec_text,
                     json!(seed_technical_standards(seed)).to_string(),
                     source_evidence_json,
+                    quantity_resolution.confidence_bps,
                     DEFAULT_OWNER_ID,
                     context.visible_after_seq,
                     context.stage_run_id,
@@ -17835,6 +18304,138 @@ fn lot_product_requirement_seeds<'a>(result_json: &'a Value, lot_number: &str) -
         .iter()
         .filter(|seed| optional_string_at(seed, &["lot_number"]).as_deref() == Some(lot_number))
         .collect()
+}
+
+#[derive(Debug, Clone)]
+struct SeedQuantityResolution {
+    quantity: Option<f64>,
+    quantity_unit: Option<String>,
+    confidence_bps: i64,
+    evidence: Option<Value>,
+    basis: &'static str,
+}
+
+fn positive_numbers(text: &str) -> Vec<f64> {
+    let mut values = Vec::new();
+    let mut buffer = String::new();
+    for character in text.chars() {
+        if character.is_ascii_digit() || character == '.' {
+            buffer.push(character);
+        } else if !buffer.is_empty() {
+            if let Ok(value) = buffer.parse::<f64>()
+                && value.is_finite()
+                && value > 0.0
+            {
+                values.push(value);
+            }
+            buffer.clear();
+        }
+    }
+    if !buffer.is_empty()
+        && let Ok(value) = buffer.parse::<f64>()
+        && value.is_finite()
+        && value > 0.0
+    {
+        values.push(value);
+    }
+    values
+}
+
+fn parse_seed_quantity_hint(hint: &str, lot_seed_count: usize) -> Option<f64> {
+    let lower = hint.to_ascii_lowercase();
+    let quantity = positive_numbers(hint).into_iter().next()?;
+    if lot_seed_count > 1
+        && quantity > 1.0
+        && (lower.contains("total") || lower.contains("overall") || lower.contains("project"))
+    {
+        return None;
+    }
+    Some(quantity)
+}
+
+#[allow(clippy::cast_precision_loss)]
+fn allocated_one_each_quantity_from_total(
+    result_json: &Value,
+    lot_seed_count: usize,
+    _head_noun: &str,
+) -> Option<Value> {
+    if lot_seed_count == 0 {
+        return None;
+    }
+    let expected_total = lot_seed_count as f64;
+    let warnings = optional_array_at(result_json, &["warnings"])?;
+    for warning in warnings {
+        let message = optional_string_at(warning, &["message"])?;
+        let lower = message.to_ascii_lowercase();
+        if !lower.contains("total") && !lower.contains("project") {
+            continue;
+        }
+        let total_slice = lower
+            .rfind("total")
+            .map_or(message.as_str(), |index| &message[index..]);
+        let Some(total) = positive_numbers(total_slice).into_iter().next() else {
+            continue;
+        };
+        if (total - expected_total).abs() < f64::EPSILON.max(expected_total * 1e-6) {
+            return Some(warning.clone());
+        }
+    }
+    None
+}
+
+fn seed_quantity_resolution(
+    seed: &Value,
+    result_json: &Value,
+    lot_seed_count: usize,
+    head_noun: &str,
+) -> SeedQuantityResolution {
+    if let Some(quantity) = optional_numeric_at(seed, &["quantity"]).filter(|value| *value > 0.0) {
+        return SeedQuantityResolution {
+            quantity: Some(quantity),
+            quantity_unit: optional_string_at(seed, &["quantity_unit"])
+                .or_else(|| Some("unit".to_owned())),
+            confidence_bps: optional_i64_at(seed, &["quantity_confidence_bps"]).unwrap_or(9200),
+            evidence: optional_value_at(seed, &["quantity_evidence_anchor"])
+                .cloned()
+                .or_else(|| optional_value_at(seed, &["evidence_anchor"]).cloned()),
+            basis: "structured_explicit_quantity",
+        };
+    }
+
+    if let Some(hint) = optional_string_at(seed, &["quantity_hint"])
+        && let Some(quantity) = parse_seed_quantity_hint(&hint, lot_seed_count)
+    {
+        return SeedQuantityResolution {
+            quantity: Some(quantity),
+            quantity_unit: optional_string_at(seed, &["quantity_unit"])
+                .or_else(|| Some("unit".to_owned())),
+            confidence_bps: optional_i64_at(seed, &["quantity_confidence_bps"]).unwrap_or(8000),
+            evidence: optional_value_at(seed, &["quantity_evidence_anchor"])
+                .cloned()
+                .or_else(|| optional_value_at(seed, &["evidence_anchor"]).cloned()),
+            basis: "parsed_explicit_quantity_hint",
+        };
+    }
+
+    if let Some(warning) =
+        allocated_one_each_quantity_from_total(result_json, lot_seed_count, head_noun)
+    {
+        return SeedQuantityResolution {
+            quantity: Some(1.0),
+            quantity_unit: Some("unit".to_owned()),
+            confidence_bps: optional_i64_at(seed, &["quantity_confidence_bps"]).unwrap_or(7800),
+            evidence: Some(warning),
+            basis: "allocated_total_quantity_across_schedule_refs",
+        };
+    }
+
+    SeedQuantityResolution {
+        quantity: None,
+        quantity_unit: optional_string_at(seed, &["quantity_unit"]),
+        confidence_bps: optional_i64_at(seed, &["quantity_confidence_bps"]).unwrap_or(1000),
+        evidence: optional_value_at(seed, &["quantity_evidence_anchor"]).cloned(),
+        basis: "no_candidate_quantity_signal",
+    }
 }
 
 fn resolve_notice_lot_id(
@@ -20046,6 +20647,7 @@ struct GrossMarginCandidateRow {
     process_id: String,
     notice_id: String,
     lot_id: String,
+    quantity: Option<f64>,
     candidate_value_share_bps: Option<i64>,
 }
 
@@ -20082,9 +20684,7 @@ fn quote_identity_gate_passed(quote: &GrossMarginQuoteRow) -> bool {
 fn quote_usability_gate_passed(quote: &GrossMarginQuoteRow) -> bool {
     quote
         .quote_usability_confidence_bps
-        .is_some_and(|confidence| confidence >= 5000)
-        || (quote.quote_usability_confidence_bps.is_none()
-            && quote.price_signal_role != "uk_retail_benchmark")
+        .is_none_or(|confidence| confidence >= 5000)
 }
 
 fn quote_realism_gate_passed(quote: &GrossMarginQuoteRow) -> bool {
@@ -20106,6 +20706,234 @@ fn gross_margin_quote_selection_key(quote: &GrossMarginQuoteRow) -> (bool, bool,
         !quote_realism_gate_passed(quote),
         effective_quote_cost_pence(quote),
     )
+}
+
+#[derive(Debug, Clone)]
+struct QuoteRoleCoverage {
+    attempted: bool,
+    usable_quote_count: i64,
+    evidence: Value,
+}
+
+struct CommercialBasisSelection<'a> {
+    selected_supply_quote: &'a GrossMarginQuoteRow,
+    benchmark_quote: Option<&'a GrossMarginQuoteRow>,
+    uk_quote: Option<&'a GrossMarginQuoteRow>,
+    china_import_quote: Option<&'a GrossMarginQuoteRow>,
+    commercial_basis_kind: &'static str,
+    normal_quote_coverage: bool,
+    supplier_spread_bps: Option<i64>,
+    fallback_discount_bps: Option<i64>,
+    missing_required_roles: Vec<&'static str>,
+}
+
+fn role_source_filter(required_role: &str) -> &'static str {
+    match required_role {
+        QUOTE_ROLE_UK_SIDE => "'amazon-uk','ebay-uk','gem-imports','mx-wholesale'",
+        QUOTE_ROLE_CHINA_IMPORT => "'alibaba-search'",
+        _ => "''",
+    }
+}
+
+fn role_price_signal_filter(required_role: &str) -> &'static str {
+    match required_role {
+        QUOTE_ROLE_UK_SIDE => "'uk_retail_benchmark','uk_wholesale'",
+        QUOTE_ROLE_CHINA_IMPORT => "'cn_supplier_floor'",
+        _ => "''",
+    }
+}
+
+fn load_quote_role_coverage(
+    tx: &Transaction<'_>,
+    product_candidate_id: &str,
+    required_role: &str,
+) -> Result<QuoteRoleCoverage> {
+    let source_filter = role_source_filter(required_role);
+    let price_signal_filter = role_price_signal_filter(required_role);
+    let attempt_sql = format!(
+        "SELECT COUNT(*)
+         FROM search_attempts
+         WHERE product_candidate_id = ?1
+           AND source IN ({source_filter})"
+    );
+    let attempt_count: i64 = tx.query_row(&attempt_sql, params![product_candidate_id], |row| {
+        row.get(0)
+    })?;
+    let latest_sql = format!(
+        "SELECT source, search_failure_mode
+         FROM search_attempts
+         WHERE product_candidate_id = ?1
+           AND source IN ({source_filter})
+         ORDER BY executed_at DESC, id DESC
+         LIMIT 1"
+    );
+    let latest: Option<(String, Option<String>)> = tx
+        .query_row(&latest_sql, params![product_candidate_id], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        })
+        .optional()?;
+    let quote_sql = format!(
+        "SELECT COUNT(*)
+         FROM supplier_quotes
+         WHERE product_candidate_id = ?1
+           AND price_signal_role IN ({price_signal_filter})
+           AND unit_price_gbp_pence > 0
+           AND COALESCE(match_confidence_bps, 0) >= 5000
+           AND COALESCE(is_used_or_refurbished, 0) = 0"
+    );
+    let derived_usable_quote_count: i64 =
+        tx.query_row(&quote_sql, params![product_candidate_id], |row| row.get(0))?;
+    let durable: Option<(i64, i64, Option<String>, String, String)> = tx
+        .query_row(
+            "SELECT attempted, usable_quote_count, latest_failure_mode,
+                    coverage_state, evidence_json
+             FROM candidate_quote_coverage
+             WHERE product_candidate_id = ?1
+               AND required_role = ?2",
+            params![product_candidate_id, required_role],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            },
+        )
+        .optional()?;
+    let durable_attempted = durable.as_ref().is_some_and(|row| row.0 != 0);
+    let durable_usable_quote_count = durable.as_ref().map_or(0, |row| row.1);
+    let latest_failure_mode = latest
+        .as_ref()
+        .and_then(|row| row.1.clone())
+        .or_else(|| durable.as_ref().and_then(|row| row.2.clone()));
+    let evidence = json!({
+        "required_role": required_role,
+        "attempt_count": attempt_count,
+        "usable_quote_count": derived_usable_quote_count.max(durable_usable_quote_count),
+        "latest_source": latest.as_ref().map(|row| row.0.as_str()),
+        "latest_failure_mode": latest_failure_mode.as_deref(),
+        "durable_coverage_state": durable.as_ref().map(|row| row.3.as_str()),
+        "durable_evidence": durable
+            .as_ref()
+            .and_then(|row| serde_json::from_str::<Value>(&row.4).ok())
+            .unwrap_or(Value::Null),
+    });
+    Ok(QuoteRoleCoverage {
+        attempted: attempt_count > 0 || durable_attempted || derived_usable_quote_count > 0,
+        usable_quote_count: derived_usable_quote_count.max(durable_usable_quote_count),
+        evidence,
+    })
+}
+
+fn quote_role_matches(quote: &GrossMarginQuoteRow, required_role: &str) -> bool {
+    required_quote_role_for_price_signal_role(&quote.price_signal_role) == Some(required_role)
+}
+
+fn quote_spread_bps(benchmark: &GrossMarginQuoteRow, supply: &GrossMarginQuoteRow) -> Option<i64> {
+    (benchmark.unit_price_gbp_pence > 0).then_some(
+        (benchmark.unit_price_gbp_pence - supply.unit_price_gbp_pence) * 10_000
+            / benchmark.unit_price_gbp_pence,
+    )
+}
+
+fn select_best_role_quote<'a>(
+    quotes: &'a [GrossMarginQuoteRow],
+    required_role: &str,
+) -> Option<&'a GrossMarginQuoteRow> {
+    quotes
+        .iter()
+        .filter(|quote| quote_role_matches(quote, required_role))
+        .filter(|quote| quote_passes_gross_margin_gates(quote))
+        .min_by_key(|quote| quote.unit_price_gbp_pence)
+        .or_else(|| {
+            quotes
+                .iter()
+                .filter(|quote| quote_role_matches(quote, required_role))
+                .min_by_key(|quote| gross_margin_quote_selection_key(quote))
+        })
+}
+
+fn select_commercial_basis<'a>(
+    quotes: &'a [GrossMarginQuoteRow],
+    uk_coverage: &QuoteRoleCoverage,
+    china_coverage: &QuoteRoleCoverage,
+) -> Option<CommercialBasisSelection<'a>> {
+    let uk_quote = select_best_role_quote(quotes, QUOTE_ROLE_UK_SIDE);
+    let china_quote = select_best_role_quote(quotes, QUOTE_ROLE_CHINA_IMPORT);
+    if let (Some(uk_quote), Some(china_quote)) = (uk_quote, china_quote)
+        && uk_coverage.attempted
+        && china_coverage.attempted
+    {
+        return Some(CommercialBasisSelection {
+            selected_supply_quote: china_quote,
+            benchmark_quote: Some(uk_quote),
+            uk_quote: Some(uk_quote),
+            china_import_quote: Some(china_quote),
+            commercial_basis_kind: BASIS_TWO_SIDED_SUPPLIER_COMPARISON,
+            normal_quote_coverage: true,
+            supplier_spread_bps: quote_spread_bps(uk_quote, china_quote),
+            fallback_discount_bps: None,
+            missing_required_roles: Vec::new(),
+        });
+    }
+
+    let selected_quote = uk_quote.or_else(|| {
+        quotes
+            .iter()
+            .min_by_key(|quote| gross_margin_quote_selection_key(quote))
+    })?;
+    let mut missing_required_roles = Vec::new();
+    if !uk_coverage.attempted && uk_coverage.usable_quote_count == 0 {
+        missing_required_roles.push(QUOTE_ROLE_UK_SIDE);
+    }
+    if !china_coverage.attempted {
+        missing_required_roles.push(QUOTE_ROLE_CHINA_IMPORT);
+    }
+    let commercial_basis_kind = if missing_required_roles.is_empty() {
+        if selected_quote.price_signal_role == "uk_retail_benchmark" {
+            BASIS_SINGLE_SIDE_RETAIL_DISCOUNT_FALLBACK
+        } else {
+            BASIS_SINGLE_SIDE_WHOLESALE_FALLBACK
+        }
+    } else {
+        BASIS_MISSING_REQUIRED_QUOTE_ROLE_ATTEMPT
+    };
+    Some(CommercialBasisSelection {
+        selected_supply_quote: selected_quote,
+        benchmark_quote: uk_quote,
+        uk_quote,
+        china_import_quote: china_quote,
+        commercial_basis_kind,
+        normal_quote_coverage: false,
+        supplier_spread_bps: None,
+        fallback_discount_bps: (commercial_basis_kind
+            == BASIS_SINGLE_SIDE_RETAIL_DISCOUNT_FALLBACK)
+            .then_some(DEFAULT_UK_RETAIL_WHOLESALE_DISCOUNT_BPS),
+        missing_required_roles,
+    })
+}
+
+#[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+fn gross_margin_supply_cost_pence(
+    selection: &CommercialBasisSelection<'_>,
+    candidate: &GrossMarginCandidateRow,
+) -> i64 {
+    if selection.commercial_basis_kind == BASIS_MISSING_REQUIRED_QUOTE_ROLE_ATTEMPT {
+        return 0;
+    }
+    let unit_cost = if selection.commercial_basis_kind == BASIS_SINGLE_SIDE_RETAIL_DISCOUNT_FALLBACK
+    {
+        effective_quote_cost_pence(selection.selected_supply_quote)
+    } else {
+        selection.selected_supply_quote.unit_price_gbp_pence
+    };
+    let quantity = candidate
+        .quantity
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .unwrap_or(1.0);
+    ((unit_cost as f64) * quantity).round() as i64
 }
 
 fn quote_cost_boundary_for_assessment(quote: &GrossMarginQuoteRow) -> &str {
@@ -20236,7 +21064,7 @@ fn run_gross_margin_gate_stage(state_db: &mut StateDb) -> Result<usize> {
         let conn = state_db.connection();
         let mut stmt = conn.prepare(
             "SELECT DISTINCT pc.id, pc.process_id, pc.notice_id, pc.lot_id,
-                    pc.candidate_value_share_bps
+                    pc.quantity, pc.candidate_value_share_bps
              FROM product_candidates pc
              JOIN supplier_quotes sq ON sq.product_candidate_id = pc.id
              WHERE pc.candidate_type != 'service'
@@ -20261,7 +21089,8 @@ fn run_gross_margin_gate_stage(state_db: &mut StateDb) -> Result<usize> {
                 process_id: row.get(1)?,
                 notice_id: row.get(2)?,
                 lot_id: row.get(3)?,
-                candidate_value_share_bps: row.get(4)?,
+                quantity: row.get(4)?,
+                candidate_value_share_bps: row.get(5)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?
@@ -20278,16 +21107,10 @@ fn run_gross_margin_gate_stage(state_db: &mut StateDb) -> Result<usize> {
 
         for candidate in &rows {
             let quotes = load_gross_margin_quotes(tx, &candidate.id)?;
-            let fully_passing_quote = quotes
-                .iter()
-                .filter(|quote| quote_passes_gross_margin_gates(quote))
-                .min_by_key(|quote| effective_quote_cost_pence(quote));
-            let selected_quote =
-                fully_passing_quote.or_else(|| quotes.iter().min_by_key(|quote| {
-                    gross_margin_quote_selection_key(quote)
-                }));
-
-            let Some(selected_quote) = selected_quote
+            let uk_coverage = load_quote_role_coverage(tx, &candidate.id, QUOTE_ROLE_UK_SIDE)?;
+            let china_coverage =
+                load_quote_role_coverage(tx, &candidate.id, QUOTE_ROLE_CHINA_IMPORT)?;
+            let Some(selection) = select_commercial_basis(&quotes, &uk_coverage, &china_coverage)
             else {
                 ::tracing::warn!(
                     candidate_id = %candidate.id,
@@ -20296,6 +21119,7 @@ fn run_gross_margin_gate_stage(state_db: &mut StateDb) -> Result<usize> {
                 );
                 continue;
             };
+            let selected_quote = selection.selected_supply_quote;
 
             if !quote_passes_gross_margin_gates(selected_quote) {
                 ::tracing::warn!(
@@ -20309,8 +21133,10 @@ fn run_gross_margin_gate_stage(state_db: &mut StateDb) -> Result<usize> {
             }
 
             let revenue = allocate_gross_margin_revenue(tx, candidate)?;
-            let effective_cost = effective_quote_cost_pence(selected_quote);
-            let gross_margin_bps = if revenue.revenue_pence == 0 {
+            let effective_cost = gross_margin_supply_cost_pence(&selection, candidate);
+            let gross_margin_bps = if revenue.revenue_pence == 0
+                || selection.commercial_basis_kind == BASIS_MISSING_REQUIRED_QUOTE_ROLE_ATTEMPT
+            {
                 0
             } else {
                 (revenue.revenue_pence - effective_cost) * 10_000 / revenue.revenue_pence
@@ -20321,10 +21147,28 @@ fn run_gross_margin_gate_stage(state_db: &mut StateDb) -> Result<usize> {
                     .unwrap_or(7000),
             );
             let gross_estimate_confidence_bps = revenue.confidence_bps.min(quote_confidence_bps);
-            let pricing_input_confidence_bps =
-                i64::midpoint(revenue.confidence_bps, gross_estimate_confidence_bps);
+            let gross_estimate_confidence_bps = if selection.normal_quote_coverage {
+                gross_estimate_confidence_bps
+            } else if selection.commercial_basis_kind == BASIS_MISSING_REQUIRED_QUOTE_ROLE_ATTEMPT {
+                gross_estimate_confidence_bps.min(1000)
+            } else {
+                gross_estimate_confidence_bps.min(3000)
+            };
+            let pricing_input_confidence_bps = if selection.normal_quote_coverage {
+                i64::midpoint(revenue.confidence_bps, gross_estimate_confidence_bps)
+            } else {
+                gross_estimate_confidence_bps
+            };
             let assessment_id = format!("pricing-{}", candidate.id);
             let quote_cost_boundary = quote_cost_boundary_for_assessment(selected_quote);
+            let missing_required_roles_json =
+                serde_json::to_string(&selection.missing_required_roles)
+                    .context("serializing missing required quote roles")?;
+            let coverage_evidence_json = json!({
+                QUOTE_ROLE_UK_SIDE: uk_coverage.evidence,
+                QUOTE_ROLE_CHINA_IMPORT: china_coverage.evidence,
+            })
+            .to_string();
 
             tx.execute(
                 "INSERT INTO candidate_pricing_assessments (
@@ -20332,10 +21176,14 @@ fn run_gross_margin_gate_stage(state_db: &mut StateDb) -> Result<usize> {
                    selected_quote_row_version, quote_cost_boundary, revenue_basis_type,
                    expected_addressable_revenue_ex_vat_pence, revenue_confidence_bps,
                    gross_margin_bps, gross_estimate_confidence_bps, identity_gate_passed,
-                   usability_gate_passed, pricing_input_confidence_bps, owner_id,
-                   row_version, last_local_seq, stage_run_id
+                   usability_gate_passed, pricing_input_confidence_bps, commercial_basis_kind,
+                   normal_quote_coverage, uk_quote_id, china_import_quote_id, benchmark_quote_id,
+                   selected_supply_quote_id, supplier_spread_bps, fallback_discount_bps,
+                   missing_required_roles_json, coverage_evidence_json, owner_id, row_version,
+                   last_local_seq, stage_run_id
                  ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-                           ?13, ?14, ?15, ?16, 1, ?17, ?18)
+                           ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22,
+                           ?23, ?24, ?25, ?26, 1, ?27, ?28)
                  ON CONFLICT(id) DO UPDATE SET
                    selected_quote_id = excluded.selected_quote_id,
                    selected_quote_row_version = excluded.selected_quote_row_version,
@@ -20349,6 +21197,16 @@ fn run_gross_margin_gate_stage(state_db: &mut StateDb) -> Result<usize> {
                    identity_gate_passed = excluded.identity_gate_passed,
                    usability_gate_passed = excluded.usability_gate_passed,
                    pricing_input_confidence_bps = excluded.pricing_input_confidence_bps,
+                   commercial_basis_kind = excluded.commercial_basis_kind,
+                   normal_quote_coverage = excluded.normal_quote_coverage,
+                   uk_quote_id = excluded.uk_quote_id,
+                   china_import_quote_id = excluded.china_import_quote_id,
+                   benchmark_quote_id = excluded.benchmark_quote_id,
+                   selected_supply_quote_id = excluded.selected_supply_quote_id,
+                   supplier_spread_bps = excluded.supplier_spread_bps,
+                   fallback_discount_bps = excluded.fallback_discount_bps,
+                   missing_required_roles_json = excluded.missing_required_roles_json,
+                   coverage_evidence_json = excluded.coverage_evidence_json,
                    owner_id = excluded.owner_id,
                    row_version = candidate_pricing_assessments.row_version + 1,
                    last_local_seq = excluded.last_local_seq,
@@ -20370,6 +21228,16 @@ fn run_gross_margin_gate_stage(state_db: &mut StateDb) -> Result<usize> {
                     i32::from(quote_identity_gate_passed(selected_quote)),
                     i32::from(quote_usability_gate_passed(selected_quote)),
                     pricing_input_confidence_bps,
+                    selection.commercial_basis_kind,
+                    i32::from(selection.normal_quote_coverage),
+                    selection.uk_quote.map(|quote| quote.id.as_str()),
+                    selection.china_import_quote.map(|quote| quote.id.as_str()),
+                    selection.benchmark_quote.map(|quote| quote.id.as_str()),
+                    selected_quote.id,
+                    selection.supplier_spread_bps,
+                    selection.fallback_discount_bps,
+                    missing_required_roles_json,
+                    coverage_evidence_json,
                     LOCAL_EXECUTOR_ID,
                     visible_after_seq,
                     stage_run_id,
@@ -21521,6 +22389,10 @@ mod tests {
                 exporter_rate_basis: None,
             },
             pricing_assessment_id: pricing_assessment_id.map(str::to_owned),
+            commercial_basis_kind: Some(super::BASIS_TWO_SIDED_SUPPLIER_COMPARISON.to_owned()),
+            normal_quote_coverage: Some(1),
+            missing_required_roles_json: Some("[]".to_owned()),
+            coverage_evidence_json: Some("{}".to_owned()),
             search_attempts: Vec::new(),
             confidence_breakdown_json: None,
         }
@@ -22578,6 +23450,10 @@ mod tests {
             revenue_confidence_bps: 0,
             gross_estimate_confidence_bps: 7000,
             pricing_input_confidence_bps: 7000,
+            commercial_basis_kind: super::BASIS_TWO_SIDED_SUPPLIER_COMPARISON.to_owned(),
+            normal_quote_coverage: true,
+            missing_required_roles_json: "[]".to_owned(),
+            coverage_evidence_json: "{}".to_owned(),
             quote_row_version: 1,
             quote_product_name: "DGU glass panel".to_owned(),
             source_name: "alibaba-search".to_owned(),
@@ -22819,6 +23695,9 @@ mod tests {
         super::NetMarginDecisionInput {
             has_pricing_signal: true,
             revenue_basis_type: Some("expected_value"),
+            commercial_basis_kind: Some(super::BASIS_TWO_SIDED_SUPPLIER_COMPARISON),
+            normal_quote_coverage: true,
+            missing_required_roles_json: Some("[]"),
             supplier_price_basis_qty_present: false,
             order_quantity_basis_kind: Some("from_contract_value"),
             net_margin_low_bps: Some(100),
@@ -23106,6 +23985,9 @@ mod tests {
         let input = super::NetMarginDecisionInput {
             has_pricing_signal: false,
             revenue_basis_type: None,
+            commercial_basis_kind: None,
+            normal_quote_coverage: false,
+            missing_required_roles_json: None,
             supplier_price_basis_qty_present: false,
             order_quantity_basis_kind: None,
             net_margin_low_bps: None,
@@ -24594,8 +25476,8 @@ mod tests {
         row.revenue_basis_type = "expected_value".to_owned();
         row.expected_addressable_revenue_ex_vat_pence = 20_640;
         row.unit_price_gbp_pence = 516;
-        row.candidate_quantity = Some(12.0);
-        row.quoted_quantity = None;
+        row.candidate_quantity = None;
+        row.quoted_quantity = Some(40.0);
         row.minimum_order_quantity = None;
 
         let basis = super::infer_order_quantity_basis(&row);
@@ -26382,6 +27264,429 @@ mod tests {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
+    fn seed_commercial_basis_quote(
+        conn: &Connection,
+        process_id: &str,
+        notice_id: &str,
+        candidate_id: &str,
+        quote_id: &str,
+        source_name: &str,
+        price_signal_role: &str,
+        unit_price_gbp_pence: i64,
+    ) -> Result<()> {
+        conn.execute(
+            "INSERT INTO supplier_quotes (
+               id, process_id, notice_id, product_candidate_id, product_name, region, quote_class,
+               source_name, unit_price_original_minor, currency, unit_price_gbp_pence,
+               includes_shipping, price_signal_role, match_confidence_bps,
+               quote_usability_confidence_bps, quote_realism_confidence_bps, evidence, owner_id
+             ) VALUES (
+               ?1, ?2, ?3, ?4, 'Commercial basis quote', ?5, 'spot', ?6, ?7, 'GBP', ?7,
+               0, ?8, 9000, 9000, 9000, '{}', 'local-owner'
+             )",
+            params![
+                quote_id,
+                process_id,
+                notice_id,
+                candidate_id,
+                if source_name == "alibaba-search" {
+                    "CN"
+                } else {
+                    "GB"
+                },
+                source_name,
+                unit_price_gbp_pence,
+                price_signal_role,
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn seed_commercial_basis_search_attempt(
+        conn: &Connection,
+        candidate_id: &str,
+        source: &str,
+        failure_mode: Option<&str>,
+    ) -> Result<()> {
+        let profile_id = format!("sp-{candidate_id}");
+        conn.execute(
+            "INSERT OR IGNORE INTO search_profiles (
+               id, product_candidate_id, head_noun, candidate_type, match_archetype,
+               query_waves_json, search_eligibility_state, owner_id
+             ) VALUES (?1, ?2, 'boiler', 'product', 'direct', '[]', 'eligible', 'local-owner')",
+            params![profile_id, candidate_id],
+        )?;
+        conn.execute(
+            "INSERT INTO search_attempts (
+               id, product_candidate_id, search_profile_id, source, locale, wave_number,
+               query_text, result_count, shortlisted_count, search_failure_mode, owner_id
+             ) VALUES (?1, ?2, ?3, ?4, 'en-GB', 1, 'Ideal boiler', ?5, ?6, ?7, 'local-owner')",
+            params![
+                format!("sa-{candidate_id}-{source}"),
+                candidate_id,
+                profile_id,
+                source,
+                i64::from(failure_mode.is_none()),
+                i64::from(failure_mode.is_none()),
+                failure_mode,
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn seed_commercial_basis_fixture(
+        state_db: &super::StateDb,
+        process_id: &str,
+        notice_id: &str,
+        candidate_id: &str,
+    ) -> Result<String> {
+        seed_stage14_process(state_db, process_id, notice_id, candidate_id)?;
+        let lot_id = format!("lot-{candidate_id}");
+        let conn = state_db.connection();
+        conn.execute(
+            "UPDATE product_candidates
+             SET quantity = 1, quantity_unit = 'unit'
+             WHERE id = ?1",
+            params![candidate_id],
+        )?;
+        conn.execute(
+            "INSERT INTO process_stage_heads (
+               process_id, stage, scope_kind, scope_id, current_stage_run_id, owner_id
+             ) VALUES (?1, 'qualify lot', 'lot', ?2, 'stage-qualify-fixture', 'local-owner')",
+            params![process_id, lot_id],
+        )?;
+        Ok(lot_id)
+    }
+
+    #[test]
+    fn woodhouses_boiler_quantity_hint_persists_candidate_quantities() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let process_id = "proc-woodhouses-qty";
+        let notice_id = "notice-woodhouses-qty";
+        seed_stage14_process(
+            &state_db,
+            process_id,
+            notice_id,
+            "placeholder-woodhouses-qty",
+        )?;
+        let result_json = json!({
+            "lots": [{
+                "lot_number": "1",
+                "title": "Boiler replacement",
+                "description": "Boiler replacement",
+                "requirements": [],
+                "evaluation_criteria": [],
+                "cpv_codes": [],
+                "product_requirements": [],
+                "technical_standards": [],
+                "evidence_anchor": {"text": "Boiler schedule: B01/B02"}
+            }],
+            "product_requirement_seeds": [
+                {
+                    "seed_key": "B01",
+                    "lot_number": "1",
+                    "candidate_name": "Ideal Evomax 2 80kW wall-hung gas boiler B01",
+                    "summary": "Ideal Evomax 2 80kW wall-hung gas boiler",
+                    "requirements": ["B01"],
+                    "evidence_anchor": {"text": "Boiler schedule B01"}
+                },
+                {
+                    "seed_key": "B02",
+                    "lot_number": "1",
+                    "candidate_name": "Ideal Evomax 2 60kW wall-hung gas boiler B02",
+                    "summary": "Ideal Evomax 2 60kW wall-hung gas boiler",
+                    "requirements": ["B02"],
+                    "evidence_anchor": {"text": "Boiler schedule B02"}
+                }
+            ],
+            "warnings": [{
+                "code": "QUANTITY_INFERRED_FROM_SCHEDULE_REFERENCE",
+                "message": "Schedule lists each boiler (B01, B02) as a single referenced unit; quantity=1 per reference is inferred from the one-row-per-reference convention rather than an explicit quantity field. Total project boiler count = 2.",
+                "evidence_refs": ["mechanical-spec:2no boilers"]
+            }]
+        });
+        state_db.with_write_transaction(|tx| {
+            super::persist_tender_spec_domain_writes(
+                tx,
+                &super::SemanticDomainWriteContext {
+                    document_extraction_id: "doc-extraction-woodhouses",
+                    process_id,
+                    notice_id: Some(notice_id),
+                    skill_id: "pdf-extraction/tender-specification",
+                    stage_run_id: "stage-run-woodhouses-qty",
+                    visible_after_seq: 1,
+                },
+                notice_id,
+                &result_json,
+            )
+        })?;
+        let rows: Vec<(String, Option<f64>, Option<String>)> = {
+            let mut stmt = state_db.connection().prepare(
+                "SELECT candidate_key, quantity, quantity_unit
+                 FROM product_candidates
+                 WHERE process_id = ?1 AND candidate_key IN ('B01', 'B02')
+                 ORDER BY candidate_key",
+            )?;
+            stmt.query_map(params![process_id], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+        assert_eq!(rows.len(), 2);
+        for (_, quantity, unit) in rows {
+            assert_eq!(quantity, Some(1.0));
+            assert_eq!(unit.as_deref(), Some("unit"));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn ambiguous_total_quantity_does_not_allocate_candidate_quantity() {
+        let result_json = json!({
+            "warnings": [{
+                "code": "QUANTITY_TOTAL_AMBIGUOUS",
+                "message": "Total boiler count = 3 across B01 and B02, but allocation is not stated."
+            }]
+        });
+        let seed = json!({
+            "candidate_name": "Ideal boiler B01",
+            "summary": "Ideal boiler",
+            "evidence_anchor": {"text": "B01"}
+        });
+        let resolution = super::seed_quantity_resolution(&seed, &result_json, 2, "boiler");
+        assert_eq!(resolution.quantity, None);
+        assert_eq!(resolution.basis, "no_candidate_quantity_signal");
+    }
+
+    #[test]
+    fn gross_margin_blocks_normal_basis_when_import_source_not_attempted() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-commercial-missing-import";
+        let nid = "notice-commercial-missing-import";
+        let cid = "cand-commercial-missing-import";
+        seed_commercial_basis_fixture(&state_db, pid, nid, cid)?;
+        seed_commercial_basis_quote(
+            state_db.connection(),
+            pid,
+            nid,
+            cid,
+            "quote-ebay-missing-import",
+            "ebay-uk",
+            "uk_retail_benchmark",
+            306_670,
+        )?;
+
+        assert_eq!(super::run_gross_margin_gate_stage(&mut state_db)?, 1);
+        let (basis, normal, missing, gross): (String, i64, String, i64) =
+            state_db.connection().query_row(
+                "SELECT commercial_basis_kind, normal_quote_coverage,
+                        missing_required_roles_json, gross_margin_bps
+                 FROM candidate_pricing_assessments
+                 WHERE product_candidate_id = ?1",
+                params![cid],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )?;
+        assert_eq!(basis, super::BASIS_MISSING_REQUIRED_QUOTE_ROLE_ATTEMPT);
+        assert_eq!(normal, 0);
+        assert!(missing.contains(super::QUOTE_ROLE_CHINA_IMPORT));
+        assert_eq!(gross, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn marketplace_agent_failure_persists_import_coverage_attempt() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-commercial-agent-failure";
+        let nid = "notice-commercial-agent-failure";
+        let cid = "cand-commercial-agent-failure";
+        seed_commercial_basis_fixture(&state_db, pid, nid, cid)?;
+        let profile_id = format!("sp-{cid}");
+        state_db.connection().execute(
+            "INSERT INTO search_profiles (
+               id, product_candidate_id, head_noun, candidate_type, match_archetype,
+               query_waves_json, search_eligibility_state, owner_id
+             ) VALUES (?1, ?2, 'boiler', 'product', 'direct',
+                       '[{\"query\":\"Ideal Evomax Alibaba\"}]', 'eligible', 'local-owner')",
+            params![profile_id, cid],
+        )?;
+
+        let candidates = vec![json!({
+            "product_candidate_id": cid,
+            "search_profile_id": profile_id,
+            "name": "Ideal Evomax boiler",
+            "query_waves": [{"query": "Ideal Evomax Alibaba"}]
+        })];
+        let attempts = super::persist_marketplace_search_agent_failure(
+            &mut state_db,
+            "alibaba-search",
+            &candidates,
+            "AGENT_RUN_FAILED",
+            "stage-run-agent-failure",
+        )?;
+        assert_eq!(attempts, 1);
+
+        let (source, failure): (String, Option<String>) = state_db.connection().query_row(
+            "SELECT source, search_failure_mode
+             FROM search_attempts
+             WHERE product_candidate_id = ?1",
+            params![cid],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        assert_eq!(source, "alibaba-search");
+        assert_eq!(failure.as_deref(), Some("AGENT_RUN_FAILED"));
+
+        let (required_role, attempted, coverage_state): (String, i64, String) =
+            state_db.connection().query_row(
+                "SELECT required_role, attempted, coverage_state
+                 FROM candidate_quote_coverage
+                 WHERE product_candidate_id = ?1",
+                params![cid],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )?;
+        assert_eq!(required_role, super::QUOTE_ROLE_CHINA_IMPORT);
+        assert_eq!(attempted, 1);
+        assert_eq!(coverage_state, super::COVERAGE_STATE_ATTEMPTED_FAILED);
+        Ok(())
+    }
+
+    #[test]
+    fn gross_margin_single_uk_quote_is_fallback_after_import_attempt_failure() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-commercial-fallback";
+        let nid = "notice-commercial-fallback";
+        let cid = "cand-commercial-fallback";
+        seed_commercial_basis_fixture(&state_db, pid, nid, cid)?;
+        seed_commercial_basis_quote(
+            state_db.connection(),
+            pid,
+            nid,
+            cid,
+            "quote-ebay-fallback",
+            "ebay-uk",
+            "uk_retail_benchmark",
+            306_670,
+        )?;
+        seed_commercial_basis_search_attempt(
+            state_db.connection(),
+            cid,
+            "alibaba-search",
+            Some("SOURCE_CAPTCHA_BLOCKED"),
+        )?;
+
+        assert_eq!(super::run_gross_margin_gate_stage(&mut state_db)?, 1);
+        let (basis, normal, fallback): (String, i64, Option<i64>) =
+            state_db.connection().query_row(
+                "SELECT commercial_basis_kind, normal_quote_coverage, fallback_discount_bps
+                 FROM candidate_pricing_assessments
+                 WHERE product_candidate_id = ?1",
+                params![cid],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )?;
+        assert_eq!(basis, super::BASIS_SINGLE_SIDE_RETAIL_DISCOUNT_FALLBACK);
+        assert_eq!(normal, 0);
+        assert_eq!(
+            fallback,
+            Some(super::DEFAULT_UK_RETAIL_WHOLESALE_DISCOUNT_BPS)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn gross_margin_prefers_two_sided_supplier_comparison() -> Result<()> {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_stage14_state_db(&db_path)?;
+        let pid = "proc-commercial-two-sided";
+        let nid = "notice-commercial-two-sided";
+        let cid = "cand-commercial-two-sided";
+        seed_commercial_basis_fixture(&state_db, pid, nid, cid)?;
+        seed_commercial_basis_quote(
+            state_db.connection(),
+            pid,
+            nid,
+            cid,
+            "quote-ebay-two-sided",
+            "ebay-uk",
+            "uk_retail_benchmark",
+            306_670,
+        )?;
+        seed_commercial_basis_quote(
+            state_db.connection(),
+            pid,
+            nid,
+            cid,
+            "quote-alibaba-two-sided",
+            "alibaba-search",
+            "cn_supplier_floor",
+            80_000,
+        )?;
+        seed_commercial_basis_search_attempt(state_db.connection(), cid, "ebay-uk", None)?;
+        seed_commercial_basis_search_attempt(state_db.connection(), cid, "alibaba-search", None)?;
+
+        assert_eq!(super::run_gross_margin_gate_stage(&mut state_db)?, 1);
+        let (basis, normal, selected_quote_id, spread): (String, i64, String, Option<i64>) =
+            state_db.connection().query_row(
+                "SELECT commercial_basis_kind, normal_quote_coverage,
+                        selected_quote_id, supplier_spread_bps
+                 FROM candidate_pricing_assessments
+                 WHERE product_candidate_id = ?1",
+                params![cid],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )?;
+        assert_eq!(basis, super::BASIS_TWO_SIDED_SUPPLIER_COMPARISON);
+        assert_eq!(normal, 1);
+        assert_eq!(selected_quote_id, "quote-alibaba-two-sided");
+        assert!(spread.is_some_and(|value| value > 0));
+        Ok(())
+    }
+
+    #[test]
+    fn stage11_uses_extracted_candidate_quantity_before_lot_value_fallback() {
+        let mut row = stage11_row_fixture();
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.expected_addressable_revenue_ex_vat_pence = 6_500_000;
+        row.unit_price_gbp_pence = 306_670;
+        row.candidate_quantity = Some(1.0);
+        row.candidate_quantity_unit = Some("unit".to_owned());
+        row.lot_estimated_value_pence = Some(13_000_000);
+
+        let basis = super::infer_order_quantity_basis(&row);
+        assert_eq!(
+            basis,
+            super::OrderQuantityBasis::FromLotQuantity {
+                qty: 1.0,
+                basis_unit: Some("unit".to_owned()),
+            }
+        );
+    }
+
+    #[test]
+    fn stage11_rejects_lot_value_quantity_when_stage10_used_allocated_revenue() {
+        let mut row = stage11_row_fixture();
+        row.revenue_basis_type = "expected_value".to_owned();
+        row.expected_addressable_revenue_ex_vat_pence = 6_500_000;
+        row.unit_price_gbp_pence = 306_670;
+        row.minimum_order_quantity = None;
+        row.quoted_quantity = None;
+        row.candidate_quantity = None;
+        row.lot_estimated_value_pence = Some(13_000_000);
+
+        let basis = super::infer_order_quantity_basis(&row);
+        assert!(matches!(
+            basis,
+            super::OrderQuantityBasis::BasisUndetermined { .. }
+        ));
+    }
+
     fn seed_stage14_manifest_and_pipeline(
         state_db: &super::StateDb,
         process_id: &str,
@@ -26875,6 +28180,7 @@ mod tests {
             process_id: pid.to_owned(),
             notice_id: nid.to_owned(),
             lot_id,
+            quantity: None,
             candidate_value_share_bps: None,
         };
         let (allocation, _) = state_db
