@@ -4,7 +4,7 @@ ULTRATHINK and be meticulous.
 
 ## Mission
 
-Complete the literal desktop UI click-through that the full L1-L3 E2E run could not finish because this session lacked the required machine-control permissions.
+Complete the literal desktop UI click-through that the full L1-L3 E2E run could not finish because the validating environment lacked the required machine-control permissions.
 
 The backend, daemon bridge, E2E state root, manifest generation, CLI decision capture, and Quick-Decide-shaped native bridge command have already been validated. What remains is the real Tauri window interaction path:
 
@@ -51,13 +51,120 @@ The previous E2E run got the desktop app to `full control` mode using the E2E st
 
 - `docs/pipeline/full-pipeline-e2e-screenshots/step-03-full-control-desktop-ready.png`
 
-Because automated click access was blocked, the previous run exercised the same native daemon bridge path behind the UI controls directly. It successfully created:
+Because automated click access was blocked, the E2E validation exercised the same native daemon bridge path behind the UI controls directly. It successfully created:
 
 - CLI decision: `e2e-cli-20260504T145047Z`
 - Bridge clarification: `clarification-e2e-ui-bridge-20260504T1557Z`
 - Bridge decision: `decision-watch-e2e-ui-bridge-20260504T1616Z`
 
 Those rows prove the IPC command path can write the expected DB state. They do not prove the literal rendered UI click path, which is why this handoff exists.
+
+## Phase 1: Required UI Research
+
+Do not begin the click-through until you understand the UI and Tauri command path below.
+
+### 1A. React Surfaces
+
+Read:
+
+- `apps/desktop/src/App.tsx` - screen routing, process-detail loading, and mutation refresh flow.
+- `apps/desktop/src/pages/ManifestInbox.tsx` - inbox card rendering and `list_manifests` invocation.
+- `apps/desktop/src/pages/ContractDetail.tsx` - Process Detail layout, `ManifestViewer`, and `OperatorDecisionPanel` placement.
+- `apps/desktop/src/pages/OperatorDecisionPanel.tsx` - clarification form, Quick-Decide, withdrawal controls, and pipeline rerun modal.
+- `apps/desktop/src/lib/transport.ts` - command transport and dev bridge behavior.
+
+Key frontend types:
+
+```ts
+export type ManifestInboxRow = {
+  processId: string;
+  canonicalProcessId: string;
+  title: string | null;
+  buyerName: string | null;
+  estimatedValuePence: number | null;
+  stoplight: string | null;
+  suggestedAction: string | null;
+  clarificationPromptCount: number;
+  manifestBasisHash: string | null;
+  generatedAt: string;
+  decision: DecisionStatusVm;
+};
+
+export type OperatorDecisionPanelProps = {
+  processId: string;
+  manifestBasisHash: string | null;
+  manifestHash: string | null;
+  manifestStageRunId: string | null;
+  clarificationPromptsJson: string | null;
+  latestDecision: {
+    disposition: 'approve' | 'reject' | 'watch' | null;
+    status?: string | null;
+    isStale: boolean;
+    decidedAt: string | null;
+  };
+  onChanged: () => void;
+};
+```
+
+You must be able to answer:
+
+1. Which UI element invokes `list_manifests`?
+2. Which UI element invokes `get_process_detail`?
+3. Which UI element invokes `capture_clarification`?
+4. Which UI element invokes `trigger_pipeline_rerun`?
+5. Which UI element invokes `capture_decision`?
+
+### 1B. Tauri/Rust Bridge
+
+Read:
+
+- `apps/desktop/src-tauri/src/main.rs` - command handlers and `trigger_pipeline_rerun_impl`.
+- `apps/desktop/src-tauri/src/query_service.rs` - `ProcessDetailVm`, `ManifestInboxRow`, manifest loading, and decision status calculation.
+- `apps/desktop/src-tauri/src/daemon_bridge.rs` - bridge command names and daemon process invocation.
+
+Key command signatures:
+
+```rust
+fn list_manifests<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> std::result::Result<Value, String>
+
+fn capture_decision<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    params: CaptureDecisionParams,
+) -> std::result::Result<Value, String>
+
+fn capture_clarification<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    params: CaptureClarificationFrontendParams,
+) -> std::result::Result<Value, String>
+
+fn trigger_pipeline_rerun<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    params: TriggerPipelineRerunParams,
+) -> std::result::Result<Value, String>
+```
+
+You must be able to answer:
+
+1. How does `DesktopPaths::from_handle` decide which state DB to open?
+2. What env vars force the desktop app onto the E2E state root?
+3. What daemon binary does `PROCINTEL_DAEMON_PROGRAM` point at?
+4. How do UI mutations become rows in `pending_operator_intents` or `operator_input_overrides`?
+
+### 1C. Screenshot Safety
+
+Do not overwrite existing screenshot files. Before saving a screenshot path, run:
+
+```bash
+test -e docs/pipeline/full-pipeline-e2e-screenshots/step-04-inbox-clickthrough.png && echo exists
+```
+
+If the target screenshot already exists, use a timestamped suffix, for example:
+
+```text
+docs/pipeline/full-pipeline-e2e-screenshots/step-04-inbox-clickthrough-20260504T1725Z.png
+```
 
 ## Non-Negotiable Constraints
 
@@ -147,6 +254,8 @@ Capture screenshot:
 
 - `docs/pipeline/full-pipeline-e2e-screenshots/step-04-inbox-clickthrough.png`
 
+If this file already exists, use a timestamped suffix. Do not overwrite existing screenshot evidence.
+
 ### Step 2: Process Detail
 
 Click the Woodhouses spotlight card.
@@ -160,6 +269,8 @@ Expected:
 Capture screenshot:
 
 - `docs/pipeline/full-pipeline-e2e-screenshots/step-05-detail-manifest-clickthrough.png`
+
+If this file already exists, use a timestamped suffix. Do not overwrite existing screenshot evidence.
 
 ### Step 3: Clarification Form
 
@@ -177,6 +288,8 @@ If the UI only exposes predefined clarification reasons, choose the safest non-c
 Capture screenshot before or after submission:
 
 - `docs/pipeline/full-pipeline-e2e-screenshots/step-06-clarification-form-clickthrough.png`
+
+If this file already exists, use a timestamped suffix. Do not overwrite existing screenshot evidence.
 
 Validate:
 
@@ -208,6 +321,8 @@ Capture screenshot:
 
 - `docs/pipeline/full-pipeline-e2e-screenshots/step-07-rerun-modal-clickthrough.png`
 
+If this file already exists, use a timestamped suffix. Do not overwrite existing screenshot evidence.
+
 Validate:
 
 ```bash
@@ -235,6 +350,8 @@ E2E desktop UI click-through validation: verified Manifest Inbox, Process Detail
 Capture screenshot:
 
 - `docs/pipeline/full-pipeline-e2e-screenshots/step-08-quick-decide-clickthrough.png`
+
+If this file already exists, use a timestamped suffix. Do not overwrite existing screenshot evidence.
 
 Validate:
 
@@ -278,6 +395,8 @@ Expected:
 Capture screenshot if it appears:
 
 - `docs/pipeline/full-pipeline-e2e-screenshots/step-09-stale-banner-clickthrough.png`
+
+If this file already exists, use a timestamped suffix. Do not overwrite existing screenshot evidence.
 
 If the hash does not change and the stale banner cannot be triggered honestly, document that as `NOT OBSERVED - basis stable`, not as a failure.
 

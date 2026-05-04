@@ -10,6 +10,28 @@ Out of scope: Layer 4 shared visibility, Layer 5 advanced commercial templates, 
 
 ---
 
+## OPERATOR INTENT DISTILLED
+
+The product should first answer a supplier-spread question, not just a tender-value question:
+
+```text
+Can a China/import-side supplier quote, after landed-cost adjustments, beat a UK-side quote enough to make the opportunity commercially attractive?
+```
+
+UK-side eBay/Amazon quotes are valid benchmark evidence. They are not "weak" by default. They become insufficient only when they are the only side of evidence and the China/import side was not attempted or did not yield durable results.
+
+If this handoff is too large for one implementation session, split it into beads in this order:
+
+1. Stage 9 durable Alibaba/import coverage gate.
+2. Stage 8 explicit quantity extraction/persistence.
+3. Stage 10 two-sided commercial-basis model.
+4. Stage 11 quantity/revenue basis alignment.
+5. Stage 12/13 reason and manifest surfaces.
+
+Do not close the parent work until all five invariants are satisfied.
+
+---
+
 ## PHASE 1: DEEP RESEARCH (mandatory before implementation)
 
 Do not write code until this research phase is complete. This is a cross-stage fix, so a local patch in only Stage 10 is not sufficient.
@@ -87,6 +109,35 @@ Supplier quotes:
   ebay-uk: 1 quote
 ```
 
+Prepared Alibaba job payload excerpt:
+
+```json
+{
+  "source_id": "alibaba-search",
+  "source": "alibaba-search",
+  "max_candidates": 2,
+  "candidates": [
+    {
+      "product_candidate_id": "pc-...boiler-b01-ideal-evomax2-80kw",
+      "name": "Ideal Evomax 2 80kW Wall-Hung Gas Boiler (B01)",
+      "quantity": null,
+      "quantity_unit": null
+    },
+    {
+      "product_candidate_id": "pc-...boiler-b02-ideal-evomax2-60kw",
+      "name": "Ideal Evomax 2 60kW Wall-Hung Gas Boiler (B02)",
+      "quantity": null,
+      "quantity_unit": null
+    }
+  ]
+}
+```
+
+This excerpt proves two things:
+
+1. The daemon or validation harness had enough candidate/search-profile data to prepare an Alibaba run.
+2. The prepared input still had `quantity: null`, so the quantity extraction defect flowed into supplier search as well as margin math.
+
 You must be able to answer:
 
 1. Why is `/tmp/e2e_woodhouses_alibaba_job.json` not durable Stage 9 evidence?
@@ -123,7 +174,21 @@ Current persisted candidate state:
 ```text
 product_candidates.quantity = NULL
 product_candidates.quantity_unit = NULL
+product_candidates.quantity_confidence_bps = 9200
 ```
+
+Important nuance from the existing semantic extraction:
+
+```text
+document_semantic_extractions.warnings_json includes:
+  QUANTITY_INFERRED_FROM_SCHEDULE_REFERENCE
+  "Schedule lists each boiler (B01, B02) as a single referenced unit;
+   quantity=1 per reference is inferred from the one-row-per-reference
+   convention rather than an explicit quantity field. Total project
+   boiler count = 2."
+```
+
+So the semantic skill already noticed a quantity signal, but daemon-side persistence did not materialize it into `product_candidates.quantity`. The fix should decide whether that warning should become an explicit structured quantity field, a parsed `quantity_hint`, or a lower-confidence review prompt. It must not leave `quantity_confidence_bps` high while `quantity` remains `NULL` without an explanatory basis.
 
 Important current skill text:
 

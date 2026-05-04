@@ -35,6 +35,10 @@ Follow-up beads already filed:
 - `testproject1-qnl3`: Stage 8 semantic extraction times out on large mechanical specifications.
 - `testproject1-hf42`: Marketplace PTY skill can write result contract but hang before exit.
 
+Related handoff:
+
+- `prompts/full-pipeline-e2e-commercial-basis-and-alibaba-coverage-handoff.md` covers quote coverage policy, Alibaba/import-side requirements, quantity extraction, and Stage 10/11 commercial-basis alignment. Do not silently absorb that larger commercial-policy work into this handoff unless you are explicitly taking both handoffs together.
+
 ## Non-Negotiable Constraints
 
 - Do not modify live `state/state.db` while reproducing. Use the E2E roots above or create a new isolated state root.
@@ -64,6 +68,86 @@ ls -la /tmp/e2e_woodhouses_ebay_job.json /tmp/e2e_stage9_ebay_woodhouses_manual.
 
 If `/tmp/e2e_woodhouses_ebay_job.json` is missing, reconstruct the eBay job from the E2E DB by querying the Woodhouses product candidates and marketplace search source definition. Do not modify the live DB to do this.
 
+## Phase 1: Required Research
+
+Do not implement until you can answer the checkpoint questions below.
+
+### 1A. Stage 8 PDF Extraction Path
+
+Read:
+
+- `crates/daemon/src/main.rs` around `StructuralExtractionJobRequest`, `SemanticExtractionJobRequest`, `drain_pending_extraction_jobs`, `prepare_semantic_skill_job_parameters`, and semantic persistence.
+- `skills/pdf-extraction/tender-specification/SKILL.md` to understand the result contract and failure behavior expected from the semantic skill.
+- `skills/pdf-extraction/tender-specification/result.schema.json` to understand what a valid semantic result can contain.
+- `migrations/0006_pdf_extraction_toolkit.sql` to verify the actual `document_extractions` and `document_semantic_extractions` columns.
+
+Current key shapes:
+
+```rust
+struct SemanticExtractionJobRequest {
+    document_extraction_id: String,
+    process_id: String,
+    notice_id: Option<String>,
+    document_set_id: Option<String>,
+    raw_document_id: Option<String>,
+    skill_id: String,
+    extraction_scope: String,
+    target_domain: Option<String>,
+    stage_run_id: Option<String>,
+    chunk_plan_hash: Option<String>,
+    chunk_index: Option<usize>,
+    merge_job: bool,
+    merge_chunk_indices: Vec<usize>,
+}
+
+fn prepare_semantic_skill_job_parameters(
+    conn: &Connection,
+    artifact_root: &Path,
+    job_id: &str,
+    base_payload: &Value,
+    request: &SemanticExtractionJobRequest,
+) -> Result<Value>
+```
+
+You must be able to answer:
+
+1. Which table stores structural extraction state, and which column records semantic state?
+2. Where is focused semantic markdown written under `pdf-extraction-inputs`?
+3. What happens today when a semantic skill session exits without `result.json`?
+4. Which job states are retryable, and which can block later extraction work?
+
+### 1B. Stage 9 PTY Marketplace Path
+
+Read:
+
+- `crates/daemon/src/main.rs` around `run_marketplace_search_live_loop`, `execute_skill_session`, `persist_marketplace_search_results`, and PTY/contract result handling.
+- `crates/daemon/src/sources/registry.rs` around marketplace source definitions for `amazon-uk`, `ebay-uk`, `gem-imports`, `mx-wholesale`, and `alibaba-search`.
+- `skills/marketplace-search/ebay-uk/SKILL.md` for the expected result contract.
+- Existing tests that mention `contract_child_output_timeout_reaps_child` and marketplace persistence.
+
+Current key signatures:
+
+```rust
+async fn run_marketplace_search_live_loop(
+    runtime: &mut RuntimeBootstrap,
+    source_id: &str,
+    cli: &Cli,
+) -> Result<LiveLoopReport>
+
+fn persist_marketplace_search_results(
+    state_db: &mut StateDb,
+    source_id: &str,
+    result_json: &Value,
+) -> Result<(usize, usize)>
+```
+
+You must be able to answer:
+
+1. Where does the daemon find `result.json` after a PTY skill run?
+2. What durable rows are written for each `search_results[]` entry?
+3. What durable rows are written for each `quotes[]` entry?
+4. How should the adapter distinguish a valid-result hang from a true no-result timeout?
+
 ## Caveat 1: Stage 8 Large Mechanical Spec
 
 ### What Happened
@@ -73,6 +157,8 @@ Structural extraction worked for the large mechanical specification:
 - Document extraction ID: `02b4ad86-2b7a-4262-8488-26d703cd937b`
 - PDF: `artifacts-e2e-20260504T113157Z/downloads/procontract/785205/App E - Woodhouses_28 286_Mechanical_Services_Specification_Revision_A_Final.pdf`
 - Parsed size: 41 pages, 224 sections, 21 tables.
+- Current DB state: `document_extractions.semantic_extraction_state='pending'` for this large spec.
+- Current workflow job state: the semantic job failed once with `last_error='semantic extraction session missing result contract path'`.
 
 Semantic extraction for that large spec did not complete cleanly during the E2E run. In contrast, the short boiler schedule semantic extraction did succeed:
 
@@ -82,6 +168,8 @@ Semantic extraction for that large spec did not complete cleanly during the E2E 
   - B02 Ideal Evomax 2 60kW Wall-Hung Gas Boiler
 
 This means the Stage 8 path is not fundamentally broken; it is brittle for large, mixed mechanical specifications.
+
+Important adjacent finding: the short boiler schedule semantic extraction produced warnings that mention inferred quantity from schedule references, but `product_candidates.quantity` remained `NULL`. That quantity propagation defect is handled in `prompts/full-pipeline-e2e-commercial-basis-and-alibaba-coverage-handoff.md`; do not lose sight of it if you touch shared semantic persistence.
 
 ### Likely Root Cause Area
 
@@ -108,17 +196,29 @@ First inspect current state:
 
 ```bash
 sqlite3 -header -column state-e2e-20260504T113157Z/state.db "
-SELECT id, process_id, document_id, extraction_kind, state, output_artifact_path, error_message
+SELECT id, raw_document_id, process_id, document_title, page_count,
+       table_count, section_count, semantic_extraction_state,
+       length(extracted_markdown) AS markdown_chars
 FROM document_extractions
 WHERE process_id='proc-pc-956d1aaa-8841-f111-813c-005056b64545';
 
-SELECT id, process_id, document_extraction_id, extraction_kind, confidence_bps
+SELECT id, process_id, document_extraction_id, extraction_scope,
+       target_domain, extraction_confidence_bps, warnings_json,
+       written_entity_refs_json
 FROM document_semantic_extractions
 WHERE process_id='proc-pc-956d1aaa-8841-f111-813c-005056b64545';
 
-SELECT id, name, candidate_kind, identity_confidence_bps, quoteability_score_bps
+SELECT id, name, candidate_type, head_noun, quantity, quantity_unit,
+       identity_confidence_bps, spec_confidence_bps,
+       quantity_confidence_bps, quoteability_score_bps
 FROM product_candidates
 WHERE process_id='proc-pc-956d1aaa-8841-f111-813c-005056b64545';
+
+SELECT id, kind, scope_kind, scope_id, status, attempt_count,
+       last_error, started_at, completed_at
+FROM workflow_jobs
+WHERE process_id='proc-pc-956d1aaa-8841-f111-813c-005056b64545'
+ORDER BY created_at;
 "
 ```
 
@@ -185,7 +285,7 @@ This caveat is fixed when:
 
 ### What Happened
 
-The eBay UK marketplace skill successfully found and wrote a valid supplier quote result for Woodhouses, but the PTY child did not exit on its own for more than 9 minutes. The previous agent manually sent `TERM` to the specific child process; only then did the daemon persist the result.
+The eBay UK marketplace skill successfully found and wrote a valid supplier quote result for Woodhouses, but the PTY child did not exit on its own for more than 9 minutes. During validation, the specific child process had to be terminated manually with `TERM`; only then did the daemon persist the result.
 
 Persisted quote:
 
@@ -358,17 +458,27 @@ For docs-only bead updates, run the relevant `br sync --flush-only` flow accordi
 
 ```bash
 sqlite3 -header -column state-e2e-20260504T113157Z/state.db "
-SELECT id, state, output_artifact_path, error_message
+SELECT id, raw_document_id, document_title, page_count, table_count,
+       section_count, semantic_extraction_state,
+       length(extracted_markdown) AS markdown_chars
 FROM document_extractions
 WHERE process_id='proc-pc-956d1aaa-8841-f111-813c-005056b64545';
 
-SELECT id, document_extraction_id, extraction_kind, confidence_bps
+SELECT id, document_extraction_id, extraction_scope, target_domain,
+       extraction_confidence_bps, warnings_json, written_entity_refs_json
 FROM document_semantic_extractions
 WHERE process_id='proc-pc-956d1aaa-8841-f111-813c-005056b64545';
 
-SELECT id, name, candidate_kind, identity_confidence_bps, quoteability_score_bps
+SELECT id, name, candidate_type, head_noun, quantity, quantity_unit,
+       identity_confidence_bps, spec_confidence_bps,
+       quantity_confidence_bps, quoteability_score_bps
 FROM product_candidates
 WHERE process_id='proc-pc-956d1aaa-8841-f111-813c-005056b64545';
+
+SELECT id, kind, status, attempt_count, last_error, completed_at
+FROM workflow_jobs
+WHERE process_id='proc-pc-956d1aaa-8841-f111-813c-005056b64545'
+ORDER BY created_at;
 
 SELECT source, search_failure_mode, COUNT(*) AS attempts,
        SUM(result_count) AS results, SUM(shortlisted_count) AS shortlisted
