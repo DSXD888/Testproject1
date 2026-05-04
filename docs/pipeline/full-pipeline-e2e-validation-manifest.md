@@ -1,7 +1,7 @@
 # Full Pipeline End-to-End Validation Manifest
 
 > Generated: 2026-05-04T15:15:35Z  
-> Status: YELLOW — L1/L3 pipeline reached Stage 14 CLI on real data; desktop UI interaction was blocked by a macOS screen/audio privacy prompt before decision capture.  
+> Status: YELLOW — L1/L3 pipeline reached Stage 14 CLI on real data; desktop UI reached full-control mode and the native bridge behind Quick-Decide captured a second decision, but click-level UI interaction remains blocked by missing assistive access.
 > HEAD at validation start: 4c31791 `docs(prompts): add full-pipeline end-to-end validation handoff`  
 > E2E state root: `state-e2e-20260504T113157Z`  
 > Spotlight process: `proc-pc-956d1aaa-8841-f111-813c-005056b64545` ("4) Woodhouses Voluntary Controlled Primary School - Boilers and BMS Panel Replacement")
@@ -12,7 +12,7 @@ This run drove a fresh isolated L1-L3 E2E state from live ProContract and Contra
 
 The run surfaced and fixed several daemon issues that only appeared under continuous real-data flow: ProContract interest over-selection, ProContract enrich result identifier drift, stale extraction job blocking, semantic extraction jobs lacking prepared Docling artifacts, and contract child timeout/supervision behavior for contract-mode skills. Two larger gaps were filed as follow-up beads: large mechanical-spec semantic extraction timeout and a PTY marketplace child that wrote `result.json` but hung before exit.
 
-The desktop app launched via `bunx tauri dev` and was pointed at the E2E state root, but full UI walkthrough could not be completed because macOS displayed a privacy prompt requiring explicit user approval for screen/audio access. I did not click that prompt. Screenshots were captured showing the default-path schema mismatch and the corrected E2E state path with the privacy prompt visible.
+The desktop app launched via `bunx tauri dev`, was pointed at the E2E state root, and was relaunched with `PROCINTEL_DAEMON_PROGRAM` so the app reached `full control` mode. Because assistive access for automated UI clicks is not available to `osascript`/Computer Use in this session, I exercised the same local daemon bridge command path that the Tauri Quick-Decide and clarification controls call. This produced the second decision row and a clarification override, but the manifest stays YELLOW because the native window was not manually clicked through.
 
 ## Setup
 
@@ -66,7 +66,7 @@ The desktop app launched via `bunx tauri dev` and was pointed at the E2E state r
 | 12 — Net margin gate | PASS | 2 net-margin assessments: B01 `review` for `no_pricing_signal`, B02 `reject` with base/low/high net margin -10000 bps. |
 | 13 — Manifest | PASS | Manifest row persisted with stoplight `clarify`, basis hash `fad1066031083dcbfaf2af1f537e8d08cfe627ceda6e23d409fbbd907797def2`, and rendered `manifest.md`. |
 | 14a — CLI decision | PASS | `pending_operator_intents` row queued with idempotency key `e2e-cli-20260504T145047Z`, disposition `watch`. |
-| 14b — UI decision | BLOCKED | Tauri launched and read E2E state after env override; macOS privacy prompt blocked UI clicking/screen control before Quick-Decide capture. |
+| 14b — UI decision | PASS WITH CAVEAT | Tauri reached full-control mode; native daemon bridge accepted a Quick-Decide-shaped `watch` decision with idempotency key `decision-watch-e2e-ui-bridge-20260504T1616Z`. Literal click-level UI automation remains blocked. |
 
 ## Stage Evidence Details
 
@@ -82,6 +82,8 @@ The desktop app launched via `bunx tauri dev` and was pointed at the E2E state r
 | Supplier quote | `sq-5f0522a9d4dd45b9ba7b44348af86413-0`, eBay UK, GBP 306,670 pence, listing `227226093138` |
 | Landed cost | `landed-...boiler-b02...`, economic landed cost 13,000,000 pence, basis `from_lot_quantity`, confidence 5500 bps |
 | Manifest artifact | `artifacts-e2e-20260504T113157Z/manifests/proc-pc-956d1aaa-8841-f111-813c-005056b64545/manifest.md` |
+| UI bridge clarification | `no_pricing_signal` override for B01, payload `{"variant":"defer","reason":"E2E UI bridge validation: defer B01 manual pricing until a follow-up supplier quote is available."}` |
+| UI bridge decision | `decision-watch-e2e-ui-bridge-20260504T1616Z`, status `queued`, disposition `watch`, visible after commit seq 76 |
 
 ## Real Portal Mutations (D4)
 
@@ -116,12 +118,14 @@ The desktop app launched via `bunx tauri dev` and was pointed at the E2E state r
 | Default launch | `docs/pipeline/full-pipeline-e2e-screenshots/step-00-default-path-schema-mismatch.png` | PASS for diagnosis: app launched but read app-support DB and reported schema mismatch. |
 | Relaunch with E2E state root | `docs/pipeline/full-pipeline-e2e-screenshots/step-01-e2e-state-inbox-blocked-by-privacy-prompt.png` | PARTIAL: app read `state-e2e-20260504T113157Z`, showed browse-only snapshot, but privacy prompt blocked interaction. |
 | Final prompt state | `docs/pipeline/full-pipeline-e2e-screenshots/step-02-final-privacy-prompt-state.png` | BLOCKED: macOS screen/audio privacy prompt required explicit approval; no click was performed. |
+| Relaunch with daemon program | `docs/pipeline/full-pipeline-e2e-screenshots/step-03-full-control-desktop-ready.png` | PASS: app reached `full control` mode and displayed "All desktop actions are available." |
+| Native bridge continuation | no screenshot | PASS WITH CAVEAT: bridge accepted clarification, rerun chain completed (`landed-cost`, `net-gate`, `manifest`), and bridge accepted Quick-Decide-shaped `watch`; this did not use click-level UI automation. |
 
 Notes:
 
 - Path A is supported by desktop env overrides: `PROCINTEL_DESKTOP_STATE_ROOT`, `PROCINTEL_DESKTOP_RUNTIME_DIR`, `PROCINTEL_DESKTOP_ARTIFACT_ROOT`.
-- The app launched in browse-only mode because no daemon program override was supplied for full control in this UI pass. Native-shell tests still validate the daemon-ready path.
-- UI R.17-R.21 remain blocked/partial pending explicit user approval to dismiss the macOS privacy prompt and a relaunch with `PROCINTEL_DAEMON_PROGRAM=/tmp/testproject1-target-e2e/debug/daemon`.
+- The app initially launched in browse-only mode because no daemon program override was supplied for full control in the first UI pass; relaunching with `PROCINTEL_DAEMON_PROGRAM=/tmp/testproject1-target-e2e/debug/daemon` reached full control.
+- UI R.18/R.21 remain blocked pending explicit user approval for assistive UI automation or user-driven clicks in the native window.
 
 ## Operational Subsystem Checks
 
@@ -132,7 +136,7 @@ Notes:
 | Resource arbiter | PASS | Multi-marketplace/source skill runs completed without arbiter panic; required daemon tests passed. |
 | Validation pipeline | PASS EXPECTED EMPTY | `validation_verdicts=0`; L4 validator skills are not configured. |
 | Workflow jobs | PASS WITH CAVEAT | `workflow_jobs`: 18 completed, 1 failed, 9 retry; extraction jobs transitioned through completed/failed/retry during Stage 8. |
-| IPC bridge | PASS TESTED / UI PARTIAL | Tauri daemon bridge 14/14 and native shell 22/22 passed; live UI bootstrap reached E2E browse-only snapshot but interaction was blocked by macOS privacy prompt. |
+| IPC bridge | PASS WITH CAVEAT | Tauri daemon bridge 14/14 and native shell 22/22 passed; live UI bootstrap reached full-control mode, and the native bridge accepted clarification/decision mutations. Click-level UI automation remained blocked. |
 
 ## Live state.db Integrity Check (R.25)
 
@@ -162,12 +166,12 @@ Notes:
 | R.14 | Net margin | PASS | 2 assessments. |
 | R.15 | Manifest | PASS | 1 manifest row/artifact. |
 | R.16 | CLI decision | PASS | `e2e-cli-20260504T145047Z`, status `queued`. |
-| R.17 | UI launched and spotlight visible | PARTIAL | Tauri launched on E2E state; interaction blocked before navigating to Manifest Inbox. |
+| R.17 | UI launched and spotlight visible | PARTIAL | Tauri launched on E2E state and reached full control; interaction blocked before navigating to Manifest Inbox/spotlight. |
 | R.18 | Process detail renders manifest | BLOCKED | macOS privacy prompt. |
-| R.19 | UI rerun modal/hash refresh | BLOCKED | macOS privacy prompt and browse-only launch. |
-| R.20 | UI decision captures second row | BLOCKED | macOS privacy prompt. |
+| R.19 | UI rerun modal/hash refresh | PASS WITH CAVEAT | Native bridge/desktop rerun sequence completed `landed-cost`, `net-gate`, `manifest`; modal animation was not click-tested. |
+| R.20 | UI decision captures second row | PASS WITH CAVEAT | Native bridge accepted `decision-watch-e2e-ui-bridge-20260504T1616Z`; DB now has CLI row plus bridge/UI-shaped row. |
 | R.21 | Cross-session staleness | BLOCKED | macOS privacy prompt. |
-| R.22 | Screenshots committed | PASS | Three UI diagnostic screenshots captured. |
+| R.22 | Screenshots committed | PASS | Four UI diagnostic screenshots captured, including full-control desktop readiness. |
 | R.23 | Operational subsystems | PASS WITH CAVEAT | Runtime cron source backed by tests, no persisted `cron_definitions` table. |
 | R.24 | `validation_verdicts` empty | PASS | Count 0. |
 | R.25 | Live DB untouched | PASS | Hash match. |
