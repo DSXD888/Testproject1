@@ -208,6 +208,15 @@ Important current schema field:
 }
 ```
 
+Important current daemon-side mismatch:
+
+```rust
+optional_numeric_at(seed, &["quantity"])
+optional_string_at(seed, &["quantity_unit"])
+```
+
+`persist_lot_domain_writes` currently reads numeric `quantity` and `quantity_unit` from each `product_requirement_seeds[]` entry, but the tender-specification result schema only defines `quantity_hint`. In other words, merely improving the skill prompt to emit better `quantity_hint` text is not enough: the daemon either needs to parse `quantity_hint` into durable quantity fields, or the result schema and skill contract need to grow explicit structured quantity fields that persistence reads. This mismatch is a first-class bug, not a documentation footnote.
+
 You must be able to answer:
 
 1. Where does the daemon convert `quantity_hint` into `product_candidates.quantity` today, if anywhere?
@@ -702,7 +711,7 @@ schedule states counts such as "2no boilers", "1No. cylinder", or "3 units",
 and include them as evidence-backed quantity_hint values.
 ```
 
-Then update daemon-side persistence so `quantity_hint` can populate:
+Then update daemon-side persistence so explicit quantity evidence can populate:
 
 ```text
 product_candidates.quantity
@@ -710,6 +719,8 @@ product_candidates.quantity_unit
 product_candidates.quantity_confidence_bps
 source_evidence_json
 ```
+
+Do not only change the skill prompt. Today `persist_lot_domain_writes` ignores schema-defined `quantity_hint` for numeric quantity persistence because it reads `quantity` and `quantity_unit`. The receiving agent must make the skill schema, skill output, and daemon persistence agree, with regression tests proving the quantity survives into `product_candidates`.
 
 Rules:
 

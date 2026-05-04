@@ -171,6 +171,8 @@ This means the Stage 8 path is not fundamentally broken; it is brittle for large
 
 Important adjacent finding: the short boiler schedule semantic extraction produced warnings that mention inferred quantity from schedule references, but `product_candidates.quantity` remained `NULL`. That quantity propagation defect is handled in `prompts/full-pipeline-e2e-commercial-basis-and-alibaba-coverage-handoff.md`; do not lose sight of it if you touch shared semantic persistence.
 
+Important schema/persistence mismatch to keep in view: the current tender-specification result schema exposes `product_requirement_seeds[].quantity_hint` as a string, while daemon-side persistence currently reads `seed["quantity"]` and `seed["quantity_unit"]` into `product_candidates.quantity` and `product_candidates.quantity_unit`. If your large-spec fix touches semantic persistence, either coordinate with the commercial-basis handoff or make the mismatch explicit in tests. Do not leave high `quantity_confidence_bps` on candidates whose persisted quantity remains `NULL` without a basis reason.
+
 ### Likely Root Cause Area
 
 Start in `crates/daemon/src/main.rs` around the Stage 8 extraction and semantic job paths:
@@ -319,7 +321,7 @@ rg -n "Persisted 4 search attempts and 0 supplier quotes|locale_or_currency_drif
 
 ### Likely Root Cause Area
 
-This is probably not an eBay scraping logic bug. The skill wrote the result contract. The daemon/PTY adapter should treat a valid result contract as terminal enough to finalize or terminate the child cleanly.
+Evidence points away from eBay scraping logic as the primary defect: the skill wrote a valid result contract. The daemon/PTY adapter should treat a valid result contract as terminal enough to finalize or terminate the child cleanly.
 
 Start around:
 

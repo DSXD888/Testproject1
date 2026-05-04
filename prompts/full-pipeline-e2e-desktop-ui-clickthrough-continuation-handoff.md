@@ -96,15 +96,37 @@ export type OperatorDecisionPanelProps = {
   manifestHash: string | null;
   manifestStageRunId: string | null;
   clarificationPromptsJson: string | null;
+  /** Latest decision rolled up from the detail view. */
   latestDecision: {
     disposition: 'approve' | 'reject' | 'watch' | null;
     status?: string | null;
     isStale: boolean;
     decidedAt: string | null;
   };
+  /** Called when an operator action completes and the parent should refetch. */
   onChanged: () => void;
+  loaders?: {
+    decisionHistory: (
+      processId: string,
+    ) => Promise<QueryEnvelope<DecisionHistoryEntry[]>>;
+    activeOverrides: (
+      processId: string,
+    ) => Promise<QueryEnvelope<ActiveOverrideEntry[]>>;
+  };
+  mutators?: {
+    captureDecision?: (args: Record<string, unknown>) => Promise<unknown>;
+    captureClarification?: (args: Record<string, unknown>) => Promise<unknown>;
+    withdrawClarification?: (args: Record<string, unknown>) => Promise<unknown>;
+    withdrawDecision?: (args: Record<string, unknown>) => Promise<unknown>;
+    triggerPipelineRerun?: (args: Record<string, unknown>) => Promise<unknown>;
+  };
+  seedHistory?: DecisionHistoryEntry[];
+  seedActiveOverrides?: ActiveOverrideEntry[];
+  seedRerunStatus?: PipelineRerunStatus;
 };
 ```
+
+The injected `loaders`, `mutators`, and `seed*` props are test seams. For the live click-through, use the real UI path; do not satisfy this handoff by calling those test seams directly.
 
 You must be able to answer:
 
