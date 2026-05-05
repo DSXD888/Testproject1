@@ -108,26 +108,54 @@ What was re-studied:
 - Upstream Agent Mail public repository documentation:
   - <https://github.com/Dicklesworthstone/mcp_agent_mail_rust>
   - <https://github.com/Dicklesworthstone/mcp_agent_mail_rust/blob/main/docs/OPERATOR_RUNBOOK.md>
+- Upstream Agent Mail source on `main`, read directly through raw GitHub URLs after the local code-search service returned rate limits.
 
 Critical correction from the fresh pass:
 
 - Do not frame the fix as "just serve from Git instead of SQLite." Agent Mail's normal online read contract is SQLite/search-backed queryability, while the Git archive is the durable audit/recovery source. When health proves SQLite is stale or corrupt, reads must repair/reconcile or structured-degrade; they must not silently trust a known-bad index.
-- Do not duplicate recovery infrastructure if the upstream code already has it. Local Agent Mail issue metadata references existing runtime corruption handling around `db_error_to_mcp_error`, corruption classifiers, `am doctor reconstruct`, and `tests/e2e/test_db_corruption.sh`. The receiving agent should extend or reuse those surfaces first.
+- Do not duplicate recovery infrastructure. Upstream `main` already contains an archive-aware read-pool/snapshot path for tools and resources. The receiving agent's first job is to compare the installed failing version (`am 0.2.51`) against upstream `main`, then either backport the existing fixes or repair the exact existing read-pool path.
 - Treat the `/var/folders` resource error as a second bug in the same incident window: resource snapshot path validation is too strict for normal macOS temp paths unless it canonicalizes the temp root safely.
+- Treat default WAL as version-specific. Upstream `main` already switches SQLite initialization to `PRAGMA journal_mode = WAL;`; if the target release still reports `journal_mode=delete`, that is probably a release/backport gap, not a new design task for this incident.
 
-Remaining inferred items to verify in the Agent Mail source:
+Concrete source anchors confirmed on upstream `main`:
 
-- Exact function names for resource snapshot reconstruction and shared MCP error conversion.
-- Whether automatic reconstruct is currently triggered only on corruption-classified DB errors, archive/DB parity drift, or both.
-- Whether read/search tools and resource reads share the same database pool and recovery admission lock.
+- `crates/mcp-agent-mail-tools/src/lib.rs`
+  - `tool_util::db_error_to_mcp_error` maps database failures into MCP tool errors and attempts `pool.try_recover_from_corruption(...)` for corruption-classified failures.
+  - `tool_util::open_read_db_pool`, `get_read_db_pool`, `ReadSnapshotDirGuard`, and `read_archive_is_ahead` create archive-backed SQLite snapshots for primary tool read surfaces when the live DB is suspect or archive-ahead.
+- `crates/mcp-agent-mail-tools/src/resources.rs`
+  - `open_resource_read_pool`, `get_resource_db_pool`, `ResourceSnapshotDirGuard`, `resource_archive_is_ahead`, and `resource_sync_db_error_to_mcp_error` mirror the tool read-pool behavior for `resource://...` reads.
+- `crates/mcp-agent-mail-tools/src/messaging.rs`
+  - `fetch_inbox` already calls `get_read_db_pool()` and has an inline comment stating that inbox reads fall back to archive snapshots when live SQLite is suspect.
+- `crates/mcp-agent-mail-tools/src/search.rs`
+  - `search_messages` already calls `get_read_db_pool()` before resolving the project and invoking Search V3.
+- `crates/mcp-agent-mail-db/src/mailbox_verdict.rs`
+  - `MailboxState`, `DurabilityState`, `compute_mailbox_verdict`, `MailboxArchiveDriftState::ArchiveAhead`, `verdict_prefers_archive_snapshot_reads`, and `verdict_prefers_archive_snapshot_reads_for_primary_read_surface` are the authoritative health/drift decision surfaces.
+- `crates/mcp-agent-mail-db/src/pool.rs`
+  - `reconcile_archive_state_before_init` handles archive-ahead/missing DB startup reconciliation.
+  - `validate_sqlite_target_path` rejects any symlinked component in a SQLite target path. This is the direct source of the macOS `/var` false positive when a read snapshot lives under `/var/folders/...`.
+  - SQLite initialization on upstream `main` contains `PRAGMA journal_mode = WAL;`.
+- `crates/mcp-agent-mail-db/src/reconstruct.rs`
+  - `reconstruct_from_archive` calls `validate_sqlite_target_path(db_path, "reconstruct sqlite target")`, which is the error path that emitted `refusing reconstruct sqlite target /var/folders/... because it traverses symlinked path /var`.
+  - Existing tests include `reconstruct_rejects_symlinked_destination_path` and `reconstruct_rejects_symlinked_destination_parent`; keep their security intent while adding the macOS temp-root case.
 
 ---
 
 ## EXTERNAL AGENT MAIL CODEBASE ORIENTATION
 
-Locate the Agent Mail Rust source checkout. If the checkout is not already open, use the upstream source at <https://github.com/Dicklesworthstone/mcp_agent_mail_rust> and verify the checkout/tag that corresponds to installed `am 0.2.51`. The path names below are confirmed from upstream docs and reinforced by the tracked patch/local Agent Mail bead metadata; still validate them with `rg --files` in the Agent Mail repo before editing.
+Locate the Agent Mail Rust source checkout. If the checkout is not already open, use the upstream source at <https://github.com/Dicklesworthstone/mcp_agent_mail_rust> and verify the checkout/tag that corresponds to installed `am 0.2.51`.
 
-Likely crate boundaries:
+Do this version check first:
+
+```bash
+am --version
+git -C /path/to/mcp_agent_mail_rust rev-parse HEAD
+git -C /path/to/mcp_agent_mail_rust tag --contains HEAD
+rg -n "open_read_db_pool|get_read_db_pool|open_resource_read_pool|validate_sqlite_target_path|journal_mode = WAL" crates/
+```
+
+If the failing release lacks the upstream `main` read-pool/reconcile/WAL changes listed below, the fix may be a focused backport and release. If those changes are present in the target checkout, the fix is inside their behavior: reproduce why they still returned the generic database error or rejected a normal macOS snapshot path.
+
+Workspace crate boundaries to verify:
 
 ```text
 crates/mcp-agent-mail-core/          # shared types, config, diagnostics, policy
@@ -169,20 +197,23 @@ rg -n "DbError::is_corruption|is_corruption|malformed|archive-backed SQLite reco
 rg -n "ionice|journal_mode|WAL|wal_mode" crates/
 ```
 
-Likely files to inspect:
+Confirmed files/function anchors to inspect:
 
-- `crates/mcp-agent-mail-db/src/pool.rs` - pool acquisition, connection setup, startup integrity behavior.
-- `crates/mcp-agent-mail-db/src/schema.rs` - SQLite PRAGMAs, journal mode, migrations.
+- `crates/mcp-agent-mail-tools/src/lib.rs` - `db_error_to_mcp_error`, `open_read_db_pool`, `get_read_db_pool`, `ReadSnapshotDirGuard`, and `read_pool_setup_error_to_mcp_error`.
+- `crates/mcp-agent-mail-tools/src/resources.rs` - `open_resource_read_pool`, `get_resource_db_pool`, `ResourceSnapshotDirGuard`, resource snapshot reconstruction, and resource error conversion.
+- `crates/mcp-agent-mail-tools/src/messaging.rs` - `fetch_inbox`; confirm it uses `get_read_db_pool()` in the target version.
+- `crates/mcp-agent-mail-tools/src/search.rs` - `search_messages`; confirm it uses `get_read_db_pool()` in the target version and preserves diagnostics from setup errors.
+- `crates/mcp-agent-mail-db/src/mailbox_verdict.rs` - `compute_mailbox_verdict`, archive drift states, and snapshot-preference logic.
+- `crates/mcp-agent-mail-db/src/pool.rs` - pool acquisition, `reconcile_archive_state_before_init`, startup integrity behavior, WAL initialization, recovery admission, and `validate_sqlite_target_path`.
+- `crates/mcp-agent-mail-db/src/reconstruct.rs` - `reconstruct_from_archive`, `reconstruct_from_archive_with_salvage`, and symlink/traversal regression tests.
+- `crates/mcp-agent-mail-db/src/schema.rs` - SQLite PRAGMAs and migrations if the target release lacks WAL initialization in `pool.rs`.
 - `crates/mcp-agent-mail-db/src/queries.rs` - project/agent/message visibility and any read/query helpers.
 - `crates/mcp-agent-mail-db/src/error.rs` - corruption classification and DB error typing.
 - `crates/mcp-agent-mail-db/src/search_service.rs` and `search_v3.rs` - search execution, Tantivy bridge, recency/cursor behavior.
-- `crates/mcp-agent-mail-tools/src/search.rs` - `search_messages` MCP tool error mapping and result formatting.
-- `crates/mcp-agent-mail-tools/src/resources.rs` or equivalent - `resource://inbox` and `resource://thread` rendering.
-- `crates/mcp-agent-mail-tools/src/lib.rs` or equivalent - shared `db_error_to_mcp_error` mapping.
 - `crates/mcp-agent-mail-tools/src/health.rs` or equivalent - `health_check` and `semantic_readiness` payloads.
 - `crates/mcp-agent-mail-cli/src/doctor*.rs` or equivalent - `am doctor check`, `repair`, `reconstruct`, and next-action text.
 - `crates/mcp-agent-mail-storage/src/lib.rs` - archive inventory scan, reconstruction source, maintenance shell-out using `ionice`.
-- `tests/e2e/test_db_corruption.sh` - historical corruption/recovery regression coverage, if present.
+- `tests/e2e/test_db_corruption.sh`, `tests/e2e/test_resource_errors.sh`, `tests/e2e/test_resources_mailbox.sh`, `tests/e2e/test_path_safety.sh`, `tests/e2e/test_tools_search.sh`, and Search V3 e2e suites - historical recovery/search/resource coverage.
 - Search V3 test/docs surfaces for `search_v3_stdio`, `search_v3_http`, `search_v3_resilience`, and `search_v3_load_concurrency`.
 
 Understanding checkpoints:
@@ -240,13 +271,13 @@ Implication: the implementation problem is not simply "search did not index a me
 
 Ranked by implementation value:
 
-1. **Read/search tools do not consistently gate on archive-vs-SQLite readiness.**
-   - Evidence: health already reported `degraded_read_only` and exact inventory drift, while `search_messages` and `fetch_inbox` returned only a generic database error.
-   - Fix direction: all read/search/resource paths should share a readiness/reconcile gate before querying SQLite/search indexes.
+1. **The target release either lacks, or fails inside, the existing archive-aware read-pool path.**
+   - Evidence: health already reported `degraded_read_only` and exact inventory drift, while `search_messages` and `fetch_inbox` returned only a generic database error. Upstream `main` now shows `search_messages` and `fetch_inbox` calling `get_read_db_pool()`, and resources using `open_resource_read_pool()`.
+   - Fix direction: compare `am 0.2.51` with upstream `main`. If the target lacks the read-pool code, backport it. If it has the code, add instrumentation/tests around `open_read_db_pool`, `open_resource_read_pool`, and `read_pool_setup_error_to_mcp_error` to find why the archive snapshot path did not produce data or diagnostics.
 
 2. **Automatic recovery is deferred too late or only on some read paths.**
    - Evidence: startup detected corruption around 20:54Z but reconstruction did not happen until 21:07Z after read/search failures.
-   - Fix direction: when startup integrity detects corruption or health sees archive ahead of DB, trigger an admission-controlled archive reconstruct before accepting normal read traffic, or return a deterministic degraded error until the reconstruct completes.
+   - Fix direction: use the existing recovery/admission surfaces first: `try_recover_from_corruption`, `reconcile_archive_state_before_init`, the mailbox verdict engine, and archive snapshot reads. Do not add a second recovery stack beside them.
 
 3. **Resource snapshot reconstruction rejects valid macOS temp paths.**
    - Evidence: resource reads tried to reconstruct below `/var/folders/...` and rejected `/var` because it is symlinked to `/private/var`, which is normal on macOS.
@@ -262,7 +293,7 @@ Ranked by implementation value:
 
 6. **WAL/default durability and macOS archive maintenance are adjacent hardening issues.**
    - Evidence: `journal_mode=delete` was flagged, a truncated WAL sidecar was swept, and archive maintenance attempted `nice ionice` on macOS where `ionice` does not exist.
-   - Fix direction: consider default WAL for new DBs/migrations and Darwin-specific archive maintenance fallback, but do not let these distract from read/search recovery correctness.
+   - Fix direction: verify the target version. Upstream `main` already initializes WAL, so this may only require release/backport validation. Darwin-specific archive maintenance fallback remains separate unless the assigned issue explicitly includes it.
 
 ---
 
@@ -270,10 +301,11 @@ Ranked by implementation value:
 
 Implement this in order. Do not expand into broad storage redesign unless a failing test proves it is necessary.
 
-1. **Shared readiness/recovery admission gate**
-   - Reuse the code behind `health_check.semantic_readiness` and any existing `db_error_to_mcp_error` corruption recovery path.
-   - Ensure `search_messages`, `fetch_inbox`, `resource://inbox`, and `resource://thread` all hit the same guard before trusting SQLite/search results.
-   - On archive-ahead or corruption state: run one bounded archive-backed reconstruct/reconcile, wait briefly if another reconstruct is active, or return a structured degraded error.
+1. **Audit and repair the existing archive-aware read-pool/snapshot path**
+   - Start in `crates/mcp-agent-mail-tools/src/lib.rs` at `open_read_db_pool()` / `get_read_db_pool()` and `crates/mcp-agent-mail-tools/src/resources.rs` at `open_resource_read_pool()`.
+   - Confirm `search_messages`, `fetch_inbox`, `resource://inbox`, and `resource://thread` all use those pools in the target version.
+   - On archive-ahead or corruption state, the existing path should use an archive snapshot or the existing archive-backed reconcile/recovery flow. If it cannot, it must return a structured degraded error rather than the generic transient database message.
+   - Do not build a duplicate read-readiness gate unless the existing read-pool abstraction is absent in the target version.
 
 2. **Resource snapshot canonicalization**
    - Fix the `/var/folders` false positive by canonicalizing the created temp root and validating containment against canonical parents.
@@ -286,7 +318,7 @@ Implement this in order. Do not expand into broad storage redesign unless a fail
 4. **Guidance alignment**
    - Align `health_check`, `am doctor check`, and `am doctor repair/reconstruct/fix` text so archive-full / DB-empty drift points to the recovery path that actually works.
 
-Defer unless already touched by the primary fix slice: default WAL migrations, Darwin `ionice` fallback, and broad Search V3 ranking/pagination cleanup.
+Defer unless already touched by the primary fix slice: Darwin `ionice` fallback and broad Search V3 ranking/pagination cleanup. Treat WAL as a target-version check: upstream `main` already contains WAL initialization, while the incident binary reported delete-mode.
 
 ---
 
@@ -306,9 +338,9 @@ They must repair/rebuild/reconcile from archive or return a structured degraded-
 
 Do not weaken write-side behavior that already worked: successful write tools should still return IDs only after their success contract is satisfied.
 
-### 2. Add a shared read-readiness gate
+### 2. Repair the existing read-readiness/snapshot gate
 
-Find the function that computes `semantic_readiness` / `archive_db_parity`. Extract or reuse it from a shared module so every read/search/resource entry point can call the same logic.
+Find the target-version implementation of `get_read_db_pool()` / `open_read_db_pool()` and `get_resource_db_pool()` / `open_resource_read_pool()`. Upstream `main` already routes `search_messages` and `fetch_inbox` through `get_read_db_pool()`, so the receiving agent should not spend time designing a new abstraction until they have proven the target checkout lacks it.
 
 Required behavior:
 
@@ -352,13 +384,15 @@ Field names can follow existing Agent Mail conventions, but the resulting payloa
 
 ### 4. Fix macOS resource snapshot path validation
 
-Search for the guard that produced:
+The guard that produced the error is `validate_sqlite_target_path` in `crates/mcp-agent-mail-db/src/pool.rs`, called by `reconstruct_from_archive` in `crates/mcp-agent-mail-db/src/reconstruct.rs`. It walks every path component with `symlink_metadata` and rejects any symlinked component:
 
 ```text
 refusing reconstruct sqlite target /var/folders/... because it traverses symlinked path /var
 ```
 
-The likely bug is validating lexical path components before canonicalizing a normal macOS temp root. Implement a containment-safe algorithm:
+That policy is appropriate for caller-controlled live database paths. It is too broad for internally-created resource/tool snapshot directories on macOS, where `std::env::temp_dir()` may enter through `/var/folders` and `/var` is the normal symlink to `/private/var`.
+
+Implement a containment-safe algorithm for snapshot destinations without weakening live database validation:
 
 1. Create the snapshot temp directory using the existing tempfile/tempdir mechanism.
 2. Canonicalize the snapshot root after creation.
@@ -390,9 +424,9 @@ Use the exact CLI wording already accepted by the project, but make the MCP and 
 
 ### 6. Treat WAL and `ionice` as optional adjacent fixes
 
-If the same Agent Mail issue includes hardening scope, implement:
+If the same Agent Mail issue includes hardening scope, first check whether the target release already contains the upstream `main` behavior:
 
-- WAL as the default journal mode for new or migrated SQLite stores, preserving safe upgrade behavior.
+- WAL as the default journal mode for new or migrated SQLite stores, preserving safe upgrade behavior. Upstream `main` already contains a `PRAGMA journal_mode = WAL;` initialization path and a test asserting WAL is required for concurrent access.
 - Darwin archive maintenance fallback: do not shell out to `ionice` on macOS. Use plain `nice`, skip I/O priority, or use a Darwin-specific equivalent if the codebase already has one.
 
 If these are too broad, file follow-up issues and keep this fix focused on read/search/resource recovery.
@@ -400,6 +434,25 @@ If these are too broad, file follow-up issues and keep this fix focused on read/
 ---
 
 ## REGRESSION TESTS TO ADD
+
+Before adding new tests, run or inspect these existing upstream anchors. They encode much of the intended behavior and will show whether the target release is simply behind upstream `main`:
+
+```bash
+cargo test -p mcp-agent-mail-tools resources_use_archive_snapshot_when_live_db_is_stale
+cargo test -p mcp-agent-mail-tools tool_send_and_reply_success_are_immediately_visible_via_inbox_reads
+cargo test -p mcp-agent-mail-tools resource_sync_generic_sqlite_error_stays_database_error
+cargo test -p mcp-agent-mail-db reconcile_archive_state_before_init_rebuilds_healthy_db_when_archive_is_ahead
+cargo test -p mcp-agent-mail-db reconcile_archive_state_before_init_reconstructs_missing_db
+cargo test -p mcp-agent-mail-db archive_recovery_reconciles_healthy_db_when_archive_is_ahead
+cargo test -p mcp-agent-mail-db reconstruct_rejects_symlinked_destination_path
+cargo test -p mcp-agent-mail-db reconstruct_rejects_symlinked_destination_parent
+```
+
+If any test name differs in the target checkout, locate it with:
+
+```bash
+rg -n "resources_use_archive_snapshot_when_live_db_is_stale|tool_send_and_reply_success_are_immediately_visible|reconcile_archive_state_before_init|archive_recovery_reconciles|reconstruct_rejects_symlinked" crates/ tests/
+```
 
 ### Test 1: archive-ahead-of-SQLite read/search behavior
 
@@ -447,6 +500,8 @@ Fail the test if the error contains:
 traverses symlinked path /var
 ```
 
+Best unit-test placement: near `ResourceSnapshotDirGuard` / `ReadSnapshotDirGuard` tests if the fix is implemented at the tools layer, or near `validate_sqlite_target_path` tests if the DB crate gains a snapshot-specific validation helper. The test must prove that the fix is scoped to internally-created snapshot roots, not all SQLite targets.
+
 ### Test 3: resource snapshot still blocks real traversal
 
 Goal: prevent the macOS fix from weakening path traversal protection.
@@ -477,6 +532,12 @@ Assert the MCP error payload includes:
 - semantic readiness detail,
 - recovery mode,
 - correct next action.
+
+If the intended behavior is "archive snapshot succeeds," this test should exercise the failure branch by injecting a snapshot setup error. The important assertion is that known degraded/readiness failures are not collapsed to only:
+
+```text
+A database error occurred. This may be a transient issue - try again.
+```
 
 ### Test 5: full smoke cycle remains green
 
@@ -566,14 +627,15 @@ Post-fix expected outcomes:
 ## DELIVERABLES
 
 1. Root-cause writeup in the Agent Mail issue/PR explaining the failure as archive-visible data plus broken/stale SQLite read index, with the macOS resource snapshot issue called out separately.
-2. Shared read-readiness/reconcile guard used by `search_messages`, `fetch_inbox`, and resource reads.
-3. Automatic or bounded archive-backed reconstruction behavior for DB-corrupt / archive-ahead states, or a structured degraded-state error if auto-reconstruct is intentionally not attempted.
-4. macOS-safe resource snapshot target validation that canonicalizes temp roots while preserving traversal protection.
-5. Improved MCP tool error mapping for read/search failures, including semantic readiness and recovery detail.
-6. Aligned `health_check` and `am doctor` next-action guidance for archive-full / DB-empty parity failures.
-7. Regression tests covering archive-ahead SQLite, macOS symlinked temp roots, traversal rejection, degraded error mapping, and the full smoke cycle.
-8. Validation evidence from targeted tests plus the Agent Mail workspace quality gates.
-9. Optional follow-up issues or fixes for WAL defaulting and Darwin `ionice` archive maintenance if not included in the patch.
+2. Target-version analysis showing whether `am 0.2.51` lacks upstream `main` read-pool/reconcile/WAL behavior or contains it but still fails.
+3. Repair/backport of the existing archive-aware read-pool path used by `search_messages`, `fetch_inbox`, and resource reads. No duplicate fallback stack unless the target branch does not yet have the abstraction.
+4. Automatic or bounded archive-backed reconstruction behavior for DB-corrupt / archive-ahead states, or a structured degraded-state error if auto-reconstruct is intentionally not attempted.
+5. macOS-safe resource/tool snapshot target validation that canonicalizes temp roots while preserving traversal protection for live DB paths.
+6. Improved MCP tool error mapping for read/search failures, including semantic readiness and recovery detail.
+7. Aligned `health_check` and `am doctor` next-action guidance for archive-full / DB-empty parity failures.
+8. Regression tests covering archive-ahead SQLite, macOS symlinked temp roots, traversal rejection, degraded error mapping, and the full smoke cycle.
+9. Validation evidence from targeted tests plus the Agent Mail workspace quality gates.
+10. Optional follow-up issues or fixes for release-mode WAL gaps and Darwin `ionice` archive maintenance if not included in the patch.
 
 ---
 
@@ -596,6 +658,10 @@ Run the existing recovery/search suites if they exist in the checkout:
 
 ```bash
 bash tests/e2e/test_db_corruption.sh
+bash tests/e2e/test_resource_errors.sh
+bash tests/e2e/test_resources_mailbox.sh
+bash tests/e2e/test_path_safety.sh
+bash tests/e2e/test_tools_search.sh
 am e2e run --project . search_v3_stdio search_v3_http search_v3_resilience search_v3_load_concurrency
 ```
 
@@ -633,6 +699,8 @@ Manual smoke assertions:
 - [ ] Archive-ahead SQLite state either auto-reconstructs or returns structured degraded diagnostics with archive/db inventory counts.
 - [ ] macOS resource reads do not fail with `refusing reconstruct sqlite target /var/folders/... because it traverses symlinked path /var`.
 - [ ] Snapshot validation still rejects real traversal outside the temp root.
+- [ ] Existing read-pool/snapshot abstractions remain the shared implementation surface for tools and resources; no parallel fallback stack is introduced without proving the target branch lacks the abstraction.
+- [ ] The target-version analysis explains whether the fix is a backport/release gap or a new bug in current upstream behavior.
 - [ ] `health_check` and `am doctor` recommend the same correct recovery action for archive-full / DB-empty parity failures.
 - [ ] Existing write-side operations continue to succeed and preserve idempotency.
 - [ ] All new tests fail on the pre-fix behavior and pass after the fix.

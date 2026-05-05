@@ -27,6 +27,8 @@ daemon_log: ~/Library/Logs/agent-mail/stderr.log
 
 **Companion implementation handoff:** use `prompts/mcp-agent-mail-read-search-database-errors-fix-handoff.md` for the upstream fix session. This document is the operator/evidence record; it should not be used alone as the implementation plan.
 
+**Fresh-source caveat for implementation agents:** before filing or fixing upstream, compare the failing incident binary (`am 0.2.51`) with current `mcp_agent_mail_rust` source. A fresh source pass found that upstream `main` already contains archive-aware read-pool/snapshot paths for `search_messages`, `fetch_inbox`, and resources, plus SQLite WAL initialization. Treat this document as evidence for the incident runtime; use the companion implementation handoff to decide whether the real fix is a backport/release gap or a still-present bug in the current code.
+
 ---
 
 ## Contents
@@ -53,7 +55,7 @@ daemon_log: ~/Library/Logs/agent-mail/stderr.log
 
 ## TL;DR
 
-The MCP Agent Mail SQLite index lost all rows at daemon startup at 20:54:13Z due to pre-existing page-72 corruption; the daemon detected it, deferred recovery to the query-path, and ran `am doctor reconstruct` itself ~13 minutes later when the smoke-test workload triggered the corrupt-verdict read. **Zero data loss; no operator action required for the outage.** Two preventative WARNs (`wal_mode`, `mcp_config`) and three upstream bugs remain — see §13.
+The MCP Agent Mail SQLite index lost all rows at daemon startup at 20:54:13Z due to pre-existing page-72 corruption; the daemon detected it, deferred recovery to the query-path, and ran `am doctor reconstruct` itself ~13 minutes later when the smoke-test workload triggered the corrupt-verdict read. **Zero data loss; no operator action required for the outage.** On the incident machine, two preventative WARNs (`wal_mode`, `mcp_config`) remain; upstream bug status must be checked against current source before filing — see §13.
 
 ## Executive Summary
 
@@ -63,9 +65,9 @@ The MCP Agent Mail server briefly entered `degraded_read_only` mode while smoke-
 
 Recovery was clean: the daemon ran `am doctor reconstruct` itself at `2026-05-05T21:07:08Z` (`trigger: "automatic-recovery"`), captured a full forensic bundle at the path in the frontmatter, rebuilt the DB from the Git archive in ~50 ms with 0 parse errors. Post-recovery, every MCP read returns correctly; subjects, IDs, and sender names in the DB match the archive filenames 1:1.
 
-Three real follow-ups remain:
+Three real follow-ups remained for the incident runtime. A current-source implementation pass must verify whether each is still open or already fixed upstream:
 
-1. **Latent preventative fix** — SQLite is in `journal_mode = delete`, not WAL. `am doctor check` flags this; `am doctor fix` will set it. WAL would not have prevented the original corruption but would make future write paths more crash-safe.
+1. **Latent preventative fix for `am 0.2.51`** — SQLite is in `journal_mode = delete`, not WAL. `am doctor check` flags this; `am doctor fix` will set it. WAL would not have prevented the original corruption but would make future write paths more crash-safe. Current upstream source should be checked before filing this as an open code bug, because upstream `main` already contains WAL initialization.
 2. **Upstream bugs worth filing** — (a) the SQLite corruption itself; (b) conflicting recovery guidance between the JSON-RPC `health_check` and the Rust `am doctor check` CLI; (c) archive maintenance calls `ionice`, which doesn't exist on macOS, failing every cycle with exit 127.
 3. **Recurrence playbook** — for the next time, in case auto-recovery does *not* fire (it might not, if the corrupt-verdict trigger doesn't see a read for some reason).
 
@@ -90,7 +92,7 @@ Three real follow-ups remain:
 | 21:07:08.445 | Daemon removes header-only/truncated WAL sidecar (`storage.sqlite3-wal`, 32 bytes) before reconstruct, to prevent `WAL file too small for header` errors. | stderr.log line 91 |
 | 21:07:08.476 | Forensic bundle captured at `doctor/forensics/storage.sqlite3/reconstruct-20260505_210708_464/`, `command=reconstruct`, `trigger=automatic-recovery`. | stderr.log line 97 |
 | 21:07:08.495 | **Reconstruct succeeds:** `reconstructed 1 projects, 3 agents, 3 messages (3 recipients), 0 parse errors` (wall time ~50 ms). | stderr.log line 98 |
-| ~21:09 | Operator runs `am doctor check` and gets the misleading "Next action: No database repair action is currently recommended" output despite a `[FAIL] archive_db_parity` line above it. | CLI output |
+| ~21:09 | Operator runs `am doctor check` and gets the misleading "Next action: No database repair action is currently recommended" output despite a `[FAIL] archive_db_parity` line in the same CLI output. | CLI output |
 | ~21:25 | Re-run of MCP read tools succeeds. `health_check` green. `am doctor check` "All checks passed." | re-run during this handoff |
 | 21:27:02 | Unrelated: archive maintenance worker fails with `exit status 127: nice: ionice: No such file or directory` (macOS lacks `ionice`). | stderr.log line 119 |
 
@@ -450,6 +452,8 @@ am doctor check                                # expect "All checks passed."
 
 ## Recommended Preventative Actions (apply now)
 
+Version caveat: this section is written for the incident machine running `am 0.2.51`. It is still useful operator guidance for that host, but an upstream implementation agent should first verify whether current `main` already includes the WAL/read-pool behavior before treating any item here as unimplemented.
+
 ### 1. Run `am doctor fix` to resolve the standing WARNs
 
 `am doctor fix --dry-run --json` (captured during this handoff) shows exactly two non-trivial actions plus six no-op skips:
@@ -469,7 +473,7 @@ So `am doctor fix --yes` will (a) flip Claude Desktop's MCP config from stdio to
 
 ```bash
 am doctor fix --dry-run         # human-readable preview
-am doctor fix --dry-run --json  # machine-readable preview (above)
+am doctor fix --dry-run --json  # machine-readable preview summarized in this section
 am doctor fix --yes             # apply the two changes
 am doctor check                 # confirm WARNs cleared
 ```
@@ -539,7 +543,7 @@ Use the ready-to-paste template in §14 below. Attach: (a) the trimmed log from 
 >
 > **Suggested fixes:**
 > 1. **Page-72 corruption.** Investigate why the SQLite file became corrupt. Storage-root migration, prior unclean shutdown under `journal_mode=delete`, or external-process interference are the candidates. Consider auto-running `PRAGMA integrity_check` on startup *and* failing fast (or running reconstruct synchronously) when corruption is found, rather than deferring to a query-path trigger that may not fire promptly.
-> 2. **Default to WAL.** `am doctor check` already flags `journal_mode=delete` as `[WARN] wal_mode`; ship WAL as the default for new installs and migrations. Investigate the truncated WAL sidecar's origin (line 91) — it suggests the DB has previously been in WAL mode and was rolled back inconsistently.
+> 2. **Default to WAL.** `am doctor check` already flags `journal_mode=delete` as `[WARN] wal_mode`; ship WAL as the default for new installs and migrations if the target release still lacks it. A fresh source pass found WAL initialization on upstream `main`, so verify the branch/tag before filing this as open. Investigate the truncated WAL sidecar's origin (line 91) — it suggests the DB has previously been in WAL mode and was rolled back inconsistently.
 > 3. **Conflicting recovery guidance.** When `archive_db_parity` fails with `db_message_count == 0` and `archive_message_count > 0`, both `health_check.recovery.next_action` and `am doctor check`'s "Next action" line should recommend `am doctor reconstruct` (or `am doctor fix`), not `am doctor repair`. They should also acknowledge that auto-recovery may already be in flight.
 > 4. **macOS `ionice` regression.** stderr.log line 119: `archive maintenance failed git_dir=… error="exit exit status: 127: nice: ionice: No such file or directory"`. macOS does not ship `ionice`; the archive maintenance task should fall back to plain `nice` (or skip I/O priority on Darwin).
 >
@@ -565,7 +569,7 @@ The archive maintenance worker shells out to `nice ionice <git command>`. macOS 
 
 **Impact:** archive maintenance (loose-object repack, gc) does not run automatically on macOS. The user can still manually run `am doctor pack-archive`. There is no immediate data-loss risk; over time the archive `.git/` directory will grow without compaction.
 
-**Workaround:** none from the user side; needs an upstream fix to detect platform and skip `ionice` (or substitute the macOS `taskpolicy -d throughput`) on Darwin. Worth filing as part of the upstream bug above (suggested fix #4).
+**Workaround:** none from the user side; needs an upstream fix to detect platform and skip `ionice` (or substitute the macOS `taskpolicy -d throughput`) on Darwin. Worth filing as part of the upstream bug template in this handoff (suggested fix #4).
 
 ---
 
