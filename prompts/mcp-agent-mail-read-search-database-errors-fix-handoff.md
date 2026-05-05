@@ -109,6 +109,7 @@ What was re-studied:
   - <https://github.com/Dicklesworthstone/mcp_agent_mail_rust>
   - <https://github.com/Dicklesworthstone/mcp_agent_mail_rust/blob/main/docs/OPERATOR_RUNBOOK.md>
 - Upstream Agent Mail source on `main`, read directly through raw GitHub URLs after the local code-search service returned rate limits.
+  - Last verified source snapshot: `dc5864396c0144163ecb51e74b74805cb7a0c6ab` on `2026-05-05T22:11:51Z`.
 
 Critical correction from the fresh pass:
 
@@ -137,6 +138,31 @@ Concrete source anchors confirmed on upstream `main`:
 - `crates/mcp-agent-mail-db/src/reconstruct.rs`
   - `reconstruct_from_archive` calls `validate_sqlite_target_path(db_path, "reconstruct sqlite target")`, which is the error path that emitted `refusing reconstruct sqlite target /var/folders/... because it traverses symlinked path /var`.
   - Existing tests include `reconstruct_rejects_symlinked_destination_path` and `reconstruct_rejects_symlinked_destination_parent`; keep their security intent while adding the macOS temp-root case.
+
+Key upstream signatures to verify against the target branch before editing:
+
+```rust
+// crates/mcp-agent-mail-tools/src/lib.rs
+fn open_read_db_pool() -> Result<Option<ToolReadPool>, String>;
+pub fn get_read_db_pool() -> McpResult<ToolReadPool>;
+pub fn db_error_to_mcp_error(e: DbError) -> McpError;
+
+// crates/mcp-agent-mail-tools/src/resources.rs
+fn open_resource_read_pool() -> Result<Option<ResourceReadPool>, String>;
+fn get_resource_db_pool() -> McpResult<ResourceReadPool>;
+
+// crates/mcp-agent-mail-db/src/pool.rs
+pub(crate) fn validate_sqlite_target_path(path: &Path, label: &str) -> Result<(), SqlError>;
+fn reconcile_archive_state_before_init(primary_path: &Path, storage_root: &Path) -> Result<bool, SqlError>;
+
+// crates/mcp-agent-mail-db/src/reconstruct.rs
+pub fn reconstruct_from_archive(db_path: &Path, storage_root: &Path) -> DbResult<ReconstructStats>;
+pub fn reconstruct_from_archive_with_salvage(
+    db_path: &Path,
+    storage_root: &Path,
+    salvage_db_path: Option<&Path>,
+) -> DbResult<ReconstructStats>;
+```
 
 ---
 
@@ -223,6 +249,36 @@ Understanding checkpoints:
 3. Which code path triggers automatic reconstruction, and what admission lock prevents duplicate reconstructs?
 4. Do `search_messages`, `fetch_inbox`, and resource reads share the same degraded-readiness guard?
 5. Where is a resource snapshot SQLite target created and validated?
+
+---
+
+## FIRST 60 MINUTES FOR THE RECEIVING AGENT
+
+Do these in order before editing. They are designed to prevent the next session from chasing the wrong layer.
+
+1. **Establish target version**
+   - Record `am --version`, target repo `git rev-parse HEAD`, and whether the target is exactly `am 0.2.51`, current `main`, or a release branch.
+   - Run `rg -n "open_read_db_pool|get_read_db_pool|open_resource_read_pool|validate_sqlite_target_path|journal_mode = WAL" crates/`.
+   - Decide whether this is a backport/release gap or a bug in current code.
+
+2. **Run the existing anchor tests before writing new code**
+   - Start with the focused tests listed under "REGRESSION TESTS TO ADD".
+   - If they do not exist in the target branch, that absence is evidence that the branch is behind upstream `main`.
+
+3. **Trace the failing path with one isolated archive-ahead fixture**
+   - Build a temp `STORAGE_ROOT` containing one project, one agent, and one message in the archive.
+   - Pair it with an empty/stale SQLite file.
+   - Call the same code surfaces used by `search_messages`, `fetch_inbox`, and `resource://inbox`.
+   - Write down whether the failure happens in read-pool selection, reconstruction, SQLite target validation, Search V3, or MCP error mapping.
+
+4. **Patch the narrowest shared surface**
+   - If the branch lacks archive-aware read pools, backport that path.
+   - If macOS snapshots fail, add a snapshot-specific canonical containment validator; do not weaken live DB path validation.
+   - If diagnostics are swallowed, patch the existing error conversion so degraded archive/SQLite mismatch reaches the caller.
+
+5. **Verify with both tools and resources**
+   - A fix that makes `fetch_inbox` pass but leaves `resource://inbox` failing is incomplete.
+   - A fix that makes resource snapshots work by allowing arbitrary symlink traversal is invalid.
 
 ---
 
@@ -670,11 +726,11 @@ If these commands have different names in the checked-out version, first discove
 Then run an isolated live smoke using a non-production storage root:
 
 ```bash
-export AM_STORAGE_ROOT="$(mktemp -d)/mailbox"
-am serve-http --host 127.0.0.1 --port 0
+export STORAGE_ROOT="$(mktemp -d)/mailbox"
+am serve-http --host 127.0.0.1 --port 9876 --no-auth --no-tui
 ```
 
-If the CLI uses different env vars or flags for storage-root override, use the documented equivalent. The key requirement is that the smoke test must not touch `~/.mcp_agent_mail_git_mailbox_repo`.
+If port `9876` is occupied, choose another free port. The key requirement is that the smoke test must not touch `~/.mcp_agent_mail_git_mailbox_repo`; current upstream configuration reads `STORAGE_ROOT` and derives `storage.sqlite3` below that root when `DATABASE_URL` is unset.
 
 Manual smoke assertions:
 

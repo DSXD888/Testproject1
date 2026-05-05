@@ -27,7 +27,7 @@ daemon_log: ~/Library/Logs/agent-mail/stderr.log
 
 **Companion implementation handoff:** use `prompts/mcp-agent-mail-read-search-database-errors-fix-handoff.md` for the upstream fix session. This document is the operator/evidence record; it should not be used alone as the implementation plan.
 
-**Fresh-source caveat for implementation agents:** before filing or fixing upstream, compare the failing incident binary (`am 0.2.51`) with current `mcp_agent_mail_rust` source. A fresh source pass found that upstream `main` already contains archive-aware read-pool/snapshot paths for `search_messages`, `fetch_inbox`, and resources, plus SQLite WAL initialization. Treat this document as evidence for the incident runtime; use the companion implementation handoff to decide whether the real fix is a backport/release gap or a still-present bug in the current code.
+**Fresh-source caveat for implementation agents:** before filing or fixing upstream, compare the failing incident binary (`am 0.2.51`) with current `mcp_agent_mail_rust` source. A fresh source pass found that upstream `main` at `dc5864396c0144163ecb51e74b74805cb7a0c6ab` already contains archive-aware read-pool/snapshot paths for `search_messages`, `fetch_inbox`, and resources, plus SQLite WAL initialization. Treat this document as evidence for the incident runtime; use the companion implementation handoff to decide whether the real fix is a backport/release gap or a still-present bug in the current code.
 
 ---
 
@@ -122,7 +122,7 @@ What the daemon did, by design:
 5. **Continued accepting writes,** which routed to the archive (canonical) and the SQLite index (best-effort). Pooled connections accepted the writes; fresh connections used by durability probes saw a stale snapshot.
 6. **Fired reconstruct** at 21:07:08Z when the readiness flow next checked archive-vs-DB parity and saw the divergence.
 
-Why my smoke test triggered it then and not earlier: the daemon had been idle from 20:54:21Z (last startup log) until 21:04:06Z (my `ensure_project`). Once writes started flowing, the readiness/parity check ran and immediately saw that the archive was ahead of the DB.
+Why the smoke test triggered it then and not earlier: the daemon had been idle from 20:54:21Z (last startup log) until 21:04:06Z (`ensure_project`). Once writes started flowing, the readiness/parity check ran and immediately saw that the archive was ahead of the DB.
 
 ### Why the DB was already corrupt at startup
 
@@ -160,7 +160,7 @@ Path: `~/Library/Logs/agent-mail/stderr.log` (`stdout.log` is empty; all output 
 
 ### Symptom side during smoke test — fresh-durability-probe misses (lines 63–72)
 
-For every write during my session and the concurrent codex-cli session, a fresh connection used by durability probes did not see the row that a pooled connection had just committed:
+For every write during the smoke-test window and the concurrent codex-cli session, a fresh connection used by durability probes did not see the row that a pooled connection had just committed:
 
 ```
 21:04:13  WARN  fresh durability probe missed committed agent visibility;
@@ -275,9 +275,9 @@ Things this incident did **not** answer. A fresh debugging agent should be aware
 
 | Unknown | Why it matters | How to investigate |
 | --- | --- | --- |
-| Tantivy search-index post-reconstruct lag. | The Tantivy index lives at `~/.mcp_agent_mail_git_mailbox_repo/search_index/` and is independent of the SQLite reconstruct. Search returned correct results during this handoff, but I don't know whether the reconstruct triggered an automatic backfill, whether there's a measurable lag window, or whether a soft restart is needed for new content to index. | Compare `db_count` and `index_count` in the next `[startup-search]` log line on a daemon restart, or watch for "[backfill]" entries in stderr.log over a few minutes after a reconstruct. |
+| Tantivy search-index post-reconstruct lag. | The Tantivy index lives at `~/.mcp_agent_mail_git_mailbox_repo/search_index/` and is independent of the SQLite reconstruct. Search returned correct results during this handoff, but the evidence does not prove whether the reconstruct triggered an automatic backfill, whether there is a measurable lag window, or whether a soft restart is needed for new content to index. | Compare `db_count` and `index_count` in the next `[startup-search]` log line on a daemon restart, or watch for "[backfill]" entries in stderr.log over a few minutes after a reconstruct. |
 | What `mcp_config_token` WARN actually flags. | `am doctor check` lists `mcp_config_token` as a separate WARN from `mcp_config`. `am doctor fix --dry-run` does **not** list it among `fixable_checks`, so it isn't auto-fixed. Could be a token-rotation reminder or a config-mismatch flag. | `am doctor check --json` on a clean machine, then diff against this one; or grep the binary for the literal string `mcp_config_token`. |
-| LaunchAgent restart policy. | The daemon restarted between 20:51:43Z and 20:54:13Z (storage-root switch). I did not read `~/Library/LaunchAgents/com.agent-mail.plist` to see whether `KeepAlive`, `RunAtLoad`, or env vars triggered the change. Relevant if the corruption was related to the migration. | `cat ~/Library/LaunchAgents/com.agent-mail.plist` (or `plutil -p` on it). |
+| LaunchAgent restart policy. | The daemon restarted between 20:51:43Z and 20:54:13Z (storage-root switch). This handoff did not inspect `~/Library/LaunchAgents/com.agent-mail.plist` to determine whether `KeepAlive`, `RunAtLoad`, or env vars triggered the change. Relevant if the corruption was related to the migration. | `cat ~/Library/LaunchAgents/com.agent-mail.plist` (or `plutil -p` on it). |
 | Whether the integrity guard's deferred-recovery design has a worst-case latency bound. | If a daemon never sees a "corrupt-verdict read" (e.g., only writes, no reads), reconstruct never fires. This was not the case here, but it's a theoretical edge. | Read upstream code for `integrity guard` / "query-path recovery flow", or run an extended-soak test with writes only. |
 
 ---
@@ -328,7 +328,7 @@ This is a documentation / UX bug worth filing:
 
 Note: `BronzeFrog`'s inbox now contains **two** messages because the auto-generated "Contact request from BronzeGoose" (id=2) was dispatched by the daemon's contact-handshake macro when `send_message` was the first delivery between these two agents. This is expected behaviour, not residue from the outage.
 
-`CrimsonChapel` is **not** a daemon-internal artifact. It's a real concurrent Codex CLI session that registered against the same MCP server during the same 7-second window as the Claude Code session — confirmed by the matching `fresh durability probe missed` warning at line 67 (same code path as my own agents) and by `program: codex-cli, model: gpt-5` (the daemon never registers itself with those identifiers; its binary is `am`).
+`CrimsonChapel` is **not** a daemon-internal artifact. It is a real concurrent Codex CLI session that registered against the same MCP server during the same 7-second window as the Claude Code session — confirmed by the matching `fresh durability probe missed` warning at line 67 and by `program: codex-cli, model: gpt-5` (the daemon never registers itself with those identifiers; its binary is `am`).
 
 ---
 
@@ -522,7 +522,7 @@ Attach `~/am-incident-window-2026-05-05.log` and the forensic bundle to the upst
 
 ### 4. File the upstream bug
 
-Use the ready-to-paste template in §14 below. Attach: (a) the trimmed log from the previous step, and (b) the entire forensic bundle directory listed in the frontmatter at the top of this doc.
+Use the ready-to-paste template in §14. Attach: (a) the trimmed log captured in §13.3, and (b) the entire forensic bundle directory listed in the frontmatter at the top of this doc.
 
 ---
 
