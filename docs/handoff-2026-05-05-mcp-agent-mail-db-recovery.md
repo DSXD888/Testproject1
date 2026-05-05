@@ -25,6 +25,8 @@ daemon_log: ~/Library/Logs/agent-mail/stderr.log
 
 > Outage already auto-recovered. To clear the two standing WARNs, run `am doctor fix --dry-run` then `am doctor fix --yes` (preview shown in §13.1). To file upstream, attach the forensic bundle (path in frontmatter) and the trimmed log per §13.3.
 
+**Companion implementation handoff:** use `prompts/mcp-agent-mail-read-search-database-errors-fix-handoff.md` for the upstream fix session. This document is the operator/evidence record; it should not be used alone as the implementation plan.
+
 ---
 
 ## Contents

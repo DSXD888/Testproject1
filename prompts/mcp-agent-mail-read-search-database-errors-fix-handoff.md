@@ -4,7 +4,7 @@ ULTRATHINK and be meticulous.
 
 ## MISSION
 
-Fix the MCP Agent Mail failure mode where write-side operations can succeed while read/search/resource paths fail because the Git archive is ahead of the SQLite index or the SQLite index is corrupt/stale. The fix belongs in the external MCP Agent Mail Rust codebase, not in this Procurement Intelligence Platform repository; this repository contains the captured error manifest, post-incident evidence, and a tracked patch with useful Agent Mail file-path clues. The receiving session must make read/search behavior deterministic: either rebuild/reconcile from the authoritative archive before serving reads, or return a structured degraded-state diagnostic that explains the archive/SQLite mismatch instead of a generic transient database error.
+Fix the MCP Agent Mail failure mode where write-side operations can succeed while read/search/resource paths fail because the Git archive is ahead of the SQLite index or the SQLite index is corrupt/stale. The fix belongs in the external MCP Agent Mail Rust codebase, not in this Procurement Intelligence Platform repository; this repository contains the captured error manifest, post-incident evidence, and a tracked patch with useful Agent Mail file-path clues. The receiving session must make read/search behavior deterministic: online reads may use SQLite/search indexes, but when readiness already knows those indexes are corrupt or behind the Git archive, the server must rebuild/reconcile from the archive before serving reads or return a structured degraded-state diagnostic that explains the archive/SQLite mismatch instead of a generic transient database error.
 
 Out of scope: destructive cleanup of live Agent Mail storage, deleting smoke-test mailbox records, or changing this project's Rust/TypeScript procurement platform code.
 
@@ -95,19 +95,64 @@ Understanding checkpoints:
 
 ---
 
+## FRESH-EYES AUDIT NOTES
+
+This handoff is intentionally scoped to one implementation mission: make Agent Mail read/search/resource behavior correct when archive-visible mailbox data and the SQLite/search indexes diverge.
+
+What was re-studied:
+
+- The original QA manifest in `prompts/mcp-agent-mail-read-search-error-manifest.md`.
+- The post-incident operator handoff in `docs/handoff-2026-05-05-mcp-agent-mail-db-recovery.md`.
+- The tracked Agent Mail patch clue file `agent-mail-search-fixes.patch`.
+- Local cached Agent Mail bead metadata under `~/.cache/beads_rust/sample_beads_db_files/mcp_agent_mail_rust/issues.jsonl`.
+- Upstream Agent Mail public repository documentation:
+  - <https://github.com/Dicklesworthstone/mcp_agent_mail_rust>
+  - <https://github.com/Dicklesworthstone/mcp_agent_mail_rust/blob/main/docs/OPERATOR_RUNBOOK.md>
+
+Critical correction from the fresh pass:
+
+- Do not frame the fix as "just serve from Git instead of SQLite." Agent Mail's normal online read contract is SQLite/search-backed queryability, while the Git archive is the durable audit/recovery source. When health proves SQLite is stale or corrupt, reads must repair/reconcile or structured-degrade; they must not silently trust a known-bad index.
+- Do not duplicate recovery infrastructure if the upstream code already has it. Local Agent Mail issue metadata references existing runtime corruption handling around `db_error_to_mcp_error`, corruption classifiers, `am doctor reconstruct`, and `tests/e2e/test_db_corruption.sh`. The receiving agent should extend or reuse those surfaces first.
+- Treat the `/var/folders` resource error as a second bug in the same incident window: resource snapshot path validation is too strict for normal macOS temp paths unless it canonicalizes the temp root safely.
+
+Remaining inferred items to verify in the Agent Mail source:
+
+- Exact function names for resource snapshot reconstruction and shared MCP error conversion.
+- Whether automatic reconstruct is currently triggered only on corruption-classified DB errors, archive/DB parity drift, or both.
+- Whether read/search tools and resource reads share the same database pool and recovery admission lock.
+
+---
+
 ## EXTERNAL AGENT MAIL CODEBASE ORIENTATION
 
-Locate the Agent Mail Rust source checkout. If the checkout is not already open, find or clone the upstream source that builds the installed `am 0.2.51` binary. The path names below are inferred from the tracked patch and local Agent Mail bead metadata; validate them with `rg --files` in the Agent Mail repo.
+Locate the Agent Mail Rust source checkout. If the checkout is not already open, use the upstream source at <https://github.com/Dicklesworthstone/mcp_agent_mail_rust> and verify the checkout/tag that corresponds to installed `am 0.2.51`. The path names below are confirmed from upstream docs and reinforced by the tracked patch/local Agent Mail bead metadata; still validate them with `rg --files` in the Agent Mail repo before editing.
 
 Likely crate boundaries:
 
 ```text
-crates/mcp-agent-mail-server/src/lib.rs        # HTTP transport, MCP tool/resource dispatch
-crates/mcp-agent-mail-tools/src/*.rs           # tool handlers and resource renderers
-crates/mcp-agent-mail-db/src/*.rs              # SQLite pool, schema, queries, search, errors
-crates/mcp-agent-mail-storage/src/lib.rs       # Git archive, file locks, commit coalescer
-crates/mcp-agent-mail-core/src/*.rs            # config, metrics, diagnostics, lock ordering
-crates/mcp-agent-mail-cli/src/*.rs             # am doctor, service, CLI repair/reconstruct flows
+crates/mcp-agent-mail-core/          # shared types, config, diagnostics, policy
+crates/mcp-agent-mail-db/            # SQLite pool, schema, queries, search, errors
+crates/mcp-agent-mail-storage/       # Git archive, file locks, commit coalescer
+crates/mcp-agent-mail-search-core/   # Search V3 planning/execution support
+crates/mcp-agent-mail-guard/         # pre-commit/file-reservation guard
+crates/mcp-agent-mail-share/         # shared helpers for packaging/distribution
+crates/mcp-agent-mail-tools/         # MCP tool handlers and resource renderers
+crates/mcp-agent-mail-server/        # stdio/http transport and MCP dispatch
+crates/mcp-agent-mail/               # CLI binary crate, if present in checkout
+crates/mcp-agent-mail-cli/           # am doctor, service, repair/reconstruct flows
+crates/mcp-agent-mail-conformance/   # protocol/tool conformance tests
+tests/e2e/                           # end-to-end shell and MCP smoke suites
+scripts/                             # local maintenance and CI helpers
+docs/                                # runbooks, Search V3 docs, operator procedures
+```
+
+Configuration/environment names confirmed in upstream docs:
+
+```text
+STORAGE_ROOT                         # storage root override for Agent Mail
+DATABASE_URL                         # SQLite database URL/override, when used
+INTEGRITY_CHECK_ON_STARTUP           # startup quick/integrity check control
+INTEGRITY_CHECK_INTERVAL_HOURS       # periodic integrity check control
 ```
 
 Start with these discovery commands in the Agent Mail source repo:
@@ -117,9 +162,10 @@ rg -n "pub async fn search_messages|search_messages\\(" crates/
 rg -n "pub async fn fetch_inbox|fetch_inbox\\(" crates/
 rg -n "resource://inbox|resource://thread|inbox resource|thread resource" crates/
 rg -n "semantic_readiness|archive inventory is ahead|archive_db_parity|degraded_read_only" crates/
-rg -n "doctor repair|doctor reconstruct|automatic-recovery|reconstruct" crates/
+rg -n "doctor repair|doctor reconstruct|automatic-recovery|reconstruct|db_error_to_mcp_error" crates/ tests/
 rg -n "refusing reconstruct sqlite target|traverses symlinked path|symlinked path" crates/
 rg -n "integrity_check|quick_check|database disk image is malformed|page .* is never used" crates/
+rg -n "DbError::is_corruption|is_corruption|malformed|archive-backed SQLite reconcile" crates/ tests/
 rg -n "ionice|journal_mode|WAL|wal_mode" crates/
 ```
 
@@ -136,14 +182,29 @@ Likely files to inspect:
 - `crates/mcp-agent-mail-tools/src/health.rs` or equivalent - `health_check` and `semantic_readiness` payloads.
 - `crates/mcp-agent-mail-cli/src/doctor*.rs` or equivalent - `am doctor check`, `repair`, `reconstruct`, and next-action text.
 - `crates/mcp-agent-mail-storage/src/lib.rs` - archive inventory scan, reconstruction source, maintenance shell-out using `ionice`.
+- `tests/e2e/test_db_corruption.sh` - historical corruption/recovery regression coverage, if present.
+- Search V3 test/docs surfaces for `search_v3_stdio`, `search_v3_http`, `search_v3_resilience`, and `search_v3_load_concurrency`.
 
 Understanding checkpoints:
 
-1. Which layer treats the Git archive as canonical and SQLite as a rebuildable index?
+1. Which layer treats the Git archive as durable recovery/audit source and SQLite/search as online query state?
 2. Where does `health_check` compute archive-vs-DB inventory drift?
 3. Which code path triggers automatic reconstruction, and what admission lock prevents duplicate reconstructs?
 4. Do `search_messages`, `fetch_inbox`, and resource reads share the same degraded-readiness guard?
 5. Where is a resource snapshot SQLite target created and validated?
+
+---
+
+## RELATED PRIOR AGENT MAIL CONTEXT
+
+Use this section to avoid rediscovering already known recovery surfaces. These references came from local cached Agent Mail bead metadata; verify the current issue IDs and code paths in the Agent Mail repo if that repo has a live `.beads/` database.
+
+1. `br-3kwox.1` - Runtime query-path DB corruption was previously missed because startup-only integrity checks caught corruption but normal query error mapping did not. The prior fix reportedly added automatic recovery through `db_error_to_mcp_error` when corruption classifiers matched. Inspect this before adding any new recovery entry point.
+2. `br-l4uwn` - A historical `send_message` success followed by empty/failed `fetch_inbox` was traced to malformed SQLite/index state and "NOT INDEXED" style inconsistencies. This incident is the same family: write durability must not imply read queryability unless the index is healthy.
+3. `br-18suc` or equivalent durability work - Prior "ghost success" hardening around `register_agent`, `create_agent_identity`, and `send_message` is relevant. Do not relax write-side success contracts while fixing read-side recovery.
+4. `agent-mail-search-fixes.patch` in this repo - Adjacent search fixes cover canonical project keys, offset handling, recency ordering, and sender-filter direction. They are useful context but not a recovery/readiness fix.
+
+The handoff should lead the receiving agent toward reusing existing recovery abstractions, not layering a second bespoke repair mechanism beside them.
 
 ---
 
@@ -205,6 +266,30 @@ Ranked by implementation value:
 
 ---
 
+## PRIMARY FIX SLICE
+
+Implement this in order. Do not expand into broad storage redesign unless a failing test proves it is necessary.
+
+1. **Shared readiness/recovery admission gate**
+   - Reuse the code behind `health_check.semantic_readiness` and any existing `db_error_to_mcp_error` corruption recovery path.
+   - Ensure `search_messages`, `fetch_inbox`, `resource://inbox`, and `resource://thread` all hit the same guard before trusting SQLite/search results.
+   - On archive-ahead or corruption state: run one bounded archive-backed reconstruct/reconcile, wait briefly if another reconstruct is active, or return a structured degraded error.
+
+2. **Resource snapshot canonicalization**
+   - Fix the `/var/folders` false positive by canonicalizing the created temp root and validating containment against canonical parents.
+   - Preserve negative traversal tests in the same patch.
+
+3. **Actionable error mapping**
+   - If auto-recovery cannot complete inside the request budget, return a stable degraded/corruption error with readiness counts, recovery lock state, and next action.
+   - Avoid the generic transient database message for known archive/SQLite parity failures.
+
+4. **Guidance alignment**
+   - Align `health_check`, `am doctor check`, and `am doctor repair/reconstruct/fix` text so archive-full / DB-empty drift points to the recovery path that actually works.
+
+Defer unless already touched by the primary fix slice: default WAL migrations, Darwin `ionice` fallback, and broad Search V3 ranking/pagination cleanup.
+
+---
+
 ## IMPLEMENTATION STRATEGY
 
 ### 1. Establish the authoritative consistency contract
@@ -212,10 +297,11 @@ Ranked by implementation value:
 Document or codify this invariant in tests:
 
 ```text
-The Git archive is canonical for persisted mailbox entities.
-SQLite and Tantivy are query indexes.
-If SQLite/Tantivy are missing archive-visible entities, read/search paths must not silently act healthy.
-They must either repair/rebuild from archive or return a structured degraded-state error.
+The Git archive is the durable audit/recovery source for persisted mailbox entities.
+SQLite and search indexes are the online query state used for normal reads.
+If SQLite/search are known to be corrupt or missing archive-visible entities,
+read/search/resource paths must not silently act healthy.
+They must repair/rebuild/reconcile from archive or return a structured degraded-state error.
 ```
 
 Do not weaken write-side behavior that already worked: successful write tools should still return IDs only after their success contract is satisfied.
@@ -467,7 +553,7 @@ Post-fix expected outcomes:
 1. Do not require users or agents to run destructive cleanup against Agent Mail storage.
 2. Do not lose, rewrite, or delete archive messages, agents, projects, reservations, or forensic bundles.
 3. Preserve working write-side behavior: registration, send, reservations, release, and acknowledgement.
-4. Treat the Git archive as the canonical recovery source and SQLite/Tantivy as rebuildable indexes.
+4. Treat the Git archive as the durable recovery source and SQLite/Tantivy as rebuildable online indexes.
 5. Resource snapshot path validation must remain traversal-safe after macOS canonicalization.
 6. Read/search paths must not report success from known-stale SQLite state.
 7. Error payloads should be actionable, but should not leak more filesystem detail than existing health/resource diagnostics already expose.
@@ -501,8 +587,19 @@ cargo check --all-targets
 cargo clippy --all-targets -- -D warnings
 cargo test -p mcp-agent-mail-db --all-targets
 cargo test -p mcp-agent-mail-tools --all-targets
+cargo test -p mcp-agent-mail-cli --all-targets
+cargo test -p mcp-agent-mail-conformance --all-targets
 cargo test --workspace --all-targets
 ```
+
+Run the existing recovery/search suites if they exist in the checkout:
+
+```bash
+bash tests/e2e/test_db_corruption.sh
+am e2e run --project . search_v3_stdio search_v3_http search_v3_resilience search_v3_load_concurrency
+```
+
+If these commands have different names in the checked-out version, first discover them with `rg -n "test_db_corruption|search_v3_resilience|search_v3_load_concurrency" tests/ crates/ docs/` and run the equivalent current tests.
 
 Then run an isolated live smoke using a non-production storage root:
 
