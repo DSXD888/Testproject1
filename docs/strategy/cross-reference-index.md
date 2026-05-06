@@ -48,7 +48,7 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | Supabase migrations (8 files) | `layers/layer-4-shared-visibility.md` | §2 |
 | Executor identity (`executors`) | `layers/layer-1-thin-local-runner.md` | §1 |
 | Source cursors (ingestion watermarks) | `layers/layer-1-thin-local-runner.md` | §1 |
-| Sync infrastructure (`local_outbox`, `sync_batches`, `pull_cursors`) | `layers/layer-4-shared-visibility.md` | §1 |
+| Sync infrastructure (`local_outbox`, `sync_batches`, `pull_cursors`; SQLite migration `migrations/0012_l4_sync_state.sql`) | `layers/layer-4-shared-visibility.md` | §1 |
 | `pending_operator_intents` (local decision queue with reviewed-basis fields) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.8 DDL), `layers/layer-2-single-operator-desktop.md` §3 (usage) |
 | Basis-total pricing on `supplier_quotes` (offer_total fields for sub-penny accuracy) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.2) |
 | `product_commodity_codes` expanded entity (digits, source, score, rank for L5 multi-source recall) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.9) |
@@ -203,8 +203,9 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 |-------|------|---------|
 | Push protocol (transactional outbox + commit_group_id + writer_epoch) | `layers/layer-4-shared-visibility.md` | §1 |
 | Pull protocol (hi-water fenced cursor + CAS with command ledger) | `layers/layer-4-shared-visibility.md` | §1 |
-| Active-writer lease (fenced with writer_epoch) | `layers/layer-4-shared-visibility.md` | §1 (§1.6) |
-| Provisional promotion buffer (enforcement slices) | `layers/layer-4-shared-visibility.md` | §1 (§1.3) |
+| Active-writer lease (dedicated `active_writer_lease`, fenced with writer_epoch) | `layers/layer-4-shared-visibility.md` | §1 (§1.6), §2 (§2.6) |
+| Provisional promotion buffer (`provisional_worker_outputs` for enforcement slices) | `layers/layer-4-shared-visibility.md` | §1 (§1.3) |
+| Per-slice enforcement readiness (`enforcement_readiness`) | `layers/layer-4-shared-visibility.md` | §3 (§3.4) |
 | Equal-version retry semantics | `layers/layer-4-shared-visibility.md` | §1 (§1.3) |
 | `schema_epoch` guard + epoch-repair reproject | `layers/layer-4-shared-visibility.md` | §1 (§1.7), §5 (§5.2) |
 | Batch boundaries (never cross `stage_run_id` or `commit_group_id`) | `layer-strategy.md` | §6 Invariants Enforced |

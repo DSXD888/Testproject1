@@ -418,7 +418,7 @@ Every table has exactly one authority classification. This is permanent — no r
 | 36 | `listing_evidence` | Cached marketplace listing data |
 | 37 | `validation_verdicts` | Full validator verdicts |
 | 38 | `pending_operator_intents` | Queued operator mutations during degraded sync |
-| 39 | `local_outbox` | Transactional outbox for push sync |
+| 39 | `local_outbox` | Transactional outbox for push sync (shape reserved here; L4 materializes the SQLite table) |
 | 40 | `sync_batches` | Push batch tracking |
 | 41 | `pull_cursors` | Pull cursor per remote domain |
 | 42 | `gold_set_cases` | Gold-set corpus cases with human labels |
@@ -1315,6 +1315,9 @@ create table shared_source_configs (
 
 ```sql
 -- SQLite-only: local outbox for transactional sync.
+-- Forward-compat reservation only in L0: migrations/0001_sqlite_state_initial.sql
+-- does not pre-create this table. L4 materializes it in
+-- migrations/0012_l4_sync_state.sql with this constitutional shape.
 -- Every push-owned write appends an outbox entry in the same transaction.
 -- The push dispatcher reads from here and sends batches to Supabase.
 -- Authority: LOCAL-ONLY (SQLite-only)
@@ -1327,6 +1330,8 @@ create table local_outbox (
   row_version bigint not null,
   stage_run_id text,
   schema_epoch integer not null,
+  commit_group_id text,
+  writer_epoch integer,
   payload_json text not null,
   content_hash text not null,
   created_at text not null
@@ -2370,7 +2375,7 @@ These columns exist from Layer 0 table creation and are either populated immedia
 | `operator_decision_heads` | All columns | L4 | Remote-owned, pulled via sync engine |
 | `shared_company_profile` | All columns | L4 | Remote-owned, pulled via sync engine |
 | `shared_source_configs` | All columns | L4 | Remote-owned, pulled via sync engine |
-| `local_outbox` | All columns | L4 | Sync engine transactional outbox |
+| `local_outbox` | All columns, including `commit_group_id` and `writer_epoch` | L4 | Sync engine transactional outbox; L0 reserves shape, L4 materializes table |
 | `sync_batches` | All columns | L4 | Sync engine batch tracking |
 | `pull_cursors` | All columns | L4 | Sync engine pull cursors |
 | `pending_operator_intents` | All columns | L2 | Local intent queue for operator actions |
@@ -4334,5 +4339,7 @@ These notes flag L0 decisions that require awareness or action in other layers. 
 <!-- CROSS-DOMAIN NOTE FOR L4: `product_commodity_codes` is a full entity table (with `id`, `digits`, `source`, `score_bps`, `rank_ordinal`, `description`, `evidence_json`) rather than a thin junction table. L4 sync outbox protocol handles it as a parent-embedded set of `product_candidates` (per constitutional rule 19). No standalone sync tracking columns — synced atomically with the parent candidate. -->
 
 <!-- CROSS-DOMAIN NOTE FOR L4: Push-owned tables do NOT have SQL REFERENCES to local-only tables (constitutional rule 15). Cross-authority references are opaque IDs. The Supabase DDL must not add REFERENCES for columns that point to local-only tables (e.g., `contract_notices.source_id`, `search_attempts.session_id`, `process_stage_status.error_manifest_id`). -->
+
+<!-- CROSS-DOMAIN NOTE FOR L4: `local_outbox` is not pre-created by the actual L0 SQLite migration. The constitutional column shape (`commit_group_id`, `writer_epoch`) on `local_outbox` is reserved here as a forward-compat note for when L4 first materializes the table in `migrations/0012_l4_sync_state.sql`; `commit_group_id` is text NULL and `writer_epoch` is integer NULL at first creation. -->
 
 <!-- CROSS-DOMAIN NOTE FOR L5: `product_commodity_codes` expanded schema supports multi-source recall: each commodity code row carries `source` (fpo, cpv_prior, rule_hint, tariff_keyword, etc.), `digits` (6/8/10), `score_bps`, and `rank_ordinal`. L5 customs engine writes multiple rows per candidate from independent recall sources. Set-replacement semantics per candidate per `stage_run_id`. -->

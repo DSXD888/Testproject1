@@ -793,10 +793,10 @@ Two users view the same pipeline: desktop operator (read-write) and web viewer (
 
 | Component | Action | Files |
 |-----------|--------|-------|
-| Database | Create | 10 files (SQLite sync migration, 8 Supabase migrations, Supabase config) |
+| Database | Create | `migrations/0012_l4_sync_state.sql`, 8 `infra/supabase/migrations/*.sql` files, `infra/supabase/config.toml` |
 | `crates/daemon` | Create | 1 (db/sync.rs) |
 | Skills | Create | 4 domain validator overlays (procurement-ingestion, supplier-enrichment, document-acquisition, product-extraction) |
-| `apps/web` | Create | 7 files (full web shell) |
+| `apps/web` | Create | 7 files (full read-only Next.js portal; net-new directory) |
 
 ### Data Introduced
 
@@ -804,9 +804,11 @@ Two users view the same pipeline: desktop operator (read-write) and web viewer (
 
 | Table | Authority | Purpose |
 |-------|-----------|---------|
-| `local_outbox` | Local-only (SQLite sync infrastructure) | Transactional outbox entries with `content_hash` and `schema_epoch` from introduction |
+| `local_outbox` | Local-only (SQLite sync infrastructure) | Transactional outbox entries with `content_hash`, `schema_epoch`, `commit_group_id`, and `writer_epoch`; created by L4 in `migrations/0012_l4_sync_state.sql` |
 | `sync_batches` | Local-only (SQLite sync infrastructure) | Batch metadata with `schema_epoch` |
 | `pull_cursors` | Local-only (SQLite sync infrastructure) | Per-domain pull cursor position |
+| `provisional_worker_outputs` | Local-only (SQLite enforcement infrastructure) | Enforcement-active worker outputs held until validator approval/rejection |
+| `enforcement_readiness` | Local-only (SQLite enforcement infrastructure) | Durable per-slice enforcement eligibility/demotion state |
 | `pending_operator_intents` | Local-only | Existing Layer-2 operator intent queue, now reconciled/flushed through remote CAS |
 
 **Supabase projection tables (push-owned, mirroring local):**
@@ -852,8 +854,8 @@ Formalized and enforced at the Supabase database level via RLS:
 
 | Role | Push projections | Push summaries | Remote config | Remote decisions |
 |------|-----------------|----------------|---------------|-----------------|
-| `viewer` | SELECT | SELECT | SELECT | SELECT |
-| `operator` | SELECT | SELECT | SELECT | SELECT + UPDATE (CAS RPC) |
+| `viewer` | SELECT | SELECT | — | — (decision display via `operator_decision_summaries`) |
+| `operator` | SELECT | SELECT | — | SELECT + UPDATE via daemon-mediated CAS RPC |
 | `admin` | SELECT | SELECT | Full CRUD | Full CRUD |
 | `daemon` | INSERT/UPDATE (batch RPC) | INSERT/UPDATE (batch RPC) | SELECT (pull) | SELECT (pull) |
 
@@ -869,14 +871,17 @@ Formalized and enforced at the Supabase database level via RLS:
 | Push batch atomicity | Constitutional | Single transactional RPC, not individual upserts |
 | Outbox + data in same SQLite transaction | Constitutional | From activation, every push-owned mutation creates outbox entry atomically |
 | CAS for operator decisions | Constitutional | `base_remote_revision` checked; mismatch → conflict; durable command ledger for idempotency |
-| Active-writer lease with fencing | Constitutional | `writer_epoch` on every batch; stale daemon rejected |
+| Active-writer lease with fencing | Constitutional | Dedicated `active_writer_lease` Supabase table; `writer_epoch` on every batch; stale daemon rejected |
 | `schema_epoch` on every batch | Constitutional | Incompatible epoch → sync pauses, local operation continues |
 | Batch boundaries never cross `stage_run_id` | Constitutional | Push dispatcher enforces |
 | Batch boundaries never split `commit_group_id` | Constitutional | Preserves local SQLite transaction atomicity |
 | Single-in-flight batch | Constitutional | One batch at a time per push stream |
+| Equal-version retry = no-op on matching `content_hash` | Constitutional | Identical-envelope retries do not fail spuriously |
 | Provisional promotion for enforcement slices | Constitutional | Worker outputs held until validator completes |
-| Validation enforcement | Operational | Rejections quarantine results (after dry-run calibration) |
+| Validation enforcement | Operational | Rejections quarantine results (after dry-run calibration); readiness state persists in `enforcement_readiness` |
 | RLS on all Supabase tables | Constitutional | Policy matrix enforced at database boundary |
+| Pull-before-push ordering | Constitutional | Pull remote-owned state first on sync startup |
+| Hi-water fenced pull | Constitutional | Per-domain bounded range prevents skip/duplicate during pagination |
 
 ### What's Stubbed
 
@@ -884,7 +889,7 @@ Formalized and enforced at the Supabase database level via RLS:
 |---------|------|-------------------|
 | Schema epoch transitions | Initial epoch only (no transitions needed yet) | Future: expand/drain/upgrade/contract |
 | Multi-org | Single org hardcoded | Future: org_id scoping |
-| Full rebuild | Not implemented | Future: generation-based remote rebuild |
+| Epoch-repair reproject | Minimum L4 path: mark `projection_generation`, republish current row images, discard stale-epoch outbox only after successful reseed | Future: full generation-based rebuild with anti-entropy |
 | Logical consistency auditor | Not implemented | Future: domain invariant checking |
 
 ### Definition of Done
@@ -898,14 +903,20 @@ Formalized and enforced at the Supabase database level via RLS:
 7. Web viewing portal displays opportunities, manifests, pipeline status (read-only)
 8. Supabase Broadcast invalidation delivers live updates to web portal
 9. `viewer_sync_status` shows sync freshness (green/amber/red)
-10. Validation enforcement mode: validator rejections quarantine results as `AGENT_SUSPECT_OUTPUT`
+10. Validation enforcement mode: validator rejections quarantine results as `AGENT_SUSPECT_OUTPUT`; per-slice readiness persists in SQLite
 11. 4 domain-specific validator overlays deployed and producing verdicts
 12. Two users can view the same pipeline: desktop (read-write) + web (read-only)
+13. Writer fencing: stale daemon with old `writer_epoch` rejected on push
+14. CAS command ledger: retried command returns stored result (idempotent replay)
+15. Provisional promotion buffer: enforcement-active slices hold results in `provisional_worker_outputs` until validation completes
+16. Equal-version retry: identical-envelope retry with matching `content_hash` = no-op success
+17. Web portal uses viewer-scoped credentials only (security boundary, not UI convention)
+18. Redaction tests pass for all six summary projections
 
 ### Test Scenarios
 
 - `sqlite_schema.rs` — Full schema creation and migration
-- `sqlite_supabase_sync.rs` — Push-pull round-trip sync, writer fencing, command ledger, provisional promotion
+- `sqlite_supabase_sync.rs` — Push-pull round-trip sync, writer fencing, command ledger, provisional promotion, enforcement readiness persistence
 - `redaction_boundary.rs` — Summary projection redaction tests
 - `apps/web/e2e/contracts.spec.ts` — Web portal browsing, viewer credential verification
 - Push batch with stale `row_version` → remote rejects (idempotent)
@@ -915,10 +926,22 @@ Formalized and enforced at the Supabase database level via RLS:
 - Validator itself crashes → fail-open, worker results advance with `VALIDATION_SKIPPED_VALIDATOR_ERROR`
 - Sync degraded → desktop stays in remote-degraded mode with full local operation; web shows staleness indicator
 - Full push replay after sync recovery → idempotent, no duplicates
+- Batch boundary crosses `stage_run_id` → push dispatcher rejects the batch
+- Pull-before-push ordering violation → sync startup enforces pull first, then intent reconciliation, then push
+- Stale daemon recovers after lease loss → push rejected due to stale `writer_epoch`
+- CAS command retried after later command landed → command ledger returns stored result
+- Equal-version retry with matching `content_hash` → no-op success
+- Equal-version retry with different `content_hash` → hard conflict
+- Enforcement-active slice rejected → provisional results not promoted and no outbox entries created
+- Paginated pull during concurrent remote changes → hi-water fence prevents skip/duplicate
+- Source remotely disabled while daemon offline for 5 hours → source degrades after safety-critical TTL
 
 ### Dependencies
 
 - Layer 0–3 (all pipeline data, all push-owned tables with sync tracking columns)
+- Supabase project and net-new `infra/supabase/` directory tree
+- Daemon HTTP client dependency: `reqwest` with `rustls-tls` and `json` features
+- Root Bun build/test/lint scripts updated to include net-new `apps/web/`
 
 ### Forward-Compatibility Provisions
 
@@ -1175,9 +1198,11 @@ Matrix-count note: this section currently renders as 46 rows because the five Su
 | `listing_evidence` | L3 | L3 | Never (local-only) | Local-only |
 | `process_relations` | L3 | L3 | L4 | Push-owned |
 | `process_aliases` | L3 | L3 | L4 | Push-owned |
-| `local_outbox` | L4 | L4 | N/A (SQLite sync infra) | Local-only |
+| `local_outbox` | L4 (`migrations/0012_l4_sync_state.sql`; L0 reserves shape only) | L4 | N/A (SQLite sync infra) | Local-only |
 | `sync_batches` | L4 | L4 | N/A (SQLite sync infra) | Local-only |
 | `pull_cursors` | L4 | L4 | N/A (SQLite sync infra) | Local-only |
+| `provisional_worker_outputs` | L4 | L4 | N/A (SQLite enforcement infra) | Local-only |
+| `enforcement_readiness` | L4 | L4 | N/A (SQLite enforcement infra) | Local-only |
 | `pending_operator_intents` | L0 | L2 (desktop decision capture with reviewed-basis fields), L4 (CAS flush + conflict tracking) | Never (local-only) | Local-only |
 | `gold_set_cases` | L0 | L0 (evaluation harness) | Never (local-only) | Local-only |
 | `evaluation_runs` | L0 | L0 (evaluation harness) | Never (local-only) | Local-only |
