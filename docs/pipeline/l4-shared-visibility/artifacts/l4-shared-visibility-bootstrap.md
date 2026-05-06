@@ -206,7 +206,20 @@ cargo test -p daemon --test sqlite_supabase_sync -- --nocapture
 
 ### 5.2 Root `package.json`
 
-The root workspace already includes `apps/*`; keep that entry. Update scripts so the web workspace is actually exercised.
+The root workspace target for L4 is `apps/*` plus `packages/*`. In the current tree this is already true; if an implementation branch still lists only `apps/desktop`, replace that entry exactly with `apps/*`.
+
+Required workspace shape:
+
+```json
+{
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
+```
+
+Update scripts so the web workspace is actually exercised.
 
 Required script shape:
 
