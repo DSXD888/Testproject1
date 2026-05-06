@@ -243,7 +243,7 @@ Phase 5 web beads reuse shared `packages/ui` components (`ContractCardFrame`, `M
 | `apps/web/src/app/status/page.tsx` | 5 | Status page owns summary projection display gate |
 | `apps/web/src/lib/supabase.ts` | 5 | Supabase client boundary precedes web reads |
 | `apps/web/src/lib/broadcast.ts` | 5 | Broadcast invalidation follows client boundary |
-| `packages/ui/freshness-badge.tsx` | 5 reuse only + 6 verification | Web consumes the shared badge through an adapter; desktop/web display compatibility closes in the two-user gate |
+| shared `packages/ui` component imports | 5 reuse only + 6 verification | Web consumes shared UI through adapters; Phase 5 does not reserve or edit `packages/ui`, and desktop/web display compatibility closes in the two-user gate |
 | `packages/contracts-schema/` | 5 | If absent at implementation start, typed web query boundary lands before web query helpers |
 
 ### Skill And Test Surfaces
@@ -364,7 +364,7 @@ The L4 spec enumerates `147` unique `L4-FR-*` IDs. The ranges below cover that f
 
 - Sequential: `crates/daemon/Cargo.toml` HTTP client dependency -> `migrations/0012_l4_sync_state.sql` -> `crates/daemon/src/db/sqlite.rs` migration registry/epoch.
 - Dedicated dependency bead: add the daemon `reqwest` HTTP client before any `crates/daemon/src/db/sync.rs` bead imports or uses an RPC client.
-- Dedicated workspace bead: add `apps/web` to root workspaces if needed, extend `bun run {build,test,lint}` script coverage to include web, and preserve the `packages/ui` lint rule banning desktop/Tauri/daemon/Supabase/transport imports.
+- Dedicated workspace bead: own `apps/web` root workspace coverage, extend `bun run {build,test,lint}` script coverage to include web, and preserve the `packages/ui` lint rule banning desktop/Tauri/daemon/Supabase/transport imports. In the current root package shape, existing `apps/*` coverage can satisfy the workspace-add half, but this single bead still owns the verification and script edits.
 - Parallel after SQLite migration name is fixed:
   - Supabase config and migration inventory lane.
   - Root `package.json` web script lane.
