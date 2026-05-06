@@ -35,7 +35,7 @@
   - `crates/daemon/src/main.rs` has one L4 edit home: the Phase 6 startup wiring bead.
   - `crates/daemon/src/jobs/runner.rs` has one L4 edit home: the Phase 4 provisional-promotion bead.
   - `crates/daemon/src/validation/policy.rs` lands before the executor extension inside Phase 4.
-  - `crates/daemon/src/validation/executor.rs` lands after the policy/readiness contract is stable.
+  - `crates/daemon/src/validation/executor.rs` lands after the policy/readiness contract, provisional staging table, and `AGENT_SUSPECT_OUTPUT` error classification are stable.
   - root `package.json` has one L4 edit home: the Phase 1 workspace/script bead.
   - `crates/daemon/Cargo.toml` has one L4 edit home: the Phase 1 HTTP-client dependency bead.
 
@@ -45,10 +45,10 @@
 |------|------|---------------|-----------|--------------|
 | 1 | Schema Foundation | L0-L3 present | schema, dependencies, workspace, inventory | 7 |
 | 2 | Push Engine | Phase 1 | SQLite outbox, push RPC, lease, status | 8 |
-| 3 | Pull Engine And CAS | Phase 1 | pull cursors, CAS ledger, intent reconciliation | 7-8 |
-| 4 | Validation Enforcement | Phase 1; Phase 2 push writer seam for promotion | enforcement, overlays, calibration | 10-12 |
-| 5 | Web Portal | Phase 1; seeded or pushed projection rows available | read-only Next.js portal, Broadcast, viewer boundary | 7-9 |
-| 6 | Integration And Hardening | Phases 2, 3, 4, and 5 | startup sync integration, RLS closure, DoD walkthrough | 5-7 |
+| 3 | Pull Engine And CAS | Phase 1 | pull cursors, CAS ledger, intent reconciliation | 8 |
+| 4 | Validation Enforcement | Phase 1; Phase 2 push writer seam for promotion | enforcement, overlays, calibration | 12 |
+| 5 | Web Portal | Phase 1; seeded or pushed projection rows available | read-only Next.js portal, Broadcast, viewer boundary | 8 |
+| 6 | Integration And Hardening | Phases 2, 3, 4, and 5 | startup sync integration, RLS closure, DoD walkthrough | 7 |
 
 ## Critical Path And Parallelism
 
@@ -142,9 +142,9 @@ These bead names are execution-routing labels, not miniature specifications. Eac
 | `l4-pull-cas` | `l4-p3-review-gate` | review | all Phase 3 task beads | `L4-T-sqlite_supabase_sync-025..038`, `047`, `L4-T-redaction_boundary-021`, `022`, `024` |
 | `l4-validation-enforcement` | `l4-p4-provisional-storage-access` | P4-A | Phase 1 | `L4-T-sqlite_schema-005`, `L4-T-sqlite_supabase_sync-003` |
 | `l4-validation-enforcement` | `l4-p4-policy-readiness-contract` | P4-B | provisional storage | `L4-T-sqlite_schema-006`, `L4-T-sqlite_supabase_sync-050`, `057` |
-| `l4-validation-enforcement` | `l4-p4-executor-overlay-quarantine` | P4-B | policy readiness contract | `L4-T-sqlite_supabase_sync-022..024`, `080` |
-| `l4-validation-enforcement` | `l4-p4-runner-provisional-promotion` | P4-C | Phase 2 outbox writer + executor path | `L4-T-sqlite_supabase_sync-022`, `023`, `079` |
-| `l4-validation-enforcement` | `l4-p4-error-manifest-classification` | P4-C | executor quarantine | `L4-T-sqlite_supabase_sync-023`, `080` |
+| `l4-validation-enforcement` | `l4-p4-error-manifest-classification` | P4-C | policy readiness contract | `L4-T-sqlite_supabase_sync-023`, `080` |
+| `l4-validation-enforcement` | `l4-p4-executor-overlay-quarantine` | P4-C | policy readiness contract + Phase 1 provisional staging + error manifest classification | `L4-T-sqlite_supabase_sync-022..024`, `080` |
+| `l4-validation-enforcement` | `l4-p4-runner-provisional-promotion` | P4-C | provisional staging + executor overlay/quarantine | `L4-T-sqlite_supabase_sync-022`, `023`, `079` |
 | `l4-validation-enforcement` | `l4-p4-calibration-math-readiness` | P4-D | policy readiness contract | `L4-T-sqlite_supabase_sync-050..057`, `075` |
 | `l4-validation-enforcement` | `l4-p4-calibration-corpora-and-cases` | P4-D | calibration math | `L4-T-sqlite_supabase_sync-062..074` |
 | `l4-validation-enforcement` | `l4-p4-override-feedback-loop` | P4-E | runner provisional promotion | `L4-T-sqlite_schema-009`, `L4-T-sqlite_supabase_sync-077` |
@@ -160,7 +160,7 @@ These bead names are execution-routing labels, not miniature specifications. Eac
 | `l4-web-portal` | `l4-p5-web-contract-list` | P5-C | Supabase client boundary | `L4-T-contracts_spec-001`, `004`, `008` |
 | `l4-web-portal` | `l4-p5-web-contract-detail` | P5-C | Supabase client + Broadcast | `L4-T-contracts_spec-009..011` |
 | `l4-web-portal` | `l4-p5-web-status-page` | P5-C | Supabase client boundary | `L4-T-contracts_spec-012`, `019` |
-| `l4-web-portal` | `l4-p5-freshness-badge-and-web-boundary` | P5-D | web package config | `L4-T-contracts_spec-005..007`, `016`, `CI-L4-008` |
+| `l4-web-portal` | `l4-p5-web-freshness-consumption-and-boundary` | P5-D | web package config | `L4-T-contracts_spec-005..007`, `016`, `CI-L4-008` |
 | `l4-web-portal` | `l4-p5-review-gate` | review | all Phase 5 task beads | `L4-T-contracts_spec-001..020`, `L4-T-redaction_boundary-009`, `025` |
 | `l4-integration-hardening` | `l4-p6-main-startup-sync-wiring` | P6-A | Phases 2 + 3 | `L4-T-sqlite_supabase_sync-028`, `039..046` |
 | `l4-integration-hardening` | `l4-p6-epoch-repair-generation` | P6-B | Phase 2 epoch pause | `L4-T-sqlite_schema-007`, `L4-T-sqlite_supabase_sync-045`, `L4-T-contracts_spec-019` |
@@ -175,7 +175,7 @@ Phase 1's Supabase migration bundle owns all eight files `0001_projection_tables
 
 The Phase 5 web beads cover all seven spec-owned web source files: `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/contracts/page.tsx`, `src/app/contracts/[id]/page.tsx`, `src/app/status/page.tsx`, `src/lib/supabase.ts`, and `src/lib/broadcast.ts`.
 
-The Phase 5 FreshnessBadge bead touches `packages/ui/freshness-badge.tsx` only for the shared three-state presentation/helper boundary. It must not combine that shared component edit with desktop page call-site changes in the same task bead; desktop sync-health consumption closes in Phase 6 verification.
+Phase 5 web beads reuse shared `packages/ui` components (`ContractCardFrame`, `ManifestViewer`, `PipelineBadge`, `FreshnessBadge`, `ErrorSummaryList`) and do not edit `packages/ui` or desktop pages. Phase 5 consumes the shared contract through web-local adapters and fixtures; desktop sync-health compatibility closes in Phase 6.
 
 ## Implementation Unit Allocation
 
@@ -226,9 +226,9 @@ The Phase 5 FreshnessBadge bead touches `packages/ui/freshness-badge.tsx` only f
 | Chokepoint | Edit Home | Serialization rule |
 |------------|-----------|--------------------|
 | `crates/daemon/src/main.rs` | Phase 6 | Single startup wiring bead; no Phase 2-5 implementation bead edits this file |
-| `crates/daemon/src/jobs/runner.rs` | Phase 4 | Single provisional-promotion bead; Phase 6 tests runner behavior but does not schedule a runner edit bead |
+| `crates/daemon/src/jobs/runner.rs` | Phase 4 | Single provisional-promotion bead after provisional staging and executor quarantine; Phase 6 tests runner behavior but does not schedule a runner edit bead |
 | `crates/daemon/src/validation/policy.rs` | Phase 4 | Policy/readiness bead lands after schema and before executor |
-| `crates/daemon/src/validation/executor.rs` | Phase 4 | Executor/overlay bead consumes the policy/readiness contract |
+| `crates/daemon/src/validation/executor.rs` | Phase 4 | Executor/overlay bead consumes the policy/readiness contract, Phase 1 provisional staging table, and `AGENT_SUSPECT_OUTPUT` manifest classification |
 | `crates/daemon/src/ipc/handlers/decisions.rs` | Phase 3 + serialized Phase 4 call-in | CAS reconciliation lands first; override feedback call-in is serialized after the feedback contract exists |
 
 ### Web And Package Surfaces
@@ -243,7 +243,7 @@ The Phase 5 FreshnessBadge bead touches `packages/ui/freshness-badge.tsx` only f
 | `apps/web/src/app/status/page.tsx` | 5 | Status page owns summary projection display gate |
 | `apps/web/src/lib/supabase.ts` | 5 | Supabase client boundary precedes web reads |
 | `apps/web/src/lib/broadcast.ts` | 5 | Broadcast invalidation follows client boundary |
-| `packages/ui/freshness-badge.tsx` | 5 | Shared sync health badge closes web/desktop display compatibility |
+| `packages/ui/freshness-badge.tsx` | 5 reuse only + 6 verification | Web consumes the shared badge through an adapter; desktop/web display compatibility closes in the two-user gate |
 | `packages/contracts-schema/` | 5 | If absent at implementation start, typed web query boundary lands before web query helpers |
 
 ### Skill And Test Surfaces
@@ -345,7 +345,7 @@ The L4 spec enumerates `147` unique `L4-FR-*` IDs. The ranges below cover that f
 | Cross-Layer Note | Phase Home | Bead / Gate |
 |------------------|------------|-------------|
 | L0 `local_outbox` constitutional columns `commit_group_id` and `writer_epoch` | 1 + 2 | `l4-p1-sqlite-sync-migration`; `l4-p2-outbox-transaction-writer`; `L4-T-sqlite_schema-002`, `015`, `L4-T-sqlite_supabase_sync-001`, `011`, `021` |
-| L2 three-state sync health and shared `FreshnessBadge` upgrade | 5 + 6 | `l4-p5-freshness-badge-and-web-boundary`; `l4-p6-two-user-verification`; `L4-T-contracts_spec-005..007`, `017`, `018` |
+| L2 three-state sync health and shared `FreshnessBadge` consumption | 5 + 6 | `l4-p5-web-freshness-consumption-and-boundary`; `l4-p6-two-user-verification`; `L4-T-contracts_spec-005..007`, `017`, `018` |
 | L2 pending operator intent flow into remote CAS | 3 | `l4-p3-pending-intent-reconciliation`; `l4-p3-decision-conflict-ipc`; `L4-T-sqlite_supabase_sync-030..033` |
 | L6 remote-config safety-critical TTL and upstream trust gate | 3 + 6 | `l4-p3-remote-config-staleness-ttl`; `l4-p6-cross-authority-provenance-and-ttl`; `L4-T-sqlite_supabase_sync-047`, `049` |
 
@@ -364,7 +364,7 @@ The L4 spec enumerates `147` unique `L4-FR-*` IDs. The ranges below cover that f
 
 - Sequential: `crates/daemon/Cargo.toml` HTTP client dependency -> `migrations/0012_l4_sync_state.sql` -> `crates/daemon/src/db/sqlite.rs` migration registry/epoch.
 - Dedicated dependency bead: add the daemon `reqwest` HTTP client before any `crates/daemon/src/db/sync.rs` bead imports or uses an RPC client.
-- Dedicated workspace bead: confirm root workspaces cover `apps/web`, add web build/test/lint script execution, and preserve the `packages/ui` lint rule banning desktop/Tauri/daemon/Supabase/transport imports.
+- Dedicated workspace bead: add `apps/web` to root workspaces if needed, extend `bun run {build,test,lint}` script coverage to include web, and preserve the `packages/ui` lint rule banning desktop/Tauri/daemon/Supabase/transport imports.
 - Parallel after SQLite migration name is fixed:
   - Supabase config and migration inventory lane.
   - Root `package.json` web script lane.
@@ -506,8 +506,8 @@ The L4 spec enumerates `147` unique `L4-FR-*` IDs. The ranges below cover that f
 ### Ordering
 
 - Parallel filesystem lane: four validator overlay directories after the base skill template is frozen.
-- Sequential enforcement trunk: provisional storage path -> policy readiness read -> executor overlay loading -> approval/rejection handling -> error manifest classification -> runner promotion convergence.
-- Chokepoint order inside the trunk: `validation/policy.rs` readiness contract -> `validation/executor.rs` overlay consumption -> one `jobs/runner.rs` provisional-promotion bead.
+- Sequential enforcement trunk: provisional storage path -> policy readiness read -> `AGENT_SUSPECT_OUTPUT` error manifest classification -> executor overlay loading/quarantine -> approval/rejection handling -> runner promotion convergence.
+- Chokepoint order inside the trunk: `validation/policy.rs` readiness contract -> `errors/manifest.rs` rejection classification -> `validation/executor.rs` overlay/quarantine consumption -> one `jobs/runner.rs` provisional-promotion bead.
 - Sequential calibration trunk: calibration math -> corpus/case persistence -> readiness recomputation -> demotion triggers -> override feedback.
 - Sequential override trunk: decision/override handler call-in -> provisional override promotion -> calibration/incident fan-out.
 - Calibration harness is the phase capstone after policy, overlays, and enforcement promotion paths are real.
@@ -560,7 +560,7 @@ The L4 spec enumerates `147` unique `L4-FR-*` IDs. The ranges below cover that f
 - Sequential client trunk: `src/lib/supabase.ts` -> `src/lib/broadcast.ts`.
 - Sequential route trunk: root layout/page -> contracts list -> contract detail -> status page.
 - Parallel test/UX lane:
-  - freshness badge/shared UI boundary,
+  - freshness badge web adapter using shared UI,
   - keyset pagination,
   - Broadcast invalidation,
   - viewer credential denial,
@@ -576,9 +576,7 @@ The L4 spec enumerates `147` unique `L4-FR-*` IDs. The ranges below cover that f
 - seven `apps/web/src/` files from the spec
 - `apps/web/e2e/contracts.spec.ts`
 - `apps/web/e2e/fixtures/`
-- `packages/ui/freshness-badge.tsx`
 - `packages/contracts-schema/` if absent at implementation start
-- root `package.json` web scripts if Phase 1 did not close them fully
 
 ### Gate Criteria
 
@@ -586,7 +584,6 @@ The L4 spec enumerates `147` unique `L4-FR-*` IDs. The ranges below cover that f
 - Static gates `CI-L4-005`, `CI-L4-006`, and `CI-L4-008` are green for web/package scope.
 - `L4-T-contracts_spec-001` through `L4-T-contracts_spec-020` pass.
 - `L4-T-redaction_boundary-009` and `025` pass for viewer credential boundaries used by the web app.
-- `L4-T-sqlite_schema-024` passes if web workspace/script wiring changes in this phase.
 
 ### Roll Back If
 
@@ -608,7 +605,7 @@ The L4 spec enumerates `147` unique `L4-FR-*` IDs. The ranges below cover that f
 ### Ordering
 
 - Sequential startup trunk: `main.rs` module/startup wiring -> pull-before-push startup sequence -> active-writer lease acquisition/heartbeat -> schema-epoch status/repair checks.
-- Sequential hardening trunk: final RLS policy closure -> redaction boundary sweep -> tombstone retention proof -> cross-authority provenance recording -> safety-critical remote-config TTL confirmation -> logical consistency auditor stub.
+- Sequential hardening trunk: schema-hash CI re-run -> final RLS policy closure -> redaction boundary sweep -> tombstone retention proof -> cross-authority provenance recording -> safety-critical remote-config TTL confirmation -> logical consistency auditor stub.
 - Sequential repair trunk: epoch repair `projection_generation` path -> stale outbox discard gate -> web generation invalidation.
 - Sequential milestone trunk: full push-pull round trip -> two-user desktop/web verification protocol -> DoD walkthrough.
 - Parallel verification lanes may run after startup wiring:
@@ -644,6 +641,7 @@ The L4 spec enumerates `147` unique `L4-FR-*` IDs. The ranges below cover that f
 - Static gates `CI-L4-001` through `CI-L4-008` are green.
 - `L4-T-sqlite_supabase_sync-025` through `049`, `078`, and all Phase 2/4 sync IDs pass under the full suite.
 - `L4-T-redaction_boundary-001` through `026` pass.
+- The schema hash CI gate from Phase 1 is re-run in the integrated environment through `L4-T-redaction_boundary-026`.
 - `L4-T-contracts_spec-017`, `018`, and `019` pass against integrated push/web behavior.
 - `l4-p6-two-user-verification` records a manual smoke diary linked to the `L4-T-contracts_spec-017` and `018` run: desktop operator action, expected web viewer observation, observed sync latency, blocked web mutation attempt, and matching sync-state badges.
 - `l4-p6-logical-consistency-auditor-stub` is testable under the full integration loop and cannot be represented by a TODO, empty module, or documentation-only note.
@@ -741,14 +739,14 @@ Schema -> web package -> Supabase client -> routes -> Broadcast/read-only E2E ->
 |-----------------|---------|
 | Phase coverage | Requirement routing covers all `147` L4-FR IDs; §1.10 components are owned by Phase 1, 4, or 5; §5.4 dependencies land in Phase 1 before dependent engines or web work. |
 | Phase coverage equality | Explicit fan-out is `7 / 8 / 8 / 12 / 8 / 7` task beads, matching the L3 order of magnitude without a late-phase junk drawer. |
-| Critical dependency ordering | Phase 1 schema/dependency/workspace gate precedes sync and web; Phase 2 outbox precedes push dispatcher; Phase 3 pull cursor precedes CAS reconciliation; Phase 4 provisional promotion precedes overlays and calibration gate; Phase 6 `main.rs` startup wiring is last. |
+| Critical dependency ordering | Phase 1 schema/dependency/workspace gate precedes sync and web; Phase 2 outbox precedes push dispatcher; Phase 3 pull cursor precedes CAS reconciliation; Phase 4 orders provisional storage, policy, error classification, executor, and runner promotion before enforcement convergence; Phase 6 `main.rs` startup wiring is last. |
 | Chokepoint discipline | `main.rs`, `jobs/runner.rs`, `validation/policy.rs`, `validation/executor.rs`, root `package.json`, and daemon `Cargo.toml` each have one edit home. |
 | Parallelism discipline | Phases 2 and 3 parallelize after Phase 1; Phase 5 can start from seeded projection fixtures; Phase 4 overlays parallelize within Phase 4; Phase 6 serializes integration. |
 | Gate quality | Every phase gate names TDD IDs and command lanes; Phase 6 uses the full integration-test loop rather than daemon binary tests alone. |
 | Phase sub-epic mapping | `testproject1-4zq` remains the parent epic; six required phase sub-epics own the task beads. |
 | Calibration placement | The calibration harness is a Phase 4 capstone covering corpora, nine mutation families, pairwise cases, Wilson/rule-of-three math, cross-model cadence, and override feedback. |
 | Two-user verification | Phase 6 owns the desktop-operator plus web-viewer manual smoke and links it to `L4-T-contracts_spec-017` and `018`. |
-| Schema hash CI gate | Phase 1 owns `l4-p1-schema-hash-ci-gate` and `L4-T-redaction_boundary-026` after both SQLite and Supabase migrations land. |
+| Schema hash CI gate | Phase 1 owns `l4-p1-schema-hash-ci-gate` and `L4-T-redaction_boundary-026` after both SQLite and Supabase migrations land; Phase 6 re-runs that gate in the integrated environment. |
 | Logical consistency auditor stub | Phase 6 owns a testable minimum stub; it cannot be a documentation-only placeholder. |
 | Cross-layer touch points | L0 `commit_group_id`/`writer_epoch`, L2 `FreshnessBadge`/desktop health, L2 pending intents, and L6 safety-critical source-config TTL have explicit phase homes. |
 
