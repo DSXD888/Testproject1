@@ -185,3 +185,29 @@ rg -in '<red-flag regex from the gate prompt>' docs/pipeline/l4-shared-visibilit
 ```
 
 The two `rg` drift scans exited with code 1 and no matches, which is the expected clean result.
+
+## Follow-Up Pass
+
+Date: 2026-05-07
+Verdict: warnings, investigated and non-blocking
+
+The follow-up pass re-read the live bead graph after commit `27ae22f` and found no blocking drift:
+
+- Full L4 inventory: 63 rows, `has_more=false`.
+- FR coverage diff: empty, `147 / 147`.
+- TDD/CI coverage diff: empty, `158 / 158`.
+- Red-flag scope language grep over the full bead title/body corpus: no matches.
+- Phase counts still match strategy expectations: implementation tasks `7 / 8 / 8 / 12 / 8 / 7`.
+- Chokepoint target check was run against each bead's `## Files to Create/Modify` section, not incidental references. Each chokepoint has exactly one target owner.
+- `br lint` remains clean and `br dep cycles --json` remains cycle-free.
+- `bin/br-sync` reports no dirty issues; `git status --short --branch` is `## main...origin/main`.
+- `br ready --label layer-4 --json --limit 0` returns four ready Phase 1 task beads: `l4-p1-daemon-http-client`, `l4-p1-sqlite-sync-migration`, `l4-p1-supabase-config-and-migration-bundle`, and `l4-p1-root-web-workspace-scripts`.
+- `br show testproject1-4zq` shows all six child sub-epics as dependents of the root L4 epic. `br dep list testproject1-4zq --json` is empty because the root epic has dependents rather than parents.
+
+Investigated warning:
+
+- A raw count over all non-review task `## Tests to Pass` sections shows 41 `L4-T-*` IDs appearing in more than one implementation bead. This is not uncovered scope and not a broken dependency. These are shared integration pass gates where multiple implementation surfaces must keep the same end-to-end test green, such as schema DDL plus schema registry, CAS RPC plus IPC conflict event, or web freshness plus final RLS closure.
+- The stricter coverage diff remains clean: all 150 `L4-T-*` IDs are present in implementation task test sections, with zero missing IDs and zero extra IDs.
+- Review gates and sub-epic summaries are treated as aggregators, not primary owners.
+
+No bead edits were required by this follow-up pass.
