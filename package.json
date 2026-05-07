@@ -7,9 +7,9 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "(cd packages/ui && bun run build) && (cd packages/intelligence && bun run build) && (cd packages/manifests && bun run build) && bunx tsc -p apps/desktop/tsconfig.json --noEmit",
-    "lint": "if rg -n '^import .*(@tauri-apps/api|.*apps/desktop|.*crates/daemon|.*supabase|.*transport)' packages/ui; then exit 1; fi && (cd packages/intelligence && bun run lint) && (cd packages/manifests && bun run lint)",
-    "test": "(cd packages/ui && bun run test) && (cd apps/desktop && bun run test) && (cd packages/intelligence && bun run test) && (cd packages/manifests && bun run test)"
+    "build": "(cd packages/ui && bun run build) && (cd packages/intelligence && bun run build) && (cd packages/manifests && bun run build) && bunx tsc -p apps/desktop/tsconfig.json --noEmit && (test ! -d apps/web || (cd apps/web && bun run build))",
+    "lint": "if rg -n '^import .*(@tauri-apps/api|.*apps/desktop|.*crates/daemon|.*supabase|.*transport)' packages/ui; then exit 1; fi && (cd packages/intelligence && bun run lint) && (cd packages/manifests && bun run lint) && (test ! -d apps/web || (cd apps/web && bun run lint))",
+    "test": "(cd packages/ui && bun run test) && (cd apps/desktop && bun run test) && (cd packages/intelligence && bun run test) && (cd packages/manifests && bun run test) && (test ! -d apps/web || (cd apps/web && bun run test))"
   },
   "devDependencies": {
     "@playwright/test": "1.58.2",
