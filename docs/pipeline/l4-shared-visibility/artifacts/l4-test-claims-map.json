@@ -1,7 +1,7 @@
 {
   "L4-T-contracts_spec-001": [
-    "l4-p5-web-contract-list",
-    "l4-p5-web-root-layout-and-redirect"
+    "l4-p5-web-root-layout-and-redirect",
+    "l4-p5-web-contract-list"
   ],
   "L4-T-contracts_spec-002": [
     "l4-p5-web-root-layout-and-redirect"
@@ -22,16 +22,16 @@
     "l4-p5-web-freshness-consumption-and-boundary"
   ],
   "L4-T-contracts_spec-008": [
-    "l4-p5-web-contract-list",
-    "l4-p5-web-broadcast-client"
+    "l4-p5-web-broadcast-client",
+    "l4-p5-web-contract-list"
   ],
   "L4-T-contracts_spec-009": [
-    "l4-p5-web-contract-detail",
-    "l4-p5-web-broadcast-client"
+    "l4-p5-web-broadcast-client",
+    "l4-p5-web-contract-detail"
   ],
   "L4-T-contracts_spec-010": [
-    "l4-p5-web-contract-detail",
-    "l4-p5-web-broadcast-client"
+    "l4-p5-web-broadcast-client",
+    "l4-p5-web-contract-detail"
   ],
   "L4-T-contracts_spec-011": [
     "l4-p5-web-contract-detail"
@@ -55,17 +55,17 @@
     "l4-p6-two-user-verification"
   ],
   "L4-T-contracts_spec-018": [
-    "l4-p6-cross-authority-provenance-and-ttl",
-    "l4-p6-two-user-verification"
+    "l4-p6-two-user-verification",
+    "l4-p6-cross-authority-provenance-and-ttl"
   ],
   "L4-T-contracts_spec-019": [
-    "l4-p6-epoch-repair-generation",
+    "l4-p5-web-status-page",
     "l4-p5-web-broadcast-client",
-    "l4-p5-web-status-page"
+    "l4-p6-epoch-repair-generation"
   ],
   "L4-T-contracts_spec-020": [
-    "l4-p5-web-supabase-client-boundary",
-    "l4-p5-web-package-config"
+    "l4-p5-web-package-config",
+    "l4-p5-web-supabase-client-boundary"
   ],
   "L4-T-redaction_boundary-001": [
     "l4-p6-final-rls-redaction-closure"
@@ -129,8 +129,8 @@
     "l4-p6-final-rls-redaction-closure"
   ],
   "L4-T-redaction_boundary-021": [
-    "l4-p6-tombstone-retention-proof",
-    "l4-p6-final-rls-redaction-closure"
+    "l4-p6-final-rls-redaction-closure",
+    "l4-p6-tombstone-retention-proof"
   ],
   "L4-T-redaction_boundary-022": [
     "l4-p3-cas-rpc",
@@ -173,15 +173,15 @@
     "l4-p1-sqlite-sync-migration"
   ],
   "L4-T-sqlite_schema-007": [
-    "l4-p6-epoch-repair-generation",
-    "l4-p1-sqlite-sync-migration"
+    "l4-p1-sqlite-sync-migration",
+    "l4-p6-epoch-repair-generation"
   ],
   "L4-T-sqlite_schema-008": [
     "l4-p1-sqlite-sync-migration"
   ],
   "L4-T-sqlite_schema-009": [
-    "l4-p4-override-feedback-loop",
-    "l4-p1-sqlite-sync-migration"
+    "l4-p1-sqlite-sync-migration",
+    "l4-p4-override-feedback-loop"
   ],
   "L4-T-sqlite_schema-010": [
     "l4-p1-sqlite-sync-migration"
@@ -228,8 +228,8 @@
     "l4-p1-supabase-config-and-migration-bundle"
   ],
   "L4-T-sqlite_schema-024": [
-    "l4-p1-root-web-workspace-scripts",
-    "l4-p1-daemon-http-client"
+    "l4-p1-daemon-http-client",
+    "l4-p1-root-web-workspace-scripts"
   ],
   "L4-T-sqlite_supabase_sync-001": [
     "l4-p2-outbox-transaction-writer"
@@ -297,13 +297,13 @@
     "l4-p2-batch-envelope-retry"
   ],
   "L4-T-sqlite_supabase_sync-022": [
-    "l4-p4-runner-provisional-promotion",
-    "l4-p4-executor-overlay-quarantine"
+    "l4-p4-executor-overlay-quarantine",
+    "l4-p4-runner-provisional-promotion"
   ],
   "L4-T-sqlite_supabase_sync-023": [
-    "l4-p4-runner-provisional-promotion",
     "l4-p4-error-manifest-classification",
-    "l4-p4-executor-overlay-quarantine"
+    "l4-p4-executor-overlay-quarantine",
+    "l4-p4-runner-provisional-promotion"
   ],
   "L4-T-sqlite_supabase_sync-024": [
     "l4-p4-executor-overlay-quarantine"
@@ -325,12 +325,12 @@
     "l4-p3-pull-before-push-service-contract"
   ],
   "L4-T-sqlite_supabase_sync-030": [
-    "l4-p3-cas-rpc",
-    "l4-p3-pending-intent-reconciliation"
+    "l4-p3-pending-intent-reconciliation",
+    "l4-p3-cas-rpc"
   ],
   "L4-T-sqlite_supabase_sync-031": [
-    "l4-p3-cas-rpc",
-    "l4-p3-pending-intent-reconciliation"
+    "l4-p3-pending-intent-reconciliation",
+    "l4-p3-cas-rpc"
   ],
   "L4-T-sqlite_supabase_sync-032": [
     "l4-p3-pending-intent-reconciliation"
@@ -374,8 +374,8 @@
     "l4-p2-active-writer-lease"
   ],
   "L4-T-sqlite_supabase_sync-044": [
-    "l4-p2-schema-epoch-pause-and-backup",
-    "l4-p6-main-startup-sync-wiring"
+    "l4-p6-main-startup-sync-wiring",
+    "l4-p2-schema-epoch-pause-and-backup"
   ],
   "L4-T-sqlite_supabase_sync-045": [
     "l4-p6-epoch-repair-generation"
@@ -396,8 +396,8 @@
     "l4-p6-logical-consistency-auditor-stub"
   ],
   "L4-T-sqlite_supabase_sync-050": [
-    "l4-p4-calibration-math-readiness",
-    "l4-p4-policy-readiness-contract"
+    "l4-p4-policy-readiness-contract",
+    "l4-p4-calibration-math-readiness"
   ],
   "L4-T-sqlite_supabase_sync-051": [
     "l4-p4-calibration-math-readiness"
@@ -418,8 +418,8 @@
     "l4-p4-calibration-math-readiness"
   ],
   "L4-T-sqlite_supabase_sync-057": [
-    "l4-p4-calibration-math-readiness",
-    "l4-p4-policy-readiness-contract"
+    "l4-p4-policy-readiness-contract",
+    "l4-p4-calibration-math-readiness"
   ],
   "L4-T-sqlite_supabase_sync-058": [
     "l4-p4-overlay-procurement-ingestion"

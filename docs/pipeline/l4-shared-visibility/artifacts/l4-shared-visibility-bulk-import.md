@@ -4047,3 +4047,35 @@ After bead creation, a 14-step audit (chokepoint discipline / migration uniquene
 - **`br lint`:** all 6 sub-epics pass; only pre-existing non-L4 beads have lingering template warnings.
 - **Scope-drift scan:** 4 hits, all confirmed negative-context (forbidding TODO/skip in test code or stub avoidance), false positives.
 - **Parent linkage:** all 6 sub-epics have parent-child edge to `testproject1-4zq`; all 56 task/review beads parent under their respective sub-epic.
+
+---
+
+# Audit Trail — Extended Sub-Optimization Pass (post-initial audit)
+
+A second, deeper audit (TDD §11 cross-ref obligations, structural template anchors, silent scope-cut prose, AC/Files-section presence) found 5 categories of additional gaps that the initial audit's substring-based scans missed. Patches:
+
+1. **Web bead structural template anchors** — added "## Structural Template (apps/desktop)" sections to:
+   - `l4-p5-web-contract-list` → references `apps/desktop/src/pages/ContractList.tsx`.
+   - `l4-p5-web-contract-detail` → references `apps/desktop/src/pages/ContractDetail.tsx`.
+   - `l4-p5-web-status-page` → references `apps/desktop/src/pages/DaemonStatus.tsx`.
+
+2. **TDD §11 web cross-ref block** added to 7 P5 web beads + `l4-p6-two-user-verification`. Each now explicitly cites `CI-L4-005`, `CI-L4-006`, and the `packages/ui` import-boundary check per "Beads that touch `apps/web` must include..." rule.
+
+3. **`l4-p4-review-gate` test enumeration** — replaced range notation (`050..080`, `065..073`) with 38 explicit test-ID bullets so TDD §11's mandatory enforcement IDs (003, 022, 023, 024, 050..057, 058..061, 062..064, 065..073, 074..080) are individually claimed in the cumulative aggregator.
+
+4. **`l4-p1-supabase-config-and-migration-bundle` Supabase RLS cross-ref block** — added "## Cross-Reference Tests" section citing `L4-T-redaction_boundary-001..009` (RLS role matrix exercised by the policy file this bead creates) and `L4-T-redaction_boundary-026` (schema hash gate).
+
+## Confirmed False Positives (not patched)
+
+- **Drift scan**: 4 hits in negative-context bans — `l4-p1-test-inventory-and-fixtures` ("No `.skip`, `#[ignore]`, `test.todo`"), both review/walkthrough beads ("cannot be a TODO/empty/doc-only note"), `l4-p6-logical-consistency-auditor-stub` ("NOT TODO/empty"). All forbid the practice rather than allow it.
+- **`bd` terminology scan**: 2 hits in `l4-p1-test-inventory-and-fixtures` and `l4-p1-root-web-workspace-scripts` describing CI-L4-008's *purpose* of banning `bd`. Removing the literal `bd` would lose the gate's meaning.
+
+## Final Status (Post-Extended-Audit)
+
+- **Coverage:** 147/147 L4-FR + 150/150 L4-T + 8/8 CI gates (100%).
+- **Initial 14-step audit:** 0 structural findings.
+- **Extended audit:** 0 actionable findings (only false-positive negative-context hits remain).
+- **`br lint`:** clean for all 6 L4 sub-epics; only pre-existing non-L4 beads have lingering template warnings.
+- **Chokepoint discipline:** `main.rs`, `runner.rs`, `policy.rs`, `executor.rs`, `Cargo.toml`, root `package.json` each have a single L4 edit home; `decisions.rs` has P3 + serialized P4 call-in.
+- **TDD §11 cross-ref obligations:** satisfied for web (CI-L4-005/006 + packages/ui boundary), validation enforcement (38 IDs), calibration (065-077 + 074/075/076), Supabase schema/RLS (sqlite_schema + redaction_boundary cross-ref).
+- **Structural template anchors:** all 3 page-level web beads reference the corresponding `apps/desktop/src/pages/` template.
