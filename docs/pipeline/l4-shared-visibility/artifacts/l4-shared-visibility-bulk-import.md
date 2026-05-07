@@ -275,7 +275,7 @@ Provisional promotion buffer for enforcement-active slices, durable per-slice re
 - L4-FR-3.4.1 through L4-FR-3.4.6 (enforcement)
 - L4-FR-3.5.1 through L4-FR-3.5.4 (4 overlays)
 - L4-FR-3.6.1 through L4-FR-3.6.16 (calibration harness)
-- L4-FR-3.6.17 (tombstone retention — deferred to Phase 6 for full proof)
+- L4-FR-3.6.17 (tombstone retention — closed in Phase 6 with full proof; calibration shape is owned here)
 
 ---
 
@@ -3533,7 +3533,7 @@ bun run lint
 
 ## Dependencies
 
-- **Blocked by:** `l4-p2-review-gate`, `l4-p3-review-gate`.
+- **Blocked by:** `l4-p2-review-gate`, `l4-p3-review-gate`, `l4-p4-review-gate`, `l4-p5-review-gate`.
 - **Blocks:** `l4-p6-stage-gate-and-dod-walkthrough`.
 - **Phase:** 6.
 
@@ -3552,7 +3552,7 @@ bun run lint
 
 - **Spec**: `docs/strategy/layers/layer-4-shared-visibility.md` — §5.2, §1.7.1 (PRIMARY)
 - **TDD**: `L4-T-sqlite_schema-007`, `L4-T-sqlite_supabase_sync-045`, `L4-T-contracts_spec-019` (PRIMARY)
-- **Strategy**: Phase 6, P6-B (after Phase 2 epoch pause)
+- **Strategy**: Phase 6, P6-B (after Phase 2 epoch pause and Phase 6 prerequisites)
 
 ## Context
 
@@ -3587,7 +3587,7 @@ After epoch repair, daemon: (1) inserts `projection_generations` row with status
 
 ## Dependencies
 
-- **Blocked by:** `l4-p2-schema-epoch-pause-and-backup`, `l4-p2-review-gate`.
+- **Blocked by:** `l4-p2-schema-epoch-pause-and-backup`, `l4-p2-review-gate`, `l4-p3-review-gate`, `l4-p4-review-gate`, `l4-p5-review-gate`.
 - **Blocks:** `l4-p6-logical-consistency-auditor-stub`, `l4-p6-stage-gate-and-dod-walkthrough`.
 - **Phase:** 6.
 
@@ -3606,7 +3606,7 @@ After epoch repair, daemon: (1) inserts `projection_generations` row with status
 
 - **Spec**: `docs/strategy/layers/layer-4-shared-visibility.md` — §2.5, §2.5.11, §2.6.10 (PRIMARY)
 - **TDD**: `L4-T-redaction_boundary-001..026` (full file, PRIMARY)
-- **Strategy**: Phase 6, P6-C (after Phases 1+5)
+- **Strategy**: Phase 6, P6-C (after Phases 1+5 and Phase 6 prerequisites)
 
 ## Context
 
@@ -3644,7 +3644,7 @@ All 26 `L4-T-redaction_boundary-001..026` tests pass:
 
 ## Dependencies
 
-- **Blocked by:** `l4-p1-supabase-config-and-migration-bundle`, `l4-p1-schema-hash-ci-gate`, `l4-p5-review-gate`.
+- **Blocked by:** `l4-p1-supabase-config-and-migration-bundle`, `l4-p1-schema-hash-ci-gate`, `l4-p2-review-gate`, `l4-p3-review-gate`, `l4-p4-review-gate`, `l4-p5-review-gate`.
 - **Blocks:** `l4-p6-stage-gate-and-dod-walkthrough`.
 - **Phase:** 6.
 
@@ -3722,7 +3722,8 @@ Each pipeline run records `source_config_revision`, `company_profile_revision`, 
 
 ## Files to Create/Modify
 
-- **Modify:** push-owned write paths under `crates/daemon/src/jobs/runner.rs` and pipeline modules to record provenance revisions.
+- **Modify:** `crates/daemon/src/db/sync.rs` — extend push-owned write helpers (`OutboxWriter`/promotion path) to stamp `source_config_revision`, `company_profile_revision`, `operator_decision_revision` onto each pipeline run row. Provenance is recorded at the sync helper layer; the runner module is NOT edited here (single-edit chokepoint owned by `l4-p4-runner-provisional-promotion`, which already exposes the promotion seam this bead leverages).
+- **Modify:** pipeline-stage write modules that already produce push-owned rows (e.g., qualification, product extraction, manifest generation) to populate the provenance columns from the consumed remote-owned `remote_revision` snapshots.
 - **Modify:** `crates/daemon/tests/sqlite_supabase_sync.rs` — provenance test (049).
 
 ## Spec Requirements (verbatim)
@@ -3750,7 +3751,7 @@ Each pipeline run records `source_config_revision`, `company_profile_revision`, 
 
 ## Dependencies
 
-- **Blocked by:** `l4-p3-review-gate`, `l4-p3-remote-config-staleness-ttl`, `l4-p5-review-gate`.
+- **Blocked by:** `l4-p2-review-gate`, `l4-p3-review-gate`, `l4-p3-remote-config-staleness-ttl`, `l4-p4-review-gate`, `l4-p5-review-gate`.
 - **Blocks:** `l4-p6-logical-consistency-auditor-stub`, `l4-p6-stage-gate-and-dod-walkthrough`.
 - **Phase:** 6.
 
@@ -4037,7 +4038,7 @@ After bead creation, a 14-step audit (chokepoint discipline / migration uniquene
 
 5. **`l4-p6-final-rls-redaction-closure` (testproject1-4zq.6.3)** — replaced `L4-T-redaction_boundary-001..026` range notation in "Tests to Pass" with 26 explicit per-test bullets covering each role/category and each summary-projection redaction case.
 
-6. **`l4-validation-enforcement` sub-epic (testproject1-4zq.4)** — replaced "deferred to Phase 6 for full proof" with "closed in Phase 6 with full proof; calibration shape is owned here" (eliminates flagged drift word).
+6. **`l4-validation-enforcement` sub-epic (testproject1-4zq.4)** — replaced the old tombstone-retention Phase 6 handoff wording with "closed in Phase 6 with full proof; calibration shape is owned here" (eliminates flagged drift wording).
 
 7. **All 6 sub-epics** — added "## Success Criteria" section to satisfy `br lint` template gate (alongside existing "## Phase Goal" / "## Gate Criteria" / "## Roll Back If" / "## Spec Coverage" sections).
 
