@@ -19,6 +19,7 @@ use tempfile::TempDir;
 pub use sqlite_impl::{DEFAULT_SCHEMA_EPOCH, FTS_SOURCE_ID, StateDb};
 
 const DEFAULT_DOCLING_VERSION: &str = "2.85.0";
+const DEFAULT_OWNER_ID: &str = "local-owner";
 const DEFAULT_PROCESSING_STRATEGY: &str = "standard";
 
 pub type LogicalSchema = BTreeMap<String, Vec<LogicalColumn>>;
@@ -81,6 +82,94 @@ impl TestStateDb {
 
     pub fn db_path(&self) -> &Path {
         &self.db_path
+    }
+}
+
+#[allow(dead_code)]
+pub struct L4TestStateDb {
+    inner: TestStateDb,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_field_names)]
+pub struct PushOwnedSeedIds {
+    pub process_id: String,
+    pub notice_id: String,
+    pub lot_id: String,
+}
+
+#[allow(dead_code)]
+impl L4TestStateDb {
+    pub fn new() -> Result<Self> {
+        let inner = TestStateDb::new()?;
+        ensure!(
+            inner.state_db.schema_epoch() == DEFAULT_SCHEMA_EPOCH,
+            "L4 test DB opened at schema epoch {}, expected {DEFAULT_SCHEMA_EPOCH}",
+            inner.state_db.schema_epoch()
+        );
+        Ok(Self { inner })
+    }
+
+    pub fn connection(&self) -> &Connection {
+        self.inner.connection()
+    }
+
+    pub fn db_path(&self) -> &Path {
+        self.inner.db_path()
+    }
+
+    pub fn seed_push_owned_rows(&self) -> Result<PushOwnedSeedIds> {
+        let ids = PushOwnedSeedIds {
+            process_id: "l4-process-fixture".to_owned(),
+            notice_id: "l4-notice-fixture".to_owned(),
+            lot_id: "l4-lot-fixture".to_owned(),
+        };
+        let conn = self.connection();
+
+        conn.execute(
+            "\
+            INSERT INTO procurement_processes (
+              id, current_stage, title, latest_published_at, latest_updated_at, owner_id,
+              row_version, last_local_seq, stage_run_id
+            ) VALUES (?1, 'qualification', 'L4 fixture process', '2026-05-06T00:00:00Z',
+                      '2026-05-06T00:00:00Z', ?2, 1, 1, 'l4-stage-run')
+            ON CONFLICT(id) DO NOTHING
+            ",
+            params![&ids.process_id, DEFAULT_OWNER_ID],
+        )?;
+
+        conn.execute(
+            "\
+            INSERT INTO contract_notices (
+              id, process_id, source_id, source_notice_id, raw_document_id, title,
+              procurement_stage, published_at, source_updated_at, normalized_payload,
+              owner_id, row_version, last_local_seq, stage_run_id
+            ) VALUES (?1, ?2, ?3, 'l4-source-notice-fixture', 'l4-raw-document-fixture',
+                      'L4 fixture notice', 'tender', '2026-05-06T00:00:00Z',
+                      '2026-05-06T00:00:00Z', ?4, ?5, 1, 2, 'l4-stage-run')
+            ON CONFLICT(id) DO NOTHING
+            ",
+            params![
+                &ids.notice_id,
+                &ids.process_id,
+                FTS_SOURCE_ID,
+                json!({"fixture": "l4-push-owned"}).to_string(),
+                DEFAULT_OWNER_ID
+            ],
+        )?;
+
+        conn.execute(
+            "\
+            INSERT INTO notice_lots (
+              id, notice_id, lot_number, title, estimated_value_pence, owner_id,
+              row_version, last_local_seq, stage_run_id
+            ) VALUES (?1, ?2, 1, 'L4 fixture lot', 120000, ?3, 1, 3, 'l4-stage-run')
+            ON CONFLICT(id) DO NOTHING
+            ",
+            params![&ids.lot_id, &ids.notice_id, DEFAULT_OWNER_ID],
+        )?;
+
+        Ok(ids)
     }
 }
 
