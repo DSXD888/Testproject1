@@ -4079,3 +4079,47 @@ A second, deeper audit (TDD §11 cross-ref obligations, structural template anch
 - **Chokepoint discipline:** `main.rs`, `runner.rs`, `policy.rs`, `executor.rs`, `Cargo.toml`, root `package.json` each have a single L4 edit home; `decisions.rs` has P3 + serialized P4 call-in.
 - **TDD §11 cross-ref obligations:** satisfied for web (CI-L4-005/006 + packages/ui boundary), validation enforcement (38 IDs), calibration (065-077 + 074/075/076), Supabase schema/RLS (sqlite_schema + redaction_boundary cross-ref).
 - **Structural template anchors:** all 3 page-level web beads reference the corresponding `apps/desktop/src/pages/` template.
+
+---
+
+# Audit Trail — Pass-3 Deep-Quality Audit (post-extended-audit)
+
+A third audit pass focused on quality dimensions the substring scans of passes 1-2 couldn't catch: AC text specificity, verbatim spec-phrase fidelity, cross-domain note coverage, calibration threshold numerics, required DDL excerpts, bead-body size distribution.
+
+## Findings & Fixes
+
+1. **S — Calibration sample-count phrases** — `l4-p4-calibration-math-readiness` lacked the literal "≥30 adjudicated" / "≥60 audited" phrases that gate enforcement readiness. Added explicit AC bullets with both narrative phrasing and SQL-friendly forms (`adjudicated_count >= 30`, `audited_approvals_count >= 60`, `wilson_lower_bound_bps >= 7000`, `false_pass_upper_bound_bps <= 500`).
+
+2. **T1 — `operator_decision_commands` DDL** — `l4-p3-command-ledger-retention` contained a lowercase `create table` excerpt; replaced with the verbatim spec §1.5.2 DDL (uppercase `CREATE TABLE`, `command_id TEXT PRIMARY KEY`, comment `-- NULL if conflict`).
+
+3. **T2 — `viewer_sync_status` DDL** — `l4-p2-viewer-sync-status-writer` had no full DDL block. Added the verbatim spec §3.7 DDL with column constraints and inline comments so the writer-path implementer knows the exact remote schema.
+
+4. **W — `L4-FR-5.4.2` (br terminology)** — explicit FR ID was missing from the owning bead `l4-p1-test-inventory-and-fixtures`. Added a verbatim AC stanza calling out: "AGENTS.md contains an older duplicated `bd` block at ~L651-708 that is OUTDATED" and "use `br`/`bin/br-sync` terminology, not `bd`".
+
+## Quality Verifications
+
+- **M (SOT WARNING):** all 62 beads have `## SOURCE OF TRUTH WARNING`.
+- **N (phase labels):** all 62 beads have `layer-4` + `l4-phase-N` labels.
+- **P (AC quality):** every task bead has specific test-ID-bearing ACs; no bare "all tests pass" without specifics.
+- **Q (verbatim spec phrases):** sampled 5 highly-distinctive AC strings; all present verbatim in their owning beads.
+- **R (cross-domain notes from spec §5.5):** all 7 (L0 commit_group_id, L0 writer_epoch, L2 FreshnessBadge, L2 pending_operator_intents, L6 safety-critical TTL) covered in the relevant beads.
+- **S (threshold numerics):** 12 specific values verified — 90s/300s freshness, 30s/120s lease, 30-day ledger, 14-day tombstone, 4h source TTL, 1500 bps override, 7000 bps Wilson, 500 bps rule-of-three, 30/60 sample counts.
+- **T (DDL excerpts):** `operator_decision_commands`, `viewer_sync_status`, `active_writer_lease` shapes all present.
+- **U (§5.2 stubs):** 2 implementation stubs (epoch-repair-generation, logical-consistency-auditor) owned; 2 explicit MVP boundaries (schema epoch transitions, multi-org) acknowledged.
+- **W (§5.4 prerequisites):** all 3 toolchain prerequisites have explicit bead ownership with FR-ID citation.
+- **X (stale terminology):** no raw `bd sync` or `br sync` (without `--flush-only`) anywhere outside negative-context bans.
+- **Bead size distribution:** min 1107 / avg 3519 / max 12940 chars. 14 thin beads (<2500 chars) all spot-checked self-contained — they're intentionally focused single-file work (e.g., `l4-p3-pull-cursors` at 1850 chars: SOT + Context + 1-file Files + verbatim L4-FR-1.4.1 + test + 4 ACs + deps).
+
+## Confirmed False Positives (3 audit passes total)
+
+- **Drift scan**: 4 hits in negative-context bans (`No .skip / #[ignore] / test.todo`, `cannot be a TODO/empty/doc-only note`, `NOT TODO/empty`). All forbid the practice; none allow it.
+- **`bd` terminology scan**: 5 hits in CI-L4-008's anti-`bd` educational text — explicitly warning agents that AGENTS.md has an outdated `bd` block and L4 must use `br`. Removing the literal `bd` would strip the warning's meaning.
+
+## Final Status (Post-Pass-3)
+
+- **Coverage:** 147/147 L4-FR + 150/150 L4-T + 8/8 CI gates (100%).
+- **Pass 1 (14-step):** 0 structural findings.
+- **Pass 2 (extended TDD §11):** 0 actionable findings.
+- **Pass 3 (deep quality):** 0 actionable findings; all 4 categorical fixes (S/T1/T2/W) applied.
+- **`br lint`:** clean for all 6 L4 sub-epics.
+- **62 beads ready** for `/bead-plan-audit` or `/beads-to-execution`.

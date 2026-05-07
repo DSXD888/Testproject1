@@ -1,7 +1,7 @@
 {
   "L4-T-contracts_spec-001": [
-    "l4-p5-web-root-layout-and-redirect",
-    "l4-p5-web-contract-list"
+    "l4-p5-web-contract-list",
+    "l4-p5-web-root-layout-and-redirect"
   ],
   "L4-T-contracts_spec-002": [
     "l4-p5-web-root-layout-and-redirect"
@@ -22,8 +22,8 @@
     "l4-p5-web-freshness-consumption-and-boundary"
   ],
   "L4-T-contracts_spec-008": [
-    "l4-p5-web-broadcast-client",
-    "l4-p5-web-contract-list"
+    "l4-p5-web-contract-list",
+    "l4-p5-web-broadcast-client"
   ],
   "L4-T-contracts_spec-009": [
     "l4-p5-web-broadcast-client",
@@ -55,8 +55,8 @@
     "l4-p6-two-user-verification"
   ],
   "L4-T-contracts_spec-018": [
-    "l4-p6-two-user-verification",
-    "l4-p6-cross-authority-provenance-and-ttl"
+    "l4-p6-cross-authority-provenance-and-ttl",
+    "l4-p6-two-user-verification"
   ],
   "L4-T-contracts_spec-019": [
     "l4-p5-web-status-page",
@@ -92,8 +92,8 @@
     "l4-p6-final-rls-redaction-closure"
   ],
   "L4-T-redaction_boundary-009": [
-    "l4-p5-web-freshness-consumption-and-boundary",
-    "l4-p6-final-rls-redaction-closure"
+    "l4-p6-final-rls-redaction-closure",
+    "l4-p5-web-freshness-consumption-and-boundary"
   ],
   "L4-T-redaction_boundary-010": [
     "l4-p6-final-rls-redaction-closure"
@@ -133,23 +133,23 @@
     "l4-p6-tombstone-retention-proof"
   ],
   "L4-T-redaction_boundary-022": [
-    "l4-p3-cas-rpc",
-    "l4-p6-final-rls-redaction-closure"
+    "l4-p6-final-rls-redaction-closure",
+    "l4-p3-cas-rpc"
   ],
   "L4-T-redaction_boundary-023": [
-    "l4-p2-apply-push-batch-rpc",
-    "l4-p6-final-rls-redaction-closure"
+    "l4-p6-final-rls-redaction-closure",
+    "l4-p2-apply-push-batch-rpc"
   ],
   "L4-T-redaction_boundary-024": [
     "l4-p6-final-rls-redaction-closure"
   ],
   "L4-T-redaction_boundary-025": [
-    "l4-p5-web-freshness-consumption-and-boundary",
-    "l4-p6-final-rls-redaction-closure"
+    "l4-p6-final-rls-redaction-closure",
+    "l4-p5-web-freshness-consumption-and-boundary"
   ],
   "L4-T-redaction_boundary-026": [
-    "l4-p1-schema-hash-ci-gate",
-    "l4-p6-final-rls-redaction-closure"
+    "l4-p6-final-rls-redaction-closure",
+    "l4-p1-schema-hash-ci-gate"
   ],
   "L4-T-sqlite_schema-001": [
     "l4-p1-sqlite-registry-epoch",
@@ -169,8 +169,8 @@
     "l4-p1-sqlite-sync-migration"
   ],
   "L4-T-sqlite_schema-006": [
-    "l4-p4-policy-readiness-contract",
-    "l4-p1-sqlite-sync-migration"
+    "l4-p1-sqlite-sync-migration",
+    "l4-p4-policy-readiness-contract"
   ],
   "L4-T-sqlite_schema-007": [
     "l4-p1-sqlite-sync-migration",
@@ -254,8 +254,8 @@
     "l4-p2-batch-envelope-retry"
   ],
   "L4-T-sqlite_supabase_sync-008": [
-    "l4-p2-batch-envelope-retry",
-    "l4-p2-stale-writer-reenvelope"
+    "l4-p2-stale-writer-reenvelope",
+    "l4-p2-batch-envelope-retry"
   ],
   "L4-T-sqlite_supabase_sync-009": [
     "l4-p2-batch-envelope-retry"
@@ -301,8 +301,8 @@
     "l4-p4-runner-provisional-promotion"
   ],
   "L4-T-sqlite_supabase_sync-023": [
-    "l4-p4-error-manifest-classification",
     "l4-p4-executor-overlay-quarantine",
+    "l4-p4-error-manifest-classification",
     "l4-p4-runner-provisional-promotion"
   ],
   "L4-T-sqlite_supabase_sync-024": [
@@ -318,19 +318,19 @@
     "l4-p3-hiwater-pagination"
   ],
   "L4-T-sqlite_supabase_sync-028": [
-    "l4-p6-main-startup-sync-wiring",
-    "l4-p3-pull-before-push-service-contract"
+    "l4-p3-pull-before-push-service-contract",
+    "l4-p6-main-startup-sync-wiring"
   ],
   "L4-T-sqlite_supabase_sync-029": [
     "l4-p3-pull-before-push-service-contract"
   ],
   "L4-T-sqlite_supabase_sync-030": [
-    "l4-p3-pending-intent-reconciliation",
-    "l4-p3-cas-rpc"
+    "l4-p3-cas-rpc",
+    "l4-p3-pending-intent-reconciliation"
   ],
   "L4-T-sqlite_supabase_sync-031": [
-    "l4-p3-pending-intent-reconciliation",
-    "l4-p3-cas-rpc"
+    "l4-p3-cas-rpc",
+    "l4-p3-pending-intent-reconciliation"
   ],
   "L4-T-sqlite_supabase_sync-032": [
     "l4-p3-pending-intent-reconciliation"
@@ -355,27 +355,27 @@
     "l4-p3-command-ledger-retention"
   ],
   "L4-T-sqlite_supabase_sync-039": [
-    "l4-p6-main-startup-sync-wiring",
-    "l4-p2-active-writer-lease"
+    "l4-p2-active-writer-lease",
+    "l4-p6-main-startup-sync-wiring"
   ],
   "L4-T-sqlite_supabase_sync-040": [
-    "l4-p6-main-startup-sync-wiring",
-    "l4-p2-active-writer-lease"
+    "l4-p2-active-writer-lease",
+    "l4-p6-main-startup-sync-wiring"
   ],
   "L4-T-sqlite_supabase_sync-041": [
-    "l4-p6-main-startup-sync-wiring",
-    "l4-p2-stale-writer-reenvelope"
+    "l4-p2-stale-writer-reenvelope",
+    "l4-p6-main-startup-sync-wiring"
   ],
   "L4-T-sqlite_supabase_sync-042": [
-    "l4-p6-main-startup-sync-wiring",
-    "l4-p2-active-writer-lease"
+    "l4-p2-active-writer-lease",
+    "l4-p6-main-startup-sync-wiring"
   ],
   "L4-T-sqlite_supabase_sync-043": [
     "l4-p2-active-writer-lease"
   ],
   "L4-T-sqlite_supabase_sync-044": [
-    "l4-p6-main-startup-sync-wiring",
-    "l4-p2-schema-epoch-pause-and-backup"
+    "l4-p2-schema-epoch-pause-and-backup",
+    "l4-p6-main-startup-sync-wiring"
   ],
   "L4-T-sqlite_supabase_sync-045": [
     "l4-p6-epoch-repair-generation"
@@ -385,8 +385,8 @@
     "l4-p2-viewer-sync-status-writer"
   ],
   "L4-T-sqlite_supabase_sync-047": [
-    "l4-p3-remote-config-staleness-ttl",
-    "l4-p6-cross-authority-provenance-and-ttl"
+    "l4-p6-cross-authority-provenance-and-ttl",
+    "l4-p3-remote-config-staleness-ttl"
   ],
   "L4-T-sqlite_supabase_sync-048": [
     "l4-p2-schema-epoch-pause-and-backup"
@@ -488,7 +488,7 @@
     "l4-p4-runner-provisional-promotion"
   ],
   "L4-T-sqlite_supabase_sync-080": [
-    "l4-p4-error-manifest-classification",
-    "l4-p4-executor-overlay-quarantine"
+    "l4-p4-executor-overlay-quarantine",
+    "l4-p4-error-manifest-classification"
   ]
 }
