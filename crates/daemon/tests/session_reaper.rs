@@ -32,7 +32,7 @@ mod tests {
     }
 
     fn wait_for_signal_ignoring_helper() {
-        std::thread::sleep(Duration::from_millis(200));
+        std::thread::sleep(Duration::from_millis(750));
     }
 
     #[test]

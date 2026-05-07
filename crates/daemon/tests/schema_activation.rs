@@ -1212,19 +1212,19 @@ mod tests {
     }
 
     #[test]
-    fn pdf_t_schema_activation_009_default_schema_epoch_is_8() -> Result<()> {
+    fn pdf_t_schema_activation_009_default_schema_epoch_is_9() -> Result<()> {
         let state_db = TestStateDb::new()?;
         let user_version: i64 =
             state_db
                 .connection()
                 .pragma_query_value(None, "user_version", |row| row.get(0))?;
         ensure!(
-            crate::support::db::DEFAULT_SCHEMA_EPOCH == 8,
-            "PDF-T-schema_activation-009 expected DEFAULT_SCHEMA_EPOCH to be 8"
+            crate::support::db::DEFAULT_SCHEMA_EPOCH == 9,
+            "PDF-T-schema_activation-009 expected DEFAULT_SCHEMA_EPOCH to be 9"
         );
         ensure!(
-            user_version == 8,
-            "PDF-T-schema_activation-009 expected user_version to be 8"
+            user_version == 9,
+            "PDF-T-schema_activation-009 expected user_version to be 9"
         );
         Ok(())
     }
@@ -1308,8 +1308,8 @@ mod tests {
         );
         let user_version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
         ensure!(
-            user_version == 8,
-            "expected user_version 8 after full upgrade"
+            user_version == 9,
+            "expected user_version 9 after full upgrade"
         );
         Ok(())
     }
@@ -1382,8 +1382,8 @@ mod tests {
         );
         let user_version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
         ensure!(
-            user_version == 8,
-            "OPD-T-schema_activation-010 expected user_version 8 after upgrade"
+            user_version == 9,
+            "OPD-T-schema_activation-010 expected user_version 9 after upgrade"
         );
         Ok(())
     }
@@ -1485,8 +1485,8 @@ mod tests {
         );
         let user_version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
         ensure!(
-            user_version == 8,
-            "CB-T-schema_activation-011 expected user_version 8 after upgrade"
+            user_version == 9,
+            "CB-T-schema_activation-011 expected user_version 9 after upgrade"
         );
         Ok(())
     }
