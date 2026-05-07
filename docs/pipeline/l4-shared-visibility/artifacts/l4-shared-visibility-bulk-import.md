@@ -910,7 +910,7 @@ CI gate that applies SQLite migrations through `0012_l4_sync_state.sql` and Supa
 - AC3: CI fails if the computed logical schema hash differs between the SQLite logical source and Supabase projection target.
 - AC4: This gate is testable and cannot be replaced by manual inspection.
 
-**L4-FR-2.6 — Schema coordination rule (verbatim).**
+**L4-FR-2.6.10 and L4-FR-2.6.11 — Schema coordination rules (verbatim).**
 - "Both SQLite and Postgres derive from the same canonical logical schema. CI must apply both migrations from scratch, introspect both, and fail if logical schema hash differs."
 
 ## Implementation Details (from bootstrap §6.4)
@@ -2385,7 +2385,7 @@ Add `AGENT_SUSPECT_OUTPUT` error type to `crates/daemon/src/errors/manifest.rs` 
 
 ## Context
 
-**Single edit home for `crates/daemon/src/validation/executor.rs`.** Extends existing L3 executor with overlay loading (loads base validator + selected overlay per skill metadata) and quarantine path (rejected enforcement-active output stays provisional, no push-owned rows, no outbox). Approval atomically promotes through runner.
+**Single edit home for `crates/daemon/src/validation/executor.rs`.** Extends existing L3 executor with overlay loading (loads base validator + selected overlay per skill metadata), provisional staging write path, dry-run versus enforcement-active branch logic, and quarantine path (rejected enforcement-active output stays provisional, emits `AGENT_SUSPECT_OUTPUT`, creates no push-owned rows, and creates no outbox). Approval atomically promotes through runner.
 
 ## Files to Create/Modify
 
@@ -2403,13 +2403,13 @@ Add `AGENT_SUSPECT_OUTPUT` error type to `crates/daemon/src/errors/manifest.rs` 
 - AC2: Approved provisional results promoted atomically with outbox creation and stage-head advancement.
 - AC3: Rejected provisional results stay local and auditable.
 
-**L4-FR-3.5 — Domain-Specific Validator Overlays (4 skills).**
+**L4-FR-3.5.1 through L4-FR-3.5.4 — Domain-Specific Validator Overlays (4 skills).**
 - AC3: Existing L3 Validation Executor loads the base validator plus the selected overlay; L4 extends executor and does not replace it.
 
 ## Tests to Pass
 
 - **`L4-T-sqlite_supabase_sync-022`** (T3): enforcement-active worker output with validator approval atomically updates provisional status, promotes push-owned rows, creates outbox entries, advances stage heads. `L4-FR-1.3.9`, `L4-FR-3.4.2`, `L4-FR-1.9.11`.
-- **`L4-T-sqlite_supabase_sync-023`** (T3): enforcement-active worker output with validator rejection leaves provisional row local, emits `AGENT_SUSPECT_OUTPUT`. (Co-owned with classification bead; lives here for executor-side behavior.) `L4-FR-1.3.9`, `L4-FR-3.4.1`, `L4-FR-3.4.2`.
+- **`L4-T-sqlite_supabase_sync-023`** (T3): enforcement-active worker output with validator rejection leaves provisional row local and executor-side behavior emits `AGENT_SUSPECT_OUTPUT`; manifest classification mapping remains in `l4-p4-error-manifest-classification`. `L4-FR-1.3.9`, `L4-FR-3.4.1`, `L4-FR-3.4.2`.
 - **`L4-T-sqlite_supabase_sync-024`** (T3): dry-run or non-enforcement slice with validator rejection follows L3 direct-write behavior; push-owned rows + outbox entries created, verdict logged, stage heads advance. `L4-FR-1.3.9`, `L4-FR-3.4.2`.
 - **`L4-T-sqlite_supabase_sync-080`** (T3): validator crash/timeout/invalid payload — fail-open with `VALIDATION_SKIPPED_VALIDATOR_ERROR`. `L4-FR-3.4.2`.
 
@@ -2417,7 +2417,9 @@ Add `AGENT_SUSPECT_OUTPUT` error type to `crates/daemon/src/errors/manifest.rs` 
 
 - [ ] `executor.rs` extends, does not replace, L3 logic.
 - [ ] Overlay selection driven by skill metadata `validator_overlay_compatible_versions`.
-- [ ] Enforcement-active rejection: provisional unchanged → still local, no outbox.
+- [ ] Provisional staging write path is used before validator verdict handling for enforcement-capable slices.
+- [ ] Enforcement-active rejection: provisional unchanged → still local, no outbox, `AGENT_SUSPECT_OUTPUT` emitted.
+- [ ] Dry-run or non-enforcement rejection follows L3 direct-write behavior and records the verdict without quarantine.
 - [ ] Approval: atomic promote via runner promotion path.
 - [ ] L4-T-sqlite_supabase_sync-022/023/024/080 pass.
 
@@ -2713,7 +2715,7 @@ Overlay skill at `skills/validation/overlay-procurement-ingestion/`. Six require
 
 **L4-FR-3.5.1 — Procurement ingestion overlay.** Domain checks: notice completeness, OCDS field presence, correct source locale, notice-type consistency, expiry date plausibility, CPV code validity.
 
-**L4-FR-3.5 — All 4 overlays.**
+**L4-FR-3.5.1 through L4-FR-3.5.4 — All 4 overlays.**
 - AC1: Each overlay directory contains the 6 files + `references/`, following `skills/validation/base/`.
 - AC2: Each overlay declares compatible worker behavior versions.
 - AC4: Canary tests prove each overlay emits verdicts and applies the listed domain checks.
@@ -2785,7 +2787,7 @@ Overlay at `skills/validation/overlay-supplier-enrichment/`. Domain checks: pric
 ## Spec Requirements (verbatim)
 
 **L4-FR-3.5.2 — Supplier enrichment overlay.** Domain checks listed above.
-**L4-FR-3.5 — Per-overlay AC1-AC4** as in `l4-p4-overlay-procurement-ingestion`.
+**L4-FR-3.5.2 — Per-overlay AC1-AC4** as in `l4-p4-overlay-procurement-ingestion`.
 
 ## Tests to Pass
 
@@ -2832,7 +2834,7 @@ Overlay at `skills/validation/overlay-document-acquisition/`. Domain checks: doc
 ## Spec Requirements (verbatim)
 
 **L4-FR-3.5.3 — Document acquisition overlay.** Domain checks listed above.
-**L4-FR-3.5 — Per-overlay AC1-AC4.**
+**L4-FR-3.5.3 — Per-overlay AC1-AC4.**
 
 ## Tests to Pass
 
@@ -2879,7 +2881,7 @@ Overlay at `skills/validation/overlay-product-extraction/`. Domain checks: candi
 ## Spec Requirements (verbatim)
 
 **L4-FR-3.5.4 — Product extraction overlay.** Domain checks listed above.
-**L4-FR-3.5 — Per-overlay AC1-AC4.**
+**L4-FR-3.5.4 — Per-overlay AC1-AC4.**
 
 ## Tests to Pass
 
@@ -3348,6 +3350,7 @@ Pipeline status, job summaries, error summaries, sync health. Reads `viewer_sync
 ## Acceptance Criteria
 
 - [ ] Status page reads only summary projections (no raw tables).
+- [ ] Reuses existing `packages/ui` `PipelineBadge`, `FreshnessBadge`, and `ErrorSummaryList` components unchanged for status, freshness, and error-summary presentation.
 - [ ] Displays `projection_generation`.
 - [ ] L4-T-contracts_spec-012/019 pass.
 
@@ -3493,7 +3496,7 @@ bun run lint
 
 ## Context
 
-**Single L4 edit home for `crates/daemon/src/main.rs`.** Wires startup ordering: pull-before-push, active-writer lease acquisition, schema-epoch checks. No Phase 2-5 implementation bead edits this file — they all defer wiring here.
+**Single L4 edit home for `crates/daemon/src/main.rs`.** Wires startup ordering: pull-before-push, active-writer lease acquisition, schema-epoch checks, pull cursor advancement, `viewer_sync_status` update wiring, and push dispatcher invocation. No Phase 2-5 implementation bead edits this file — they all defer wiring here.
 
 ## Files to Create/Modify
 
@@ -3523,8 +3526,9 @@ bun run lint
 ## Acceptance Criteria
 
 - [ ] Single edit to `main.rs` (no other L4 bead modifies this file).
-- [ ] Startup sequence: load db → check schema epoch → acquire lease → start pull cycle → start CAS flush → start push dispatch.
+- [ ] Startup sequence: load db → check schema epoch → acquire lease → run pull-before-push remote-owned pull cycle → advance pull cursors after successful apply → start CAS flush → invoke push dispatcher.
 - [ ] Heartbeat task spawned and tied to lease.
+- [ ] `viewer_sync_status` update wiring records successful apply/heartbeat state for web freshness.
 - [ ] L4-T-sqlite_supabase_sync-028, 039..046 pass under integration.
 
 ## Dependencies
