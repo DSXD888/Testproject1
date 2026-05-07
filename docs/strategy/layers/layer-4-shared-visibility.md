@@ -52,6 +52,9 @@ Two users view the same pipeline: desktop operator (read-write) and web viewer (
 **L4-FR-1.3.3 — Failed pushes retry the identical envelope**
 - AC1: Retry payloads preserve the same row set, ordering, `content_hash` values, `schema_epoch`, `stage_run_id`, `commit_group_id` boundaries, and `writer_epoch`.
 - AC2: Network timeout or lost response does not rebuild the batch from newly-arrived outbox rows.
+- AC3: If the daemon crashes after creating a `sync_batches` row but before receiving the RPC response, restart reloads the persisted batch envelope and retries it before constructing any later batch for that stream.
+- AC4: If the remote already committed the crashed batch, equal-version/content-hash semantics return no-op success and the daemon marks the existing `sync_batches` row acknowledged.
+- AC5: A terminal stale-writer rejection is not an indeterminate retry case: the daemon marks that `sync_batches` envelope rejected, re-acquires the lease, then may create a new batch envelope over the same unacknowledged outbox rows using the new `writer_epoch`.
 
 **L4-FR-1.3.4 — Batch boundaries preserve epoch, run, and transaction atomicity**
 - AC1: No batch contains rows from more than one `schema_epoch`.
@@ -63,13 +66,14 @@ Two users view the same pipeline: desktop operator (read-write) and web viewer (
 - AC2: Each row carries `content_hash` computed over the canonical payload that Supabase applies.
 - AC3: Supabase uses `content_hash` with `row_version` to distinguish idempotent retry from equal-version corruption.
 
-**Push batch RPC:** `apply_push_batch(batch_json, writer_epoch)` — single transactional Supabase RPC. Batch either fully applies or fully rejects. No partial application. Remote validates `writer_epoch` matches current lease holder.
+**Push batch RPC:** `apply_push_batch(batch_json, writer_epoch)` — a single Supabase REST RPC call made by the daemon HTTP client. The RPC is implemented as one Postgres function invoked through Supabase/PostgREST; Postgres executes the function body in one transaction, so the batch either fully applies or fully rejects. L4 does not use `tokio-postgres`, client-managed `BEGIN`/`COMMIT`, or direct daemon table upserts for projection writes. Remote validates `writer_epoch` matches current lease holder.
 
 **L4-FR-1.3.6 — `apply_push_batch` is the only remote apply surface for push-owned data**
 - AC1: The RPC applies the full batch in one Postgres transaction.
 - AC2: Any validation failure rejects the full batch and leaves all target rows unchanged.
 - AC3: The RPC validates `schema_epoch`, `writer_epoch`, `row_version`, `content_hash`, `stage_run_id`, and `commit_group_id` constraints before committing.
 - AC4: Direct table upserts from the daemon are not used for push-owned projection writes.
+- AC5: The daemon calls the RPC through the Supabase REST endpoint using the L4 HTTP client dependency from §5.4; implementation agents must not substitute a direct Postgres connection unless the spec is explicitly revised.
 
 **Equal-version retry semantics:** The remote apply logic must define:
 - Incoming `row_version` = remote `row_version` AND `content_hash` matches → **no-op success** (idempotent retry)
@@ -93,14 +97,16 @@ Without defining the equal-version case, identical-envelope retries fail spuriou
 -- local_seq (autoincrement), executor_id, entity_kind, entity_id,
 -- op (insert/update), row_version, stage_run_id, schema_epoch,
 -- commit_group_id (groups rows from same SQLite transaction),
--- writer_epoch, payload_json, content_hash, created_at
+-- writer_epoch (nullable until enveloped), payload_json, content_hash, created_at
 ```
 
 **L4-FR-1.3.8 — `local_outbox` stores the full replay envelope**
-- AC1: `local_outbox` includes `commit_group_id` and `writer_epoch` from first materialization in `migrations/0012_l4_sync_state.sql`.
+- AC1: The `local_outbox` schema includes `commit_group_id` and nullable `writer_epoch` from first materialization in `migrations/0012_l4_sync_state.sql`.
 - AC2: `payload_json` is sufficient to reconstruct the exact remote row image for retry or reproject.
 - AC3: `local_seq` is monotonic and stable across daemon restart.
 - AC4: `content_hash` is persisted with the outbox row and not recomputed differently during retry.
+- AC5: `writer_epoch` on `local_outbox` is nullable until the row is assigned to a `sync_batches` envelope; `sync_batches` stores the immutable batch writer epoch used for identical retry.
+- AC6: Re-enveloping unacknowledged outbox rows with a newer `writer_epoch` is allowed only after a terminal stale-writer rejection or explicit lease-rehome repair, never after an indeterminate network failure.
 
 **Provisional promotion buffer for enforcement slices:**
 
@@ -142,18 +148,21 @@ For dry-run slices and non-enforcement slices, the current direct-write path con
 
 Without a hi-water fence, paginated pulls can skip or duplicate rows when remote changes occur during pagination. Per-domain monotonic pull fences are required; cross-domain serializability is not.
 
+`remote_change_seq` is a domain-level monotonic sequence, not a per-row version. Each remote-owned domain (`shared_source_configs`, `shared_company_profile`, `operator_decision_heads`) has a single sequence source used by insert, update, and tombstone writes in that domain. Admin DML and CAS RPC paths must assign `remote_change_seq = nextval(domain_sequence)` through triggers or the RPC body before the change commits. `remote_revision` remains the per-row CAS/content revision.
+
 **L4-FR-1.4.2 — Pulls use a hi-water fence to survive concurrent remote changes**
 - AC1: Each pull reads `hiwater` before fetching pages for the domain.
 - AC2: Every page query is bounded by `cursor < remote_change_seq <= hiwater`.
 - AC3: Local application is ordered by `remote_change_seq`.
 - AC4: The cursor advances to `hiwater` only after all rows up to `hiwater` are applied.
 - AC5: Remote changes with `remote_change_seq > hiwater` wait for the next pull and cannot be skipped by pagination.
+- AC6: Supabase migrations create or trigger a domain-level monotonic `remote_change_seq` source for each remote-owned domain; tests fail if two changes in one domain can reuse or move backward in `remote_change_seq`.
 
-**Pull-before-push ordering:** On sync startup, pull remote-owned state FIRST, then classify/coalesce pending intents, then resume push. This ensures cross-authority consistency.
+**Pull-before-push ordering:** On sync startup and at the start of every sync cycle, pull remote-owned state FIRST, then classify/coalesce pending intents, then resume CAS flushing and push dispatch. This ensures cross-authority consistency. If a cycle cannot complete remote-owned pulls, the daemon applies the staleness classes in §1.8 before deciding which local work may continue.
 
-**L4-FR-1.4.3 — Sync startup always pulls remote-owned state before pushing**
-- AC1: On daemon sync startup, remote-owned pulls complete before pending operator intents are flushed.
-- AC2: Push dispatch resumes only after pull completion and local intent classification/coalescing.
+**L4-FR-1.4.3 — Sync cycles pull remote-owned state before pushing**
+- AC1: On daemon sync startup and every scheduled/manual sync cycle, remote-owned pulls complete before pending operator intents are flushed.
+- AC2: CAS flushing and push dispatch resume only after pull completion and local intent classification/coalescing for that cycle.
 - AC3: A pull failure leaves push dispatch paused for cross-authority operator decisions while local operation continues in degraded mode.
 
 **Pending operator intent reconciliation:** After pull, reconcile `pending_operator_intents` queue:
@@ -184,6 +193,7 @@ Without a hi-water fence, paginated pulls can skip or duplicate rows when remote
 - AC4: Direct table UPDATE is blocked for operator decision mutation paths outside the RPC.
 - AC5: The desktop decision IPC flow remains `capture_decision` -> write `pending_operator_intents` -> CAS flusher attempts promotion -> desktop re-fetches fresh state after `MutationAck.visible_after_seq`.
 - AC6: On CAS conflict, daemon emits a `decision.conflict` IPC event carrying current `remote_revision`, current `disposition`, and the rejected intent payload.
+- AC7: The desktop conflict UI shows the remote disposition/revision, the local attempted disposition/note/reviewed hashes, and actions to refresh, discard the local intent, or retry by issuing a new command against the current remote revision.
 
 **Durable command ledger:**
 
@@ -226,6 +236,7 @@ Command ledger entries are GC'd after a configurable retention period (default 3
 - AC1: Default command ledger retention is 30 days.
 - AC2: GC never removes entries newer than the configured retention period.
 - AC3: GC removal does not alter current `operator_decision_heads` state.
+- AC4: A replayed `command_id` after its ledger row has been GC'd is treated as a new command and evaluated against the current `operator_decision_heads.remote_revision`; tests cover the post-GC replay path and expect conflict if the supplied `base_revision` is stale.
 
 ### 1.6 Active-Writer Lease (Fenced)
 
@@ -254,6 +265,9 @@ On lease acquisition, increment `writer_epoch`. Every `apply_push_batch` must in
 - AC3: Supabase rejects any batch whose `writer_epoch` does not match the active lease row.
 - AC4: A partitioned daemon that recovers after lease loss cannot push stale batches.
 - AC5: `infra/supabase/migrations/0006_schema_metadata.sql` creates a dedicated `active_writer_lease` table for `org_id`, `holder_executor_id`, `lease_expires_at`, and `writer_epoch`; `schema_metadata` stores schema epoch metadata only.
+- AC6: Lease acquisition is compare-and-swap based: a daemon can acquire only when `holder_executor_id` is itself, NULL, or `lease_expires_at < now()`, and acquisition increments `writer_epoch` in the same transaction.
+- AC7: Lease heartbeat runs at least every 30 seconds while sync is active and extends `lease_expires_at` to at least 120 seconds from the heartbeat time.
+- AC8: If a daemon crashes without releasing the lease, another writer can acquire only after `lease_expires_at` passes; stale batches from the crashed daemon remain rejected by `writer_epoch`.
 
 **Operational rule (MVP):** One bound machine per org. Other installations are viewer-only unless explicitly rehomed. Active-writer lease protects remote pushing but does not prevent a second offline daemon from creating divergent local state. Document this as an operational constraint.
 
@@ -261,6 +275,7 @@ On lease acquisition, increment `writer_epoch`. Every `apply_push_batch` must in
 - AC1: Operator/admin documentation states that only one bound machine per org may run writer-mode daemon.
 - AC2: Other installations are configured viewer-only unless an explicit rehome procedure changes the bound writer.
 - AC3: The lease conflict path explains that remote push is protected but divergent offline local state is outside the MVP operating model.
+- AC4: A lease-conflict rejection is surfaced in desktop sync status as a writer-mode conflict with the current holder executor ID, lease expiry, and next safe action ("switch this install to viewer-only" or "perform explicit rehome").
 
 ### 1.7 Schema Epoch Guard
 
@@ -270,12 +285,15 @@ On lease acquisition, increment `writer_epoch`. Every `apply_push_batch` must in
 - Operator/admin must resolve epoch mismatch before sync resumes
 - Prevents schema-mismatched data from corrupting the remote projection
 
+Current daemon grounding: `crates/daemon/src/db/sqlite.rs::open_state_db(path, schema_epoch)` threads the expected epoch into `StateDbConfig`, applies eligible migrations, and persists the resulting value in `PRAGMA user_version`. L4 extends that existing path rather than introducing a second local epoch source. The L4 SQLite migration `migrations/0012_l4_sync_state.sql` is registered in the `MIGRATIONS` list at the next schema epoch after the current repo epoch (`DEFAULT_SCHEMA_EPOCH = 8` before L4), and push code reads the active epoch from `StateDb::schema_epoch()`/`PRAGMA user_version` when constructing outbox and batch envelopes.
+
 **L4-FR-1.7.1 — Schema epoch mismatch pauses sync without stopping local operation**
 - AC1: Every push batch includes `schema_epoch`.
 - AC2: Local SQLite `PRAGMA user_version` and remote `schema_metadata.schema_epoch` are compared before apply.
 - AC3: Mismatch pauses push/pull sync and emits operator/admin-visible status.
 - AC4: Local pipeline execution and desktop local operation continue while sync is paused.
 - AC5: Remote projection writes do not resume until epoch repair and reproject minimum path in §5.2 completes.
+- AC6: The L4 implementation updates `crates/daemon/src/db/sqlite.rs` migration registration and default epoch so `open_state_db` applies `migrations/0012_l4_sync_state.sql` through the existing PRAGMA-backed path.
 
 ### 1.8 Degraded Mode Behavior
 
@@ -334,14 +352,13 @@ If pull breaks, the daemon continues with stale remote-owned config. Not all con
 | L4-FR-1.9.11 | Provisional promotion for enforcement slices | Constitutional | Worker outputs not committed to push-owned tables until validator completes |
 | L4-FR-1.9.12 | Validation enforcement | Operational | Rejections quarantine results after dry-run calibration |
 | L4-FR-1.9.13 | RLS on all Supabase tables | Constitutional | Policy matrix at database boundary |
-| L4-FR-1.9.14 | Pull-before-push ordering | Constitutional | Pull remote state FIRST on startup |
-| L4-FR-1.9.15 | Hi-water fenced pull | Constitutional | Per-domain bounded range pull prevents skip/duplicate during pagination |
+| L4-FR-1.9.14 | Fenced pull-before-push ordering | Constitutional | Pull remote state FIRST on startup and at the start of every sync cycle; per-domain hi-water fenced pull prevents skip/duplicate during pagination |
 
-**Acceptance criteria for L4-FR-1.9.1 through L4-FR-1.9.15**
+**Acceptance criteria for L4-FR-1.9.1 through L4-FR-1.9.14**
 - AC1: Each invariant has at least one corresponding test scenario in §4.3 or Definition of Done criterion in §4.1.
 - AC2: Any implementation path that violates a constitutional invariant fails validation before Layer 4 can be marked complete.
 - AC3: The operational validation-enforcement invariant has explicit calibration and demotion criteria in §§3.4-3.6.
-- AC4: This table intentionally preserves all 15 invariant rows present at validation time; the historical handoff count of 14 omitted one listed invariant and is superseded by this traceable count.
+- AC4: This table intentionally preserves 14 invariant rows; hi-water fenced pull remains a required subclause of the pull-before-push invariant and retains its detailed ACs in §1.4.
 
 ### 1.10 Components Touched
 
@@ -349,6 +366,9 @@ If pull breaks, the daemon continues with stale remote-owned config. Not all con
 |-----------|--------|-------|
 | Database | Create | `migrations/0012_l4_sync_state.sql` (SQLite sync tables), 8 Supabase migrations, `infra/supabase/config.toml` |
 | `crates/daemon` | Create | `src/db/sync.rs` (push-pull sync engine) |
+| `crates/daemon` | Extend/Create | `src/validation/policy.rs`, `src/validation/executor.rs`, `src/validation/calibration.rs`, `src/jobs/runner.rs`, `src/ipc/handlers/decisions.rs` |
+| `packages/ui` | Extend | `packages/ui/freshness-badge.tsx` (3-state sync health input while preserving the VM path) |
+| Root Bun workspace | Extend | `package.json` build/test/lint scripts include `apps/web` and preserve `packages/ui` import boundary |
 | Skills | Create | 4 domain validator overlays |
 | `apps/web` | Create | 7 files (full Next.js viewing portal) |
 
@@ -358,6 +378,8 @@ If pull breaks, the daemon continues with stale remote-owned config. Not all con
 - AC3: Four validator overlay skill directories are created under `skills/validation/`.
 - AC4: `apps/web/` is created as the read-only Next.js portal.
 - AC5: The chosen SQLite migration number `0012` was verified on 2026-05-06 by listing existing flat repo migrations; `0011_commercial_basis_coverage.sql` was the last existing migration.
+- AC6: Validation enforcement extends existing L3 modules and adds `crates/daemon/src/validation/calibration.rs`; it does not fork or replace `validation/policy.rs` or `validation/executor.rs`.
+- AC7: The web portal extends the existing `packages/ui/freshness-badge.tsx` component rather than creating a duplicate FreshnessBadge component.
 
 ---
 
@@ -409,7 +431,7 @@ Redacted/summarized views of local-only tables, plus a read-only decision summar
 | L4-FR-2.2.1 | `workflow_job_summaries` | `workflow_jobs` (local-only) | Redacted job status for web | `job_id`, `job_kind`, `status`, `skill_path`, `started_at`, `completed_at`, `error_type` (no full context) |
 | L4-FR-2.2.2 | `error_manifest_summaries` | `error_manifests` (local-only) | Redacted error context for web | `manifest_id`, `job_id`, `error_type`, `error_code`, `incident_signature`, `created_at` (no full context_json or markdown) |
 | L4-FR-2.2.3 | `validation_verdict_summaries` | `validation_verdicts` (local-only) | Verdict status for web | `verdict_id`, `worker_job_id`, `verdict`, `basis_sufficiency`, `enforcement_eligible`, `created_at` (no full reasoning) |
-| L4-FR-2.2.4 | `viewer_sync_status` | Daemon sync state | Sync freshness indicator | `sync_health` (healthy/degraded/offline), `last_push_success_at`, `pending_outbox_count`, `schema_epoch` |
+| L4-FR-2.2.4 | `viewer_sync_status` | Daemon sync state | Sync freshness indicator | `sync_health` (healthy/degraded/offline), `last_push_success_at`, `pending_outbox_count`, `schema_epoch`, `projection_generation` |
 | L4-FR-2.2.5 | `executors` | `executors` (push-owned) | Daemon heartbeat summary | `executor_id`, `heartbeat_at`, `daemon_version`, `started_at` |
 | L4-FR-2.2.6 | `operator_decision_summaries` | `operator_decision_heads` (remote-owned, pulled locally) | Decision display for web viewers | `process_id`, `disposition`, `decision_stale`, `reviewed_at_stage_run_id`, `updated_at` (no operator identity, no company profile, no command history) |
 
@@ -437,7 +459,7 @@ CREATE TABLE shared_company_profile (
   address_json jsonb,
   contact_json jsonb,
   bid_profile_json jsonb,       -- portal-specific form field defaults
-  remote_change_seq bigint NOT NULL DEFAULT 1,
+  remote_change_seq bigint NOT NULL DEFAULT nextval('shared_company_profile_change_seq'),
   remote_revision bigint NOT NULL DEFAULT 1,
   deleted_at timestamptz,       -- tombstone for soft-delete
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -466,7 +488,7 @@ CREATE TABLE shared_source_configs (
   skill_path text NOT NULL,                       -- e.g., 'procurement-ingestion/fts'
   schedule_cron text,                              -- cron expression for scheduled runs
   config_json jsonb,                               -- source-specific configuration
-  remote_change_seq bigint NOT NULL DEFAULT 1,
+  remote_change_seq bigint NOT NULL DEFAULT nextval('shared_source_configs_change_seq'),
   remote_revision bigint NOT NULL DEFAULT 1,
   deleted_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -496,7 +518,7 @@ CREATE TABLE operator_decision_heads (
   decision_stale boolean NOT NULL DEFAULT false,    -- set true when decisionBasisHash changes or L5 freshness vectors expire
   operator_id text,                                 -- who made the decision
   command_id text,                                  -- latest applied CAS command for audit/debug; durable idempotency lives in operator_decision_commands
-  remote_change_seq bigint NOT NULL DEFAULT 1,
+  remote_change_seq bigint NOT NULL DEFAULT nextval('operator_decision_heads_change_seq'),
   remote_revision bigint NOT NULL DEFAULT 1,
   deleted_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -587,8 +609,8 @@ L4 creates the net-new `infra/supabase/` directory tree. Eight migration files c
 | ID | # | Migration | Purpose |
 |----|---|-----------|---------|
 | L4-FR-2.6.1 | 1 | `infra/supabase/migrations/0001_projection_tables.sql` | CREATE TABLE for all 20 push-owned projection tables + 3 junction tables. Schema mirrors SQLite DDL with Postgres types. |
-| L4-FR-2.6.2 | 2 | `infra/supabase/migrations/0002_remote_owned_tables.sql` | CREATE TABLE for `shared_company_profile`, `shared_source_configs`, `operator_decision_heads`. |
-| L4-FR-2.6.3 | 3 | `infra/supabase/migrations/0003_summary_tables.sql` | CREATE TABLE for 5 summary tables: `workflow_job_summaries`, `error_manifest_summaries`, `validation_verdict_summaries`, `viewer_sync_status`, `executors`. |
+| L4-FR-2.6.2 | 2 | `infra/supabase/migrations/0002_remote_owned_tables.sql` | CREATE TABLE for `shared_company_profile`, `shared_source_configs`, `operator_decision_heads`, plus per-domain `remote_change_seq` sequences/triggers for those remote-owned domains. |
+| L4-FR-2.6.3 | 3 | `infra/supabase/migrations/0003_summary_tables.sql` | CREATE TABLE for 5 summary tables: `workflow_job_summaries`, `error_manifest_summaries`, `validation_verdict_summaries`, `viewer_sync_status` including `projection_generation`, `executors`. |
 | L4-FR-2.6.4 | 4 | `infra/supabase/migrations/0004_rls_policies.sql` | RLS policies for all 4 roles (viewer, operator, admin, daemon) across all table categories. |
 | L4-FR-2.6.5 | 5 | `infra/supabase/migrations/0005_sync_rpcs.sql` | `apply_push_batch(batch_json, writer_epoch)` transactional RPC + `update_operator_decision(process_id, disposition, base_revision, command_id)` CAS RPC. |
 | L4-FR-2.6.6 | 6 | `infra/supabase/migrations/0006_schema_metadata.sql` | `schema_metadata` table with `schema_epoch` plus dedicated `active_writer_lease` table with `writer_epoch` for fencing. |
@@ -597,7 +619,7 @@ L4 creates the net-new `infra/supabase/` directory tree. Eight migration files c
 
 **Schema coordination rule:** Both SQLite and Postgres derive from the same canonical logical schema. CI must apply both migrations from scratch, introspect both, and fail if logical schema hash differs.
 
-**SQLite sync migration:** `migrations/0012_l4_sync_state.sql` — adds `local_outbox`, `sync_batches`, `pull_cursors`, `provisional_worker_outputs`, and `enforcement_readiness` tables to SQLite (see §1 and §3.4 for DDL requirements). This is a SQLite-only migration, separate from the Supabase migration namespace above. The `0012` sequence was chosen because `migrations/0011_commercial_basis_coverage.sql` was the last existing flat migration when this spec was validated on 2026-05-06.
+**SQLite sync migration:** `migrations/0012_l4_sync_state.sql` — adds `local_outbox`, `sync_batches`, `pull_cursors`, `provisional_worker_outputs`, `enforcement_readiness`, `projection_generations`, `validation_calibration_cases`, and `validation_incident_clusters` tables to SQLite (see §1, §3.4, §3.6, and §5.2 for DDL requirements). This is a SQLite-only migration, separate from the Supabase migration namespace above. The `0012` sequence was chosen because `migrations/0011_commercial_basis_coverage.sql` was the last existing flat migration when this spec was validated on 2026-05-06.
 
 **L4-FR-2.6.9 — Supabase infrastructure tree is created from scratch**
 - AC1: `infra/supabase/config.toml` is created with the project-local Supabase configuration.
@@ -611,7 +633,7 @@ L4 creates the net-new `infra/supabase/` directory tree. Eight migration files c
 - AC4: This gate is testable and cannot be replaced by manual inspection.
 
 **L4-FR-2.6.11 — SQLite sync migration owns local sync infrastructure DDL**
-- AC1: `migrations/0012_l4_sync_state.sql` creates `local_outbox`, `sync_batches`, `pull_cursors`, `provisional_worker_outputs`, and `enforcement_readiness`.
+- AC1: `migrations/0012_l4_sync_state.sql` creates `local_outbox`, `sync_batches`, `pull_cursors`, `provisional_worker_outputs`, `enforcement_readiness`, `projection_generations`, `validation_calibration_cases`, and `validation_incident_clusters`.
 - AC2: `local_outbox` includes `commit_group_id` and `writer_epoch` when first materialized.
 - AC3: The L4 migration is added to the daemon migration registry in `crates/daemon/src/db/sqlite.rs` during implementation.
 
@@ -642,7 +664,7 @@ Pipeline data crosses authority boundaries at specific points. Each crossing has
 
 The web viewing portal is a **read-only** hosted client. It reads Supabase projection tables and receives live invalidation hints via Supabase Broadcast. It does NOT support mutations, decision capture, agent management, or configuration changes.
 
-`apps/web/` does not exist before L4; this layer creates it. Root `package.json` workspaces already cover `apps/*`; `bun run build`, `bun run test`, and `bun run lint` scripts must be updated to include `apps/web` while preserving the existing `packages/ui` lint boundary that bans imports from `@tauri-apps/api`, `apps/desktop`, `crates/daemon`, `supabase`, and `transport`.
+`apps/web/` does not exist before L4; this layer creates it. Root `package.json` workspaces already cover `apps/*` (so `apps/web` is included once the directory exists), but the root scripts are explicit and currently build/typecheck only `apps/desktop`. L4 must update `bun run build`, `bun run test`, and `bun run lint` so `apps/web` is actually verified, while preserving the existing `packages/ui` lint boundary that bans imports from `@tauri-apps/api`, `apps/desktop`, `crates/daemon`, `supabase`, and `transport`.
 
 **L4-FR-3.1.1 — `apps/web/` is a net-new read-only Next.js portal**
 - AC1: L4 creates `apps/web/` with the seven files listed below.
@@ -651,6 +673,8 @@ The web viewing portal is a **read-only** hosted client. It reads Supabase proje
 - AC4: Root Bun scripts include `apps/web` in build, test, and lint paths, with workspace coverage confirmed through the existing `apps/*` entry.
 - AC5: `packages/ui` remains presentation-only; Supabase and Broadcast imports stay in `apps/web/src/lib/`.
 - AC6: `packages/ui` remains free of Supabase, Tauri, and daemon imports; `apps/web/src/lib/supabase.ts` is the sole direct Supabase client/package boundary in the web app, and `apps/web/src/lib/broadcast.ts` consumes that boundary rather than importing Supabase directly.
+- AC7: Root `bun run build` runs an `apps/web` build/typecheck step, either `(cd apps/web && bun run build)` for Next.js or `bunx tsc -p apps/web/tsconfig.json --noEmit` if the web package keeps build and typecheck separate.
+- AC8: Root `bun run test` runs `apps/web` tests/E2E or a documented `test:e2e` script, and root `bun run lint` runs the web lint command in addition to preserving the `packages/ui` import-boundary grep.
 
 **Architecture:**
 
@@ -722,21 +746,23 @@ type PortalUpdate =
       syncHealth: 'healthy' | 'degraded' | 'offline'
       lastAckedSeq: number
       lastSuccessAt: string
+      projectionGeneration: number
     }
 ```
 
-**Emission point:** Daemon emits Broadcast notifications **after** the remote projection batch is successfully applied. Coalesces affected topics so 20 quote upserts produce one notification per topic.
+**Emission point:** Daemon emits data-change Broadcast notifications **after** the remote projection batch is successfully applied. Status-only `sync.updated` notifications emit after the `viewer_sync_status` heartbeat/status update commits. Coalesces affected topics so 20 quote upserts produce one notification per topic.
 
 **L4-FR-3.2.2 — Broadcast payloads use the three typed invalidation shapes**
 - AC1: `contracts.changed` carries affected process IDs, changed sections, and `maxSeq`.
 - AC2: `process.updated` carries process ID, changed sections, major/minor flag, and `maxSeq`.
-- AC3: `sync.updated` carries sync health, last acknowledged sequence, and last success timestamp.
+- AC3: `sync.updated` carries sync health, last acknowledged sequence, last success timestamp, and `projectionGeneration` so web pages can detect an epoch-repair reseed and invalidate snapshots.
 - AC4: Payload schemas are covered by TypeScript typing and E2E or unit tests.
 
 **L4-FR-3.2.3 — Broadcast emits only after successful remote apply**
 - AC1: The daemon emits after `apply_push_batch` commits.
 - AC2: Failed or rejected batches emit no data-change Broadcast.
 - AC3: Multiple updates in one batch are coalesced to one notification per affected topic.
+- AC4: `sync.updated` emits after committed `viewer_sync_status` heartbeat/status-only updates even when no projection data rows changed.
 
 **Per-page behavior:**
 - **List page:** Patch badges/counts if in payload. Otherwise invalidate list query. Show "N new/updated opportunities" pill -- do NOT reorder the visible list while user is reading.
@@ -769,7 +795,7 @@ The portal is honest about staleness. Three states, not one badge:
 - AC3: Red appears when last successful sync is older than 5 minutes or daemon sync is offline.
 - AC4: Web E2E verifies the three labels, tones, and tooltips from `viewer_sync_status`.
 
-The `viewer_sync_status` table (push-owned projection) is updated after each successful remote apply:
+The `viewer_sync_status` table (push-owned projection) is updated after each successful remote apply and on lease-heartbeat/status-only updates while sync is active:
 
 ```typescript
 interface ViewerSyncStatus {
@@ -780,13 +806,14 @@ interface ViewerSyncStatus {
   lastAckedLocalSeq: number       // Latest local_seq successfully pushed
   pendingOutboxCount: number      // Entries waiting to be pushed
   schemaEpoch: number             // Current schema epoch
+  projectionGeneration: number    // Current remote projection generation
   daemonVersion: string           // Daemon version string
 }
 ```
 
 **L4-FR-3.3.4 — `viewer_sync_status` drives freshness state across surfaces**
-- AC1: `viewer_sync_status` stores `syncHealth`, `lastPushSuccessAt`, `lastPushAttemptAt`, `lastAckedLocalSeq`, `pendingOutboxCount`, `schemaEpoch`, and `daemonVersion`.
-- AC2: The row updates after each successful remote apply.
+- AC1: `viewer_sync_status` stores `syncHealth`, `lastPushSuccessAt`, `lastPushAttemptAt`, `lastAckedLocalSeq`, `pendingOutboxCount`, `schemaEpoch`, `projectionGeneration`, and `daemonVersion`.
+- AC2: The row updates after each successful remote apply and during lease-heartbeat/status-only updates so freshness can change even when no projection rows changed.
 - AC3: The web portal computes freshness from this projection, not from local daemon IPC.
 - AC4: Desktop sync warning surfaces consume the same health semantics once sync is active.
 - AC5: `packages/ui/freshness-badge.tsx` accepts `syncHealth: 'healthy' | 'degraded' | 'offline'` and `lastSuccessAt: ISO-8601 string` in addition to its display VM path; the 90s and 300s thresholds are computed inside the component or a co-located pure helper, not separately by each caller.
@@ -829,6 +856,10 @@ Transition from Layer 3 dry-run to production enforcement. In enforcement mode, 
 - AC2: Approved provisional results are promoted atomically with outbox creation and stage-head advancement.
 - AC3: Rejected provisional results stay local and auditable.
 - AC4: Fail-open validator-crash behavior remains the L3 fail-open path unless a slice-specific enforcement rule explicitly quarantines worker output after a completed rejection verdict.
+- AC5: An operator override of a rejected provisional result records `validation_verdicts.override_verdict`, `override_reason`, `override_by`, and `override_at`, then promotes the same provisional payload through the normal approved path in one SQLite transaction.
+- AC6: Override promotion changes `provisional_worker_outputs.validation_status` to `approved`, creates push-owned rows/outbox entries, and advances stage heads exactly once using the original `worker_job_id`.
+- AC7: Override promotion emits audit/provenance fields so downstream rollups can distinguish validator-approved results from operator-overridden results without treating the row as quarantined.
+- AC8: Replaying the same override command is idempotent and cannot create duplicate outbox rows.
 
 **Per-slice enforcement readiness:**
 
@@ -863,14 +894,19 @@ The unit of enforcement is **worker skill x source x worker behavior version x v
 - Anomaly-conditioned validator error rate rises
 - Worker behavior version moves outside overlay's compatible range
 
-Demotion is automatic and immediate. Re-promotion requires meeting calibration thresholds again.
+Demotion is automatic and immediate. Re-promotion requires meeting calibration thresholds again. Default measurable thresholds are:
+- Override spike: rolling 7-day window has at least 10 operator-reviewed enforcement rejections and either `operator_override_rate_bps >= 1500` or at least 2x the slice's trailing 30-day baseline.
+- Challenge-bank regression: any critical mutated-bad assertion is approved, or total challenge-bank pass rate drops below 95%.
+- Anomaly-conditioned validator error rise: anomaly-triggered validations have at least 20 samples in the rolling window and validator execution/error rate exceeds 5% or 2x the trailing 30-day baseline.
+- Compatible-range exit: current `worker_behavior_version` is outside the overlay's declared compatible range.
 
 **L4-FR-3.4.5 — Demotion triggers immediately return a slice to dry-run**
-- AC1: Operator override-rate spike disables enforcement for the affected slice.
-- AC2: Challenge-bank regression disables enforcement for the affected slice.
-- AC3: Elevated anomaly-conditioned validator error rate disables enforcement for the affected slice.
-- AC4: Worker behavior version outside overlay compatible range disables enforcement for the affected slice.
+- AC1: Operator override-rate spike uses the rolling-window threshold above and disables enforcement for the affected slice.
+- AC2: Challenge-bank regression uses the critical-assertion/pass-rate threshold above and disables enforcement for the affected slice.
+- AC3: Elevated anomaly-conditioned validator error rate uses the rolling-window threshold above and disables enforcement for the affected slice.
+- AC4: Worker behavior version outside overlay compatible range disables enforcement for the affected slice immediately.
 - AC5: Re-promotion is blocked until all calibration thresholds pass again.
+- AC6: Threshold values are configurable per slice but default values above are the minimum implementation; configuration cannot weaken the requirement that demotion be automatic and measurable.
 
 **L4-FR-3.4.6 — Enforcement readiness state is durable SQLite state**
 - AC1: `migrations/0012_l4_sync_state.sql` creates `enforcement_readiness` keyed by the enforcement slice tuple, with a deterministic `slice_id` plus `worker_skill_id`, `source_id`, `worker_behavior_version`, and `validator_overlay_version`.
@@ -878,6 +914,7 @@ Demotion is automatic and immediate. Re-promotion requires meeting calibration t
 - AC3: The table stores `last_evaluated_at`, `wilson_lower_bound_bps`, `false_pass_upper_bound_bps`, `adjudicated_count`, `audited_approvals_count`, and nullable `demotion_reason`.
 - AC4: `validation/policy.rs` reads the persisted readiness row when deciding enforcement mode, and calibration/demotion jobs update the row so state survives daemon restart.
 - AC5: Metrics and tests can query `enforcement_readiness` directly to verify promotion, demotion, and re-promotion behavior.
+- AC6: `enforcement_readiness` stores the active demotion threshold config snapshot used for the latest decision, so later audits can explain why enforcement was enabled or demoted.
 
 ### 3.5 Domain-Specific Validator Overlays (4 skills)
 
@@ -904,6 +941,8 @@ Overlays are loaded alongside the base validator. The base checks generic qualit
 
 Before enforcement, each slice must pass calibration. The harness uses **three corpora**:
 
+**Corpus storage and durable evidence:** Static fixture corpora live under `tests/fixtures/calibration/{slice_id}/{clean,weird,mutated,pairwise}/`. Runtime/live evidence from L3 dry-run and L4 overrides is stored in SQLite `validation_calibration_cases`, keyed by `case_id` with `slice_id`, `corpus_kind`, `source_artifact_path`, `expected_verdict`, `actual_verdict`, `ground_truth_label`, `mutation_family`, `pair_id`, `model_family`, `created_at`, and `adjudicated_at`. Incident grouping is stored in `validation_incident_clusters` with `incident_signature`, dominant failure family, affected slice IDs, and candidate mutation template JSON. `crates/daemon/src/validation/calibration.rs` owns Wilson/rule-of-three math, corpus aggregation, override ingestion, and readiness inputs consumed by `validation/policy.rs`.
+
 **1. Clean real runs (25-30 per skill family):**
 Real successful runs from gold lots and live dry-run traffic. Establish baseline: what does healthy variability look like?
 
@@ -911,6 +950,7 @@ Real successful runs from gold lots and live dry-run traffic. Establish baseline
 - AC1: Each skill family has 25-30 clean real runs from gold lots or live dry-run traffic.
 - AC2: Clean runs include successful outputs and their evidence artifacts.
 - AC3: Calibration records how healthy variability appears for the slice.
+- AC4: Clean fixture cases are discoverable under `tests/fixtures/calibration/{slice_id}/clean/` and live clean cases are represented in `validation_calibration_cases` with `corpus_kind = 'clean'`.
 
 **2. Weird-but-valid runs (15-20 per skill family):**
 Unusual but acceptable runs: source layout changed but extraction correct, localized content correctly normalized, partial but honestly narrated data, low-result-count but legitimate.
@@ -919,6 +959,7 @@ Unusual but acceptable runs: source layout changed but extraction correct, local
 - AC1: Each skill family has 15-20 weird-but-valid runs.
 - AC2: The corpus includes layout change, localization, partial honest data, and low-result-count valid examples.
 - AC3: Validators must not reject these cases solely because they differ from normal clean runs.
+- AC4: Weird-but-valid fixture cases are discoverable under `tests/fixtures/calibration/{slice_id}/weird/` and live cases are represented in `validation_calibration_cases` with `corpus_kind = 'weird'`.
 
 **3. Mutated bad runs (30-50 per skill family):**
 Real good runs mutated into realistic failures:
@@ -927,6 +968,7 @@ Real good runs mutated into realistic failures:
 - AC1: Each skill family has 30-50 mutated bad runs.
 - AC2: Mutations are derived from real good runs so evidence context remains realistic.
 - AC3: Every mutation family listed below appears in the challenge bank with expected verdict assertions.
+- AC4: Mutated fixture cases are discoverable under `tests/fixtures/calibration/{slice_id}/mutated/` and live/generated cases are represented in `validation_calibration_cases` with `corpus_kind = 'mutated'` plus `mutation_family`.
 
 | ID | Mutation Family | What It Tests |
 |----|----------------|--------------|
@@ -951,6 +993,7 @@ Real good runs mutated into realistic failures:
 - AC1: Pairwise sets include a clean run and a single-corruption sibling run.
 - AC2: Calibration records whether the validator ranks the corrupted run less trustworthy.
 - AC3: Pairwise failures feed the same enforcement-readiness and demotion logic as absolute verdict failures.
+- AC4: Pairwise fixtures are discoverable under `tests/fixtures/calibration/{slice_id}/pairwise/`, and both members share a durable `pair_id` in `validation_calibration_cases`.
 
 **Minimum calibration targets per slice before enforcement:**
 - >=30 adjudicated rejected/flagged cases with known ground truth
@@ -965,6 +1008,7 @@ Real good runs mutated into realistic failures:
 - AC3: Wilson-bound reject precision lower bound must be at least 70%.
 - AC4: Rule-of-three false-pass upper bound must be at most 5%.
 - AC5: Challenge bank coverage must include the dominant failure families for that slice.
+- AC6: Wilson-bound and rule-of-three calculations live in pure functions in `crates/daemon/src/validation/calibration.rs` and are asserted by tests with boundary cases around 30/60 sample counts.
 
 **Cross-model audit sampling:** Periodically run a sample through a different model family to detect correlated blindness.
 
@@ -972,6 +1016,7 @@ Real good runs mutated into realistic failures:
 - AC1: Calibration schedule periodically sends a sample to a different model family.
 - AC2: Disagreements are logged as calibration evidence.
 - AC3: Correlated-blindness findings can block enforcement or trigger demotion for affected slices.
+- AC4: Cross-model samples write `model_family` and disagreement metadata to `validation_calibration_cases`; the scheduler cadence is configurable but must run at least once per 30 days for enforcement-active slices with new traffic.
 
 **Override feedback loop:** Every operator override becomes: (1) labeled calibration case, (2) incident-cluster member, (3) candidate mutation template for challenge bank. Note: override rate is a biased metric — overrides are selection-biased toward visible/contested cases. Use overrides as demotion signal, incident source, and mutation template source, but not as sole precision estimator.
 
@@ -980,6 +1025,8 @@ Real good runs mutated into realistic failures:
 - AC2: Every override joins an incident cluster.
 - AC3: Every override is evaluated as a candidate mutation template.
 - AC4: Override rate can trigger demotion but cannot be the only precision estimator for promotion.
+- AC5: Override ingestion is automatic in the daemon path that records `validation_verdicts.override_*`; it inserts/updates `validation_calibration_cases` and `validation_incident_clusters` in the same SQLite transaction as the override audit update.
+- AC6: Candidate mutation templates are stored as JSON on the incident cluster for later review and are not required to become static fixtures before the override counts as calibration evidence.
 
 **Tombstone retention:** Cursor-based pull requires tombstones to remain visible longer than the maximum expected offline window. If tombstones are GC'd too early, an offline daemon permanently misses deletions. Tombstone retention must be ≥ max offline duration + safety margin (default: 14 days). Alternatively, periodic anti-entropy / full-hash diff can detect missed deletes.
 
@@ -1003,6 +1050,7 @@ CREATE TABLE viewer_sync_status (
   last_acked_local_seq BIGINT,         -- Latest local_seq pushed
   pending_outbox_count INTEGER DEFAULT 0,
   schema_epoch INTEGER NOT NULL,
+  projection_generation BIGINT NOT NULL DEFAULT 0,
   daemon_version TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -1010,9 +1058,10 @@ CREATE TABLE viewer_sync_status (
 
 **L4-FR-3.7.1 — `viewer_sync_status` is the Supabase sync freshness projection**
 - AC1: Supabase creates `viewer_sync_status` with the columns and checks shown above.
-- AC2: The daemon updates the row after each successful remote apply.
+- AC2: The daemon updates the row after each successful remote apply and heartbeat/status-only update.
 - AC3: Web and desktop freshness indicators read the three-state health semantics from this table/projection.
 - AC4: RLS allows viewer/operator/admin SELECT and daemon INSERT/UPDATE through the push path.
+- AC5: `projection_generation` increments after an epoch-repair reseed and appears in the next `sync.updated` Broadcast payload.
 
 ---
 
@@ -1025,30 +1074,30 @@ CREATE TABLE viewer_sync_status (
 | 1 | Push protocol: transactional outbox entries created for all push-owned mutations in same SQLite transaction | L4-FR-1.3.1, L4-FR-1.9.2 | `sqlite_supabase_sync.rs` |
 | 2 | Push batches applied to Supabase via single transactional RPC with schema_epoch, row_version ordering | L4-FR-1.3.5, L4-FR-1.3.6, L4-FR-1.7.1, L4-FR-1.9.1 | `sqlite_supabase_sync.rs` |
 | 3 | Pull protocol: cursor-based pull for shared_source_configs, shared_company_profile, operator_decision_heads | L4-FR-1.4.1, L4-FR-1.4.2 | `sqlite_supabase_sync.rs` |
-| 4 | Operator decisions: queued local intents flush through Supabase CAS RPC with base_remote_revision; conflicts returned (not silently overwritten) | L4-FR-1.4.4, L4-FR-1.5.1, L4-FR-2.3.3 | E2E test |
-| 5 | Active-writer lease: second daemon instance detected and rejected | L4-FR-1.6.1, L4-FR-1.6.2 | `sqlite_supabase_sync.rs` |
-| 6 | RLS policies enforced for all 4 roles (viewer, operator, admin, daemon) | L4-FR-2.5.1-L4-FR-2.5.10 | Supabase migration test |
-| 7 | Web viewing portal displays opportunities, manifests, pipeline status (read-only) | L4-FR-3.1.1-L4-FR-3.1.8 | `contracts.spec.ts` |
-| 8 | Supabase Broadcast invalidation delivers live updates to web portal | L4-FR-3.2.1-L4-FR-3.2.4 | Manual + E2E |
-| 9 | viewer_sync_status shows sync freshness (green/amber/red) | L4-FR-3.3.1-L4-FR-3.3.4, L4-FR-3.7.1 | Manual verification |
-| 10 | Validation enforcement mode: validator rejections quarantine results as AGENT_SUSPECT_OUTPUT and enforcement readiness persists per slice | L4-FR-1.3.9, L4-FR-3.4.1, L4-FR-3.4.2, L4-FR-3.4.6 | `sqlite_supabase_sync.rs` |
-| 11 | 4 domain-specific validator overlays deployed and producing verdicts | L4-FR-3.5.1-L4-FR-3.5.4 | Validator canary tests |
-| 12 | Two users can view the same pipeline: desktop (read-write) + web (read-only) | L4-FR-1.8.1, L4-FR-3.1.1, L4-FR-3.3.5 | Manual: two-browser test |
+| 4 | Operator decisions: queued local intents flush through Supabase CAS RPC with base_remote_revision; conflicts returned (not silently overwritten) | L4-FR-1.4.4, L4-FR-1.5.1, L4-FR-2.3.3 | `sqlite_supabase_sync.rs` |
+| 5 | Active-writer lease: second daemon instance detected and rejected; heartbeat/expiry and stale `writer_epoch` fencing verified | L4-FR-1.6.1, L4-FR-1.6.2 | `sqlite_supabase_sync.rs` |
+| 6 | RLS policies enforced for all 4 roles (viewer, operator, admin, daemon) | L4-FR-2.5.1-L4-FR-2.5.10 | `redaction_boundary.rs` |
+| 7 | Web viewing portal displays opportunities, manifests, pipeline status (read-only) | L4-FR-3.1.1-L4-FR-3.1.8 | `apps/web/e2e/contracts.spec.ts` |
+| 8 | Supabase Broadcast invalidation delivers live updates to web portal | L4-FR-3.2.1-L4-FR-3.2.4 | `apps/web/e2e/contracts.spec.ts` |
+| 9 | viewer_sync_status shows sync freshness (green/amber/red) and projection generation | L4-FR-3.3.1-L4-FR-3.3.4, L4-FR-3.7.1 | `apps/web/e2e/contracts.spec.ts` |
+| 10 | Validation enforcement mode and calibration harness: validator rejections quarantine results as AGENT_SUSPECT_OUTPUT, overrides promote through audited provisional path, calibration gates compute readiness, and enforcement readiness persists per slice | L4-FR-1.3.9, L4-FR-3.4.1-L4-FR-3.4.6, L4-FR-3.6.1-L4-FR-3.6.17 | `sqlite_supabase_sync.rs` |
+| 11 | 4 domain-specific validator overlays deployed and producing verdicts | L4-FR-3.5.1-L4-FR-3.5.4 | `sqlite_supabase_sync.rs` |
+| 12 | Two users can view the same pipeline: desktop (read-write) + web (read-only) | L4-FR-1.8.1, L4-FR-3.1.1, L4-FR-3.3.5 | `apps/web/e2e/contracts.spec.ts` + manual smoke |
 | 13 | Writer fencing: stale daemon with old `writer_epoch` rejected on push | L4-FR-1.6.2, L4-FR-1.9.5 | `sqlite_supabase_sync.rs` |
-| 14 | CAS command ledger: retried command returns stored result (idempotent replay) | L4-FR-1.5.2, L4-FR-1.5.3, L4-FR-1.5.4 | `sqlite_supabase_sync.rs` |
+| 14 | CAS command ledger: retried command returns stored result (idempotent replay); post-GC replay is evaluated as a new command | L4-FR-1.5.2, L4-FR-1.5.3, L4-FR-1.5.4 | `sqlite_supabase_sync.rs` |
 | 15 | Provisional promotion buffer: enforcement-active slices hold results in `provisional_worker_outputs` until validation completes | L4-FR-1.3.9, L4-FR-3.4.2 | `sqlite_supabase_sync.rs` |
 | 16 | Equal-version retry: identical-envelope retry with matching content_hash = no-op success | L4-FR-1.3.7, L4-FR-1.9.10 | `sqlite_supabase_sync.rs` |
-| 17 | Web portal uses viewer-scoped credentials only (security boundary, not UI convention) | L4-FR-2.5.9, L4-FR-3.1.1 | Supabase migration test + RLS test |
+| 17 | Web portal uses viewer-scoped credentials only (security boundary, not UI convention) | L4-FR-2.5.9, L4-FR-3.1.1 | `redaction_boundary.rs` + `apps/web/e2e/contracts.spec.ts` |
 | 18 | Redaction tests pass: no leakage of operator identity/company profile/raw supplier data in summary projections | L4-FR-2.2.1-L4-FR-2.2.6, L4-FR-2.5.11 | `redaction_boundary.rs` |
 
 ### 4.2 Test File Listing (4 New, Cumulative 52)
 
 | File | Coverage |
 |------|---------|
-| `sqlite_schema.rs` | Full schema creation and migration: all tables created, all constraints enforced, all indices present, sync tracking columns populated, integer pence/bps verified, `provisional_worker_outputs` and `enforcement_readiness` created |
-| `sqlite_supabase_sync.rs` | Push-pull round-trip: outbox entry creation, batch assembly, transactional RPC apply, row_version ordering, writer fencing (stale epoch rejected), commit_group_id atomicity, equal-version retry no-op, pull cursor advancement with hi-water fence, CAS conflict detection with command ledger idempotency, active-writer lease, schema_epoch guard, provisional promotion buffer for enforcement slices, durable enforcement readiness promotion/demotion |
-| `redaction_boundary.rs` | Summary projection redaction tests: operator_decision_summaries, workflow_job_summaries, error_manifest_summaries, validation_verdict_summaries, viewer_sync_status, executors — verify no leakage of operator identity, company profile, raw supplier data, tender document metadata, full error context, validator reasoning, or command history |
-| `apps/web/e2e/contracts.spec.ts` | Web portal E2E: navigate to contracts list, verify read-only (no decision controls), verify keyset pagination, verify sync freshness indicator, verify Broadcast live updates, verify viewer credentials cannot access remote-owned tables |
+| `sqlite_schema.rs` | Full schema creation and migration: all tables created, all constraints enforced, all indices present, sync tracking columns populated, integer pence/bps verified, `provisional_worker_outputs`, `enforcement_readiness`, `projection_generations`, `validation_calibration_cases`, and `validation_incident_clusters` created |
+| `sqlite_supabase_sync.rs` | Push-pull round-trip: outbox entry creation, batch assembly, crash-mid-batch identical-envelope retry, terminal stale-writer re-enveloping, transactional REST RPC apply, row_version ordering, writer fencing (stale epoch rejected), lease heartbeat/expiry, commit_group_id atomicity, equal-version retry no-op and hard conflict, pull cursor advancement with hi-water fence and domain-level `remote_change_seq`, pending operator intent coalescing/CAS flush, CAS conflict detection with command ledger idempotency and post-GC replay semantics, active-writer lease, schema_epoch guard, epoch-repair `projection_generation` reseed, provisional promotion buffer for enforcement slices, durable enforcement readiness promotion/demotion, four overlay canary execution paths, calibration math boundary cases |
+| `redaction_boundary.rs` | RLS role-matrix and summary projection redaction tests: all 4 roles across table categories, operator_decision_summaries, workflow_job_summaries, error_manifest_summaries, validation_verdict_summaries, viewer_sync_status, executors — verify no leakage of operator identity, company profile, raw supplier data, tender document metadata, full error context, validator reasoning, or command history |
+| `apps/web/e2e/contracts.spec.ts` | Web portal E2E: navigate to contracts list, verify read-only (no decision controls), verify keyset pagination, verify sync freshness indicator, verify Broadcast live updates, verify viewer credentials cannot access remote-owned tables, verify two-user desktop-seeded/web-viewer visibility with no web mutation affordances |
 
 ### 4.3 Test Scenarios
 
@@ -1057,14 +1106,14 @@ CREATE TABLE viewer_sync_status (
 | Push batch with stale row_version | L4-FR-1.3.7 | Remote rejects batch (idempotent); daemon retries with current version |
 | Push batch with incompatible schema_epoch | L4-FR-1.7.1 | Sync pauses; local operation continues; operator alerted |
 | Two desktop operators make concurrent decisions | L4-FR-1.5.1, L4-FR-2.3.3 | CAS detects conflict on base_remote_revision; second operator retries with refreshed state |
-| Validator rejects output in enforcement mode | L4-FR-3.4.1, L4-FR-3.4.2 | Results quarantined as AGENT_SUSPECT_OUTPUT; error manifest created; operator can override |
+| Validator rejects output in enforcement mode | L4-FR-3.4.1, L4-FR-3.4.2 | Results quarantined as AGENT_SUSPECT_OUTPUT; error manifest created; operator override records `validation_verdicts.override_*` and promotes the original provisional payload through the normal outbox path exactly once |
 | Validator itself crashes during validation | L4-FR-3.4.2 | Fail-open: worker results advance with VALIDATION_SKIPPED_VALIDATOR_ERROR; operator can review manually |
 | Sync degraded (Supabase unreachable) | L4-FR-1.8.1, L4-FR-3.3.1-L4-FR-3.3.5 | Desktop stays in remote-degraded mode with full local operation and sync warning banner; web shows staleness indicator (amber/red); local operations continue uninterrupted |
 | Full push replay after sync recovery | L4-FR-1.3.3, L4-FR-1.3.5, L4-FR-1.3.7 | Idempotent: no duplicates; row_version ordering prevents stale overwrites |
 | Batch boundary crosses stage_run_id | L4-FR-1.3.4 | Push dispatcher rejects: batch boundaries never cross stage_run_id (enforced) |
-| Pull-before-push ordering violation | L4-FR-1.4.3 | Sync startup enforces pull first, then classify/coalesce pending intents, then resume push |
-| Network interruption during push batch | L4-FR-1.3.3, L4-FR-1.3.6 | Identical-envelope retry; batch either fully applied or fully rejected (transactional RPC) |
-| Stale daemon recovers after lease loss | L4-FR-1.6.2 | Push rejected due to stale `writer_epoch`; daemon must re-acquire lease |
+| Pull-before-push ordering violation | L4-FR-1.4.3 | Sync startup and each sync cycle enforce pull first, then classify/coalesce pending intents, then resume CAS flushing/push |
+| Network interruption or daemon crash during push batch | L4-FR-1.3.3, L4-FR-1.3.6 | Persisted `sync_batches` envelope is retried; batch either fully applied or fully rejected (transactional RPC); already-committed retry returns equal-version no-op |
+| Stale daemon recovers after lease loss | L4-FR-1.6.2 | Push rejected due to stale `writer_epoch`; daemon must wait for/acquire current lease and desktop shows writer-mode conflict if another holder is active |
 | CAS command retried after later command landed | L4-FR-1.5.2, L4-FR-1.5.3 | Command ledger returns stored conflict result (not re-evaluated against current state) |
 | Equal-version retry with matching content_hash | L4-FR-1.3.7 | No-op success; no duplicate rows created |
 | Equal-version retry with different content_hash | L4-FR-1.3.7 | Hard conflict; data corruption detected |
@@ -1116,11 +1165,14 @@ CREATE TABLE viewer_sync_status (
 | Epoch-repair reproject | Minimum path: after epoch repair, mark `projection_generation`, republish current row images from local tables, discard stale-epoch outbox entries after successful reseed | Future: full generation-based rebuild with anti-entropy |
 | Logical consistency auditor | Not implemented | Future: domain invariant checking with conditional auto-repair |
 
+`projection_generations` is a local SQLite repair ledger created by `migrations/0012_l4_sync_state.sql`: `generation_id INTEGER PRIMARY KEY`, `schema_epoch INTEGER NOT NULL`, `status TEXT CHECK (status IN ('started','published','failed'))`, `started_at`, `completed_at`, `max_local_seq_before_reseed`, `remote_acked_at`, and `error_json`. Reseed batches carry `projection_generation = generation_id`; `viewer_sync_status.projection_generation` is updated only after the reseed succeeds.
+
 **L4-FR-5.2.1 — Epoch-repair reproject minimum path is part of L4**
 - AC1: After epoch repair, daemon marks a new `projection_generation`.
-- AC2: Daemon republishes current row images from local authoritative push-owned tables.
-- AC3: Stale-epoch outbox entries are discarded only after the reseed succeeds.
-- AC4: A test proves remote projection catches up after epoch mismatch without relying on manual full rebuild.
+- AC2: Daemon inserts a `projection_generations` row with `status = 'started'` and `max_local_seq_before_reseed` before republishing.
+- AC3: Daemon republishes current row images from local authoritative push-owned tables with the active `projection_generation`.
+- AC4: Stale-epoch outbox entries are discarded only after the reseed succeeds and the repair row reaches `status = 'published'`.
+- AC5: A test proves remote projection catches up after epoch mismatch without relying on manual full rebuild.
 
 ### 5.3 Forward-Compatibility
 
@@ -1159,8 +1211,8 @@ CREATE TABLE viewer_sync_status (
 | Migration | Purpose |
 |-----------|---------|
 | `infra/supabase/migrations/0001_projection_tables.sql` | All 20 push-owned projection tables + 3 junction tables |
-| `infra/supabase/migrations/0002_remote_owned_tables.sql` | `shared_company_profile`, `shared_source_configs`, `operator_decision_heads` |
-| `infra/supabase/migrations/0003_summary_tables.sql` | `workflow_job_summaries`, `error_manifest_summaries`, `validation_verdict_summaries`, `viewer_sync_status`, `executors` |
+| `infra/supabase/migrations/0002_remote_owned_tables.sql` | `shared_company_profile`, `shared_source_configs`, `operator_decision_heads`, per-domain `remote_change_seq` sequences/triggers |
+| `infra/supabase/migrations/0003_summary_tables.sql` | `workflow_job_summaries`, `error_manifest_summaries`, `validation_verdict_summaries`, `viewer_sync_status` including `projection_generation`, `executors` |
 | `infra/supabase/migrations/0004_rls_policies.sql` | RLS policies per role (viewer, operator, admin, daemon) |
 | `infra/supabase/migrations/0005_sync_rpcs.sql` | Transactional sync apply RPC (with `writer_epoch` validation) + operator decision CAS RPC (with command ledger) |
 | `infra/supabase/migrations/0006_schema_metadata.sql` | Schema metadata table + initial schema_epoch + dedicated `active_writer_lease` table with `writer_epoch` |
@@ -1172,6 +1224,7 @@ CREATE TABLE viewer_sync_status (
 | Module | Purpose |
 |--------|---------|
 | `crates/daemon/src/db/sync.rs` | SQLite-to-Supabase push-pull sync engine |
+| `crates/daemon/src/validation/calibration.rs` | Calibration corpus aggregation, Wilson/rule-of-three math, override ingestion, and enforcement-readiness inputs |
 
 #### New Skills (4 Domain Validator Overlays)
 

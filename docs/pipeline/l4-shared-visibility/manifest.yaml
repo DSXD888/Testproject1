@@ -1,0 +1,206 @@
+feature: l4-shared-visibility
+created: "2026-05-06"
+source_doc: docs/strategy/layers/layer-4-shared-visibility.md
+source_type: layer
+entry_point: batch-1-validate
+
+paths:
+  spec: docs/strategy/layers/layer-4-shared-visibility.md
+  tdd: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-tdd.md
+  bootstrap: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-bootstrap.md
+  strategy: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-strategy.md
+  kickoff: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-kickoff.md
+  push: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-push.md
+  status: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-status.yaml
+
+bead_prefix: l4
+bead_cli: br
+bead_sync_cmd: bin/br-sync     # NEVER raw `br sync` (which may run git commands)
+existing_epic: testproject1-4zq  # "Epic: Layer 4 — Shared Visibility" (open, no children yet)
+
+agentmail:
+  enabled: true
+  project_key: /Users/alinaaitova/Desktop/Testproject1
+
+tech_stack:
+  language: "mixed (rust + typescript)"
+  rust:
+    edition: 2024
+    toolchain: "nightly (per rust-toolchain.toml)"
+    package_manager: cargo
+    build_cmd: "cargo check --all-targets"
+    test_cmd: "cargo test"
+    lint_cmd: "cargo clippy --all-targets -- -D warnings && cargo fmt --check"
+    test_framework: "cargo test (#[test], #[tokio::test])"
+    forbid: "unsafe_code"
+  typescript:
+    package_manager: bun
+    pinned_version: "bun@1.3.10"
+    build_cmd: "bun run build"
+    test_cmd: "bun run test"
+    lint_cmd: "bun run lint"
+    test_framework: "vitest (unit), playwright (e2e)"
+  new_runtime: "Next.js (apps/web — net-new in L4)"
+
+quality_gates:
+  build: "cargo check --all-targets && bun run build"
+  test_rust_full: "cargo test -p daemon --bin daemon && for t in crates/daemon/tests/*.rs; do cargo test --test \"$(basename \"$t\" .rs)\" || exit 1; done"
+  test_ts: "bun run test"
+  test_e2e: "(cd apps/desktop && bun run test:e2e) && (cd apps/web && bun run test:e2e)"
+  lint: "cargo clippy --all-targets -- -D warnings && cargo fmt --check && bun run lint"
+  ubs: "ubs $(git diff --name-only --cached)"
+
+handoff_dir: docs/pipeline/l4-shared-visibility
+
+# === Existing infrastructure that L4 builds on (reference for handoffs) ===
+existing_files:
+  daemon_main: crates/daemon/src/main.rs                       # 1.08 MB monolithic init
+  daemon_sqlite: crates/daemon/src/db/sqlite.rs                # 600 lines, single connection wrapper
+  daemon_checkpoints: crates/daemon/src/db/checkpoints.rs      # 231 lines
+  daemon_validation_policy: crates/daemon/src/validation/policy.rs       # 959 lines, L3 dry-run policy engine
+  daemon_validation_executor: crates/daemon/src/validation/executor.rs   # 1217 lines, validator skill spawner
+  daemon_validation_manifest: crates/daemon/src/validation/manifest_writer.rs  # 54 lines, hybrid manifest writer
+  daemon_errors_manifest: crates/daemon/src/errors/manifest.rs # 386 lines, error_manifests writer/queries
+  daemon_errors_markdown: crates/daemon/src/errors/markdown.rs # 101 lines
+  daemon_jobs_runner: crates/daemon/src/jobs/runner.rs         # 1027 lines, single enqueue boundary
+  daemon_jobs_claim: crates/daemon/src/jobs/claim.rs           # 386 lines
+  daemon_artifacts: crates/daemon/src/agents/artifacts.rs
+  daemon_contracts: crates/daemon/src/agents/contracts.rs
+  daemon_adapter: crates/daemon/src/agents/adapter.rs
+  daemon_arbiter: crates/daemon/src/agents/arbiter.rs
+  daemon_pty_session: crates/daemon/src/pty/session.rs
+  daemon_pty_capture: crates/daemon/src/pty/capture.rs
+  daemon_pty_health: crates/daemon/src/pty/health.rs
+  daemon_pty_hardening: crates/daemon/src/pty/hardening.rs
+  daemon_scheduler_cron: crates/daemon/src/scheduler/cron.rs
+  daemon_sources_registry: crates/daemon/src/sources/registry.rs
+  daemon_tracing_structured: crates/daemon/src/tracing/structured.rs
+  daemon_tracing_forensic: crates/daemon/src/tracing/forensic.rs
+  daemon_ipc_router: crates/daemon/src/ipc/command_router.rs
+  daemon_ipc_decisions: crates/daemon/src/ipc/handlers/decisions.rs   # writes pending_operator_intents
+  migration_l0: migrations/0001_sqlite_state_initial.sql       # 545 lines, 22 tables (no local_outbox!)
+  migration_l1: migrations/0003_sqlite_runtime.sql             # 116 lines, error_manifests/executors/source_cursors/commit_clock
+  migration_l2: migrations/0004_l2_pending_operator_intents.sql # 31 lines, pending_operator_intents (queue)
+  migration_l3: migrations/0005_l3_operational_hardening.sql   # 119 lines, validation_verdicts richer + listing_evidence + process_relations + process_aliases
+  packages_intelligence: packages/intelligence/                 # closest to "contracts-schema" today
+  packages_manifests: packages/manifests/                       # render-opportunity.ts, render-error-manifest.ts (shared)
+  packages_ui: packages/ui/                                     # contract-card-frame, manifest-viewer, freshness-badge, pipeline-badge, error-summary-list
+  packages_ui_lint_invariant: "lint rule HARD-BANS imports of @tauri-apps/api, apps/desktop, crates/daemon, supabase, transport from packages/ui"
+  apps_desktop: apps/desktop/src/                               # ContractList/ContractDetail/ManifestInbox/Errors/DaemonStatus pages
+  skills_validation_base: skills/validation/base/               # template for the 4 L4 overlays
+  agents_md: AGENTS.md                                          # ~720 lines, project rules
+
+# === Net-new in L4 (handoffs must own these explicitly) ===
+new_modules_rust:
+  - crates/daemon/src/db/sync.rs              # SQLite -> Supabase push-pull engine (NEW)
+
+new_dependencies_rust:
+  - reqwest (with rustls-tls, json features)  # daemon currently has NO HTTP client — must add
+  # OR: tokio-postgres + deadpool-postgres if direct PG path preferred over Supabase REST
+
+new_modules_ts:
+  - apps/web/                                 # entire Next.js app, 7 files (NEW)
+  - apps/web/src/app/layout.tsx
+  - apps/web/src/app/page.tsx
+  - apps/web/src/app/contracts/page.tsx
+  - apps/web/src/app/contracts/[id]/page.tsx
+  - apps/web/src/app/status/page.tsx
+  - apps/web/src/lib/supabase.ts
+  - apps/web/src/lib/broadcast.ts
+
+new_sqlite_tables:
+  - local_outbox                              # NEW in L4 — NOT actually reserved in L0 despite spec wording
+  - sync_batches                              # NEW
+  - pull_cursors                              # NEW
+
+new_supabase_artifacts:
+  config: infra/supabase/config.toml
+  migrations:
+    - infra/supabase/migrations/0001_projection_tables.sql      # 20 push-owned mirrors + 3 junction tables
+    - infra/supabase/migrations/0002_remote_owned_tables.sql    # shared_company_profile, shared_source_configs, operator_decision_heads
+    - infra/supabase/migrations/0003_summary_tables.sql         # 5 summary tables incl. viewer_sync_status, executors
+    - infra/supabase/migrations/0004_rls_policies.sql           # viewer/operator/admin/daemon roles
+    - infra/supabase/migrations/0005_sync_rpcs.sql              # apply_push_batch + update_operator_decision
+    - infra/supabase/migrations/0006_schema_metadata.sql        # schema_metadata + active-writer lease (writer_epoch)
+    - infra/supabase/migrations/0007_command_ledger.sql         # operator_decision_commands (durable CAS idempotency)
+    - infra/supabase/migrations/0008_decision_summaries.sql     # operator_decision_summaries push-owned projection
+
+new_skills:
+  - skills/validation/procurement-ingestion/   # overlay
+  - skills/validation/supplier-enrichment/     # overlay
+  - skills/validation/document-acquisition/    # overlay
+  - skills/validation/product-extraction/      # overlay
+  # Each follows skills/validation/base/ template (SKILL.md + result.schema.json + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml + validator-rubric.yaml)
+
+# === Cross-domain notes the validate-spec step must surface ===
+spec_callouts:
+  migration_filename_mismatch:
+    spec_says: "sqlite/migrations/0002_sqlite_state_sync.sql"
+    actual_repo_convention: "flat migrations/NNNN_*.sql with next-free sequence 0012"
+    resolution: "Replace with 'migrations/0012_l4_sync_state.sql' (or next available NNNN_) — improves HOW, does NOT reduce scope"
+  local_outbox_reservation:
+    spec_says: "(from L0 §2 DDL)"
+    actual: "local_outbox is NOT in migrations/0001_sqlite_state_initial.sql — L4 owns this DDL"
+    resolution: "Spec must clarify: L4 creates local_outbox in its SQLite migration; L0 does not pre-reserve it"
+  no_http_client_in_daemon:
+    issue: "crates/daemon/Cargo.toml has neither reqwest nor tokio-postgres"
+    resolution: "L4 implementation handoff must add the dependency; bootstrap doc must list this as environment prerequisite"
+  greenfield_apps_web:
+    issue: "apps/web/ does not exist; not in root package.json workspaces"
+    resolution: "L4 bootstrap must wire apps/web into the workspace and root scripts (build, test, lint)"
+  greenfield_infra_supabase:
+    issue: "infra/supabase/ does not exist"
+    resolution: "L4 creates infra/supabase/{config.toml, migrations/*.sql} from scratch"
+  ui_lint_invariant:
+    rule: "packages/ui must NOT import @tauri-apps/api, apps/desktop, crates/daemon, supabase, transport"
+    apply: "apps/web reuses packages/ui presentational components; apps/web data-fetching lives in apps/web/src/lib/{supabase.ts,broadcast.ts} (web-only)"
+  agents_md_duplication:
+    issue: "AGENTS.md has both an authoritative 'br' block (~L247-298) and a duplicated/outdated 'bd sync' block (~L651-708)"
+    resolution: "Fresh agents must use 'br' + 'bin/br-sync' (or 'br sync --flush-only' followed by manual git add .beads/ + commit)"
+
+# === Spec metadata (for ENRICHMENT after batch 1) ===
+spec_metadata:
+  total_lines: 797
+  total_sections: 5  # 1 Overview & Sync Engine, 2 Supabase Schema/RLS/Remote-Owned Tables, 3 Web Portal & Validation Enforcement, 4 Testing & Acceptance, 5 Open Questions/Forward-Compat/Dependencies
+  dod_criteria_count: 18
+  test_files_planned: 4         # sqlite_schema.rs, sqlite_supabase_sync.rs, redaction_boundary.rs, apps/web/e2e/contracts.spec.ts
+  test_files_cumulative_target: 52
+  invariants_count: 14          # §1.9 (constitutional + operational)
+  test_scenarios_count: 17      # §4.3
+  risks_count: 8                # §4.4
+  open_questions: 3             # §5.1 (validator calibration, epoch mismatch recovery, central company profile)
+  stubs: 4                      # §5.2
+  forward_compat_provisions: 3  # §5.3
+  validator_overlays: 4         # §3.5
+  calibration_corpora: 3        # clean real, weird-but-valid, mutated bad (§3.6)
+  mutation_families: 9          # §3.6 mutation table
+  pull_domains: 3               # shared_source_configs, shared_company_profile, operator_decision_heads
+  rls_roles: 4                  # viewer, operator, admin, daemon
+  cross_authority_classifications: 4  # display, automation, control, display (§2.7)
+
+# === Quality bar (L3 reference) ===
+quality_bar:
+  l3_kickoff: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-kickoff.md  # 366 lines
+  l3_push: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-push.md        # 75 lines
+  l3_tdd: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-tdd.md          # 557 lines, 11 sections
+  l3_strategy: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-strategy.md  # 478 lines, 12 sections
+  l3_bootstrap: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-bootstrap.md  # 729 lines, 16 sections
+  l3_status: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-status.yaml
+  l3_archived_handoffs: docs/pipeline/l3-operational-hardening/archived/2026-l3-operational-hardening/
+
+# === Strategy + research context ===
+strategy_root: docs/strategy/
+strategy_index: docs/strategy/cross-reference-index.md
+strategy_overview: docs/strategy/layer-strategy.md
+
+research_doc: docs/research/2026-03-08-public-procurement-intelligence-platform-research.md
+
+cross_layer_context:
+  prior_layers_built: ["L0", "L1", "L2", "L3"]
+  next_layers_blocked_on_l4: ["L5", "L6"]
+  l5_needs_from_l4: "sync engine + projection tables (so L5 enrichments visible to web viewers)"
+  l6_needs_from_l4: "operator_decision_heads + shared_company_profile + validation enforcement (constitutional gate for ready_to_bid)"
+
+milestones:
+  l4: M4
+  exit_criterion: "Two users view the same pipeline: desktop operator (read-write) + web viewer (read-only). Sync engine operational. Validation enforcement active."

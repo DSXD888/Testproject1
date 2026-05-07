@@ -113,17 +113,19 @@ bun run test
 | `WriterLeaseHarness` | `T2` / `T3` | Simulates two daemon executor IDs, lease heartbeat, expiry, writer_epoch increments, stale writer rejection, and rehome repair | `active_writer_lease`, `viewer_sync_status` |
 | `ProjectionGenerationHarness` | `T3` | Exercises schema_epoch pause, epoch repair, generation ledger, current-row reseed, stale outbox discard after publish | `projection_generations`, projection tables, `viewer_sync_status` |
 | `EnforcementHarness` | `T2` / `T3` | Drives worker -> provisional output -> validator verdict -> approve/reject/override promotion paths through existing runner/executor boundaries | `provisional_worker_outputs`, `validation_verdicts`, `error_manifests`, stage heads |
-| `CalibrationHarness` | `T1` / `T3` | Seeds corpora, mutation families, pairwise cases, cross-model audit rows, override feedback, Wilson/rule-of-three inputs, demotion thresholds | `tests/fixtures/calibration`, `validation_calibration_cases`, `validation_incident_clusters`, `enforcement_readiness` |
+| `CalibrationHarness` | `T1` / `T3` | Seeds corpora, mutation families, pairwise cases, cross-model audit rows, override feedback, Wilson/rule-of-three inputs, demotion thresholds, and event-driven readiness recomputation | `tests/fixtures/calibration`, `validation_calibration_cases`, `validation_incident_clusters`, `enforcement_readiness` |
+| `CalibrationCronHarness` | `T2` | Drives the existing `crates/daemon/src/scheduler/cron.rs` path for daily cross-model audit sampling and asserts alternate-model validator job dispatch | seeded calibration cron definitions, enforcement-active slice with new traffic |
+| `OverrideFeedbackHarness` | `T2` | Exercises `crates/daemon/src/validation/feedback.rs` called from the decision/override IPC handler so override audit, provisional promotion, calibration case, incident cluster, and mutation-template writes happen in one SQLite transaction | rejected provisional row, override command, `validation_verdicts.override_*`, `validation_calibration_cases`, `validation_incident_clusters` |
 | `OverlaySkillFixture` | `T3` | Materializes the four domain overlays with the same six-file contract as `skills/validation/base/` and runs canary/golden journeys | overlay skill dirs, result/checkpoint schemas, canary inputs, golden assertions |
 | `RedactionSentinelFixture` | `T2` | Seeds sensitive operator identity, company profile, supplier raw data, tender metadata, validator reasoning, full job context, command history | summary projection source tables plus summaries |
-| `WebPortalHarness` | `T4` | Runs `apps/web` with viewer credentials, seeded Supabase data, Broadcast channels, and Playwright traces/screenshots | Bun, Next.js app, local Supabase stack, viewer auth |
+| `WebPortalHarness` | `T4` | Runs `apps/web` with viewer credentials, seeded Supabase data, Broadcast channels, and Playwright traces/screenshots. It mirrors the current desktop Playwright convention from `apps/desktop/playwright.config.ts`: `testDir: './e2e'`, `fullyParallel: false`, `reporter: 'list'`, the single default Chromium project unless a later desktop config adds an explicit browser matrix, trace/screenshot/video retained on failure, and a Bun dev-server `webServer` with `reuseExistingServer: !process.env.CI`. | Bun, Next.js app, local Supabase stack, viewer auth |
 
 ## 6. Planned File Inventory
 
 | File | Count | Coverage |
 |------|-------|----------|
 | `crates/daemon/tests/sqlite_schema.rs` | `24` tests | SQLite L4 migration, local sync tables, indices, constraints, sync tracking, integer money/bps, migration registry, Supabase migration inventory |
-| `crates/daemon/tests/sqlite_supabase_sync.rs` | `80` tests | Outbox, batch assembly, transactional RPC apply, retry semantics, pull protocol, CAS ledger, writer fencing, schema epoch guard, degraded mode, provisional promotion, enforcement readiness, overlays, calibration |
+| `crates/daemon/tests/sqlite_supabase_sync.rs` | `80` tests | Outbox, batch assembly, transactional RPC apply, retry semantics, pull protocol, CAS ledger, writer fencing, schema epoch guard, degraded mode, provisional promotion, event-driven enforcement readiness, overlays, calibration, daily cross-model audit cron |
 | `crates/daemon/tests/redaction_boundary.rs` | `26` tests | RLS role matrix, summary projection redaction, raw-table denial, tombstone visibility, mutation RPC denial, browser credential boundary |
 | `apps/web/e2e/contracts.spec.ts` | `20` tests | Read-only web portal list/detail/status, keyset pagination, freshness states, Broadcast invalidation, viewer credential network boundary, two-user visibility |
 
@@ -178,7 +180,7 @@ bun run test
 | `L4-T-sqlite_supabase_sync-001` | `T2` | `L4TestStateDb`, `OutboxHarness` | a push-owned row mutation and its `local_outbox` row commit in the same SQLite transaction with one matching outbox entry and shared `commit_group_id` | `L4-FR-1.3.1`, `L4-FR-1.9.2` |
 | `L4-T-sqlite_supabase_sync-002` | `T2` | `L4TestStateDb`, `OutboxHarness` | if a push-owned mutation path omits the matching outbox insert, the transaction returns an error or rolls back so neither data row nor outbox row remains | `L4-FR-1.3.1`, `L4-FR-1.9.2` |
 | `L4-T-sqlite_supabase_sync-003` | `T2` | `EnforcementHarness` | an enforcement-active rejected provisional output creates no push-owned mutation and no outbox entry | `L4-FR-1.3.1`, `L4-FR-1.3.9`, `L4-FR-3.4.1` |
-| `L4-T-sqlite_supabase_sync-004` | `T2` | `OutboxHarness` | dispatcher refuses to materialize a second in-flight batch for the same stream while the prior `sync_batches` row is pending | `L4-FR-1.3.2`, `L4-FR-1.9.9` |
+| `L4-T-sqlite_supabase_sync-004` | `T2` | `OutboxHarness` | with two dispatchable batch ranges queued for the same stream, dispatcher materializes only the first `sync_batches` row and refuses a second in-flight batch until the first is acknowledged, rejected, or moved to retry | `L4-FR-1.3.2`, `L4-FR-1.9.9` |
 | `L4-T-sqlite_supabase_sync-005` | `T2` | `OutboxHarness` | daemon restart reloads the persisted in-flight `sync_batches` envelope and does not create a duplicate batch for the same local sequence range | `L4-FR-1.3.2`, `L4-FR-1.3.3` |
 | `L4-T-sqlite_supabase_sync-006` | `T3` | `SupabaseRpcClient`, `OutboxHarness` | network timeout/lost response retries the exact row set, order, content hashes, schema epoch, stage run, commit groups, and writer epoch | `L4-FR-1.3.3` |
 | `L4-T-sqlite_supabase_sync-007` | `T3` | `SupabaseRpcClient`, `OutboxHarness` | crash after batch persistence and before response causes restart to retry the persisted envelope before any later outbox rows are enveloped | `L4-FR-1.3.3` |
@@ -199,13 +201,13 @@ bun run test
 | `L4-T-sqlite_supabase_sync-022` | `T3` | `EnforcementHarness` | enforcement-active worker output with validator approval atomically updates provisional status, promotes push-owned rows, creates outbox entries, and advances stage heads | `L4-FR-1.3.9`, `L4-FR-3.4.2`, `L4-FR-1.9.11` |
 | `L4-T-sqlite_supabase_sync-023` | `T3` | `EnforcementHarness`, `RedactionSentinelFixture` | enforcement-active worker output with validator rejection leaves provisional row local, emits `AGENT_SUSPECT_OUTPUT` error manifest with operator alert, creates no outbox entry, and does not advance stage heads | `L4-FR-1.3.9`, `L4-FR-3.4.1`, `L4-FR-3.4.2` |
 | `L4-T-sqlite_supabase_sync-024` | `T3` | `EnforcementHarness` | dry-run or non-enforcement slice with validator rejection follows L3 direct-write behavior: push-owned rows and outbox entries are created, verdict is logged, and stage heads advance | `L4-FR-1.3.9`, `L4-FR-3.4.2` |
-| `L4-T-sqlite_supabase_sync-025` | `T2` | `PullCursorHarness` | failed pull in one remote-owned domain does not advance that domain cursor and does not alter other domain cursors | `L4-FR-1.4.1` |
+| `L4-T-sqlite_supabase_sync-025` | `T2` | `PullCursorHarness` | `shared_source_configs`, `shared_company_profile`, and `operator_decision_heads` maintain independent cursor rows; failed pull in one remote-owned domain does not advance that domain cursor and does not alter the other two domain cursors | `L4-FR-1.4.1` |
 | `L4-T-sqlite_supabase_sync-026` | `T3` | `PullCursorHarness` | pull reads `hiwater`, paginates `cursor < remote_change_seq <= hiwater`, injects a concurrent `remote_change_seq > hiwater` write, applies only the fenced range, advances cursor to hiwater, and reads the injected write on the next pull without skip/duplicate | `L4-FR-1.4.2`, `L4-FR-1.9.14` |
 | `L4-T-sqlite_supabase_sync-027` | `T2` | `PullCursorHarness` | each remote-owned domain assigns monotonic, non-reused `remote_change_seq` values on insert, update, and tombstone writes | `L4-FR-1.4.2`, `L4-FR-2.3.1`, `L4-FR-2.3.2`, `L4-FR-2.3.3` |
 | `L4-T-sqlite_supabase_sync-028` | `T2` | `PullCursorHarness`, `CasCommandHarness` | sync startup and every sync cycle complete remote-owned pulls before pending-intent reconciliation, CAS flush, or push dispatch | `L4-FR-1.4.3`, `L4-FR-1.9.14` |
 | `L4-T-sqlite_supabase_sync-029` | `T2` | `PullCursorHarness` | pull failure leaves CAS flushing and push dispatch for cross-authority decisions paused while local SQLite operation continues in degraded mode | `L4-FR-1.4.3`, `L4-FR-1.8.1` |
 | `L4-T-sqlite_supabase_sync-030` | `T2` | `CasCommandHarness` | queued intent with matching `base_remote_revision` flushes through CAS RPC and marks the local queue row applied after the remote decision head advances | `L4-FR-1.4.4`, `L4-FR-1.5.1` |
-| `L4-T-sqlite_supabase_sync-031` | `T2` | `CasCommandHarness` | queued intent with stale `base_remote_revision` is marked conflicted locally and surfaces structured conflict data | `L4-FR-1.4.4`, `L4-FR-1.5.1` |
+| `L4-T-sqlite_supabase_sync-031` | `T2` | `CasCommandHarness` | two concurrent operator decisions start from the same `base_remote_revision`; the first CAS command applies, the second is marked conflicted locally and surfaces structured conflict data without overwriting the remote head | `L4-FR-1.4.4`, `L4-FR-1.5.1` |
 | `L4-T-sqlite_supabase_sync-032` | `T2` | `CasCommandHarness` | three unsuperseded intents for the same process are reconciled latest-by creation time, using the L2 `queued_at DESC, id DESC` ordering; older rows receive `superseded_by_intent_id` and only the winner flushes through CAS | `L4-FR-1.4.4` |
 | `L4-T-sqlite_supabase_sync-033` | `T2` | `CasCommandHarness` | CAS conflict response carries current remote revision, current disposition, rejected payload, and drives a `decision.conflict` IPC event payload | `L4-FR-1.5.1` |
 | `L4-T-sqlite_supabase_sync-034` | `T2` | `CasCommandHarness` | applied CAS command writes `operator_decision_commands` in the same transaction as decision-head update with command id, process id, base revision, applied revision, disposition, result, and response JSON | `L4-FR-1.5.2` |
@@ -227,7 +229,7 @@ bun run test
 | `L4-T-sqlite_supabase_sync-050` | `T1` | `CalibrationHarness` | slice with compatible overlay, >=30 adjudicated rejections, >=60 audited approvals, Wilson lower bound >=7000 bps, false-pass upper bound <=500 bps, challenge coverage, and no demotion trigger becomes `eligible` | `L4-FR-3.4.3`, `L4-FR-3.4.4`, `L4-FR-3.6.14` |
 | `L4-T-sqlite_supabase_sync-051` | `T1` | `CalibrationHarness` | missing dominant failure family coverage keeps the slice in `dry_run` and records the exact missing family set | `L4-FR-3.4.4`, `L4-FR-3.6.3` |
 | `L4-T-sqlite_supabase_sync-052` | `T1` | `CalibrationHarness` | Wilson lower bound below 7000 bps blocks enforcement even when sample counts are present | `L4-FR-3.4.4`, `L4-FR-3.6.14` |
-| `L4-T-sqlite_supabase_sync-053` | `T1` | `CalibrationHarness` | rolling override spike threshold immediately writes `demoted` with demotion reason and blocks re-promotion until all gates pass | `L4-FR-3.4.5`, `L4-FR-3.4.6` |
+| `L4-T-sqlite_supabase_sync-053` | `T1` | `CalibrationHarness` | event-driven readiness recomputation runs after every `validation_verdicts` insert/update; writing the verdict/override set that crosses the rolling override-spike threshold flips the affected slice to `demoted` in `enforcement_readiness` synchronously in the same SQLite transaction, records the demotion reason, and blocks re-promotion until all gates pass | `L4-FR-3.4.5`, `L4-FR-3.4.6` |
 | `L4-T-sqlite_supabase_sync-054` | `T1` | `CalibrationHarness` | approving any critical mutated-bad assertion or total challenge pass rate below 95% immediately demotes the affected slice | `L4-FR-3.4.5`, `L4-FR-3.6.3` |
 | `L4-T-sqlite_supabase_sync-055` | `T1` | `CalibrationHarness` | anomaly-conditioned validator error rate over threshold demotes the affected slice and records the threshold snapshot | `L4-FR-3.4.5`, `L4-FR-3.4.6` |
 | `L4-T-sqlite_supabase_sync-056` | `T1` | `CalibrationHarness` | worker behavior version outside overlay compatible range disables enforcement immediately | `L4-FR-3.4.5`, `L4-FR-3.5.1`-`L4-FR-3.5.4` |
@@ -239,19 +241,19 @@ bun run test
 | `L4-T-sqlite_supabase_sync-062` | `T3` | `CalibrationHarness` | each skill family has 25-30 clean real fixture/live cases, source artifacts, and `corpus_kind = 'clean'` rows | `L4-FR-3.6.1` |
 | `L4-T-sqlite_supabase_sync-063` | `T3` | `CalibrationHarness` | each skill family has 15-20 weird-valid cases covering layout change, localization, partial honest data, and low-result-count valid examples without forced rejection | `L4-FR-3.6.2` |
 | `L4-T-sqlite_supabase_sync-064` | `T3` | `CalibrationHarness` | each skill family has 30-50 mutated-bad cases derived from real good runs and stored with `corpus_kind = 'mutated'` plus mutation family | `L4-FR-3.6.3` |
-| `L4-T-sqlite_supabase_sync-065` | `T1` | `CalibrationHarness` | URL chain swap mutation is present in challenge bank and a validator approval fails the golden assertion | `L4-FR-3.6.4` |
-| `L4-T-sqlite_supabase_sync-066` | `T1` | `CalibrationHarness` | wrong page-kind mutation is present in challenge bank and a validator approval fails the golden assertion | `L4-FR-3.6.5` |
-| `L4-T-sqlite_supabase_sync-067` | `T1` | `CalibrationHarness` | locale/currency swap mutation is present in challenge bank and a validator approval fails the golden assertion | `L4-FR-3.6.6` |
-| `L4-T-sqlite_supabase_sync-068` | `T1` | `CalibrationHarness` | pack/unit distortion mutation is present in challenge bank and a validator approval fails the golden assertion | `L4-FR-3.6.7` |
-| `L4-T-sqlite_supabase_sync-069` | `T1` | `CalibrationHarness` | accessory-vs-primary confusion mutation is present in challenge bank and a validator approval fails the golden assertion | `L4-FR-3.6.8` |
-| `L4-T-sqlite_supabase_sync-070` | `T1` | `CalibrationHarness` | selective warning omission mutation is present in challenge bank and a validator approval fails the golden assertion | `L4-FR-3.6.9` |
-| `L4-T-sqlite_supabase_sync-071` | `T1` | `CalibrationHarness` | manifest/result count mismatch mutation is present in challenge bank and a validator approval fails the golden assertion | `L4-FR-3.6.10` |
-| `L4-T-sqlite_supabase_sync-072` | `T1` | `CalibrationHarness` | fabricated evidence references mutation is present in challenge bank and a validator approval fails the golden assertion | `L4-FR-3.6.11` |
-| `L4-T-sqlite_supabase_sync-073` | `T1` | `CalibrationHarness` | cross-segment duplicate/gap mutation is present in challenge bank and a validator approval fails the golden assertion | `L4-FR-3.6.12` |
+| `L4-T-sqlite_supabase_sync-065` | `T1` | `CalibrationHarness` | wrong source/domain mutation seeds a worker manifest claiming an FTS or approved supplier source while the evidence URL chain contains an unapproved domain or redirect target; validator must emit `rejected` with issue category `source_identity` because `agent_claimed_source_url` conflicts with daemon-recorded navigation evidence | `L4-FR-3.6.4` |
+| `L4-T-sqlite_supabase_sync-066` | `T1` | `CalibrationHarness` | wrong page-kind mutation seeds a worker claim that a detail/category page was inspected while the captured DOM/page fingerprint is search-results or listing-index shape; validator must emit `rejected` with issue category `page_kind` because page-kind evidence conflicts with the claimed extraction basis | `L4-FR-3.6.5` |
+| `L4-T-sqlite_supabase_sync-067` | `T1` | `CalibrationHarness` | locale/currency swap mutation seeds a quote claiming GBP/UK locale while evidence shows EUR/non-UK locale markers; validator must emit `rejected` with issue category `currency_locale` because currency and locale evidence contradict the normalized price claim | `L4-FR-3.6.6` |
+| `L4-T-sqlite_supabase_sync-068` | `T1` | `CalibrationHarness` | pack/unit distortion mutation seeds a quote claiming per-unit pricing while evidence says per-box, per-pallet, or pack quantity; validator must emit `rejected` with issue category `unit_basis` because unit-basis evidence contradicts normalized unit price | `L4-FR-3.6.7` |
+| `L4-T-sqlite_supabase_sync-069` | `T1` | `CalibrationHarness` | accessory-vs-primary mutation seeds a candidate claiming the primary requested good while title/body/evidence identify an accessory, refill, cover, spare, or consumable; validator must emit `rejected` with issue category `product_identity` because product identity evidence contradicts the primary-item claim | `L4-FR-3.6.8` |
+| `L4-T-sqlite_supabase_sync-070` | `T1` | `CalibrationHarness` | selective warning omission mutation seeds a manifest claiming two warnings while daemon OQG/anomaly evidence records five warnings including at least one material issue; validator must emit `rejected` with issue category `warning_omission` because the narrative omits required warning evidence | `L4-FR-3.6.9` |
+| `L4-T-sqlite_supabase_sync-071` | `T1` | `CalibrationHarness` | manifest/result count mismatch mutation seeds a manifest claiming 12 notices/lots/results while result-contract and daemon appendix evidence contains 8; validator must emit `rejected` with issue category `count_mismatch` because claimed counts conflict with machine-counted result evidence | `L4-FR-3.6.10` |
+| `L4-T-sqlite_supabase_sync-072` | `T1` | `CalibrationHarness` | fabricated evidence mutation seeds citations or anchors that do not exist in the manifest appendix, artifact index, DOM capture, or result-contract evidence; validator must emit `rejected` with issue category `fabricated_evidence` because referenced evidence cannot be resolved | `L4-FR-3.6.11` |
+| `L4-T-sqlite_supabase_sync-073` | `T1` | `CalibrationHarness` | cross-segment duplicate/gap mutation seeds continuation-chain segments with duplicated IDs or missing ranges while the manifest claims complete contiguous coverage; validator must emit `rejected` with issue category `continuation_integrity` because segment evidence contradicts the completeness claim | `L4-FR-3.6.12` |
 | `L4-T-sqlite_supabase_sync-074` | `T1` | `CalibrationHarness` | pairwise clean/corrupted siblings share a durable `pair_id`; corrupted sibling must rank less trustworthy and failures feed readiness/demotion inputs | `L4-FR-3.6.13` |
-| `L4-T-sqlite_supabase_sync-075` | `T1` | `CalibrationHarness` | Wilson lower-bound and rule-of-three pure functions assert boundary cases around 30 rejected/flagged and 60 audited approvals | `L4-FR-3.6.14` |
-| `L4-T-sqlite_supabase_sync-076` | `T3` | `CalibrationHarness` | cross-model audit samples enforcement-active slices at least once per 30 days with new traffic, records model family and disagreement metadata, and can block or demote | `L4-FR-3.6.15` |
-| `L4-T-sqlite_supabase_sync-077` | `T2` | `CalibrationHarness`, `EnforcementHarness` | every operator override updates `validation_verdicts.override_*`, writes/updates calibration case and incident cluster rows in the same SQLite transaction, and stores candidate mutation template JSON | `L4-FR-3.4.2`, `L4-FR-3.6.16` |
+| `L4-T-sqlite_supabase_sync-075` | `T1` | `CalibrationHarness` | Wilson lower-bound and rule-of-three pure functions assert known boundary cases: 26 correct of 30 adjudicated rejected/flagged cases yields a Wilson 95% lower bound of approximately 7030-7040 bps and passes the >=7000 bps threshold; 25/30 fails; 0 misses in 60 audited approvals yields a rule-of-three false-pass upper bound of 500 bps; 0/59 fails | `L4-FR-3.6.14` |
+| `L4-T-sqlite_supabase_sync-076` | `T3` | `CalibrationCronHarness` | daily `validation-cross-model-audit-sample` cron dispatch through `crates/daemon/src/scheduler/cron.rs` selects enforcement-active slices with new traffic, enqueues an alternate-model validator job, records model family and disagreement metadata, emits correlation alerts on disagreement clusters, and can block or demote | `L4-FR-3.6.15` |
+| `L4-T-sqlite_supabase_sync-077` | `T2` | `OverrideFeedbackHarness`, `CalibrationHarness`, `EnforcementHarness` | the decision/override IPC path calls `validation/feedback.rs`; operator override of a rejected provisional result updates `validation_verdicts.override_*`, changes `provisional_worker_outputs.validation_status` to `approved`, promotes the original payload through the normal outbox path exactly once, writes/updates calibration case and incident cluster rows in the same SQLite transaction, and stores candidate mutation template JSON | `L4-FR-3.4.2`, `L4-FR-3.6.16` |
 | `L4-T-sqlite_supabase_sync-078` | `T2` | `PullCursorHarness`, `RoleMatrixFixture` | default tombstone retention is at least 14 days and daemon pull policies can see tombstoned remote-owned rows until retention expires | `L4-FR-3.6.17`, `L4-FR-2.5.10` |
 | `L4-T-sqlite_supabase_sync-079` | `T3` | `EnforcementHarness` | `jobs/runner.rs` emits an enforcement-active worker job into provisional storage, enqueues/links validator job through the existing runner boundary, and promotes only after approved verdict | `L4-FR-1.3.9`, `L4-FR-3.4.2` |
 | `L4-T-sqlite_supabase_sync-080` | `T3` | `EnforcementHarness` | validator crash/timeout/invalid payload follows L3 fail-open semantics with `VALIDATION_SKIPPED_VALIDATOR_ERROR`, advances worker result, and records validator failure manifest without treating it as an enforcement rejection | `L4-FR-3.4.2` |
@@ -298,17 +300,17 @@ bun run test
 | `L4-T-contracts_spec-005` | `T4` | `WebPortalHarness` | green freshness state appears when `lastPushSuccessAt` is younger than 90 seconds with label/tone/tooltip from the shared FreshnessBadge path | `L4-FR-3.3.1`, `L4-FR-3.3.4` |
 | `L4-T-contracts_spec-006` | `T4` | `WebPortalHarness` | amber freshness state appears for 90 seconds through 5 minutes and states that updates are delayed | `L4-FR-3.3.2`, `L4-FR-3.3.4` |
 | `L4-T-contracts_spec-007` | `T4` | `WebPortalHarness` | red freshness state appears after 5 minutes or explicit offline health and states that last-known data is shown | `L4-FR-3.3.3`, `L4-FR-3.3.4` |
-| `L4-T-contracts_spec-008` | `T4` | `WebPortalHarness` | `/contracts` subscribes to `org:{orgId}:contracts` and `org:{orgId}:sync`; `contracts.changed` shows an `N new/updated` pill and does not reorder visible rows | `L4-FR-3.2.1`, `L4-FR-3.2.2`, `L4-FR-3.2.4` |
+| `L4-T-contracts_spec-008` | `T4` | `WebPortalHarness` | `/contracts` subscribes to `org:{orgId}:contracts` and `org:{orgId}:sync`; after a remote projection write commits, the Broadcast invalidation hint is received within 3 seconds, `contracts.changed` shows an `N new/updated` pill, and visible rows do not reorder | `L4-FR-3.2.1`, `L4-FR-3.2.2`, `L4-FR-3.2.4` |
 | `L4-T-contracts_spec-009` | `T4` | `WebPortalHarness` | detail page subscribes to `process:{processId}:updates` and `org:{orgId}:sync`; minor `process.updated` refreshes only affected section | `L4-FR-3.2.1`, `L4-FR-3.2.4` |
 | `L4-T-contracts_spec-010` | `T4` | `WebPortalHarness` | major `process.updated` for manifest/landed cost/canonical process shows a refresh chip and does not replace visible content until user action | `L4-FR-3.2.2`, `L4-FR-3.2.4` |
 | `L4-T-contracts_spec-011` | `T4` | `WebPortalHarness` | contract detail renders candidates, quotes, margins, manifest, errors, and decision summary from projection/summary tables using `packages/ui` components | `L4-FR-3.1.5`, `L4-FR-2.2.1`-`L4-FR-2.2.6` |
 | `L4-T-contracts_spec-012` | `T4` | `WebPortalHarness` | status page renders pipeline status, job summaries, error summaries, sync health, and projection generation from summary projections | `L4-FR-3.1.6`, `L4-FR-3.7.1` |
-| `L4-T-contracts_spec-013` | `T4` | `WebPortalHarness` | viewer credential network requests can SELECT summaries/projections and receive explicit 401/403 or RLS denial for `shared_company_profile`, `shared_source_configs`, and `operator_decision_heads` raw tables | `L4-FR-2.5.9`, `L4-FR-3.1.1` |
+| `L4-T-contracts_spec-013` | `T4` | `WebPortalHarness` | viewer credential network requests can SELECT summaries/projections; a direct Supabase browser-client query to `shared_company_profile`, `shared_source_configs`, and `operator_decision_heads` receives explicit 401/403 or RLS denial | `L4-FR-2.5.9`, `L4-FR-3.1.1` |
 | `L4-T-contracts_spec-014` | `T4` | `WebPortalHarness` | viewer credential attempts to call `update_operator_decision`, `apply_push_batch`, INSERT, UPDATE, or DELETE fail at the network/API boundary | `L4-FR-2.5.9`, `L4-FR-2.5.10` |
 | `L4-T-contracts_spec-015` | `T4` | `WebPortalHarness` | bundled browser code and runtime environment contain no service-role key, admin key, operator token, daemon token, or local daemon endpoint | `L4-FR-2.5.9`, `L4-FR-3.1.1` |
 | `L4-T-contracts_spec-016` | `T1` | package lint | `packages/ui` remains presentation-only: no Supabase, Broadcast, Tauri, daemon, desktop, or transport imports; `apps/web/src/lib/supabase.ts` is the sole direct Supabase boundary | `L4-FR-3.1.1`, `L4-FR-5.4.3` |
 | `L4-T-contracts_spec-017` | `T4` | `WebPortalHarness`, desktop seed fixture | desktop writer seeds projection data through the sync path, web viewer sees the same process list/detail/status without mutation affordances | `L4-FR-1.8.1`, `L4-FR-3.1.1`, `L4-FR-3.3.5` |
-| `L4-T-contracts_spec-018` | `T4` | `WebPortalHarness` | when sync is degraded/offline, desktop remains locally read-write while web shows stale amber/red state and no Broadcast data-change updates | `L4-FR-1.8.1`, `L4-FR-3.3.1`-`L4-FR-3.3.5` |
+| `L4-T-contracts_spec-018` | `T4` | `WebPortalHarness` | when sync is degraded/offline or Broadcast is killed mid-session, desktop remains locally read-write, web shows stale amber/red state and a red realtime badge, no Broadcast data-change updates are applied, and a subsequent projection fetch degrades gracefully without exposing mutation controls or privileged errors | `L4-FR-1.8.1`, `L4-FR-3.3.1`-`L4-FR-3.3.5` |
 | `L4-T-contracts_spec-019` | `T4` | `WebPortalHarness` | `sync.updated` with increased `projectionGeneration` invalidates stale page snapshots and refetches without mixing old generation rows | `L4-FR-3.2.2`, `L4-FR-3.7.1`, `L4-FR-5.2.1` |
 | `L4-T-contracts_spec-020` | `T1` | package lint | web app imports `packages/ui` and `packages/contracts-schema` but does not import desktop modules, Tauri APIs, daemon code, SQLite, or IPC transport | `L4-FR-3.1.1`-`L4-FR-3.1.8` |
 
@@ -334,6 +336,61 @@ The tables below make the non-negotiable coverage targets greppable without repl
 | Validation enforcement | `L4-T-sqlite_supabase_sync-050`, `053`, `054`, `055`, `056`, `057` |
 | RLS on all Supabase tables | `L4-T-redaction_boundary-001`-`009` |
 | Fenced pull-before-push ordering | `L4-T-sqlite_supabase_sync-026`, `028` |
+
+#### Push Engine Constitutional Coverage
+
+| Push invariant / case | Dedicated Test ID(s) | Required failure mode |
+|-----------------------|----------------------|-----------------------|
+| Single transactional RPC; partial apply forbidden | `L4-T-sqlite_supabase_sync-014` | one invalid row leaves every target table unchanged |
+| Push-owned data and outbox row in same SQLite transaction | `L4-T-sqlite_supabase_sync-001`, `002` | injected missing outbox rolls back data and outbox together |
+| Active writer lease with fencing token; stale epoch rejected | `L4-T-sqlite_supabase_sync-039`, `040`, `041`, `042` | two-daemon simulation rejects stale or concurrent writer |
+| `schema_epoch` on every batch; mismatch pauses sync | `L4-T-sqlite_supabase_sync-009`, `044` | projection writes stop while local operation continues |
+| Batch boundaries never cross `stage_run_id` | `L4-T-sqlite_supabase_sync-010` | dispatcher refuses the mixed-run batch |
+| Batch boundaries never split `commit_group_id` | `L4-T-sqlite_supabase_sync-011` | batch size cannot split a local transaction group |
+| Single-in-flight batch | `L4-T-sqlite_supabase_sync-004` | two queued batches produce only one in-flight envelope |
+| Equal version + matching `content_hash` | `L4-T-sqlite_supabase_sync-016` | no-op success and local outbox acknowledgement |
+| Equal version + different `content_hash` | `L4-T-sqlite_supabase_sync-017` | hard conflict classified as corruption |
+| Incoming `row_version = remote + 1` | `L4-T-sqlite_supabase_sync-018` | normal apply exactly once |
+| Older version or larger jump | `L4-T-sqlite_supabase_sync-019` | stale/out-of-order rejection without mutation |
+
+#### RLS Role / Category Assertion Grid
+
+These 28 cells are assertion-bearing. The listed tests must execute the role/category check with role-scoped credentials or role-scoped DB sessions; UI-only evidence is invalid.
+
+| Category | viewer | operator | admin | daemon |
+|----------|--------|----------|-------|--------|
+| Push-owned projections | `L4-T-redaction_boundary-001`, `009` SELECT only | `L4-T-redaction_boundary-001` SELECT only | `L4-T-redaction_boundary-001` SELECT | `L4-T-redaction_boundary-001`, `023` mutate only through `apply_push_batch` |
+| Push-owned summaries | `L4-T-redaction_boundary-002`, `010`-`015` SELECT only | `L4-T-redaction_boundary-002` SELECT only | `L4-T-redaction_boundary-002` SELECT | `L4-T-redaction_boundary-002` mutate only through `apply_push_batch` |
+| Remote-owned config (`shared_company_profile`, `shared_source_configs`) | `L4-T-redaction_boundary-003`, `004`, `009`, `L4-T-contracts_spec-013` denied | `L4-T-redaction_boundary-003`, `004` denied | `L4-T-redaction_boundary-003`, `004`, `024` full CRUD | `L4-T-redaction_boundary-003`, `004`, `021` SELECT including tombstones |
+| Remote-owned decisions (`operator_decision_heads`) | `L4-T-redaction_boundary-005`, `009`, `L4-T-contracts_spec-013` denied | `L4-T-redaction_boundary-005`, `022` SELECT plus CAS RPC only, direct UPDATE denied | `L4-T-redaction_boundary-005`, `024` full CRUD | `L4-T-redaction_boundary-005`, `021` SELECT including tombstones |
+| Decision display projection (`operator_decision_summaries`) | `L4-T-redaction_boundary-006`, `015`, `020` SELECT redacted summary only | `L4-T-redaction_boundary-006`, `020` SELECT redacted summary only | `L4-T-redaction_boundary-006` SELECT | `L4-T-redaction_boundary-006` mutate only through `apply_push_batch` |
+| Sync infrastructure (`schema_metadata`, `active_writer_lease`) | `L4-T-redaction_boundary-007`, `009` denied | `L4-T-redaction_boundary-007` denied | `L4-T-redaction_boundary-007` SELECT/UPDATE | `L4-T-redaction_boundary-007`, `L4-T-sqlite_supabase_sync-039` SELECT/UPDATE |
+| CAS infrastructure (`operator_decision_commands`) | `L4-T-redaction_boundary-008`, `020` denied | `L4-T-redaction_boundary-008`, `020` denied | `L4-T-redaction_boundary-008` SELECT | `L4-T-redaction_boundary-008`, `L4-T-sqlite_supabase_sync-034` INSERT/SELECT through CAS behavior |
+
+#### Enforcement Runtime Mechanics
+
+| Mechanism | Binding Decision | Dedicated Test ID(s) |
+|-----------|------------------|----------------------|
+| Demotion trigger fire point | Event-driven: after every `validation_verdicts` insert/update, the policy/calibration path recomputes readiness for the affected slice and persists `enforcement_readiness` in the same SQLite transaction. | `L4-T-sqlite_supabase_sync-053`, `054`, `055`, `056` |
+| Override feedback loop location | `crates/daemon/src/validation/feedback.rs`, called by the decision/override IPC handler that records `validation_verdicts.override_*`. | `L4-T-sqlite_supabase_sync-077` |
+| Cross-model audit cadence | Daily cron entry through `crates/daemon/src/scheduler/cron.rs`; the cron selects enforcement-active slices with new traffic and must satisfy the at-least-once-per-30-days spec requirement. | `L4-T-sqlite_supabase_sync-076` |
+| Wilson-bound and rule-of-three implementation | Pure functions in `crates/daemon/src/validation/calibration.rs`; `validation/policy.rs` consumes persisted bps fields from `enforcement_readiness`. | `L4-T-sqlite_supabase_sync-050`, `052`, `075` |
+
+#### Enforcement Readiness Prerequisite Coverage
+
+| Readiness prerequisite / demotion trigger | Dedicated Test ID(s) | Assertion |
+|-------------------------------------------|----------------------|-----------|
+| Overlay compatible with worker behavior version | `L4-T-sqlite_supabase_sync-050`, `056`, `058`-`061` | compatible version allows eligibility; incompatible worker behavior immediately demotes/disables enforcement |
+| At least 30 adjudicated rejected/flagged cases with known ground truth | `L4-T-sqlite_supabase_sync-050`, `052`, `075` | `30` satisfies the sample-count gate; `29` blocks eligibility before bps thresholds are considered |
+| At least 60 audited approvals checked for silent misses | `L4-T-sqlite_supabase_sync-050`, `052`, `075` | `60` satisfies the approval-audit gate; `59` blocks eligibility and fails the rule-of-three boundary case |
+| Wilson-bound reject precision lower bound >= 70% | `L4-T-sqlite_supabase_sync-050`, `052`, `075` | `26/30` passes at approximately `7030-7040` bps; `25/30` fails |
+| Rule-of-three false-pass upper bound <= 5% | `L4-T-sqlite_supabase_sync-050`, `052`, `075` | `0` misses in `60` audited approvals passes at `500` bps; `0/59` fails |
+| Dominant failure-family coverage exists | `L4-T-sqlite_supabase_sync-051`, `065`-`073` | missing family set is persisted and blocks eligibility; all nine mutation-family tests provide concrete challenge-bank evidence |
+| No active demotion trigger | `L4-T-sqlite_supabase_sync-050`, `053`-`056` | eligible state requires no trigger; any active trigger flips or keeps the slice out of enforcement |
+| Override-rate spike demotion trigger | `L4-T-sqlite_supabase_sync-053`, `077` | override writes can cross the rolling threshold and demote synchronously |
+| Challenge-bank regression demotion trigger | `L4-T-sqlite_supabase_sync-054`, `065`-`073` | critical mutated-bad approval or pass rate below 95% demotes |
+| Anomaly-conditioned validator error rise demotion trigger | `L4-T-sqlite_supabase_sync-055` | error rate over threshold demotes and records threshold snapshot |
+| Worker behavior version exits compatible range | `L4-T-sqlite_supabase_sync-056` | incompatible behavior version disables enforcement immediately |
 
 #### Section 4.3 Scenarios
 
@@ -549,7 +606,8 @@ Coverage accounting below is requirement-bearing. Static gates also enforce rele
 | Mutation families covered | `9 / 9` |
 | Summary projections covered | `6 / 6` |
 | RLS roles covered | `4 / 4` |
-| RLS table categories covered | `8 / 8` |
+| RLS role/category assertions covered | `28 / 28` |
+| RLS table categories covered | `7 / 7` |
 | Validator overlays covered | `4 / 4` |
 | Orphan requirements | `0` |
 | Duplicate test IDs | `0` |
@@ -560,6 +618,6 @@ Coverage accounting below is requirement-bearing. Static gates also enforce rele
 - Beads that touch sync protocol must include the relevant `L4-T-sqlite_supabase_sync-*` IDs and the full Stage Validation Test Gate from section 7.
 - Beads that touch Supabase schema or RLS must include both `sqlite_schema.rs` and `redaction_boundary.rs` IDs. RLS cannot be signed off with UI-only tests.
 - Beads that touch `apps/web` must include `L4-T-contracts_spec-*`, `CI-L4-005`, `CI-L4-006`, and the `packages/ui` import-boundary checks.
-- Beads that touch validation enforcement must include `L4-T-sqlite_supabase_sync-022`, `023`, `024`, `077`, `079`, and `080` so dry-run, approval, rejection, override, runner staging, and validator-crash paths remain distinct.
-- Beads that touch calibration must include the mutation-family IDs `L4-T-sqlite_supabase_sync-065` through `073`, pairwise ID `074`, math ID `075`, cross-model ID `076`, and override feedback ID `077`.
+- Beads that touch validation enforcement must include `L4-T-sqlite_supabase_sync-022`, `023`, `024`, `053`, `077`, `079`, and `080` so dry-run, approval, rejection, event-driven demotion, override, runner staging, and validator-crash paths remain distinct.
+- Beads that touch calibration must include the mutation-family IDs `L4-T-sqlite_supabase_sync-065` through `073`, pairwise ID `074`, math ID `075`, daily cross-model cron ID `076`, and override feedback ID `077`.
 - The Bootstrap companion document owns environment setup, Supabase provisioning, dependency additions, scaffold commands, fixtures, and command matrix. This TDD owns test intent and required assertions.

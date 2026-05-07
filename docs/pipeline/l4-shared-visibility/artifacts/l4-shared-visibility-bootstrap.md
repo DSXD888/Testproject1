@@ -52,6 +52,7 @@ The chosen Supabase test approach is the local Supabase CLI Docker stack. This p
 | Supabase env vars | daemon sync, web viewer auth, tests | see env var table below |
 | `apps/web` workspace wiring | web portal build/test/lint execution | root `bun run build`, `bun run test`, `bun run lint` include web |
 | `packages/ui` import boundary | shared UI stays presentation-only | root lint `rg` boundary check |
+| desktop Playwright template | web E2E mirrors existing project conventions | current path is `apps/desktop/playwright.config.ts`; `apps/desktop/e2e/playwright.config.ts` is not present in this checkout |
 | calibration corpus root | enforcement readiness tests | `test -d tests/fixtures/calibration` |
 
 Required environment variables:
@@ -61,6 +62,7 @@ Required environment variables:
 | `SUPABASE_URL` | daemon, web, tests | local or hosted Supabase API URL |
 | `SUPABASE_ANON_KEY` | web viewer client | anon/viewer-scoped key with RLS enabled |
 | `SUPABASE_SERVICE_ROLE_KEY` | daemon/test harness only | service role key; never exposed to browser |
+| `SUPABASE_PROJECT_ID` | Supabase CLI link/deploy | hosted project ref from the Supabase dashboard URL |
 | `SUPABASE_JWT_SECRET` | local role token generation | JWT secret from local stack |
 | `L4_SUPABASE_DB_URL` | migration and assertion harness | Postgres connection string for local Supabase DB |
 | `L4_VIEWER_EMAIL` | Playwright auth seed | viewer test account email |
@@ -176,7 +178,7 @@ tmp_root="$(mktemp -d)"
 touch "$tmp_root/probe" || fail 'temp filesystem not writable'
 pass 'temp filesystem writable'
 
-for name in SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_JWT_SECRET L4_ORG_ID; do
+for name in SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_PROJECT_ID SUPABASE_JWT_SECRET L4_ORG_ID; do
   if test -n "${!name:-}"; then
     pass "env present: $name"
   else
@@ -249,6 +251,8 @@ Create `apps/web/package.json` with explicit versions and no dependency ranges. 
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@project/contracts-schema": "workspace:*",
+    "@project/ui": "workspace:*",
     "@supabase/supabase-js": "2.103.2",
     "next": "16.1.0",
     "react": "19.2.4",
@@ -264,7 +268,78 @@ Create `apps/web/package.json` with explicit versions and no dependency ranges. 
 }
 ```
 
-### 5.4 `packages/ui` Invariants
+If `packages/contracts-schema` is still absent when L4 implementation starts, create that boundary package before wiring `apps/web`; the L4 spec requires `apps/web/src/lib/supabase.ts` to use those shared types, and substituting daemon-local or web-local duplicated types is not an acceptable shortcut.
+
+### 5.4 `apps/web/tsconfig.json`
+
+Create `apps/web/tsconfig.json` with strict typechecking and workspace package resolution:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "es2022"],
+    "allowJs": false,
+    "skipLibCheck": false,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true
+  },
+  "include": ["next-env.d.ts", "src/**/*.ts", "src/**/*.tsx", "e2e/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+```
+
+### 5.5 `apps/web/playwright.config.ts`
+
+Mirror the real desktop config location, `apps/desktop/playwright.config.ts`; `apps/desktop/e2e/playwright.config.ts` is not present in this checkout. The web config minimum is:
+
+```typescript
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './e2e',
+  timeout: 60_000,
+  fullyParallel: false,
+  reporter: 'list',
+  use: {
+    baseURL: 'http://127.0.0.1:3000',
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure'
+  },
+  webServer: {
+    command: 'bun run dev',
+    url: 'http://127.0.0.1:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000
+  }
+});
+```
+
+This mirrors the desktop project conventions observed on 2026-05-06: tests live in `./e2e`, Playwright uses the single default Chromium project because no explicit `projects` array is configured, `fullyParallel` is `false`, reporter is `list`, traces/screenshots/video are retained on failure, and the app starts through `bun run dev` with `reuseExistingServer: !process.env.CI`.
+
+### 5.6 `apps/web/next.config.ts`
+
+Create a minimal typed Next config:
+
+```typescript
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
+  reactStrictMode: true
+};
+
+export default nextConfig;
+```
+
+### 5.7 `packages/ui` Invariants
 
 `packages/ui` remains presentation-only:
 
@@ -325,16 +400,27 @@ and register:
 
 Create `infra/supabase/config.toml` and `infra/supabase/migrations/`.
 
-Initialize the local project from the repository root:
+Use Supabase CLI `>= 2.98.1`. Initialize the local project from the repository root:
 
 ```bash
 mkdir -p infra
 (cd infra && supabase init)
 (cd infra/supabase && supabase start)
 (cd infra/supabase && supabase status --output env)
+(cd infra/supabase && supabase migration up)
 ```
 
-Persist only non-secret scaffold files in the repo. Copy generated local keys into an untracked `.env.local` or CI secret store; never commit service-role credentials.
+Link a hosted project only after `SUPABASE_PROJECT_ID` is set to the project ref from `https://supabase.com/dashboard/project/<project-ref>`:
+
+```bash
+test -n "${SUPABASE_PROJECT_ID:?SUPABASE_PROJECT_ID required}"
+(cd infra/supabase && supabase login)
+(cd infra/supabase && supabase link --project-ref "$SUPABASE_PROJECT_ID")
+(cd infra/supabase && supabase db push --dry-run)
+(cd infra/supabase && supabase db push)
+```
+
+Local migration validation uses `supabase migration up` or `supabase db reset` inside `infra/supabase`; hosted deployment uses `supabase db push` after `supabase link`. Persist only non-secret scaffold files in the repo. Copy generated local keys into an untracked `.env.local` or CI secret store; never commit service-role credentials.
 
 Required migrations:
 
@@ -450,6 +536,50 @@ Domain checks by overlay:
 
 ## 8. Test Workspace Layout
 
+Current daemon integration baseline observed during the 2026-05-06 fresh-eyes audit is 39 existing files under `crates/daemon/tests/` before L4 adds its three daemon integration files. Re-run `find crates/daemon/tests -maxdepth 1 -type f -name '*.rs' -print | sort` at implementation start because this repo is actively edited by multiple agents.
+
+```text
+adapter_claude.rs
+adapter_codex.rs
+adapter_result_contract.rs
+agent_contract_session.rs
+agent_contracts_finder_ingestion.rs
+agent_error_manifest.rs
+agent_health_detection.rs
+agent_procurement_ingestion.rs
+agent_pty_session.rs
+agent_supplier_enrichment.rs
+cron_scheduler.rs
+fault_host_events.rs
+fault_partial_failure.rs
+fault_process_cleanup.rs
+fault_pty_edge_cases.rs
+ipc_handshake.rs
+job_claim.rs
+observability_telemetry.rs
+pdf_extraction_cascade.rs
+pdf_extraction_skill_inventory.rs
+pdf_lot_product_refresh.rs
+pdf_semantic_extraction.rs
+pdf_structural_extraction.rs
+replay_contract_sessions.rs
+replay_pty_sessions.rs
+resource_arbiter.rs
+schema_activation.rs
+session_reaper.rs
+skill_canary_harness.rs
+skill_drift_monitor.rs
+skill_golden_journeys.rs
+skill_lint.rs
+skill_shadow_compare.rs
+validation_canary_health.rs
+validation_dry_run.rs
+validation_executor.rs
+validation_golden_verdicts.rs
+validation_policy.rs
+validation_retro_backlog.rs
+```
+
 ```text
 crates/daemon/tests/
   support/
@@ -458,6 +588,7 @@ crates/daemon/tests/
     sync.rs                       # outbox, batch, pull, CAS, lease helpers
     redaction.rs                  # sentinel fixtures
     calibration.rs                # corpora, mutations, Wilson/rule-of-three helpers
+    feedback.rs                   # override feedback fan-out assertions
     validation_enforcement.rs     # provisional promotion harness
   sqlite_schema.rs
   sqlite_supabase_sync.rs
@@ -553,12 +684,27 @@ Must provide:
 - `CalibrationHarness::wilson_lower_bound_bps(correct, total)`
 - `CalibrationHarness::rule_of_three_false_pass_upper_bound_bps(misses, audited)`
 - `CalibrationHarness::evaluate_readiness(slice_id)`
+- `CalibrationHarness::recompute_readiness_after_verdict(tx, verdict_id)`
 - `CalibrationHarness::trigger_override_spike(slice_id)`
 - `CalibrationHarness::trigger_challenge_regression(slice_id)`
 - `CalibrationHarness::trigger_anomaly_error_rise(slice_id)`
 - `CalibrationHarness::ingest_override(verdict_id)`
+- `CalibrationHarness::assert_wilson_known_case_26_of_30()`
+- `CalibrationHarness::assert_rule_of_three_known_case_0_of_60()`
 
-### 9.5 `apps/web/e2e/fixtures`
+### 9.5 `crates/daemon/tests/support/feedback.rs`
+
+Must provide:
+
+- `OverrideFeedbackHarness::seed_rejected_provisional_result(...)`
+- `OverrideFeedbackHarness::submit_override_through_decisions_handler(...)`
+- `OverrideFeedbackHarness::assert_override_audit_written(...)`
+- `OverrideFeedbackHarness::assert_provisional_promoted_once(...)`
+- `OverrideFeedbackHarness::assert_calibration_case_written(...)`
+- `OverrideFeedbackHarness::assert_incident_cluster_updated(...)`
+- `OverrideFeedbackHarness::assert_candidate_mutation_template_queued(...)`
+
+### 9.6 `apps/web/e2e/fixtures`
 
 Must provide:
 
@@ -633,12 +779,13 @@ metadata.json
 
 ## 11. Cron Configuration Seeding
 
-L4 adds two scheduler-owned calibration entries and one runtime interval owned by sync:
+L4 adds one event-driven readiness hook, two scheduler-owned calibration entries, and one runtime interval owned by sync:
 
 | Entry | Type | Cadence | Purpose |
 |-------|------|---------|---------|
-| `validation-calibration-readiness-sweep` | cron job | daily | recompute per-slice readiness and demotion state from durable calibration evidence |
-| `validation-cross-model-audit-sample` | cron job | every 7 days | sample enforcement-active slices with new traffic through an alternate model family; guarantees the at-least-once-per-30-days requirement |
+| `validation-readiness-after-verdict` | event-driven hook | after every `validation_verdicts` insert/update | recompute the affected slice readiness/demotion state synchronously in the same SQLite transaction |
+| `validation-calibration-readiness-sweep` | cron job | daily | reconcile per-slice readiness from durable calibration evidence and catch missed/manual data repair cases |
+| `validation-cross-model-audit-sample` | cron job | daily | sample enforcement-active slices with new traffic through an alternate model family; this daily cadence is the binding L4 runtime choice and satisfies the at-least-once-per-30-days requirement |
 | `active-writer-lease-heartbeat` | sync runtime interval | every 30 seconds while sync is active | extend `lease_expires_at` to at least 120 seconds and update `viewer_sync_status` |
 
 Seed example:
@@ -656,13 +803,13 @@ Seed example:
     "source_id": "validation-calibration",
     "skill_id": "validation/cross-model-audit-sample",
     "skill_version": "2026.05.06-1",
-    "cron_expression": "0 30 3 * * 1",
+    "cron_expression": "0 30 3 * * *",
     "enabled": true
   }
 ]
 ```
 
-The lease heartbeat is not seeded as a cron row because it is coupled to active sync lease ownership and must stop immediately when sync is inactive.
+The readiness-after-verdict hook is not seeded as a cron row because immediate demotion is event-driven. The lease heartbeat is not seeded as a cron row because it is coupled to active sync lease ownership and must stop immediately when sync is inactive.
 
 ## 12. Command Matrix
 
@@ -674,8 +821,7 @@ The lease heartbeat is not seeded as a cron row because it is coupled to active 
 | Static | `bun run lint` |
 | Static | `bun run test` |
 | Static | `ubs docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-tdd.md docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-bootstrap.md` |
-| Stage Gate | `cargo test -p daemon --bin daemon` |
-| Stage Gate | `for t in crates/daemon/tests/*.rs; do cargo test --test "$(basename "$t" .rs)" || exit 1; done` |
+| Stage Gate | full mandatory block below |
 | SQLite schema | `cargo test -p daemon --test sqlite_schema -- --nocapture` |
 | Sync/RPC | `cargo test -p daemon --test sqlite_supabase_sync -- --nocapture` |
 | RLS/redaction | `cargo test -p daemon --test redaction_boundary -- --nocapture` |
@@ -684,7 +830,7 @@ The lease heartbeat is not seeded as a cron row because it is coupled to active 
 | Supabase reset | `supabase db reset --local` |
 | Supabase migration | `supabase migration up --local` |
 
-Full L4 validation command:
+Mandatory Stage Validation Test Gate:
 
 ```bash
 cargo fmt --check
@@ -694,10 +840,17 @@ cargo test -p daemon --bin daemon
 for t in crates/daemon/tests/*.rs; do
   cargo test --test "$(basename "$t" .rs)" || exit 1
 done
-bun run lint
 bun run test
 (cd apps/web && bun run test:e2e)
 ```
+
+Supplemental L4 lint command:
+
+```bash
+bun run lint
+```
+
+Do not replace the integration-test loop with `cargo test -p daemon --bin daemon`; that binary-only command excludes the files in `crates/daemon/tests/*.rs`.
 
 ## 13. Artifact Checklist
 
@@ -715,11 +868,14 @@ Before the full L4 suite can pass, these artifacts must exist:
 - `infra/supabase/migrations/0008_decision_summaries.sql`
 - `crates/daemon/src/db/sync.rs`
 - `crates/daemon/src/validation/calibration.rs`
+- `crates/daemon/src/validation/feedback.rs`
+- `packages/contracts-schema/` if still absent when L4 starts
 - `crates/daemon/tests/sqlite_schema.rs`
 - `crates/daemon/tests/sqlite_supabase_sync.rs`
 - `crates/daemon/tests/redaction_boundary.rs`
 - `apps/web/package.json`
 - `apps/web/tsconfig.json`
+- `apps/web/next.config.ts`
 - `apps/web/playwright.config.ts`
 - the seven `apps/web/src/` files declared in the spec
 - four overlay skill directories with required files
@@ -812,7 +968,9 @@ Default demotion thresholds:
 - AgentMail project key for coordination is `/Users/alinaaitova/Desktop/Testproject1`.
 - Extend `crates/daemon/src/db/sqlite.rs` through the existing migration registry and PRAGMA-backed schema epoch path.
 - Add `crates/daemon/src/db/sync.rs` as the sync engine module; keep `sqlite.rs` as the single connection wrapper.
-- Extend `validation/policy.rs`, `validation/executor.rs`, `jobs/runner.rs`, and `ipc/handlers/decisions.rs` in place. Do not fork L3 validation or decision capture contracts.
+- Extend `validation/policy.rs`, `validation/executor.rs`, `validation/calibration.rs`, `validation/feedback.rs`, `jobs/runner.rs`, and `ipc/handlers/decisions.rs` in place. Do not fork L3 validation or decision capture contracts.
+- `validation/feedback.rs` owns the override feedback fan-out and is called from the decision/override IPC path when `validation_verdicts.override_*` is recorded.
+- Enforcement demotion is event-driven after each verdict write; the daily readiness sweep is a reconciliation guard, not the primary demotion trigger.
 - Keep `AGENT_SUSPECT_OUTPUT` wired through the existing error manifest surfaces and the TypeScript renderer.
 - Use `br` terminology in implementation handoffs and beads. Sync beads with `bin/br-sync` or `br sync --flush-only`; do not use raw `br sync`.
 - Apply all Supabase migrations through the local CLI stack before running Rust RLS/RPC tests.

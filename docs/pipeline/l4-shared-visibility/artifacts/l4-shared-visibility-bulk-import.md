@@ -413,7 +413,7 @@ Convergence: `main.rs` startup wiring (pull-before-push, lease acquisition, sche
 
 - type: task
 - priority: P0
-- labels: layer-4,l4-phase-1,rust,deps
+- labels: layer-4,l4-phase-1,rust,deps,chokepoint
 - parent: l4-schema-foundation
 
 ### Description
@@ -800,7 +800,7 @@ Schema mirrors SQLite DDL with Postgres type substitutions (TEXT → text, INTEG
 
 - type: task
 - priority: P0
-- labels: layer-4,l4-phase-1,workspace,frontend
+- labels: layer-4,l4-phase-1,workspace,frontend,chokepoint
 - parent: l4-schema-foundation
 
 ### Description
@@ -2022,7 +2022,7 @@ After pull, reconcile `pending_operator_intents` queue. Compare each intent's `b
 
 ## Files to Create/Modify
 
-- **Modify:** `crates/daemon/src/db/sync.rs` — `PendingIntentReconciler` extending `crates/daemon/src/ipc/handlers/decisions.rs` flow.
+- **Modify:** `crates/daemon/src/db/sync.rs` — `PendingIntentReconciler` extending the existing pending-intent capture/flush flow without editing the IPC handler.
 
 ## Spec Requirements (verbatim)
 
@@ -2062,7 +2062,7 @@ After pull, reconcile `pending_operator_intents` queue. Compare each intent's `b
 
 - type: task
 - priority: P1
-- labels: layer-4,l4-phase-3,rust,ipc,cas
+- labels: layer-4,l4-phase-3,rust,ipc,cas,chokepoint
 - parent: l4-pull-cas
 
 ### Description
@@ -2075,11 +2075,11 @@ After pull, reconcile `pending_operator_intents` queue. Compare each intent's `b
 
 ## Context
 
-Single edit home for `crates/daemon/src/ipc/handlers/decisions.rs` in Phase 3. Adds `decision.conflict` IPC event emission carrying `remote_revision`, `disposition`, rejected intent payload — enough state for desktop conflict UI to refresh and retry intentionally. Phase 4 may extend the same handler for override feedback call-in.
+Single L4 edit home for `crates/daemon/src/ipc/handlers/decisions.rs`. Adds `decision.conflict` IPC event emission carrying `remote_revision`, `disposition`, and rejected intent payload — enough state for desktop conflict UI to refresh and retry intentionally. This bead also owns any neutral handler seam needed by later validation-feedback work; later Phase 4 beads must implement `validation/feedback.rs` without editing `decisions.rs`.
 
 ## Files to Create/Modify
 
-- **Modify:** `crates/daemon/src/ipc/handlers/decisions.rs` — emit `decision.conflict` IPC event.
+- **Modify:** `crates/daemon/src/ipc/handlers/decisions.rs` — emit `decision.conflict` IPC event and preserve a single handler seam for downstream validation-feedback invocation without implementing Phase 4 feedback behavior here.
 
 ## Spec Requirements (verbatim)
 
@@ -2096,12 +2096,13 @@ Single edit home for `crates/daemon/src/ipc/handlers/decisions.rs` in Phase 3. A
 - [ ] `decisions.rs` emits `decision.conflict` event on conflict path.
 - [ ] Event payload includes remote_revision, disposition, rejected intent payload.
 - [ ] Existing pending-intent capture flow (L2) untouched.
+- [ ] This remains the only L4 bead that edits `crates/daemon/src/ipc/handlers/decisions.rs`; Phase 4 feedback work consumes the seam without modifying the handler.
 - [ ] L4-T-sqlite_supabase_sync-033 passes.
 
 ## Dependencies
 
 - **Blocked by:** `l4-p3-pending-intent-reconciliation`.
-- **Blocks:** `l4-p3-review-gate`.
+- **Blocks:** `l4-p3-review-gate`, `l4-p4-override-feedback-loop`.
 - **Phase:** 3.
 
 ---
@@ -2319,7 +2320,7 @@ Access layer over `provisional_worker_outputs` (created by P1 migration). Provid
 
 - type: task
 - priority: P1
-- labels: layer-4,l4-phase-4,rust,errors
+- labels: layer-4,l4-phase-4,rust,errors,chokepoint
 - parent: l4-validation-enforcement
 
 ### Description
@@ -2464,8 +2465,8 @@ Add `AGENT_SUSPECT_OUTPUT` error type to `crates/daemon/src/errors/manifest.rs` 
 
 ## Tests to Pass
 
-- **`L4-T-sqlite_supabase_sync-022`** (T3): approved enforcement-active output atomically promoted (co-owned with executor bead).
-- **`L4-T-sqlite_supabase_sync-023`** (T3): rejected enforcement-active output stays local, no outbox (co-owned).
+- **`L4-T-sqlite_supabase_sync-022`** (T3): approved enforcement-active output atomically promoted through the runner boundary; executor verdict handling remains in `l4-p4-executor-overlay-quarantine`.
+- **`L4-T-sqlite_supabase_sync-023`** (T3): rejected enforcement-active output stays local with no outbox when observed through the runner boundary; executor quarantine handling remains in `l4-p4-executor-overlay-quarantine`.
 - **`L4-T-sqlite_supabase_sync-079`** (T3, `EnforcementHarness`): `jobs/runner.rs` emits enforcement-active worker job into provisional storage, enqueues/links validator job through existing runner boundary, promotes only after approved verdict. `L4-FR-1.3.9`, `L4-FR-3.4.2`.
 
 ## Acceptance Criteria
@@ -2641,12 +2642,11 @@ Per skill family: 25-30 clean real, 15-20 weird-valid, 30-50 mutated bad, ≥1 p
 
 ## Context
 
-Every operator override of a rejected provisional result becomes: (1) labeled calibration case, (2) incident-cluster member, (3) candidate mutation template. Override is a biased metric — used as demotion signal, incident source, mutation template source — but never as sole precision estimator. The decision/override IPC handler in `decisions.rs` calls `validation/feedback.rs` so all writes (override audit + provisional promotion + calibration case + incident cluster + mutation template) happen in one SQLite transaction.
+Every operator override of a rejected provisional result becomes: (1) labeled calibration case, (2) incident-cluster member, (3) candidate mutation template. Override is a biased metric — used as demotion signal, incident source, mutation template source — but never as sole precision estimator. `crates/daemon/src/ipc/handlers/decisions.rs` is owned exclusively by `l4-p3-decision-conflict-ipc`; this bead implements the feedback fan-out behind that existing handler seam and must not edit the handler.
 
 ## Files to Create/Modify
 
 - **Create:** `crates/daemon/src/validation/feedback.rs` — override fan-out logic.
-- **Modify:** `crates/daemon/src/ipc/handlers/decisions.rs` — call into `feedback.rs` from override path. (Phase 3 already extends `decisions.rs` for `decision.conflict`; this is the serialized P4 call-in.)
 
 ## Spec Requirements (verbatim)
 
@@ -2660,19 +2660,20 @@ Every operator override of a rejected provisional result becomes: (1) labeled ca
 
 ## Tests to Pass
 
-- **`L4-T-sqlite_schema-009`** (T1): `validation_incident_clusters` schema (DDL; co-owned with P1 migration).
+- **`L4-T-sqlite_schema-009`** (T1): `validation_incident_clusters` schema is available from the Phase 1 DDL owner before this feedback path writes incident-cluster rows.
 - **`L4-T-sqlite_supabase_sync-077`** (T2, `OverrideFeedbackHarness`): operator override updates `validation_verdicts.override_*`, changes `provisional_worker_outputs.validation_status` to `approved`, promotes original payload through normal outbox path exactly once, writes/updates calibration case and incident cluster rows in same SQLite tx, stores candidate mutation template JSON. `L4-FR-3.4.2`, `L4-FR-3.6.16`.
 
 ## Acceptance Criteria
 
 - [ ] `validation/feedback.rs` exists with `ingest_override(verdict_id)`.
+- [ ] No edit is made to `crates/daemon/src/ipc/handlers/decisions.rs`; the handler edit remains solely owned by `l4-p3-decision-conflict-ipc`.
 - [ ] Single SQLite tx covers: override audit + provisional → approved + push promotion + calibration case + incident cluster + mutation template.
 - [ ] Idempotent on replay (no duplicate outbox).
 - [ ] L4-T-sqlite_supabase_sync-077 passes.
 
 ## Dependencies
 
-- **Blocked by:** `l4-p4-runner-provisional-promotion`, `l4-p4-calibration-math-readiness`.
+- **Blocked by:** `l4-p3-decision-conflict-ipc`, `l4-p4-runner-provisional-promotion`, `l4-p4-calibration-math-readiness`.
 - **Blocks:** `l4-p4-review-gate`.
 - **Phase:** 4.
 
@@ -3362,7 +3363,7 @@ Pipeline status, job summaries, error summaries, sync health. Reads `viewer_sync
 
 - type: task
 - priority: P0
-- labels: layer-4,l4-phase-5,web,ui,security
+- labels: layer-4,l4-phase-5,web,ui,security,chokepoint
 - parent: l4-web-portal
 
 ### Description
@@ -3988,20 +3989,20 @@ All 158 checks (8 static gates + 150 runnable tests) are owned by exactly one ta
 | `crates/daemon/src/jobs/runner.rs` | `l4-p4-runner-provisional-promotion` | 4 |
 | `crates/daemon/src/validation/policy.rs` | `l4-p4-policy-readiness-contract` | 4 |
 | `crates/daemon/src/validation/executor.rs` | `l4-p4-executor-overlay-quarantine` | 4 |
-| `crates/daemon/src/ipc/handlers/decisions.rs` | `l4-p3-decision-conflict-ipc` (P3) + `l4-p4-override-feedback-loop` (P4 serialized call-in) | 3 + 4 |
+| `crates/daemon/src/ipc/handlers/decisions.rs` | `l4-p3-decision-conflict-ipc` | 3 |
 | `crates/daemon/Cargo.toml` | `l4-p1-daemon-http-client` | 1 |
 | root `package.json` | `l4-p1-root-web-workspace-scripts` | 1 |
 
-All chokepoints have a single primary edit home; `decisions.rs` accepts a serialized P4 call-in per strategy.
+All chokepoints have a single edit home; Phase 4 override feedback consumes the Phase 3 handler seam and does not edit `decisions.rs`.
 
 ## Bead Totals
 
 - 6 phase sub-epics (l4-schema-foundation, l4-push-engine, l4-pull-cas, l4-validation-enforcement, l4-web-portal, l4-integration-hardening).
 - 50 task beads (7+8+8+12+8+7).
 - 6 review-gate task beads (l4-p1-review-gate through l4-p6-stage-gate-and-dod-walkthrough).
-- **Total: 62 beads.**
+- **Total descendant rows: 62. Total `layer-4` rows including the parent epic: 63.**
 
-The strategy's "50 task beads + 6 phase sub-epic/review beads" count refers to the 50 implementation task beads plus the 6 review-gate beads; sub-epics are containers for parenting. Total bead-DB rows including epics: 62.
+The strategy's "50 task beads + 6 phase sub-epic/review beads" count refers to the 50 implementation task beads plus the 6 review-gate beads; sub-epics are containers for parenting. The live `layer-4` inventory is 63 rows: 1 parent epic, 6 sub-epics, 50 implementation tasks, and 6 review-gate tasks.
 
 ## br create / dep / label Sequence
 
@@ -4038,13 +4039,13 @@ After bead creation, a 14-step audit (chokepoint discipline / migration uniquene
 
 ## Final Audit Status
 
-- **Coverage:** 147/147 L4-FR + 150/150 L4-T + 8/8 CI-L4 (100%, post-patch).
-- **Chokepoints:** all single-edit (main.rs / runner.rs / policy.rs / executor.rs / Cargo.toml / root package.json / decisions.rs P3+P4-call-in).
+- **Coverage:** 147/147 L4-FR + 150/150 L4-T + 8/8 CI-L4 (158/158 checks, 100%, post-patch).
+- **Chokepoints:** all single-edit (main.rs / runner.rs / policy.rs / executor.rs / Cargo.toml / root package.json / decisions.rs Phase 3 only).
 - **§1.9 invariants:** 14/14 covered.
 - **§4.1 DoD:** 18/18 enumerated in `l4-p6-stage-gate-and-dod-walkthrough`.
 - **§3.6 calibration elements:** 7/7 covered (corpora, 9 mutation families, pairwise, Wilson, rule-of-three, cross-model audit, override feedback).
-- **Test claim uniqueness:** 150/150 claimed in non-cumulative "Tests to Pass" sections; 40 tests are co-claimed by 2-3 beads (all legitimate co-ownership patterns — page bead + broadcast-client; final-RLS aggregator + topic-specific bead; etc.).
-- **`br lint`:** all 6 sub-epics pass; only pre-existing non-L4 beads have lingering template warnings.
+- **Test ownership:** 158/158 checks have an explicit primary owner in the coverage table; repeated cumulative gate and cross-reference mentions are verification dependencies, not ownership transfers.
+- **`br lint`:** all L4 rows pass; global corpus warnings are handled in the step-08 lint cleanup pass.
 - **Scope-drift scan:** 4 hits, all confirmed negative-context (forbidding TODO/skip in test code or stub avoidance), false positives.
 - **Parent linkage:** all 6 sub-epics have parent-child edge to `testproject1-4zq`; all 56 task/review beads parent under their respective sub-epic.
 
@@ -4072,11 +4073,11 @@ A second, deeper audit (TDD §11 cross-ref obligations, structural template anch
 
 ## Final Status (Post-Extended-Audit)
 
-- **Coverage:** 147/147 L4-FR + 150/150 L4-T + 8/8 CI gates (100%).
-- **Initial 14-step audit:** 0 structural findings.
+- **Coverage:** 147/147 L4-FR + 150/150 L4-T + 8/8 CI gates (158/158 checks, 100%).
+- **Initial 14-step audit:** step-08 fresh-eyes follow-up patched the `decisions.rs` chokepoint call-in and live inventory count.
 - **Extended audit:** 0 actionable findings (only false-positive negative-context hits remain).
-- **`br lint`:** clean for all 6 L4 sub-epics; only pre-existing non-L4 beads have lingering template warnings.
-- **Chokepoint discipline:** `main.rs`, `runner.rs`, `policy.rs`, `executor.rs`, `Cargo.toml`, root `package.json` each have a single L4 edit home; `decisions.rs` has P3 + serialized P4 call-in.
+- **`br lint`:** clean after step-08 lint cleanup.
+- **Chokepoint discipline:** `main.rs`, `runner.rs`, `policy.rs`, `executor.rs`, `Cargo.toml`, root `package.json`, and `decisions.rs` each have a single L4 edit home.
 - **TDD §11 cross-ref obligations:** satisfied for web (CI-L4-005/006 + packages/ui boundary), validation enforcement (38 IDs), calibration (065-077 + 074/075/076), Supabase schema/RLS (sqlite_schema + redaction_boundary cross-ref).
 - **Structural template anchors:** all 3 page-level web beads reference the corresponding `apps/desktop/src/pages/` template.
 
@@ -4117,8 +4118,8 @@ A third audit pass focused on quality dimensions the substring scans of passes 1
 
 ## Final Status (Post-Pass-3)
 
-- **Coverage:** 147/147 L4-FR + 150/150 L4-T + 8/8 CI gates (100%).
-- **Pass 1 (14-step):** 0 structural findings.
+- **Coverage:** 147/147 L4-FR + 150/150 L4-T + 8/8 CI gates (158/158 checks, 100%).
+- **Pass 1 (14-step):** step-08 fresh-eyes follow-up patched the `decisions.rs` chokepoint call-in and live inventory count.
 - **Pass 2 (extended TDD §11):** 0 actionable findings.
 - **Pass 3 (deep quality):** 0 actionable findings; all 4 categorical fixes (S/T1/T2/W) applied.
 - **`br lint`:** clean for all 6 L4 sub-epics.
