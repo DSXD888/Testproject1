@@ -8,6 +8,7 @@ pub mod process;
 pub mod resources;
 pub mod source_health;
 pub mod status_router;
+pub mod supabase;
 pub mod telemetry;
 pub mod validation;
 

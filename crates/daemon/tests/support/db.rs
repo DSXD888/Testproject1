@@ -6,11 +6,13 @@
 #[path = "../../src/db/sqlite.rs"]
 mod sqlite_impl;
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Result, ensure};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 
 #[allow(unused_imports)]
@@ -18,6 +20,15 @@ pub use sqlite_impl::{DEFAULT_SCHEMA_EPOCH, FTS_SOURCE_ID, StateDb};
 
 const DEFAULT_DOCLING_VERSION: &str = "2.85.0";
 const DEFAULT_PROCESSING_STRATEGY: &str = "standard";
+
+pub type LogicalSchema = BTreeMap<String, Vec<LogicalColumn>>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LogicalColumn {
+    pub name: String,
+    pub logical_type: String,
+    pub nullable: bool,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DocumentExtractionSeed<'a> {
@@ -269,6 +280,110 @@ pub fn assert_current_document_semantic_extraction(
         "expected target_domain `{expected_target_domain}`, got `{target_domain}`"
     );
     Ok(())
+}
+
+pub fn logical_schema_for_tables(conn: &Connection, table_names: &[&str]) -> Result<LogicalSchema> {
+    let mut schema = LogicalSchema::default();
+
+    for table_name in table_names {
+        let pragma = format!("PRAGMA table_info({})", sqlite_identifier(table_name));
+        let mut stmt = conn.prepare(&pragma)?;
+        let mut columns = stmt
+            .query_map([], |row| {
+                let name: String = row.get("name")?;
+                let raw_type: String = row.get("type")?;
+                let not_null: i64 = row.get("notnull")?;
+                let primary_key_position: i64 = row.get("pk")?;
+                Ok(LogicalColumn {
+                    name: name.clone(),
+                    logical_type: normalize_sql_type(&raw_type, &name),
+                    nullable: not_null == 0 && primary_key_position == 0,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        ensure!(
+            !columns.is_empty(),
+            "expected SQLite table `{table_name}` to exist"
+        );
+        columns.sort_by(|left, right| left.name.cmp(&right.name));
+        schema.insert((*table_name).to_owned(), columns);
+    }
+
+    Ok(schema)
+}
+
+pub fn logical_schema_hash(schema: &LogicalSchema) -> String {
+    let mut canonical = String::new();
+    for (table, columns) in schema {
+        canonical.push_str("table:");
+        canonical.push_str(table);
+        canonical.push('\n');
+        for column in columns {
+            canonical.push_str("  column:");
+            canonical.push_str(&column.name);
+            canonical.push(':');
+            canonical.push_str(&column.logical_type);
+            canonical.push(':');
+            canonical.push_str(if column.nullable {
+                "nullable"
+            } else {
+                "not-null"
+            });
+            canonical.push('\n');
+        }
+    }
+    format!("{:x}", Sha256::digest(canonical.as_bytes()))
+}
+
+pub fn normalize_sql_type(raw_type: &str, column_name: &str) -> String {
+    let lower_type = raw_type.trim().to_ascii_lowercase();
+    let lower_name = column_name.to_ascii_lowercase();
+
+    if lower_type.contains("json")
+        || lower_name.ends_with("_json")
+        || matches!(
+            lower_name.as_str(),
+            "normalized_payload" | "documents" | "warnings" | "blockers" | "confidence_breakdown"
+        )
+    {
+        return "json".to_owned();
+    }
+
+    if lower_type.contains("timestamp")
+        || lower_type.contains("timestamptz")
+        || lower_name.ends_with("_at")
+        || lower_name.ends_with("_until")
+        || lower_name.ends_with("_for")
+    {
+        return "timestamp".to_owned();
+    }
+
+    if lower_type.contains("int") || lower_type.contains("bool") {
+        return "integer".to_owned();
+    }
+
+    if lower_type.contains("numeric")
+        || lower_type.contains("real")
+        || lower_type.contains("double")
+    {
+        return "numeric".to_owned();
+    }
+
+    if lower_type.contains("text") || lower_type.contains("char") || lower_type.is_empty() {
+        return "text".to_owned();
+    }
+
+    lower_type
+        .split('(')
+        .next()
+        .unwrap_or(lower_type.as_str())
+        .trim()
+        .to_owned()
+}
+
+fn sqlite_identifier(identifier: &str) -> String {
+    format!("\"{}\"", identifier.replace('"', "\"\""))
 }
 
 fn sample_docling_output() -> Value {

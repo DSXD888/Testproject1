@@ -77,6 +77,7 @@ CREATE TABLE tender_document_sets (
   completeness_state text NOT NULL,
   document_roles_json jsonb NOT NULL,
   documents_json jsonb NOT NULL,
+  extraction_state text NOT NULL DEFAULT 'none',
   acquired_at timestamptz NOT NULL,
   owner_id text NOT NULL,
   row_version bigint NOT NULL DEFAULT 1,

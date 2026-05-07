@@ -1,5 +1,8 @@
 PRAGMA foreign_keys = ON;
 
+ALTER TABLE process_stage_heads
+  ADD COLUMN stage_run_id TEXT;
+
 CREATE TABLE IF NOT EXISTS local_outbox (
   local_seq INTEGER PRIMARY KEY AUTOINCREMENT,
   executor_id TEXT NOT NULL,
