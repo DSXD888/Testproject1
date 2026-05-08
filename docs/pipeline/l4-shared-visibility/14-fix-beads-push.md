@@ -6,12 +6,18 @@
 
 ## Re-Orient
 
-1. Re-read `AGENTS.md` — agent rules, Stage Validation Test Gate, beads CLI invariants
-2. Feature: L4 Shared Visibility — executing **fix beads** from completion audit
-3. Spec: `docs/strategy/layers/layer-4-shared-visibility.md` — SOT #1 (tiebreaker if fix bead is ambiguous)
-4. TDD: `docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-tdd.md` — SOT #2 (test definitions)
-5. Completion audit report: `docs/pipeline/l4-shared-visibility/completion-audit-report-{date}.md`
-6. Fix bead graph: `br ready --label layer-4 --label audit-fix --json`
+**STOP. Two mandatory blocking steps before you touch any other tool:**
+
+1. **Re-read `AGENTS.md` in full.** Top to bottom. It is constitutional — Rule 1 (no file deletion), Rule 2 (`bin/br-claim` / `bin/br-complete` wrappers — raw `br update --status=in_progress` / `br close` are FORBIDDEN), branching (main only), toolchain matrix (Cargo + Bun split), Stage Validation Test Gate (`cargo test -p daemon --bin daemon` is INSUFFICIENT), AgentMail conventions, beads workflow (`br` not `bd`; `bin/br-sync` not raw `br sync`), UBS bug scanner. AGENTS.md wins over this push prompt if anything disagrees.
+2. **Confirm AgentMail registration.** If you don't have an `agent_name`, run the `macro_start_session` block below FIRST, then `export AGENT_MAIL_NAME="<your-name>"` (the wrappers require that env var). Then `fetch_inbox(...)` to read any pending blocker notices left by sibling agents — address those before claiming new fix work.
+
+After those two:
+
+1. Feature: L4 Shared Visibility — executing **fix beads** from completion audit
+2. Spec: `docs/strategy/layers/layer-4-shared-visibility.md` — SOT #1 (tiebreaker if fix bead is ambiguous)
+3. TDD: `docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-tdd.md` — SOT #2 (test definitions)
+4. Completion audit report: `docs/pipeline/l4-shared-visibility/artifacts/l4-completion-audit-{date}.md`
+5. Fix bead graph: `br ready --label layer-4 --label audit-fix --json`
 
 **AgentMail registration (compact):**
 ```
@@ -21,6 +27,9 @@ macro_start_session(
   model="<your-model>",
   task_description="L4 Shared Visibility fix-bead execution"
 )
+
+# REQUIRED for the wrappers — set in the same shell where you'll run bin/br-claim / bin/br-complete
+export AGENT_MAIL_NAME="<your-name>"
 ```
 
 ---
@@ -47,9 +56,17 @@ If code conflicts with these contracts, the contract wins.
 
 **Every fix bead you claim MUST be fully completed.** No partial work. No TODOs. No "finish later."
 
-Complete = all code + all tests + all checks + committed + pushed + announced + reservations released + bead closed + .beads/ pushed.
+Complete = all code + all tests + all checks + committed + pushed + `bin/br-complete` succeeded.
 
 **If blocked:** Diagnose it. Fix it yourself. Only escalate via AgentMail if the blocker is in another agent's code. Do NOT abandon the fix bead.
+
+**Wrappers are the hard gate (AGENTS.md Rule 2 — constitutional):**
+
+- **Claim with `bin/br-claim <fix-bead-id>`** — atomic: reserves files (collision detector), sends `[<id>] Start: <title>` mail to peers from `list_contacts`, sets `br` status `in_progress`. If it exits non-zero, the bead is NOT claimed — fix the underlying issue (other-agent claim, file reservation conflict, agent-mail server down, `AGENT_MAIL_NAME` unset) and retry. Do NOT use raw `br update --status=in_progress` to bypass.
+- **Complete with `bin/br-complete <fix-bead-id>`** — atomic: verifies your `[<id>] Start` exists, finds the `<bead-id>:`-prefixed commit, verifies HEAD == upstream (refuses if you haven't pushed), sends `[<id>] Complete: <title>`, runs `br close`, syncs `.beads/`, pushes, releases reservations. Do NOT use raw `br close <id>` to bypass.
+- **Between every fix bead:** `fetch_inbox(...)` — wrappers do NOT do this for you. Surface blocker notices another agent left before you pick the next bead.
+
+If a sibling agent runs `search_messages(query="[<fix-bead-id>]")` and finds no Start or no Complete from you, the fix bead is treated as un-done. Wrapper success IS Start/Complete success — they're inseparable.
 
 ---
 
@@ -59,13 +76,13 @@ Complete = all code + all tests + all checks + committed + pushed + announced + 
 1. Check inbox: fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>, limit=10) → acknowledge messages
 2. br ready --label layer-4 --label audit-fix --json → pick highest-priority ready fix bead
 3. Read fix bead FULLY → study target files referenced
-4. CLAIM:
-   br update <fix-bead-id> --status=in_progress
-   file_reservation_paths(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>,
-     paths=[<files>], ttl_seconds=3600, exclusive=true, reason="<fix-bead-id>")
-   send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name=<your-name>, to=["<peers>"],
-     thread_id="<fix-bead-id>", subject="[<fix-bead-id>] Start: <title>")
-   # <peers> from list_contacts — NEVER "broadcast"
+4. CLAIM (atomic — AGENTS.md Rule 2):
+   bin/br-claim <fix-bead-id>
+   # Files parsed from the bead's `### Files to Create/Modify` section.
+   # If absent: bin/br-claim <fix-bead-id> --paths <p1> <p2> ...
+   # If exit ≠ 0: bead NOT claimed; fix root cause (other-agent claim,
+   # file reservation conflict, agent-mail server down, AGENT_MAIL_NAME unset)
+   # and retry. NEVER bypass with raw `br update --status=in_progress`.
 5. IMPLEMENT: Read spec L4-FR + TDD L4-T tests referenced. Fix/write tests first, then code. Implement ALL of it. No mid-way commits. No partial work.
 6. VERIFY: Stage Validation Test Gate (full)
 7. COMMIT:
@@ -73,15 +90,12 @@ Complete = all code + all tests + all checks + committed + pushed + announced + 
    git add <specific-files>
    git commit -m "<fix-bead-id>: <short description>"
    git pull --rebase && git push
-8. COMPLETE:
-   br close <fix-bead-id> --reason "Completed"
-   bin/br-sync
-   git add .beads/
-   git commit -m "beads: close <fix-bead-id>"
-   git pull --rebase && git push
-   send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name=<your-name>, to=["<peers>"],
-     thread_id="<fix-bead-id>", subject="[<fix-bead-id>] Complete", body_md="Commit: <hash>")
-   release_file_reservations(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)
+8. COMPLETE (atomic — AGENTS.md Rule 2):
+   bin/br-complete <fix-bead-id>
+   # Wrapper verifies your Start mail + that HEAD == upstream, sends
+   # [<id>] Complete, runs br close, syncs .beads/, pushes, releases
+   # reservations. If your commit subject doesn't start with the bead id,
+   # pass --commit <sha>. NEVER bypass with raw `br close <id>`.
 9. LOOP → step 1
 
 Do not stop to ask what to work on next. Pick the next ready fix bead.
@@ -147,19 +161,25 @@ Each fix bead body specifies the exact category + file paths + test IDs + ACs.
 
 ## AgentMail Quick Reference (compact)
 
-**CRITICAL:** Agent Mail has NO broadcast. `"broadcast"` is NOT a valid recipient. Discover peers via `list_contacts` first; store as `<peers>`.
+**Wrappers handle Start/Complete + reservations atomically.** Use raw mail tools only for inbox checks and BLOCKED escalations. Agent Mail has NO broadcast — `"broadcast"` is NOT a valid recipient. The wrappers discover peers via `list_contacts` for you.
 
 ```
-list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)  # → discover <peers>
+# Atomic claim/complete (AGENTS.md Rule 2 — REQUIRED)
+bin/br-claim <fix-bead-id>                  # reserves files + Start mail + br update
+bin/br-complete <fix-bead-id>               # Complete mail + br close + .beads/ sync + release
+
+# Raw tools — only between beads or for blocker escalations
 fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>, limit=10)
-send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name=<your-name>, to=["<peers>"],
-  thread_id="<fix-bead-id>", subject="[<fix-bead-id>] Start: <title>")
-send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name=<your-name>, to=["<peers>"],
-  thread_id="<fix-bead-id>", subject="[<fix-bead-id>] Complete: <title>", body_md="Commit: <hash>. All pass.")
 send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name=<your-name>, to=["<peers>"],
   thread_id="<fix-bead-id>", subject="[<fix-bead-id>] BLOCKED: <issue>",
   body_md="File: <path>, Line: <N>. Issue: <desc>. Needed: <what>")
-release_file_reservations(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)
+list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)  # rarely needed manually
+
+# Forbidden (bypasses Rule 2):
+#   br update <id> --status=in_progress
+#   br close <id> --reason "Completed"
+# If a wrapper fails, fix the underlying issue (server down, env var unset,
+# reservation conflict). Never bypass.
 ```
 
 ---
@@ -169,14 +189,14 @@ release_file_reservations(project_key="/Users/alinaaitova/Desktop/Testproject1",
 1. Fix beads = targeted corrections, NOT new features
 2. Implement from fix bead body; spec is tiebreaker only
 3. NEVER delete files (AGENTS.md Rule 1)
-4. NEVER stash other agents' work
-5. Use `br` (NOT `bd`); use `bin/br-sync` (NOT raw `br sync`)
-6. Stage Validation Test Gate is minimum gate — iterate every `crates/daemon/tests/*.rs`
-7. `packages/ui` lint invariant must hold
-8. Web is read-only — security boundary, not UI convention
-9. Do NOT ask what to work on — `br ready --label layer-4 --label audit-fix` answers
-10. Work is NOT done until `git push` succeeds
-11. After every fix bead: `bin/br-sync && git add .beads/ && git commit && git push`
+4. **ALWAYS use `bin/br-claim` and `bin/br-complete` (AGENTS.md Rule 2).** Raw `br update --status=in_progress` and `br close <id>` are forbidden.
+5. NEVER stash other agents' work
+6. Use `br` (NOT `bd`); `bin/br-sync` (NOT raw `br sync`); `bin/br-complete` runs sync inside its flow
+7. Stage Validation Test Gate is minimum gate — iterate every `crates/daemon/tests/*.rs`
+8. `packages/ui` lint invariant must hold
+9. Web is read-only — security boundary, not UI convention
+10. Do NOT ask what to work on — `br ready --label layer-4 --label audit-fix` answers
+11. Work is NOT done until `git push` succeeds AND `bin/br-complete` succeeds
 12. After ALL fix beads done: re-run completion audit (step 12)
 
 ---
