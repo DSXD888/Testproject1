@@ -14,10 +14,10 @@ use tokio::task::JoinHandle;
 
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 use support::sync::{
-    EnforcementHarness, OutboxHarness, PullCursorDomain, PullCursorHarness, PushOwnedFixture,
-    SupabaseRpcClient, SyncCyclePhase, SyncCycleTrigger, SyncHealth, WriterBindingConfig,
-    WriterBindingMode, WriterLeaseAcquireResult, WriterLeaseHarness, canonical_content_hash,
-    parse_payload,
+    EnforcementHarness, OperatorDecisionCasHarness, OperatorDecisionCommand, OutboxHarness,
+    PullCursorDomain, PullCursorHarness, PushOwnedFixture, SupabaseRpcClient, SyncCyclePhase,
+    SyncCycleTrigger, SyncHealth, WriterBindingConfig, WriterBindingMode, WriterLeaseAcquireResult,
+    WriterLeaseHarness, canonical_content_hash, decision_conflict_event_payload, parse_payload,
 };
 
 #[test]
@@ -1331,6 +1331,200 @@ fn l4_t_sqlite_supabase_sync_029_pull_failure_pauses_cross_authority_dispatch_on
     );
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-029 PASS");
+    Ok(())
+}
+
+#[tokio::test]
+async fn l4_t_sqlite_supabase_sync_030_operator_decision_cas_rpc_applies_matching_base()
+-> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-030");
+    println!("[SETUP] queued operator intent with matching base revision");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = OperatorDecisionCasHarness::new(&state_db)?;
+    harness.seed_head("l4-cas-process-030", "pending", 7)?;
+    harness.queue_intent("l4-cas-process-030", "approved", 7, "l4-cmd-030")?;
+    let (api_url, capture) = spawn_rpc_capture_server(json!({
+        "accepted": true,
+        "status": "applied",
+        "process_id": "l4-cas-process-030",
+        "command_id": "l4-cmd-030",
+        "applied_revision": 8
+    }))
+    .await?;
+
+    println!("[EXEC] flush matching-base command through the Supabase CAS RPC client");
+    let client = SupabaseRpcClient::new(api_url, "service-role-test-key")?;
+    let command = OperatorDecisionCommand::new("l4-cas-process-030", "approved", 7, "l4-cmd-030")?;
+    let rpc_response = client.update_operator_decision(&command).await?;
+    let raw_request = capture.await.context("joining capture server task")??;
+    let local_response = harness.flush_next_intent()?;
+
+    println!(
+        "[ASSERT] RPC wrapper uses update_operator_decision and local intent is marked applied"
+    );
+    ensure!(rpc_response.accepted, "CAS RPC response was not accepted");
+    ensure!(
+        rpc_response.applied_revision == Some(8),
+        "CAS RPC response did not carry the applied remote revision"
+    );
+    ensure!(
+        raw_request.starts_with("POST /rest/v1/rpc/update_operator_decision "),
+        "daemon client did not call the update_operator_decision REST RPC: {raw_request}"
+    );
+    let body = http_body(&raw_request)?;
+    let request_json: Value =
+        serde_json::from_str(body).context("parsing captured update_operator_decision body")?;
+    ensure!(
+        request_json.get("process_id").and_then(Value::as_str) == Some("l4-cas-process-030"),
+        "CAS request body did not carry process_id"
+    );
+    ensure!(
+        request_json.get("disposition").and_then(Value::as_str) == Some("approved"),
+        "CAS request body did not carry disposition"
+    );
+    ensure!(
+        request_json.get("base_revision").and_then(Value::as_i64) == Some(7),
+        "CAS request body did not carry base_revision"
+    );
+    ensure!(
+        request_json.get("command_id").and_then(Value::as_str) == Some("l4-cmd-030"),
+        "CAS request body did not carry command_id"
+    );
+
+    let head = harness.head("l4-cas-process-030")?;
+    let intent = harness.intent_status("l4-cmd-030")?;
+    ensure!(
+        local_response.accepted,
+        "local CAS response was not accepted"
+    );
+    ensure!(
+        head.disposition == "approved" && head.remote_revision == 8,
+        "CAS fixture head did not advance exactly once: {head:?}"
+    );
+    ensure!(
+        intent.status == "applied" && intent.applied_revision == Some(8),
+        "queued operator intent was not marked applied: {intent:?}"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB and one-shot capture server");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-030 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_031_concurrent_decisions_conflict_without_overwrite() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-031");
+    println!("[SETUP] two queued operator intents from the same base revision");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = OperatorDecisionCasHarness::new(&state_db)?;
+    harness.seed_head("l4-cas-process-031", "pending", 9)?;
+    harness.queue_intent("l4-cas-process-031", "approved", 9, "l4-cmd-031-a")?;
+    harness.queue_intent("l4-cas-process-031", "rejected", 9, "l4-cmd-031-b")?;
+
+    println!("[EXEC] apply first command, then flush the stale concurrent command");
+    let first = harness.flush_next_intent()?;
+    let second = harness.flush_next_intent()?;
+
+    println!("[ASSERT] first command advances remote head and second is a local conflict");
+    let head = harness.head("l4-cas-process-031")?;
+    ensure!(first.accepted, "first CAS command should apply");
+    ensure!(
+        second.is_conflict(),
+        "second CAS command should surface a conflict: {second:?}"
+    );
+    ensure!(
+        head.disposition == "approved" && head.remote_revision == 10,
+        "stale concurrent command overwrote the accepted decision: {head:?}"
+    );
+    let losing_intent = harness.intent_status("l4-cmd-031-b")?;
+    ensure!(
+        losing_intent.status == "conflicted" && losing_intent.applied_revision.is_none(),
+        "stale concurrent intent was not left in conflicted state: {losing_intent:?}"
+    );
+    let conflict_json: Value = serde_json::from_str(
+        losing_intent
+            .conflict_json
+            .as_deref()
+            .context("conflicted intent did not persist conflict_json")?,
+    )
+    .context("parsing persisted conflict_json")?;
+    ensure!(
+        conflict_json
+            .get("current_revision")
+            .and_then(Value::as_i64)
+            == Some(10)
+            && conflict_json
+                .get("current_disposition")
+                .and_then(Value::as_str)
+                == Some("approved"),
+        "conflict_json did not carry the current remote head: {conflict_json}"
+    );
+    ensure!(
+        conflict_json
+            .get("rejected_payload")
+            .and_then(|payload| payload.get("disposition"))
+            .and_then(Value::as_str)
+            == Some("rejected"),
+        "conflict_json did not carry rejected payload details: {conflict_json}"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-031 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_033_conflict_response_drives_decision_conflict_event() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-033");
+    println!("[SETUP] CAS RPC conflict response with current head and rejected payload");
+    let response = support::sync::OperatorDecisionApplyResponse::from_rpc_value(json!({
+        "accepted": false,
+        "status": "conflict",
+        "process_id": "l4-cas-process-033",
+        "command_id": "l4-cmd-033",
+        "current_revision": 12,
+        "current_disposition": "watching",
+        "rejected_payload": {
+            "process_id": "l4-cas-process-033",
+            "disposition": "approved",
+            "base_revision": 11,
+            "command_id": "l4-cmd-033"
+        }
+    }))?;
+
+    println!("[EXEC] convert RPC conflict into IPC event payload");
+    let event = decision_conflict_event_payload(&response)?;
+
+    println!("[ASSERT] decision.conflict event carries complete conflict details");
+    ensure!(
+        response.is_conflict(),
+        "response should be classified as CAS conflict"
+    );
+    ensure!(
+        event.get("event").and_then(Value::as_str) == Some("decision.conflict"),
+        "IPC payload did not identify the decision.conflict event"
+    );
+    ensure!(
+        event.get("process_id").and_then(Value::as_str) == Some("l4-cas-process-033")
+            && event.get("command_id").and_then(Value::as_str) == Some("l4-cmd-033"),
+        "IPC payload lost CAS command identity: {event}"
+    );
+    ensure!(
+        event.get("current_remote_revision").and_then(Value::as_i64) == Some(12)
+            && event.get("current_disposition").and_then(Value::as_str) == Some("watching"),
+        "IPC payload lost current remote head details: {event}"
+    );
+    ensure!(
+        event
+            .get("rejected_payload")
+            .and_then(|payload| payload.get("base_revision"))
+            .and_then(Value::as_i64)
+            == Some(11),
+        "IPC payload lost rejected payload details: {event}"
+    );
+
+    println!("[CLEANUP] pure payload conversion test");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-033 PASS");
     Ok(())
 }
 

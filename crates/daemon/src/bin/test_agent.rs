@@ -205,7 +205,6 @@ fn fork_grandchild(seconds: u64) -> Result<()> {
     let current_exe = std::env::current_exe().context("locating current executable")?;
     let _child = Command::new(current_exe)
         .arg("sleep")
-        .arg("--seconds")
         .arg(seconds.to_string())
         .spawn()
         .context("spawning grandchild helper")?;

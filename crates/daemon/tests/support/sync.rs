@@ -18,8 +18,10 @@ pub use sync_impl::{
     OutboxWriter, PullCursor, PullCursorDomain, PullCursorStore, PushBatchApplyResponse,
     RemoteOwnedChange, SyncCycle, SyncCycleOutcome, SyncCyclePhase, SyncCycleTrigger, SyncHealth,
     WriterBindingConfig, WriterBindingMode, WriterLease, WriterLeaseAcquireResult,
-    canonical_content_hash,
+    canonical_content_hash, decision_conflict_event_payload,
 };
+#[allow(unused_imports)]
+pub use sync_impl::{OperatorDecisionApplyResponse, OperatorDecisionCommand};
 
 const DEFAULT_EXECUTOR_ID: &str = "l4-sync-test-executor";
 const DEFAULT_STAGE_RUN_ID: &str = "l4-sync-stage-run";
@@ -368,6 +370,316 @@ impl OutboxHarness {
 
 pub struct WriterLeaseHarness {
     conn: Connection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CasDecisionHead {
+    pub process_id: String,
+    pub disposition: String,
+    pub remote_revision: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OperatorDecisionIntentStatus {
+    pub status: String,
+    pub applied_revision: Option<i64>,
+    pub conflict_json: Option<String>,
+}
+
+pub struct OperatorDecisionCasHarness {
+    conn: Connection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct QueuedOperatorDecisionIntent {
+    id: i64,
+    process_id: String,
+    disposition: String,
+    base_remote_revision: i64,
+    command_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FixtureDecisionHead {
+    disposition: String,
+    remote_revision: i64,
+}
+
+impl OperatorDecisionCasHarness {
+    pub fn new(state_db: &L4TestStateDb) -> Result<Self> {
+        let conn = Connection::open(state_db.db_path())
+            .with_context(|| format!("opening L4 state DB {}", state_db.db_path().display()))?;
+        conn.execute_batch("PRAGMA foreign_keys = ON")?;
+        ensure_operator_decision_cas_fixture_tables(&conn)?;
+        Ok(Self { conn })
+    }
+
+    pub fn seed_head(
+        &self,
+        process_id: &str,
+        disposition: &str,
+        remote_revision: i64,
+    ) -> Result<()> {
+        ensure!(
+            matches!(
+                disposition,
+                "pending" | "watching" | "approved" | "rejected"
+            ),
+            "unsupported fixture disposition `{disposition}`"
+        );
+        ensure!(
+            remote_revision > 0,
+            "remote_revision must be positive in CAS fixtures"
+        );
+        self.conn
+            .execute(
+                "\
+                INSERT INTO l4_operator_decision_heads_fixture (
+                  process_id, disposition, remote_revision
+                ) VALUES (?1, ?2, ?3)
+                ON CONFLICT(process_id) DO UPDATE SET
+                  disposition = excluded.disposition,
+                  remote_revision = excluded.remote_revision
+                ",
+                params![process_id, disposition, remote_revision],
+            )
+            .context("seeding operator decision CAS fixture head")?;
+        Ok(())
+    }
+
+    pub fn queue_intent(
+        &self,
+        process_id: &str,
+        disposition: &str,
+        base_remote_revision: i64,
+        command_id: &str,
+    ) -> Result<()> {
+        ensure!(
+            matches!(
+                disposition,
+                "pending" | "watching" | "approved" | "rejected"
+            ),
+            "unsupported fixture disposition `{disposition}`"
+        );
+        ensure!(
+            base_remote_revision > 0,
+            "base_remote_revision must be positive in CAS fixtures"
+        );
+        self.conn
+            .execute(
+                "\
+                INSERT INTO l4_operator_decision_intents_fixture (
+                  process_id, disposition, base_remote_revision, command_id
+                ) VALUES (?1, ?2, ?3, ?4)
+                ",
+                params![process_id, disposition, base_remote_revision, command_id],
+            )
+            .context("queueing operator decision CAS intent")?;
+        Ok(())
+    }
+
+    pub fn flush_next_intent(&mut self) -> Result<OperatorDecisionApplyResponse> {
+        let tx = self
+            .conn
+            .transaction()
+            .context("starting operator decision CAS fixture transaction")?;
+        let intent = load_next_queued_operator_decision_intent(&tx)?;
+        let current = load_fixture_decision_head(&tx, &intent.process_id)?;
+        let response_json = if current.remote_revision == intent.base_remote_revision {
+            apply_fixture_decision_intent(&tx, &intent, current.remote_revision + 1)?
+        } else {
+            conflict_fixture_decision_intent(&tx, &intent, &current)?
+        };
+        tx.commit()
+            .context("committing operator decision CAS fixture transaction")?;
+        OperatorDecisionApplyResponse::from_rpc_value(response_json)
+    }
+
+    pub fn head(&self, process_id: &str) -> Result<CasDecisionHead> {
+        self.conn
+            .query_row(
+                "\
+                SELECT process_id, disposition, remote_revision
+                FROM l4_operator_decision_heads_fixture
+                WHERE process_id = ?1
+                ",
+                params![process_id],
+                |row| {
+                    Ok(CasDecisionHead {
+                        process_id: row.get(0)?,
+                        disposition: row.get(1)?,
+                        remote_revision: row.get(2)?,
+                    })
+                },
+            )
+            .optional()
+            .context("loading operator decision CAS fixture head")?
+            .with_context(|| format!("missing operator decision CAS fixture head `{process_id}`"))
+    }
+
+    pub fn intent_status(&self, command_id: &str) -> Result<OperatorDecisionIntentStatus> {
+        self.conn
+            .query_row(
+                "\
+                SELECT status, applied_revision, conflict_json
+                FROM l4_operator_decision_intents_fixture
+                WHERE command_id = ?1
+                ",
+                params![command_id],
+                |row| {
+                    Ok(OperatorDecisionIntentStatus {
+                        status: row.get(0)?,
+                        applied_revision: row.get(1)?,
+                        conflict_json: row.get(2)?,
+                    })
+                },
+            )
+            .optional()
+            .context("loading operator decision CAS fixture intent status")?
+            .with_context(|| format!("missing operator decision CAS intent `{command_id}`"))
+    }
+}
+
+fn load_next_queued_operator_decision_intent(
+    tx: &Transaction<'_>,
+) -> Result<QueuedOperatorDecisionIntent> {
+    tx.query_row(
+        "\
+        SELECT id, process_id, disposition, base_remote_revision, command_id
+        FROM l4_operator_decision_intents_fixture
+        WHERE status = 'queued'
+        ORDER BY id ASC
+        LIMIT 1
+        ",
+        [],
+        |row| {
+            Ok(QueuedOperatorDecisionIntent {
+                id: row.get(0)?,
+                process_id: row.get(1)?,
+                disposition: row.get(2)?,
+                base_remote_revision: row.get(3)?,
+                command_id: row.get(4)?,
+            })
+        },
+    )
+    .optional()
+    .context("loading next queued operator decision intent")?
+    .context("no queued operator decision intent to flush")
+}
+
+fn load_fixture_decision_head(
+    tx: &Transaction<'_>,
+    process_id: &str,
+) -> Result<FixtureDecisionHead> {
+    tx.query_row(
+        "\
+        SELECT disposition, remote_revision
+        FROM l4_operator_decision_heads_fixture
+        WHERE process_id = ?1
+        ",
+        params![process_id],
+        |row| {
+            Ok(FixtureDecisionHead {
+                disposition: row.get(0)?,
+                remote_revision: row.get(1)?,
+            })
+        },
+    )
+    .optional()
+    .context("loading current operator decision head")?
+    .with_context(|| format!("missing remote decision head `{process_id}`"))
+}
+
+fn apply_fixture_decision_intent(
+    tx: &Transaction<'_>,
+    intent: &QueuedOperatorDecisionIntent,
+    applied_revision: i64,
+) -> Result<Value> {
+    tx.execute(
+        "\
+        UPDATE l4_operator_decision_heads_fixture
+        SET disposition = ?2,
+            remote_revision = ?3
+        WHERE process_id = ?1
+        ",
+        params![intent.process_id, intent.disposition, applied_revision],
+    )
+    .context("applying operator decision CAS fixture command")?;
+    tx.execute(
+        "\
+        UPDATE l4_operator_decision_intents_fixture
+        SET status = 'applied',
+            applied_revision = ?2
+        WHERE id = ?1
+        ",
+        params![intent.id, applied_revision],
+    )
+    .context("marking operator decision CAS intent applied")?;
+    Ok(json!({
+        "accepted": true,
+        "status": "applied",
+        "process_id": intent.process_id,
+        "command_id": intent.command_id,
+        "applied_revision": applied_revision
+    }))
+}
+
+fn conflict_fixture_decision_intent(
+    tx: &Transaction<'_>,
+    intent: &QueuedOperatorDecisionIntent,
+    current: &FixtureDecisionHead,
+) -> Result<Value> {
+    let rejected_payload = json!({
+        "process_id": intent.process_id,
+        "disposition": intent.disposition,
+        "base_revision": intent.base_remote_revision,
+        "command_id": intent.command_id
+    });
+    let conflict = json!({
+        "accepted": false,
+        "status": "conflict",
+        "process_id": intent.process_id,
+        "command_id": intent.command_id,
+        "current_revision": current.remote_revision,
+        "current_disposition": current.disposition,
+        "rejected_payload": rejected_payload
+    });
+    tx.execute(
+        "\
+        UPDATE l4_operator_decision_intents_fixture
+        SET status = 'conflicted',
+            conflict_json = ?2
+        WHERE id = ?1
+        ",
+        params![intent.id, conflict.to_string()],
+    )
+    .context("marking operator decision CAS intent conflicted")?;
+    Ok(conflict)
+}
+
+fn ensure_operator_decision_cas_fixture_tables(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "\
+        CREATE TABLE IF NOT EXISTS l4_operator_decision_heads_fixture (
+          process_id TEXT PRIMARY KEY,
+          disposition TEXT NOT NULL CHECK (disposition IN ('pending', 'watching', 'approved', 'rejected')),
+          remote_revision INTEGER NOT NULL CHECK (remote_revision > 0)
+        );
+
+        CREATE TABLE IF NOT EXISTS l4_operator_decision_intents_fixture (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          process_id TEXT NOT NULL,
+          disposition TEXT NOT NULL CHECK (disposition IN ('pending', 'watching', 'approved', 'rejected')),
+          base_remote_revision INTEGER NOT NULL CHECK (base_remote_revision > 0),
+          command_id TEXT NOT NULL UNIQUE,
+          status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'applied', 'conflicted')),
+          applied_revision INTEGER,
+          conflict_json TEXT,
+          queued_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        ",
+    )
+    .context("ensuring operator decision CAS fixture tables")
 }
 
 impl WriterLeaseHarness {

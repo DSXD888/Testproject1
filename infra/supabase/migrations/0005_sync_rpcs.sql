@@ -453,24 +453,149 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  requested_process_id text;
+  requested_disposition text;
+  requested_base_revision bigint;
+  requested_command_id text;
+  current_head operator_decision_heads%ROWTYPE;
+  applied_revision bigint;
+  existing_response_payload jsonb;
+  rejected_payload jsonb;
+  response_payload jsonb;
 BEGIN
   IF NOT l4_is_any_role(ARRAY['operator', 'admin']) THEN
     RAISE EXCEPTION 'update_operator_decision requires operator role'
       USING ERRCODE = '42501';
   END IF;
 
-  IF disposition NOT IN ('pending', 'watching', 'approved', 'rejected') THEN
-    RAISE EXCEPTION 'invalid operator disposition: %', disposition
+  requested_process_id := btrim(process_id);
+  requested_disposition := btrim(disposition);
+  requested_base_revision := base_revision;
+  requested_command_id := btrim(command_id);
+
+  IF requested_process_id IS NULL OR requested_process_id = '' THEN
+    RAISE EXCEPTION 'update_operator_decision requires process_id'
       USING ERRCODE = '22023';
   END IF;
 
-  RETURN jsonb_build_object(
-    'status', 'not_implemented',
-    'accepted', false,
-    'process_id', process_id,
-    'base_revision', base_revision,
-    'command_id', command_id
+  IF requested_command_id IS NULL OR requested_command_id = '' THEN
+    RAISE EXCEPTION 'update_operator_decision requires command_id'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF requested_base_revision IS NULL OR requested_base_revision < 0 THEN
+    RAISE EXCEPTION 'update_operator_decision requires non-negative base_revision'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF requested_disposition NOT IN ('pending', 'watching', 'approved', 'rejected') THEN
+    RAISE EXCEPTION 'invalid operator disposition: %', requested_disposition
+      USING ERRCODE = '22023';
+  END IF;
+
+  SELECT response_payload_json
+    INTO existing_response_payload
+  FROM operator_decision_commands
+  WHERE operator_decision_commands.command_id = requested_command_id;
+
+  IF existing_response_payload IS NOT NULL THEN
+    RETURN existing_response_payload;
+  END IF;
+
+  SELECT *
+    INTO current_head
+  FROM operator_decision_heads
+  WHERE operator_decision_heads.process_id = requested_process_id
+    AND operator_decision_heads.deleted_at IS NULL
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    IF requested_base_revision <> 0 THEN
+      rejected_payload := jsonb_build_object(
+        'process_id', requested_process_id,
+        'disposition', requested_disposition,
+        'base_revision', requested_base_revision,
+        'command_id', requested_command_id
+      );
+      response_payload := jsonb_build_object(
+        'status', 'conflict',
+        'accepted', false,
+        'process_id', requested_process_id,
+        'command_id', requested_command_id,
+        'current_revision', NULL,
+        'current_disposition', NULL,
+        'rejected_payload', rejected_payload
+      );
+      INSERT INTO operator_decision_commands (
+        command_id, process_id, base_revision, applied_revision, disposition, result,
+        response_payload_json
+      ) VALUES (
+        requested_command_id, requested_process_id, requested_base_revision, NULL,
+        requested_disposition, 'conflict', response_payload
+      );
+      RETURN response_payload;
+    END IF;
+
+    INSERT INTO operator_decision_heads (
+      org_id, process_id, disposition, command_id, remote_revision
+    ) VALUES (
+      'default', requested_process_id, 'pending', requested_command_id, 0
+    )
+    RETURNING * INTO current_head;
+  END IF;
+
+  IF current_head.remote_revision <> requested_base_revision THEN
+    rejected_payload := jsonb_build_object(
+      'process_id', requested_process_id,
+      'disposition', requested_disposition,
+      'base_revision', requested_base_revision,
+      'command_id', requested_command_id
+    );
+    response_payload := jsonb_build_object(
+      'status', 'conflict',
+      'accepted', false,
+      'process_id', requested_process_id,
+      'command_id', requested_command_id,
+      'current_revision', current_head.remote_revision,
+      'current_disposition', current_head.disposition,
+      'rejected_payload', rejected_payload
+    );
+    INSERT INTO operator_decision_commands (
+      command_id, process_id, base_revision, applied_revision, disposition, result,
+      response_payload_json
+    ) VALUES (
+      requested_command_id, requested_process_id, requested_base_revision, NULL,
+      requested_disposition, 'conflict', response_payload
+    );
+    RETURN response_payload;
+  END IF;
+
+  UPDATE operator_decision_heads
+  SET disposition = requested_disposition,
+      command_id = requested_command_id,
+      decision_stale = false,
+      deleted_at = NULL
+  WHERE id = current_head.id
+  RETURNING remote_revision INTO applied_revision;
+
+  response_payload := jsonb_build_object(
+    'status', 'applied',
+    'accepted', true,
+    'process_id', requested_process_id,
+    'command_id', requested_command_id,
+    'applied_revision', applied_revision
   );
+
+  INSERT INTO operator_decision_commands (
+    command_id, process_id, base_revision, applied_revision, disposition, result,
+    response_payload_json
+  ) VALUES (
+    requested_command_id, requested_process_id, requested_base_revision, applied_revision,
+    requested_disposition, 'applied', response_payload
+  );
+
+  RETURN response_payload;
 END;
 $$;
 

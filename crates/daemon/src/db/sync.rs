@@ -175,6 +175,27 @@ pub struct PushBatchApplyResponse {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OperatorDecisionCommand {
+    pub process_id: String,
+    pub disposition: String,
+    pub base_revision: i64,
+    pub command_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OperatorDecisionApplyResponse {
+    pub accepted: bool,
+    pub status: String,
+    pub process_id: String,
+    pub command_id: String,
+    pub applied_revision: Option<i64>,
+    pub current_revision: Option<i64>,
+    pub current_disposition: Option<String>,
+    pub rejected_payload: Option<Value>,
+    pub raw: Value,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WriterLease {
     org_id: String,
     executor_id: String,
@@ -831,6 +852,41 @@ impl SupabaseRpcClient {
         );
         PushBatchApplyResponse::from_rpc_value(value)
     }
+
+    pub async fn update_operator_decision(
+        &self,
+        command: &OperatorDecisionCommand,
+    ) -> Result<OperatorDecisionApplyResponse> {
+        command.validate()?;
+        let url = format!("{}/rest/v1/rpc/update_operator_decision", self.api_url);
+        let body = json!({
+            "process_id": command.process_id,
+            "disposition": command.disposition,
+            "base_revision": command.base_revision,
+            "command_id": command.command_id,
+        });
+        let response = self
+            .client
+            .post(url)
+            .bearer_auth(&self.service_role_key)
+            .header("apikey", &self.service_role_key)
+            .header(ACCEPT, "application/json")
+            .header(CONTENT_TYPE, "application/json")
+            .json(&body)
+            .send()
+            .await
+            .context("calling Supabase update_operator_decision RPC")?;
+        let status_code = response.status();
+        let value = response
+            .json::<Value>()
+            .await
+            .context("parsing update_operator_decision RPC response")?;
+        ensure!(
+            status_code.is_success(),
+            "update_operator_decision RPC failed with HTTP {status_code}: {value}"
+        );
+        OperatorDecisionApplyResponse::from_rpc_value(value)
+    }
 }
 
 impl PushBatchApplyResponse {
@@ -860,6 +916,118 @@ impl PushBatchApplyResponse {
     pub fn is_stale_writer_rejection(&self) -> bool {
         !self.accepted && self.status == "rejected" && self.error_code() == Some("stale_writer")
     }
+}
+
+impl OperatorDecisionCommand {
+    pub fn new(
+        process_id: impl Into<String>,
+        disposition: impl Into<String>,
+        base_revision: i64,
+        command_id: impl Into<String>,
+    ) -> Result<Self> {
+        let command = Self {
+            process_id: process_id.into(),
+            disposition: disposition.into(),
+            base_revision,
+            command_id: command_id.into(),
+        };
+        command.validate()?;
+        Ok(command)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        ensure_non_empty("process_id", &self.process_id)?;
+        ensure_non_empty("disposition", &self.disposition)?;
+        ensure_non_empty("command_id", &self.command_id)?;
+        ensure!(
+            matches!(
+                self.disposition.as_str(),
+                "pending" | "watching" | "approved" | "rejected"
+            ),
+            "invalid operator decision disposition `{}`",
+            self.disposition
+        );
+        ensure!(
+            self.base_revision >= 0,
+            "base_revision must be a non-negative remote revision"
+        );
+        Ok(())
+    }
+}
+
+impl OperatorDecisionApplyResponse {
+    pub fn from_rpc_value(value: Value) -> Result<Self> {
+        let accepted = value
+            .get("accepted")
+            .and_then(Value::as_bool)
+            .context("update_operator_decision response missing boolean accepted")?;
+        let status = value
+            .get("status")
+            .and_then(Value::as_str)
+            .context("update_operator_decision response missing string status")?
+            .to_owned();
+        let process_id = value
+            .get("process_id")
+            .and_then(Value::as_str)
+            .context("update_operator_decision response missing string process_id")?
+            .to_owned();
+        let command_id = value
+            .get("command_id")
+            .and_then(Value::as_str)
+            .context("update_operator_decision response missing string command_id")?
+            .to_owned();
+        let applied_revision = value.get("applied_revision").and_then(Value::as_i64);
+        let current_revision = value.get("current_revision").and_then(Value::as_i64);
+        let current_disposition = value
+            .get("current_disposition")
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        let rejected_payload = value.get("rejected_payload").cloned();
+
+        Ok(Self {
+            accepted,
+            status,
+            process_id,
+            command_id,
+            applied_revision,
+            current_revision,
+            current_disposition,
+            rejected_payload,
+            raw: value,
+        })
+    }
+
+    #[must_use]
+    pub fn is_conflict(&self) -> bool {
+        !self.accepted && self.status == "conflict"
+    }
+}
+
+pub fn decision_conflict_event_payload(response: &OperatorDecisionApplyResponse) -> Result<Value> {
+    ensure!(
+        response.is_conflict(),
+        "decision.conflict payload requires a CAS conflict response"
+    );
+    let current_remote_revision = response
+        .current_revision
+        .context("CAS conflict response missing current_revision")?;
+    let current_disposition = response
+        .current_disposition
+        .as_deref()
+        .context("CAS conflict response missing current_disposition")?;
+    let rejected_payload = response
+        .rejected_payload
+        .clone()
+        .context("CAS conflict response missing rejected_payload")?;
+
+    Ok(json!({
+        "event": "decision.conflict",
+        "process_id": response.process_id,
+        "command_id": response.command_id,
+        "current_remote_revision": current_remote_revision,
+        "current_disposition": current_disposition,
+        "rejected_payload": rejected_payload,
+    }))
 }
 
 impl BatchEnvelopeAssembler {

@@ -91,6 +91,61 @@ fn l4_t_redaction_boundary_026_schema_hash_coordination_gate() -> Result<()> {
 }
 
 #[test]
+fn l4_t_redaction_boundary_022_operator_decision_mutation_requires_cas_rpc() -> Result<()> {
+    let rls = read_repo_file("infra/supabase/migrations/0004_rls_policies.sql")?;
+    let rpc = read_repo_file("infra/supabase/migrations/0005_sync_rpcs.sql")?;
+    let update_operator_decision_rpc = rpc
+        .split("CREATE OR REPLACE FUNCTION update_operator_decision")
+        .nth(1)
+        .context("L4-T-redaction_boundary-022 missing update_operator_decision RPC")?;
+
+    ensure!(
+        update_operator_decision_rpc.contains("process_id text")
+            && update_operator_decision_rpc.contains("disposition text")
+            && update_operator_decision_rpc.contains("base_revision bigint")
+            && update_operator_decision_rpc.contains("command_id text")
+            && update_operator_decision_rpc.contains("SECURITY DEFINER"),
+        "L4-T-redaction_boundary-022 expected update_operator_decision security-definer RPC"
+    );
+    ensure!(
+        update_operator_decision_rpc.contains("l4_is_any_role(ARRAY['operator', 'admin'])")
+            && update_operator_decision_rpc.contains("FOR UPDATE")
+            && update_operator_decision_rpc.contains("requested_base_revision"),
+        "L4-T-redaction_boundary-022 expected operator/admin CAS gate with row-level lock"
+    );
+    ensure!(
+        update_operator_decision_rpc.contains("operator_decision_commands")
+            && update_operator_decision_rpc.contains("'status', 'conflict'")
+            && update_operator_decision_rpc.contains("'rejected_payload'"),
+        "L4-T-redaction_boundary-022 expected durable command ledger and conflict response"
+    );
+    ensure!(
+        !update_operator_decision_rpc.contains("'not_implemented'"),
+        "L4-T-redaction_boundary-022 found placeholder update_operator_decision body"
+    );
+
+    ensure!(
+        rls.contains("CREATE POLICY operator_decision_heads_operator_admin_daemon_select")
+            && rls.contains("CREATE POLICY operator_decision_heads_admin_all"),
+        "operator_decision_heads should expose select plus admin direct-write policies only"
+    );
+    ensure!(
+        !rls.contains("operator_decision_heads_operator_update")
+            && !rls.contains("operator_decision_heads_daemon_update")
+            && !rls.contains("operator_decision_heads_operator_all"),
+        "operator direct UPDATE policies must stay absent; mutation belongs behind the CAS RPC"
+    );
+    ensure!(
+        rpc.contains(
+            "GRANT EXECUTE ON FUNCTION update_operator_decision(text, text, bigint, text)"
+        ),
+        "authenticated/service-role execution grant for the CAS RPC is missing"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn l4_t_redaction_boundary_023_daemon_projection_mutation_stays_behind_rpc() -> Result<()> {
     let rls = read_repo_file("infra/supabase/migrations/0004_rls_policies.sql")?;
     let rpc = read_repo_file("infra/supabase/migrations/0005_sync_rpcs.sql")?;
