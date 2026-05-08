@@ -18,10 +18,11 @@ pub use sync_impl::SupabaseRpcClient;
 pub use sync_impl::{
     BatchEnvelope, BatchEnvelopeAssembler, FencedPullOutcome, FencedPullPageBoundary, OutboxOp,
     OutboxWriter, PendingIntentReconciler, PendingIntentReconciliationPlan, PullCursor,
-    PullCursorDomain, PullCursorStore, PushBatchApplyResponse, RemoteOwnedChange, SyncCycle,
-    SyncCycleOutcome, SyncCyclePhase, SyncCycleTrigger, SyncHealth, ViewerSyncStatus,
-    ViewerSyncStatusWriter, WriterBindingConfig, WriterBindingMode, WriterLease,
-    WriterLeaseAcquireResult, canonical_content_hash, decision_conflict_event_payload,
+    PullCursorDomain, PullCursorStore, PushBatchApplyResponse, RemoteOwnedChange, SchemaEpochGuard,
+    SchemaEpochStatus, SqliteSnapshotArtifact, SqliteSnapshotRecord, SqliteSnapshotRequest,
+    SqliteSnapshotScheduler, SyncCycle, SyncCycleOutcome, SyncCyclePhase, SyncCycleTrigger,
+    SyncHealth, ViewerSyncStatus, ViewerSyncStatusWriter, WriterBindingConfig, WriterBindingMode,
+    WriterLease, WriterLeaseAcquireResult, canonical_content_hash, decision_conflict_event_payload,
 };
 #[allow(unused_imports)]
 pub use sync_impl::{OperatorDecisionApplyResponse, OperatorDecisionCommand};
@@ -322,10 +323,24 @@ impl OutboxHarness {
         Ok(())
     }
 
+    pub fn record_apply_response(
+        &mut self,
+        batch_id: &str,
+        response: &PushBatchApplyResponse,
+    ) -> Result<()> {
+        let assembler = BatchEnvelopeAssembler::new(DEFAULT_EXECUTOR_ID, "push-owned", 1, 100)?;
+        assembler.record_apply_response(&mut self.conn, batch_id, response)?;
+        Ok(())
+    }
+
     pub fn viewer_sync_status(&self) -> Result<ViewerSyncStatus> {
         ViewerSyncStatusWriter::for_default_org(DEFAULT_SCHEMA_EPOCH)?
             .load(&self.conn)?
             .context("missing viewer_sync_status row")
+    }
+
+    pub fn schema_epoch_status(&self) -> Result<SchemaEpochStatus> {
+        SchemaEpochGuard::load(&self.conn, "default")?.context("missing schema epoch status")
     }
 
     pub fn re_envelope_after_stale_writer(

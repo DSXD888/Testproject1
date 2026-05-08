@@ -6,6 +6,7 @@ use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const DEFAULT_EXECUTOR_ID: &str = "local-daemon";
@@ -13,6 +14,7 @@ const WRITER_LEASE_HEARTBEAT_INTERVAL_SECS: i64 = 30;
 const WRITER_LEASE_MIN_TTL_SECS: i64 = 120;
 const WRITER_LEASE_NEXT_SAFE_ACTION: &str =
     "switch this install to viewer-only or perform explicit rehome";
+const SQLITE_SNAPSHOT_DEFAULT_CADENCE_SECS: i64 = 6 * 60 * 60;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OutboxOp {
@@ -189,6 +191,81 @@ pub struct ViewerSyncStatusWriter {
     daemon_version: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SchemaEpochStatus {
+    pub org_id: String,
+    pub paused: bool,
+    pub reason: Option<String>,
+    pub local_schema_epoch: i64,
+    pub remote_schema_epoch: Option<i64>,
+    pub dispatch_policy: SyncDispatchPolicy,
+    pub local_operation_available: bool,
+    pub operator_message: String,
+    pub updated_at_epoch_secs: i64,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SyncDispatchPolicy {
+    PushAndPullAllowed,
+    PushAndPullPaused,
+}
+
+impl SchemaEpochStatus {
+    #[must_use]
+    pub const fn push_dispatch_allowed(&self) -> bool {
+        matches!(self.dispatch_policy, SyncDispatchPolicy::PushAndPullAllowed)
+    }
+
+    #[must_use]
+    pub const fn pull_dispatch_allowed(&self) -> bool {
+        matches!(self.dispatch_policy, SyncDispatchPolicy::PushAndPullAllowed)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SchemaEpochGuard;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SqliteSnapshotScheduler {
+    cadence_secs: i64,
+    destination_dir: String,
+    encryption_key_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SqliteSnapshotRequest {
+    pub source_path: String,
+    pub destination_path: String,
+    pub encryption_key_id: String,
+    pub scheduled_for_epoch_secs: i64,
+    pub wal_checkpointed: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SqliteSnapshotArtifact {
+    pub destination_path: String,
+    pub encrypted: bool,
+    pub bytes_written: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SqliteSnapshotRecord {
+    pub snapshot_id: String,
+    pub status: String,
+    pub source_path: String,
+    pub destination_path: String,
+    pub encryption_key_id: String,
+    pub scheduled_for_epoch_secs: i64,
+    pub started_at_epoch_secs: i64,
+    pub completed_at_epoch_secs: i64,
+    pub wal_checkpointed: bool,
+    pub encrypted: bool,
+    pub bytes_written: i64,
+    pub warning_code: Option<String>,
+    pub warning_message: Option<String>,
+    pub local_operation_available: bool,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SyncCyclePhase {
     RemotePullCompleted(PullCursorDomain),
@@ -330,6 +407,20 @@ struct PendingOperatorIntent {
     desired_disposition: String,
     base_remote_revision: i64,
     idempotency_key: String,
+}
+
+struct SnapshotRunInput {
+    status: &'static str,
+    source_path: String,
+    destination_path: String,
+    scheduled_for_epoch_secs: i64,
+    started_at_epoch_secs: i64,
+    completed_at_epoch_secs: i64,
+    wal_checkpointed: bool,
+    encrypted: bool,
+    bytes_written: i64,
+    warning_code: Option<String>,
+    warning_message: Option<String>,
 }
 
 impl OutboxWriter {
@@ -974,6 +1065,43 @@ impl ViewerSyncStatusWriter {
             .with_context(|| format!("missing viewer_sync_status row for org `{}`", self.org_id))
     }
 
+    pub fn record_sync_paused(
+        &self,
+        conn: &Connection,
+        now_epoch_secs: i64,
+        projection_generation: i64,
+    ) -> Result<ViewerSyncStatus> {
+        ensure!(now_epoch_secs >= 0, "now_epoch_secs must be non-negative");
+        ensure!(
+            projection_generation >= 0,
+            "projection_generation must be non-negative"
+        );
+        ensure_viewer_sync_status_table(conn)?;
+        let current = self.load(conn)?;
+        let pending_outbox_count = pending_outbox_count(conn)?;
+        upsert_viewer_sync_status(
+            conn,
+            &ViewerSyncStatus {
+                org_id: self.org_id.clone(),
+                sync_health: SyncHealth::Offline,
+                last_push_success_at_epoch_secs: current
+                    .as_ref()
+                    .and_then(|status| status.last_push_success_at_epoch_secs),
+                last_push_attempt_at_epoch_secs: Some(now_epoch_secs),
+                last_acked_local_seq: current
+                    .as_ref()
+                    .and_then(|status| status.last_acked_local_seq),
+                pending_outbox_count,
+                schema_epoch: self.schema_epoch,
+                projection_generation,
+                daemon_version: self.daemon_version.clone(),
+                updated_at_epoch_secs: now_epoch_secs,
+            },
+        )?;
+        self.load(conn)?
+            .with_context(|| format!("missing viewer_sync_status row for org `{}`", self.org_id))
+    }
+
     pub fn load(&self, conn: &Connection) -> Result<Option<ViewerSyncStatus>> {
         ensure_viewer_sync_status_table(conn)?;
         conn.query_row(
@@ -989,6 +1117,369 @@ impl ViewerSyncStatusWriter {
         )
         .optional()
         .context("loading viewer_sync_status row")
+    }
+}
+
+impl SchemaEpochGuard {
+    pub fn local_schema_epoch(conn: &Connection) -> Result<i64> {
+        conn.pragma_query_value(None, "user_version", |row| row.get(0))
+            .context("reading local SQLite PRAGMA user_version")
+    }
+
+    pub fn record_remote_epoch_check(
+        conn: &Connection,
+        org_id: &str,
+        remote_schema_epoch: Option<i64>,
+        now_epoch_secs: i64,
+        projection_generation: i64,
+        daemon_version: &str,
+    ) -> Result<SchemaEpochStatus> {
+        ensure_non_empty("org_id", org_id)?;
+        ensure!(now_epoch_secs >= 0, "now_epoch_secs must be non-negative");
+        let local_schema_epoch = Self::local_schema_epoch(conn)?;
+        ensure!(
+            local_schema_epoch > 0,
+            "local schema_epoch must be positive"
+        );
+        if let Some(remote_schema_epoch) = remote_schema_epoch {
+            ensure!(
+                remote_schema_epoch > 0,
+                "remote schema_epoch must be positive when present"
+            );
+        }
+
+        if remote_schema_epoch == Some(local_schema_epoch) {
+            if let Some(paused) = Self::load(conn, org_id)?
+                && paused.paused
+            {
+                return Ok(paused);
+            }
+            return Ok(SchemaEpochStatus {
+                org_id: org_id.to_owned(),
+                paused: false,
+                reason: None,
+                local_schema_epoch,
+                remote_schema_epoch,
+                dispatch_policy: SyncDispatchPolicy::PushAndPullAllowed,
+                local_operation_available: true,
+                operator_message: "schema epochs match; sync may proceed".to_owned(),
+                updated_at_epoch_secs: now_epoch_secs,
+            });
+        }
+
+        Self::pause_for_mismatch(
+            conn,
+            org_id,
+            local_schema_epoch,
+            remote_schema_epoch,
+            now_epoch_secs,
+            projection_generation,
+            daemon_version,
+        )
+    }
+
+    pub fn pause_for_mismatch(
+        conn: &Connection,
+        org_id: &str,
+        local_schema_epoch: i64,
+        remote_schema_epoch: Option<i64>,
+        now_epoch_secs: i64,
+        projection_generation: i64,
+        daemon_version: &str,
+    ) -> Result<SchemaEpochStatus> {
+        ensure_non_empty("org_id", org_id)?;
+        ensure!(
+            local_schema_epoch > 0,
+            "local schema_epoch must be positive"
+        );
+        ensure!(now_epoch_secs >= 0, "now_epoch_secs must be non-negative");
+        if let Some(remote_schema_epoch) = remote_schema_epoch {
+            ensure!(
+                remote_schema_epoch > 0,
+                "remote schema_epoch must be positive when present"
+            );
+        }
+
+        ensure_sync_pause_state_table(conn)?;
+        let operator_message = remote_schema_epoch.map_or_else(
+            || {
+                format!(
+                    "sync paused: remote schema_epoch is unavailable while local schema_epoch is {local_schema_epoch}; run epoch repair and reproject before resuming remote writes"
+                )
+            },
+            |remote| {
+                format!(
+                "sync paused: local schema_epoch {local_schema_epoch} does not match remote schema_epoch {remote}; run epoch repair and reproject before resuming remote writes"
+                )
+            },
+        );
+        conn.execute(
+            "\
+            INSERT INTO sync_pause_state (
+              org_id, paused, reason, local_schema_epoch, remote_schema_epoch,
+              operator_message, updated_at_epoch_secs
+            ) VALUES (?1, 1, 'schema_epoch_mismatch', ?2, ?3, ?4, ?5)
+            ON CONFLICT(org_id) DO UPDATE SET
+              paused = 1,
+              reason = 'schema_epoch_mismatch',
+              local_schema_epoch = excluded.local_schema_epoch,
+              remote_schema_epoch = excluded.remote_schema_epoch,
+              operator_message = excluded.operator_message,
+              updated_at_epoch_secs = excluded.updated_at_epoch_secs
+            ",
+            params![
+                org_id,
+                local_schema_epoch,
+                remote_schema_epoch,
+                operator_message,
+                now_epoch_secs
+            ],
+        )
+        .context("recording schema epoch sync pause")?;
+        ViewerSyncStatusWriter::new(org_id, local_schema_epoch, daemon_version)?
+            .record_sync_paused(conn, now_epoch_secs, projection_generation)?;
+        Self::load(conn, org_id)?.context("missing schema epoch pause state after update")
+    }
+
+    pub fn load(conn: &Connection, org_id: &str) -> Result<Option<SchemaEpochStatus>> {
+        ensure_non_empty("org_id", org_id)?;
+        ensure_sync_pause_state_table(conn)?;
+        conn.query_row(
+            "\
+            SELECT org_id, paused, reason, local_schema_epoch, remote_schema_epoch,
+                   operator_message, updated_at_epoch_secs
+            FROM sync_pause_state
+            WHERE org_id = ?1
+            ",
+            params![org_id],
+            hydrate_schema_epoch_status,
+        )
+        .optional()
+        .context("loading schema epoch sync pause state")
+    }
+
+    pub fn is_sync_paused(conn: &Connection, org_id: &str) -> Result<bool> {
+        Ok(Self::load(conn, org_id)?.is_some_and(|status| status.paused))
+    }
+}
+
+impl SqliteSnapshotScheduler {
+    pub fn new(
+        cadence_secs: i64,
+        destination_dir: impl Into<String>,
+        encryption_key_id: impl Into<String>,
+    ) -> Result<Self> {
+        let destination_dir = destination_dir.into();
+        let encryption_key_id = encryption_key_id.into();
+        ensure!(cadence_secs > 0, "snapshot cadence must be positive");
+        ensure_non_empty("destination_dir", &destination_dir)?;
+        ensure_non_empty("encryption_key_id", &encryption_key_id)?;
+        Ok(Self {
+            cadence_secs,
+            destination_dir,
+            encryption_key_id,
+        })
+    }
+
+    pub fn default_cadence(
+        destination_dir: impl Into<String>,
+        encryption_key_id: impl Into<String>,
+    ) -> Result<Self> {
+        Self::new(
+            SQLITE_SNAPSHOT_DEFAULT_CADENCE_SECS,
+            destination_dir,
+            encryption_key_id,
+        )
+    }
+
+    pub fn run_due<F>(
+        &self,
+        conn: &Connection,
+        source_path: &Path,
+        now_epoch_secs: i64,
+        mut run_snapshot: F,
+    ) -> Result<SqliteSnapshotRecord>
+    where
+        F: FnMut(&SqliteSnapshotRequest) -> Result<SqliteSnapshotArtifact>,
+    {
+        ensure!(now_epoch_secs >= 0, "now_epoch_secs must be non-negative");
+        ensure_sqlite_snapshot_runs_table(conn)?;
+        let source_path = source_path.display().to_string();
+        if let Some(last_attempt) = latest_sqlite_snapshot_attempt(conn)?
+            && now_epoch_secs < last_attempt + self.cadence_secs
+        {
+            return self.record_snapshot_run(
+                conn,
+                &SnapshotRunInput {
+                    status: "skipped",
+                    source_path,
+                    destination_path: String::new(),
+                    scheduled_for_epoch_secs: now_epoch_secs,
+                    started_at_epoch_secs: now_epoch_secs,
+                    completed_at_epoch_secs: now_epoch_secs,
+                    wal_checkpointed: false,
+                    encrypted: false,
+                    bytes_written: 0,
+                    warning_code: None,
+                    warning_message: None,
+                },
+            );
+        }
+
+        let destination_path = self.destination_path(&source_path, now_epoch_secs);
+        let wal_checkpointed = checkpoint_wal_passive(conn)?;
+        let request = SqliteSnapshotRequest {
+            source_path: source_path.clone(),
+            destination_path: destination_path.clone(),
+            encryption_key_id: self.encryption_key_id.clone(),
+            scheduled_for_epoch_secs: now_epoch_secs,
+            wal_checkpointed,
+        };
+        let result = run_snapshot(&request);
+        match result {
+            Ok(artifact) if artifact.encrypted => self.record_snapshot_run(
+                conn,
+                &SnapshotRunInput {
+                    status: "succeeded",
+                    source_path,
+                    destination_path: artifact.destination_path,
+                    scheduled_for_epoch_secs: now_epoch_secs,
+                    started_at_epoch_secs: now_epoch_secs,
+                    completed_at_epoch_secs: now_epoch_secs,
+                    wal_checkpointed,
+                    encrypted: true,
+                    bytes_written: artifact.bytes_written,
+                    warning_code: None,
+                    warning_message: None,
+                },
+            ),
+            Ok(artifact) => self.record_snapshot_run(
+                conn,
+                &SnapshotRunInput {
+                    status: "failed",
+                    source_path,
+                    destination_path: artifact.destination_path,
+                    scheduled_for_epoch_secs: now_epoch_secs,
+                    started_at_epoch_secs: now_epoch_secs,
+                    completed_at_epoch_secs: now_epoch_secs,
+                    wal_checkpointed,
+                    encrypted: false,
+                    bytes_written: artifact.bytes_written,
+                    warning_code: Some("SQLITE_SNAPSHOT_UNENCRYPTED".to_owned()),
+                    warning_message: Some(
+                        "snapshot runner returned an unencrypted artifact".to_owned(),
+                    ),
+                },
+            ),
+            Err(error) => self.record_snapshot_run(
+                conn,
+                &SnapshotRunInput {
+                    status: "failed",
+                    source_path,
+                    destination_path,
+                    scheduled_for_epoch_secs: now_epoch_secs,
+                    started_at_epoch_secs: now_epoch_secs,
+                    completed_at_epoch_secs: now_epoch_secs,
+                    wal_checkpointed,
+                    encrypted: false,
+                    bytes_written: 0,
+                    warning_code: Some("SQLITE_SNAPSHOT_FAILED".to_owned()),
+                    warning_message: Some(error.to_string()),
+                },
+            ),
+        }
+    }
+
+    pub fn records(conn: &Connection) -> Result<Vec<SqliteSnapshotRecord>> {
+        ensure_sqlite_snapshot_runs_table(conn)?;
+        let mut stmt = conn
+            .prepare(
+                "\
+                SELECT snapshot_id, status, source_path, destination_path, encryption_key_id,
+                       scheduled_for_epoch_secs, started_at_epoch_secs, completed_at_epoch_secs,
+                       wal_checkpointed, encrypted, bytes_written, warning_code, warning_message,
+                       local_operation_available
+                FROM local_sqlite_snapshot_runs
+                ORDER BY scheduled_for_epoch_secs, snapshot_id
+                ",
+            )
+            .context("preparing SQLite snapshot run listing")?;
+        stmt.query_map([], hydrate_sqlite_snapshot_record)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .context("listing SQLite snapshot runs")
+    }
+
+    fn destination_path(&self, source_path: &str, now_epoch_secs: i64) -> String {
+        let source_name = Path::new(source_path)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("state.sqlite");
+        PathBuf::from(&self.destination_dir)
+            .join(format!("{now_epoch_secs}-{source_name}.sqlite.enc"))
+            .display()
+            .to_string()
+    }
+
+    fn record_snapshot_run(
+        &self,
+        conn: &Connection,
+        input: &SnapshotRunInput,
+    ) -> Result<SqliteSnapshotRecord> {
+        ensure!(
+            matches!(input.status, "succeeded" | "failed" | "skipped"),
+            "unsupported snapshot status `{}`",
+            input.status
+        );
+        let snapshot_id = format!(
+            "{}:{}:{}",
+            input.scheduled_for_epoch_secs,
+            input.status,
+            sha256_hex(input.destination_path.as_bytes())
+                .chars()
+                .take(12)
+                .collect::<String>()
+        );
+        conn.execute(
+            "\
+            INSERT INTO local_sqlite_snapshot_runs (
+              snapshot_id, status, source_path, destination_path, encryption_key_id,
+              scheduled_for_epoch_secs, started_at_epoch_secs, completed_at_epoch_secs,
+              wal_checkpointed, encrypted, bytes_written, warning_code, warning_message,
+              local_operation_available
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, 1)
+            ",
+            params![
+                snapshot_id,
+                input.status,
+                input.source_path,
+                input.destination_path,
+                self.encryption_key_id,
+                input.scheduled_for_epoch_secs,
+                input.started_at_epoch_secs,
+                input.completed_at_epoch_secs,
+                bool_to_i64(input.wal_checkpointed),
+                bool_to_i64(input.encrypted),
+                input.bytes_written,
+                input.warning_code.as_deref(),
+                input.warning_message.as_deref(),
+            ],
+        )
+        .context("recording SQLite snapshot run")?;
+        Self::records(conn)?
+            .into_iter()
+            .find(|record| record.snapshot_id == snapshot_id)
+            .with_context(|| format!("missing recorded SQLite snapshot run `{snapshot_id}`"))
+    }
+}
+
+impl SqliteSnapshotArtifact {
+    #[must_use]
+    pub fn encrypted(destination_path: impl Into<String>, bytes_written: i64) -> Self {
+        Self {
+            destination_path: destination_path.into(),
+            encrypted: true,
+            bytes_written,
+        }
     }
 }
 
@@ -1107,6 +1598,18 @@ impl PushBatchApplyResponse {
     #[must_use]
     pub fn is_stale_writer_rejection(&self) -> bool {
         !self.accepted && self.status == "rejected" && self.error_code() == Some("stale_writer")
+    }
+
+    #[must_use]
+    pub fn is_schema_epoch_mismatch(&self) -> bool {
+        !self.accepted
+            && self.status == "rejected"
+            && self.error_code() == Some("schema_epoch_mismatch")
+    }
+
+    #[must_use]
+    pub fn remote_schema_epoch(&self) -> Option<i64> {
+        self.raw.get("remote_schema_epoch").and_then(Value::as_i64)
     }
 }
 
@@ -1438,6 +1941,9 @@ impl BatchEnvelopeAssembler {
     }
 
     pub fn materialize_next_batch(&self, conn: &mut Connection) -> Result<Option<BatchEnvelope>> {
+        if SchemaEpochGuard::is_sync_paused(conn, "default")? {
+            return Ok(None);
+        }
         let tx = conn
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .context("starting sync batch transaction")?;
@@ -1581,6 +2087,23 @@ impl BatchEnvelopeAssembler {
                 current_epoch_secs()?,
                 batch.last_local_seq,
                 current_projection_generation(conn)?,
+            )?;
+            return Ok(None);
+        }
+
+        if response.is_schema_epoch_mismatch() {
+            let batch = self
+                .load_batch(conn, batch_id)?
+                .with_context(|| format!("missing schema-mismatched sync batch `{batch_id}`"))?;
+            self.mark_rejected(conn, batch_id, &response_json)?;
+            SchemaEpochGuard::pause_for_mismatch(
+                conn,
+                "default",
+                batch.schema_epoch,
+                response.remote_schema_epoch(),
+                current_epoch_secs()?,
+                current_projection_generation(conn)?,
+                env!("CARGO_PKG_VERSION"),
             )?;
             return Ok(None);
         }
@@ -1894,6 +2417,58 @@ fn ensure_viewer_sync_status_table(conn: &Connection) -> Result<()> {
     .context("ensuring viewer_sync_status support table")
 }
 
+fn ensure_sync_pause_state_table(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "\
+        CREATE TABLE IF NOT EXISTS sync_pause_state (
+          org_id TEXT PRIMARY KEY,
+          paused INTEGER NOT NULL CHECK (paused IN (0, 1)),
+          reason TEXT,
+          local_schema_epoch INTEGER NOT NULL CHECK (local_schema_epoch > 0),
+          remote_schema_epoch INTEGER,
+          operator_message TEXT NOT NULL,
+          updated_at_epoch_secs INTEGER NOT NULL CHECK (updated_at_epoch_secs >= 0),
+          CHECK (length(trim(org_id)) > 0),
+          CHECK (reason IS NULL OR length(trim(reason)) > 0),
+          CHECK (remote_schema_epoch IS NULL OR remote_schema_epoch > 0),
+          CHECK (length(trim(operator_message)) > 0)
+        );
+        ",
+    )
+    .context("ensuring sync_pause_state support table")
+}
+
+fn ensure_sqlite_snapshot_runs_table(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "\
+        CREATE TABLE IF NOT EXISTS local_sqlite_snapshot_runs (
+          snapshot_id TEXT PRIMARY KEY,
+          status TEXT NOT NULL CHECK (status IN ('succeeded', 'failed', 'skipped')),
+          source_path TEXT NOT NULL,
+          destination_path TEXT NOT NULL,
+          encryption_key_id TEXT NOT NULL,
+          scheduled_for_epoch_secs INTEGER NOT NULL CHECK (scheduled_for_epoch_secs >= 0),
+          started_at_epoch_secs INTEGER NOT NULL CHECK (started_at_epoch_secs >= 0),
+          completed_at_epoch_secs INTEGER NOT NULL CHECK (completed_at_epoch_secs >= 0),
+          wal_checkpointed INTEGER NOT NULL CHECK (wal_checkpointed IN (0, 1)),
+          encrypted INTEGER NOT NULL CHECK (encrypted IN (0, 1)),
+          bytes_written INTEGER NOT NULL CHECK (bytes_written >= 0),
+          warning_code TEXT,
+          warning_message TEXT,
+          local_operation_available INTEGER NOT NULL CHECK (local_operation_available IN (0, 1)),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CHECK (length(trim(snapshot_id)) > 0),
+          CHECK (length(trim(source_path)) > 0),
+          CHECK (length(trim(encryption_key_id)) > 0),
+          CHECK (completed_at_epoch_secs >= started_at_epoch_secs),
+          CHECK (warning_code IS NULL OR length(trim(warning_code)) > 0),
+          CHECK (warning_message IS NULL OR length(trim(warning_message)) > 0)
+        );
+        ",
+    )
+    .context("ensuring local_sqlite_snapshot_runs support table")
+}
+
 fn upsert_viewer_sync_status(conn: &Connection, status: &ViewerSyncStatus) -> Result<()> {
     ensure_viewer_sync_status_table(conn)?;
     conn.execute(
@@ -1951,6 +2526,73 @@ fn hydrate_viewer_sync_status(row: &rusqlite::Row<'_>) -> rusqlite::Result<Viewe
         daemon_version: row.get(8)?,
         updated_at_epoch_secs: row.get(9)?,
     })
+}
+
+fn hydrate_schema_epoch_status(row: &rusqlite::Row<'_>) -> rusqlite::Result<SchemaEpochStatus> {
+    let paused = row.get::<_, i64>(1)? == 1;
+    Ok(SchemaEpochStatus {
+        org_id: row.get(0)?,
+        paused,
+        reason: row.get(2)?,
+        local_schema_epoch: row.get(3)?,
+        remote_schema_epoch: row.get(4)?,
+        dispatch_policy: if paused {
+            SyncDispatchPolicy::PushAndPullPaused
+        } else {
+            SyncDispatchPolicy::PushAndPullAllowed
+        },
+        local_operation_available: true,
+        operator_message: row.get(5)?,
+        updated_at_epoch_secs: row.get(6)?,
+    })
+}
+
+fn hydrate_sqlite_snapshot_record(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<SqliteSnapshotRecord> {
+    Ok(SqliteSnapshotRecord {
+        snapshot_id: row.get(0)?,
+        status: row.get(1)?,
+        source_path: row.get(2)?,
+        destination_path: row.get(3)?,
+        encryption_key_id: row.get(4)?,
+        scheduled_for_epoch_secs: row.get(5)?,
+        started_at_epoch_secs: row.get(6)?,
+        completed_at_epoch_secs: row.get(7)?,
+        wal_checkpointed: row.get::<_, i64>(8)? == 1,
+        encrypted: row.get::<_, i64>(9)? == 1,
+        bytes_written: row.get(10)?,
+        warning_code: row.get(11)?,
+        warning_message: row.get(12)?,
+        local_operation_available: row.get::<_, i64>(13)? == 1,
+    })
+}
+
+fn latest_sqlite_snapshot_attempt(conn: &Connection) -> Result<Option<i64>> {
+    conn.query_row(
+        "SELECT MAX(scheduled_for_epoch_secs) FROM local_sqlite_snapshot_runs WHERE status <> 'skipped'",
+        [],
+        |row| row.get(0),
+    )
+    .context("loading latest SQLite snapshot attempt")
+}
+
+fn checkpoint_wal_passive(conn: &Connection) -> Result<bool> {
+    let checkpoint = conn.query_row("PRAGMA wal_checkpoint(PASSIVE)", [], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, i64>(2)?,
+        ))
+    });
+    match checkpoint {
+        Ok((_busy, _log_frames, _checkpointed_frames)) => Ok(true),
+        Err(error) => Err(error).context("running passive WAL checkpoint before SQLite snapshot"),
+    }
+}
+
+const fn bool_to_i64(value: bool) -> i64 {
+    if value { 1 } else { 0 }
 }
 
 fn pending_outbox_count(conn: &Connection) -> Result<i64> {

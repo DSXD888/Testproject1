@@ -15,8 +15,9 @@ use tokio::task::JoinHandle;
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 use support::sync::{
     EnforcementHarness, OperatorDecisionCasHarness, OutboxHarness, PullCursorDomain,
-    PullCursorHarness, PushOwnedFixture, SupabaseRpcClient, SyncCyclePhase, SyncCycleTrigger,
-    SyncHealth, ViewerSyncStatus, WriterBindingConfig, WriterBindingMode, WriterLeaseAcquireResult,
+    PullCursorHarness, PushOwnedFixture, SchemaEpochGuard, SqliteSnapshotArtifact,
+    SqliteSnapshotScheduler, SupabaseRpcClient, SyncCyclePhase, SyncCycleTrigger, SyncHealth,
+    ViewerSyncStatus, WriterBindingConfig, WriterBindingMode, WriterLeaseAcquireResult,
     WriterLeaseHarness, canonical_content_hash, decision_conflict_event_payload, parse_payload,
 };
 
@@ -2140,6 +2141,103 @@ fn l4_t_sqlite_supabase_sync_043_unapproved_second_writer_config_rejected() -> R
     Ok(())
 }
 
+#[tokio::test]
+async fn l4_t_sqlite_supabase_sync_044_schema_epoch_mismatch_pauses_sync_only() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-044");
+    println!("[SETUP] outbox batch at local PRAGMA schema epoch");
+    let state_db = L4TestStateDb::new()?;
+    let mut outbox = OutboxHarness::new(&state_db)?;
+    outbox.mutate_push_owned_fixture(PushOwnedFixture::new("l4-epoch-pause-row", 1))?;
+    let batch = outbox
+        .assemble_batch(10, 7)?
+        .context("schema epoch test batch was not materialized")?;
+    let local_schema_epoch = SchemaEpochGuard::local_schema_epoch(outbox.connection())?;
+    ensure!(
+        local_schema_epoch == DEFAULT_SCHEMA_EPOCH && batch.schema_epoch == local_schema_epoch,
+        "batch did not use the local PRAGMA schema epoch: local={local_schema_epoch} batch={batch:?}"
+    );
+    let (api_url, capture) = spawn_rpc_capture_server(json!({
+        "accepted": false,
+        "status": "rejected",
+        "error": "schema_epoch_mismatch",
+        "remote_schema_epoch": DEFAULT_SCHEMA_EPOCH + 1,
+        "batch_schema_epoch": DEFAULT_SCHEMA_EPOCH
+    }))
+    .await?;
+
+    println!("[EXEC] remote apply rejects incompatible schema epoch");
+    let client = SupabaseRpcClient::new(api_url, "service-role-test-key")?;
+    let response = client.apply_push_batch(&batch).await?;
+    let raw_request = capture.await.context("joining capture server task")??;
+    outbox.record_apply_response(&batch.batch_id, &response)?;
+
+    println!("[ASSERT] mismatch records operator-visible pause and stops projection dispatch");
+    ensure!(
+        response.is_schema_epoch_mismatch()
+            && response.remote_schema_epoch() == Some(DEFAULT_SCHEMA_EPOCH + 1),
+        "apply response was not classified as schema epoch mismatch: {response:?}"
+    );
+    let body = http_body(&raw_request)?;
+    let request_json: Value =
+        serde_json::from_str(body).context("parsing captured apply_push_batch body")?;
+    ensure!(
+        request_json
+            .get("batch_json")
+            .and_then(|batch_json| batch_json.get("schema_epoch"))
+            .and_then(Value::as_i64)
+            == Some(DEFAULT_SCHEMA_EPOCH),
+        "apply request did not carry schema_epoch in batch_json: {request_json}"
+    );
+    let paused = outbox.schema_epoch_status()?;
+    ensure!(
+        paused.paused
+            && paused.reason.as_deref() == Some("schema_epoch_mismatch")
+            && paused.local_schema_epoch == DEFAULT_SCHEMA_EPOCH
+            && paused.remote_schema_epoch == Some(DEFAULT_SCHEMA_EPOCH + 1)
+            && !paused.push_dispatch_allowed()
+            && !paused.pull_dispatch_allowed()
+            && paused.local_operation_available
+            && paused.operator_message.contains("epoch repair"),
+        "schema epoch mismatch did not persist the expected pause state: {paused:?}"
+    );
+    let viewer_status = outbox.viewer_sync_status()?;
+    ensure!(
+        viewer_status.sync_health == SyncHealth::Offline
+            && viewer_status.last_push_attempt_at_epoch_secs.is_some()
+            && viewer_status.schema_epoch == DEFAULT_SCHEMA_EPOCH,
+        "viewer sync status did not surface the schema pause: {viewer_status:?}"
+    );
+    ensure!(
+        outbox.assemble_batch(10, 8)?.is_none(),
+        "projection writes resumed while schema epoch pause was active"
+    );
+
+    println!("[EXEC] write local pipeline data while remote sync is paused");
+    outbox.mutate_push_owned_fixture(
+        PushOwnedFixture::new("l4-local-write-during-epoch-pause", 2)
+            .commit_group_id("l4-local-write-during-epoch-pause"),
+    )?;
+
+    println!("[ASSERT] local SQLite operation continues under sync pause");
+    ensure!(
+        outbox
+            .process_last_local_seq("l4-local-write-during-epoch-pause")?
+            .is_some(),
+        "local pipeline write was blocked by schema epoch sync pause"
+    );
+    let rpc_body = apply_push_batch_body()?;
+    ensure!(
+        rpc_body.contains("FROM schema_metadata")
+            && rpc_body.contains("'error', 'schema_epoch_mismatch'")
+            && rpc_body.contains("'remote_schema_epoch', remote_schema_epoch"),
+        "apply_push_batch RPC no longer exposes the remote schema epoch guard"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB and one-shot capture server");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-044 PASS");
+    Ok(())
+}
+
 #[test]
 fn l4_t_sqlite_supabase_sync_046_viewer_sync_status_updates_after_ack_and_heartbeat() -> Result<()>
 {
@@ -2191,6 +2289,108 @@ fn l4_t_sqlite_supabase_sync_046_viewer_sync_status_updates_after_ack_and_heartb
 
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-046 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_048_sqlite_snapshot_scheduler_warns_without_blocking() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-048");
+    println!("[SETUP] local state DB with WAL-aware snapshot scheduler");
+    let state_db = L4TestStateDb::new()?;
+    let mut outbox = OutboxHarness::new(&state_db)?;
+    outbox.mutate_push_owned_fixture(PushOwnedFixture::new("l4-backup-before-snapshot", 1))?;
+    let scheduler =
+        SqliteSnapshotScheduler::new(3_600, "target/l4-sqlite-snapshots", "test-key-v1")?;
+
+    println!("[EXEC] run a due encrypted snapshot");
+    let success = scheduler.run_due(outbox.connection(), state_db.db_path(), 1_000, |request| {
+        ensure!(
+            request.wal_checkpointed
+                && request.destination_path.ends_with(".sqlite.enc")
+                && request.encryption_key_id == "test-key-v1",
+            "snapshot request was not WAL-aware/encrypted-targeted: {request:?}"
+        );
+        Ok(SqliteSnapshotArtifact::encrypted(
+            request.destination_path.clone(),
+            4_096,
+        ))
+    })?;
+
+    println!("[ASSERT] success records encrypted WAL-aware snapshot metadata");
+    ensure!(
+        success.status == "succeeded"
+            && success.wal_checkpointed
+            && success.encrypted
+            && success.warning_code.is_none()
+            && success.local_operation_available
+            && success.bytes_written == 4_096,
+        "successful snapshot did not record the expected metadata: {success:?}"
+    );
+
+    println!("[EXEC] poll again before cadence elapses");
+    let skipped =
+        scheduler.run_due(outbox.connection(), state_db.db_path(), 1_100, |_request| {
+            anyhow::bail!("snapshot runner should not execute before cadence elapses")
+        })?;
+
+    println!("[ASSERT] cadence prevents duplicate snapshot work");
+    ensure!(
+        skipped.status == "skipped" && !skipped.wal_checkpointed,
+        "scheduler did not skip before cadence elapsed: {skipped:?}"
+    );
+
+    println!("[EXEC] run a later snapshot whose encrypted sink fails");
+    let failure = scheduler.run_due(outbox.connection(), state_db.db_path(), 4_600, |request| {
+        ensure!(
+            request.wal_checkpointed,
+            "failed snapshot path still must checkpoint WAL before handoff"
+        );
+        anyhow::bail!("simulated encrypted snapshot sink failure")
+    })?;
+
+    println!("[ASSERT] failure is an operational warning and does not block local writes");
+    ensure!(
+        failure.status == "failed"
+            && failure.warning_code.as_deref() == Some("SQLITE_SNAPSHOT_FAILED")
+            && failure
+                .warning_message
+                .as_deref()
+                .is_some_and(|message| message.contains("simulated encrypted snapshot"))
+            && failure.local_operation_available,
+        "snapshot failure was not recorded as a non-blocking warning: {failure:?}"
+    );
+    outbox.mutate_push_owned_fixture(
+        PushOwnedFixture::new("l4-backup-local-after-warning", 2)
+            .commit_group_id("l4-backup-local-after-warning"),
+    )?;
+    ensure!(
+        outbox
+            .process_last_local_seq("l4-backup-local-after-warning")?
+            .is_some(),
+        "local pipeline write was blocked by snapshot warning"
+    );
+
+    let records = SqliteSnapshotScheduler::records(outbox.connection())?;
+    ensure!(
+        records.len() == 3
+            && records.iter().any(|record| record.status == "succeeded")
+            && records.iter().any(|record| record.status == "skipped")
+            && records.iter().any(|record| record.status == "failed"),
+        "snapshot run ledger did not retain success/skip/failure history: {records:?}"
+    );
+    let spec = read_repo_file("docs/strategy/layers/layer-4-shared-visibility.md")?;
+    ensure!(
+        spec.contains("Encrypted WAL-aware snapshots")
+            || spec.contains("encrypted WAL-aware snapshots"),
+        "operator/admin documentation must mention encrypted WAL-aware snapshots"
+    );
+    ensure!(
+        spec.contains("Single-device durability is a known MVP limitation"),
+        "operator/admin documentation must state the single-device pre-push loss limitation"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-048 PASS");
     Ok(())
 }
 
