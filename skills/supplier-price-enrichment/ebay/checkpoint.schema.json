@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "batch_id", "last_completed_profile_id", "last_completed_wave"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "batch_id":       { "type": "string" },
+    "last_completed_profile_id": { "type": ["string", "null"] },
+    "last_completed_wave":       { "type": ["integer", "null"], "minimum": 0, "maximum": 4 },
+    "completed_profile_ids":     { "type": "array", "items": { "type": "string" } },
+    "inflight_profile_id":       { "type": ["string", "null"] },
+    "inflight_wave":             { "type": ["integer", "null"], "minimum": 0, "maximum": 4 },
+    "browser_attach_state":      { "type": "object" }
+  }
+}

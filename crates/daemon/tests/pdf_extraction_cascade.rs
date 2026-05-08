@@ -24,7 +24,9 @@ struct CascadeHarness {
     db_path: PathBuf,
     pdf_path: PathBuf,
     wrapper_path: PathBuf,
+    python_bin_path: PathBuf,
     pythonpath_root: PathBuf,
+    docling_version_path: PathBuf,
     model_artifacts_path: PathBuf,
 }
 
@@ -58,6 +60,8 @@ impl CascadeHarness {
         let artifact_root = root.join("artifacts");
         let input_root = root.join("inputs");
         let pythonpath_root = root.join("python");
+        let python_bin_path = root.join("fake-python");
+        let docling_version_path = root.join("docling-version.txt");
         let model_artifacts_path = root.join("docling-models");
         fs::create_dir_all(&state_root)?;
         fs::create_dir_all(&runtime_root)?;
@@ -73,6 +77,16 @@ impl CascadeHarness {
         let docling_module = pythonpath_root.join("docling.py");
         fs::write(&docling_module, "__version__ = '2.85.0'\n")
             .with_context(|| format!("writing {}", docling_module.display()))?;
+        fs::write(&docling_version_path, "2.85.0\n")
+            .with_context(|| format!("writing {}", docling_version_path.display()))?;
+        fs::write(
+            &python_bin_path,
+            format!(
+                "#!/bin/sh\nset -eu\nif [ \"${{1-}}\" = \"-c\" ]; then\n  cat \"{}\"\n  exit 0\nfi\nexec python3 \"$@\"\n",
+                docling_version_path.display()
+            ),
+        )
+        .with_context(|| format!("writing {}", python_bin_path.display()))?;
 
         let wrapper_path = root.join("docling-wrapper.py");
         let mut payload = sample_docling_output();
@@ -115,6 +129,10 @@ with open(args.output, "w", encoding="utf-8") as handle:
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&python_bin_path)?.permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&python_bin_path, perms)?;
+
             let mut perms = fs::metadata(&wrapper_path)?.permissions();
             perms.set_mode(0o755);
             fs::set_permissions(&wrapper_path, perms)?;
@@ -131,7 +149,9 @@ with open(args.output, "w", encoding="utf-8") as handle:
             db_path,
             pdf_path,
             wrapper_path,
+            python_bin_path,
             pythonpath_root,
+            docling_version_path,
             model_artifacts_path,
         })
     }
@@ -256,6 +276,8 @@ with open(args.output, "w", encoding="utf-8") as handle:
         let docling_module = self.pythonpath_root.join("docling.py");
         fs::write(&docling_module, format!("__version__ = '{version}'\n"))
             .with_context(|| format!("writing {}", docling_module.display()))?;
+        fs::write(&self.docling_version_path, format!("{version}\n"))
+            .with_context(|| format!("writing {}", self.docling_version_path.display()))?;
 
         let mut payload = sample_docling_output();
         payload
@@ -395,6 +417,7 @@ with open(args.output, "w", encoding="utf-8") as handle:
             .arg("--artifact-root")
             .arg(&self.artifact_root)
             .env("PYTHONPATH", &self.pythonpath_root)
+            .env("DOCLING_PYTHON_BIN", &self.python_bin_path)
             .output()
             .context("running daemon --run-next-job")?;
 

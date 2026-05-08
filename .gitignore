@@ -4,6 +4,7 @@
 *.mcp.json
 opencode.json
 storage.sqlite3*
+.DS_Store
 state/*.db*
 runtime/*.db*
 runtime/*.info.json
