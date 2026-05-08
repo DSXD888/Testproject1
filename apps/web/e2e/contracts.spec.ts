@@ -222,6 +222,103 @@ test('L4-T-contracts_spec-012 status route renders read-only fallback snapshot',
   ).toHaveCount(0);
 });
 
+test('L4-T-contracts_spec-017 verifies desktop-seeded projections stay visible and read-only in the web portal', async ({
+  page,
+}) => {
+  const [listSource, detailSource, statusSource, boundarySource] = await Promise.all([
+    readFile(join(WEB_ROOT, 'src/app/contracts/page.tsx'), 'utf8'),
+    readFile(join(WEB_ROOT, 'src/app/contracts/[id]/page.tsx'), 'utf8'),
+    readFile(join(WEB_ROOT, 'src/app/status/page.tsx'), 'utf8'),
+    readFile(join(WEB_ROOT, 'src/lib/supabase.ts'), 'utf8'),
+  ]);
+  const viewerSource = [listSource, detailSource, statusSource, boundarySource].join('\n');
+
+  expect(listSource).toContain('listContractSummariesPage');
+  expect(listSource).toContain('href={`/contracts/${row.id}`}');
+  expect(detailSource).toContain('getContractDetail(processId, orgId)');
+  expect(detailSource).toContain('Decision summary');
+  expect(detailSource).toContain('disposition');
+  expect(statusSource).toContain('getStatusPageSnapshot(orgId)');
+  expect(statusSource).toContain('viewer_sync_status');
+  expect(boundarySource).toContain("from('procurement_processes')");
+  expect(boundarySource).toContain("from('operator_decision_summaries')");
+  expect(boundarySource).toContain("from('viewer_sync_status')");
+  expect(boundarySource).toContain("from('workflow_job_summaries')");
+  expect(boundarySource).toContain("from('error_manifest_summaries')");
+  expect(boundarySource).toContain('.eq(\'process_id\', processId)');
+  expect(boundarySource).toContain('.eq(\'org_id\', orgId)');
+  expect(boundarySource).not.toMatch(/\.insert\(|\.update\(|\.delete\(|\.rpc\(/);
+  expect(viewerSource).not.toMatch(
+    /approve\s*\(|reject\s*\(|watch\s*\(|Rerun enrichment|Run .* ingestion|daemon trigger|config mutation|invoke\(/i,
+  );
+
+  await page.goto('/contracts/process-7');
+  await expect(page.getByTestId('global-sync-status')).toBeVisible();
+  await expect(page.getByTestId('contract-detail-page')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Decision summary' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Candidates' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Manifest' })).toBeVisible();
+  await expect(page.getByText(/approve|reject|Rerun enrichment|Run .* ingestion/i)).toHaveCount(0);
+
+  await page.goto('/status');
+  await expect(page.getByTestId('status-page')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sync health' })).toBeVisible();
+  await expect(page.getByTestId('sync-projection-generation')).toBeVisible();
+  await expect(page.getByText(/Restart daemon|Open logs|Open artifacts|daemon trigger/i)).toHaveCount(0);
+});
+
+test('L4-T-contracts_spec-018 degrades safely when sync or Broadcast is unavailable', async ({
+  page,
+}) => {
+  const [contractsSource, detailSource, statusSource, broadcastSource, boundarySource] =
+    await Promise.all([
+      readFile(join(WEB_ROOT, 'src/app/contracts/page.tsx'), 'utf8'),
+      readFile(join(WEB_ROOT, 'src/app/contracts/[id]/page.tsx'), 'utf8'),
+      readFile(join(WEB_ROOT, 'src/app/status/page.tsx'), 'utf8'),
+      readFile(join(WEB_ROOT, 'src/lib/broadcast.ts'), 'utf8'),
+      readFile(join(WEB_ROOT, 'src/lib/supabase.ts'), 'utf8'),
+    ]);
+  const degradedVm = buildSyncFreshnessVm({
+    syncHealth: 'degraded',
+    lastSuccessAt: '2026-03-28T18:27:30Z',
+    now: FRESHNESS_NOW,
+  });
+  const offlineVm = buildSyncFreshnessVm({
+    syncHealth: 'offline',
+    lastSuccessAt: '2026-03-28T18:29:15Z',
+    now: FRESHNESS_NOW,
+  });
+  const degradedSource = [
+    contractsSource,
+    detailSource,
+    statusSource,
+    broadcastSource,
+    boundarySource,
+  ].join('\n');
+
+  expect(degradedVm).toMatchObject({ tone: 'warn' });
+  expect(offlineVm).toMatchObject({ tone: 'bad' });
+  expect(statusSource).toContain('fallbackSyncVm');
+  expect(statusSource).toContain('viewer_sync_status is unavailable');
+  expect(statusSource).toContain('setPendingProjectionGeneration(update.projectionGeneration)');
+  expect(statusSource).toContain('snapshot: current.snapshot');
+  expect(statusSource).not.toContain('mergeStatusSnapshot');
+  expect(detailSource).toContain('snapshot: current.snapshot');
+  expect(contractsSource).toContain('isMissingViewerConfig(error)');
+  expect(broadcastSource).toContain("event: 'sync.updated'");
+  expect(broadcastSource).toContain('isAllowedString(value.syncHealth, SYNC_HEALTH_VALUES)');
+  expect(boundarySource).not.toMatch(/\.insert\(|\.update\(|\.delete\(|\.rpc\(/);
+  expect(degradedSource).not.toMatch(
+    /service.?role|admin.?key|operator.?token|daemon.?token|Restart daemon|Open logs|Open artifacts|Quit UI|invoke\(/i,
+  );
+
+  await page.goto('/status');
+  await expect(page.getByTestId('global-sync-status')).toBeVisible();
+  await expect(page.getByTestId('status-page')).toBeVisible();
+  await expect(page.getByText('Sync offline -- showing last known data').first()).toBeVisible();
+  await expect(page.getByText(/Restart daemon|Open logs|Open artifacts|daemon trigger/i)).toHaveCount(0);
+});
+
 test('L4-T-contracts_spec-020 keeps Supabase behind the web boundary', async () => {
   const srcFiles = await listSourceFiles(join(WEB_ROOT, 'src'));
   const directSupabaseImports: string[] = [];
