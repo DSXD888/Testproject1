@@ -21,7 +21,8 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | L3 job claiming and validation dry-run | `layers/layer-3-operational-hardening.md` §§1.3, 2, 4.1-4.2 | `crates/daemon/src/jobs/claim.rs:72`, `crates/daemon/src/validation/policy.rs:238`, `crates/daemon/src/validation/executor.rs:25`, `migrations/0005_l3_operational_hardening.sql:14` |
 | L3 relation resolution | `layers/layer-3-operational-hardening.md` §3.6 | Implemented narrowly as OCID-exact `merged_same_process` only in `crates/daemon/src/main.rs:19175`; heuristic relation classes remain deferred. |
 | L3 landed-cost hardening | `layers/layer-3-operational-hardening.md` (implementation addendum) | `OrderQuantityBasis::BasisUndetermined` and operator overrides in `crates/daemon/src/main.rs:3473`, `crates/daemon/src/main.rs:4058`, `crates/daemon/src/main.rs:4197`; see `docs/pipeline/stage-11-hardening-order-quantity-validation-manifest.md`. |
-| L4-L6 planned layers | `layers/layer-4-shared-visibility.md`, `layers/layer-5-expanded-commercial-intelligence.md`, `layers/layer-6-request-pipeline-automation.md` | Not built as of 2026-05-02. Stage 15 is L6-blocked by `prompts/stage-15-bid-workflow-handoff-DEFERRED.md`. |
+| L4 shared visibility | `layers/layer-4-shared-visibility.md` | **BUILT** 2026-05-08. Sync engine in `crates/daemon/src/db/sync.rs`, 8 Supabase migrations under `infra/supabase/migrations/`, web portal under `apps/web/`, validator overlays under `skills/validation/overlay-*`. Pipeline archived at `docs/pipeline/l4-shared-visibility/archived/2026-05-08-l4-shared-visibility/`; artifacts (spec/TDD/strategy/kickoff/push/status) remain in place at `docs/pipeline/l4-shared-visibility/artifacts/`. |
+| L5-L6 planned layers | `layers/layer-5-expanded-commercial-intelligence.md`, `layers/layer-6-request-pipeline-automation.md` | Not built as of 2026-05-08. Stage 15 is L6-blocked by `prompts/stage-15-bid-workflow-handoff-DEFERRED.md`. |
 
 ## By Topic
 

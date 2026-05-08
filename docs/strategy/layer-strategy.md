@@ -11,7 +11,7 @@
 > - Layer 1 (Thin Local Runner): **BUILT**. Daemon binary, PTY-based skill execution, cron scheduler, agent error manifest.
 > - Layer 2 (Single-Operator Desktop): **BUILT**. Tauri desktop app, IPC bridge, `ContractList`/`ContractDetail`/`ManifestInbox`/`OperatorDecisionPanel` pages.
 > - Layer 3 (Operational Hardening): **BUILT**. Stages 1-14 of the pipeline, multi-source ingestion, Stage 11 hardening, Stage 14 Phase 1+2.
-> - Layer 4 (Shared Visibility): NOT BUILT.
+> - Layer 4 (Shared Visibility): **BUILT** 2026-05-08. SQLite ↔ Supabase sync engine (`crates/daemon/src/db/sync.rs`), 8 Supabase migrations with RLS for 4 roles, read-only Next.js web portal at `apps/web/`, 4 validator overlays, Wilson-bound calibration harness, two-user verification passed. Pipeline archived at `docs/pipeline/l4-shared-visibility/archived/2026-05-08-l4-shared-visibility/`; SOT artifacts remain at `docs/pipeline/l4-shared-visibility/artifacts/`.
 > - Layer 5 (Expanded Commercial Intelligence): NOT BUILT.
 > - Layer 6 (Request Pipeline Automation): NOT BUILT. Stage 15 (`bid_workflow`) blocked on this layer.
 
