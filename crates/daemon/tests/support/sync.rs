@@ -10,6 +10,8 @@ use serde_json::{Value, json};
 
 use super::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 
+#[allow(unused_imports)]
+pub use sync_impl::SupabaseRpcClient;
 pub use sync_impl::{
     BatchEnvelope, BatchEnvelopeAssembler, OutboxOp, OutboxWriter, canonical_content_hash,
 };

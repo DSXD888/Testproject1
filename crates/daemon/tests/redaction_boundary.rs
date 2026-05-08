@@ -4,8 +4,9 @@ mod support;
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
+use std::path::Path;
 
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 
 use support::db::{
     LogicalColumn, LogicalSchema, TestStateDb, logical_schema_for_tables, logical_schema_hash,
@@ -84,6 +85,57 @@ fn l4_t_redaction_boundary_026_schema_hash_coordination_gate() -> Result<()> {
         summary_schema == expected_summary_schema,
         "L4-T-redaction_boundary-026 summary schema mismatch\nExpected hash: {expected_summary_hash}\nSupabase hash: {summary_hash}\n{}",
         schema_diff(&expected_summary_schema, &summary_schema)
+    );
+
+    Ok(())
+}
+
+#[test]
+fn l4_t_redaction_boundary_023_daemon_projection_mutation_stays_behind_rpc() -> Result<()> {
+    let rls = read_repo_file("infra/supabase/migrations/0004_rls_policies.sql")?;
+    let rpc = read_repo_file("infra/supabase/migrations/0005_sync_rpcs.sql")?;
+    let apply_push_batch_rpc = rpc
+        .split("CREATE OR REPLACE FUNCTION update_operator_decision")
+        .next()
+        .context("L4-T-redaction_boundary-023 missing apply_push_batch section")?;
+
+    ensure!(
+        apply_push_batch_rpc.contains(
+            "CREATE OR REPLACE FUNCTION apply_push_batch(batch_json jsonb, writer_epoch integer)"
+        ) && apply_push_batch_rpc.contains("SECURITY DEFINER"),
+        "L4-T-redaction_boundary-023 expected apply_push_batch security-definer RPC"
+    );
+    ensure!(
+        apply_push_batch_rpc.contains("l4_is_any_role(ARRAY['daemon', 'admin'])")
+            && apply_push_batch_rpc.contains("PERFORM l4_apply_push_owned_payload"),
+        "L4-T-redaction_boundary-023 expected daemon/admin RPC gate and internal apply helper"
+    );
+    ensure!(
+        !apply_push_batch_rpc.contains("'not_implemented'"),
+        "L4-T-redaction_boundary-023 found placeholder apply_push_batch body"
+    );
+
+    ensure!(
+        rls.contains("FOR SELECT USING (l4_is_any_role(ARRAY[''viewer'',''operator'',''admin'']))"),
+        "push-owned projection tables should expose SELECT policies only to viewer/operator/admin"
+    );
+    ensure!(
+        !rls.contains("procurement_processes_daemon_insert")
+            && !rls.contains("procurement_processes_daemon_update"),
+        "push-owned projection tables must not expose direct daemon INSERT/UPDATE policies"
+    );
+    ensure!(
+        rls.contains(
+            "GRANT INSERT, UPDATE, DELETE ON shared_company_profile, shared_source_configs, operator_decision_heads TO authenticated;"
+        ),
+        "authenticated mutation grant should remain limited to remote-owned/CAS tables"
+    );
+    ensure!(
+        !rls.contains("GRANT INSERT, UPDATE, DELETE ON procurement_processes TO authenticated")
+            && !rls.contains(
+                "GRANT INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated"
+            ),
+        "daemon/operator direct projection table grants must stay absent outside apply_push_batch"
     );
 
     Ok(())
@@ -272,4 +324,16 @@ fn append_column_diff(
             _ => {}
         }
     }
+}
+
+fn repo_root() -> Result<&'static Path> {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .context("daemon crate should live two levels below the repository root")
+}
+
+fn read_repo_file(path: &str) -> Result<String> {
+    std::fs::read_to_string(repo_root()?.join(path))
+        .with_context(|| format!("reading repository file {path}"))
 }

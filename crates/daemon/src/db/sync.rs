@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 
 use anyhow::{Context, Result, bail, ensure};
+use reqwest::Client;
+use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -71,6 +73,20 @@ pub struct BatchEnvelopeAssembler {
     max_rows: usize,
 }
 
+#[derive(Clone, Debug)]
+pub struct SupabaseRpcClient {
+    api_url: String,
+    service_role_key: String,
+    client: Client,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PushBatchApplyResponse {
+    pub accepted: bool,
+    pub status: String,
+    pub raw: Value,
+}
+
 impl OutboxWriter {
     pub fn new(executor_id: impl Into<String>, schema_epoch: i32) -> Result<Self> {
         let executor_id = executor_id.into();
@@ -131,6 +147,79 @@ impl OutboxWriter {
         .context("writing local_outbox entry")?;
 
         Ok(tx.last_insert_rowid())
+    }
+}
+
+impl SupabaseRpcClient {
+    pub fn new(api_url: impl Into<String>, service_role_key: impl Into<String>) -> Result<Self> {
+        let api_url = api_url.into().trim_end_matches('/').to_owned();
+        let service_role_key = service_role_key.into();
+        ensure_non_empty("api_url", &api_url)?;
+        ensure_non_empty("service_role_key", &service_role_key)?;
+        Ok(Self {
+            api_url,
+            service_role_key,
+            client: Client::new(),
+        })
+    }
+
+    pub async fn apply_push_batch(&self, batch: &BatchEnvelope) -> Result<PushBatchApplyResponse> {
+        let batch_json = parse_payload(&batch.payload_json)?;
+        self.apply_push_batch_json(batch_json, batch.writer_epoch)
+            .await
+    }
+
+    pub async fn apply_push_batch_json(
+        &self,
+        batch_json: Value,
+        writer_epoch: i64,
+    ) -> Result<PushBatchApplyResponse> {
+        ensure!(writer_epoch >= 0, "writer_epoch must be non-negative");
+        let url = format!("{}/rest/v1/rpc/apply_push_batch", self.api_url);
+        let body = json!({
+            "batch_json": batch_json,
+            "writer_epoch": writer_epoch,
+        });
+        let response = self
+            .client
+            .post(url)
+            .bearer_auth(&self.service_role_key)
+            .header("apikey", &self.service_role_key)
+            .header(ACCEPT, "application/json")
+            .header(CONTENT_TYPE, "application/json")
+            .json(&body)
+            .send()
+            .await
+            .context("calling Supabase apply_push_batch RPC")?;
+        let status_code = response.status();
+        let value = response
+            .json::<Value>()
+            .await
+            .context("parsing apply_push_batch RPC response")?;
+        ensure!(
+            status_code.is_success(),
+            "apply_push_batch RPC failed with HTTP {status_code}: {value}"
+        );
+        PushBatchApplyResponse::from_value(value)
+    }
+}
+
+impl PushBatchApplyResponse {
+    fn from_value(value: Value) -> Result<Self> {
+        let accepted = value
+            .get("accepted")
+            .and_then(Value::as_bool)
+            .context("apply_push_batch response missing boolean accepted")?;
+        let status = value
+            .get("status")
+            .and_then(Value::as_str)
+            .context("apply_push_batch response missing string status")?
+            .to_owned();
+        Ok(Self {
+            accepted,
+            status,
+            raw: value,
+        })
     }
 }
 

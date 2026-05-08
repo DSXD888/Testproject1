@@ -2,11 +2,19 @@
 
 mod support;
 
-use anyhow::{Result, ensure};
+use std::path::Path;
+use std::str;
+
+use anyhow::{Context, Result, ensure};
+use serde_json::{Value, json};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpListener;
+use tokio::task::JoinHandle;
 
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 use support::sync::{
-    EnforcementHarness, OutboxHarness, PushOwnedFixture, canonical_content_hash, parse_payload,
+    EnforcementHarness, OutboxHarness, PushOwnedFixture, SupabaseRpcClient, canonical_content_hash,
+    parse_payload,
 };
 
 #[test]
@@ -537,6 +545,155 @@ fn l4_t_sqlite_supabase_sync_013_content_hash_is_canonical_and_reused_on_retry()
 }
 
 #[test]
+fn l4_t_sqlite_supabase_sync_014_apply_push_batch_contract_is_transactional() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-014");
+    println!("[SETUP] inspect Supabase RPC migration contract");
+    let migration = read_repo_file("infra/supabase/migrations/0005_sync_rpcs.sql")?;
+    let apply_push_batch_body = migration
+        .split("CREATE OR REPLACE FUNCTION update_operator_decision")
+        .next()
+        .context("missing apply_push_batch section before update_operator_decision")?;
+
+    println!("[ASSERT] apply_push_batch is implemented as a two-pass transactional RPC");
+    ensure!(
+        apply_push_batch_body.contains(
+            "CREATE OR REPLACE FUNCTION apply_push_batch(batch_json jsonb, writer_epoch integer)"
+        ),
+        "apply_push_batch signature is missing or changed"
+    );
+    ensure!(
+        apply_push_batch_body.contains("SECURITY DEFINER"),
+        "apply_push_batch must execute behind the RPC security boundary"
+    );
+    ensure!(
+        !apply_push_batch_body.contains("'not_implemented'"),
+        "apply_push_batch still returns the Phase 1 placeholder"
+    );
+    ensure!(
+        apply_push_batch_body.contains("l4_is_any_role(ARRAY['daemon', 'admin'])"),
+        "apply_push_batch must be daemon/admin scoped"
+    );
+    ensure!(
+        apply_push_batch_body.contains("FROM schema_metadata")
+            && apply_push_batch_body.contains("FROM active_writer_lease"),
+        "apply_push_batch must validate schema_epoch and writer_epoch before apply"
+    );
+    ensure!(
+        apply_push_batch_body.contains("sync_applied_row_hashes")
+            && apply_push_batch_body.contains("l4_content_hash(row_payload)"),
+        "apply_push_batch must persist and validate content_hash metadata"
+    );
+    ensure!(
+        migration.contains("CREATE OR REPLACE FUNCTION l4_canonical_json(payload jsonb)")
+            && migration.contains("digest(l4_canonical_json(payload), 'sha256')"),
+        "Supabase content hash must use the same compact canonical JSON contract as the daemon"
+    );
+
+    let rejection_gate = apply_push_batch_body
+        .find("IF jsonb_array_length(invalid_rows) > 0 THEN")
+        .context("missing invalid-row rejection gate")?;
+    let apply_statement = apply_push_batch_body
+        .find("PERFORM l4_apply_push_owned_payload")
+        .context("missing push-owned apply helper call")?;
+    ensure!(
+        rejection_gate < apply_statement,
+        "invalid-row rejection must happen before any target table mutation"
+    );
+    ensure!(
+        apply_push_batch_body
+            .matches("jsonb_array_elements(rows_json)")
+            .count()
+            >= 2,
+        "apply_push_batch should validate all rows before the apply loop"
+    );
+
+    println!("[CLEANUP] static migration inspection only");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-014 PASS");
+    Ok(())
+}
+
+#[tokio::test]
+async fn l4_t_sqlite_supabase_sync_015_daemon_uses_http_rpc_not_direct_upsert() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-015");
+    println!("[SETUP] persisted batch plus one-shot local HTTP capture server");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = OutboxHarness::new(&state_db)?;
+    harness.mutate_push_owned_fixture(PushOwnedFixture::new("l4-rpc-client", 1))?;
+    let batch = harness
+        .assemble_batch(10, 77)?
+        .expect("RPC client batch should materialize");
+    let (api_url, capture) = spawn_rpc_capture_server(json!({
+        "status": "applied",
+        "accepted": true,
+        "row_count": 1,
+        "applied_rows": [{"entity_kind": "procurement_processes", "entity_id": "l4-rpc-client"}],
+        "noop_rows": [],
+        "writer_epoch": 77
+    }))
+    .await?;
+
+    println!("[EXEC] call SupabaseRpcClient::apply_push_batch");
+    let client = SupabaseRpcClient::new(api_url, "service-role-test-key")?;
+    let response = client.apply_push_batch(&batch).await?;
+    let raw_request = capture.await.context("joining capture server task")??;
+
+    println!("[ASSERT] daemon request goes through /rpc/apply_push_batch only");
+    ensure!(response.accepted, "RPC response was not accepted");
+    ensure!(
+        response.status == "applied",
+        "unexpected RPC response status {}",
+        response.status
+    );
+    ensure!(
+        raw_request.starts_with("POST /rest/v1/rpc/apply_push_batch "),
+        "daemon client did not call the apply_push_batch REST RPC: {raw_request}"
+    );
+    let lower_request = raw_request.to_ascii_lowercase();
+    ensure!(
+        lower_request.contains("authorization: bearer service-role-test-key"),
+        "daemon client did not send bearer service-role authorization"
+    );
+    ensure!(
+        lower_request.contains("apikey: service-role-test-key"),
+        "daemon client did not send Supabase apikey header"
+    );
+    ensure!(
+        !lower_request.contains("/rest/v1/procurement_processes"),
+        "daemon client attempted a direct projection table upsert"
+    );
+
+    let body = http_body(&raw_request)?;
+    let request_json: Value =
+        serde_json::from_str(body).context("parsing captured apply_push_batch request body")?;
+    ensure!(
+        request_json.get("writer_epoch").and_then(Value::as_i64) == Some(batch.writer_epoch),
+        "request writer_epoch did not match the batch writer_epoch"
+    );
+    ensure!(
+        request_json
+            .get("batch_json")
+            .and_then(|value| value.get("rows"))
+            .and_then(Value::as_array)
+            .is_some_and(|rows| rows.len() == 1),
+        "request body did not wrap the persisted batch envelope as batch_json"
+    );
+
+    let sync_source = read_repo_file("crates/daemon/src/db/sync.rs")?;
+    ensure!(
+        sync_source.contains("/rest/v1/rpc/apply_push_batch"),
+        "SupabaseRpcClient source does not contain the RPC endpoint"
+    );
+    ensure!(
+        !sync_source.contains("/rest/v1/procurement_processes"),
+        "SupabaseRpcClient source contains a direct projection table endpoint"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB and one-shot capture server");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-015 PASS");
+    Ok(())
+}
+
+#[test]
 fn l4_t_sqlite_supabase_sync_020_outbox_envelope_fields_survive_reopen() -> Result<()> {
     println!("[TEST_START] L4-T-sqlite_supabase_sync-020");
     println!("[SETUP] local_outbox row before envelope assignment");
@@ -575,6 +732,98 @@ fn l4_t_sqlite_supabase_sync_020_outbox_envelope_fields_survive_reopen() -> Resu
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-020 PASS");
     Ok(())
+}
+
+fn repo_root() -> Result<&'static Path> {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .context("daemon crate should live two levels below the repository root")
+}
+
+fn read_repo_file(path: &str) -> Result<String> {
+    std::fs::read_to_string(repo_root()?.join(path))
+        .with_context(|| format!("reading repository file {path}"))
+}
+
+async fn spawn_rpc_capture_server(
+    response_json: Value,
+) -> Result<(String, JoinHandle<Result<String>>)> {
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .context("binding one-shot RPC capture server")?;
+    let address = listener
+        .local_addr()
+        .context("reading capture server addr")?;
+    let response_body = serde_json::to_string(&response_json)?;
+    let handle = tokio::spawn(async move {
+        let (mut stream, _) = listener
+            .accept()
+            .await
+            .context("accepting RPC client connection")?;
+        let mut buffer = Vec::new();
+        let mut chunk = [0_u8; 1024];
+        let request_len = loop {
+            let read = stream
+                .read(&mut chunk)
+                .await
+                .context("reading captured HTTP request")?;
+            ensure!(read > 0, "HTTP client closed before request was complete");
+            buffer.extend_from_slice(&chunk[..read]);
+            if let Some(request_len) = complete_http_request_len(&buffer)? {
+                break request_len;
+            }
+        };
+        buffer.truncate(request_len);
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            response_body.len(),
+            response_body
+        );
+        stream
+            .write_all(response.as_bytes())
+            .await
+            .context("writing captured HTTP response")?;
+        String::from_utf8(buffer).context("captured HTTP request was not UTF-8")
+    });
+    Ok((format!("http://{address}"), handle))
+}
+
+fn complete_http_request_len(buffer: &[u8]) -> Result<Option<usize>> {
+    let Some(header_end) = find_subsequence(buffer, b"\r\n\r\n") else {
+        return Ok(None);
+    };
+    let header_text =
+        str::from_utf8(&buffer[..header_end]).context("captured HTTP headers were not UTF-8")?;
+    let content_length = header_text
+        .lines()
+        .find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            name.eq_ignore_ascii_case("content-length")
+                .then(|| value.trim().parse::<usize>())
+        })
+        .transpose()
+        .context("invalid captured content-length")?
+        .unwrap_or(0);
+    let request_len = header_end + 4 + content_length;
+    if buffer.len() >= request_len {
+        Ok(Some(request_len))
+    } else {
+        Ok(None)
+    }
+}
+
+fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
+}
+
+fn http_body(raw_request: &str) -> Result<&str> {
+    raw_request
+        .split_once("\r\n\r\n")
+        .map(|(_, body)| body)
+        .context("captured HTTP request missing body separator")
 }
 
 #[test]
