@@ -82,14 +82,15 @@ use runner_impl::{
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb, StateDb};
 use support::redaction::RedactionSentinelFixture;
 use support::sync::{
-    EnforcementHarness, OperatorDecisionCasHarness, OutboxHarness, ProjectionEpochRepair,
-    PullCursorDomain, PullCursorHarness, PushOwnedFixture,
+    EnforcementHarness, OperatorDecisionCasHarness, OutboxHarness, OutboxOp, PipelineRunProvenance,
+    ProjectionEpochRepair, PullCursorDomain, PullCursorHarness, PushOwnedFixture,
     REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS, REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS,
     RemoteConfigStalenessAction, RemoteConfigStalenessClass, RemoteConfigStalenessSubject,
     SchemaEpochGuard, SqliteSnapshotArtifact, SqliteSnapshotScheduler, SupabaseRpcClient,
     SyncCyclePhase, SyncCycleTrigger, SyncHealth, ViewerSyncStatus, ViewerSyncStatusWriter,
     WriterBindingConfig, WriterBindingMode, WriterLeaseAcquireResult, WriterLeaseHarness,
-    canonical_content_hash, parse_payload,
+    canonical_content_hash, parse_payload, write_pipeline_run_with_outbox,
+    write_push_owned_transaction,
 };
 
 use calibration_impl::{
@@ -4435,6 +4436,242 @@ fn l4_t_sqlite_supabase_sync_048_sqlite_snapshot_scheduler_warns_without_blockin
 
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-048 PASS");
+    Ok(())
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn l4_t_sqlite_supabase_sync_049_pipeline_run_remote_revision_provenance() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-049");
+    println!("[SETUP] push-owned process fixture and provenance-bearing pipeline run");
+    let state_db = L4TestStateDb::new()?;
+    let ids = state_db.seed_push_owned_rows()?;
+    let mut conn = Connection::open(state_db.db_path())?;
+    conn.execute_batch("PRAGMA foreign_keys = ON")?;
+    let stage_run_id = "l4-provenance-stage-run";
+    let commit_group_id = "l4-provenance-commit-group";
+    let provenance = PipelineRunProvenance::new(Some(101), Some(202), Some(303));
+    let schema_epoch =
+        i32::try_from(DEFAULT_SCHEMA_EPOCH).context("DEFAULT_SCHEMA_EPOCH exceeds i32")?;
+
+    println!("[EXEC] write qualification, manifest, and assessment rows plus outbox entries");
+    write_push_owned_transaction(&mut conn, commit_group_id, |tx| {
+        let qualification_id = "l4-provenance-qualification";
+        let qualification_payload = json!({
+            "id": qualification_id,
+            "process_id": &ids.process_id,
+            "notice_id": &ids.notice_id,
+            "lot_id": &ids.lot_id,
+            "expiry_qualified": true,
+            "goods_qualified": true,
+            "goods_confidence_bps": 8700,
+            "qualification_basis": "provenance fixture",
+            "rationale": "Records every remote revision consumed by the run",
+            "owner_id": "local-owner",
+            "row_version": 1,
+            "stage_run_id": stage_run_id
+        })
+        .to_string();
+        tx.execute(
+            "\
+            INSERT INTO qualification_runs (
+              id, process_id, notice_id, lot_id, expiry_qualified, goods_qualified,
+              goods_confidence_bps, qualification_basis, rationale,
+              source_config_revision, company_profile_revision, operator_decision_revision,
+              owner_id, row_version, stage_run_id
+            ) VALUES (
+              ?1, ?2, ?3, ?4, 1, 1, 8700, 'provenance fixture',
+              'Records every remote revision consumed by the run', 101, 202, 303,
+              'local-owner', 1, ?5
+            )
+            ",
+            params![
+                qualification_id,
+                &ids.process_id,
+                &ids.notice_id,
+                &ids.lot_id,
+                stage_run_id
+            ],
+        )?;
+        let qualification_seq = write_pipeline_run_with_outbox(
+            tx,
+            "qualification_runs",
+            qualification_id,
+            OutboxOp::Insert,
+            &qualification_payload,
+            provenance,
+            schema_epoch,
+            stage_run_id,
+            commit_group_id,
+        )?;
+        tx.execute(
+            "UPDATE qualification_runs SET last_local_seq = ?1 WHERE id = ?2",
+            params![qualification_seq, qualification_id],
+        )?;
+
+        let manifest_id = "l4-provenance-manifest";
+        let manifest_payload = json!({
+            "id": manifest_id,
+            "process_id": &ids.process_id,
+            "markdown": "# L4 provenance fixture",
+            "owner_id": "local-owner",
+            "row_version": 1,
+            "stage_run_id": stage_run_id
+        })
+        .to_string();
+        tx.execute(
+            "\
+            INSERT INTO manifests (
+              id, process_id, markdown, source_config_revision,
+              company_profile_revision, operator_decision_revision, owner_id,
+              row_version, stage_run_id
+            ) VALUES (?1, ?2, '# L4 provenance fixture', 101, 202, 303,
+                      'local-owner', 1, ?3)
+            ",
+            params![manifest_id, &ids.process_id, stage_run_id],
+        )?;
+        let manifest_seq = write_pipeline_run_with_outbox(
+            tx,
+            "manifests",
+            manifest_id,
+            OutboxOp::Insert,
+            &manifest_payload,
+            provenance,
+            schema_epoch,
+            stage_run_id,
+            commit_group_id,
+        )?;
+        tx.execute(
+            "UPDATE manifests SET last_local_seq = ?1 WHERE id = ?2",
+            params![manifest_seq, manifest_id],
+        )?;
+
+        let assessment_payload = json!({
+            "process_id": &ids.process_id,
+            "pipeline_state": "qualified",
+            "review_required": false,
+            "availability_status": "active",
+            "validation_state": "unverified",
+            "owner_id": "local-owner",
+            "row_version": 1,
+            "stage_run_id": stage_run_id
+        })
+        .to_string();
+        tx.execute(
+            "\
+            INSERT INTO pipeline_assessments (
+              process_id, pipeline_state, review_required, availability_status,
+              validation_state, source_config_revision, company_profile_revision,
+              operator_decision_revision, owner_id, row_version, stage_run_id
+            ) VALUES (?1, 'qualified', 0, 'active', 'unverified', 101, 202, 303,
+                      'local-owner', 1, ?2)
+            ",
+            params![&ids.process_id, stage_run_id],
+        )?;
+        let assessment_seq = write_pipeline_run_with_outbox(
+            tx,
+            "pipeline_assessments",
+            &ids.process_id,
+            OutboxOp::Insert,
+            &assessment_payload,
+            provenance,
+            schema_epoch,
+            stage_run_id,
+            commit_group_id,
+        )?;
+        tx.execute(
+            "UPDATE pipeline_assessments SET last_local_seq = ?1 WHERE process_id = ?2",
+            params![assessment_seq, &ids.process_id],
+        )?;
+        Ok(())
+    })?;
+
+    println!("[ASSERT] persisted rows retain the exact remote revision heads consumed");
+    let qualification_revisions: (i64, i64, i64) = conn.query_row(
+        "\
+        SELECT source_config_revision, company_profile_revision, operator_decision_revision
+        FROM qualification_runs
+        WHERE id = ?1
+        ",
+        ["l4-provenance-qualification"],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    )?;
+    let manifest_revisions: (i64, i64, i64) = conn.query_row(
+        "\
+        SELECT source_config_revision, company_profile_revision, operator_decision_revision
+        FROM manifests
+        WHERE id = ?1
+        ",
+        ["l4-provenance-manifest"],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    )?;
+    let assessment_revisions: (i64, i64, i64) = conn.query_row(
+        "\
+        SELECT source_config_revision, company_profile_revision, operator_decision_revision
+        FROM pipeline_assessments
+        WHERE process_id = ?1
+        ",
+        [ids.process_id.as_str()],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    )?;
+    for (table, revisions) in [
+        ("qualification_runs", qualification_revisions),
+        ("manifests", manifest_revisions),
+        ("pipeline_assessments", assessment_revisions),
+    ] {
+        ensure!(
+            revisions == (101, 202, 303),
+            "pipeline run provenance drifted for {table}: {revisions:?}"
+        );
+    }
+
+    println!("[ASSERT] outbox payloads carry the same provenance under the same commit group");
+    let mut statement = conn.prepare(
+        "\
+        SELECT entity_kind, payload_json, content_hash
+        FROM local_outbox
+        WHERE commit_group_id = ?1
+        ORDER BY entity_kind
+        ",
+    )?;
+    let outbox_rows = statement
+        .query_map([commit_group_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    ensure!(
+        outbox_rows.len() == 3,
+        "expected three provenance-bearing outbox rows, got {outbox_rows:?}"
+    );
+    for (entity_kind, payload_json, content_hash) in outbox_rows {
+        let payload = parse_payload(&payload_json)?;
+        ensure!(
+            payload
+                .get("source_config_revision")
+                .and_then(Value::as_i64)
+                == Some(101)
+                && payload
+                    .get("company_profile_revision")
+                    .and_then(Value::as_i64)
+                    == Some(202)
+                && payload
+                    .get("operator_decision_revision")
+                    .and_then(Value::as_i64)
+                    == Some(303),
+            "outbox payload for {entity_kind} lost provenance: {payload}"
+        );
+        ensure!(
+            canonical_content_hash(&payload_json)? == content_hash,
+            "outbox content hash was not computed over stamped provenance payload"
+        );
+    }
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-049 PASS");
     Ok(())
 }
 

@@ -273,6 +273,38 @@ fn ensure_runtime_schema(conn: &Connection) -> Result<()> {
             ),
         ],
     )?;
+    ensure_l4_pipeline_provenance_columns(conn)?;
+    Ok(())
+}
+
+fn ensure_l4_pipeline_provenance_columns(conn: &Connection) -> Result<()> {
+    let provenance_columns = [
+        (
+            "source_config_revision",
+            "source_config_revision INTEGER CHECK (source_config_revision IS NULL OR source_config_revision > 0)",
+        ),
+        (
+            "company_profile_revision",
+            "company_profile_revision INTEGER CHECK (company_profile_revision IS NULL OR company_profile_revision > 0)",
+        ),
+        (
+            "operator_decision_revision",
+            "operator_decision_revision INTEGER CHECK (operator_decision_revision IS NULL OR operator_decision_revision > 0)",
+        ),
+    ];
+
+    for table in ["qualification_runs", "manifests", "pipeline_assessments"] {
+        let alter_columns = provenance_columns.map(|(column_name, column_ddl)| {
+            let alter_sql = format!("ALTER TABLE {table} ADD COLUMN {column_ddl}");
+            (column_name, alter_sql)
+        });
+        let alter_refs = alter_columns
+            .iter()
+            .map(|(column_name, alter_sql)| (*column_name, alter_sql.as_str()))
+            .collect::<Vec<_>>();
+        ensure_table_columns(conn, table, &alter_refs)?;
+    }
+
     Ok(())
 }
 
@@ -361,6 +393,17 @@ fn verify_l3_schema(conn: &Connection) -> Result<()> {
         "process_aliases",
         &["owner_id", "row_version", "last_local_seq", "stage_run_id"],
     )?;
+    for table in ["qualification_runs", "manifests", "pipeline_assessments"] {
+        ensure_table_columns_present(
+            conn,
+            table,
+            &[
+                "source_config_revision",
+                "company_profile_revision",
+                "operator_decision_revision",
+            ],
+        )?;
+    }
     Ok(())
 }
 

@@ -3,6 +3,51 @@ PRAGMA foreign_keys = ON;
 ALTER TABLE process_stage_heads
   ADD COLUMN stage_run_id TEXT;
 
+ALTER TABLE qualification_runs
+  ADD COLUMN source_config_revision INTEGER CHECK (
+    source_config_revision IS NULL OR source_config_revision > 0
+  );
+
+ALTER TABLE qualification_runs
+  ADD COLUMN company_profile_revision INTEGER CHECK (
+    company_profile_revision IS NULL OR company_profile_revision > 0
+  );
+
+ALTER TABLE qualification_runs
+  ADD COLUMN operator_decision_revision INTEGER CHECK (
+    operator_decision_revision IS NULL OR operator_decision_revision > 0
+  );
+
+ALTER TABLE manifests
+  ADD COLUMN source_config_revision INTEGER CHECK (
+    source_config_revision IS NULL OR source_config_revision > 0
+  );
+
+ALTER TABLE manifests
+  ADD COLUMN company_profile_revision INTEGER CHECK (
+    company_profile_revision IS NULL OR company_profile_revision > 0
+  );
+
+ALTER TABLE manifests
+  ADD COLUMN operator_decision_revision INTEGER CHECK (
+    operator_decision_revision IS NULL OR operator_decision_revision > 0
+  );
+
+ALTER TABLE pipeline_assessments
+  ADD COLUMN source_config_revision INTEGER CHECK (
+    source_config_revision IS NULL OR source_config_revision > 0
+  );
+
+ALTER TABLE pipeline_assessments
+  ADD COLUMN company_profile_revision INTEGER CHECK (
+    company_profile_revision IS NULL OR company_profile_revision > 0
+  );
+
+ALTER TABLE pipeline_assessments
+  ADD COLUMN operator_decision_revision INTEGER CHECK (
+    operator_decision_revision IS NULL OR operator_decision_revision > 0
+  );
+
 CREATE TABLE IF NOT EXISTS local_outbox (
   local_seq INTEGER PRIMARY KEY AUTOINCREMENT,
   executor_id TEXT NOT NULL,

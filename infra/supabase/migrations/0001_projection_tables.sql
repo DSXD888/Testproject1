@@ -103,6 +103,15 @@ CREATE TABLE qualification_runs (
   access_route text,
   rationale text NOT NULL,
   qualified_at timestamptz NOT NULL DEFAULT now(),
+  source_config_revision bigint CHECK (
+    source_config_revision IS NULL OR source_config_revision > 0
+  ),
+  company_profile_revision bigint CHECK (
+    company_profile_revision IS NULL OR company_profile_revision > 0
+  ),
+  operator_decision_revision bigint CHECK (
+    operator_decision_revision IS NULL OR operator_decision_revision > 0
+  ),
   owner_id text NOT NULL,
   row_version bigint NOT NULL DEFAULT 1,
   last_local_seq bigint,
@@ -386,6 +395,15 @@ CREATE TABLE manifests (
   candidate_count integer NOT NULL DEFAULT 0,
   priced_candidate_count integer NOT NULL DEFAULT 0,
   clarification_prompt_count integer NOT NULL DEFAULT 0,
+  source_config_revision bigint CHECK (
+    source_config_revision IS NULL OR source_config_revision > 0
+  ),
+  company_profile_revision bigint CHECK (
+    company_profile_revision IS NULL OR company_profile_revision > 0
+  ),
+  operator_decision_revision bigint CHECK (
+    operator_decision_revision IS NULL OR operator_decision_revision > 0
+  ),
   owner_id text NOT NULL,
   row_version bigint NOT NULL DEFAULT 1,
   last_local_seq bigint,
@@ -413,6 +431,15 @@ CREATE TABLE pipeline_assessments (
   review_stage text,
   review_reason text,
   assessed_at timestamptz NOT NULL DEFAULT now(),
+  source_config_revision bigint CHECK (
+    source_config_revision IS NULL OR source_config_revision > 0
+  ),
+  company_profile_revision bigint CHECK (
+    company_profile_revision IS NULL OR company_profile_revision > 0
+  ),
+  operator_decision_revision bigint CHECK (
+    operator_decision_revision IS NULL OR operator_decision_revision > 0
+  ),
   owner_id text NOT NULL,
   row_version bigint NOT NULL DEFAULT 1,
   last_local_seq bigint,

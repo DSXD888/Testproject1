@@ -26,9 +26,13 @@ pub use sync_impl::{
     SyncCycle, SyncCycleOutcome, SyncCyclePhase, SyncCycleTrigger, SyncHealth, ViewerSyncStatus,
     ViewerSyncStatusWriter, WriterBindingConfig, WriterBindingMode, WriterLease,
     WriterLeaseAcquireResult, canonical_content_hash, decision_conflict_event_payload,
+    stamp_pipeline_run_provenance_payload, write_pipeline_run_with_outbox,
 };
 #[allow(unused_imports)]
-pub use sync_impl::{OperatorDecisionApplyResponse, OperatorDecisionCommand};
+pub use sync_impl::{
+    OperatorDecisionApplyResponse, OperatorDecisionCommand, PipelineRunProvenance,
+    write_push_owned_transaction,
+};
 
 const DEFAULT_EXECUTOR_ID: &str = "l4-sync-test-executor";
 const DEFAULT_STAGE_RUN_ID: &str = "l4-sync-stage-run";

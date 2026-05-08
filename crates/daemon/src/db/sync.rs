@@ -47,6 +47,8 @@ const PUSH_OWNED_RESEED_TABLES: &[&str] = &[
     "executors",
     "operator_decision_summaries",
 ];
+const PIPELINE_RUN_PROVENANCE_TABLES: &[&str] =
+    &["qualification_runs", "manifests", "pipeline_assessments"];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OutboxOp {
@@ -68,6 +70,29 @@ impl OutboxOp {
 pub struct OutboxWriter {
     executor_id: String,
     schema_epoch: i32,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[allow(clippy::struct_field_names)]
+pub struct PipelineRunProvenance {
+    pub source_config_revision: Option<i64>,
+    pub company_profile_revision: Option<i64>,
+    pub operator_decision_revision: Option<i64>,
+}
+
+impl PipelineRunProvenance {
+    #[must_use]
+    pub const fn new(
+        source_config_revision: Option<i64>,
+        company_profile_revision: Option<i64>,
+        operator_decision_revision: Option<i64>,
+    ) -> Self {
+        Self {
+            source_config_revision,
+            company_profile_revision,
+            operator_decision_revision,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -570,6 +595,33 @@ impl OutboxWriter {
         .context("writing local_outbox entry")?;
 
         Ok(tx.last_insert_rowid())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn write_pipeline_run_with_outbox(
+        &self,
+        tx: &Transaction<'_>,
+        entity_kind: &str,
+        entity_id: &str,
+        op: OutboxOp,
+        payload_json: &str,
+        provenance: PipelineRunProvenance,
+        stage_run_id: &str,
+        commit_group_id: &str,
+    ) -> Result<i64> {
+        let stamped_payload_json =
+            stamp_pipeline_run_provenance_payload(entity_kind, payload_json, provenance)?;
+        let content_hash = canonical_content_hash(&stamped_payload_json)?;
+        self.write_push_owned_with_outbox(
+            tx,
+            entity_kind,
+            entity_id,
+            op,
+            &stamped_payload_json,
+            &content_hash,
+            stage_run_id,
+            commit_group_id,
+        )
     }
 }
 
@@ -2574,6 +2626,31 @@ pub fn write_push_owned_with_outbox(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn write_pipeline_run_with_outbox(
+    tx: &Transaction<'_>,
+    entity_kind: &str,
+    entity_id: &str,
+    op: OutboxOp,
+    payload_json: &str,
+    provenance: PipelineRunProvenance,
+    schema_epoch: i32,
+    stage_run_id: &str,
+    commit_group_id: &str,
+) -> Result<i64> {
+    let writer = OutboxWriter::new(DEFAULT_EXECUTOR_ID, schema_epoch)?;
+    writer.write_pipeline_run_with_outbox(
+        tx,
+        entity_kind,
+        entity_id,
+        op,
+        payload_json,
+        provenance,
+        stage_run_id,
+        commit_group_id,
+    )
+}
+
 pub fn write_push_owned_transaction<T, F>(
     conn: &mut Connection,
     commit_group_id: &str,
@@ -2605,6 +2682,62 @@ pub fn canonical_content_hash(payload_json: &str) -> Result<String> {
     let mut hasher = Sha256::new();
     hasher.update(canonical.as_bytes());
     Ok(format!("{:x}", hasher.finalize()))
+}
+
+pub fn stamp_pipeline_run_provenance_payload(
+    entity_kind: &str,
+    payload_json: &str,
+    provenance: PipelineRunProvenance,
+) -> Result<String> {
+    ensure_pipeline_run_entity_kind(entity_kind)?;
+    validate_revision("source_config_revision", provenance.source_config_revision)?;
+    validate_revision(
+        "company_profile_revision",
+        provenance.company_profile_revision,
+    )?;
+    validate_revision(
+        "operator_decision_revision",
+        provenance.operator_decision_revision,
+    )?;
+
+    let mut payload = parse_payload(payload_json)?;
+    payload_row_version(&payload)?;
+    let object = payload
+        .as_object_mut()
+        .context("pipeline run payload_json must be a JSON object")?;
+    object.insert(
+        "source_config_revision".to_owned(),
+        revision_value(provenance.source_config_revision),
+    );
+    object.insert(
+        "company_profile_revision".to_owned(),
+        revision_value(provenance.company_profile_revision),
+    );
+    object.insert(
+        "operator_decision_revision".to_owned(),
+        revision_value(provenance.operator_decision_revision),
+    );
+    serde_json::to_string(&payload).context("serializing pipeline run provenance payload")
+}
+
+fn ensure_pipeline_run_entity_kind(entity_kind: &str) -> Result<()> {
+    ensure_non_empty("entity_kind", entity_kind)?;
+    ensure!(
+        PIPELINE_RUN_PROVENANCE_TABLES.contains(&entity_kind),
+        "entity_kind `{entity_kind}` is not a pipeline run provenance table"
+    );
+    Ok(())
+}
+
+fn validate_revision(field_name: &str, revision: Option<i64>) -> Result<()> {
+    if let Some(value) = revision {
+        ensure!(value > 0, "{field_name} must be positive when present");
+    }
+    Ok(())
+}
+
+fn revision_value(revision: Option<i64>) -> Value {
+    revision.map_or(Value::Null, Value::from)
 }
 
 fn parse_payload(payload_json: &str) -> Result<Value> {
