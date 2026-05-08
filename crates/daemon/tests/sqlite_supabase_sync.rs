@@ -347,8 +347,9 @@ fn l4_t_sqlite_supabase_sync_008_stale_writer_reenvelopes_same_rows_with_new_epo
         .map(|row| row.local_seq)
         .collect::<Vec<_>>();
 
-    println!("[EXEC] terminal stale-writer rejection re-envelopes same rows");
-    let new_batch = harness.re_envelope_after_stale_writer(&old_batch.batch_id, 4)?;
+    println!("[EXEC] terminal stale-writer rejection response re-envelopes same rows");
+    let new_batch =
+        harness.record_stale_writer_rejection_after_reacquire(&old_batch.batch_id, 4)?;
 
     println!("[ASSERT] old batch rejected and replacement uses only new writer_epoch");
     ensure!(
@@ -1133,6 +1134,46 @@ fn l4_t_sqlite_supabase_sync_040_second_daemon_conflict_surfaces_holder_and_expi
     );
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-040 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_041_partitioned_old_epoch_rejected_before_apply() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-041");
+    println!("[SETUP] inspect apply_push_batch stale writer branch");
+    let body = apply_push_batch_body()?;
+
+    let writer_epoch_gate = body
+        .find("IF remote_writer_epoch <> writer_epoch THEN")
+        .context("missing remote writer_epoch stale-writer gate")?;
+    let stale_writer_response = body
+        .find("'error', 'stale_writer'")
+        .context("missing stale_writer rejection response")?;
+    let holder_conflict_response = body
+        .find("'error', 'writer_lease_conflict'")
+        .context("missing writer lease conflict response")?;
+    let row_prevalidation = body
+        .find("FOR row_item IN SELECT value FROM jsonb_array_elements(rows_json)")
+        .context("missing row prevalidation loop")?;
+    let apply_statement = body
+        .find("PERFORM l4_apply_push_owned_payload")
+        .context("missing projection apply statement")?;
+
+    println!("[ASSERT] old writer_epoch rejects before row validation or projection apply");
+    ensure!(
+        writer_epoch_gate < stale_writer_response
+            && stale_writer_response < holder_conflict_response
+            && holder_conflict_response < row_prevalidation
+            && row_prevalidation < apply_statement,
+        "stale writer rejection must happen before row validation and projection apply"
+    );
+    ensure!(
+        body.contains("'remote_writer_epoch', remote_writer_epoch")
+            && body.contains("'writer_epoch', writer_epoch"),
+        "stale writer response must include remote and rejected writer epochs"
+    );
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-041 PASS");
     Ok(())
 }
 

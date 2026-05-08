@@ -470,12 +470,12 @@ impl SupabaseRpcClient {
             status_code.is_success(),
             "apply_push_batch RPC failed with HTTP {status_code}: {value}"
         );
-        PushBatchApplyResponse::from_value(value)
+        PushBatchApplyResponse::from_rpc_value(value)
     }
 }
 
 impl PushBatchApplyResponse {
-    fn from_value(value: Value) -> Result<Self> {
+    pub fn from_rpc_value(value: Value) -> Result<Self> {
         let accepted = value
             .get("accepted")
             .and_then(Value::as_bool)
@@ -490,6 +490,16 @@ impl PushBatchApplyResponse {
             status,
             raw: value,
         })
+    }
+
+    #[must_use]
+    pub fn error_code(&self) -> Option<&str> {
+        self.raw.get("error").and_then(Value::as_str)
+    }
+
+    #[must_use]
+    pub fn is_stale_writer_rejection(&self) -> bool {
+        !self.accepted && self.status == "rejected" && self.error_code() == Some("stale_writer")
     }
 }
 
@@ -640,11 +650,48 @@ impl BatchEnvelopeAssembler {
         Ok(())
     }
 
+    pub fn record_apply_response(
+        &self,
+        conn: &mut Connection,
+        batch_id: &str,
+        response: &PushBatchApplyResponse,
+    ) -> Result<Option<BatchEnvelope>> {
+        let response_json =
+            serde_json::to_string(&response.raw).context("serializing apply response")?;
+        if response.accepted {
+            self.mark_acknowledged(conn, batch_id, &response_json)?;
+            return Ok(None);
+        }
+
+        if response.is_stale_writer_rejection() {
+            return self
+                .re_envelope_after_stale_writer_with_response(conn, batch_id, &response_json)
+                .map(Some);
+        }
+
+        self.mark_rejected(conn, batch_id, &response_json)?;
+        Ok(None)
+    }
+
     pub fn re_envelope_after_stale_writer(
         &self,
         conn: &mut Connection,
         batch_id: &str,
     ) -> Result<BatchEnvelope> {
+        self.re_envelope_after_stale_writer_with_response(
+            conn,
+            batch_id,
+            &json!({"error": "stale_writer"}).to_string(),
+        )
+    }
+
+    fn re_envelope_after_stale_writer_with_response(
+        &self,
+        conn: &mut Connection,
+        batch_id: &str,
+        response_json: &str,
+    ) -> Result<BatchEnvelope> {
+        ensure_valid_json_object(response_json)?;
         let tx = conn
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .context("starting stale-writer re-envelope transaction")?;
@@ -663,7 +710,7 @@ impl BatchEnvelopeAssembler {
                 response_json = ?2
             WHERE batch_id = ?1
             ",
-            params![batch_id, json!({"error": "stale_writer"}).to_string()],
+            params![batch_id, response_json],
         )
         .context("rejecting stale writer batch")?;
 

@@ -14,8 +14,9 @@ use super::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 pub use sync_impl::SupabaseRpcClient;
 #[allow(unused_imports)]
 pub use sync_impl::{
-    BatchEnvelope, BatchEnvelopeAssembler, OutboxOp, OutboxWriter, WriterBindingConfig,
-    WriterBindingMode, WriterLease, WriterLeaseAcquireResult, canonical_content_hash,
+    BatchEnvelope, BatchEnvelopeAssembler, OutboxOp, OutboxWriter, PushBatchApplyResponse,
+    WriterBindingConfig, WriterBindingMode, WriterLease, WriterLeaseAcquireResult,
+    canonical_content_hash,
 };
 
 const DEFAULT_EXECUTOR_ID: &str = "l4-sync-test-executor";
@@ -312,6 +313,26 @@ impl OutboxHarness {
         let assembler =
             BatchEnvelopeAssembler::new(DEFAULT_EXECUTOR_ID, "push-owned", writer_epoch, 100)?;
         assembler.re_envelope_after_stale_writer(&mut self.conn, batch_id)
+    }
+
+    pub fn record_stale_writer_rejection_after_reacquire(
+        &mut self,
+        batch_id: &str,
+        writer_epoch: i64,
+    ) -> Result<BatchEnvelope> {
+        let stale_writer_epoch = self.batch_by_id(batch_id)?.writer_epoch;
+        let response = PushBatchApplyResponse::from_rpc_value(json!({
+            "accepted": false,
+            "status": "rejected",
+            "error": "stale_writer",
+            "remote_writer_epoch": writer_epoch,
+            "writer_epoch": stale_writer_epoch
+        }))?;
+        let assembler =
+            BatchEnvelopeAssembler::new(DEFAULT_EXECUTOR_ID, "push-owned", writer_epoch, 100)?;
+        assembler
+            .record_apply_response(&mut self.conn, batch_id, &response)?
+            .context("stale writer response did not create replacement batch")
     }
 
     pub fn batch_by_id(&self, batch_id: &str) -> Result<BatchEnvelope> {
