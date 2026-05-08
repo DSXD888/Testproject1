@@ -12,8 +12,10 @@ use super::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 
 #[allow(unused_imports)]
 pub use sync_impl::SupabaseRpcClient;
+#[allow(unused_imports)]
 pub use sync_impl::{
-    BatchEnvelope, BatchEnvelopeAssembler, OutboxOp, OutboxWriter, canonical_content_hash,
+    BatchEnvelope, BatchEnvelopeAssembler, OutboxOp, OutboxWriter, WriterBindingConfig,
+    WriterBindingMode, WriterLease, WriterLeaseAcquireResult, canonical_content_hash,
 };
 
 const DEFAULT_EXECUTOR_ID: &str = "l4-sync-test-executor";
@@ -338,6 +340,44 @@ impl OutboxHarness {
         self.conn
             .query_row(&sql, [], |row| row.get(0))
             .with_context(|| format!("counting rows in {table}"))
+    }
+}
+
+pub struct WriterLeaseHarness {
+    conn: Connection,
+}
+
+impl WriterLeaseHarness {
+    pub fn new(state_db: &L4TestStateDb) -> Result<Self> {
+        let conn = Connection::open(state_db.db_path())
+            .with_context(|| format!("opening L4 state DB {}", state_db.db_path().display()))?;
+        conn.execute_batch("PRAGMA foreign_keys = ON")?;
+        Ok(Self { conn })
+    }
+
+    pub fn acquire(
+        &mut self,
+        executor_id: &str,
+        now_epoch_secs: i64,
+    ) -> Result<WriterLeaseAcquireResult> {
+        WriterLease::new("default", executor_id)?.acquire(&mut self.conn, now_epoch_secs)
+    }
+
+    pub fn heartbeat(
+        &mut self,
+        executor_id: &str,
+        now_epoch_secs: i64,
+    ) -> Result<WriterLeaseAcquireResult> {
+        WriterLease::new("default", executor_id)?.heartbeat(&mut self.conn, now_epoch_secs)
+    }
+
+    pub fn release(&self, executor_id: &str) -> Result<()> {
+        WriterLease::new("default", executor_id)?.release(&self.conn)?;
+        Ok(())
+    }
+
+    pub fn current_epoch(&self) -> Result<Option<i64>> {
+        WriterLease::new("default", DEFAULT_EXECUTOR_ID)?.current_epoch(&self.conn)
     }
 }
 

@@ -8,6 +8,10 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 const DEFAULT_EXECUTOR_ID: &str = "local-daemon";
+const WRITER_LEASE_HEARTBEAT_INTERVAL_SECS: i64 = 30;
+const WRITER_LEASE_MIN_TTL_SECS: i64 = 120;
+const WRITER_LEASE_NEXT_SAFE_ACTION: &str =
+    "switch this install to viewer-only or perform explicit rehome";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OutboxOp {
@@ -87,6 +91,68 @@ pub struct PushBatchApplyResponse {
     pub raw: Value,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WriterLease {
+    org_id: String,
+    executor_id: String,
+    heartbeat_interval_secs: i64,
+    lease_ttl_secs: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WriterLeaseSnapshot {
+    pub org_id: String,
+    pub holder_executor_id: Option<String>,
+    pub lease_expires_at_epoch_secs: i64,
+    pub writer_epoch: i64,
+    pub heartbeat_interval_secs: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WriterLeaseConflict {
+    pub org_id: String,
+    pub current_holder_executor_id: String,
+    pub lease_expires_at_epoch_secs: i64,
+    pub writer_epoch: i64,
+    pub next_safe_action: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum WriterLeaseAcquireResult {
+    Acquired(WriterLeaseSnapshot),
+    Conflict(WriterLeaseConflict),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WriterBindingMode {
+    Writer,
+    ViewerOnly,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WriterBindingConfig {
+    org_id: String,
+    executor_id: String,
+    requested_mode: WriterBindingMode,
+    approved_writer: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WriterBindingDecision {
+    pub org_id: String,
+    pub executor_id: String,
+    pub accepted: bool,
+    pub effective_mode: WriterBindingMode,
+    pub next_safe_actions: Vec<String>,
+}
+
+#[derive(Debug)]
+struct WriterLeaseDbRow {
+    holder_executor_id: Option<String>,
+    lease_expires_at_epoch_secs: Option<i64>,
+    writer_epoch: i64,
+}
+
 impl OutboxWriter {
     pub fn new(executor_id: impl Into<String>, schema_epoch: i32) -> Result<Self> {
         let executor_id = executor_id.into();
@@ -147,6 +213,210 @@ impl OutboxWriter {
         .context("writing local_outbox entry")?;
 
         Ok(tx.last_insert_rowid())
+    }
+}
+
+impl WriterLease {
+    pub fn new(org_id: impl Into<String>, executor_id: impl Into<String>) -> Result<Self> {
+        let org_id = org_id.into();
+        let executor_id = executor_id.into();
+        ensure_non_empty("org_id", &org_id)?;
+        ensure_non_empty("executor_id", &executor_id)?;
+        Ok(Self {
+            org_id,
+            executor_id,
+            heartbeat_interval_secs: WRITER_LEASE_HEARTBEAT_INTERVAL_SECS,
+            lease_ttl_secs: WRITER_LEASE_MIN_TTL_SECS,
+        })
+    }
+
+    pub fn acquire(
+        &self,
+        conn: &mut Connection,
+        now_epoch_secs: i64,
+    ) -> Result<WriterLeaseAcquireResult> {
+        ensure!(now_epoch_secs >= 0, "now_epoch_secs must be non-negative");
+        ensure_active_writer_lease_table(conn)?;
+        let tx = conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .context("starting writer lease acquisition transaction")?;
+        let row = load_writer_lease_row(&tx, &self.org_id)?;
+        let new_expiry = now_epoch_secs + self.lease_ttl_secs;
+        let (next_epoch, status) = match row {
+            None => (1, "acquired"),
+            Some(ref current)
+                if current.holder_executor_id.as_deref() == Some(&self.executor_id)
+                    && current
+                        .lease_expires_at_epoch_secs
+                        .is_some_and(|expiry| expiry >= now_epoch_secs) =>
+            {
+                (current.writer_epoch, "renewed")
+            }
+            Some(ref current)
+                if current.holder_executor_id.as_deref() == Some(&self.executor_id)
+                    || current.holder_executor_id.is_none()
+                    || current
+                        .lease_expires_at_epoch_secs
+                        .is_none_or(|expiry| expiry < now_epoch_secs) =>
+            {
+                (current.writer_epoch + 1, "acquired")
+            }
+            Some(current) => {
+                let conflict = self.conflict_from_row(&current);
+                tx.commit()
+                    .context("committing unchanged writer lease conflict transaction")?;
+                return Ok(WriterLeaseAcquireResult::Conflict(conflict));
+            }
+        };
+
+        upsert_writer_lease_row(&tx, &self.org_id, &self.executor_id, new_expiry, next_epoch)
+            .with_context(|| format!("{status} active writer lease"))?;
+        tx.commit()
+            .context("committing writer lease acquisition transaction")?;
+        Ok(WriterLeaseAcquireResult::Acquired(self.snapshot(
+            Some(self.executor_id.clone()),
+            new_expiry,
+            next_epoch,
+        )))
+    }
+
+    pub fn heartbeat(
+        &self,
+        conn: &mut Connection,
+        now_epoch_secs: i64,
+    ) -> Result<WriterLeaseAcquireResult> {
+        ensure!(now_epoch_secs >= 0, "now_epoch_secs must be non-negative");
+        ensure_active_writer_lease_table(conn)?;
+        let tx = conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .context("starting writer lease heartbeat transaction")?;
+        let current = load_writer_lease_row(&tx, &self.org_id)?
+            .context("writer lease heartbeat requires an existing lease row")?;
+        if current.holder_executor_id.as_deref() != Some(&self.executor_id) {
+            let conflict = self.conflict_from_row(&current);
+            tx.commit()
+                .context("committing unchanged writer lease heartbeat conflict")?;
+            return Ok(WriterLeaseAcquireResult::Conflict(conflict));
+        }
+        ensure!(
+            current
+                .lease_expires_at_epoch_secs
+                .is_some_and(|expiry| expiry >= now_epoch_secs),
+            "writer lease heartbeat requires an unexpired lease"
+        );
+
+        let new_expiry = now_epoch_secs + self.lease_ttl_secs;
+        upsert_writer_lease_row(
+            &tx,
+            &self.org_id,
+            &self.executor_id,
+            new_expiry,
+            current.writer_epoch,
+        )
+        .context("heartbeating active writer lease")?;
+        tx.commit()
+            .context("committing writer lease heartbeat transaction")?;
+        Ok(WriterLeaseAcquireResult::Acquired(self.snapshot(
+            Some(self.executor_id.clone()),
+            new_expiry,
+            current.writer_epoch,
+        )))
+    }
+
+    pub fn release(&self, conn: &Connection) -> Result<()> {
+        ensure_active_writer_lease_table(conn)?;
+        conn.execute(
+            "\
+            UPDATE active_writer_lease
+            SET holder_executor_id = NULL,
+                lease_expires_at_epoch_secs = NULL,
+                updated_at_epoch_secs = strftime('%s', 'now')
+            WHERE org_id = ?1
+              AND holder_executor_id = ?2
+            ",
+            params![self.org_id, self.executor_id],
+        )
+        .context("releasing active writer lease")?;
+        Ok(())
+    }
+
+    pub fn current_epoch(&self, conn: &Connection) -> Result<Option<i64>> {
+        ensure_active_writer_lease_table(conn)?;
+        conn.query_row(
+            "SELECT writer_epoch FROM active_writer_lease WHERE org_id = ?1",
+            params![self.org_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .context("reading active writer lease epoch")
+    }
+
+    fn snapshot(
+        &self,
+        holder_executor_id: Option<String>,
+        lease_expires_at_epoch_secs: i64,
+        writer_epoch: i64,
+    ) -> WriterLeaseSnapshot {
+        WriterLeaseSnapshot {
+            org_id: self.org_id.clone(),
+            holder_executor_id,
+            lease_expires_at_epoch_secs,
+            writer_epoch,
+            heartbeat_interval_secs: self.heartbeat_interval_secs,
+        }
+    }
+
+    fn conflict_from_row(&self, row: &WriterLeaseDbRow) -> WriterLeaseConflict {
+        WriterLeaseConflict {
+            org_id: self.org_id.clone(),
+            current_holder_executor_id: row.holder_executor_id.clone().unwrap_or_default(),
+            lease_expires_at_epoch_secs: row.lease_expires_at_epoch_secs.unwrap_or_default(),
+            writer_epoch: row.writer_epoch,
+            next_safe_action: WRITER_LEASE_NEXT_SAFE_ACTION.to_owned(),
+        }
+    }
+}
+
+impl WriterBindingConfig {
+    pub fn new(
+        org_id: impl Into<String>,
+        executor_id: impl Into<String>,
+        requested_mode: WriterBindingMode,
+        approved_writer: bool,
+    ) -> Result<Self> {
+        let org_id = org_id.into();
+        let executor_id = executor_id.into();
+        ensure_non_empty("org_id", &org_id)?;
+        ensure_non_empty("executor_id", &executor_id)?;
+        Ok(Self {
+            org_id,
+            executor_id,
+            requested_mode,
+            approved_writer,
+        })
+    }
+
+    #[must_use]
+    pub fn validate(&self) -> WriterBindingDecision {
+        if self.requested_mode == WriterBindingMode::Writer && !self.approved_writer {
+            return WriterBindingDecision {
+                org_id: self.org_id.clone(),
+                executor_id: self.executor_id.clone(),
+                accepted: false,
+                effective_mode: WriterBindingMode::ViewerOnly,
+                next_safe_actions: vec![
+                    "switch this install to viewer-only".to_owned(),
+                    "perform explicit rehome before enabling writer mode".to_owned(),
+                ],
+            };
+        }
+        WriterBindingDecision {
+            org_id: self.org_id.clone(),
+            executor_id: self.executor_id.clone(),
+            accepted: true,
+            effective_mode: self.requested_mode,
+            next_safe_actions: Vec::new(),
+        }
     }
 }
 
@@ -596,6 +866,80 @@ fn outbox_count_for_commit_group(tx: &Transaction<'_>, commit_group_id: &str) ->
         |row| row.get(0),
     )
     .context("counting local_outbox rows for commit_group_id")
+}
+
+fn ensure_active_writer_lease_table(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "\
+        CREATE TABLE IF NOT EXISTS active_writer_lease (
+          org_id TEXT PRIMARY KEY,
+          holder_executor_id TEXT,
+          lease_expires_at_epoch_secs INTEGER,
+          writer_epoch INTEGER NOT NULL DEFAULT 0 CHECK (writer_epoch >= 0),
+          updated_at_epoch_secs INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+          CHECK (length(trim(org_id)) > 0),
+          CHECK (
+            holder_executor_id IS NULL
+            OR length(trim(holder_executor_id)) > 0
+          ),
+          CHECK (
+            lease_expires_at_epoch_secs IS NULL
+            OR lease_expires_at_epoch_secs >= 0
+          )
+        );
+        ",
+    )
+    .context("ensuring active_writer_lease support table")
+}
+
+fn load_writer_lease_row(conn: &Connection, org_id: &str) -> Result<Option<WriterLeaseDbRow>> {
+    conn.query_row(
+        "\
+        SELECT holder_executor_id, lease_expires_at_epoch_secs, writer_epoch
+        FROM active_writer_lease
+        WHERE org_id = ?1
+        ",
+        params![org_id],
+        |row| {
+            Ok(WriterLeaseDbRow {
+                holder_executor_id: row.get(0)?,
+                lease_expires_at_epoch_secs: row.get(1)?,
+                writer_epoch: row.get(2)?,
+            })
+        },
+    )
+    .optional()
+    .context("loading active writer lease row")
+}
+
+fn upsert_writer_lease_row(
+    conn: &Connection,
+    org_id: &str,
+    holder_executor_id: &str,
+    lease_expires_at_epoch_secs: i64,
+    writer_epoch: i64,
+) -> Result<()> {
+    conn.execute(
+        "\
+        INSERT INTO active_writer_lease (
+          org_id, holder_executor_id, lease_expires_at_epoch_secs, writer_epoch,
+          updated_at_epoch_secs
+        ) VALUES (?1, ?2, ?3, ?4, strftime('%s', 'now'))
+        ON CONFLICT(org_id) DO UPDATE SET
+          holder_executor_id = excluded.holder_executor_id,
+          lease_expires_at_epoch_secs = excluded.lease_expires_at_epoch_secs,
+          writer_epoch = excluded.writer_epoch,
+          updated_at_epoch_secs = excluded.updated_at_epoch_secs
+        ",
+        params![
+            org_id,
+            holder_executor_id,
+            lease_expires_at_epoch_secs,
+            writer_epoch
+        ],
+    )
+    .context("upserting active writer lease row")?;
+    Ok(())
 }
 
 fn load_dispatchable_rows(conn: &Connection, executor_id: &str) -> Result<Vec<SyncBatchRow>> {

@@ -13,7 +13,8 @@ use tokio::task::JoinHandle;
 
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 use support::sync::{
-    EnforcementHarness, OutboxHarness, PushOwnedFixture, SupabaseRpcClient, canonical_content_hash,
+    EnforcementHarness, OutboxHarness, PushOwnedFixture, SupabaseRpcClient, WriterBindingConfig,
+    WriterBindingMode, WriterLeaseAcquireResult, WriterLeaseHarness, canonical_content_hash,
     parse_payload,
 };
 
@@ -909,6 +910,10 @@ fn apply_push_batch_body() -> Result<String> {
         .to_owned())
 }
 
+fn bail_with_conflict<T>(message: &str, conflict: &impl std::fmt::Debug) -> Result<T> {
+    anyhow::bail!("{message}: {conflict:?}")
+}
+
 async fn spawn_rpc_capture_server(
     response_json: Value,
 ) -> Result<(String, JoinHandle<Result<String>>)> {
@@ -1022,5 +1027,218 @@ fn l4_t_sqlite_supabase_sync_021_writer_epoch_assigned_only_by_batch_and_retry_i
     );
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-021 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_039_first_daemon_acquires_and_renews_writer_lease() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-039");
+    println!("[SETUP] two-daemon writer lease harness");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = WriterLeaseHarness::new(&state_db)?;
+
+    println!("[EXEC] first daemon acquires, then renews before expiry");
+    let first = match harness.acquire("executor-a", 1_000)? {
+        WriterLeaseAcquireResult::Acquired(snapshot) => snapshot,
+        WriterLeaseAcquireResult::Conflict(conflict) => {
+            bail_with_conflict("first acquire unexpectedly conflicted", &conflict)?
+        }
+    };
+    let renewed = match harness.acquire("executor-a", 1_030)? {
+        WriterLeaseAcquireResult::Acquired(snapshot) => snapshot,
+        WriterLeaseAcquireResult::Conflict(conflict) => {
+            bail_with_conflict("renew unexpectedly conflicted", &conflict)?
+        }
+    };
+
+    println!("[ASSERT] first acquisition increments epoch and renew preserves it");
+    ensure!(
+        first.holder_executor_id.as_deref() == Some("executor-a"),
+        "first lease holder was not executor-a"
+    );
+    ensure!(
+        first.writer_epoch == 1,
+        "first acquisition should increment writer_epoch from 0 to 1"
+    );
+    ensure!(
+        first.lease_expires_at_epoch_secs >= 1_120,
+        "first acquisition did not extend expiry at least 120 seconds"
+    );
+    ensure!(
+        renewed.writer_epoch == first.writer_epoch,
+        "same-holder renewal must preserve writer_epoch"
+    );
+    ensure!(
+        renewed.lease_expires_at_epoch_secs >= 1_150,
+        "same-holder renewal did not extend expiry from renewal time"
+    );
+    ensure!(
+        harness.current_epoch()? == Some(1),
+        "current writer epoch did not persist"
+    );
+    let migration = read_repo_file("infra/supabase/migrations/0006_schema_metadata.sql")?;
+    ensure!(
+        migration.contains("CREATE OR REPLACE FUNCTION acquire_active_writer_lease")
+            && migration.contains("FOR UPDATE")
+            && migration.contains("current_epoch + 1"),
+        "active writer lease migration must provide a CAS acquisition function"
+    );
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-039 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_040_second_daemon_conflict_surfaces_holder_and_expiry() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-040");
+    println!("[SETUP] valid active writer lease held by executor-a");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = WriterLeaseHarness::new(&state_db)?;
+    let first = match harness.acquire("executor-a", 2_000)? {
+        WriterLeaseAcquireResult::Acquired(snapshot) => snapshot,
+        WriterLeaseAcquireResult::Conflict(conflict) => {
+            bail_with_conflict("first acquire unexpectedly conflicted", &conflict)?
+        }
+    };
+
+    println!("[EXEC] second daemon attempts to acquire while lease is valid");
+    let conflict = match harness.acquire("executor-b", 2_030)? {
+        WriterLeaseAcquireResult::Acquired(snapshot) => {
+            anyhow::bail!("second writer unexpectedly acquired lease: {snapshot:?}")
+        }
+        WriterLeaseAcquireResult::Conflict(conflict) => conflict,
+    };
+
+    println!("[ASSERT] conflict payload is suitable for desktop sync status");
+    ensure!(
+        conflict.current_holder_executor_id == "executor-a",
+        "conflict did not include current holder executor id"
+    );
+    ensure!(
+        conflict.lease_expires_at_epoch_secs == first.lease_expires_at_epoch_secs,
+        "conflict expiry did not match active lease expiry"
+    );
+    ensure!(
+        conflict.next_safe_action.contains("viewer-only")
+            && conflict.next_safe_action.contains("explicit rehome"),
+        "conflict next action must mention viewer-only and explicit rehome"
+    );
+
+    let body = apply_push_batch_body()?;
+    ensure!(
+        body.contains("holder_executor_id")
+            && body.contains("batch_executor_id")
+            && body.contains("'error', 'writer_lease_conflict'"),
+        "apply_push_batch must reject a different executor_id while a lease is valid"
+    );
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-040 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_042_heartbeat_extends_expiry_and_expiry_allows_reacquire() -> Result<()>
+{
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-042");
+    println!("[SETUP] active lease held by executor-a");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = WriterLeaseHarness::new(&state_db)?;
+    let acquired = match harness.acquire("executor-a", 3_000)? {
+        WriterLeaseAcquireResult::Acquired(snapshot) => snapshot,
+        WriterLeaseAcquireResult::Conflict(conflict) => {
+            bail_with_conflict("first acquire unexpectedly conflicted", &conflict)?
+        }
+    };
+
+    println!("[EXEC] heartbeat at 30 seconds and competing writer attempts before expiry");
+    let heartbeat = match harness.heartbeat("executor-a", 3_030)? {
+        WriterLeaseAcquireResult::Acquired(snapshot) => snapshot,
+        WriterLeaseAcquireResult::Conflict(conflict) => {
+            bail_with_conflict("heartbeat unexpectedly conflicted", &conflict)?
+        }
+    };
+    let before_expiry = harness.acquire("executor-b", heartbeat.lease_expires_at_epoch_secs - 1)?;
+
+    println!("[ASSERT] heartbeat cadence and TTL satisfy the lease contract");
+    ensure!(
+        heartbeat.writer_epoch == acquired.writer_epoch,
+        "heartbeat must preserve writer_epoch"
+    );
+    ensure!(
+        heartbeat.lease_expires_at_epoch_secs >= 3_150,
+        "heartbeat did not extend expiry at least 120 seconds"
+    );
+    ensure!(
+        heartbeat.heartbeat_interval_secs <= 30,
+        "heartbeat interval must be at most 30 seconds"
+    );
+    ensure!(
+        matches!(before_expiry, WriterLeaseAcquireResult::Conflict(_)),
+        "another writer acquired before lease expiry"
+    );
+
+    println!("[EXEC] competing writer retries after expiry");
+    let after_expiry =
+        match harness.acquire("executor-b", heartbeat.lease_expires_at_epoch_secs + 1)? {
+            WriterLeaseAcquireResult::Acquired(snapshot) => snapshot,
+            WriterLeaseAcquireResult::Conflict(conflict) => {
+                bail_with_conflict("post-expiry acquire unexpectedly conflicted", &conflict)?
+            }
+        };
+    ensure!(
+        after_expiry.writer_epoch == acquired.writer_epoch + 1,
+        "post-expiry acquisition must increment writer_epoch"
+    );
+    ensure!(
+        after_expiry.holder_executor_id.as_deref() == Some("executor-b"),
+        "post-expiry holder was not executor-b"
+    );
+    let migration = read_repo_file("infra/supabase/migrations/0006_schema_metadata.sql")?;
+    ensure!(
+        migration.contains("CREATE OR REPLACE FUNCTION heartbeat_active_writer_lease")
+            && migration.contains("heartbeat_interval_seconds', 30")
+            && migration.contains("GREATEST(COALESCE(lease_ttl_seconds, 120), 120)"),
+        "active writer lease migration must pin 30s heartbeat and at least 120s TTL"
+    );
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-042 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_043_unapproved_second_writer_config_rejected() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-043");
+    println!("[SETUP] unapproved writer-mode config for a second installation");
+    let decision =
+        WriterBindingConfig::new("default", "executor-b", WriterBindingMode::Writer, false)?
+            .validate();
+
+    println!("[ASSERT] unapproved writer mode falls back to explicit safe actions");
+    ensure!(!decision.accepted, "unapproved writer config was accepted");
+    ensure!(
+        decision.effective_mode == WriterBindingMode::ViewerOnly,
+        "unapproved second writer must be forced to viewer-only"
+    );
+    ensure!(
+        decision
+            .next_safe_actions
+            .iter()
+            .any(|action| action.contains("viewer-only"))
+            && decision
+                .next_safe_actions
+                .iter()
+                .any(|action| action.contains("explicit rehome")),
+        "config rejection did not surface viewer-only and explicit rehome actions"
+    );
+
+    let spec = read_repo_file("docs/strategy/layers/layer-4-shared-visibility.md")?;
+    ensure!(
+        spec.contains("One bound machine per org")
+            && spec.contains("viewer-only")
+            && spec.contains("explicit rehome"),
+        "operator/admin docs must state the one-writer binding and safe actions"
+    );
+    println!("[CLEANUP] config/doc fixture only");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-043 PASS");
     Ok(())
 }

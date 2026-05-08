@@ -166,9 +166,12 @@ DECLARE
   org text := COALESCE(NULLIF(batch_json ->> 'org_id', ''), 'default');
   rows_json jsonb := batch_json -> 'rows';
   batch_id text := COALESCE(batch_json ->> 'batch_id', batch_json ->> 'stream_id', 'unknown');
+  batch_executor_id text := batch_json ->> 'executor_id';
   batch_schema_epoch integer;
   batch_writer_epoch integer;
   remote_schema_epoch integer;
+  remote_writer_holder text;
+  remote_lease_expires_at timestamptz;
   remote_writer_epoch integer;
   row_item jsonb;
   row_payload jsonb;
@@ -209,6 +212,15 @@ BEGIN
   batch_schema_epoch := (batch_json ->> 'schema_epoch')::integer;
   batch_writer_epoch := (batch_json ->> 'writer_epoch')::integer;
 
+  IF batch_executor_id IS NULL OR btrim(batch_executor_id) = '' THEN
+    RETURN jsonb_build_object(
+      'status', 'rejected',
+      'accepted', false,
+      'error', 'missing_executor_id',
+      'batch_id', batch_id
+    );
+  END IF;
+
   IF batch_writer_epoch <> writer_epoch THEN
     RETURN jsonb_build_object(
       'status', 'rejected',
@@ -234,19 +246,50 @@ BEGIN
     );
   END IF;
 
-  SELECT active_writer_lease.writer_epoch
-    INTO remote_writer_epoch
+  SELECT active_writer_lease.holder_executor_id,
+         active_writer_lease.lease_expires_at,
+         active_writer_lease.writer_epoch
+    INTO remote_writer_holder,
+         remote_lease_expires_at,
+         remote_writer_epoch
   FROM active_writer_lease
   WHERE org_id = org
   FOR UPDATE;
 
-  IF remote_writer_epoch IS NOT NULL AND remote_writer_epoch <> writer_epoch THEN
+  IF remote_writer_epoch IS NULL
+     OR remote_writer_holder IS NULL
+     OR remote_lease_expires_at IS NULL
+     OR remote_lease_expires_at < now() THEN
+    RETURN jsonb_build_object(
+      'status', 'rejected',
+      'accepted', false,
+      'error', 'writer_lease_required',
+      'current_holder_executor_id', remote_writer_holder,
+      'lease_expires_at', remote_lease_expires_at,
+      'next_safe_action', 'switch this install to viewer-only or perform explicit rehome'
+    );
+  END IF;
+
+  IF remote_writer_epoch <> writer_epoch THEN
     RETURN jsonb_build_object(
       'status', 'rejected',
       'accepted', false,
       'error', 'stale_writer',
       'remote_writer_epoch', remote_writer_epoch,
       'writer_epoch', writer_epoch
+    );
+  END IF;
+
+  IF remote_writer_holder <> batch_executor_id THEN
+    RETURN jsonb_build_object(
+      'status', 'rejected',
+      'accepted', false,
+      'error', 'writer_lease_conflict',
+      'current_holder_executor_id', remote_writer_holder,
+      'batch_executor_id', batch_executor_id,
+      'lease_expires_at', remote_lease_expires_at,
+      'writer_epoch', writer_epoch,
+      'next_safe_action', 'switch this install to viewer-only or perform explicit rehome'
     );
   END IF;
 
