@@ -15,6 +15,8 @@ const WRITER_LEASE_MIN_TTL_SECS: i64 = 120;
 const WRITER_LEASE_NEXT_SAFE_ACTION: &str =
     "switch this install to viewer-only or perform explicit rehome";
 const SQLITE_SNAPSHOT_DEFAULT_CADENCE_SECS: i64 = 6 * 60 * 60;
+pub const REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS: i64 = 60 * 60;
+pub const REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS: i64 = 4 * 60 * 60;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OutboxOp {
@@ -85,6 +87,40 @@ pub enum PullCursorDomain {
     SharedSourceConfigs,
     SharedCompanyProfile,
     OperatorDecisionHeads,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RemoteConfigStalenessSubject {
+    SharedCompanyProfile,
+    SharedSourceConfigsDisplay,
+    SharedSourceConfigsSchedule,
+    SharedSourceConfigsEnabled,
+    OperatorDecisionHeads,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RemoteConfigStalenessClass {
+    Informational,
+    Operational,
+    SafetyCritical,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RemoteConfigStalenessAction {
+    UseCached,
+    WarnUseCached,
+    DegradeSource,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RemoteConfigStaleness {
+    pub subject: RemoteConfigStalenessSubject,
+    pub class: RemoteConfigStalenessClass,
+    pub action: RemoteConfigStalenessAction,
+    pub age_secs: i64,
+    pub warn_after_secs: i64,
+    pub safety_critical_ttl_secs: i64,
+    pub cas_still_required: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -716,6 +752,87 @@ impl PullCursorDomain {
             "operator_decision_heads" => Ok(Self::OperatorDecisionHeads),
             _ => bail!("unsupported pull cursor domain `{value}`"),
         }
+    }
+}
+
+impl RemoteConfigStalenessSubject {
+    #[must_use]
+    pub const fn staleness_class(self) -> RemoteConfigStalenessClass {
+        match self {
+            Self::SharedCompanyProfile => RemoteConfigStalenessClass::Informational,
+            Self::SharedSourceConfigsDisplay
+            | Self::SharedSourceConfigsSchedule
+            | Self::OperatorDecisionHeads => RemoteConfigStalenessClass::Operational,
+            Self::SharedSourceConfigsEnabled => RemoteConfigStalenessClass::SafetyCritical,
+        }
+    }
+
+    #[must_use]
+    pub const fn cas_still_required(self) -> bool {
+        matches!(self, Self::OperatorDecisionHeads)
+    }
+}
+
+impl RemoteConfigStaleness {
+    pub fn evaluate_class(
+        subject: RemoteConfigStalenessSubject,
+        now_epoch_secs: i64,
+        last_pulled_at_epoch_secs: i64,
+    ) -> Result<Self> {
+        ensure!(
+            now_epoch_secs >= 0,
+            "remote config staleness now_epoch_secs must be non-negative"
+        );
+        ensure!(
+            last_pulled_at_epoch_secs >= 0,
+            "remote config staleness last_pulled_at_epoch_secs must be non-negative"
+        );
+        let age_secs = now_epoch_secs.saturating_sub(last_pulled_at_epoch_secs);
+        Ok(Self::evaluate_age(subject, age_secs))
+    }
+
+    #[must_use]
+    pub const fn evaluate_age(subject: RemoteConfigStalenessSubject, age_secs: i64) -> Self {
+        let class = subject.staleness_class();
+        let safe_age_secs = if age_secs < 0 { 0 } else { age_secs };
+        let action = match class {
+            RemoteConfigStalenessClass::Informational => RemoteConfigStalenessAction::UseCached,
+            RemoteConfigStalenessClass::Operational => {
+                if safe_age_secs >= REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS {
+                    RemoteConfigStalenessAction::WarnUseCached
+                } else {
+                    RemoteConfigStalenessAction::UseCached
+                }
+            }
+            RemoteConfigStalenessClass::SafetyCritical => {
+                if safe_age_secs >= REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS {
+                    RemoteConfigStalenessAction::DegradeSource
+                } else if safe_age_secs >= REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS {
+                    RemoteConfigStalenessAction::WarnUseCached
+                } else {
+                    RemoteConfigStalenessAction::UseCached
+                }
+            }
+        };
+        Self {
+            subject,
+            class,
+            action,
+            age_secs: safe_age_secs,
+            warn_after_secs: REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS,
+            safety_critical_ttl_secs: REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS,
+            cas_still_required: subject.cas_still_required(),
+        }
+    }
+
+    #[must_use]
+    pub const fn warns(&self) -> bool {
+        matches!(self.action, RemoteConfigStalenessAction::WarnUseCached)
+    }
+
+    #[must_use]
+    pub const fn degrades_source(&self) -> bool {
+        matches!(self.action, RemoteConfigStalenessAction::DegradeSource)
     }
 }
 

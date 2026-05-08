@@ -18,11 +18,14 @@ pub use sync_impl::SupabaseRpcClient;
 pub use sync_impl::{
     BatchEnvelope, BatchEnvelopeAssembler, FencedPullOutcome, FencedPullPageBoundary, OutboxOp,
     OutboxWriter, PendingIntentReconciler, PendingIntentReconciliationPlan, PullCursor,
-    PullCursorDomain, PullCursorStore, PushBatchApplyResponse, RemoteOwnedChange, SchemaEpochGuard,
-    SchemaEpochStatus, SqliteSnapshotArtifact, SqliteSnapshotRecord, SqliteSnapshotRequest,
-    SqliteSnapshotScheduler, SyncCycle, SyncCycleOutcome, SyncCyclePhase, SyncCycleTrigger,
-    SyncHealth, ViewerSyncStatus, ViewerSyncStatusWriter, WriterBindingConfig, WriterBindingMode,
-    WriterLease, WriterLeaseAcquireResult, canonical_content_hash, decision_conflict_event_payload,
+    PullCursorDomain, PullCursorStore, PushBatchApplyResponse,
+    REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS, REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS,
+    RemoteConfigStaleness, RemoteConfigStalenessAction, RemoteConfigStalenessClass,
+    RemoteConfigStalenessSubject, RemoteOwnedChange, SchemaEpochGuard, SchemaEpochStatus,
+    SqliteSnapshotArtifact, SqliteSnapshotRecord, SqliteSnapshotRequest, SqliteSnapshotScheduler,
+    SyncCycle, SyncCycleOutcome, SyncCyclePhase, SyncCycleTrigger, SyncHealth, ViewerSyncStatus,
+    ViewerSyncStatusWriter, WriterBindingConfig, WriterBindingMode, WriterLease,
+    WriterLeaseAcquireResult, canonical_content_hash, decision_conflict_event_payload,
 };
 #[allow(unused_imports)]
 pub use sync_impl::{OperatorDecisionApplyResponse, OperatorDecisionCommand};
@@ -1234,6 +1237,16 @@ impl PullCursorHarness {
 
     pub fn record_failure(&self, domain: PullCursorDomain) -> Result<PullCursor> {
         PullCursorStore::record_failure(&self.conn, domain)
+    }
+
+    pub fn evaluate_remote_config_staleness(
+        &self,
+        subject: RemoteConfigStalenessSubject,
+        now_epoch_secs: i64,
+        last_pulled_at_epoch_secs: i64,
+    ) -> Result<RemoteConfigStaleness> {
+        PullCursorStore::all(&self.conn).context("loading pull cursors before staleness check")?;
+        RemoteConfigStaleness::evaluate_class(subject, now_epoch_secs, last_pulled_at_epoch_secs)
     }
 
     pub fn seed_remote_owned_change(

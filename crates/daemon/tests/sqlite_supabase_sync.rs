@@ -33,10 +33,12 @@ use decisions_handler_impl::{
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 use support::sync::{
     EnforcementHarness, OperatorDecisionCasHarness, OutboxHarness, PullCursorDomain,
-    PullCursorHarness, PushOwnedFixture, SchemaEpochGuard, SqliteSnapshotArtifact,
-    SqliteSnapshotScheduler, SupabaseRpcClient, SyncCyclePhase, SyncCycleTrigger, SyncHealth,
-    ViewerSyncStatus, WriterBindingConfig, WriterBindingMode, WriterLeaseAcquireResult,
-    WriterLeaseHarness, canonical_content_hash, parse_payload,
+    PullCursorHarness, PushOwnedFixture, REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS,
+    REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS, RemoteConfigStalenessAction,
+    RemoteConfigStalenessClass, RemoteConfigStalenessSubject, SchemaEpochGuard,
+    SqliteSnapshotArtifact, SqliteSnapshotScheduler, SupabaseRpcClient, SyncCyclePhase,
+    SyncCycleTrigger, SyncHealth, ViewerSyncStatus, WriterBindingConfig, WriterBindingMode,
+    WriterLeaseAcquireResult, WriterLeaseHarness, canonical_content_hash, parse_payload,
 };
 
 #[test]
@@ -2340,6 +2342,99 @@ fn l4_t_sqlite_supabase_sync_046_viewer_sync_status_updates_after_ack_and_heartb
 
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-046 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_047_remote_config_staleness_ttl_classes() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-047");
+    println!("[SETUP] pull cursor harness and fixed staleness evaluation clock");
+    let state_db = L4TestStateDb::new()?;
+    let harness = PullCursorHarness::new(&state_db)?;
+    let now_epoch_secs = 100_000;
+    ensure!(
+        REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS == 3_600
+            && REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS == 14_400,
+        "remote config default staleness thresholds drifted"
+    );
+
+    println!("[EXEC] evaluate stale company profile, source display/schedule, enabled, decisions");
+    let company_profile = harness.evaluate_remote_config_staleness(
+        RemoteConfigStalenessSubject::SharedCompanyProfile,
+        now_epoch_secs,
+        now_epoch_secs - 86_400,
+    )?;
+    let display = harness.evaluate_remote_config_staleness(
+        RemoteConfigStalenessSubject::SharedSourceConfigsDisplay,
+        now_epoch_secs,
+        now_epoch_secs - REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS - 1,
+    )?;
+    let schedule = harness.evaluate_remote_config_staleness(
+        RemoteConfigStalenessSubject::SharedSourceConfigsSchedule,
+        now_epoch_secs,
+        now_epoch_secs - REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS - 1,
+    )?;
+    let enabled_before_ttl = harness.evaluate_remote_config_staleness(
+        RemoteConfigStalenessSubject::SharedSourceConfigsEnabled,
+        now_epoch_secs,
+        now_epoch_secs - REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS + 1,
+    )?;
+    let enabled_after_ttl = harness.evaluate_remote_config_staleness(
+        RemoteConfigStalenessSubject::SharedSourceConfigsEnabled,
+        now_epoch_secs,
+        now_epoch_secs - REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS - 1,
+    )?;
+    let decision_heads = harness.evaluate_remote_config_staleness(
+        RemoteConfigStalenessSubject::OperatorDecisionHeads,
+        now_epoch_secs,
+        now_epoch_secs - REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS - 1,
+    )?;
+
+    println!("[ASSERT] company profile stays informational and cached even when very stale");
+    ensure!(
+        company_profile.class == RemoteConfigStalenessClass::Informational
+            && company_profile.action == RemoteConfigStalenessAction::UseCached
+            && !company_profile.warns()
+            && !company_profile.degrades_source(),
+        "company profile staleness must remain informational: {company_profile:?}"
+    );
+
+    println!("[ASSERT] source display and schedule fields warn after one hour but use cache");
+    for staleness in [display, schedule] {
+        ensure!(
+            staleness.class == RemoteConfigStalenessClass::Operational
+                && staleness.action == RemoteConfigStalenessAction::WarnUseCached
+                && staleness.warns()
+                && !staleness.degrades_source(),
+            "operational source config staleness did not warn/use cache: {staleness:?}"
+        );
+    }
+
+    println!("[ASSERT] enabled/disabled source authority degrades only after safety TTL");
+    ensure!(
+        enabled_before_ttl.class == RemoteConfigStalenessClass::SafetyCritical
+            && enabled_before_ttl.action == RemoteConfigStalenessAction::WarnUseCached
+            && !enabled_before_ttl.degrades_source(),
+        "enabled flag degraded before the safety-critical TTL: {enabled_before_ttl:?}"
+    );
+    ensure!(
+        enabled_after_ttl.class == RemoteConfigStalenessClass::SafetyCritical
+            && enabled_after_ttl.action == RemoteConfigStalenessAction::DegradeSource
+            && enabled_after_ttl.degrades_source(),
+        "enabled flag did not degrade after the safety-critical TTL: {enabled_after_ttl:?}"
+    );
+
+    println!("[ASSERT] stale operator decisions remain CAS-protected operational state");
+    ensure!(
+        decision_heads.class == RemoteConfigStalenessClass::Operational
+            && decision_heads.action == RemoteConfigStalenessAction::WarnUseCached
+            && decision_heads.cas_still_required
+            && !decision_heads.degrades_source(),
+        "operator decision heads staleness bypassed CAS semantics: {decision_heads:?}"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-047 PASS");
     Ok(())
 }
 
