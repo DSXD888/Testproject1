@@ -3,6 +3,12 @@
 #[path = "../src/ipc/handlers/decisions.rs"]
 #[allow(dead_code)]
 mod decisions_handler_impl;
+#[allow(dead_code, clippy::missing_const_for_fn)]
+#[path = "../src/errors/manifest.rs"]
+mod errors_manifest_impl;
+#[allow(dead_code, clippy::missing_const_for_fn)]
+#[path = "../src/errors/markdown.rs"]
+mod errors_markdown_impl;
 mod support;
 
 mod jobs {
@@ -22,6 +28,8 @@ use std::path::Path;
 use std::str;
 
 use anyhow::{Context, Result, ensure};
+use chrono::Utc;
+use rusqlite::params;
 use serde_json::{Value, json};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -30,7 +38,11 @@ use tokio::task::JoinHandle;
 use decisions_handler_impl::{
     DECISION_CONFLICT_TOPIC, DecisionConflictEventParams, decision_conflict_ipc_event,
 };
+use errors_manifest_impl::{
+    ErrorCode, ErrorManifestDraft, ErrorManifestStore, ErrorRuntimeContext,
+};
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
+use support::redaction::RedactionSentinelFixture;
 use support::sync::{
     EnforcementHarness, OperatorDecisionCasHarness, OutboxHarness, PullCursorDomain,
     PullCursorHarness, PushOwnedFixture, REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS,
@@ -1051,6 +1063,75 @@ fn l4_t_sqlite_supabase_sync_021_writer_epoch_assigned_only_by_batch_and_retry_i
     );
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-021 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_023_enforcement_rejection_emits_agent_suspect_output_manifest()
+-> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-023");
+    println!("[SETUP] enforcement harness, redaction sentinels, and error manifest store");
+    let state_db = L4TestStateDb::new()?;
+    let fixture = RedactionSentinelFixture::new();
+    seed_error_manifest_process(state_db.connection(), &fixture.process_id)?;
+    let mut harness = EnforcementHarness::new(&state_db)?;
+    let before_outbox_count = harness.count_rows("local_outbox")?;
+
+    println!("[EXEC] reject enforcement-active worker output and create operator-alert manifest");
+    harness.reject_provisional_output(&fixture.job_id)?;
+    let artifact_root = state_db
+        .db_path()
+        .parent()
+        .context("L4 state DB path should have a temp parent")?
+        .join("artifacts");
+    let store = ErrorManifestStore::new(artifact_root)?;
+    let stored = store.create(
+        state_db.connection(),
+        &enforcement_suspect_draft(&fixture),
+        Utc::now(),
+    )?;
+
+    println!(
+        "[ASSERT] rejection remains local-only and surfaces AGENT_SUSPECT_OUTPUT operator alert"
+    );
+    let record = ErrorManifestStore::load_record(state_db.connection(), &stored.id)?;
+    let manifest_count = count_error_manifests_by_type(
+        state_db.connection(),
+        &fixture.job_id,
+        ErrorCode::AgentSuspectOutput,
+    )?;
+    let markdown = std::fs::read_to_string(&stored.markdown_path)
+        .with_context(|| format!("reading {}", stored.markdown_path.display()))?;
+    ensure!(
+        record.error_type == ErrorCode::AgentSuspectOutput,
+        "enforcement rejection was classified as {:?}",
+        record.error_type
+    );
+    ensure!(
+        manifest_count == 1,
+        "expected one AGENT_SUSPECT_OUTPUT manifest, found {manifest_count}"
+    );
+    ensure!(
+        harness
+            .provisional_validation_status(&fixture.job_id)?
+            .as_deref()
+            == Some("rejected"),
+        "provisional worker output did not stay rejected"
+    );
+    ensure!(
+        harness.count_rows("local_outbox")? == before_outbox_count,
+        "rejected enforcement output created a push outbox row"
+    );
+    ensure!(
+        markdown.contains("## Operator Alert")
+            && markdown.contains("AGENT_SUSPECT_OUTPUT")
+            && markdown.contains("Do not promote or outbox this worker output"),
+        "operator alert markdown did not contain the quarantine guidance"
+    );
+    fixture.assert_no_sentinels(&markdown)?;
+
+    println!("[CLEANUP] tempfile-owned state DB and artifacts");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-023 PASS");
     Ok(())
 }
 
@@ -2540,6 +2621,74 @@ fn l4_t_sqlite_supabase_sync_048_sqlite_snapshot_scheduler_warns_without_blockin
     Ok(())
 }
 
+#[test]
+fn l4_t_sqlite_supabase_sync_080_validator_crash_uses_l3_fail_open_marker() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-080");
+    println!("[SETUP] enforcement harness with no persisted validator verdicts");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = EnforcementHarness::new(&state_db)?;
+    let worker_job_id = "l4-validator-crash-worker";
+    let before_suspect_manifests = count_error_manifests_by_type(
+        state_db.connection(),
+        worker_job_id,
+        ErrorCode::AgentSuspectOutput,
+    )?;
+
+    println!("[EXEC] record validator crash/timeout as fail-open worker completion");
+    harness.record_validator_fail_open(worker_job_id, "validator timeout")?;
+
+    println!("[ASSERT] fail-open path keeps worker completed without AGENT_SUSPECT_OUTPUT");
+    let (status, validation_required, validation_verdict_id, output_payload): (
+        String,
+        i64,
+        Option<String>,
+        String,
+    ) = state_db.connection().query_row(
+        "\
+        SELECT status, validation_required, validation_verdict_id, output_payload
+        FROM workflow_jobs
+        WHERE id = ?1
+        ",
+        [worker_job_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    )?;
+    let output: Value = serde_json::from_str(&output_payload)?;
+    ensure!(status == "completed", "worker did not complete fail-open");
+    ensure!(
+        validation_required == 1,
+        "worker did not retain validation_required marker"
+    );
+    ensure!(
+        validation_verdict_id.is_none(),
+        "fail-open worker unexpectedly linked a validator verdict"
+    );
+    ensure!(
+        output.get("validation_marker").and_then(Value::as_str)
+            == Some("VALIDATION_SKIPPED_VALIDATOR_ERROR"),
+        "validator crash did not use the L3 fail-open marker: {output}"
+    );
+    ensure!(
+        output.get("validation_marker").and_then(Value::as_str) != Some("AGENT_SUSPECT_OUTPUT"),
+        "validator crash was misclassified as suspect output"
+    );
+    ensure!(
+        harness.count_rows("validation_verdicts")? == 0,
+        "validator crash persisted a verdict row"
+    );
+    ensure!(
+        count_error_manifests_by_type(
+            state_db.connection(),
+            worker_job_id,
+            ErrorCode::AgentSuspectOutput,
+        )? == before_suspect_manifests,
+        "validator crash emitted an AGENT_SUSPECT_OUTPUT manifest"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-080 PASS");
+    Ok(())
+}
+
 fn assert_automatic_apply_status(status: &ViewerSyncStatus, last_local_seq: i64) -> Result<()> {
     ensure!(
         status.sync_health == SyncHealth::Healthy,
@@ -2618,4 +2767,73 @@ fn assert_viewer_sync_status_migration_contract() -> Result<()> {
         "Supabase summary migration does not expose the viewer_sync_status freshness contract"
     );
     Ok(())
+}
+
+fn seed_error_manifest_process(conn: &rusqlite::Connection, process_id: &str) -> Result<()> {
+    conn.execute(
+        "\
+        INSERT INTO procurement_processes (
+          id, canonical_process_id, current_stage, title, latest_published_at,
+          latest_updated_at, owner_id
+        ) VALUES (?1, ?1, 'review', 'L4 enforcement process',
+                  '2026-03-28T09:00:00Z', '2026-03-28T09:00:00Z', 'local-owner')
+        ",
+        params![process_id],
+    )?;
+    Ok(())
+}
+
+fn enforcement_suspect_draft(fixture: &RedactionSentinelFixture) -> ErrorManifestDraft {
+    let payloads = fixture.redacted_summary_payloads();
+    ErrorManifestDraft {
+        job_id: Some(fixture.job_id.clone()),
+        process_id: Some(fixture.process_id.clone()),
+        pipeline_stage: "Validation enforcement".to_owned(),
+        workflow_step: "provisional_promotion".to_owned(),
+        error_type: ErrorCode::AgentSuspectOutput,
+        error_message: "Validator rejected enforcement-active worker output".to_owned(),
+        error_context: json!({
+            "workflow_job_summary": payloads.workflow_job_summary,
+            "error_manifest_summary": payloads.error_manifest_summary,
+            "validation_verdict_summary": payloads.validation_verdict_summary,
+            "operator_decision_summary": payloads.operator_decision_summary
+        }),
+        skill_path: Some("skills/validation/base/SKILL.md".to_owned()),
+        agent_session_id: None,
+        runtime_context: ErrorRuntimeContext {
+            cli_vendor: Some("fixture-cli".to_owned()),
+            cli_version: Some("1.0.0".to_owned()),
+            adapter_version: Some("daemon-test".to_owned()),
+            model_id: Some("validator-fixture".to_owned()),
+            config_hash: Some("validator-config-hash".to_owned()),
+            skill_version: Some("1.0.0".to_owned()),
+            pid: None,
+            pgid: None,
+            cleanup_verdict: None,
+            last_valid_checkpoint_sequence: Some(7),
+            daemon_instance_id: Some("daemon-l4-enforcement".to_owned()),
+            commit_seq: Some(44),
+        },
+        session_artifact_path: Some("artifacts/validation/session.log".to_owned()),
+        next_debugging_action:
+            "Inspect validator evidence, keep output quarantined, and rerun from checkpoint 7"
+                .to_owned(),
+    }
+}
+
+fn count_error_manifests_by_type(
+    conn: &rusqlite::Connection,
+    job_id: &str,
+    error_type: ErrorCode,
+) -> Result<i64> {
+    conn.query_row(
+        "\
+        SELECT COUNT(*)
+        FROM error_manifests
+        WHERE job_id = ?1 AND error_type = ?2
+        ",
+        params![job_id, error_type.as_str()],
+        |row| row.get(0),
+    )
+    .context("counting error manifests by type")
 }

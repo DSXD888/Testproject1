@@ -1572,11 +1572,61 @@ impl EnforcementHarness {
         Ok(())
     }
 
+    pub fn record_validator_fail_open(
+        &mut self,
+        worker_job_id: &str,
+        failure_reason: &str,
+    ) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        seed_workflow_job(&tx, worker_job_id)?;
+        tx.execute(
+            "\
+            UPDATE workflow_jobs
+            SET status = 'completed',
+                validation_required = 1,
+                validation_verdict_id = NULL,
+                output_payload = ?2
+            WHERE id = ?1
+            ",
+            params![
+                worker_job_id,
+                json!({
+                    "validation_marker": "VALIDATION_SKIPPED_VALIDATOR_ERROR",
+                    "validator_failure": failure_reason,
+                    "worker_advanced": true
+                })
+                .to_string()
+            ],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn provisional_validation_status(&self, worker_job_id: &str) -> Result<Option<String>> {
+        self.conn
+            .query_row(
+                "\
+                SELECT validation_status
+                FROM provisional_worker_outputs
+                WHERE worker_job_id = ?1
+                ",
+                [worker_job_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .with_context(|| format!("loading provisional validation status for {worker_job_id}"))
+    }
+
     pub fn count_rows(&self, table: &str) -> Result<i64> {
         ensure!(
             matches!(
                 table,
-                "local_outbox" | "procurement_processes" | "provisional_worker_outputs"
+                "error_manifests"
+                    | "local_outbox"
+                    | "procurement_processes"
+                    | "provisional_worker_outputs"
+                    | "validation_verdicts"
+                    | "workflow_jobs"
             ),
             "unsupported test row count table `{table}`"
         );
