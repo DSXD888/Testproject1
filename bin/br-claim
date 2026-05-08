@@ -269,7 +269,11 @@ def main():
     prior_other_start = None
     messages = []
     if isinstance(search_res, dict):
-        messages = search_res.get("messages") or search_res.get("results") or []
+        for key in ("result", "messages", "results"):
+            value = search_res.get(key)
+            if isinstance(value, list):
+                messages = value
+                break
     elif isinstance(search_res, list):
         messages = search_res
     for msg in messages:
