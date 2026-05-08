@@ -7,6 +7,15 @@ import {
   READABLE_PROJECTION_TABLES,
   REMOTE_OWNED_TABLES,
 } from '@project/contracts-schema';
+import { buildSyncFreshnessVm } from '@project/ui';
+import {
+  PRIVILEGED_TOKEN_NAME_PATTERN,
+  viewerCredentialNames,
+} from './fixtures/supabase-auth';
+import {
+  FRESHNESS_NOW,
+  freshnessProjectionSeeds,
+} from './fixtures/projection-seed';
 
 const WEB_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const REPO_ROOT = dirname(dirname(WEB_ROOT));
@@ -77,4 +86,51 @@ test('L4-T-contracts_spec-013-015 exposes viewer-only schema and env names', asy
   expect(relative(REPO_ROOT, join(WEB_ROOT, 'src/lib/supabase.ts'))).toBe(
     'apps/web/src/lib/supabase.ts',
   );
+});
+
+test('L4-T-contracts_spec-005-007 maps viewer_sync_status to freshness states', () => {
+  const states = freshnessProjectionSeeds.map((seed) =>
+    buildSyncFreshnessVm({
+      syncHealth: seed.syncHealth,
+      lastSuccessAt: seed.lastPushSuccessAt,
+      now: FRESHNESS_NOW,
+    }),
+  );
+
+  expect(states).toEqual([
+    {
+      label: 'Data current',
+      tone: 'good',
+      tooltip: 'Last successful sync: 2026-03-28T18:29:15Z',
+    },
+    {
+      label: 'Updates delayed -- data may be behind desktop',
+      tone: 'warn',
+      tooltip: 'Last successful sync: 2026-03-28T18:27:30Z',
+    },
+    {
+      label: 'Sync offline -- showing last known data',
+      tone: 'bad',
+      tooltip: 'Last successful sync: 2026-03-28T18:29:15Z',
+    },
+  ]);
+});
+
+test('L4-T-contracts_spec-016 keeps UI and web bundle boundaries read-only', async () => {
+  const uiFiles = await listSourceFiles(join(REPO_ROOT, 'packages/ui'));
+  const webFiles = await listSourceFiles(join(WEB_ROOT, 'src'));
+  const uiSource = (
+    await Promise.all(uiFiles.map((filePath) => readFile(filePath, 'utf8')))
+  ).join('\n');
+  const webSource = (
+    await Promise.all(webFiles.map((filePath) => readFile(filePath, 'utf8')))
+  ).join('\n');
+
+  expect(uiSource).not.toMatch(/@tauri-apps\/api|apps\/desktop|crates\/daemon|supabase|transport/i);
+  expect(viewerCredentialNames()).toEqual([
+    'NEXT_PUBLIC_SUPABASE_URL',
+    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  ]);
+  expect(viewerCredentialNames().join('\n')).not.toMatch(PRIVILEGED_TOKEN_NAME_PATTERN);
+  expect(webSource).not.toMatch(PRIVILEGED_TOKEN_NAME_PATTERN);
 });

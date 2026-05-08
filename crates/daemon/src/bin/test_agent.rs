@@ -133,7 +133,7 @@ fn ignore_int_term(seconds: u64) -> Result<()> {
     let error = Command::new("python3")
         .arg("-c")
         .arg(format!(
-            "import signal, time; signal.signal(signal.SIGINT, signal.SIG_IGN); signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep({seconds})"
+            "import signal, sys, time; signal.signal(signal.SIGINT, signal.SIG_IGN); signal.signal(signal.SIGTERM, signal.SIG_IGN); sys.stdout.write('ready\\n'); sys.stdout.flush(); time.sleep({seconds})"
         ))
         .exec();
     Err(anyhow!("exec python for ignore-int-term failed: {error}"))

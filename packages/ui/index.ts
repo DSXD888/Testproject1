@@ -9,9 +9,12 @@ export {
   type ValidationState,
 } from './pipeline-badge';
 export {
+  buildSyncFreshnessVm,
   FreshnessBadge,
   type FreshnessBadgeProps,
   type FreshnessBadgeVM,
+  type SyncFreshnessInput,
+  type SyncHealth,
 } from './freshness-badge';
 export {
   boundUntrustedText,

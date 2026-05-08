@@ -7,6 +7,11 @@ import {
   type ContractCardFrameProps,
 } from '../contract-card-frame';
 import { freshnessBadgeVmFixture } from '../fixtures/freshness-badge';
+import {
+  degradedFreshnessFixture,
+  healthyFreshnessFixture,
+  offlineFreshnessFixture,
+} from '../fixtures/freshness-badge';
 import { contractCardFrameFixture } from '../fixtures/contract-card-frame';
 import { errorSummaryFixture } from '../fixtures/error-summary-list';
 import { uiBarrelExportFixture } from '../fixtures/index';
@@ -16,7 +21,7 @@ import {
   pipelineBadgeFixture,
 } from '../fixtures/pipeline-badge';
 import { ErrorSummaryList } from '../error-summary-list';
-import { FreshnessBadge } from '../freshness-badge';
+import { buildSyncFreshnessVm, FreshnessBadge } from '../freshness-badge';
 import { ManifestViewer } from '../manifest-viewer';
 import { PipelineBadge } from '../pipeline-badge';
 
@@ -64,6 +69,39 @@ describe('packages/ui components', () => {
     expect(markup).toContain('data-tone="warn"');
     expect(markup).not.toContain('snapshotSeq');
     expect(markup).not.toContain('daemonHeartbeat');
+  });
+
+  it('L4-T-contracts_spec-005-007 maps sync health to three freshness states', () => {
+    const healthyVm = buildSyncFreshnessVm(healthyFreshnessFixture);
+    const degradedVm = buildSyncFreshnessVm(degradedFreshnessFixture);
+    const offlineVm = buildSyncFreshnessVm(offlineFreshnessFixture);
+    const staleVm = buildSyncFreshnessVm({
+      syncHealth: 'healthy',
+      lastSuccessAt: '2026-03-28T18:21:00Z',
+      now: '2026-03-28T18:27:00Z',
+    });
+
+    expect(healthyVm).toMatchObject({
+      label: 'Data current',
+      tone: 'good',
+    });
+    expect(degradedVm).toMatchObject({
+      label: 'Updates delayed -- data may be behind desktop',
+      tone: 'warn',
+    });
+    expect(offlineVm).toMatchObject({
+      label: 'Sync offline -- showing last known data',
+      tone: 'bad',
+    });
+    expect(staleVm.tone).toBe('bad');
+
+    const markup = renderToStaticMarkup(
+      <FreshnessBadge {...healthyFreshnessFixture} />,
+    );
+
+    expect(markup).toContain('Data current');
+    expect(markup).toContain('data-tone="good"');
+    expect(markup).toContain('Last successful sync: 2026-03-28T18:21:00Z');
   });
 
   it('TS-UI-003 renders navigable sanitized manifest sections', () => {

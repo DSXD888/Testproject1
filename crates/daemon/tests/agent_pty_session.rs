@@ -17,7 +17,7 @@ mod tests {
     use nix::unistd::{getpgid, getsid};
     use serde::Deserialize;
     use std::fs;
-    use std::io::Write;
+    use std::io::{BufRead, BufReader, Write};
     use std::time::Duration;
 
     use crate::artifacts_support::{
@@ -436,7 +436,14 @@ mod tests {
         let mut child = ProcessTreeHelper::spawn(&["ignore-int-term", "5"])?;
         guard.register_pid(child.id());
 
-        std::thread::sleep(Duration::from_millis(500));
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("helper stdout was not piped"))?;
+        let mut stdout = BufReader::new(stdout);
+        let mut readiness = String::new();
+        stdout.read_line(&mut readiness)?;
+        assert_eq!(readiness.trim_end(), "ready");
 
         nix::sys::signal::kill(
             nix::unistd::Pid::from_raw(child.id().cast_signed()),
