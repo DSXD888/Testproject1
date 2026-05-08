@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+#[path = "../src/agents/contracts.rs"]
+#[allow(dead_code)]
+mod contracts_impl;
 #[path = "../src/ipc/handlers/decisions.rs"]
 #[allow(dead_code)]
 mod decisions_handler_impl;
@@ -9,27 +12,24 @@ mod errors_manifest_impl;
 #[allow(dead_code, clippy::missing_const_for_fn)]
 #[path = "../src/errors/markdown.rs"]
 mod errors_markdown_impl;
+#[path = "../src/jobs/runner.rs"]
+#[allow(dead_code)]
+mod runner_impl;
 mod support;
 
 mod jobs {
     pub mod runner {
-        #[allow(dead_code)]
-        #[derive(Debug, Clone, PartialEq, Eq)]
-        pub struct MutationAck {
-            pub accepted: bool,
-            pub visible_after_seq: i64,
-            pub continuation_job_id: Option<String>,
-        }
+        pub use crate::runner_impl::*;
     }
 }
 
 use std::collections::BTreeSet;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str;
 
 use anyhow::{Context, Result, ensure};
 use chrono::Utc;
-use rusqlite::params;
+use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -41,7 +41,11 @@ use decisions_handler_impl::{
 use errors_manifest_impl::{
     ErrorCode, ErrorManifestDraft, ErrorManifestStore, ErrorRuntimeContext,
 };
-use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
+use runner_impl::{
+    JobRunner, MutationAck, PersistEnforcementProvisionalRequest, PersistValidationVerdictRequest,
+    PromoteProvisionalRequest, ValidatorEnqueueRequest, ValidatorJobPurpose, ValidatorSkillBundle,
+};
+use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb, StateDb};
 use support::redaction::RedactionSentinelFixture;
 use support::sync::{
     EnforcementHarness, OperatorDecisionCasHarness, OutboxHarness, PullCursorDomain,
@@ -932,6 +936,257 @@ fn repo_root() -> Result<&'static Path> {
         .context("daemon crate should live two levels below the repository root")
 }
 
+fn seed_runner_promotion_process(conn: &Connection, process_id: &str) -> Result<()> {
+    conn.execute(
+        "\
+        INSERT INTO procurement_processes (
+          id, canonical_process_id, current_stage, title,
+          latest_published_at, latest_updated_at, owner_id
+        ) VALUES (?1, ?1, 'manifest', 'L4 runner promotion process',
+                  '2026-05-08T00:00:00Z', '2026-05-08T00:00:00Z', 'local-owner')
+        ",
+        params![process_id],
+    )?;
+    Ok(())
+}
+
+fn seed_runner_promotion_worker(
+    conn: &Connection,
+    worker_job_id: &str,
+    process_id: &str,
+) -> Result<()> {
+    conn.execute(
+        "\
+        INSERT INTO workflow_jobs (
+          id, kind, process_id, scope_kind, scope_id, validation_required,
+          status, input_payload
+        ) VALUES (?1, 'manifest', ?2, 'process', ?2, 1, 'running', ?3)
+        ",
+        params![
+            worker_job_id,
+            process_id,
+            json!({"worker_job_id": worker_job_id}).to_string()
+        ],
+    )?;
+    Ok(())
+}
+
+fn runner_provisional_request(
+    worker_job_id: &str,
+    process_id: &str,
+    stage_run_id: &str,
+) -> PersistEnforcementProvisionalRequest {
+    PersistEnforcementProvisionalRequest {
+        job_id: worker_job_id.to_owned(),
+        idempotency_key: format!("stage-provisional-{worker_job_id}"),
+        output_payload: json!({
+            "worker_job_id": worker_job_id,
+            "result": "candidate shared-visible payload",
+        }),
+        result_contract_blob_path: Some(PathBuf::from(format!(
+            "artifacts/provisional/{worker_job_id}.json"
+        ))),
+        process_id: process_id.to_owned(),
+        stage: "Manifest".to_owned(),
+        scope_kind: "process".to_owned(),
+        scope_id: process_id.to_owned(),
+        stage_run_id: stage_run_id.to_owned(),
+        owner_id: "local-owner".to_owned(),
+    }
+}
+
+fn runner_validator_request(
+    worker_job_id: &str,
+    validator_job_id: &str,
+    process_id: &str,
+) -> ValidatorEnqueueRequest {
+    ValidatorEnqueueRequest {
+        validator_job_id: Some(validator_job_id.to_owned()),
+        idempotency_key: Some(format!("validator-{worker_job_id}")),
+        worker_job_id: worker_job_id.to_owned(),
+        worker_session_id: Some(format!("session-{worker_job_id}")),
+        process_id: Some(process_id.to_owned()),
+        scope_kind: Some("process".to_owned()),
+        scope_id: Some(process_id.to_owned()),
+        continuation_chain_id: Some(format!("chain-{worker_job_id}")),
+        run_manifest_path: PathBuf::from(format!("artifacts/manifests/{worker_job_id}.md")),
+        run_manifest_hash: format!("manifest-hash-{worker_job_id}"),
+        drift_delta_json: json!({"fingerprint_delta_bps": 0}),
+        oqg_anomaly_summary: Vec::new(),
+        representative_item_sample: json!({"worker_job_id": worker_job_id}),
+        corpus_provenance_tag: Some("clean_real".to_owned()),
+        purpose: ValidatorJobPurpose::LiveValidation,
+        canary_case: None,
+        retroactive_backlog: None,
+    }
+}
+
+fn provisional_status(conn: &Connection, worker_job_id: &str) -> Result<Option<String>> {
+    conn.query_row(
+        "\
+        SELECT validation_status
+        FROM provisional_worker_outputs
+        WHERE worker_job_id = ?1
+        ",
+        [worker_job_id],
+        |row| row.get(0),
+    )
+    .optional()
+    .context("loading provisional worker output status")
+}
+
+fn count_runner_rows(conn: &Connection, table: &str) -> Result<i64> {
+    ensure!(
+        matches!(
+            table,
+            "local_outbox"
+                | "process_stage_heads"
+                | "process_stage_status"
+                | "provisional_worker_outputs"
+                | "validation_verdicts"
+                | "workflow_jobs"
+        ),
+        "unsupported runner row count table `{table}`"
+    );
+    let sql = format!("SELECT COUNT(*) FROM {table}");
+    conn.query_row(&sql, [], |row| row.get(0))
+        .with_context(|| format!("counting rows in {table}"))
+}
+
+fn assert_runner_staged_provisional(
+    conn: &Connection,
+    enqueued_job_id: &str,
+    worker_job_id: &str,
+    validator_job_id: &str,
+) -> Result<()> {
+    let (parent_job_id, validation_required): (Option<String>, i64) = conn.query_row(
+        "SELECT parent_job_id, validation_required FROM workflow_jobs WHERE id = ?1",
+        [validator_job_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+    ensure!(enqueued_job_id == validator_job_id);
+    ensure!(
+        parent_job_id.as_deref() == Some(worker_job_id),
+        "validator job was not linked to its worker parent"
+    );
+    ensure!(
+        validation_required == 0,
+        "validator sub-job unexpectedly requires recursive validation"
+    );
+    ensure!(
+        provisional_status(conn, worker_job_id)?.as_deref() == Some("pending"),
+        "runner did not stage a pending provisional output"
+    );
+    ensure!(
+        count_runner_rows(conn, "local_outbox")? == 0,
+        "staging provisional output created a push outbox row before approval"
+    );
+    ensure!(
+        count_runner_rows(conn, "process_stage_heads")? == 0,
+        "staging provisional output advanced a stage head before approval"
+    );
+    Ok(())
+}
+
+fn persist_runner_approved_verdict(
+    runner: &JobRunner,
+    state_db: &mut StateDb,
+    worker_job_id: &str,
+    validator_job_id: &str,
+    validator_skill: ValidatorSkillBundle,
+) -> Result<()> {
+    runner.persist_validation_verdict(
+        state_db,
+        &PersistValidationVerdictRequest {
+            verdict_id: "verdict-l4-runner-079".to_owned(),
+            worker_job_id: worker_job_id.to_owned(),
+            worker_session_id: Some("worker-session-l4-runner-079".to_owned()),
+            validator_job_id: validator_job_id.to_owned(),
+            validator_session_id: Some("validator-session-l4-runner-079".to_owned()),
+            run_manifest_hash: "manifest-hash-l4-runner-079".to_owned(),
+            validator_skill,
+            payload: json!({
+                "verdict": "approved",
+                "basis_sufficiency": "high",
+                "enforcement_eligible": true,
+                "confidence_bps": 9800,
+                "issues": [],
+                "summary": "approved enforcement-active output",
+            }),
+            oqg_signals_summary: Some(json!({"oqg": "clean"})),
+            incident_signature: None,
+            quality_assessment_json: Some(json!({"quality": "approved"})),
+            skill_improvement_suggestions_json: Some(json!([])),
+            override_verdict: None,
+            override_reason: None,
+            override_by: None,
+            override_at: None,
+            verdict_rendered_at: Some("2026-05-08T00:00:00Z".to_owned()),
+        },
+    )?;
+    Ok(())
+}
+
+fn runner_promotion_request(
+    worker_job_id: &str,
+    process_id: &str,
+    stage_run_id: &str,
+) -> PromoteProvisionalRequest {
+    PromoteProvisionalRequest {
+        worker_job_id: worker_job_id.to_owned(),
+        idempotency_key: "promote-l4-runner-079".to_owned(),
+        process_id: process_id.to_owned(),
+        stage: "Manifest".to_owned(),
+        scope_kind: "process".to_owned(),
+        scope_id: process_id.to_owned(),
+        stage_run_id: stage_run_id.to_owned(),
+        owner_id: "local-owner".to_owned(),
+        override_verdict: None,
+        override_reason: None,
+        override_by: None,
+        override_at: None,
+    }
+}
+
+fn assert_runner_approved_promotion(
+    conn: &Connection,
+    worker_job_id: &str,
+    before_replay_outbox_count: i64,
+) -> Result<()> {
+    ensure!(
+        provisional_status(conn, worker_job_id)?.as_deref() == Some("approved"),
+        "approved verdict did not approve the provisional output"
+    );
+    ensure!(
+        count_runner_rows(conn, "local_outbox")? == before_replay_outbox_count + 1,
+        "approval did not write exactly one outbox row"
+    );
+    ensure!(
+        count_runner_rows(conn, "process_stage_heads")? == 1,
+        "approval did not advance one stage head"
+    );
+    Ok(())
+}
+
+fn assert_runner_promotion_replay(
+    runner: &JobRunner,
+    state_db: &mut StateDb,
+    request: &PromoteProvisionalRequest,
+    promotion_ack: &MutationAck,
+    before_replay_outbox_count: i64,
+) -> Result<()> {
+    let replay_ack = runner.promote_enforcement_provisional_output(state_db, request)?;
+    ensure!(
+        replay_ack.visible_after_seq == promotion_ack.visible_after_seq,
+        "promotion replay did not return the stored ack"
+    );
+    ensure!(
+        count_runner_rows(state_db.connection(), "local_outbox")? == before_replay_outbox_count + 1,
+        "promotion replay created a duplicate outbox row"
+    );
+    Ok(())
+}
+
 fn read_repo_file(path: &str) -> Result<String> {
     std::fs::read_to_string(repo_root()?.join(path))
         .with_context(|| format!("reading repository file {path}"))
@@ -1256,6 +1511,71 @@ fn l4_t_sqlite_supabase_sync_024_dry_run_rejection_uses_l3_direct_write_path() -
 
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-024 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_079_runner_promotes_only_after_approved_verdict() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-079");
+    println!("[SETUP] runner-owned enforcement worker and validator request");
+    let temp = tempfile::tempdir()?;
+    let db_path = temp.path().join("state.db");
+    let mut state_db = StateDb::open(&db_path)?;
+    let runner = JobRunner::new("l4-runner-promotion");
+    let worker_job_id = "l4-runner-worker-079";
+    let validator_job_id = "l4-runner-validator-079";
+    let process_id = "process-l4-runner-079";
+    let stage_run_id = "stage-run-l4-runner-079";
+    seed_runner_promotion_process(state_db.connection(), process_id)?;
+    seed_runner_promotion_worker(state_db.connection(), worker_job_id, process_id)?;
+    let provisional_request = runner_provisional_request(worker_job_id, process_id, stage_run_id);
+    let validator_request = runner_validator_request(worker_job_id, validator_job_id, process_id);
+
+    println!("[EXEC] stage provisional worker output and enqueue linked validator job");
+    let enqueued = runner.persist_enforcement_provisional_and_enqueue_validator(
+        repo_root()?,
+        &mut state_db,
+        &provisional_request,
+        &validator_request,
+    )?;
+
+    println!("[ASSERT] runner staged local provisional output without advancing shared heads");
+    assert_runner_staged_provisional(
+        state_db.connection(),
+        &enqueued.job_id,
+        worker_job_id,
+        validator_job_id,
+    )?;
+
+    println!("[EXEC] persist approved validator verdict and promote provisional output");
+    persist_runner_approved_verdict(
+        &runner,
+        &mut state_db,
+        worker_job_id,
+        validator_job_id,
+        enqueued.skill,
+    )?;
+    let before_replay_outbox_count = count_runner_rows(state_db.connection(), "local_outbox")?;
+    let promotion_request = runner_promotion_request(worker_job_id, process_id, stage_run_id);
+    let promotion_ack =
+        runner.promote_enforcement_provisional_output(&mut state_db, &promotion_request)?;
+
+    println!("[ASSERT] approved promotion advances heads and replays idempotently");
+    assert_runner_approved_promotion(
+        state_db.connection(),
+        worker_job_id,
+        before_replay_outbox_count,
+    )?;
+    assert_runner_promotion_replay(
+        &runner,
+        &mut state_db,
+        &promotion_request,
+        &promotion_ack,
+        before_replay_outbox_count,
+    )?;
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-079 PASS");
     Ok(())
 }
 

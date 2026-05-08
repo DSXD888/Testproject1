@@ -23,9 +23,10 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, ensure};
 use chrono::{DateTime, Utc};
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 #[cfg(not(test))]
@@ -59,8 +60,8 @@ pub use validation_executor::{
     VALIDATION_SKIPPED_VALIDATOR_ERROR, VALIDATOR_JOB_KIND, ValidationBlackoutIncident,
     ValidationCanaryCase, ValidationHandlingMode, ValidationHealthState,
     ValidationTelemetrySnapshot, ValidationTelemetryWindow, ValidationTrustState,
-    ValidatorBasisSufficiency, ValidatorEnqueueRequest, ValidatorJobPurpose, ValidatorVerdict,
-    decide_validator_failure, decide_validator_verdict,
+    ValidatorBasisSufficiency, ValidatorEnqueueRequest, ValidatorJobPurpose, ValidatorSkillBundle,
+    ValidatorVerdict, decide_validator_failure, decide_validator_verdict,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -182,6 +183,36 @@ pub struct PersistSuccessRequest {
     pub stage_run_id: String,
     pub process_id: String,
     pub owner_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PersistEnforcementProvisionalRequest {
+    pub job_id: String,
+    pub idempotency_key: String,
+    pub output_payload: Value,
+    pub result_contract_blob_path: Option<PathBuf>,
+    pub stage: String,
+    pub scope_kind: String,
+    pub scope_id: String,
+    pub stage_run_id: String,
+    pub process_id: String,
+    pub owner_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PromoteProvisionalRequest {
+    pub worker_job_id: String,
+    pub idempotency_key: String,
+    pub process_id: String,
+    pub stage: String,
+    pub scope_kind: String,
+    pub scope_id: String,
+    pub stage_run_id: String,
+    pub owner_id: String,
+    pub override_verdict: Option<String>,
+    pub override_reason: Option<String>,
+    pub override_by: Option<String>,
+    pub override_at: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -331,6 +362,147 @@ impl JobRunner {
             visible_after_seq,
             continuation_job_id: None,
         })
+    }
+
+    pub fn persist_enforcement_provisional_and_enqueue_validator(
+        &self,
+        repo_root: &Path,
+        state_db: &mut StateDb,
+        provisional_request: &PersistEnforcementProvisionalRequest,
+        validator_request: &ValidatorEnqueueRequest,
+    ) -> Result<EnqueuedValidatorJob> {
+        ensure!(
+            provisional_request.job_id == validator_request.worker_job_id,
+            "validator request worker_job_id must match provisional worker job"
+        );
+        self.persist_enforcement_provisional_output(state_db, provisional_request)?;
+        self.enqueue_validation_sub_job(repo_root, state_db, validator_request)
+    }
+
+    fn persist_enforcement_provisional_output(
+        &self,
+        state_db: &mut StateDb,
+        request: &PersistEnforcementProvisionalRequest,
+    ) -> Result<MutationAck> {
+        if let Some(existing) = find_existing_ack(
+            state_db.connection(),
+            &request.job_id,
+            &request.idempotency_key,
+        )? {
+            return Ok(existing);
+        }
+
+        ensure!(
+            !request.stage_run_id.is_empty(),
+            "stage_run_id must not be empty"
+        );
+        let stage_rule = validate_stage_scope(&request.stage, &request.scope_kind)?;
+        ensure!(
+            stage_rule.commit_semantics != StageCommitSemantics::Precursor,
+            "ingest precursor stage does not use provisional promotion"
+        );
+        let provisional_id = format!("provisional-{}", request.job_id);
+        let payload_json = serde_json::to_string(&request.output_payload)
+            .context("serializing provisional worker output payload")?;
+        let result_contract_blob_path = request
+            .result_contract_blob_path
+            .as_ref()
+            .map(|path| path.to_string_lossy().into_owned());
+
+        let (predicted_visible_after_seq, visible_after_seq) =
+            state_db.with_write_transaction(|tx| {
+                let predicted_visible_after_seq = current_commit_seq(tx)? + 1;
+                ensure_no_existing_provisional(tx, &request.job_id)?;
+                tx.execute(
+                    "\
+                    INSERT INTO provisional_worker_outputs (
+                      id, worker_job_id, payload_json, result_contract_blob_path,
+                      validation_status
+                    ) VALUES (?1, ?2, ?3, ?4, 'pending')
+                    ",
+                    params![
+                        provisional_id,
+                        request.job_id,
+                        payload_json,
+                        result_contract_blob_path
+                    ],
+                )
+                .context("inserting enforcement provisional worker output")?;
+
+                let stored_payload = json!({
+                    "result": request.output_payload,
+                    "runner_meta": {
+                        "idempotency_key": request.idempotency_key,
+                        "visible_after_seq": predicted_visible_after_seq,
+                        "executor_id": self.executor_id,
+                        "continuation_job_id": Value::Null,
+                        "provisional_worker_output_id": provisional_id,
+                        "promotion_pending": true,
+                    }
+                })
+                .to_string();
+
+                let updated = tx.execute(
+                    "\
+                    UPDATE workflow_jobs
+                    SET status = 'completed',
+                        validation_required = 1,
+                        completed_at = ?1,
+                        output_payload = ?2
+                    WHERE id = ?3
+                    ",
+                    params![Utc::now().to_rfc3339(), stored_payload, request.job_id],
+                )?;
+                ensure!(updated == 1, "workflow job missing for {}", request.job_id);
+                Ok(predicted_visible_after_seq)
+            })?;
+
+        ensure!(
+            predicted_visible_after_seq == visible_after_seq,
+            "predicted commit fence diverged from committed fence"
+        );
+
+        Ok(MutationAck {
+            accepted: true,
+            visible_after_seq,
+            continuation_job_id: None,
+        })
+    }
+
+    pub fn promote_enforcement_provisional_output(
+        &self,
+        state_db: &mut StateDb,
+        request: &PromoteProvisionalRequest,
+    ) -> Result<MutationAck> {
+        if let Some(existing) = find_existing_ack(
+            state_db.connection(),
+            &request.worker_job_id,
+            &request.idempotency_key,
+        )? {
+            return Ok(existing);
+        }
+
+        ensure!(
+            !request.stage_run_id.is_empty(),
+            "stage_run_id must not be empty"
+        );
+        let stage_rule = validate_stage_scope(&request.stage, &request.scope_kind)?;
+        ensure!(
+            stage_rule.commit_semantics != StageCommitSemantics::Precursor,
+            "ingest precursor stage does not use provisional promotion"
+        );
+        let schema_epoch =
+            i32::try_from(state_db.schema_epoch()).context("schema_epoch exceeds i32")?;
+
+        let (ack, visible_after_seq) = state_db.with_write_transaction(|tx| {
+            promote_enforcement_provisional_output_tx(tx, &self.executor_id, schema_epoch, request)
+        })?;
+
+        ensure!(
+            ack.visible_after_seq == visible_after_seq,
+            "predicted commit fence diverged from committed fence"
+        );
+        Ok(ack)
     }
 
     pub fn enqueue_job(
@@ -875,6 +1047,463 @@ fn current_commit_seq(conn: &Connection) -> Result<i64> {
         |row| row.get(0),
     )
     .context("reading current commit_seq")
+}
+
+fn promote_enforcement_provisional_output_tx(
+    tx: &Transaction<'_>,
+    executor_id: &str,
+    schema_epoch: i32,
+    request: &PromoteProvisionalRequest,
+) -> Result<MutationAck> {
+    let predicted_visible_after_seq = current_commit_seq(tx)? + 1;
+    let provisional = load_provisional_for_promotion(tx, &request.worker_job_id)?;
+    let verdict = load_linked_validation_verdict(tx, &request.worker_job_id)?;
+    let promotion_source = if request.override_verdict.is_some() {
+        apply_operator_override(tx, request, &verdict.id)?;
+        "operator_override"
+    } else {
+        ensure!(
+            verdict.verdict == "approved",
+            "provisional promotion requires approved verdict, got `{}`",
+            verdict.verdict
+        );
+        "validator_approved"
+    };
+
+    approve_provisional_for_promotion(tx, &provisional, request.override_verdict.is_some())?;
+    let stage_write = StagePromotionWrite {
+        process_id: &request.process_id,
+        stage: &request.stage,
+        scope_kind: &request.scope_kind,
+        scope_id: &request.scope_id,
+        stage_run_id: &request.stage_run_id,
+        owner_id: &request.owner_id,
+        executor_id,
+        schema_epoch,
+        provisional_id: &provisional.id,
+        validation_verdict_id: &verdict.id,
+        promotion_source,
+        promoted_payload_json: &provisional.payload_json,
+    };
+    promote_stage_head_with_outbox(tx, &stage_write)?;
+
+    let promoted_payload: Value = serde_json::from_str(&provisional.payload_json)
+        .context("parsing promoted provisional payload JSON")?;
+    let stored_payload = json!({
+        "result": promoted_payload,
+        "runner_meta": {
+            "idempotency_key": request.idempotency_key,
+            "visible_after_seq": predicted_visible_after_seq,
+            "executor_id": executor_id,
+            "continuation_job_id": Value::Null,
+            "provisional_worker_output_id": provisional.id,
+            "validation_verdict_id": verdict.id,
+            "promotion_source": promotion_source,
+        }
+    })
+    .to_string();
+    let updated = tx.execute(
+        "\
+        UPDATE workflow_jobs
+        SET status = 'completed',
+            validation_required = 1,
+            validation_verdict_id = ?1,
+            completed_at = ?2,
+            output_payload = ?3
+        WHERE id = ?4
+        ",
+        params![
+            verdict.id,
+            Utc::now().to_rfc3339(),
+            stored_payload,
+            request.worker_job_id
+        ],
+    )?;
+    ensure!(
+        updated == 1,
+        "workflow job missing for {}",
+        request.worker_job_id
+    );
+
+    Ok(MutationAck {
+        accepted: true,
+        visible_after_seq: predicted_visible_after_seq,
+        continuation_job_id: None,
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ProvisionalForPromotion {
+    id: String,
+    payload_json: String,
+    validation_status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ValidationVerdictForPromotion {
+    id: String,
+    verdict: String,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct StagePromotionWrite<'a> {
+    process_id: &'a str,
+    stage: &'a str,
+    scope_kind: &'a str,
+    scope_id: &'a str,
+    stage_run_id: &'a str,
+    owner_id: &'a str,
+    executor_id: &'a str,
+    schema_epoch: i32,
+    provisional_id: &'a str,
+    validation_verdict_id: &'a str,
+    promotion_source: &'a str,
+    promoted_payload_json: &'a str,
+}
+
+fn ensure_no_existing_provisional(tx: &Transaction<'_>, worker_job_id: &str) -> Result<()> {
+    let existing_count: i64 = tx
+        .query_row(
+            "\
+            SELECT COUNT(*)
+            FROM provisional_worker_outputs
+            WHERE worker_job_id = ?1
+            ",
+            params![worker_job_id],
+            |row| row.get(0),
+        )
+        .context("counting existing provisional worker outputs")?;
+    ensure!(
+        existing_count == 0,
+        "provisional output already exists for worker_job_id `{worker_job_id}`"
+    );
+    Ok(())
+}
+
+fn load_provisional_for_promotion(
+    tx: &Transaction<'_>,
+    worker_job_id: &str,
+) -> Result<ProvisionalForPromotion> {
+    tx.query_row(
+        "\
+        SELECT id, payload_json, validation_status
+        FROM provisional_worker_outputs
+        WHERE worker_job_id = ?1
+        ORDER BY created_at DESC, id DESC
+        ",
+        params![worker_job_id],
+        |row| {
+            Ok(ProvisionalForPromotion {
+                id: row.get(0)?,
+                payload_json: row.get(1)?,
+                validation_status: row.get(2)?,
+            })
+        },
+    )
+    .optional()?
+    .ok_or_else(|| anyhow!("provisional output missing for worker_job_id `{worker_job_id}`"))
+}
+
+fn load_linked_validation_verdict(
+    tx: &Transaction<'_>,
+    worker_job_id: &str,
+) -> Result<ValidationVerdictForPromotion> {
+    tx.query_row(
+        "\
+        SELECT vv.id, vv.verdict
+        FROM workflow_jobs w
+        JOIN validation_verdicts vv ON vv.id = w.validation_verdict_id
+        WHERE w.id = ?1
+        ",
+        params![worker_job_id],
+        |row| {
+            Ok(ValidationVerdictForPromotion {
+                id: row.get(0)?,
+                verdict: row.get(1)?,
+            })
+        },
+    )
+    .optional()?
+    .ok_or_else(|| anyhow!("validation verdict missing for worker job `{worker_job_id}`"))
+}
+
+fn apply_operator_override(
+    tx: &Transaction<'_>,
+    request: &PromoteProvisionalRequest,
+    validation_verdict_id: &str,
+) -> Result<()> {
+    ensure!(
+        request.override_verdict.as_deref() == Some("approved"),
+        "operator override promotion requires override_verdict `approved`"
+    );
+    ensure!(
+        request
+            .override_reason
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty()),
+        "operator override promotion requires override_reason"
+    );
+    ensure!(
+        request
+            .override_by
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty()),
+        "operator override promotion requires override_by"
+    );
+    ensure!(
+        request
+            .override_at
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty()),
+        "operator override promotion requires override_at"
+    );
+    let updated = tx.execute(
+        "\
+        UPDATE validation_verdicts
+        SET override_verdict = ?1,
+            override_reason = ?2,
+            override_by = ?3,
+            override_at = ?4
+        WHERE id = ?5
+        ",
+        params![
+            request.override_verdict.as_deref(),
+            request.override_reason.as_deref(),
+            request.override_by.as_deref(),
+            request.override_at.as_deref(),
+            validation_verdict_id
+        ],
+    )?;
+    ensure!(
+        updated == 1,
+        "validation verdict missing for override `{validation_verdict_id}`"
+    );
+    Ok(())
+}
+
+fn approve_provisional_for_promotion(
+    tx: &Transaction<'_>,
+    provisional: &ProvisionalForPromotion,
+    allow_rejected_override: bool,
+) -> Result<()> {
+    match provisional.validation_status.as_str() {
+        "approved" => return Ok(()),
+        "pending" => {}
+        "rejected" if allow_rejected_override => {}
+        status => {
+            return Err(anyhow!(
+                "provisional output `{}` cannot be promoted from status `{status}`",
+                provisional.id
+            ));
+        }
+    }
+
+    let updated = tx.execute(
+        "\
+        UPDATE provisional_worker_outputs
+        SET validation_status = 'approved',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?1
+        ",
+        params![provisional.id],
+    )?;
+    ensure!(
+        updated == 1,
+        "provisional output missing for approval `{}`",
+        provisional.id
+    );
+    Ok(())
+}
+
+fn promote_stage_head_with_outbox(
+    tx: &Transaction<'_>,
+    write: &StagePromotionWrite<'_>,
+) -> Result<i64> {
+    upsert_promoted_stage_status(tx, write)?;
+    let outbox_op = upsert_promoted_stage_head(tx, write)?;
+    let row_version = promoted_stage_head_row_version(tx, write)?;
+    let local_seq = write_promoted_stage_head_outbox(tx, write, outbox_op, row_version)?;
+    tx.execute(
+        "\
+        UPDATE process_stage_heads
+        SET last_local_seq = ?1
+        WHERE process_id = ?2 AND stage = ?3 AND scope_kind = ?4 AND scope_id = ?5
+        ",
+        params![
+            local_seq,
+            write.process_id,
+            write.stage,
+            write.scope_kind,
+            write.scope_id
+        ],
+    )?;
+    Ok(local_seq)
+}
+
+fn upsert_promoted_stage_status(
+    tx: &Transaction<'_>,
+    write: &StagePromotionWrite<'_>,
+) -> Result<()> {
+    tx.execute(
+        "\
+        INSERT INTO process_stage_status (
+          id, process_id, stage, scope_kind, scope_id, stage_run_id, state,
+          freshness_state, started_at, completed_at, owner_id
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'succeeded', 'fresh', ?7, ?7, ?8)
+        ON CONFLICT(process_id, stage, scope_kind, scope_id, stage_run_id)
+        DO UPDATE SET
+          state = excluded.state,
+          completed_at = excluded.completed_at,
+          owner_id = excluded.owner_id
+        ",
+        params![
+            format!("{}-{}-succeeded", write.stage_run_id, write.process_id),
+            write.process_id,
+            write.stage,
+            write.scope_kind,
+            write.scope_id,
+            write.stage_run_id,
+            Utc::now().to_rfc3339(),
+            write.owner_id
+        ],
+    )?;
+    Ok(())
+}
+
+fn upsert_promoted_stage_head(
+    tx: &Transaction<'_>,
+    write: &StagePromotionWrite<'_>,
+) -> Result<&'static str> {
+    let existing_count: i64 = tx.query_row(
+        "\
+        SELECT COUNT(*)
+        FROM process_stage_heads
+        WHERE process_id = ?1 AND stage = ?2 AND scope_kind = ?3 AND scope_id = ?4
+        ",
+        params![
+            write.process_id,
+            write.stage,
+            write.scope_kind,
+            write.scope_id
+        ],
+        |row| row.get(0),
+    )?;
+    let outbox_op = if existing_count == 0 {
+        "insert"
+    } else {
+        "update"
+    };
+
+    tx.execute(
+        "\
+        INSERT INTO process_stage_heads (
+          process_id, stage, scope_kind, scope_id, current_stage_run_id,
+          freshness_state, owner_id, row_version, stage_run_id
+        ) VALUES (?1, ?2, ?3, ?4, ?5, 'fresh', ?6, 1, ?5)
+        ON CONFLICT(process_id, stage, scope_kind, scope_id) DO UPDATE SET
+          current_stage_run_id = excluded.current_stage_run_id,
+          freshness_state = excluded.freshness_state,
+          owner_id = excluded.owner_id,
+          stage_run_id = excluded.stage_run_id,
+          row_version = process_stage_heads.row_version + 1,
+          updated_at = CURRENT_TIMESTAMP
+        ",
+        params![
+            write.process_id,
+            write.stage,
+            write.scope_kind,
+            write.scope_id,
+            write.stage_run_id,
+            write.owner_id
+        ],
+    )?;
+    Ok(outbox_op)
+}
+
+fn promoted_stage_head_row_version(
+    tx: &Transaction<'_>,
+    write: &StagePromotionWrite<'_>,
+) -> Result<i64> {
+    tx.query_row(
+        "\
+        SELECT row_version
+        FROM process_stage_heads
+        WHERE process_id = ?1 AND stage = ?2 AND scope_kind = ?3 AND scope_id = ?4
+        ",
+        params![
+            write.process_id,
+            write.stage,
+            write.scope_kind,
+            write.scope_id
+        ],
+        |row| row.get(0),
+    )
+    .context("loading promoted stage head row_version")
+}
+
+fn write_promoted_stage_head_outbox(
+    tx: &Transaction<'_>,
+    write: &StagePromotionWrite<'_>,
+    outbox_op: &str,
+    row_version: i64,
+) -> Result<i64> {
+    let promoted_payload: Value = serde_json::from_str(write.promoted_payload_json)
+        .context("parsing promoted provisional payload JSON for outbox")?;
+    let payload_json = json!({
+        "process_id": write.process_id,
+        "stage": write.stage,
+        "scope_kind": write.scope_kind,
+        "scope_id": write.scope_id,
+        "current_stage_run_id": write.stage_run_id,
+        "freshness_state": "fresh",
+        "owner_id": write.owner_id,
+        "row_version": row_version,
+        "stage_run_id": write.stage_run_id,
+        "validation_result": write.promotion_source,
+        "provisional_worker_output_id": write.provisional_id,
+        "validation_verdict_id": write.validation_verdict_id,
+        "promoted_payload": promoted_payload,
+    })
+    .to_string();
+    let content_hash = canonical_content_hash(&payload_json)?;
+    let entity_id = format!(
+        "{}:{}:{}:{}",
+        write.process_id, write.stage, write.scope_kind, write.scope_id
+    );
+    let commit_group_id = format!(
+        "provisional-promotion:{}:{}",
+        write.provisional_id, write.stage_run_id
+    );
+    tx.execute(
+        "\
+        INSERT INTO local_outbox (
+          executor_id, entity_kind, entity_id, op, row_version, stage_run_id,
+          schema_epoch, commit_group_id, payload_json, content_hash
+        ) VALUES (?1, 'process_stage_heads', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+        ",
+        params![
+            write.executor_id,
+            entity_id,
+            outbox_op,
+            row_version,
+            write.stage_run_id,
+            write.schema_epoch,
+            commit_group_id,
+            payload_json,
+            content_hash
+        ],
+    )
+    .context("writing promoted stage head outbox entry")?;
+    Ok(tx.last_insert_rowid())
+}
+
+fn canonical_content_hash(payload_json: &str) -> Result<String> {
+    let payload: Value = serde_json::from_str(payload_json).context("parsing payload_json")?;
+    let canonical =
+        serde_json::to_string(&payload).context("serializing canonical payload JSON")?;
+    let mut hasher = Sha256::new();
+    hasher.update(canonical.as_bytes());
+    Ok(format!("{:x}", hasher.finalize()))
 }
 
 fn find_existing_ack(
