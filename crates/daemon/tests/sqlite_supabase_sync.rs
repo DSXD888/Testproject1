@@ -1681,6 +1681,148 @@ fn apply_push_batch_body() -> Result<String> {
         .to_owned())
 }
 
+const PROCUREMENT_OVERLAY_DIR: &str = "skills/validation/overlay-procurement-ingestion";
+const PROCUREMENT_DOMAIN_CHECKS: [&str; 6] = [
+    "notice_completeness",
+    "ocds_field_presence",
+    "source_locale",
+    "notice_type_consistency",
+    "expiry_plausibility",
+    "cpv_validity",
+];
+
+fn procurement_overlay_path(file: &str) -> String {
+    format!("{PROCUREMENT_OVERLAY_DIR}/{file}")
+}
+
+fn assert_procurement_overlay_required_files() -> Result<()> {
+    for file in [
+        "SKILL.md",
+        "result.schema.json",
+        "checkpoint.schema.json",
+        "canary.inputs.jsonl",
+        "golden.assertions.yaml",
+        "validator-rubric.yaml",
+        "references/domain-checks.md",
+    ] {
+        let path = repo_root()?.join(procurement_overlay_path(file));
+        ensure!(path.exists(), "{} is missing", path.display());
+    }
+    ensure!(
+        repo_root()?
+            .join(PROCUREMENT_OVERLAY_DIR)
+            .join("references")
+            .is_dir(),
+        "procurement overlay references directory is missing"
+    );
+    Ok(())
+}
+
+fn assert_procurement_overlay_frontmatter() -> Result<()> {
+    let skill = read_repo_file(&procurement_overlay_path("SKILL.md"))?;
+    for required in [
+        "skill_id: validation/overlay-procurement-ingestion",
+        "skill_version: 2026.05.06-1",
+        "interaction_profile: headless_contract",
+        "result_schema_version: 1.0",
+        "checkpoint_schema_version: 1.0",
+        "validator_overlay_version: 2026.05.06-1",
+        "worker_behavior_versions:",
+        "procurement-ingestion/*@2026.05.06-1+1.0",
+        "model_profile: structured_extract_low_cost",
+        "agent_cli: claude",
+        "side_effect_class: read_only",
+        "promotion_stage: candidate",
+    ] {
+        ensure!(skill.contains(required), "SKILL.md missing `{required}`");
+    }
+    Ok(())
+}
+
+fn assert_procurement_overlay_schema_covers_domain_checks() -> Result<()> {
+    let result_schema: Value = serde_json::from_str(&read_repo_file(&procurement_overlay_path(
+        "result.schema.json",
+    ))?)?;
+    let categories = result_schema
+        .pointer("/properties/issues/items/properties/category/enum")
+        .and_then(Value::as_array)
+        .context("result schema missing issue category enum")?;
+    for check in PROCUREMENT_DOMAIN_CHECKS {
+        ensure!(
+            categories.iter().any(|value| value.as_str() == Some(check)),
+            "result schema missing issue category `{check}`"
+        );
+    }
+
+    let checkpoint_schema: Value = serde_json::from_str(&read_repo_file(
+        &procurement_overlay_path("checkpoint.schema.json"),
+    )?)?;
+    ensure!(
+        checkpoint_schema
+            .pointer("/properties/kind/const")
+            .and_then(Value::as_str)
+            == Some("procurement_ingestion_overlay_checkpoint"),
+        "checkpoint schema has the wrong checkpoint kind"
+    );
+    Ok(())
+}
+
+fn assert_procurement_overlay_canaries() -> Result<()> {
+    let canaries = read_repo_file(&procurement_overlay_path("canary.inputs.jsonl"))?;
+    let mut corpora = BTreeSet::new();
+    let mut checks = BTreeSet::new();
+    for line in canaries.lines().filter(|line| !line.trim().is_empty()) {
+        let row: Value = serde_json::from_str(line)?;
+        corpora.insert(
+            row.get("corpus")
+                .and_then(Value::as_str)
+                .context("canary row missing corpus")?
+                .to_owned(),
+        );
+        for check in row
+            .get("domain_checks")
+            .and_then(Value::as_array)
+            .context("canary row missing domain_checks")?
+        {
+            checks.insert(
+                check
+                    .as_str()
+                    .context("domain check must be a string")?
+                    .to_owned(),
+            );
+        }
+    }
+    ensure!(
+        corpora
+            == BTreeSet::from([
+                "clean-real".to_owned(),
+                "mutated-bad".to_owned(),
+                "pairwise".to_owned(),
+                "weird-valid".to_owned(),
+            ]),
+        "procurement overlay canaries did not cover the required corpora"
+    );
+    for check in PROCUREMENT_DOMAIN_CHECKS {
+        ensure!(checks.contains(check), "canaries missing `{check}`");
+    }
+    Ok(())
+}
+
+fn assert_procurement_overlay_golden_and_rubric() -> Result<()> {
+    let golden = read_repo_file(&procurement_overlay_path("golden.assertions.yaml"))?;
+    let rubric = read_repo_file(&procurement_overlay_path("validator-rubric.yaml"))?;
+    let _: serde_yaml::Value = serde_yaml::from_str(&golden)?;
+    let _: serde_yaml::Value = serde_yaml::from_str(&rubric)?;
+    for check in PROCUREMENT_DOMAIN_CHECKS {
+        ensure!(
+            golden.contains(check),
+            "golden assertions missing `{check}`"
+        );
+        ensure!(rubric.contains(check), "rubric missing `{check}`");
+    }
+    Ok(())
+}
+
 fn bail_with_conflict<T>(message: &str, conflict: &impl std::fmt::Debug) -> Result<T> {
     anyhow::bail!("{message}: {conflict:?}")
 }
@@ -1991,6 +2133,24 @@ fn l4_t_sqlite_supabase_sync_024_dry_run_rejection_uses_l3_direct_write_path() -
 
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-024 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_058_procurement_ingestion_overlay_contract() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-058");
+    println!("[SETUP] procurement-ingestion overlay fixture");
+
+    println!("[ASSERT] overlay declares the six-file contract and references");
+    assert_procurement_overlay_required_files()?;
+    assert_procurement_overlay_frontmatter()?;
+
+    println!("[ASSERT] schemas, canaries, golden assertions, and rubric cover domain checks");
+    assert_procurement_overlay_schema_covers_domain_checks()?;
+    assert_procurement_overlay_canaries()?;
+    assert_procurement_overlay_golden_and_rubric()?;
+
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-058 PASS");
     Ok(())
 }
 

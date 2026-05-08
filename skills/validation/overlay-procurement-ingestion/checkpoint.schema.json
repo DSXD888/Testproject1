@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["kind", "message", "domain_checks_seen"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "procurement_ingestion_overlay_checkpoint"
+    },
+    "message": {
+      "type": "string"
+    },
+    "domain_checks_seen": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "notice_completeness",
+          "ocds_field_presence",
+          "source_locale",
+          "notice_type_consistency",
+          "expiry_plausibility",
+          "cpv_validity"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}

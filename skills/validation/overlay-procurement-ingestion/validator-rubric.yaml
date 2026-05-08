@@ -1,0 +1,90 @@
+rubric_version: 2026.05.06-1
+scope: procurement_ingestion_overlay
+decision_axes:
+  - notice_completeness
+  - ocds_field_presence
+  - source_locale
+  - notice_type_consistency
+  - expiry_plausibility
+  - cpv_validity
+
+verdict_rules:
+  approved:
+    requires:
+      - notice_completeness
+      - ocds_field_presence
+      - source_locale
+      - notice_type_consistency
+      - expiry_plausibility
+      - cpv_validity
+      - no_critical_domain_issue
+  rejected:
+    triggers:
+      - source_locale_conflicts_with_source_evidence
+      - notice_type_consistency_failure_changes_pipeline_meaning
+      - expiry_plausibility_impossible_or_expired_when_claimed_open
+      - cpv_validity_invalid_or_incompatible_with_notice_family
+      - ocds_field_presence_missing_required_identity_fields
+  flagged:
+    triggers:
+      - notice_completeness_optional_fields_missing_with_rationale
+      - source_locale_evidence_partial
+      - ocds_field_presence_partial_but_non_blocking
+
+basis_sufficiency_rules:
+  high:
+    requires:
+      - daemon_appendix_has_source_url
+      - daemon_appendix_has_normalized_notice_sample
+      - daemon_appendix_has_locale_notice_type_expiry_and_cpv_evidence
+  medium:
+    requires:
+      - partial_machine_evidence_with_manifest_rationale
+  low:
+    triggers:
+      - missing_source_url
+      - missing_normalized_notice_sample
+      - no_cpv_or_expiry_evidence
+
+domain_checks:
+  notice_completeness:
+    evidence_refs:
+      - manifest.notice_identity
+      - daemon.normalized_notice
+    reject_when:
+      - required_identity_missing_without_rationale
+  ocds_field_presence:
+    evidence_refs:
+      - daemon.ocds_fragment
+    reject_when:
+      - ocid_or_tender_identity_missing
+  source_locale:
+    evidence_refs:
+      - daemon.source_url
+      - daemon.locale_state
+    reject_when:
+      - country_language_currency_or_date_format_conflicts
+  notice_type_consistency:
+    evidence_refs:
+      - manifest.notice_type
+      - daemon.normalized_notice.notice_type
+    reject_when:
+      - planning_tender_award_or_dynamic_market_semantics_conflict
+  expiry_plausibility:
+    evidence_refs:
+      - daemon.normalized_notice.published_at
+      - daemon.normalized_notice.deadline_at
+    reject_when:
+      - deadline_precedes_publication_or_claimed_open_expired_notice
+  cpv_validity:
+    evidence_refs:
+      - daemon.normalized_notice.cpv_codes
+    reject_when:
+      - cpv_code_malformed_or_incompatible_with_claimed_notice_family
+
+excluded_concerns:
+  - supplier_price_plausibility
+  - document_download_integrity
+  - product_archetype_assignment
+  - margin_scoring
+  - enforcement_side_effects
