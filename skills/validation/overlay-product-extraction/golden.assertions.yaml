@@ -1,0 +1,66 @@
+cases:
+  - case_id: prod-ext-clean-real-001
+    expected_verdict: approved
+    expected_basis_sufficiency: high
+    required_domain_checks:
+      - candidate_type_plausibility
+      - archetype_assignment_consistency
+      - slot_completeness
+      - quantity_unit_plausibility
+      - bundle_decomposition_correctness
+    required_issue_categories: []
+    provenance: clean-real
+  - case_id: prod-ext-weird-valid-001
+    expected_verdict: approved
+    expected_basis_sufficiency: medium
+    required_domain_checks:
+      - candidate_type_plausibility
+      - archetype_assignment_consistency
+      - slot_completeness
+      - quantity_unit_plausibility
+    allowed_issue_categories:
+      - slot_completeness
+      - quantity_unit_plausibility
+    provenance: weird-valid
+  - case_id: prod-ext-mutated-bad-001
+    expected_verdict: rejected
+    expected_basis_sufficiency: high
+    required_domain_checks:
+      - candidate_type_plausibility
+      - archetype_assignment_consistency
+      - slot_completeness
+      - quantity_unit_plausibility
+      - bundle_decomposition_correctness
+    required_issue_categories:
+      - candidate_type_plausibility
+      - archetype_assignment_consistency
+      - slot_completeness
+      - quantity_unit_plausibility
+      - bundle_decomposition_correctness
+    provenance: mutated-bad
+  - case_id: prod-ext-pairwise-slots-quantity-001
+    expected_verdict: rejected
+    expected_basis_sufficiency: high
+    pair_id: prod-ext-slots-quantity-pair-001
+    required_domain_checks:
+      - archetype_assignment_consistency
+      - slot_completeness
+      - quantity_unit_plausibility
+      - bundle_decomposition_correctness
+    required_issue_categories:
+      - archetype_assignment_consistency
+      - quantity_unit_plausibility
+    provenance: pairwise
+
+calibration_targets:
+  mutated_bad_catch_rate_min_bps: 9000
+  clean_real_approval_min_bps: 9500
+  false_positive_rate_max_bps: 500
+  wilson_confidence_bps: 9500
+
+domain_check_inventory:
+  - candidate_type_plausibility
+  - archetype_assignment_consistency
+  - slot_completeness
+  - quantity_unit_plausibility
+  - bundle_decomposition_correctness

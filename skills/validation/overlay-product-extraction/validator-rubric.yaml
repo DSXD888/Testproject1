@@ -1,0 +1,84 @@
+rubric_version: 2026.05.06-1
+scope: product_extraction_overlay
+decision_axes:
+  - candidate_type_plausibility
+  - archetype_assignment_consistency
+  - slot_completeness
+  - quantity_unit_plausibility
+  - bundle_decomposition_correctness
+
+verdict_rules:
+  approved:
+    requires:
+      - candidate_type_plausibility
+      - archetype_assignment_consistency
+      - slot_completeness
+      - quantity_unit_plausibility
+      - bundle_decomposition_correctness
+      - no_critical_domain_issue
+  rejected:
+    triggers:
+      - candidate_type_plausibility_conflicts_with_cpv_family_or_notice_scope
+      - archetype_assignment_consistency_conflicts_with_required_pricing_logic
+      - slot_completeness_missing_required_archetype_slot_without_unavailable_evidence
+      - quantity_unit_plausibility_changes_unit_economics_or_order_basis
+      - bundle_decomposition_correctness_duplicates_or_drops_quoteable_items
+  flagged:
+    triggers:
+      - slot_completeness_partial_optional_slot_with_manifest_rationale
+      - quantity_unit_plausibility_needs_operator_review
+      - bundle_decomposition_correctness_ambiguous_but_nonblocking
+
+basis_sufficiency_rules:
+  high:
+    requires:
+      - daemon_appendix_has_product_candidate_rows
+      - daemon_appendix_has_source_document_refs
+      - daemon_appendix_has_quantity_unit_and_archetype_evidence
+  medium:
+    requires:
+      - partial_machine_evidence_with_manifest_rationale
+  low:
+    triggers:
+      - missing_product_candidate_rows
+      - missing_archetype_or_slot_evidence
+      - missing_quantity_unit_or_bundle_evidence
+
+domain_checks:
+  candidate_type_plausibility:
+    evidence_refs:
+      - manifest.product_candidate.type
+      - daemon.cpv_family_context
+    reject_when:
+      - candidate_type_conflicts_with_cpv_family_or_notice_scope
+  archetype_assignment_consistency:
+    evidence_refs:
+      - manifest.product_candidate.archetype
+      - daemon.archetype_assignment_basis
+    reject_when:
+      - archetype_assignment_conflicts_with_evidence_or_pricing_logic
+  slot_completeness:
+    evidence_refs:
+      - manifest.archetype_slots
+      - daemon.slot_evidence
+    reject_when:
+      - required_archetype_slot_missing_without_unavailable_evidence
+  quantity_unit_plausibility:
+    evidence_refs:
+      - manifest.quantity_basis
+      - daemon.quantity_unit_evidence
+    reject_when:
+      - quantity_unit_or_pack_basis_conflict_changes_order_economics
+  bundle_decomposition_correctness:
+    evidence_refs:
+      - manifest.bundle_decomposition
+      - daemon.source_document_refs
+    reject_when:
+      - bundle_decomposition_duplicates_drops_or_misallocates_quoteable_items
+
+excluded_concerns:
+  - procurement_notice_normalization
+  - supplier_price_signal_validation
+  - document_download_integrity
+  - margin_scoring
+  - enforcement_side_effects

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["kind", "message", "domain_checks_seen"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "product_extraction_overlay_checkpoint"
+    },
+    "message": {
+      "type": "string"
+    },
+    "domain_checks_seen": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "candidate_type_plausibility",
+          "archetype_assignment_consistency",
+          "slot_completeness",
+          "quantity_unit_plausibility",
+          "bundle_decomposition_correctness"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}

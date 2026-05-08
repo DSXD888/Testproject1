@@ -1713,6 +1713,13 @@ const DOCUMENT_ACQUISITION_DOMAIN_CHECKS: [&str; 5] = [
     "file_size_plausibility",
     "document_set_hash_consistency",
 ];
+const PRODUCT_EXTRACTION_DOMAIN_CHECKS: [&str; 5] = [
+    "candidate_type_plausibility",
+    "archetype_assignment_consistency",
+    "slot_completeness",
+    "quantity_unit_plausibility",
+    "bundle_decomposition_correctness",
+];
 
 const fn procurement_overlay_fixture() -> OverlaySkillFixture<'static> {
     OverlaySkillFixture {
@@ -1744,6 +1751,17 @@ const fn document_acquisition_overlay_fixture() -> OverlaySkillFixture<'static> 
         worker_behavior_version: "document-acquisition/*@2026.05.06-1+1.0",
         checkpoint_kind: "document_acquisition_overlay_checkpoint",
         domain_checks: &DOCUMENT_ACQUISITION_DOMAIN_CHECKS,
+    }
+}
+
+const fn product_extraction_overlay_fixture() -> OverlaySkillFixture<'static> {
+    OverlaySkillFixture {
+        label: "product-extraction",
+        dir: "skills/validation/overlay-product-extraction",
+        skill_id: "validation/overlay-product-extraction",
+        worker_behavior_version: "product-extraction/*@2026.05.06-1+1.0",
+        checkpoint_kind: "product_extraction_overlay_checkpoint",
+        domain_checks: &PRODUCT_EXTRACTION_DOMAIN_CHECKS,
     }
 }
 
@@ -2235,6 +2253,17 @@ fn l4_t_sqlite_supabase_sync_060_document_acquisition_overlay_contract() -> Resu
     assert_overlay_contract(&document_acquisition_overlay_fixture())?;
 
     println!("[TEST_END] L4-T-sqlite_supabase_sync-060 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_061_product_extraction_overlay_contract() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-061");
+    println!("[SETUP] product-extraction overlay fixture");
+
+    assert_overlay_contract(&product_extraction_overlay_fixture())?;
+
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-061 PASS");
     Ok(())
 }
 
