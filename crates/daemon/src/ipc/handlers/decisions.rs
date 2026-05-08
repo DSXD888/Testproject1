@@ -3,6 +3,7 @@
 use anyhow::{Context, Result};
 use rusqlite::{OptionalExtension, Transaction, params};
 use serde::Deserialize;
+use serde_json::{Value, json};
 use thiserror::Error;
 
 #[cfg(not(test))]
@@ -15,12 +16,32 @@ pub struct DecisionsHandlerContext<'a> {
     pub state_db: &'a mut StateDb,
 }
 
+#[allow(dead_code)]
+pub const DECISION_CONFLICT_TOPIC: &str = "decision.conflict";
+
 #[derive(Debug, Clone, Error)]
 #[error("{code}: {message}")]
 pub struct DecisionsHandlerError {
     pub code: String,
     pub message: String,
     pub retryable: bool,
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct DecisionConflictEventParams<'a> {
+    pub process_id: &'a str,
+    pub command_id: &'a str,
+    pub current_remote_revision: i64,
+    pub current_disposition: &'a str,
+    pub rejected_payload: &'a Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)]
+pub struct DecisionIpcEvent {
+    pub topic: &'static str,
+    pub payload: Value,
 }
 
 #[derive(Debug, Deserialize)]
@@ -132,6 +153,37 @@ pub fn capture_decision(
     })
 }
 
+#[allow(dead_code)]
+pub fn decision_conflict_ipc_event(
+    params: &DecisionConflictEventParams<'_>,
+) -> std::result::Result<DecisionIpcEvent, DecisionsHandlerError> {
+    ensure_event_field("process_id", params.process_id)?;
+    ensure_event_field("command_id", params.command_id)?;
+    ensure_event_field("current_disposition", params.current_disposition)?;
+    if params.current_remote_revision < 0 {
+        return Err(decision_conflict_error(
+            "current_remote_revision must be non-negative",
+        ));
+    }
+    if params.rejected_payload.is_null() {
+        return Err(decision_conflict_error(
+            "rejected_payload must include the rejected CAS command",
+        ));
+    }
+
+    Ok(DecisionIpcEvent {
+        topic: DECISION_CONFLICT_TOPIC,
+        payload: json!({
+            "event": DECISION_CONFLICT_TOPIC,
+            "process_id": params.process_id,
+            "command_id": params.command_id,
+            "current_remote_revision": params.current_remote_revision,
+            "current_disposition": params.current_disposition,
+            "rejected_payload": params.rejected_payload.clone(),
+        }),
+    })
+}
+
 fn existing_receipt(
     state_db: &StateDb,
     idempotency_key: &str,
@@ -217,6 +269,26 @@ fn current_commit_seq(tx: &Transaction<'_>) -> Result<i64> {
         |row| row.get(0),
     )
     .context("reading current commit_seq for decision write")
+}
+
+#[allow(dead_code)]
+fn ensure_event_field(
+    field: &'static str,
+    value: &str,
+) -> std::result::Result<(), DecisionsHandlerError> {
+    if value.trim().is_empty() {
+        return Err(decision_conflict_error(&format!("{field} must be present")));
+    }
+    Ok(())
+}
+
+#[allow(dead_code)]
+fn decision_conflict_error(message: &str) -> DecisionsHandlerError {
+    DecisionsHandlerError {
+        code: "decision_conflict_invalid".to_owned(),
+        message: message.to_owned(),
+        retryable: false,
+    }
 }
 
 #[allow(clippy::needless_pass_by_value)]

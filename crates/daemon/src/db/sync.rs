@@ -1909,6 +1909,21 @@ pub fn decision_conflict_event_payload(response: &OperatorDecisionApplyResponse)
         .clone()
         .context("CAS conflict response missing rejected_payload")?;
 
+    #[cfg(not(test))]
+    {
+        let event = crate::ipc::handlers::decisions::decision_conflict_ipc_event(
+            &crate::ipc::handlers::decisions::DecisionConflictEventParams {
+                process_id: &response.process_id,
+                command_id: &response.command_id,
+                current_remote_revision,
+                current_disposition,
+                rejected_payload: &rejected_payload,
+            },
+        )?;
+        return Ok(event.payload);
+    }
+
+    #[cfg(test)]
     Ok(json!({
         "event": "decision.conflict",
         "process_id": response.process_id,

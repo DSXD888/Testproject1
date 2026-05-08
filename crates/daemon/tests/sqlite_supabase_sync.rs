@@ -1,6 +1,21 @@
 #![forbid(unsafe_code)]
 
+#[path = "../src/ipc/handlers/decisions.rs"]
+#[allow(dead_code)]
+mod decisions_handler_impl;
 mod support;
+
+mod jobs {
+    pub mod runner {
+        #[allow(dead_code)]
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        pub struct MutationAck {
+            pub accepted: bool,
+            pub visible_after_seq: i64,
+            pub continuation_job_id: Option<String>,
+        }
+    }
+}
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -12,13 +27,16 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
+use decisions_handler_impl::{
+    DECISION_CONFLICT_TOPIC, DecisionConflictEventParams, decision_conflict_ipc_event,
+};
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 use support::sync::{
     EnforcementHarness, OperatorDecisionCasHarness, OutboxHarness, PullCursorDomain,
     PullCursorHarness, PushOwnedFixture, SchemaEpochGuard, SqliteSnapshotArtifact,
     SqliteSnapshotScheduler, SupabaseRpcClient, SyncCyclePhase, SyncCycleTrigger, SyncHealth,
     ViewerSyncStatus, WriterBindingConfig, WriterBindingMode, WriterLeaseAcquireResult,
-    WriterLeaseHarness, canonical_content_hash, decision_conflict_event_payload, parse_payload,
+    WriterLeaseHarness, canonical_content_hash, parse_payload,
 };
 
 #[test]
@@ -1608,8 +1626,25 @@ fn l4_t_sqlite_supabase_sync_033_conflict_response_drives_decision_conflict_even
         }
     }))?;
 
-    println!("[EXEC] convert RPC conflict into IPC event payload");
-    let event = decision_conflict_event_payload(&response)?;
+    println!("[EXEC] convert RPC conflict into IPC decision.conflict topic event");
+    let current_remote_revision = response
+        .current_revision
+        .context("conflict response missing current revision for IPC event")?;
+    let current_disposition = response
+        .current_disposition
+        .as_deref()
+        .context("conflict response missing current disposition for IPC event")?;
+    let rejected_payload = response
+        .rejected_payload
+        .as_ref()
+        .context("conflict response missing rejected payload for IPC event")?;
+    let event = decision_conflict_ipc_event(&DecisionConflictEventParams {
+        process_id: &response.process_id,
+        command_id: &response.command_id,
+        current_remote_revision,
+        current_disposition,
+        rejected_payload,
+    })?;
 
     println!("[ASSERT] decision.conflict event carries complete conflict details");
     ensure!(
@@ -1617,26 +1652,42 @@ fn l4_t_sqlite_supabase_sync_033_conflict_response_drives_decision_conflict_even
         "response should be classified as CAS conflict"
     );
     ensure!(
-        event.get("event").and_then(Value::as_str) == Some("decision.conflict"),
+        event.topic == DECISION_CONFLICT_TOPIC,
+        "IPC event did not route on the decision.conflict topic: {event:?}"
+    );
+    ensure!(
+        event.payload.get("event").and_then(Value::as_str) == Some("decision.conflict"),
         "IPC payload did not identify the decision.conflict event"
     );
     ensure!(
-        event.get("process_id").and_then(Value::as_str) == Some("l4-cas-process-033")
-            && event.get("command_id").and_then(Value::as_str) == Some("l4-cmd-033"),
-        "IPC payload lost CAS command identity: {event}"
-    );
-    ensure!(
-        event.get("current_remote_revision").and_then(Value::as_i64) == Some(12)
-            && event.get("current_disposition").and_then(Value::as_str) == Some("watching"),
-        "IPC payload lost current remote head details: {event}"
+        event.payload.get("process_id").and_then(Value::as_str) == Some("l4-cas-process-033")
+            && event.payload.get("command_id").and_then(Value::as_str) == Some("l4-cmd-033"),
+        "IPC payload lost CAS command identity: {}",
+        event.payload
     );
     ensure!(
         event
+            .payload
+            .get("current_remote_revision")
+            .and_then(Value::as_i64)
+            == Some(12)
+            && event
+                .payload
+                .get("current_disposition")
+                .and_then(Value::as_str)
+                == Some("watching"),
+        "IPC payload lost current remote head details: {}",
+        event.payload
+    );
+    ensure!(
+        event
+            .payload
             .get("rejected_payload")
             .and_then(|payload| payload.get("base_revision"))
             .and_then(Value::as_i64)
             == Some(11),
-        "IPC payload lost rejected payload details: {event}"
+        "IPC payload lost rejected payload details: {}",
+        event.payload
     );
 
     println!("[CLEANUP] pure payload conversion test");
