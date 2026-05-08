@@ -694,6 +694,160 @@ async fn l4_t_sqlite_supabase_sync_015_daemon_uses_http_rpc_not_direct_upsert() 
 }
 
 #[test]
+fn l4_t_sqlite_supabase_sync_016_equal_version_matching_hash_is_noop_success() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-016");
+    println!("[SETUP] inspect apply_push_batch equal-version retry branch");
+    let body = apply_push_batch_body()?;
+    let validation_noop = body
+        .find("IF row_version = remote_row_version AND row_content_hash = remote_content_hash THEN")
+        .context("missing equal-version matching-hash validation branch")?;
+    let rejection_gate = body
+        .find("IF jsonb_array_length(invalid_rows) > 0 THEN")
+        .context("missing invalid-row rejection gate")?;
+    let apply_noop = body
+        .find(
+            "IF remote_row_version IS NOT NULL\n       AND row_version = remote_row_version\n       AND row_content_hash = remote_content_hash THEN",
+        )
+        .context("missing apply-loop idempotent no-op branch")?;
+    let apply_helper = body
+        .find("PERFORM l4_apply_push_owned_payload")
+        .context("missing push-owned apply helper call")?;
+
+    println!("[ASSERT] equal version + matching hash is accepted as no-op before apply");
+    ensure!(
+        validation_noop < rejection_gate,
+        "matching-hash retry must be accepted during the prevalidation pass"
+    );
+    ensure!(
+        apply_noop < apply_helper,
+        "matching-hash retry must skip target table mutation in the apply pass"
+    );
+    ensure!(
+        body.contains("noop_rows := noop_rows || jsonb_build_array(jsonb_build_object(")
+            && body.contains("'accepted', true")
+            && body.contains("'noop_rows', noop_rows"),
+        "no-op retry response must be an accepted success with noop_rows"
+    );
+
+    println!("[CLEANUP] static migration inspection only");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-016 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_017_equal_version_different_hash_is_hard_conflict() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-017");
+    println!("[SETUP] inspect apply_push_batch hard-conflict branch");
+    let body = apply_push_batch_body()?;
+    let hard_conflict = body
+        .find("ELSIF row_version = remote_row_version AND row_content_hash <> remote_content_hash THEN")
+        .context("missing equal-version different-hash branch")?;
+    let rejection_gate = body
+        .find("IF jsonb_array_length(invalid_rows) > 0 THEN")
+        .context("missing invalid-row rejection gate")?;
+    let apply_helper = body
+        .find("PERFORM l4_apply_push_owned_payload")
+        .context("missing push-owned apply helper call")?;
+
+    println!("[ASSERT] different hash is classified as data corruption and blocks mutation");
+    ensure!(
+        hard_conflict < rejection_gate && rejection_gate < apply_helper,
+        "hard conflict must be recorded before the all-or-nothing rejection gate"
+    );
+    ensure!(
+        body.contains("'error', 'hard_conflict'")
+            && body.contains("'classification', 'data_corruption'")
+            && body.contains("'entity_kind', row_table")
+            && body.contains("'entity_id', row_entity_id"),
+        "hard conflict must return structured data-corruption payload for the offending row"
+    );
+    ensure!(
+        body.contains("'status', 'rejected'")
+            && body.contains("'accepted', false")
+            && body.contains("'invalid_rows', invalid_rows"),
+        "hard conflict must reject without treating the error as retryable success"
+    );
+
+    println!("[CLEANUP] static migration inspection only");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-017 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_018_remote_plus_one_applies_once() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-018");
+    println!("[SETUP] inspect apply_push_batch normal advance branch");
+    let body = apply_push_batch_body()?;
+    let normal_advance = body
+        .find("ELSIF row_version = remote_row_version + 1 THEN")
+        .context("missing remote row_version + 1 branch")?;
+    let rejection_gate = body
+        .find("IF jsonb_array_length(invalid_rows) > 0 THEN")
+        .context("missing invalid-row rejection gate")?;
+    let apply_helper = body
+        .find("PERFORM l4_apply_push_owned_payload")
+        .context("missing push-owned apply helper call")?;
+    let applied_rows = body
+        .find("applied_rows := applied_rows || jsonb_build_array(jsonb_build_object(")
+        .context("missing applied_rows response append")?;
+
+    println!("[ASSERT] remote + 1 passes validation and records the applied sequence");
+    ensure!(
+        normal_advance < rejection_gate
+            && rejection_gate < apply_helper
+            && apply_helper < applied_rows,
+        "normal advance must validate first, apply once, then record applied_rows"
+    );
+    ensure!(
+        body.contains("last_local_seq = EXCLUDED.last_local_seq")
+            && body.contains("'applied_rows', applied_rows")
+            && body.contains("'local_seq', row_local_seq"),
+        "normal advance must update last_local_seq and surface applied row metadata"
+    );
+
+    println!("[CLEANUP] static migration inspection only");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-018 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_019_older_or_larger_jump_rejects_without_mutation() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-019");
+    println!("[SETUP] inspect apply_push_batch stale/out-of-order branch");
+    let body = apply_push_batch_body()?;
+    let stale_or_jump = body
+        .find("'error', 'stale_or_out_of_order'")
+        .context("missing stale/out-of-order rejection classification")?;
+    let rejection_gate = body
+        .find("IF jsonb_array_length(invalid_rows) > 0 THEN")
+        .context("missing invalid-row rejection gate")?;
+    let apply_helper = body
+        .find("PERFORM l4_apply_push_owned_payload")
+        .context("missing push-owned apply helper call")?;
+
+    println!("[ASSERT] stale versions and larger jumps reject before any projection write");
+    ensure!(
+        stale_or_jump < rejection_gate && rejection_gate < apply_helper,
+        "stale/out-of-order rows must be rejected before any target table mutation"
+    );
+    ensure!(
+        body.contains("'remote_row_version', remote_row_version")
+            && body.contains("'incoming_row_version', row_version"),
+        "stale/out-of-order response must include current and incoming versions"
+    );
+    ensure!(
+        body.contains("'status', 'rejected'")
+            && body.contains("'accepted', false")
+            && body.contains("'invalid_rows', invalid_rows"),
+        "stale/out-of-order rows must return a structured rejection payload"
+    );
+
+    println!("[CLEANUP] static migration inspection only");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-019 PASS");
+    Ok(())
+}
+
+#[test]
 fn l4_t_sqlite_supabase_sync_020_outbox_envelope_fields_survive_reopen() -> Result<()> {
     println!("[TEST_START] L4-T-sqlite_supabase_sync-020");
     println!("[SETUP] local_outbox row before envelope assignment");
@@ -744,6 +898,15 @@ fn repo_root() -> Result<&'static Path> {
 fn read_repo_file(path: &str) -> Result<String> {
     std::fs::read_to_string(repo_root()?.join(path))
         .with_context(|| format!("reading repository file {path}"))
+}
+
+fn apply_push_batch_body() -> Result<String> {
+    let migration = read_repo_file("infra/supabase/migrations/0005_sync_rpcs.sql")?;
+    Ok(migration
+        .split("CREATE OR REPLACE FUNCTION update_operator_decision")
+        .next()
+        .context("missing apply_push_batch section before update_operator_decision")?
+        .to_owned())
 }
 
 async fn spawn_rpc_capture_server(
