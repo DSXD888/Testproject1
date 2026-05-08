@@ -102,6 +102,76 @@ test('L4-T-contracts_spec-008 keeps live list updates non-disruptive', async () 
   expect(pageSource).not.toMatch(/sort\(|reverse\(/);
 });
 
+test('L4-T-contracts_spec-009 detail minor updates refresh affected sections only', async () => {
+  const pageSource = await readFile(
+    join(WEB_ROOT, 'src/app/contracts/[id]/page.tsx'),
+    'utf8',
+  );
+
+  expect(pageSource).toContain('subscribeToContractDetailPage');
+  expect(pageSource).toContain('refreshMinorSections');
+  expect(pageSource).toContain('mergeMinorSections');
+  expect(pageSource).toContain("update.changed.includes('quotes')");
+  expect(pageSource).toContain("update.changed.includes('errors')");
+  expect(pageSource).toContain('getContractDetail');
+  expect(pageSource).not.toMatch(/setState\(\{\s*status:\s*'loading'/);
+});
+
+test('L4-T-contracts_spec-010 detail major updates wait behind a refresh chip', async () => {
+  const pageSource = await readFile(
+    join(WEB_ROOT, 'src/app/contracts/[id]/page.tsx'),
+    'utf8',
+  );
+
+  expect(pageSource).toContain('contract-detail-refresh-chip');
+  expect(pageSource).toContain('pendingMajorUpdateCount');
+  expect(pageSource).toContain('isMajorProcessUpdate');
+  expect(pageSource).toContain("'canonical_process'");
+  expect(pageSource).toContain("'landed_cost'");
+  expect(pageSource).toContain("'manifest'");
+  expect(pageSource).toContain('replaceVisibleSnapshot');
+});
+
+test('L4-T-contracts_spec-011 detail renders projection summaries through shared UI', async () => {
+  const pageSource = await readFile(
+    join(WEB_ROOT, 'src/app/contracts/[id]/page.tsx'),
+    'utf8',
+  );
+  const boundarySource = await readFile(join(WEB_ROOT, 'src/lib/supabase.ts'), 'utf8');
+
+  expect(pageSource).toContain('PipelineBadge');
+  expect(pageSource).toContain('ManifestViewer');
+  expect(pageSource).toContain('ErrorSummaryList');
+  expect(pageSource).toContain('Decision summary');
+  expect(pageSource).toContain('Candidates');
+  expect(pageSource).toContain('Quotes');
+  expect(pageSource).toContain('Margins');
+  expect(boundarySource).toContain("from('product_candidates')");
+  expect(boundarySource).toContain("from('supplier_quotes')");
+  expect(boundarySource).toContain("from('candidate_pricing_assessments')");
+  expect(boundarySource).toContain("from('landed_cost_estimates')");
+  expect(boundarySource).toContain("from('manifests')");
+  expect(boundarySource).toContain("from('operator_decision_summaries')");
+  expect(boundarySource).toContain("from('error_manifest_summaries')");
+  expect(pageSource).not.toMatch(
+    /approve\s*\(|reject\s*\(|watch\s*\(|Rerun enrichment|Run .* ingestion|daemon trigger|config mutation/i,
+  );
+});
+
+test('L4-T-contracts_spec-011 detail route renders read-only fallback snapshot', async ({
+  page,
+}) => {
+  await page.goto('/contracts/process-7');
+
+  await expect(page.getByTestId('contract-detail-page')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Decision summary' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Candidates' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Quotes' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Manifest' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Errors' })).toBeVisible();
+  await expect(page.getByText(/Rerun enrichment|Run .* ingestion/)).toHaveCount(0);
+});
+
 test('L4-T-contracts_spec-020 keeps Supabase behind the web boundary', async () => {
   const srcFiles = await listSourceFiles(join(WEB_ROOT, 'src'));
   const directSupabaseImports: string[] = [];
@@ -221,7 +291,7 @@ test('L4-T-contracts_spec-008-010-019 accepts only typed invalidation payloads',
   const minorProcessUpdate = {
     event: 'process.updated',
     processId: 'process-1',
-    changed: ['quotes', 'landed_cost', 'manifest', 'jobs', 'errors'],
+    changed: ['quotes', 'landed_cost', 'manifest', 'jobs', 'errors', 'canonical_process'],
     major: false,
     maxSeq: 43,
   } satisfies PortalUpdate;

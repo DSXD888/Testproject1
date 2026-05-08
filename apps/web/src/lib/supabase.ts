@@ -1,7 +1,16 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type {
+  CandidatePricingAssessmentRow,
+  ErrorManifestSummaryRow,
+  LandedCostEstimateRow,
+  ManifestRow,
+  OperatorDecisionSummaryRow,
+  PipelineAssessmentRow,
   ProcurementProcessRow,
+  ProductCandidateRow,
   SharedVisibilityDatabase,
+  SupplierQuoteRow,
+  ValidationVerdictSummaryRow,
   ViewerSyncStatusRow,
   WorkflowJobSummaryRow,
 } from '@project/contracts-schema';
@@ -26,6 +35,25 @@ export interface ContractListPage {
 
 export interface ListContractSummariesPageOptions {
   cursor?: ContractListCursor | null;
+  limit?: number;
+}
+
+export interface ContractDetailSnapshot {
+  process: ProcurementProcessRow;
+  pipelineAssessment: PipelineAssessmentRow | null;
+  candidates: ProductCandidateRow[];
+  quotes: SupplierQuoteRow[];
+  pricingAssessments: CandidatePricingAssessmentRow[];
+  landedCosts: LandedCostEstimateRow[];
+  manifest: ManifestRow | null;
+  decisionSummary: OperatorDecisionSummaryRow | null;
+  errorSummaries: ErrorManifestSummaryRow[];
+  workflowJobs: WorkflowJobSummaryRow[];
+  validationVerdicts: ValidationVerdictSummaryRow[];
+  loadedAt: string;
+}
+
+export interface GetContractDetailOptions {
   limit?: number;
 }
 
@@ -146,6 +174,190 @@ export async function getContractSummary(
     .maybeSingle();
 
   return requireSingle<ProcurementProcessRow>(data, error);
+}
+
+export async function getContractDetail(
+  processId: string,
+  orgId: string,
+  options: GetContractDetailOptions = {},
+  client: ViewerSupabaseClient = getViewerSupabaseClient(),
+): Promise<ContractDetailSnapshot | null> {
+  const limit = Math.max(1, Math.min(options.limit ?? 50, 100));
+  const [
+    process,
+    pipelineAssessment,
+    candidates,
+    quotes,
+    pricingAssessments,
+    landedCosts,
+    manifest,
+    decisionSummary,
+    errorSummaries,
+    workflowJobs,
+    validationVerdicts,
+  ] = await Promise.all([
+    getContractSummary(processId, client),
+    getPipelineAssessment(processId, client),
+    listProductCandidates(processId, limit, client),
+    listSupplierQuotes(processId, limit, client),
+    listCandidatePricingAssessments(processId, limit, client),
+    listLandedCostEstimates(processId, limit, client),
+    getLatestManifest(processId, client),
+    getOperatorDecisionSummary(processId, client),
+    listErrorManifestSummaries(orgId, limit, client),
+    listWorkflowJobSummaries(orgId, client, limit),
+    listValidationVerdictSummaries(orgId, limit, client),
+  ]);
+
+  if (!process) {
+    return null;
+  }
+
+  return {
+    process,
+    pipelineAssessment,
+    candidates,
+    quotes,
+    pricingAssessments,
+    landedCosts,
+    manifest,
+    decisionSummary,
+    errorSummaries,
+    workflowJobs,
+    validationVerdicts,
+    loadedAt: new Date().toISOString(),
+  };
+}
+
+async function listProductCandidates(
+  processId: string,
+  limit: number,
+  client: ViewerSupabaseClient,
+): Promise<ProductCandidateRow[]> {
+  const { data, error } = await client
+    .from('product_candidates')
+    .select('*')
+    .eq('process_id', processId)
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+
+  return requireRows<ProductCandidateRow>(data, error);
+}
+
+async function listSupplierQuotes(
+  processId: string,
+  limit: number,
+  client: ViewerSupabaseClient,
+): Promise<SupplierQuoteRow[]> {
+  const { data, error } = await client
+    .from('supplier_quotes')
+    .select('*')
+    .eq('process_id', processId)
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+
+  return requireRows<SupplierQuoteRow>(data, error);
+}
+
+async function listCandidatePricingAssessments(
+  processId: string,
+  limit: number,
+  client: ViewerSupabaseClient,
+): Promise<CandidatePricingAssessmentRow[]> {
+  const { data, error } = await client
+    .from('candidate_pricing_assessments')
+    .select('*')
+    .eq('process_id', processId)
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+
+  return requireRows<CandidatePricingAssessmentRow>(data, error);
+}
+
+async function listLandedCostEstimates(
+  processId: string,
+  limit: number,
+  client: ViewerSupabaseClient,
+): Promise<LandedCostEstimateRow[]> {
+  const { data, error } = await client
+    .from('landed_cost_estimates')
+    .select('*')
+    .eq('process_id', processId)
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+
+  return requireRows<LandedCostEstimateRow>(data, error);
+}
+
+async function getLatestManifest(
+  processId: string,
+  client: ViewerSupabaseClient,
+): Promise<ManifestRow | null> {
+  const { data, error } = await client
+    .from('manifests')
+    .select('*')
+    .eq('process_id', processId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return requireSingle<ManifestRow>(data, error);
+}
+
+async function getPipelineAssessment(
+  processId: string,
+  client: ViewerSupabaseClient,
+): Promise<PipelineAssessmentRow | null> {
+  const { data, error } = await client
+    .from('pipeline_assessments')
+    .select('*')
+    .eq('process_id', processId)
+    .maybeSingle();
+
+  return requireSingle<PipelineAssessmentRow>(data, error);
+}
+
+async function getOperatorDecisionSummary(
+  processId: string,
+  client: ViewerSupabaseClient,
+): Promise<OperatorDecisionSummaryRow | null> {
+  const { data, error } = await client
+    .from('operator_decision_summaries')
+    .select('*')
+    .eq('process_id', processId)
+    .maybeSingle();
+
+  return requireSingle<OperatorDecisionSummaryRow>(data, error);
+}
+
+async function listErrorManifestSummaries(
+  orgId: string,
+  limit: number,
+  client: ViewerSupabaseClient,
+): Promise<ErrorManifestSummaryRow[]> {
+  const { data, error } = await client
+    .from('error_manifest_summaries')
+    .select('*')
+    .eq('org_id', orgId)
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+
+  return requireRows<ErrorManifestSummaryRow>(data, error);
+}
+
+async function listValidationVerdictSummaries(
+  orgId: string,
+  limit: number,
+  client: ViewerSupabaseClient,
+): Promise<ValidationVerdictSummaryRow[]> {
+  const { data, error } = await client
+    .from('validation_verdict_summaries')
+    .select('*')
+    .eq('org_id', orgId)
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+
+  return requireRows<ValidationVerdictSummaryRow>(data, error);
 }
 
 export async function getViewerSyncStatus(

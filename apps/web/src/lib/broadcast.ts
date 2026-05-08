@@ -10,7 +10,8 @@ export type ProcessChangeKind =
   | 'landed_cost'
   | 'manifest'
   | 'jobs'
-  | 'errors';
+  | 'errors'
+  | 'canonical_process';
 
 export type BroadcastSyncHealth = 'healthy' | 'degraded' | 'offline';
 
@@ -99,6 +100,7 @@ const PROCESS_CHANGE_KINDS = [
   'manifest',
   'jobs',
   'errors',
+  'canonical_process',
 ] as const satisfies readonly ProcessChangeKind[];
 
 const SYNC_HEALTH_VALUES = [
