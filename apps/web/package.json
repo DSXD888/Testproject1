@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
-    "lint": "bunx tsc -p tsconfig.json --noEmit",
-    "test": "bunx tsc -p tsconfig.json --noEmit",
+    "lint": "next typegen && bunx tsc -p tsconfig.json --noEmit",
+    "test": "next typegen && bunx tsc -p tsconfig.json --noEmit",
     "test:e2e": "playwright test"
   },
   "dependencies": {
