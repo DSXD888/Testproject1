@@ -1,0 +1,92 @@
+rubric_version: 2026.05.06-1
+scope: supplier_enrichment_overlay
+decision_axes:
+  - price_plausibility
+  - currency_correctness
+  - pack_basis_consistency
+  - seller_diversity
+  - listing_freshness
+  - regulated_goods_compliance_evidence
+
+verdict_rules:
+  approved:
+    requires:
+      - price_plausibility
+      - currency_correctness
+      - pack_basis_consistency
+      - seller_diversity
+      - listing_freshness
+      - regulated_goods_compliance_evidence
+      - no_critical_domain_issue
+  rejected:
+    triggers:
+      - price_plausibility_outside_category_bounds_without_rationale
+      - currency_correctness_conflicts_with_listing_or_conversion_evidence
+      - pack_basis_consistency_changes_unit_economics
+      - seller_diversity_missing_when_multi_seller_evidence_is_required
+      - listing_freshness_expired_or_unverifiable
+      - regulated_goods_compliance_evidence_missing_for_restricted_goods
+  flagged:
+    triggers:
+      - seller_diversity_low_but_not_blocking
+      - listing_freshness_partial_with_manifest_rationale
+      - pack_basis_consistency_needs_operator_review
+
+basis_sufficiency_rules:
+  high:
+    requires:
+      - daemon_appendix_has_supplier_listing_sample
+      - daemon_appendix_has_price_currency_and_pack_evidence
+      - daemon_appendix_has_listing_timestamp_and_seller_identity
+  medium:
+    requires:
+      - partial_machine_evidence_with_manifest_rationale
+  low:
+    triggers:
+      - missing_price_or_currency_evidence
+      - missing_pack_basis_evidence
+      - no_listing_timestamp_or_seller_identity
+
+domain_checks:
+  price_plausibility:
+    evidence_refs:
+      - manifest.price_signal
+      - daemon.supplier_listing.price
+    reject_when:
+      - price_outside_category_bounds_without_rationale
+  currency_correctness:
+    evidence_refs:
+      - daemon.supplier_listing.currency
+      - daemon.fx_context
+    reject_when:
+      - claimed_currency_conflicts_with_listing_or_conversion_context
+  pack_basis_consistency:
+    evidence_refs:
+      - manifest.pack_basis
+      - daemon.supplier_listing.pack_basis
+    reject_when:
+      - unit_box_case_or_pallet_basis_conflict_changes_unit_economics
+  seller_diversity:
+    evidence_refs:
+      - daemon.seller_identity_set
+    reject_when:
+      - required_independent_seller_count_missing_or_ambiguous
+  listing_freshness:
+    evidence_refs:
+      - daemon.supplier_listing.listed_at
+      - daemon.scrape_finished_at
+    reject_when:
+      - listing_is_stale_or_timestamp_unverifiable
+  regulated_goods_compliance_evidence:
+    evidence_refs:
+      - manifest.regulated_goods_flags
+      - daemon.compliance_evidence
+    reject_when:
+      - restricted_goods_claim_lacks_required_compliance_evidence
+
+excluded_concerns:
+  - procurement_notice_normalization
+  - document_download_integrity
+  - product_archetype_assignment
+  - margin_scoring
+  - enforcement_side_effects

@@ -1681,7 +1681,15 @@ fn apply_push_batch_body() -> Result<String> {
         .to_owned())
 }
 
-const PROCUREMENT_OVERLAY_DIR: &str = "skills/validation/overlay-procurement-ingestion";
+struct OverlaySkillFixture<'a> {
+    label: &'a str,
+    dir: &'a str,
+    skill_id: &'a str,
+    worker_behavior_version: &'a str,
+    checkpoint_kind: &'a str,
+    domain_checks: &'a [&'a str],
+}
+
 const PROCUREMENT_DOMAIN_CHECKS: [&str; 6] = [
     "notice_completeness",
     "ocds_field_presence",
@@ -1690,12 +1698,42 @@ const PROCUREMENT_DOMAIN_CHECKS: [&str; 6] = [
     "expiry_plausibility",
     "cpv_validity",
 ];
+const SUPPLIER_DOMAIN_CHECKS: [&str; 6] = [
+    "price_plausibility",
+    "currency_correctness",
+    "pack_basis_consistency",
+    "seller_diversity",
+    "listing_freshness",
+    "regulated_goods_compliance_evidence",
+];
 
-fn procurement_overlay_path(file: &str) -> String {
-    format!("{PROCUREMENT_OVERLAY_DIR}/{file}")
+const fn procurement_overlay_fixture() -> OverlaySkillFixture<'static> {
+    OverlaySkillFixture {
+        label: "procurement-ingestion",
+        dir: "skills/validation/overlay-procurement-ingestion",
+        skill_id: "validation/overlay-procurement-ingestion",
+        worker_behavior_version: "procurement-ingestion/*@2026.05.06-1+1.0",
+        checkpoint_kind: "procurement_ingestion_overlay_checkpoint",
+        domain_checks: &PROCUREMENT_DOMAIN_CHECKS,
+    }
 }
 
-fn assert_procurement_overlay_required_files() -> Result<()> {
+const fn supplier_overlay_fixture() -> OverlaySkillFixture<'static> {
+    OverlaySkillFixture {
+        label: "supplier-enrichment",
+        dir: "skills/validation/overlay-supplier-enrichment",
+        skill_id: "validation/overlay-supplier-enrichment",
+        worker_behavior_version: "supplier-enrichment/*@2026.05.06-1+1.0",
+        checkpoint_kind: "supplier_enrichment_overlay_checkpoint",
+        domain_checks: &SUPPLIER_DOMAIN_CHECKS,
+    }
+}
+
+fn overlay_path(fixture: &OverlaySkillFixture<'_>, file: &str) -> String {
+    format!("{}/{file}", fixture.dir)
+}
+
+fn assert_overlay_required_files(fixture: &OverlaySkillFixture<'_>) -> Result<()> {
     for file in [
         "SKILL.md",
         "result.schema.json",
@@ -1705,70 +1743,71 @@ fn assert_procurement_overlay_required_files() -> Result<()> {
         "validator-rubric.yaml",
         "references/domain-checks.md",
     ] {
-        let path = repo_root()?.join(procurement_overlay_path(file));
+        let path = repo_root()?.join(overlay_path(fixture, file));
         ensure!(path.exists(), "{} is missing", path.display());
     }
     ensure!(
-        repo_root()?
-            .join(PROCUREMENT_OVERLAY_DIR)
-            .join("references")
-            .is_dir(),
-        "procurement overlay references directory is missing"
+        repo_root()?.join(fixture.dir).join("references").is_dir(),
+        "{} overlay references directory is missing",
+        fixture.label
     );
     Ok(())
 }
 
-fn assert_procurement_overlay_frontmatter() -> Result<()> {
-    let skill = read_repo_file(&procurement_overlay_path("SKILL.md"))?;
-    for required in [
-        "skill_id: validation/overlay-procurement-ingestion",
-        "skill_version: 2026.05.06-1",
-        "interaction_profile: headless_contract",
-        "result_schema_version: 1.0",
-        "checkpoint_schema_version: 1.0",
-        "validator_overlay_version: 2026.05.06-1",
-        "worker_behavior_versions:",
-        "procurement-ingestion/*@2026.05.06-1+1.0",
-        "model_profile: structured_extract_low_cost",
-        "agent_cli: claude",
-        "side_effect_class: read_only",
-        "promotion_stage: candidate",
-    ] {
-        ensure!(skill.contains(required), "SKILL.md missing `{required}`");
+fn assert_overlay_frontmatter(fixture: &OverlaySkillFixture<'_>) -> Result<()> {
+    let skill = read_repo_file(&overlay_path(fixture, "SKILL.md"))?;
+    let required_fields = [
+        format!("skill_id: {}", fixture.skill_id),
+        "skill_version: 2026.05.06-1".to_owned(),
+        "interaction_profile: headless_contract".to_owned(),
+        "result_schema_version: 1.0".to_owned(),
+        "checkpoint_schema_version: 1.0".to_owned(),
+        "validator_overlay_version: 2026.05.06-1".to_owned(),
+        "worker_behavior_versions:".to_owned(),
+        fixture.worker_behavior_version.to_owned(),
+        "model_profile: structured_extract_low_cost".to_owned(),
+        "agent_cli: claude".to_owned(),
+        "side_effect_class: read_only".to_owned(),
+        "promotion_stage: candidate".to_owned(),
+    ];
+    for required in required_fields {
+        ensure!(skill.contains(&required), "SKILL.md missing `{required}`");
     }
     Ok(())
 }
 
-fn assert_procurement_overlay_schema_covers_domain_checks() -> Result<()> {
-    let result_schema: Value = serde_json::from_str(&read_repo_file(&procurement_overlay_path(
+fn assert_overlay_schema_covers_domain_checks(fixture: &OverlaySkillFixture<'_>) -> Result<()> {
+    let result_schema: Value = serde_json::from_str(&read_repo_file(&overlay_path(
+        fixture,
         "result.schema.json",
     ))?)?;
     let categories = result_schema
         .pointer("/properties/issues/items/properties/category/enum")
         .and_then(Value::as_array)
         .context("result schema missing issue category enum")?;
-    for check in PROCUREMENT_DOMAIN_CHECKS {
+    for &check in fixture.domain_checks {
         ensure!(
             categories.iter().any(|value| value.as_str() == Some(check)),
             "result schema missing issue category `{check}`"
         );
     }
 
-    let checkpoint_schema: Value = serde_json::from_str(&read_repo_file(
-        &procurement_overlay_path("checkpoint.schema.json"),
-    )?)?;
+    let checkpoint_schema: Value = serde_json::from_str(&read_repo_file(&overlay_path(
+        fixture,
+        "checkpoint.schema.json",
+    ))?)?;
     ensure!(
         checkpoint_schema
             .pointer("/properties/kind/const")
             .and_then(Value::as_str)
-            == Some("procurement_ingestion_overlay_checkpoint"),
+            == Some(fixture.checkpoint_kind),
         "checkpoint schema has the wrong checkpoint kind"
     );
     Ok(())
 }
 
-fn assert_procurement_overlay_canaries() -> Result<()> {
-    let canaries = read_repo_file(&procurement_overlay_path("canary.inputs.jsonl"))?;
+fn assert_overlay_canaries(fixture: &OverlaySkillFixture<'_>) -> Result<()> {
+    let canaries = read_repo_file(&overlay_path(fixture, "canary.inputs.jsonl"))?;
     let mut corpora = BTreeSet::new();
     let mut checks = BTreeSet::new();
     for line in canaries.lines().filter(|line| !line.trim().is_empty()) {
@@ -1800,20 +1839,21 @@ fn assert_procurement_overlay_canaries() -> Result<()> {
                 "pairwise".to_owned(),
                 "weird-valid".to_owned(),
             ]),
-        "procurement overlay canaries did not cover the required corpora"
+        "{} overlay canaries did not cover the required corpora",
+        fixture.label
     );
-    for check in PROCUREMENT_DOMAIN_CHECKS {
+    for &check in fixture.domain_checks {
         ensure!(checks.contains(check), "canaries missing `{check}`");
     }
     Ok(())
 }
 
-fn assert_procurement_overlay_golden_and_rubric() -> Result<()> {
-    let golden = read_repo_file(&procurement_overlay_path("golden.assertions.yaml"))?;
-    let rubric = read_repo_file(&procurement_overlay_path("validator-rubric.yaml"))?;
+fn assert_overlay_golden_and_rubric(fixture: &OverlaySkillFixture<'_>) -> Result<()> {
+    let golden = read_repo_file(&overlay_path(fixture, "golden.assertions.yaml"))?;
+    let rubric = read_repo_file(&overlay_path(fixture, "validator-rubric.yaml"))?;
     let _: serde_yaml::Value = serde_yaml::from_str(&golden)?;
     let _: serde_yaml::Value = serde_yaml::from_str(&rubric)?;
-    for check in PROCUREMENT_DOMAIN_CHECKS {
+    for &check in fixture.domain_checks {
         ensure!(
             golden.contains(check),
             "golden assertions missing `{check}`"
@@ -1821,6 +1861,17 @@ fn assert_procurement_overlay_golden_and_rubric() -> Result<()> {
         ensure!(rubric.contains(check), "rubric missing `{check}`");
     }
     Ok(())
+}
+
+fn assert_overlay_contract(fixture: &OverlaySkillFixture<'_>) -> Result<()> {
+    println!("[ASSERT] overlay declares the six-file contract and references");
+    assert_overlay_required_files(fixture)?;
+    assert_overlay_frontmatter(fixture)?;
+
+    println!("[ASSERT] schemas, canaries, golden assertions, and rubric cover domain checks");
+    assert_overlay_schema_covers_domain_checks(fixture)?;
+    assert_overlay_canaries(fixture)?;
+    assert_overlay_golden_and_rubric(fixture)
 }
 
 fn bail_with_conflict<T>(message: &str, conflict: &impl std::fmt::Debug) -> Result<T> {
@@ -2141,16 +2192,20 @@ fn l4_t_sqlite_supabase_sync_058_procurement_ingestion_overlay_contract() -> Res
     println!("[TEST_START] L4-T-sqlite_supabase_sync-058");
     println!("[SETUP] procurement-ingestion overlay fixture");
 
-    println!("[ASSERT] overlay declares the six-file contract and references");
-    assert_procurement_overlay_required_files()?;
-    assert_procurement_overlay_frontmatter()?;
-
-    println!("[ASSERT] schemas, canaries, golden assertions, and rubric cover domain checks");
-    assert_procurement_overlay_schema_covers_domain_checks()?;
-    assert_procurement_overlay_canaries()?;
-    assert_procurement_overlay_golden_and_rubric()?;
+    assert_overlay_contract(&procurement_overlay_fixture())?;
 
     println!("[TEST_END] L4-T-sqlite_supabase_sync-058 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_059_supplier_enrichment_overlay_contract() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-059");
+    println!("[SETUP] supplier-enrichment overlay fixture");
+
+    assert_overlay_contract(&supplier_overlay_fixture())?;
+
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-059 PASS");
     Ok(())
 }
 

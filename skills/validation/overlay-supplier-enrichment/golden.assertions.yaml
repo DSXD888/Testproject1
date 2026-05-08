@@ -1,0 +1,69 @@
+cases:
+  - case_id: supp-enr-clean-real-001
+    expected_verdict: approved
+    expected_basis_sufficiency: high
+    required_domain_checks:
+      - price_plausibility
+      - currency_correctness
+      - pack_basis_consistency
+      - seller_diversity
+      - listing_freshness
+      - regulated_goods_compliance_evidence
+    required_issue_categories: []
+    provenance: clean-real
+  - case_id: supp-enr-weird-valid-001
+    expected_verdict: approved
+    expected_basis_sufficiency: medium
+    required_domain_checks:
+      - price_plausibility
+      - currency_correctness
+      - pack_basis_consistency
+      - listing_freshness
+    allowed_issue_categories:
+      - pack_basis_consistency
+      - listing_freshness
+    provenance: weird-valid
+  - case_id: supp-enr-mutated-bad-001
+    expected_verdict: rejected
+    expected_basis_sufficiency: high
+    required_domain_checks:
+      - price_plausibility
+      - currency_correctness
+      - pack_basis_consistency
+      - seller_diversity
+      - listing_freshness
+      - regulated_goods_compliance_evidence
+    required_issue_categories:
+      - price_plausibility
+      - currency_correctness
+      - pack_basis_consistency
+      - seller_diversity
+      - listing_freshness
+      - regulated_goods_compliance_evidence
+    provenance: mutated-bad
+  - case_id: supp-enr-pairwise-pack-currency-001
+    expected_verdict: rejected
+    expected_basis_sufficiency: high
+    pair_id: supp-enr-pack-currency-pair-001
+    required_domain_checks:
+      - currency_correctness
+      - pack_basis_consistency
+      - price_plausibility
+    required_issue_categories:
+      - currency_correctness
+      - pack_basis_consistency
+    provenance: pairwise
+
+calibration_targets:
+  mutated_bad_catch_rate_min_bps: 9000
+  clean_real_approval_min_bps: 9500
+  false_positive_rate_max_bps: 500
+  wilson_confidence_bps: 9500
+
+domain_check_inventory:
+  - price_plausibility
+  - currency_correctness
+  - pack_basis_consistency
+  - seller_diversity
+  - listing_freshness
+  - regulated_goods_compliance_evidence
