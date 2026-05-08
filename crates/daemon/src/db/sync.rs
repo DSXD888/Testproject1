@@ -120,6 +120,46 @@ pub struct FencedPullOutcome {
     pub applied_entity_ids: Vec<String>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SyncCycleTrigger {
+    Startup,
+    Scheduled,
+    Manual,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SyncHealth {
+    Healthy,
+    Degraded,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SyncCyclePhase {
+    RemotePullCompleted(PullCursorDomain),
+    RemotePullFailed(PullCursorDomain),
+    PendingIntentReconciled,
+    CasFlushed,
+    PushDispatched,
+    CrossAuthorityDispatchPaused,
+    LocalOperationContinues,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SyncCycleOutcome {
+    pub trigger: SyncCycleTrigger,
+    pub sync_health: SyncHealth,
+    pub phases: Vec<SyncCyclePhase>,
+    pub cas_flush_allowed: bool,
+    pub push_dispatch_allowed: bool,
+    pub local_operation_available: bool,
+    pub pull_failure: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SyncCycle {
+    remote_domains: Vec<PullCursorDomain>,
+}
+
 #[derive(Clone, Debug)]
 pub struct SupabaseRpcClient {
     api_url: String,
@@ -658,6 +698,83 @@ impl PullCursorStore {
             page_boundaries,
             applied_remote_change_seqs,
             applied_entity_ids,
+        })
+    }
+}
+
+impl Default for SyncCycle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SyncCycle {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            remote_domains: PullCursorDomain::all().to_vec(),
+        }
+    }
+
+    pub fn with_remote_domains(remote_domains: Vec<PullCursorDomain>) -> Result<Self> {
+        ensure!(
+            !remote_domains.is_empty(),
+            "sync cycle requires at least one remote-owned pull domain"
+        );
+        Ok(Self { remote_domains })
+    }
+
+    pub fn run<PullRemote, ReconcilePendingIntents, FlushCas, DispatchPush>(
+        &self,
+        trigger: SyncCycleTrigger,
+        mut pull_remote: PullRemote,
+        mut reconcile_pending_intents: ReconcilePendingIntents,
+        mut flush_cas: FlushCas,
+        mut dispatch_push: DispatchPush,
+    ) -> Result<SyncCycleOutcome>
+    where
+        PullRemote: FnMut(PullCursorDomain) -> Result<()>,
+        ReconcilePendingIntents: FnMut() -> Result<()>,
+        FlushCas: FnMut() -> Result<()>,
+        DispatchPush: FnMut() -> Result<()>,
+    {
+        let mut phases = Vec::with_capacity(self.remote_domains.len() + 3);
+        for &domain in &self.remote_domains {
+            match pull_remote(domain) {
+                Ok(()) => phases.push(SyncCyclePhase::RemotePullCompleted(domain)),
+                Err(error) => {
+                    phases.push(SyncCyclePhase::RemotePullFailed(domain));
+                    phases.push(SyncCyclePhase::CrossAuthorityDispatchPaused);
+                    phases.push(SyncCyclePhase::LocalOperationContinues);
+                    return Ok(SyncCycleOutcome {
+                        trigger,
+                        sync_health: SyncHealth::Degraded,
+                        phases,
+                        cas_flush_allowed: false,
+                        push_dispatch_allowed: false,
+                        local_operation_available: true,
+                        pull_failure: Some(error.to_string()),
+                    });
+                }
+            }
+        }
+
+        reconcile_pending_intents()
+            .context("reconciling pending operator intents after remote-owned pulls")?;
+        phases.push(SyncCyclePhase::PendingIntentReconciled);
+        flush_cas().context("flushing CAS commands after remote-owned pulls")?;
+        phases.push(SyncCyclePhase::CasFlushed);
+        dispatch_push().context("dispatching push batches after remote-owned pulls")?;
+        phases.push(SyncCyclePhase::PushDispatched);
+
+        Ok(SyncCycleOutcome {
+            trigger,
+            sync_health: SyncHealth::Healthy,
+            phases,
+            cas_flush_allowed: true,
+            push_dispatch_allowed: true,
+            local_operation_available: true,
+            pull_failure: None,
         })
     }
 }

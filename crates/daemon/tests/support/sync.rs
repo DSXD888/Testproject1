@@ -4,7 +4,7 @@
 #[path = "../../src/db/sync.rs"]
 mod sync_impl;
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result, bail, ensure};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde_json::{Value, json};
 
@@ -16,8 +16,9 @@ pub use sync_impl::SupabaseRpcClient;
 pub use sync_impl::{
     BatchEnvelope, BatchEnvelopeAssembler, FencedPullOutcome, FencedPullPageBoundary, OutboxOp,
     OutboxWriter, PullCursor, PullCursorDomain, PullCursorStore, PushBatchApplyResponse,
-    RemoteOwnedChange, WriterBindingConfig, WriterBindingMode, WriterLease,
-    WriterLeaseAcquireResult, canonical_content_hash,
+    RemoteOwnedChange, SyncCycle, SyncCycleOutcome, SyncCyclePhase, SyncCycleTrigger, SyncHealth,
+    WriterBindingConfig, WriterBindingMode, WriterLease, WriterLeaseAcquireResult,
+    canonical_content_hash,
 };
 
 const DEFAULT_EXECUTOR_ID: &str = "l4-sync-test-executor";
@@ -590,6 +591,70 @@ impl PullCursorHarness {
         stmt.query_map(params![domain.as_str()], |row| row.get(0))?
             .collect::<std::result::Result<Vec<_>, _>>()
             .context("listing remote-owned fixture change history")
+    }
+
+    pub fn run_sync_cycle(&self, trigger: SyncCycleTrigger) -> Result<SyncCycleOutcome> {
+        SyncCycle::new().run(
+            trigger,
+            |domain| {
+                self.pull_fenced(domain, 100)?;
+                Ok(())
+            },
+            || Ok(()),
+            || Ok(()),
+            || Ok(()),
+        )
+    }
+
+    pub fn run_sync_cycle_with_pull_failure(
+        &self,
+        trigger: SyncCycleTrigger,
+        failed_domain: PullCursorDomain,
+    ) -> Result<SyncCycleOutcome> {
+        SyncCycle::new().run(
+            trigger,
+            |domain| {
+                if domain == failed_domain {
+                    bail!("simulated remote pull failure for {}", domain.as_str());
+                }
+                self.pull_fenced(domain, 100)?;
+                Ok(())
+            },
+            || Ok(()),
+            || Ok(()),
+            || Ok(()),
+        )
+    }
+
+    pub fn write_local_process_marker(&self, process_id: &str) -> Result<()> {
+        self.conn
+            .execute(
+                "\
+                INSERT INTO procurement_processes (
+                  id, current_stage, title, latest_published_at, latest_updated_at, owner_id,
+                  row_version, stage_run_id
+                ) VALUES (?1, 'qualification', 'L4 local degraded marker',
+                          '2026-05-08T00:00:00Z', '2026-05-08T00:00:00Z',
+                          'local-owner', 1, 'l4-degraded-local-op')
+                ",
+                params![process_id],
+            )
+            .context("writing local process marker")?;
+        Ok(())
+    }
+
+    pub fn local_process_exists(&self, process_id: &str) -> Result<bool> {
+        let exists = self
+            .conn
+            .query_row(
+                "SELECT 1 FROM procurement_processes WHERE id = ?1",
+                params![process_id],
+                |_| Ok(()),
+            )
+            .optional()
+            .context("checking local process marker")?
+            .is_some();
+        Ok(exists)
     }
 
     fn append_remote_owned_change(

@@ -15,8 +15,9 @@ use tokio::task::JoinHandle;
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 use support::sync::{
     EnforcementHarness, OutboxHarness, PullCursorDomain, PullCursorHarness, PushOwnedFixture,
-    SupabaseRpcClient, WriterBindingConfig, WriterBindingMode, WriterLeaseAcquireResult,
-    WriterLeaseHarness, canonical_content_hash, parse_payload,
+    SupabaseRpcClient, SyncCyclePhase, SyncCycleTrigger, SyncHealth, WriterBindingConfig,
+    WriterBindingMode, WriterLeaseAcquireResult, WriterLeaseHarness, canonical_content_hash,
+    parse_payload,
 };
 
 #[test]
@@ -1229,6 +1230,107 @@ fn l4_t_sqlite_supabase_sync_027_remote_change_seq_is_monotonic_and_non_reused_p
     );
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-027 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_028_cycle_pulls_before_reconcile_cas_and_push() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-028");
+    println!("[SETUP] seed remote-owned changes for all pull domains");
+    let state_db = L4TestStateDb::new()?;
+    let harness = PullCursorHarness::new(&state_db)?;
+    for domain in PullCursorDomain::all() {
+        harness.seed_remote_owned_change(
+            domain,
+            &format!("{}-fixture", domain.as_str()),
+            &json!({"domain": domain.as_str()}),
+        )?;
+    }
+
+    println!("[EXEC] run startup and scheduled sync cycles");
+    let startup = harness.run_sync_cycle(SyncCycleTrigger::Startup)?;
+    let scheduled = harness.run_sync_cycle(SyncCycleTrigger::Scheduled)?;
+
+    println!("[ASSERT] every cycle orders all remote pulls before intent/CAS/push stages");
+    for outcome in [startup, scheduled] {
+        ensure!(
+            outcome.sync_health == SyncHealth::Healthy,
+            "successful pull-before-push cycle did not report healthy: {outcome:?}"
+        );
+        ensure!(
+            outcome.cas_flush_allowed && outcome.push_dispatch_allowed,
+            "successful pull-before-push cycle did not allow downstream dispatch: {outcome:?}"
+        );
+        ensure!(
+            outcome.phases
+                == [
+                    SyncCyclePhase::RemotePullCompleted(PullCursorDomain::SharedSourceConfigs),
+                    SyncCyclePhase::RemotePullCompleted(PullCursorDomain::SharedCompanyProfile),
+                    SyncCyclePhase::RemotePullCompleted(PullCursorDomain::OperatorDecisionHeads),
+                    SyncCyclePhase::PendingIntentReconciled,
+                    SyncCyclePhase::CasFlushed,
+                    SyncCyclePhase::PushDispatched,
+                ],
+            "sync cycle phases violated pull-before-push ordering: {outcome:?}"
+        );
+    }
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-028 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_029_pull_failure_pauses_cross_authority_dispatch_only() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-029");
+    println!("[SETUP] initialize pull cursor harness with one source-config change");
+    let state_db = L4TestStateDb::new()?;
+    let harness = PullCursorHarness::new(&state_db)?;
+    harness.seed_remote_owned_change(
+        PullCursorDomain::SharedSourceConfigs,
+        "source-before-failure",
+        &json!({"source_id": "source-before-failure"}),
+    )?;
+
+    println!("[EXEC] fail the company-profile pull during a manual sync cycle");
+    let degraded = harness.run_sync_cycle_with_pull_failure(
+        SyncCycleTrigger::Manual,
+        PullCursorDomain::SharedCompanyProfile,
+    )?;
+
+    println!("[ASSERT] CAS/push dispatch are paused and local SQLite operation stays available");
+    ensure!(
+        degraded.sync_health == SyncHealth::Degraded,
+        "pull failure did not mark the sync cycle degraded: {degraded:?}"
+    );
+    ensure!(
+        !degraded.cas_flush_allowed && !degraded.push_dispatch_allowed,
+        "cross-authority dispatch continued after pull failure: {degraded:?}"
+    );
+    ensure!(
+        degraded.local_operation_available,
+        "local operation was not preserved in degraded mode: {degraded:?}"
+    );
+    ensure!(
+        degraded.phases
+            == [
+                SyncCyclePhase::RemotePullCompleted(PullCursorDomain::SharedSourceConfigs),
+                SyncCyclePhase::RemotePullFailed(PullCursorDomain::SharedCompanyProfile),
+                SyncCyclePhase::CrossAuthorityDispatchPaused,
+                SyncCyclePhase::LocalOperationContinues,
+            ],
+        "pull failure phases did not stop before reconciliation/CAS/push: {degraded:?}"
+    );
+
+    println!("[EXEC] write a local process row after degraded sync");
+    harness.write_local_process_marker("l4-local-write-during-degraded-sync")?;
+
+    println!("[ASSERT] local SQLite writes still succeed while cross-authority dispatch is paused");
+    ensure!(
+        harness.local_process_exists("l4-local-write-during-degraded-sync")?,
+        "local SQLite operation was blocked by degraded sync state"
+    );
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-029 PASS");
     Ok(())
 }
 
