@@ -48,10 +48,11 @@ After reading, you should be able to answer: *what is the Rust-binary equivalent
 
 ## 4. The Edit
 
-### Current content of each file (verbatim, lines 180-200 of CHECKLIST.md and lines 270-290 of WORKFLOW.md)
+### Current content of each file (verbatim — verify with your own `grep` before editing)
 
-CHECKLIST.md context (around line 184):
-```markdown
+The stale block lives in a Troubleshooting section near the end of each file. Use `~~~` (tilde) fences below to avoid nested-backtick rendering issues:
+
+~~~markdown
 **DO NOT start executing beads. This is SETUP ONLY.**
 
 ---
@@ -65,9 +66,22 @@ cd apps/mail && uv run python -m mcp_agent_mail.http --port 8765
 
 ### CLI schema mismatch
 If CLI commands fail with "no such column" errors, use SQL instead. See WORKFLOW.md step 1.4.
+~~~
+
+WORKFLOW.md has the equivalent block (around line 275) under its own Troubleshooting heading.
+
+**Verify the surrounding context yourself before editing** — run:
+
+```bash
+for cli in claude codex; do
+  for f in CHECKLIST.md WORKFLOW.md; do
+    echo "=== ~/.${cli}/skills/beads-to-execution/${f} ==="
+    grep -n -B 2 -A 4 "mcp_agent_mail.http" ~/.${cli}/skills/beads-to-execution/${f}
+  done
+done
 ```
 
-WORKFLOW.md has the same code block (line 275) under a similar troubleshooting heading. The two files are byte-identical in this region (verified during the original Phase A research).
+This shows you exactly what's around each stale line in all 4 files, so you can confirm the edit target before committing to the change.
 
 ### Required edit (apply identically to ALL 4 files)
 
@@ -195,5 +209,5 @@ Next handoff queued: prompts/install-bead-wrappers-skill-handoff.md
 2. **DO NOT create new files.** Edit in place.
 3. **DO maintain dual-CLI symmetry.** Both CLI dirs must end with the same content for the edited files.
 4. **DO NOT scope-creep.** If you find OTHER stale references (e.g., to `mcp_agent_mail` in some unrelated context), note them in your report but do not fix them in this handoff. Each fix gets its own scoped change.
-5. **NEVER stash other agents' work** — if any of your skill files were modified by another agent during this session, treat their changes as legitimate; merge gracefully or ask before overwriting.
-6. **NEVER use `git reset --hard` or `git push --force`** — see AGENTS.md "Irreversible Git Actions".
+5. **No MCP tool calls needed.** This is pure file editing. You don't need to register with AgentMail, send messages, claim beads, or invoke any MCP tools. The whole task is local-disk text edits.
+6. **CHECKPOINT after each phase.** After (a) reading the 4 files, (b) editing them, (c) running the verification suite — pause and report progress to the user before moving on. Even for a 5-min task, visible incremental progress is better than a single end-of-task report.

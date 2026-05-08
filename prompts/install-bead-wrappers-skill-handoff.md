@@ -243,9 +243,12 @@ SKILL_DIR="<the skill's own directory — see Implementation Notes §6a>"
 # ----- Step 1 — Pre-flight (fail-hard if any of these fail) -----
 command -v am >/dev/null         || die "am binary not on PATH; install mcp_agent_mail_rust"
 test -d "$PROJECT_ROOT/.git"     || die "not a git repo: $PROJECT_ROOT"
-curl -s --max-time 3 http://127.0.0.1:8765/healthz | grep -q alive \
+# Strict server check — `grep -q alive` would also match e.g. {"status":"recently_alive_now_dead"}
+curl -s --max-time 3 http://127.0.0.1:8765/healthz | grep -q '"status":"alive"' \
                                  || die "agent-mail server not reachable; run: am serve-http --port 8765 &"
-[ -n "$AGENT_NAME" ]             || die "AGENT_NAME env var not set"
+# The wrappers prefer AGENT_MAIL_NAME (per their docstrings) but fall back to AGENT_NAME.
+# Require at least one to be set:
+[ -n "${AGENT_MAIL_NAME:-$AGENT_NAME}" ] || die "neither AGENT_MAIL_NAME nor AGENT_NAME env var is set"
 test -f "$SKILL_DIR/assets/br-claim"     || die "skill asset missing: br-claim"
 test -f "$SKILL_DIR/assets/br-complete"  || die "skill asset missing: br-complete"
 test -f "$SKILL_DIR/assets/agents-md-rule-2.md" || die "skill asset missing: agents-md-rule-2.md"
@@ -260,7 +263,7 @@ chmod +x "$PROJECT_ROOT/bin/br-claim" "$PROJECT_ROOT/bin/br-complete"
 "$PROJECT_ROOT/bin/br-claim"    --help >/dev/null 2>&1 || die "bin/br-claim --help failed post-install"
 "$PROJECT_ROOT/bin/br-complete" --help >/dev/null 2>&1 || die "bin/br-complete --help failed post-install"
 
-echo "CHECKPOINT 2: wrappers installed ($(wc -l < $PROJECT_ROOT/bin/br-claim) + $(wc -l < $PROJECT_ROOT/bin/br-complete) lines)"
+echo "CHECKPOINT 2: wrappers installed ($(wc -l < "$PROJECT_ROOT/bin/br-claim") + $(wc -l < "$PROJECT_ROOT/bin/br-complete") lines)"
 
 # ----- Step 3 — Install AGENTS.md Rule 2 (idempotent) -----
 AGENTS_MD="$PROJECT_ROOT/AGENTS.md"
@@ -269,6 +272,13 @@ if [ ! -f "$AGENTS_MD" ]; then
 # AGENTS.md
 
 > Guidelines for AI coding agents working in this codebase.
+
+> NOTE: this file was bootstrapped by the `install-bead-wrappers` skill with
+> only Rule 2 below. You SHOULD add project-specific constitutional rules
+> (e.g., Rule 1 — no file deletion, Stage Validation Test Gate, branching
+> policy, toolchain matrix) for your project's needs. Rule 2 is intentionally
+> the only rule this skill installs — it's a starting point, not a complete
+> AGENTS.md.
 
 EOF
 fi
@@ -313,8 +323,15 @@ AGENTS.md:   $PROJECT_ROOT/AGENTS.md  (Rule 2 present)
 Hook:        $PROJECT_ROOT/.git/hooks/hooks.d/pre-commit/50-agent-mail.py (installed via 'am guard install')
 
 Next steps for the user:
-  1. Commit the new files: git add bin/ AGENTS.md && git commit -m "chore: install bead wrappers + AGENTS.md Rule 2"
-  2. (The hook is git-local; no commit needed for it.)
+  1. Commit the new files. The precommit hook just got installed and WILL fire on this commit.
+     The "chore:" prefix is exempt from the start-mail subcheck, but AGENT_NAME must be set in the shell:
+
+         export AGENT_NAME="\$(git config user.name)"
+         git add bin/ AGENTS.md
+         git commit -m "chore: install bead wrappers + AGENTS.md Rule 2"
+         git push
+
+  2. (The hook itself lives in .git/hooks/ which is git-local — it doesn't get committed.)
   3. Run the pre-L5-sanity-check handoff before spawning multi-agent work in this project.
 EOF
 ```
@@ -328,24 +345,52 @@ The skill's SKILL.md should adapt this procedure into prose-and-blocks form (mat
 ### 6a. SKILL_DIR discovery — CLI-aware
 
 The skill needs to know its own asset path. Two CLI cases:
-- Claude: skill dir is `~/.claude/skills/install-bead-wrappers/`
+- Claude Code: skill dir is `~/.claude/skills/install-bead-wrappers/`
 - Codex: skill dir is `~/.codex/skills/install-bead-wrappers/`
 
-The SKILL.md should NOT hardcode either path. Instead, instruct the executing agent to detect via:
+The SKILL.md should NOT hardcode either path. Three detection strategies (in order of preference):
+
+**Strategy 1 — env var (preferred if available):** Some CLIs set an env var pointing at the active skill's directory. Inspect peer skills' SKILL.md for usage of `$SKILL_DIR`, `$CLAUDE_SKILL_DIR`, `$MCP_SKILL_DIR`, etc. If any peer uses one, follow that convention.
+
+**Strategy 2 — both paths exist + byte-identical assertion:** Because dual-CLI symmetry is enforced (the assets in `~/.claude/skills/install-bead-wrappers/assets/` and `~/.codex/skills/install-bead-wrappers/assets/` are byte-identical), it doesn't matter WHICH path the install procedure reads from. Use whichever exists:
 
 ```bash
-# Detect skill dir from this skill's own path (the agent knows its CLI's skill root):
-SKILL_DIR=$(dirname "$(realpath ~/.claude/skills/install-bead-wrappers/SKILL.md 2>/dev/null || \
-                       realpath ~/.codex/skills/install-bead-wrappers/SKILL.md)")
+if [ -d "$HOME/.claude/skills/install-bead-wrappers/assets" ]; then
+    SKILL_DIR="$HOME/.claude/skills/install-bead-wrappers"
+elif [ -d "$HOME/.codex/skills/install-bead-wrappers/assets" ]; then
+    SKILL_DIR="$HOME/.codex/skills/install-bead-wrappers"
+else
+    die "install-bead-wrappers skill not found in ~/.claude/skills/ or ~/.codex/skills/"
+fi
+echo "Using skill assets from: $SKILL_DIR"
 ```
 
-Or pass the assets via a known env var the CLI sets when invoking skills. Match whatever convention the existing skills use (inspect peer skills' SKILL.md to confirm).
+This is the safe default. The user MAY have only one CLI installed; the procedure handles either.
 
-### 6b. Wrappers may have evolved between snapshot and use
+**Strategy 3 — explicit override:** Allow `INSTALL_BEAD_WRAPPERS_SKILL_DIR` env var to override (for testing or custom installs):
 
-The wrappers in `Testproject1/bin/` are the canonical version at the moment this skill is created. If they evolve later (bug fixes, new features), the skill assets become stale. Two mitigations:
-- The skill's METHODOLOGY.md should clearly state the snapshot version (e.g., "wrappers snapshot from Testproject1 commit `<sha>` on `<date>`").
-- Future skill updates can re-run this handoff: re-copy the canonical wrappers into the skill's assets, bumping the snapshot pointer.
+```bash
+SKILL_DIR="${INSTALL_BEAD_WRAPPERS_SKILL_DIR:-$SKILL_DIR}"
+```
+
+The METHODOLOGY.md should document these three strategies and which one the install procedure uses.
+
+### 6b. Wrappers may have evolved between snapshot and use — VERSION STAMPING
+
+The wrappers in `Testproject1/bin/` are the canonical version at the moment this skill is created. If they evolve later (bug fixes, new features), the skill assets become stale.
+
+**Mitigation: stamp the snapshot version explicitly in METHODOLOGY.md.** When you copy the wrappers into the skill's `assets/` directory, capture and record:
+
+```bash
+cd /Users/alinaaitova/Desktop/Testproject1
+SNAPSHOT_SHA=$(git log -1 --format=%h -- bin/br-claim bin/br-complete)
+SNAPSHOT_DATE=$(git log -1 --format=%ci -- bin/br-claim bin/br-complete)
+echo "Wrappers snapshotted from Testproject1 commit ${SNAPSHOT_SHA} (${SNAPSHOT_DATE})"
+```
+
+Bake this exact line into `METHODOLOGY.md` so future skill maintainers know when the assets were last refreshed and which upstream commit they correspond to.
+
+To refresh the skill assets to a newer wrapper version: re-run this handoff (or write a slim "refresh-bead-wrappers" sub-handoff) that re-copies `Testproject1/bin/{br-claim,br-complete}` into the skill's `assets/` and updates the METHODOLOGY.md snapshot stamp.
 
 This is acceptable because wrappers don't change often, and any project using the skill will have a working snapshot — they just may not have the latest fixes until the skill is refreshed.
 
@@ -444,13 +489,15 @@ If ANY check fails or the idempotency check shows a duplicate Rule 2: STOP. Repo
 
 ## 8. Verification (run before reporting done)
 
+The throwaway test in §7 is the **MANDATORY** acceptance test. The verification commands here are **redundant pre-flight sanity checks** — quick to run, useful to catch obvious problems before you invest time in the full §7 procedure. **Both sections must run; §7's behavioral test is non-negotiable.**
+
 ```bash
 # Asset byte-identity with canonical sources
 diff ~/.claude/skills/install-bead-wrappers/assets/br-claim    /Users/alinaaitova/Desktop/Testproject1/bin/br-claim    && echo "br-claim OK"
 diff ~/.claude/skills/install-bead-wrappers/assets/br-complete /Users/alinaaitova/Desktop/Testproject1/bin/br-complete && echo "br-complete OK"
 
 # Dual-CLI symmetry
-diff -r ~/.claude/skills/install-bead-wrappers/ ~/.codex/skills/install-bead-wrappers/
+diff -r ~/.claude/skills/install-bead-wrappers/ ~/.codex/skills/install-bead-wrappers/ && echo "dual-CLI symmetry OK"
 
 # Rule 2 markers present
 grep -q "BEGIN: AGENTS.md Rule 2" ~/.claude/skills/install-bead-wrappers/assets/agents-md-rule-2.md && echo "BEGIN marker OK"
@@ -458,19 +505,9 @@ grep -q "END: AGENTS.md Rule 2"   ~/.claude/skills/install-bead-wrappers/assets/
 
 # YAML frontmatter on SKILL.md
 head -5 ~/.claude/skills/install-bead-wrappers/SKILL.md   # should show frontmatter
-
-# Throwaway test repo round-trip (only run if you're set up to do this)
-cd /tmp && rm -rf install-bead-wrappers-test
-mkdir install-bead-wrappers-test && cd install-bead-wrappers-test && git init
-# ... follow the SKILL.md workflow manually ...
-test -x bin/br-claim && echo "wrapper executable OK"
-test -x bin/br-complete && echo "wrapper executable OK"
-grep -q "RULE NUMBER 2" AGENTS.md && echo "Rule 2 OK"
-test -f .git/hooks/hooks.d/pre-commit/50-agent-mail.py && echo "hook OK"
-cd /tmp && rm -rf install-bead-wrappers-test
 ```
 
-If the throwaway test step is too involved for this session, document it as "tested manually post-create" or queue it for the pre-L5 sanity-check handoff.
+**Then run the full §7 throwaway test** — it is mandatory and not optional. If you have any reason to think you can't run it (no /tmp write permission, no spare time, etc.), STOP and ask the user before reporting done. A skill that hasn't been behaviorally tested is not a deliverable.
 
 ---
 

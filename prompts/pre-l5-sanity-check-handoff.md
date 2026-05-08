@@ -73,32 +73,52 @@ In this order:
 
 ## 4. Pre-Flight (fail-hard if any of these fail)
 
+Run each check below and pause on any failure. **Do not use `exit 1` inside an inline shell snippet** — it would terminate your bash tool's session. Instead, observe the output and STOP-and-report if anything is wrong.
+
 ```bash
 cd /Users/alinaaitova/Desktop/Testproject1
 
 # A. Working tree must be CLEAN
-git status --porcelain | grep -q . && { echo "ABORT: working tree dirty"; exit 1; } || echo "tree clean OK"
+if [ -n "$(git status --porcelain)" ]; then
+  echo "ABORT: working tree dirty:"
+  git status --short
+  # STOP and report — do not proceed
+else
+  echo "✓ tree clean"
+fi
 
 # B. Wrappers exist + executable
-test -x bin/br-claim    && echo "br-claim OK"
-test -x bin/br-complete && echo "br-complete OK"
+test -x bin/br-claim    || { echo "ABORT: bin/br-claim missing or not executable"; }
+test -x bin/br-complete || { echo "ABORT: bin/br-complete missing or not executable"; }
+echo "✓ wrappers present"
 
 # C. Hook present and Phase B markers in it
-grep -q "check_start_mail_for_bead_commits" .git/hooks/hooks.d/pre-commit/50-agent-mail.py && echo "Phase B marker OK"
+grep -q "check_start_mail_for_bead_commits" .git/hooks/hooks.d/pre-commit/50-agent-mail.py \
+  && echo "✓ Phase B marker present in hook" \
+  || echo "ABORT: Phase B marker missing — hook not extended"
 
-# D. Server reachable
-curl -s --max-time 3 http://127.0.0.1:8765/healthz | grep -q alive && echo "server OK"
+# D. Server reachable (strict — match exact alive payload, not just substring)
+curl -s --max-time 3 http://127.0.0.1:8765/healthz | grep -q '"status":"alive"' \
+  && echo "✓ agent-mail server alive" \
+  || echo "ABORT: agent-mail server not alive at 127.0.0.1:8765 — restart with: am serve-http --port 8765 &"
 
-# E. Env vars set
-[ -n "$AGENT_NAME" ] && echo "AGENT_NAME=$AGENT_NAME OK"
-[ -n "$AGENT_MAIL_NAME" ] && echo "AGENT_MAIL_NAME=$AGENT_MAIL_NAME OK"
+# E. Env vars set (fail-loud)
+if [ -z "$AGENT_NAME" ]; then echo "ABORT: AGENT_NAME not set"; else echo "✓ AGENT_NAME=$AGENT_NAME"; fi
+if [ -z "$AGENT_MAIL_NAME" ]; then echo "ABORT: AGENT_MAIL_NAME not set"; else echo "✓ AGENT_MAIL_NAME=$AGENT_MAIL_NAME"; fi
 
-# F. Git remote sync
-git fetch && git status -sb
-# Expected: "## main...origin/main" with no ahead/behind
+# F. Git remote sync — fail-loud
+git fetch
+ah=$(git rev-list --left-right --count origin/main...HEAD)
+behind=$(echo $ah | awk '{print $1}')
+ahead=$(echo  $ah | awk '{print $2}')
+if [ "$behind" = "0" ] && [ "$ahead" = "0" ]; then
+  echo "✓ in sync with origin/main"
+else
+  echo "ABORT: not in sync (behind=$behind, ahead=$ahead) — pull/push first"
+fi
 ```
 
-If any line fails, STOP. Report which check failed and the exit code/message.
+**CHECKPOINT pre-flight:** report to the user — if any line above printed `ABORT:`, STOP and ask for guidance. Otherwise proceed to §5.
 
 ---
 
@@ -106,14 +126,16 @@ If any line fails, STOP. Report which check failed and the exit code/message.
 
 We need a real bead in the `br` store to test against. Use a unique label so it can't collide with real work.
 
+Create the bead AND capture its ID in one step (using `--json` output and `jq`):
+
 ```bash
-br create \
+SMOKE_BEAD=$(br create \
   --title="L5 mail-discipline sanity check" \
   --type=task \
   --priority=4 \
   --description="$(cat <<'EOF'
 Throwaway bead for verifying bin/br-claim and bin/br-complete work end-to-end
-before spawning the L5 swarm. Will be claimed, trivially "implemented" by
+before spawning the L5 swarm. Will be claimed, trivially implemented by
 appending one line to docs/scratch-smoke-test.md, and closed within minutes.
 
 ## Files to Create/Modify
@@ -126,23 +148,35 @@ appending one line to docs/scratch-smoke-test.md, and closed within minutes.
 - Trivial commit lands with bead-id prefix
 - bin/br-complete succeeds with no errors
 - Complete mail visible in archive
-- bead transitions open → in_progress → closed
+- bead transitions open -> in_progress -> closed
 - File reservation released
 EOF
 )" \
-  --labels=smoke-test
+  --labels=smoke-test \
+  --json | jq -r '.id')
+
+# Fallback if jq isn't installed:
+#   br create ... --json   # then manually parse the {"id":"..."} field
+#   OR run `br ready --label=smoke-test --json` immediately after creation
+#   to grep the new bead's id.
+
+echo "Smoke test bead: $SMOKE_BEAD"
+test -n "$SMOKE_BEAD" || { echo "ABORT: failed to capture bead ID"; }
 ```
 
-Capture the bead ID returned (e.g. `testproject1-xyzN`). Save it for the rest of the procedure:
+Sync and commit the new bead (this commit uses the exempt `beads:` prefix, so the precommit hook does NOT require a Start mail — but it DOES require `AGENT_NAME` to be set in the shell, which §4 already verified):
 
 ```bash
-SMOKE_BEAD=<the-id-returned>
-echo "Smoke test bead: $SMOKE_BEAD"
+bin/br-sync
+git add .beads/
+git commit -m "beads: create $SMOKE_BEAD smoke-test"
+git pull --rebase
+git push
 ```
 
-`bin/br-sync && git add .beads/ && git commit -m "beads: create $SMOKE_BEAD smoke-test" && git pull --rebase && git push`
+> **From this point forward, every `git commit` you run goes through the precommit hook.** The hook always requires `AGENT_NAME`. Commits with `<bead-id>:` prefix additionally require a corresponding `[<bead-id>] Start` mail in the archive (4-hour lookback). Commits with exempt prefixes (`beads:`, `wip:`, `chore:`, `docs:`, `fix:`, `feat:`, `test:`, `refactor:`) skip the Start-mail check.
 
-(This commit doesn't have a bead-id-prefix, it has the `beads:` exempt prefix, so the precommit hook won't demand a Start mail for it.)
+**CHECKPOINT smoke-bead-created:** report to the user — bead ID, status (should be `open`), label (`smoke-test`).
 
 ---
 
@@ -275,7 +309,9 @@ git push
 bin/br-complete "$SMOKE_BEAD"
 ```
 
-**Expected:** Wrapper exits 0. Verify all five post-conditions:
+**Expected:** Wrapper exits 0. **Note:** `bin/br-complete` performs its own internal `bin/br-sync && git add .beads/ && git commit -m "beads: close ..." && git pull --rebase && git push`. So even though step 6e already pushed your code commit, expect to see ANOTHER `git push` happen inside `br-complete` — that's it pushing the bead closure to `.beads/`. Both pushes are correct and expected.
+
+Verify all five post-conditions:
 
 ```bash
 # 1. Bead status is closed
@@ -301,10 +337,13 @@ search_messages(
 
 **Expected:** at least one message, sender = your agent_name, subject `[<SMOKE_BEAD>] Complete: ...`, body mentioning the commit hash.
 
+**5. File reservations released:** check via the `am` CLI (the MCP layer doesn't expose a "list active reservations" tool):
+
+```bash
+am file_reservations 2>&1 | grep "$SMOKE_BEAD" || echo "✓ no active reservations referencing $SMOKE_BEAD"
 ```
-# 5. File reservations released — check via mail tool
-list_contacts / list_active_reservations
-```
+
+(If a reservation referencing the smoke bead is still listed, `bin/br-complete` failed to release. Note this in your report.)
 
 If `bin/br-complete` fails or any verification fails: **STOP**, but in this case the bead is already in flight so do NOT abandon it. Mid-flow recovery procedure (in this exact order):
 
@@ -392,7 +431,10 @@ Old smoke-test beads from previous runs of this handoff will be visible via `br 
 
 ```bash
 # Smoke bead final state
+# Preferred (with jq):
 br show "$SMOKE_BEAD" --json | jq -r '..|objects|select(.id=="'"$SMOKE_BEAD"'")|"id=\(.id) status=\(.status) updated=\(.updated_at)"' | head -1
+# Fallback if jq is not installed:
+#   br show "$SMOKE_BEAD" --json | grep -E '"(id|status|updated_at)"' | head -3
 
 # Working tree clean
 git status -sb
