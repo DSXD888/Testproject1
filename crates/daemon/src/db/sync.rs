@@ -6,6 +6,7 @@ use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const DEFAULT_EXECUTOR_ID: &str = "local-daemon";
 const WRITER_LEASE_HEARTBEAT_INTERVAL_SECS: i64 = 30;
@@ -131,6 +132,61 @@ pub enum SyncCycleTrigger {
 pub enum SyncHealth {
     Healthy,
     Degraded,
+    Offline,
+}
+
+impl SyncHealth {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Healthy => "healthy",
+            Self::Degraded => "degraded",
+            Self::Offline => "offline",
+        }
+    }
+
+    #[must_use]
+    pub const fn from_last_success(
+        now_epoch_secs: i64,
+        last_success_epoch_secs: Option<i64>,
+        daemon_online: bool,
+    ) -> Self {
+        if !daemon_online {
+            return Self::Offline;
+        }
+        let Some(last_success_epoch_secs) = last_success_epoch_secs else {
+            return Self::Offline;
+        };
+        let age_secs = now_epoch_secs.saturating_sub(last_success_epoch_secs);
+        if age_secs < 90 {
+            Self::Healthy
+        } else if age_secs <= 300 {
+            Self::Degraded
+        } else {
+            Self::Offline
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ViewerSyncStatus {
+    pub org_id: String,
+    pub sync_health: SyncHealth,
+    pub last_push_success_at_epoch_secs: Option<i64>,
+    pub last_push_attempt_at_epoch_secs: Option<i64>,
+    pub last_acked_local_seq: Option<i64>,
+    pub pending_outbox_count: i64,
+    pub schema_epoch: i64,
+    pub projection_generation: i64,
+    pub daemon_version: String,
+    pub updated_at_epoch_secs: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ViewerSyncStatusWriter {
+    org_id: String,
+    schema_epoch: i64,
+    daemon_version: String,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -800,6 +856,123 @@ impl SyncCycle {
     }
 }
 
+impl ViewerSyncStatusWriter {
+    pub fn new(
+        org_id: impl Into<String>,
+        schema_epoch: i64,
+        daemon_version: impl Into<String>,
+    ) -> Result<Self> {
+        let org_id = org_id.into();
+        let daemon_version = daemon_version.into();
+        ensure_non_empty("org_id", &org_id)?;
+        ensure!(schema_epoch > 0, "schema_epoch must be positive");
+        ensure_non_empty("daemon_version", &daemon_version)?;
+        Ok(Self {
+            org_id,
+            schema_epoch,
+            daemon_version,
+        })
+    }
+
+    pub fn for_default_org(schema_epoch: i64) -> Result<Self> {
+        Self::new("default", schema_epoch, env!("CARGO_PKG_VERSION"))
+    }
+
+    pub fn record_apply_success(
+        &self,
+        conn: &Connection,
+        now_epoch_secs: i64,
+        last_acked_local_seq: i64,
+        projection_generation: i64,
+    ) -> Result<ViewerSyncStatus> {
+        ensure!(now_epoch_secs >= 0, "now_epoch_secs must be non-negative");
+        ensure!(
+            last_acked_local_seq > 0,
+            "last_acked_local_seq must be positive"
+        );
+        ensure!(
+            projection_generation >= 0,
+            "projection_generation must be non-negative"
+        );
+        let pending_outbox_count = pending_outbox_count(conn)?;
+        upsert_viewer_sync_status(
+            conn,
+            &ViewerSyncStatus {
+                org_id: self.org_id.clone(),
+                sync_health: SyncHealth::Healthy,
+                last_push_success_at_epoch_secs: Some(now_epoch_secs),
+                last_push_attempt_at_epoch_secs: Some(now_epoch_secs),
+                last_acked_local_seq: Some(last_acked_local_seq),
+                pending_outbox_count,
+                schema_epoch: self.schema_epoch,
+                projection_generation,
+                daemon_version: self.daemon_version.clone(),
+                updated_at_epoch_secs: now_epoch_secs,
+            },
+        )?;
+        self.load(conn)?
+            .with_context(|| format!("missing viewer_sync_status row for org `{}`", self.org_id))
+    }
+
+    pub fn record_heartbeat_status(
+        &self,
+        conn: &Connection,
+        now_epoch_secs: i64,
+        projection_generation: i64,
+    ) -> Result<ViewerSyncStatus> {
+        ensure!(now_epoch_secs >= 0, "now_epoch_secs must be non-negative");
+        ensure!(
+            projection_generation >= 0,
+            "projection_generation must be non-negative"
+        );
+        ensure_viewer_sync_status_table(conn)?;
+        let current = self.load(conn)?;
+        let last_push_success_at_epoch_secs = current
+            .as_ref()
+            .and_then(|status| status.last_push_success_at_epoch_secs);
+        let last_acked_local_seq = current
+            .as_ref()
+            .and_then(|status| status.last_acked_local_seq);
+        let sync_health =
+            SyncHealth::from_last_success(now_epoch_secs, last_push_success_at_epoch_secs, true);
+        let pending_outbox_count = pending_outbox_count(conn)?;
+        upsert_viewer_sync_status(
+            conn,
+            &ViewerSyncStatus {
+                org_id: self.org_id.clone(),
+                sync_health,
+                last_push_success_at_epoch_secs,
+                last_push_attempt_at_epoch_secs: Some(now_epoch_secs),
+                last_acked_local_seq,
+                pending_outbox_count,
+                schema_epoch: self.schema_epoch,
+                projection_generation,
+                daemon_version: self.daemon_version.clone(),
+                updated_at_epoch_secs: now_epoch_secs,
+            },
+        )?;
+        self.load(conn)?
+            .with_context(|| format!("missing viewer_sync_status row for org `{}`", self.org_id))
+    }
+
+    pub fn load(&self, conn: &Connection) -> Result<Option<ViewerSyncStatus>> {
+        ensure_viewer_sync_status_table(conn)?;
+        conn.query_row(
+            "\
+            SELECT org_id, sync_health, last_push_success_at_epoch_secs,
+                   last_push_attempt_at_epoch_secs, last_acked_local_seq, pending_outbox_count,
+                   schema_epoch, projection_generation, daemon_version, updated_at_epoch_secs
+            FROM viewer_sync_status
+            WHERE org_id = ?1
+            ",
+            params![self.org_id],
+            hydrate_viewer_sync_status,
+        )
+        .optional()
+        .context("loading viewer_sync_status row")
+    }
+}
+
 impl SupabaseRpcClient {
     pub fn new(api_url: impl Into<String>, service_role_key: impl Into<String>) -> Result<Self> {
         let api_url = api_url.into().trim_end_matches('/').to_owned();
@@ -1186,7 +1359,16 @@ impl BatchEnvelopeAssembler {
         let response_json =
             serde_json::to_string(&response.raw).context("serializing apply response")?;
         if response.accepted {
+            let batch = self
+                .load_batch(conn, batch_id)?
+                .with_context(|| format!("missing acknowledged sync batch `{batch_id}`"))?;
             self.mark_acknowledged(conn, batch_id, &response_json)?;
+            ViewerSyncStatusWriter::for_default_org(batch.schema_epoch)?.record_apply_success(
+                conn,
+                current_epoch_secs()?,
+                batch.last_local_seq,
+                current_projection_generation(conn)?,
+            )?;
             return Ok(None);
         }
 
@@ -1464,6 +1646,127 @@ fn ensure_active_writer_lease_table(conn: &Connection) -> Result<()> {
         ",
     )
     .context("ensuring active_writer_lease support table")
+}
+
+fn ensure_viewer_sync_status_table(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "\
+        CREATE TABLE IF NOT EXISTS viewer_sync_status (
+          org_id TEXT PRIMARY KEY,
+          sync_health TEXT NOT NULL DEFAULT 'offline'
+            CHECK (sync_health IN ('healthy', 'degraded', 'offline')),
+          last_push_success_at_epoch_secs INTEGER,
+          last_push_attempt_at_epoch_secs INTEGER,
+          last_acked_local_seq INTEGER,
+          pending_outbox_count INTEGER NOT NULL DEFAULT 0 CHECK (pending_outbox_count >= 0),
+          schema_epoch INTEGER NOT NULL CHECK (schema_epoch > 0),
+          projection_generation INTEGER NOT NULL DEFAULT 0 CHECK (projection_generation >= 0),
+          daemon_version TEXT NOT NULL,
+          updated_at_epoch_secs INTEGER NOT NULL,
+          CHECK (length(trim(org_id)) > 0),
+          CHECK (
+            last_push_success_at_epoch_secs IS NULL
+            OR last_push_success_at_epoch_secs >= 0
+          ),
+          CHECK (
+            last_push_attempt_at_epoch_secs IS NULL
+            OR last_push_attempt_at_epoch_secs >= 0
+          ),
+          CHECK (last_acked_local_seq IS NULL OR last_acked_local_seq > 0),
+          CHECK (length(trim(daemon_version)) > 0),
+          CHECK (updated_at_epoch_secs >= 0)
+        );
+        ",
+    )
+    .context("ensuring viewer_sync_status support table")
+}
+
+fn upsert_viewer_sync_status(conn: &Connection, status: &ViewerSyncStatus) -> Result<()> {
+    ensure_viewer_sync_status_table(conn)?;
+    conn.execute(
+        "\
+        INSERT INTO viewer_sync_status (
+          org_id, sync_health, last_push_success_at_epoch_secs,
+          last_push_attempt_at_epoch_secs, last_acked_local_seq, pending_outbox_count,
+          schema_epoch, projection_generation, daemon_version, updated_at_epoch_secs
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+        ON CONFLICT(org_id) DO UPDATE SET
+          sync_health = excluded.sync_health,
+          last_push_success_at_epoch_secs = excluded.last_push_success_at_epoch_secs,
+          last_push_attempt_at_epoch_secs = excluded.last_push_attempt_at_epoch_secs,
+          last_acked_local_seq = excluded.last_acked_local_seq,
+          pending_outbox_count = excluded.pending_outbox_count,
+          schema_epoch = excluded.schema_epoch,
+          projection_generation = excluded.projection_generation,
+          daemon_version = excluded.daemon_version,
+          updated_at_epoch_secs = excluded.updated_at_epoch_secs
+        ",
+        params![
+            status.org_id,
+            status.sync_health.as_str(),
+            status.last_push_success_at_epoch_secs,
+            status.last_push_attempt_at_epoch_secs,
+            status.last_acked_local_seq,
+            status.pending_outbox_count,
+            status.schema_epoch,
+            status.projection_generation,
+            status.daemon_version,
+            status.updated_at_epoch_secs,
+        ],
+    )
+    .context("upserting viewer_sync_status row")?;
+    Ok(())
+}
+
+fn hydrate_viewer_sync_status(row: &rusqlite::Row<'_>) -> rusqlite::Result<ViewerSyncStatus> {
+    let health_name: String = row.get(1)?;
+    let sync_health = match health_name.as_str() {
+        "healthy" => SyncHealth::Healthy,
+        "degraded" => SyncHealth::Degraded,
+        "offline" => SyncHealth::Offline,
+        other => return Err(to_sql_error(format!("unsupported sync_health `{other}`"))),
+    };
+    Ok(ViewerSyncStatus {
+        org_id: row.get(0)?,
+        sync_health,
+        last_push_success_at_epoch_secs: row.get(2)?,
+        last_push_attempt_at_epoch_secs: row.get(3)?,
+        last_acked_local_seq: row.get(4)?,
+        pending_outbox_count: row.get(5)?,
+        schema_epoch: row.get(6)?,
+        projection_generation: row.get(7)?,
+        daemon_version: row.get(8)?,
+        updated_at_epoch_secs: row.get(9)?,
+    })
+}
+
+fn pending_outbox_count(conn: &Connection) -> Result<i64> {
+    conn.query_row(
+        "SELECT COUNT(*) FROM local_outbox WHERE writer_epoch IS NULL",
+        [],
+        |row| row.get(0),
+    )
+    .context("counting pending local_outbox rows")
+}
+
+fn current_projection_generation(conn: &Connection) -> Result<i64> {
+    conn.query_row(
+        "\
+        SELECT COALESCE(MAX(generation_id), 0)
+        FROM projection_generations
+        WHERE status = 'published'
+        ",
+        [],
+        |row| row.get(0),
+    )
+    .context("loading current projection generation")
+}
+
+fn current_epoch_secs() -> Result<i64> {
+    let duration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .context("system clock is before UNIX_EPOCH")?;
+    i64::try_from(duration.as_secs()).context("current UNIX timestamp exceeds i64")
 }
 
 fn load_writer_lease_row(conn: &Connection, org_id: &str) -> Result<Option<WriterLeaseDbRow>> {

@@ -16,8 +16,9 @@ use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 use support::sync::{
     EnforcementHarness, OperatorDecisionCasHarness, OperatorDecisionCommand, OutboxHarness,
     PullCursorDomain, PullCursorHarness, PushOwnedFixture, SupabaseRpcClient, SyncCyclePhase,
-    SyncCycleTrigger, SyncHealth, WriterBindingConfig, WriterBindingMode, WriterLeaseAcquireResult,
-    WriterLeaseHarness, canonical_content_hash, decision_conflict_event_payload, parse_payload,
+    SyncCycleTrigger, SyncHealth, ViewerSyncStatus, WriterBindingConfig, WriterBindingMode,
+    WriterLeaseAcquireResult, WriterLeaseHarness, canonical_content_hash,
+    decision_conflict_event_payload, parse_payload,
 };
 
 #[test]
@@ -2029,9 +2030,25 @@ fn l4_t_sqlite_supabase_sync_043_unapproved_second_writer_config_rejected() -> R
 fn l4_t_sqlite_supabase_sync_046_viewer_sync_status_updates_after_ack_and_heartbeat() -> Result<()>
 {
     println!("[TEST_START] L4-T-sqlite_supabase_sync-046");
-    println!("[SETUP] writer lease harness with one pending local outbox row");
+    println!("[SETUP] outbox harness with a dispatchable batch");
     let state_db = L4TestStateDb::new()?;
-    let mut harness = WriterLeaseHarness::new(&state_db)?;
+    {
+        let mut outbox = OutboxHarness::new(&state_db)?;
+        outbox.mutate_push_owned_fixture(PushOwnedFixture::new("l4-status-acked-row", 1))?;
+        let batch = outbox
+            .assemble_batch(10, 7)?
+            .context("status test batch was not materialized")?;
+
+        println!("[EXEC] record an accepted apply_push_batch response through the assembler");
+        outbox.record_successful_apply_response(&batch.batch_id)?;
+        let applied_status = outbox.viewer_sync_status()?;
+
+        println!("[ASSERT] accepted apply response writes viewer_sync_status automatically");
+        assert_automatic_apply_status(&applied_status, batch.last_local_seq)?;
+    }
+
+    println!("[SETUP] writer lease harness with one pending local outbox row");
+    let harness = WriterLeaseHarness::new(&state_db)?;
     harness.insert_pending_outbox_marker("l4-status-pending-one")?;
 
     println!("[EXEC] record a successful remote apply acknowledgement");
@@ -2039,61 +2056,15 @@ fn l4_t_sqlite_supabase_sync_046_viewer_sync_status_updates_after_ack_and_heartb
         harness.record_viewer_sync_apply_success(1_000, 77, 4, "daemon-l4-status-test")?;
 
     println!("[ASSERT] successful apply writes the complete healthy viewer_sync_status row");
-    ensure!(
-        healthy.sync_health == SyncHealth::Healthy,
-        "successful apply did not mark sync healthy: {healthy:?}"
-    );
-    ensure!(
-        healthy.last_push_success_at_epoch_secs == Some(1_000)
-            && healthy.last_push_attempt_at_epoch_secs == Some(1_000),
-        "successful apply did not refresh success and attempt timestamps: {healthy:?}"
-    );
-    ensure!(
-        healthy.last_acked_local_seq == Some(77),
-        "successful apply did not store last acked local sequence: {healthy:?}"
-    );
-    ensure!(
-        healthy.pending_outbox_count == 1,
-        "pending outbox count was not preserved after status write: {healthy:?}"
-    );
-    ensure!(
-        healthy.schema_epoch == DEFAULT_SCHEMA_EPOCH,
-        "viewer_sync_status schema epoch did not match local epoch: {healthy:?}"
-    );
-    ensure!(
-        healthy.projection_generation == 4,
-        "viewer_sync_status projection generation was not stored: {healthy:?}"
-    );
-    ensure!(
-        healthy.daemon_version == "daemon-l4-status-test",
-        "viewer_sync_status daemon version was not stored: {healthy:?}"
-    );
+    assert_apply_success_status(&healthy, 1_000, 77, 1, 4)?;
 
     println!("[EXEC] refresh heartbeat/status-only rows without changing projection data");
     let degraded = harness.record_viewer_sync_heartbeat(1_090, 4, "daemon-l4-status-test")?;
     let offline = harness.record_viewer_sync_heartbeat(1_301, 4, "daemon-l4-status-test")?;
 
     println!("[ASSERT] heartbeat-only commits advance attempt/update time and derive freshness");
-    ensure!(
-        degraded.sync_health == SyncHealth::Degraded,
-        "90-second status-only heartbeat should be degraded: {degraded:?}"
-    );
-    ensure!(
-        degraded.last_push_success_at_epoch_secs == Some(1_000)
-            && degraded.last_push_attempt_at_epoch_secs == Some(1_090)
-            && degraded.last_acked_local_seq == Some(77),
-        "degraded heartbeat changed immutable success/ack fields or missed attempt: {degraded:?}"
-    );
-    ensure!(
-        offline.sync_health == SyncHealth::Offline,
-        "status-only heartbeat after five minutes should be offline: {offline:?}"
-    );
-    ensure!(
-        offline.last_push_success_at_epoch_secs == Some(1_000)
-            && offline.last_push_attempt_at_epoch_secs == Some(1_301)
-            && offline.last_acked_local_seq == Some(77),
-        "offline heartbeat changed immutable success/ack fields or missed attempt: {offline:?}"
-    );
+    assert_heartbeat_status(&degraded, SyncHealth::Degraded, 1_090)?;
+    assert_heartbeat_status(&offline, SyncHealth::Offline, 1_301)?;
 
     println!("[EXEC] record a later apply acknowledgement after another pending row appears");
     harness.insert_pending_outbox_marker("l4-status-pending-two")?;
@@ -2101,21 +2072,81 @@ fn l4_t_sqlite_supabase_sync_046_viewer_sync_status_updates_after_ack_and_heartb
         harness.record_viewer_sync_apply_success(1_320, 88, 5, "daemon-l4-status-test")?;
 
     println!("[ASSERT] later apply returns to healthy and refreshes ack/projection fields");
-    ensure!(
-        refreshed.sync_health == SyncHealth::Healthy,
-        "later successful apply did not restore healthy state: {refreshed:?}"
-    );
-    ensure!(
-        refreshed.last_push_success_at_epoch_secs == Some(1_320)
-            && refreshed.last_push_attempt_at_epoch_secs == Some(1_320)
-            && refreshed.last_acked_local_seq == Some(88),
-        "later successful apply did not refresh success/attempt/ack: {refreshed:?}"
-    );
-    ensure!(
-        refreshed.pending_outbox_count == 2 && refreshed.projection_generation == 5,
-        "later successful apply did not store pending count and projection generation: {refreshed:?}"
-    );
+    assert_apply_success_status(&refreshed, 1_320, 88, 2, 5)?;
+    assert_viewer_sync_status_migration_contract()?;
 
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-046 PASS");
+    Ok(())
+}
+
+fn assert_automatic_apply_status(status: &ViewerSyncStatus, last_local_seq: i64) -> Result<()> {
+    ensure!(
+        status.sync_health == SyncHealth::Healthy,
+        "accepted apply response did not mark sync healthy: {status:?}"
+    );
+    ensure!(
+        status.last_push_success_at_epoch_secs.is_some()
+            && status.last_push_attempt_at_epoch_secs == status.last_push_success_at_epoch_secs,
+        "accepted apply response did not refresh success/attempt timestamps: {status:?}"
+    );
+    ensure!(
+        status.last_acked_local_seq == Some(last_local_seq),
+        "accepted apply response did not store the batch's last local seq: {status:?}"
+    );
+    ensure!(
+        status.pending_outbox_count == 0 && status.schema_epoch == DEFAULT_SCHEMA_EPOCH,
+        "accepted apply response did not carry pending count/schema epoch: {status:?}"
+    );
+    Ok(())
+}
+
+fn assert_apply_success_status(
+    status: &ViewerSyncStatus,
+    expected_epoch: i64,
+    expected_last_acked: i64,
+    expected_pending: i64,
+    expected_generation: i64,
+) -> Result<()> {
+    ensure!(
+        status.sync_health == SyncHealth::Healthy,
+        "successful apply did not mark sync healthy: {status:?}"
+    );
+    ensure!(
+        status.last_push_success_at_epoch_secs == Some(expected_epoch)
+            && status.last_push_attempt_at_epoch_secs == Some(expected_epoch)
+            && status.last_acked_local_seq == Some(expected_last_acked),
+        "successful apply did not refresh success/attempt/ack: {status:?}"
+    );
+    ensure!(
+        status.pending_outbox_count == expected_pending
+            && status.schema_epoch == DEFAULT_SCHEMA_EPOCH
+            && status.projection_generation == expected_generation
+            && status.daemon_version == "daemon-l4-status-test",
+        "successful apply did not store pending/schema/generation/version: {status:?}"
+    );
+    Ok(())
+}
+
+fn assert_heartbeat_status(
+    status: &ViewerSyncStatus,
+    expected_health: SyncHealth,
+    expected_attempt_epoch: i64,
+) -> Result<()> {
+    ensure!(
+        status.sync_health == expected_health,
+        "heartbeat-only status had wrong health: {status:?}"
+    );
+    ensure!(
+        status.last_push_success_at_epoch_secs == Some(1_000)
+            && status.last_push_attempt_at_epoch_secs == Some(expected_attempt_epoch)
+            && status.last_acked_local_seq == Some(77),
+        "heartbeat changed immutable success/ack fields or missed attempt: {status:?}"
+    );
+    Ok(())
+}
+
+fn assert_viewer_sync_status_migration_contract() -> Result<()> {
     let migration = read_repo_file("infra/supabase/migrations/0003_summary_tables.sql")?;
     ensure!(
         migration.contains("CREATE TABLE viewer_sync_status")
@@ -2126,8 +2157,5 @@ fn l4_t_sqlite_supabase_sync_046_viewer_sync_status_updates_after_ack_and_heartb
             && migration.contains("daemon_version"),
         "Supabase summary migration does not expose the viewer_sync_status freshness contract"
     );
-
-    println!("[CLEANUP] tempfile-owned state DB");
-    println!("[TEST_END] L4-T-sqlite_supabase_sync-046 PASS");
     Ok(())
 }

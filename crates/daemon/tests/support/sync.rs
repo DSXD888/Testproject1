@@ -17,8 +17,8 @@ pub use sync_impl::{
     BatchEnvelope, BatchEnvelopeAssembler, FencedPullOutcome, FencedPullPageBoundary, OutboxOp,
     OutboxWriter, PullCursor, PullCursorDomain, PullCursorStore, PushBatchApplyResponse,
     RemoteOwnedChange, SyncCycle, SyncCycleOutcome, SyncCyclePhase, SyncCycleTrigger, SyncHealth,
-    WriterBindingConfig, WriterBindingMode, WriterLease, WriterLeaseAcquireResult,
-    canonical_content_hash, decision_conflict_event_payload,
+    ViewerSyncStatus, ViewerSyncStatusWriter, WriterBindingConfig, WriterBindingMode, WriterLease,
+    WriterLeaseAcquireResult, canonical_content_hash, decision_conflict_event_payload,
 };
 #[allow(unused_imports)]
 pub use sync_impl::{OperatorDecisionApplyResponse, OperatorDecisionCommand};
@@ -307,6 +307,22 @@ impl OutboxHarness {
     pub fn mark_batch_acknowledged(&self, batch_id: &str) -> Result<()> {
         let assembler = BatchEnvelopeAssembler::new(DEFAULT_EXECUTOR_ID, "push-owned", 1, 100)?;
         assembler.mark_acknowledged(&self.conn, batch_id, "{}")
+    }
+
+    pub fn record_successful_apply_response(&mut self, batch_id: &str) -> Result<()> {
+        let response = PushBatchApplyResponse::from_rpc_value(json!({
+            "accepted": true,
+            "status": "applied"
+        }))?;
+        let assembler = BatchEnvelopeAssembler::new(DEFAULT_EXECUTOR_ID, "push-owned", 1, 100)?;
+        assembler.record_apply_response(&mut self.conn, batch_id, &response)?;
+        Ok(())
+    }
+
+    pub fn viewer_sync_status(&self) -> Result<ViewerSyncStatus> {
+        ViewerSyncStatusWriter::for_default_org(DEFAULT_SCHEMA_EPOCH)?
+            .load(&self.conn)?
+            .context("missing viewer_sync_status row")
     }
 
     pub fn re_envelope_after_stale_writer(
@@ -897,6 +913,68 @@ impl WriterLeaseHarness {
         now_epoch_secs: i64,
     ) -> Result<WriterLeaseAcquireResult> {
         WriterLease::new("default", executor_id)?.heartbeat(&mut self.conn, now_epoch_secs)
+    }
+
+    pub fn insert_pending_outbox_marker(&self, entity_id: &str) -> Result<i64> {
+        ensure!(!entity_id.trim().is_empty(), "entity_id must not be empty");
+        let payload = json!({
+            "id": entity_id,
+            "current_stage": "sync-status-fixture",
+            "title": format!("L4 sync status fixture {entity_id}"),
+            "latest_published_at": "2026-05-08T00:00:00Z",
+            "latest_updated_at": "2026-05-08T00:00:00Z",
+            "owner_id": "local-owner",
+            "row_version": 1,
+            "stage_run_id": "l4-sync-status-stage"
+        });
+        let payload_json = payload.to_string();
+        let content_hash = canonical_content_hash(&payload_json)?;
+        self.conn
+            .execute(
+                "\
+                INSERT INTO local_outbox (
+                  executor_id, entity_kind, entity_id, op, row_version, stage_run_id,
+                  schema_epoch, commit_group_id, payload_json, content_hash
+                ) VALUES (?1, 'procurement_processes', ?2, 'insert', 1,
+                          'l4-sync-status-stage', ?3, ?4, ?5, ?6)
+                ",
+                params![
+                    DEFAULT_EXECUTOR_ID,
+                    entity_id,
+                    DEFAULT_SCHEMA_EPOCH,
+                    format!("l4-sync-status-{entity_id}"),
+                    payload_json,
+                    content_hash
+                ],
+            )
+            .context("inserting pending outbox marker")?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    pub fn record_viewer_sync_apply_success(
+        &self,
+        now_epoch_secs: i64,
+        last_acked_local_seq: i64,
+        projection_generation: i64,
+        daemon_version: &str,
+    ) -> Result<ViewerSyncStatus> {
+        ViewerSyncStatusWriter::new("default", DEFAULT_SCHEMA_EPOCH, daemon_version)?
+            .record_apply_success(
+                &self.conn,
+                now_epoch_secs,
+                last_acked_local_seq,
+                projection_generation,
+            )
+    }
+
+    pub fn record_viewer_sync_heartbeat(
+        &self,
+        now_epoch_secs: i64,
+        projection_generation: i64,
+        daemon_version: &str,
+    ) -> Result<ViewerSyncStatus> {
+        ViewerSyncStatusWriter::new("default", DEFAULT_SCHEMA_EPOCH, daemon_version)?
+            .record_heartbeat_status(&self.conn, now_epoch_secs, projection_generation)
     }
 
     pub fn release(&self, executor_id: &str) -> Result<()> {
