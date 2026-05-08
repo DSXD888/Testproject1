@@ -172,6 +172,56 @@ test('L4-T-contracts_spec-011 detail route renders read-only fallback snapshot',
   await expect(page.getByText(/Rerun enrichment|Run .* ingestion/)).toHaveCount(0);
 });
 
+test('L4-T-contracts_spec-012 status page renders summary projections only', async () => {
+  const pageSource = await readFile(join(WEB_ROOT, 'src/app/status/page.tsx'), 'utf8');
+  const boundarySource = await readFile(join(WEB_ROOT, 'src/lib/supabase.ts'), 'utf8');
+
+  expect(pageSource).toContain('getStatusPageSnapshot');
+  expect(pageSource).toContain('FreshnessBadge');
+  expect(pageSource).toContain('PipelineBadge');
+  expect(pageSource).toContain('ErrorSummaryList');
+  expect(pageSource).toContain('viewer_sync_status');
+  expect(pageSource).toContain('workflow_job_summaries');
+  expect(pageSource).toContain('error_manifest_summaries');
+  expect(pageSource).toContain('projection_generation');
+  expect(boundarySource).toContain('getStatusPageSnapshot');
+  expect(boundarySource).toContain('getViewerSyncStatus');
+  expect(boundarySource).toContain('listWorkflowJobSummaries');
+  expect(boundarySource).toContain("from('viewer_sync_status')");
+  expect(boundarySource).toContain("from('workflow_job_summaries')");
+  expect(boundarySource).toContain("from('error_manifest_summaries')");
+  expect(pageSource).not.toMatch(
+    /approve\s*\(|reject\s*\(|watch\s*\(|Restart daemon|Open logs|Open artifacts|Quit UI|stop_background_daemon_and_quit|daemon trigger|config mutation|invoke\(/i,
+  );
+});
+
+test('L4-T-contracts_spec-019 status generation changes replace stale snapshots', async () => {
+  const pageSource = await readFile(join(WEB_ROOT, 'src/app/status/page.tsx'), 'utf8');
+
+  expect(pageSource).toContain('subscribeToStatusPage');
+  expect(pageSource).toContain('projectionGeneration');
+  expect(pageSource).toContain('activeProjectionGeneration');
+  expect(pageSource).toContain('replaceStatusSnapshot');
+  expect(pageSource).toContain('pendingProjectionGeneration');
+  expect(pageSource).toContain('status-generation-refresh-chip');
+  expect(pageSource).not.toContain('mergeStatusSnapshot');
+});
+
+test('L4-T-contracts_spec-012 status route renders read-only fallback snapshot', async ({
+  page,
+}) => {
+  await page.goto('/status');
+
+  await expect(page.getByTestId('status-page')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pipeline status' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sync health' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Workflow jobs' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Errors' })).toBeVisible();
+  await expect(
+    page.getByText(/Restart daemon|Open logs|Open artifacts|Quit UI|daemon trigger/i),
+  ).toHaveCount(0);
+});
+
 test('L4-T-contracts_spec-020 keeps Supabase behind the web boundary', async () => {
   const srcFiles = await listSourceFiles(join(WEB_ROOT, 'src'));
   const directSupabaseImports: string[] = [];

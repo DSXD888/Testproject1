@@ -57,6 +57,17 @@ export interface GetContractDetailOptions {
   limit?: number;
 }
 
+export interface StatusPageSnapshot {
+  syncStatus: ViewerSyncStatusRow | null;
+  workflowJobs: WorkflowJobSummaryRow[];
+  errorSummaries: ErrorManifestSummaryRow[];
+  loadedAt: string;
+}
+
+export interface GetStatusPageSnapshotOptions {
+  limit?: number;
+}
+
 type ViewerEnv = Record<string, string | undefined>;
 
 let cachedViewerClient: ViewerSupabaseClient | null = null;
@@ -225,6 +236,26 @@ export async function getContractDetail(
     errorSummaries,
     workflowJobs,
     validationVerdicts,
+    loadedAt: new Date().toISOString(),
+  };
+}
+
+export async function getStatusPageSnapshot(
+  orgId: string,
+  options: GetStatusPageSnapshotOptions = {},
+  client: ViewerSupabaseClient = getViewerSupabaseClient(),
+): Promise<StatusPageSnapshot> {
+  const limit = Math.max(1, Math.min(options.limit ?? 50, 100));
+  const [syncStatus, workflowJobs, errorSummaries] = await Promise.all([
+    getViewerSyncStatus(orgId, client),
+    listWorkflowJobSummaries(orgId, client, limit),
+    listErrorManifestSummaries(orgId, limit, client),
+  ]);
+
+  return {
+    syncStatus,
+    workflowJobs,
+    errorSummaries,
     loadedAt: new Date().toISOString(),
   };
 }
