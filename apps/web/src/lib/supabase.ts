@@ -13,6 +13,22 @@ export interface ViewerSupabaseConfig {
   anonKey: string;
 }
 
+export interface ContractListCursor {
+  latestUpdatedAt: string;
+  id: string;
+}
+
+export interface ContractListPage {
+  rows: ProcurementProcessRow[];
+  nextCursor: ContractListCursor | null;
+  hasMore: boolean;
+}
+
+export interface ListContractSummariesPageOptions {
+  cursor?: ContractListCursor | null;
+  limit?: number;
+}
+
 type ViewerEnv = Record<string, string | undefined>;
 
 let cachedViewerClient: ViewerSupabaseClient | null = null;
@@ -78,6 +94,45 @@ export async function listContractSummaries(
     .limit(limit);
 
   return requireRows<ProcurementProcessRow>(data, error);
+}
+
+export async function listContractSummariesPage(
+  options: ListContractSummariesPageOptions = {},
+  client: ViewerSupabaseClient = getViewerSupabaseClient(),
+): Promise<ContractListPage> {
+  const limit = Math.max(1, Math.min(options.limit ?? 25, 50));
+  let query = client
+    .from('procurement_processes')
+    .select('*')
+    .order('latest_updated_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit + 1);
+
+  if (options.cursor) {
+    query = query.or(
+      [
+        `latest_updated_at.lt.${options.cursor.latestUpdatedAt}`,
+        `and(latest_updated_at.eq.${options.cursor.latestUpdatedAt},id.lt.${options.cursor.id})`,
+      ].join(','),
+    );
+  }
+
+  const { data, error } = await query;
+  const rows = requireRows<ProcurementProcessRow>(data, error);
+  const visibleRows = rows.slice(0, limit);
+  const lastVisibleRow = visibleRows.at(-1);
+
+  return {
+    rows: visibleRows,
+    hasMore: rows.length > limit,
+    nextCursor:
+      rows.length > limit && lastVisibleRow
+        ? {
+            latestUpdatedAt: lastVisibleRow.latest_updated_at,
+            id: lastVisibleRow.id,
+          }
+        : null,
+  };
 }
 
 export async function getContractSummary(

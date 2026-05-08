@@ -56,6 +56,7 @@ test('L4-T-contracts_spec-001 redirects the root route to contracts', async ({
   await page.goto('/');
   await expect(page).toHaveURL(/\/contracts$/);
   await expect(page.getByTestId('global-sync-status')).toBeVisible();
+  await expect(page.getByTestId('contracts-list-page')).toBeVisible();
 });
 
 test('L4-T-contracts_spec-002 binds the root layout to viewer_sync_status only through the web boundary', async () => {
@@ -67,6 +68,38 @@ test('L4-T-contracts_spec-002 binds the root layout to viewer_sync_status only t
   expect(layoutSource).toContain('FreshnessBadge');
   expect(layoutSource).toContain('viewer_sync_status');
   expect(layoutSource).not.toMatch(/@supabase\/supabase-js|tauri|sqlite|ipc|invoke/i);
+});
+
+test('L4-T-contracts_spec-003 keeps the list page read-only', async () => {
+  const pageSource = await readFile(join(WEB_ROOT, 'src/app/contracts/page.tsx'), 'utf8');
+
+  expect(pageSource).toContain('ContractCardFrame');
+  expect(pageSource).toContain('listContractSummariesPage');
+  expect(pageSource).toContain('subscribeToContractsPage');
+  expect(pageSource).not.toMatch(
+    /approve\s*\(|reject\s*\(|watch\s*\(|agent control|daemon trigger|config mutation/i,
+  );
+});
+
+test('L4-T-contracts_spec-004 uses keyset pagination for the contract list', async () => {
+  const boundarySource = await readFile(join(WEB_ROOT, 'src/lib/supabase.ts'), 'utf8');
+
+  expect(boundarySource).toContain('listContractSummariesPage');
+  expect(boundarySource).toContain("order('latest_updated_at', { ascending: false })");
+  expect(boundarySource).toContain("order('id', { ascending: false })");
+  expect(boundarySource).toContain('latest_updated_at.lt');
+  expect(boundarySource).toContain('latest_updated_at.eq');
+  expect(boundarySource).toContain('id.lt');
+  expect(boundarySource).not.toMatch(/\.range\(|\.offset\(/);
+});
+
+test('L4-T-contracts_spec-008 keeps live list updates non-disruptive', async () => {
+  const pageSource = await readFile(join(WEB_ROOT, 'src/app/contracts/page.tsx'), 'utf8');
+
+  expect(pageSource).toContain('contracts-update-pill');
+  expect(pageSource).toContain('setPendingUpdateCount');
+  expect(pageSource).toContain('setCursor(null)');
+  expect(pageSource).not.toMatch(/sort\(|reverse\(/);
 });
 
 test('L4-T-contracts_spec-020 keeps Supabase behind the web boundary', async () => {
