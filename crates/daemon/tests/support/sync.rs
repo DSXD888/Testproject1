@@ -386,6 +386,18 @@ pub struct OperatorDecisionIntentStatus {
     pub conflict_json: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CasCommandLedgerRow {
+    pub command_id: String,
+    pub process_id: String,
+    pub base_revision: i64,
+    pub applied_revision: Option<i64>,
+    pub disposition: String,
+    pub result: String,
+    pub response_payload_json: String,
+    pub created_at_epoch_secs: i64,
+}
+
 pub struct OperatorDecisionCasHarness {
     conn: Connection,
 }
@@ -484,12 +496,18 @@ impl OperatorDecisionCasHarness {
             .transaction()
             .context("starting operator decision CAS fixture transaction")?;
         let intent = load_next_queued_operator_decision_intent(&tx)?;
-        let current = load_fixture_decision_head(&tx, &intent.process_id)?;
-        let response_json = if current.remote_revision == intent.base_remote_revision {
-            apply_fixture_decision_intent(&tx, &intent, current.remote_revision + 1)?
-        } else {
-            conflict_fixture_decision_intent(&tx, &intent, &current)?
-        };
+        let response_json =
+            if let Some(replay) = load_fixture_command_ledger_response(&tx, &intent.command_id)? {
+                mark_replayed_intent_from_ledger(&tx, &intent, &replay)?;
+                replay
+            } else {
+                let current = load_fixture_decision_head(&tx, &intent.process_id)?;
+                if current.remote_revision == intent.base_remote_revision {
+                    apply_fixture_decision_intent(&tx, &intent, current.remote_revision + 1)?
+                } else {
+                    conflict_fixture_decision_intent(&tx, &intent, &current)?
+                }
+            };
         tx.commit()
             .context("committing operator decision CAS fixture transaction")?;
         OperatorDecisionApplyResponse::from_rpc_value(response_json)
@@ -537,6 +555,81 @@ impl OperatorDecisionCasHarness {
             .optional()
             .context("loading operator decision CAS fixture intent status")?
             .with_context(|| format!("missing operator decision CAS intent `{command_id}`"))
+    }
+
+    pub fn ledger_row(&self, command_id: &str) -> Result<CasCommandLedgerRow> {
+        self.conn
+            .query_row(
+                "\
+                SELECT command_id, process_id, base_revision, applied_revision, disposition,
+                       result, response_payload_json, created_at_epoch_secs
+                FROM l4_operator_decision_commands_fixture
+                WHERE command_id = ?1
+                ",
+                params![command_id],
+                |row| {
+                    Ok(CasCommandLedgerRow {
+                        command_id: row.get(0)?,
+                        process_id: row.get(1)?,
+                        base_revision: row.get(2)?,
+                        applied_revision: row.get(3)?,
+                        disposition: row.get(4)?,
+                        result: row.get(5)?,
+                        response_payload_json: row.get(6)?,
+                        created_at_epoch_secs: row.get(7)?,
+                    })
+                },
+            )
+            .optional()
+            .context("loading operator decision command ledger row")?
+            .with_context(|| format!("missing command ledger row `{command_id}`"))
+    }
+
+    pub fn command_ledger_row_count(&self, command_id: &str) -> Result<i64> {
+        self.conn
+            .query_row(
+                "\
+                SELECT COUNT(*)
+                FROM l4_operator_decision_commands_fixture
+                WHERE command_id = ?1
+                ",
+                params![command_id],
+                |row| row.get(0),
+            )
+            .context("counting command ledger rows")
+    }
+
+    pub fn set_ledger_created_at(&self, command_id: &str, epoch_secs: i64) -> Result<()> {
+        let updated = self
+            .conn
+            .execute(
+                "\
+                UPDATE l4_operator_decision_commands_fixture
+                SET created_at_epoch_secs = ?2
+                WHERE command_id = ?1
+                ",
+                params![command_id, epoch_secs],
+            )
+            .context("backdating command ledger row")?;
+        ensure!(
+            updated == 1,
+            "expected one command ledger row to update for `{command_id}`, got {updated}"
+        );
+        Ok(())
+    }
+
+    pub fn gc_command_ledger(&self, retention_days: i64, now_epoch_secs: i64) -> Result<usize> {
+        ensure!(retention_days > 0, "retention_days must be positive");
+        let cutoff = now_epoch_secs - retention_days * 86_400;
+        self.conn
+            .execute(
+                "\
+                DELETE FROM l4_operator_decision_commands_fixture
+                WHERE created_at_epoch_secs < ?1
+                ",
+                params![cutoff],
+            )
+            .context("garbage-collecting command ledger fixture")
     }
 }
 
@@ -590,6 +683,92 @@ fn load_fixture_decision_head(
     .with_context(|| format!("missing remote decision head `{process_id}`"))
 }
 
+fn load_fixture_command_ledger_response(
+    tx: &Transaction<'_>,
+    command_id: &str,
+) -> Result<Option<Value>> {
+    tx.query_row(
+        "\
+        SELECT response_payload_json
+        FROM l4_operator_decision_commands_fixture
+        WHERE command_id = ?1
+        ",
+        params![command_id],
+        |row| row.get::<_, String>(0),
+    )
+    .optional()
+    .context("loading command ledger replay payload")?
+    .map(|payload| serde_json::from_str(&payload).context("parsing command ledger replay payload"))
+    .transpose()
+}
+
+fn mark_replayed_intent_from_ledger(
+    tx: &Transaction<'_>,
+    intent: &QueuedOperatorDecisionIntent,
+    ledger_response: &Value,
+) -> Result<()> {
+    let status = ledger_response
+        .get("status")
+        .and_then(Value::as_str)
+        .context("ledger response missing status")?;
+    if status == "applied" {
+        let applied_revision = ledger_response
+            .get("applied_revision")
+            .and_then(Value::as_i64)
+            .context("ledger applied response missing applied_revision")?;
+        tx.execute(
+            "\
+            UPDATE l4_operator_decision_intents_fixture
+            SET status = 'applied',
+                applied_revision = ?2
+            WHERE id = ?1
+            ",
+            params![intent.id, applied_revision],
+        )
+        .context("marking replayed operator decision intent applied")?;
+    } else {
+        tx.execute(
+            "\
+            UPDATE l4_operator_decision_intents_fixture
+            SET status = 'conflicted',
+                conflict_json = ?2
+            WHERE id = ?1
+            ",
+            params![intent.id, ledger_response.to_string()],
+        )
+        .context("marking replayed operator decision intent conflicted")?;
+    }
+    Ok(())
+}
+
+fn insert_fixture_command_ledger(
+    tx: &Transaction<'_>,
+    intent: &QueuedOperatorDecisionIntent,
+    applied_revision: Option<i64>,
+    result: &str,
+    response_payload: &Value,
+) -> Result<()> {
+    tx.execute(
+        "\
+        INSERT INTO l4_operator_decision_commands_fixture (
+          command_id, process_id, base_revision, applied_revision, disposition, result,
+          response_payload_json
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        ",
+        params![
+            intent.command_id,
+            intent.process_id,
+            intent.base_remote_revision,
+            applied_revision,
+            intent.disposition,
+            result,
+            response_payload.to_string()
+        ],
+    )
+    .context("inserting operator decision command ledger row")?;
+    Ok(())
+}
+
 fn apply_fixture_decision_intent(
     tx: &Transaction<'_>,
     intent: &QueuedOperatorDecisionIntent,
@@ -615,13 +794,15 @@ fn apply_fixture_decision_intent(
         params![intent.id, applied_revision],
     )
     .context("marking operator decision CAS intent applied")?;
-    Ok(json!({
+    let response = json!({
         "accepted": true,
         "status": "applied",
         "process_id": intent.process_id,
         "command_id": intent.command_id,
         "applied_revision": applied_revision
-    }))
+    });
+    insert_fixture_command_ledger(tx, intent, Some(applied_revision), "applied", &response)?;
+    Ok(response)
 }
 
 fn conflict_fixture_decision_intent(
@@ -654,6 +835,7 @@ fn conflict_fixture_decision_intent(
         params![intent.id, conflict.to_string()],
     )
     .context("marking operator decision CAS intent conflicted")?;
+    insert_fixture_command_ledger(tx, intent, None, "conflict", &conflict)?;
     Ok(conflict)
 }
 
@@ -671,11 +853,22 @@ fn ensure_operator_decision_cas_fixture_tables(conn: &Connection) -> Result<()> 
           process_id TEXT NOT NULL,
           disposition TEXT NOT NULL CHECK (disposition IN ('pending', 'watching', 'approved', 'rejected')),
           base_remote_revision INTEGER NOT NULL CHECK (base_remote_revision > 0),
-          command_id TEXT NOT NULL UNIQUE,
+          command_id TEXT NOT NULL,
           status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'applied', 'conflicted')),
           applied_revision INTEGER,
           conflict_json TEXT,
           queued_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS l4_operator_decision_commands_fixture (
+          command_id TEXT PRIMARY KEY,
+          process_id TEXT NOT NULL,
+          base_revision INTEGER NOT NULL,
+          applied_revision INTEGER,
+          disposition TEXT NOT NULL CHECK (disposition IN ('pending', 'watching', 'approved', 'rejected')),
+          result TEXT NOT NULL CHECK (result IN ('applied', 'conflict', 'superseded')),
+          response_payload_json TEXT NOT NULL,
+          created_at_epoch_secs INTEGER NOT NULL DEFAULT 1800000000
         );
         ",
     )

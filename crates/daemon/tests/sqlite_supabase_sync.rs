@@ -1529,6 +1529,250 @@ fn l4_t_sqlite_supabase_sync_033_conflict_response_drives_decision_conflict_even
 }
 
 #[test]
+fn l4_t_sqlite_supabase_sync_034_applied_cas_command_writes_command_ledger() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-034");
+    println!("[SETUP] CAS command harness with matching base revision");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = OperatorDecisionCasHarness::new(&state_db)?;
+    harness.seed_head("l4-cas-process-034", "pending", 20)?;
+    harness.queue_intent("l4-cas-process-034", "approved", 20, "l4-cmd-034")?;
+
+    println!("[EXEC] flush matching-base command through ledger-aware CAS transaction");
+    let response = harness.flush_next_intent()?;
+
+    println!("[ASSERT] decision head, local intent, and command ledger update atomically");
+    ensure!(response.accepted, "CAS command should apply");
+    ensure!(
+        response.applied_revision == Some(21),
+        "applied response did not return the next remote revision: {response:?}"
+    );
+    let head = harness.head("l4-cas-process-034")?;
+    ensure!(
+        head.disposition == "approved" && head.remote_revision == 21,
+        "decision head did not advance with applied command: {head:?}"
+    );
+    let intent = harness.intent_status("l4-cmd-034")?;
+    ensure!(
+        intent.status == "applied" && intent.applied_revision == Some(21),
+        "operator intent was not marked applied: {intent:?}"
+    );
+    let ledger = harness.ledger_row("l4-cmd-034")?;
+    ensure!(
+        ledger.command_id == "l4-cmd-034"
+            && ledger.process_id == "l4-cas-process-034"
+            && ledger.base_revision == 20
+            && ledger.applied_revision == Some(21)
+            && ledger.disposition == "approved"
+            && ledger.result == "applied",
+        "applied command ledger row lost required fields: {ledger:?}"
+    );
+    let ledger_response: Value = serde_json::from_str(&ledger.response_payload_json)
+        .context("parsing applied command ledger response JSON")?;
+    ensure!(
+        ledger_response.get("accepted").and_then(Value::as_bool) == Some(true)
+            && ledger_response
+                .get("applied_revision")
+                .and_then(Value::as_i64)
+                == Some(21),
+        "applied command ledger response JSON is incomplete: {ledger_response}"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-034 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_035_replayed_command_returns_stored_result() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-035");
+    println!("[SETUP] two applied commands followed by a lost-response retry");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = OperatorDecisionCasHarness::new(&state_db)?;
+    harness.seed_head("l4-cas-process-035", "pending", 30)?;
+    harness.queue_intent("l4-cas-process-035", "approved", 30, "l4-cmd-035-a")?;
+    harness.queue_intent("l4-cas-process-035", "rejected", 31, "l4-cmd-035-b")?;
+
+    println!("[EXEC] apply command 1, apply command 2, then retry command 1");
+    let first = harness.flush_next_intent()?;
+    let second = harness.flush_next_intent()?;
+    harness.queue_intent("l4-cas-process-035", "approved", 30, "l4-cmd-035-a")?;
+    let replay = harness.flush_next_intent()?;
+
+    println!("[ASSERT] retry returns command 1 ledger response without re-evaluating head");
+    ensure!(
+        first.accepted && first.applied_revision == Some(31),
+        "first command did not apply as expected: {first:?}"
+    );
+    ensure!(
+        second.accepted && second.applied_revision == Some(32),
+        "second command did not apply as expected: {second:?}"
+    );
+    ensure!(
+        replay.accepted && replay.applied_revision == Some(31),
+        "replayed command did not return the original stored response: {replay:?}"
+    );
+    let head = harness.head("l4-cas-process-035")?;
+    ensure!(
+        head.disposition == "rejected" && head.remote_revision == 32,
+        "replayed command re-evaluated or rewound the current decision head: {head:?}"
+    );
+    ensure!(
+        harness.command_ledger_row_count("l4-cmd-035-a")? == 1,
+        "replay inserted a duplicate command ledger row"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-035 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_036_conflicted_command_writes_command_ledger() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-036");
+    println!("[SETUP] stale-base CAS command");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = OperatorDecisionCasHarness::new(&state_db)?;
+    harness.seed_head("l4-cas-process-036", "watching", 40)?;
+    harness.queue_intent("l4-cas-process-036", "approved", 39, "l4-cmd-036")?;
+
+    println!("[EXEC] flush stale-base command");
+    let response = harness.flush_next_intent()?;
+
+    println!("[ASSERT] conflict result is durable and decision head is unchanged");
+    ensure!(
+        response.is_conflict() && response.current_revision == Some(40),
+        "stale command should return a structured conflict: {response:?}"
+    );
+    let head = harness.head("l4-cas-process-036")?;
+    ensure!(
+        head.disposition == "watching" && head.remote_revision == 40,
+        "conflicted command overwrote current decision head: {head:?}"
+    );
+    let ledger = harness.ledger_row("l4-cmd-036")?;
+    ensure!(
+        ledger.base_revision == 39
+            && ledger.applied_revision.is_none()
+            && ledger.result == "conflict"
+            && ledger.disposition == "approved",
+        "conflict command ledger row lost required fields: {ledger:?}"
+    );
+    let ledger_response: Value = serde_json::from_str(&ledger.response_payload_json)
+        .context("parsing conflict command ledger response JSON")?;
+    ensure!(
+        ledger_response
+            .get("current_revision")
+            .and_then(Value::as_i64)
+            == Some(40)
+            && ledger_response
+                .get("rejected_payload")
+                .and_then(|payload| payload.get("base_revision"))
+                .and_then(Value::as_i64)
+                == Some(39),
+        "conflict command ledger response JSON is incomplete: {ledger_response}"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-036 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_037_command_ledger_gc_preserves_recent_entries() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-037");
+    println!("[SETUP] command ledger rows on both sides of the retention cutoff");
+    let migration = read_repo_file("infra/supabase/migrations/0007_command_ledger.sql")?;
+    ensure!(
+        migration.contains("DEFAULT interval '30 days'")
+            && migration.contains("DELETE FROM operator_decision_commands")
+            && migration.contains("created_at < now() - retention"),
+        "command ledger migration does not expose the 30-day GC contract"
+    );
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = OperatorDecisionCasHarness::new(&state_db)?;
+    let now = 1_800_000_000_i64;
+    let retention_days = 30_i64;
+    let old_epoch = now - retention_days * 86_400 - 1;
+    let recent_epoch = now - retention_days * 86_400 + 1;
+    harness.seed_head("l4-cas-process-037", "pending", 50)?;
+    harness.queue_intent("l4-cas-process-037", "approved", 50, "l4-cmd-037-old")?;
+    harness.flush_next_intent()?;
+    harness.set_ledger_created_at("l4-cmd-037-old", old_epoch)?;
+    harness.queue_intent("l4-cas-process-037", "watching", 51, "l4-cmd-037-recent")?;
+    harness.flush_next_intent()?;
+    harness.set_ledger_created_at("l4-cmd-037-recent", recent_epoch)?;
+
+    println!("[EXEC] run command ledger GC with 30-day retention");
+    let before = harness.head("l4-cas-process-037")?;
+    let deleted = harness.gc_command_ledger(retention_days, now)?;
+    let after = harness.head("l4-cas-process-037")?;
+
+    println!("[ASSERT] GC removes only expired command rows and never changes the head");
+    ensure!(
+        deleted == 1,
+        "GC should delete only one expired row, got {deleted}"
+    );
+    ensure!(
+        harness.command_ledger_row_count("l4-cmd-037-old")? == 0,
+        "expired command ledger row was not removed"
+    );
+    ensure!(
+        harness.command_ledger_row_count("l4-cmd-037-recent")? == 1,
+        "recent command ledger row was removed before retention elapsed"
+    );
+    ensure!(
+        before == after && after.disposition == "watching" && after.remote_revision == 52,
+        "GC changed current operator decision head: before={before:?} after={after:?}"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-037 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_038_post_gc_replay_is_evaluated_as_new_command() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-038");
+    println!("[SETUP] applied command whose ledger row has expired");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = OperatorDecisionCasHarness::new(&state_db)?;
+    let now = 1_800_000_000_i64;
+    harness.seed_head("l4-cas-process-038", "pending", 60)?;
+    harness.queue_intent("l4-cas-process-038", "approved", 60, "l4-cmd-038")?;
+    let first = harness.flush_next_intent()?;
+    harness.set_ledger_created_at("l4-cmd-038", now - 31 * 86_400)?;
+    let deleted = harness.gc_command_ledger(30, now)?;
+
+    println!("[EXEC] replay the same command id after GC with the stale base revision");
+    harness.queue_intent("l4-cas-process-038", "approved", 60, "l4-cmd-038")?;
+    let replay = harness.flush_next_intent()?;
+
+    println!("[ASSERT] post-GC replay is treated as a new stale command and conflicts");
+    ensure!(
+        first.accepted && first.applied_revision == Some(61),
+        "initial command did not apply: {first:?}"
+    );
+    ensure!(deleted == 1, "expired command ledger row was not removed");
+    ensure!(
+        replay.is_conflict() && replay.current_revision == Some(61),
+        "post-GC replay did not evaluate against the current head: {replay:?}"
+    );
+    let head = harness.head("l4-cas-process-038")?;
+    ensure!(
+        head.disposition == "approved" && head.remote_revision == 61,
+        "post-GC replay changed the decision head: {head:?}"
+    );
+    let ledger = harness.ledger_row("l4-cmd-038")?;
+    ensure!(
+        ledger.result == "conflict" && ledger.applied_revision.is_none(),
+        "post-GC replay did not persist the new conflict ledger result: {ledger:?}"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-038 PASS");
+    Ok(())
+}
+
+#[test]
 fn l4_t_sqlite_supabase_sync_039_first_daemon_acquires_and_renews_writer_lease() -> Result<()> {
     println!("[TEST_START] L4-T-sqlite_supabase_sync-039");
     println!("[SETUP] two-daemon writer lease harness");
@@ -1778,5 +2022,112 @@ fn l4_t_sqlite_supabase_sync_043_unapproved_second_writer_config_rejected() -> R
     );
     println!("[CLEANUP] config/doc fixture only");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-043 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_046_viewer_sync_status_updates_after_ack_and_heartbeat() -> Result<()>
+{
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-046");
+    println!("[SETUP] writer lease harness with one pending local outbox row");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = WriterLeaseHarness::new(&state_db)?;
+    harness.insert_pending_outbox_marker("l4-status-pending-one")?;
+
+    println!("[EXEC] record a successful remote apply acknowledgement");
+    let healthy =
+        harness.record_viewer_sync_apply_success(1_000, 77, 4, "daemon-l4-status-test")?;
+
+    println!("[ASSERT] successful apply writes the complete healthy viewer_sync_status row");
+    ensure!(
+        healthy.sync_health == SyncHealth::Healthy,
+        "successful apply did not mark sync healthy: {healthy:?}"
+    );
+    ensure!(
+        healthy.last_push_success_at_epoch_secs == Some(1_000)
+            && healthy.last_push_attempt_at_epoch_secs == Some(1_000),
+        "successful apply did not refresh success and attempt timestamps: {healthy:?}"
+    );
+    ensure!(
+        healthy.last_acked_local_seq == Some(77),
+        "successful apply did not store last acked local sequence: {healthy:?}"
+    );
+    ensure!(
+        healthy.pending_outbox_count == 1,
+        "pending outbox count was not preserved after status write: {healthy:?}"
+    );
+    ensure!(
+        healthy.schema_epoch == DEFAULT_SCHEMA_EPOCH,
+        "viewer_sync_status schema epoch did not match local epoch: {healthy:?}"
+    );
+    ensure!(
+        healthy.projection_generation == 4,
+        "viewer_sync_status projection generation was not stored: {healthy:?}"
+    );
+    ensure!(
+        healthy.daemon_version == "daemon-l4-status-test",
+        "viewer_sync_status daemon version was not stored: {healthy:?}"
+    );
+
+    println!("[EXEC] refresh heartbeat/status-only rows without changing projection data");
+    let degraded = harness.record_viewer_sync_heartbeat(1_090, 4, "daemon-l4-status-test")?;
+    let offline = harness.record_viewer_sync_heartbeat(1_301, 4, "daemon-l4-status-test")?;
+
+    println!("[ASSERT] heartbeat-only commits advance attempt/update time and derive freshness");
+    ensure!(
+        degraded.sync_health == SyncHealth::Degraded,
+        "90-second status-only heartbeat should be degraded: {degraded:?}"
+    );
+    ensure!(
+        degraded.last_push_success_at_epoch_secs == Some(1_000)
+            && degraded.last_push_attempt_at_epoch_secs == Some(1_090)
+            && degraded.last_acked_local_seq == Some(77),
+        "degraded heartbeat changed immutable success/ack fields or missed attempt: {degraded:?}"
+    );
+    ensure!(
+        offline.sync_health == SyncHealth::Offline,
+        "status-only heartbeat after five minutes should be offline: {offline:?}"
+    );
+    ensure!(
+        offline.last_push_success_at_epoch_secs == Some(1_000)
+            && offline.last_push_attempt_at_epoch_secs == Some(1_301)
+            && offline.last_acked_local_seq == Some(77),
+        "offline heartbeat changed immutable success/ack fields or missed attempt: {offline:?}"
+    );
+
+    println!("[EXEC] record a later apply acknowledgement after another pending row appears");
+    harness.insert_pending_outbox_marker("l4-status-pending-two")?;
+    let refreshed =
+        harness.record_viewer_sync_apply_success(1_320, 88, 5, "daemon-l4-status-test")?;
+
+    println!("[ASSERT] later apply returns to healthy and refreshes ack/projection fields");
+    ensure!(
+        refreshed.sync_health == SyncHealth::Healthy,
+        "later successful apply did not restore healthy state: {refreshed:?}"
+    );
+    ensure!(
+        refreshed.last_push_success_at_epoch_secs == Some(1_320)
+            && refreshed.last_push_attempt_at_epoch_secs == Some(1_320)
+            && refreshed.last_acked_local_seq == Some(88),
+        "later successful apply did not refresh success/attempt/ack: {refreshed:?}"
+    );
+    ensure!(
+        refreshed.pending_outbox_count == 2 && refreshed.projection_generation == 5,
+        "later successful apply did not store pending count and projection generation: {refreshed:?}"
+    );
+
+    let migration = read_repo_file("infra/supabase/migrations/0003_summary_tables.sql")?;
+    ensure!(
+        migration.contains("CREATE TABLE viewer_sync_status")
+            && migration.contains("sync_health IN ('healthy', 'degraded', 'offline')")
+            && migration.contains("last_acked_local_seq")
+            && migration.contains("pending_outbox_count")
+            && migration.contains("projection_generation")
+            && migration.contains("daemon_version"),
+        "Supabase summary migration does not expose the viewer_sync_status freshness contract"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-046 PASS");
     Ok(())
 }
