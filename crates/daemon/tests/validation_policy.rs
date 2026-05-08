@@ -1,6 +1,9 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::duplicate_mod)]
 
+#[path = "../src/validation/calibration.rs"]
+#[allow(dead_code)]
+mod calibration_impl;
 #[path = "../src/validation/policy.rs"]
 #[allow(dead_code)]
 mod policy_impl;
@@ -12,7 +15,13 @@ mod tests {
     use std::path::PathBuf;
 
     use anyhow::{Result, anyhow, ensure};
+    use serde_json::json;
 
+    use crate::calibration_impl::{
+        CalibrationSliceConfig, DEFAULT_DEMOTION_THRESHOLDS,
+        EnforcementReadinessState as CalibrationReadinessState, recompute_enforcement_readiness,
+        rule_of_three_false_pass_upper_bound_bps, wilson_lower_bound_bps,
+    };
     use crate::policy_impl::{
         BOOTSTRAP_RUN_TARGET, BasisSufficiency, CALIBRATING_VALIDATION_BPS, DemotionTrigger,
         DryRunLadderPhase, EnforcementReadinessState, FULL_VALIDATION_BPS, SkillPromotionStage,
@@ -113,6 +122,116 @@ mod tests {
             ],
         )?;
         Ok(slice_id)
+    }
+
+    fn calibration_config(
+        compatible_versions: impl IntoIterator<Item = &'static str>,
+        dominant_families: impl IntoIterator<Item = &'static str>,
+    ) -> CalibrationSliceConfig {
+        let cfg = config(ValidationPolicyMode::Sample);
+        let slice_id = derive_slice_id(&ValidationSliceKey {
+            worker_skill_id: cfg.worker_skill_id.clone(),
+            source_id: cfg.source_id.clone(),
+            worker_behavior_version: cfg.worker_behavior_version.clone(),
+            validator_behavior_version: cfg.validator_behavior_version.clone(),
+        });
+        CalibrationSliceConfig {
+            slice_id,
+            worker_skill_id: cfg.worker_skill_id,
+            source_id: cfg.source_id,
+            worker_behavior_version: cfg.worker_behavior_version,
+            validator_overlay_version: cfg.validator_behavior_version,
+            validator_overlay_compatible_versions: compatible_versions
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+            dominant_failure_families: dominant_families.into_iter().map(str::to_owned).collect(),
+            demotion_thresholds: DEFAULT_DEMOTION_THRESHOLDS,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn seed_calibration_case(
+        conn: &rusqlite::Connection,
+        case_id: &str,
+        slice_id: &str,
+        corpus_kind: &str,
+        expected_verdict: &str,
+        actual_verdict: &str,
+        mutation_family: Option<&str>,
+        metadata: &serde_json::Value,
+    ) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO validation_calibration_cases (
+              case_id, slice_id, corpus_kind, source_artifact_path,
+              expected_verdict, actual_verdict, ground_truth_label,
+              mutation_family, metadata_json, adjudicated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'known', ?7, ?8, '2026-05-08T00:00:00Z')
+            ",
+            rusqlite::params![
+                case_id,
+                slice_id,
+                corpus_kind,
+                format!("tests/fixtures/calibration/{case_id}.json"),
+                expected_verdict,
+                actual_verdict,
+                mutation_family,
+                metadata.to_string(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn seed_eligible_calibration_evidence(
+        conn: &rusqlite::Connection,
+        cfg: &CalibrationSliceConfig,
+    ) -> Result<()> {
+        for idx in 0..26 {
+            seed_calibration_case(
+                conn,
+                &format!("reject-correct-{idx}"),
+                &cfg.slice_id,
+                "mutated",
+                "rejected",
+                "rejected",
+                Some(if idx % 2 == 0 {
+                    "price_mismatch"
+                } else {
+                    "missing_lot"
+                }),
+                &json!({}),
+            )?;
+        }
+        for idx in 26..30 {
+            seed_calibration_case(
+                conn,
+                &format!("reject-review-{idx}"),
+                &cfg.slice_id,
+                "mutated",
+                "rejected",
+                "needs_review",
+                Some(if idx % 2 == 0 {
+                    "price_mismatch"
+                } else {
+                    "missing_lot"
+                }),
+                &json!({}),
+            )?;
+        }
+        for idx in 0..60 {
+            seed_calibration_case(
+                conn,
+                &format!("approved-clean-{idx}"),
+                &cfg.slice_id,
+                "clean",
+                "approved",
+                "approved",
+                None,
+                &json!({}),
+            )?;
+        }
+        Ok(())
     }
 
     #[test]
@@ -475,6 +594,250 @@ mod tests {
         ensure!(readiness.enforcement_state == EnforcementReadinessState::Eligible);
         ensure!(decision.enforcement.enforcement_eligible);
         ensure!(decision.dry_run_phase == DryRunLadderPhase::FullSliceEnforcement);
+        Ok(())
+    }
+
+    #[test]
+    #[doc = "L4-T-sqlite_supabase_sync-075"]
+    fn l4_t_sqlite_supabase_sync_075_calibration_math_boundary_cases() -> Result<()> {
+        let lower_26_of_30 = wilson_lower_bound_bps(26, 30);
+        ensure!(
+            (7030..=7040).contains(&lower_26_of_30),
+            "26/30 Wilson lower bound should be near 7030-7040 bps, got {lower_26_of_30}"
+        );
+        ensure!(wilson_lower_bound_bps(25, 30) < 7000);
+        ensure!(rule_of_three_false_pass_upper_bound_bps(0, 60) == 500);
+        ensure!(rule_of_three_false_pass_upper_bound_bps(0, 59) > 500);
+        Ok(())
+    }
+
+    #[test]
+    #[doc = "L4-T-sqlite_supabase_sync-051"]
+    fn l4_t_sqlite_supabase_sync_051_missing_family_coverage_keeps_slice_dry_run() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = StateDb::open(&db_path)?;
+        let cfg = calibration_config(["worker.v1"], ["price_mismatch", "missing_lot"]);
+        for idx in 0..30 {
+            seed_calibration_case(
+                state_db.connection(),
+                &format!("reject-price-only-{idx}"),
+                &cfg.slice_id,
+                "mutated",
+                "rejected",
+                "rejected",
+                Some("price_mismatch"),
+                &json!({}),
+            )?;
+        }
+        for idx in 0..60 {
+            seed_calibration_case(
+                state_db.connection(),
+                &format!("approved-missing-coverage-{idx}"),
+                &cfg.slice_id,
+                "clean",
+                "approved",
+                "approved",
+                None,
+                &json!({}),
+            )?;
+        }
+
+        let snapshot =
+            recompute_enforcement_readiness(state_db.connection(), &cfg, "2026-05-08T00:00:00Z")?;
+
+        ensure!(snapshot.enforcement_state == CalibrationReadinessState::DryRun);
+        ensure!(snapshot.missing_failure_families == vec!["missing_lot"]);
+        Ok(())
+    }
+
+    #[test]
+    #[doc = "L4-T-sqlite_supabase_sync-052"]
+    fn l4_t_sqlite_supabase_sync_052_wilson_below_threshold_blocks_enforcement() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = StateDb::open(&db_path)?;
+        let cfg = calibration_config(["worker.v1"], ["price_mismatch", "missing_lot"]);
+        for idx in 0..25 {
+            seed_calibration_case(
+                state_db.connection(),
+                &format!("reject-correct-low-wilson-{idx}"),
+                &cfg.slice_id,
+                "live",
+                "rejected",
+                "rejected",
+                Some(if idx % 2 == 0 {
+                    "price_mismatch"
+                } else {
+                    "missing_lot"
+                }),
+                &json!({}),
+            )?;
+        }
+        for idx in 25..30 {
+            seed_calibration_case(
+                state_db.connection(),
+                &format!("reject-review-low-wilson-{idx}"),
+                &cfg.slice_id,
+                "live",
+                "rejected",
+                "needs_review",
+                Some(if idx % 2 == 0 {
+                    "price_mismatch"
+                } else {
+                    "missing_lot"
+                }),
+                &json!({}),
+            )?;
+        }
+        for idx in 0..60 {
+            seed_calibration_case(
+                state_db.connection(),
+                &format!("approved-low-wilson-{idx}"),
+                &cfg.slice_id,
+                "clean",
+                "approved",
+                "approved",
+                None,
+                &json!({}),
+            )?;
+        }
+
+        let snapshot =
+            recompute_enforcement_readiness(state_db.connection(), &cfg, "2026-05-08T00:00:00Z")?;
+
+        ensure!(snapshot.wilson_lower_bound_bps < 7000);
+        ensure!(snapshot.enforcement_state == CalibrationReadinessState::DryRun);
+        Ok(())
+    }
+
+    #[test]
+    #[doc = "L4-T-sqlite_supabase_sync-053"]
+    fn l4_t_sqlite_supabase_sync_053_override_spike_demotes_same_transaction() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = StateDb::open(&db_path)?;
+        let cfg = calibration_config(["worker.v1"], ["price_mismatch", "missing_lot"]);
+        seed_eligible_calibration_evidence(state_db.connection(), &cfg)?;
+
+        state_db.with_write_transaction(|tx| {
+            for idx in 0..10 {
+                seed_calibration_case(
+                    tx,
+                    &format!("override-spike-{idx}"),
+                    &cfg.slice_id,
+                    "override",
+                    "rejected",
+                    "approved",
+                    Some("price_mismatch"),
+                    &json!({
+                        "operator_reviewed_rejection": true,
+                        "operator_overrode_rejection": true
+                    }),
+                )?;
+            }
+            let snapshot = recompute_enforcement_readiness(tx, &cfg, "2026-05-08T00:00:00Z")?;
+            let persisted: String = tx.query_row(
+                "SELECT enforcement_state FROM enforcement_readiness WHERE slice_id = ?1",
+                [&cfg.slice_id],
+                |row| row.get(0),
+            )?;
+            ensure!(snapshot.enforcement_state == CalibrationReadinessState::Demoted);
+            ensure!(persisted == "demoted");
+            ensure!(snapshot.active_demotion_trigger_json.is_some());
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    #[test]
+    #[doc = "L4-T-sqlite_supabase_sync-054"]
+    fn l4_t_sqlite_supabase_sync_054_critical_mutated_bad_approval_demotes() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = StateDb::open(&db_path)?;
+        let cfg = calibration_config(["worker.v1"], ["price_mismatch", "missing_lot"]);
+        seed_eligible_calibration_evidence(state_db.connection(), &cfg)?;
+        seed_calibration_case(
+            state_db.connection(),
+            "critical-mutated-approved",
+            &cfg.slice_id,
+            "mutated",
+            "rejected",
+            "approved",
+            Some("price_mismatch"),
+            &json!({ "critical": true }),
+        )?;
+
+        let snapshot =
+            recompute_enforcement_readiness(state_db.connection(), &cfg, "2026-05-08T00:00:00Z")?;
+
+        ensure!(snapshot.enforcement_state == CalibrationReadinessState::Demoted);
+        ensure!(
+            snapshot
+                .active_demotion_trigger_json
+                .as_ref()
+                .is_some_and(|value| value.to_string().contains("challenge_regression"))
+        );
+        Ok(())
+    }
+
+    #[test]
+    #[doc = "L4-T-sqlite_supabase_sync-055"]
+    fn l4_t_sqlite_supabase_sync_055_anomaly_conditioned_validator_error_demotes() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = StateDb::open(&db_path)?;
+        let cfg = calibration_config(["worker.v1"], ["price_mismatch", "missing_lot"]);
+        seed_eligible_calibration_evidence(state_db.connection(), &cfg)?;
+        for idx in 0..20 {
+            seed_calibration_case(
+                state_db.connection(),
+                &format!("anomaly-error-{idx}"),
+                &cfg.slice_id,
+                "live",
+                "needs_review",
+                "needs_review",
+                None,
+                &json!({
+                    "anomaly_conditioned": true,
+                    "validator_error": true
+                }),
+            )?;
+        }
+
+        let snapshot =
+            recompute_enforcement_readiness(state_db.connection(), &cfg, "2026-05-08T00:00:00Z")?;
+
+        ensure!(snapshot.enforcement_state == CalibrationReadinessState::Demoted);
+        ensure!(
+            snapshot
+                .active_demotion_trigger_json
+                .as_ref()
+                .is_some_and(|value| value.to_string().contains("anomaly_validator_error"))
+        );
+        Ok(())
+    }
+
+    #[test]
+    #[doc = "L4-T-sqlite_supabase_sync-056"]
+    fn l4_t_sqlite_supabase_sync_056_compatible_range_exit_demotes() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = StateDb::open(&db_path)?;
+        let cfg = calibration_config(["worker.v2"], ["price_mismatch", "missing_lot"]);
+        seed_eligible_calibration_evidence(state_db.connection(), &cfg)?;
+
+        let snapshot =
+            recompute_enforcement_readiness(state_db.connection(), &cfg, "2026-05-08T00:00:00Z")?;
+
+        ensure!(snapshot.enforcement_state == CalibrationReadinessState::Demoted);
+        ensure!(
+            snapshot
+                .active_demotion_trigger_json
+                .as_ref()
+                .is_some_and(|value| value.to_string().contains("compatible_range_exit"))
+        );
         Ok(())
     }
 
