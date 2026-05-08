@@ -91,6 +91,62 @@ fn l4_t_redaction_boundary_026_schema_hash_coordination_gate() -> Result<()> {
 }
 
 #[test]
+fn l4_t_redaction_boundary_021_tombstoned_remote_rows_stay_pull_visible_only() -> Result<()> {
+    let rls = read_repo_file("infra/supabase/migrations/0004_rls_policies.sql")?;
+    let remote_owned = read_repo_file("infra/supabase/migrations/0002_remote_owned_tables.sql")?;
+    let remote_config_policy = rls
+        .split("FOREACH table_name IN ARRAY ARRAY[\n    'shared_company_profile'")
+        .nth(1)
+        .and_then(|section| section.split("END LOOP;").next())
+        .context("L4-T-redaction_boundary-021 missing remote config policy loop")?;
+    let decision_select_policy = rls
+        .split("CREATE POLICY operator_decision_heads_operator_admin_daemon_select")
+        .nth(1)
+        .and_then(|section| {
+            section
+                .split("CREATE POLICY operator_decision_heads_admin_all")
+                .next()
+        })
+        .context("L4-T-redaction_boundary-021 missing operator decision select policy")?;
+
+    ensure!(
+        remote_config_policy.contains(
+            "FOR SELECT USING (l4_request_role() = ''daemon'' OR l4_request_role() = ''admin'')"
+        ) && !remote_config_policy.contains("viewer")
+            && !remote_config_policy.contains("operator")
+            && !remote_config_policy.contains("deleted_at IS NULL"),
+        "L4-T-redaction_boundary-021 remote config tombstones must remain visible only to daemon/admin pull"
+    );
+    ensure!(
+        decision_select_policy.contains("l4_request_role() = 'daemon'")
+            && decision_select_policy.contains("l4_request_role() = 'admin'")
+            && decision_select_policy
+                .contains("(l4_request_role() = 'operator' AND deleted_at IS NULL)")
+            && !decision_select_policy.contains("l4_request_role() = 'viewer'"),
+        "L4-T-redaction_boundary-021 operator decisions must hide tombstones from operator portal reads while daemon/admin can pull them"
+    );
+    for table in [
+        "shared_company_profile",
+        "shared_source_configs",
+        "operator_decision_heads",
+    ] {
+        let table_section = remote_owned
+            .split(&format!("CREATE TABLE {table} ("))
+            .nth(1)
+            .and_then(|section| section.split(");").next())
+            .with_context(|| {
+                format!("L4-T-redaction_boundary-021 missing remote-owned table `{table}`")
+            })?;
+        ensure!(
+            table_section.contains("deleted_at timestamptz"),
+            "L4-T-redaction_boundary-021 `{table}` must carry tombstone timestamp for pull retention"
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
 fn l4_t_redaction_boundary_022_operator_decision_mutation_requires_cas_rpc() -> Result<()> {
     let rls = read_repo_file("infra/supabase/migrations/0004_rls_policies.sql")?;
     let rpc = read_repo_file("infra/supabase/migrations/0005_sync_rpcs.sql")?;
@@ -141,6 +197,64 @@ fn l4_t_redaction_boundary_022_operator_decision_mutation_requires_cas_rpc() -> 
         ),
         "authenticated/service-role execution grant for the CAS RPC is missing"
     );
+
+    Ok(())
+}
+
+#[test]
+fn l4_t_redaction_boundary_024_admin_maintenance_preserves_remote_owned_triggers() -> Result<()> {
+    let rls = read_repo_file("infra/supabase/migrations/0004_rls_policies.sql")?;
+    let remote_owned = read_repo_file("infra/supabase/migrations/0002_remote_owned_tables.sql")?;
+    let remote_config_policy = rls
+        .split("FOREACH table_name IN ARRAY ARRAY[\n    'shared_company_profile'")
+        .nth(1)
+        .and_then(|section| section.split("END LOOP;").next())
+        .context("L4-T-redaction_boundary-024 missing remote config admin policy loop")?;
+    let decision_admin_policy = rls
+        .split("CREATE POLICY operator_decision_heads_admin_all")
+        .nth(1)
+        .and_then(|section| section.split("GRANT USAGE ON SCHEMA").next())
+        .context("L4-T-redaction_boundary-024 missing decision admin policy")?;
+
+    ensure!(
+        remote_config_policy.contains(
+            "CREATE POLICY %I ON %I FOR ALL USING (l4_request_role() = ''admin'') WITH CHECK (l4_request_role() = ''admin'')"
+        ) && decision_admin_policy.contains("FOR ALL")
+            && decision_admin_policy.contains("USING (l4_request_role() = 'admin')")
+            && decision_admin_policy.contains("WITH CHECK (l4_request_role() = 'admin')"),
+        "L4-T-redaction_boundary-024 admin maintenance policies must be explicit remote-owned CRUD paths"
+    );
+    ensure!(
+        rls.contains("GRANT INSERT, UPDATE, DELETE ON shared_company_profile, shared_source_configs, operator_decision_heads TO authenticated;")
+            && !rls.contains("GRANT INSERT, UPDATE, DELETE ON procurement_processes TO authenticated")
+            && !rls.contains("GRANT INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated"),
+        "L4-T-redaction_boundary-024 authenticated maintenance grants must stay limited to remote-owned config/decision tables"
+    );
+    ensure!(
+        remote_owned.contains("CREATE OR REPLACE FUNCTION l4_remote_owned_touch()")
+            && remote_owned.contains("NEW.remote_change_seq := nextval(TG_ARGV[0]::regclass);")
+            && remote_owned.contains("NEW.remote_revision := OLD.remote_revision + 1;"),
+        "L4-T-redaction_boundary-024 remote-owned trigger must advance change sequence and revision on maintenance updates"
+    );
+    for (table, sequence) in [
+        (
+            "shared_company_profile",
+            "shared_company_profile_change_seq",
+        ),
+        ("shared_source_configs", "shared_source_configs_change_seq"),
+        (
+            "operator_decision_heads",
+            "operator_decision_heads_change_seq",
+        ),
+    ] {
+        let trigger = format!(
+            "CREATE TRIGGER {table}_remote_change_seq\n  BEFORE INSERT OR UPDATE ON {table}\n  FOR EACH ROW\n  EXECUTE FUNCTION l4_remote_owned_touch('{sequence}');"
+        );
+        ensure!(
+            remote_owned.contains(&trigger),
+            "L4-T-redaction_boundary-024 `{table}` must preserve remote_change_seq trigger for admin maintenance"
+        );
+    }
 
     Ok(())
 }
