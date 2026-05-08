@@ -2891,6 +2891,85 @@ fn l4_t_sqlite_supabase_sync_027_remote_change_seq_is_monotonic_and_non_reused_p
 }
 
 #[test]
+fn l4_t_sqlite_supabase_sync_078_tombstone_retention_keeps_daemon_pull_visible() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-078");
+    println!("[SETUP] initialize pull cursor harness and read RLS policy migration");
+    let state_db = L4TestStateDb::new()?;
+    let harness = PullCursorHarness::new(&state_db)?;
+    let rls = read_repo_file("infra/supabase/migrations/0004_rls_policies.sql")?;
+    let retention_section = rls
+        .split("CREATE OR REPLACE FUNCTION l4_tombstone_retention_days()")
+        .nth(1)
+        .context("L4-T-sqlite_supabase_sync-078 missing tombstone retention config")?;
+    let retention_days = retention_section
+        .split("SELECT")
+        .nth(1)
+        .and_then(|section| section.split(';').next())
+        .and_then(|literal| literal.trim().parse::<i64>().ok())
+        .context("L4-T-sqlite_supabase_sync-078 retention days literal is not parseable")?;
+
+    println!("[ASSERT] default tombstone retention is at least 14 days");
+    ensure!(
+        retention_days >= 14,
+        "default tombstone retention must be at least 14 days, got {retention_days}"
+    );
+    ensure!(
+        rls.contains("shorter retention requires anti-entropy/full-hash diff"),
+        "shortened tombstone retention must document the anti-entropy/full-hash-diff requirement"
+    );
+
+    let remote_config_policy = rls
+        .split("FOREACH table_name IN ARRAY ARRAY[\n    'shared_company_profile'")
+        .nth(1)
+        .and_then(|section| section.split("END LOOP;").next())
+        .context("L4-T-sqlite_supabase_sync-078 missing remote config policy loop")?;
+    let decision_select_policy = rls
+        .split("CREATE POLICY operator_decision_heads_operator_admin_daemon_select")
+        .nth(1)
+        .and_then(|section| {
+            section
+                .split("CREATE POLICY operator_decision_heads_admin_all")
+                .next()
+        })
+        .context("L4-T-sqlite_supabase_sync-078 missing decision-head select policy")?;
+
+    println!("[ASSERT] daemon/admin pull policies do not filter tombstones");
+    ensure!(
+        remote_config_policy.contains(
+            "FOR SELECT USING (l4_request_role() = ''daemon'' OR l4_request_role() = ''admin'')",
+        ) && !remote_config_policy.contains("deleted_at IS NULL"),
+        "remote-owned config daemon/admin pull policy must keep tombstones visible"
+    );
+    ensure!(
+        decision_select_policy.contains("l4_request_role() = 'daemon'")
+            && decision_select_policy.contains("l4_request_role() = 'admin'")
+            && decision_select_policy
+                .contains("(l4_request_role() = 'operator' AND deleted_at IS NULL)",)
+            && !decision_select_policy.contains("l4_request_role() = 'viewer'"),
+        "decision heads must keep tombstones daemon/admin-pull-visible while hiding them from portal reads"
+    );
+
+    println!("[EXEC] pull insert/update/tombstone changes through each remote-owned domain");
+    for domain in PullCursorDomain::all() {
+        let entity_id = format!("{}-tombstone-retention", domain.as_str());
+        let expected_seqs = harness.exercise_remote_change_sequence(domain, &entity_id)?;
+        let outcome = harness.pull_fenced(domain, 10)?;
+        let applied_seqs = harness.applied_remote_change_seqs(domain)?;
+
+        println!("[ASSERT] {domain:?} tombstone row was pulled before retention expiry");
+        ensure!(
+            applied_seqs == expected_seqs
+                && outcome.applied_entity_ids.len() == expected_seqs.len(),
+            "{domain:?} did not pull insert/update/tombstone changes: expected seqs {expected_seqs:?}, applied {applied_seqs:?}, outcome {outcome:?}"
+        );
+    }
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-078 PASS");
+    Ok(())
+}
+
+#[test]
 fn l4_t_sqlite_supabase_sync_028_cycle_pulls_before_reconcile_cas_and_push() -> Result<()> {
     println!("[TEST_START] L4-T-sqlite_supabase_sync-028");
     println!("[SETUP] seed remote-owned changes for all pull domains");

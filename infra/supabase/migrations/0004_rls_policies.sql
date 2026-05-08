@@ -37,6 +37,17 @@ AS $$
   SELECT l4_request_role() = ANY (allowed_roles);
 $$;
 
+CREATE OR REPLACE FUNCTION l4_tombstone_retention_days()
+RETURNS integer
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT 14;
+$$;
+
+COMMENT ON FUNCTION l4_tombstone_retention_days() IS
+  'L4-FR-3.6.17: default tombstone retention is at least 14 days; shorter retention requires anti-entropy/full-hash diff.';
+
 DO $$
 DECLARE
   table_name text;
