@@ -23,6 +23,14 @@ Full web E2E run:
 
 Result: passed, 21/21 tests.
 
+Final gate revalidation:
+
+```bash
+(cd apps/web && bun run test:e2e)
+```
+
+Result: passed, 21/21 tests during `testproject1-4zq.6.8` final Stage Validation Test Gate on 2026-05-08.
+
 Workspace Bun gates:
 
 ```bash
