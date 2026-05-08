@@ -14,8 +14,9 @@ use super::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 pub use sync_impl::SupabaseRpcClient;
 #[allow(unused_imports)]
 pub use sync_impl::{
-    BatchEnvelope, BatchEnvelopeAssembler, OutboxOp, OutboxWriter, PullCursor, PullCursorDomain,
-    PullCursorStore, PushBatchApplyResponse, WriterBindingConfig, WriterBindingMode, WriterLease,
+    BatchEnvelope, BatchEnvelopeAssembler, FencedPullOutcome, FencedPullPageBoundary, OutboxOp,
+    OutboxWriter, PullCursor, PullCursorDomain, PullCursorStore, PushBatchApplyResponse,
+    RemoteOwnedChange, WriterBindingConfig, WriterBindingMode, WriterLease,
     WriterLeaseAcquireResult, canonical_content_hash,
 };
 
@@ -402,6 +403,32 @@ impl WriterLeaseHarness {
     }
 }
 
+fn ensure_remote_owned_fixture_tables(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "\
+        CREATE TABLE IF NOT EXISTS l4_remote_owned_fixture (
+          domain TEXT NOT NULL,
+          entity_id TEXT NOT NULL,
+          remote_change_seq INTEGER NOT NULL CHECK (remote_change_seq > 0),
+          payload_json TEXT NOT NULL,
+          deleted_at TEXT,
+          op TEXT NOT NULL CHECK (op IN ('insert', 'update', 'tombstone')),
+          PRIMARY KEY (domain, remote_change_seq)
+        );
+
+        CREATE TABLE IF NOT EXISTS l4_remote_owned_applied (
+          domain TEXT NOT NULL,
+          remote_change_seq INTEGER NOT NULL CHECK (remote_change_seq > 0),
+          entity_id TEXT NOT NULL,
+          payload_json TEXT NOT NULL,
+          deleted_at TEXT,
+          PRIMARY KEY (domain, remote_change_seq)
+        );
+        ",
+    )
+    .context("ensuring remote-owned pull fixture tables")
+}
+
 pub struct PullCursorHarness {
     conn: Connection,
 }
@@ -412,6 +439,7 @@ impl PullCursorHarness {
             .with_context(|| format!("opening L4 state DB {}", state_db.db_path().display()))?;
         conn.execute_batch("PRAGMA foreign_keys = ON")?;
         PullCursorStore::initialize(&conn)?;
+        ensure_remote_owned_fixture_tables(&conn)?;
         Ok(Self { conn })
     }
 
@@ -433,6 +461,232 @@ impl PullCursorHarness {
 
     pub fn record_failure(&self, domain: PullCursorDomain) -> Result<PullCursor> {
         PullCursorStore::record_failure(&self.conn, domain)
+    }
+
+    pub fn seed_remote_owned_change(
+        &self,
+        domain: PullCursorDomain,
+        entity_id: &str,
+        payload: &Value,
+    ) -> Result<i64> {
+        self.append_remote_owned_change(domain, entity_id, payload, None, "insert")
+    }
+
+    pub fn pull_fenced(
+        &self,
+        domain: PullCursorDomain,
+        page_size: usize,
+    ) -> Result<FencedPullOutcome> {
+        PullCursorStore::apply_fenced_pull(
+            &self.conn,
+            domain,
+            page_size,
+            |pull_domain| self.remote_hiwater(pull_domain),
+            |pull_domain, lower_exclusive, hiwater, limit| {
+                self.remote_page(pull_domain, lower_exclusive, hiwater, limit)
+            },
+            |pull_domain, change| self.apply_remote_change(pull_domain, change),
+        )
+    }
+
+    pub fn pull_fenced_with_concurrent_change(
+        &self,
+        domain: PullCursorDomain,
+        page_size: usize,
+        concurrent_entity_id: &str,
+        concurrent_payload: &Value,
+    ) -> Result<FencedPullOutcome> {
+        let mut injected = false;
+        PullCursorStore::apply_fenced_pull(
+            &self.conn,
+            domain,
+            page_size,
+            |pull_domain| {
+                let hiwater = self.remote_hiwater(pull_domain)?;
+                if !injected {
+                    self.seed_remote_owned_change(
+                        pull_domain,
+                        concurrent_entity_id,
+                        concurrent_payload,
+                    )?;
+                    injected = true;
+                }
+                Ok(hiwater)
+            },
+            |pull_domain, lower_exclusive, hiwater, limit| {
+                self.remote_page(pull_domain, lower_exclusive, hiwater, limit)
+            },
+            |pull_domain, change| self.apply_remote_change(pull_domain, change),
+        )
+    }
+
+    pub fn applied_remote_entity_ids(&self, domain: PullCursorDomain) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "\
+            SELECT entity_id
+            FROM l4_remote_owned_applied
+            WHERE domain = ?1
+            ORDER BY remote_change_seq
+            ",
+        )?;
+        stmt.query_map(params![domain.as_str()], |row| row.get(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .context("listing applied remote entity ids")
+    }
+
+    pub fn applied_remote_change_seqs(&self, domain: PullCursorDomain) -> Result<Vec<i64>> {
+        let mut stmt = self.conn.prepare(
+            "\
+            SELECT remote_change_seq
+            FROM l4_remote_owned_applied
+            WHERE domain = ?1
+            ORDER BY remote_change_seq
+            ",
+        )?;
+        stmt.query_map(params![domain.as_str()], |row| row.get(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .context("listing applied remote change sequences")
+    }
+
+    pub fn exercise_remote_change_sequence(
+        &self,
+        domain: PullCursorDomain,
+        entity_id: &str,
+    ) -> Result<Vec<i64>> {
+        Ok(vec![
+            self.append_remote_owned_change(
+                domain,
+                entity_id,
+                &json!({"entity_id": entity_id, "op": "insert"}),
+                None,
+                "insert",
+            )?,
+            self.append_remote_owned_change(
+                domain,
+                entity_id,
+                &json!({"entity_id": entity_id, "op": "update"}),
+                None,
+                "update",
+            )?,
+            self.append_remote_owned_change(
+                domain,
+                entity_id,
+                &json!({"entity_id": entity_id, "op": "tombstone"}),
+                Some("2026-05-08T00:00:00Z"),
+                "tombstone",
+            )?,
+        ])
+    }
+
+    pub fn remote_change_history(&self, domain: PullCursorDomain) -> Result<Vec<i64>> {
+        let mut stmt = self.conn.prepare(
+            "\
+            SELECT remote_change_seq
+            FROM l4_remote_owned_fixture
+            WHERE domain = ?1
+            ORDER BY remote_change_seq
+            ",
+        )?;
+        stmt.query_map(params![domain.as_str()], |row| row.get(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .context("listing remote-owned fixture change history")
+    }
+
+    fn append_remote_owned_change(
+        &self,
+        domain: PullCursorDomain,
+        entity_id: &str,
+        payload: &Value,
+        deleted_at: Option<&str>,
+        op: &str,
+    ) -> Result<i64> {
+        let next_seq = self.remote_hiwater(domain)? + 1;
+        self.conn.execute(
+            "\
+            INSERT INTO l4_remote_owned_fixture (
+              domain, entity_id, remote_change_seq, payload_json, deleted_at, op
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            ",
+            params![
+                domain.as_str(),
+                entity_id,
+                next_seq,
+                payload.to_string(),
+                deleted_at,
+                op
+            ],
+        )?;
+        Ok(next_seq)
+    }
+
+    fn remote_hiwater(&self, domain: PullCursorDomain) -> Result<i64> {
+        self.conn
+            .query_row(
+                "\
+                SELECT COALESCE(MAX(remote_change_seq), 0)
+                FROM l4_remote_owned_fixture
+                WHERE domain = ?1
+                ",
+                params![domain.as_str()],
+                |row| row.get(0),
+            )
+            .context("reading remote-owned fixture hiwater")
+    }
+
+    fn remote_page(
+        &self,
+        domain: PullCursorDomain,
+        lower_exclusive: i64,
+        hiwater: i64,
+        limit: usize,
+    ) -> Result<Vec<RemoteOwnedChange>> {
+        let limit = i64::try_from(limit).context("pull page limit exceeds i64")?;
+        let mut stmt = self.conn.prepare(
+            "\
+            SELECT remote_change_seq, entity_id, payload_json, deleted_at
+            FROM l4_remote_owned_fixture
+            WHERE domain = ?1
+              AND remote_change_seq > ?2
+              AND remote_change_seq <= ?3
+            ORDER BY remote_change_seq
+            LIMIT ?4
+            ",
+        )?;
+        stmt.query_map(
+            params![domain.as_str(), lower_exclusive, hiwater, limit],
+            |row| {
+                Ok(RemoteOwnedChange {
+                    remote_change_seq: row.get(0)?,
+                    entity_id: row.get(1)?,
+                    payload_json: row.get(2)?,
+                    deleted_at: row.get(3)?,
+                })
+            },
+        )?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("fetching remote-owned fixture page")
+    }
+
+    fn apply_remote_change(
+        &self,
+        domain: PullCursorDomain,
+        change: &RemoteOwnedChange,
+    ) -> Result<()> {
+        self.conn.execute(
+            "\
+            INSERT INTO l4_remote_owned_applied (
+              domain, remote_change_seq, entity_id, payload_json, deleted_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5)
+            ",
+            params![
+                domain.as_str(),
+                change.remote_change_seq,
+                change.entity_id,
+                change.payload_json,
+                change.deleted_at
+            ],
+        )?;
+        Ok(())
     }
 }
 

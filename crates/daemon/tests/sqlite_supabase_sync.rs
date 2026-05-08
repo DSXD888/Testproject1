@@ -2,6 +2,7 @@
 
 mod support;
 
+use std::collections::BTreeSet;
 use std::path::Path;
 use std::str;
 
@@ -1085,6 +1086,149 @@ fn l4_t_sqlite_supabase_sync_025_pull_cursors_are_independent_per_remote_domain(
     );
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-025 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_026_hiwater_pagination_defers_concurrent_remote_writes() -> Result<()>
+{
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-026");
+    println!("[SETUP] seed three source config changes before the pull starts");
+    let state_db = L4TestStateDb::new()?;
+    let harness = PullCursorHarness::new(&state_db)?;
+    let domain = PullCursorDomain::SharedSourceConfigs;
+    harness.seed_remote_owned_change(domain, "source-a", &json!({"source_id": "source-a"}))?;
+    harness.seed_remote_owned_change(domain, "source-b", &json!({"source_id": "source-b"}))?;
+    harness.seed_remote_owned_change(domain, "source-c", &json!({"source_id": "source-c"}))?;
+
+    println!("[EXEC] read hiwater, inject a concurrent write above it, then page with size 2");
+    let first_pull = harness.pull_fenced_with_concurrent_change(
+        domain,
+        2,
+        "source-d",
+        &json!({"source_id": "source-d", "concurrent": true}),
+    )?;
+
+    println!("[ASSERT] first pull applies only rows inside cursor < seq <= hiwater");
+    ensure!(
+        first_pull.start_cursor == 0,
+        "first pull started from a nonzero cursor"
+    );
+    ensure!(
+        first_pull.hiwater == 3,
+        "first pull did not freeze the pre-injection hiwater: {first_pull:?}"
+    );
+    ensure!(
+        first_pull.applied_entity_ids == ["source-a", "source-b", "source-c"],
+        "first pull applied rows outside the fenced range or out of order: {first_pull:?}"
+    );
+    ensure!(
+        first_pull.page_boundaries.iter().all(|boundary| {
+            let uses_frozen_hiwater = boundary.hiwater_inclusive == first_pull.hiwater;
+            let lower_stays_inside_fence = boundary.lower_exclusive < boundary.hiwater_inclusive;
+            uses_frozen_hiwater && lower_stays_inside_fence && boundary.limit == 2
+        }),
+        "page requests were not bounded by the frozen hiwater: {first_pull:?}"
+    );
+    ensure!(
+        harness.load(domain)?.last_remote_change_seq == first_pull.hiwater,
+        "cursor did not advance exactly to the fenced hiwater"
+    );
+    ensure!(
+        harness.applied_remote_entity_ids(domain)? == ["source-a", "source-b", "source-c"],
+        "concurrent write was applied before the next pull"
+    );
+
+    println!("[EXEC] run the next fenced pull after the cursor advanced");
+    let second_pull = harness.pull_fenced(domain, 2)?;
+
+    println!("[ASSERT] next pull sees the deferred concurrent write without duplicates");
+    ensure!(
+        second_pull.start_cursor == 3 && second_pull.hiwater == 4,
+        "second pull did not start after the prior hiwater and fence the deferred row: {second_pull:?}"
+    );
+    ensure!(
+        second_pull.applied_entity_ids == ["source-d"],
+        "second pull applied unexpected rows: {second_pull:?}"
+    );
+    ensure!(
+        harness.applied_remote_change_seqs(domain)? == [1, 2, 3, 4],
+        "applied remote_change_seq history skipped or duplicated a row"
+    );
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-026 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_027_remote_change_seq_is_monotonic_and_non_reused_per_domain()
+-> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-027");
+    println!("[SETUP] initialize pull cursor harness and read remote-owned migration SQL");
+    let state_db = L4TestStateDb::new()?;
+    let harness = PullCursorHarness::new(&state_db)?;
+    let migration_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("infra/supabase/migrations/0002_remote_owned_tables.sql");
+    let migration_sql = std::fs::read_to_string(&migration_path)
+        .context("reading remote-owned Supabase migration")?;
+
+    for domain in PullCursorDomain::all() {
+        println!("[EXEC] simulate insert, update, and tombstone writes for {domain:?}");
+        let seqs = harness.exercise_remote_change_sequence(domain, "remote-owned-fixture")?;
+        let unique = seqs.iter().copied().collect::<BTreeSet<_>>();
+
+        println!("[ASSERT] {domain:?} sequence values strictly increase and are not reused");
+        ensure!(
+            seqs.len() == 3 && unique.len() == 3 && seqs.windows(2).all(|pair| pair[0] < pair[1]),
+            "{domain:?} did not assign monotonic non-reused change seqs: {seqs:?}"
+        );
+        ensure!(
+            harness.remote_change_history(domain)? == seqs,
+            "{domain:?} history diverged from observed write sequence"
+        );
+    }
+
+    println!("[ASSERT] Supabase migration uses per-domain sequences and INSERT/UPDATE triggers");
+    for (domain, sequence_name) in [
+        (
+            PullCursorDomain::SharedCompanyProfile,
+            "shared_company_profile_change_seq",
+        ),
+        (
+            PullCursorDomain::SharedSourceConfigs,
+            "shared_source_configs_change_seq",
+        ),
+        (
+            PullCursorDomain::OperatorDecisionHeads,
+            "operator_decision_heads_change_seq",
+        ),
+    ] {
+        let table = domain.as_str();
+        ensure!(
+            migration_sql.contains(&format!("CREATE SEQUENCE {sequence_name} AS bigint")),
+            "missing per-domain sequence {sequence_name}"
+        );
+        ensure!(
+            migration_sql.contains(&format!(
+                "remote_change_seq bigint NOT NULL DEFAULT nextval('{sequence_name}')"
+            )),
+            "missing default nextval for {table}"
+        );
+        ensure!(
+            migration_sql.contains(&format!("BEFORE INSERT OR UPDATE ON {table}"))
+                && migration_sql.contains(&format!(
+                    "EXECUTE FUNCTION l4_remote_owned_touch('{sequence_name}')"
+                )),
+            "missing INSERT/UPDATE trigger binding for {table}"
+        );
+    }
+    ensure!(
+        migration_sql.contains("NEW.remote_change_seq := nextval(TG_ARGV[0]::regclass);"),
+        "update/tombstone path does not force a fresh remote_change_seq"
+    );
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-027 PASS");
     Ok(())
 }
 

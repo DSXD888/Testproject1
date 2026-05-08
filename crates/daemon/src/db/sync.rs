@@ -94,6 +94,32 @@ pub struct PullCursor {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PullCursorStore;
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RemoteOwnedChange {
+    pub remote_change_seq: i64,
+    pub entity_id: String,
+    pub payload_json: String,
+    pub deleted_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FencedPullPageBoundary {
+    pub lower_exclusive: i64,
+    pub hiwater_inclusive: i64,
+    pub limit: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FencedPullOutcome {
+    pub domain: PullCursorDomain,
+    pub start_cursor: i64,
+    pub hiwater: i64,
+    pub final_cursor: i64,
+    pub page_boundaries: Vec<FencedPullPageBoundary>,
+    pub applied_remote_change_seqs: Vec<i64>,
+    pub applied_entity_ids: Vec<String>,
+}
+
 #[derive(Clone, Debug)]
 pub struct SupabaseRpcClient {
     api_url: String,
@@ -542,6 +568,97 @@ impl PullCursorStore {
 
     pub fn record_failure(conn: &Connection, domain: PullCursorDomain) -> Result<PullCursor> {
         Self::load(conn, domain)
+    }
+
+    pub fn apply_fenced_pull<ReadHiwater, FetchPage, ApplyRow>(
+        conn: &Connection,
+        domain: PullCursorDomain,
+        page_size: usize,
+        mut read_hiwater: ReadHiwater,
+        mut fetch_page: FetchPage,
+        mut apply_row: ApplyRow,
+    ) -> Result<FencedPullOutcome>
+    where
+        ReadHiwater: FnMut(PullCursorDomain) -> Result<i64>,
+        FetchPage: FnMut(PullCursorDomain, i64, i64, usize) -> Result<Vec<RemoteOwnedChange>>,
+        ApplyRow: FnMut(PullCursorDomain, &RemoteOwnedChange) -> Result<()>,
+    {
+        ensure!(page_size > 0, "fenced pull page_size must be positive");
+        let start_cursor = Self::load(conn, domain)?.last_remote_change_seq;
+        let hiwater = read_hiwater(domain)
+            .with_context(|| format!("reading pull hiwater for {}", domain.as_str()))?;
+        ensure!(
+            hiwater >= start_cursor,
+            "pull hiwater {} for {} is behind cursor {}",
+            hiwater,
+            domain.as_str(),
+            start_cursor
+        );
+
+        let mut lower_exclusive = start_cursor;
+        let mut page_boundaries = Vec::new();
+        let mut applied_remote_change_seqs = Vec::new();
+        let mut applied_entity_ids = Vec::new();
+
+        while lower_exclusive < hiwater {
+            page_boundaries.push(FencedPullPageBoundary {
+                lower_exclusive,
+                hiwater_inclusive: hiwater,
+                limit: page_size,
+            });
+            let page =
+                fetch_page(domain, lower_exclusive, hiwater, page_size).with_context(|| {
+                    format!(
+                        "fetching pull page for {} in ({}, {}]",
+                        domain.as_str(),
+                        lower_exclusive,
+                        hiwater
+                    )
+                })?;
+            ensure!(
+                page.len() <= page_size,
+                "pull page for {} returned {} rows over limit {}",
+                domain.as_str(),
+                page.len(),
+                page_size
+            );
+            if page.is_empty() {
+                break;
+            }
+
+            for change in page {
+                ensure!(
+                    change.remote_change_seq > lower_exclusive
+                        && change.remote_change_seq <= hiwater,
+                    "remote change {} for {} escaped fenced bounds ({}, {}]",
+                    change.remote_change_seq,
+                    domain.as_str(),
+                    lower_exclusive,
+                    hiwater
+                );
+                apply_row(domain, &change).with_context(|| {
+                    format!(
+                        "applying remote-owned change {} for {}",
+                        change.remote_change_seq,
+                        domain.as_str()
+                    )
+                })?;
+                lower_exclusive = change.remote_change_seq;
+                applied_remote_change_seqs.push(change.remote_change_seq);
+                applied_entity_ids.push(change.entity_id);
+            }
+        }
+
+        let final_cursor = Self::record_success(conn, domain, hiwater)?.last_remote_change_seq;
+        Ok(FencedPullOutcome {
+            domain,
+            start_cursor,
+            hiwater,
+            final_cursor,
+            page_boundaries,
+            applied_remote_change_seqs,
+            applied_entity_ids,
+        })
     }
 }
 
