@@ -56,3 +56,7 @@ docs/pipeline/stage-14-phase-2-screenshots/debug-*.png
 # Personal new-laptop setup file — explicitly self-marked "do NOT commit"
 # (contains placeholders for secrets; copy from source machine, don't share)
 new-laptop-setup.md
+
+# Phase B precommit-hook bypass audit log (path lives under .git/ which git
+# already ignores — entry kept for documentation/discoverability).
+.git/agent-mail-bypasses.log
