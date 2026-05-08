@@ -1,3 +1,14 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
 export default function HomePage() {
-  return <main data-testid="web-shell" style={{ minHeight: 1 }} />;
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace('/contracts');
+  }, [router]);
+
+  return <div data-testid="root-redirect" />;
 }

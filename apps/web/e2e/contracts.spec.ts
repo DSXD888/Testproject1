@@ -50,11 +50,23 @@ async function listSourceFiles(dir: string): Promise<string[]> {
   return files.flat();
 }
 
-test('CI-L4-006 web server starts through the configured Playwright webServer', async ({
-  page
+test('L4-T-contracts_spec-001 redirects the root route to contracts', async ({
+  page,
 }) => {
   await page.goto('/');
-  await expect(page.getByTestId('web-shell')).toBeVisible();
+  await expect(page).toHaveURL(/\/contracts$/);
+  await expect(page.getByTestId('global-sync-status')).toBeVisible();
+});
+
+test('L4-T-contracts_spec-002 binds the root layout to viewer_sync_status only through the web boundary', async () => {
+  const layoutSource = await readFile(join(WEB_ROOT, 'src/app/layout.tsx'), 'utf8');
+  const pageSource = await readFile(join(WEB_ROOT, 'src/app/page.tsx'), 'utf8');
+
+  expect(pageSource).toContain("replace('/contracts')");
+  expect(layoutSource).toContain('getViewerSyncStatus');
+  expect(layoutSource).toContain('FreshnessBadge');
+  expect(layoutSource).toContain('viewer_sync_status');
+  expect(layoutSource).not.toMatch(/@supabase\/supabase-js|tauri|sqlite|ipc|invoke/i);
 });
 
 test('L4-T-contracts_spec-020 keeps Supabase behind the web boundary', async () => {
