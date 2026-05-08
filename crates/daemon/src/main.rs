@@ -2,6 +2,8 @@
 
 mod db {
     pub mod sqlite;
+    #[allow(dead_code, clippy::all, clippy::nursery, clippy::pedantic)]
+    pub mod sync;
 }
 
 mod ipc {
@@ -104,6 +106,7 @@ mod support {
     }
 }
 
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::ffi::OsString;
@@ -118,7 +121,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process;
 use std::process::Stdio;
-use std::sync::Mutex;
+use std::sync::{Mutex, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -148,6 +151,11 @@ use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use db::sqlite::{DEFAULT_OWNER_ID, DEFAULT_SCHEMA_EPOCH, StateDb, open_state_db};
+use db::sync::{
+    BatchEnvelope, BatchEnvelopeAssembler, OperatorDecisionCommand, PendingIntentReconciler,
+    PullCursorDomain, PullCursorStore, SchemaEpochGuard, SupabaseRpcClient, SyncCycle,
+    SyncCycleTrigger, ViewerSyncStatusWriter, WriterLease, WriterLeaseAcquireResult,
+};
 use errors::manifest::{ErrorCode, ErrorManifestDraft, ErrorManifestStore, ErrorRuntimeContext};
 use ipc::descriptor::{
     DaemonDescriptor, LockGuard, RuntimePaths, bind_listener, write_descriptor_atomic,
@@ -213,6 +221,13 @@ const CLI_VENDOR: &str = "fixture-cli";
 const CLI_VERSION: &str = "1.0.0";
 const DEFAULT_AGENT_CLI: &str = "claude";
 const LOCAL_EXECUTOR_ID: &str = "local-daemon";
+const L4_SYNC_ORG_ID: &str = "default";
+const L4_SYNC_STREAM_ID: &str = "l4-shared-visibility";
+const L4_SYNC_BATCH_MAX_ROWS: usize = 100;
+const SUPABASE_URL_ENV: &str = "SUPABASE_URL";
+const NEXT_PUBLIC_SUPABASE_URL_ENV: &str = "NEXT_PUBLIC_SUPABASE_URL";
+const SUPABASE_SERVICE_ROLE_KEY_ENV: &str = "SUPABASE_SERVICE_ROLE_KEY";
+const SUPABASE_SERVICE_KEY_ENV: &str = "SUPABASE_SERVICE_KEY";
 const DEFAULT_RESTART_DELAY_MS: u64 = 250;
 const RESTART_DELAY_ENV: &str = "DAEMON_RESTART_DELAY_MS";
 
@@ -595,9 +610,31 @@ struct RuntimeBootstrap {
     listener: std::os::unix::net::UnixListener,
     descriptor: DaemonDescriptor,
     state_db: StateDb,
+    state_db_path: PathBuf,
     artifact_root: PathBuf,
     resource_arbiter: Mutex<ResourceArbiter>,
     restart_controller: RestartController,
+    #[allow(dead_code)]
+    sync_lease_heartbeat: Option<SyncLeaseHeartbeat>,
+}
+
+#[derive(Debug, Clone)]
+struct SupabaseSyncConfig {
+    api_url: String,
+    service_role_key: String,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct RemoteSchemaMetadata {
+    schema_epoch: i64,
+    projection_generation: i64,
+}
+
+struct SyncLeaseHeartbeat {
+    stop_tx: Option<mpsc::Sender<()>>,
+    handle: Option<thread::JoinHandle<()>>,
+    state_db_path: PathBuf,
+    writer_lease: WriterLease,
 }
 
 #[derive(Debug, Clone)]
@@ -1268,6 +1305,7 @@ async fn main() -> Result<()> {
     maybe_delay_for_restart();
 
     let mut runtime = bootstrap_runtime(&cli)?;
+    run_l4_startup_sync_cycle(&mut runtime).await?;
 
     if let Some(report) = dispatch_operator_action(&mut runtime, &cli)? {
         println!("{report}");
@@ -2701,9 +2739,750 @@ fn bootstrap_runtime(cli: &Cli) -> Result<RuntimeBootstrap> {
         listener,
         descriptor,
         state_db,
+        state_db_path: runtime_paths.state_db_path(),
         artifact_root: cli.artifact_root.clone(),
         resource_arbiter: Mutex::new(ResourceArbiter::new(ResourceBudgets::default())),
         restart_controller: RestartController::new(build_restart_plan(cli)?),
+        sync_lease_heartbeat: None,
+    })
+}
+
+impl SupabaseSyncConfig {
+    fn from_env() -> Option<Self> {
+        let api_url = first_non_empty_env(&[SUPABASE_URL_ENV, NEXT_PUBLIC_SUPABASE_URL_ENV]);
+        let service_role_key =
+            first_non_empty_env(&[SUPABASE_SERVICE_ROLE_KEY_ENV, SUPABASE_SERVICE_KEY_ENV]);
+        match (api_url, service_role_key) {
+            (Some(api_url), Some(service_role_key)) => Some(Self {
+                api_url: api_url.trim_end_matches('/').to_owned(),
+                service_role_key,
+            }),
+            (None, None) => None,
+            (Some(_), None) => {
+                ::tracing::warn!(
+                    key_env = SUPABASE_SERVICE_ROLE_KEY_ENV,
+                    fallback_key_env = SUPABASE_SERVICE_KEY_ENV,
+                    "Supabase URL is configured but no daemon service key is available; L4 remote sync disabled"
+                );
+                None
+            }
+            (None, Some(_)) => {
+                ::tracing::warn!(
+                    url_env = SUPABASE_URL_ENV,
+                    fallback_url_env = NEXT_PUBLIC_SUPABASE_URL_ENV,
+                    "Supabase service key is configured but no URL is available; L4 remote sync disabled"
+                );
+                None
+            }
+        }
+    }
+}
+
+impl SyncLeaseHeartbeat {
+    #[allow(clippy::too_many_lines)]
+    fn spawn(
+        state_db_path: PathBuf,
+        writer_lease: WriterLease,
+        remote_config: Option<SupabaseSyncConfig>,
+        heartbeat_interval_secs: i64,
+    ) -> Result<Self> {
+        let interval_secs = u64::try_from(heartbeat_interval_secs.max(1))
+            .context("converting writer lease heartbeat interval")?;
+        let interval = Duration::from_secs(interval_secs);
+        let (stop_tx, stop_rx) = mpsc::channel();
+        let thread_db_path = state_db_path.clone();
+        let thread_lease = writer_lease.clone();
+        let handle = thread::Builder::new()
+            .name("l4-writer-lease-heartbeat".to_owned())
+            .spawn(move || {
+                loop {
+                    match stop_rx.recv_timeout(interval) {
+                        Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                        Err(mpsc::RecvTimeoutError::Timeout) => {}
+                    }
+
+                    let now_epoch_secs = Utc::now().timestamp();
+                    match open_state_db(&thread_db_path, DEFAULT_SCHEMA_EPOCH) {
+                        Ok(mut state_db) => {
+                            match thread_lease.heartbeat(state_db.connection_mut(), now_epoch_secs)
+                            {
+                                Ok(WriterLeaseAcquireResult::Acquired(snapshot)) => {
+                                    ::tracing::debug!(
+                                        writer_epoch = snapshot.writer_epoch,
+                                        lease_expires_at_epoch_secs =
+                                            snapshot.lease_expires_at_epoch_secs,
+                                        "refreshed local L4 writer lease heartbeat"
+                                    );
+                                }
+                                Ok(WriterLeaseAcquireResult::Conflict(conflict)) => {
+                                    ::tracing::warn!(
+                                        holder = %conflict.current_holder_executor_id,
+                                        writer_epoch = conflict.writer_epoch,
+                                        "local L4 writer lease heartbeat lost ownership"
+                                    );
+                                }
+                                Err(error) => {
+                                    ::tracing::warn!(
+                                        error = %error,
+                                        "failed to heartbeat local L4 writer lease"
+                                    );
+                                }
+                            }
+
+                            let projection_generation = match current_l4_projection_generation(
+                                state_db.connection(),
+                            ) {
+                                Ok(generation) => generation,
+                                Err(error) => {
+                                    ::tracing::warn!(
+                                        error = %error,
+                                        "failed to read L4 projection generation during heartbeat"
+                                    );
+                                    0
+                                }
+                            };
+                            match ViewerSyncStatusWriter::for_default_org(state_db.schema_epoch())
+                                .and_then(|writer| {
+                                    writer.record_heartbeat_status(
+                                        state_db.connection(),
+                                        now_epoch_secs,
+                                        projection_generation,
+                                    )
+                                }) {
+                                Ok(status) => {
+                                    ::tracing::debug!(
+                                        sync_health = ?status.sync_health,
+                                        pending_outbox_count = status.pending_outbox_count,
+                                        "refreshed L4 viewer sync heartbeat status"
+                                    );
+                                }
+                                Err(error) => {
+                                    ::tracing::warn!(
+                                        error = %error,
+                                        "failed to refresh L4 viewer sync heartbeat status"
+                                    );
+                                }
+                            }
+                        }
+                        Err(error) => {
+                            ::tracing::warn!(
+                                error = %error,
+                                state_db_path = %thread_db_path.display(),
+                                "failed to open state DB for L4 writer heartbeat"
+                            );
+                        }
+                    }
+
+                    if let Some(config) = remote_config.as_ref() {
+                        match tokio::runtime::Builder::new_current_thread()
+                            .enable_all()
+                            .build()
+                        {
+                            Ok(runtime) => {
+                                if let Err(error) =
+                                    runtime.block_on(heartbeat_remote_writer_lease(config))
+                                {
+                                    ::tracing::warn!(
+                                        error = %error,
+                                        "failed to heartbeat remote L4 writer lease"
+                                    );
+                                }
+                            }
+                            Err(error) => {
+                                ::tracing::warn!(
+                                    error = %error,
+                                    "failed to create runtime for remote L4 writer heartbeat"
+                                );
+                            }
+                        }
+                    }
+                }
+            })
+            .context("spawning L4 writer lease heartbeat thread")?;
+
+        Ok(Self {
+            stop_tx: Some(stop_tx),
+            handle: Some(handle),
+            state_db_path,
+            writer_lease,
+        })
+    }
+}
+
+impl Drop for SyncLeaseHeartbeat {
+    fn drop(&mut self) {
+        if let Some(stop_tx) = self.stop_tx.take() {
+            let _ = stop_tx.send(());
+        }
+        if let Some(handle) = self.handle.take()
+            && handle.join().is_err()
+        {
+            ::tracing::warn!("L4 writer lease heartbeat thread panicked during shutdown");
+        }
+        match open_state_db(&self.state_db_path, DEFAULT_SCHEMA_EPOCH) {
+            Ok(state_db) => {
+                if let Err(error) = self.writer_lease.release(state_db.connection()) {
+                    ::tracing::warn!(error = %error, "failed to release local L4 writer lease");
+                }
+            }
+            Err(error) => {
+                ::tracing::warn!(
+                    error = %error,
+                    state_db_path = %self.state_db_path.display(),
+                    "failed to open state DB to release local L4 writer lease"
+                );
+            }
+        }
+    }
+}
+
+#[allow(clippy::future_not_send, clippy::too_many_lines)]
+async fn run_l4_startup_sync_cycle(runtime: &mut RuntimeBootstrap) -> Result<()> {
+    let sync_config = SupabaseSyncConfig::from_env();
+    let now_epoch_secs = Utc::now().timestamp();
+    let local_schema_epoch = SchemaEpochGuard::local_schema_epoch(runtime.state_db.connection())?;
+    let mut projection_generation =
+        current_l4_projection_generation(runtime.state_db.connection())?;
+    let status_writer = ViewerSyncStatusWriter::for_default_org(local_schema_epoch)?;
+
+    let mut remote_sync_ready = sync_config.is_some();
+    let remote_schema_metadata = if let Some(config) = sync_config.as_ref() {
+        match fetch_remote_schema_metadata(config).await {
+            Ok(metadata) => metadata,
+            Err(error) => {
+                remote_sync_ready = false;
+                ::tracing::warn!(
+                    error = %error,
+                    "L4 schema epoch check could not reach Supabase; remote sync disabled for this startup cycle"
+                );
+                None
+            }
+        }
+    } else {
+        remote_sync_ready = false;
+        None
+    };
+
+    if let Some(metadata) = remote_schema_metadata {
+        projection_generation = metadata.projection_generation;
+        let schema_status = SchemaEpochGuard::record_remote_epoch_check(
+            runtime.state_db.connection(),
+            L4_SYNC_ORG_ID,
+            Some(metadata.schema_epoch),
+            now_epoch_secs,
+            metadata.projection_generation,
+            env!("CARGO_PKG_VERSION"),
+        )?;
+        if schema_status.paused {
+            status_writer.record_sync_paused(
+                runtime.state_db.connection(),
+                now_epoch_secs,
+                projection_generation,
+            )?;
+            ::tracing::warn!(
+                local_schema_epoch = schema_status.local_schema_epoch,
+                remote_schema_epoch = ?schema_status.remote_schema_epoch,
+                "L4 startup sync paused because schema epochs differ"
+            );
+            return Ok(());
+        }
+    } else if SchemaEpochGuard::is_sync_paused(runtime.state_db.connection(), L4_SYNC_ORG_ID)? {
+        status_writer.record_sync_paused(
+            runtime.state_db.connection(),
+            now_epoch_secs,
+            projection_generation,
+        )?;
+        ::tracing::warn!(
+            "L4 startup sync remains paused from a prior schema epoch mismatch; local operation continues"
+        );
+        return Ok(());
+    }
+
+    PullCursorStore::initialize(runtime.state_db.connection())?;
+    let writer_lease = WriterLease::new(L4_SYNC_ORG_ID, LOCAL_EXECUTOR_ID)?;
+    let local_lease_snapshot = match writer_lease
+        .acquire(runtime.state_db.connection_mut(), now_epoch_secs)?
+    {
+        WriterLeaseAcquireResult::Acquired(snapshot) => snapshot,
+        WriterLeaseAcquireResult::Conflict(conflict) => {
+            status_writer.record_heartbeat_status(
+                runtime.state_db.connection(),
+                now_epoch_secs,
+                projection_generation,
+            )?;
+            ::tracing::warn!(
+                holder = %conflict.current_holder_executor_id,
+                lease_expires_at_epoch_secs = conflict.lease_expires_at_epoch_secs,
+                writer_epoch = conflict.writer_epoch,
+                "L4 startup sync could not acquire the active writer lease; push dispatch disabled"
+            );
+            return Ok(());
+        }
+    };
+
+    let remote_writer_epoch = if remote_sync_ready {
+        if let Some(config) = sync_config.as_ref() {
+            match acquire_remote_writer_lease(config).await {
+                Ok(Some(epoch)) => Some(epoch),
+                Ok(None) => {
+                    remote_sync_ready = false;
+                    None
+                }
+                Err(error) => {
+                    remote_sync_ready = false;
+                    ::tracing::warn!(
+                        error = %error,
+                        "L4 startup sync could not acquire the remote writer lease; push dispatch disabled"
+                    );
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let heartbeat_remote_config = if remote_writer_epoch.is_some() {
+        sync_config.clone()
+    } else {
+        None
+    };
+    runtime.sync_lease_heartbeat = Some(SyncLeaseHeartbeat::spawn(
+        runtime.state_db_path.clone(),
+        writer_lease,
+        heartbeat_remote_config,
+        local_lease_snapshot.heartbeat_interval_secs,
+    )?);
+    status_writer.record_heartbeat_status(
+        runtime.state_db.connection(),
+        now_epoch_secs,
+        projection_generation,
+    )?;
+
+    let remote_hiwaters = if remote_sync_ready {
+        if let Some(config) = sync_config.as_ref() {
+            match fetch_remote_pull_hiwaters(config).await {
+                Ok(hiwaters) => Some(hiwaters),
+                Err(error) => {
+                    ::tracing::warn!(
+                        error = %error,
+                        "L4 startup sync could not complete remote-owned pull probes"
+                    );
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let remote_decision_revisions = if remote_hiwaters.is_some() {
+        if let Some(config) = sync_config.as_ref() {
+            let process_ids =
+                queued_pending_operator_intent_process_ids(runtime.state_db.connection())?;
+            if process_ids.is_empty() {
+                Some(BTreeMap::new())
+            } else {
+                match fetch_remote_decision_revisions(config, &process_ids).await {
+                    Ok(revisions) => Some(revisions),
+                    Err(error) => {
+                        ::tracing::warn!(
+                            error = %error,
+                            "L4 startup sync could not load remote decision heads for CAS flush"
+                        );
+                        None
+                    }
+                }
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let push_assembler = if let Some(writer_epoch) = remote_writer_epoch {
+        Some(BatchEnvelopeAssembler::new(
+            LOCAL_EXECUTOR_ID,
+            L4_SYNC_STREAM_ID,
+            writer_epoch,
+            L4_SYNC_BATCH_MAX_ROWS,
+        )?)
+    } else {
+        None
+    };
+    let mut cas_commands: Vec<OperatorDecisionCommand> = Vec::new();
+    let mut batch_to_apply: Option<BatchEnvelope> = None;
+    let outcome = {
+        let conn_cell = RefCell::new(runtime.state_db.connection_mut());
+        SyncCycle::new().run(
+            SyncCycleTrigger::Startup,
+            |domain| {
+                let conn_ref = conn_cell.borrow();
+                let Some(hiwaters) = remote_hiwaters.as_ref() else {
+                    PullCursorStore::record_failure(&conn_ref, domain)?;
+                    bail!("remote-owned pull unavailable for {}", domain.as_str());
+                };
+                let hiwater = *hiwaters
+                    .get(domain.as_str())
+                    .with_context(|| format!("missing pull hiwater for {}", domain.as_str()))?;
+                PullCursorStore::record_success(&conn_ref, domain, hiwater)?;
+                Ok(())
+            },
+            || {
+                let Some(revisions) = remote_decision_revisions.as_ref() else {
+                    return Ok(());
+                };
+                let mut conn_ref = conn_cell.borrow_mut();
+                let plan =
+                    PendingIntentReconciler::prepare_commands(&mut conn_ref, |process_id| {
+                        Ok(revisions.get(process_id).copied().unwrap_or_default())
+                    })?;
+                if !plan.superseded_intent_ids.is_empty()
+                    || !plan.conflicted_intent_ids.is_empty()
+                    || !plan.commands_to_flush.is_empty()
+                {
+                    ::tracing::info!(
+                        superseded = plan.superseded_intent_ids.len(),
+                        conflicted = plan.conflicted_intent_ids.len(),
+                        commands = plan.commands_to_flush.len(),
+                        "reconciled pending operator intents during L4 startup sync"
+                    );
+                }
+                cas_commands = plan.commands_to_flush;
+                Ok(())
+            },
+            || Ok(()),
+            || {
+                let Some(assembler) = push_assembler.as_ref() else {
+                    return Ok(());
+                };
+                let mut conn_ref = conn_cell.borrow_mut();
+                batch_to_apply = match assembler.load_active_batch(&conn_ref)? {
+                    Some(batch) => Some(batch),
+                    None => assembler.materialize_next_batch(&mut conn_ref)?,
+                };
+                Ok(())
+            },
+        )?
+    };
+
+    if let Some(failure) = outcome.pull_failure.as_deref() {
+        ::tracing::warn!(
+            failure = %failure,
+            "L4 startup sync degraded before cross-authority dispatch; local operation continues"
+        );
+    } else {
+        ::tracing::info!(
+            phase_count = outcome.phases.len(),
+            cas_flush_allowed = outcome.cas_flush_allowed,
+            push_dispatch_allowed = outcome.push_dispatch_allowed,
+            "L4 startup sync completed pull-before-push ordering"
+        );
+    }
+
+    if outcome.cas_flush_allowed
+        && let Some(config) = sync_config.as_ref()
+        && !cas_commands.is_empty()
+    {
+        flush_l4_cas_commands(config, &runtime.state_db, cas_commands).await?;
+    }
+
+    if outcome.push_dispatch_allowed
+        && let (Some(config), Some(assembler), Some(batch)) = (
+            sync_config.as_ref(),
+            push_assembler.as_ref(),
+            batch_to_apply.as_ref(),
+        )
+    {
+        dispatch_l4_push_batch(config, &mut runtime.state_db, assembler, batch).await?;
+    }
+
+    Ok(())
+}
+
+#[allow(clippy::future_not_send)]
+async fn flush_l4_cas_commands(
+    config: &SupabaseSyncConfig,
+    state_db: &StateDb,
+    commands: Vec<OperatorDecisionCommand>,
+) -> Result<()> {
+    let client = SupabaseRpcClient::new(&config.api_url, &config.service_role_key)?;
+    for command in commands {
+        match client.update_operator_decision(&command).await {
+            Ok(response) => {
+                PendingIntentReconciler::record_cas_response(state_db.connection(), &response)?;
+                ::tracing::info!(
+                    process_id = %response.process_id,
+                    command_id = %response.command_id,
+                    accepted = response.accepted,
+                    "flushed L4 operator decision CAS command"
+                );
+            }
+            Err(error) => {
+                ::tracing::warn!(
+                    process_id = %command.process_id,
+                    command_id = %command.command_id,
+                    error = %error,
+                    "failed to flush L4 operator decision CAS command"
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+#[allow(clippy::future_not_send)]
+async fn dispatch_l4_push_batch(
+    config: &SupabaseSyncConfig,
+    state_db: &mut StateDb,
+    assembler: &BatchEnvelopeAssembler,
+    batch: &BatchEnvelope,
+) -> Result<()> {
+    let client = SupabaseRpcClient::new(&config.api_url, &config.service_role_key)?;
+    match client.apply_push_batch(batch).await {
+        Ok(response) => {
+            let re_enveloped = assembler.record_apply_response(
+                state_db.connection_mut(),
+                &batch.batch_id,
+                &response,
+            )?;
+            ::tracing::info!(
+                batch_id = %batch.batch_id,
+                accepted = response.accepted,
+                re_enveloped = re_enveloped.is_some(),
+                "dispatched L4 push batch through apply_push_batch"
+            );
+        }
+        Err(error) => {
+            assembler.mark_retry(state_db.connection(), &batch.batch_id)?;
+            ::tracing::warn!(
+                batch_id = %batch.batch_id,
+                error = %error,
+                "failed to apply L4 push batch; marked batch for retry"
+            );
+        }
+    }
+    Ok(())
+}
+
+fn queued_pending_operator_intent_process_ids(conn: &Connection) -> Result<Vec<String>> {
+    let mut stmt = conn
+        .prepare(
+            "\
+            SELECT DISTINCT process_id
+            FROM pending_operator_intents
+            WHERE status = 'queued'
+              AND superseded_by_intent_id IS NULL
+            ORDER BY process_id ASC
+            ",
+        )
+        .context("preparing queued pending operator intent process listing")?;
+    stmt.query_map([], |row| row.get(0))?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("listing queued pending operator intent process IDs")
+}
+
+async fn fetch_remote_decision_revisions(
+    config: &SupabaseSyncConfig,
+    process_ids: &[String],
+) -> Result<BTreeMap<String, i64>> {
+    let mut revisions = BTreeMap::new();
+    for process_id in process_ids {
+        let query = vec![
+            ("select", "remote_revision".to_owned()),
+            ("org_id", format!("eq.{L4_SYNC_ORG_ID}")),
+            ("process_id", format!("eq.{process_id}")),
+            ("deleted_at", "is.null".to_owned()),
+            ("limit", "1".to_owned()),
+        ];
+        let rows = get_supabase_rows(config, "operator_decision_heads", &query).await?;
+        let revision = rows
+            .first()
+            .and_then(|row| row.get("remote_revision"))
+            .and_then(Value::as_i64)
+            .unwrap_or_default();
+        revisions.insert(process_id.clone(), revision);
+    }
+    Ok(revisions)
+}
+
+async fn fetch_remote_pull_hiwaters(config: &SupabaseSyncConfig) -> Result<BTreeMap<String, i64>> {
+    let mut hiwaters = BTreeMap::new();
+    for domain in PullCursorDomain::all() {
+        let hiwater = fetch_remote_domain_hiwater(config, domain).await?;
+        hiwaters.insert(domain.as_str().to_owned(), hiwater);
+    }
+    Ok(hiwaters)
+}
+
+async fn fetch_remote_domain_hiwater(
+    config: &SupabaseSyncConfig,
+    domain: PullCursorDomain,
+) -> Result<i64> {
+    let query = vec![
+        ("select", "remote_change_seq".to_owned()),
+        ("org_id", format!("eq.{L4_SYNC_ORG_ID}")),
+        ("order", "remote_change_seq.desc".to_owned()),
+        ("limit", "1".to_owned()),
+    ];
+    let rows = get_supabase_rows(config, domain.as_str(), &query).await?;
+    Ok(rows
+        .first()
+        .and_then(|row| row.get("remote_change_seq"))
+        .and_then(Value::as_i64)
+        .unwrap_or_default())
+}
+
+async fn fetch_remote_schema_metadata(
+    config: &SupabaseSyncConfig,
+) -> Result<Option<RemoteSchemaMetadata>> {
+    let query = vec![
+        ("select", "schema_epoch,projection_generation".to_owned()),
+        ("org_id", format!("eq.{L4_SYNC_ORG_ID}")),
+        ("limit", "1".to_owned()),
+    ];
+    let rows = get_supabase_rows(config, "schema_metadata", &query).await?;
+    let Some(row) = rows.first() else {
+        ::tracing::warn!("Supabase schema_metadata row missing; L4 remote sync disabled");
+        return Ok(None);
+    };
+    let schema_epoch = row
+        .get("schema_epoch")
+        .and_then(Value::as_i64)
+        .context("schema_metadata response missing schema_epoch")?;
+    let projection_generation = row
+        .get("projection_generation")
+        .and_then(Value::as_i64)
+        .unwrap_or_default();
+    Ok(Some(RemoteSchemaMetadata {
+        schema_epoch,
+        projection_generation,
+    }))
+}
+
+async fn acquire_remote_writer_lease(config: &SupabaseSyncConfig) -> Result<Option<i64>> {
+    remote_writer_lease_rpc(config, "acquire_active_writer_lease").await
+}
+
+async fn heartbeat_remote_writer_lease(config: &SupabaseSyncConfig) -> Result<Option<i64>> {
+    remote_writer_lease_rpc(config, "heartbeat_active_writer_lease").await
+}
+
+async fn remote_writer_lease_rpc(
+    config: &SupabaseSyncConfig,
+    function_name: &str,
+) -> Result<Option<i64>> {
+    let response = post_supabase_rpc(
+        config,
+        function_name,
+        json!({
+            "target_org_id": L4_SYNC_ORG_ID,
+            "target_executor_id": LOCAL_EXECUTOR_ID,
+            "lease_ttl_seconds": 120,
+        }),
+    )
+    .await?;
+    if !response
+        .get("accepted")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        ::tracing::warn!(
+            function_name,
+            response = %response,
+            "remote L4 writer lease RPC did not grant ownership"
+        );
+        return Ok(None);
+    }
+    let writer_epoch = response
+        .get("writer_epoch")
+        .and_then(Value::as_i64)
+        .context("remote writer lease response missing writer_epoch")?;
+    Ok(Some(writer_epoch))
+}
+
+async fn get_supabase_rows(
+    config: &SupabaseSyncConfig,
+    table: &str,
+    query: &[(&str, String)],
+) -> Result<Vec<Value>> {
+    let response = reqwest::Client::new()
+        .get(format!("{}/rest/v1/{table}", config.api_url))
+        .bearer_auth(&config.service_role_key)
+        .header("apikey", &config.service_role_key)
+        .header("Accept", "application/json")
+        .query(query)
+        .send()
+        .await
+        .with_context(|| format!("querying Supabase table `{table}`"))?;
+    parse_supabase_json_response(response, &format!("querying Supabase table `{table}`")).await
+}
+
+async fn post_supabase_rpc(
+    config: &SupabaseSyncConfig,
+    function_name: &str,
+    body: Value,
+) -> Result<Value> {
+    let response = reqwest::Client::new()
+        .post(format!("{}/rest/v1/rpc/{function_name}", config.api_url))
+        .bearer_auth(&config.service_role_key)
+        .header("apikey", &config.service_role_key)
+        .header("Accept", "application/json")
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .with_context(|| format!("calling Supabase RPC `{function_name}`"))?;
+    parse_supabase_json_response(response, &format!("calling Supabase RPC `{function_name}`")).await
+}
+
+async fn parse_supabase_json_response<T>(response: reqwest::Response, context: &str) -> Result<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let status = response.status();
+    let body = response
+        .text()
+        .await
+        .with_context(|| format!("reading response body while {context}"))?;
+    ensure!(
+        status.is_success(),
+        "{context} failed with HTTP {status}: {body}"
+    );
+    serde_json::from_str(&body).with_context(|| format!("parsing response JSON while {context}"))
+}
+
+fn current_l4_projection_generation(conn: &Connection) -> Result<i64> {
+    conn.query_row(
+        "\
+        SELECT generation_id
+        FROM projection_generations
+        WHERE status = 'published'
+        ORDER BY generation_id DESC
+        LIMIT 1
+        ",
+        [],
+        |row| row.get(0),
+    )
+    .optional()
+    .context("reading current L4 projection generation")
+    .map(std::option::Option::unwrap_or_default)
+}
+
+fn first_non_empty_env(keys: &[&str]) -> Option<String> {
+    keys.iter().find_map(|key| {
+        let value = std::env::var(key).ok()?;
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_owned())
+        }
     })
 }
 
