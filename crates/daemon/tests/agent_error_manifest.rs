@@ -132,6 +132,24 @@ fn ag_err_003_error_types_round_trip_for_rerunnable_failures() -> Result<()> {
 }
 
 #[test]
+fn ag_err_005_agent_suspect_output_manifest_contains_operator_alert() -> Result<()> {
+    let (temp, state_db) = open_temp_db()?;
+    seed_process(state_db.connection())?;
+    let store = ErrorManifestStore::new(temp.path().join("artifacts"))?;
+    let stored = store.create(
+        state_db.connection(),
+        &draft(ErrorCode::AgentSuspectOutput),
+        Utc::now(),
+    )?;
+
+    let markdown = std::fs::read_to_string(&stored.markdown_path)?;
+    assert!(markdown.contains("## Operator Alert"));
+    assert!(markdown.contains("AGENT_SUSPECT_OUTPUT"));
+    assert!(markdown.contains("Do not promote or outbox this worker output"));
+    Ok(())
+}
+
+#[test]
 fn ag_err_004_cleanup_and_session_linkage_remain_visible_to_ui_consumers() -> Result<()> {
     let (temp, state_db) = open_temp_db()?;
     seed_process(state_db.connection())?;

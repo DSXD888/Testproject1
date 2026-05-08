@@ -7,7 +7,7 @@ use crate::errors::manifest;
 #[cfg(test)]
 use crate::errors_manifest_impl as manifest;
 
-use manifest::{ErrorManifestRecord, ErrorRuntimeContext};
+use manifest::{ErrorCode, ErrorManifestRecord, ErrorRuntimeContext};
 
 pub fn render_error_manifest_markdown(
     record: &ErrorManifestRecord,
@@ -19,6 +19,7 @@ pub fn render_error_manifest_markdown(
         .unwrap_or("not available");
     let resolved_at = record.resolved_at.as_deref().unwrap_or("unresolved");
     let resolved_by = record.resolved_by.as_deref().unwrap_or("unassigned");
+    let operator_alert = operator_alert_section(record);
 
     Ok(format!(
         "# Error Manifest: {error_type}\n\n\
@@ -47,6 +48,7 @@ pub fn render_error_manifest_markdown(
          ## Linked Artifacts\n\
          - markdown_path: {markdown_path}\n\
          - session_artifact_path: {session_artifact_path}\n\n\
+         {operator_alert}\
          ## Next Debugging Action\n\
          {next_debugging_action}\n\n\
          ## Resolution\n\
@@ -93,9 +95,21 @@ pub fn render_error_manifest_markdown(
         error_context = serde_json::to_string_pretty(&record.error_context)?,
         markdown_path = record.markdown_path.display(),
         session_artifact_path = session_artifact_path,
+        operator_alert = operator_alert,
         next_debugging_action = record.next_debugging_action,
         resolved = record.resolved,
         resolved_at = resolved_at,
         resolved_by = resolved_by,
     ))
+}
+
+fn operator_alert_section(record: &ErrorManifestRecord) -> &'static str {
+    if record.error_type == ErrorCode::AgentSuspectOutput {
+        "## Operator Alert\n\
+         Rejected enforcement-active worker output is quarantined as `AGENT_SUSPECT_OUTPUT`. \
+         Do not promote or outbox this worker output; inspect validator evidence and rerun from \
+         the last trusted checkpoint.\n\n"
+    } else {
+        ""
+    }
 }
