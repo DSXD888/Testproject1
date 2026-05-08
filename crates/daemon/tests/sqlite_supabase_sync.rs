@@ -21,6 +21,9 @@ mod errors_manifest_impl;
 #[allow(dead_code, clippy::missing_const_for_fn)]
 #[path = "../src/errors/markdown.rs"]
 mod errors_markdown_impl;
+#[path = "../src/validation/feedback.rs"]
+#[allow(dead_code)]
+mod feedback_impl;
 #[path = "../src/jobs/runner.rs"]
 #[allow(dead_code)]
 mod runner_impl;
@@ -38,6 +41,12 @@ mod agents {
 mod jobs {
     pub mod runner {
         pub use crate::runner_impl::*;
+    }
+}
+
+mod db {
+    pub mod sqlite {
+        pub use crate::support::db::*;
     }
 }
 
@@ -65,6 +74,7 @@ use decisions_handler_impl::{
 use errors_manifest_impl::{
     ErrorCode, ErrorManifestDraft, ErrorManifestStore, ErrorRuntimeContext,
 };
+use feedback_impl::{OverrideFeedbackRequest, ingest_override};
 use runner_impl::{
     JobRunner, MutationAck, PersistEnforcementProvisionalRequest, PersistValidationVerdictRequest,
     PromoteProvisionalRequest, ValidatorEnqueueRequest, ValidatorJobPurpose, ValidatorSkillBundle,
@@ -1340,6 +1350,64 @@ fn persist_runner_approved_verdict(
     Ok(())
 }
 
+fn persist_runner_rejected_verdict(
+    runner: &JobRunner,
+    state_db: &mut StateDb,
+    worker_job_id: &str,
+    validator_job_id: &str,
+    validator_skill: ValidatorSkillBundle,
+) -> Result<()> {
+    runner.persist_validation_verdict(
+        state_db,
+        &PersistValidationVerdictRequest {
+            verdict_id: "verdict-l4-feedback-077".to_owned(),
+            worker_job_id: worker_job_id.to_owned(),
+            worker_session_id: Some("worker-session-l4-feedback-077".to_owned()),
+            validator_job_id: validator_job_id.to_owned(),
+            validator_session_id: Some("validator-session-l4-feedback-077".to_owned()),
+            run_manifest_hash: "manifest-hash-l4-feedback-077".to_owned(),
+            validator_skill,
+            payload: json!({
+                "verdict": "rejected",
+                "basis_sufficiency": "high",
+                "enforcement_eligible": true,
+                "confidence_bps": 9700,
+                "issues": [
+                    {
+                        "severity": "critical",
+                        "category": "wrong_source_domain",
+                        "description": "Source URL belonged to a reseller mirror",
+                        "evidence_refs": ["artifact://source-url"]
+                    }
+                ],
+                "summary": "rejected enforcement-active output",
+            }),
+            oqg_signals_summary: Some(json!({"oqg": "suspect_source"})),
+            incident_signature: Some("incident-source-identity-l4-feedback-077".to_owned()),
+            quality_assessment_json: Some(json!({
+                "dominant_failure_family": "source_identity",
+                "slice_id": "procurement-ingestion:tenders-direct:2026.05.06-1",
+                "override_estimator_policy": "biased_demotion_signal_only"
+            })),
+            skill_improvement_suggestions_json: Some(json!([
+                {
+                    "mutation_family": "source_identity",
+                    "template": {
+                        "replace_source_domain_with": "mirror.invalid",
+                        "expected_verdict": "rejected"
+                    }
+                }
+            ])),
+            override_verdict: None,
+            override_reason: None,
+            override_by: None,
+            override_at: None,
+            verdict_rendered_at: Some("2026-05-08T00:10:00Z".to_owned()),
+        },
+    )?;
+    Ok(())
+}
+
 fn runner_promotion_request(
     worker_job_id: &str,
     process_id: &str,
@@ -1396,6 +1464,205 @@ fn assert_runner_promotion_replay(
     ensure!(
         count_runner_rows(state_db.connection(), "local_outbox")? == before_replay_outbox_count + 1,
         "promotion replay created a duplicate outbox row"
+    );
+    Ok(())
+}
+
+fn override_feedback_promotion_request(
+    worker_job_id: &str,
+    process_id: &str,
+    stage_run_id: &str,
+) -> PromoteProvisionalRequest {
+    PromoteProvisionalRequest {
+        worker_job_id: worker_job_id.to_owned(),
+        idempotency_key: "override-feedback-l4-077".to_owned(),
+        process_id: process_id.to_owned(),
+        stage: "Manifest".to_owned(),
+        scope_kind: "process".to_owned(),
+        scope_id: process_id.to_owned(),
+        stage_run_id: stage_run_id.to_owned(),
+        owner_id: "local-owner".to_owned(),
+        override_verdict: Some("approved".to_owned()),
+        override_reason: Some("operator confirmed official-source evidence manually".to_owned()),
+        override_by: Some("operator-l4-feedback".to_owned()),
+        override_at: Some("2026-05-08T00:15:00Z".to_owned()),
+    }
+}
+
+fn assert_override_feedback_rows(
+    conn: &Connection,
+    worker_job_id: &str,
+    before_outbox_count: i64,
+) -> Result<()> {
+    assert_override_audit_and_promotion(conn, worker_job_id, before_outbox_count)?;
+    assert_override_calibration_case(&load_override_calibration_case(conn)?)?;
+    assert_override_incident_cluster(&load_override_incident_cluster(conn)?)?;
+    Ok(())
+}
+
+fn assert_override_audit_and_promotion(
+    conn: &Connection,
+    worker_job_id: &str,
+    before_outbox_count: i64,
+) -> Result<()> {
+    let (override_verdict, override_reason, override_by, override_at): (
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    ) = conn.query_row(
+        "\
+        SELECT override_verdict, override_reason, override_by, override_at
+        FROM validation_verdicts
+        WHERE id = 'verdict-l4-feedback-077'
+        ",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    )?;
+    ensure!(override_verdict.as_deref() == Some("approved"));
+    ensure!(
+        override_reason
+            .as_deref()
+            .is_some_and(|value| value.contains("official-source"))
+    );
+    ensure!(override_by.as_deref() == Some("operator-l4-feedback"));
+    ensure!(override_at.as_deref() == Some("2026-05-08T00:15:00Z"));
+    ensure!(provisional_status(conn, worker_job_id)?.as_deref() == Some("approved"));
+    ensure!(count_runner_rows(conn, "process_stage_heads")? == 1);
+    ensure!(count_runner_rows(conn, "local_outbox")? == before_outbox_count + 1);
+    Ok(())
+}
+
+struct OverrideCalibrationCaseRow {
+    case_id: String,
+    corpus_kind: String,
+    expected_verdict: Option<String>,
+    actual_verdict: Option<String>,
+    ground_truth_label: Option<String>,
+    mutation_family: Option<String>,
+    metadata_json: String,
+}
+
+fn load_override_calibration_case(conn: &Connection) -> Result<OverrideCalibrationCaseRow> {
+    conn.query_row(
+        "\
+        SELECT case_id, corpus_kind, expected_verdict, actual_verdict,
+               ground_truth_label, mutation_family, metadata_json
+        FROM validation_calibration_cases
+        WHERE validation_verdict_id = 'verdict-l4-feedback-077'
+        ",
+        [],
+        |row| {
+            Ok(OverrideCalibrationCaseRow {
+                case_id: row.get(0)?,
+                corpus_kind: row.get(1)?,
+                expected_verdict: row.get(2)?,
+                actual_verdict: row.get(3)?,
+                ground_truth_label: row.get(4)?,
+                mutation_family: row.get(5)?,
+                metadata_json: row.get(6)?,
+            })
+        },
+    )
+    .context("loading override calibration case")
+}
+
+fn assert_override_calibration_case(row: &OverrideCalibrationCaseRow) -> Result<()> {
+    ensure!(row.case_id == "override-verdict-l4-feedback-077");
+    ensure!(row.corpus_kind == "override");
+    ensure!(row.expected_verdict.as_deref() == Some("rejected"));
+    ensure!(row.actual_verdict.as_deref() == Some("approved"));
+    ensure!(row.ground_truth_label.as_deref() == Some("operator_override"));
+    ensure!(row.mutation_family.as_deref() == Some("source_identity"));
+    let metadata: Value = serde_json::from_str(&row.metadata_json)?;
+    ensure!(
+        metadata
+            .get("override_estimator_policy")
+            .and_then(Value::as_str)
+            == Some("biased_demotion_signal_only")
+    );
+    Ok(())
+}
+
+struct OverrideIncidentClusterRow {
+    dominant_failure_family: Option<String>,
+    affected_slice_ids_json: String,
+    candidate_mutation_template_json: String,
+    override_case_ids_json: String,
+    calibration_case_count: i64,
+    override_count: i64,
+}
+
+fn load_override_incident_cluster(conn: &Connection) -> Result<OverrideIncidentClusterRow> {
+    conn.query_row(
+        "\
+        SELECT dominant_failure_family, affected_slice_ids_json,
+               candidate_mutation_template_json, override_case_ids_json,
+               calibration_case_count, override_count
+        FROM validation_incident_clusters
+        WHERE incident_signature = 'incident-source-identity-l4-feedback-077'
+        ",
+        [],
+        |row| {
+            Ok(OverrideIncidentClusterRow {
+                dominant_failure_family: row.get(0)?,
+                affected_slice_ids_json: row.get(1)?,
+                candidate_mutation_template_json: row.get(2)?,
+                override_case_ids_json: row.get(3)?,
+                calibration_case_count: row.get(4)?,
+                override_count: row.get(5)?,
+            })
+        },
+    )
+    .context("loading override incident cluster")
+}
+
+fn assert_override_incident_cluster(row: &OverrideIncidentClusterRow) -> Result<()> {
+    ensure!(row.dominant_failure_family.as_deref() == Some("source_identity"));
+    ensure!(
+        row.affected_slice_ids_json
+            .contains("procurement-ingestion:tenders-direct")
+    );
+    ensure!(
+        row.candidate_mutation_template_json
+            .contains("wrong_source_domain")
+    );
+    ensure!(
+        row.override_case_ids_json
+            .contains("override-verdict-l4-feedback-077")
+    );
+    ensure!(row.calibration_case_count == 1);
+    ensure!(row.override_count == 1);
+    Ok(())
+}
+
+fn assert_override_feedback_replay(
+    state_db: &mut StateDb,
+    request: &OverrideFeedbackRequest,
+    first_ack: &MutationAck,
+    before_outbox_count: i64,
+) -> Result<()> {
+    let replay_ack = ingest_override(state_db, request)?;
+    ensure!(replay_ack.visible_after_seq == first_ack.visible_after_seq);
+    ensure!(
+        count_runner_rows(state_db.connection(), "local_outbox")? == before_outbox_count + 1,
+        "override feedback replay created duplicate outbox"
+    );
+    ensure!(
+        state_db.connection().query_row(
+            "SELECT COUNT(*) FROM validation_calibration_cases WHERE validation_verdict_id = 'verdict-l4-feedback-077'",
+            [],
+            |row| row.get::<_, i64>(0)
+        )? == 1,
+        "override feedback replay created duplicate calibration case"
+    );
+    ensure!(
+        state_db.connection().query_row(
+            "SELECT override_count FROM validation_incident_clusters WHERE incident_signature = 'incident-source-identity-l4-feedback-077'",
+            [],
+            |row| row.get::<_, i64>(0)
+        )? == 1,
+        "override feedback replay incremented incident override_count"
     );
     Ok(())
 }
@@ -2018,6 +2285,69 @@ fn l4_t_sqlite_supabase_sync_076_cross_model_audit_cron_dispatches_and_records_d
     );
 
     println!("[TEST_END] L4-T-sqlite_supabase_sync-076 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_077_operator_override_feedback_promotes_and_calibrates() -> Result<()>
+{
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-077");
+    println!("[SETUP] enforcement-active provisional output rejected by validator");
+    let temp = tempfile::tempdir()?;
+    let db_path = temp.path().join("state.db");
+    let mut state_db = StateDb::open(&db_path)?;
+    let runner = JobRunner::new("l4-override-feedback");
+    let worker_job_id = "l4-feedback-worker-077";
+    let validator_job_id = "l4-feedback-validator-077";
+    let process_id = "process-l4-feedback-077";
+    let stage_run_id = "stage-run-l4-feedback-077";
+    seed_runner_promotion_process(state_db.connection(), process_id)?;
+    seed_runner_promotion_worker(state_db.connection(), worker_job_id, process_id)?;
+    let provisional_request = runner_provisional_request(worker_job_id, process_id, stage_run_id);
+    let validator_request = runner_validator_request(worker_job_id, validator_job_id, process_id);
+    let enqueued = runner.persist_enforcement_provisional_and_enqueue_validator(
+        repo_root()?,
+        &mut state_db,
+        &provisional_request,
+        &validator_request,
+    )?;
+    persist_runner_rejected_verdict(
+        &runner,
+        &mut state_db,
+        worker_job_id,
+        validator_job_id,
+        enqueued.skill,
+    )?;
+
+    println!("[EXEC] operator override ingests promotion feedback in one write path");
+    let before_outbox_count = count_runner_rows(state_db.connection(), "local_outbox")?;
+    let feedback_request = OverrideFeedbackRequest {
+        executor_id: "l4-override-feedback".to_owned(),
+        validation_verdict_id: "verdict-l4-feedback-077".to_owned(),
+        promotion: override_feedback_promotion_request(worker_job_id, process_id, stage_run_id),
+        slice_id: "procurement-ingestion:tenders-direct:2026.05.06-1".to_owned(),
+        source_artifact_path: Some("artifacts/manifests/l4-feedback-077.md".to_owned()),
+        dominant_failure_family: "source_identity".to_owned(),
+        candidate_mutation_template_json: json!({
+            "mutation_family": "source_identity",
+            "issue_category": "wrong_source_domain",
+            "template_source": "operator_override",
+            "replace_source_domain_with": "mirror.invalid"
+        }),
+    };
+    let first_ack = ingest_override(&mut state_db, &feedback_request)?;
+
+    println!("[ASSERT] override audit, promotion, calibration case, and incident cluster landed");
+    assert_override_feedback_rows(state_db.connection(), worker_job_id, before_outbox_count)?;
+    assert_override_feedback_replay(
+        &mut state_db,
+        &feedback_request,
+        &first_ack,
+        before_outbox_count,
+    )?;
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-077 PASS");
     Ok(())
 }
 

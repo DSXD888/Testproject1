@@ -1049,7 +1049,7 @@ fn current_commit_seq(conn: &Connection) -> Result<i64> {
     .context("reading current commit_seq")
 }
 
-fn promote_enforcement_provisional_output_tx(
+pub fn promote_enforcement_provisional_output_tx(
     tx: &Transaction<'_>,
     executor_id: &str,
     schema_epoch: i32,
@@ -1506,7 +1506,7 @@ fn canonical_content_hash(payload_json: &str) -> Result<String> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-fn find_existing_ack(
+pub fn find_existing_ack(
     conn: &Connection,
     job_id: &str,
     idempotency_key: &str,

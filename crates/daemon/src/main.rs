@@ -83,6 +83,7 @@ mod sources {
 #[allow(dead_code)]
 mod validation {
     pub mod executor;
+    pub mod feedback;
     pub mod manifest_writer;
     pub mod policy;
 }
