@@ -77,6 +77,23 @@ pub struct BatchEnvelopeAssembler {
     max_rows: usize,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PullCursorDomain {
+    SharedSourceConfigs,
+    SharedCompanyProfile,
+    OperatorDecisionHeads,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PullCursor {
+    pub domain: PullCursorDomain,
+    pub last_remote_change_seq: i64,
+    pub last_pulled_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PullCursorStore;
+
 #[derive(Clone, Debug)]
 pub struct SupabaseRpcClient {
     api_url: String,
@@ -417,6 +434,114 @@ impl WriterBindingConfig {
             effective_mode: self.requested_mode,
             next_safe_actions: Vec::new(),
         }
+    }
+}
+
+impl PullCursorDomain {
+    #[must_use]
+    pub const fn all() -> [Self; 3] {
+        [
+            Self::SharedSourceConfigs,
+            Self::SharedCompanyProfile,
+            Self::OperatorDecisionHeads,
+        ]
+    }
+
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::SharedSourceConfigs => "shared_source_configs",
+            Self::SharedCompanyProfile => "shared_company_profile",
+            Self::OperatorDecisionHeads => "operator_decision_heads",
+        }
+    }
+
+    fn from_str(value: &str) -> Result<Self> {
+        match value {
+            "shared_source_configs" => Ok(Self::SharedSourceConfigs),
+            "shared_company_profile" => Ok(Self::SharedCompanyProfile),
+            "operator_decision_heads" => Ok(Self::OperatorDecisionHeads),
+            _ => bail!("unsupported pull cursor domain `{value}`"),
+        }
+    }
+}
+
+impl PullCursorStore {
+    pub fn initialize(conn: &Connection) -> Result<()> {
+        ensure_pull_cursors_table(conn)?;
+        for domain in PullCursorDomain::all() {
+            conn.execute(
+                "INSERT OR IGNORE INTO pull_cursors (domain) VALUES (?1)",
+                params![domain.as_str()],
+            )
+            .with_context(|| format!("initializing pull cursor {}", domain.as_str()))?;
+        }
+        Ok(())
+    }
+
+    pub fn all(conn: &Connection) -> Result<Vec<PullCursor>> {
+        Self::initialize(conn)?;
+        let mut stmt = conn
+            .prepare(
+                "\
+                SELECT domain, last_remote_change_seq, last_pulled_at
+                FROM pull_cursors
+                ORDER BY domain COLLATE BINARY
+                ",
+            )
+            .context("preparing pull cursor listing")?;
+        stmt.query_map([], hydrate_pull_cursor)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .context("listing pull cursors")
+    }
+
+    pub fn load(conn: &Connection, domain: PullCursorDomain) -> Result<PullCursor> {
+        Self::initialize(conn)?;
+        conn.query_row(
+            "\
+            SELECT domain, last_remote_change_seq, last_pulled_at
+            FROM pull_cursors
+            WHERE domain = ?1
+            ",
+            params![domain.as_str()],
+            hydrate_pull_cursor,
+        )
+        .with_context(|| format!("loading pull cursor {}", domain.as_str()))
+    }
+
+    pub fn record_success(
+        conn: &Connection,
+        domain: PullCursorDomain,
+        remote_change_seq: i64,
+    ) -> Result<PullCursor> {
+        ensure!(
+            remote_change_seq >= 0,
+            "remote_change_seq must be non-negative"
+        );
+        let current = Self::load(conn, domain)?;
+        ensure!(
+            remote_change_seq >= current.last_remote_change_seq,
+            "pull cursor {} cannot move backward from {} to {}",
+            domain.as_str(),
+            current.last_remote_change_seq,
+            remote_change_seq
+        );
+        conn.execute(
+            "\
+            UPDATE pull_cursors
+            SET last_remote_change_seq = ?2,
+                last_pulled_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE domain = ?1
+            ",
+            params![domain.as_str(), remote_change_seq],
+        )
+        .with_context(|| format!("advancing pull cursor {}", domain.as_str()))?;
+        Self::load(conn, domain)
+    }
+
+    pub fn record_failure(conn: &Connection, domain: PullCursorDomain) -> Result<PullCursor> {
+        Self::load(conn, domain)
     }
 }
 
@@ -987,6 +1112,36 @@ fn upsert_writer_lease_row(
     )
     .context("upserting active writer lease row")?;
     Ok(())
+}
+
+fn ensure_pull_cursors_table(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "\
+        CREATE TABLE IF NOT EXISTS pull_cursors (
+          domain TEXT PRIMARY KEY CHECK (
+            domain IN (
+              'shared_source_configs',
+              'shared_company_profile',
+              'operator_decision_heads'
+            )
+          ),
+          last_remote_change_seq INTEGER NOT NULL DEFAULT 0 CHECK (last_remote_change_seq >= 0),
+          last_pulled_at TEXT,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        ",
+    )
+    .context("ensuring pull_cursors support table")
+}
+
+fn hydrate_pull_cursor(row: &rusqlite::Row<'_>) -> rusqlite::Result<PullCursor> {
+    let domain_name: String = row.get(0)?;
+    let domain = PullCursorDomain::from_str(&domain_name).map_err(to_sql_error)?;
+    Ok(PullCursor {
+        domain,
+        last_remote_change_seq: row.get(1)?,
+        last_pulled_at: row.get(2)?,
+    })
 }
 
 fn load_dispatchable_rows(conn: &Connection, executor_id: &str) -> Result<Vec<SyncBatchRow>> {

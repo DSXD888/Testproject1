@@ -13,9 +13,9 @@ use tokio::task::JoinHandle;
 
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 use support::sync::{
-    EnforcementHarness, OutboxHarness, PushOwnedFixture, SupabaseRpcClient, WriterBindingConfig,
-    WriterBindingMode, WriterLeaseAcquireResult, WriterLeaseHarness, canonical_content_hash,
-    parse_payload,
+    EnforcementHarness, OutboxHarness, PullCursorDomain, PullCursorHarness, PushOwnedFixture,
+    SupabaseRpcClient, WriterBindingConfig, WriterBindingMode, WriterLeaseAcquireResult,
+    WriterLeaseHarness, canonical_content_hash, parse_payload,
 };
 
 #[test]
@@ -1028,6 +1028,63 @@ fn l4_t_sqlite_supabase_sync_021_writer_epoch_assigned_only_by_batch_and_retry_i
     );
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-021 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_025_pull_cursors_are_independent_per_remote_domain() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-025");
+    println!("[SETUP] initialize pull cursor harness");
+    let state_db = L4TestStateDb::new()?;
+    let harness = PullCursorHarness::new(&state_db)?;
+
+    println!("[ASSERT] all remote-owned domains start at seq 0");
+    let initial = harness.all()?;
+    ensure!(
+        initial.len() == 3,
+        "pull cursor initialization seeded unexpected domain count: {initial:?}"
+    );
+    ensure!(
+        initial
+            .iter()
+            .all(|cursor| cursor.last_remote_change_seq == 0 && cursor.last_pulled_at.is_none()),
+        "pull cursors must start unadvanced and unpulled: {initial:?}"
+    );
+
+    println!("[EXEC] advance source config cursor and fail company profile pull");
+    let advanced = harness.record_success(PullCursorDomain::SharedSourceConfigs, 17)?;
+    let failed_company = harness.record_failure(PullCursorDomain::SharedCompanyProfile)?;
+    let decision_head = harness.load(PullCursorDomain::OperatorDecisionHeads)?;
+
+    println!("[ASSERT] success advances only its domain and failure leaves its cursor unchanged");
+    ensure!(
+        advanced.last_remote_change_seq == 17 && advanced.last_pulled_at.is_some(),
+        "successful pull did not advance source config cursor: {advanced:?}"
+    );
+    ensure!(
+        failed_company.last_remote_change_seq == 0 && failed_company.last_pulled_at.is_none(),
+        "failed company profile pull advanced or marked its cursor: {failed_company:?}"
+    );
+    ensure!(
+        decision_head.last_remote_change_seq == 0 && decision_head.last_pulled_at.is_none(),
+        "unrelated decision-head cursor changed: {decision_head:?}"
+    );
+
+    println!("[EXEC] advance a second domain");
+    let company = harness.record_success(PullCursorDomain::SharedCompanyProfile, 3)?;
+    let source = harness.load(PullCursorDomain::SharedSourceConfigs)?;
+
+    println!("[ASSERT] second-domain success does not disturb first-domain high-water");
+    ensure!(
+        company.last_remote_change_seq == 3 && company.last_pulled_at.is_some(),
+        "company profile cursor did not advance independently: {company:?}"
+    );
+    ensure!(
+        source.last_remote_change_seq == 17,
+        "source config cursor changed during company profile pull: {source:?}"
+    );
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-025 PASS");
     Ok(())
 }
 

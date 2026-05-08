@@ -14,9 +14,9 @@ use super::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 pub use sync_impl::SupabaseRpcClient;
 #[allow(unused_imports)]
 pub use sync_impl::{
-    BatchEnvelope, BatchEnvelopeAssembler, OutboxOp, OutboxWriter, PushBatchApplyResponse,
-    WriterBindingConfig, WriterBindingMode, WriterLease, WriterLeaseAcquireResult,
-    canonical_content_hash,
+    BatchEnvelope, BatchEnvelopeAssembler, OutboxOp, OutboxWriter, PullCursor, PullCursorDomain,
+    PullCursorStore, PushBatchApplyResponse, WriterBindingConfig, WriterBindingMode, WriterLease,
+    WriterLeaseAcquireResult, canonical_content_hash,
 };
 
 const DEFAULT_EXECUTOR_ID: &str = "l4-sync-test-executor";
@@ -399,6 +399,40 @@ impl WriterLeaseHarness {
 
     pub fn current_epoch(&self) -> Result<Option<i64>> {
         WriterLease::new("default", DEFAULT_EXECUTOR_ID)?.current_epoch(&self.conn)
+    }
+}
+
+pub struct PullCursorHarness {
+    conn: Connection,
+}
+
+impl PullCursorHarness {
+    pub fn new(state_db: &L4TestStateDb) -> Result<Self> {
+        let conn = Connection::open(state_db.db_path())
+            .with_context(|| format!("opening L4 state DB {}", state_db.db_path().display()))?;
+        conn.execute_batch("PRAGMA foreign_keys = ON")?;
+        PullCursorStore::initialize(&conn)?;
+        Ok(Self { conn })
+    }
+
+    pub fn all(&self) -> Result<Vec<PullCursor>> {
+        PullCursorStore::all(&self.conn)
+    }
+
+    pub fn load(&self, domain: PullCursorDomain) -> Result<PullCursor> {
+        PullCursorStore::load(&self.conn, domain)
+    }
+
+    pub fn record_success(
+        &self,
+        domain: PullCursorDomain,
+        remote_change_seq: i64,
+    ) -> Result<PullCursor> {
+        PullCursorStore::record_success(&self.conn, domain, remote_change_seq)
+    }
+
+    pub fn record_failure(&self, domain: PullCursorDomain) -> Result<PullCursor> {
+        PullCursorStore::record_failure(&self.conn, domain)
     }
 }
 
