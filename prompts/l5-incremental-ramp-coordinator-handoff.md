@@ -61,9 +61,11 @@ test -x bin/br-complete && bin/br-complete --help >/dev/null 2>&1 && echo "✓ b
 grep -q '("result", "messages", "results")' bin/br-claim    && echo "✓ br-claim response-key fix in"    || echo "ABORT: br-claim missing fix"
 grep -q '("result", "messages", "results")' bin/br-complete && echo "✓ br-complete response-key fix in" || echo "ABORT: br-complete missing fix"
 
-# D. Hook installed (both pre-commit and pre-push, per `am guard status`)
-am guard status /Users/alinaaitova/Desktop/Testproject1 2>&1 | grep -E "Pre-commit|Pre-push" | head -5
-# Expected: both lines should say "installed". Mode: Block.
+# D. Hook installed (both pre-commit and pre-push) — fail-hard, no eyeballing
+am_status=$(am guard status /Users/alinaaitova/Desktop/Testproject1 2>&1)
+echo "$am_status" | grep -qE "Pre-commit\s+installed" && echo "✓ pre-commit hook installed" || echo "ABORT: pre-commit hook NOT installed (run: am guard install /Users/alinaaitova/Desktop/Testproject1 /Users/alinaaitova/Desktop/Testproject1)"
+echo "$am_status" | grep -qE "Pre-push\s+installed"   && echo "✓ pre-push hook installed"   || echo "ABORT: pre-push hook NOT installed (run: am guard install --prepush /Users/alinaaitova/Desktop/Testproject1 /Users/alinaaitova/Desktop/Testproject1)"
+echo "$am_status" | grep -qE "Mode\s+Block"            && echo "✓ Mode=Block"                 || echo "ABORT: hook Mode is NOT Block — enforcement is disabled"
 
 # E. Phase B markers in hook
 hook=.git/hooks/hooks.d/pre-commit/50-agent-mail.py
@@ -81,20 +83,55 @@ grep -q "RULE NUMBER 2: BEAD CLAIM DISCIPLINE" AGENTS.md && echo "✓ Rule 2 in 
 test -f docs/strategy/layers/layer-5-expanded-commercial-intelligence.md && echo "✓ L5 spec present" || echo "ABORT: L5 spec missing"
 test -d docs/pipeline/l5-expanded-commercial-intelligence/artifacts && echo "✓ L5 artifacts dir present" || echo "ABORT: run /pipemaxxer first to generate L5"
 
-# I. L5 beads exist and at least one is ready
+# I. L5 source artifacts: spec dir AND kickoff file specifically
+l5_kickoff=docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-kickoff.md
+test -f "$l5_kickoff" && echo "✓ L5 kickoff present at $l5_kickoff" || echo "ABORT: L5 kickoff missing — run /pipemaxxer first"
+
+# J. L5 beads exist and at least one is ready
 l5_total=$(br list --label layer-5 --json 2>&1 | jq '.issues | length')
 l5_ready=$(br ready --label layer-5 --json 2>&1 | jq '.issues | length')
 echo "L5 beads: total=$l5_total, ready=$l5_ready"
 [ "$l5_ready" -ge "1" ] && echo "✓ ≥1 ready L5 bead" || echo "ABORT: no L5 ready beads — run /pipemaxxer or fix dependencies"
 
-# J. Your own coordinator AGENT_NAME / AGENT_MAIL_NAME set (for any commits you make during diagnosis)
+# K. Your own coordinator AGENT_NAME / AGENT_MAIL_NAME set (for any commits you make during diagnosis)
 [ -n "$AGENT_NAME" ]      && echo "✓ AGENT_NAME=$AGENT_NAME"           || { echo "Setting AGENT_NAME=l5-coordinator"; export AGENT_NAME="l5-coordinator"; }
 [ -n "$AGENT_MAIL_NAME" ] && echo "✓ AGENT_MAIL_NAME=$AGENT_MAIL_NAME" || { echo "Setting AGENT_MAIL_NAME=L5Coordinator"; export AGENT_MAIL_NAME="L5Coordinator"; }
+
+# L. ⚠️ END-TO-END HOOK TEST — catches the "could not locate archive for project"
+# failure mode that surfaces only at commit time, not at hook-installation time.
+# Uses `git commit --allow-empty` so no files are created/deleted (Rule 1 safe).
+# Uses `chore:` prefix (exempt from start-mail subcheck) so this exercises only
+# the hook's plumbing, not the bead-id-prefix path.
+echo "Running end-to-end hook test (this should succeed without bypass)..."
+if git commit --allow-empty -m "chore: pre-flight hook end-to-end test ($(date -u +%FT%TZ))" 2>&1 | tee /tmp/l5-ramp-hook-test.log; then
+  echo "✓ hook accepts commits end-to-end (commit landed; no bypass needed)"
+  # Remove the empty marker commit. --soft moves HEAD back, leaves nothing staged
+  # (no files were involved). Per AGENTS.md, --soft is NOT in the forbidden list
+  # (only --hard, clean -fd, rm -rf are forbidden); this is the canonical pattern
+  # for "I created a commit I no longer want."
+  git reset --soft HEAD~1
+  echo "✓ test commit reverted (HEAD now at: $(git log --oneline -1))"
+else
+  echo "ABORT: hook BLOCKED a chore: commit during pre-flight"
+  echo "      Look in /tmp/l5-ramp-hook-test.log for the exact error."
+  echo "      Common causes (in order of likelihood):"
+  echo "        - 'could not locate archive for project <name>': hook's embedded"
+  echo "          PROJECT identifier doesn't match the agent-mail server's"
+  echo "          project archive. → See Recovery Recipe R7 below."
+  echo "        - server returned 4xx/5xx (not connection-refused): server has a"
+  echo "          state bug. → See Recovery Recipe R5 (restart) and R7 (re-ensure)."
+  echo "        - hook script crashed (Python traceback): hook bug, escalate."
+  echo "      The hook itself is auto-blocking; nothing to clean up."
+fi
 ```
+
+**Note on `git reset --soft HEAD~1`:** AGENTS.md "Irreversible Git & Filesystem Actions" forbids `git reset --hard`, `git clean -fd`, and `rm -rf`. The `--soft` variant is NOT in that list. `--soft HEAD~1` only moves the branch pointer back one commit; the working tree and index are unchanged. Since the test commit was empty (`--allow-empty`), there is nothing to lose.
 
 **CHECKPOINT pre-flight:** if any line above printed `ABORT:`, STOP and report to the user. Do NOT spawn any L5 agents until all green.
 
-If you had to fix any pre-flight item (e.g., restart the server), re-run the entire pre-flight from the top. Do NOT spawn agents on a partially-fixed system.
+The check **L** is the one that has historically been missed. Hook installation can succeed (`am guard status` reports installed) while the hook itself fails at runtime due to a project-archive lookup mismatch. The end-to-end test commit catches this BEFORE you spawn agents — without it, you'd discover the bug only when an implementation agent tries to make their first commit.
+
+If you had to fix any pre-flight item (e.g., restart the server, re-install the hook), re-run the entire pre-flight from the top. Do NOT spawn agents on a partially-fixed system.
 
 ---
 
@@ -171,16 +208,16 @@ search_messages(query="[<bead-id>] Complete")
 
 ### 3e. Verify all post-conditions
 
-After ONE bead has fully cycled through claim → commit → complete:
+After ONE bead has fully cycled through claim → commit → complete, verify all 6 numbered post-conditions:
 
-| Post-condition | Verification |
-|---|---|
-| Bead status=closed | `br show <id> --json` |
-| Start mail in archive | `search_messages(query="[<id>] Start")` returns ≥1 message from agent-name |
-| Complete mail in archive | `search_messages(query="[<id>] Complete")` returns ≥1 message from agent-name |
-| Commit on origin/main | `git log origin/main --oneline -10` shows the bead-id-prefixed commit |
-| Working tree clean | `git status --porcelain` empty |
-| File reservations released | `am file_reservations list /Users/alinaaitova/Desktop/Testproject1` does NOT mention this bead |
+| # | Post-condition | Verification |
+|---|---|---|
+| **PC1** | Bead status=closed | `br show <id> --json` |
+| **PC2** | Start mail in archive | `search_messages(query="[<id>] Start")` returns ≥1 message from agent-name |
+| **PC3** | Complete mail in archive | `search_messages(query="[<id>] Complete")` returns ≥1 message from agent-name |
+| **PC4** | Commit on origin/main | `git log origin/main --oneline -10` shows the bead-id-prefixed commit |
+| **PC5** | Working tree clean | `git status --porcelain` empty |
+| **PC6** | File reservations released | `am file_reservations list /Users/alinaaitova/Desktop/Testproject1` does NOT mention this bead |
 
 ### 3f. Phase 1 Validate → Test → Fix Loop
 
@@ -224,13 +261,19 @@ LOOP until P1 acceptance criteria all green:
       4. If wrapper crashed: NEW bug — capture, escalate, do NOT advance
     Re-run Phase 1 (or recover the in-flight bead manually if the agent already cycled).
 
-  IF post-condition #6 (file reservations) fails (zombie reservation):
+  IF the hook says "could not locate archive for project":
+    See Recovery Recipe R7 below. This is a config bug between the hook
+    and the server, NOT a wrapper bug. Fix it at the infrastructure level
+    before the ramp continues.
+    Re-run pre-flight check L (the end-to-end hook test) to confirm the fix.
+
+  IF PC6 (file reservations) fails (zombie reservation):
     DIAGNOSE: which bead, which agent, when does TTL expire?
     FIX: `am file_reservations release` for that specific bead, OR wait for TTL expiry (default 1h)
-    Re-verify post-conditions.
+    Re-verify PC1–PC6.
 ```
 
-**Do NOT proceed to Phase 2 until ALL six post-conditions are green for ONE complete bead cycle.**
+**Do NOT proceed to Phase 2 until PC1–PC6 are all green for ONE complete bead cycle.**
 
 ---
 
@@ -279,9 +322,9 @@ Phase 2 is the FIRST exposure to concurrency. Five specific scenarios to observe
 ### 4c. Acceptance criteria for Phase 2
 
 - [ ] **2 agents working concurrently** for at least 15 minutes
-- [ ] **Each agent closes ≥2 beads** during the window (so at least 4 total bead closures)
-- [ ] **Zero duplicate `[<id>] Start` mails** for any single bead
-- [ ] **Zero `AGENT_MAIL_BYPASS=1` events** in `.git/agent-mail-bypasses.log`
+- [ ] **At least 3 total bead closures across both agents.** Per-agent ≥1 (no agent stuck idle for the full window). The original "≥2 each" was too strict — bead-pick timing can legitimately give one agent more closures than the other in a 15-min window. As long as both agents are MAKING PROGRESS (state-flipping, committing, pushing), not stuck.
+- [ ] **Zero duplicate `[<id>] Start` mails** for any single bead (this is the strict one — no flexibility)
+- [ ] **Zero new IMPLEMENTATION-AGENT bypass entries** in `.git/agent-mail-bypasses.log`. (Coordinator-bypass entries during diagnosis are recorded but allowed per Critical Rule 6 — distinguish by the `subject=` field in the log line, which records the commit message; coordinator commits will have `chore:`/`docs:` prefixes, implementer commits should never appear here at all.)
 - [ ] **Zero beads stuck in `in_progress`** at the end of the 15-minute window
 - [ ] **All file reservations released** at the end (no zombies)
 - [ ] **Working tree clean** on both agents' shells
@@ -300,7 +343,10 @@ LOOP until P2 acceptance criteria all green:
 
   IF you observe S1 (duplicate Start mails for same bead):
     STOP swarm immediately (tell user to halt agent #2).
-    DIAGNOSE: review `bin/br-claim`'s idempotency check (lines 263+ of br-claim).
+    DIAGNOSE: review the idempotency check inside `bin/br-claim` (search for the
+    `search_messages` call near `mcp_call(url, token, "search_messages", ...)`,
+    NOT a hardcoded line number — line numbers drift). The check filters
+    matches by sender_name to determine "did I already send Start for this bead?"
     Likely cause: search_messages eventual consistency, OR the wrapper's "look up Start mail" race window is too tight.
     FIX:
       1. If eventual consistency: add a small delay (e.g., 500ms) between reservation and Start-mail send.
@@ -376,8 +422,9 @@ list_agents(project_key="/Users/alinaaitova/Desktop/Testproject1")
 - [ ] **5 agents working concurrently** for at least 30 minutes
 - [ ] **≥10 beads closed** during the window
 - [ ] **Each agent closes ≥1 bead** (no agent stuck idle)
-- [ ] **Zero duplicate Start mails** (per-bead) AND zero bypass-log entries
-- [ ] **`in_progress` count stays ≤5** at all times (no bead-leak — beads should churn through)
+- [ ] **Zero duplicate Start mails** (per-bead)
+- [ ] **Zero new IMPLEMENTATION-AGENT bypass entries** in `.git/agent-mail-bypasses.log` (coordinator-bypass entries are exempt; distinguish by the `subject=` field — coordinator commits will have `chore:` or `docs:` prefixes)
+- [ ] **`in_progress` count stays ≤6** at any sample (5 is the steady-state target; transient 6 is acceptable for the brief window between an agent's `file_reservation_paths` returning success and `br update --status=in_progress` landing). If you sustain count ≥7 for >2 min: that's a bead-leak signal.
 - [ ] **Server stays alive** (`/healthz` returns alive on every poll)
 - [ ] **No agent abandons mid-claim** (zombie file reservations >10 min after agent's last activity)
 - [ ] **Working tree clean** on the user's coordinator shell at the end
@@ -529,25 +576,79 @@ am file_reservations release <reservation-id>
 # OR (more invasive): force_release_file_reservation via MCP tool, with a reason
 ```
 
-### R5. Server down or unresponsive
+### R5. Server down or unresponsive (and re-register project after restart)
 ```bash
 pkill am 2>/dev/null || true
 am serve-http --port 8765 &
 sleep 2
-curl -s http://127.0.0.1:8765/healthz | grep '"status":"alive"' && echo "✓ server back"
+curl -s http://127.0.0.1:8765/healthz | grep -q '"status":"alive"' && echo "✓ server back"
+
+# CRITICAL: after a server restart, re-call ensure_project — server-side state
+# (project registry, archive index) may need re-seeding. Skipping this leads
+# to the "could not locate archive for project" hook failure (see R7).
+TOKEN=$(python3 -c "import json,os; cfg=json.load(open(os.path.expanduser('~/.claude.json'))); srv=cfg.get('mcpServers',{}).get('mcp-agent-mail',{}); h=srv.get('headers',{}); a=h.get('Authorization','').replace('Bearer ',''); print(a)" 2>/dev/null)
+curl -s --max-time 5 -X POST http://127.0.0.1:8765/mcp/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"ensure_project","arguments":{"human_key":"/Users/alinaaitova/Desktop/Testproject1"}}}' | head -3
+
+# Verify the hook works again with the end-to-end test from pre-flight check L:
+git commit --allow-empty -m "chore: post-restart hook test ($(date -u +%FT%TZ))" \
+  && git reset --soft HEAD~1 \
+  && echo "✓ hook works after restart"
 ```
 
 ### R6. Crashed agent with in-progress bead
 ```
 1. Verify the agent is gone: list_agents — last_active_ts > 10 min ago
 2. Release their reservations:
-   am file_reservations list <PROJECT> | grep <crashed-agent>
-   am file_reservations release <each-id>
+   am file_reservations list /Users/alinaaitova/Desktop/Testproject1 | grep <crashed-agent>
+   am file_reservations release <each-reservation-id>
 3. Reset the bead:
    br update <bead-id> --status=open
    br comment add <bead-id> --body "Reset from in_progress: agent <name> crashed at <ts>; another agent will pick up."
 4. (Optional) send mail to peers documenting the reset
 ```
+
+### R7. Hook says "could not locate archive for project"
+This was empirically observed during this very project. Symptom: `git commit` (or `git push`) fails with:
+```
+mcp-agent-mail: guard could not locate archive for project '<NAME>'
+```
+
+The cause is a mismatch between the `PROJECT` identifier embedded in the hook (set when `am guard install` was run) and the project archive the agent-mail server has registered.
+
+**Diagnosis:**
+```bash
+# What does the hook think the project is?
+grep "^PROJECT\s*=" .git/hooks/hooks.d/pre-commit/50-agent-mail.py
+
+# What does the server have registered?
+TOKEN=$(python3 -c "import json,os; cfg=json.load(open(os.path.expanduser('~/.claude.json'))); srv=cfg.get('mcpServers',{}).get('mcp-agent-mail',{}); h=srv.get('headers',{}); a=h.get('Authorization','').replace('Bearer ',''); print(a)" 2>/dev/null)
+curl -s --max-time 5 -X POST http://127.0.0.1:8765/mcp/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"ensure_project","arguments":{"human_key":"/Users/alinaaitova/Desktop/Testproject1"}}}' | head -5
+# Look for: human_key, slug, project_uid in the response.
+```
+
+**Fix (in priority order — try option 1 first):**
+
+**Option 1: Re-register the project on the server (least invasive).** The above `ensure_project` call IS the registration call — if it returns successfully and the hook still fails, the issue is the hook's `PROJECT` value vs the server's lookup keys. Try option 2.
+
+**Option 2: Re-install the hook with the project's absolute path as PROJECT.** The agent-mail server's lookup uses the `human_key` (the absolute path), so installing the hook with that exact value as PROJECT aligns them:
+```bash
+pkill am 2>/dev/null || true
+am serve-http --port 8765 &
+sleep 2
+am guard install /Users/alinaaitova/Desktop/Testproject1 /Users/alinaaitova/Desktop/Testproject1
+am guard install --prepush /Users/alinaaitova/Desktop/Testproject1 /Users/alinaaitova/Desktop/Testproject1   # if pre-push is also wanted
+am guard status /Users/alinaaitova/Desktop/Testproject1   # confirm
+# Run the pre-flight L test again to verify:
+git commit --allow-empty -m "chore: post-reinstall hook test" && git reset --soft HEAD~1 && echo "✓ fixed"
+```
+
+**Option 3 (NOT for normal use — emergency only):** Use `AGENT_MAIL_BYPASS=1` for a single legitimate diagnosis or out-of-band commit. The bypass is logged in `.git/agent-mail-bypasses.log` for audit. If you're using bypass during a ramp phase, the phase's bypass-log acceptance criterion will fail and the ramp will be paused — that's by design. Bypass is for diagnosis, not for production swarm work.
 
 ---
 
@@ -556,10 +657,12 @@ curl -s http://127.0.0.1:8765/healthz | grep '"status":"alive"' && echo "✓ ser
 Halt the ramp and escalate to the user immediately if any of these occur:
 
 - **Duplicate `[<bead-id>] Start` mails** from different agents — concurrency bug in wrapper idempotency
-- **Bypass-log entry** — an agent gave up on the wrappers
-- **Server crash that doesn't recover** within 2 restart attempts
-- **`in_progress` bead count growing without bound** — bead-leak indicates wrapper failure under load
+- **Implementation-agent bypass-log entry** — an agent gave up on the wrappers (coordinator-bypass entries are exempt — see Phase 2/3 acceptance criteria)
+- **Hook fails with `could not locate archive for project`** during a phase (was caught by pre-flight L if you ran it; if it surfaces mid-phase, the server state regressed) — see Recovery Recipe R7
+- **Server crash that doesn't recover** within 2 restart-then-ensure_project attempts (R5)
+- **`in_progress` bead count sustained ≥7 for >2 min** — bead-leak indicates wrapper failure under load
 - **Same recovery recipe needed >3 times in 5 minutes** — symptom of a real bug, not transient flakiness
 - **You yourself can't decide between two diagnoses** — escalate rather than guess
+- **Pre-flight L fails (hook end-to-end test)** before any agent has spawned — fix the infrastructure before the ramp begins
 
-When you escalate, use the FAIL template in §6. Be specific: paste the exact output, the exact bead IDs, the exact agent names, the exact timestamps. Vague escalations waste the user's time.
+When you escalate, use the FAIL template in §6. Be specific: paste the exact output (from `/tmp/l5-ramp-hook-test.log` if it's a hook-test failure), the exact bead IDs, the exact agent names, the exact timestamps. Vague escalations waste the user's time.
