@@ -6,6 +6,9 @@ mod arbiter_impl;
 #[path = "../src/validation/calibration.rs"]
 #[allow(dead_code)]
 mod calibration_impl;
+#[path = "../src/audit/consistency.rs"]
+#[allow(dead_code)]
+mod consistency_impl;
 #[path = "../src/agents/contracts.rs"]
 #[allow(dead_code)]
 mod contracts_impl;
@@ -97,6 +100,10 @@ use calibration_impl::{
     CALIBRATION_MODEL_FAMILY_ALTERNATE, CalibrationCaseSeed, CalibrationCorpusKind,
     calibration_mutation_families, calibration_skill_families, canonical_calibration_cases,
     record_cross_model_audit_case, seed_calibration_corpus_cases, select_cross_model_audit_slices,
+};
+use consistency_impl::{
+    AutoRepairDisposition, ConsistencyAuditConfig, ConsistencyInvariant,
+    PipelineRunProvenanceObservation, RemoteRevisionProvenance, check_pipeline_run_provenance,
 };
 use cron_impl::{
     CronJobClass, CronScheduler, VALIDATION_CALIBRATION_SOURCE_ID,
@@ -4647,8 +4654,36 @@ fn l4_t_sqlite_supabase_sync_049_pipeline_run_remote_revision_provenance() -> Re
         outbox_rows.len() == 3,
         "expected three provenance-bearing outbox rows, got {outbox_rows:?}"
     );
+    let mut audit_observations = Vec::new();
     for (entity_kind, payload_json, content_hash) in outbox_rows {
         let payload = parse_payload(&payload_json)?;
+        let (entity_id, persisted_revisions) = match entity_kind.as_str() {
+            "qualification_runs" => ("l4-provenance-qualification", qualification_revisions),
+            "manifests" => ("l4-provenance-manifest", manifest_revisions),
+            "pipeline_assessments" => (ids.process_id.as_str(), assessment_revisions),
+            other => anyhow::bail!("unexpected provenance outbox entity kind {other}"),
+        };
+        let outbox_provenance = RemoteRevisionProvenance::new(
+            payload
+                .get("source_config_revision")
+                .and_then(Value::as_i64),
+            payload
+                .get("company_profile_revision")
+                .and_then(Value::as_i64),
+            payload
+                .get("operator_decision_revision")
+                .and_then(Value::as_i64),
+        );
+        audit_observations.push(PipelineRunProvenanceObservation::new(
+            entity_kind.clone(),
+            entity_id.to_owned(),
+            RemoteRevisionProvenance::new(
+                Some(persisted_revisions.0),
+                Some(persisted_revisions.1),
+                Some(persisted_revisions.2),
+            ),
+            outbox_provenance,
+        ));
         ensure!(
             payload
                 .get("source_config_revision")
@@ -4669,6 +4704,52 @@ fn l4_t_sqlite_supabase_sync_049_pipeline_run_remote_revision_provenance() -> Re
             "outbox content hash was not computed over stamped provenance payload"
         );
     }
+    let audit_config = ConsistencyAuditConfig::default();
+    let audit_report = check_pipeline_run_provenance(&audit_observations, &audit_config);
+    ensure!(
+        audit_report.is_pass(),
+        "logical consistency auditor rejected valid provenance: {audit_report:?}"
+    );
+    ensure!(
+        audit_report.findings().is_empty(),
+        "valid provenance produced unexpected consistency findings: {audit_report:?}"
+    );
+
+    println!("[ASSERT] auditor disables auto-repair unless a safe repair rule is registered");
+    let drift_observation = PipelineRunProvenanceObservation::new(
+        "qualification_runs",
+        "l4-provenance-qualification",
+        RemoteRevisionProvenance::new(Some(101), Some(202), Some(303)),
+        RemoteRevisionProvenance::new(Some(101), Some(202), Some(304)),
+    );
+    let drift_report =
+        check_pipeline_run_provenance(std::slice::from_ref(&drift_observation), &audit_config);
+    let drift_finding = drift_report
+        .findings()
+        .first()
+        .context("expected provenance drift finding")?;
+    ensure!(
+        drift_finding.invariant() == ConsistencyInvariant::PipelineRunRemoteRevisionProvenance,
+        "unexpected consistency invariant: {drift_finding:?}"
+    );
+    ensure!(
+        drift_finding.auto_repair() == AutoRepairDisposition::DisabledNoSafeRule,
+        "auto-repair must be disabled without a registered safe repair rule: {drift_finding:?}"
+    );
+
+    let mut repair_config = ConsistencyAuditConfig::default();
+    repair_config
+        .register_safe_repair_rule(ConsistencyInvariant::PipelineRunRemoteRevisionProvenance);
+    let repair_ready_report =
+        check_pipeline_run_provenance(std::slice::from_ref(&drift_observation), &repair_config);
+    let repair_ready_finding = repair_ready_report
+        .findings()
+        .first()
+        .context("expected provenance drift finding with registered repair rule")?;
+    ensure!(
+        repair_ready_finding.auto_repair() == AutoRepairDisposition::SafeRuleRegistered,
+        "registered safe repair rule should be surfaced without automatically repairing: {repair_ready_finding:?}"
+    );
 
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-049 PASS");

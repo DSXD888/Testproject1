@@ -6,6 +6,11 @@ mod db {
     pub mod sync;
 }
 
+#[allow(dead_code)]
+mod audit {
+    pub mod consistency;
+}
+
 mod ipc {
     pub mod command_router;
     pub mod descriptor;
