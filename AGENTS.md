@@ -18,6 +18,21 @@ If I tell you to do something, even if it goes against what follows below, YOU M
 
 ---
 
+## RULE NUMBER 2: BEAD CLAIM DISCIPLINE — USE THE WRAPPERS
+
+For any bead-tracked work in this repo, you MUST use the project wrappers to claim and complete beads:
+
+- **`bin/br-claim <bead-id>`** to start work — atomically reserves files, sends `[<bead-id>] Start` mail to peers, and sets the bead `in_progress`.
+- **`bin/br-complete <bead-id>`** to finish work — atomically sends `[<bead-id>] Complete` mail, closes the bead, syncs `.beads/`, and releases file reservations.
+
+You MUST NOT use raw `br update --status=in_progress` or `br close <id>` directly — they bypass Agent Mail and file reservations, which leaves the swarm unable to detect collisions. The pre-commit hook at `.git/hooks/hooks.d/pre-commit/50-agent-mail.py` enforces file-reservation conflicts today; the Phase B extension to that hook (when active) will additionally block any commit with a `<bead-id>:` message prefix that has no corresponding `[<bead-id>] Start` mail in the archive.
+
+If a wrapper errors, fix the underlying problem (agent-mail server down, file reservation conflict, missing `AGENT_MAIL_NAME` env var). Never bypass.
+
+This is a constitutional rule, equal in force to Rule 1 (no file deletion). It applies to every layer (L0 through L6 and beyond) and every future stage.
+
+---
+
 ## Irreversible Git & Filesystem Actions — DO NOT EVER BREAK GLASS
 
 1. **Absolutely forbidden commands:** `git reset --hard`, `git clean -fd`, `rm -rf`, or any command that can delete or overwrite code/data must never be run unless the user explicitly provides the exact command and states, in the same message, that they understand and want the irreversible consequences.
