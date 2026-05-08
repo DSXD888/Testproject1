@@ -15,10 +15,13 @@ mod tests {
 
     use crate::policy_impl::{
         BOOTSTRAP_RUN_TARGET, BasisSufficiency, CALIBRATING_VALIDATION_BPS, DemotionTrigger,
-        DryRunLadderPhase, FULL_VALIDATION_BPS, SkillPromotionStage, SourceHealthState,
-        ValidationPolicyConfig, ValidationPolicyContext, ValidationPolicyMode, ValidationSliceKey,
-        ValidationTrigger, derive_dry_run_phase, evaluate_validation_policy,
+        DryRunLadderPhase, EnforcementReadinessState, FULL_VALIDATION_BPS, SkillPromotionStage,
+        SourceHealthState, ValidationPolicyConfig, ValidationPolicyContext, ValidationPolicyMode,
+        ValidationSliceKey, ValidationTrigger, derive_dry_run_phase, derive_slice_id,
+        evaluate_slice_eligibility, evaluate_validation_policy,
+        evaluate_validation_policy_with_readiness, read_enforcement_state,
     };
+    use crate::support::db::{DEFAULT_SCHEMA_EPOCH, StateDb};
     use crate::support::validation::{
         SourceHealthState as FixtureSourceHealthState, ValidationPolicyFixture,
         ValidationPolicyMode as FixtureValidationPolicyMode,
@@ -73,6 +76,43 @@ mod tests {
             .find(|reason| reason.key == key)
             .map(|reason| &reason.detail)
             .ok_or_else(|| anyhow!("missing reason `{key}`"))
+    }
+
+    fn seed_eligible_readiness(
+        conn: &rusqlite::Connection,
+        config: &ValidationPolicyConfig,
+    ) -> Result<String> {
+        let slice_id = derive_slice_id(&ValidationSliceKey {
+            worker_skill_id: config.worker_skill_id.clone(),
+            source_id: config.source_id.clone(),
+            worker_behavior_version: config.worker_behavior_version.clone(),
+            validator_behavior_version: config.validator_behavior_version.clone(),
+        });
+        conn.execute(
+            "\
+            INSERT INTO enforcement_readiness (
+              slice_id, worker_skill_id, source_id, worker_behavior_version,
+              validator_overlay_version, enforcement_state, last_evaluated_at,
+              wilson_lower_bound_bps, false_pass_upper_bound_bps,
+              adjudicated_count, audited_approvals_count,
+              dominant_failure_families_json, missing_failure_families_json,
+              demotion_thresholds_json
+            ) VALUES (
+              ?1, ?2, ?3, ?4, ?5, 'eligible', '2026-05-08T00:00:00Z',
+              7100, 500, 30, 60,
+              '[\"price_mismatch\",\"missing_lot\"]', '[]',
+              '{\"wilson_lower_bound_bps\":7000,\"false_pass_upper_bound_bps\":500}'
+            )
+            ",
+            rusqlite::params![
+                &slice_id,
+                &config.worker_skill_id,
+                &config.source_id,
+                &config.worker_behavior_version,
+                &config.validator_behavior_version,
+            ],
+        )?;
+        Ok(slice_id)
     }
 
     #[test]
@@ -379,6 +419,62 @@ mod tests {
 
         ensure!(decision.validation_required);
         ensure!(detail["source"] == "operator_requested");
+        Ok(())
+    }
+
+    #[test]
+    #[doc = "L4-T-sqlite_supabase_sync-050"]
+    fn l4_t_sqlite_supabase_sync_050_policy_reads_eligible_slice_and_selects_enforcement()
+    -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let state_db = StateDb::open(&db_path)?;
+        ensure!(state_db.schema_epoch() == DEFAULT_SCHEMA_EPOCH);
+        let cfg = config(ValidationPolicyMode::Skip);
+        let slice_id = seed_eligible_readiness(state_db.connection(), &cfg)?;
+
+        let readiness = read_enforcement_state(state_db.connection(), &slice_id)?
+            .ok_or_else(|| anyhow!("missing seeded enforcement readiness row"))?;
+        let eligibility = evaluate_slice_eligibility(&cfg, &readiness);
+        let decision =
+            evaluate_validation_policy_with_readiness(&cfg, &context(), Some(&readiness));
+
+        ensure!(readiness.enforcement_state == EnforcementReadinessState::Eligible);
+        ensure!(eligibility.enforcement_eligible);
+        ensure!(eligibility.overlay_compatible);
+        ensure!(eligibility.adjudicated_threshold_met);
+        ensure!(eligibility.audited_approvals_threshold_met);
+        ensure!(eligibility.wilson_lower_bound_met);
+        ensure!(eligibility.false_pass_upper_bound_met);
+        ensure!(eligibility.dominant_failure_family_coverage_met);
+        ensure!(eligibility.no_active_demotion_trigger);
+        ensure!(decision.enforcement.enforcement_eligible);
+        ensure!(decision.dry_run_phase == DryRunLadderPhase::FullSliceEnforcement);
+        ensure!(slice_id == "procurement-ingestion/fts::fts::worker.v1::validator.v1");
+        Ok(())
+    }
+
+    #[test]
+    #[doc = "L4-T-sqlite_supabase_sync-057"]
+    fn l4_t_sqlite_supabase_sync_057_policy_readiness_survives_reopen() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let cfg = config(ValidationPolicyMode::Sample);
+        let slice_id = {
+            let state_db = StateDb::open(&db_path)?;
+            seed_eligible_readiness(state_db.connection(), &cfg)?
+        };
+
+        let reopened = StateDb::open(&db_path)?;
+        let readiness = read_enforcement_state(reopened.connection(), &slice_id)?
+            .ok_or_else(|| anyhow!("missing persisted enforcement readiness after reopen"))?;
+        let decision =
+            evaluate_validation_policy_with_readiness(&cfg, &context(), Some(&readiness));
+
+        ensure!(readiness.slice_id == slice_id);
+        ensure!(readiness.enforcement_state == EnforcementReadinessState::Eligible);
+        ensure!(decision.enforcement.enforcement_eligible);
+        ensure!(decision.dry_run_phase == DryRunLadderPhase::FullSliceEnforcement);
         Ok(())
     }
 

@@ -2,12 +2,17 @@
 
 use std::collections::BTreeSet;
 
+use rusqlite::{Connection, OptionalExtension, types::Type};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 pub const FULL_VALIDATION_BPS: u16 = 10_000;
 pub const BOOTSTRAP_RUN_TARGET: u32 = 20;
 pub const CALIBRATING_VALIDATION_BPS: u16 = 5_000;
+pub const MIN_ADJUDICATED_CASES_FOR_ENFORCEMENT: i64 = 30;
+pub const MIN_AUDITED_APPROVALS_FOR_ENFORCEMENT: i64 = 60;
+pub const MIN_WILSON_LOWER_BOUND_BPS: i64 = 7_000;
+pub const MAX_FALSE_PASS_UPPER_BOUND_BPS: i64 = 500;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
@@ -107,6 +112,61 @@ pub struct ValidationSliceKey {
     pub source_id: String,
     pub worker_behavior_version: String,
     pub validator_behavior_version: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EnforcementReadinessState {
+    Eligible,
+    DryRun,
+    Demoted,
+}
+
+impl EnforcementReadinessState {
+    fn parse(raw: &str, column_index: usize) -> rusqlite::Result<Self> {
+        match raw {
+            "eligible" => Ok(Self::Eligible),
+            "dry_run" => Ok(Self::DryRun),
+            "demoted" => Ok(Self::Demoted),
+            other => Err(conversion_error(
+                column_index,
+                format!("invalid enforcement_readiness.enforcement_state `{other}`"),
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EnforcementReadinessRecord {
+    pub slice_id: String,
+    pub worker_skill_id: String,
+    pub source_id: String,
+    pub worker_behavior_version: String,
+    pub validator_overlay_version: String,
+    pub enforcement_state: EnforcementReadinessState,
+    pub wilson_lower_bound_bps: i64,
+    pub false_pass_upper_bound_bps: i64,
+    pub adjudicated_count: i64,
+    pub audited_approvals_count: i64,
+    pub dominant_failure_families: Vec<String>,
+    pub missing_failure_families: Vec<String>,
+    pub demotion_reason: Option<String>,
+    pub active_demotion_trigger_json: Option<Value>,
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SliceEligibility {
+    pub slice_id: String,
+    pub persisted_state: EnforcementReadinessState,
+    pub overlay_compatible: bool,
+    pub adjudicated_threshold_met: bool,
+    pub audited_approvals_threshold_met: bool,
+    pub wilson_lower_bound_met: bool,
+    pub false_pass_upper_bound_met: bool,
+    pub dominant_failure_family_coverage_met: bool,
+    pub no_active_demotion_trigger: bool,
+    pub enforcement_eligible: bool,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -338,6 +398,24 @@ pub fn evaluate_validation_policy(
 }
 
 #[must_use]
+pub fn evaluate_validation_policy_with_readiness(
+    config: &ValidationPolicyConfig,
+    context: &ValidationPolicyContext,
+    readiness: Option<&EnforcementReadinessRecord>,
+) -> ValidationDecision {
+    let mut adjusted = context.clone();
+    if let Some(readiness) = readiness {
+        let eligibility = evaluate_slice_eligibility(config, readiness);
+        adjusted.calibration_thresholds_met = eligibility.enforcement_eligible;
+        adjusted.full_slice_enforcement_ready = eligibility.enforcement_eligible;
+        if !eligibility.no_active_demotion_trigger {
+            adjusted.anomaly_conditioned_error_spike = true;
+        }
+    }
+    evaluate_validation_policy(config, &adjusted)
+}
+
+#[must_use]
 pub fn apply_validator_blind_demotion(
     context: &ValidationPolicyContext,
 ) -> ValidationPolicyContext {
@@ -398,6 +476,117 @@ pub fn evaluate_enforcement_eligibility(
 }
 
 #[must_use]
+pub fn derive_slice_id(slice_key: &ValidationSliceKey) -> String {
+    format!(
+        "{}::{}::{}::{}",
+        slice_key.worker_skill_id,
+        slice_key.source_id,
+        slice_key.worker_behavior_version,
+        slice_key.validator_behavior_version
+    )
+}
+
+pub fn read_enforcement_state(
+    conn: &Connection,
+    slice_id: &str,
+) -> rusqlite::Result<Option<EnforcementReadinessRecord>> {
+    conn.query_row(
+        "\
+        SELECT slice_id, worker_skill_id, source_id, worker_behavior_version,
+               validator_overlay_version, enforcement_state, wilson_lower_bound_bps,
+               false_pass_upper_bound_bps, adjudicated_count, audited_approvals_count,
+               dominant_failure_families_json, missing_failure_families_json,
+               demotion_reason, active_demotion_trigger_json
+        FROM enforcement_readiness
+        WHERE slice_id = ?1
+        ",
+        [slice_id],
+        |row| {
+            let state_raw: String = row.get(5)?;
+            let dominant_raw: String = row.get(10)?;
+            let missing_raw: String = row.get(11)?;
+            let active_demotion_raw: Option<String> = row.get(13)?;
+            Ok(EnforcementReadinessRecord {
+                slice_id: row.get(0)?,
+                worker_skill_id: row.get(1)?,
+                source_id: row.get(2)?,
+                worker_behavior_version: row.get(3)?,
+                validator_overlay_version: row.get(4)?,
+                enforcement_state: EnforcementReadinessState::parse(&state_raw, 5)?,
+                wilson_lower_bound_bps: row.get(6)?,
+                false_pass_upper_bound_bps: row.get(7)?,
+                adjudicated_count: row.get(8)?,
+                audited_approvals_count: row.get(9)?,
+                dominant_failure_families: parse_json_string_vec(&dominant_raw, 10)?,
+                missing_failure_families: parse_json_string_vec(&missing_raw, 11)?,
+                demotion_reason: row.get(12)?,
+                active_demotion_trigger_json: parse_optional_json_value(
+                    active_demotion_raw.as_deref(),
+                    13,
+                )?,
+            })
+        },
+    )
+    .optional()
+}
+
+#[must_use]
+pub fn evaluate_slice_eligibility(
+    config: &ValidationPolicyConfig,
+    readiness: &EnforcementReadinessRecord,
+) -> SliceEligibility {
+    let expected_slice_id = derive_slice_id(&ValidationSliceKey {
+        worker_skill_id: config.worker_skill_id.clone(),
+        source_id: config.source_id.clone(),
+        worker_behavior_version: config.worker_behavior_version.clone(),
+        validator_behavior_version: config.validator_behavior_version.clone(),
+    });
+    let tuple_matches = readiness.slice_id == expected_slice_id
+        && readiness.worker_skill_id == config.worker_skill_id
+        && readiness.source_id == config.source_id
+        && readiness.worker_behavior_version == config.worker_behavior_version
+        && readiness.validator_overlay_version == config.validator_behavior_version;
+    let compatible_range_matches = config.validator_overlay_compatible_versions.is_empty()
+        || config
+            .validator_overlay_compatible_versions
+            .contains(&config.worker_behavior_version);
+    let overlay_compatible = tuple_matches && compatible_range_matches;
+    let adjudicated_threshold_met =
+        readiness.adjudicated_count >= MIN_ADJUDICATED_CASES_FOR_ENFORCEMENT;
+    let audited_approvals_threshold_met =
+        readiness.audited_approvals_count >= MIN_AUDITED_APPROVALS_FOR_ENFORCEMENT;
+    let wilson_lower_bound_met = readiness.wilson_lower_bound_bps >= MIN_WILSON_LOWER_BOUND_BPS;
+    let false_pass_upper_bound_met =
+        readiness.false_pass_upper_bound_bps <= MAX_FALSE_PASS_UPPER_BOUND_BPS;
+    let dominant_failure_family_coverage_met = !readiness.dominant_failure_families.is_empty()
+        && readiness.missing_failure_families.is_empty();
+    let no_active_demotion_trigger = readiness.enforcement_state
+        != EnforcementReadinessState::Demoted
+        && !has_active_demotion_trigger(readiness.active_demotion_trigger_json.as_ref());
+    let enforcement_eligible = readiness.enforcement_state == EnforcementReadinessState::Eligible
+        && overlay_compatible
+        && adjudicated_threshold_met
+        && audited_approvals_threshold_met
+        && wilson_lower_bound_met
+        && false_pass_upper_bound_met
+        && dominant_failure_family_coverage_met
+        && no_active_demotion_trigger;
+
+    SliceEligibility {
+        slice_id: readiness.slice_id.clone(),
+        persisted_state: readiness.enforcement_state,
+        overlay_compatible,
+        adjudicated_threshold_met,
+        audited_approvals_threshold_met,
+        wilson_lower_bound_met,
+        false_pass_upper_bound_met,
+        dominant_failure_family_coverage_met,
+        no_active_demotion_trigger,
+        enforcement_eligible,
+    }
+}
+
+#[must_use]
 pub const fn derive_dry_run_phase(context: &ValidationPolicyContext) -> DryRunLadderPhase {
     if context.full_slice_enforcement_ready {
         DryRunLadderPhase::FullSliceEnforcement
@@ -417,6 +606,45 @@ fn slice_key(config: &ValidationPolicyConfig) -> ValidationSliceKey {
         worker_behavior_version: config.worker_behavior_version.clone(),
         validator_behavior_version: config.validator_behavior_version.clone(),
     }
+}
+
+fn parse_json_string_vec(raw: &str, column_index: usize) -> rusqlite::Result<Vec<String>> {
+    serde_json::from_str(raw).map_err(|err| {
+        rusqlite::Error::FromSqlConversionFailure(column_index, Type::Text, Box::new(err))
+    })
+}
+
+fn parse_optional_json_value(
+    raw: Option<&str>,
+    column_index: usize,
+) -> rusqlite::Result<Option<Value>> {
+    raw.map(|value| {
+        serde_json::from_str(value).map_err(|err| {
+            rusqlite::Error::FromSqlConversionFailure(column_index, Type::Text, Box::new(err))
+        })
+    })
+    .transpose()
+}
+
+fn has_active_demotion_trigger(active_trigger: Option<&Value>) -> bool {
+    match active_trigger {
+        None | Some(Value::Null) => false,
+        Some(Value::String(value)) => !value.trim().is_empty(),
+        Some(Value::Array(values)) => !values.is_empty(),
+        Some(Value::Object(values)) => !values.is_empty(),
+        Some(Value::Bool(_) | Value::Number(_)) => true,
+    }
+}
+
+fn conversion_error(column_index: usize, message: String) -> rusqlite::Error {
+    rusqlite::Error::FromSqlConversionFailure(
+        column_index,
+        Type::Text,
+        Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            message,
+        )),
+    )
 }
 
 fn evaluate_trigger_hits(
