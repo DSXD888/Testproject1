@@ -26,13 +26,7 @@ Replace the stale Python invocation in 4 files (2 in Claude's skill dir, 2 in Co
 
 ## 2. AgentMail Registration
 
-This is documentation cleanup — no bead claim happens. You do NOT need to register with AgentMail. You DO need `AGENT_NAME` set to satisfy the precommit hook on your final commit:
-
-```bash
-export AGENT_NAME="<your-name>"
-```
-
-Use any string that identifies you (e.g., your git config name). The hook only checks presence, and your commit message uses a `chore(...):` prefix that exempts it from the Start-mail subcheck.
+Not required — this work is entirely in `~/.{claude,codex}/skills/`, which is OUTSIDE the project repo. There are no commits to make in `Testproject1`, so the precommit hook never fires. No `AGENT_NAME` needed unless your skill dirs are themselves a separate version-controlled repo (rare).
 
 ---
 
@@ -54,33 +48,52 @@ After reading, you should be able to answer: *what is the Rust-binary equivalent
 
 ## 4. The Edit
 
-The stale line in each file:
+### Current content of each file (verbatim, lines 180-200 of CHECKLIST.md and lines 270-290 of WORKFLOW.md)
 
+CHECKLIST.md context (around line 184):
+```markdown
+**DO NOT start executing beads. This is SETUP ONLY.**
+
+---
+
+## Troubleshooting
+
+### Mail server not running
 ```bash
 cd apps/mail && uv run python -m mcp_agent_mail.http --port 8765
 ```
 
-The replacement:
-
-```bash
-am serve-http --port 8765
+### CLI schema mismatch
+If CLI commands fail with "no such column" errors, use SQL instead. See WORKFLOW.md step 1.4.
 ```
 
-Add a brief surrounding comment to make the new context clear:
+WORKFLOW.md has the same code block (line 275) under a similar troubleshooting heading. The two files are byte-identical in this region (verified during the original Phase A research).
 
+### Required edit (apply identically to ALL 4 files)
+
+Replace this block:
 ```bash
-# If the server is stale, restart the Rust binary:
+cd apps/mail && uv run python -m mcp_agent_mail.http --port 8765
+```
+
+With this block:
+```bash
+# Restart the Rust agent-mail binary (replaces the obsolete Python `mcp_agent_mail.http`):
 pkill am 2>/dev/null || true
 am serve-http --port 8765 &
 # Verify:
 curl -s http://127.0.0.1:8765/healthz
 ```
 
-The exact replacement is at your discretion as long as:
-- The Python invocation is GONE
-- The replacement uses `am serve-http`
-- A reader can copy-paste the block to actually restart the server
-- The same content lands in BOTH CLIs' versions of the file
+Apply the same replacement to all 4 files. Maintain dual-CLI symmetry (Claude/Codex versions identical post-edit).
+
+### Why this exact replacement
+
+- `am serve-http` is the verified Rust binary subcommand (run `am --help` to confirm; it's listed first under `Commands:`).
+- `pkill am` defensively kills any stale instance (the user may have a previous server hanging around).
+- The `2>/dev/null || true` swallows the "no process found" exit code so the line is safe even when no `am` is currently running.
+- The `&` backgrounds the new server (the user can keep using their shell).
+- The `curl /healthz` line gives the user immediate feedback that the new server is alive.
 
 ---
 
@@ -109,24 +122,30 @@ The exact replacement is at your discretion as long as:
 ## 6. Verification (run before reporting done)
 
 ```bash
-# Verify no stale references remain anywhere
+# A. Verify no stale references remain anywhere
 rg "mcp_agent_mail\.http|apps/mail|uv run python -m mcp_agent_mail" ~/.claude/skills/ ~/.codex/skills/
+# Expected: zero matches
 
-# Verify the new content is present in all 4 files
+# B. Verify the new content is present in all 4 files
 for cli in claude codex; do
   for f in CHECKLIST.md WORKFLOW.md; do
     echo "--- ~/.${cli}/skills/beads-to-execution/${f} ---"
-    grep -A 2 "am serve-http" ~/.${cli}/skills/beads-to-execution/${f} | head -4
+    grep -A 4 "am serve-http" ~/.${cli}/skills/beads-to-execution/${f} | head -6
   done
 done
 
-# Cross-CLI symmetry confirmed
-diff ~/.claude/skills/beads-to-execution/CHECKLIST.md ~/.codex/skills/beads-to-execution/CHECKLIST.md && echo "CHECKLIST OK"
-diff ~/.claude/skills/beads-to-execution/WORKFLOW.md  ~/.codex/skills/beads-to-execution/WORKFLOW.md  && echo "WORKFLOW OK"
+# C. Cross-CLI symmetry confirmed
+diff ~/.claude/skills/beads-to-execution/CHECKLIST.md ~/.codex/skills/beads-to-execution/CHECKLIST.md && echo "CHECKLIST symmetric OK"
+diff ~/.claude/skills/beads-to-execution/WORKFLOW.md  ~/.codex/skills/beads-to-execution/WORKFLOW.md  && echo "WORKFLOW symmetric OK"
 
-# Project repo not touched
+# D. Project repo not touched
 cd /Users/alinaaitova/Desktop/Testproject1
 git status --porcelain | grep -v "^?? " || echo "(working tree clean of modified tracked files)"
+
+# E. Defensive paranoia: existing wrappers still work post-edit
+#    (Skill edits should NOT affect the wrappers, but verify anyway — costs nothing)
+AGENT_NAME=verifier bin/br-claim --help    | head -3 && echo "✓ bin/br-claim still works"
+AGENT_NAME=verifier bin/br-complete --help | head -3 && echo "✓ bin/br-complete still works"
 ```
 
 If any verification fails, fix before reporting.

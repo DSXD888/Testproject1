@@ -148,6 +148,21 @@ echo "Smoke test bead: $SMOKE_BEAD"
 
 ## 6. Live Test Procedure
 
+### Why the step ordering matters (read before executing)
+
+The procedure below tests the precommit hook in BOTH directions (accept legitimate, block illegitimate) before pushing anything. The split between commit (steps 6c, 6d) and push (step 6e) is deliberate:
+
+- The **precommit hook fires on `git commit`**, not on `git push`. Testing the hook means observing what `git commit` does.
+- Step 6c commits with a valid `<bead-id>:` prefix that has a Start mail in the archive — hook should ACCEPT.
+- Step 6d attempts to commit with a fake `<bead-id>:` prefix that has NO Start mail — hook should BLOCK.
+- Only after both directions are observed does step 6e push the legitimate commit.
+
+If you reorder (e.g., push immediately after 6c), you skip the negative-path test and lose half the hook verification.
+
+After each major step, **CHECKPOINT:** report the outcome to the user before proceeding. If anything is unexpected, STOP and ask.
+
+---
+
 ### Step 6a — Dry-run claim
 
 ```bash
@@ -225,14 +240,25 @@ git commit -m "testproject1-fake.999.999: deliberately unclaimed"
 
 **Expected:** the precommit hook BLOCKS this with the Phase B error message ("Pre-commit blocked by Agent Mail discipline (AGENTS.md Rule 2)..."). Exit code non-zero.
 
-Then unstage the negative test:
+Then unstage the negative test and revert the working-tree state:
 
 ```bash
 git restore --staged docs/scratch-smoke-test.md
-git checkout docs/scratch-smoke-test.md  # remove the "negative test" line; keep the date marker
+git checkout HEAD -- docs/scratch-smoke-test.md   # restores file to last-committed state (= post-6c, with smoke marker)
 ```
 
-If the hook does NOT block this: **STOP, do not proceed.** Phase B's Start-mail check is not firing correctly. Report what happened.
+**Verify the smoke marker survived the revert** (it must, because step 6c committed it; `git checkout HEAD --` restores to that committed state):
+
+```bash
+grep "smoke test marker" docs/scratch-smoke-test.md && echo "✓ smoke marker preserved"
+grep "negative test"     docs/scratch-smoke-test.md && echo "✗ FAIL: negative-test line not reverted (working tree dirty)"
+```
+
+If the smoke marker is missing OR the negative-test line is still present: STOP and investigate before proceeding (working tree state is not what you expect).
+
+If the hook does NOT block the negative-test commit attempt: **STOP, do not proceed.** Phase B's Start-mail check is not firing correctly. Report the exact hook output (which should have been a block message but apparently wasn't).
+
+**CHECKPOINT 6d:** Report to the user — "hook blocked illegitimate commit ✓; smoke marker survived revert ✓".
 
 ### Step 6e — Push the legitimate commit
 
@@ -280,12 +306,44 @@ search_messages(
 list_contacts / list_active_reservations
 ```
 
-If `bin/br-complete` fails or any verification fails: **STOP**, but in this case the bead is already in flight so do NOT just abandon it. Instead:
-- Run `git push` manually if not yet pushed
-- Run `br close $SMOKE_BEAD --reason "Smoke test complete — wrapper had issue at <step>"` manually
-- Manually send the Complete mail (the agent-mail tools)
-- Release reservations manually
-- Report findings
+If `bin/br-complete` fails or any verification fails: **STOP**, but in this case the bead is already in flight so do NOT abandon it. Mid-flow recovery procedure (in this exact order):
+
+```bash
+# 1. Verify the legitimate commit is on origin (re-running push is a no-op if already pushed)
+git pull --rebase
+git push
+
+# 2. Close the bead manually
+br close $SMOKE_BEAD --reason "Smoke test — wrapper failed at <step>; closed manually for cleanup"
+
+# 3. Sync .beads/
+bin/br-sync
+git add .beads/
+git commit -m "beads: close $SMOKE_BEAD smoke-test (manual close)"
+git pull --rebase && git push
+```
+
+Then in your agent session, manually send the Complete mail and release reservations:
+
+```
+peers = list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)
+send_message(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  sender_name=<your-name>,
+  to=peers,
+  thread_id="<SMOKE_BEAD>",
+  subject="[<SMOKE_BEAD>] Complete: smoke test (manual recovery)",
+  body_md="Smoke test ran but bin/br-complete failed at <step>. Bead closed manually. Wrapper bug under investigation."
+)
+release_file_reservations(
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  agent_name=<your-name>
+)
+```
+
+Then report the wrapper bug (per §10 FAIL template) and STOP — do not spawn L5.
+
+**CHECKPOINT 6f:** Report to the user — `bin/br-complete` outcome (PASS or detailed failure), final bead status, mail counts, working-tree state.
 
 ---
 
@@ -310,12 +368,23 @@ If ANY criterion fails: REPORT the specific failure point with the exact error o
 
 ## 8. Cleanup (always run, even if test passed)
 
-The smoke bead should be left in its closed state (per AGENTS.md Rule 1, no deletions). The scratch file `docs/scratch-smoke-test.md` will be a 1-line file that's part of the commit history — that's fine; it serves as historical evidence the smoke test ran.
+The smoke bead should be left in its closed state (per AGENTS.md Rule 1, no deletions). The scratch file `docs/scratch-smoke-test.md` will be a small file that's part of the commit history — that's fine; it serves as historical evidence the smoke test ran.
 
 If you want to keep things tidy:
 - Confirm the smoke bead is `closed` and labeled `smoke-test`
 - Confirm the scratch file is committed and pushed (no orphan changes in working tree)
 - Optionally: add a `br comment` to the smoke bead linking to this handoff for future reference
+
+### Smoke-test bead accumulation (intentional, no action needed)
+
+Each run of this handoff creates a new `smoke-test`-labeled bead, all of which end up `closed` and persist in `.beads/issues.jsonl`. They accumulate over time (one per L5/L6/etc. pre-flight). This is by design:
+- They prove the smoke test was actually run (audit trail)
+- They don't pollute `br ready` (closed beads are filtered out of the ready queue)
+- They cost essentially nothing in storage
+
+If you ever want to filter them out of routine bead listings, use `br list --not-label=smoke-test`. Do NOT delete them (Rule 1).
+
+Old smoke-test beads from previous runs of this handoff will be visible via `br list --label=smoke-test --status=closed --json` and that's expected.
 
 ---
 
