@@ -11,6 +11,12 @@ use anyhow::{Context, Result, ensure};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::Value;
 
+#[path = "../src/validation/provisional.rs"]
+#[allow(dead_code)]
+mod provisional_impl;
+use provisional_impl::{
+    InsertProvisionalOutput, ProvisionalValidationStatus, ProvisionalWorkerOutputStore,
+};
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb, StateDb};
 use support::supabase::{SupabaseLocalStack, logical_schema_from_sql};
 
@@ -346,6 +352,65 @@ fn l4_t_sqlite_schema_005_provisional_worker_outputs_shape() -> Result<()> {
     ensure!(
         invalid_status.is_err(),
         "provisional_worker_outputs.validation_status accepted an invalid state"
+    );
+
+    let mut access_conn = Connection::open(db.db_path())?;
+    access_conn.execute_batch("PRAGMA foreign_keys = ON")?;
+    let before_outbox_count = count_rows(&access_conn, "local_outbox")?;
+    seed_workflow_job(&access_conn, "l4-provisional-access-worker")?;
+    seed_workflow_job(&access_conn, "l4-provisional-reject-worker")?;
+
+    let tx = access_conn.transaction()?;
+    let inserted = ProvisionalWorkerOutputStore::insert_provisional(
+        &tx,
+        InsertProvisionalOutput {
+            id: "l4-provisional-access-1",
+            worker_job_id: "l4-provisional-access-worker",
+            payload_json: r#"{"worker_job_id":"l4-provisional-access-worker","ok":true}"#,
+            result_contract_blob_path: Some("artifacts/provisional/access-worker.json"),
+        },
+    )?;
+    ensure!(
+        inserted.validation_status == ProvisionalValidationStatus::Pending,
+        "inserted provisional output was not pending"
+    );
+    let approved = ProvisionalWorkerOutputStore::mark_approved(&tx, "l4-provisional-access-1")?;
+    ensure!(
+        approved.validation_status == ProvisionalValidationStatus::Approved,
+        "mark_approved did not persist approved status"
+    );
+
+    let inserted_for_reject = ProvisionalWorkerOutputStore::insert_provisional(
+        &tx,
+        InsertProvisionalOutput {
+            id: "l4-provisional-reject-1",
+            worker_job_id: "l4-provisional-reject-worker",
+            payload_json: r#"{"worker_job_id":"l4-provisional-reject-worker","ok":false}"#,
+            result_contract_blob_path: None,
+        },
+    )?;
+    ensure!(
+        inserted_for_reject.validation_status == ProvisionalValidationStatus::Pending,
+        "second inserted provisional output was not pending"
+    );
+    let rejected = ProvisionalWorkerOutputStore::mark_rejected(&tx, "l4-provisional-reject-1")?;
+    ensure!(
+        rejected.validation_status == ProvisionalValidationStatus::Rejected,
+        "mark_rejected did not persist rejected status"
+    );
+    tx.commit()?;
+
+    let by_worker = ProvisionalWorkerOutputStore::lookup_by_worker_job_id(
+        &access_conn,
+        "l4-provisional-access-worker",
+    )?;
+    ensure!(
+        by_worker.as_ref().map(|row| row.id.as_str()) == Some("l4-provisional-access-1"),
+        "lookup_by_worker_job_id did not return the inserted provisional output"
+    );
+    ensure!(
+        count_rows(&access_conn, "local_outbox")? == before_outbox_count,
+        "provisional access layer wrote to local_outbox"
     );
     Ok(())
 }
@@ -1460,6 +1525,12 @@ fn seed_workflow_job(conn: &Connection, job_id: &str) -> Result<()> {
         [job_id],
     )?;
     Ok(())
+}
+
+fn count_rows(conn: &Connection, table: &str) -> Result<i64> {
+    let sql = format!("SELECT COUNT(*) FROM {}", sqlite_identifier(table));
+    conn.query_row(&sql, [], |row| row.get(0))
+        .with_context(|| format!("counting rows in {table}"))
 }
 
 fn assert_sql_contains_all(sql: &str, needles: &[&str]) -> Result<()> {
