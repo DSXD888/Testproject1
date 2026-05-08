@@ -1,0 +1,14 @@
+{
+  "name": "@project/contracts-schema",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "bunx tsc -p tsconfig.json --noEmit",
+    "lint": "bunx tsc -p tsconfig.json --noEmit",
+    "test": "bunx tsc -p tsconfig.json --noEmit"
+  }
+}

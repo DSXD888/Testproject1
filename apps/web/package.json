@@ -1,0 +1,27 @@
+{
+  "name": "@project/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "lint": "bunx tsc -p tsconfig.json --noEmit",
+    "test": "bunx tsc -p tsconfig.json --noEmit",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@project/contracts-schema": "workspace:*",
+    "@project/ui": "workspace:*",
+    "@supabase/supabase-js": "2.103.2",
+    "next": "16.1.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "@types/node": "25.5.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "typescript": "6.0.2"
+  }
+}

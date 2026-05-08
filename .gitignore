@@ -17,6 +17,7 @@ node_modules/
 .bv/
 
 # Build artifacts
+.next/
 apps/desktop/dist/
 test-results/
 apps/desktop/test-results/
