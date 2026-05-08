@@ -16,6 +16,17 @@ import {
   FRESHNESS_NOW,
   freshnessProjectionSeeds,
 } from './fixtures/projection-seed';
+import {
+  contractDetailPageTopics,
+  contractsPageTopics,
+  errorsTopic,
+  isPortalUpdate,
+  processUpdatesTopic,
+  statusPageTopics,
+  statusTopic,
+  syncTopic,
+  type PortalUpdate,
+} from '../src/lib/broadcast';
 
 const WEB_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const REPO_ROOT = dirname(dirname(WEB_ROOT));
@@ -133,4 +144,81 @@ test('L4-T-contracts_spec-016 keeps UI and web bundle boundaries read-only', asy
   ]);
   expect(viewerCredentialNames().join('\n')).not.toMatch(PRIVILEGED_TOKEN_NAME_PATTERN);
   expect(webSource).not.toMatch(PRIVILEGED_TOKEN_NAME_PATTERN);
+});
+
+test('L4-T-contracts_spec-008-010-019 defines page-scoped Broadcast topics', () => {
+  expect(contractsPageTopics('org-1')).toEqual([
+    'org:org-1:contracts',
+    'org:org-1:sync',
+  ]);
+  expect(contractDetailPageTopics('org-1', 'process-7')).toEqual([
+    'process:process-7:updates',
+    'org:org-1:sync',
+  ]);
+  expect(statusPageTopics('org-1')).toEqual([
+    'org:org-1:status',
+    'org:org-1:errors',
+    'org:org-1:sync',
+  ]);
+  expect(processUpdatesTopic('process-7')).toBe('process:process-7:updates');
+  expect(statusTopic('org-1')).toBe('org:org-1:status');
+  expect(errorsTopic('org-1')).toBe('org:org-1:errors');
+  expect(syncTopic('org-1')).toBe('org:org-1:sync');
+});
+
+test('L4-T-contracts_spec-008-010-019 accepts only typed invalidation payloads', () => {
+  const contractsUpdate = {
+    event: 'contracts.changed',
+    processIds: ['process-1', 'process-2'],
+    changed: ['assessment', 'decision', 'manifest', 'error'],
+    maxSeq: 42,
+  } satisfies PortalUpdate;
+  const minorProcessUpdate = {
+    event: 'process.updated',
+    processId: 'process-1',
+    changed: ['quotes', 'landed_cost', 'manifest', 'jobs', 'errors'],
+    major: false,
+    maxSeq: 43,
+  } satisfies PortalUpdate;
+  const syncUpdate = {
+    event: 'sync.updated',
+    syncHealth: 'degraded',
+    lastAckedSeq: 43,
+    lastSuccessAt: '2026-03-28T18:27:30Z',
+    projectionGeneration: 2,
+  } satisfies PortalUpdate;
+
+  expect(isPortalUpdate(contractsUpdate)).toBe(true);
+  expect(isPortalUpdate(minorProcessUpdate)).toBe(true);
+  expect(isPortalUpdate({ ...minorProcessUpdate, major: true })).toBe(true);
+  expect(isPortalUpdate(syncUpdate)).toBe(true);
+  expect(
+    isPortalUpdate({
+      event: 'contracts.changed',
+      processIds: ['process-1'],
+      changed: ['quotes'],
+      maxSeq: 44,
+    }),
+  ).toBe(false);
+  expect(
+    isPortalUpdate({
+      event: 'sync.updated',
+      syncHealth: 'healthy',
+      lastSuccessAt: '2026-03-28T18:29:15Z',
+      projectionGeneration: 3,
+    }),
+  ).toBe(false);
+});
+
+test('L4-T-contracts_spec-008-010-019 keeps Broadcast behind the Supabase boundary', async () => {
+  const broadcastSource = await readFile(join(WEB_ROOT, 'src/lib/broadcast.ts'), 'utf8');
+
+  expect(broadcastSource).toContain("from './supabase'");
+  expect(broadcastSource).not.toContain('@supabase/supabase-js');
+  expect(broadcastSource).toContain(".on('broadcast'");
+  expect(broadcastSource).toContain("{ event: '*' }");
+  expect(broadcastSource).not.toMatch(
+    /ProcurementProcessRow|ViewerSyncStatusRow|WorkflowJobSummaryRow|ErrorManifestSummaryRow/,
+  );
+  expect(broadcastSource).not.toContain('.from(');
 });
