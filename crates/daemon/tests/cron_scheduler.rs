@@ -56,7 +56,10 @@ mod tests {
     use rusqlite::{Connection, params};
     use serde_json::Value;
 
-    use crate::cron_impl::CronScheduler;
+    use crate::cron_impl::{
+        CronScheduler, VALIDATION_CALIBRATION_READINESS_SWEEP_SKILL_ID,
+        VALIDATION_CALIBRATION_SOURCE_ID, VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID,
+    };
     use crate::db_support::{StateDb, TestStateDb};
     use crate::runner_impl::JobRunner;
     use crate::skills_support::{lint_skill_directory, repo_skill_dir};
@@ -131,11 +134,12 @@ mod tests {
         let definitions = scheduler.definitions();
         // The state-db open path auto-seeds FTS + Contracts Finder + the three
         // procontract-* sources. The harness adds Alibaba on top. That gives
-        // seven cron-backed bindings (FTS production + canary, Contracts Finder
-        // production, procontract production x3, Alibaba canary).
+        // seven source-backed bindings (FTS production + canary, Contracts Finder
+        // production, procontract production x3, Alibaba canary) plus two
+        // scheduler-owned validation calibration jobs.
         ensure!(
-            definitions.len() == 7,
-            "L3-T-cron_scheduler-001 expected seven cron-backed definitions, got {}: {:?}",
+            definitions.len() == 9,
+            "L3-T-cron_scheduler-001 expected nine cron-backed definitions, got {}: {:?}",
             definitions.len(),
             definitions.keys().collect::<Vec<_>>(),
         );
@@ -173,6 +177,19 @@ mod tests {
             definitions["alibaba::source-health/alibaba"].next_run_at
                 == Some(ts(2026, 3, 25, 4, 30, 0)?),
             "L3-T-cron_scheduler-001 unexpected Alibaba canary schedule"
+        );
+        let readiness_key = format!(
+            "{VALIDATION_CALIBRATION_SOURCE_ID}::{VALIDATION_CALIBRATION_READINESS_SWEEP_SKILL_ID}"
+        );
+        let cross_model_key =
+            format!("{VALIDATION_CALIBRATION_SOURCE_ID}::{VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID}");
+        ensure!(
+            definitions[readiness_key.as_str()].next_run_at == Some(ts(2026, 3, 26, 2, 20, 0)?),
+            "L3-T-cron_scheduler-001 unexpected validation readiness sweep schedule"
+        );
+        ensure!(
+            definitions[cross_model_key.as_str()].next_run_at == Some(ts(2026, 3, 26, 3, 30, 0)?),
+            "L3-T-cron_scheduler-001 unexpected validation cross-model audit schedule"
         );
         Ok(())
     }

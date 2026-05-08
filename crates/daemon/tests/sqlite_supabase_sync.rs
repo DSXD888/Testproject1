@@ -1,8 +1,17 @@
 #![forbid(unsafe_code)]
 
+#[path = "../src/agents/arbiter.rs"]
+#[allow(dead_code)]
+mod arbiter_impl;
+#[path = "../src/validation/calibration.rs"]
+#[allow(dead_code)]
+mod calibration_impl;
 #[path = "../src/agents/contracts.rs"]
 #[allow(dead_code)]
 mod contracts_impl;
+#[path = "../src/scheduler/cron.rs"]
+#[allow(dead_code)]
+mod cron_impl;
 #[path = "../src/ipc/handlers/decisions.rs"]
 #[allow(dead_code)]
 mod decisions_handler_impl;
@@ -15,7 +24,16 @@ mod errors_markdown_impl;
 #[path = "../src/jobs/runner.rs"]
 #[allow(dead_code)]
 mod runner_impl;
+#[path = "../src/sources/registry.rs"]
+#[allow(dead_code)]
+mod sources_impl;
 mod support;
+
+mod agents {
+    pub mod arbiter {
+        pub use crate::arbiter_impl::*;
+    }
+}
 
 mod jobs {
     pub mod runner {
@@ -23,12 +41,18 @@ mod jobs {
     }
 }
 
-use std::collections::BTreeSet;
+mod sources {
+    pub mod registry {
+        pub use crate::sources_impl::*;
+    }
+}
+
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::str;
 
 use anyhow::{Context, Result, ensure};
-use chrono::Utc;
+use chrono::{DateTime, TimeZone, Utc};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -56,6 +80,17 @@ use support::sync::{
     SyncCycleTrigger, SyncHealth, ViewerSyncStatus, WriterBindingConfig, WriterBindingMode,
     WriterLeaseAcquireResult, WriterLeaseHarness, canonical_content_hash, parse_payload,
 };
+
+use calibration_impl::{
+    CALIBRATION_MODEL_FAMILY_ALTERNATE, CalibrationCaseSeed, CalibrationCorpusKind,
+    calibration_mutation_families, calibration_skill_families, canonical_calibration_cases,
+    record_cross_model_audit_case, seed_calibration_corpus_cases, select_cross_model_audit_slices,
+};
+use cron_impl::{
+    CronJobClass, CronScheduler, VALIDATION_CALIBRATION_SOURCE_ID,
+    VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID,
+};
+use sources_impl::SourceRegistry;
 
 #[test]
 fn l4_t_sqlite_supabase_sync_001_push_owned_mutation_and_outbox_commit_atomically() -> Result<()> {
@@ -936,6 +971,184 @@ fn repo_root() -> Result<&'static Path> {
         .context("daemon crate should live two levels below the repository root")
 }
 
+fn ts(
+    year: i32,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+    second: u32,
+) -> Result<DateTime<Utc>> {
+    Utc.with_ymd_and_hms(year, month, day, hour, minute, second)
+        .single()
+        .context("invalid timestamp")
+}
+
+fn seed_canonical_calibration_rows(
+    conn: &Connection,
+    adjudicated_at: &str,
+) -> Result<Vec<CalibrationCaseSeed>> {
+    let cases = canonical_calibration_cases();
+    seed_calibration_corpus_cases(conn, &cases, adjudicated_at)?;
+    Ok(cases)
+}
+
+fn assert_calibration_fixture_surface(case: &CalibrationCaseSeed) -> Result<()> {
+    let artifact_path = repo_root()?.join(case.source_artifact_path());
+    ensure!(
+        artifact_path.exists(),
+        "expected calibration artifact to exist for {}: {}",
+        case.case_id(),
+        artifact_path.display()
+    );
+    let metadata_path = repo_root()?
+        .join("tests/fixtures/calibration")
+        .join(case.slice_id())
+        .join(case.corpus_kind())
+        .join("metadata.json");
+    ensure!(
+        metadata_path.exists(),
+        "expected calibration metadata fixture for {}: {}",
+        case.case_id(),
+        metadata_path.display()
+    );
+    Ok(())
+}
+
+fn assert_required_calibration_metadata(case: &CalibrationCaseSeed) -> Result<()> {
+    let metadata = case.metadata_json();
+    for required in [
+        "case_id",
+        "slice_id",
+        "corpus_kind",
+        "expected_verdict",
+        "ground_truth_label",
+        "mutation_family",
+        "pair_id",
+        "model_family",
+        "source_artifact_path",
+    ] {
+        ensure!(
+            metadata.get(required).is_some(),
+            "case {} missing required metadata field `{required}`",
+            case.case_id()
+        );
+    }
+    ensure!(metadata["case_id"] == case.case_id());
+    ensure!(metadata["slice_id"] == case.slice_id());
+    ensure!(metadata["corpus_kind"] == case.corpus_kind());
+    ensure!(metadata["expected_verdict"] == case.expected_verdict());
+    ensure!(metadata["ground_truth_label"] == case.ground_truth_label());
+    ensure!(metadata["source_artifact_path"] == case.source_artifact_path());
+    Ok(())
+}
+
+fn assert_calibration_corpus_count(
+    corpus_kind: CalibrationCorpusKind,
+    min: usize,
+    max: usize,
+) -> Result<Vec<CalibrationCaseSeed>> {
+    let state_db = L4TestStateDb::new()?;
+    let cases = seed_canonical_calibration_rows(state_db.connection(), "2026-05-08T03:00:00Z")?;
+
+    for family in calibration_skill_families() {
+        let rows = cases
+            .iter()
+            .filter(|case| {
+                case.slice_id() == family.slice_id && case.corpus_kind() == corpus_kind.as_str()
+            })
+            .collect::<Vec<_>>();
+        ensure!(
+            (min..=max).contains(&rows.len()),
+            "slice {} expected {min}-{max} {} cases, got {}",
+            family.slice_id,
+            corpus_kind.as_str(),
+            rows.len()
+        );
+        for case in rows {
+            assert_required_calibration_metadata(case)?;
+            assert_calibration_fixture_surface(case)?;
+        }
+
+        let stored_count: i64 = state_db.connection().query_row(
+            "\
+            SELECT COUNT(*)
+            FROM validation_calibration_cases
+            WHERE slice_id = ?1 AND corpus_kind = ?2
+            ",
+            params![family.slice_id, corpus_kind.as_str()],
+            |row| row.get(0),
+        )?;
+        let stored_count =
+            usize::try_from(stored_count).context("stored calibration case count was negative")?;
+        ensure!(
+            (min..=max).contains(&stored_count),
+            "SQLite row count for {} / {} outside expected range: {stored_count}",
+            family.slice_id,
+            corpus_kind.as_str()
+        );
+    }
+
+    Ok(cases)
+}
+
+fn assert_mutation_family(family_id: &str, expected_issue_category: &str) -> Result<()> {
+    let state_db = L4TestStateDb::new()?;
+    let cases = seed_canonical_calibration_rows(state_db.connection(), "2026-05-08T03:00:00Z")?;
+    let rows = cases
+        .iter()
+        .filter(|case| {
+            case.corpus_kind() == CalibrationCorpusKind::Mutated.as_str()
+                && case.mutation_family() == Some(family_id)
+        })
+        .collect::<Vec<_>>();
+    ensure!(
+        rows.len() >= calibration_skill_families().len(),
+        "expected at least one mutated {family_id} case per skill family, got {}",
+        rows.len()
+    );
+    for case in rows {
+        ensure!(
+            case.expected_verdict() == "rejected",
+            "{family_id} case {} should expect rejection",
+            case.case_id()
+        );
+        ensure!(
+            case.expected_issue_category() == Some(expected_issue_category),
+            "{family_id} case {} emitted wrong issue category: {:?}",
+            case.case_id(),
+            case.expected_issue_category()
+        );
+        assert_required_calibration_metadata(case)?;
+    }
+    Ok(())
+}
+
+fn seed_eligible_readiness_for_cross_model(conn: &Connection, slice_id: &str) -> Result<()> {
+    conn.execute(
+        "\
+        INSERT INTO enforcement_readiness (
+          slice_id, worker_skill_id, source_id, worker_behavior_version,
+          validator_overlay_version, enforcement_state, last_evaluated_at,
+          wilson_lower_bound_bps, false_pass_upper_bound_bps,
+          adjudicated_count, audited_approvals_count,
+          dominant_failure_families_json, missing_failure_families_json,
+          demotion_thresholds_json, updated_at
+        ) VALUES (
+          ?1, 'validation/cross-model-worker', 'validation-calibration',
+          '2026.05.06-1', '2026.05.06-1', 'eligible', '2026-05-08T03:00:00Z',
+          8000, 300, 40, 70, '[]', '[]', '{}', '2026-05-08T03:00:00Z'
+        )
+        ON CONFLICT(slice_id) DO UPDATE SET
+          enforcement_state = excluded.enforcement_state,
+          last_evaluated_at = excluded.last_evaluated_at,
+          updated_at = excluded.updated_at
+        ",
+        [slice_id],
+    )?;
+    Ok(())
+}
+
 fn seed_runner_promotion_process(conn: &Connection, process_id: &str) -> Result<()> {
     conn.execute(
         "\
@@ -1511,6 +1724,300 @@ fn l4_t_sqlite_supabase_sync_024_dry_run_rejection_uses_l3_direct_write_path() -
 
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-024 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_062_each_skill_family_has_clean_real_cases() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-062");
+    println!("[SETUP] canonical calibration corpus");
+    assert_calibration_corpus_count(CalibrationCorpusKind::Clean, 25, 30)?;
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-062 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_063_each_skill_family_has_weird_valid_cases() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-063");
+    println!("[SETUP] canonical calibration corpus");
+    let cases = assert_calibration_corpus_count(CalibrationCorpusKind::Weird, 15, 20)?;
+
+    println!("[ASSERT] weird-valid set covers edge cases without forced rejection");
+    for family in calibration_skill_families() {
+        let mut weird_families = BTreeSet::new();
+        for case in cases.iter().filter(|case| {
+            case.slice_id() == family.slice_id
+                && case.corpus_kind() == CalibrationCorpusKind::Weird.as_str()
+        }) {
+            ensure!(
+                case.expected_verdict() == "approved",
+                "weird-valid case {} must remain approvable",
+                case.case_id()
+            );
+            let metadata = case.metadata_json();
+            let weird_family = metadata
+                .get("weird_family")
+                .and_then(Value::as_str)
+                .context("weird-valid metadata missing weird_family")?;
+            weird_families.insert(weird_family.to_owned());
+        }
+        ensure!(
+            weird_families
+                == BTreeSet::from([
+                    "layout_change".to_owned(),
+                    "localization".to_owned(),
+                    "partial_honest_data".to_owned(),
+                    "low_result_count".to_owned(),
+                ]),
+            "slice {} missing weird-valid coverage: {weird_families:?}",
+            family.slice_id
+        );
+    }
+
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-063 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_064_each_skill_family_has_mutated_bad_cases() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-064");
+    println!("[SETUP] canonical calibration corpus");
+    let cases = assert_calibration_corpus_count(CalibrationCorpusKind::Mutated, 30, 50)?;
+
+    println!("[ASSERT] every mutation family appears for every skill slice");
+    for family in calibration_skill_families() {
+        let families = cases
+            .iter()
+            .filter(|case| {
+                case.slice_id() == family.slice_id
+                    && case.corpus_kind() == CalibrationCorpusKind::Mutated.as_str()
+            })
+            .filter_map(|case| case.mutation_family().map(str::to_owned))
+            .collect::<BTreeSet<_>>();
+        let expected = calibration_mutation_families()
+            .iter()
+            .map(|family| family.family_id.to_owned())
+            .collect::<BTreeSet<_>>();
+        ensure!(
+            families == expected,
+            "slice {} mutated corpus missing mutation coverage: {families:?}",
+            family.slice_id
+        );
+    }
+
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-064 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_065_wrong_source_domain_rejects_source_identity() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-065");
+    assert_mutation_family("wrong_source_domain", "source_identity")?;
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-065 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_066_wrong_page_kind_rejects_page_kind() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-066");
+    assert_mutation_family("wrong_page_kind", "page_kind")?;
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-066 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_067_locale_currency_swap_rejects_currency_locale() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-067");
+    assert_mutation_family("locale_currency_swap", "currency_locale")?;
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-067 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_068_pack_unit_distortion_rejects_unit_basis() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-068");
+    assert_mutation_family("pack_unit_distortion", "unit_basis")?;
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-068 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_069_accessory_primary_confusion_rejects_product_identity() -> Result<()>
+{
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-069");
+    assert_mutation_family("accessory_primary_confusion", "product_identity")?;
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-069 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_070_selective_warning_omission_rejects_warning_omission() -> Result<()>
+{
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-070");
+    assert_mutation_family("selective_warning_omission", "warning_omission")?;
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-070 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_071_count_mismatch_rejects_count_mismatch() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-071");
+    assert_mutation_family("count_mismatch", "count_mismatch")?;
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-071 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_072_fabricated_evidence_rejects_fabricated_evidence() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-072");
+    assert_mutation_family("fabricated_evidence", "fabricated_evidence")?;
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-072 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_073_cross_segment_duplicates_gaps_rejects_continuation_integrity()
+-> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-073");
+    assert_mutation_family("cross_segment_duplicates_gaps", "continuation_integrity")?;
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-073 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_074_pairwise_siblings_share_pair_id_and_rank_trust() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-074");
+    let state_db = L4TestStateDb::new()?;
+    let cases = seed_canonical_calibration_rows(state_db.connection(), "2026-05-08T03:00:00Z")?;
+
+    println!("[ASSERT] pairwise clean/corrupted siblings share pair IDs with trust ordering");
+    let mut by_pair = BTreeMap::<String, Vec<&CalibrationCaseSeed>>::new();
+    for case in cases
+        .iter()
+        .filter(|case| case.corpus_kind() == CalibrationCorpusKind::Pairwise.as_str())
+    {
+        by_pair
+            .entry(
+                case.pair_id()
+                    .context("pairwise case missing pair_id")?
+                    .to_owned(),
+            )
+            .or_default()
+            .push(case);
+    }
+    ensure!(
+        by_pair.len() >= calibration_mutation_families().len() * calibration_skill_families().len(),
+        "pairwise corpus should include at least one pair per mutation family and skill slice"
+    );
+    for (pair_id, siblings) in by_pair {
+        ensure!(
+            siblings.len() == 2,
+            "pair {pair_id} should have exactly two siblings, got {}",
+            siblings.len()
+        );
+        let clean = siblings
+            .iter()
+            .find(|case| case.expected_verdict() == "approved")
+            .context("pair missing clean approvable sibling")?;
+        let corrupted = siblings
+            .iter()
+            .find(|case| case.expected_verdict() == "rejected")
+            .context("pair missing corrupted rejected sibling")?;
+        ensure!(
+            corrupted.trust_rank() < clean.trust_rank(),
+            "corrupted sibling {} should rank less trustworthy than clean sibling {}",
+            corrupted.case_id(),
+            clean.case_id()
+        );
+    }
+
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-074 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_076_cross_model_audit_cron_dispatches_and_records_disagreement()
+-> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-076");
+    let state_db = L4TestStateDb::new()?;
+    let cases = seed_canonical_calibration_rows(state_db.connection(), "2026-05-08T03:00:00Z")?;
+    let active_slice = cases
+        .first()
+        .context("canonical calibration corpus should not be empty")?
+        .slice_id()
+        .to_owned();
+    seed_eligible_readiness_for_cross_model(state_db.connection(), &active_slice)?;
+
+    println!("[EXEC] run daily validation cross-model cron through CronScheduler");
+    let registry = SourceRegistry::load(state_db.connection())?;
+    let mut scheduler = CronScheduler::from_registry(&registry);
+    scheduler.refresh_next_run_at(ts(2026, 5, 8, 3, 29, 0)?)?;
+    let dispatches = scheduler.dispatch_due_jobs(&registry, ts(2026, 5, 8, 3, 31, 0)?)?;
+    let dispatch = dispatches
+        .iter()
+        .find(|dispatch| {
+            dispatch.definition.source_id == VALIDATION_CALIBRATION_SOURCE_ID
+                && dispatch.definition.skill_id == VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID
+        })
+        .context("expected validation cross-model audit cron dispatch")?;
+    ensure!(
+        dispatch.job_class == CronJobClass::ValidationCalibration,
+        "cross-model audit should use validation calibration job class"
+    );
+    ensure!(
+        dispatch.enqueue_request.kind == "validation_cross_model_audit",
+        "cross-model audit dispatched wrong job kind: {}",
+        dispatch.enqueue_request.kind
+    );
+    ensure!(
+        dispatch.enqueue_request.scope_kind.as_deref() == Some("validation_calibration"),
+        "cross-model audit should be scoped to validation calibration"
+    );
+    ensure!(
+        dispatch.enqueue_request.input_payload["alternate_model_family"]
+            == CALIBRATION_MODEL_FAMILY_ALTERNATE,
+        "cross-model audit should freeze alternate model family in payload"
+    );
+
+    println!("[EXEC] select active slice with new traffic and record alternate-model result");
+    let selections =
+        select_cross_model_audit_slices(state_db.connection(), "2026-05-07T03:31:00Z")?;
+    let selection = selections
+        .iter()
+        .find(|selection| selection.slice_id == active_slice)
+        .context("active enforcement slice with new traffic was not selected")?;
+    let case_id = record_cross_model_audit_case(
+        state_db.connection(),
+        selection,
+        "rejected",
+        "2026-05-08T03:31:00Z",
+    )?;
+    let (corpus_kind, model_family, metadata_raw): (String, String, String) =
+        state_db.connection().query_row(
+            "\
+            SELECT corpus_kind, model_family, metadata_json
+            FROM validation_calibration_cases
+            WHERE case_id = ?1
+            ",
+            [case_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+    let metadata: Value = serde_json::from_str(&metadata_raw)?;
+    ensure!(corpus_kind == "cross_model");
+    ensure!(model_family == CALIBRATION_MODEL_FAMILY_ALTERNATE);
+    ensure!(
+        metadata.get("disagreement").and_then(Value::as_bool) == Some(true),
+        "cross-model audit should record primary/alternate disagreement metadata"
+    );
+    ensure!(
+        metadata
+            .get("active_traffic_window_days")
+            .and_then(Value::as_i64)
+            == Some(30),
+        "cross-model audit should document the once-per-30-days active traffic window"
+    );
+
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-076 PASS");
     Ok(())
 }
 

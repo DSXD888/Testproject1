@@ -50,6 +50,549 @@ pub const DEFAULT_DEMOTION_THRESHOLDS: DemotionThresholds = DemotionThresholds {
     anomaly_error_rate_multiplier_bps: 20_000,
 };
 
+pub const CALIBRATION_MODEL_FAMILY_PRIMARY: &str = "primary-validator";
+pub const CALIBRATION_MODEL_FAMILY_ALTERNATE: &str = "alternate-validator";
+pub const CROSS_MODEL_ACTIVE_TRAFFIC_WINDOW_DAYS: i64 = 30;
+
+const CLEAN_CASES_PER_SLICE: usize = 26;
+const WEIRD_CASES_PER_SLICE: usize = 16;
+const MUTATED_CASES_PER_FAMILY: usize = 4;
+
+const WEIRD_VALID_FAMILIES: [&str; 4] = [
+    "layout_change",
+    "localization",
+    "partial_honest_data",
+    "low_result_count",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CalibrationCorpusKind {
+    Clean,
+    Weird,
+    Mutated,
+    Pairwise,
+    CrossModel,
+}
+
+impl CalibrationCorpusKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Clean => "clean",
+            Self::Weird => "weird",
+            Self::Mutated => "mutated",
+            Self::Pairwise => "pairwise",
+            Self::CrossModel => "cross_model",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_field_names)]
+pub struct CalibrationSkillFamily {
+    pub slice_id: &'static str,
+    pub worker_skill_id: &'static str,
+    pub source_id: &'static str,
+}
+
+const CALIBRATION_SKILL_FAMILIES: [CalibrationSkillFamily; 4] = [
+    CalibrationSkillFamily {
+        slice_id: "procurement-ingestion",
+        worker_skill_id: "procurement-ingestion/fts",
+        source_id: "fts",
+    },
+    CalibrationSkillFamily {
+        slice_id: "supplier-enrichment",
+        worker_skill_id: "supplier-enrichment/alibaba",
+        source_id: "alibaba",
+    },
+    CalibrationSkillFamily {
+        slice_id: "document-acquisition",
+        worker_skill_id: "document-acquisition/contracts-finder",
+        source_id: "contracts-finder",
+    },
+    CalibrationSkillFamily {
+        slice_id: "product-extraction",
+        worker_skill_id: "product-extraction/daemon",
+        source_id: "local-pipeline",
+    },
+];
+
+#[must_use]
+pub const fn calibration_skill_families() -> &'static [CalibrationSkillFamily] {
+    &CALIBRATION_SKILL_FAMILIES
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CalibrationMutationFamily {
+    pub family_id: &'static str,
+    pub fixture_prefix: &'static str,
+    pub issue_category: &'static str,
+    pub description: &'static str,
+}
+
+const CALIBRATION_MUTATION_FAMILIES: [CalibrationMutationFamily; 9] = [
+    CalibrationMutationFamily {
+        family_id: "wrong_source_domain",
+        fixture_prefix: "url-chain-swap",
+        issue_category: "source_identity",
+        description: "Wrong source/domain in URL chain",
+    },
+    CalibrationMutationFamily {
+        family_id: "wrong_page_kind",
+        fixture_prefix: "page-kind-confusion",
+        issue_category: "page_kind",
+        description: "Wrong page kind evidence",
+    },
+    CalibrationMutationFamily {
+        family_id: "locale_currency_swap",
+        fixture_prefix: "locale-currency-swap",
+        issue_category: "currency_locale",
+        description: "Locale or currency evidence contradicts the claim",
+    },
+    CalibrationMutationFamily {
+        family_id: "pack_unit_distortion",
+        fixture_prefix: "pack-unit-distortion",
+        issue_category: "unit_basis",
+        description: "Pack or unit-basis evidence contradicts normalized price",
+    },
+    CalibrationMutationFamily {
+        family_id: "accessory_primary_confusion",
+        fixture_prefix: "accessory-primary-confusion",
+        issue_category: "product_identity",
+        description: "Accessory evidence is misrepresented as a primary good",
+    },
+    CalibrationMutationFamily {
+        family_id: "selective_warning_omission",
+        fixture_prefix: "selective-omission",
+        issue_category: "warning_omission",
+        description: "Material warnings are omitted from the worker narrative",
+    },
+    CalibrationMutationFamily {
+        family_id: "count_mismatch",
+        fixture_prefix: "count-mismatch",
+        issue_category: "count_mismatch",
+        description: "Claimed result counts conflict with daemon evidence",
+    },
+    CalibrationMutationFamily {
+        family_id: "fabricated_evidence",
+        fixture_prefix: "fabricated-evidence",
+        issue_category: "fabricated_evidence",
+        description: "Referenced evidence cannot be resolved",
+    },
+    CalibrationMutationFamily {
+        family_id: "cross_segment_duplicates_gaps",
+        fixture_prefix: "cross-segment-duplicates",
+        issue_category: "continuation_integrity",
+        description: "Continuation segments contain duplicates or gaps",
+    },
+];
+
+#[must_use]
+pub const fn calibration_mutation_families() -> &'static [CalibrationMutationFamily] {
+    &CALIBRATION_MUTATION_FAMILIES
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CalibrationCaseSeed {
+    case_id: String,
+    slice_id: String,
+    corpus_kind: String,
+    source_artifact_path: String,
+    expected_verdict: String,
+    actual_verdict: String,
+    ground_truth_label: String,
+    mutation_family: Option<String>,
+    pair_id: Option<String>,
+    model_family: String,
+    expected_issue_category: Option<String>,
+    trust_rank: i64,
+    metadata_extra: Value,
+}
+
+impl CalibrationCaseSeed {
+    #[must_use]
+    pub fn case_id(&self) -> &str {
+        &self.case_id
+    }
+
+    #[must_use]
+    pub fn slice_id(&self) -> &str {
+        &self.slice_id
+    }
+
+    #[must_use]
+    pub fn corpus_kind(&self) -> &str {
+        &self.corpus_kind
+    }
+
+    #[must_use]
+    pub fn source_artifact_path(&self) -> &str {
+        &self.source_artifact_path
+    }
+
+    #[must_use]
+    pub fn expected_verdict(&self) -> &str {
+        &self.expected_verdict
+    }
+
+    #[must_use]
+    pub fn actual_verdict(&self) -> &str {
+        &self.actual_verdict
+    }
+
+    #[must_use]
+    pub fn ground_truth_label(&self) -> &str {
+        &self.ground_truth_label
+    }
+
+    #[must_use]
+    pub fn mutation_family(&self) -> Option<&str> {
+        self.mutation_family.as_deref()
+    }
+
+    #[must_use]
+    pub fn pair_id(&self) -> Option<&str> {
+        self.pair_id.as_deref()
+    }
+
+    #[must_use]
+    pub fn model_family(&self) -> &str {
+        &self.model_family
+    }
+
+    #[must_use]
+    pub fn expected_issue_category(&self) -> Option<&str> {
+        self.expected_issue_category.as_deref()
+    }
+
+    #[must_use]
+    pub const fn trust_rank(&self) -> i64 {
+        self.trust_rank
+    }
+
+    #[must_use]
+    pub fn metadata_json(&self) -> Value {
+        let mut metadata = json!({
+            "case_id": self.case_id,
+            "slice_id": self.slice_id,
+            "corpus_kind": self.corpus_kind,
+            "expected_verdict": self.expected_verdict,
+            "actual_verdict": self.actual_verdict,
+            "ground_truth_label": self.ground_truth_label,
+            "mutation_family": self.mutation_family,
+            "pair_id": self.pair_id,
+            "model_family": self.model_family,
+            "source_artifact_path": self.source_artifact_path,
+            "issue_category": self.expected_issue_category,
+            "trust_rank": self.trust_rank,
+        });
+        if let (Some(metadata_object), Some(extra_object)) =
+            (metadata.as_object_mut(), self.metadata_extra.as_object())
+        {
+            for (key, value) in extra_object {
+                metadata_object.insert(key.clone(), value.clone());
+            }
+        }
+        metadata
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CrossModelAuditSelection {
+    pub slice_id: String,
+    pub primary_model_family: String,
+    pub alternate_model_family: String,
+    pub primary_verdict: String,
+    pub source_artifact_path: String,
+    pub latest_traffic_at: String,
+}
+
+#[must_use]
+#[allow(clippy::too_many_lines)]
+pub fn canonical_calibration_cases() -> Vec<CalibrationCaseSeed> {
+    let mut cases = Vec::new();
+    for family in calibration_skill_families() {
+        for index in 0..CLEAN_CASES_PER_SLICE {
+            cases.push(case_seed(
+                family,
+                CalibrationCorpusKind::Clean,
+                format!("{}-clean-{index:02}", family.slice_id),
+                "approved",
+                "approved",
+                "valid",
+                None,
+                None,
+                None,
+                100,
+                json!({"real_fixture": true}),
+            ));
+        }
+
+        for index in 0..WEIRD_CASES_PER_SLICE {
+            let weird_family = WEIRD_VALID_FAMILIES[index % WEIRD_VALID_FAMILIES.len()];
+            cases.push(case_seed(
+                family,
+                CalibrationCorpusKind::Weird,
+                format!("{}-weird-{weird_family}-{index:02}", family.slice_id),
+                "approved",
+                "approved",
+                "valid",
+                None,
+                None,
+                None,
+                90,
+                json!({
+                    "weird_family": weird_family,
+                    "valid_edge_case": true
+                }),
+            ));
+        }
+
+        for mutation in calibration_mutation_families() {
+            for index in 0..MUTATED_CASES_PER_FAMILY {
+                cases.push(case_seed(
+                    family,
+                    CalibrationCorpusKind::Mutated,
+                    format!(
+                        "{}-mutated-{}-{index:02}",
+                        family.slice_id, mutation.fixture_prefix
+                    ),
+                    "rejected",
+                    "rejected",
+                    "invalid",
+                    Some(mutation),
+                    None,
+                    Some(mutation.issue_category),
+                    20,
+                    json!({
+                        "mutation_prefix": mutation.fixture_prefix,
+                        "mutation_description": mutation.description,
+                        "critical": true,
+                        "derived_from_clean_case_id": format!("{}-clean-{:02}", family.slice_id, index % CLEAN_CASES_PER_SLICE)
+                    }),
+                ));
+            }
+
+            let pair_id = format!("{}-pair-{}", family.slice_id, mutation.fixture_prefix);
+            cases.push(case_seed(
+                family,
+                CalibrationCorpusKind::Pairwise,
+                format!("{pair_id}-clean"),
+                "approved",
+                "approved",
+                "valid",
+                None,
+                Some(pair_id.clone()),
+                None,
+                100,
+                json!({
+                    "pair_role": "clean",
+                    "paired_mutation_family": mutation.family_id
+                }),
+            ));
+            cases.push(case_seed(
+                family,
+                CalibrationCorpusKind::Pairwise,
+                format!("{pair_id}-corrupted"),
+                "rejected",
+                "rejected",
+                "invalid",
+                Some(mutation),
+                Some(pair_id),
+                Some(mutation.issue_category),
+                10,
+                json!({
+                    "pair_role": "corrupted",
+                    "mutation_prefix": mutation.fixture_prefix,
+                    "critical": true
+                }),
+            ));
+        }
+    }
+    cases
+}
+
+pub fn seed_calibration_corpus_cases(
+    conn: &Connection,
+    cases: &[CalibrationCaseSeed],
+    adjudicated_at: &str,
+) -> rusqlite::Result<()> {
+    for case in cases {
+        let metadata_json = case.metadata_json().to_string();
+        conn.execute(
+            "\
+            INSERT INTO validation_calibration_cases (
+              case_id, slice_id, corpus_kind, source_artifact_path,
+              expected_verdict, actual_verdict, ground_truth_label,
+              mutation_family, pair_id, model_family, metadata_json, adjudicated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+            ON CONFLICT(case_id) DO UPDATE SET
+              slice_id = excluded.slice_id,
+              corpus_kind = excluded.corpus_kind,
+              source_artifact_path = excluded.source_artifact_path,
+              expected_verdict = excluded.expected_verdict,
+              actual_verdict = excluded.actual_verdict,
+              ground_truth_label = excluded.ground_truth_label,
+              mutation_family = excluded.mutation_family,
+              pair_id = excluded.pair_id,
+              model_family = excluded.model_family,
+              metadata_json = excluded.metadata_json,
+              adjudicated_at = excluded.adjudicated_at
+            ",
+            params![
+                case.case_id(),
+                case.slice_id(),
+                case.corpus_kind(),
+                case.source_artifact_path(),
+                case.expected_verdict(),
+                case.actual_verdict(),
+                case.ground_truth_label(),
+                case.mutation_family(),
+                case.pair_id(),
+                case.model_family(),
+                metadata_json,
+                adjudicated_at,
+            ],
+        )?;
+    }
+    Ok(())
+}
+
+pub fn select_cross_model_audit_slices(
+    conn: &Connection,
+    active_after: &str,
+) -> rusqlite::Result<Vec<CrossModelAuditSelection>> {
+    let mut stmt = conn.prepare(
+        "\
+        SELECT er.slice_id, MAX(vcc.adjudicated_at)
+        FROM enforcement_readiness er
+        JOIN validation_calibration_cases vcc ON vcc.slice_id = er.slice_id
+        WHERE er.enforcement_state = 'eligible'
+          AND vcc.adjudicated_at IS NOT NULL
+          AND vcc.adjudicated_at >= ?1
+          AND vcc.corpus_kind IN ('clean', 'weird', 'mutated', 'pairwise', 'live')
+        GROUP BY er.slice_id
+        ORDER BY er.slice_id
+        ",
+    )?;
+    let rows = stmt.query_map([active_after], |row| {
+        let slice_id: String = row.get(0)?;
+        let latest_traffic_at: String = row.get(1)?;
+        Ok(CrossModelAuditSelection {
+            source_artifact_path: format!(
+                "tests/fixtures/calibration/{slice_id}/pairwise/manifest.md"
+            ),
+            slice_id,
+            primary_model_family: CALIBRATION_MODEL_FAMILY_PRIMARY.to_owned(),
+            alternate_model_family: CALIBRATION_MODEL_FAMILY_ALTERNATE.to_owned(),
+            primary_verdict: "approved".to_owned(),
+            latest_traffic_at,
+        })
+    })?;
+    rows.collect()
+}
+
+pub fn record_cross_model_audit_case(
+    conn: &Connection,
+    selection: &CrossModelAuditSelection,
+    alternate_verdict: &str,
+    recorded_at: &str,
+) -> rusqlite::Result<String> {
+    let safe_recorded_at = recorded_at
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
+        .collect::<String>();
+    let case_id = format!("cross-model-{}-{safe_recorded_at}", selection.slice_id);
+    let disagreement = selection.primary_verdict != alternate_verdict;
+    let metadata_json = json!({
+        "case_id": case_id,
+        "slice_id": selection.slice_id,
+        "corpus_kind": CalibrationCorpusKind::CrossModel.as_str(),
+        "expected_verdict": selection.primary_verdict,
+        "actual_verdict": alternate_verdict,
+        "ground_truth_label": if disagreement { "disagreement" } else { "agreement" },
+        "mutation_family": Value::Null,
+        "pair_id": Value::Null,
+        "model_family": selection.alternate_model_family,
+        "primary_model_family": selection.primary_model_family,
+        "alternate_model_family": selection.alternate_model_family,
+        "source_artifact_path": selection.source_artifact_path,
+        "latest_traffic_at": selection.latest_traffic_at,
+        "recorded_at": recorded_at,
+        "disagreement": disagreement,
+        "active_traffic_window_days": CROSS_MODEL_ACTIVE_TRAFFIC_WINDOW_DAYS,
+    })
+    .to_string();
+    conn.execute(
+        "\
+        INSERT INTO validation_calibration_cases (
+          case_id, slice_id, corpus_kind, source_artifact_path,
+          expected_verdict, actual_verdict, ground_truth_label,
+          model_family, metadata_json, adjudicated_at
+        ) VALUES (?1, ?2, 'cross_model', ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+        ON CONFLICT(case_id) DO UPDATE SET
+          actual_verdict = excluded.actual_verdict,
+          ground_truth_label = excluded.ground_truth_label,
+          model_family = excluded.model_family,
+          metadata_json = excluded.metadata_json,
+          adjudicated_at = excluded.adjudicated_at
+        ",
+        params![
+            &case_id,
+            &selection.slice_id,
+            &selection.source_artifact_path,
+            &selection.primary_verdict,
+            alternate_verdict,
+            if disagreement {
+                "disagreement"
+            } else {
+                "agreement"
+            },
+            &selection.alternate_model_family,
+            metadata_json,
+            recorded_at,
+        ],
+    )?;
+    Ok(case_id)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn case_seed(
+    family: &CalibrationSkillFamily,
+    corpus_kind: CalibrationCorpusKind,
+    case_id: String,
+    expected_verdict: &str,
+    actual_verdict: &str,
+    ground_truth_label: &str,
+    mutation_family: Option<&CalibrationMutationFamily>,
+    pair_id: Option<String>,
+    expected_issue_category: Option<&str>,
+    trust_rank: i64,
+    metadata_extra: Value,
+) -> CalibrationCaseSeed {
+    CalibrationCaseSeed {
+        case_id,
+        slice_id: family.slice_id.to_owned(),
+        corpus_kind: corpus_kind.as_str().to_owned(),
+        source_artifact_path: format!(
+            "tests/fixtures/calibration/{}/{}/manifest.md",
+            family.slice_id,
+            corpus_kind.as_str()
+        ),
+        expected_verdict: expected_verdict.to_owned(),
+        actual_verdict: actual_verdict.to_owned(),
+        ground_truth_label: ground_truth_label.to_owned(),
+        mutation_family: mutation_family.map(|family| family.family_id.to_owned()),
+        pair_id,
+        model_family: CALIBRATION_MODEL_FAMILY_PRIMARY.to_owned(),
+        expected_issue_category: expected_issue_category.map(str::to_owned),
+        trust_rank,
+        metadata_extra,
+    }
+}
+
 #[allow(clippy::struct_field_names)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CalibrationSliceConfig {

@@ -12,6 +12,16 @@ use crate::agents::arbiter::AdmissionPriority;
 use crate::jobs::runner::EnqueueJobRequest;
 use crate::sources::registry::{RegisteredSource, SourceJobClass, SourceRegistry};
 
+pub const VALIDATION_CALIBRATION_SOURCE_ID: &str = "validation-calibration";
+pub const VALIDATION_CALIBRATION_READINESS_SWEEP_SKILL_ID: &str =
+    "validation/calibration-readiness-sweep";
+pub const VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID: &str = "validation/cross-model-audit-sample";
+pub const VALIDATION_CALIBRATION_SKILL_VERSION: &str = "2026.05.06-1";
+pub const VALIDATION_CALIBRATION_READINESS_SWEEP_CRON: &str = "0 20 2 * * *";
+pub const VALIDATION_CROSS_MODEL_AUDIT_CRON: &str = "0 30 3 * * *";
+pub const VALIDATION_CROSS_MODEL_ALTERNATE_MODEL_FAMILY: &str = "alternate-validator";
+pub const VALIDATION_CROSS_MODEL_ACTIVE_TRAFFIC_WINDOW_DAYS: i64 = 30;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CronJobDefinition {
     pub source_id: String,
@@ -28,6 +38,7 @@ pub enum CronJobClass {
     Production,
     SourceHealth,
     AuthRefresh,
+    ValidationCalibration,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,12 +75,15 @@ pub struct CronScheduler {
 impl CronScheduler {
     #[must_use]
     pub fn from_registry(registry: &SourceRegistry) -> Self {
-        let definitions = registry
+        let mut definitions: BTreeMap<String, CronJobDefinition> = registry
             .sources()
             .values()
             .flat_map(|source| definitions_for_source(source).into_iter())
             .map(|definition| (definition_key(&definition), definition))
             .collect();
+        for definition in validation_calibration_definitions() {
+            definitions.insert(definition_key(&definition), definition);
+        }
         Self { definitions }
     }
 
@@ -105,11 +119,13 @@ impl CronScheduler {
                 continue;
             }
 
-            let registered_source = registry.get(&definition.source_id).ok_or_else(|| {
-                anyhow!("unknown source registry entry `{}`", definition.source_id)
-            })?;
-            if Self::suppression_reason(registered_source, definition, now).is_some() {
-                continue;
+            if definition.source_id != VALIDATION_CALIBRATION_SOURCE_ID {
+                let registered_source = registry.get(&definition.source_id).ok_or_else(|| {
+                    anyhow!("unknown source registry entry `{}`", definition.source_id)
+                })?;
+                if Self::suppression_reason(registered_source, definition, now).is_some() {
+                    continue;
+                }
             }
 
             let priority = admission_priority_for_skill(&definition.skill_id);
@@ -210,6 +226,30 @@ fn definitions_for_source(source: &RegisteredSource) -> Vec<CronJobDefinition> {
     .collect()
 }
 
+fn validation_calibration_definitions() -> Vec<CronJobDefinition> {
+    [
+        (
+            VALIDATION_CALIBRATION_READINESS_SWEEP_SKILL_ID,
+            VALIDATION_CALIBRATION_READINESS_SWEEP_CRON,
+        ),
+        (
+            VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID,
+            VALIDATION_CROSS_MODEL_AUDIT_CRON,
+        ),
+    ]
+    .into_iter()
+    .map(|(skill_id, cron_expression)| CronJobDefinition {
+        source_id: VALIDATION_CALIBRATION_SOURCE_ID.to_owned(),
+        skill_id: skill_id.to_owned(),
+        skill_version: VALIDATION_CALIBRATION_SKILL_VERSION.to_owned(),
+        cron_expression: cron_expression.to_owned(),
+        enabled: true,
+        last_run_at: None,
+        next_run_at: None,
+    })
+    .collect()
+}
+
 fn definition_key(definition: &CronJobDefinition) -> String {
     format!("{}::{}", definition.source_id, definition.skill_id)
 }
@@ -232,6 +272,17 @@ fn build_enqueue_request(
         CronJobClass::Production => "sync_source",
         CronJobClass::SourceHealth => "source_health",
         CronJobClass::AuthRefresh => "auth_refresh",
+        CronJobClass::ValidationCalibration
+            if definition.skill_id == VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID =>
+        {
+            "validation_cross_model_audit"
+        }
+        CronJobClass::ValidationCalibration => "validation_calibration_readiness_sweep",
+    };
+    let scope_kind = if job_class == CronJobClass::ValidationCalibration {
+        "validation_calibration"
+    } else {
+        "source"
     };
     let schedule_key = definition_key(definition);
     EnqueueJobRequest {
@@ -239,11 +290,11 @@ fn build_enqueue_request(
         kind: kind.to_owned(),
         process_id: None,
         notice_id: None,
-        scope_kind: Some("source".to_owned()),
+        scope_kind: Some(scope_kind.to_owned()),
         scope_id: Some(definition.source_id.clone()),
         parent_job_id: None,
         continuation_chain_id: None,
-        validation_required: false,
+        validation_required: definition.skill_id == VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID,
         scheduled_for: Some(scheduled_for),
         input_payload: serde_json::json!({
             "source_id": definition.source_id,
@@ -252,6 +303,16 @@ fn build_enqueue_request(
             "cron_expression": definition.cron_expression,
             "scheduled_for": scheduled_for.to_rfc3339(),
             "schedule_key": schedule_key,
+            "alternate_model_family": if definition.skill_id == VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID {
+                Some(VALIDATION_CROSS_MODEL_ALTERNATE_MODEL_FAMILY)
+            } else {
+                None
+            },
+            "active_traffic_window_days": if definition.skill_id == VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID {
+                Some(VALIDATION_CROSS_MODEL_ACTIVE_TRAFFIC_WINDOW_DAYS)
+            } else {
+                None
+            },
         }),
         idempotency_key: format!(
             "cron:{}:{}:{}",
@@ -263,7 +324,9 @@ fn build_enqueue_request(
 }
 
 fn admission_priority_for_skill(skill_id: &str) -> AdmissionPriority {
-    if skill_id.contains("auth-refresh") || skill_id.contains("source-health") {
+    if skill_id.starts_with("validation/") {
+        AdmissionPriority::Qualification
+    } else if skill_id.contains("auth-refresh") || skill_id.contains("source-health") {
         AdmissionPriority::AuthRefreshOrHealthProbe
     } else if skill_id.contains("supplier") || skill_id.contains("enrichment") {
         AdmissionPriority::SupplierEnrichment
@@ -289,6 +352,9 @@ fn source_job_class_for_skill(skill_id: &str) -> SourceJobClass {
 }
 
 fn job_class_for_skill(skill_id: &str) -> CronJobClass {
+    if skill_id.starts_with("validation/") {
+        return CronJobClass::ValidationCalibration;
+    }
     match source_job_class_for_skill(skill_id) {
         SourceJobClass::Production => CronJobClass::Production,
         SourceJobClass::SourceHealth => CronJobClass::SourceHealth,
