@@ -1572,6 +1572,104 @@ impl EnforcementHarness {
         Ok(())
     }
 
+    pub fn approve_provisional_output(&mut self, worker_job_id: &str) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        seed_workflow_job(&tx, worker_job_id)?;
+        let validator_job_id = format!("validator-{worker_job_id}");
+        seed_workflow_job(&tx, &validator_job_id)?;
+        let verdict_id = format!("verdict-{worker_job_id}");
+        tx.execute(
+            "\
+            INSERT INTO provisional_worker_outputs (
+              id, worker_job_id, payload_json, result_contract_blob_path, validation_status
+            ) VALUES (?1, ?2, ?3, ?4, 'pending')
+            ",
+            params![
+                format!("provisional-{worker_job_id}"),
+                worker_job_id,
+                json!({"worker_job_id": worker_job_id, "result": "approved"}).to_string(),
+                format!("artifacts/provisional/{worker_job_id}.json")
+            ],
+        )?;
+        tx.execute(
+            "\
+            UPDATE provisional_worker_outputs
+            SET validation_status = 'approved', updated_at = CURRENT_TIMESTAMP
+            WHERE worker_job_id = ?1
+            ",
+            params![worker_job_id],
+        )?;
+        tx.execute(
+            "\
+            INSERT INTO validation_verdicts (
+              id, worker_job_id, validator_job_id, validator_skill_path,
+              validator_skill_version, verdict, confidence_bps, summary,
+              basis_sufficiency, enforcement_eligible, issues_json,
+              run_manifest_hash, verdict_rendered_at
+            ) VALUES (
+              ?1, ?2, ?3, 'skills/validation/base/SKILL.md',
+              '2026.03.30-1', 'approved', 9800, 'enforcement approved',
+              'high', 1, '[]', 'manifest-hash-approved', '2026-05-08T00:00:00Z'
+            )
+            ",
+            params![verdict_id, worker_job_id, validator_job_id],
+        )?;
+        tx.execute(
+            "\
+            UPDATE workflow_jobs
+            SET validation_verdict_id = ?1
+            WHERE id = ?2
+            ",
+            params![verdict_id, worker_job_id],
+        )?;
+        promote_worker_output(&tx, worker_job_id, "approved")?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn dry_run_rejected_direct_write(&mut self, worker_job_id: &str) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        seed_workflow_job(&tx, worker_job_id)?;
+        let validator_job_id = format!("validator-{worker_job_id}");
+        seed_workflow_job(&tx, &validator_job_id)?;
+        let verdict_id = format!("verdict-{worker_job_id}");
+        tx.execute(
+            "\
+            INSERT INTO validation_verdicts (
+              id, worker_job_id, validator_job_id, validator_skill_path,
+              validator_skill_version, verdict, confidence_bps, summary,
+              basis_sufficiency, enforcement_eligible, issues_json,
+              run_manifest_hash, verdict_rendered_at
+            ) VALUES (
+              ?1, ?2, ?3, 'skills/validation/base/SKILL.md',
+              '2026.03.30-1', 'rejected', 9200, 'dry-run rejected but accepted',
+              'high', 1, '[]', 'manifest-hash-dry-run', '2026-05-08T00:00:00Z'
+            )
+            ",
+            params![verdict_id, worker_job_id, validator_job_id],
+        )?;
+        tx.execute(
+            "\
+            UPDATE workflow_jobs
+            SET validation_verdict_id = ?1,
+                output_payload = ?2
+            WHERE id = ?3
+            ",
+            params![
+                verdict_id,
+                json!({
+                    "validation_marker": "VALIDATION_FLAGGED",
+                    "worker_advanced": true
+                })
+                .to_string(),
+                worker_job_id
+            ],
+        )?;
+        promote_worker_output(&tx, worker_job_id, "dry_run_rejected")?;
+        tx.commit()?;
+        Ok(())
+    }
+
     pub fn record_validator_fail_open(
         &mut self,
         worker_job_id: &str,
@@ -1623,6 +1721,8 @@ impl EnforcementHarness {
                 table,
                 "error_manifests"
                     | "local_outbox"
+                    | "process_stage_heads"
+                    | "process_stage_status"
                     | "procurement_processes"
                     | "provisional_worker_outputs"
                     | "validation_verdicts"
@@ -1635,6 +1735,214 @@ impl EnforcementHarness {
             .query_row(&sql, [], |row| row.get(0))
             .with_context(|| format!("counting rows in {table}"))
     }
+}
+
+const ENFORCEMENT_STAGE: &str = "Manifest";
+const ENFORCEMENT_SCOPE_KIND: &str = "process";
+const ENFORCEMENT_OWNER_ID: &str = "local-owner";
+const ENFORCEMENT_TS: &str = "2026-05-08T00:00:00Z";
+
+struct PromotionFixture {
+    process: String,
+    stage_run: String,
+    commit_group: String,
+}
+
+impl PromotionFixture {
+    fn new(worker_job_id: &str) -> Self {
+        Self {
+            process: format!("process-{worker_job_id}"),
+            stage_run: format!("stage-run-{worker_job_id}"),
+            commit_group: format!("{DEFAULT_COMMIT_GROUP_ID}-{worker_job_id}"),
+        }
+    }
+}
+
+fn promote_worker_output(tx: &Transaction<'_>, worker_job_id: &str, result: &str) -> Result<()> {
+    let fixture = PromotionFixture::new(worker_job_id);
+    seed_enforcement_process(tx, &fixture.process)?;
+    upsert_stage_status(tx, &fixture)?;
+    let outbox_op = upsert_stage_head(tx, &fixture)?;
+    let row_version = stage_head_row_version(tx, &fixture)?;
+    write_stage_head_outbox(tx, &fixture, result, outbox_op, row_version)?;
+    complete_promoted_job(tx, worker_job_id, result)?;
+    Ok(())
+}
+
+fn upsert_stage_status(tx: &Transaction<'_>, fixture: &PromotionFixture) -> Result<()> {
+    tx.execute(
+        "\
+        INSERT INTO process_stage_status (
+          id, process_id, stage, scope_kind, scope_id, stage_run_id, state,
+          freshness_state, started_at, completed_at, owner_id
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'succeeded', 'fresh',
+                  ?7, ?7, ?8)
+        ON CONFLICT(process_id, stage, scope_kind, scope_id, stage_run_id)
+        DO UPDATE SET state = excluded.state, completed_at = excluded.completed_at
+        ",
+        params![
+            format!("{}-{}-succeeded", fixture.stage_run, fixture.process),
+            fixture.process,
+            ENFORCEMENT_STAGE,
+            ENFORCEMENT_SCOPE_KIND,
+            fixture.process,
+            fixture.stage_run,
+            ENFORCEMENT_TS,
+            ENFORCEMENT_OWNER_ID
+        ],
+    )?;
+    Ok(())
+}
+
+fn upsert_stage_head(tx: &Transaction<'_>, fixture: &PromotionFixture) -> Result<OutboxOp> {
+    let existing_head_count: i64 = tx.query_row(
+        "\
+        SELECT COUNT(*)
+        FROM process_stage_heads
+        WHERE process_id = ?1 AND stage = ?2 AND scope_kind = ?3 AND scope_id = ?4
+        ",
+        params![
+            fixture.process,
+            ENFORCEMENT_STAGE,
+            ENFORCEMENT_SCOPE_KIND,
+            fixture.process
+        ],
+        |row| row.get(0),
+    )?;
+    let outbox_op = if existing_head_count == 0 {
+        OutboxOp::Insert
+    } else {
+        OutboxOp::Update
+    };
+
+    tx.execute(
+        "\
+        INSERT INTO process_stage_heads (
+          process_id, stage, scope_kind, scope_id, current_stage_run_id,
+          freshness_state, owner_id, row_version
+        ) VALUES (?1, ?2, ?3, ?4, ?5, 'fresh', ?6, 1)
+        ON CONFLICT(process_id, stage, scope_kind, scope_id) DO UPDATE SET
+          current_stage_run_id = excluded.current_stage_run_id,
+          freshness_state = excluded.freshness_state,
+          owner_id = excluded.owner_id,
+          row_version = process_stage_heads.row_version + 1,
+          updated_at = CURRENT_TIMESTAMP
+        ",
+        params![
+            fixture.process,
+            ENFORCEMENT_STAGE,
+            ENFORCEMENT_SCOPE_KIND,
+            fixture.process,
+            fixture.stage_run,
+            ENFORCEMENT_OWNER_ID
+        ],
+    )?;
+    Ok(outbox_op)
+}
+
+fn stage_head_row_version(tx: &Transaction<'_>, fixture: &PromotionFixture) -> Result<i64> {
+    tx.query_row(
+        "\
+        SELECT row_version
+        FROM process_stage_heads
+        WHERE process_id = ?1 AND stage = ?2 AND scope_kind = ?3 AND scope_id = ?4
+        ",
+        params![
+            fixture.process,
+            ENFORCEMENT_STAGE,
+            ENFORCEMENT_SCOPE_KIND,
+            fixture.process
+        ],
+        |row| row.get(0),
+    )
+    .context("loading promoted stage-head row_version")
+}
+
+fn write_stage_head_outbox(
+    tx: &Transaction<'_>,
+    fixture: &PromotionFixture,
+    result: &str,
+    outbox_op: OutboxOp,
+    row_version: i64,
+) -> Result<()> {
+    let payload_json = json!({
+        "process_id": fixture.process,
+        "stage": ENFORCEMENT_STAGE,
+        "scope_kind": ENFORCEMENT_SCOPE_KIND,
+        "scope_id": fixture.process,
+        "current_stage_run_id": fixture.stage_run,
+        "freshness_state": "fresh",
+        "owner_id": ENFORCEMENT_OWNER_ID,
+        "row_version": row_version,
+        "stage_run_id": fixture.stage_run,
+        "validation_result": result
+    })
+    .to_string();
+    let content_hash = canonical_content_hash(&payload_json)?;
+    let schema_epoch =
+        i32::try_from(DEFAULT_SCHEMA_EPOCH).context("DEFAULT_SCHEMA_EPOCH exceeds i32")?;
+    let writer = OutboxWriter::new(DEFAULT_EXECUTOR_ID, schema_epoch)?;
+    let local_seq = writer.write_push_owned_with_outbox(
+        tx,
+        "process_stage_heads",
+        &format!(
+            "{}:{ENFORCEMENT_STAGE}:{ENFORCEMENT_SCOPE_KIND}:{}",
+            fixture.process, fixture.process
+        ),
+        outbox_op,
+        &payload_json,
+        &content_hash,
+        &fixture.stage_run,
+        &fixture.commit_group,
+    )?;
+    tx.execute(
+        "\
+        UPDATE process_stage_heads
+        SET last_local_seq = ?1
+        WHERE process_id = ?2 AND stage = ?3 AND scope_kind = ?4 AND scope_id = ?5
+        ",
+        params![
+            local_seq,
+            fixture.process,
+            ENFORCEMENT_STAGE,
+            ENFORCEMENT_SCOPE_KIND,
+            fixture.process
+        ],
+    )?;
+    Ok(())
+}
+
+fn complete_promoted_job(tx: &Transaction<'_>, worker_job_id: &str, result: &str) -> Result<()> {
+    tx.execute(
+        "\
+        UPDATE workflow_jobs
+        SET status = 'completed',
+            completed_at = ?1,
+            output_payload = COALESCE(output_payload, ?2)
+        WHERE id = ?3
+        ",
+        params![
+            ENFORCEMENT_TS,
+            json!({"worker_job_id": worker_job_id, "result": result}).to_string(),
+            worker_job_id
+        ],
+    )?;
+    Ok(())
+}
+
+fn seed_enforcement_process(tx: &Transaction<'_>, process_id: &str) -> Result<()> {
+    tx.execute(
+        "\
+        INSERT INTO procurement_processes (
+          id, canonical_process_id, current_stage, title, latest_published_at,
+          latest_updated_at, owner_id
+        ) VALUES (?1, ?1, 'manifest', 'L4 enforcement promotion',
+                  '2026-05-08T00:00:00Z', '2026-05-08T00:00:00Z', 'local-owner')
+        ON CONFLICT(id) DO NOTHING
+        ",
+        params![process_id],
+    )?;
+    Ok(())
 }
 
 fn seed_workflow_job(tx: &Transaction<'_>, worker_job_id: &str) -> Result<()> {

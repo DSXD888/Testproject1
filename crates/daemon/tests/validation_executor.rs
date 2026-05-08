@@ -42,10 +42,11 @@ mod tests {
     };
     use crate::db_support::StateDb;
     use crate::executor_impl::{
-        self, PersistValidationVerdictRequest, ValidationHandlingMode, ValidationTrustState,
-        ValidatorBasisSufficiency, ValidatorEnqueueRequest, ValidatorIssue,
-        ValidatorResultContract, ValidatorVerdict, decide_validator_failure,
-        decide_validator_verdict, enqueue_validator_sub_job, parse_validator_result_contract,
+        self, AGENT_SUSPECT_OUTPUT, PersistValidationVerdictRequest, ValidationExecutorEffect,
+        ValidationHandlingMode, ValidationTrustState, ValidatorBasisSufficiency,
+        ValidatorEnqueueRequest, ValidatorIssue, ValidatorResultContract, ValidatorVerdict,
+        decide_validator_failure, decide_validator_verdict, enqueue_validator_sub_job,
+        parse_validator_result_contract, validation_executor_effect,
     };
     use crate::runner_impl::JobRunner;
 
@@ -395,6 +396,41 @@ mod tests {
         ensure!(decision.advance_worker);
         ensure!(!decision.quarantine_worker);
         ensure!(decision.trust_state == ValidationTrustState::Suspect);
+        Ok(())
+    }
+
+    #[test]
+    fn l4_t_validation_executor_001_enforcement_rejection_maps_to_quarantine_effect() -> Result<()>
+    {
+        let mode = ValidationHandlingMode {
+            dry_run: false,
+            enforcement_active: true,
+        };
+        let decision = decide_validator_verdict(&rejected_contract(), mode);
+
+        ensure!(!decision.advance_worker);
+        ensure!(decision.quarantine_worker);
+        ensure!(decision.operator_alert_error_code == Some(AGENT_SUSPECT_OUTPUT));
+        ensure!(
+            validation_executor_effect(mode, &decision)
+                == ValidationExecutorEffect::QuarantineProvisional
+        );
+
+        let approval = decide_validator_verdict(&approved_contract(), mode);
+        ensure!(
+            validation_executor_effect(mode, &approval)
+                == ValidationExecutorEffect::PromoteProvisional
+        );
+
+        let dry_run_mode = ValidationHandlingMode {
+            dry_run: true,
+            enforcement_active: false,
+        };
+        let dry_run_rejection = decide_validator_verdict(&rejected_contract(), dry_run_mode);
+        ensure!(
+            validation_executor_effect(dry_run_mode, &dry_run_rejection)
+                == ValidationExecutorEffect::DirectWrite
+        );
         Ok(())
     }
 

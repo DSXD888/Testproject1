@@ -1067,6 +1067,65 @@ fn l4_t_sqlite_supabase_sync_021_writer_epoch_assigned_only_by_batch_and_retry_i
 }
 
 #[test]
+fn l4_t_sqlite_supabase_sync_022_enforcement_approval_promotes_provisional_atomically() -> Result<()>
+{
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-022");
+    println!("[SETUP] enforcement harness with an approved validator verdict");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = EnforcementHarness::new(&state_db)?;
+    let worker_job_id = "l4-approved-worker-job";
+    let before_outbox_count = harness.count_rows("local_outbox")?;
+    let before_head_count = harness.count_rows("process_stage_heads")?;
+    let before_status_count = harness.count_rows("process_stage_status")?;
+    let before_verdict_count = harness.count_rows("validation_verdicts")?;
+
+    println!("[EXEC] approve enforcement-active provisional worker output");
+    harness.approve_provisional_output(worker_job_id)?;
+
+    println!("[ASSERT] approved provisional output promotes with outbox and stage head");
+    let linked_verdict_id: Option<String> = state_db.connection().query_row(
+        "\
+        SELECT validation_verdict_id
+        FROM workflow_jobs
+        WHERE id = ?1
+        ",
+        [worker_job_id],
+        |row| row.get(0),
+    )?;
+    ensure!(
+        harness
+            .provisional_validation_status(worker_job_id)?
+            .as_deref()
+            == Some("approved"),
+        "approved worker output did not update provisional status"
+    );
+    ensure!(
+        harness.count_rows("validation_verdicts")? == before_verdict_count + 1,
+        "approved validator verdict was not logged"
+    );
+    ensure!(
+        linked_verdict_id.as_deref() == Some("verdict-l4-approved-worker-job"),
+        "approved worker job did not link the validator verdict"
+    );
+    ensure!(
+        harness.count_rows("local_outbox")? > before_outbox_count,
+        "approved enforcement output did not create an outbox row"
+    );
+    ensure!(
+        harness.count_rows("process_stage_heads")? > before_head_count,
+        "approved enforcement output did not advance stage heads"
+    );
+    ensure!(
+        harness.count_rows("process_stage_status")? > before_status_count,
+        "approved enforcement output did not persist stage status"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-022 PASS");
+    Ok(())
+}
+
+#[test]
 fn l4_t_sqlite_supabase_sync_023_enforcement_rejection_emits_agent_suspect_output_manifest()
 -> Result<()> {
     println!("[TEST_START] L4-T-sqlite_supabase_sync-023");
@@ -1132,6 +1191,71 @@ fn l4_t_sqlite_supabase_sync_023_enforcement_rejection_emits_agent_suspect_outpu
 
     println!("[CLEANUP] tempfile-owned state DB and artifacts");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-023 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_024_dry_run_rejection_uses_l3_direct_write_path() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-024");
+    println!("[SETUP] enforcement harness in dry-run rejection mode");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = EnforcementHarness::new(&state_db)?;
+    let worker_job_id = "l4-dry-run-rejected-worker";
+    let before_provisional_count = harness.count_rows("provisional_worker_outputs")?;
+    let before_outbox_count = harness.count_rows("local_outbox")?;
+    let before_head_count = harness.count_rows("process_stage_heads")?;
+    let before_verdict_count = harness.count_rows("validation_verdicts")?;
+
+    println!("[EXEC] reject validator output while slice is dry-run/non-enforcement");
+    harness.dry_run_rejected_direct_write(worker_job_id)?;
+
+    println!("[ASSERT] dry-run rejection records verdict and still advances L3 write path");
+    let (linked_verdict_id, output_payload): (Option<String>, Option<String>) =
+        state_db.connection().query_row(
+            "\
+            SELECT validation_verdict_id, output_payload
+            FROM workflow_jobs
+            WHERE id = ?1
+            ",
+            [worker_job_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+    let output: Value = serde_json::from_str(
+        output_payload
+            .as_deref()
+            .context("dry-run worker output payload missing")?,
+    )?;
+    ensure!(
+        harness.count_rows("provisional_worker_outputs")? == before_provisional_count,
+        "dry-run rejection wrote to the provisional buffer"
+    );
+    ensure!(
+        harness.count_rows("validation_verdicts")? == before_verdict_count + 1,
+        "dry-run rejected validator verdict was not logged"
+    );
+    ensure!(
+        linked_verdict_id.as_deref() == Some("verdict-l4-dry-run-rejected-worker"),
+        "dry-run worker job did not link the validator verdict"
+    );
+    ensure!(
+        output.get("validation_marker").and_then(Value::as_str) == Some("VALIDATION_FLAGGED"),
+        "dry-run rejected worker output did not keep the L3 flagged marker"
+    );
+    ensure!(
+        output.get("validation_marker").and_then(Value::as_str) != Some("AGENT_SUSPECT_OUTPUT"),
+        "dry-run rejection was misclassified as enforcement quarantine"
+    );
+    ensure!(
+        harness.count_rows("local_outbox")? > before_outbox_count,
+        "dry-run rejection did not create an outbox row"
+    );
+    ensure!(
+        harness.count_rows("process_stage_heads")? > before_head_count,
+        "dry-run rejection did not advance stage heads"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-024 PASS");
     Ok(())
 }
 

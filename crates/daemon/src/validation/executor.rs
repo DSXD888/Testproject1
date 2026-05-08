@@ -23,10 +23,17 @@ pub const VALIDATOR_RESULT_SCHEMA_PATH: &str = "skills/validation/base/result.sc
 pub const VALIDATOR_RUBRIC_PATH: &str = "skills/validation/base/validator-rubric.yaml";
 pub const VALIDATION_FLAGGED: &str = "VALIDATION_FLAGGED";
 pub const VALIDATION_SKIPPED_VALIDATOR_ERROR: &str = "VALIDATION_SKIPPED_VALIDATOR_ERROR";
+pub const AGENT_SUSPECT_OUTPUT: &str = "AGENT_SUSPECT_OUTPUT";
 const EXPECTED_VALIDATOR_SKILL_ID: &str = "validation/base";
 const EXPECTED_INTERACTION_PROFILE: &str = "headless_contract";
 const EXPECTED_MODEL_PROFILE: &str = "structured_extract_low_cost";
 const DEFAULT_AGENT_CLI: &str = "claude";
+
+#[derive(Debug, Clone, Default, Deserialize)]
+struct ValidatorOverlayCompatibleVersions {
+    #[serde(default)]
+    worker_behavior_versions: Vec<String>,
+}
 
 #[derive(Debug, Clone, Deserialize)]
 struct ValidatorSkillFrontmatter {
@@ -47,6 +54,8 @@ struct ValidatorSkillFrontmatter {
     worker_behavior_version: Option<String>,
     #[serde(default)]
     validator_behavior_version: Option<String>,
+    #[serde(default)]
+    validator_overlay_compatible_versions: Option<ValidatorOverlayCompatibleVersions>,
     #[serde(default = "default_version_change_affects_behavior")]
     version_change_affects_behavior: bool,
     #[serde(default)]
@@ -79,6 +88,7 @@ pub struct ValidatorSkillBundle {
     pub promotion_stage: String,
     pub worker_behavior_version: String,
     pub validator_behavior_version: String,
+    pub validator_overlay_compatible_worker_versions: Vec<String>,
     pub version_change_affects_behavior: bool,
     pub gate_a_family_key: String,
     pub gate_a_family_prequalified: bool,
@@ -144,6 +154,8 @@ impl ValidatorSkillBundle {
             promotion_stage: frontmatter.promotion_stage(),
             worker_behavior_version: frontmatter.worker_behavior_version(),
             validator_behavior_version: frontmatter.validator_behavior_version(),
+            validator_overlay_compatible_worker_versions: frontmatter
+                .validator_overlay_compatible_worker_versions(),
             version_change_affects_behavior: frontmatter.version_change_affects_behavior,
             gate_a_family_key: frontmatter.gate_a_family_key(),
             gate_a_family_prequalified: frontmatter.gate_a_family_prequalified,
@@ -189,6 +201,14 @@ impl ValidatorSkillFrontmatter {
         self.validator_behavior_version
             .clone()
             .unwrap_or_else(|| self.validator_overlay_version().to_owned())
+    }
+
+    fn validator_overlay_compatible_worker_versions(&self) -> Vec<String> {
+        self.validator_overlay_compatible_versions
+            .as_ref()
+            .map_or_else(Vec::new, |versions| {
+                versions.worker_behavior_versions.clone()
+            })
     }
 
     fn gate_a_family_key(&self) -> String {
@@ -350,6 +370,10 @@ pub fn enqueue_validator_sub_job(
                     "gate_a_family_prequalified": skill.gate_a_family_prequalified,
                     "gate_b_exact_slice_key": skill.gate_b_exact_slice_key,
                     "gate_b_exact_slice_ready": skill.gate_b_exact_slice_ready,
+                    "validator_overlay_compatible_versions": {
+                        "worker_behavior_versions": skill
+                            .validator_overlay_compatible_worker_versions,
+                    },
                 },
             },
             "agent_cli": skill.agent_cli,
@@ -533,6 +557,28 @@ pub struct ValidationHandlingDecision {
     pub quarantine_worker: bool,
     pub queue_retroactive_backlog: bool,
     pub validation_marker: Option<&'static str>,
+    pub operator_alert_error_code: Option<&'static str>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValidationExecutorEffect {
+    DirectWrite,
+    PromoteProvisional,
+    QuarantineProvisional,
+}
+
+#[must_use]
+pub const fn validation_executor_effect(
+    mode: ValidationHandlingMode,
+    decision: &ValidationHandlingDecision,
+) -> ValidationExecutorEffect {
+    if decision.quarantine_worker {
+        ValidationExecutorEffect::QuarantineProvisional
+    } else if mode.enforcement_active && decision.advance_worker {
+        ValidationExecutorEffect::PromoteProvisional
+    } else {
+        ValidationExecutorEffect::DirectWrite
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -585,6 +631,7 @@ pub fn decide_validator_verdict(
             quarantine_worker: false,
             queue_retroactive_backlog: false,
             validation_marker: Some(VALIDATION_FLAGGED),
+            operator_alert_error_code: None,
         };
     }
 
@@ -596,6 +643,7 @@ pub fn decide_validator_verdict(
             quarantine_worker: false,
             queue_retroactive_backlog: false,
             validation_marker: None,
+            operator_alert_error_code: None,
         },
         ValidatorVerdict::Rejected if mode.enforcement_active && contract.enforcement_eligible => {
             ValidationHandlingDecision {
@@ -605,6 +653,7 @@ pub fn decide_validator_verdict(
                 quarantine_worker: true,
                 queue_retroactive_backlog: false,
                 validation_marker: None,
+                operator_alert_error_code: Some(AGENT_SUSPECT_OUTPUT),
             }
         }
         ValidatorVerdict::Rejected if mode.dry_run => ValidationHandlingDecision {
@@ -614,6 +663,7 @@ pub fn decide_validator_verdict(
             quarantine_worker: false,
             queue_retroactive_backlog: false,
             validation_marker: Some(VALIDATION_FLAGGED),
+            operator_alert_error_code: None,
         },
         ValidatorVerdict::Flagged | ValidatorVerdict::Rejected => ValidationHandlingDecision {
             trust_state: ValidationTrustState::Flagged,
@@ -622,6 +672,7 @@ pub fn decide_validator_verdict(
             quarantine_worker: false,
             queue_retroactive_backlog: false,
             validation_marker: Some(VALIDATION_FLAGGED),
+            operator_alert_error_code: None,
         },
     }
 }
@@ -635,6 +686,7 @@ pub const fn decide_validator_failure() -> ValidationHandlingDecision {
         quarantine_worker: false,
         queue_retroactive_backlog: true,
         validation_marker: Some(VALIDATION_SKIPPED_VALIDATOR_ERROR),
+        operator_alert_error_code: Some(VALIDATION_SKIPPED_VALIDATOR_ERROR),
     }
 }
 
