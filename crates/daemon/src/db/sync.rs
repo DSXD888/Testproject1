@@ -252,6 +252,16 @@ pub struct OperatorDecisionApplyResponse {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PendingIntentReconciliationPlan {
+    pub superseded_intent_ids: Vec<String>,
+    pub conflicted_intent_ids: Vec<String>,
+    pub commands_to_flush: Vec<OperatorDecisionCommand>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PendingIntentReconciler;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WriterLease {
     org_id: String,
     executor_id: String,
@@ -311,6 +321,15 @@ struct WriterLeaseDbRow {
     holder_executor_id: Option<String>,
     lease_expires_at_epoch_secs: Option<i64>,
     writer_epoch: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PendingOperatorIntent {
+    id: String,
+    process_id: String,
+    desired_disposition: String,
+    base_remote_revision: i64,
+    idempotency_key: String,
 }
 
 impl OutboxWriter {
@@ -1173,6 +1192,200 @@ impl OperatorDecisionApplyResponse {
     #[must_use]
     pub fn is_conflict(&self) -> bool {
         !self.accepted && self.status == "conflict"
+    }
+}
+
+impl PendingIntentReconciler {
+    pub fn prepare_commands<RemoteRevision>(
+        conn: &mut Connection,
+        mut remote_revision_for_process: RemoteRevision,
+    ) -> Result<PendingIntentReconciliationPlan>
+    where
+        RemoteRevision: FnMut(&str) -> Result<i64>,
+    {
+        let (superseded_intent_ids, candidates) = coalesce_pending_operator_intents(conn)?;
+        let mut plan = PendingIntentReconciliationPlan {
+            superseded_intent_ids,
+            conflicted_intent_ids: Vec::new(),
+            commands_to_flush: Vec::new(),
+        };
+
+        for intent in candidates {
+            let current_remote_revision = remote_revision_for_process(&intent.process_id)
+                .with_context(|| format!("loading remote decision head `{}`", intent.process_id))?;
+            if current_remote_revision != intent.base_remote_revision {
+                let conflict_payload = json!({
+                    "kind": "remote_revision_conflict",
+                    "process_id": &intent.process_id,
+                    "intent_id": &intent.id,
+                    "command_id": &intent.idempotency_key,
+                    "base_remote_revision": intent.base_remote_revision,
+                    "current_remote_revision": current_remote_revision,
+                });
+                mark_pending_intent_conflicted(conn, &intent, &conflict_payload)?;
+                plan.conflicted_intent_ids.push(intent.id);
+                continue;
+            }
+
+            plan.commands_to_flush.push(OperatorDecisionCommand::new(
+                intent.process_id,
+                remote_disposition_for_desired(&intent.desired_disposition)?,
+                intent.base_remote_revision,
+                intent.idempotency_key,
+            )?);
+        }
+
+        Ok(plan)
+    }
+
+    pub fn record_cas_response(
+        conn: &Connection,
+        response: &OperatorDecisionApplyResponse,
+    ) -> Result<()> {
+        let (status, last_error): (&str, Option<String>) = if response.accepted {
+            ("applied", None)
+        } else if response.is_conflict() {
+            ("conflicted", Some(response.raw.to_string()))
+        } else {
+            ("failed", Some(response.raw.to_string()))
+        };
+        let updated = conn
+            .execute(
+                "\
+                UPDATE pending_operator_intents
+                SET status = ?2,
+                    last_attempt_at = CURRENT_TIMESTAMP,
+                    last_error = ?3
+                WHERE idempotency_key = ?1
+                  AND superseded_by_intent_id IS NULL
+                ",
+                params![response.command_id, status, last_error],
+            )
+            .context("recording pending operator intent CAS response")?;
+        ensure!(
+            updated == 1,
+            "expected one pending operator intent for command `{}`, updated {updated}",
+            response.command_id
+        );
+        Ok(())
+    }
+}
+
+fn coalesce_pending_operator_intents(
+    conn: &mut Connection,
+) -> Result<(Vec<String>, Vec<PendingOperatorIntent>)> {
+    let tx = conn
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .context("starting pending operator intent reconciliation transaction")?;
+    let intents = load_queued_unsuperseded_operator_intents(&tx)?;
+    let mut superseded_intent_ids = Vec::new();
+    let mut candidates = Vec::new();
+    let mut current_process_id: Option<String> = None;
+    let mut current_winner_id: Option<String> = None;
+
+    for intent in intents {
+        if current_process_id.as_deref() == Some(intent.process_id.as_str()) {
+            let winner_id = current_winner_id
+                .as_deref()
+                .context("pending intent coalescing missing current winner")?;
+            mark_pending_intent_superseded(&tx, &intent.id, winner_id)?;
+            superseded_intent_ids.push(intent.id);
+        } else {
+            current_process_id = Some(intent.process_id.clone());
+            current_winner_id = Some(intent.id.clone());
+            candidates.push(intent);
+        }
+    }
+
+    tx.commit()
+        .context("committing pending operator intent coalescing")?;
+    Ok((superseded_intent_ids, candidates))
+}
+
+fn load_queued_unsuperseded_operator_intents(
+    conn: &Connection,
+) -> Result<Vec<PendingOperatorIntent>> {
+    let mut stmt = conn.prepare(
+        "\
+        SELECT id, process_id, desired_disposition, base_remote_revision, idempotency_key
+        FROM pending_operator_intents
+        WHERE status = 'queued'
+          AND superseded_by_intent_id IS NULL
+        ORDER BY process_id ASC, queued_at DESC, id DESC
+        ",
+    )?;
+    stmt.query_map([], |row| {
+        Ok(PendingOperatorIntent {
+            id: row.get(0)?,
+            process_id: row.get(1)?,
+            desired_disposition: row.get(2)?,
+            base_remote_revision: row.get(3)?,
+            idempotency_key: row.get(4)?,
+        })
+    })?
+    .collect::<std::result::Result<Vec<_>, _>>()
+    .context("loading queued pending operator intents")
+}
+
+fn mark_pending_intent_superseded(
+    tx: &Transaction<'_>,
+    intent_id: &str,
+    winner_id: &str,
+) -> Result<()> {
+    let updated = tx
+        .execute(
+            "\
+            UPDATE pending_operator_intents
+            SET status = 'superseded',
+                superseded_by_intent_id = ?2,
+                last_attempt_at = CURRENT_TIMESTAMP
+            WHERE id = ?1
+              AND status = 'queued'
+              AND superseded_by_intent_id IS NULL
+            ",
+            params![intent_id, winner_id],
+        )
+        .context("marking older pending operator intent superseded")?;
+    ensure!(
+        updated == 1,
+        "expected to supersede one pending operator intent `{intent_id}`, updated {updated}"
+    );
+    Ok(())
+}
+
+fn mark_pending_intent_conflicted(
+    conn: &Connection,
+    intent: &PendingOperatorIntent,
+    conflict_payload: &Value,
+) -> Result<()> {
+    let updated = conn
+        .execute(
+            "\
+            UPDATE pending_operator_intents
+            SET status = 'conflicted',
+                last_attempt_at = CURRENT_TIMESTAMP,
+                last_error = ?2
+            WHERE id = ?1
+              AND status = 'queued'
+              AND superseded_by_intent_id IS NULL
+            ",
+            params![intent.id, conflict_payload.to_string()],
+        )
+        .context("marking pending operator intent conflicted")?;
+    ensure!(
+        updated == 1,
+        "expected to conflict one pending operator intent `{}`, updated {updated}",
+        intent.id
+    );
+    Ok(())
+}
+
+fn remote_disposition_for_desired(desired_disposition: &str) -> Result<&'static str> {
+    match desired_disposition {
+        "approve" => Ok("approved"),
+        "reject" => Ok("rejected"),
+        "watch" => Ok("watching"),
+        _ => bail!("unsupported pending operator intent disposition `{desired_disposition}`"),
     }
 }
 

@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 #![allow(dead_code)]
 
+use std::collections::BTreeMap;
+
 #[path = "../../src/db/sync.rs"]
 mod sync_impl;
 
@@ -15,9 +17,10 @@ pub use sync_impl::SupabaseRpcClient;
 #[allow(unused_imports)]
 pub use sync_impl::{
     BatchEnvelope, BatchEnvelopeAssembler, FencedPullOutcome, FencedPullPageBoundary, OutboxOp,
-    OutboxWriter, PullCursor, PullCursorDomain, PullCursorStore, PushBatchApplyResponse,
-    RemoteOwnedChange, SyncCycle, SyncCycleOutcome, SyncCyclePhase, SyncCycleTrigger, SyncHealth,
-    ViewerSyncStatus, ViewerSyncStatusWriter, WriterBindingConfig, WriterBindingMode, WriterLease,
+    OutboxWriter, PendingIntentReconciler, PendingIntentReconciliationPlan, PullCursor,
+    PullCursorDomain, PullCursorStore, PushBatchApplyResponse, RemoteOwnedChange, SyncCycle,
+    SyncCycleOutcome, SyncCyclePhase, SyncCycleTrigger, SyncHealth, ViewerSyncStatus,
+    ViewerSyncStatusWriter, WriterBindingConfig, WriterBindingMode, WriterLease,
     WriterLeaseAcquireResult, canonical_content_hash, decision_conflict_event_payload,
 };
 #[allow(unused_imports)]
@@ -403,6 +406,14 @@ pub struct OperatorDecisionIntentStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PendingOperatorIntentStatus {
+    pub id: String,
+    pub status: String,
+    pub superseded_by_intent_id: Option<String>,
+    pub last_error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CasCommandLedgerRow {
     pub command_id: String,
     pub process_id: String,
@@ -506,6 +517,130 @@ impl OperatorDecisionCasHarness {
         Ok(())
     }
 
+    pub fn queue_pending_operator_intent(
+        &self,
+        process_id: &str,
+        desired_disposition: &str,
+        base_remote_revision: i64,
+        intent_id: &str,
+        idempotency_key: &str,
+        queued_at: &str,
+    ) -> Result<()> {
+        ensure!(
+            matches!(desired_disposition, "approve" | "reject" | "watch"),
+            "unsupported pending operator intent disposition `{desired_disposition}`"
+        );
+        ensure!(
+            base_remote_revision >= 0,
+            "base_remote_revision must be non-negative for pending intents"
+        );
+        self.conn
+            .execute(
+                "\
+                INSERT INTO procurement_processes (
+                  id, current_stage, title, latest_published_at, latest_updated_at, owner_id
+                ) VALUES (?1, 'qualification', 'L4 pending intent fixture',
+                          '2026-05-08T00:00:00Z', '2026-05-08T00:00:00Z', 'local-owner')
+                ON CONFLICT(id) DO NOTHING
+                ",
+                params![process_id],
+            )
+            .context("seeding process for pending operator intent")?;
+        self.conn
+            .execute(
+                "\
+                INSERT INTO pending_operator_intents (
+                  id, process_id, desired_disposition, reviewed_basis_hash, reviewed_manifest_hash,
+                  reviewed_at_stage_run_id, reviewed_at, base_remote_revision, idempotency_key,
+                  status, superseded_by_intent_id, queued_at, decision_note, last_attempt_at,
+                  last_error
+                ) VALUES (
+                  ?1, ?2, ?3, 'basis-hash', 'manifest-hash', 'stage-run', ?6, ?4, ?5,
+                  'queued', NULL, ?6, NULL, NULL, NULL
+                )
+                ",
+                params![
+                    intent_id,
+                    process_id,
+                    desired_disposition,
+                    base_remote_revision,
+                    idempotency_key,
+                    queued_at
+                ],
+            )
+            .context("queueing real pending operator intent")?;
+        Ok(())
+    }
+
+    pub fn prepare_pending_intents(&mut self) -> Result<PendingIntentReconciliationPlan> {
+        let heads = self.fixture_head_revisions()?;
+        PendingIntentReconciler::prepare_commands(&mut self.conn, |process_id| {
+            heads
+                .get(process_id)
+                .copied()
+                .with_context(|| format!("missing fixture remote head `{process_id}`"))
+        })
+    }
+
+    pub fn record_pending_cas_response(
+        &self,
+        response: &OperatorDecisionApplyResponse,
+    ) -> Result<()> {
+        PendingIntentReconciler::record_cas_response(&self.conn, response)
+    }
+
+    pub fn apply_pending_command_to_fixture(
+        &self,
+        command: &OperatorDecisionCommand,
+    ) -> Result<OperatorDecisionApplyResponse> {
+        let tx = self
+            .conn
+            .unchecked_transaction()
+            .context("starting pending command fixture transaction")?;
+        let current = load_fixture_decision_head(&tx, &command.process_id)?;
+        let response = if current.remote_revision == command.base_revision {
+            tx.execute(
+                "\
+                UPDATE l4_operator_decision_heads_fixture
+                SET disposition = ?2,
+                    remote_revision = ?3
+                WHERE process_id = ?1
+                ",
+                params![
+                    command.process_id,
+                    command.disposition,
+                    command.base_revision + 1
+                ],
+            )
+            .context("applying pending command to fixture head")?;
+            json!({
+                "accepted": true,
+                "status": "applied",
+                "process_id": command.process_id,
+                "command_id": command.command_id,
+                "applied_revision": command.base_revision + 1
+            })
+        } else {
+            json!({
+                "accepted": false,
+                "status": "conflict",
+                "process_id": command.process_id,
+                "command_id": command.command_id,
+                "current_revision": current.remote_revision,
+                "current_disposition": current.disposition,
+                "rejected_payload": {
+                    "process_id": command.process_id,
+                    "disposition": command.disposition,
+                    "base_revision": command.base_revision,
+                    "command_id": command.command_id
+                }
+            })
+        };
+        tx.commit()
+            .context("committing pending command fixture transaction")?;
+        OperatorDecisionApplyResponse::from_rpc_value(response)
+    }
+
     pub fn flush_next_intent(&mut self) -> Result<OperatorDecisionApplyResponse> {
         let tx = self
             .conn
@@ -571,6 +706,29 @@ impl OperatorDecisionCasHarness {
             .optional()
             .context("loading operator decision CAS fixture intent status")?
             .with_context(|| format!("missing operator decision CAS intent `{command_id}`"))
+    }
+
+    pub fn pending_intent_status(&self, intent_id: &str) -> Result<PendingOperatorIntentStatus> {
+        self.conn
+            .query_row(
+                "\
+                SELECT id, status, superseded_by_intent_id, last_error
+                FROM pending_operator_intents
+                WHERE id = ?1
+                ",
+                params![intent_id],
+                |row| {
+                    Ok(PendingOperatorIntentStatus {
+                        id: row.get(0)?,
+                        status: row.get(1)?,
+                        superseded_by_intent_id: row.get(2)?,
+                        last_error: row.get(3)?,
+                    })
+                },
+            )
+            .optional()
+            .context("loading real pending operator intent status")?
+            .with_context(|| format!("missing pending operator intent `{intent_id}`"))
     }
 
     pub fn ledger_row(&self, command_id: &str) -> Result<CasCommandLedgerRow> {
@@ -646,6 +804,22 @@ impl OperatorDecisionCasHarness {
                 params![cutoff],
             )
             .context("garbage-collecting command ledger fixture")
+    }
+
+    fn fixture_head_revisions(&self) -> Result<BTreeMap<String, i64>> {
+        let mut stmt = self.conn.prepare(
+            "\
+            SELECT process_id, remote_revision
+            FROM l4_operator_decision_heads_fixture
+            ",
+        )?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .context("loading fixture decision head revisions")?;
+        Ok(rows.into_iter().collect())
     }
 }
 

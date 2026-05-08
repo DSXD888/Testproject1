@@ -14,11 +14,10 @@ use tokio::task::JoinHandle;
 
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb};
 use support::sync::{
-    EnforcementHarness, OperatorDecisionCasHarness, OperatorDecisionCommand, OutboxHarness,
-    PullCursorDomain, PullCursorHarness, PushOwnedFixture, SupabaseRpcClient, SyncCyclePhase,
-    SyncCycleTrigger, SyncHealth, ViewerSyncStatus, WriterBindingConfig, WriterBindingMode,
-    WriterLeaseAcquireResult, WriterLeaseHarness, canonical_content_hash,
-    decision_conflict_event_payload, parse_payload,
+    EnforcementHarness, OperatorDecisionCasHarness, OutboxHarness, PullCursorDomain,
+    PullCursorHarness, PushOwnedFixture, SupabaseRpcClient, SyncCyclePhase, SyncCycleTrigger,
+    SyncHealth, ViewerSyncStatus, WriterBindingConfig, WriterBindingMode, WriterLeaseAcquireResult,
+    WriterLeaseHarness, canonical_content_hash, decision_conflict_event_payload, parse_payload,
 };
 
 #[test]
@@ -1343,7 +1342,14 @@ async fn l4_t_sqlite_supabase_sync_030_operator_decision_cas_rpc_applies_matchin
     let state_db = L4TestStateDb::new()?;
     let mut harness = OperatorDecisionCasHarness::new(&state_db)?;
     harness.seed_head("l4-cas-process-030", "pending", 7)?;
-    harness.queue_intent("l4-cas-process-030", "approved", 7, "l4-cmd-030")?;
+    harness.queue_pending_operator_intent(
+        "l4-cas-process-030",
+        "approve",
+        7,
+        "intent-030",
+        "l4-cmd-030",
+        "2026-05-08T03:00:00Z",
+    )?;
     let (api_url, capture) = spawn_rpc_capture_server(json!({
         "accepted": true,
         "status": "applied",
@@ -1353,15 +1359,34 @@ async fn l4_t_sqlite_supabase_sync_030_operator_decision_cas_rpc_applies_matchin
     }))
     .await?;
 
-    println!("[EXEC] flush matching-base command through the Supabase CAS RPC client");
+    println!(
+        "[EXEC] reconcile matching-base intent, then flush through the Supabase CAS RPC client"
+    );
     let client = SupabaseRpcClient::new(api_url, "service-role-test-key")?;
-    let command = OperatorDecisionCommand::new("l4-cas-process-030", "approved", 7, "l4-cmd-030")?;
-    let rpc_response = client.update_operator_decision(&command).await?;
+    let plan = harness.prepare_pending_intents()?;
+    ensure!(
+        plan.superseded_intent_ids.is_empty()
+            && plan.conflicted_intent_ids.is_empty()
+            && plan.commands_to_flush.len() == 1,
+        "reconciler did not produce exactly one matching-base command: {plan:?}"
+    );
+    let command = plan
+        .commands_to_flush
+        .first()
+        .context("missing command from reconciliation plan")?;
+    let rpc_response = client.update_operator_decision(command).await?;
     let raw_request = capture.await.context("joining capture server task")??;
-    let local_response = harness.flush_next_intent()?;
+    harness.record_pending_cas_response(&rpc_response)?;
 
     println!(
-        "[ASSERT] RPC wrapper uses update_operator_decision and local intent is marked applied"
+        "[ASSERT] reconciler emits the expected CAS command and local intent is marked applied"
+    );
+    ensure!(
+        command.process_id == "l4-cas-process-030"
+            && command.disposition == "approved"
+            && command.base_revision == 7
+            && command.command_id == "l4-cmd-030",
+        "reconciler emitted the wrong CAS command: {command:?}"
     );
     ensure!(rpc_response.accepted, "CAS RPC response was not accepted");
     ensure!(
@@ -1392,18 +1417,9 @@ async fn l4_t_sqlite_supabase_sync_030_operator_decision_cas_rpc_applies_matchin
         "CAS request body did not carry command_id"
     );
 
-    let head = harness.head("l4-cas-process-030")?;
-    let intent = harness.intent_status("l4-cmd-030")?;
+    let intent = harness.pending_intent_status("intent-030")?;
     ensure!(
-        local_response.accepted,
-        "local CAS response was not accepted"
-    );
-    ensure!(
-        head.disposition == "approved" && head.remote_revision == 8,
-        "CAS fixture head did not advance exactly once: {head:?}"
-    );
-    ensure!(
-        intent.status == "applied" && intent.applied_revision == Some(8),
+        intent.status == "applied" && intent.last_error.is_none(),
         "queued operator intent was not marked applied: {intent:?}"
     );
 
@@ -1419,58 +1435,156 @@ fn l4_t_sqlite_supabase_sync_031_concurrent_decisions_conflict_without_overwrite
     let state_db = L4TestStateDb::new()?;
     let mut harness = OperatorDecisionCasHarness::new(&state_db)?;
     harness.seed_head("l4-cas-process-031", "pending", 9)?;
-    harness.queue_intent("l4-cas-process-031", "approved", 9, "l4-cmd-031-a")?;
-    harness.queue_intent("l4-cas-process-031", "rejected", 9, "l4-cmd-031-b")?;
+    harness.queue_pending_operator_intent(
+        "l4-cas-process-031",
+        "approve",
+        9,
+        "intent-031-a",
+        "l4-cmd-031-a",
+        "2026-05-08T03:01:00Z",
+    )?;
 
-    println!("[EXEC] apply first command, then flush the stale concurrent command");
-    let first = harness.flush_next_intent()?;
-    let second = harness.flush_next_intent()?;
+    println!("[EXEC] reconcile and apply first command, then queue a stale concurrent command");
+    let first_plan = harness.prepare_pending_intents()?;
+    let first_command = first_plan
+        .commands_to_flush
+        .first()
+        .context("missing first command")?;
+    let first = harness.apply_pending_command_to_fixture(first_command)?;
+    harness.record_pending_cas_response(&first)?;
+    harness.queue_pending_operator_intent(
+        "l4-cas-process-031",
+        "reject",
+        9,
+        "intent-031-b",
+        "l4-cmd-031-b",
+        "2026-05-08T03:02:00Z",
+    )?;
+    let second_plan = harness.prepare_pending_intents()?;
 
     println!("[ASSERT] first command advances remote head and second is a local conflict");
     let head = harness.head("l4-cas-process-031")?;
     ensure!(first.accepted, "first CAS command should apply");
     ensure!(
-        second.is_conflict(),
-        "second CAS command should surface a conflict: {second:?}"
+        second_plan.commands_to_flush.is_empty()
+            && second_plan.conflicted_intent_ids == ["intent-031-b"],
+        "second stale intent should conflict before CAS flush: {second_plan:?}"
     );
     ensure!(
         head.disposition == "approved" && head.remote_revision == 10,
         "stale concurrent command overwrote the accepted decision: {head:?}"
     );
-    let losing_intent = harness.intent_status("l4-cmd-031-b")?;
+    let losing_intent = harness.pending_intent_status("intent-031-b")?;
     ensure!(
-        losing_intent.status == "conflicted" && losing_intent.applied_revision.is_none(),
+        losing_intent.status == "conflicted" && losing_intent.superseded_by_intent_id.is_none(),
         "stale concurrent intent was not left in conflicted state: {losing_intent:?}"
     );
     let conflict_json: Value = serde_json::from_str(
         losing_intent
-            .conflict_json
+            .last_error
             .as_deref()
             .context("conflicted intent did not persist conflict_json")?,
     )
     .context("parsing persisted conflict_json")?;
     ensure!(
         conflict_json
-            .get("current_revision")
+            .get("current_remote_revision")
             .and_then(Value::as_i64)
-            == Some(10)
-            && conflict_json
-                .get("current_disposition")
-                .and_then(Value::as_str)
-                == Some("approved"),
+            == Some(10),
         "conflict_json did not carry the current remote head: {conflict_json}"
     );
     ensure!(
         conflict_json
-            .get("rejected_payload")
-            .and_then(|payload| payload.get("disposition"))
-            .and_then(Value::as_str)
-            == Some("rejected"),
+            .get("base_remote_revision")
+            .and_then(Value::as_i64)
+            == Some(9),
         "conflict_json did not carry rejected payload details: {conflict_json}"
     );
 
     println!("[CLEANUP] tempfile-owned state DB");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-031 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_032_coalesces_latest_pending_intent_per_process() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-032");
+    println!("[SETUP] three unsuperseded intents for one process");
+    let state_db = L4TestStateDb::new()?;
+    let mut harness = OperatorDecisionCasHarness::new(&state_db)?;
+    harness.seed_head("l4-cas-process-032", "pending", 20)?;
+    harness.queue_pending_operator_intent(
+        "l4-cas-process-032",
+        "approve",
+        20,
+        "intent-032-a",
+        "l4-cmd-032-a",
+        "2026-05-08T03:03:00Z",
+    )?;
+    harness.queue_pending_operator_intent(
+        "l4-cas-process-032",
+        "watch",
+        20,
+        "intent-032-b",
+        "l4-cmd-032-b",
+        "2026-05-08T03:04:00Z",
+    )?;
+    harness.queue_pending_operator_intent(
+        "l4-cas-process-032",
+        "reject",
+        20,
+        "intent-032-c",
+        "l4-cmd-032-c",
+        "2026-05-08T03:04:00Z",
+    )?;
+
+    println!("[EXEC] reconcile pending intents before CAS flush");
+    let plan = harness.prepare_pending_intents()?;
+
+    println!("[ASSERT] latest by queued_at DESC, id DESC wins and older rows are superseded");
+    let superseded: BTreeSet<_> = plan.superseded_intent_ids.iter().cloned().collect();
+    ensure!(
+        superseded == BTreeSet::from(["intent-032-a".to_owned(), "intent-032-b".to_owned()]),
+        "older intents were not superseded before flush: {plan:?}"
+    );
+    ensure!(
+        plan.commands_to_flush.len() == 1
+            && plan.commands_to_flush[0].command_id == "l4-cmd-032-c"
+            && plan.commands_to_flush[0].disposition == "rejected",
+        "reconciler did not flush only the newest command: {plan:?}"
+    );
+    for older_id in ["intent-032-a", "intent-032-b"] {
+        let status = harness.pending_intent_status(older_id)?;
+        ensure!(
+            status.status == "superseded"
+                && status.superseded_by_intent_id.as_deref() == Some("intent-032-c"),
+            "older intent was not linked to the coalescing winner: {status:?}"
+        );
+    }
+    let winner = harness.pending_intent_status("intent-032-c")?;
+    ensure!(
+        winner.status == "queued" && winner.superseded_by_intent_id.is_none(),
+        "winning intent should remain queued until CAS response is recorded: {winner:?}"
+    );
+
+    println!("[EXEC] apply only the winning command and record the CAS response");
+    let response = harness.apply_pending_command_to_fixture(&plan.commands_to_flush[0])?;
+    harness.record_pending_cas_response(&response)?;
+
+    println!("[ASSERT] only the winner applies through CAS");
+    let head = harness.head("l4-cas-process-032")?;
+    let winner = harness.pending_intent_status("intent-032-c")?;
+    ensure!(
+        head.disposition == "rejected" && head.remote_revision == 21,
+        "winning command did not advance the fixture head: {head:?}"
+    );
+    ensure!(
+        winner.status == "applied" && winner.last_error.is_none(),
+        "winning intent was not marked applied: {winner:?}"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DB");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-032 PASS");
     Ok(())
 }
 
