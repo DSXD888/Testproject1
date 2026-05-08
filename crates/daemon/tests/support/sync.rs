@@ -17,8 +17,8 @@ pub use sync_impl::SupabaseRpcClient;
 #[allow(unused_imports)]
 pub use sync_impl::{
     BatchEnvelope, BatchEnvelopeAssembler, FencedPullOutcome, FencedPullPageBoundary, OutboxOp,
-    OutboxWriter, PendingIntentReconciler, PendingIntentReconciliationPlan, PullCursor,
-    PullCursorDomain, PullCursorStore, PushBatchApplyResponse,
+    OutboxWriter, PendingIntentReconciler, PendingIntentReconciliationPlan, ProjectionEpochRepair,
+    PullCursor, PullCursorDomain, PullCursorStore, PushBatchApplyResponse,
     REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS, REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS,
     RemoteConfigStaleness, RemoteConfigStalenessAction, RemoteConfigStalenessClass,
     RemoteConfigStalenessSubject, RemoteOwnedChange, SchemaEpochGuard, SchemaEpochStatus,

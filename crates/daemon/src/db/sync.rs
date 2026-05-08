@@ -3,7 +3,9 @@
 use anyhow::{Context, Result, bail, ensure};
 use reqwest::Client;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
-use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
+use rusqlite::{
+    Connection, OptionalExtension, Transaction, TransactionBehavior, params, types::ValueRef,
+};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -17,6 +19,34 @@ const WRITER_LEASE_NEXT_SAFE_ACTION: &str =
 const SQLITE_SNAPSHOT_DEFAULT_CADENCE_SECS: i64 = 6 * 60 * 60;
 pub const REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS: i64 = 60 * 60;
 pub const REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS: i64 = 4 * 60 * 60;
+const DEFAULT_ORG_ID: &str = "default";
+const PROJECTION_REPAIR_STAGE_RUN_PREFIX: &str = "epoch-repair";
+const PUSH_OWNED_RESEED_TABLES: &[&str] = &[
+    "procurement_processes",
+    "contract_notices",
+    "notice_lots",
+    "tender_document_sets",
+    "qualification_runs",
+    "product_candidates",
+    "search_profiles",
+    "search_attempts",
+    "supplier_quotes",
+    "candidate_pricing_assessments",
+    "landed_cost_estimates",
+    "manifests",
+    "pipeline_assessments",
+    "bid_workflow_states",
+    "process_stage_status",
+    "process_stage_heads",
+    "process_relations",
+    "document_extractions",
+    "document_semantic_extractions",
+    "workflow_job_summaries",
+    "error_manifest_summaries",
+    "validation_verdict_summaries",
+    "executors",
+    "operator_decision_summaries",
+];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OutboxOp {
@@ -80,6 +110,27 @@ pub struct BatchEnvelopeAssembler {
     stream_id: String,
     writer_epoch: i64,
     max_rows: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProjectionEpochRepair {
+    executor_id: String,
+    schema_epoch: i32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProjectionEpochRepairOutcome {
+    pub generation_id: i64,
+    pub max_local_seq_before_reseed: i64,
+    pub republished_rows: usize,
+    pub discarded_stale_outbox_rows: usize,
+}
+
+#[derive(Debug)]
+struct ProjectionReseedRow {
+    entity_id: String,
+    stage_run_id: String,
+    payload_json: String,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -519,6 +570,92 @@ impl OutboxWriter {
         .context("writing local_outbox entry")?;
 
         Ok(tx.last_insert_rowid())
+    }
+}
+
+impl ProjectionEpochRepair {
+    pub fn new(executor_id: impl Into<String>, schema_epoch: i32) -> Result<Self> {
+        let executor_id = executor_id.into();
+        ensure_non_empty("executor_id", &executor_id)?;
+        ensure!(schema_epoch > 0, "schema_epoch must be positive");
+        Ok(Self {
+            executor_id,
+            schema_epoch,
+        })
+    }
+
+    pub fn reseed(&self, conn: &mut Connection) -> Result<ProjectionEpochRepairOutcome> {
+        let max_local_seq_before_reseed = max_local_outbox_seq(conn)?;
+        let tx = conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .context("starting projection epoch repair transaction")?;
+
+        tx.execute(
+            "\
+            INSERT INTO projection_generations (
+              schema_epoch, status, max_local_seq_before_reseed
+            ) VALUES (?1, 'started', ?2)
+            ",
+            params![self.schema_epoch, max_local_seq_before_reseed],
+        )
+        .context("inserting started projection generation")?;
+        let generation_id = tx.last_insert_rowid();
+        let writer = OutboxWriter::new(&self.executor_id, self.schema_epoch)?;
+        let mut republished_rows = 0;
+
+        for table_name in PUSH_OWNED_RESEED_TABLES {
+            for row in projection_reseed_rows_for_table(&tx, table_name, generation_id)? {
+                let content_hash = canonical_content_hash(&row.payload_json)?;
+                let commit_group_id =
+                    projection_repair_commit_group_id(generation_id, table_name, &row.entity_id);
+                writer.write_push_owned_with_outbox(
+                    &tx,
+                    table_name,
+                    &row.entity_id,
+                    OutboxOp::Update,
+                    &row.payload_json,
+                    &content_hash,
+                    &row.stage_run_id,
+                    &commit_group_id,
+                )?;
+                republished_rows += 1;
+            }
+        }
+
+        let discarded_stale_outbox_rows = tx
+            .execute(
+                "\
+                DELETE FROM local_outbox
+                WHERE schema_epoch <> ?1
+                  AND local_seq <= ?2
+                ",
+                params![self.schema_epoch, max_local_seq_before_reseed],
+            )
+            .context("discarding stale-epoch outbox rows after projection reseed")?;
+        tx.execute(
+            "\
+            UPDATE projection_generations
+            SET status = 'published',
+                completed_at = CURRENT_TIMESTAMP
+            WHERE generation_id = ?1
+              AND status = 'started'
+            ",
+            params![generation_id],
+        )
+        .context("publishing projection generation")?;
+        let now_epoch_secs = current_epoch_secs()?;
+        mark_schema_epoch_repaired(&tx, self.schema_epoch, generation_id, now_epoch_secs)?;
+        ViewerSyncStatusWriter::for_default_org(i64::from(self.schema_epoch))?
+            .record_heartbeat_status(&tx, now_epoch_secs, generation_id)?;
+        tx.commit()
+            .context("committing projection epoch repair transaction")?;
+
+        Ok(ProjectionEpochRepairOutcome {
+            generation_id,
+            max_local_seq_before_reseed,
+            republished_rows,
+            discarded_stale_outbox_rows,
+        })
     }
 }
 
@@ -2747,6 +2884,166 @@ fn current_projection_generation(conn: &Connection) -> Result<i64> {
         |row| row.get(0),
     )
     .context("loading current projection generation")
+}
+
+fn max_local_outbox_seq(conn: &Connection) -> Result<i64> {
+    conn.query_row(
+        "SELECT COALESCE(MAX(local_seq), 0) FROM local_outbox",
+        [],
+        |row| row.get(0),
+    )
+    .context("loading max local_outbox sequence before projection reseed")
+}
+
+fn mark_schema_epoch_repaired(
+    conn: &Connection,
+    schema_epoch: i32,
+    generation_id: i64,
+    now_epoch_secs: i64,
+) -> Result<()> {
+    ensure_sync_pause_state_table(conn)?;
+    let message = format!(
+        "schema epoch repair published projection generation {generation_id}; sync may resume"
+    );
+    conn.execute(
+        "\
+        INSERT INTO sync_pause_state (
+          org_id, paused, reason, local_schema_epoch, remote_schema_epoch,
+          operator_message, updated_at_epoch_secs
+        ) VALUES (?1, 0, NULL, ?2, ?2, ?3, ?4)
+        ON CONFLICT(org_id) DO UPDATE SET
+          paused = 0,
+          reason = NULL,
+          local_schema_epoch = excluded.local_schema_epoch,
+          remote_schema_epoch = excluded.remote_schema_epoch,
+          operator_message = excluded.operator_message,
+          updated_at_epoch_secs = excluded.updated_at_epoch_secs
+        ",
+        params![DEFAULT_ORG_ID, schema_epoch, message, now_epoch_secs],
+    )
+    .context("marking schema epoch repair complete")
+    .map(drop)
+}
+
+fn projection_reseed_rows_for_table(
+    conn: &Connection,
+    table_name: &str,
+    generation_id: i64,
+) -> Result<Vec<ProjectionReseedRow>> {
+    let columns = reseed_table_columns(conn, table_name)?;
+    if !reseed_table_has_required_columns(&columns) {
+        return Ok(Vec::new());
+    }
+    let payload_columns = projection_payload_columns(&columns);
+    let quoted_columns = payload_columns
+        .iter()
+        .map(|column| quote_identifier(column))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT {quoted_columns} FROM {} ORDER BY {}",
+        quote_identifier(table_name),
+        quote_identifier("id")
+    );
+    let mut stmt = conn
+        .prepare(&sql)
+        .with_context(|| format!("preparing projection reseed query for `{table_name}`"))?;
+    let rows = stmt
+        .query_map([], |row| {
+            let mut payload = serde_json::Map::new();
+            for (index, column) in payload_columns.iter().enumerate() {
+                let value = sqlite_value_ref_to_json(row.get_ref(index)?);
+                if !value.is_null() {
+                    payload.insert((*column).clone(), value);
+                }
+            }
+            let entity_id = payload
+                .get("id")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    rusqlite::Error::InvalidColumnType(
+                        0,
+                        "id".to_owned(),
+                        rusqlite::types::Type::Text,
+                    )
+                })?
+                .to_owned();
+            let stage_run_id = payload
+                .get("stage_run_id")
+                .and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
+                .map_or_else(
+                    || format!("{PROJECTION_REPAIR_STAGE_RUN_PREFIX}-{generation_id}"),
+                    str::to_owned,
+                );
+            let payload_json = Value::Object(payload).to_string();
+            Ok(ProjectionReseedRow {
+                entity_id,
+                stage_run_id,
+                payload_json,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .with_context(|| format!("loading projection reseed rows for `{table_name}`"))?;
+    Ok(rows)
+}
+
+fn reseed_table_columns(conn: &Connection, table_name: &str) -> Result<Vec<String>> {
+    let sql = format!("PRAGMA table_info({})", quote_identifier(table_name));
+    let mut stmt = conn
+        .prepare(&sql)
+        .with_context(|| format!("preparing table metadata query for `{table_name}`"))?;
+    stmt.query_map([], |row| row.get::<_, String>(1))?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .with_context(|| format!("loading table metadata for `{table_name}`"))
+}
+
+fn reseed_table_has_required_columns(columns: &[String]) -> bool {
+    columns.iter().any(|column| column == "id")
+        && columns.iter().any(|column| column == "row_version")
+}
+
+fn projection_payload_columns(columns: &[String]) -> Vec<String> {
+    columns
+        .iter()
+        .filter(|column| {
+            !matches!(
+                column.as_str(),
+                "last_local_seq" | "created_at" | "updated_at"
+            )
+        })
+        .cloned()
+        .collect()
+}
+
+fn projection_repair_commit_group_id(
+    generation_id: i64,
+    table_name: &str,
+    entity_id: &str,
+) -> String {
+    format!("{PROJECTION_REPAIR_STAGE_RUN_PREFIX}-{generation_id}-{table_name}-{entity_id}")
+}
+
+fn quote_identifier(identifier: &str) -> String {
+    format!("\"{}\"", identifier.replace('"', "\"\""))
+}
+
+fn sqlite_value_ref_to_json(value: ValueRef<'_>) -> Value {
+    match value {
+        ValueRef::Null => Value::Null,
+        ValueRef::Integer(value) => Value::Number(value.into()),
+        ValueRef::Real(value) => {
+            serde_json::Number::from_f64(value).map_or(Value::Null, Value::Number)
+        }
+        ValueRef::Text(value) => Value::String(String::from_utf8_lossy(value).into_owned()),
+        ValueRef::Blob(value) => Value::Array(
+            value
+                .iter()
+                .copied()
+                .map(|byte| Value::Number(u64::from(byte).into()))
+                .collect(),
+        ),
+    }
 }
 
 fn current_epoch_secs() -> Result<i64> {

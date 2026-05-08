@@ -82,13 +82,14 @@ use runner_impl::{
 use support::db::{DEFAULT_SCHEMA_EPOCH, L4TestStateDb, StateDb};
 use support::redaction::RedactionSentinelFixture;
 use support::sync::{
-    EnforcementHarness, OperatorDecisionCasHarness, OutboxHarness, PullCursorDomain,
-    PullCursorHarness, PushOwnedFixture, REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS,
-    REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS, RemoteConfigStalenessAction,
-    RemoteConfigStalenessClass, RemoteConfigStalenessSubject, SchemaEpochGuard,
-    SqliteSnapshotArtifact, SqliteSnapshotScheduler, SupabaseRpcClient, SyncCyclePhase,
-    SyncCycleTrigger, SyncHealth, ViewerSyncStatus, WriterBindingConfig, WriterBindingMode,
-    WriterLeaseAcquireResult, WriterLeaseHarness, canonical_content_hash, parse_payload,
+    EnforcementHarness, OperatorDecisionCasHarness, OutboxHarness, ProjectionEpochRepair,
+    PullCursorDomain, PullCursorHarness, PushOwnedFixture,
+    REMOTE_CONFIG_OPERATIONAL_WARN_AFTER_SECS, REMOTE_CONFIG_SAFETY_CRITICAL_TTL_SECS,
+    RemoteConfigStalenessAction, RemoteConfigStalenessClass, RemoteConfigStalenessSubject,
+    SchemaEpochGuard, SqliteSnapshotArtifact, SqliteSnapshotScheduler, SupabaseRpcClient,
+    SyncCyclePhase, SyncCycleTrigger, SyncHealth, ViewerSyncStatus, ViewerSyncStatusWriter,
+    WriterBindingConfig, WriterBindingMode, WriterLeaseAcquireResult, WriterLeaseHarness,
+    canonical_content_hash, parse_payload,
 };
 
 use calibration_impl::{
@@ -3923,6 +3924,189 @@ async fn l4_t_sqlite_supabase_sync_044_schema_epoch_mismatch_pauses_sync_only() 
 
     println!("[CLEANUP] tempfile-owned state DB and one-shot capture server");
     println!("[TEST_END] L4-T-sqlite_supabase_sync-044 PASS");
+    Ok(())
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn l4_t_sqlite_supabase_sync_045_epoch_repair_reseeds_projection_generation() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-045");
+    println!("[SETUP] failed repair candidate with stale outbox and invalid current image");
+    let failed_state_db = L4TestStateDb::new()?;
+    {
+        let mut failed_outbox = OutboxHarness::new(&failed_state_db)?;
+        let stale = failed_outbox.mutate_push_owned_fixture(
+            PushOwnedFixture::new("l4-reseed-failed", 1)
+                .schema_epoch(DEFAULT_SCHEMA_EPOCH - 1)
+                .stage_run_id("l4-reseed-failed-old")
+                .commit_group_id("l4-reseed-failed-old"),
+        )?;
+        failed_outbox.connection().execute(
+            "UPDATE procurement_processes SET row_version = 0 WHERE id = ?1",
+            params!["l4-reseed-failed"],
+        )?;
+        ensure!(
+            stale.local_seq > 0,
+            "failed-path fixture did not create a stale outbox row"
+        );
+    }
+    let mut failed_conn = Connection::open(failed_state_db.db_path())?;
+    let failed =
+        ProjectionEpochRepair::new("l4-reseed-executor", i32::try_from(DEFAULT_SCHEMA_EPOCH)?)?
+            .reseed(&mut failed_conn);
+    ensure!(
+        failed.is_err(),
+        "epoch repair unexpectedly succeeded with invalid current row_version"
+    );
+    ensure!(
+        failed_conn.query_row(
+            "SELECT COUNT(*) FROM local_outbox WHERE schema_epoch <> ?1",
+            [DEFAULT_SCHEMA_EPOCH],
+            |row| row.get::<_, i64>(0),
+        )? == 1,
+        "failed epoch repair discarded stale-epoch outbox rows before success"
+    );
+    ensure!(
+        failed_conn.query_row("SELECT COUNT(*) FROM projection_generations", [], |row| {
+            row.get::<_, i64>(0)
+        })? == 0,
+        "failed epoch repair left a projection_generation row behind"
+    );
+
+    println!("[SETUP] successful repair candidate with paused sync and a newer current image");
+    let state_db = L4TestStateDb::new()?;
+    let mut outbox = OutboxHarness::new(&state_db)?;
+    let stale = outbox.mutate_push_owned_fixture(
+        PushOwnedFixture::new("l4-reseed-current", 1)
+            .schema_epoch(DEFAULT_SCHEMA_EPOCH - 1)
+            .stage_run_id("l4-reseed-current-old")
+            .commit_group_id("l4-reseed-current-old"),
+    )?;
+    outbox.connection().execute(
+        "\
+        UPDATE procurement_processes
+        SET row_version = 2,
+            title = 'L4 reseeded current image',
+            stage_run_id = 'l4-reseed-current-stage'
+        WHERE id = ?1
+        ",
+        params!["l4-reseed-current"],
+    )?;
+    SchemaEpochGuard::pause_for_mismatch(
+        outbox.connection(),
+        "default",
+        DEFAULT_SCHEMA_EPOCH,
+        Some(DEFAULT_SCHEMA_EPOCH + 1),
+        2_000,
+        0,
+        "daemon-l4-reseed-test",
+    )?;
+    drop(outbox);
+
+    println!("[EXEC] repair the epoch and reproject current local row images");
+    let mut conn = Connection::open(state_db.db_path())?;
+    let outcome =
+        ProjectionEpochRepair::new("l4-reseed-executor", i32::try_from(DEFAULT_SCHEMA_EPOCH)?)?
+            .reseed(&mut conn)?;
+
+    println!("[ASSERT] generation row is published only after reseed succeeds");
+    let generation = conn.query_row(
+        "\
+        SELECT generation_id, schema_epoch, status, max_local_seq_before_reseed,
+               completed_at IS NOT NULL
+        FROM projection_generations
+        ORDER BY generation_id DESC
+        LIMIT 1
+        ",
+        [],
+        |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, i64>(4)?,
+            ))
+        },
+    )?;
+    ensure!(
+        generation.0 == outcome.generation_id
+            && generation.1 == DEFAULT_SCHEMA_EPOCH
+            && generation.2 == "published"
+            && generation.3 == stale.local_seq
+            && generation.4 == 1,
+        "epoch repair did not publish the expected projection_generation row: {generation:?} outcome={outcome:?}"
+    );
+    ensure!(
+        outcome.max_local_seq_before_reseed == stale.local_seq
+            && outcome.discarded_stale_outbox_rows == 1
+            && outcome.republished_rows == 1,
+        "epoch repair outcome did not account for stale and republished rows: {outcome:?}"
+    );
+
+    println!("[ASSERT] current row image is republished under the local schema epoch");
+    let repaired_row = conn.query_row(
+        "\
+        SELECT local_seq, schema_epoch, entity_kind, entity_id, row_version, payload_json
+        FROM local_outbox
+        WHERE entity_id = 'l4-reseed-current'
+        ORDER BY local_seq DESC
+        LIMIT 1
+        ",
+        [],
+        |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, String>(5)?,
+            ))
+        },
+    )?;
+    let repaired_payload: Value =
+        serde_json::from_str(&repaired_row.5).context("parsing repaired outbox payload")?;
+    ensure!(
+        repaired_row.0 > stale.local_seq
+            && repaired_row.1 == DEFAULT_SCHEMA_EPOCH
+            && repaired_row.2 == "procurement_processes"
+            && repaired_row.3 == "l4-reseed-current"
+            && repaired_row.4 == 2
+            && repaired_payload.get("title").and_then(Value::as_str)
+                == Some("L4 reseeded current image"),
+        "epoch repair did not republish the current local row image: row={repaired_row:?} payload={repaired_payload}"
+    );
+    ensure!(
+        conn.query_row(
+            "SELECT COUNT(*) FROM local_outbox WHERE schema_epoch <> ?1",
+            [DEFAULT_SCHEMA_EPOCH],
+            |row| row.get::<_, i64>(0),
+        )? == 0,
+        "stale-epoch outbox rows survived after successful reseed"
+    );
+
+    println!("[ASSERT] viewer status generation is updated and sync pause is cleared");
+    let viewer_status = ViewerSyncStatusWriter::for_default_org(DEFAULT_SCHEMA_EPOCH)?
+        .load(&conn)?
+        .context("missing viewer sync status after epoch repair")?;
+    ensure!(
+        viewer_status.projection_generation == outcome.generation_id
+            && viewer_status.pending_outbox_count == 1,
+        "epoch repair did not refresh viewer_sync_status projection generation: {viewer_status:?}"
+    );
+    let repaired_pause = SchemaEpochGuard::load(&conn, "default")?
+        .context("missing repaired schema epoch pause row")?;
+    ensure!(
+        !repaired_pause.paused
+            && repaired_pause.local_schema_epoch == DEFAULT_SCHEMA_EPOCH
+            && repaired_pause.remote_schema_epoch == Some(DEFAULT_SCHEMA_EPOCH)
+            && repaired_pause.operator_message.contains("repair published"),
+        "epoch repair did not clear schema pause state: {repaired_pause:?}"
+    );
+
+    println!("[CLEANUP] tempfile-owned state DBs");
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-045 PASS");
     Ok(())
 }
 
