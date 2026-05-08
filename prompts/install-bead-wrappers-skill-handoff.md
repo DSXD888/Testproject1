@@ -53,7 +53,7 @@ When a future user runs `/install-bead-wrappers` in a fresh git repo (Claude or 
 1. Validate prerequisites (git repo, am binary, server reachable)
 2. Copy the wrappers from the skill's assets to the project's `bin/`
 3. Append AGENTS.md Rule 2 (or create AGENTS.md if missing)
-4. Invoke `am install-guard --project <auto-detected-key>` to install the precommit hook
+4. Invoke `am guard install <PROJECT_NAME> <PROJECT_ROOT>` to install the precommit hook
 5. Smoke-test the install
 6. Report success
 
@@ -83,7 +83,7 @@ In this order:
 
 3. **The Phase A handoff** (`/Users/alinaaitova/Desktop/Testproject1/prompts/phase-a-mail-discipline-infrastructure-handoff.md`) — the spec these wrappers were built against. Reference for what Rule 2 should look like and how dual-CLI parity is maintained.
 
-4. **The Phase B handoff** (`/Users/alinaaitova/Desktop/Testproject1/prompts/phase-b-precommit-mail-enforcement-handoff.md`) — explains the precommit hook. The skill will delegate hook installation to `am install-guard` (one of the Rust binary's subcommands), so you do NOT need to ship the hook content yourself.
+4. **The Phase B handoff** (`/Users/alinaaitova/Desktop/Testproject1/prompts/phase-b-precommit-mail-enforcement-handoff.md`) — explains the precommit hook. The skill will delegate hook installation to `am guard install` (one of the Rust binary's subcommands — see the Verified `am` Surface table in §Context above), so you do NOT need to ship the hook content yourself.
 
 5. **An existing skill for structural reference** — pick any well-formed one from `~/.claude/skills/`, e.g. `~/.claude/skills/beads-from-sources/`. Inspect:
    - `SKILL.md` for the YAML frontmatter (`name` + `description` only) and section headings
@@ -112,7 +112,7 @@ In this order:
 After reading, you should be able to answer:
 - *Where does Rule 2 begin and end in AGENTS.md?* (You'll extract it.)
 - *What's the YAML frontmatter shape for a SKILL.md?* (Two fields: `name`, `description`.)
-- *What command installs the precommit hook?* (Should be `am install-guard --project <key> --hook pre-commit` or similar — verify.)
+- *What command installs the precommit hook?* (Verified: `am guard install <PROJECT> <REPO>` — two positional args, optional `--prepush`/`--no-prepush`. NOT `am install-guard`.)
 - *Where do skill assets live conventionally?* (Inspect peer skills.)
 
 ---
@@ -187,7 +187,7 @@ Use the prose-and-blocks form. Do NOT just dump the shell script — adapt it. M
 
 ### D2 — `METHODOLOGY.md`
 
-A longer-form document explaining the rationale, the dual-CLI pattern, the choice to delegate hook install to `am install-guard`, and how the skill keeps in sync with the canonical Testproject1 wrappers (i.e. it doesn't — they're snapshotted; updates require re-running this skill-creation handoff in the future).
+A longer-form document explaining the rationale, the dual-CLI pattern, the choice to delegate hook install to `am guard install` (rather than ship hook content), and how the skill keeps in sync with the canonical Testproject1 wrappers (i.e. it doesn't — they're snapshotted; updates require re-running this skill-creation handoff in the future).
 
 ### D3 — `CHECKLIST.md`
 
@@ -531,9 +531,9 @@ Stop after reporting.
 2. **Dual-CLI symmetry is mandatory.** Whatever lands in `~/.claude/skills/install-bead-wrappers/` MUST also land in `~/.codex/skills/install-bead-wrappers/` with byte-identical content.
 3. **Wrapper assets are byte-for-byte copies of Testproject1/bin/{br-claim,br-complete}.** No edits, no "improvements." If the wrappers have a bug, fix them in `Testproject1/bin/` first (separate handoff), THEN re-snapshot into the skill assets.
 4. **Match existing skill conventions.** YAML frontmatter, section structure, MANDATORY STOP pattern, file naming — all should look indistinguishable from peer skills like `beads-from-sources`, `bead-completion-audit`. Inspect peers; do not reinvent.
-5. **Delegate hook install to `am install-guard`.** Don't ship hook content; let the binary handle it. The binary's behavior is canonical.
+5. **Delegate hook install to `am guard install <PROJECT> <REPO>`.** Don't ship hook content; let the binary handle it. The binary's behavior is canonical. The CLI is `am guard install` (subcommand structure), NOT `am install-guard` (which doesn't exist despite the hook's auto-comment using legacy underscore form).
 6. **The skill's install procedure is described in SKILL.md, not implemented as code.** This is consistent with how skills work — they instruct the agent in natural language; the agent executes the steps via shell commands.
-7. **Idempotency is a contract.** The skill must be safe to invoke multiple times in the same project. Use the HTML-comment marker for Rule 2 detection; let `am install-guard` handle hook idempotency; wrappers can be overwritten safely.
+7. **Idempotency is a contract.** The skill must be safe to invoke multiple times in the same project. Use the HTML-comment marker for Rule 2 detection; let `am guard install` handle hook idempotency (it overwrites the hook with the canonical version each run); wrappers can be overwritten safely.
 8. **NEVER stash other agents' work.** If skill files were created by another agent during this session, treat as legitimate; merge or ask before overwriting.
 9. **NEVER use `git reset --hard` or `git push --force`.** Standard AGENTS.md "Irreversible Git Actions" rules apply.
 10. **Report and stop.** Do not chain into another action without user authorization (matches the `MANDATORY STOP` pattern from peer skills like `beads-to-execution`).
