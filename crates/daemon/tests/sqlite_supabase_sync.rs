@@ -1706,6 +1706,13 @@ const SUPPLIER_DOMAIN_CHECKS: [&str; 6] = [
     "listing_freshness",
     "regulated_goods_compliance_evidence",
 ];
+const DOCUMENT_ACQUISITION_DOMAIN_CHECKS: [&str; 5] = [
+    "document_type_identification",
+    "download_completeness",
+    "content_type_verification",
+    "file_size_plausibility",
+    "document_set_hash_consistency",
+];
 
 const fn procurement_overlay_fixture() -> OverlaySkillFixture<'static> {
     OverlaySkillFixture {
@@ -1726,6 +1733,17 @@ const fn supplier_overlay_fixture() -> OverlaySkillFixture<'static> {
         worker_behavior_version: "supplier-enrichment/*@2026.05.06-1+1.0",
         checkpoint_kind: "supplier_enrichment_overlay_checkpoint",
         domain_checks: &SUPPLIER_DOMAIN_CHECKS,
+    }
+}
+
+const fn document_acquisition_overlay_fixture() -> OverlaySkillFixture<'static> {
+    OverlaySkillFixture {
+        label: "document-acquisition",
+        dir: "skills/validation/overlay-document-acquisition",
+        skill_id: "validation/overlay-document-acquisition",
+        worker_behavior_version: "document-acquisition/*@2026.05.06-1+1.0",
+        checkpoint_kind: "document_acquisition_overlay_checkpoint",
+        domain_checks: &DOCUMENT_ACQUISITION_DOMAIN_CHECKS,
     }
 }
 
@@ -2206,6 +2224,17 @@ fn l4_t_sqlite_supabase_sync_059_supplier_enrichment_overlay_contract() -> Resul
     assert_overlay_contract(&supplier_overlay_fixture())?;
 
     println!("[TEST_END] L4-T-sqlite_supabase_sync-059 PASS");
+    Ok(())
+}
+
+#[test]
+fn l4_t_sqlite_supabase_sync_060_document_acquisition_overlay_contract() -> Result<()> {
+    println!("[TEST_START] L4-T-sqlite_supabase_sync-060");
+    println!("[SETUP] document-acquisition overlay fixture");
+
+    assert_overlay_contract(&document_acquisition_overlay_fixture())?;
+
+    println!("[TEST_END] L4-T-sqlite_supabase_sync-060 PASS");
     Ok(())
 }
 

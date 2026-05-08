@@ -1,0 +1,65 @@
+cases:
+  - case_id: doc-acq-clean-real-001
+    expected_verdict: approved
+    expected_basis_sufficiency: high
+    required_domain_checks:
+      - document_type_identification
+      - download_completeness
+      - content_type_verification
+      - file_size_plausibility
+      - document_set_hash_consistency
+    required_issue_categories: []
+    provenance: clean-real
+  - case_id: doc-acq-weird-valid-001
+    expected_verdict: approved
+    expected_basis_sufficiency: medium
+    required_domain_checks:
+      - document_type_identification
+      - download_completeness
+      - content_type_verification
+      - file_size_plausibility
+    allowed_issue_categories:
+      - content_type_verification
+      - file_size_plausibility
+    provenance: weird-valid
+  - case_id: doc-acq-mutated-bad-001
+    expected_verdict: rejected
+    expected_basis_sufficiency: high
+    required_domain_checks:
+      - document_type_identification
+      - download_completeness
+      - content_type_verification
+      - file_size_plausibility
+      - document_set_hash_consistency
+    required_issue_categories:
+      - document_type_identification
+      - download_completeness
+      - content_type_verification
+      - file_size_plausibility
+      - document_set_hash_consistency
+    provenance: mutated-bad
+  - case_id: doc-acq-pairwise-download-hash-001
+    expected_verdict: rejected
+    expected_basis_sufficiency: high
+    pair_id: doc-acq-download-hash-pair-001
+    required_domain_checks:
+      - download_completeness
+      - document_set_hash_consistency
+      - content_type_verification
+    required_issue_categories:
+      - download_completeness
+      - document_set_hash_consistency
+    provenance: pairwise
+
+calibration_targets:
+  mutated_bad_catch_rate_min_bps: 9000
+  clean_real_approval_min_bps: 9500
+  false_positive_rate_max_bps: 500
+  wilson_confidence_bps: 9500
+
+domain_check_inventory:
+  - document_type_identification
+  - download_completeness
+  - content_type_verification
+  - file_size_plausibility
+  - document_set_hash_consistency

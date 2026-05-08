@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["kind", "message", "domain_checks_seen"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "document_acquisition_overlay_checkpoint"
+    },
+    "message": {
+      "type": "string"
+    },
+    "domain_checks_seen": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "document_type_identification",
+          "download_completeness",
+          "content_type_verification",
+          "file_size_plausibility",
+          "document_set_hash_consistency"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}

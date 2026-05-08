@@ -1,0 +1,84 @@
+rubric_version: 2026.05.06-1
+scope: document_acquisition_overlay
+decision_axes:
+  - document_type_identification
+  - download_completeness
+  - content_type_verification
+  - file_size_plausibility
+  - document_set_hash_consistency
+
+verdict_rules:
+  approved:
+    requires:
+      - document_type_identification
+      - download_completeness
+      - content_type_verification
+      - file_size_plausibility
+      - document_set_hash_consistency
+      - no_critical_domain_issue
+  rejected:
+    triggers:
+      - document_type_identification_conflicts_with_content_or_notice_context
+      - download_completeness_missing_required_attachment_without_unavailable_evidence
+      - content_type_verification_conflicts_with_extension_or_content_probe
+      - file_size_plausibility_empty_truncated_or_unbounded_without_rationale
+      - document_set_hash_consistency_conflicts_with_daemon_inventory
+  flagged:
+    triggers:
+      - content_type_verification_partial_with_manifest_rationale
+      - file_size_plausibility_edge_case_but_parseable
+      - document_type_identification_needs_operator_review
+
+basis_sufficiency_rules:
+  high:
+    requires:
+      - daemon_appendix_has_document_inventory
+      - daemon_appendix_has_download_status_and_byte_counts
+      - daemon_appendix_has_content_type_and_hash_evidence
+  medium:
+    requires:
+      - partial_machine_evidence_with_manifest_rationale
+  low:
+    triggers:
+      - missing_document_inventory
+      - missing_download_status_or_byte_count
+      - missing_content_type_or_hash_evidence
+
+domain_checks:
+  document_type_identification:
+    evidence_refs:
+      - manifest.document_inventory.type
+      - daemon.document_probe.content_markers
+    reject_when:
+      - claimed_document_type_conflicts_with_content_or_notice_context
+  download_completeness:
+    evidence_refs:
+      - manifest.required_attachments
+      - daemon.download_status
+    reject_when:
+      - required_attachment_missing_without_unavailable_or_source_changed_evidence
+  content_type_verification:
+    evidence_refs:
+      - daemon.document_inventory.mime_type
+      - daemon.document_probe.extension_and_header
+    reject_when:
+      - mime_extension_or_probe_evidence_conflict_blocks_safe_parsing
+  file_size_plausibility:
+    evidence_refs:
+      - daemon.document_inventory.byte_count
+      - manifest.document_type
+    reject_when:
+      - file_size_is_empty_truncated_or_unexpectedly_large_without_rationale
+  document_set_hash_consistency:
+    evidence_refs:
+      - manifest.document_set_hash
+      - daemon.document_inventory.content_hashes
+    reject_when:
+      - recorded_document_set_hash_conflicts_with_inventory_hashes
+
+excluded_concerns:
+  - procurement_notice_normalization
+  - supplier_price_signal_validation
+  - product_archetype_assignment
+  - margin_scoring
+  - enforcement_side_effects
