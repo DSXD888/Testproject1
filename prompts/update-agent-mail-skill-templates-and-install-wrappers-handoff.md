@@ -6,6 +6,8 @@
 
 ## Mission
 
+ULTRATHINK and be meticulous. This handoff must be self-contained enough that a fresh Codex or Claude Code session can execute it without access to any prior conversation.
+
 Bring the reusable skill templates in this machine back into alignment with the Agent Mail discipline that is already correct in `Testproject1`.
 
 There are five deliverables:
@@ -100,6 +102,34 @@ Expected shape at handoff creation: both directories are missing.
 
 Do not chase unrelated uses of the word `broadcast` in skills like `idea-to-research` or `research-to-spec`; those are not Agent Mail recipient examples and are out of scope.
 
+### Exact Hotspots Observed At Handoff Creation
+
+Use these as a map, not as a substitute for re-reading the current files:
+
+- Codex `pipemaxxer/TEMPLATES.md`
+  - `445-570`: detailed AgentMail setup, claim, work loop, completion, and quick reference with stale manual `file_reservation_paths(...)` and manual Start/Complete `send_message(...)`.
+  - `590-601`: compact push loop with stale `CLAIM: {bead_cli} claim + file_reservation_paths + send_message` and stale `COMPLETE: {bead_cli} complete + sync + send_message + release_file_reservations`.
+  - `771-940`: fix-bead execution loop with the same stale claim/reserve/announce and close/release/announce pattern.
+  - `980-1038`: compact fix-bead push loop with stale manual claim/complete Agent Mail plumbing.
+- Claude `pipemaxxer/TEMPLATES.md`
+  - `348-365`: registration and claim protocol with `file_reservation_paths(...)` plus manual claim `send_message(...)`.
+  - `482-504`: fix-bead AgentMail coordination with manual reserve, announce, close, release, and complete mail.
+- Codex and Claude `layermaxxer/SKILL.md`
+  - `751-767`: vague execution-pack coordination wording such as file reservations via Agent Mail if present.
+  - `779-796`: vague push prompt wording such as check inbox / file reservations and close, sync, commit, push, announce.
+- Codex and Claude `layermaxxer/references/TEMPLATES.md`
+  - `740-743`: "Set up Agent Mail, check inbox, reserve files before editing."
+  - `780-864`: completion wording around close, sync, commit, push, release, announce.
+- Codex and Claude `beads-to-execution/TEMPLATES.md`
+  - `145-227`: registration and "Claim Your Bead (Announce + Reserve)" with raw `br update`, `file_reservation_paths(...)`, manual claim `send_message(...)`, and first/only-agent skip guidance.
+  - `245-251`: old beads command cheat sheet with raw `br update` and raw `br close`.
+  - `300-350`: work loop with raw claim/close and manual completion mail.
+  - `383-422`: coordination patterns with `resource://agents` peer discovery and manual `send_message(...)` examples.
+  - `519-535`: session completion with raw `br close`, manual release, and manual completion mail.
+  - `621-628`: push prompt with stale raw claim/reserve/announce instruction.
+- Codex and Claude `beads-to-execution/SKILL.md`, `CHECKLIST.md`, and `WORKFLOW.md`
+  - These contain broader Agent Mail mentions. Update them only if their wording actively contradicts wrapper discipline after `TEMPLATES.md` is fixed.
+
 ---
 
 ## Mandatory Reading
@@ -117,7 +147,11 @@ Read these in order before editing:
    - Focus: sections that mention `bin/br-claim`, `bin/br-complete`, `list_contacts`, and no broadcast.
 5. `/Users/zacfarrell/Desktop/Testproject1/docs/pipeline/l5-expanded-commercial-intelligence/11-push.md`
    - Focus: compact correct pattern in sections 3, 4, and 8.
-6. Current target skill files listed below.
+6. The skill-creation convention for the CLI you are running:
+   - Codex: `/Users/zacfarrell/.codex/skills/skill-creator/SKILL.md`
+   - Claude: `/Users/zacfarrell/.claude/skills/skill-creator/SKILL.md`
+   - Focus: frontmatter shape, sibling-file convention, and avoiding placeholders in final skill artifacts.
+7. Current target skill files listed below.
 
 Useful read commands:
 
@@ -130,6 +164,8 @@ sed -n '140,225p' docs/pipeline/l5-expanded-commercial-intelligence/10-generate-
 sed -n '60,125p' docs/pipeline/l5-expanded-commercial-intelligence/11-push.md
 sed -n '330,390p' bin/br-claim
 sed -n '312,358p' bin/br-complete
+sed -n '1,130p' /Users/zacfarrell/.codex/skills/skill-creator/SKILL.md
+sed -n '1,130p' /Users/zacfarrell/.claude/skills/skill-creator/SKILL.md
 ```
 
 ---
@@ -199,6 +235,22 @@ The finished handoff execution should make future generated prompts unambiguous 
 - Every raw `send_message(...)` example includes `to=[...]` populated from `list_contacts(project_key, agent_name)`.
 - The phrase `broadcast` appears only in negative guidance such as "no broadcast" or "never use `to=\"broadcast\"`."
 - The new `install-bead-wrappers` skill can be invoked in a fresh repo without reading this handoff.
+
+Treat these verification hits as failures unless they are explicitly labelled forbidden anti-patterns:
+
+- Raw `br update --status=in_progress` as an allowed claim step.
+- Raw `br close <id>` as an allowed completion step.
+- `file_reservation_paths(...)` as the normal claim path when `bin/br-claim` exists.
+- Manual Start/Complete `send_message(...)` duplicated after wrapper claim/complete.
+- `resource://agents` as the primary peer-discovery pattern.
+- Any `to="broadcast"`, `to=["broadcast"]`, or equivalent Agent Mail recipient.
+
+Treat these verification hits as acceptable:
+
+- Raw `br update` / `br close` examples inside "Do not use" or "forbidden anti-pattern" text.
+- `file_reservation_paths(...)` references that explain what the wrappers do internally or how to diagnose wrapper failures.
+- Manual `send_message(...)` examples for blockers, questions, phase announcements, and session handoffs, provided they first call `list_contacts(project_key, agent_name)` and send to the explicit returned names.
+- The word `broadcast` in negative guidance only.
 
 ---
 
@@ -548,6 +600,8 @@ Include these sections:
 ## Mandatory Stop
 ```
 
+Use the local `skill-creator` skill as a structural reference while authoring `install-bead-wrappers`. The finished `install-bead-wrappers` skill must be a real skill artifact, not just a pasted handoff: concise frontmatter, clear workflow, supporting methodology/checklist files, bundled assets, and no unreplaced placeholders.
+
 The workflow must instruct the invoking agent to:
 
 1. Find the target repo root with `git rev-parse --show-toplevel`.
@@ -598,7 +652,13 @@ Include a snapshot stamp:
 git -C /Users/zacfarrell/Desktop/Testproject1 log -1 --format='%h %ci' -- bin/br-claim bin/br-complete
 ```
 
-Record the returned commit/date in `METHODOLOGY.md` so a future refresh can tell whether the skill assets are stale.
+At handoff creation this returned:
+
+```text
+adec8e4 2026-05-08 18:55:37 +0100
+```
+
+Record the returned commit/date in `METHODOLOGY.md` so a future refresh can tell whether the skill assets are stale. Do not leave this as only an instruction to run the command.
 
 ### `CHECKLIST.md` Required Content
 
