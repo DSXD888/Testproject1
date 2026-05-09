@@ -1,0 +1,319 @@
+feature: l5-expanded-commercial-intelligence
+created: "2026-05-08"
+source_doc: docs/strategy/layers/layer-5-expanded-commercial-intelligence.md
+source_type: layer
+entry_point: batch-1-validate
+
+paths:
+  spec: docs/strategy/layers/layer-5-expanded-commercial-intelligence.md
+  tdd: docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-tdd.md
+  bootstrap: docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-bootstrap.md
+  strategy: docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-strategy.md
+  kickoff: docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-kickoff.md
+  push: docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-push.md
+  status: docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-status.yaml
+
+bead_prefix: l5
+bead_cli: br
+bead_sync_cmd: bin/br-sync                     # NEVER raw `br sync` (which may run git commands)
+
+# L5 layer doc authoring epic (already done — children 4gh.1-4 produced the layer doc).
+# Implementation pipeline must DECIDE in step 07 whether to (a) reopen 4gh as the implementation
+# epic, (b) close 4gh and create a sister "Epic: L5 Implementation" with new id, or (c) thread
+# implementation beads as new children of 4gh. RECOMMENDED: option (b) — clean separation.
+existing_layer_doc_epic: testproject1-4gh
+existing_layer_doc_status: "documentation children (4gh.1-4) likely complete; verify in step 07"
+
+agentmail:
+  enabled: true
+  project_key: /Users/alinaaitova/Desktop/Testproject1
+
+tech_stack:
+  language: "mixed (rust + typescript)"
+  rust:
+    edition: 2024
+    toolchain: "nightly (per rust-toolchain.toml)"
+    package_manager: cargo
+    build_cmd: "cargo check --all-targets"
+    test_cmd: "cargo test"
+    lint_cmd: "cargo clippy --all-targets -- -D warnings && cargo fmt --check"
+    test_framework: "cargo test (#[test], #[tokio::test])"
+    forbid: "unsafe_code"
+  typescript:
+    package_manager: bun
+    pinned_version: "bun@1.3.10"
+    build_cmd: "bun run build"
+    test_cmd: "bun run test"
+    lint_cmd: "bun run lint"
+    test_framework: "vitest (unit) — no Playwright e2e is added in L5 (web portal already done in L4)"
+
+quality_gates:
+  build: "cargo check --all-targets && bun run build"
+  test_rust_full: "cargo test -p daemon --bin daemon && for t in crates/daemon/tests/*.rs; do cargo test --test \"$(basename \"$t\" .rs)\" || exit 1; done"
+  test_ts: "bun run test"
+  test_e2e: "(cd apps/desktop && bun run test:e2e) && (cd apps/web && bun run test:e2e)  # only if L5 surfaces touch desktop/web"
+  lint: "cargo clippy --all-targets -- -D warnings && cargo fmt --check && bun run lint"
+  ubs: "ubs $(git diff --name-only --cached)"
+
+handoff_dir: docs/pipeline/l5-expanded-commercial-intelligence
+
+# === Existing infrastructure that L5 builds on (reference for handoffs) ===
+existing_files:
+  # L0 schema — all 36 decision-grade columns ALREADY exist as nullable. No DDL changes needed for the table.
+  migration_l0: migrations/0001_sqlite_state_initial.sql       # 545 lines; supplier_quotes at lines 243-296; landed_cost_estimates at lines 322-394 (36 nullable decision-grade columns)
+  migration_l4: migrations/0012_l4_sync_state.sql              # local_outbox / sync_batches / pull_cursors
+
+  # L1 screening-grade landed-cost engine (currently embedded in daemon main; L5 will REFACTOR most of this into packages/intelligence/src/customs/, fx/, logistics/)
+  daemon_main: crates/daemon/src/main.rs                       # ~1.08 MB; landed-cost paths at lines 5639-6350+; live skill loop at line 1360
+  landed_cost_skill_dir: skills/landed-cost/                   # hmrc-customs-classification, simple-fx-lookup, searates-freight-estimate, shipment-sizing (all screening-grade — L5 supplants/promotes)
+
+  # L3 validator infrastructure (L5 extends ErrorCode enum with 10 new variants)
+  daemon_validation_policy: crates/daemon/src/validation/policy.rs       # 1187 lines; L3 dry-run validation policy/trigger logic. (ErrorCode is NOT here — see daemon_errors_manifest below.)
+  daemon_errors_manifest_actual_errorcode_location: crates/daemon/src/errors/manifest.rs  # 386 lines; ErrorCode enum at lines 20-55 (~36 lines spanning ~44 variants)
+  daemon_validation_executor: crates/daemon/src/validation/executor.rs   # 1269 lines
+  daemon_validation_manifest: crates/daemon/src/validation/manifest_writer.rs
+  daemon_errors_manifest: crates/daemon/src/errors/manifest.rs # 386 lines
+
+  # L4 sync engine — landed_cost_estimates ALREADY in push set (sync.rs line 35); L5 mutations auto-flow.
+  daemon_sync: crates/daemon/src/db/sync.rs                    # 3484 lines
+  supabase_projection: infra/supabase/migrations/0001_projection_tables.sql
+
+  # Skill registry, cron scheduler, source registry (L5 adds entries)
+  daemon_sources_registry: crates/daemon/src/sources/registry.rs         # 947 lines; supplier-enrichment block at lines 570-680
+  daemon_scheduler_cron: crates/daemon/src/scheduler/cron.rs             # 363 lines; existing cron constants at lines 16-23 (VALIDATION_CALIBRATION_READINESS_SWEEP_CRON, VALIDATION_CROSS_MODEL_AUDIT_CRON); CronJobDefinition struct at lines 26-34; CronJobClass enum at line 37+
+  daemon_jobs_runner: crates/daemon/src/jobs/runner.rs                   # 1656 lines
+
+  # Existing intelligence package (3 subdirs today: margins/, qualification/, relations/)
+  packages_intelligence: packages/intelligence/                          # 6 .ts files; L5 adds 19 files across 4 NEW subdirs (customs, fx, logistics, validation)
+
+  # Existing supplier-price-enrichment skills (CONTRADICTS L5 spec wording — see spec_callouts)
+  skills_ebay: skills/supplier-price-enrichment/ebay/                    # 86-line SKILL.md, promotion_stage candidate
+  skills_alibaba: skills/supplier-price-enrichment/alibaba/              # 241-line SKILL.md, candidate
+  skills_amazon: skills/supplier-price-enrichment/amazon/                # 92-line SKILL.md, candidate
+  skills_1688: skills/supplier-price-enrichment/1688/                    # 90-line SKILL.md, candidate
+
+  # Validation overlays (4 from L4 — L5 may add a 'overlay-customs-classification' overlay)
+  skills_validation_base: skills/validation/base/
+  skills_validation_overlays: ["overlay-supplier-enrichment", "overlay-product-extraction", "overlay-procurement-ingestion", "overlay-document-acquisition"]
+
+  # Calibration / gold-set fixtures (L0 infrastructure — L5 must extend per category)
+  calibration_fixtures: tests/fixtures/calibration/                       # JSONL canary.inputs + YAML golden.assertions per (domain, variant)
+  skill_golden_journeys_test: crates/daemon/tests/skill_golden_journeys.rs # 607 lines
+  skill_canary_harness_test: crates/daemon/tests/skill_canary_harness.rs   # 255 lines
+
+  agents_md: AGENTS.md                                                    # 737 lines
+
+# === Net-new in L5 (handoffs must own these explicitly) ===
+new_modules_ts:
+  customs:
+    - packages/intelligence/src/customs/description-quality-gate.ts        # archetype-keyed missing-facts requests, bundle splitter (incl. GIR 3 set escape hatch)
+    - packages/intelligence/src/customs/multi-source-recall.ts             # 5 parallel sources: HMRC FPO, CPV-to-chapter priors, rule-based hints, tariff keyword search, ATR codebook reuse
+    - packages/intelligence/src/customs/ten-digit-resolution.ts            # multi-family expansion via locally cached HMRC tariff hierarchy
+    - packages/intelligence/src/customs/measure-scanner.ts                 # AD/CVD/safeguard/quota detection + interaction rules
+    - packages/intelligence/src/customs/exporter-resolution.ts             # named_exporter / annex_exporter / residual_default with confidence basis points
+    - packages/intelligence/src/customs/classification-freshness.ts        # 4 freshness vectors: tariffCheckedAt, measuresFreshUntil, tradeRemedyWatchState, fxRateCheckedAt
+    - packages/intelligence/src/customs/accuracy.ts                        # evidence-tiered accuracy measurement (gold/silver/bronze)
+  fx:
+    - packages/intelligence/src/fx/hmrc-exchange-rates.ts                  # HMRC Exchange Rate Service — monthly rolling
+    - packages/intelligence/src/fx/xe-commercial-rates.ts                  # Xe API spot rates with TTL/rate-limit
+    - packages/intelligence/src/fx/fx-engine.ts                            # dual-rate computation, basis delta, recalc triggers
+    - packages/intelligence/src/fx/fx-types.ts                             # FxSnapshot, FxBasisDelta, FxRecalculationTrigger
+  logistics:
+    - packages/intelligence/src/logistics/mode-selector.ts                 # sea/air/express/multimodal selection with hard mode locks (hazmat, oversized, batteries)
+    - packages/intelligence/src/logistics/freightos-client.ts              # Freightos API integration
+    - packages/intelligence/src/logistics/searates-client.ts               # SeaRates API integration
+    - packages/intelligence/src/logistics/freight-engine.ts                # orchestrator with dual-source cross-check + Incoterm boundary scenarios
+    - packages/intelligence/src/logistics/freight-types.ts                 # FreightEstimate, ModeSelection, PackingScenario
+  validation:
+    - packages/intelligence/src/validation/dutify-adapter.ts               # comparison-only landed-cost adapter
+    - packages/intelligence/src/validation/zonos-adapter.ts                # comparison-only
+    - packages/intelligence/src/validation/avalara-adapter.ts              # comparison-only
+
+new_modules_rust:
+  - "crates/daemon/src/errors/manifest.rs (EXTEND): add 10 ErrorCode variants — CLASSIFICATION_AMBIGUOUS, TARIFF_BRANCH_DIVERGENCE, MEASURE_INTERACTION_UNKNOWN, EXPORTER_UNRESOLVED, SUPPLEMENTARY_UNIT_MISSING, VALUATION_MODE_CONFLICT, FPO_UNAVAILABLE, TRADE_REMEDY_WATCH_STALE, FX_RATE_MISSING, FREIGHT_ESTIMATE_FAILED. Update as_str() matcher (in same file) and any exhaustive switch sites across the daemon (cargo clippy --all-targets -- -D warnings will surface them — typically 5-15 sites in validation/policy.rs, validation/executor.rs, errors/markdown.rs, tracing/structured.rs, ipc/handlers/*)."
+  - "crates/daemon/src/sources/registry.rs (EXTEND): RegisteredSource entries for 5 skills total — alibaba, amazon, 1688 (maturation; entries may already exist as candidate-stage), PCS (truly new — Scotland IN-scope per operator decision 2026-05-08)."
+  - "crates/daemon/src/scheduler/cron.rs (EXTEND): 4 new CronJobDefinition entries — HMRC tariff news watcher, TRA case register watcher, HMRC FX monthly rollover detector, Freightos/SeaRates source-health canary."
+
+new_dependencies_rust:
+  # reqwest already present from L4 — sufficient for HMRC/Xe/Freightos/SeaRates HTTP clients.
+  optional:
+    - "consider tower or governor crates if rate-limit bookkeeping for Xe/Freightos becomes complex (do NOT add unless empirically needed)"
+new_dependencies_ts:
+  # No mocking framework; tests use fixture cassettes per L0 convention. L5 follows.
+
+new_skills:
+  # CONTRADICTS spec §1.15 wording "Skill | Purpose | Interaction Profile" implying these are net-new:
+  # The directories alibaba/, amazon/, 1688/ ALREADY EXIST with SKILL.md + schemas at promotion_stage=candidate.
+  # L5's actual task is to MATURE these from candidate to decision-grade (deepen filters, add Chinese retry on Alibaba,
+  # tighten anti-bot canaries, expand canary.inputs.jsonl + golden.assertions.yaml + validator-rubric.yaml,
+  # promote to stable per L0 S4 promotion flow).
+  mature_to_decision_grade:
+    - skills/supplier-price-enrichment/alibaba/    # add Chinese retry, "Ready to Ship" filter, source-health canary
+    - skills/supplier-price-enrichment/1688/       # Chinese-keyword-only short clusters, domestic wholesale floor
+    - skills/supplier-price-enrichment/amazon/     # alias families, structured title vocabulary, browser-first (PA-API-5.0 sunset 2026-04-30)
+  truly_new:
+    - skills/procurement-ingestion/pcs/            # MANDATORY — Scotland IN-scope per operator decision 2026-05-08 (recorded_decisions.decision_2_pcs_scotland_scope); contains SKILL.md + result.schema.json + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml
+  optional_overlay:
+    - skills/validation/overlay-customs-classification/  # validator overlay for the customs domain — recommended; L5 should evaluate during step 03
+
+# === Cross-domain notes the validate-spec step must surface ===
+spec_callouts:
+  product_commodity_codes_locality:
+    spec_says: "via `product_commodity_codes` junction, existed since L0"
+    actual_repo_state: "product_commodity_codes is NOT in any SQLite migration (0001..0012). It exists ONLY in infra/supabase/migrations/0001_projection_tables.sql and 0004_rls_policies.sql."
+    resolution: "Spec must clarify ONE of: (A) L5 creates the SQLite junction in a new migration NNNN (next-free, 0013_l5_product_commodity_codes.sql); (B) L5 stores commodity-code candidates as a JSONB column on product_candidates (existing) and the projection layer denormalizes to the Supabase junction. Recommended: (A) — keeps local SQLite consistent with the projection model."
+  marketplace_skill_authorship:
+    spec_says: "§1.15 New Skills (Layer 5) — Amazon/Alibaba/1688 listed as new"
+    actual_repo_state: "alibaba/, amazon/, 1688/ all exist with SKILL.md + checkpoint.schema.json + result.schema.json at promotion_stage=candidate (eBay is the most mature; Alibaba SKILL.md is 241 lines)."
+    resolution: "Replace 'New Skills' framing with 'Skills to mature from candidate to stable for L5'. Capture the actual delta: Chinese retry on Alibaba, Chinese-only short clusters on 1688, alias families on Amazon, source-health canary expansion, validator overlay binding. PCS truly is new (gated by Scotland scope decision). DOES NOT REDUCE SCOPE — clarifies HOW."
+  hmrc_fpo_endpoint_name:
+    spec_says: "(note: \"FPO\" on HMRC's developer portal refers to Fast Parcel Operator — verify the correct API endpoint name during implementation)"
+    actual_repo_state: "Layer doc and existing skills/landed-cost/hmrc-customs-classification/ both use 'FPO' loosely. There is no shipped HMRC client yet."
+    resolution: "Step 01 validate-spec captures the open question; step 03 TDD records the planned endpoint(s) including the precise resource path; step 05 strategy makes the verification a prerequisite of the customs-recall bead."
+  errorcode_enum_extension:
+    spec_says: "§3.5 — 10 new customs error types"
+    actual_repo_state: "ErrorCode enum lives in crates/daemon/src/errors/manifest.rs:20+ (NOT in validation/policy.rs — that file holds ValidationPolicyMode/Trigger enums for L3 validation logic). It is a Rust enum with ~44 variants. Adding 10 variants requires recompilation and updating the as_str() matcher (same file) plus any exhaustive matches across the daemon."
+    resolution: "L5 is not 'pure plug-and-play' for the daemon — the customs error vocabulary is compile-time. Spec should acknowledge this. Skill plug-and-play applies to skill manifests, NOT to daemon enum vocabulary. The skill-plug-and-play rule still holds for the marketplace skills + PCS skill registration — those are plug-and-play to the EXTENT that registry.rs is updated to surface them. Document both clearly."
+  cron_scheduler_extension:
+    spec_says: "§1.11 — daily TRA watcher; HMRC tariff news watcher; FX monthly rollover; §1.4 source-health canary"
+    actual_repo_state: "crates/daemon/src/scheduler/cron.rs already has VALIDATION_CALIBRATION_READINESS_SWEEP_CRON and VALIDATION_CROSS_MODEL_AUDIT_CRON entries; pattern is established."
+    resolution: "L5 adds 4 CronJobDefinition entries with cron expressions following the existing pattern. Bootstrap doc must list the env vars or feature flags that enable each watcher in dev vs prod."
+  cbam_forward_placeholder_dates:
+    spec_says: "UK CBAM applies from 1 January 2027 with a trial sector rate in Q4 2026"
+    actual_repo_state: "Today is 2026-05-08. Trial window starts within 5 months."
+    resolution: "Step 03 TDD must include a future-regulatory-exposure-flag test scenario for tender delivery windows crossing 2027-01-01. Step 05 strategy treats CBAM placeholder population as Phase 6 (final hardening) — placeholder logic ships before any rate-bearing logic."
+  pcs_scotland_scope:
+    spec_says: "§3.6 Open Question — Scotland scope undecided"
+    actual_repo_state: "skills/procurement-ingestion/pcs/ does NOT exist."
+    resolution: "Step 01 validate-spec must SURFACE this as a hard precondition: a project-level decision must be made before step 07 (bead creation). If Scotland is in scope, PCS skill is created; if not, it's removed from L5 scope (with explicit Open Question note retained) — no scope drift."
+  agents_md_duplicated_blocks:
+    spec_says: "(silent on this)"
+    actual_repo_state: "AGENTS.md has both an authoritative 'br' block (~lines 262-305) and a duplicated/outdated 'bd' block (~lines 666-723). L4 manifest also flagged this."
+    resolution: "All L5 handoffs must use 'br' + 'bin/br-sync' (or 'br sync --flush-only' followed by manual git add .beads/ + commit). Cite the authoritative block."
+  no_ci_workflows:
+    spec_says: "(silent)"
+    actual_repo_state: "There is no .github/workflows/ directory. Tests run locally only."
+    resolution: "L5 bootstrap doc lists the local quality gate sequence (cargo fmt/check/clippy/test + bun run build/test/lint). Optional: L5 strategy may consider adding a minimum CI workflow as a final-phase bead, but only if the L5 owner authorizes — defaults to NOT in scope."
+
+# === Spec metadata (for ENRICHMENT after batch 1) ===
+spec_metadata:
+  total_lines: 520
+  total_sections: 3                   # 1 Overview & Customs Classification Engine, 2 FX/Freight/Multi-Source, 3 Testing/DoD/Risks/OQ
+  subsections_section_1: 16           # 1.1 Layer Narrative .. 1.16 Intelligence Package Additions
+  subsections_section_2: 4            # 2.1 Dual FX, 2.2 Full Freight, 2.3 Multi-Source Marketplace, 2.4 Existing Field Activation
+  subsections_section_3: 10           # 3.1 DoD .. 3.10 ADRs
+  dod_criteria_count: 12              # §3.1
+  test_files_planned: 5               # §3.2 — hmrc-fpo, customs-classification, measure-interaction, fx-engine, freight-engine
+  test_files_cumulative_target: 57    # §3.2 — explicitly stated cumulative target after L5 lands
+  test_scenarios_count: 12            # §3.3
+  customs_error_types_new: 10         # §3.5
+  open_questions: 5                   # §3.6 — references §10 Further Research #2/3/8/9/10
+  risks_count: 4                      # §3.7
+  forward_compat_provisions: 2        # §3.8 (L5→L6 readiness gate; PDF extraction toolkit extension)
+  external_accounts_required: 6       # HMRC tariff portal, HMRC FX, Xe, Freightos, SeaRates, Taric Support
+  external_accounts_optional: 4       # HS Ping, Easyship/Shippo, CurrencyBeacon/OANDA, Dutify/Zonos/Avalara
+  intelligence_files_added: 19        # §1.16
+  marketplace_skills_to_mature: 3     # alibaba, 1688, amazon (already exist as candidate)
+  marketplace_skills_truly_new: 1     # pcs (Scotland-scope-gated)
+  fx_files: 4                         # §2.1
+  logistics_files: 5                  # §2.2
+  customs_files: 6                    # §1.16 customs/
+  validation_comparison_files: 3      # §1.16 validation/
+
+# === Quality bar (L3 + L4 reference) ===
+quality_bar:
+  l4_kickoff: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-kickoff.md
+  l4_push: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-push.md
+  l4_tdd: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-tdd.md          # 623 lines, 4 test files, 158 checks, 8 static gates
+  l4_strategy: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-strategy.md
+  l4_bootstrap: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-bootstrap.md
+  l4_status: docs/pipeline/l4-shared-visibility/artifacts/l4-shared-visibility-status.yaml
+  l4_archived_handoffs: docs/pipeline/l4-shared-visibility/archived/2026-05-08-l4-shared-visibility/
+  l4_completion_audit: docs/pipeline/l4-shared-visibility/artifacts/l4-completion-audit-2026-05-08.md
+  l3_kickoff: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-kickoff.md
+  l3_tdd: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-tdd.md   # 557 lines
+  l3_strategy: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-strategy.md  # 478 lines
+  l3_bootstrap: docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-bootstrap.md  # 729 lines
+
+# === Strategy + research context ===
+strategy_root: docs/strategy/
+strategy_index: docs/strategy/cross-reference-index.md
+strategy_overview: docs/strategy/layer-strategy.md
+research_doc: docs/research/2026-03-08-public-procurement-intelligence-platform-research.md
+
+cross_layer_context:
+  prior_layers_built: ["L0", "L1", "L2", "L3", "L4"]
+  l4_completion_audit: docs/pipeline/l4-shared-visibility/artifacts/l4-completion-audit-2026-05-08.md
+  l4_status: "COMPLETE — zero gaps verdict 2026-05-08; all 18 DoD criteria green; 63 beads closed; 202 unit tests + 42 integration tests pass"
+  next_layer_blocked_on_l5: ["L6"]
+  l5_to_l6_readiness_gate: |
+    L6 cannot reach `ready_to_bid` while ANY of these L5 blockers is active:
+      - CLASSIFICATION_AMBIGUOUS
+      - TARIFF_BRANCH_DIVERGENCE
+      - SUPPLEMENTARY_UNIT_MISSING (on required components)
+      - decision_grade = broker_required
+      - classification_fresh_until expired for the expected import window
+    Quote-role quality gate: opportunities backed only by `domestic_wholesale_floor` (1688) or
+    `optimistic_floor` (Alibaba) evidence are NOT bid-ready unless the operator explicitly overrides.
+    (Source: layer-strategy.md §10 Interface Contracts; cross-reference-index.md row 229)
+
+milestones:
+  l5: M5
+  exit_criterion: "System handles >=3 goods categories with decision-grade landed cost and >=2 supplier sources per category. Multi-source HS recall produces independent-source agreement; UK 10-digit resolution covers all plausible families; measure interaction engine handles AD/CVD/safeguard/quota; dual FX engine (HMRC customs + Xe commercial); real Freightos + SeaRates freight estimates; >=3 categories have gold-set validation completed."
+
+# === Operator-recorded decisions (locked 2026-05-08 via AskUserQuestion) ===
+# These are pre-resolved answers to the four key decisions. The validator-agent
+# in step 01 §6 TRANSCRIBES these into the spec verbatim — it does NOT re-decide.
+recorded_decisions:
+  decision_1_product_commodity_codes_ownership:
+    choice: "Option A — L5 SQLite migration"
+    rationale: "Recommended default. Cleaner local state; no sync-engine impact. Supabase projection (created in L4) becomes the push target."
+    implementation: "migrations/0013_l5_product_commodity_codes.sql (or whatever next-free NNNN is at the time)"
+    recorded_by: operator
+    recorded_at: "2026-05-08"
+
+  decision_2_pcs_scotland_scope:
+    choice: "IN scope"
+    rationale: "Operator confirmed via AskUserQuestion 2026-05-08."
+    implementation: "skills/procurement-ingestion/pcs/ created in Phase 5 with full skill directory standard (SKILL.md + result.schema.json + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml). Daemon registry entry in sources/registry.rs. Bootstrap covers PCS OCDS Web API setup. Adds ~3-5 beads to Phase 5."
+    spec_action: "§1.15 PCS row stays in (NOT removed). §3.6 Q3 Open Question may be closed since the decision is made — but preserve the research back-reference as historical context."
+    recorded_by: operator
+    recorded_at: "2026-05-08"
+
+  decision_3_implementation_epic_structure:
+    choice: "Option (b) — sister epic"
+    rationale: "Recommended default. Clean separation between layer-doc-authoring epic (testproject1-4gh, children 4gh.1-4 already complete) and implementation work."
+    implementation: "Step 07 runs `br create --type=epic --priority=P0 --title='Epic: L5 Implementation — Expanded Commercial Intelligence' --label l5` and captures the new epic ID into the spec entry. All Phase 1-6 implementation beads thread under this new epic."
+    recorded_by: operator
+    recorded_at: "2026-05-08"
+
+  decision_4_gold_set_categories:
+    choice: "fasteners + packaging-cartons + examination-gloves"
+    rationale: "Operator confirmed proposed three. Clear differentiation: remedy-active (fasteners) / packaging-easy (cartons) / regulated medical (examination gloves)."
+    implementation: "Phase 6 creates: tests/fixtures/calibration/customs-classification/{fasteners,packaging-cartons,examination-gloves}/{canary.inputs.jsonl,golden.assertions.yaml,metadata.json,manifest.md} per L4 calibration corpus convention."
+    recorded_by: operator
+    recorded_at: "2026-05-08"
+
+  marketplace_skill_qa_baseline:
+    finding: "alibaba/amazon/1688 worked cleanly during QA stages 1-14 (operator confirmed 2026-05-08)."
+    impact: "Phase 5 maturation = spec-listed deltas ONLY (Chinese retry on Alibaba, Chinese-only short clusters on 1688, alias families on Amazon, source-health canary expansion, validator overlay binding, candidate→stable promotion). NO additional gap-fill work. Bead descriptions inherit the deltas verbatim from spec §1.15 + §2.3."
+    recorded_by: operator
+    recorded_at: "2026-05-08"
+
+  external_api_account_state:
+    already_held:
+      - "HMRC Developer Portal (Trade Tariff API + FPO API)"
+    needs_procurement_before_bead_execution:
+      - "Xe Currency Data API (commercial — sign up + payment + key)"
+      - "Freightos API (commercial — sign up + payment + key)"
+      - "SeaRates API (commercial — sign up + payment + key)"
+      - "Taric Support API (commercial — sign up + payment + key)"
+    optional_decline:
+      - "HMRC Exchange Rate Service — public, no auth required (verify during bootstrap)"
+      - "HS Ping (optional cross-check)"
+      - "Easyship/Shippo (optional parcel-mode)"
+      - "CurrencyBeacon/OANDA (optional backup FX)"
+      - "Dutify/Zonos/Avalara (optional comparison-only landed-cost adapters)"
+    note: "Step 03 bootstrap doc must explicitly mark which accounts are operator-held vs needs-procurement. Bead execution cannot start until the four mandatory commercial accounts (Xe, Freightos, SeaRates, Taric Support) have keys in hand. Recommended lead time: 1-2 weeks parallel with steps 01-09."
+    recorded_by: operator
+    recorded_at: "2026-05-08"
