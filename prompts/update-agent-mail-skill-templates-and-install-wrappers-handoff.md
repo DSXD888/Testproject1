@@ -52,6 +52,56 @@ Both wrappers call `list_contacts(...)`, build an explicit recipient list, and f
 
 ---
 
+## Known Current State To Confirm
+
+Confirm this baseline before editing. If it has changed, adapt to the current files but preserve the mission.
+
+```bash
+rg -n 'AgentMail|Agent Mail|br update|br close|file_reservation_paths|send_message|broadcast|list_contacts|br-claim|br-complete' \
+  /Users/zacfarrell/.codex/skills/pipemaxxer/TEMPLATES.md \
+  /Users/zacfarrell/.claude/skills/pipemaxxer/TEMPLATES.md
+```
+
+Expected shape at handoff creation:
+
+- Codex `pipemaxxer/TEMPLATES.md` has detailed stale kickoff/fix-bead loops with `file_reservation_paths(...)`, manual Start/Complete `send_message(...)`, and `{bead_cli} complete`.
+- Claude `pipemaxxer/TEMPLATES.md` has a shorter older template with the same stale manual claim/reserve/announce flow.
+- Codex and Claude `pipemaxxer/TEMPLATES.md` already differ structurally. Do not blindly copy one over the other. Fix the Agent Mail sections in both.
+
+```bash
+rg -n 'Coordination|Agent Mail|AgentMail|file reservations|announce|broadcast|list_contacts|br-claim|br-complete|br update|br close' \
+  /Users/zacfarrell/.codex/skills/layermaxxer \
+  /Users/zacfarrell/.claude/skills/layermaxxer
+```
+
+Expected shape at handoff creation:
+
+- `layermaxxer/SKILL.md` contains weak coordination requirements such as "File reservations via Agent Mail if present" and "Close, sync, commit, push, announce, repeat."
+- `layermaxxer/references/TEMPLATES.md` contains "Set up Agent Mail, check inbox, reserve files before editing" and "Close bead, sync, commit, push, release reservations, announce completion."
+- These need to become wrapper-first instructions when `bin/br-claim` / `bin/br-complete` exist.
+
+```bash
+rg -n 'br update <.*status=in_progress|br close <.*reason|file_reservation_paths|send_message|resource://agents|broadcast|br-claim|br-complete|AgentMail|Agent Mail' \
+  /Users/zacfarrell/.codex/skills/beads-to-execution \
+  /Users/zacfarrell/.claude/skills/beads-to-execution
+```
+
+Expected shape at handoff creation:
+
+- `beads-to-execution/TEMPLATES.md` is the main stale file. It still teaches `br update <bead-id> --status=in_progress`, `file_reservation_paths(...)`, manual claim `send_message(...)`, raw `br close`, and manual completion mail.
+- `beads-to-execution/SKILL.md`, `CHECKLIST.md`, and `WORKFLOW.md` mention Agent Mail coordination. Only update those if they actively contradict wrapper discipline. The required edit target is `TEMPLATES.md`.
+
+```bash
+test -d /Users/zacfarrell/.codex/skills/install-bead-wrappers || echo "codex install-bead-wrappers missing"
+test -d /Users/zacfarrell/.claude/skills/install-bead-wrappers || echo "claude install-bead-wrappers missing"
+```
+
+Expected shape at handoff creation: both directories are missing.
+
+Do not chase unrelated uses of the word `broadcast` in skills like `idea-to-research` or `research-to-spec`; those are not Agent Mail recipient examples and are out of scope.
+
+---
+
 ## Mandatory Reading
 
 Read these in order before editing:
@@ -78,6 +128,8 @@ sed -n '335,392p' prompts/phase-a-mail-discipline-infrastructure-handoff.md
 sed -n '1,190p' prompts/install-bead-wrappers-skill-handoff.md
 sed -n '140,225p' docs/pipeline/l5-expanded-commercial-intelligence/10-generate-kickoff.md
 sed -n '60,125p' docs/pipeline/l5-expanded-commercial-intelligence/11-push.md
+sed -n '330,390p' bin/br-claim
+sed -n '312,358p' bin/br-complete
 ```
 
 ---
@@ -131,7 +183,22 @@ Do not delete anything.
 - Do not change `AGENTS.md`, `.beads/`, `.git/hooks/`, or generated project pipeline docs.
 - Existing Claude and Codex skill copies may not be byte-identical before you start. Inspect diffs before editing. After your edits, Agent Mail workflow sections should be semantically identical even if unrelated historical template differences remain.
 - If you need to create the new `install-bead-wrappers` directory, create only the files listed in this handoff.
+- Do not leave placeholder text in newly created skill files. No `[Embed ...]`, `[Rule 2 content here]`, `{PROJECT_ROOT}`, or similar placeholder may remain in `install-bead-wrappers` deliverables except where the skill intentionally documents user-supplied arguments such as `<PROJECT_ROOT>`.
 - No file deletion.
+
+---
+
+## Output Quality Bar
+
+The finished handoff execution should make future generated prompts unambiguous to a new agent:
+
+- Claiming a bead means `bin/br-claim <id>`, not manual `br update` plus manual mail.
+- Completing a bead means commit, push, then `bin/br-complete <id>`, not manual `br close` plus manual mail.
+- Wrapper-handled Start/Complete mail is not duplicated with raw `send_message(...)`.
+- Raw `send_message(...)` remains only for blockers, questions, phase announcements, and session handoffs.
+- Every raw `send_message(...)` example includes `to=[...]` populated from `list_contacts(project_key, agent_name)`.
+- The phrase `broadcast` appears only in negative guidance such as "no broadcast" or "never use `to=\"broadcast\"`."
+- The new `install-bead-wrappers` skill can be invoked in a fresh repo without reading this handoff.
 
 ---
 
@@ -202,6 +269,7 @@ For fix-bead templates, use the same structure with `<fix-bead-id>`.
 - `pipemaxxer` no longer instructs agents to complete bead-tracked work with raw `br close` plus manual Complete mail.
 - Any manual `send_message(...)` guidance is limited to blockers, questions, session handoffs, or non-bead announcements and includes `list_contacts(...)` first.
 - The text explicitly says no Agent Mail broadcast exists.
+- Codex and Claude copies may still differ in unrelated template structure, but every Agent Mail / wrapper section must communicate the same behavior.
 
 ---
 
@@ -362,6 +430,7 @@ Agent Mail has NO broadcast recipient. Never use `to="broadcast"` or `to=["broad
 - Raw `br update --status=in_progress` / raw `br close` remains only as forbidden anti-pattern text, if present at all.
 - Manual mail examples discover peers via `list_contacts(...)`.
 - No `broadcast` recipient remains.
+- The older "first/only agent can skip send_message but reserve files manually" guidance is removed or rewritten: when wrappers exist, the wrapper handles Start mail and self-recipient fallback.
 
 ---
 
@@ -437,9 +506,22 @@ Wrap the extracted Rule 2 asset in markers:
 
 ```markdown
 <!-- BEGIN: AGENTS.md Rule 2 (managed by install-bead-wrappers skill) -->
-[Rule 2 content here]
+## RULE NUMBER 2: BEAD CLAIM DISCIPLINE — USE THE WRAPPERS
+
+For any bead-tracked work in this repo, you MUST use the project wrappers to claim and complete beads:
+
+- **`bin/br-claim <bead-id>`** to start work — atomically reserves files, sends `[<bead-id>] Start` mail to peers, and sets the bead `in_progress`.
+- **`bin/br-complete <bead-id>`** to finish work — atomically sends `[<bead-id>] Complete` mail, closes the bead, syncs `.beads/`, and releases file reservations.
+
+You MUST NOT use raw `br update --status=in_progress` or `br close <id>` directly — they bypass Agent Mail and file reservations, which leaves the swarm unable to detect collisions. The pre-commit hook at `.git/hooks/hooks.d/pre-commit/50-agent-mail.py` enforces file-reservation conflicts today; the Phase B extension to that hook (when active) will additionally block any commit with a `<bead-id>:` message prefix that has no corresponding `[<bead-id>] Start` mail in the archive.
+
+If a wrapper errors, fix the underlying problem (agent-mail server down, file reservation conflict, missing `AGENT_MAIL_NAME` env var). Never bypass.
+
+This is a constitutional rule, equal in force to Rule 1 (no file deletion). It applies to every layer (L0 through L6 and beyond) and every future stage.
 <!-- END: AGENTS.md Rule 2 (managed by install-bead-wrappers skill) -->
 ```
+
+Do not include Rule 1 or the irreversible-actions section in this asset.
 
 ### `SKILL.md` Required Frontmatter
 
@@ -493,6 +575,13 @@ am guard status
 
 10. Report exactly what was installed and stop. Do not claim beads or edit product code.
 
+Also include these implementation details:
+
+- Export both `AGENT_NAME` and `AGENT_MAIL_NAME` when smoke-testing wrapper behavior. The wrappers prefer `AGENT_MAIL_NAME` and fall back to `AGENT_NAME`.
+- The skill should use the target repository root discovered at invocation time. Do not hardcode `/Users/zacfarrell/Desktop/Testproject1` into the install workflow except in `METHODOLOGY.md` as the snapshot source for bundled assets.
+- The skill should be safe to run repeatedly in the same target repo. It may overwrite wrapper files from its bundled assets, but it must not append Rule 2 more than once.
+- The skill must explicitly stop after infrastructure installation. It must not claim beads, run project quality gates, or perform unrelated cleanup.
+
 ### `METHODOLOGY.md` Required Content
 
 Explain:
@@ -502,6 +591,14 @@ Explain:
 - Why `am guard install` is used rather than bundling hook source.
 - How wrapper assets are snapshotted from `Testproject1`.
 - How to refresh the skill later: update project wrappers first, then copy new wrapper assets into both skill trees and update any snapshot notes.
+
+Include a snapshot stamp:
+
+```bash
+git -C /Users/zacfarrell/Desktop/Testproject1 log -1 --format='%h %ci' -- bin/br-claim bin/br-complete
+```
+
+Record the returned commit/date in `METHODOLOGY.md` so a future refresh can tell whether the skill assets are stale.
 
 ### `CHECKLIST.md` Required Content
 
@@ -515,6 +612,7 @@ Include a checklist covering:
 - `am guard install --help` is documented, not `am install-guard`.
 - Install workflow is idempotent.
 - Skill stops after installation.
+- No placeholder text remains in any deliverable.
 
 ### Parity Requirement
 
@@ -535,15 +633,18 @@ Run these after edits:
 
 ```bash
 # 1. No stale Agent Mail broadcast recipient in touched skills
-rg -n 'to="broadcast"|to=\["broadcast"\]|to=\['"'"'broadcast'"'"'\]' \
+if rg -n "to=\"broadcast\"|to=\\[\"broadcast\"\\]|to=\\['broadcast'\\]" \
   /Users/zacfarrell/.codex/skills/pipemaxxer \
   /Users/zacfarrell/.codex/skills/layermaxxer \
   /Users/zacfarrell/.codex/skills/beads-to-execution \
   /Users/zacfarrell/.claude/skills/pipemaxxer \
   /Users/zacfarrell/.claude/skills/layermaxxer \
-  /Users/zacfarrell/.claude/skills/beads-to-execution
-
-# Expected: no matches.
+  /Users/zacfarrell/.claude/skills/beads-to-execution; then
+  echo "FAIL: stale broadcast recipient remains"
+  exit 1
+else
+  echo "OK: no broadcast recipient examples remain"
+fi
 ```
 
 ```bash
@@ -575,6 +676,18 @@ test -f /Users/zacfarrell/.codex/skills/install-bead-wrappers/SKILL.md
 test -f /Users/zacfarrell/.claude/skills/install-bead-wrappers/SKILL.md
 test -f /Users/zacfarrell/.codex/skills/install-bead-wrappers/assets/br-claim
 test -f /Users/zacfarrell/.claude/skills/install-bead-wrappers/assets/br-claim
+```
+
+```bash
+# 4b. install-bead-wrappers has no unreplaced placeholders
+if rg -n '\[Embed|\[Rule 2 content here\]|\{PROJECT_ROOT\}|\{PROJECT_NAME\}' \
+  /Users/zacfarrell/.codex/skills/install-bead-wrappers \
+  /Users/zacfarrell/.claude/skills/install-bead-wrappers; then
+  echo "FAIL: placeholder text remains in install-bead-wrappers"
+  exit 1
+else
+  echo "OK: no placeholder text remains in install-bead-wrappers"
+fi
 ```
 
 ```bash
