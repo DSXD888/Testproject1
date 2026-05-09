@@ -6,7 +6,7 @@
 
 ## Context
 
-`Testproject1` is post-L4 close-out. Phase A (wrappers + skill templates + AGENTS.md Rule 2) and Phase B (precommit hook Start-mail enforcement) are deployed. Empirical proof so far:
+`Testproject1` is post-L4 close-out. Phase A (wrappers + skill templates + AGENTS.md Rule 2) is deployed, and Phase B guard-hook behavior is expected but must be verified in the current worktree before relying on it. Empirical proof so far:
 - Wrappers exist, `--help` works, closed-bead guard works
 - Precommit hook blocked a commit lacking `AGENT_NAME` during the Phase A/B deployment session
 
@@ -19,7 +19,7 @@ If a wrapper has a bug that only surfaces on the live path (not `--dry-run`), sp
 
 This handoff is a **30-minute live smoke test** with a throwaway bead, run BEFORE the L5 swarm spawns. It catches any wrapper bug while the blast radius is one agent on one fake bead, not a swarm on real work.
 
-**Project key:** `/Users/alinaaitova/Desktop/Testproject1`
+**Project key:** `/Users/zacfarrell/Desktop/Testproject1`
 **Branch:** `main` only
 **Bead label:** `smoke-test` (a fresh label that won't collide with `layer-4`, `layer-5`, etc.)
 
@@ -37,7 +37,7 @@ Register before any other tool call. The wrappers require `AGENT_NAME` to be set
 
 ```
 macro_start_session(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   program="pre-l5-sanity-check",
   model="<your-model>",
   task_description="Pre-L5 mail-discipline sanity check"
@@ -76,15 +76,17 @@ In this order:
 Run each check below and pause on any failure. **Do not use `exit 1` inside an inline shell snippet** — it would terminate your bash tool's session. Instead, observe the output and STOP-and-report if anything is wrong.
 
 ```bash
-cd /Users/alinaaitova/Desktop/Testproject1
+cd /Users/zacfarrell/Desktop/Testproject1
 
-# A. Working tree must be CLEAN
+# A. Working tree awareness. Other agents may have unrelated changes; do not
+# stash, revert, delete, or overwrite them. Stop only if those changes collide
+# with this smoke test's files or bead metadata.
 if [ -n "$(git status --porcelain)" ]; then
-  echo "ABORT: working tree dirty:"
+  echo "NOTICE: working tree has existing changes:"
   git status --short
-  # STOP and report — do not proceed
+  echo "Continue only if the changes are unrelated to the smoke-test files you will touch."
 else
-  echo "✓ tree clean"
+  echo "✓ no existing working-tree changes observed"
 fi
 
 # B. Wrappers exist + executable
@@ -236,7 +238,7 @@ br show "$SMOKE_BEAD" --json | grep -E '"status"' | head -1
 In your agent session, also call:
 ```
 search_messages(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   query="[<SMOKE_BEAD>] Start"
 )
 ```
@@ -318,8 +320,10 @@ Verify all five post-conditions:
 br show "$SMOKE_BEAD" --json | grep -E '"status"' | head -1
 # Expected: "status":"closed"
 
-# 2. Working tree clean
-git status --porcelain | wc -l   # expect 0
+# 2. Smoke-test changes are landed
+git status --short
+# Expected: no uncommitted changes from the smoke-test files. Pre-existing
+# unrelated changes may still be present; do not disturb them.
 
 # 3. main pushed to origin
 git rev-list --count origin/main..HEAD   # expect 0
@@ -330,7 +334,7 @@ git rev-list --count origin/main..HEAD   # expect 0
 In your agent session:
 ```
 search_messages(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   query="[<SMOKE_BEAD>] Complete"
 )
 ```
@@ -340,7 +344,7 @@ search_messages(
 **5. File reservations released:** check via the `am` CLI (the MCP layer doesn't expose a "list active reservations" tool):
 
 ```bash
-am file_reservations 2>&1 | grep "$SMOKE_BEAD" || echo "✓ no active reservations referencing $SMOKE_BEAD"
+am file_reservations list /Users/zacfarrell/Desktop/Testproject1 2>&1 | grep "$SMOKE_BEAD" || echo "✓ no active reservations referencing $SMOKE_BEAD"
 ```
 
 (If a reservation referencing the smoke bead is still listed, `bin/br-complete` failed to release. Note this in your report.)
@@ -365,9 +369,9 @@ git pull --rebase && git push
 Then in your agent session, manually send the Complete mail and release reservations:
 
 ```
-peers = list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)
+peers = list_contacts(project_key="/Users/zacfarrell/Desktop/Testproject1", agent_name=<your-name>)
 send_message(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   sender_name=<your-name>,
   to=peers,
   thread_id="<SMOKE_BEAD>",
@@ -375,7 +379,7 @@ send_message(
   body_md="Smoke test ran but bin/br-complete failed at <step>. Bead closed manually. Wrapper bug under investigation."
 )
 release_file_reservations(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   agent_name=<your-name>
 )
 ```
@@ -436,7 +440,7 @@ br show "$SMOKE_BEAD" --json | jq -r '..|objects|select(.id=="'"$SMOKE_BEAD"'")|
 # Fallback if jq is not installed:
 #   br show "$SMOKE_BEAD" --json | grep -E '"(id|status|updated_at)"' | head -3
 
-# Working tree clean
+# Working tree awareness
 git status -sb
 
 # Origin sync

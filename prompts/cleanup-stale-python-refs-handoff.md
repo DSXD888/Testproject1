@@ -6,13 +6,13 @@
 
 ## Context
 
-During post-L4 forensic analysis (2026-05-08), 4 stale references to the OLD Python implementation of `mcp_agent_mail` were found in the `beads-to-execution` skill — across BOTH the Claude and Codex installations. The Python package was migrated to a Rust binary (`am 0.2.54`) some time ago, so these references would mislead any agent that hits server trouble and consults this guidance.
+During post-L4 forensic analysis (2026-05-08), 4 stale references to the OLD Python implementation of `mcp_agent_mail` were found in the `beads-to-execution` skill — across BOTH the Claude and Codex installations. The Python package was migrated to the Rust `am` binary, so these references would mislead any agent that hits server trouble and consults this guidance. Verify the live binary with `am --version` and `am --help`; do not hardcode an expected version.
 
 **The references are in TROUBLESHOOTING sections only**, so they don't affect the happy path of mail-disciplined bead claiming. But they pollute the recovery flow, and at least one of those file reads happens during routine session warmup.
 
 **This is purely a documentation correction.** No functional code changes. No behavior changes. ~5 minutes of work.
 
-**Project key:** `/Users/alinaaitova/Desktop/Testproject1`
+**Project key:** `/Users/zacfarrell/Desktop/Testproject1`
 **Branch:** `main` only (no feature branches per AGENTS.md)
 **Bead label:** N/A — this is documentation cleanup, not bead-tracked
 
@@ -26,7 +26,7 @@ Replace the stale Python invocation in 4 files (2 in Claude's skill dir, 2 in Co
 
 ## 2. AgentMail Registration
 
-Not required — this work is entirely in `~/.{claude,codex}/skills/`, which is OUTSIDE the project repo. There are no commits to make in `Testproject1`, so the precommit hook never fires. No `AGENT_NAME` needed unless your skill dirs are themselves a separate version-controlled repo (rare).
+Not required — this work is entirely in `~/.{claude,codex}/skills/`, which is OUTSIDE the project repo. There are no commits to make in `Testproject1`, so the precommit hook never fires. If your skill dirs are themselves in a separate version-controlled repo, export both `AGENT_NAME` and `AGENT_MAIL_NAME` before committing.
 
 ---
 
@@ -153,7 +153,7 @@ diff ~/.claude/skills/beads-to-execution/CHECKLIST.md ~/.codex/skills/beads-to-e
 diff ~/.claude/skills/beads-to-execution/WORKFLOW.md  ~/.codex/skills/beads-to-execution/WORKFLOW.md  && echo "WORKFLOW symmetric OK"
 
 # D. Project repo not touched
-cd /Users/alinaaitova/Desktop/Testproject1
+cd /Users/zacfarrell/Desktop/Testproject1
 git status --porcelain | grep -v "^?? " || echo "(working tree clean of modified tracked files)"
 
 # E. Defensive paranoia: existing wrappers still work post-edit
@@ -173,9 +173,10 @@ This is a single tiny commit. The skills directories live OUTSIDE the project re
 Confirm:
 
 ```bash
-cd /Users/alinaaitova/Desktop/Testproject1
+cd /Users/zacfarrell/Desktop/Testproject1
 git status
-# Should still be clean — skill dirs are not part of this repo
+# Expected: no tracked Testproject1 changes caused by this handoff. Other
+# agents may have unrelated changes; do not stash, revert, or delete them.
 ```
 
 If your skill dirs are version-controlled in some OTHER repo (some users keep `~/.claude/skills/` in a personal dotfiles repo), follow that repo's convention. Most users do not — in which case there's nothing to commit.

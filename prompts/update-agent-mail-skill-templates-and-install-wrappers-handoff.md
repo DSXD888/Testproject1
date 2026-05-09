@@ -60,7 +60,7 @@ When sources conflict, trust this precedence order:
 4. Current L5 kickoff/push docs.
 5. Older handoff docs.
 
-The older `prompts/install-bead-wrappers-skill-handoff.md` is useful for deliverable shape, but parts of it are stale. It uses the old `/Users/alinaaitova/Desktop/Testproject1` path, documents bare `am guard status`, and states Phase B Start-mail enforcement as already live. Do not copy those details. Use `/Users/zacfarrell/Desktop/Testproject1`, `am guard status <PROJECT_ROOT>`, and the current `AGENTS.md` Rule 2 wording that says Phase B Start-mail enforcement applies "when active."
+`prompts/install-bead-wrappers-skill-handoff.md` is useful for deliverable shape. Older revisions of that file used the old `/Users/alinaaitova/Desktop/Testproject1` path, documented bare `am guard status`, and overstated Phase B Start-mail enforcement. If you see any of those details in local edits or copied context, treat them as stale and use `/Users/zacfarrell/Desktop/Testproject1`, `am guard status <PROJECT_ROOT>`, and the current `AGENTS.md` Rule 2 wording that says Phase B Start-mail enforcement applies "when active."
 
 ---
 
@@ -152,8 +152,7 @@ Read these in order before editing:
    - Focus: D6, verification section, and the intent to move generated prompts from manual mail plumbing to wrapper commands.
 3. `/Users/zacfarrell/Desktop/Testproject1/prompts/install-bead-wrappers-skill-handoff.md`
    - Focus: deliverable shape for `install-bead-wrappers`.
-   - Adjust all old `/Users/alinaaitova/Desktop/Testproject1` examples to the actual current path `/Users/zacfarrell/Desktop/Testproject1`.
-   - Treat its `am guard status` and Phase B enforcement details as stale unless live `am --help` and current `AGENTS.md` confirm them.
+   - Verify all command examples against live `am --help` and current `AGENTS.md`; older revisions of this handoff had stale path and guard-status details.
 4. `/Users/zacfarrell/Desktop/Testproject1/docs/pipeline/l5-expanded-commercial-intelligence/10-generate-kickoff.md`
    - Focus: sections that mention `bin/br-claim`, `bin/br-complete`, `list_contacts`, and no broadcast.
 5. `/Users/zacfarrell/Desktop/Testproject1/docs/pipeline/l5-expanded-commercial-intelligence/11-push.md`
