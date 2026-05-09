@@ -81,14 +81,14 @@ Three real follow-ups remained for the incident runtime. A current-source implem
 | 20:54:13.296 | Daemon restarts, switches storage root to `~/.mcp_agent_mail_git_mailbox_repo/`. | stderr.log line 2 |
 | 20:54:13.426 | Proactive backup of the (already-corrupt-from-prior-shutdown) live DB written to `storage.sqlite3.bak`. Backup happens before integrity_check runs, which is why the backup is also zero-row. | stderr.log line 11 |
 | 20:54:13.519 | **Integrity guard detects corruption** at startup: `database disk image is malformed: page 72 is never used`. Live DB intentionally not mutated; recovery deferred to query path. | stderr.log line 14 |
-| 21:04:06 | `ensure_project` succeeds; project `users-alinaaitova-desktop-testproject1` created. | archive `git log` `cd0ff55` |
+| 21:04:06 | `ensure_project` succeeds; project `users-zacfarrell-desktop-testproject1` created. | archive `git log` `cd0ff55` |
 | 21:04:13 | `register_agent BronzeGoose` — fresh-durability probe **misses committed agent visibility** (`agent row not visible after commit for 1:BronzeGoose`); pooled runtime handle confirms the row. First explicit corruption-symptom warning of the session. | stderr.log line 63 |
 | 21:04:18 | `register_agent CrimsonChapel` (program `codex-cli`, model `gpt-5`) — same fresh-durability-probe miss. **Real concurrent Codex CLI session writing alongside Claude Code.** | stderr.log line 67 |
 | 21:04:20 | `create_agent_identity BronzeFrog` — same probe miss. | stderr.log line 68 |
 | 21:04:24 | CrimsonChapel sends self-addressed `[agent-mail-smoke] Self-test message` (id=1); fresh-durability probe misses committed message. | stderr.log lines 69–70 |
 | 21:04:27 | `send_message` (BronzeGoose → BronzeFrog) — daemon auto-injects `Contact request from BronzeGoose` (id=2) via the contact-handshake macro, then writes the smoke-test message (id=3). Both miss the fresh-durability probe. | stderr.log lines 71–72 |
 | ~21:06 | All MCP read tools (`list_agents`, `search_messages`, `fetch_inbox`) start returning *"A database error occurred. This may be a transient issue – try again."* | observed during smoke test |
-| 21:07:08.444 | **Readiness archive-drift detector fires.** "archive inventory is ahead of the sqlite index (archive=1/3/3, db=0/0/0, missing project users-alinaaitova-desktop-testproject1)". | stderr.log line 90 |
+| 21:07:08.444 | **Readiness archive-drift detector fires.** "archive inventory is ahead of the sqlite index (archive=1/3/3, db=0/0/0, missing project users-zacfarrell-desktop-testproject1)". | stderr.log line 90 |
 | 21:07:08.445 | Daemon removes header-only/truncated WAL sidecar (`storage.sqlite3-wal`, 32 bytes) before reconstruct, to prevent `WAL file too small for header` errors. | stderr.log line 91 |
 | 21:07:08.476 | Forensic bundle captured at `doctor/forensics/storage.sqlite3/reconstruct-20260505_210708_464/`, `command=reconstruct`, `trigger=automatic-recovery`. | stderr.log line 97 |
 | 21:07:08.495 | **Reconstruct succeeds:** `reconstructed 1 projects, 3 agents, 3 messages (3 recipients), 0 parse errors` (wall time ~50 ms). | stderr.log line 98 |
@@ -107,7 +107,7 @@ WARN integrity guard detected recoverable sqlite corruption; background guard do
      the live db — the query-path recovery flow will trigger an admission-controlled reconstruct
      on the next corrupt-verdict read
      phase="integrity_check"
-     path=/Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/storage.sqlite3
+     path=/Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/storage.sqlite3
      error=Integrity check failed: integrity_check detected corruption (3119us):
            database disk image is malformed: page 72 is never used
      storage_root_present=true
@@ -178,7 +178,7 @@ For every write during the smoke-test window and the concurrent codex-cli sessio
 ```
 21:07:08.444  WARN  readiness archive drift detected; attempting archive-backed SQLite reconcile
                     error=archive inventory is ahead of the sqlite index
-                          (archive=1/3/3, db=0/0/0, missing project users-alinaaitova-desktop-testproject1)
+                          (archive=1/3/3, db=0/0/0, missing project users-zacfarrell-desktop-testproject1)
 21:07:08.445  WARN  removing header-only/truncated WAL sidecar (<=32 bytes; prevents
                     'WAL file too small for header' errors)
                     path=…/storage.sqlite3-wal size=32
@@ -212,7 +212,7 @@ sqlite/
   storage.sqlite3-wal             # captured pre-recovery wal (32 bytes — truncated header, expected for delete-mode DB)
 ```
 
-The `archive-drift-report.json` is the load-bearing document for upstream filing. Its `identity_mismatches` field names exactly which project the DB had lost: *"Archive project users-alinaaitova-desktop-testproject1 has no matching DB identity."*
+The `archive-drift-report.json` is the load-bearing document for upstream filing. Its `identity_mismatches` field names exactly which project the DB had lost: *"Archive project users-zacfarrell-desktop-testproject1 has no matching DB identity."*
 
 Two stray sqlite snapshots also live alongside the live DB:
 
@@ -238,7 +238,7 @@ $ sqlite3 ~/.mcp_agent_mail_git_mailbox_repo/storage.sqlite3 \
 3 | Smoke test: hello from BronzeGoose    | BronzeGoose
 ```
 
-Archive filenames at `…/projects/users-alinaaitova-desktop-testproject1/messages/2026/05/`:
+Archive filenames at `…/projects/users-zacfarrell-desktop-testproject1/messages/2026/05/`:
 
 ```
 2026-05-05T21-04-24Z__agent-mail-smoke-self-test-message__1.md
@@ -250,7 +250,7 @@ IDs match (`__1`, `__2`, `__3`); slugs derive directly from the subjects; timest
 
 ```
 Archive Scan:
-  Storage root         /Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo
+  Storage root         /Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo
   Projects:                 1
   Agents:                   3
   Logical messages:         3
@@ -339,11 +339,11 @@ To reproduce the smoke-test workload that triggered (but did not cause) recovery
 ```jsonc
 // 1. Ensure project — must be an absolute path matching the working directory
 { "method": "ensure_project",
-  "params": { "human_key": "/Users/alinaaitova/Desktop/Testproject1" } }
+  "params": { "human_key": "/Users/zacfarrell/Desktop/Testproject1" } }
 
 // 2. Register sender
 { "method": "register_agent",
-  "params": { "project_key": "/Users/alinaaitova/Desktop/Testproject1",
+  "params": { "project_key": "/Users/zacfarrell/Desktop/Testproject1",
               "program": "claude-code",
               "model": "claude-opus-4-7",
               "task_description": "Smoke test" } }
@@ -351,14 +351,14 @@ To reproduce the smoke-test workload that triggered (but did not cause) recovery
 
 // 3. Create a recipient identity (always a fresh adjective+noun)
 { "method": "create_agent_identity",
-  "params": { "project_key": "/Users/alinaaitova/Desktop/Testproject1",
+  "params": { "project_key": "/Users/zacfarrell/Desktop/Testproject1",
               "program": "claude-code",
               "model": "claude-opus-4-7",
               "task_description": "Test recipient" } }
 
 // 4. Send a marker-keyword message so search has something distinctive to find
 { "method": "send_message",
-  "params": { "project_key": "/Users/alinaaitova/Desktop/Testproject1",
+  "params": { "project_key": "/Users/zacfarrell/Desktop/Testproject1",
               "sender_name": "<sender from step 2>",
               "to": ["<recipient from step 3>"],
               "subject": "Smoke test message",
@@ -368,7 +368,7 @@ To reproduce the smoke-test workload that triggered (but did not cause) recovery
 
 // 5. File reservations
 { "method": "file_reservation_paths",
-  "params": { "project_key": "/Users/alinaaitova/Desktop/Testproject1",
+  "params": { "project_key": "/Users/zacfarrell/Desktop/Testproject1",
               "agent_name": "<sender from step 2>",
               "paths": ["docs/session-log-2026-05-05.md", "docs/research/scratch-*.md"],
               "ttl_seconds": 300, "exclusive": true,
@@ -376,14 +376,14 @@ To reproduce the smoke-test workload that triggered (but did not cause) recovery
 
 // 6. The reads that failed during the outage and now succeed
 { "method": "search_messages",
-  "params": { "project_key": "/Users/alinaaitova/Desktop/Testproject1",
+  "params": { "project_key": "/Users/zacfarrell/Desktop/Testproject1",
               "query": "procurement-smoketest-marker-42" } }
 { "method": "fetch_inbox",
-  "params": { "project_key": "/Users/alinaaitova/Desktop/Testproject1",
+  "params": { "project_key": "/Users/zacfarrell/Desktop/Testproject1",
               "agent_name": "<recipient from step 3>",
               "include_bodies": true, "limit": 10 } }
 { "method": "list_agents",
-  "params": { "project_key": "/Users/alinaaitova/Desktop/Testproject1" } }
+  "params": { "project_key": "/Users/zacfarrell/Desktop/Testproject1" } }
 ```
 
 Note: with the pre-existing corruption gone, this sequence will not re-trigger the desync. To deliberately reproduce the failure mode for upstream debugging you would need to inject the same kind of page corruption directly into a sandbox copy of `storage.sqlite3` — outside the scope of this handoff.
@@ -461,7 +461,7 @@ Version caveat: this section is written for the incident machine running `am 0.2
 | check | action | detail |
 | --- | --- | --- |
 | `legacy_python_alias` | skip | "No legacy aliases found" |
-| `path_order` | skip | "/Users/alinaaitova/.local/bin already in PATH" |
+| `path_order` | skip | "/Users/zacfarrell/.local/bin already in PATH" |
 | `mcp_config` | dry_run | **"Would convert stdio command mode in `~/Library/Application Support/Claude/claude_desktop_config.json` to `http://127.0.0.1:8765/mcp/`"** |
 | `storage_root_git_index_lock` | skip | "No stale index.lock files" |
 | `guard_hooks` | skip | "Guard hooks already installed" |
@@ -561,7 +561,7 @@ stderr.log line 119, 2026-05-05T21:27:02.040Z (after the recovery, during routin
 
 ```
 WARN archive maintenance failed
-     git_dir=/Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/.git
+     git_dir=/Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/.git
      error="exit exit status: 127: nice: ionice: No such file or directory"
 ```
 
@@ -577,10 +577,10 @@ The archive maintenance worker shells out to `nice ionice <git command>`. macOS 
 
 | What | Where |
 | --- | --- |
-| `am` binary | `/Users/alinaaitova/.local/bin/am` (v0.2.51) |
+| `am` binary | `/Users/zacfarrell/.local/bin/am` (v0.2.51) |
 | Storage root | `~/.mcp_agent_mail_git_mailbox_repo/` |
 | Live SQLite index | `~/.mcp_agent_mail_git_mailbox_repo/storage.sqlite3` |
-| Archive (canonical) | `~/.mcp_agent_mail_git_mailbox_repo/projects/users-alinaaitova-desktop-testproject1/` |
+| Archive (canonical) | `~/.mcp_agent_mail_git_mailbox_repo/projects/users-zacfarrell-desktop-testproject1/` |
 | Forensic bundle (this incident) | `~/.mcp_agent_mail_git_mailbox_repo/doctor/forensics/storage.sqlite3/reconstruct-20260505_210708_464/` |
 | Search index (Tantivy) | `~/.mcp_agent_mail_git_mailbox_repo/search_index/` |
 | Daemon (LaunchAgent) | `com.agent-mail`, plist at `~/Library/LaunchAgents/com.agent-mail.plist` |
@@ -588,8 +588,8 @@ The archive maintenance worker shells out to `nice ionice <git command>`. macOS 
 | Daemon stderr log (load-bearing) | `~/Library/Logs/agent-mail/stderr.log` |
 | Daemon stdout log | `~/Library/Logs/agent-mail/stdout.log` (empty in v0.2.51 — all output is on stderr) |
 | HTTP server | `127.0.0.1:8765` (development env) |
-| Project key (this project) | `/Users/alinaaitova/Desktop/Testproject1` |
-| Project slug | `users-alinaaitova-desktop-testproject1` |
+| Project key (this project) | `/Users/zacfarrell/Desktop/Testproject1` |
+| Project slug | `users-zacfarrell-desktop-testproject1` |
 | Project UID | `52b365509219e7df692d` |
 | Schema version | confirmed at startup, all migrations v15–v21 reported "schema already satisfies" |
 | Claude Desktop MCP config (will be rewritten by `am doctor fix`) | `~/Library/Application Support/Claude/claude_desktop_config.json` |

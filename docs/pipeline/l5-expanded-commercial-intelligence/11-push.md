@@ -29,7 +29,7 @@ The push prompt is a **compact continuation nudge** (~80-130 lines, 8-9 sections
 The push prompt is reused continuously across multiple continuation sessions. It must NOT contain stale instructions. It must always reflect the latest:
 
 - Bead CLI invariants (`br` not `bd`, `bin/br-sync` not raw `br sync`, `bin/br-claim` / `bin/br-complete` wrappers per AGENTS.md Rule 2).
-- AgentMail project key (`/Users/alinaaitova/Desktop/Testproject1`).
+- AgentMail project key (`/Users/zacfarrell/Desktop/Testproject1`).
 - Verification commands (Stage Validation Test Gate, AGENTS.md:150-166).
 - Work loop steps.
 - L5-specific contracts (conservative defaults constitutional, FPO never primary, UK-specificity rule, never greedy descent, compound/specific duty preserved, customs branch divergence is hard blocker, L5→L6 readiness gate 5 conditions).
@@ -114,7 +114,7 @@ Phase 1 (Foundation: schema + daemon glue) — root
 Same as kickoff §9, condensed to a single table with key paths per phase.
 
 ### 8. AgentMail Quick Reference (compact)
-- Project key: `/Users/alinaaitova/Desktop/Testproject1` (verbatim).
+- Project key: `/Users/zacfarrell/Desktop/Testproject1` (verbatim).
 - Discover peers: `list_contacts(...)` → store as `<peers>`.
 - NEVER `to="broadcast"` — always `to=["<peers>"]`.
 - Wrappers handle Start/Complete mail; raw `send_message` only for blockers/questions.
@@ -133,7 +133,7 @@ Same as kickoff §9, condensed to a single table with key paths per phase.
 Before authorizing the push prompt for use, verify:
 
 - [ ] Length is **80-130 lines** (not 300+ — that's a kickoff; not 30 — that's a Slack reminder).
-- [ ] AgentMail project key is `/Users/alinaaitova/Desktop/Testproject1` verbatim.
+- [ ] AgentMail project key is `/Users/zacfarrell/Desktop/Testproject1` verbatim.
 - [ ] Bead CLI is `br` (NOT `bd`).
 - [ ] Sync command is `bin/br-sync` (NOT raw `br sync`).
 - [ ] Bead CLAIM uses `bin/br-claim <id>` (NOT raw `br update --status=in_progress`).

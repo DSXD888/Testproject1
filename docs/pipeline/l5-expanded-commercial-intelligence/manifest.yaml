@@ -26,7 +26,7 @@ existing_layer_doc_status: "documentation children (4gh.1-4) likely complete; ve
 
 agentmail:
   enabled: true
-  project_key: /Users/alinaaitova/Desktop/Testproject1
+  project_key: /Users/zacfarrell/Desktop/Testproject1
 
 tech_stack:
   language: "mixed (rust + typescript)"

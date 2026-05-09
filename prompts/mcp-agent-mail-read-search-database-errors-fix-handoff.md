@@ -16,8 +16,8 @@ Out of scope: destructive cleanup of live Agent Mail storage, deleting smoke-tes
 - **Expected behavior**: after a successful `send_message`, the message is visible through `search_messages`, `fetch_inbox`, and resource reads, or the server returns an actionable degraded-state error that names the archive/SQLite mismatch and recovery action.
 - **Reproducibility**: environment-specific. Captured 2/2 during a degraded state on `2026-05-05T21:04Z`; later stopped reproducing after archive/SQLite alignment.
 - **Runtime**: macOS 15.5 arm64, `am 0.2.51`, MCP Agent Mail HTTP server at `127.0.0.1:8765`, storage root `~/.mcp_agent_mail_git_mailbox_repo`.
-- **Captured storage path**: `/Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/storage.sqlite3`.
-- **Project key in evidence**: `/Users/alinaaitova/Desktop/Testproject1`.
+- **Captured storage path**: `/Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/storage.sqlite3`.
+- **Project key in evidence**: `/Users/zacfarrell/Desktop/Testproject1`.
 
 Key degraded health payload:
 
@@ -27,7 +27,7 @@ Key degraded health payload:
   "health_level": "red",
   "semantic_readiness": {
     "status": "fail",
-    "detail": "archive inventory is ahead of the sqlite index (archive projects=1, agents=3, messages=3, latest_id=3, db projects=0, agents=0, messages=0, max_id=0, missing archive project(s) in db: users-alinaaitova-desktop-testproject1 (/Users/alinaaitova/Desktop/Testproject1))"
+    "detail": "archive inventory is ahead of the sqlite index (archive projects=1, agents=3, messages=3, latest_id=3, db projects=0, agents=0, messages=0, max_id=0, missing archive project(s) in db: users-zacfarrell-desktop-testproject1 (/Users/zacfarrell/Desktop/Testproject1))"
   },
   "recovery": {
     "mode": "degraded_read_only",
@@ -70,7 +70,7 @@ Post-recovery success payloads prove the archive had the data and reconstruction
 
 ## LOCAL EVIDENCE TO READ FIRST
 
-Read these files in `/Users/alinaaitova/Desktop/Testproject1` before touching Agent Mail source:
+Read these files in `/Users/zacfarrell/Desktop/Testproject1` before touching Agent Mail source:
 
 1. `prompts/mcp-agent-mail-read-search-error-manifest.md`
    - Primary forensic manifest supplied for this task.
@@ -426,7 +426,7 @@ Patch the MCP tool error mapping so read/search callers receive enough data to a
       "db_projects": 0,
       "db_agents": 0,
       "db_messages": 0,
-      "missing_archive_projects": ["users-alinaaitova-desktop-testproject1"]
+      "missing_archive_projects": ["users-zacfarrell-desktop-testproject1"]
     },
     "recovery": {
       "mode": "degraded_read_only",
@@ -630,7 +630,7 @@ Evidence commands from the incident:
 {
   "tool": "mcp__mcp_agent_mail__.search_messages",
   "arguments": {
-    "project_key": "/Users/alinaaitova/Desktop/Testproject1",
+    "project_key": "/Users/zacfarrell/Desktop/Testproject1",
     "query": "agent-mail-smoke",
     "limit": 10,
     "ranking": "recency"
@@ -642,7 +642,7 @@ Evidence commands from the incident:
 {
   "tool": "mcp__mcp_agent_mail__.fetch_inbox",
   "arguments": {
-    "project_key": "/Users/alinaaitova/Desktop/Testproject1",
+    "project_key": "/Users/zacfarrell/Desktop/Testproject1",
     "agent_name": "CrimsonChapel",
     "include_bodies": true,
     "limit": 10
@@ -653,8 +653,8 @@ Evidence commands from the incident:
 Resource reads to validate:
 
 ```text
-resource://inbox/CrimsonChapel?project=/Users/alinaaitova/Desktop/Testproject1&include_bodies=true&limit=10
-resource://thread/agent-mail-smoke-2026-05-05?project=/Users/alinaaitova/Desktop/Testproject1&include_bodies=true&limit=10
+resource://inbox/CrimsonChapel?project=/Users/zacfarrell/Desktop/Testproject1&include_bodies=true&limit=10
+resource://thread/agent-mail-smoke-2026-05-05?project=/Users/zacfarrell/Desktop/Testproject1&include_bodies=true&limit=10
 ```
 
 Post-fix expected outcomes:

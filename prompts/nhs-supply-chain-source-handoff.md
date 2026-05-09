@@ -52,7 +52,7 @@ agent-browser --version  # Verify installation
 ### 2. Verify daemon compiles
 
 ```bash
-cd /Users/alinaaitova/Desktop/Testproject1
+cd /Users/zacfarrell/Desktop/Testproject1
 cargo check --all-targets
 ```
 
@@ -63,7 +63,7 @@ cargo check --all-targets
 ### Project Structure
 
 ```
-/Users/alinaaitova/Desktop/Testproject1/
+/Users/zacfarrell/Desktop/Testproject1/
   crates/daemon/src/main.rs              # Daemon core, live loop functions, persist_ingestion_from_agent_output
   crates/daemon/src/sources/registry.rs  # Source definitions (builtin_definitions())
   crates/daemon/src/agents/claude.rs     # Claude CLI adapter

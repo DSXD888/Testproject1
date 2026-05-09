@@ -312,5 +312,5 @@ Do NOT create a sibling validated-spec file. Edit the L5 layer doc in place; the
 - Several seemingly-contradictory passages reflect deliberate hedges (e.g., "FPO is one recall source among several, not the primary classifier"). Preserve hedges; do not collapse them into simpler claims.
 - The 10 customs error codes in §3.5 are tightly chosen — do not invent new ones during validation. If you find a missing error case, flag it for step 03 TDD discussion, not for spec editing.
 - Bead CLI is `br` (NEVER `bd`). Bead sync is `bin/br-sync`. Cite AGENTS.md:262-305 (authoritative block); ignore the duplicated `bd` block at AGENTS.md:666-723.
-- AgentMail key is `/Users/alinaaitova/Desktop/Testproject1`.
+- AgentMail key is `/Users/zacfarrell/Desktop/Testproject1`.
 - **ZERO SCOPE DRIFT** — every feature in the L5 layer doc must remain in the validated spec.

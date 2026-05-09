@@ -474,7 +474,7 @@ Based on the intent analysis, the most important research areas were:
 **Observed Repository State:**
 
 ```text
-/Users/alinaaitova/Desktop/Testproject1
+/Users/zacfarrell/Desktop/Testproject1
 ├── .git/
 └── yolo                # placeholder file with "test"
 ```
@@ -494,7 +494,7 @@ This research document therefore acts as a **foundational architecture brief** f
 ### 3.3 Files Present Today
 
 #### File: `yolo`
-**Location:** `/Users/alinaaitova/Desktop/Testproject1/yolo`
+**Location:** `/Users/zacfarrell/Desktop/Testproject1/yolo`
 
 **Relevance:** None to the target application. Appears to be a placeholder file.
 
@@ -609,13 +609,13 @@ There are no current implementation files to study. The practical equivalent is:
 
 | File | Purpose | Key Sections |
 |------|---------|--------------|
-| `/Users/alinaaitova/Desktop/Testproject1/docs/research/2026-03-08-public-procurement-intelligence-platform-research.md` | Foundational system design | All |
+| `/Users/zacfarrell/Desktop/Testproject1/docs/research/2026-03-08-public-procurement-intelligence-platform-research.md` | Foundational system design | All |
 
 #### Should Read (Important Context)
 
 | File | Purpose |
 |------|---------|
-| `/Users/alinaaitova/.codex/skills/idea-to-research/SKILL.md` | Defines expected research depth and handoff quality |
+| `/Users/zacfarrell/.codex/skills/idea-to-research/SKILL.md` | Defines expected research depth and handoff quality |
 
 ### 3.7 Files to Modify
 
@@ -623,15 +623,15 @@ There are no current implementation files to study. The practical equivalent is:
 
 | File | Changes Needed | Impact |
 |------|----------------|--------|
-| `/Users/alinaaitova/Desktop/Testproject1/yolo` | Ignore during bootstrap; only delete during explicit repo cleanup | Low |
+| `/Users/zacfarrell/Desktop/Testproject1/yolo` | Ignore during bootstrap; only delete during explicit repo cleanup | Low |
 
 #### Likely Bootstrap Files
 
 | File | Probable Changes | Confidence |
 |------|------------------|------------|
-| `/Users/alinaaitova/Desktop/Testproject1/package.json` | Workspace/bootstrap setup | High |
-| `/Users/alinaaitova/Desktop/Testproject1/bunfig.toml` | Bun workspace/runtime settings | High |
-| `/Users/alinaaitova/Desktop/Testproject1/Cargo.toml` | Rust workspace definition | High |
+| `/Users/zacfarrell/Desktop/Testproject1/package.json` | Workspace/bootstrap setup | High |
+| `/Users/zacfarrell/Desktop/Testproject1/bunfig.toml` | Bun workspace/runtime settings | High |
+| `/Users/zacfarrell/Desktop/Testproject1/Cargo.toml` | Rust workspace definition | High |
 
 ### 3.8 Potential Refactoring Needs
 
@@ -4777,8 +4777,8 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 
 | Priority | File | Purpose |
 |----------|------|---------|
-| 1 | `/Users/alinaaitova/Desktop/Testproject1/docs/research/2026-03-08-public-procurement-intelligence-platform-research.md` | Foundational architecture and decisions |
-| 2 | `/Users/alinaaitova/.codex/skills/idea-to-research/SKILL.md` | Skill workflow and expected research handoff standard |
+| 1 | `/Users/zacfarrell/Desktop/Testproject1/docs/research/2026-03-08-public-procurement-intelligence-platform-research.md` | Foundational architecture and decisions |
+| 2 | `/Users/zacfarrell/.codex/skills/idea-to-research/SKILL.md` | Skill workflow and expected research handoff standard |
 
 ### 8.2 Files to Create
 
@@ -4786,155 +4786,155 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 
 | File | Purpose | Template |
 |------|---------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/package.json` | root workspace scripts | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/bunfig.toml` | Bun workspace/runtime settings | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/Cargo.toml` | Rust workspace | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/.env.example` | environment contract | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/package.json` | root workspace scripts | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/bunfig.toml` | Bun workspace/runtime settings | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/Cargo.toml` | Rust workspace | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/.env.example` | environment contract | custom |
 
 #### Database and Infra
 
 | File | Purpose | Template |
 |------|---------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0001_sqlite_state_initial.sql` | Local SQLite state.db schema bootstrap — pipeline entities (procurement_processes, contract_notices, notice_lots, qualification_runs, product_candidates, supplier_quotes, landed_cost_estimates, manifests, pipeline_assessments, bid_workflow_states, process_relations, search_profiles, executors), all with sync tracking columns | based on section 5.4 (SQLite syntax) |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0002_sqlite_state_sync.sql` | Local outbox, sync batches, pull cursors, stage tracking (process_stage_status, process_stage_heads) | section 5.4 sync infrastructure |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/migrations/0003_sqlite_artifacts.sql` | Artifacts DB schema — agent_session_logs (with orchestration domain columns), raw_documents, error_manifests | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0001_initial.sql` | Supabase/Postgres projection tables (all push-owned entities including notice_lots, process_relations, search_profiles, workflow_job_summaries, error_manifest_summaries) + remote-owned tables (shared_company_profile, shared_source_configs, operator_decision_heads) | based on section 5.4 |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0002_rls.sql` | RLS policies per authority role (viewer, operator, admin, daemon) — see §6.3 for policy matrix | section 6.3 |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0003_sync_apply.sql` | Transactional sync apply RPC for push batches + operator decision CAS RPC | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0004_schema_metadata.sql` | Schema metadata table + initial schema_epoch | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0005_stage_tracking.sql` | process_stage_status, process_stage_heads projection tables | section 5.4 stage tracking |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/db/migrations/0006_junction_tables.sql` | notice_cpv_codes, product_commodity_codes, lot_cpv_codes | section 5.4 junction tables |
-| `/Users/alinaaitova/Desktop/Testproject1/infra/supabase/config.toml` | local Supabase config | Supabase standard |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/migrations/0001_sqlite_state_initial.sql` | Local SQLite state.db schema bootstrap — pipeline entities (procurement_processes, contract_notices, notice_lots, qualification_runs, product_candidates, supplier_quotes, landed_cost_estimates, manifests, pipeline_assessments, bid_workflow_states, process_relations, search_profiles, executors), all with sync tracking columns | based on section 5.4 (SQLite syntax) |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/migrations/0002_sqlite_state_sync.sql` | Local outbox, sync batches, pull cursors, stage tracking (process_stage_status, process_stage_heads) | section 5.4 sync infrastructure |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/migrations/0003_sqlite_artifacts.sql` | Artifacts DB schema — agent_session_logs (with orchestration domain columns), raw_documents, error_manifests | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/db/migrations/0001_initial.sql` | Supabase/Postgres projection tables (all push-owned entities including notice_lots, process_relations, search_profiles, workflow_job_summaries, error_manifest_summaries) + remote-owned tables (shared_company_profile, shared_source_configs, operator_decision_heads) | based on section 5.4 |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/db/migrations/0002_rls.sql` | RLS policies per authority role (viewer, operator, admin, daemon) — see §6.3 for policy matrix | section 6.3 |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/db/migrations/0003_sync_apply.sql` | Transactional sync apply RPC for push batches + operator decision CAS RPC | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/db/migrations/0004_schema_metadata.sql` | Schema metadata table + initial schema_epoch | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/db/migrations/0005_stage_tracking.sql` | process_stage_status, process_stage_heads projection tables | section 5.4 stage tracking |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/db/migrations/0006_junction_tables.sql` | notice_cpv_codes, product_commodity_codes, lot_cpv_codes | section 5.4 junction tables |
+| `/Users/zacfarrell/Desktop/Testproject1/infra/supabase/config.toml` | local Supabase config | Supabase standard |
 
 #### Shared Domain
 
 | File | Purpose | Template |
 |------|---------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/packages/contracts-schema/src/contracts.ts` | canonical contract types | section 5.4 |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/contracts-schema/src/jobs.ts` | job payloads and states | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/contracts-schema/src/confidence.ts` | confidence models | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/contracts-schema/src/zod.ts` | runtime validation | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/contracts-schema/src/contracts.ts` | canonical contract types | section 5.4 |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/contracts-schema/src/jobs.ts` | job payloads and states | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/contracts-schema/src/confidence.ts` | confidence models | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/contracts-schema/src/zod.ts` | runtime validation | custom |
 
 #### Cost-Estimation Intelligence Engine (API-Based)
 
 | File | Purpose | Template |
 |------|---------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/qualification/expiry.ts` | 30-day expiry filter | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/qualification/access-route.ts` | access-route classification and bidability rules | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/qualification/goods.ts` | goods/services qualification | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/qualification/quoteability.ts` | deterministic quoteability scoring | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/relations/resolve-process-relations.ts` | OCID + heuristic relation resolution | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/extraction/products.ts` | line-item/product extraction | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/search/build-search-profile.ts` | multilingual query-pack construction from structured candidate slots | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/hmrc-tariff.ts` | HMRC Trade Tariff API integration | official HMRC docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/hmrc-fpo.ts` | HMRC FPO candidate code generator API | official HMRC FPO docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/classification-preprocessing.ts` | description-quality gate, bundle splitter, attribute extraction, multi-query FPO dispatch | custom (§4.5) |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/ten-digit-resolver.ts` | 10-digit commodity code resolution from 6/8-digit FPO candidates via Trade Tariff API | custom (§4.5) |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/measure-scanner.ts` | trade remedy detection, preferential eligibility, quota checks, additional code requirements | custom (§4.5) |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/taric-support.ts` | Taric Support API for code validation | Taric Support docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/hs-ping.ts` | HS Ping comparison lookup | HS Ping docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/fx/xe.ts` | Xe commercial FX integration | official Xe docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/fx/hmrc-exchange-rates.ts` | HMRC official exchange rates for customs valuation | HMRC docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/fx/currencybeacon.ts` | CurrencyBeacon backup/comparison FX integration | CurrencyBeacon docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/fx/oanda.ts` | OANDA historical FX integration | OANDA docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/logistics/freightos.ts` | Freightos freight API integration | official Freightos docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/logistics/searates.ts` | SeaRates freight API integration | SeaRates docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/logistics/mode-selection.ts` | freight mode decision tree with hard mode locks and dual packing scenarios | custom (§4.4) |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/logistics/easyship.ts` | Easyship parcel-mode freight and duty estimation | Easyship docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/logistics/shippo.ts` | Shippo parcel-mode carrier rates and international shipping | Shippo docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/validation/dutify.ts` | Dutify landed-cost comparison adapter | Dutify docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/validation/zonos.ts` | Zonos landed-cost comparison adapter | Zonos docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/validation/avalara.ts` | Avalara landed-cost comparison adapter | Avalara docs |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/margins/revenue-normalizer.ts` | revenue basis classification and expected_addressable_revenue_ex_vat extraction | custom (Appendix A) |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/margins/quote-normalizer.ts` | Incoterm cost boundary normalization (EXW/FOB/CIF/DDP → comparable basis) | custom (Appendix A) |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/margins/margin-scenarios.ts` | low/base/high margin scenario calculation with critical blocker checks | custom (Appendix A) |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/qualification/expiry.ts` | 30-day expiry filter | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/qualification/access-route.ts` | access-route classification and bidability rules | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/qualification/goods.ts` | goods/services qualification | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/qualification/quoteability.ts` | deterministic quoteability scoring | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/relations/resolve-process-relations.ts` | OCID + heuristic relation resolution | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/extraction/products.ts` | line-item/product extraction | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/search/build-search-profile.ts` | multilingual query-pack construction from structured candidate slots | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/customs/hmrc-tariff.ts` | HMRC Trade Tariff API integration | official HMRC docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/customs/hmrc-fpo.ts` | HMRC FPO candidate code generator API | official HMRC FPO docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/customs/classification-preprocessing.ts` | description-quality gate, bundle splitter, attribute extraction, multi-query FPO dispatch | custom (§4.5) |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/customs/ten-digit-resolver.ts` | 10-digit commodity code resolution from 6/8-digit FPO candidates via Trade Tariff API | custom (§4.5) |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/customs/measure-scanner.ts` | trade remedy detection, preferential eligibility, quota checks, additional code requirements | custom (§4.5) |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/customs/taric-support.ts` | Taric Support API for code validation | Taric Support docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/customs/hs-ping.ts` | HS Ping comparison lookup | HS Ping docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/fx/xe.ts` | Xe commercial FX integration | official Xe docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/fx/hmrc-exchange-rates.ts` | HMRC official exchange rates for customs valuation | HMRC docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/fx/currencybeacon.ts` | CurrencyBeacon backup/comparison FX integration | CurrencyBeacon docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/fx/oanda.ts` | OANDA historical FX integration | OANDA docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/logistics/freightos.ts` | Freightos freight API integration | official Freightos docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/logistics/searates.ts` | SeaRates freight API integration | SeaRates docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/logistics/mode-selection.ts` | freight mode decision tree with hard mode locks and dual packing scenarios | custom (§4.4) |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/logistics/easyship.ts` | Easyship parcel-mode freight and duty estimation | Easyship docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/logistics/shippo.ts` | Shippo parcel-mode carrier rates and international shipping | Shippo docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/validation/dutify.ts` | Dutify landed-cost comparison adapter | Dutify docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/validation/zonos.ts` | Zonos landed-cost comparison adapter | Zonos docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/validation/avalara.ts` | Avalara landed-cost comparison adapter | Avalara docs |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/margins/revenue-normalizer.ts` | revenue basis classification and expected_addressable_revenue_ex_vat extraction | custom (Appendix A) |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/margins/quote-normalizer.ts` | Incoterm cost boundary normalization (EXW/FOB/CIF/DDP → comparable basis) | custom (Appendix A) |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/margins/margin-scenarios.ts` | low/base/high margin scenario calculation with critical blocker checks | custom (Appendix A) |
 
 #### Manifests
 
 | File | Purpose | Template |
 |------|---------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/packages/manifests/src/render-opportunity.ts` | Markdown manifest generation | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/manifests/src/templates/opportunity.md.ts` | manifest template | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/manifests/src/render-error-manifest.ts` | Markdown error manifest generation | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/manifests/src/templates/error.md.ts` | error manifest template | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/manifests/src/render-opportunity.ts` | Markdown manifest generation | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/manifests/src/templates/opportunity.md.ts` | manifest template | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/manifests/src/render-error-manifest.ts` | Markdown error manifest generation | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/manifests/src/templates/error.md.ts` | error manifest template | custom |
 
 #### Bidding
 
 | File | Purpose | Template |
 |------|---------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/packages/bidding/src/workflows/index.ts` | workflow registry | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/bidding/src/workflows/proactis-v1.ts` | initial downstream tender-portal workflow | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/bidding/src/company-profile/schema.ts` | bidder profile contract | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/bidding/src/workflows/index.ts` | workflow registry | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/bidding/src/workflows/proactis-v1.ts` | initial downstream tender-portal workflow | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/bidding/src/company-profile/schema.ts` | bidder profile contract | custom |
 
 #### Desktop Shell (CONTROL PANEL)
 
 | File | Purpose | Template |
 |------|---------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/package.json` | desktop app package | Tauri bootstrap |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src-tauri/src/main.rs` | Tauri entrypoint | Tauri bootstrap |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src-tauri/capabilities/default.json` | shell/sidecar permissions | Tauri permissions docs |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/lib/daemon.ts` | frontend bridge to daemon | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/contracts.tsx` | contracts list (reads local SQLite via daemon) | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/contract-detail.tsx` | opportunity detail with reject/bid/rerun controls | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/agent-sessions.tsx` | agent session monitoring with live terminal output | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/error-manifest.tsx` | error manifest viewer with resolution controls | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/src/pages/settings.tsx` | source configs, skill management, agent settings | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/desktop/package.json` | desktop app package | Tauri bootstrap |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/desktop/src-tauri/src/main.rs` | Tauri entrypoint | Tauri bootstrap |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/desktop/src-tauri/capabilities/default.json` | shell/sidecar permissions | Tauri permissions docs |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/desktop/src/lib/daemon.ts` | frontend bridge to daemon | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/desktop/src/pages/contracts.tsx` | contracts list (reads local SQLite via daemon) | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/desktop/src/pages/contract-detail.tsx` | opportunity detail with reject/bid/rerun controls | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/desktop/src/pages/agent-sessions.tsx` | agent session monitoring with live terminal output | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/desktop/src/pages/error-manifest.tsx` | error manifest viewer with resolution controls | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/desktop/src/pages/settings.tsx` | source configs, skill management, agent settings | custom |
 
 #### Web Shell (READ-ONLY VIEWING PORTAL)
 
 | File | Purpose | Template |
 |------|---------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/apps/web/package.json` | web app package | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/web/src/app/contracts/page.tsx` | contracts list (reads Supabase) | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/web/src/app/contracts/[id]/page.tsx` | opportunity detail (read-only, no controls) | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/web/src/app/status/page.tsx` | pipeline status and error overview (read-only) | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/web/package.json` | web app package | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/web/src/app/contracts/page.tsx` | contracts list (reads Supabase) | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/web/src/app/contracts/[id]/page.tsx` | opportunity detail (read-only, no controls) | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/web/src/app/status/page.tsx` | pipeline status and error overview (read-only) | custom |
 
 #### Rust Daemon
 
 | File | Purpose | Template |
 |------|---------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/Cargo.toml` | daemon crate definition | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/main.rs` | daemon entrypoint | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/db/sqlite.rs` | local SQLite connection and schema management | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/db/sync.rs` | SQLite↔Supabase push-pull sync engine | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/db/checkpoints.rs` | local sync checkpoints and recovery cursors | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/sources/registry.rs` | source registry loading, enablement, and schedule binding | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/scheduler/cron.rs` | local cron scheduler for agent jobs with catchup sweep | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/jobs/claim.rs` | job claiming/leases (local SQLite) | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/jobs/runner.rs` | job executor via adapter-mediated sessions | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/pty/session.rs` | PTY session creation, lifecycle, and process-group supervision | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/pty/capture.rs` | raw PTY byte capture to immutable artifact files | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/pty/health.rs` | agent health monitoring (stall, auth challenge, sleep detection) | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/pty/reaper.rs` | session reaper — process-group cleanup, kill escalation, orphan sweep | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/pty/hardening.rs` | PTY hardening — fd hygiene, EIO handling, terminal geometry | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/agents/adapter.rs` | agent adapter trait — canonical event stream, mode selection, capability probing | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/agents/codex.rs` | Codex adapter — launch, JSONL parsing, auth probing | local CLI contract |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/agents/claude.rs` | Claude adapter — launch, JSON/stream-json parsing, auth probing | local CLI contract |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/agents/artifacts.rs` | artifact store — compressed immutable session artifacts | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/agents/contracts.rs` | result contract validator — schema validation, checkpoint sequencing | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/agents/arbiter.rs` | resource arbiter — browser slots, agent slots, source lanes, priority scheduling | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/errors/manifest.rs` | error manifest creation and management | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/errors/markdown.rs` | error manifest Markdown artifact writer | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/tracing/structured.rs` | structured trace derivation from control/protocol events | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/src/tracing/forensic.rs` | forensic transcript enrichment (best-effort PTY output parsing) | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/Cargo.toml` | daemon crate definition | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/main.rs` | daemon entrypoint | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/db/sqlite.rs` | local SQLite connection and schema management | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/db/sync.rs` | SQLite↔Supabase push-pull sync engine | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/db/checkpoints.rs` | local sync checkpoints and recovery cursors | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/sources/registry.rs` | source registry loading, enablement, and schedule binding | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/scheduler/cron.rs` | local cron scheduler for agent jobs with catchup sweep | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/jobs/claim.rs` | job claiming/leases (local SQLite) | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/jobs/runner.rs` | job executor via adapter-mediated sessions | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/pty/session.rs` | PTY session creation, lifecycle, and process-group supervision | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/pty/capture.rs` | raw PTY byte capture to immutable artifact files | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/pty/health.rs` | agent health monitoring (stall, auth challenge, sleep detection) | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/pty/reaper.rs` | session reaper — process-group cleanup, kill escalation, orphan sweep | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/pty/hardening.rs` | PTY hardening — fd hygiene, EIO handling, terminal geometry | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/agents/adapter.rs` | agent adapter trait — canonical event stream, mode selection, capability probing | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/agents/codex.rs` | Codex adapter — launch, JSONL parsing, auth probing | local CLI contract |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/agents/claude.rs` | Claude adapter — launch, JSON/stream-json parsing, auth probing | local CLI contract |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/agents/artifacts.rs` | artifact store — compressed immutable session artifacts | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/agents/contracts.rs` | result contract validator — schema validation, checkpoint sequencing | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/agents/arbiter.rs` | resource arbiter — browser slots, agent slots, source lanes, priority scheduling | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/errors/manifest.rs` | error manifest creation and management | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/errors/markdown.rs` | error manifest Markdown artifact writer | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/tracing/structured.rs` | structured trace derivation from control/protocol events | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/src/tracing/forensic.rs` | forensic transcript enrichment (best-effort PTY output parsing) | custom |
 
 #### Skills (Primary Data Retrieval + Workflow Playbooks)
 
 | File | Purpose | Template |
 |------|---------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/skills/procurement-ingestion/fts/SKILL.md` | Find a Tender agent scraping playbook | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/skills/procurement-ingestion/contracts-finder/SKILL.md` | Contracts Finder agent scraping playbook | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/skills/procurement-ingestion/pcs/SKILL.md` | PCS agent scraping playbook | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/skills/supplier-price-enrichment/ebay/SKILL.md` | eBay pricing agent scraping playbook | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/skills/supplier-price-enrichment/amazon/SKILL.md` | Amazon pricing agent scraping playbook | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/skills/supplier-price-enrichment/alibaba/SKILL.md` | Alibaba pricing agent scraping playbook | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/skills/supplier-price-enrichment/1688/SKILL.md` | 1688 wholesale pricing agent scraping playbook | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/skills/document-acquisition/SKILL.md` | public tender document download playbook | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/skills/lot-extraction/SKILL.md` | lot structure extraction from unstructured documents | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/skills/product-extraction/SKILL.md` | product candidate extraction with candidateType and structured slots | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/skills/preliminary-qualification/SKILL.md` | expiry + goods reasoning | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/skills/manifest-generation/SKILL.md` | manifest creation workflow | custom |
-| `/Users/alinaaitova/Desktop/Testproject1/skills/bid-portal-proactis/SKILL.md` | first bidding portal workflow | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/skills/procurement-ingestion/fts/SKILL.md` | Find a Tender agent scraping playbook | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/skills/procurement-ingestion/contracts-finder/SKILL.md` | Contracts Finder agent scraping playbook | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/skills/procurement-ingestion/pcs/SKILL.md` | PCS agent scraping playbook | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/skills/supplier-price-enrichment/ebay/SKILL.md` | eBay pricing agent scraping playbook | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/skills/supplier-price-enrichment/amazon/SKILL.md` | Amazon pricing agent scraping playbook | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/skills/supplier-price-enrichment/alibaba/SKILL.md` | Alibaba pricing agent scraping playbook | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/skills/supplier-price-enrichment/1688/SKILL.md` | 1688 wholesale pricing agent scraping playbook | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/skills/document-acquisition/SKILL.md` | public tender document download playbook | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/skills/lot-extraction/SKILL.md` | lot structure extraction from unstructured documents | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/skills/product-extraction/SKILL.md` | product candidate extraction with candidateType and structured slots | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/skills/preliminary-qualification/SKILL.md` | expiry + goods reasoning | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/skills/manifest-generation/SKILL.md` | manifest creation workflow | custom |
+| `/Users/zacfarrell/Desktop/Testproject1/skills/bid-portal-proactis/SKILL.md` | first bidding portal workflow | custom |
 
 ### 8.3 Test Files Required
 
@@ -4942,63 +4942,63 @@ The desktop app runs alongside the daemon and has direct access to local SQLite 
 
 | Test File | Coverage |
 |-----------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/agent_pty_session.rs` | PTY session creation, output capture, full lifecycle including reap and cleanup verdict |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/agent_contract_session.rs` | Contract-mode session creation, structured event capture, result contract validation |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/agent_procurement_ingestion.rs` | Real agent session running procurement ingestion skill, verifying output and result contract |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/agent_supplier_enrichment.rs` | Real agent session running supplier enrichment skill, verifying output and result contract |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/agent_health_detection.rs` | Stall detection, auth challenge detection, sleep interruption, error classification |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/agent_error_manifest.rs` | Error manifest creation on agent failures with full runtime context |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/agent_pty_session.rs` | PTY session creation, output capture, full lifecycle including reap and cleanup verdict |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/agent_contract_session.rs` | Contract-mode session creation, structured event capture, result contract validation |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/agent_procurement_ingestion.rs` | Real agent session running procurement ingestion skill, verifying output and result contract |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/agent_supplier_enrichment.rs` | Real agent session running supplier enrichment skill, verifying output and result contract |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/agent_health_detection.rs` | Stall detection, auth challenge detection, sleep interruption, error classification |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/agent_error_manifest.rs` | Error manifest creation on agent failures with full runtime context |
 
 #### Adapter Contract Tests
 
 | Test File | Coverage |
 |-----------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/adapter_codex.rs` | Codex adapter capability probe, JSONL parsing, mode selection, canary mode |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/adapter_claude.rs` | Claude adapter capability probe, JSON parsing, mode selection, canary mode, protocol-mismatch detection |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/adapter_result_contract.rs` | Result contract validation, checkpoint sequencing, partial failure classification |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/adapter_codex.rs` | Codex adapter capability probe, JSONL parsing, mode selection, canary mode |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/adapter_claude.rs` | Claude adapter capability probe, JSON parsing, mode selection, canary mode, protocol-mismatch detection |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/adapter_result_contract.rs` | Result contract validation, checkpoint sequencing, partial failure classification |
 
 #### Fault-Injection Tests
 
 | Test File | Coverage |
 |-----------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/fault_process_cleanup.rs` | Orphaned grandchildren, dropped child handle, cleanup timeout, leaked process detection |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/fault_pty_edge_cases.rs` | PTY EOF/EIO handling, fd leak scenarios, terminal geometry stability |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/fault_host_events.rs` | Host sleep/monotonic gap, resource exhaustion, concurrent session pressure |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/fault_partial_failure.rs` | Partial checkpoint then crash, result contract validation failures, auth challenge mid-run |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/fault_process_cleanup.rs` | Orphaned grandchildren, dropped child handle, cleanup timeout, leaked process detection |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/fault_pty_edge_cases.rs` | PTY EOF/EIO handling, fd leak scenarios, terminal geometry stability |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/fault_host_events.rs` | Host sleep/monotonic gap, resource exhaustion, concurrent session pressure |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/fault_partial_failure.rs` | Partial checkpoint then crash, result contract validation failures, auth challenge mid-run |
 
 #### Deterministic Replay Tests
 
 | Test File | Coverage |
 |-----------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/replay_pty_sessions.rs` | Replay captured PTY byte streams against adapter parser and health monitor |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/replay_contract_sessions.rs` | Replay captured JSONL/JSON sessions against adapter parser and result contract validator |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/replay_pty_sessions.rs` | Replay captured PTY byte streams against adapter parser and health monitor |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/replay_contract_sessions.rs` | Replay captured JSONL/JSON sessions against adapter parser and result contract validator |
 
 #### Integration Tests (Real Databases, No Mocks)
 
 | Test File | Coverage |
 |-----------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/sqlite_schema.rs` | SQLite schema creation and migration |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/sqlite_supabase_sync.rs` | Push-pull sync between SQLite and Supabase |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/job_claim.rs` | Job claiming and lease management in SQLite |
-| `/Users/alinaaitova/Desktop/Testproject1/crates/daemon/tests/cron_scheduler.rs` | Cron-based job scheduling |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/sqlite_schema.rs` | SQLite schema creation and migration |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/sqlite_supabase_sync.rs` | Push-pull sync between SQLite and Supabase |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/job_claim.rs` | Job claiming and lease management in SQLite |
+| `/Users/zacfarrell/Desktop/Testproject1/crates/daemon/tests/cron_scheduler.rs` | Cron-based job scheduling |
 
 #### Unit Tests (Deterministic Logic)
 
 | Test File | Coverage |
 |-----------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/relations/resolve-process-relations.test.ts` | relation-resolution scoring and hard blockers |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/qualification/goods.test.ts` | goods/services qualification |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/qualification/quoteability.test.ts` | quoteability thresholds and candidate routing |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/hmrc-tariff.test.ts` | tariff parsing |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/customs/hmrc-fpo.test.ts` | FPO HS code classification |
-| `/Users/alinaaitova/Desktop/Testproject1/packages/intelligence/src/margins/net-margin.test.ts` | gross and net margin rules |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/relations/resolve-process-relations.test.ts` | relation-resolution scoring and hard blockers |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/qualification/goods.test.ts` | goods/services qualification |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/qualification/quoteability.test.ts` | quoteability thresholds and candidate routing |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/customs/hmrc-tariff.test.ts` | tariff parsing |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/customs/hmrc-fpo.test.ts` | FPO HS code classification |
+| `/Users/zacfarrell/Desktop/Testproject1/packages/intelligence/src/margins/net-margin.test.ts` | gross and net margin rules |
 
 #### Browser E2E Tests
 
 | Test File | Coverage |
 |-----------|----------|
-| `/Users/alinaaitova/Desktop/Testproject1/apps/desktop/e2e/contracts.spec.ts` | desktop control panel browsing and decision flow |
-| `/Users/alinaaitova/Desktop/Testproject1/apps/web/e2e/contracts.spec.ts` | web viewing portal read-only browsing |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/desktop/e2e/contracts.spec.ts` | desktop control panel browsing and decision flow |
+| `/Users/zacfarrell/Desktop/Testproject1/apps/web/e2e/contracts.spec.ts` | web viewing portal read-only browsing |
 
 ---
 
@@ -6070,7 +6070,7 @@ rg -l -t rust 'unwrap\(' | xargs ast-grep run -l Rust -p '$X.unwrap()' --json
 
 ```
 mcp__morph-mcp__warp_grep(
-  repoPath: "/Users/alinaaitova/Desktop/Testproject1",
+  repoPath: "/Users/zacfarrell/Desktop/Testproject1",
   query: "How does the SSE parser handle streaming events?"
 )
 ```

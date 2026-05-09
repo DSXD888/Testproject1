@@ -52,7 +52,7 @@ Three phases. The first two are conditional on session-start state (§0); Phase 
 
 If anything in Phase T fails — even something unrelated to the original bug — diagnose, fix in-band if minor, and **re-run from the failed step downward** per the §9 loop policy. Don't claim done until every acceptance criterion in §10 is true.
 
-**Project key:** `/Users/alinaaitova/Desktop/Testproject1`
+**Project key:** `/Users/zacfarrell/Desktop/Testproject1`
 **Branch:** `main` only
 **Bead label:** `smoke-test` (the new fresh beads reuse this label; they accumulate with the prior closed smoke bead `testproject1-l9vh`, by design — see §11 of `prompts/pre-l5-sanity-check-handoff.md`)
 
@@ -94,7 +94,7 @@ Codex and other harnesses typically auto-load all configured MCP tools at sessio
 
 ```
 macro_start_session(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   program="pre-l5-wrapper-fix",
   model="<your-model>",
   task_description="Fix search_messages response-key parsing in bin/br-claim and bin/br-complete; re-run smoke test until green"
@@ -137,7 +137,7 @@ After reading, you should be able to answer in one sentence each: *Why does the 
 Do not use `exit 1` inside an inline shell snippet — it terminates your bash session. Just observe and STOP-and-report on any ABORT.
 
 ```bash
-cd /Users/alinaaitova/Desktop/Testproject1
+cd /Users/zacfarrell/Desktop/Testproject1
 
 # A. tree clean
 if [ -n "$(git status --porcelain)" ]; then
@@ -277,7 +277,7 @@ BEAD = "testproject1-l9vh"  # prior smoke bead — Start mail is in archive
 body = json.dumps({
     "jsonrpc": "2.0", "id": 1, "method": "tools/call",
     "params": {"name": "search_messages", "arguments": {
-        "project_key": "/Users/alinaaitova/Desktop/Testproject1",
+        "project_key": "/Users/zacfarrell/Desktop/Testproject1",
         "query": f"[{BEAD}] Start", "limit": 20,
     }},
 }).encode()
@@ -363,7 +363,7 @@ Two files. **Identical change in both.** Apply each patch with your CLI's native
 
 ```
 file_reservation_paths(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   agent_name="<your-name>",
   paths=["bin/br-claim", "bin/br-complete"],
   ttl_seconds=1800,
@@ -455,7 +455,7 @@ python3 - <<'PYEOF'
 import json, urllib.request
 body = json.dumps({"jsonrpc":"2.0","id":1,"method":"tools/call",
     "params":{"name":"search_messages","arguments":{
-        "project_key":"/Users/alinaaitova/Desktop/Testproject1",
+        "project_key":"/Users/zacfarrell/Desktop/Testproject1",
         "query":"[testproject1-l9vh] Start","limit":20}}}).encode()
 req = urllib.request.Request("http://127.0.0.1:8765/mcp/", data=body, method="POST",
     headers={"Content-Type":"application/json","Accept":"application/json, text/event-stream"})
@@ -500,7 +500,7 @@ After both patches are in and verified:
 
 ```
 release_file_reservations(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   agent_name="<your-name>",
   paths=["bin/br-claim", "bin/br-complete"]
 )
@@ -614,13 +614,13 @@ br show "$SMOKE_BEAD" --json | jq -r '..|objects|select(.id=="'"$SMOKE_BEAD"'")|
 
 # 2. Start mail in archive (use search_messages MCP tool)
 search_messages(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   query="[<SMOKE_BEAD>] Start", ranking="recency", limit=5
 )
 # expect: 1 result, from=<your-name>, subject contains "[<SMOKE_BEAD>] Start"
 
 # 3. file reservation (artifact on disk)
-ls -lt /Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/projects/users-alinaaitova-desktop-testproject1/file_reservations/ | head -3
+ls -lt /Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/projects/users-zacfarrell-desktop-testproject1/file_reservations/ | head -3
 # Then jq the most recent id-N.json — expect agent=<your-name>, reason=<SMOKE_BEAD>
 
 # 4. wrapper exit code (already 0 if you got here)
@@ -658,7 +658,7 @@ Now manually inject a Start mail (DO NOT call `bin/br-claim` yet):
 
 ```
 send_message(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   sender_name="<your-name>",
   to=["<your-name>"],
   thread_id="<IDEM_BEAD>",
@@ -672,7 +672,7 @@ Confirm the Start is searchable:
 
 ```
 search_messages(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   query="[<IDEM_BEAD>] Start", limit=5
 )
 # expect: count = 1
@@ -709,7 +709,7 @@ br-claim: ✓ br update <IDEM_BEAD> --status=in_progress
 
 ```
 search_messages(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   query="[<IDEM_BEAD>] Start", limit=10
 )
 # expect: result list length == 1, same id as the manual injection
@@ -732,7 +732,7 @@ The safe pattern is ID-targeted release. Find the idempotency-probe reservation 
 ```bash
 IDEM_BEAD=$(cat /tmp/wrapper_fix_idem_bead.txt)
 RES_ID=$(grep -l "\"reason\":[[:space:]]*\"$IDEM_BEAD\"" \
-  /Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/projects/users-alinaaitova-desktop-testproject1/file_reservations/id-*.json 2>/dev/null \
+  /Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/projects/users-zacfarrell-desktop-testproject1/file_reservations/id-*.json 2>/dev/null \
   | xargs -I{} jq -r 'select(has("released_ts") | not) | .id' {} \
   | head -1)
 echo "RES_ID=$RES_ID"
@@ -743,7 +743,7 @@ Then in your agent session (substitute the integer):
 
 ```
 release_file_reservations(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   agent_name="<your-name>",
   file_reservation_ids=[<RES_ID>]
 )
@@ -851,7 +851,7 @@ git rev-list --count origin/main..HEAD
 
 ```
 search_messages(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   query="[<SMOKE_BEAD>] Complete", limit=5
 )
 # expect: at least one result, from=<your-name>, body mentions the commit hash
@@ -860,7 +860,7 @@ search_messages(
 ```bash
 # reservations released — server-running-friendly check
 grep -l '"agent":[[:space:]]*"<your-name>"' \
-  /Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/projects/users-alinaaitova-desktop-testproject1/file_reservations/id-*.json 2>/dev/null \
+  /Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/projects/users-zacfarrell-desktop-testproject1/file_reservations/id-*.json 2>/dev/null \
   | xargs -I{} jq -r 'select(has("released_ts") | not) | "STILL ACTIVE: id=\(.id) path=\(.path_pattern) reason=\(.reason)"' {}
 # expect: no output (all your reservations have released_ts set)
 ```
@@ -899,7 +899,7 @@ Step 4 — send a manual Complete mail that explicitly says "this is recovery, n
 
 ```
 send_message(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   sender_name="<your-name>",
   to=["<your-name>"],
   thread_id="<SMOKE_BEAD>",
@@ -914,7 +914,7 @@ Step 5 — release ALL your reservations (broad release is safe here because you
 
 ```
 release_file_reservations(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   agent_name="<your-name>"
 )
 ```
@@ -970,7 +970,7 @@ When you hit a failure that doesn't match any row in the "fix in band vs escalat
 3. **Re-confirm State A vs State B.** Re-run §5's `sed` blocks. A parallel agent may have changed the source.
 4. **Run the §6 reproducer again.** If `BUGGY` is now `FOUND` or `FIXED` is now `EMPTY`, the server response shape has changed.
 5. **Read the wrapper file end-to-end** for the failing wrapper. The bug might be in a code path you didn't anticipate (e.g., `prior_other_start` triggering on a stale mail from a different agent).
-6. **Check the on-disk artifacts.** Mail at `~/.mcp_agent_mail_git_mailbox_repo/projects/users-alinaaitova-desktop-testproject1/messages/threads/<bead>.md`; reservations at `.../file_reservations/id-N.json`. The state-of-record on disk often clarifies what the wrapper saw.
+6. **Check the on-disk artifacts.** Mail at `~/.mcp_agent_mail_git_mailbox_repo/projects/users-zacfarrell-desktop-testproject1/messages/threads/<bead>.md`; reservations at `.../file_reservations/id-N.json`. The state-of-record on disk often clarifies what the wrapper saw.
 7. **Search prior handoffs/reports.** `prompts/pre-l5-sanity-check-handoff.md` and the original smoke test report (in this conversation history) document the wrapper internals you may need.
 8. **If still stuck after items 1-7, escalate** per the bounded-retry rule.
 
@@ -1036,7 +1036,7 @@ If you accidentally left an active file reservation:
 
 ```
 release_file_reservations(
-  project_key="/Users/alinaaitova/Desktop/Testproject1",
+  project_key="/Users/zacfarrell/Desktop/Testproject1",
   agent_name="<your-name>"
 )
 ```
@@ -1066,7 +1066,7 @@ git rev-list --left-right --count origin/main...HEAD | awk '{print "behind:",$1,
 
 echo "=== still-active reservations under your name ==="
 grep -l '"agent":[[:space:]]*"<your-name>"' \
-  /Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/projects/users-alinaaitova-desktop-testproject1/file_reservations/id-*.json 2>/dev/null \
+  /Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/projects/users-zacfarrell-desktop-testproject1/file_reservations/id-*.json 2>/dev/null \
   | xargs -I{} jq -r 'select(has("released_ts") | not) | "STILL ACTIVE: id=\(.id) path=\(.path_pattern)"' {}
 # expect: no output
 ```

@@ -60,7 +60,7 @@ When sources conflict, trust this precedence order:
 4. Current L5 kickoff/push docs.
 5. Older handoff docs.
 
-`prompts/install-bead-wrappers-skill-handoff.md` is useful for deliverable shape. Older revisions of that file used the old `/Users/alinaaitova/Desktop/Testproject1` path, documented bare `am guard status`, and overstated Phase B Start-mail enforcement. If you see any of those details in local edits or copied context, treat them as stale and use `/Users/zacfarrell/Desktop/Testproject1`, `am guard status <PROJECT_ROOT>`, and the current `AGENTS.md` Rule 2 wording that says Phase B Start-mail enforcement applies "when active."
+`prompts/install-bead-wrappers-skill-handoff.md` is useful for deliverable shape. Older revisions of that file used the old `/Users/zacfarrell/Desktop/Testproject1` path, documented bare `am guard status`, and overstated Phase B Start-mail enforcement. If you see any of those details in local edits or copied context, treat them as stale and use `/Users/zacfarrell/Desktop/Testproject1`, `am guard status <PROJECT_ROOT>`, and the current `AGENTS.md` Rule 2 wording that says Phase B Start-mail enforcement applies "when active."
 
 ---
 
