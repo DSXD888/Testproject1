@@ -40,7 +40,7 @@ The authoritative Agent Mail pattern is:
 - Never use `to="broadcast"` or `to=["broadcast"]`.
 - For bead-tracked work, use project wrappers:
   - `bin/br-claim <bead-id>` to claim: reserve files, send `[<id>] Start`, set bead `in_progress`.
-  - `bin/br-complete <bead-id>` to complete: verify pushed commit, send `[<id>] Complete`, close bead, sync `.beads/`, release reservations.
+  - `bin/br-complete <bead-id>` to complete: verify the work commit is already pushed, send `[<id>] Complete`, close bead, sync/commit/push `.beads/` metadata if needed, release reservations.
 - Raw `br update --status=in_progress` and raw `br close` are forbidden for bead-tracked work in this repo because they bypass Agent Mail and file reservations.
 
 The wrappers themselves already implement the right no-broadcast pattern:
@@ -229,7 +229,8 @@ Do not delete anything.
 The finished handoff execution should make future generated prompts unambiguous to a new agent:
 
 - Claiming a bead means `bin/br-claim <id>`, not manual `br update` plus manual mail.
-- Completing a bead means commit, push, then `bin/br-complete <id>`, not manual `br close` plus manual mail.
+- Completing a bead means commit and push the work commit first, then run `bin/br-complete <id>`. It does not push the work commit for you.
+- Completing a bead does not mean raw `br close` plus manual Complete mail.
 - Wrapper-handled Start/Complete mail is not duplicated with raw `send_message(...)`.
 - Raw `send_message(...)` remains only for blockers, questions, phase announcements, and session handoffs.
 - Every raw `send_message(...)` example includes `to=[...]` populated from `list_contacts(project_key, agent_name)`.
@@ -293,7 +294,8 @@ Generated kickoff/push prompts must say:
 ### Agent Mail And Bead Claim Discipline
 
 - Use `bin/br-claim <bead-id>` to claim bead-tracked work. The wrapper reserves files, sends `[<bead-id>] Start` mail to peers discovered via `list_contacts`, and sets the bead `in_progress`.
-- Use `bin/br-complete <bead-id>` to complete bead-tracked work. The wrapper verifies the pushed bead commit, sends `[<bead-id>] Complete`, closes the bead, syncs `.beads/`, and releases reservations.
+- Use `bin/br-complete <bead-id>` to complete bead-tracked work after the work commit has already been pushed. The wrapper verifies the pushed work commit, sends `[<bead-id>] Complete`, closes the bead, syncs/commits/pushes `.beads/` metadata if needed, and releases reservations.
+- `bin/br-complete` will refuse to proceed if local `HEAD` is not aligned with upstream or the bead commit is not reachable from upstream. Run `git pull --rebase && git push` before it.
 - Do NOT use raw `br update --status=in_progress` or raw `br close <id>` for bead-tracked work.
 - Agent Mail has NO broadcast recipient. For blocker/question/handoff messages that are not handled by the wrappers, first call `list_contacts(project_key, agent_name)`, then pass the returned names as the explicit `to=[...]` list.
 - Never use `to="broadcast"` or `to=["broadcast"]`.
@@ -363,7 +365,7 @@ Replace vague coordination instructions with:
    - Read the project `AGENTS.md` first and follow its bead discipline.
    - If the project has `bin/br-claim` and `bin/br-complete`, use them as the only claim/complete path for bead-tracked work.
    - `bin/br-claim <bead-id>` handles file reservation, Start mail, and status update.
-   - `bin/br-complete <bead-id>` handles Complete mail, bead close, `.beads/` sync, push, and reservation release.
+   - `bin/br-complete <bead-id>` runs after the work commit is already pushed; it handles Complete mail, bead close, `.beads/` sync/metadata push if needed, and reservation release.
    - Do not generate raw `br update --status=in_progress` / raw `br close` instructions when wrappers exist.
    - Agent Mail has NO broadcast recipient. For any manual mail, discover peers with `list_contacts(project_key, agent_name)` and send to the explicit returned names.
 ```
@@ -459,6 +461,8 @@ bin/br-complete <bead-id>
 ```
 
 `bin/br-complete` verifies your Start mail and pushed commit, sends `[<bead-id>] Complete`, closes the bead, syncs `.beads/`, pushes bead metadata, and releases reservations.
+
+It does not push your work commit. If local `HEAD` is not aligned with upstream, or the bead work commit is not reachable from upstream, it exits non-zero and tells you to run `git pull --rebase && git push` first.
 
 Do not bypass with raw `br close`.
 ````
@@ -606,7 +610,7 @@ The workflow must instruct the invoking agent to:
 
 1. Find the target repo root with `git rev-parse --show-toplevel`.
 2. Verify `am` exists and inspect `am guard install --help`.
-3. Verify the agent-mail HTTP server health endpoint if available.
+3. Verify the agent-mail HTTP server health endpoint if available, for example `curl -fsS http://127.0.0.1:8765/healthz` when that endpoint exists.
 4. Create `<repo>/bin/` if needed.
 5. Copy bundled `assets/br-claim` and `assets/br-complete` into `<repo>/bin/`.
 6. `chmod +x <repo>/bin/br-claim <repo>/bin/br-complete`.
@@ -617,14 +621,14 @@ The workflow must instruct the invoking agent to:
 am guard install <PROJECT_NAME> <PROJECT_ROOT>
 ```
 
-Use the actual project name and root path. Do not use `am install-guard`; that command is not the verified surface.
+Use the actual project name and absolute root path. If the project does not already have an Agent Mail project name convention, use the repo basename for `<PROJECT_NAME>`. Do not use `am install-guard`; that command is not the verified surface.
 
 9. Smoke-test:
 
 ```bash
 <PROJECT_ROOT>/bin/br-claim --help
 <PROJECT_ROOT>/bin/br-complete --help
-am guard status
+am guard status <PROJECT_ROOT>
 ```
 
 10. Report exactly what was installed and stop. Do not claim beads or edit product code.
