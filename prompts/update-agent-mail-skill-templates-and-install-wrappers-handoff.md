@@ -52,6 +52,16 @@ The wrappers themselves already implement the right no-broadcast pattern:
 
 Both wrappers call `list_contacts(...)`, build an explicit recipient list, and fall back to sending to self only when no peers exist.
 
+When sources conflict, trust this precedence order:
+
+1. Current `AGENTS.md`.
+2. Current `bin/br-claim` and `bin/br-complete`.
+3. Live `am guard ... --help` output on this machine.
+4. Current L5 kickoff/push docs.
+5. Older handoff docs.
+
+The older `prompts/install-bead-wrappers-skill-handoff.md` is useful for deliverable shape, but parts of it are stale. It uses the old `/Users/alinaaitova/Desktop/Testproject1` path, documents bare `am guard status`, and states Phase B Start-mail enforcement as already live. Do not copy those details. Use `/Users/zacfarrell/Desktop/Testproject1`, `am guard status <PROJECT_ROOT>`, and the current `AGENTS.md` Rule 2 wording that says Phase B Start-mail enforcement applies "when active."
+
 ---
 
 ## Known Current State To Confirm
@@ -143,6 +153,7 @@ Read these in order before editing:
 3. `/Users/zacfarrell/Desktop/Testproject1/prompts/install-bead-wrappers-skill-handoff.md`
    - Focus: deliverable shape for `install-bead-wrappers`.
    - Adjust all old `/Users/alinaaitova/Desktop/Testproject1` examples to the actual current path `/Users/zacfarrell/Desktop/Testproject1`.
+   - Treat its `am guard status` and Phase B enforcement details as stale unless live `am --help` and current `AGENTS.md` confirm them.
 4. `/Users/zacfarrell/Desktop/Testproject1/docs/pipeline/l5-expanded-commercial-intelligence/10-generate-kickoff.md`
    - Focus: sections that mention `bin/br-claim`, `bin/br-complete`, `list_contacts`, and no broadcast.
 5. `/Users/zacfarrell/Desktop/Testproject1/docs/pipeline/l5-expanded-commercial-intelligence/11-push.md`
@@ -162,10 +173,15 @@ sed -n '335,392p' prompts/phase-a-mail-discipline-infrastructure-handoff.md
 sed -n '1,190p' prompts/install-bead-wrappers-skill-handoff.md
 sed -n '140,225p' docs/pipeline/l5-expanded-commercial-intelligence/10-generate-kickoff.md
 sed -n '60,125p' docs/pipeline/l5-expanded-commercial-intelligence/11-push.md
+sed -n '1,35p' bin/br-complete
+sed -n '185,215p' bin/br-complete
+sed -n '360,415p' bin/br-complete
 sed -n '330,390p' bin/br-claim
-sed -n '312,358p' bin/br-complete
 sed -n '1,130p' /Users/zacfarrell/.codex/skills/skill-creator/SKILL.md
 sed -n '1,130p' /Users/zacfarrell/.claude/skills/skill-creator/SKILL.md
+am guard install --help
+am guard status --help
+am guard check --help
 ```
 
 ---
@@ -236,6 +252,7 @@ The finished handoff execution should make future generated prompts unambiguous 
 - Every raw `send_message(...)` example includes `to=[...]` populated from `list_contacts(project_key, agent_name)`.
 - The phrase `broadcast` appears only in negative guidance such as "no broadcast" or "never use `to=\"broadcast\"`."
 - The new `install-bead-wrappers` skill can be invoked in a fresh repo without reading this handoff.
+- Any conflict between older handoff docs and current source/live command help is resolved in favor of current source/live help.
 
 Treat these verification hits as failures unless they are explicitly labelled forbidden anti-patterns:
 
@@ -629,6 +646,7 @@ Use the actual project name and absolute root path. If the project does not alre
 <PROJECT_ROOT>/bin/br-claim --help
 <PROJECT_ROOT>/bin/br-complete --help
 am guard status <PROJECT_ROOT>
+am guard check --repo <PROJECT_ROOT> --advisory
 ```
 
 10. Report exactly what was installed and stop. Do not claim beads or edit product code.
@@ -639,6 +657,7 @@ Also include these implementation details:
 - The skill should use the target repository root discovered at invocation time. Do not hardcode `/Users/zacfarrell/Desktop/Testproject1` into the install workflow except in `METHODOLOGY.md` as the snapshot source for bundled assets.
 - The skill should be safe to run repeatedly in the same target repo. It may overwrite wrapper files from its bundled assets, but it must not append Rule 2 more than once.
 - The skill must explicitly stop after infrastructure installation. It must not claim beads, run project quality gates, or perform unrelated cleanup.
+- If `curl -fsS http://127.0.0.1:8765/healthz` is unavailable because the server lacks that endpoint, do not invent a different endpoint. Report the health endpoint as unavailable and continue only if wrapper help and `am guard ... --help` checks confirm the local tooling surface.
 
 ### `METHODOLOGY.md` Required Content
 
@@ -674,6 +693,7 @@ Include a checklist covering:
 - `agents-md-rule-2.md` contains BEGIN and END markers.
 - `SKILL.md` frontmatter has `name` and `description`.
 - `am guard install --help` is documented, not `am install-guard`.
+- `am guard status <PROJECT_ROOT>` is documented, not bare `am guard status`.
 - Install workflow is idempotent.
 - Skill stops after installation.
 - No placeholder text remains in any deliverable.
