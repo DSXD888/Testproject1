@@ -527,3 +527,32 @@ cargo test -p procintel-desktop --test native_shell
 - File paths and line references were read from the current checkout.
 - Hypotheses are ranked and linked to evidence.
 - Acceptance criteria use the same commands that failed during QA.
+
+---
+
+## RESOLUTION VERIFICATION
+
+Status: resolved for QA resume by commit `9d15b9c fix: serialize native shell test hooks`.
+
+Commands:
+
+```bash
+source state-e2e-machine-fork-20260512T195251Z/e2e-env.sh
+run_logged resume-native-shell-specific \
+  cargo test -p procintel-desktop --test native_shell \
+  bug_pipeline_rerun_regression_releases_desktop_daemon_lock_before_ingest
+run_logged resume-native-shell-full \
+  cargo test -p procintel-desktop --test native_shell
+run_logged resume-native-shell-stress \
+  zsh -lc 'for i in {1..20}; do echo "native_shell iteration $i"; cargo test -p procintel-desktop --test native_shell >/tmp/native_shell_stress_$i.log 2>&1 || { cat /tmp/native_shell_stress_$i.log; exit 1; }; tail -5 /tmp/native_shell_stress_$i.log; done'
+```
+
+Result:
+
+```text
+resume-native-shell-specific: PASS, 1 test.
+resume-native-shell-full: PASS, 22 tests.
+resume-native-shell-stress: PASS, 20 full native_shell iterations.
+```
+
+QA may resume from the static/unit baseline gate and continue to live Stage 1 source ingestion.
