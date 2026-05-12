@@ -1,9 +1,9 @@
 # Machine Fork L0-L3 Stages 1-14 E2E Validation Manifest
 
 Generated: 2026-05-12T18:46:53Z
-Last verified: 2026-05-12T20:39:49Z
-Status: PAUSED - Stage 1 Contracts Finder live ingestion blocked by Claude CLI 401 before result contract
-Git HEAD at verification: 9d15b9c fix: serialize native shell test hooks
+Last verified: 2026-05-12T21:43:13Z
+Status: PAUSED - Stage 4a ProContract register-interest produced unsupported `pending_registration` actions after a real portal registration
+Git HEAD at verification: e4080be docs: record contracts finder claude auth blocker
 State root: `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z`
 Runtime dir: `/Users/zacfarrell/Desktop/Testproject1/runtime-e2e-machine-fork-20260512T195251Z`
 Artifact root: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z`
@@ -30,6 +30,10 @@ Status meanings:
 | 2026-05-12T20:01:43Z | Static/unit baseline - desktop native shell | `cargo test -p procintel-desktop --test native_shell` failed once in the required baseline gate; filtered and full reruns passed, making this an intermittent/order-dependent gate failure. | Created `prompts/machine-fork-e2e-desktop-native-shell-rerun-lock-error-manifest.md` and paused before live Stage 1 ingestion. | After a fixer resolves or formally classifies the flake, rerun `cargo test -p procintel-desktop --test native_shell`, then continue from the static/unit baseline gate. |
 | 2026-05-12T20:18:40Z | Resume after native-shell fix | Commit `9d15b9c` fixed native-shell test hook serialization. | Exact failing test passed, full `native_shell` target passed, and 20 full native-shell stress iterations passed. | Continue to live Stage 1 source ingestion. |
 | 2026-05-12T20:39:49Z | Stage 1 - Contracts Finder live ingestion | The real live Contracts Finder daemon command launched a PTY skill session, but the selected Claude CLI exited with `Failed to authenticate. API Error: 401 Invalid authentication credentials`; no `result.json` or run manifest was produced. | Created `prompts/machine-fork-e2e-contracts-finder-claude-auth-error-manifest.md` and paused before ProContract ingestion. | Repair or verify Claude CLI auth, then retry the exact failed `stage-01-contracts-finder` command against the existing E2E roots. |
+| 2026-05-12T21:05:37Z | Resume after Claude auth repair | The direct selected-agent probe `claude -p "Return exactly OK." --dangerously-skip-permissions` returned `OK.` | Retried Contracts Finder against the existing E2E roots. | Continue Stage 1 source ingestion validation. |
+| 2026-05-12T21:27:25Z | Stage 1 - source ingestion complete | Real Contracts Finder and ProContract ingestion both completed with valid result contracts and persisted rows. | Contracts Finder total now 104 notices; ProContract added 100 notices; source circuits remain closed. FTS is deferred to avoid synthetic fixture data because no current live FTS daemon path/fixture file was found. | Continue with deterministic pipeline for `procontract` and `contracts-finder`. |
+| 2026-05-12T21:31:10Z | Deterministic Stages 2-3 and 5-8 baseline | `--pipeline procontract` and `--pipeline contracts-finder` both completed. | 204 lots, 408 qualification rows, 204 raw document references, 118 goods-qualified rows, no pending extraction jobs. Product candidates/search profiles remain pending document enrichment. | Continue to Stage 4a ProContract register-interest. |
+| 2026-05-12T21:43:13Z | Stage 4a - ProContract register interest | Valid result contract contained eight unsupported `pending_registration` actions; daemon rejected persistence with `unsupported ProContract registration action` and left the source job `running`. One real portal registration had already occurred. | Created `prompts/machine-fork-e2e-procontract-pending-registration-error-manifest.md` and paused without retrying or fixing product code. | After the fixer updates contract/persistence semantics, retry the exact Stage 4a command against the existing E2E roots, accounting for the already registered `BEST START FAMILY HUBS OUTREACH SERVICES` opportunity. |
 
 ## Error Manifests Created
 
@@ -38,7 +42,8 @@ Status meanings:
 | `prompts/machine-fork-e2e-schema-epoch-mismatch-error-manifest.md` | Critical current-state checks / Desktop validation precondition | Daemon `DEFAULT_SCHEMA_EPOCH=9`; desktop expected epoch 8 and rejected mismatched state/handshake. | Resolved by commit `6d113ad`; verified 2026-05-12T19:43:18Z. |
 | `prompts/machine-fork-e2e-agent-browser-missing-error-manifest.md` | Environment preflight / Browser testing precondition | `agent-browser` command not found, so CDP preflight and daemon-driven browser skills cannot be validated. | Resolved by machine setup repair on 2026-05-12T19:29:53Z. |
 | `prompts/machine-fork-e2e-desktop-native-shell-rerun-lock-error-manifest.md` | Static/unit baseline / Desktop native shell | Intermittent failure: rerun-lock test expected stopped PID `[4242]` but observed `[]` in the required full `native_shell` target. | Resolved by commit `9d15b9c`; verified with exact test, full target, and 20x stress loop. |
-| `prompts/machine-fork-e2e-contracts-finder-claude-auth-error-manifest.md` | Stage 1 / Contracts Finder live ingestion | Selected Claude CLI returns `401 Invalid authentication credentials`, causing the PTY skill to exit before writing a result contract. | Open; QA paused before ProContract ingestion. |
+| `prompts/machine-fork-e2e-contracts-finder-claude-auth-error-manifest.md` | Stage 1 / Contracts Finder live ingestion | Selected Claude CLI returned `401 Invalid authentication credentials`, causing the PTY skill to exit before writing a result contract. | Resolved by Claude auth repair; direct probe returned `OK` and Contracts Finder retry completed. |
+| `prompts/machine-fork-e2e-procontract-pending-registration-error-manifest.md` | Stage 4a / ProContract register interest | Skill result contract included eight `pending_registration` final actions after one real registration; daemon persistence rejects that action and leaves the workflow job `running`. | Open; QA paused at Stage 4a. |
 
 ## Preflight
 
@@ -335,16 +340,25 @@ Dry-run log: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-
 | Static/unit baseline | Required cargo/Bun gates | PASS | Rust fmt/check/clippy, daemon binary tests, all daemon integration test targets, package gates, desktop Bun test/build, `query_service`, `daemon_bridge`, and repaired `native_shell` passed. |
 | Static/unit baseline | Targeted desktop gates plus Rust gates | PASS | `cargo test -p procintel-desktop --test query_service`; `cargo test -p procintel-desktop --test daemon_bridge`; `cargo test -p procintel-desktop --test native_shell`; daemon schema probe; `cargo fmt --check`; `cargo check --all-targets`; `cargo clippy --all-targets -- -D warnings` all passed. |
 | Static/unit baseline | Current resumed desktop native shell gate | PASS | `resume-native-shell-specific.log`, `resume-native-shell-full.log`, and `resume-native-shell-stress.log` passed after commit `9d15b9c`. |
-| Stage 1 - Contracts Finder live ingestion | `run_logged stage-01-contracts-finder env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest contracts-finder` | BLOCKED | Job `job-c3d5b06af6f38699d94beb2d5a9458e7038d457edb0a291526d0e28108d29807` failed with `contracts-finder skill did not produce a result contract`; PTY stream for `session-pty-99e3c444b8b8f752709101a88a2ec48c6fdeacdc090af0c9a58ff69a2d29d110` contains `Failed to authenticate. API Error: 401 Invalid authentication credentials`. Error manifest: `prompts/machine-fork-e2e-contracts-finder-claude-auth-error-manifest.md`. |
-| Stage 1 - ProContract live ingestion | Not run | PAUSED | Not attempted because the run must stop on the Contracts Finder real blocker. |
-| Stages 2-14 | Not run | DEFERRED | Paused before deterministic pipeline and downstream live stages. |
-| Desktop UI | Not run | BLOCKED BEHIND STAGE 1 | Schema epoch blocker is repaired, but UI validation waits until the live pipeline has data or a documented structured no-result path. |
-| Desktop Vite localhost | Not run | BLOCKED BEHIND STAGE 1 | Browser tooling/CDP preflight is green and schema epoch mismatch is repaired; localhost smoke remains for the resumed E2E run. |
+| Stage 1 - Contracts Finder initial live ingestion | `run_logged stage-01-contracts-finder ... --ingest contracts-finder` | BLOCKED THEN RESOLVED | Initial jobs `job-c3d5...` and fixer repro `job-2c44...` failed before result contract because Claude auth returned 401. Error manifest: `prompts/machine-fork-e2e-contracts-finder-claude-auth-error-manifest.md`. |
+| Stage 1 - Contracts Finder auth repair probe | `run_logged resume-claude-auth-probe-2 claude -p "Return exactly OK." --dangerously-skip-permissions` | PASS | Probe returned `OK.` |
+| Stage 1 - Contracts Finder retry | `run_logged stage-01-contracts-finder-retry-after-claude-auth env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest contracts-finder` | PASS | Job `job-fe439a72a132f4b43211dc71d6f544418880bd809d008511476461bdcb73e59b` completed with `notices=100 continuation=true`; `contract_notices` contains 104 `contracts-finder` rows after preserving previous retry history. |
+| Stage 1 - ProContract CDP preflight | `agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"` plus title/snapshot checks | PASS | Snapshot showed authenticated supplier home content, `SORELLON LIMITED`, opportunities, company summary, and vendor profile. |
+| Stage 1 - ProContract live ingestion | `run_logged stage-01-procontract env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest procontract` | PASS | Job `job-7761e9efc2107ce4f9da40261177bfc4f3fb0e794f75df254a457c77e8a3cd92` completed with `notices=100 continuation=true`; `contract_notices` contains 100 `procontract` rows. |
+| Stage 1 - FTS | Not run | DEFERRED | `--ingest fts` remains fixture-backed in current daemon dispatch and no current FTS fixture file/live daemon path was found. Deferred to keep this run real-data only. |
+| Stage 1 validation | `run_logged stage-01-source-ingestion-validation sqlite3 ...` | PASS | `contracts-finder=104`, `procontract=100`, `procurement_processes=202`; source circuits closed; latest successful sessions have `terminated_after_result_contract`. Earlier failed Claude-auth jobs remain as documented forensic history. |
+| Stages 2-3 and 5-8 deterministic pipeline - ProContract | `run_logged stages-02-08-pipeline-procontract "$E2E_DAEMON" ... --pipeline procontract` | PASS | `lots_created=100 prequalified=100 lots_qualified=100 reclassified=0 quoteability_scored=0 margins_assessed=0 relations=0`. |
+| Stages 2-3 and 5-8 deterministic pipeline - Contracts Finder | `run_logged stages-02-08-pipeline-contracts-finder "$E2E_DAEMON" ... --pipeline contracts-finder` | PASS | `lots_created=104 prequalified=104 lots_qualified=104 reclassified=0 quoteability_scored=0 margins_assessed=0 relations=0`. |
+| Stages 2-3 and 5-8 validation | `run_logged stages-02-08-validation sqlite3 ...` | PASS / PRODUCTS PENDING | Stage state shows `Normalize=300`, `extract lots=204`, `prequalify notice=204`, `qualify lot=204`, `relate=202`; `notice_lots=204`, `qualification_runs=408`, `raw_documents=204`, no pending extraction jobs. Product candidates/search profiles remain `0` until ProContract document enrichment/acquisition runs. |
+| Stage 4a - ProContract register interest | `run_logged stage-04a-procontract-interest env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest procontract-interest` | BLOCKED / ERROR MANIFEST | The command produced a valid result contract then exited with `Error: unsupported ProContract registration action \`pending_registration\``. Result action counts: `registered=1`, `already_registered=2`, `pending_registration=8`, `skipped=89`. Workflow job `job-974dda4de782bc61ad5d5a91fa09d48152978ef9d0ccdbd01e95bd3f2dabb256` remains `running`; session `session-pty-5e1fb98f68771c12cb090dee2e0055d1e5f73d69345ab17faac4ed322981e8d9` completed with `terminated_after_result_contract`. Error manifest: `prompts/machine-fork-e2e-procontract-pending-registration-error-manifest.md`. |
+| Stages 9-14 | Not run | PENDING | Awaiting document enrichment, product extraction, and spotlight selection. |
+| Desktop UI | Not run | PENDING | Schema epoch blocker is repaired; UI validation waits until deterministic/downstream pipeline state is available. |
+| Desktop Vite localhost | Not run | PENDING | Browser tooling/CDP preflight is green; localhost smoke remains for later in the run. |
 | apps/web localhost smoke | Not run | DEFERRED | Browser tooling/CDP preflight is now green; localhost smoke remains for the resumed E2E run. |
 
 ## Spotlight Process
 
-Not selected. The run paused before source ingestion and deterministic pipeline execution.
+Not selected yet. Source ingestion has completed, but spotlight selection waits until the deterministic pipeline creates qualification, document, candidate, and search-profile state.
 
 ## CDP/Auth Events
 
@@ -391,6 +405,49 @@ Failed to authenticate. API Error: 401 Invalid authentication credentials
 
 This produced no Contracts Finder result contract, no live notices, and no portal/source mutation.
 
+Claude auth repair evidence:
+
+```text
+claude -p "Return exactly OK." --dangerously-skip-permissions
+OK.
+```
+
+Contracts Finder retry evidence:
+
+```text
+contracts-finder live loop completed: job_id=job-fe439a72a132f4b43211dc71d6f544418880bd809d008511476461bdcb73e59b notices=100 continuation=true
+```
+
+ProContract authenticated-session evidence:
+
+```text
+Supplier home snapshot showed `SORELLON LIMITED`, opportunities, company details summary, and vendor profile controls.
+```
+
+ProContract live discovery evidence:
+
+```text
+procontract discovery completed: job_id=job-7761e9efc2107ce4f9da40261177bfc4f3fb0e794f75df254a457c77e8a3cd92 notices=100 continuation=true
+```
+
+Stage 4a was not an auth/CDP pause. The ProContract session was authenticated and the skill performed one real portal registration before the daemon persistence failure:
+
+```text
+registered: BEST START FAMILY HUBS OUTREACH SERVICES
+notice_id: pc-ecd07d9f-5249-f111-813c-005056b64545
+process_id: proc-pc-ecd07d9f-5249-f111-813c-005056b64545
+registered_at: 2026-05-12T22:32:10Z
+```
+
+The result also reported two already-registered opportunities:
+
+```text
+26023 Traffic & Flood Monitoring CCTV Camera Network
+509_27 Parking Management Solutions
+```
+
+The blocker is product/contract semantics: the final `registrations[]` contained eight `pending_registration` actions, which the daemon does not accept as terminal interest-registration states.
+
 ## Desktop And Localhost UI
 
 Not executed.
@@ -423,24 +480,51 @@ No screenshots were captured before the pause.
 
 ## Operational Subsystems
 
-Partially executed through the static baseline, isolated dry-run, and first live Stage 1 attempt.
+Partially executed through the static baseline, isolated dry-run, and live Stage 1 source ingestion.
 
 ```text
 workflow_jobs:
-job-c3d5b06af6f38699d94beb2d5a9458e7038d457edb0a291526d0e28108d29807  sync_source  failed  source  contracts-finder  attempt_count=1  last_error="contracts-finder skill did not produce a result contract"
+completed sync_source jobs: 3
+failed sync_source jobs: 2, both documented Claude-auth missing-result attempts for Contracts Finder
+pending sync_source jobs: 2, Contracts Finder continuation jobs
 
 agent_session_logs:
-session-pty-99e3c444b8b8f752709101a88a2ec48c6fdeacdc090af0c9a58ff69a2d29d110  skill=skills/procurement-ingestion/contracts-finder/SKILL.md  mode=pty  status=completed  exit_code=1  cleanup_verdict=clean  terminal_output_bytes=131
+session-pty-fd96d69bec88f438f2e6846e7efc79af93533de8639f0ce519944952de9081ad  procontract-discover  status=completed  exit_code=143  cleanup_verdict=terminated_after_result_contract
+session-pty-97aca0564b676549924deac9e2ab604553200b9454fc0cde047be2e2c70c450a  contracts-finder      status=completed  exit_code=143  cleanup_verdict=terminated_after_result_contract
 
 source_runtime_state:
 contracts-finder/procontract/fts circuits remained closed with health `unknown`; no source captcha or browser-auth state was recorded.
 
-contract_notices: 0
-procurement_processes: 0
+contract_notices: contracts-finder=104, procontract=100
+procurement_processes: 202
+notice_lots: 204
+qualification_runs: 408, including 118 goods-qualified rows
+raw_documents: 204
+document_extractions/product_candidates/search_profiles: 0, pending ProContract document enrichment/acquisition
 error_manifests table rows: 0
 ```
 
-Full post-pipeline operational subsystem checks remain pending because QA paused at live Stage 1 before any notices were ingested.
+Stage 4a blocker state:
+
+```text
+workflow_jobs:
+job-974dda4de782bc61ad5d5a91fa09d48152978ef9d0ccdbd01e95bd3f2dabb256  sync_source  running  source  procontract-interest  attempt_count=1
+
+agent_session_logs:
+session-pty-5e1fb98f68771c12cb090dee2e0055d1e5f73d69345ab17faac4ed322981e8d9  skills/procurement-ingestion/procontract-register-interest/SKILL.md  status=completed  exit_code=143  cleanup_verdict=terminated_after_result_contract
+
+process_stage_status:
+no `interest_registration` rows were persisted
+```
+
+Result contract evidence:
+
+```text
+summary: total_evaluated=100, registered=1, already_registered=2, skipped_service=60, skipped_expiry=29, failed=0
+action_counts: already_registered=2, pending_registration=8, registered=1, skipped=89
+```
+
+Full post-pipeline operational subsystem checks remain pending until Stages 2-14 and UI smoke checks complete.
 
 ## Quality Gates
 
@@ -479,7 +563,7 @@ resume-native-shell-full.log: PASS, 22 tests
 resume-native-shell-stress.log: PASS, 20 full native_shell iterations
 ```
 
-Live Stage 1 started after this verification and is now paused on the Contracts Finder Claude auth blocker.
+Live Stage 1 started after this verification. The Contracts Finder Claude auth blocker is now resolved and both real source-ingestion paths completed.
 
 Schema repair validation:
 
@@ -520,11 +604,11 @@ cargo test -p procintel-desktop --test native_shell
 
 ## Final Decision
 
-QA is PAUSED. Static/unit baseline blockers are resolved and verified, and the first real live Stage 1 Contracts Finder ingestion was attempted. It did not reach Contracts Finder data retrieval because the selected Claude CLI failed authentication before the skill could write `result.json`.
+QA is PAUSED. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, and deterministic Stages 2-3 and 5-8 baseline processing completed. Stage 4a ProContract register-interest reached the allowed real portal mutation path, then exposed a product/contract blocker after the skill returned unsupported `pending_registration` final actions.
 
 Proven on this machine:
 
-- The checkout is on `main` at `9d15b9c`.
+- The checkout is on `main` at `e4080be` plus current QA ledger/fixer-handoff edits.
 - Cargo and Bun are present.
 - `origin/main` contains schema epoch fix commit `6d113ad`.
 - The daemon schema epoch is 9 because migration `0012_l4_sync_state` is present.
@@ -541,16 +625,24 @@ Proven on this machine:
 - The browser preflight validation block exits 0 and prints `AGENT_BROWSER_CDP_PREFLIGHT_GREEN`.
 - Login checks were attempted. ProContract, Alibaba, SeaRates, and eBay all load through CDP. ProContract, Alibaba, and eBay show authenticated state; SeaRates loads Logistics Explorer without surfacing an interactive captcha challenge.
 - The isolated daemon dry-run passed with `PRAGMA user_version=9`.
-- The live Contracts Finder command created failed workflow job `job-c3d5b06af6f38699d94beb2d5a9458e7038d457edb0a291526d0e28108d29807`.
-- The associated PTY session was `session-pty-99e3c444b8b8f752709101a88a2ec48c6fdeacdc090af0c9a58ff69a2d29d110`.
-- The PTY stream contains `Failed to authenticate. API Error: 401 Invalid authentication credentials`.
-- A direct `claude -p "Return exactly OK." --dangerously-skip-permissions` auth probe fails with the same 401.
-- No live notices, procurement processes, result contract, or run manifest were produced for Contracts Finder.
+- The initial Contracts Finder blocker was real: failed workflow jobs `job-c3d5...` and `job-2c44...` had PTY streams containing `Failed to authenticate. API Error: 401 Invalid authentication credentials`.
+- The selected Claude CLI auth probe now returns `OK`.
+- Contracts Finder retry job `job-fe439a72a132f4b43211dc71d6f544418880bd809d008511476461bdcb73e59b` completed with `notices=100 continuation=true`.
+- ProContract job `job-7761e9efc2107ce4f9da40261177bfc4f3fb0e794f75df254a457c77e8a3cd92` completed with `notices=100 continuation=true`.
+- SQLite now contains 104 `contracts-finder` notices, 100 `procontract` notices, and 202 procurement processes.
+- FTS was deferred because the current daemon `fts` path remains fixture-backed and no current fixture file/live FTS daemon path was found; this run is preserving real-data semantics.
+- Deterministic pipeline created 204 lots, 408 qualification rows, 204 raw document references, and 118 goods-qualified rows.
+- There are no pending extraction jobs at this point; product candidates and search profiles remain pending until ProContract document enrichment/acquisition.
+- Stage 4a used the authenticated ProContract session and performed one real registration: `BEST START FAMILY HUBS OUTREACH SERVICES`, notice `pc-ecd07d9f-5249-f111-813c-005056b64545`, process `proc-pc-ecd07d9f-5249-f111-813c-005056b64545`, registered at `2026-05-12T22:32:10Z`.
+- The Stage 4a result contract reported `registered=1`, `already_registered=2`, `pending_registration=8`, and `skipped=89`.
+- The daemon rejected the result with `unsupported ProContract registration action \`pending_registration\``.
+- Workflow job `job-974dda4de782bc61ad5d5a91fa09d48152978ef9d0ccdbd01e95bd3f2dabb256` is left `running`, and no `interest_registration` stage rows were persisted.
+- Error manifest `prompts/machine-fork-e2e-procontract-pending-registration-error-manifest.md` captures the exact commands, logs, session ID, result contract path, database state, codepath evidence, hypotheses, and acceptance criteria.
 
 Current next point:
 
-1. Repair or verify the Claude CLI/API authentication state used by `/opt/homebrew/bin/claude`, or make an explicit product decision to use a different authenticated adapter.
-2. Source `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z/e2e-env.sh`.
-3. Re-run `run_logged stage-01-contracts-finder-retry-after-claude-auth env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest contracts-finder`.
-4. Run the Stage 1 validation query.
-5. Continue to ProContract ingestion only if Contracts Finder now writes a valid result contract or a valid structured no-result/blocker contract.
+1. Source `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z/e2e-env.sh`.
+2. Confirm the fixer has resolved the `pending_registration` final-action semantics and stale-running-job behavior.
+3. Retry exactly: `run_logged stage-04a-procontract-interest-retry-after-pending-action-fix env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest procontract-interest`.
+4. Validate `interest_registration` stage state and latest `procontract-interest` workflow rows, explicitly checking that the earlier `BEST START FAMILY HUBS OUTREACH SERVICES` registration is treated idempotently.
+5. Continue to `procontract-enrich` if the portal session remains authenticated and Stage 4a persists successfully.

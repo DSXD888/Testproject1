@@ -1,4 +1,4 @@
-# Contracts Finder Live Ingestion Claude Auth Failure - QA Error Manifest
+# Contracts Finder Live Ingestion Claude Auth Failure - QA Error Manifest and Fix Handoff
 
 ULTRATHINK and be meticulous. This is a forensic debugging document.
 
@@ -13,7 +13,7 @@ ULTRATHINK and be meticulous. This is a forensic debugging document.
 | **Working Analogue** | Static daemon and desktop gates passed with fake/test adapters; CDP browser and `agent-browser` control are healthy. |
 | **Scope** | Live Stage 1 cannot start because the Claude CLI selected by the daemon exits with `401 Invalid authentication credentials` before writing `result.json`. |
 | **Environment** | macOS Darwin 25.3.0 arm64; Bun 1.3.13; Cargo 1.96.0-nightly; `claude` 2.1.80; `codex-cli` 0.130.0; `agent-browser` 0.27.0; Chrome CDP 148.0.7778.97 |
-| **Git State** | `main` at `9d15b9c fix: serialize native shell test hooks`; shared checkout also has unrelated staged `.DS_Store` and `bin/__pycache__` entries left untouched |
+| **Git State** | Original capture: `main` at `9d15b9c fix: serialize native shell test hooks`. Reproduced again on `main` at `e4080be docs: record contracts finder claude auth blocker` with unrelated staged `.DS_Store` and `bin/__pycache__` entries left untouched. |
 
 ---
 
@@ -112,6 +112,197 @@ agent-browser 0.27.0
    "Protocol-Version": "1.3",
    "webSocketDebuggerUrl": "ws://localhost:9222/devtools/browser/82e48ff8-b761-4922-873a-4b34ff03cc57"
 }
+```
+
+---
+
+## CURRENT REPRODUCTION ADDENDUM - 2026-05-12T20:45Z
+
+This addendum refreshes the provided manifest against the current checkout. It preserves the original evidence while proving the same failure is still present.
+
+### A0 - Current checkout and environment
+
+```bash
+git status --short --branch
+git log --oneline -1
+zsh -lc 'source state-e2e-machine-fork-20260512T195251Z/e2e-env.sh
+printf "%s\n" "$E2E_STATE_ROOT" "$E2E_RUNTIME_DIR" "$E2E_ARTIFACT_ROOT" "$E2E_LOG_ROOT" "$E2E_DAEMON"'
+zsh -lc 'uname -a
+sw_vers
+cargo --version
+bun --version
+claude --version
+codex --version
+agent-browser --version'
+```
+
+```text
+## main...origin/main
+M  .DS_Store
+A  bin/__pycache__/br-claimcpython-313.pyc
+A  bin/__pycache__/br-completecpython-313.pyc
+e4080be docs: record contracts finder claude auth blocker
+/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z
+/Users/zacfarrell/Desktop/Testproject1/runtime-e2e-machine-fork-20260512T195251Z
+/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z
+/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z/qa-logs
+/tmp/testproject1-target-machine-fork-20260512T195251Z/debug/daemon
+Darwin Zacs-MacBook-Air-2.local 25.3.0 Darwin Kernel Version 25.3.0: Wed Jan 28 20:56:34 PST 2026; root:xnu-12377.91.3~2/RELEASE_ARM64_T8122 arm64
+ProductName: macOS
+ProductVersion: 26.3.1
+ProductVersionExtra: (a)
+BuildVersion: 25D771280a
+cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)
+1.3.13
+2.1.80 (Claude Code)
+codex-cli 0.130.0
+agent-browser 0.27.0
+```
+
+### A1 - Direct selected Claude CLI auth probe still fails
+
+```bash
+source state-e2e-machine-fork-20260512T195251Z/e2e-env.sh
+run_logged stage-01-contracts-finder-forensics-claude-auth-recreate-codex \
+  claude -p "Return exactly OK." --dangerously-skip-permissions
+```
+
+```text
+$ claude -p Return\ exactly\ OK. --dangerously-skip-permissions
+Failed to authenticate. API Error: 401 {"type":"error","error":{"type":"authentication_error","message":"Invalid authentication credentials"},"request_id":"req_011CayKzxdKRaLZ98cNVAqys"}
+```
+
+### A2 - Live Contracts Finder ingestion still fails before result contract creation
+
+```bash
+source state-e2e-machine-fork-20260512T195251Z/e2e-env.sh
+run_logged stage-01-contracts-finder-recreate-codex \
+  env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" \
+    --state-root "$E2E_STATE_ROOT" \
+    --runtime-dir "$E2E_RUNTIME_DIR" \
+    --artifact-root "$E2E_ARTIFACT_ROOT" \
+    --ingest contracts-finder
+```
+
+```text
+$ env AGENT_BROWSER_CDP_PORT=9222 /tmp/testproject1-target-machine-fork-20260512T195251Z/debug/daemon --state-root /Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z --runtime-dir /Users/zacfarrell/Desktop/Testproject1/runtime-e2e-machine-fork-20260512T195251Z --artifact-root /Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z --ingest contracts-finder
+2026-05-12T20:45:37.937155Z  INFO daemon bootstrap ready socket_path=/Users/zacfarrell/Desktop/Testproject1/runtime-e2e-machine-fork-20260512T195251Z/daemon.sock state_db=/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z/state.db artifact_root=/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z
+2026-05-12T20:45:37.939815Z  WARN L4 startup sync degraded before cross-authority dispatch; local operation continues failure=remote-owned pull unavailable for shared_source_configs
+FTS live loop failed: job_id=job-2c44c70bbaf925cea4a4d7bab48f6ff02333ce1cfb7a222fd1702d7b986d21a8 reason=contracts-finder skill did not produce a result contract
+Error: FTS live loop failed: job_id=job-2c44c70bbaf925cea4a4d7bab48f6ff02333ce1cfb7a222fd1702d7b986d21a8 reason=contracts-finder skill did not produce a result contract
+```
+
+### A3 - Current DB evidence uses `scope_kind`, not `scope_type`
+
+The provided manifest's query used `scope_type`. This checkout's `workflow_jobs` schema uses `scope_kind`; use the query below for validation.
+
+```bash
+source state-e2e-machine-fork-20260512T195251Z/e2e-env.sh
+run_logged stage-01-contracts-finder-recreate-codex-db-v2 \
+  sqlite3 -header -column "$E2E_STATE_ROOT/state.db" "
+SELECT id, kind, status, scope_kind, scope_id, attempt_count, last_error, created_at, started_at, completed_at
+FROM workflow_jobs
+ORDER BY created_at DESC
+LIMIT 5;
+SELECT id, job_id, skill_path, execution_mode, cli_vendor, cli_version, status, exit_code, cleanup_verdict, terminal_output_bytes, run_manifest_path, terminal_output_path, created_at
+FROM agent_session_logs
+ORDER BY created_at DESC
+LIMIT 5;
+SELECT source_id, COUNT(*) AS notices FROM contract_notices GROUP BY source_id;
+"
+```
+
+```text
+id                                                                    kind         status  scope_kind  scope_id          attempt_count  last_error                                                created_at           started_at                        completed_at
+--------------------------------------------------------------------  -----------  ------  ----------  ----------------  -------------  --------------------------------------------------------  -------------------  --------------------------------  --------------------------------
+job-2c44c70bbaf925cea4a4d7bab48f6ff02333ce1cfb7a222fd1702d7b986d21a8  sync_source  failed  source      contracts-finder  1              contracts-finder skill did not produce a result contract  2026-05-12 20:45:37  2026-05-12T20:45:37.944514+00:00  2026-05-12T20:45:41.117739+00:00
+job-c3d5b06af6f38699d94beb2d5a9458e7038d457edb0a291526d0e28108d29807  sync_source  failed  source      contracts-finder  1              contracts-finder skill did not produce a result contract  2026-05-12 20:34:18  2026-05-12T20:34:18.284574+00:00  2026-05-12T20:34:23.364034+00:00
+
+id                                                                            job_id                                                                skill_path                                              execution_mode  cli_vendor  cli_version  status     exit_code  cleanup_verdict  terminal_output_bytes  run_manifest_path  terminal_output_path                                                                                                                                                                                 created_at
+----------------------------------------------------------------------------  --------------------------------------------------------------------  ------------------------------------------------------  --------------  ----------  -----------  ---------  ---------  ---------------  ---------------------  -----------------  ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------  -------------------
+session-pty-e0e643e05cc0ce79d5401266ec98f7d7841743b8a8df3bfaea03da58cf01bee8  job-2c44c70bbaf925cea4a4d7bab48f6ff02333ce1cfb7a222fd1702d7b986d21a8  skills/procurement-ingestion/contracts-finder/SKILL.md  pty             claude                   completed  1          clean            188                                       /Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z/sessions/2026/05/session-pty-e0e643e05cc0ce79d5401266ec98f7d7841743b8a8df3bfaea03da58cf01bee8/stream.index.jsonl  2026-05-12 20:45:41
+session-pty-99e3c444b8b8f752709101a88a2ec48c6fdeacdc090af0c9a58ff69a2d29d110  job-c3d5b06af6f38699d94beb2d5a9458e7038d457edb0a291526d0e28108d29807  skills/procurement-ingestion/contracts-finder/SKILL.md  pty             claude                   completed  1          clean            131                                       /Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z/sessions/2026/05/session-pty-99e3c444b8b8f752709101a88a2ec48c6fdeacdc090af0c9a58ff69a2d29d110/stream.index.jsonl  2026-05-12 20:34:23
+```
+
+### A4 - Current source counts remain empty
+
+```bash
+source state-e2e-machine-fork-20260512T195251Z/e2e-env.sh
+run_logged stage-01-contracts-finder-recreate-codex-counts-v2 \
+  sqlite3 -header -column "$E2E_STATE_ROOT/state.db" "
+SELECT COUNT(*) AS contract_notice_count FROM contract_notices;
+SELECT COUNT(*) AS procurement_process_count FROM procurement_processes;
+SELECT COUNT(*) AS error_manifest_count FROM error_manifests;
+"
+```
+
+```text
+contract_notice_count
+---------------------
+0
+procurement_process_count
+-------------------------
+0
+error_manifest_count
+--------------------
+0
+```
+
+### A5 - Current PTY artifact contains only the auth failure
+
+```bash
+sed -n '1,80p' artifacts-e2e-machine-fork-20260512T195251Z/sessions/2026/05/session-pty-e0e643e05cc0ce79d5401266ec98f7d7841743b8a8df3bfaea03da58cf01bee8/stream.index.jsonl
+zstdcat artifacts-e2e-machine-fork-20260512T195251Z/sessions/2026/05/session-pty-e0e643e05cc0ce79d5401266ec98f7d7841743b8a8df3bfaea03da58cf01bee8/stream/000001.pty.zst
+find artifacts-e2e-machine-fork-20260512T195251Z/sessions/2026/05/session-pty-e0e643e05cc0ce79d5401266ec98f7d7841743b8a8df3bfaea03da58cf01bee8 -maxdepth 3 -type f -print
+```
+
+```text
+{"chunk":"stream/000001.pty.zst","first_seq":1,"last_seq":2,"byte_length":188,"wall_ts_start":"2026-05-12T20:45:40.686572+00:00","wall_ts_end":"2026-05-12T20:45:41.073031+00:00","sha256":"be1e4f59b8aeefa4fe132ead03b86a72bab31f3eed77e395ccece2bb852e99b9"}
+Failed to authenticate. API Error: 401 {"type":"error","error":{"type":"authentication_error","message":"Invalid authentication credentials"},"request_id":"req_011CayL1YifjkUKQeP4yoUWB"}
+artifacts-e2e-machine-fork-20260512T195251Z/sessions/2026/05/session-pty-e0e643e05cc0ce79d5401266ec98f7d7841743b8a8df3bfaea03da58cf01bee8/stream/000001.pty.zst
+artifacts-e2e-machine-fork-20260512T195251Z/sessions/2026/05/session-pty-e0e643e05cc0ce79d5401266ec98f7d7841743b8a8df3bfaea03da58cf01bee8/stream.index.jsonl
+```
+
+### A6 - CDP is healthy; both known Claude binaries fail auth
+
+```bash
+source state-e2e-machine-fork-20260512T195251Z/e2e-env.sh
+run_logged stage-01-contracts-finder-recreate-codex-cli-cdp zsh -lc '
+which claude || true
+claude --version || true
+which codex || true
+codex --version || true
+which agent-browser || true
+agent-browser --version || true
+curl -sfS -m 3 http://localhost:9222/json/version'
+
+run_logged stage-01-contracts-finder-recreate-codex-claude-binaries zsh -lc '
+command -v claude
+ls -l /opt/homebrew/bin/claude /Users/zacfarrell/.local/bin/claude 2>/dev/null || true
+/Users/zacfarrell/.local/bin/claude --version 2>&1 || true
+/Users/zacfarrell/.local/bin/claude -p "Return exactly OK." --dangerously-skip-permissions 2>&1 || true
+/opt/homebrew/bin/claude -p "Return exactly OK." --dangerously-skip-permissions 2>&1 || true'
+```
+
+```text
+/opt/homebrew/bin/claude
+2.1.80 (Claude Code)
+/opt/homebrew/bin/codex
+codex-cli 0.130.0
+/opt/homebrew/bin/agent-browser
+agent-browser 0.27.0
+{
+   "Browser": "Chrome/148.0.7778.97",
+   "Protocol-Version": "1.3",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/browser/82e48ff8-b761-4922-873a-4b34ff03cc57"
+}
+
+/opt/homebrew/bin/claude
+lrwxr-xr-x@ 1 zacfarrell  staff  54 May 12 21:44 /Users/zacfarrell/.local/bin/claude -> /Users/zacfarrell/.local/share/claude/versions/2.1.139
+lrwxr-xr-x  1 zacfarrell  admin  48 Mar 20 12:10 /opt/homebrew/bin/claude -> /opt/homebrew/Caskroom/claude-code/2.1.80/claude
+2.1.139 (Claude Code)
+Failed to authenticate. API Error: 401 Invalid authentication credentials
+Failed to authenticate. API Error: 401 {"type":"error","error":{"type":"authentication_error","message":"Invalid authentication credentials"},"request_id":"req_011CayL69zKtctHgDRxbUrPS"}
 ```
 
 ---
@@ -480,6 +671,172 @@ If `contract_notices` remains empty and the session still has no result contract
 
 ---
 
+## FRESH AGENT FIX HANDOFF
+
+ULTRATHINK and be meticulous. Execute this handoff as a focused fix loop for the Contracts Finder live ingestion blocker.
+
+### Mission
+
+Restore Contracts Finder live Stage 1 ingestion by making the selected Claude CLI capable of one minimal authenticated model call, then prove the daemon can run `--ingest contracts-finder` against the preserved E2E roots without failing for a missing result contract. Do not weaken result-contract validation or silently switch the skill to Codex. If a code or runbook change is needed, add the smallest preflight/regression coverage that makes this class of machine setup blocker fail before Stage 1 starts.
+
+### Start Here - Required Reads
+
+1. `prompts/machine-fork-e2e-contracts-finder-claude-auth-error-manifest.md`
+   - Understand the original evidence and the current reproduction addendum.
+   - Checkpoint: Which exact command proves Claude auth is broken? Which exact session id proves the daemon saw the same auth failure?
+
+2. `skills/procurement-ingestion/contracts-finder/SKILL.md`
+   - Read the YAML metadata and Mandatory CDP Discipline section.
+   - Checkpoint: Which `agent_cli` is declared? What valid blocked result should the skill write if CDP is unreachable?
+
+3. `crates/daemon/src/main.rs`
+   - Read `Cli` args around `--agent-cli` and `--agent-cli-program` (about lines 468-486).
+   - Read `AgentCliKind::env_key` (about lines 584-613).
+   - Read `adapter_runtime_config` and `build_adapter` (about lines 3963-4001).
+   - Read `launch_args_for_skill` (about lines 16048-16063).
+   - Read `run_contracts_finder_live_loop` missing-result branch (about lines 16198-16237).
+   - Checkpoint: What is the adapter selection order? Which env var can override the Claude binary? Why does missing `result_path` become `AGENT_RUN_FAILED`?
+
+4. `crates/daemon/src/agents/claude.rs`
+   - Read `probe`, `build_launch_spec`, and parser result/auth event handling.
+   - Checkpoint: Why does `claude --version` not prove auth health? What happens if `probe --json` is unavailable in Claude CLI v2?
+
+5. Tests to inspect before changing code:
+   - `crates/daemon/tests/adapter_claude.rs`
+   - `crates/daemon/tests/agent_procurement_ingestion.rs`
+   - `crates/daemon/src/main.rs` unit tests around `procurement_skills_require_result_contract_to_complete` and `missing_procurement_result_contract_marks_job_failed` (about lines 27910-27994).
+
+### Non-Negotiable Constraints
+
+1. Preserve the E2E directories and all QA logs/artifacts. Do not delete `state-e2e-machine-fork-20260512T195251Z`, `runtime-e2e-machine-fork-20260512T195251Z`, or `artifacts-e2e-machine-fork-20260512T195251Z`.
+2. Do not edit `PRAGMA user_version`, force state rows, or bypass the result-contract requirement.
+3. Do not change `skills/procurement-ingestion/contracts-finder/SKILL.md` from `agent_cli: claude` to `codex` without an explicit product decision and regression coverage.
+4. Do not close or replace the persistent CDP profile on `localhost:9222`.
+5. Treat unrelated staged/modified files as shared-agent work. Do not stash, revert, overwrite, or clean them.
+
+### Validate-Test-Fix Loop
+
+Run the loop in this order. Do not proceed to daemon ingestion until the minimal Claude auth probe exits 0.
+
+#### Loop 1 - Validate the machine blocker
+
+```bash
+cd /Users/zacfarrell/Desktop/Testproject1
+source state-e2e-machine-fork-20260512T195251Z/e2e-env.sh
+run_logged stage-01-contracts-finder-validate-agent-cli-auth \
+  claude -p "Return exactly OK." --dangerously-skip-permissions
+```
+
+Expected after fix:
+
+```text
+OK
+```
+
+If this still exits non-zero or prints `401 Invalid authentication credentials`, repair the Claude Code auth state before touching daemon code. Check both binaries before assuming PATH is the only issue:
+
+```bash
+command -v claude
+/opt/homebrew/bin/claude --version || true
+/Users/zacfarrell/.local/bin/claude --version || true
+/opt/homebrew/bin/claude -p "Return exactly OK." --dangerously-skip-permissions || true
+/Users/zacfarrell/.local/bin/claude -p "Return exactly OK." --dangerously-skip-permissions || true
+```
+
+If exactly one binary authenticates, use the existing override for validation:
+
+```bash
+export DAEMON_CLAUDE_PROGRAM=<authenticated-claude-path>
+```
+
+If neither binary authenticates, use the project-approved Claude Code reauth flow outside the daemon run, then repeat Loop 1.
+
+#### Loop 2 - Validate live Contracts Finder ingestion
+
+```bash
+source state-e2e-machine-fork-20260512T195251Z/e2e-env.sh
+run_logged stage-01-contracts-finder-validate-live-ingest \
+  env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" \
+    --state-root "$E2E_STATE_ROOT" \
+    --runtime-dir "$E2E_RUNTIME_DIR" \
+    --artifact-root "$E2E_ARTIFACT_ROOT" \
+    --ingest contracts-finder
+```
+
+Pass condition:
+
+- Command exits 0, or exits with a valid structured skill-level blocked/no-result contract.
+- Latest `workflow_jobs` row for `scope_id='contracts-finder'` is not failed for `contracts-finder skill did not produce a result contract`.
+- Latest session stream no longer contains `Failed to authenticate` or `Invalid authentication credentials`.
+
+Validation query for the current schema:
+
+```bash
+sqlite3 -header -column "$E2E_STATE_ROOT/state.db" "
+SELECT id, kind, status, scope_kind, scope_id, attempt_count, last_error, created_at, started_at, completed_at
+FROM workflow_jobs
+WHERE scope_id = 'contracts-finder'
+ORDER BY created_at DESC
+LIMIT 5;
+SELECT id, job_id, skill_path, execution_mode, cli_vendor, status, exit_code, cleanup_verdict, terminal_output_bytes, run_manifest_path, terminal_output_path, created_at
+FROM agent_session_logs
+ORDER BY created_at DESC
+LIMIT 5;
+SELECT source_id, COUNT(*) AS notices
+FROM contract_notices
+GROUP BY source_id;
+"
+
+if grep -R "Failed to authenticate\|Invalid authentication credentials" \
+  "$E2E_LOG_ROOT/stage-01-contracts-finder-validate-live-ingest.log"; then
+  exit 1
+fi
+```
+
+If Loop 2 still fails with a Claude 401, return to Loop 1. If Loop 2 fails without a Claude 401, preserve the new log/session artifacts and continue debugging the adapter/session/result-contract path as a different failure mode.
+
+#### Loop 3 - Add or update the preflight/runbook guard if code changes are needed
+
+The preferred product behavior is a loud preflight failure before Stage 1 starts when the selected agent CLI cannot perform a minimal authenticated call. Implement this in the narrowest existing surface, not by weakening the live ingestion failure path.
+
+Candidate test coverage:
+
+- `cargo test -p daemon --test adapter_claude`
+  - Extend fake CLI coverage if adapter auth probing is changed.
+- `cargo test -p daemon --test agent_procurement_ingestion`
+  - Preserve the fake-adapter successful path.
+- `cargo test -p daemon --bin daemon procurement_skills_require_result_contract_to_complete`
+  - Preserve loud missing-result semantics for `procurement-ingestion/*`.
+- `cargo test -p daemon --bin daemon missing_procurement_result_contract_marks_job_failed`
+  - Preserve failed workflow status plus `AGENT_RUN_FAILED` context.
+
+If the fix is only machine auth repair plus runbook update, no daemon code change is required. Still record the successful Loop 1 and Loop 2 logs under `$E2E_LOG_ROOT`.
+
+#### Loop 4 - Full regression and changed-file scanner
+
+Run this when code changed:
+
+```bash
+cargo fmt --check
+cargo check --all-targets
+cargo clippy --all-targets -- -D warnings
+cargo test -p daemon --test agent_procurement_ingestion
+cargo test -p daemon --test adapter_claude
+cargo test -p procintel-desktop --test native_shell
+ubs <changed-rust-or-ts-files>
+```
+
+If any command fails, fix the root cause and restart at the narrowest failing loop. Do not declare fixed until Loop 1, Loop 2, and all relevant regression commands pass.
+
+### Done Criteria
+
+- `claude -p "Return exactly OK." --dangerously-skip-permissions` exits 0 on this machine.
+- Contracts Finder live ingestion no longer fails for missing `result.json` caused by Claude auth.
+- The latest retry log and DB validation query are captured under `$E2E_LOG_ROOT`.
+- Any code/runbook changes include focused regression coverage and preserve loud result-contract failure semantics.
+
+---
+
 ## FIX CONSTRAINTS
 
 1. Do not delete the E2E state root, runtime dir, artifact root, QA logs, session artifacts, or forensic streams.
@@ -526,8 +883,18 @@ If `contract_notices` remains empty and the session still has no result contract
 | `skills/procurement-ingestion/contracts-finder/SKILL.md` | Skill metadata and CDP/result contract obligations. | 1-32 |
 | `crates/daemon/src/main.rs` | Daemon CLI dispatch, default adapter, PTY execution, missing-result failure handling. | 224-232, 16048-16074, 16124-16237 |
 | `crates/daemon/src/agents/claude.rs` | Claude adapter/parser behavior. | 24-112, 125-195 |
+| `crates/daemon/tests/adapter_claude.rs` | Focused Claude adapter regression surface if auth/preflight behavior changes. | whole file |
+| `crates/daemon/tests/agent_procurement_ingestion.rs` | Procurement ingestion fake-adapter regression surface. | whole file |
 | `state-e2e-machine-fork-20260512T195251Z/e2e-env.sh` | Isolated QA run context and `run_logged` helper. | whole file |
 | `artifacts-e2e-machine-fork-20260512T195251Z/qa-logs/stage-01-contracts-finder.log` | Primary failed daemon command log. | whole file |
 | `artifacts-e2e-machine-fork-20260512T195251Z/qa-logs/stage-01-contracts-finder-forensics-session-stream.log` | Captured PTY stream proving CLI auth failure. | whole file |
 | `artifacts-e2e-machine-fork-20260512T195251Z/qa-logs/stage-01-contracts-finder-forensics-db.log` | SQLite workflow/session/source-state evidence. | whole file |
 | `artifacts-e2e-machine-fork-20260512T195251Z/qa-logs/stage-01-contracts-finder-forensics-claude-auth.log` | Direct Claude auth probe evidence. | whole file |
+| `artifacts-e2e-machine-fork-20260512T195251Z/qa-logs/stage-01-contracts-finder-forensics-claude-auth-recreate-codex.log` | Fresh direct Claude auth probe evidence from the current reproduction. | whole file |
+| `artifacts-e2e-machine-fork-20260512T195251Z/qa-logs/stage-01-contracts-finder-recreate-codex.log` | Fresh failed live Contracts Finder daemon command evidence. | whole file |
+| `artifacts-e2e-machine-fork-20260512T195251Z/qa-logs/stage-01-contracts-finder-recreate-codex-db-v2.log` | Fresh SQLite workflow/session evidence using the current `scope_kind` schema. | whole file |
+| `artifacts-e2e-machine-fork-20260512T195251Z/qa-logs/stage-01-contracts-finder-recreate-codex-counts-v2.log` | Fresh count evidence showing no notices/processes/manifests were created. | whole file |
+| `artifacts-e2e-machine-fork-20260512T195251Z/qa-logs/stage-01-contracts-finder-recreate-codex-cli-cdp.log` | Fresh tool and CDP control evidence. | whole file |
+| `artifacts-e2e-machine-fork-20260512T195251Z/qa-logs/stage-01-contracts-finder-recreate-codex-claude-binaries.log` | Fresh comparison of `/opt/homebrew/bin/claude` and `/Users/zacfarrell/.local/bin/claude`. | whole file |
+| `artifacts-e2e-machine-fork-20260512T195251Z/sessions/2026/05/session-pty-e0e643e05cc0ce79d5401266ec98f7d7841743b8a8df3bfaea03da58cf01bee8/stream.index.jsonl` | Fresh PTY stream index for reproduced daemon failure. | whole file |
+| `artifacts-e2e-machine-fork-20260512T195251Z/sessions/2026/05/session-pty-e0e643e05cc0ce79d5401266ec98f7d7841743b8a8df3bfaea03da58cf01bee8/stream/000001.pty.zst` | Fresh compressed PTY bytes containing the Claude 401 auth failure. | whole file |
