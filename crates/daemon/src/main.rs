@@ -4378,6 +4378,133 @@ fn read_result_contract(result_path: &Path) -> Result<Value> {
     serde_json::from_str(&result_text).context("parsing result contract JSON")
 }
 
+fn procontract_enrich_completion_payload(
+    job_id: &str,
+    persisted_count: usize,
+    extraction_jobs_processed: usize,
+    result_json: &Value,
+    session_id: Option<&str>,
+    replay_result_path: Option<&Path>,
+    download_root: &Path,
+) -> Value {
+    let mut payload = Map::new();
+    payload.insert("job_id".to_owned(), json!(job_id));
+    payload.insert("source_id".to_owned(), json!("procontract-enrich"));
+    payload.insert("enriched_tenders".to_owned(), json!(persisted_count));
+    payload.insert(
+        "extraction_jobs_processed".to_owned(),
+        json!(extraction_jobs_processed),
+    );
+    payload.insert(
+        "summary".to_owned(),
+        result_json
+            .get("summary")
+            .cloned()
+            .unwrap_or_else(|| json!({})),
+    );
+    payload.insert(
+        "status".to_owned(),
+        result_json
+            .get("status")
+            .cloned()
+            .unwrap_or_else(|| json!("completed")),
+    );
+    payload.insert(
+        "blockers".to_owned(),
+        result_json
+            .get("blockers")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
+    );
+    payload.insert(
+        "download_root".to_owned(),
+        json!(download_root.to_string_lossy()),
+    );
+    payload.insert(
+        "durable_step_surfaces".to_owned(),
+        live_loop_surfaces_json(),
+    );
+    if let Some(session_id) = session_id {
+        payload.insert("session_id".to_owned(), json!(session_id));
+    }
+    if let Some(replay_result_path) = replay_result_path {
+        payload.insert(
+            "replay_result_path".to_owned(),
+            json!(replay_result_path.to_string_lossy()),
+        );
+    }
+    Value::Object(payload)
+}
+
+fn session_run_manifest_path(conn: &Connection, session_id: &str) -> Result<Option<String>> {
+    let path = conn
+        .query_row(
+            "SELECT run_manifest_path FROM agent_session_logs WHERE id = ?1",
+            params![session_id],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .optional()
+        .context("loading agent session run manifest path")?;
+    Ok(path.flatten())
+}
+
+fn procontract_enrich_missing_result_context(
+    skill: &LoadedSkill,
+    executed: &ExecutedSession,
+    run_manifest_path: Option<&str>,
+) -> Value {
+    json!({
+        "source_id": "procontract-enrich",
+        "skill_id": &skill.metadata.skill_id,
+        "session_id": &executed.session_id,
+        "terminal_output_path": &executed.terminal_output_path,
+        "terminal_output_hash": &executed.terminal_output_hash,
+        "terminal_output_bytes": executed.terminal_output_bytes,
+        "terminal_output_tail": &executed.terminal_output_tail,
+        "cleanup_verdict": &executed.cleanup_verdict,
+        "exit_code": executed.exit_code,
+        "run_manifest_path": run_manifest_path,
+        "adapter_id": &executed.adapter_id,
+        "execution_mode": execution_mode_label(executed.execution_mode),
+        "durable_step_surfaces": live_loop_surfaces_json(),
+    })
+}
+
+fn fail_procontract_enrich_missing_result_contract(
+    runtime: &mut RuntimeBootstrap,
+    job_id: &str,
+    skill: &LoadedSkill,
+    executed: &ExecutedSession,
+) -> Result<LiveLoopReport> {
+    let message = "procontract enrichment skill did not produce a result contract";
+    let run_manifest_path =
+        session_run_manifest_path(runtime.state_db.connection(), &executed.session_id)?;
+    let error_context =
+        procontract_enrich_missing_result_context(skill, executed, run_manifest_path.as_deref());
+    let error_manifest_id = create_error_manifest(
+        runtime,
+        ErrorCode::AgentRunFailed,
+        job_id,
+        None,
+        Some(&executed.session_id),
+        Some(&skill.skill_path),
+        "tender_enrichment",
+        "agent_execute",
+        message,
+        error_context.clone(),
+    )?;
+    let mut output_payload = error_context;
+    if let Some(payload) = output_payload.as_object_mut() {
+        payload.insert("job_id".to_owned(), json!(job_id));
+        payload.insert(
+            "error_code".to_owned(),
+            json!(ErrorCode::AgentRunFailed.as_str()),
+        );
+        payload.insert("error_manifest_id".to_owned(), json!(error_manifest_id));
+    }
+    fail_job(runtime, job_id, message, output_payload)
+}
+
 // ---------------------------------------------------------------------------
 // Stage 14 — operator input override types
 //
@@ -16714,24 +16841,20 @@ async fn run_procontract_enrich_tender_live_loop(
             drain_pending_extraction_jobs(runtime, cli, &extraction_process_ids)
                 .await
                 .unwrap_or(0);
-        let summary = result_json
-            .get("summary")
-            .cloned()
-            .unwrap_or_else(|| json!({}));
+        let output_payload = procontract_enrich_completion_payload(
+            &job_id,
+            persisted_count,
+            extraction_jobs_processed,
+            &result_json,
+            None,
+            Some(&result_path),
+            &download_root,
+        );
 
         return complete_source_job(
             runtime,
             &job_id,
-            &json!({
-                "job_id": job_id,
-                "source_id": "procontract-enrich",
-                "enriched_tenders": persisted_count,
-                "extraction_jobs_processed": extraction_jobs_processed,
-                "summary": summary,
-                "replay_result_path": result_path.to_string_lossy(),
-                "download_root": download_root.to_string_lossy(),
-                "durable_step_surfaces": live_loop_surfaces_json(),
-            }),
+            &output_payload,
             format!(
                 "procontract tender enrichment replay completed: job_id={job_id} enriched={persisted_count} extractions={extraction_jobs_processed}"
             ),
@@ -16746,10 +16869,11 @@ async fn run_procontract_enrich_tender_live_loop(
         "procontract enrichment skill must resolve to PTY"
     );
     insert_executed_session_log(runtime.state_db.connection(), &skill, &job_id, &executed)?;
-    let result_path = executed
-        .result_path
-        .as_ref()
-        .ok_or_else(|| anyhow!("procontract enrichment skill did not produce a result contract"))?;
+    let Some(result_path) = executed.result_path.as_ref() else {
+        return fail_procontract_enrich_missing_result_contract(
+            runtime, &job_id, &skill, &executed,
+        );
+    };
     let result_json = read_result_contract(result_path)?;
     let persisted_count =
         persist_tender_enrichments(&mut runtime.state_db, "procontract-enrich", &result_json)?;
@@ -16761,24 +16885,20 @@ async fn run_procontract_enrich_tender_live_loop(
             .await
             .unwrap_or(0);
 
-    let summary = result_json
-        .get("summary")
-        .cloned()
-        .unwrap_or_else(|| json!({}));
+    let output_payload = procontract_enrich_completion_payload(
+        &job_id,
+        persisted_count,
+        extraction_jobs_processed,
+        &result_json,
+        Some(&session_id),
+        None,
+        &download_root,
+    );
 
     complete_source_job(
         runtime,
         &job_id,
-        &json!({
-            "job_id": job_id,
-            "source_id": "procontract-enrich",
-            "enriched_tenders": persisted_count,
-            "extraction_jobs_processed": extraction_jobs_processed,
-            "summary": summary,
-            "session_id": session_id,
-            "download_root": download_root.to_string_lossy(),
-            "durable_step_surfaces": live_loop_surfaces_json(),
-        }),
+        &output_payload,
         format!(
             "procontract tender enrichment completed: job_id={job_id} enriched={persisted_count} extractions={extraction_jobs_processed}"
         ),
@@ -28209,6 +28329,306 @@ mod tests {
             manifest_rows >= 1,
             "expected at least one error manifest row for failed procurement job"
         );
+        Ok(())
+    }
+
+    fn procontract_enrich_test_skill() -> LoadedSkill {
+        LoadedSkill {
+            skill_path: "skills/procurement-ingestion/procontract-enrich-tender/SKILL.md".into(),
+            skill_markdown: String::new(),
+            metadata: SkillFrontmatter {
+                skill_id: "procurement-ingestion/procontract-enrich-tender".to_owned(),
+                skill_version: "1.2.1".to_owned(),
+                interaction_profile: "pty_interactive".to_owned(),
+                result_schema_version: "1.0.0".to_owned(),
+                checkpoint_schema_version: Some("1.0.0".to_owned()),
+                validator_overlay_version: None,
+                model_profile: "browse_stable_low_cost".to_owned(),
+                agent_cli: Some(DEFAULT_AGENT_CLI.to_owned()),
+                requires_cdp: true,
+                cdp_default_port: Some(9222),
+                source_structure_version: Some("procontract-enrich-2026-04-13".to_owned()),
+                worker_behavior_version: None,
+                validator_behavior_version: None,
+                validation_policy: None,
+                validation_sample_rate: None,
+                validation_triggers: None,
+                promotion_stage: SkillPromotionStageMetadata::Stable,
+                version_change_affects_behavior: true,
+                gate_a_family_key: None,
+                gate_a_family_prequalified: false,
+                gate_b_exact_slice_key: None,
+                gate_b_exact_slice_ready: false,
+            },
+            result_schema: json!({}),
+        }
+    }
+
+    fn insert_procontract_enrich_running_job(conn: &Connection, job_id: &str) -> Result<()> {
+        conn.execute(
+            "\
+            INSERT INTO workflow_jobs (
+              id, kind, scope_kind, scope_id, status, input_payload, validation_required,
+              parent_job_id, validation_verdict_id
+            ) VALUES (?1, 'sync_source', 'source', 'procontract-enrich', 'running',
+                      ?2, 0, NULL, NULL)
+            ",
+            params![
+                job_id,
+                json!({"source_id": "procontract-enrich"}).to_string()
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn procontract_enrich_missing_result_session(
+        session_id: &str,
+        cleanup_verdict: &str,
+        exit_code: i32,
+        terminal_output_path: Option<&str>,
+        terminal_output_bytes: Option<i64>,
+    ) -> ExecutedSession {
+        ExecutedSession {
+            session_id: session_id.to_owned(),
+            started_at: Utc::now(),
+            execution_mode: ExecutionMode::Pty,
+            adapter_id: DEFAULT_AGENT_CLI.to_owned(),
+            cli_vendor: DEFAULT_AGENT_CLI.to_owned(),
+            config_hash: "config-hash-test".to_owned(),
+            pty_session_id: Some(session_id.to_owned()),
+            runtime_ids: None,
+            completed_at: Utc::now().to_rfc3339(),
+            terminal_output_path: terminal_output_path.map(str::to_owned),
+            terminal_output_hash: Some("terminal-hash-test".to_owned()),
+            terminal_output_bytes,
+            terminal_output_tail: Some("You've hit your limit - resets 2:50am".to_owned()),
+            structured_trace: json!({"test_fixture": "procontract-enrich-missing-result"})
+                .to_string(),
+            exit_code,
+            cleanup_verdict: cleanup_verdict.to_owned(),
+            last_checkpoint_seq: Some(1),
+            result_path: None,
+            artifact_refs: Vec::new(),
+        }
+    }
+
+    fn assert_procontract_enrich_missing_result_failure(
+        runtime: &super::RuntimeBootstrap,
+        job_id: &str,
+        session_id: &str,
+        terminal_output_path: Option<&str>,
+        cleanup_verdict: &str,
+        exit_code: i32,
+    ) -> Result<()> {
+        let (status, last_error, completed_at, output_payload): (
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ) = runtime.state_db.connection().query_row(
+            "\
+            SELECT status, last_error, completed_at, output_payload
+            FROM workflow_jobs WHERE id = ?1
+            ",
+            params![job_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )?;
+        assert_eq!(status, "failed");
+        let last_error = last_error.unwrap_or_default();
+        assert!(
+            last_error.contains("procontract enrichment skill did not produce a result contract"),
+            "expected missing result message, got: {last_error}"
+        );
+        assert!(
+            completed_at.is_some(),
+            "failed workflow job should have completed_at"
+        );
+        let output_payload: Value = serde_json::from_str(
+            output_payload
+                .as_deref()
+                .expect("failed job should persist output payload"),
+        )?;
+        assert_eq!(output_payload["source_id"], "procontract-enrich");
+        assert_eq!(
+            output_payload["skill_id"],
+            "procurement-ingestion/procontract-enrich-tender"
+        );
+        assert_eq!(output_payload["session_id"], session_id);
+        assert_eq!(
+            output_payload["terminal_output_path"],
+            json!(terminal_output_path)
+        );
+        assert_eq!(output_payload["cleanup_verdict"], cleanup_verdict);
+        assert_eq!(output_payload["exit_code"], exit_code);
+        assert!(
+            output_payload["durable_step_surfaces"].is_array(),
+            "missing-result payload should preserve durable step surfaces"
+        );
+        assert!(
+            output_payload["error_manifest_id"].is_string(),
+            "missing-result payload should link the error manifest"
+        );
+
+        let error_context: String = runtime.state_db.connection().query_row(
+            "\
+            SELECT error_context FROM error_manifests
+            WHERE job_id = ?1 ORDER BY created_at DESC LIMIT 1
+            ",
+            params![job_id],
+            |row| row.get(0),
+        )?;
+        let error_context: Value = serde_json::from_str(&error_context)?;
+        assert_eq!(error_context["session_id"], session_id);
+        assert_eq!(
+            error_context["terminal_output_path"],
+            json!(terminal_output_path)
+        );
+        assert_eq!(error_context["cleanup_verdict"], cleanup_verdict);
+        assert_eq!(error_context["exit_code"], exit_code);
+        Ok(())
+    }
+
+    #[test]
+    fn procontract_enrich_missing_result_marks_job_failed() -> Result<()> {
+        let (_temp, mut runtime) = bootstrap_validation_runtime()?;
+        let job_id = "job-procontract-enrich-fast-fail";
+        let session_id = "session-pty-procontract-fast-fail";
+        let terminal_output_path = Some("/tmp/session/stream.index.jsonl");
+        let skill = procontract_enrich_test_skill();
+        let executed = procontract_enrich_missing_result_session(
+            session_id,
+            "clean",
+            1,
+            terminal_output_path,
+            Some(133),
+        );
+
+        insert_procontract_enrich_running_job(runtime.state_db.connection(), job_id)?;
+        super::insert_executed_session_log(
+            runtime.state_db.connection(),
+            &skill,
+            job_id,
+            &executed,
+        )?;
+
+        let report = super::fail_procontract_enrich_missing_result_contract(
+            &mut runtime,
+            job_id,
+            &skill,
+            &executed,
+        )?;
+        assert_eq!(report.status, "failed");
+        assert_procontract_enrich_missing_result_failure(
+            &runtime,
+            job_id,
+            session_id,
+            terminal_output_path,
+            "clean",
+            1,
+        )
+    }
+
+    #[test]
+    fn procontract_enrich_timeout_missing_result_marks_job_failed() -> Result<()> {
+        let (_temp, mut runtime) = bootstrap_validation_runtime()?;
+        let job_id = "job-procontract-enrich-timeout";
+        let session_id = "session-pty-procontract-timeout";
+        let terminal_output_path = Some("/tmp/session/stream.index.jsonl");
+        let skill = procontract_enrich_test_skill();
+        let executed = procontract_enrich_missing_result_session(
+            session_id,
+            "terminated_after_timeout",
+            143,
+            terminal_output_path,
+            Some(0),
+        );
+
+        insert_procontract_enrich_running_job(runtime.state_db.connection(), job_id)?;
+        super::insert_executed_session_log(
+            runtime.state_db.connection(),
+            &skill,
+            job_id,
+            &executed,
+        )?;
+
+        let report = super::fail_procontract_enrich_missing_result_contract(
+            &mut runtime,
+            job_id,
+            &skill,
+            &executed,
+        )?;
+        assert_eq!(report.status, "failed");
+        assert_procontract_enrich_missing_result_failure(
+            &runtime,
+            job_id,
+            session_id,
+            terminal_output_path,
+            "terminated_after_timeout",
+            143,
+        )
+    }
+
+    #[test]
+    fn procontract_enrich_blocked_result_is_durable() -> Result<()> {
+        let (temp, mut runtime) = bootstrap_validation_runtime()?;
+        let job_id = "job-procontract-enrich-blocked";
+        let result_json = json!({
+            "cursor": "{\"blocked_at\":\"2026-05-12T22:00:00Z\"}",
+            "continuation_required": false,
+            "enriched_tenders": [],
+            "summary": {
+                "total_checked": 1,
+                "enriched": 0,
+                "not_yet_responded": 0,
+                "failed": 1
+            },
+            "status": "blocked",
+            "blockers": [
+                {
+                    "code": "AGENT_STALLED",
+                    "message": "Timed out opening the live RFx event from the activity dashboard.",
+                    "severity": "blocked"
+                }
+            ]
+        });
+
+        runtime.state_db.connection().execute(
+            "INSERT OR IGNORE INTO sources (id, kind, config) VALUES ('procontract-enrich', 'procurement', '{}')",
+            [],
+        )?;
+        insert_procontract_enrich_running_job(runtime.state_db.connection(), job_id)?;
+        let persisted_count =
+            persist_tender_enrichments(&mut runtime.state_db, "procontract-enrich", &result_json)?;
+        let output_payload = super::procontract_enrich_completion_payload(
+            job_id,
+            persisted_count,
+            0,
+            &result_json,
+            Some("session-pty-blocked"),
+            None,
+            temp.path(),
+        );
+
+        let report = super::complete_source_job(
+            &mut runtime,
+            job_id,
+            &output_payload,
+            format!(
+                "procontract tender enrichment completed: job_id={job_id} enriched=0 extractions=0"
+            ),
+        )?;
+        assert_eq!(report.status, "completed");
+
+        let (status, output_payload): (String, String) = runtime.state_db.connection().query_row(
+            "SELECT status, output_payload FROM workflow_jobs WHERE id = ?1",
+            params![job_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        assert_eq!(status, "completed");
+        let output_payload: Value = serde_json::from_str(&output_payload)?;
+        assert_eq!(output_payload["status"], "blocked");
+        assert_eq!(output_payload["blockers"][0]["code"], "AGENT_STALLED");
+        assert_eq!(output_payload["summary"]["failed"], 1);
         Ok(())
     }
 

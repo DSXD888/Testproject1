@@ -1,6 +1,6 @@
 ---
 skill_id: procurement-ingestion/procontract-enrich-tender
-skill_version: 1.2.0
+skill_version: 1.2.1
 interaction_profile: pty_interactive
 result_schema_version: 1.0.0
 checkpoint_schema_version: 1.0.0
@@ -32,6 +32,8 @@ Do not use this skill for listing discovery or for clicking the initial interest
 - Each enriched tender includes the updated deadline and the downloaded document inventory
 
 ## Failure Codes
+- CDP_CONNECT_FAILED
+- PROCONTRACT_SESSION_EXPIRED
 - AGENT_AUTH_CHALLENGE
 - PAGE_SHAPE_DRIFT
 - SOURCE_SOFT_BLOCKED
@@ -87,6 +89,36 @@ agent-browser --cdp ${CDP_PORT} ...
 
 If the portal shows `Log In`, `Session expired`, captcha, or another auth challenge, emit a valid blocked result with blocker code `PROCONTRACT_SESSION_EXPIRED` or `AGENT_AUTH_CHALLENGE`. The operator must restore the session manually in the persistent CDP browser.
 
+### Mandatory Bounded-Stall Contract
+
+Before portal work, record `started_at` and an internal deadline that is comfortably below the daemon PTY wall-clock timeout. Use 15 minutes as the maximum internal deadline unless the prompt gives a smaller limit. Do not continue browser navigation past that internal deadline.
+
+Every page transition must have a bounded retry budget:
+
+- Open or return to the authenticated home page: at most 2 attempts, 10 seconds each.
+- Switch to `Recently added` or page the activity grid: at most 2 attempts per transition, 8 seconds each.
+- Open an activity dashboard: at most 2 attempts, 12 seconds each.
+- Open the live tender event from the activity dashboard: at most 2 attempts, 12 seconds each.
+- Load the RFx summary and document section: at most 2 attempts, 15 seconds each.
+- Download each document: at most 2 attempts, 30 seconds each.
+
+Each activity has a bounded processing budget of 3 minutes, including dashboard navigation, RFx summary extraction, and document download attempts. If that budget is exceeded, stop processing that activity and write the final `result.json` as a blocked contract.
+
+If a required page shape, live tender event, RFx summary, or document section is not reachable within budget, write a valid blocked `result.json` with:
+
+- `status`: `blocked`
+- `continuation_required`: `false`
+- `enriched_tenders`: every tender fully enriched before the blocker, or `[]`
+- `summary.total_checked`: activities attempted before blocking
+- `summary.enriched`: count of fully enriched tenders in `enriched_tenders`
+- `summary.failed`: at least `1`
+- `blockers[]`: one or more entries with `code`, `message`, `severity`, and current `url` and `title` when available
+- `cursor`: a JSON string containing at least `blocked_at`, `started_at`, and the last page/activity reached when known
+
+Use blocker codes from the Failure Codes list. For page shape drift use `PAGE_SHAPE_DRIFT`; for auth/session problems use `AGENT_AUTH_CHALLENGE`; for source throttling or portal denial use `SOURCE_SOFT_BLOCKED`; for no progress within the bounded navigation/processing budget use `AGENT_STALLED`.
+
+Do not write partial `result.json` checkpoints during normal successful processing. The daemon supervisor terminates the PTY child shortly after it sees a valid `result.json`. Only write `result.json` when the run is complete or blocked.
+
 ### Step 1: Open the authenticated home page
 
 ```bash
@@ -94,7 +126,7 @@ agent-browser --cdp ${CDP_PORT} open "https://procontract.due-north.com/Supplier
 agent-browser --cdp ${CDP_PORT} wait 2000
 ```
 
-If redirected to `Log In`, stop and write the blocked result described in Mandatory CDP Discipline.
+If redirected to `Log In`, stop and write the blocked result described in Mandatory CDP Discipline. If the authenticated home page or expected activity grid cannot be confirmed within the bounded retry budget, write a blocked result with `PAGE_SHAPE_DRIFT` or `AGENT_STALLED` and include the current URL/title.
 
 ### Step 2: Go to the Activities area and paginate through ALL pages
 
@@ -116,6 +148,8 @@ Preferred path:
 
 If the `Recently added` tab does not visibly switch but the grid already contains newly added items, continue with the visible activity list and record that the tab interaction was brittle.
 
+If the activity grid, pagination controls, or visible activity rows cannot be read within budget, write a blocked result with `PAGE_SHAPE_DRIFT` or `AGENT_STALLED`. Do not keep clicking or waiting until the daemon timeout.
+
 After collecting all activity rows across all pages, process each one through Steps 3-7 below.
 
 ### Step 3: Open the activity dashboard
@@ -136,6 +170,8 @@ agent-browser --cdp ${CDP_PORT} wait 2000
 Activity : {title}
 ```
 
+If the dashboard heading or activity event list is not reachable within the bounded retry budget, write a blocked result with `AGENT_STALLED` and include current URL/title plus the candidate title.
+
 ### Step 4: Choose the correct event
 
 This step is critical.
@@ -151,6 +187,8 @@ On the live page observed during validation:
 
 - `Open` beside `Not started (Respond by: ...)` led to the RFx summary page
 - `Open` beside `Expression of interest accepted` is not the correct enrichment path
+
+If no live tender event is visible, or opening it fails within the bounded retry budget, write a blocked result with `PAGE_SHAPE_DRIFT` or `AGENT_STALLED`. If some tenders were enriched before this blocker, keep them in `enriched_tenders[]` and increment `summary.failed`.
 
 ### Step 5: Extract the RFx summary
 
@@ -168,6 +206,8 @@ Extract:
 - Full description
 - Exact response deadline from the `Deadline & time remaining` section
 - Buyer contact details when present
+
+If the RFx page loads but the required summary fields or `Activity documentation, files & links` section cannot be located within the bounded retry budget, write a blocked result with `PAGE_SHAPE_DRIFT`. Include the current RFx URL/title and the missing section in the blocker message.
 
 ### Step 6: Download every document
 
@@ -199,6 +239,8 @@ unzip -o "{zip_path}" -d "{extract_dir}"
 
 3. Include the ZIP file in `documents_downloaded`
 4. Include extracted inner files in `documents_downloaded` too, marking them with `extracted_from_archive`
+
+If a document download repeatedly fails, record the failed filename in a blocker and write a blocked result with `AGENT_STALLED` or `SOURCE_SOFT_BLOCKED`. Preserve any fully downloaded documents and enriched tenders completed before the blocker.
 
 ### Step 7: Build the enriched tender record
 
@@ -255,6 +297,32 @@ Set `continuation_required` to `false` when you have checked ALL pages of the Re
 The `total_checked` count must reflect activities checked across ALL pages, not just one page.
 
 If no tender-ready RFx pages are found, return an empty `enriched_tenders` array with a valid summary.
+
+For a blocked run, include the blocked fields described in Mandatory Bounded-Stall Contract. Example:
+
+```json
+{
+  "cursor": "{\"blocked_at\":\"2026-05-12T22:00:00Z\",\"started_at\":\"2026-05-12T21:50:00Z\",\"last_activity\":\"Activity title\"}",
+  "continuation_required": false,
+  "enriched_tenders": [],
+  "summary": {
+    "total_checked": 1,
+    "enriched": 0,
+    "not_yet_responded": 0,
+    "failed": 1
+  },
+  "status": "blocked",
+  "blockers": [
+    {
+      "code": "AGENT_STALLED",
+      "message": "Timed out opening the live RFx event from the activity dashboard.",
+      "severity": "blocked",
+      "url": "https://procontract.due-north.com/...",
+      "title": "Activity dashboard"
+    }
+  ]
+}
+```
 
 ### Step 9: Leave the persistent browser open
 
