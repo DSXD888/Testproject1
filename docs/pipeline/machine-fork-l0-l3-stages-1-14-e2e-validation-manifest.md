@@ -1,14 +1,14 @@
 # Machine Fork L0-L3 Stages 1-14 E2E Validation Manifest
 
 Generated: 2026-05-12T18:46:53Z
-Status: PAUSED
-Git HEAD: 4d1d1dd docs: persist machine fork e2e helpers
+Status: PAUSED - schema epoch blocker remains; browser/CDP preflight repaired and GREEN as of 2026-05-12T19:29:53Z
+Git HEAD: 3251f19 docs: add schema epoch mismatch fix handoff
 State root: not created; QA paused during critical current-state preflight before isolated run setup
 Runtime dir: not created; QA paused during critical current-state preflight before isolated run setup
 Artifact root: not created; QA paused during critical current-state preflight before isolated run setup
 QA log root: not created; QA paused during critical current-state preflight before isolated run setup
 Daemon binary: not built; QA paused before isolated daemon build
-CDP browser: unavailable; `curl -sfS -m 3 http://localhost:9222/json/version` failed to connect
+CDP browser: available; Chrome/148.0.7778.97, Protocol 1.3, listening on 127.0.0.1:9222, launched with `$HOME/.chrome-automation`
 
 Status meanings:
 - GREEN: all required L0-L3 and requested localhost smoke checks passed.
@@ -23,13 +23,14 @@ Status meanings:
 | 2026-05-12T18:46:53Z | Critical current-state checks | Daemon schema epoch is 9 while desktop/Tauri constants still expect 8. Desktop cannot reach full control against daemon-created state. | Created `prompts/machine-fork-e2e-schema-epoch-mismatch-error-manifest.md`. | After the schema epoch mismatch is fixed, re-run the critical schema epoch `rg` command, then continue with Environment Preflight. |
 | 2026-05-12T18:46:53Z | Environment preflight | Required `agent-browser` CLI is not on `PATH`. | Created `prompts/machine-fork-e2e-agent-browser-missing-error-manifest.md`. | After `agent-browser` is installed/exposed, run `which agent-browser`, `agent-browser --cdp 9222 open about:blank`, and continue CDP preflight. |
 | 2026-05-12T18:46:53Z | Persistent CDP browser preflight | First observed CDP setup failure: `localhost:9222` refused connection. | Recorded as operator CDP setup pause, not a product error manifest. | Launch the persistent Chrome CDP profile on port 9222, then re-run `/json/version` and CDP login checks. |
+| 2026-05-12T19:29:53Z | Browser/CDP setup repair | `agent-browser` missing and CDP unavailable from the original preflight. | Installed `agent-browser` with Homebrew, ran `agent-browser install`, launched persistent Chrome CDP with `$HOME/.chrome-automation`, and validated `agent-browser --cdp 9222`. | Browser/CDP preflight is green. Resume the E2E handoff after the independent schema epoch blocker is fixed, starting at Environment Preflight -> Toolchain, then Persistent CDP Browser, Login Checks, and Isolated Run Setup. |
 
 ## Error Manifests Created
 
 | Path | Stage | Blocking Symptom | Status |
 |---|---|---|---|
 | `prompts/machine-fork-e2e-schema-epoch-mismatch-error-manifest.md` | Critical current-state checks / Desktop validation precondition | Daemon `DEFAULT_SCHEMA_EPOCH=9`; desktop expects epoch 8 and rejects mismatched state/handshake. | Open |
-| `prompts/machine-fork-e2e-agent-browser-missing-error-manifest.md` | Environment preflight / Browser testing precondition | `agent-browser` command not found, so CDP preflight and daemon-driven browser skills cannot be validated. | Open |
+| `prompts/machine-fork-e2e-agent-browser-missing-error-manifest.md` | Environment preflight / Browser testing precondition | `agent-browser` command not found, so CDP preflight and daemon-driven browser skills cannot be validated. | Resolved by machine setup repair on 2026-05-12T19:29:53Z. |
 
 ## Preflight
 
@@ -172,41 +173,15 @@ curl: (7) Failed to connect to localhost port 9222 after 0 ms: Couldn't connect 
 zsh:1: command not found: agent-browser
 ```
 
-## Stage Results
-
-| Stage | Command | Result | Evidence |
-|---|---|---|---|
-| AGENTS.md read | `sed -n '1,260p' AGENTS.md`; `sed -n '261,620p' AGENTS.md`; `sed -n '621,980p' AGENTS.md` | PASS | Repo rules read before validation. |
-| Git state | `git status --short --branch`; `git log --oneline -1` | PASS with dirty shared checkout | On `main` at `4d1d1dd`; unrelated `.DS_Store` and `bin/__pycache__/` present and untouched. |
-| Schema epoch current-state check | `rg -n "...SCHEMA_EPOCH..." ...` | BLOCKED | Daemon epoch 9, desktop epoch 8. Error manifest created. |
-| Origin freshness | `git fetch origin`; `git show origin/main:...` | PASS | `origin/main` is also `4d1d1dd` and has the same epoch mismatch. |
-| Toolchain preflight | `which cargo`; `which bun`; `which agent-browser`; version commands | BLOCKED | Cargo and Bun present; `agent-browser` missing. Error manifest created. |
-| CDP preflight | `curl -sfS -m 3 http://localhost:9222/json/version` | PAUSED | First CDP setup failure; no listener on port 9222. |
-| Static/unit baseline | Not run | DEFERRED | Real blocker found before baseline gates. Resume after blocker fix. |
-| Isolated daemon dry-run | Not run | DEFERRED | Paused before isolated run setup. |
-| Stages 1-14 | Not run | DEFERRED | Paused before live pipeline. |
-| Desktop UI | Not run | BLOCKED | Desktop schema epoch mismatch prevents full-control validation. |
-| Desktop Vite localhost | Not run | DEFERRED | Browser tooling/CDP preflight blocked. |
-| apps/web localhost smoke | Not run | DEFERRED | Browser tooling/CDP preflight blocked. |
-
-## Spotlight Process
-
-Not selected. The run paused before source ingestion and deterministic pipeline execution.
-
-## CDP/Auth Events
-
-No source login checks were attempted because `agent-browser` is missing and no browser is listening on `localhost:9222`.
-
-First setup failure evidence:
-
-```text
-curl: (7) Failed to connect to localhost port 9222 after 0 ms: Couldn't connect to server
-zsh:1: command not found: agent-browser
-```
-
-Resume CDP setup with:
+Browser/CDP setup repair:
 
 ```bash
+find "$HOME" "/opt/homebrew" -maxdepth 4 \( -type f -o -type l \) -name 'agent-browser*' 2>/dev/null | sed -n '1,40p'
+brew install agent-browser
+agent-browser install
+command -v agent-browser
+agent-browser --version
+agent-browser doctor --offline --quick
 open -na "Google Chrome" --args \
   "--remote-debugging-port=9222" \
   "--remote-allow-origins=*" \
@@ -215,8 +190,117 @@ open -na "Google Chrome" --args \
   "--no-first-run" \
   "--no-default-browser-check"
 curl -sfS -m 3 http://localhost:9222/json/version
+lsof -nP -iTCP:9222 -sTCP:LISTEN
 agent-browser --cdp 9222 open "about:blank"
 agent-browser --cdp 9222 get title
+agent-browser --cdp 9222 snapshot
+```
+
+Repair evidence:
+
+```text
+No existing `agent-browser` binary was found under the checked `$HOME` or `/opt/homebrew` roots before installation.
+Install method: `brew install agent-browser`
+Installed CLI path: /opt/homebrew/bin/agent-browser
+CLI version: agent-browser 0.27.0
+Browser payload install: `agent-browser install`
+Browser payload: Chrome 148.0.7778.97 at /Users/zacfarrell/.agent-browser/browsers/chrome-148.0.7778.97
+Doctor: `agent-browser doctor --offline --quick` reported 6 pass, 0 warn, 0 fail.
+CDP listener: Google Chrome PID 26502 listening on 127.0.0.1:9222.
+CDP metadata: Browser Chrome/148.0.7778.97, Protocol-Version 1.3, V8 14.8.178.14, WebKit 537.36 (@6b3fa66a923a9442c8ab0bc71b4b41ff24528d3b).
+CDP browser launch profile: $HOME/.chrome-automation.
+agent-browser control: `open about:blank`, `get title`, and `snapshot` completed against `--cdp 9222`.
+```
+
+Final browser preflight validation block:
+
+```bash
+set -euo pipefail
+cd /Users/zacfarrell/Desktop/Testproject1
+
+echo "== cli =="
+which agent-browser
+agent-browser --version
+
+echo "== cdp =="
+curl -sfS -m 3 http://localhost:9222/json/version
+
+echo "== control =="
+agent-browser --cdp 9222 open "about:blank"
+agent-browser --cdp 9222 get title
+agent-browser --cdp 9222 snapshot
+
+echo "AGENT_BROWSER_CDP_PREFLIGHT_GREEN"
+```
+
+Validation output summary:
+
+```text
+== cli ==
+/opt/homebrew/bin/agent-browser
+agent-browser 0.27.0
+== cdp ==
+Browser Chrome/148.0.7778.97, Protocol-Version 1.3
+== control ==
+about:blank opened, title command succeeded, snapshot returned `(empty page)`.
+AGENT_BROWSER_CDP_PREFLIGHT_GREEN
+```
+
+## Stage Results
+
+| Stage | Command | Result | Evidence |
+|---|---|---|---|
+| AGENTS.md read | `sed -n '1,260p' AGENTS.md`; `sed -n '261,620p' AGENTS.md`; `sed -n '621,980p' AGENTS.md` | PASS | Repo rules read before validation. |
+| Git state | `git status --short --branch`; `git log --oneline -1` | PASS with dirty shared checkout | Original pause was on `main` at `4d1d1dd`; browser/CDP repair ran on `main` at `3251f19`. Shared dirty artifacts were not stashed, reverted, deleted, or staged. |
+| Schema epoch current-state check | `rg -n "...SCHEMA_EPOCH..." ...` | BLOCKED | Daemon epoch 9, desktop epoch 8. Error manifest created. |
+| Origin freshness | `git fetch origin`; `git show origin/main:...` | PASS | Original pause saw `origin/main` at `4d1d1dd` with the same epoch mismatch; current HEAD/origin is `3251f19`, and the schema epoch blocker remains independent of the browser/CDP repair. |
+| Toolchain preflight | `which cargo`; `which bun`; `which agent-browser`; version commands | PASS for browser setup | Cargo and Bun present; `agent-browser` now resolves at `/opt/homebrew/bin/agent-browser` and reports `agent-browser 0.27.0`. |
+| CDP preflight | `curl -sfS -m 3 http://localhost:9222/json/version`; `agent-browser --cdp 9222 open "about:blank"`; `agent-browser --cdp 9222 get title`; `agent-browser --cdp 9222 snapshot` | PASS | Chrome/148.0.7778.97, Protocol 1.3, launched with `$HOME/.chrome-automation`; validation block printed `AGENT_BROWSER_CDP_PREFLIGHT_GREEN`. |
+| Static/unit baseline | Not run | DEFERRED | Real blocker found before baseline gates. Resume after blocker fix. |
+| Isolated daemon dry-run | Not run | DEFERRED | Paused before isolated run setup. |
+| Stages 1-14 | Not run | DEFERRED | Paused before live pipeline. |
+| Desktop UI | Not run | BLOCKED | Desktop schema epoch mismatch prevents full-control validation. |
+| Desktop Vite localhost | Not run | DEFERRED | Browser tooling/CDP preflight is now green, but schema epoch mismatch still blocks full desktop validation. |
+| apps/web localhost smoke | Not run | DEFERRED | Browser tooling/CDP preflight is now green; localhost smoke remains for the resumed E2E run. |
+
+## Spotlight Process
+
+Not selected. The run paused before source ingestion and deterministic pipeline execution.
+
+## CDP/Auth Events
+
+Initial source login checks were not attempted during the original pause because `agent-browser` was missing and no browser was listening on `localhost:9222`.
+
+First setup failure evidence:
+
+```text
+curl: (7) Failed to connect to localhost port 9222 after 0 ms: Couldn't connect to server
+zsh:1: command not found: agent-browser
+```
+
+Repair result: source login-check commands were attempted after the browser/CDP preflight passed.
+
+```bash
+agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"
+agent-browser --cdp 9222 snapshot
+
+agent-browser --cdp 9222 open "https://www.alibaba.com/"
+agent-browser --cdp 9222 snapshot
+
+agent-browser --cdp 9222 open "https://www.searates.com/logistics-explorer/"
+agent-browser --cdp 9222 snapshot
+
+agent-browser --cdp 9222 open "https://www.ebay.co.uk/"
+agent-browser --cdp 9222 snapshot
+```
+
+Login-check observations:
+
+```text
+ProContract: reachable through CDP, redirected to `/Login/Index?ReturnUrl=%2fSupplierPostLoginHome`; username/password fields and cookie dialog visible. Operator login is required before ProContract source validation can continue.
+Alibaba: reachable through CDP; public marketplace home page loaded with search and product content. No login or captcha challenge was visible in the snapshot.
+SeaRates: reachable through CDP; Logistics Explorer page loaded with origin/destination fields. A reCAPTCHA iframe was present in the page snapshot, but no interactive challenge was surfaced during this check.
+eBay UK: reachable through CDP; public home page loaded with search UI, sign-in link, and cookie consent prompt. No captcha challenge was visible in the snapshot.
 ```
 
 ## Desktop And Localhost UI
@@ -276,18 +360,25 @@ QA is PAUSED before live E2E execution.
 
 Proven on this machine:
 
-- The checkout is on `main` at `4d1d1dd`.
+- The checkout is on `main` at `3251f19`.
 - Cargo and Bun are present.
 - `origin/main` does not contain a schema epoch fix.
 - The daemon schema epoch is 9 because migration `0012_l4_sync_state` is present.
 - Desktop/Tauri still expects schema epoch 8 in native bootstrap, query service, daemon bridge, and tests.
-- `agent-browser` is missing from `PATH`.
-- No persistent Chrome CDP listener is available on `localhost:9222`.
+- `agent-browser` is installed and resolves from `/opt/homebrew/bin/agent-browser`.
+- `agent-browser --version` returns `agent-browser 0.27.0`.
+- `agent-browser doctor --offline --quick` reports 6 pass, 0 warn, 0 fail.
+- The persistent Chrome CDP listener is available on `localhost:9222`.
+- `/json/version` returns Chrome/148.0.7778.97 and Protocol-Version 1.3.
+- The CDP browser was launched with `$HOME/.chrome-automation`.
+- `agent-browser --cdp 9222 open "about:blank"`, `get title`, and `snapshot` succeed.
+- The browser preflight validation block exits 0 and prints `AGENT_BROWSER_CDP_PREFLIGHT_GREEN`.
+- Login checks were attempted. ProContract requires operator login; SeaRates includes a reCAPTCHA iframe but no challenge was surfaced; Alibaba and eBay public pages loaded.
 
 Exact resume point:
 
 1. Fix `prompts/machine-fork-e2e-schema-epoch-mismatch-error-manifest.md`.
-2. Fix `prompts/machine-fork-e2e-agent-browser-missing-error-manifest.md`.
-3. Launch or repair Chrome CDP on port 9222.
-4. Re-run the schema epoch `rg` command and CDP/toolchain preflight.
-5. If green, continue from Environment Preflight and Isolated Run Setup in the original handoff.
+2. Re-run the schema epoch `rg` command.
+3. Re-run Environment Preflight -> Toolchain and Persistent CDP Browser from `prompts/machine-fork-l0-l3-stages-1-14-e2e-handoff.md`.
+4. Continue Login Checks from the original handoff. ProContract needs operator login in the visible CDP browser before ProContract source validation can continue.
+5. Continue to Isolated Run Setup. Do not skip `prompts/machine-fork-e2e-schema-epoch-mismatch-error-manifest.md`; it is independent from the repaired browser/CDP setup defect.
