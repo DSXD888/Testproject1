@@ -979,6 +979,8 @@ struct ProcontractRegistrationSummary {
     total_evaluated: u32,
     registered: u32,
     already_registered: u32,
+    #[serde(default)]
+    pending_registration: u32,
     skipped_service: u32,
     skipped_expiry: u32,
     failed: u32,
@@ -1060,6 +1062,7 @@ struct ProcontractInterestEvaluation {
 }
 
 const MAX_PROCONTRACT_INTEREST_REGISTRATIONS_PER_RUN: usize = 3;
+const PROCONTRACT_INTEREST_PERSISTENCE_FAILED: &str = "PROCONTRACT_INTEREST_PERSISTENCE_FAILED";
 const CONTRACT_SKILL_TIMEOUT_SECONDS: u64 = 600;
 // Bound how long a PTY skill session is allowed to run before the daemon
 // proactively terminates the child. Marketplace skills can briefly exceed
@@ -12849,18 +12852,19 @@ fn persist_interest_registrations(
     let (persisted_count, _) = state_db.with_write_transaction(|tx| {
         let visible_after_seq = next_commit_seq(tx)?;
         for registration in &contract.registrations {
+            let state = match registration.action.as_str() {
+                "registered" | "already_registered" => "completed",
+                "pending_registration" => "pending",
+                "skipped" => "skipped",
+                "failed" => "failed",
+                other => bail!("unsupported ProContract registration action `{other}`"),
+            };
             let process_id = resolve_process_id_for_notice(
                 tx,
                 &registration.notice_id,
                 registration.process_id.as_deref(),
             )?;
             let scoped_run_id = scoped_stage_run_id(&stage_run_id, &process_id);
-            let state = match registration.action.as_str() {
-                "registered" | "already_registered" => "completed",
-                "skipped" => "skipped",
-                "failed" => "failed",
-                other => bail!("unsupported ProContract registration action `{other}`"),
-            };
             persist_custom_process_stage_state(
                 tx,
                 &process_id,
@@ -16429,6 +16433,35 @@ async fn run_procontract_discover_live_loop(
     )
 }
 
+fn persist_interest_registrations_for_claimed_job(
+    runtime: &mut RuntimeBootstrap,
+    job_id: &str,
+    source_id: &str,
+    result_json: &Value,
+    session_id: Option<&str>,
+    replay_result_path: Option<&Path>,
+) -> Result<std::result::Result<usize, LiveLoopReport>> {
+    match persist_interest_registrations(&mut runtime.state_db, source_id, result_json) {
+        Ok(persisted_count) => Ok(Ok(persisted_count)),
+        Err(error) => {
+            let message = format!("procontract interest registration persistence failed: {error}");
+            let mut output_payload = json!({
+                "error_code": PROCONTRACT_INTEREST_PERSISTENCE_FAILED,
+                "source_id": source_id,
+                "failure_reason": error.to_string(),
+                "durable_step_surfaces": live_loop_surfaces_json(),
+            });
+            if let Some(session_id) = session_id {
+                output_payload["session_id"] = json!(session_id);
+            }
+            if let Some(replay_result_path) = replay_result_path {
+                output_payload["replay_result_path"] = json!(replay_result_path.to_string_lossy());
+            }
+            fail_job(runtime, job_id, &message, output_payload).map(Err)
+        }
+    }
+}
+
 #[allow(clippy::future_not_send)]
 #[allow(clippy::too_many_lines)]
 async fn run_procontract_register_interest_live_loop(
@@ -16466,6 +16499,42 @@ async fn run_procontract_register_interest_live_loop(
         .claim_job_by_id(runtime.state_db.connection(), &job_id)?
         .ok_or_else(|| anyhow!("expected claimed workflow job for procontract-interest"))?;
 
+    if let Ok(replay_result_path) = std::env::var("PROCONTRACT_INTEREST_REPLAY_RESULT_JSON") {
+        let result_path = PathBuf::from(replay_result_path);
+        let result_json = read_result_contract(&result_path)?;
+        let persisted_count = match persist_interest_registrations_for_claimed_job(
+            runtime,
+            &job_id,
+            "procontract-interest",
+            &result_json,
+            None,
+            Some(&result_path),
+        )? {
+            Ok(persisted_count) => persisted_count,
+            Err(report) => return Ok(report),
+        };
+        let summary = result_json
+            .get("summary")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+
+        return complete_source_job(
+            runtime,
+            &job_id,
+            &json!({
+                "job_id": job_id,
+                "source_id": "procontract-interest",
+                "registrations": persisted_count,
+                "summary": summary,
+                "replay_result_path": result_path.to_string_lossy(),
+                "durable_step_surfaces": live_loop_surfaces_json(),
+            }),
+            format!(
+                "procontract interest registration replay completed: job_id={job_id} persisted={persisted_count}"
+            ),
+        );
+    }
+
     if evaluations.is_empty() {
         return complete_source_job(
             runtime,
@@ -16478,6 +16547,7 @@ async fn run_procontract_register_interest_live_loop(
                     "total_evaluated": 0,
                     "registered": 0,
                     "already_registered": 0,
+                    "pending_registration": 0,
                     "skipped_service": 0,
                     "skipped_expiry": 0,
                     "failed": 0,
@@ -16509,16 +16579,23 @@ async fn run_procontract_register_interest_live_loop(
                 "total_evaluated": evaluations.len(),
                 "registered": 0,
                 "already_registered": 0,
+                "pending_registration": 0,
                 "skipped_service": evaluations.iter().filter(|evaluation| evaluation.skip_reason == Some("pure_service")).count(),
                 "skipped_expiry": evaluations.iter().filter(|evaluation| evaluation.skip_reason == Some("expiry_too_close")).count(),
                 "failed": 0,
             },
         });
-        let persisted_count = persist_interest_registrations(
-            &mut runtime.state_db,
+        let persisted_count = match persist_interest_registrations_for_claimed_job(
+            runtime,
+            &job_id,
             "procontract-interest",
             &synthetic_result,
-        )?;
+            None,
+            None,
+        )? {
+            Ok(persisted_count) => persisted_count,
+            Err(report) => return Ok(report),
+        };
         return complete_source_job(
             runtime,
             &job_id,
@@ -16548,11 +16625,17 @@ async fn run_procontract_register_interest_live_loop(
         anyhow!("procontract interest-registration skill did not produce a result contract")
     })?;
     let result_json = read_result_contract(result_path)?;
-    let persisted_count = persist_interest_registrations(
-        &mut runtime.state_db,
+    let persisted_count = match persist_interest_registrations_for_claimed_job(
+        runtime,
+        &job_id,
         "procontract-interest",
         &result_json,
-    )?;
+        Some(&session_id),
+        None,
+    )? {
+        Ok(persisted_count) => persisted_count,
+        Err(report) => return Ok(report),
+    };
 
     let summary = result_json
         .get("summary")
@@ -25801,6 +25884,142 @@ mod tests {
             |row| row.get(0),
         )?;
         assert!(head.contains("stage-run-"));
+        Ok(())
+    }
+
+    #[test]
+    fn persist_interest_registrations_maps_pending_registration_to_retryable_pending() -> Result<()>
+    {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-pending",
+            "pc-pending",
+            "Supply of retryable widgets",
+        )?;
+
+        let result_json = json!({
+            "cursor": "{\"last_processed_at\":\"2026-04-13T15:00:00Z\"}",
+            "continuation_required": true,
+            "registrations": [
+                {
+                    "notice_id": "pc-pending",
+                    "process_id": "proc-pc-pending",
+                    "source_url": "https://example.invalid/pc-pending",
+                    "action": "pending_registration",
+                    "pre_filter_result": {
+                        "goods_check": true,
+                        "expiry_check": true,
+                        "category": "Goods",
+                        "days_until_deadline": 45
+                    }
+                }
+            ],
+            "summary": {
+                "total_evaluated": 1,
+                "registered": 0,
+                "already_registered": 0,
+                "pending_registration": 1,
+                "skipped_service": 0,
+                "skipped_expiry": 0,
+                "failed": 0
+            }
+        });
+
+        let persisted =
+            persist_interest_registrations(&mut state_db, "procontract-interest", &result_json)?;
+        assert_eq!(persisted, 1);
+
+        let state: String = state_db.connection().query_row(
+            "\
+            SELECT state
+            FROM process_stage_status
+            WHERE process_id = 'proc-pc-pending' AND stage = 'interest_registration'
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            ",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(state, "pending");
+
+        let process_ids = load_procontract_interest_candidates(state_db.connection())?
+            .into_iter()
+            .map(|candidate| candidate.process_id)
+            .collect::<Vec<_>>();
+        assert!(process_ids.iter().any(|id| id == "proc-pc-pending"));
+        Ok(())
+    }
+
+    #[test]
+    fn persist_interest_registrations_rejects_unknown_action_without_partial_writes() -> Result<()>
+    {
+        let temp = tempdir()?;
+        let db_path = temp.path().join("state.db");
+        let mut state_db = open_state_db(&db_path, DEFAULT_SCHEMA_EPOCH)?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-valid",
+            "pc-valid",
+            "Supply of valid widgets",
+        )?;
+        seed_minimal_procontract_notice(
+            state_db.connection(),
+            "proc-pc-invalid",
+            "pc-invalid",
+            "Supply of invalid widgets",
+        )?;
+
+        let result_json = json!({
+            "cursor": "{\"last_processed_at\":\"2026-04-13T15:00:00Z\"}",
+            "continuation_required": false,
+            "registrations": [
+                {
+                    "notice_id": "pc-valid",
+                    "process_id": "proc-pc-valid",
+                    "source_url": "https://example.invalid/pc-valid",
+                    "action": "registered",
+                    "registered_at": "2026-04-13T15:02:30Z"
+                },
+                {
+                    "notice_id": "pc-invalid",
+                    "process_id": "proc-pc-invalid",
+                    "source_url": "https://example.invalid/pc-invalid",
+                    "action": "bogus_action"
+                }
+            ],
+            "summary": {
+                "total_evaluated": 2,
+                "registered": 1,
+                "already_registered": 0,
+                "pending_registration": 0,
+                "skipped_service": 0,
+                "skipped_expiry": 0,
+                "failed": 0
+            }
+        });
+
+        let error =
+            persist_interest_registrations(&mut state_db, "procontract-interest", &result_json)
+                .expect_err("unknown action should be rejected");
+        assert!(
+            error
+                .to_string()
+                .contains("unsupported ProContract registration action")
+        );
+
+        let rows: i64 = state_db.connection().query_row(
+            "\
+            SELECT COUNT(*)
+            FROM process_stage_status
+            WHERE stage = 'interest_registration'
+            ",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(rows, 0);
         Ok(())
     }
 
