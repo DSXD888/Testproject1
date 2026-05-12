@@ -1,8 +1,8 @@
 # Machine Fork L0-L3 Stages 1-14 E2E Validation Manifest
 
 Generated: 2026-05-12T18:46:53Z
-Last verified: 2026-05-12T22:10:15Z
-Status: PAUSED - ProContract CDP session redirected to login before Stage 4b enrichment
+Last verified: 2026-05-12T22:33:04Z
+Status: PAUSED - Stage 4b ProContract enrichment timed out without result contract
 Git HEAD at verification: 45546c2 fix procontract interest pending persistence
 State root: `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z`
 Runtime dir: `/Users/zacfarrell/Desktop/Testproject1/runtime-e2e-machine-fork-20260512T195251Z`
@@ -36,6 +36,7 @@ Status meanings:
 | 2026-05-12T21:43:13Z | Stage 4a - ProContract register interest | Valid result contract contained eight unsupported `pending_registration` actions; daemon rejected persistence with `unsupported ProContract registration action` and left the source job `running`. One real portal registration had already occurred. | Created `prompts/machine-fork-e2e-procontract-pending-registration-error-manifest.md` and paused without retrying or fixing product code. | After the fixer updates contract/persistence semantics, retry the exact Stage 4a command against the existing E2E roots, accounting for the already registered `BEST START FAMILY HUBS OUTREACH SERVICES` opportunity. |
 | 2026-05-12T22:08:47Z | Resume after Stage 4a pending-registration fix | Commit `45546c2` updated ProContract register-interest persistence and skill/result schema semantics. | Rebuilt the pinned daemon binary, inspected the fix retry, validated `interest_registration` rows, and ran focused regression tests. No additional portal mutation was triggered by this QA resume. | Continue to Stage 4b ProContract enrichment/get-documents. |
 | 2026-05-12T22:10:15Z | Stage 4b - ProContract enrichment preflight | Persistent CDP browser is reachable, but `https://procontract.due-north.com/SupplierPostLoginHome#` redirected to `Login/Index?ReturnUrl=%2fSupplierPostLoginHome`; page title is `Log In`. | Recorded as first-pass operator ProContract auth repair pause. No enrichment command was run. | Operator logs in or clears the challenge in the Chrome window attached to `localhost:9222`, then QA retries the same ProContract CDP preflight and runs Stage 4b. |
+| 2026-05-12T22:33:04Z | Stage 4b - ProContract enrichment | After operator login, CDP preflight reached `Supplier Post-Login Home`, but `--ingest procontract-enrich` timed out after 1200 seconds without a result contract. Post-timeout browser snapshot was still inside an authenticated activity dashboard, not a login/captcha page. | Created `prompts/machine-fork-e2e-procontract-enrich-timeout-error-manifest.md` and paused. | After fixer repairs Stage 4b timeout/missing-result handling, retry `stage-04b-procontract-enrich-retry-after-timeout-fix` against the existing E2E roots. |
 
 ## Error Manifests Created
 
@@ -46,6 +47,7 @@ Status meanings:
 | `prompts/machine-fork-e2e-desktop-native-shell-rerun-lock-error-manifest.md` | Static/unit baseline / Desktop native shell | Intermittent failure: rerun-lock test expected stopped PID `[4242]` but observed `[]` in the required full `native_shell` target. | Resolved by commit `9d15b9c`; verified with exact test, full target, and 20x stress loop. |
 | `prompts/machine-fork-e2e-contracts-finder-claude-auth-error-manifest.md` | Stage 1 / Contracts Finder live ingestion | Selected Claude CLI returned `401 Invalid authentication credentials`, causing the PTY skill to exit before writing a result contract. | Resolved by Claude auth repair; direct probe returned `OK` and Contracts Finder retry completed. |
 | `prompts/machine-fork-e2e-procontract-pending-registration-error-manifest.md` | Stage 4a / ProContract register interest | Skill result contract included eight `pending_registration` final actions after one real registration; daemon persistence rejects that action and leaves the workflow job `running`. | Resolved by commit `45546c2`; validated 2026-05-12T22:08:47Z. |
+| `prompts/machine-fork-e2e-procontract-enrich-timeout-error-manifest.md` | Stage 4b / ProContract enrichment | PTY skill exceeded 1200-second timeout and produced no `result.json` or run manifest; job remained `running` and no tender enrichment/document rows were persisted. | Open; QA paused at Stage 4b. |
 
 ## Preflight
 
@@ -355,6 +357,7 @@ Dry-run log: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-
 | Stage 4a - ProContract register interest | `run_logged stage-04a-procontract-interest env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest procontract-interest` | BLOCKED / ERROR MANIFEST | The command produced a valid result contract then exited with `Error: unsupported ProContract registration action \`pending_registration\``. Result action counts: `registered=1`, `already_registered=2`, `pending_registration=8`, `skipped=89`. Workflow job `job-974dda4de782bc61ad5d5a91fa09d48152978ef9d0ccdbd01e95bd3f2dabb256` remains `running`; session `session-pty-5e1fb98f68771c12cb090dee2e0055d1e5f73d69345ab17faac4ed322981e8d9` completed with `terminated_after_result_contract`. Error manifest: `prompts/machine-fork-e2e-procontract-pending-registration-error-manifest.md`. |
 | Stage 4a - ProContract register interest fix verification | `run_logged stage-04a-procontract-interest-retry-after-pending-action-fix ... --ingest procontract-interest`; `run_logged resume-daemon-rebuild-after-procontract-fix env CARGO_TARGET_DIR="$E2E_TARGET_DIR" cargo build -p daemon --bin daemon`; focused cargo tests | PASS | Fix retry job `job-2abb48c0309b63a8aea49b89d1461183719d8c5857cf0f06fc85d570a25c0943` completed with `evaluations=8 persisted=8`; result contained only `pending_registration=8` and no new registered/already-registered actions. Stage state now has `completed=3`, `pending=16`, `skipped=89`; latest retryable-candidate check excluding completed/succeeded/skipped/pending returns 0. Regression logs: `regression-procontract-interest-agent-ingestion.log`, `regression-procontract-interest-pending-unit.log`, and `regression-procontract-interest-unknown-action-unit.log`. |
 | Stage 4b - ProContract enrichment CDP preflight | `run_logged stage-04b-procontract-cdp-version curl -sfS -m 3 http://localhost:9222/json/version`; `run_logged stage-04b-procontract-login-open agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"`; `run_logged stage-04b-procontract-login-title agent-browser --cdp 9222 get title` | PAUSED FOR OPERATOR AUTH | CDP is healthy with Chrome/148.0.7778.97, but ProContract redirected to `https://procontract.due-north.com/Login/Index?ReturnUrl=%2fSupplierPostLoginHome` and page title `Log In`. This is the first Stage 4b auth/session pause, so no error manifest was created and `--ingest procontract-enrich` was not run. |
+| Stage 4b - ProContract enrichment after operator login | `run_logged stage-04b-procontract-login-open-after-operator-login agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"`; `run_logged stage-04b-procontract-enrich env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" ... --ingest procontract-enrich` | BLOCKED / ERROR MANIFEST | Login preflight passed with `Supplier Post-Login Home`. The enrichment command ran until `timeout_seconds=1200`, then exited with `Error: procontract enrichment skill did not produce a result contract`. Latest job `job-cf642ec3d9e68b1fe4e28e94eb9eaca37126e59f8dc7c300b091263ac0109755` remains `running`; session `session-pty-33fd5d63d698179f0b393ea6f8a3481a2c00f2191e3773017ee8e836aa4b7757` has `cleanup_verdict=terminated_after_timeout`, `terminal_output_bytes=77`, no `run_manifest_path`, and no `result.json`. No tender enrichment rows or downloaded raw document files were persisted. Error manifest: `prompts/machine-fork-e2e-procontract-enrich-timeout-error-manifest.md`. |
 | Stages 9-14 | Not run | PENDING | Awaiting document enrichment, product extraction, and spotlight selection. |
 | Desktop UI | Not run | PENDING | Schema epoch blocker is repaired; UI validation waits until deterministic/downstream pipeline state is available. |
 | Desktop Vite localhost | Not run | PENDING | Browser tooling/CDP preflight is green; localhost smoke remains for later in the run. |
@@ -463,6 +466,17 @@ title: Log In
 
 This is the first ProContract session/auth pause for Stage 4b after the Stage 4a fix, so it is classified as operator CDP/auth repair rather than a product blocker.
 
+After the operator logged in, the same ProContract preflight passed:
+
+```text
+open: https://procontract.due-north.com/SupplierPostLoginHome#
+actual URL: https://procontract.due-north.com/SupplierPostLoginHome#
+title: Supplier Post-Login Home
+snapshot: SORELLON LIMITED supplier home, Opportunities, Company details summary, Vendor profile
+```
+
+The subsequent Stage 4b timeout was not classified as auth/CDP. Post-timeout snapshot still showed an authenticated ProContract activity dashboard with `Messages & clarifications (0)`, `Your response`, `Start my response`, `Opt out`, and `Indicate your intent to respond`.
+
 ## Desktop And Localhost UI
 
 Not executed.
@@ -553,6 +567,26 @@ interest_registration stage rows: completed=3, pending=16, skipped=89
 
 The second Stage 4a retry did not report new portal-visible registrations. The one real registration remains the earlier `BEST START FAMILY HUBS OUTREACH SERVICES` action from the original blocked run.
 
+Stage 4b timeout blocker state:
+
+```text
+workflow_jobs:
+job-cf642ec3d9e68b1fe4e28e94eb9eaca37126e59f8dc7c300b091263ac0109755  sync_source  running  source  procontract-enrich  attempt_count=1
+
+agent_session_logs:
+session-pty-33fd5d63d698179f0b393ea6f8a3481a2c00f2191e3773017ee8e836aa4b7757  skills/procurement-ingestion/procontract-enrich-tender/SKILL.md  status=completed  exit_code=143  cleanup_verdict=terminated_after_timeout  terminal_output_bytes=77  run_manifest_path=NULL
+
+stage/data rows:
+no `tender_enrichment` rows
+tender_document_sets=0
+raw_documents_total=204
+raw_docs_with_files=0
+document_extractions=0
+semantic_extractions=0
+product_candidates=0
+search_profiles=0
+```
+
 Full post-pipeline operational subsystem checks remain pending until Stages 2-14 and UI smoke checks complete.
 
 ## Quality Gates
@@ -642,7 +676,7 @@ cargo test -p procintel-desktop --test native_shell
 
 ## Final Decision
 
-QA is PAUSED for operator ProContract login. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, deterministic Stages 2-3 and 5-8 baseline processing completed, and the Stage 4a ProContract register-interest blocker has been fixed and validated. Stage 4b ProContract enrichment/get-documents has not run because the persistent CDP browser redirected to ProContract login.
+QA is PAUSED on a Stage 4b product blocker. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, deterministic Stages 2-3 and 5-8 baseline processing completed, and the Stage 4a ProContract register-interest blocker has been fixed and validated. After operator login repair, Stage 4b ProContract enrichment ran for 1200 seconds, timed out, and produced no result contract.
 
 Proven on this machine:
 
@@ -680,11 +714,14 @@ Proven on this machine:
 - The post-fix retry completed job `job-2abb48c0309b63a8aea49b89d1461183719d8c5857cf0f06fc85d570a25c0943` with `evaluations=8 persisted=8`.
 - Stage 4a now has `interest_registration` rows: `completed=3`, `pending=16`, `skipped=89`.
 - Focused Stage 4a regression tests passed.
-- Stage 4b CDP preflight found the browser reachable but ProContract unauthenticated: `SupplierPostLoginHome#` redirected to `Login/Index?ReturnUrl=%2fSupplierPostLoginHome`, title `Log In`.
+- Stage 4b first paused for ProContract login; the operator repaired it, and the retry preflight reached `Supplier Post-Login Home`.
+- Stage 4b enrichment then timed out after 1200 seconds without `result.json` or run manifest.
+- The post-timeout ProContract browser snapshot was authenticated inside an activity dashboard, so this is not classified as a first-pass auth/CDP issue.
+- Error manifest `prompts/machine-fork-e2e-procontract-enrich-timeout-error-manifest.md` captures the exact command, timeout output, session/job IDs, DB state, artifact paths, codepath evidence, and resume instructions.
 
 Current next point:
 
 1. Source `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z/e2e-env.sh`.
-2. After the operator logs in, re-run `run_logged stage-04b-procontract-login-open agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"` and `run_logged stage-04b-procontract-login-title agent-browser --cdp 9222 get title`.
-3. If ProContract no longer shows `Log In`, run `run_logged stage-04b-procontract-enrich env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest procontract-enrich`.
-4. Validate tender document sets, raw documents with files, and enrichment stage rows.
+2. After the fixer resolves the Stage 4b timeout/missing-result behavior, re-run ProContract CDP preflight.
+3. Run `run_logged stage-04b-procontract-enrich-retry-after-timeout-fix env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest procontract-enrich`.
+4. Validate `tender_enrichment` stage rows, `tender_document_sets`, `raw_documents.storage_path`, extraction rows, and latest `procontract-enrich` workflow job status.
