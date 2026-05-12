@@ -427,17 +427,13 @@ export E2E_DAEMON="$E2E_DAEMON"
 export RUN_START_AT="$RUN_START_AT"
 export AGENT_BROWSER_CDP_PORT="$AGENT_BROWSER_CDP_PORT"
 EOF
-```
 
-Every daemon command in this handoff must use those three root flags. Use absolute paths from the environment variables; do not rely on the current working directory after a pause/resume.
-
-For every non-interactive command that matters to the final verdict, capture a durable log:
-
-```bash
+cat >> "$E2E_STATE_ROOT/e2e-env.sh" <<'EOF'
 run_logged() {
   label="$1"
   shift
   log="$E2E_LOG_ROOT/${label}.log"
+  mkdir -p "$E2E_LOG_ROOT"
   {
     printf '$'
     printf ' %q' "$@"
@@ -448,7 +444,12 @@ run_logged() {
   tail -80 "$log"
   return "$status"
 }
+EOF
 ```
+
+Every daemon command in this handoff must use those three root flags. Use absolute paths from the environment variables; do not rely on the current working directory after a pause/resume.
+
+For every non-interactive command that matters to the final verdict, capture a durable log with `run_logged`. The helper is written into `e2e-env.sh`, so it is restored by `source "$E2E_STATE_ROOT/e2e-env.sh"` after every pause/resume.
 
 The stage sections below show the canonical commands. Prefer executing them through `run_logged <stage-label> <command...>` unless they are intentionally long-running dev servers such as `bun run tauri:dev`, `bun run dev`, or browser sessions that need a live terminal. Record each log path in the validation manifest.
 
@@ -1038,10 +1039,17 @@ Then run the explicit local website smoke gates:
 
 If `apps/web` fails, classify it under the bounded localhost website smoke unless the evidence proves it is caused by shared Layer 0-3 code or data. Do not let a missing Supabase env or deferred Layer 4 sync behavior turn a successful L0-L3 pipeline into a false RED.
 
-Run UBS scoped to files changed by this QA session:
+Run UBS scoped to files changed by this QA session. Do not use an unscoped `git diff --name-only`, because this repo can contain unrelated edits from other agents. Build the list from the QA artifacts this handoff told you to create:
 
 ```bash
-git diff --name-only > /tmp/machine-fork-e2e-changed-files.txt
+{
+  test -f docs/pipeline/machine-fork-l0-l3-stages-1-14-e2e-validation-manifest.md && \
+    printf '%s\n' docs/pipeline/machine-fork-l0-l3-stages-1-14-e2e-validation-manifest.md
+  test -d docs/pipeline/machine-fork-l0-l3-stages-1-14-e2e-screenshots && \
+    find docs/pipeline/machine-fork-l0-l3-stages-1-14-e2e-screenshots -type f | sort
+  find prompts -maxdepth 1 -type f -name 'machine-fork-e2e-*-error-manifest.md' | sort
+} > /tmp/machine-fork-e2e-changed-files.txt
+
 if test -s /tmp/machine-fork-e2e-changed-files.txt; then
   xargs ubs < /tmp/machine-fork-e2e-changed-files.txt
 else
