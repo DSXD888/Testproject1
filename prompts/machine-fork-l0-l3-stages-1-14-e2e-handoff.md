@@ -103,6 +103,23 @@ The error manifest must include exact commands, exact output snippets, the state
 QA is paused. I created <path>. Please hand that error manifest to a fixer. After it is fixed, tell me to continue and I will resume from <phase/stage>.
 ```
 
+### Failure Classification Matrix
+
+Use this matrix whenever the next action is not obvious:
+
+| Observation | Classification | Required Action |
+|---|---|---|
+| CDP cannot connect, source shows login, expired account, MFA, captcha, or SeaRates token/session issue for the first time | Operator CDP/auth repair | Update validation manifest, pause with the login prompt, retry the exact failed command after operator says continue |
+| Same CDP/auth/captcha issue repeats after operator says it is repaired | Product/tooling/source-drift blocker | Create error manifest, pause |
+| Required local tool missing (`cargo`, `bun`, `agent-browser`, Chrome CDP, `sqlite3`, docling when an extraction path needs it) | Machine setup blocker | Create error manifest, pause unless the issue is the first CDP browser setup pause |
+| Build, lint, test, schema epoch, migration, SQLite integrity, FK, panic, hang, invalid result contract, missing `result.json`, or missing run manifest | Product blocker | Create error manifest, pause |
+| External source returns no marketplace results but the skill writes a valid structured no-result contract and durable attempt row | Operational outcome | Record evidence and continue |
+| Public source network failure, HTTP block, page-shape drift, or structurally invalid data after CDP/auth is healthy | Source/product blocker | Create error manifest, pause |
+| `apps/web` fails because Supabase env is absent or Layer 4 sync/RLS is not configured | Bounded web-smoke limitation | Record as deferred/partial under web smoke; do not mark L0-L3 RED |
+| `apps/web` fails to build, route, or render fallback snapshots independent of Supabase env | Local dashboard smoke blocker | Create error manifest labelled `apps/web local dashboard smoke`, pause |
+| Desktop cannot reach `full control` because schema epochs still differ | Product blocker | Create error manifest, pause before UI validation |
+| Desktop cannot automate because macOS accessibility permission is missing | Operator machine permission | Pause for permission grant, then retry; create error manifest only if it still fails after grant |
+
 ---
 
 ## Scope
@@ -435,6 +452,12 @@ run_logged() {
 
 The stage sections below show the canonical commands. Prefer executing them through `run_logged <stage-label> <command...>` unless they are intentionally long-running dev servers such as `bun run tauri:dev`, `bun run dev`, or browser sessions that need a live terminal. Record each log path in the validation manifest.
 
+Use filename-safe stage labels such as `stage-01-contracts-finder`, `stage-09-marketplace-coverage`, or `desktop-query-service-tests`. If the command needs environment variables, pass them through `env`, for example:
+
+```bash
+run_logged stage-13-manifest env STAGE13_RENDERER_MODE=daemon "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest manifest
+```
+
 If the QA run resumes in a new shell, reload the run context instead of creating a new state root:
 
 ```bash
@@ -740,7 +763,7 @@ Expected: review/reject/pursue outcomes should be backed by reasons, especially 
 Prefer daemon renderer first to decouple QA from model variance. Then, if stable, run normal mode if required.
 
 ```bash
-STAGE13_RENDERER_MODE=daemon "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest manifest
+env STAGE13_RENDERER_MODE=daemon "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest manifest
 ```
 
 Validate:
@@ -894,6 +917,8 @@ Open:
 - `http://127.0.0.1:3000/status`
 - `http://127.0.0.1:3000/contracts/<known-or-fallback-id>`
 
+Use the spotlight process ID if that route exists in the web projection/fallback data. If not, use the known fallback route from the web E2E suite: `http://127.0.0.1:3000/contracts/process-7`.
+
 If `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are absent, the web app is expected to render fallback/empty snapshots. That is not a Layer 0-3 failure. If valid Supabase env is present and the page fails to query or render, create an error manifest, but label it as apps/web local dashboard smoke, not Layer 4 acceptance.
 
 For the manual browser route, start `bun run dev` in a separate terminal/session and keep it running while opening the three URLs. `bun run test:e2e` already manages its own Next.js server through `apps/web/playwright.config.ts`; do not start a second web dev server before running the Playwright command unless the first one is intentionally reused.
@@ -1044,6 +1069,12 @@ Artifact root: <E2E_ARTIFACT_ROOT>
 QA log root: <E2E_LOG_ROOT>
 Daemon binary: <E2E_DAEMON>
 CDP browser: <Chrome version from /json/version>
+
+Status meanings:
+- GREEN: all required L0-L3 and requested localhost smoke checks passed.
+- PAUSED: QA stopped intentionally for operator login/permission or an error manifest.
+- RED: an unrepaired required L0-L3 blocker remains.
+- PARTIAL: L0-L3 passed but optional/bounded smoke items are deferred or inconclusive.
 
 ## Pause Ledger
 
