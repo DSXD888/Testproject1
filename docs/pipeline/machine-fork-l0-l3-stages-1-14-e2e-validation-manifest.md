@@ -1,7 +1,7 @@
 # Machine Fork L0-L3 Stages 1-14 E2E Validation Manifest
 
 Generated: 2026-05-12T18:46:53Z
-Last verified: 2026-05-12T19:43:18Z
+Last verified: 2026-05-12T19:45:30Z
 Status: PAUSED - prior schema epoch and browser/CDP blockers are repaired; ready to resume E2E from Environment Preflight
 Git HEAD at verification: 9323712 docs: record agent-browser cdp setup repair
 State root: not created; QA paused during critical current-state preflight before isolated run setup
@@ -253,7 +253,7 @@ AGENT_BROWSER_CDP_PREFLIGHT_GREEN
 | Stage | Command | Result | Evidence |
 |---|---|---|---|
 | AGENTS.md read | `sed -n '1,260p' AGENTS.md`; `sed -n '261,620p' AGENTS.md`; `sed -n '621,980p' AGENTS.md` | PASS | Repo rules read before validation. |
-| Git state | `git status --short --branch`; `git log --oneline -1` | PASS with dirty shared checkout | Original pause was on `main` at `4d1d1dd`; browser/CDP repair ran on `main` at `3251f19`. Shared dirty artifacts were not stashed, reverted, deleted, or staged. |
+| Git state | `git status --short --branch`; `git log --oneline -1` | PASS with dirty shared checkout | Original pause was on `main` at `4d1d1dd`; current verification ran on `main` at `9323712`. Shared dirty artifacts were not stashed, reverted, deleted, or staged. |
 | Schema epoch current-state check | `rg -n "...SCHEMA_EPOCH..." ...` | PASS | Daemon epoch 9; desktop bootstrap, query service, daemon bridge, and native fixtures now expect epoch 9. Regression guard `schema_epoch_defaults_match_daemon_authority_and_hello_payload` passed. |
 | Origin freshness | `git fetch origin`; `git show origin/main:...` | PASS | Original pause saw `origin/main` at `4d1d1dd` with the epoch mismatch. Current verification ran on `main` at `9323712`, with schema fix commit `6d113ad` present locally and on `origin/main`. |
 | Toolchain preflight | `which cargo`; `which bun`; `which agent-browser`; version commands | PASS for browser setup | Cargo and Bun present; `agent-browser` now resolves at `/opt/homebrew/bin/agent-browser` and reports `agent-browser 0.27.0`. |
@@ -296,13 +296,13 @@ agent-browser --cdp 9222 open "https://www.ebay.co.uk/"
 agent-browser --cdp 9222 snapshot
 ```
 
-Login-check observations:
+Login-check observations, re-verified 2026-05-12T19:45:30Z:
 
 ```text
-ProContract: reachable through CDP, redirected to `/Login/Index?ReturnUrl=%2fSupplierPostLoginHome`; username/password fields and cookie dialog visible. Operator login is required before ProContract source validation can continue.
-Alibaba: reachable through CDP; public marketplace home page loaded with search and product content. No login or captcha challenge was visible in the snapshot.
-SeaRates: reachable through CDP; Logistics Explorer page loaded with origin/destination fields. A reCAPTCHA iframe was present in the page snapshot, but no interactive challenge was surfaced during this check.
-eBay UK: reachable through CDP; public home page loaded with search UI, sign-in link, and cookie consent prompt. No captcha challenge was visible in the snapshot.
+ProContract: reachable through CDP and authenticated; `/SupplierPostLoginHome#` loaded the supplier home page with account controls and company summary.
+Alibaba: reachable through CDP and authenticated; home page showed `Welcome to Alibaba.com, zac` with search and product content. No captcha challenge was visible in the snapshot.
+SeaRates: reachable through CDP; Logistics Explorer page loaded. No interactive captcha challenge was surfaced during this check.
+eBay UK: reachable through CDP and authenticated; home page showed `Hi zac!`, Watchlist/My eBay controls, and search UI. No captcha challenge was visible in the snapshot.
 ```
 
 ## Desktop And Localhost UI
@@ -401,11 +401,11 @@ Proven on this machine:
 - The CDP browser was launched with `$HOME/.chrome-automation`.
 - `agent-browser --cdp 9222 open "about:blank"`, `get title`, and `snapshot` succeed.
 - The browser preflight validation block exits 0 and prints `AGENT_BROWSER_CDP_PREFLIGHT_GREEN`.
-- Login checks were attempted. ProContract requires operator login; SeaRates includes a reCAPTCHA iframe but no challenge was surfaced; Alibaba and eBay public pages loaded.
+- Login checks were attempted. ProContract, Alibaba, SeaRates, and eBay all load through CDP. ProContract, Alibaba, and eBay show authenticated state; SeaRates loads Logistics Explorer without surfacing an interactive captcha challenge.
 
 Exact resume point:
 
 1. Re-run Environment Preflight -> Toolchain and Persistent CDP Browser from `prompts/machine-fork-l0-l3-stages-1-14-e2e-handoff.md`.
-2. Continue Login Checks from the original handoff. ProContract needs operator login in the visible CDP browser before ProContract source validation can continue.
+2. Continue Login Checks from the original handoff.
 3. Continue to Isolated Run Setup.
 4. Run the full minimum quality gate block before declaring the live E2E validation green.
