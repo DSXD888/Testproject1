@@ -1,14 +1,14 @@
 # Machine Fork L0-L3 Stages 1-14 E2E Validation Manifest
 
 Generated: 2026-05-12T18:46:53Z
-Last verified: 2026-05-12T19:45:30Z
-Status: PAUSED - prior schema epoch and browser/CDP blockers are repaired; ready to resume E2E from Environment Preflight
-Git HEAD at verification: 9323712 docs: record agent-browser cdp setup repair
-State root: not created; QA paused during critical current-state preflight before isolated run setup
-Runtime dir: not created; QA paused during critical current-state preflight before isolated run setup
-Artifact root: not created; QA paused during critical current-state preflight before isolated run setup
-QA log root: not created; QA paused during critical current-state preflight before isolated run setup
-Daemon binary: not built; QA paused before isolated daemon build
+Last verified: 2026-05-12T20:01:43Z
+Status: PAUSED - static/unit baseline hit an intermittent desktop native-shell test failure
+Git HEAD at verification: 146d575 docs: verify machine fork preflight repair
+State root: `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z`
+Runtime dir: `/Users/zacfarrell/Desktop/Testproject1/runtime-e2e-machine-fork-20260512T195251Z`
+Artifact root: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z`
+QA log root: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z/qa-logs`
+Daemon binary: `/tmp/testproject1-target-machine-fork-20260512T195251Z/debug/daemon`
 CDP browser: available; Chrome/148.0.7778.97, Protocol 1.3, listening on 127.0.0.1:9222, launched with `$HOME/.chrome-automation`
 
 Status meanings:
@@ -26,6 +26,8 @@ Status meanings:
 | 2026-05-12T18:46:53Z | Persistent CDP browser preflight | First observed CDP setup failure: `localhost:9222` refused connection. | Recorded as operator CDP setup pause, not a product error manifest. | Launch the persistent Chrome CDP profile on port 9222, then re-run `/json/version` and CDP login checks. |
 | 2026-05-12T19:29:53Z | Browser/CDP setup repair | `agent-browser` missing and CDP unavailable from the original preflight. | Installed `agent-browser` with Homebrew, ran `agent-browser install`, launched persistent Chrome CDP with `$HOME/.chrome-automation`, and validated `agent-browser --cdp 9222`. | Browser/CDP preflight is green. Resume the E2E handoff after the independent schema epoch blocker is fixed, starting at Environment Preflight -> Toolchain, then Persistent CDP Browser, Login Checks, and Isolated Run Setup. |
 | 2026-05-12T19:43:18Z | Schema epoch repair verification | Desktop/Tauri constants and fixtures previously expected epoch 8 while daemon schema epoch was 9. | Commit `6d113ad` aligned desktop epoch expectations to 9 and added a daemon-authority regression guard; validation commands passed. | Schema epoch blocker is resolved. Resume from Environment Preflight -> Toolchain, then Persistent CDP Browser, Login Checks, and Isolated Run Setup. |
+| 2026-05-12T19:52:51Z | Resume after operator clearance | Operator reported error manifests and fixes were complete. | Re-ran schema epoch, toolchain, CDP, and source login checks; created fresh isolated E2E roots; built daemon; ran daemon dry-run. | Continue with static/unit baseline gates before live stage execution. |
+| 2026-05-12T20:01:43Z | Static/unit baseline - desktop native shell | `cargo test -p procintel-desktop --test native_shell` failed once in the required baseline gate; filtered and full reruns passed, making this an intermittent/order-dependent gate failure. | Created `prompts/machine-fork-e2e-desktop-native-shell-rerun-lock-error-manifest.md` and paused before live Stage 1 ingestion. | After a fixer resolves or formally classifies the flake, rerun `cargo test -p procintel-desktop --test native_shell`, then continue from the static/unit baseline gate. |
 
 ## Error Manifests Created
 
@@ -33,6 +35,7 @@ Status meanings:
 |---|---|---|---|
 | `prompts/machine-fork-e2e-schema-epoch-mismatch-error-manifest.md` | Critical current-state checks / Desktop validation precondition | Daemon `DEFAULT_SCHEMA_EPOCH=9`; desktop expected epoch 8 and rejected mismatched state/handshake. | Resolved by commit `6d113ad`; verified 2026-05-12T19:43:18Z. |
 | `prompts/machine-fork-e2e-agent-browser-missing-error-manifest.md` | Environment preflight / Browser testing precondition | `agent-browser` command not found, so CDP preflight and daemon-driven browser skills cannot be validated. | Resolved by machine setup repair on 2026-05-12T19:29:53Z. |
+| `prompts/machine-fork-e2e-desktop-native-shell-rerun-lock-error-manifest.md` | Static/unit baseline / Desktop native shell | Intermittent failure: rerun-lock test expected stopped PID `[4242]` but observed `[]` in the required full `native_shell` target. | Open; QA paused 2026-05-12T20:01:43Z. |
 
 ## Preflight
 
@@ -248,6 +251,72 @@ about:blank opened, title command succeeded, snapshot returned `(empty page)`.
 AGENT_BROWSER_CDP_PREFLIGHT_GREEN
 ```
 
+Resume preflight after operator clearance:
+
+```bash
+git status --short --branch
+git log --oneline -5
+rg -n "pub const DEFAULT_SCHEMA_EPOCH|EXPECTED_SCHEMA_EPOCH|DEFAULT_SCHEMA_EPOCH" \
+  crates/daemon/src/db/sqlite.rs \
+  apps/desktop/src-tauri/src/main.rs \
+  apps/desktop/src-tauri/src/query_service.rs \
+  apps/desktop/src-tauri/src/daemon_bridge.rs \
+  apps/desktop/src-tauri/tests -g '*.rs'
+which cargo
+which bun
+which claude || true
+which codex || true
+which agent-browser || true
+curl -sfS -m 3 http://localhost:9222/json/version
+agent-browser --cdp 9222 open "about:blank"
+agent-browser --cdp 9222 get title
+```
+
+Resume output summary:
+
+```text
+HEAD includes 146d575 docs: verify machine fork preflight repair.
+Schema epoch check: daemon, desktop bootstrap, query service, daemon bridge, and native fixtures all use epoch 9.
+agent-browser path: /opt/homebrew/bin/agent-browser
+CDP browser: Chrome/148.0.7778.97, Protocol 1.3.
+agent-browser CDP control: opened about:blank and returned title `about:blank`.
+```
+
+Source login checks after resume:
+
+```text
+ProContract: Supplier Post-Login Home loaded; account and logout links present.
+Alibaba: homepage loaded and showed "Welcome to Alibaba.com, zac".
+SeaRates: Logistics Explorer loaded with freight search controls; no blocking sign-in page.
+eBay UK: homepage loaded and showed "Hi zac!".
+```
+
+Isolated E2E setup after resume:
+
+```text
+E2E_TS=20260512T195251Z
+RUN_START_AT=2026-05-12T19:52:51+00:00
+E2E_STATE_ROOT=/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z
+E2E_RUNTIME_DIR=/Users/zacfarrell/Desktop/Testproject1/runtime-e2e-machine-fork-20260512T195251Z
+E2E_ARTIFACT_ROOT=/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z
+E2E_LOG_ROOT=/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z/qa-logs
+E2E_TARGET_DIR=/tmp/testproject1-target-machine-fork-20260512T195251Z
+E2E_DAEMON=/tmp/testproject1-target-machine-fork-20260512T195251Z/debug/daemon
+```
+
+Daemon setup evidence:
+
+```text
+CARGO_TARGET_DIR=/tmp/testproject1-target-machine-fork-20260512T195251Z cargo build -p daemon --bin daemon
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 25.06s
+
+run_logged daemon-dry-run "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --dry-run
+dry-run bootstrap completed
+PRAGMA user_version: 9
+```
+
+Dry-run log: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z/qa-logs/daemon-dry-run.log`.
+
 ## Stage Results
 
 | Stage | Command | Result | Evidence |
@@ -258,7 +327,11 @@ AGENT_BROWSER_CDP_PREFLIGHT_GREEN
 | Origin freshness | `git fetch origin`; `git show origin/main:...` | PASS | Original pause saw `origin/main` at `4d1d1dd` with the epoch mismatch. Current verification ran on `main` at `9323712`, with schema fix commit `6d113ad` present locally and on `origin/main`. |
 | Toolchain preflight | `which cargo`; `which bun`; `which agent-browser`; version commands | PASS for browser setup | Cargo and Bun present; `agent-browser` now resolves at `/opt/homebrew/bin/agent-browser` and reports `agent-browser 0.27.0`. |
 | CDP preflight | `curl -sfS -m 3 http://localhost:9222/json/version`; `agent-browser --cdp 9222 open "about:blank"`; `agent-browser --cdp 9222 get title`; `agent-browser --cdp 9222 snapshot` | PASS | Chrome/148.0.7778.97, Protocol 1.3, launched with `$HOME/.chrome-automation`; validation block printed `AGENT_BROWSER_CDP_PREFLIGHT_GREEN`. |
+| Source login checks | `agent-browser --cdp 9222 open <source>` and `snapshot` for ProContract, Alibaba, SeaRates, eBay | PASS | All four source pages loaded without sign-in or captcha wall. |
+| Isolated run setup | E2E env creation, isolated daemon build, `run_logged daemon-dry-run ... --dry-run` | PASS | Fresh roots created; daemon built in `/tmp/testproject1-target-machine-fork-20260512T195251Z`; dry-run completed; `PRAGMA user_version` returned 9. |
+| Static/unit baseline | Required cargo/Bun gates | PAUSED | Rust fmt/check/clippy, daemon binary tests, all daemon integration test targets, package gates, desktop Bun test/build, `query_service`, and `daemon_bridge` passed. `native_shell` failed once and produced an error manifest. |
 | Static/unit baseline | Targeted desktop gates plus Rust gates | PASS | `cargo test -p procintel-desktop --test query_service`; `cargo test -p procintel-desktop --test daemon_bridge`; `cargo test -p procintel-desktop --test native_shell`; daemon schema probe; `cargo fmt --check`; `cargo check --all-targets`; `cargo clippy --all-targets -- -D warnings` all passed. |
+| Static/unit baseline | Current resumed desktop native shell gate | PAUSED | `baseline-desktop-native-shell.log` failed with `bug_pipeline_rerun_regression_releases_desktop_daemon_lock_before_ingest`; filtered and full reruns passed. Error manifest created. |
 | Isolated daemon dry-run | Not run | DEFERRED | Paused before isolated run setup. |
 | Stages 1-14 | Not run | DEFERRED | Paused before live pipeline. |
 | Desktop UI | Not run | READY TO RESUME | Schema epoch blocker is repaired; continue desktop validation from the original E2E handoff after Environment Preflight and login checks. |
@@ -337,11 +410,47 @@ No screenshots were captured before the pause.
 
 ## Operational Subsystems
 
-Not executed. No isolated `state.db` was created before the pause, so no SQLite integrity, source runtime, workflow job, session log, error manifest table, validation verdict, IPC, scheduler, job claim, resource arbiter, or replay checks were run.
+Partially executed through the static baseline and isolated dry-run.
+
+```text
+E2E state DB PRAGMA integrity_check: ok
+workflow_jobs: 0
+agent_session_logs: 0
+error_manifests: 0
+```
+
+Full post-pipeline operational subsystem checks remain pending because QA paused before live Stage 1 ingestion.
 
 ## Quality Gates
 
 Executed for schema epoch repair verification. Full live E2E gates remain pending until the resumed isolated run.
+
+Current resumed baseline evidence:
+
+```text
+cargo fmt --check: PASS
+cargo check --all-targets: PASS
+cargo clippy --all-targets -- -D warnings: PASS
+cargo test -p daemon --bin daemon: PASS, 202 tests
+for t in crates/daemon/tests/*.rs; cargo test --test "$t": PASS for every target
+packages/contracts-schema: bun run test PASS; bun run build PASS
+packages/ui: bun run test PASS; bun run build PASS
+packages/intelligence: bun run test PASS; bun run build PASS
+packages/manifests: bun run test PASS; bun run build PASS
+apps/desktop: bun run test PASS; bun run build PASS
+cargo test -p procintel-desktop --test query_service: PASS
+cargo test -p procintel-desktop --test daemon_bridge: PASS
+cargo test -p procintel-desktop --test native_shell: FAIL once in required baseline
+```
+
+The `native_shell` failure is preserved in `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z/qa-logs/baseline-desktop-native-shell.log`. Follow-up controls passed:
+
+```text
+repro-desktop-native-shell-rerun-lock-filter.log: PASS, 1 test
+repro-desktop-native-shell-full-rerun.log: PASS, 22 tests
+```
+
+QA is paused on `prompts/machine-fork-e2e-desktop-native-shell-rerun-lock-error-manifest.md`; live Stages 1-14 were not started.
 
 Schema repair validation:
 
