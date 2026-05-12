@@ -187,7 +187,7 @@ Do this reading pass before running the pipeline. The goal is to avoid treating 
 
 4. Desktop and localhost surfaces:
    - Read `apps/desktop/src-tauri/src/main.rs`, `apps/desktop/src-tauri/src/query_service.rs`, `apps/desktop/src-tauri/src/daemon_bridge.rs`, and the desktop pages listed in the Desktop App Validation section.
-   - Read `apps/web/package.json`, `apps/web/playwright.config.ts`, and the `apps/web` routes only for a bounded local dashboard smoke.
+   - Read `apps/web/package.json`, `apps/web/playwright.config.ts`, `apps/web/src/app/page.tsx`, `apps/web/src/app/contracts/page.tsx`, `apps/web/src/app/contracts/[id]/page.tsx`, `apps/web/src/app/status/page.tsx`, `apps/web/src/lib/supabase.ts`, and `apps/web/src/lib/broadcast.ts` only for a bounded local dashboard smoke.
    - Checkpoint questions:
      - What does "full control" mean in the desktop bootstrap state?
      - How can `apps/web` fail in a way that is only a Layer 4/local-dashboard smoke issue, not an L0-L3 pipeline failure?
@@ -394,9 +394,27 @@ export E2E_DAEMON="$E2E_TARGET_DIR/debug/daemon"
   --runtime-dir "$E2E_RUNTIME_DIR" \
   --artifact-root "$E2E_ARTIFACT_ROOT" \
   --dry-run
+
+cat > "$E2E_STATE_ROOT/e2e-env.sh" <<EOF
+export E2E_TS="$E2E_TS"
+export E2E_STATE_ROOT="$E2E_STATE_ROOT"
+export E2E_RUNTIME_DIR="$E2E_RUNTIME_DIR"
+export E2E_ARTIFACT_ROOT="$E2E_ARTIFACT_ROOT"
+export E2E_TARGET_DIR="$E2E_TARGET_DIR"
+export E2E_DAEMON="$E2E_DAEMON"
+export RUN_START_AT="$RUN_START_AT"
+EOF
 ```
 
 Every daemon command in this handoff must use those three root flags.
+
+If the QA run resumes in a new shell, reload the run context instead of creating a new state root:
+
+```bash
+source "<existing E2E_STATE_ROOT>/e2e-env.sh"
+test -x "$E2E_DAEMON"
+sqlite3 "$E2E_STATE_ROOT/state.db" 'PRAGMA user_version;'
+```
 
 Record in the validation manifest:
 
@@ -423,11 +441,11 @@ for t in crates/daemon/tests/*.rs; do
   cargo test --test "$(basename "$t" .rs)" || exit 1
 done
 
-cd packages/contracts-schema && bun run test && bun run build && cd ../..
-cd packages/ui && bun run test && bun run build && cd ../..
-cd packages/intelligence && bun run test && bun run build && cd ../..
-cd packages/manifests && bun run test && bun run build && cd ../..
-cd apps/desktop && bun run test && bun run build && cd ../..
+(cd packages/contracts-schema && bun run test && bun run build)
+(cd packages/ui && bun run test && bun run build)
+(cd packages/intelligence && bun run test && bun run build)
+(cd packages/manifests && bun run test && bun run build)
+(cd apps/desktop && bun run test && bun run build)
 ```
 
 Do not use root `bun run test` or root `bun run build` as the only preflight signal for this handoff. The root scripts include `apps/web`, and this run intentionally keeps `apps/web` as a bounded localhost smoke rather than a hard Layer 0-3 acceptance gate.
@@ -766,19 +784,24 @@ Run desktop gates:
 cargo test -p procintel-desktop --test query_service
 cargo test -p procintel-desktop --test daemon_bridge
 cargo test -p procintel-desktop --test native_shell
-cd apps/desktop && bun run test && bun run e2e && cd ../..
+(cd apps/desktop && bun run test && bun run e2e)
 ```
 
-Launch Tauri against the E2E state:
+Launch Tauri against the E2E state from a dedicated long-running terminal session, because `bun run tauri:dev` is expected to stay open while the UI is inspected:
 
 ```bash
-cd apps/desktop
-PROCINTEL_DESKTOP_STATE_ROOT="$OLDPWD/$E2E_STATE_ROOT" \
-PROCINTEL_DESKTOP_RUNTIME_DIR="$OLDPWD/$E2E_RUNTIME_DIR" \
-PROCINTEL_DESKTOP_ARTIFACT_ROOT="$OLDPWD/$E2E_ARTIFACT_ROOT" \
-PROCINTEL_DAEMON_PROGRAM="$E2E_DAEMON" \
-bun run tauri:dev
+REPO_ROOT="$PWD"
+(
+  cd apps/desktop
+  PROCINTEL_DESKTOP_STATE_ROOT="$REPO_ROOT/$E2E_STATE_ROOT" \
+  PROCINTEL_DESKTOP_RUNTIME_DIR="$REPO_ROOT/$E2E_RUNTIME_DIR" \
+  PROCINTEL_DESKTOP_ARTIFACT_ROOT="$REPO_ROOT/$E2E_ARTIFACT_ROOT" \
+  PROCINTEL_DAEMON_PROGRAM="$E2E_DAEMON" \
+  bun run tauri:dev
+)
 ```
+
+Leave that session running until the desktop walkthrough is complete. If it exits by itself, treat the exit as a desktop blocker and create an error manifest with the Tauri stdout/stderr.
 
 If macOS accessibility permissions block automation, document the blocker and either:
 
@@ -817,8 +840,7 @@ There are two localhost surfaces:
 Run desktop dev bridge smoke:
 
 ```bash
-cd apps/desktop
-bun run dev
+(cd apps/desktop && bun run dev)
 ```
 
 Open `http://127.0.0.1:5173` with the Browser skill and check:
@@ -828,13 +850,14 @@ Open `http://127.0.0.1:5173` with the Browser skill and check:
 - daemon page route renders
 - manifest inbox route renders
 
+This dev command is also long-running. Start it in a separate terminal/session, leave it up for the browser checks, then stop that session after evidence is captured.
+
 Run web smoke:
 
 ```bash
-cd apps/web
-bun run test
-bun run test:e2e
-bun run dev
+(cd apps/web && bun run test)
+(cd apps/web && bun run test:e2e)
+(cd apps/web && bun run dev)
 ```
 
 Open:
@@ -844,6 +867,8 @@ Open:
 - `http://127.0.0.1:3000/contracts/<known-or-fallback-id>`
 
 If `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are absent, the web app is expected to render fallback/empty snapshots. That is not a Layer 0-3 failure. If valid Supabase env is present and the page fails to query or render, create an error manifest, but label it as apps/web local dashboard smoke, not Layer 4 acceptance.
+
+For the manual browser route, start `bun run dev` in a separate terminal/session and keep it running while opening the three URLs. `bun run test:e2e` already manages its own Next.js server through `apps/web/playwright.config.ts`; do not start a second web dev server before running the Playwright command unless the first one is intentionally reused.
 
 ---
 
@@ -940,18 +965,18 @@ cargo test -p procintel-desktop --test query_service
 cargo test -p procintel-desktop --test daemon_bridge
 cargo test -p procintel-desktop --test native_shell
 
-cd packages/contracts-schema && bun run test && bun run build && cd ../..
-cd packages/ui && bun run test && bun run build && cd ../..
-cd packages/intelligence && bun run test && bun run build && cd ../..
-cd packages/manifests && bun run test && bun run build && cd ../..
-cd apps/desktop && bun run test && bun run build && cd ../..
+(cd packages/contracts-schema && bun run test && bun run build)
+(cd packages/ui && bun run test && bun run build)
+(cd packages/intelligence && bun run test && bun run build)
+(cd packages/manifests && bun run test && bun run build)
+(cd apps/desktop && bun run test && bun run build)
 ```
 
 Then run the explicit local website smoke gates:
 
 ```bash
-cd apps/desktop && bun run e2e && cd ../..
-cd apps/web && bun run test && bun run test:e2e && cd ../..
+(cd apps/desktop && bun run e2e)
+(cd apps/web && bun run test && bun run test:e2e)
 ```
 
 If `apps/web` fails, classify it under the bounded localhost website smoke unless the evidence proves it is caused by shared Layer 0-3 code or data. Do not let a missing Supabase env or deferred Layer 4 sync behavior turn a successful L0-L3 pipeline into a false RED.
