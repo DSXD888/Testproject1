@@ -378,14 +378,17 @@ Pause for the operator if any page requires sign-in or captcha. For SeaRates, th
 Use a fresh state root and a pinned daemon binary. Do not run against `state/state.db` unless the operator explicitly asks.
 
 ```bash
+export REPO_ROOT="$(pwd)"
 export E2E_TS="$(date -u +%Y%m%dT%H%M%SZ)"
-export E2E_STATE_ROOT="state-e2e-machine-fork-$E2E_TS"
-export E2E_RUNTIME_DIR="runtime-e2e-machine-fork-$E2E_TS"
-export E2E_ARTIFACT_ROOT="artifacts-e2e-machine-fork-$E2E_TS"
+export E2E_STATE_ROOT="$REPO_ROOT/state-e2e-machine-fork-$E2E_TS"
+export E2E_RUNTIME_DIR="$REPO_ROOT/runtime-e2e-machine-fork-$E2E_TS"
+export E2E_ARTIFACT_ROOT="$REPO_ROOT/artifacts-e2e-machine-fork-$E2E_TS"
+export E2E_LOG_ROOT="$E2E_ARTIFACT_ROOT/qa-logs"
 export E2E_TARGET_DIR="/tmp/testproject1-target-machine-fork-$E2E_TS"
 export RUN_START_AT="$(date -u -Iseconds)"
+export AGENT_BROWSER_CDP_PORT=9222
 
-mkdir "$E2E_STATE_ROOT" "$E2E_RUNTIME_DIR" "$E2E_ARTIFACT_ROOT"
+mkdir -p "$E2E_STATE_ROOT" "$E2E_RUNTIME_DIR" "$E2E_ARTIFACT_ROOT" "$E2E_LOG_ROOT"
 CARGO_TARGET_DIR="$E2E_TARGET_DIR" cargo build -p daemon --bin daemon
 export E2E_DAEMON="$E2E_TARGET_DIR/debug/daemon"
 
@@ -396,22 +399,47 @@ export E2E_DAEMON="$E2E_TARGET_DIR/debug/daemon"
   --dry-run
 
 cat > "$E2E_STATE_ROOT/e2e-env.sh" <<EOF
+export REPO_ROOT="$REPO_ROOT"
 export E2E_TS="$E2E_TS"
 export E2E_STATE_ROOT="$E2E_STATE_ROOT"
 export E2E_RUNTIME_DIR="$E2E_RUNTIME_DIR"
 export E2E_ARTIFACT_ROOT="$E2E_ARTIFACT_ROOT"
+export E2E_LOG_ROOT="$E2E_LOG_ROOT"
 export E2E_TARGET_DIR="$E2E_TARGET_DIR"
 export E2E_DAEMON="$E2E_DAEMON"
 export RUN_START_AT="$RUN_START_AT"
+export AGENT_BROWSER_CDP_PORT="$AGENT_BROWSER_CDP_PORT"
 EOF
 ```
 
-Every daemon command in this handoff must use those three root flags.
+Every daemon command in this handoff must use those three root flags. Use absolute paths from the environment variables; do not rely on the current working directory after a pause/resume.
+
+For every non-interactive command that matters to the final verdict, capture a durable log:
+
+```bash
+run_logged() {
+  label="$1"
+  shift
+  log="$E2E_LOG_ROOT/${label}.log"
+  {
+    printf '$'
+    printf ' %q' "$@"
+    printf '\n'
+    "$@"
+  } >"$log" 2>&1
+  status=$?
+  tail -80 "$log"
+  return "$status"
+}
+```
+
+The stage sections below show the canonical commands. Prefer executing them through `run_logged <stage-label> <command...>` unless they are intentionally long-running dev servers such as `bun run tauri:dev`, `bun run dev`, or browser sessions that need a live terminal. Record each log path in the validation manifest.
 
 If the QA run resumes in a new shell, reload the run context instead of creating a new state root:
 
 ```bash
 source "<existing E2E_STATE_ROOT>/e2e-env.sh"
+cd "$REPO_ROOT"
 test -x "$E2E_DAEMON"
 sqlite3 "$E2E_STATE_ROOT/state.db" 'PRAGMA user_version;'
 ```
@@ -421,6 +449,7 @@ Record in the validation manifest:
 - `E2E_TS`
 - `RUN_START_AT`
 - daemon binary path
+- `E2E_LOG_ROOT`
 - CDP browser version from `/json/version`
 - `git log --oneline -1`
 - schema epoch values
@@ -790,12 +819,11 @@ cargo test -p procintel-desktop --test native_shell
 Launch Tauri against the E2E state from a dedicated long-running terminal session, because `bun run tauri:dev` is expected to stay open while the UI is inspected:
 
 ```bash
-REPO_ROOT="$PWD"
 (
   cd apps/desktop
-  PROCINTEL_DESKTOP_STATE_ROOT="$REPO_ROOT/$E2E_STATE_ROOT" \
-  PROCINTEL_DESKTOP_RUNTIME_DIR="$REPO_ROOT/$E2E_RUNTIME_DIR" \
-  PROCINTEL_DESKTOP_ARTIFACT_ROOT="$REPO_ROOT/$E2E_ARTIFACT_ROOT" \
+  PROCINTEL_DESKTOP_STATE_ROOT="$E2E_STATE_ROOT" \
+  PROCINTEL_DESKTOP_RUNTIME_DIR="$E2E_RUNTIME_DIR" \
+  PROCINTEL_DESKTOP_ARTIFACT_ROOT="$E2E_ARTIFACT_ROOT" \
   PROCINTEL_DAEMON_PROGRAM="$E2E_DAEMON" \
   bun run tauri:dev
 )
@@ -878,6 +906,9 @@ Run after the main pipeline:
 
 ```bash
 sqlite3 -header "$E2E_STATE_ROOT/state.db" "
+PRAGMA integrity_check;
+PRAGMA foreign_key_check;
+
 SELECT source_id, health_state, circuit_state, last_success_at, last_failure_at
 FROM source_runtime_state ORDER BY source_id;
 
@@ -905,6 +936,7 @@ cargo test --test replay_pty_sessions
 
 Expected:
 
+- `PRAGMA integrity_check` returns `ok` and `PRAGMA foreign_key_check` returns no rows.
 - source circuits should be `closed` unless a source had a documented auth/captcha/source failure.
 - workflow jobs may include explainable retry/failed extraction rows; unexpected failed source jobs need an error manifest.
 - validation verdicts may be empty because L4 validator enforcement is out of scope.
@@ -1009,6 +1041,7 @@ Git HEAD: <hash subject>
 State root: <E2E_STATE_ROOT>
 Runtime dir: <E2E_RUNTIME_DIR>
 Artifact root: <E2E_ARTIFACT_ROOT>
+QA log root: <E2E_LOG_ROOT>
 Daemon binary: <E2E_DAEMON>
 CDP browser: <Chrome version from /json/version>
 
