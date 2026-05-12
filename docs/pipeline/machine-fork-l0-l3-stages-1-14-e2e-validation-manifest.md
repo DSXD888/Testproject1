@@ -1,8 +1,9 @@
 # Machine Fork L0-L3 Stages 1-14 E2E Validation Manifest
 
 Generated: 2026-05-12T18:46:53Z
-Status: PAUSED - schema epoch blocker remains; browser/CDP preflight repaired and GREEN as of 2026-05-12T19:29:53Z
-Git HEAD: 3251f19 docs: add schema epoch mismatch fix handoff
+Last verified: 2026-05-12T19:43:18Z
+Status: PAUSED - prior schema epoch and browser/CDP blockers are repaired; ready to resume E2E from Environment Preflight
+Git HEAD at verification: 9323712 docs: record agent-browser cdp setup repair
 State root: not created; QA paused during critical current-state preflight before isolated run setup
 Runtime dir: not created; QA paused during critical current-state preflight before isolated run setup
 Artifact root: not created; QA paused during critical current-state preflight before isolated run setup
@@ -24,12 +25,13 @@ Status meanings:
 | 2026-05-12T18:46:53Z | Environment preflight | Required `agent-browser` CLI is not on `PATH`. | Created `prompts/machine-fork-e2e-agent-browser-missing-error-manifest.md`. | After `agent-browser` is installed/exposed, run `which agent-browser`, `agent-browser --cdp 9222 open about:blank`, and continue CDP preflight. |
 | 2026-05-12T18:46:53Z | Persistent CDP browser preflight | First observed CDP setup failure: `localhost:9222` refused connection. | Recorded as operator CDP setup pause, not a product error manifest. | Launch the persistent Chrome CDP profile on port 9222, then re-run `/json/version` and CDP login checks. |
 | 2026-05-12T19:29:53Z | Browser/CDP setup repair | `agent-browser` missing and CDP unavailable from the original preflight. | Installed `agent-browser` with Homebrew, ran `agent-browser install`, launched persistent Chrome CDP with `$HOME/.chrome-automation`, and validated `agent-browser --cdp 9222`. | Browser/CDP preflight is green. Resume the E2E handoff after the independent schema epoch blocker is fixed, starting at Environment Preflight -> Toolchain, then Persistent CDP Browser, Login Checks, and Isolated Run Setup. |
+| 2026-05-12T19:43:18Z | Schema epoch repair verification | Desktop/Tauri constants and fixtures previously expected epoch 8 while daemon schema epoch was 9. | Commit `6d113ad` aligned desktop epoch expectations to 9 and added a daemon-authority regression guard; validation commands passed. | Schema epoch blocker is resolved. Resume from Environment Preflight -> Toolchain, then Persistent CDP Browser, Login Checks, and Isolated Run Setup. |
 
 ## Error Manifests Created
 
 | Path | Stage | Blocking Symptom | Status |
 |---|---|---|---|
-| `prompts/machine-fork-e2e-schema-epoch-mismatch-error-manifest.md` | Critical current-state checks / Desktop validation precondition | Daemon `DEFAULT_SCHEMA_EPOCH=9`; desktop expects epoch 8 and rejects mismatched state/handshake. | Open |
+| `prompts/machine-fork-e2e-schema-epoch-mismatch-error-manifest.md` | Critical current-state checks / Desktop validation precondition | Daemon `DEFAULT_SCHEMA_EPOCH=9`; desktop expected epoch 8 and rejected mismatched state/handshake. | Resolved by commit `6d113ad`; verified 2026-05-12T19:43:18Z. |
 | `prompts/machine-fork-e2e-agent-browser-missing-error-manifest.md` | Environment preflight / Browser testing precondition | `agent-browser` command not found, so CDP preflight and daemon-driven browser skills cannot be validated. | Resolved by machine setup repair on 2026-05-12T19:29:53Z. |
 
 ## Preflight
@@ -252,15 +254,15 @@ AGENT_BROWSER_CDP_PREFLIGHT_GREEN
 |---|---|---|---|
 | AGENTS.md read | `sed -n '1,260p' AGENTS.md`; `sed -n '261,620p' AGENTS.md`; `sed -n '621,980p' AGENTS.md` | PASS | Repo rules read before validation. |
 | Git state | `git status --short --branch`; `git log --oneline -1` | PASS with dirty shared checkout | Original pause was on `main` at `4d1d1dd`; browser/CDP repair ran on `main` at `3251f19`. Shared dirty artifacts were not stashed, reverted, deleted, or staged. |
-| Schema epoch current-state check | `rg -n "...SCHEMA_EPOCH..." ...` | BLOCKED | Daemon epoch 9, desktop epoch 8. Error manifest created. |
-| Origin freshness | `git fetch origin`; `git show origin/main:...` | PASS | Original pause saw `origin/main` at `4d1d1dd` with the same epoch mismatch; current HEAD/origin is `3251f19`, and the schema epoch blocker remains independent of the browser/CDP repair. |
+| Schema epoch current-state check | `rg -n "...SCHEMA_EPOCH..." ...` | PASS | Daemon epoch 9; desktop bootstrap, query service, daemon bridge, and native fixtures now expect epoch 9. Regression guard `schema_epoch_defaults_match_daemon_authority_and_hello_payload` passed. |
+| Origin freshness | `git fetch origin`; `git show origin/main:...` | PASS | Original pause saw `origin/main` at `4d1d1dd` with the epoch mismatch. Current verification ran on `main` at `9323712`, with schema fix commit `6d113ad` present locally and on `origin/main`. |
 | Toolchain preflight | `which cargo`; `which bun`; `which agent-browser`; version commands | PASS for browser setup | Cargo and Bun present; `agent-browser` now resolves at `/opt/homebrew/bin/agent-browser` and reports `agent-browser 0.27.0`. |
 | CDP preflight | `curl -sfS -m 3 http://localhost:9222/json/version`; `agent-browser --cdp 9222 open "about:blank"`; `agent-browser --cdp 9222 get title`; `agent-browser --cdp 9222 snapshot` | PASS | Chrome/148.0.7778.97, Protocol 1.3, launched with `$HOME/.chrome-automation`; validation block printed `AGENT_BROWSER_CDP_PREFLIGHT_GREEN`. |
-| Static/unit baseline | Not run | DEFERRED | Real blocker found before baseline gates. Resume after blocker fix. |
+| Static/unit baseline | Targeted desktop gates plus Rust gates | PASS | `cargo test -p procintel-desktop --test query_service`; `cargo test -p procintel-desktop --test daemon_bridge`; `cargo test -p procintel-desktop --test native_shell`; daemon schema probe; `cargo fmt --check`; `cargo check --all-targets`; `cargo clippy --all-targets -- -D warnings` all passed. |
 | Isolated daemon dry-run | Not run | DEFERRED | Paused before isolated run setup. |
 | Stages 1-14 | Not run | DEFERRED | Paused before live pipeline. |
-| Desktop UI | Not run | BLOCKED | Desktop schema epoch mismatch prevents full-control validation. |
-| Desktop Vite localhost | Not run | DEFERRED | Browser tooling/CDP preflight is now green, but schema epoch mismatch still blocks full desktop validation. |
+| Desktop UI | Not run | READY TO RESUME | Schema epoch blocker is repaired; continue desktop validation from the original E2E handoff after Environment Preflight and login checks. |
+| Desktop Vite localhost | Not run | READY TO RESUME | Browser tooling/CDP preflight is green and schema epoch mismatch is repaired; localhost smoke remains for the resumed E2E run. |
 | apps/web localhost smoke | Not run | DEFERRED | Browser tooling/CDP preflight is now green; localhost smoke remains for the resumed E2E run. |
 
 ## Spotlight Process
@@ -307,14 +309,23 @@ eBay UK: reachable through CDP; public home page loaded with search UI, sign-in 
 
 Not executed.
 
-Desktop UI validation is blocked by the schema epoch mismatch:
+Original desktop UI validation was blocked by the schema epoch mismatch:
 
 ```text
 Daemon schema epoch: 9
 Desktop expected schema epoch: 8
 ```
 
-Desktop full-control validation must resume only after the constants and tests are aligned with the daemon epoch and the desktop gates pass.
+Schema epoch blocker is now repaired and verified:
+
+```text
+Daemon schema epoch: 9
+Desktop expected schema epoch: 9
+Regression guard: schema_epoch_defaults_match_daemon_authority_and_hello_payload passed
+Desktop native gates: query_service, daemon_bridge, and native_shell passed
+```
+
+Desktop full-control validation can resume after Environment Preflight and source login checks.
 
 Screenshot directory prepared:
 
@@ -330,9 +341,24 @@ Not executed. No isolated `state.db` was created before the pause, so no SQLite 
 
 ## Quality Gates
 
-Not executed. The handoff requires a pause for real blockers before continuing the E2E run.
+Executed for schema epoch repair verification. Full live E2E gates remain pending until the resumed isolated run.
 
-Minimum resume gates after the schema/tooling fix:
+Schema repair validation:
+
+```bash
+cargo test -p procintel-desktop --test daemon_bridge schema_epoch
+cargo test -p procintel-desktop --test query_service
+cargo test -p procintel-desktop --test daemon_bridge
+cargo test -p procintel-desktop --test native_shell
+cargo test -p daemon --test sqlite_schema l4_t_sqlite_schema_001_open_state_db_applies_l4_migration
+cargo fmt --check
+cargo check --all-targets
+cargo clippy --all-targets -- -D warnings
+```
+
+Result: all passed.
+
+Minimum full E2E resume gates:
 
 ```bash
 cargo fmt --check
@@ -356,15 +382,17 @@ cargo test -p procintel-desktop --test native_shell
 
 ## Final Decision
 
-QA is PAUSED before live E2E execution.
+QA is PAUSED before live E2E execution, but the schema epoch and browser/CDP setup blockers are resolved. The run is ready to resume from Environment Preflight.
 
 Proven on this machine:
 
-- The checkout is on `main` at `3251f19`.
+- The checkout is on `main` at `9323712`.
 - Cargo and Bun are present.
-- `origin/main` does not contain a schema epoch fix.
+- `origin/main` contains schema epoch fix commit `6d113ad`.
 - The daemon schema epoch is 9 because migration `0012_l4_sync_state` is present.
-- Desktop/Tauri still expects schema epoch 8 in native bootstrap, query service, daemon bridge, and tests.
+- Desktop/Tauri now expects schema epoch 9 in native bootstrap, query service, daemon bridge, and tests.
+- The bridge regression guard compares the desktop default against daemon `DEFAULT_SCHEMA_EPOCH` and passed.
+- Targeted desktop gates, daemon schema probe, `cargo fmt --check`, `cargo check --all-targets`, and clippy passed.
 - `agent-browser` is installed and resolves from `/opt/homebrew/bin/agent-browser`.
 - `agent-browser --version` returns `agent-browser 0.27.0`.
 - `agent-browser doctor --offline --quick` reports 6 pass, 0 warn, 0 fail.
@@ -377,8 +405,7 @@ Proven on this machine:
 
 Exact resume point:
 
-1. Fix `prompts/machine-fork-e2e-schema-epoch-mismatch-error-manifest.md`.
-2. Re-run the schema epoch `rg` command.
-3. Re-run Environment Preflight -> Toolchain and Persistent CDP Browser from `prompts/machine-fork-l0-l3-stages-1-14-e2e-handoff.md`.
-4. Continue Login Checks from the original handoff. ProContract needs operator login in the visible CDP browser before ProContract source validation can continue.
-5. Continue to Isolated Run Setup. Do not skip `prompts/machine-fork-e2e-schema-epoch-mismatch-error-manifest.md`; it is independent from the repaired browser/CDP setup defect.
+1. Re-run Environment Preflight -> Toolchain and Persistent CDP Browser from `prompts/machine-fork-l0-l3-stages-1-14-e2e-handoff.md`.
+2. Continue Login Checks from the original handoff. ProContract needs operator login in the visible CDP browser before ProContract source validation can continue.
+3. Continue to Isolated Run Setup.
+4. Run the full minimum quality gate block before declaring the live E2E validation green.
