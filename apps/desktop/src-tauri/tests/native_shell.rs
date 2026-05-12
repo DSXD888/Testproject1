@@ -18,7 +18,7 @@ use support::native_shell::{
     DaemonServer, NativeAppHarness, desktop_main, welcome_message, write_descriptor,
 };
 
-const EXPECTED_SCHEMA_EPOCH_FOR_TEST: i64 = 8;
+const EXPECTED_SCHEMA_EPOCH_FOR_TEST: i64 = 9;
 
 struct TestStateReset;
 static TEST_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
