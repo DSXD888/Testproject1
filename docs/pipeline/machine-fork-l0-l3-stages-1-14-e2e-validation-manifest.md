@@ -1,9 +1,9 @@
 # Machine Fork L0-L3 Stages 1-14 E2E Validation Manifest
 
 Generated: 2026-05-12T18:46:53Z
-Last verified: 2026-05-14T14:53:03Z
-Status: PAUSED - Stage 4b ProContract enrichment still times out after follow-up retry
-Git HEAD at verification: a20cd98 docs: record claude quota pause for e2e
+Last verified: 2026-05-14T15:42:46Z
+Status: PAUSED - Stage 4b downloaded real ProContract documents, then document extraction failed because Docling is not installed/configured on this machine
+Git HEAD at verification: 39a7935 fix procontract auth-blocked summary count
 State root: `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z`
 Runtime dir: `/Users/zacfarrell/Desktop/Testproject1/runtime-e2e-machine-fork-20260512T195251Z`
 Artifact root: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z`
@@ -39,6 +39,7 @@ Status meanings:
 | 2026-05-12T22:33:04Z | Stage 4b - ProContract enrichment | After operator login, CDP preflight reached `Supplier Post-Login Home`, but `--ingest procontract-enrich` timed out after 1200 seconds without a result contract. Post-timeout browser snapshot was still inside an authenticated activity dashboard, not a login/captcha page. | Created `prompts/machine-fork-e2e-procontract-enrich-timeout-error-manifest.md` and paused. | After fixer repairs Stage 4b timeout/missing-result handling, retry `stage-04b-procontract-enrich-retry-after-timeout-fix` against the existing E2E roots. |
 | 2026-05-12T23:38:14Z | Resume after Stage 4b timeout fix | Commit `413c5a7` updated ProContract enrichment missing-result handling and skill bounded-stall instructions; pinned daemon rebuild and focused regressions passed. | Direct selected-agent probe failed with `You've hit your limit - resets 2:50am (Europe/London)`. Created `prompts/machine-fork-e2e-claude-quota-blocker-error-manifest.md`; no live portal retry was run. | After Claude quota resets/restores, rerun the direct Claude probe, ProContract CDP preflight, then retry Stage 4b with `stage-04b-procontract-enrich-retry-after-timeout-fix`. |
 | 2026-05-14T14:53:03Z | Stage 4b - ProContract enrichment follow-up retry | Claude probe returned `OK`, CDP and ProContract supplier-home preflight passed, and the exact Stage 4b retry was run. It still timed out after 1200 seconds without `result.json`; post-timeout snapshot remained on an authenticated ProContract activity dashboard. | Created `prompts/machine-fork-e2e-procontract-enrich-timeout-followup-error-manifest.md`. The daemon durability fix worked: latest job is `failed` and internal `error_manifests` row `error-948338ee-8651-4aa2-a900-a139b70d7b87` exists. | After fixer updates the live enrichment skill to emit a valid enrichment or blocked result for this activity-dashboard state, retry with `stage-04b-procontract-enrich-retry-after-followup-fix`. |
+| 2026-05-14T15:42:46Z | Stage 4b - Document extraction after ProContract enrichment | The current fix worked for the live enrichment timeout: `stage-04b-procontract-enrich-retry-after-followup-fix` produced a valid result contract, persisted one tender document set, and downloaded three real ProContract DOCX files. The immediate extraction drain then failed all three `extract_document_structure` jobs with `Docling runtime unavailable for wrapper /Users/zacfarrell/Desktop/Testproject1/scripts/docling-extract.py`; Python cannot import `docling`, `$HOME/.docling-venv/bin/docling` is absent, and `$HOME/.cache/docling/models` is absent. | Created `prompts/machine-fork-e2e-docling-runtime-unavailable-error-manifest.md`. No product code was changed. | After Docling runtime/model artifacts are installed or otherwise configured, source the existing E2E env, verify `scripts/docling-extract.py --version`, then retry the approved Stage 4b/extraction path and validate `document_extractions`, semantic extraction, product candidates, and search profiles. |
 
 ## Error Manifests Created
 
@@ -51,7 +52,8 @@ Status meanings:
 | `prompts/machine-fork-e2e-procontract-pending-registration-error-manifest.md` | Stage 4a / ProContract register interest | Skill result contract included eight `pending_registration` final actions after one real registration; daemon persistence rejects that action and leaves the workflow job `running`. | Resolved by commit `45546c2`; validated 2026-05-12T22:08:47Z. |
 | `prompts/machine-fork-e2e-procontract-enrich-timeout-error-manifest.md` | Stage 4b / ProContract enrichment | PTY skill exceeded 1200-second timeout and produced no `result.json` or run manifest; job remained `running` and no tender enrichment/document rows were persisted. | Resolved by commit `413c5a7`; focused regressions passed 2026-05-12T23:38:14Z, live retry blocked by Claude quota. |
 | `prompts/machine-fork-e2e-claude-quota-blocker-error-manifest.md` | Stage 4b / Selected agent CLI preflight | `claude -p "Return exactly OK." --dangerously-skip-permissions` returns `You've hit your limit - resets 2:50am (Europe/London)`. | Resolved; `resume-claude-quota-probe-after-reset` returned `OK` on 2026-05-14. |
-| `prompts/machine-fork-e2e-procontract-enrich-timeout-followup-error-manifest.md` | Stage 4b / ProContract enrichment follow-up retry | After Claude quota recovered and ProContract auth preflight passed, the fixed Stage 4b retry still timed out without `result.json`; no tender document rows were produced. | Open; QA paused at Stage 4b. |
+| `prompts/machine-fork-e2e-procontract-enrich-timeout-followup-error-manifest.md` | Stage 4b / ProContract enrichment follow-up retry | After Claude quota recovered and ProContract auth preflight passed, the fixed Stage 4b retry still timed out without `result.json`; no tender document rows were produced. | Resolved by current skill fix; verified 2026-05-14T15:42:46Z with a valid result contract and persisted documents. |
+| `prompts/machine-fork-e2e-docling-runtime-unavailable-error-manifest.md` | Stage 4b / Document extraction after ProContract enrichment | Three real ProContract DOCX files were downloaded, but all three `extract_document_structure` jobs failed because Docling package/model artifacts are absent on this machine. | Open; QA paused before product extraction and Stage 9. |
 
 ## Preflight
 
@@ -364,14 +366,15 @@ Dry-run log: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-
 | Stage 4b - ProContract enrichment after operator login | `run_logged stage-04b-procontract-login-open-after-operator-login agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"`; `run_logged stage-04b-procontract-enrich env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" ... --ingest procontract-enrich` | BLOCKED / ERROR MANIFEST | Login preflight passed with `Supplier Post-Login Home`. The enrichment command ran until `timeout_seconds=1200`, then exited with `Error: procontract enrichment skill did not produce a result contract`. Latest job `job-cf642ec3d9e68b1fe4e28e94eb9eaca37126e59f8dc7c300b091263ac0109755` remains `running`; session `session-pty-33fd5d63d698179f0b393ea6f8a3481a2c00f2191e3773017ee8e836aa4b7757` has `cleanup_verdict=terminated_after_timeout`, `terminal_output_bytes=77`, no `run_manifest_path`, and no `result.json`. No tender enrichment rows or downloaded raw document files were persisted. Error manifest: `prompts/machine-fork-e2e-procontract-enrich-timeout-error-manifest.md`. |
 | Stage 4b - ProContract enrichment timeout fix verification | `run_logged resume-daemon-rebuild-after-procontract-enrich-fix env CARGO_TARGET_DIR="$E2E_TARGET_DIR" cargo build -p daemon --bin daemon`; focused daemon tests; `run_logged resume-claude-quota-probe-after-procontract-enrich-fix claude -p "Return exactly OK." --dangerously-skip-permissions` | FIX VERIFIED LOCALLY / LIVE RETRY PAUSED | Commit `413c5a7` was present and the pinned daemon rebuilt. Tests `procontract_enrich_missing_result_marks_job_failed`, `procontract_enrich_timeout_missing_result_marks_job_failed`, `procontract_enrich_blocked_result_is_durable`, and `persist_tender_enrichments_updates_notice_and_documents` passed. Live Stage 4b retry was not run because the selected Claude CLI returned `You've hit your limit - resets 2:50am (Europe/London)`. Error manifest: `prompts/machine-fork-e2e-claude-quota-blocker-error-manifest.md`. |
 | Stage 4b - ProContract enrichment follow-up retry | `run_logged resume-claude-quota-probe-after-reset claude -p "Return exactly OK." --dangerously-skip-permissions`; `run_logged stage-04b-procontract-login-open-after-claude-quota-reset agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"`; `run_logged stage-04b-procontract-enrich-retry-after-timeout-fix env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" ... --ingest procontract-enrich` | BLOCKED / ERROR MANIFEST | Claude returned `OK`; ProContract supplier home loaded and title was `Supplier Post-Login Home`. The enrichment retry still timed out after 1200 seconds with `procontract enrichment skill did not produce a result contract`. Latest job `job-33fb160456947771375daba10501662ef301e46b280bcc6dfcc55c1f217405bf` is now correctly `failed`, and internal error manifest row `error-948338ee-8651-4aa2-a900-a139b70d7b87` was created. No `tender_enrichment`, `tender_document_sets`, downloaded `raw_documents`, extraction, product candidate, or search profile rows were produced. Error manifest: `prompts/machine-fork-e2e-procontract-enrich-timeout-followup-error-manifest.md`. |
-| Stages 9-14 | Not run | PENDING | Awaiting document enrichment, product extraction, and spotlight selection. |
+| Stage 4b - ProContract enrichment after current follow-up fix | `run_logged resume-daemon-rebuild-after-procontract-enrich-followup-fix env CARGO_TARGET_DIR="$E2E_TARGET_DIR" cargo build -p daemon --bin daemon`; `run_logged regression-procontract-enrich-missing-result-unit-after-followup-fix cargo test -p daemon --bin daemon procontract_enrich_missing_result_marks_job_failed`; `run_logged regression-procontract-enrich-blocked-result-unit-after-followup-fix cargo test -p daemon --bin daemon procontract_enrich_blocked_result_is_durable`; `run_logged resume-claude-probe-before-procontract-enrich-followup claude -p "Return exactly OK." --dangerously-skip-permissions`; `run_logged stage-04b-procontract-login-open-after-enrich-followup-fix agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"`; `run_logged stage-04b-procontract-enrich-retry-after-followup-fix env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" ... --ingest procontract-enrich` | ENRICHMENT PASS / EXTRACTION BLOCKED | The pinned daemon rebuild passed, focused regressions passed, Claude returned `OK`, and ProContract CDP preflight reached `Supplier Post-Login Home`. Live Stage 4b produced a valid result contract and exited 0: `procontract tender enrichment completed: job_id=job-109da01929119faeea0cebfb7e4785c12d3153038521766e980900aa5e0c3ae6 enriched=1 extractions=3`. SQLite now has `tender_enrichment completed=1`, `tender_document_sets=1`, and `raw_docs_with_files=3`. However all three extraction jobs failed with `Docling runtime unavailable for wrapper /Users/zacfarrell/Desktop/Testproject1/scripts/docling-extract.py`; `document_extractions=0`, `semantic_extractions=0`, `product_candidates=0`, `search_profiles=0`. Error manifest: `prompts/machine-fork-e2e-docling-runtime-unavailable-error-manifest.md`. |
+| Stages 9-14 | Not run | PENDING | Awaiting Docling setup/repair, document extraction, product extraction, and spotlight selection. |
 | Desktop UI | Not run | PENDING | Schema epoch blocker is repaired; UI validation waits until deterministic/downstream pipeline state is available. |
 | Desktop Vite localhost | Not run | PENDING | Browser tooling/CDP preflight is green; localhost smoke remains for later in the run. |
 | apps/web localhost smoke | Not run | DEFERRED | Browser tooling/CDP preflight is now green; localhost smoke remains for the resumed E2E run. |
 
 ## Spotlight Process
 
-Not selected yet. Source ingestion has completed, but spotlight selection waits until the deterministic pipeline creates qualification, document, candidate, and search-profile state.
+Not selected yet. Source ingestion and Stage 4b document download have completed for one real ProContract tender, but spotlight selection waits until Docling-backed document extraction creates product candidates and search profiles.
 
 ## CDP/Auth Events
 
@@ -501,6 +504,8 @@ stage-04b-procontract-login-title-after-claude-quota-reset-2: Supplier Post-Logi
 ```
 
 The Stage 4b follow-up retry is not an auth/CDP pause. After timeout, the persistent browser was still on an authenticated ProContract activity dashboard with `Messages & clarifications (0)`, `Your response`, `Start my response`, `Opt out`, and `Indicate your intent to respond`.
+
+The latest Stage 4b retry after commit `39a7935` is also not an auth/CDP pause. Claude returned `OK`, ProContract loaded `Supplier Post-Login Home`, and the skill emitted a valid result contract. It downloaded three real DOCX files for `BEST START FAMILY HUBS OUTREACH SERVICES`. The current pause is local extraction setup: `python3 scripts/docling-extract.py --version` returns `docling import unavailable: No module named 'docling'`, `$HOME/.docling-venv/bin/docling` is absent, and `$HOME/.cache/docling/models` is absent.
 
 ## Desktop And Localhost UI
 
@@ -636,6 +641,31 @@ search_profiles=0
 
 Full post-pipeline operational subsystem checks remain pending until Stages 2-14 and UI smoke checks complete.
 
+Stage 4b current Docling blocker state:
+
+```text
+workflow_jobs:
+job-109da01929119faeea0cebfb7e4785c12d3153038521766e980900aa5e0c3ae6          sync_source                 completed  source  procontract-enrich
+job-extract-ca6b80ef3ce373a7c1778c03b5a0dcf41f32ca1cf461c2c2bd2e1e44a39f04c1  extract_document_structure  failed     notice  pc-ecd07d9f-5249-f111-813c-005056b64545  Docling runtime unavailable for wrapper /Users/zacfarrell/Desktop/Testproject1/scripts/docling-extract.py
+job-extract-1cb941ce7e90472ce26cdc084fe33f844796cd69eedd365f31b34209122cf593  extract_document_structure  failed     notice  pc-ecd07d9f-5249-f111-813c-005056b64545  Docling runtime unavailable for wrapper /Users/zacfarrell/Desktop/Testproject1/scripts/docling-extract.py
+job-extract-47b82860ecd39dacf4d1e54377080b2cc94f5f7b8f34db94bf111023f132600e  extract_document_structure  failed     notice  pc-ecd07d9f-5249-f111-813c-005056b64545  Docling runtime unavailable for wrapper /Users/zacfarrell/Desktop/Testproject1/scripts/docling-extract.py
+
+stage/data rows:
+tender_enrichment completed=1
+tender_document_sets=1
+raw_docs_with_files=3
+document_extractions=0
+semantic_extractions=0
+product_candidates=0
+search_profiles=0
+
+docling probes:
+which docling -> no result
+ls $HOME/.docling-venv/bin/docling -> No such file or directory
+python3 scripts/docling-extract.py --version -> docling import unavailable: No module named 'docling'
+ls $HOME/.cache/docling/models -> No such file or directory
+```
+
 ## Quality Gates
 
 Executed for schema epoch repair verification. Full live E2E gates remain pending until the resumed isolated run.
@@ -695,6 +725,17 @@ regression-procontract-enrich-persist-docs-unit.log: PASS, persist_tender_enrich
 resume-claude-quota-probe-after-procontract-enrich-fix.log: BLOCKED, selected Claude CLI quota exhausted
 ```
 
+Stage 4b follow-up fix verification:
+
+```text
+resume-daemon-rebuild-after-procontract-enrich-followup-fix.log: PASS, pinned daemon rebuilt at /tmp/testproject1-target-machine-fork-20260512T195251Z/debug/daemon
+regression-procontract-enrich-missing-result-unit-after-followup-fix.log: PASS, procontract_enrich_missing_result_marks_job_failed
+regression-procontract-enrich-blocked-result-unit-after-followup-fix.log: PASS, procontract_enrich_blocked_result_is_durable
+resume-claude-probe-before-procontract-enrich-followup.log: PASS, selected Claude CLI returned OK
+stage-04b-procontract-login-open-after-enrich-followup-fix.log: PASS, ProContract supplier home loaded
+stage-04b-procontract-enrich-retry-after-followup-fix.log: PASS for enrichment result contract; BLOCKED for extraction because Docling runtime is unavailable
+```
+
 Schema repair validation:
 
 ```bash
@@ -734,11 +775,11 @@ cargo test -p procintel-desktop --test native_shell
 
 ## Final Decision
 
-QA is PAUSED on a remaining Stage 4b live enrichment blocker. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, deterministic Stages 2-3 and 5-8 baseline processing completed, and the Stage 4a ProContract register-interest blocker has been fixed and validated. The Stage 4b daemon durability fix from `413c5a7` worked, but the live enrichment skill still timed out without a valid enrichment or blocked result contract.
+QA is PAUSED on a Stage 4b document extraction machine setup blocker. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, deterministic Stages 2-3 and 5-8 baseline processing completed, Stage 4a ProContract register-interest was fixed and validated, and the latest Stage 4b ProContract enrichment retry produced a valid result contract with real downloaded documents. The current blocker is local Docling setup: all three structural extraction jobs failed because the Docling Python package and model artifacts are unavailable on this duplicated machine.
 
 Proven on this machine:
 
-- The checkout is on `main` at `a20cd98` plus current QA ledger/follow-up manifest edits.
+- The checkout is on `main` at `39a7935` plus current QA ledger and Docling error-manifest edits.
 - Cargo and Bun are present.
 - `origin/main` contains schema epoch fix commit `6d113ad`.
 - The daemon schema epoch is 9 because migration `0012_l4_sync_state` is present.
@@ -781,15 +822,18 @@ Proven on this machine:
 - The live Stage 4b retry was not run because `claude -p "Return exactly OK." --dangerously-skip-permissions` returned `You've hit your limit - resets 2:50am (Europe/London)`.
 - Error manifest `prompts/machine-fork-e2e-claude-quota-blocker-error-manifest.md` captures the selected-agent quota blocker and resume instructions.
 - The Claude quota blocker is now resolved; `resume-claude-quota-probe-after-reset` returned `OK`.
-- The follow-up Stage 4b retry ran and still timed out after 1200 seconds without `result.json` or run manifest.
-- The latest `procontract-enrich` job is now correctly `failed`, and internal error manifest row `error-948338ee-8651-4aa2-a900-a139b70d7b87` exists.
-- No `tender_enrichment`, `tender_document_sets`, downloaded raw document, extraction, product candidate, or search profile rows were produced.
-- Error manifest `prompts/machine-fork-e2e-procontract-enrich-timeout-followup-error-manifest.md` captures the repeated live timeout and resume instructions.
+- The follow-up Stage 4b timeout error manifest is now resolved by the current skill fix: the live retry produced `result.json`, the daemon saw a valid result contract, and job `job-109da01929119faeea0cebfb7e4785c12d3153038521766e980900aa5e0c3ae6` completed.
+- Stage 4b persisted `tender_enrichment completed=1`, `tender_document_sets=1`, and `raw_docs_with_files=3`.
+- The persisted files are real ProContract DOCX downloads under `artifacts-e2e-machine-fork-20260512T195251Z/downloads/procontract/786663/`.
+- All three extraction jobs failed with `Docling runtime unavailable for wrapper /Users/zacfarrell/Desktop/Testproject1/scripts/docling-extract.py`.
+- `python3 scripts/docling-extract.py --version` returns `docling import unavailable: No module named 'docling'`; `$HOME/.docling-venv/bin/docling` and `$HOME/.cache/docling/models` are absent.
+- No `document_extractions`, `document_semantic_extractions`, `product_candidates`, or `search_profiles` rows exist yet.
+- Error manifest `prompts/machine-fork-e2e-docling-runtime-unavailable-error-manifest.md` captures the Docling runtime blocker and resume instructions.
 
 Current next point:
 
 1. Source `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z/e2e-env.sh`.
-2. After the Stage 4b follow-up fix, run `run_logged resume-claude-probe-before-procontract-enrich-followup claude -p "Return exactly OK." --dangerously-skip-permissions`.
-3. Re-run ProContract CDP preflight with `run_logged stage-04b-procontract-login-open-after-enrich-followup-fix agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"`.
-4. Run `run_logged stage-04b-procontract-enrich-retry-after-followup-fix env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest procontract-enrich`.
-5. Validate `tender_enrichment` stage rows, `tender_document_sets`, `raw_documents.storage_path`, extraction rows, and latest `procontract-enrich` workflow job status.
+2. Install/configure Docling and model artifacts, or set `DOCLING_PYTHON_BIN` and `DOCLING_ARTIFACTS_PATH` to a working runtime.
+3. Verify `python3 scripts/docling-extract.py --version` or the configured Python equivalent prints a Docling version.
+4. Retry the approved Stage 4b/extraction path against the same E2E roots, preferably as `run_logged stage-04b-procontract-enrich-retry-after-docling-setup env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest procontract-enrich` unless the fixer provides a narrower requeue command for the three failed extraction jobs.
+5. Validate `document_extractions`, `document_semantic_extractions`, `product_candidates`, `search_profiles`, and latest extraction workflow job statuses before continuing to Stage 9.
