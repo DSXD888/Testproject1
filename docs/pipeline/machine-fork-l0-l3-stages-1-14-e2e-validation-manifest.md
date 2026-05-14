@@ -1,9 +1,9 @@
 # Machine Fork L0-L3 Stages 1-14 E2E Validation Manifest
 
 Generated: 2026-05-12T18:46:53Z
-Last verified: 2026-05-12T23:38:14Z
-Status: PAUSED - Claude CLI quota blocks Stage 4b ProContract enrichment retry
-Git HEAD at verification: 413c5a7 fix procontract enrichment missing-result failure
+Last verified: 2026-05-14T14:53:03Z
+Status: PAUSED - Stage 4b ProContract enrichment still times out after follow-up retry
+Git HEAD at verification: a20cd98 docs: record claude quota pause for e2e
 State root: `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z`
 Runtime dir: `/Users/zacfarrell/Desktop/Testproject1/runtime-e2e-machine-fork-20260512T195251Z`
 Artifact root: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z`
@@ -38,6 +38,7 @@ Status meanings:
 | 2026-05-12T22:10:15Z | Stage 4b - ProContract enrichment preflight | Persistent CDP browser is reachable, but `https://procontract.due-north.com/SupplierPostLoginHome#` redirected to `Login/Index?ReturnUrl=%2fSupplierPostLoginHome`; page title is `Log In`. | Recorded as first-pass operator ProContract auth repair pause. No enrichment command was run. | Operator logs in or clears the challenge in the Chrome window attached to `localhost:9222`, then QA retries the same ProContract CDP preflight and runs Stage 4b. |
 | 2026-05-12T22:33:04Z | Stage 4b - ProContract enrichment | After operator login, CDP preflight reached `Supplier Post-Login Home`, but `--ingest procontract-enrich` timed out after 1200 seconds without a result contract. Post-timeout browser snapshot was still inside an authenticated activity dashboard, not a login/captcha page. | Created `prompts/machine-fork-e2e-procontract-enrich-timeout-error-manifest.md` and paused. | After fixer repairs Stage 4b timeout/missing-result handling, retry `stage-04b-procontract-enrich-retry-after-timeout-fix` against the existing E2E roots. |
 | 2026-05-12T23:38:14Z | Resume after Stage 4b timeout fix | Commit `413c5a7` updated ProContract enrichment missing-result handling and skill bounded-stall instructions; pinned daemon rebuild and focused regressions passed. | Direct selected-agent probe failed with `You've hit your limit - resets 2:50am (Europe/London)`. Created `prompts/machine-fork-e2e-claude-quota-blocker-error-manifest.md`; no live portal retry was run. | After Claude quota resets/restores, rerun the direct Claude probe, ProContract CDP preflight, then retry Stage 4b with `stage-04b-procontract-enrich-retry-after-timeout-fix`. |
+| 2026-05-14T14:53:03Z | Stage 4b - ProContract enrichment follow-up retry | Claude probe returned `OK`, CDP and ProContract supplier-home preflight passed, and the exact Stage 4b retry was run. It still timed out after 1200 seconds without `result.json`; post-timeout snapshot remained on an authenticated ProContract activity dashboard. | Created `prompts/machine-fork-e2e-procontract-enrich-timeout-followup-error-manifest.md`. The daemon durability fix worked: latest job is `failed` and internal `error_manifests` row `error-948338ee-8651-4aa2-a900-a139b70d7b87` exists. | After fixer updates the live enrichment skill to emit a valid enrichment or blocked result for this activity-dashboard state, retry with `stage-04b-procontract-enrich-retry-after-followup-fix`. |
 
 ## Error Manifests Created
 
@@ -49,7 +50,8 @@ Status meanings:
 | `prompts/machine-fork-e2e-contracts-finder-claude-auth-error-manifest.md` | Stage 1 / Contracts Finder live ingestion | Selected Claude CLI returned `401 Invalid authentication credentials`, causing the PTY skill to exit before writing a result contract. | Resolved by Claude auth repair; direct probe returned `OK` and Contracts Finder retry completed. |
 | `prompts/machine-fork-e2e-procontract-pending-registration-error-manifest.md` | Stage 4a / ProContract register interest | Skill result contract included eight `pending_registration` final actions after one real registration; daemon persistence rejects that action and leaves the workflow job `running`. | Resolved by commit `45546c2`; validated 2026-05-12T22:08:47Z. |
 | `prompts/machine-fork-e2e-procontract-enrich-timeout-error-manifest.md` | Stage 4b / ProContract enrichment | PTY skill exceeded 1200-second timeout and produced no `result.json` or run manifest; job remained `running` and no tender enrichment/document rows were persisted. | Resolved by commit `413c5a7`; focused regressions passed 2026-05-12T23:38:14Z, live retry blocked by Claude quota. |
-| `prompts/machine-fork-e2e-claude-quota-blocker-error-manifest.md` | Stage 4b / Selected agent CLI preflight | `claude -p "Return exactly OK." --dangerously-skip-permissions` returns `You've hit your limit - resets 2:50am (Europe/London)`. | Open; QA paused before live Stage 4b retry. |
+| `prompts/machine-fork-e2e-claude-quota-blocker-error-manifest.md` | Stage 4b / Selected agent CLI preflight | `claude -p "Return exactly OK." --dangerously-skip-permissions` returns `You've hit your limit - resets 2:50am (Europe/London)`. | Resolved; `resume-claude-quota-probe-after-reset` returned `OK` on 2026-05-14. |
+| `prompts/machine-fork-e2e-procontract-enrich-timeout-followup-error-manifest.md` | Stage 4b / ProContract enrichment follow-up retry | After Claude quota recovered and ProContract auth preflight passed, the fixed Stage 4b retry still timed out without `result.json`; no tender document rows were produced. | Open; QA paused at Stage 4b. |
 
 ## Preflight
 
@@ -361,6 +363,7 @@ Dry-run log: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-
 | Stage 4b - ProContract enrichment CDP preflight | `run_logged stage-04b-procontract-cdp-version curl -sfS -m 3 http://localhost:9222/json/version`; `run_logged stage-04b-procontract-login-open agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"`; `run_logged stage-04b-procontract-login-title agent-browser --cdp 9222 get title` | PAUSED FOR OPERATOR AUTH | CDP is healthy with Chrome/148.0.7778.97, but ProContract redirected to `https://procontract.due-north.com/Login/Index?ReturnUrl=%2fSupplierPostLoginHome` and page title `Log In`. This is the first Stage 4b auth/session pause, so no error manifest was created and `--ingest procontract-enrich` was not run. |
 | Stage 4b - ProContract enrichment after operator login | `run_logged stage-04b-procontract-login-open-after-operator-login agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"`; `run_logged stage-04b-procontract-enrich env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" ... --ingest procontract-enrich` | BLOCKED / ERROR MANIFEST | Login preflight passed with `Supplier Post-Login Home`. The enrichment command ran until `timeout_seconds=1200`, then exited with `Error: procontract enrichment skill did not produce a result contract`. Latest job `job-cf642ec3d9e68b1fe4e28e94eb9eaca37126e59f8dc7c300b091263ac0109755` remains `running`; session `session-pty-33fd5d63d698179f0b393ea6f8a3481a2c00f2191e3773017ee8e836aa4b7757` has `cleanup_verdict=terminated_after_timeout`, `terminal_output_bytes=77`, no `run_manifest_path`, and no `result.json`. No tender enrichment rows or downloaded raw document files were persisted. Error manifest: `prompts/machine-fork-e2e-procontract-enrich-timeout-error-manifest.md`. |
 | Stage 4b - ProContract enrichment timeout fix verification | `run_logged resume-daemon-rebuild-after-procontract-enrich-fix env CARGO_TARGET_DIR="$E2E_TARGET_DIR" cargo build -p daemon --bin daemon`; focused daemon tests; `run_logged resume-claude-quota-probe-after-procontract-enrich-fix claude -p "Return exactly OK." --dangerously-skip-permissions` | FIX VERIFIED LOCALLY / LIVE RETRY PAUSED | Commit `413c5a7` was present and the pinned daemon rebuilt. Tests `procontract_enrich_missing_result_marks_job_failed`, `procontract_enrich_timeout_missing_result_marks_job_failed`, `procontract_enrich_blocked_result_is_durable`, and `persist_tender_enrichments_updates_notice_and_documents` passed. Live Stage 4b retry was not run because the selected Claude CLI returned `You've hit your limit - resets 2:50am (Europe/London)`. Error manifest: `prompts/machine-fork-e2e-claude-quota-blocker-error-manifest.md`. |
+| Stage 4b - ProContract enrichment follow-up retry | `run_logged resume-claude-quota-probe-after-reset claude -p "Return exactly OK." --dangerously-skip-permissions`; `run_logged stage-04b-procontract-login-open-after-claude-quota-reset agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"`; `run_logged stage-04b-procontract-enrich-retry-after-timeout-fix env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" ... --ingest procontract-enrich` | BLOCKED / ERROR MANIFEST | Claude returned `OK`; ProContract supplier home loaded and title was `Supplier Post-Login Home`. The enrichment retry still timed out after 1200 seconds with `procontract enrichment skill did not produce a result contract`. Latest job `job-33fb160456947771375daba10501662ef301e46b280bcc6dfcc55c1f217405bf` is now correctly `failed`, and internal error manifest row `error-948338ee-8651-4aa2-a900-a139b70d7b87` was created. No `tender_enrichment`, `tender_document_sets`, downloaded `raw_documents`, extraction, product candidate, or search profile rows were produced. Error manifest: `prompts/machine-fork-e2e-procontract-enrich-timeout-followup-error-manifest.md`. |
 | Stages 9-14 | Not run | PENDING | Awaiting document enrichment, product extraction, and spotlight selection. |
 | Desktop UI | Not run | PENDING | Schema epoch blocker is repaired; UI validation waits until deterministic/downstream pipeline state is available. |
 | Desktop Vite localhost | Not run | PENDING | Browser tooling/CDP preflight is green; localhost smoke remains for later in the run. |
@@ -489,6 +492,16 @@ You've hit your limit - resets 2:50am (Europe/London)
 
 No live portal retry was run after that probe.
 
+On the next resume, Claude and ProContract were both available:
+
+```text
+resume-claude-quota-probe-after-reset: OK.
+stage-04b-procontract-login-open-after-claude-quota-reset: Supplier Post-Login Home
+stage-04b-procontract-login-title-after-claude-quota-reset-2: Supplier Post-Login Home
+```
+
+The Stage 4b follow-up retry is not an auth/CDP pause. After timeout, the persistent browser was still on an authenticated ProContract activity dashboard with `Messages & clarifications (0)`, `Your response`, `Start my response`, `Opt out`, and `Indicate your intent to respond`.
+
 ## Desktop And Localhost UI
 
 Not executed.
@@ -599,6 +612,28 @@ product_candidates=0
 search_profiles=0
 ```
 
+Stage 4b follow-up retry state after `413c5a7`:
+
+```text
+workflow_jobs:
+job-33fb160456947771375daba10501662ef301e46b280bcc6dfcc55c1f217405bf  sync_source  failed  source  procontract-enrich  last_error="procontract enrichment skill did not produce a result contract"
+
+agent_session_logs:
+session-pty-3a29a437adfcce4b7cf3da0420cadc1b84970e978a4e9eeb31d148152a2c6afd  skills/procurement-ingestion/procontract-enrich-tender/SKILL.md  status=completed  exit_code=143  cleanup_verdict=terminated_after_timeout  terminal_output_bytes=77  run_manifest_path=NULL
+
+internal error manifest:
+error-948338ee-8651-4aa2-a900-a139b70d7b87  tender_enrichment  agent_execute  AGENT_RUN_FAILED  markdown_path=/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z/error-manifests/2026/05/error-948338ee-8651-4aa2-a900-a139b70d7b87.md
+
+stage/data rows:
+no `tender_enrichment` rows
+tender_document_sets=0
+raw_docs_with_files=0
+document_extractions=0
+semantic_extractions=0
+product_candidates=0
+search_profiles=0
+```
+
 Full post-pipeline operational subsystem checks remain pending until Stages 2-14 and UI smoke checks complete.
 
 ## Quality Gates
@@ -699,11 +734,11 @@ cargo test -p procintel-desktop --test native_shell
 
 ## Final Decision
 
-QA is PAUSED on selected-agent CLI quota before the Stage 4b live retry. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, deterministic Stages 2-3 and 5-8 baseline processing completed, and the Stage 4a ProContract register-interest blocker has been fixed and validated. The Stage 4b timeout/missing-result product blocker was fixed locally by commit `413c5a7`, but the live retry was not run because Claude is quota-blocked until 2026-05-13 02:50 BST.
+QA is PAUSED on a remaining Stage 4b live enrichment blocker. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, deterministic Stages 2-3 and 5-8 baseline processing completed, and the Stage 4a ProContract register-interest blocker has been fixed and validated. The Stage 4b daemon durability fix from `413c5a7` worked, but the live enrichment skill still timed out without a valid enrichment or blocked result contract.
 
 Proven on this machine:
 
-- The checkout is on `main` at `e4080be` plus current QA ledger/fixer-handoff edits.
+- The checkout is on `main` at `a20cd98` plus current QA ledger/follow-up manifest edits.
 - Cargo and Bun are present.
 - `origin/main` contains schema epoch fix commit `6d113ad`.
 - The daemon schema epoch is 9 because migration `0012_l4_sync_state` is present.
@@ -745,11 +780,16 @@ Proven on this machine:
 - The pinned daemon was rebuilt after `413c5a7`, and focused Stage 4b regressions passed.
 - The live Stage 4b retry was not run because `claude -p "Return exactly OK." --dangerously-skip-permissions` returned `You've hit your limit - resets 2:50am (Europe/London)`.
 - Error manifest `prompts/machine-fork-e2e-claude-quota-blocker-error-manifest.md` captures the selected-agent quota blocker and resume instructions.
+- The Claude quota blocker is now resolved; `resume-claude-quota-probe-after-reset` returned `OK`.
+- The follow-up Stage 4b retry ran and still timed out after 1200 seconds without `result.json` or run manifest.
+- The latest `procontract-enrich` job is now correctly `failed`, and internal error manifest row `error-948338ee-8651-4aa2-a900-a139b70d7b87` exists.
+- No `tender_enrichment`, `tender_document_sets`, downloaded raw document, extraction, product candidate, or search profile rows were produced.
+- Error manifest `prompts/machine-fork-e2e-procontract-enrich-timeout-followup-error-manifest.md` captures the repeated live timeout and resume instructions.
 
 Current next point:
 
 1. Source `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z/e2e-env.sh`.
-2. After Claude quota resets/restores, run `run_logged resume-claude-quota-probe-after-reset claude -p "Return exactly OK." --dangerously-skip-permissions`.
-3. Re-run ProContract CDP preflight with `agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"`.
-4. Run `run_logged stage-04b-procontract-enrich-retry-after-timeout-fix env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest procontract-enrich`.
+2. After the Stage 4b follow-up fix, run `run_logged resume-claude-probe-before-procontract-enrich-followup claude -p "Return exactly OK." --dangerously-skip-permissions`.
+3. Re-run ProContract CDP preflight with `run_logged stage-04b-procontract-login-open-after-enrich-followup-fix agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"`.
+4. Run `run_logged stage-04b-procontract-enrich-retry-after-followup-fix env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest procontract-enrich`.
 5. Validate `tender_enrichment` stage rows, `tender_document_sets`, `raw_documents.storage_path`, extraction rows, and latest `procontract-enrich` workflow job status.
