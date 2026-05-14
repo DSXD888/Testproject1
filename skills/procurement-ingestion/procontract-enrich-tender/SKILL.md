@@ -1,6 +1,6 @@
 ---
 skill_id: procurement-ingestion/procontract-enrich-tender
-skill_version: 1.2.1
+skill_version: 1.2.2
 interaction_profile: pty_interactive
 result_schema_version: 1.0.0
 checkpoint_schema_version: 1.0.0
@@ -68,7 +68,7 @@ If CDP is unreachable, write a valid blocked `result.json` immediately:
     "total_checked": 0,
     "enriched": 0,
     "not_yet_responded": 0,
-    "failed": 0
+    "failed": 1
   },
   "status": "blocked",
   "blockers": [
@@ -88,6 +88,8 @@ agent-browser --cdp ${CDP_PORT} ...
 ```
 
 If the portal shows `Log In`, `Session expired`, captcha, or another auth challenge, emit a valid blocked result with blocker code `PROCONTRACT_SESSION_EXPIRED` or `AGENT_AUTH_CHALLENGE`. The operator must restore the session manually in the persistent CDP browser.
+
+Every blocked `result.json`, including CDP unreachable and auth/session-expired blockers before any tender activity is checked, must set `summary.failed` to at least `1`. `total_checked` may remain `0` when no activity was reached, but the blocked run itself is still a failed enrichment attempt and must be counted.
 
 ### Mandatory Bounded-Stall Contract
 
