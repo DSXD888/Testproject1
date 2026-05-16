@@ -1,9 +1,9 @@
 # Machine Fork L0-L3 Stages 1-14 E2E Validation Manifest
 
 Generated: 2026-05-12T18:46:53Z
-Last verified: 2026-05-14T15:42:46Z
-Status: PAUSED - Stage 4b downloaded real ProContract documents, then document extraction failed because Docling is not installed/configured on this machine
-Git HEAD at verification: 39a7935 fix procontract auth-blocked summary count
+Last verified: 2026-05-16T15:57:20Z
+Status: PAUSED - Stage 4b Docling setup is repaired and structural extraction advanced; one downstream semantic extraction job now fails because `pdf-extraction/tender-specification` emitted numeric `lots[].lot_number` where the daemon/schema contract requires a string
+Git HEAD at verification: 8279ad6 docs: record docling extraction blocker
 State root: `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z`
 Runtime dir: `/Users/zacfarrell/Desktop/Testproject1/runtime-e2e-machine-fork-20260512T195251Z`
 Artifact root: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z`
@@ -40,6 +40,7 @@ Status meanings:
 | 2026-05-12T23:38:14Z | Resume after Stage 4b timeout fix | Commit `413c5a7` updated ProContract enrichment missing-result handling and skill bounded-stall instructions; pinned daemon rebuild and focused regressions passed. | Direct selected-agent probe failed with `You've hit your limit - resets 2:50am (Europe/London)`. Created `prompts/machine-fork-e2e-claude-quota-blocker-error-manifest.md`; no live portal retry was run. | After Claude quota resets/restores, rerun the direct Claude probe, ProContract CDP preflight, then retry Stage 4b with `stage-04b-procontract-enrich-retry-after-timeout-fix`. |
 | 2026-05-14T14:53:03Z | Stage 4b - ProContract enrichment follow-up retry | Claude probe returned `OK`, CDP and ProContract supplier-home preflight passed, and the exact Stage 4b retry was run. It still timed out after 1200 seconds without `result.json`; post-timeout snapshot remained on an authenticated ProContract activity dashboard. | Created `prompts/machine-fork-e2e-procontract-enrich-timeout-followup-error-manifest.md`. The daemon durability fix worked: latest job is `failed` and internal `error_manifests` row `error-948338ee-8651-4aa2-a900-a139b70d7b87` exists. | After fixer updates the live enrichment skill to emit a valid enrichment or blocked result for this activity-dashboard state, retry with `stage-04b-procontract-enrich-retry-after-followup-fix`. |
 | 2026-05-14T15:42:46Z | Stage 4b - Document extraction after ProContract enrichment | The current fix worked for the live enrichment timeout: `stage-04b-procontract-enrich-retry-after-followup-fix` produced a valid result contract, persisted one tender document set, and downloaded three real ProContract DOCX files. The immediate extraction drain then failed all three `extract_document_structure` jobs with `Docling runtime unavailable for wrapper /Users/zacfarrell/Desktop/Testproject1/scripts/docling-extract.py`; Python cannot import `docling`, `$HOME/.docling-venv/bin/docling` is absent, and `$HOME/.cache/docling/models` is absent. | Created `prompts/machine-fork-e2e-docling-runtime-unavailable-error-manifest.md`. No product code was changed. | After Docling runtime/model artifacts are installed or otherwise configured, source the existing E2E env, verify `scripts/docling-extract.py --version`, then retry the approved Stage 4b/extraction path and validate `document_extractions`, semantic extraction, product candidates, and search profiles. |
+| 2026-05-16T15:57:20Z | Stage 4b - Docling setup and extraction retry | Installed Docling 2.93.0 into `/Users/zacfarrell/.docling-venv/bin/python`, prefetched models into `/Users/zacfarrell/.cache/docling/models`, retried the preserved extraction path, and the latest structural extraction jobs completed. The pipeline now has `document_extractions=3`, `semantic_extractions=3`, and `product_candidates=5`; `search_profiles=0`. One new semantic job failed with `missing string lots[].lot_number` because the preserved `pdf-extraction/tender-specification` `result.json` has numeric `lot_number=1`. | Created `prompts/machine-fork-e2e-semantic-lot-number-type-error-manifest.md`. No product code was changed for the Docling setup fix. | Fix the semantic lot-number contract/type mismatch, then retry only the failed semantic job or the smallest supported extraction continuation against the existing E2E roots. |
 
 ## Error Manifests Created
 
@@ -53,7 +54,8 @@ Status meanings:
 | `prompts/machine-fork-e2e-procontract-enrich-timeout-error-manifest.md` | Stage 4b / ProContract enrichment | PTY skill exceeded 1200-second timeout and produced no `result.json` or run manifest; job remained `running` and no tender enrichment/document rows were persisted. | Resolved by commit `413c5a7`; focused regressions passed 2026-05-12T23:38:14Z, live retry blocked by Claude quota. |
 | `prompts/machine-fork-e2e-claude-quota-blocker-error-manifest.md` | Stage 4b / Selected agent CLI preflight | `claude -p "Return exactly OK." --dangerously-skip-permissions` returns `You've hit your limit - resets 2:50am (Europe/London)`. | Resolved; `resume-claude-quota-probe-after-reset` returned `OK` on 2026-05-14. |
 | `prompts/machine-fork-e2e-procontract-enrich-timeout-followup-error-manifest.md` | Stage 4b / ProContract enrichment follow-up retry | After Claude quota recovered and ProContract auth preflight passed, the fixed Stage 4b retry still timed out without `result.json`; no tender document rows were produced. | Resolved by current skill fix; verified 2026-05-14T15:42:46Z with a valid result contract and persisted documents. |
-| `prompts/machine-fork-e2e-docling-runtime-unavailable-error-manifest.md` | Stage 4b / Document extraction after ProContract enrichment | Three real ProContract DOCX files were downloaded, but all three `extract_document_structure` jobs failed because Docling package/model artifacts are absent on this machine. | Open; QA paused before product extraction and Stage 9. |
+| `prompts/machine-fork-e2e-docling-runtime-unavailable-error-manifest.md` | Stage 4b / Document extraction after ProContract enrichment | Three real ProContract DOCX files were downloaded, but all three `extract_document_structure` jobs failed because Docling package/model artifacts are absent on this machine. | Resolved by machine setup on 2026-05-16: Docling 2.93.0 installed in the default venv and models prefetched to `/Users/zacfarrell/.cache/docling/models`; latest structural extraction retries completed. |
+| `prompts/machine-fork-e2e-semantic-lot-number-type-error-manifest.md` | Stage 4b / Semantic extraction after Docling setup | `pdf-extraction/tender-specification` result for one document emitted numeric `lots[].lot_number`; daemon persistence requires a string and failed the job with `missing string lots[].lot_number`. | Open; QA paused before search-profile generation and Stage 9. |
 
 ## Preflight
 
@@ -367,7 +369,8 @@ Dry-run log: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-
 | Stage 4b - ProContract enrichment timeout fix verification | `run_logged resume-daemon-rebuild-after-procontract-enrich-fix env CARGO_TARGET_DIR="$E2E_TARGET_DIR" cargo build -p daemon --bin daemon`; focused daemon tests; `run_logged resume-claude-quota-probe-after-procontract-enrich-fix claude -p "Return exactly OK." --dangerously-skip-permissions` | FIX VERIFIED LOCALLY / LIVE RETRY PAUSED | Commit `413c5a7` was present and the pinned daemon rebuilt. Tests `procontract_enrich_missing_result_marks_job_failed`, `procontract_enrich_timeout_missing_result_marks_job_failed`, `procontract_enrich_blocked_result_is_durable`, and `persist_tender_enrichments_updates_notice_and_documents` passed. Live Stage 4b retry was not run because the selected Claude CLI returned `You've hit your limit - resets 2:50am (Europe/London)`. Error manifest: `prompts/machine-fork-e2e-claude-quota-blocker-error-manifest.md`. |
 | Stage 4b - ProContract enrichment follow-up retry | `run_logged resume-claude-quota-probe-after-reset claude -p "Return exactly OK." --dangerously-skip-permissions`; `run_logged stage-04b-procontract-login-open-after-claude-quota-reset agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"`; `run_logged stage-04b-procontract-enrich-retry-after-timeout-fix env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" ... --ingest procontract-enrich` | BLOCKED / ERROR MANIFEST | Claude returned `OK`; ProContract supplier home loaded and title was `Supplier Post-Login Home`. The enrichment retry still timed out after 1200 seconds with `procontract enrichment skill did not produce a result contract`. Latest job `job-33fb160456947771375daba10501662ef301e46b280bcc6dfcc55c1f217405bf` is now correctly `failed`, and internal error manifest row `error-948338ee-8651-4aa2-a900-a139b70d7b87` was created. No `tender_enrichment`, `tender_document_sets`, downloaded `raw_documents`, extraction, product candidate, or search profile rows were produced. Error manifest: `prompts/machine-fork-e2e-procontract-enrich-timeout-followup-error-manifest.md`. |
 | Stage 4b - ProContract enrichment after current follow-up fix | `run_logged resume-daemon-rebuild-after-procontract-enrich-followup-fix env CARGO_TARGET_DIR="$E2E_TARGET_DIR" cargo build -p daemon --bin daemon`; `run_logged regression-procontract-enrich-missing-result-unit-after-followup-fix cargo test -p daemon --bin daemon procontract_enrich_missing_result_marks_job_failed`; `run_logged regression-procontract-enrich-blocked-result-unit-after-followup-fix cargo test -p daemon --bin daemon procontract_enrich_blocked_result_is_durable`; `run_logged resume-claude-probe-before-procontract-enrich-followup claude -p "Return exactly OK." --dangerously-skip-permissions`; `run_logged stage-04b-procontract-login-open-after-enrich-followup-fix agent-browser --cdp 9222 open "https://procontract.due-north.com/SupplierPostLoginHome#"`; `run_logged stage-04b-procontract-enrich-retry-after-followup-fix env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" ... --ingest procontract-enrich` | ENRICHMENT PASS / EXTRACTION BLOCKED | The pinned daemon rebuild passed, focused regressions passed, Claude returned `OK`, and ProContract CDP preflight reached `Supplier Post-Login Home`. Live Stage 4b produced a valid result contract and exited 0: `procontract tender enrichment completed: job_id=job-109da01929119faeea0cebfb7e4785c12d3153038521766e980900aa5e0c3ae6 enriched=1 extractions=3`. SQLite now has `tender_enrichment completed=1`, `tender_document_sets=1`, and `raw_docs_with_files=3`. However all three extraction jobs failed with `Docling runtime unavailable for wrapper /Users/zacfarrell/Desktop/Testproject1/scripts/docling-extract.py`; `document_extractions=0`, `semantic_extractions=0`, `product_candidates=0`, `search_profiles=0`. Error manifest: `prompts/machine-fork-e2e-docling-runtime-unavailable-error-manifest.md`. |
-| Stages 9-14 | Not run | PENDING | Awaiting Docling setup/repair, document extraction, product extraction, and spotlight selection. |
+| Stage 4b - Docling setup and extraction retry | `run_logged stage-04b-docling-model-download "$HOME/.docling-venv/bin/docling-tools" models download`; focused daemon regressions; `run_logged stage-04b-procontract-enrich-retry-after-docling-setup env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" ... --ingest procontract-enrich`; post-retry SQLite validation | DOCLING FIXED / SEMANTIC BLOCKED | Docling 2.93.0 is available at `/Users/zacfarrell/.docling-venv/bin/python`; model artifacts exist at `/Users/zacfarrell/.cache/docling/models`; no daemon env overrides are required. Latest structural extraction retries completed and created `document_extractions=3`; downstream reached `semantic_extractions=3` and `product_candidates=5`. One semantic job failed with `missing string lots[].lot_number`; preserved result JSON contains numeric `lot_number=1` despite the tender-spec schema requiring a string. Error manifest: `prompts/machine-fork-e2e-semantic-lot-number-type-error-manifest.md`. |
+| Stages 9-14 | Not run | PENDING | Awaiting semantic lot-number contract repair, search profile generation, and spotlight selection. |
 | Desktop UI | Not run | PENDING | Schema epoch blocker is repaired; UI validation waits until deterministic/downstream pipeline state is available. |
 | Desktop Vite localhost | Not run | PENDING | Browser tooling/CDP preflight is green; localhost smoke remains for later in the run. |
 | apps/web localhost smoke | Not run | DEFERRED | Browser tooling/CDP preflight is now green; localhost smoke remains for the resumed E2E run. |
@@ -505,7 +508,7 @@ stage-04b-procontract-login-title-after-claude-quota-reset-2: Supplier Post-Logi
 
 The Stage 4b follow-up retry is not an auth/CDP pause. After timeout, the persistent browser was still on an authenticated ProContract activity dashboard with `Messages & clarifications (0)`, `Your response`, `Start my response`, `Opt out`, and `Indicate your intent to respond`.
 
-The latest Stage 4b retry after commit `39a7935` is also not an auth/CDP pause. Claude returned `OK`, ProContract loaded `Supplier Post-Login Home`, and the skill emitted a valid result contract. It downloaded three real DOCX files for `BEST START FAMILY HUBS OUTREACH SERVICES`. The current pause is local extraction setup: `python3 scripts/docling-extract.py --version` returns `docling import unavailable: No module named 'docling'`, `$HOME/.docling-venv/bin/docling` is absent, and `$HOME/.cache/docling/models` is absent.
+The Stage 4b retry after commit `39a7935` was also not an auth/CDP pause. Claude returned `OK`, ProContract loaded `Supplier Post-Login Home`, and the skill emitted a valid result contract. It downloaded three real DOCX files for `BEST START FAMILY HUBS OUTREACH SERVICES`. The immediate pause after that retry was local extraction setup: `python3 scripts/docling-extract.py --version` returned `docling import unavailable: No module named 'docling'`, `$HOME/.docling-venv/bin/docling` was absent, and `$HOME/.cache/docling/models` was absent. That Docling setup blocker is now resolved; the current pause is the semantic `lots[].lot_number` type mismatch documented below.
 
 ## Desktop And Localhost UI
 
@@ -641,7 +644,7 @@ search_profiles=0
 
 Full post-pipeline operational subsystem checks remain pending until Stages 2-14 and UI smoke checks complete.
 
-Stage 4b current Docling blocker state:
+Stage 4b previous Docling blocker state (preserved pre-setup evidence):
 
 ```text
 workflow_jobs:
@@ -664,6 +667,32 @@ which docling -> no result
 ls $HOME/.docling-venv/bin/docling -> No such file or directory
 python3 scripts/docling-extract.py --version -> docling import unavailable: No module named 'docling'
 ls $HOME/.cache/docling/models -> No such file or directory
+```
+
+Stage 4b Docling setup retry state:
+
+```text
+runtime:
+/Users/zacfarrell/.docling-venv/bin/python scripts/docling-extract.py --version -> 2.93.0
+/Users/zacfarrell/.cache/docling/models -> exists
+daemon env overrides -> not required
+
+workflow_jobs:
+extract_document_structure  completed  3
+extract_document_structure  failed     3  # historical pre-setup failed rows preserved
+extract_document_semantics  completed  3
+extract_document_semantics  failed     1  # job-479bed51-0fea-46ee-a207-51e94c641c0b
+
+stage/data rows:
+raw_docs_with_files=3
+document_extractions=3
+semantic_extractions=3
+product_candidates=5
+search_profiles=0
+
+current blocker:
+job-479bed51-0fea-46ee-a207-51e94c641c0b failed with `missing string lots[].lot_number`
+preserved result JSON has numeric `lot_number=1`
 ```
 
 ## Quality Gates
@@ -736,6 +765,18 @@ stage-04b-procontract-login-open-after-enrich-followup-fix.log: PASS, ProContrac
 stage-04b-procontract-enrich-retry-after-followup-fix.log: PASS for enrichment result contract; BLOCKED for extraction because Docling runtime is unavailable
 ```
 
+Stage 4b Docling setup verification:
+
+```text
+stage-04b-docling-after-runtime-probes.log: PASS, /Users/zacfarrell/.docling-venv/bin/python scripts/docling-extract.py --version -> 2.93.0; model artifacts exist at /Users/zacfarrell/.cache/docling/models
+regression-procontract-enrich-blocked-result-unit-after-docling-setup.log: PASS, procontract_enrich_blocked_result_is_durable
+regression-procontract-enrich-missing-result-unit-after-docling-setup.log: PASS, procontract_enrich_missing_result_marks_job_failed
+regression-pdf-structural-engine-unavailable-after-docling-setup.log: PASS, test_engine_unavailable
+stage-04b-procontract-enrich-retry-after-docling-setup.log: PASS for command exit; extraction drain processed 7 jobs
+stage-04b-docling-after-workflow-counts-v2.log: latest structural extraction retries completed; one semantic job failed with missing string `lots[].lot_number`
+stage-04b-docling-after-downstream-counts-v2.log: raw_docs_with_files=3, document_extractions=3, semantic_extractions=3, product_candidates=5, search_profiles=0
+```
+
 Schema repair validation:
 
 ```bash
@@ -775,11 +816,11 @@ cargo test -p procintel-desktop --test native_shell
 
 ## Final Decision
 
-QA is PAUSED on a Stage 4b document extraction machine setup blocker. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, deterministic Stages 2-3 and 5-8 baseline processing completed, Stage 4a ProContract register-interest was fixed and validated, and the latest Stage 4b ProContract enrichment retry produced a valid result contract with real downloaded documents. The current blocker is local Docling setup: all three structural extraction jobs failed because the Docling Python package and model artifacts are unavailable on this duplicated machine.
+QA is PAUSED on a downstream Stage 4b semantic extraction contract blocker. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, deterministic Stages 2-3 and 5-8 baseline processing completed, Stage 4a ProContract register-interest was fixed and validated, and Stage 4b ProContract enrichment produced real downloaded documents. The previous local Docling setup blocker is resolved: Docling 2.93.0 is installed in the daemon's default venv, model artifacts are prefetched, latest structural extraction retries completed, and downstream rows now exist. The current blocker is one semantic job whose `pdf-extraction/tender-specification` result emitted numeric `lots[].lot_number` where the schema and daemon persistence require a string.
 
 Proven on this machine:
 
-- The checkout is on `main` at `39a7935` plus current QA ledger and Docling error-manifest edits.
+- The checkout is on `main` at `8279ad6` plus current QA ledger and semantic lot-number error-manifest edits.
 - Cargo and Bun are present.
 - `origin/main` contains schema epoch fix commit `6d113ad`.
 - The daemon schema epoch is 9 because migration `0012_l4_sync_state` is present.
@@ -825,15 +866,18 @@ Proven on this machine:
 - The follow-up Stage 4b timeout error manifest is now resolved by the current skill fix: the live retry produced `result.json`, the daemon saw a valid result contract, and job `job-109da01929119faeea0cebfb7e4785c12d3153038521766e980900aa5e0c3ae6` completed.
 - Stage 4b persisted `tender_enrichment completed=1`, `tender_document_sets=1`, and `raw_docs_with_files=3`.
 - The persisted files are real ProContract DOCX downloads under `artifacts-e2e-machine-fork-20260512T195251Z/downloads/procontract/786663/`.
-- All three extraction jobs failed with `Docling runtime unavailable for wrapper /Users/zacfarrell/Desktop/Testproject1/scripts/docling-extract.py`.
-- `python3 scripts/docling-extract.py --version` returns `docling import unavailable: No module named 'docling'`; `$HOME/.docling-venv/bin/docling` and `$HOME/.cache/docling/models` are absent.
-- No `document_extractions`, `document_semantic_extractions`, `product_candidates`, or `search_profiles` rows exist yet.
-- Error manifest `prompts/machine-fork-e2e-docling-runtime-unavailable-error-manifest.md` captures the Docling runtime blocker and resume instructions.
+- The previous three structural extraction jobs failed with `Docling runtime unavailable for wrapper /Users/zacfarrell/Desktop/Testproject1/scripts/docling-extract.py`; those failed rows are preserved as historical evidence.
+- Docling 2.93.0 is now available through `/Users/zacfarrell/.docling-venv/bin/python`, and `/Users/zacfarrell/.cache/docling/models` exists after `docling-tools models download`.
+- No daemon env overrides are required because `default_docling_python_bin()` now selects the default venv and `default_docling_artifacts_path()` resolves to the populated model directory.
+- Latest structural extraction retries completed and created `document_extractions=3`; downstream processing created `document_semantic_extractions=3` and `product_candidates=5`; `search_profiles=0`.
+- One semantic job, `job-479bed51-0fea-46ee-a207-51e94c641c0b`, failed with `missing string lots[].lot_number`. Its preserved `workdir/result.json` contains numeric `lot_number=1` for the tender-specification lot.
+- Error manifest `prompts/machine-fork-e2e-docling-runtime-unavailable-error-manifest.md` is resolved by machine setup.
+- Error manifest `prompts/machine-fork-e2e-semantic-lot-number-type-error-manifest.md` captures the current semantic contract blocker and resume instructions.
 
 Current next point:
 
 1. Source `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z/e2e-env.sh`.
-2. Install/configure Docling and model artifacts, or set `DOCLING_PYTHON_BIN` and `DOCLING_ARTIFACTS_PATH` to a working runtime.
-3. Verify `python3 scripts/docling-extract.py --version` or the configured Python equivalent prints a Docling version.
-4. Retry the approved Stage 4b/extraction path against the same E2E roots, preferably as `run_logged stage-04b-procontract-enrich-retry-after-docling-setup env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest procontract-enrich` unless the fixer provides a narrower requeue command for the three failed extraction jobs.
-5. Validate `document_extractions`, `document_semantic_extractions`, `product_candidates`, `search_profiles`, and latest extraction workflow job statuses before continuing to Stage 9.
+2. Fix the `pdf-extraction/tender-specification` lot-number contract mismatch, choosing either strict schema rejection before domain persistence or intentional targeted normalization.
+3. Add a focused regression around numeric `lots[].lot_number`.
+4. Retry only `job-479bed51-0fea-46ee-a207-51e94c641c0b` or the smallest supported semantic extraction continuation against the same E2E roots.
+5. Validate `document_semantic_extractions`, `product_candidates`, `search_profiles`, and latest semantic workflow job statuses before continuing to Stage 9.
