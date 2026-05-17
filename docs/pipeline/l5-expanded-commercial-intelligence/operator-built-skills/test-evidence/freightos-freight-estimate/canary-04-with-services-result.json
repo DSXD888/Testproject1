@@ -1,0 +1,86 @@
+{
+  "source": "https://ship.freightos.com/results/agpzfnRyYWRlb3Mxch0LEhBjb21tZXJjZURvY3MvUkZRGICAmoa73J4KDA",
+  "product_candidate_id": "test-dgu-002",
+  "selected_quote_id": "q-004",
+  "freight_status": "quoted",
+  "captcha_intercepted": false,
+  "cdp_state": "connected",
+  "freight_currency": "EUR",
+  "freight_base_amount_minor": 327714,
+  "freight_low_amount_minor": 310136,
+  "freight_high_amount_minor": 502911,
+  "freight_with_services_amount_minor": 331593,
+  "route": {
+    "origin_port_code": "CNTSN",
+    "destination_port_code": "GBSOU",
+    "origin_country": "CN",
+    "destination_country": "GB"
+  },
+  "transit_time_days": 45,
+  "transit_time_days_min": 41,
+  "transit_time_days_max": 49,
+  "provider": {
+    "name": "Think Prime",
+    "party_id": "agpzfnRyYWRlb3Mxch0LEhB1c2VyL0xlZ2FsRW50aXR5GICAoK2t5KMJDA",
+    "type_code": "FW"
+  },
+  "quote_valid_until": "2026-05-31T23:59:59.000Z",
+  "quote_expired": false,
+  "total_quotes_available": 25,
+  "tab_used": "best_value",
+  "source_url": "https://ship.freightos.com/results/agpzfnRyYWRlb3Mxch0LEhBjb21tZXJjZURvY3MvUkZRGICAmoa73J4KDA",
+  "rfq_id": "agpzfnRyYWRlb3Mxch0LEhBjb21tZXJjZURvY3MvUkZRGICAmoa73J4KDA",
+  "exchange_rates_seen": [
+    {
+      "from": {
+        "value": "USD"
+      },
+      "to": {
+        "value": "EUR"
+      },
+      "exchangeRate": 0.86
+    },
+    {
+      "from": {
+        "value": "GBP"
+      },
+      "to": {
+        "value": "EUR"
+      },
+      "exchangeRate": 1.146
+    }
+  ],
+  "evidence": [
+    {
+      "referenceID": "agpzfnRyYWRlb3MxclQLEhJDaGFubmVsTWVzc2FnZVRlbXAiPGFncHpmblJ5WVdSbGIzTXhjaDBMRWhCamIyMXRaWEpqWlVSdlkzTXZVa1pSR0lDQW1vYTczSjRLREEjNAw|95feb855-05c6-4a2d-ad9c-c165067c0f20",
+      "forwarder_name": "Think Prime",
+      "total_price": {
+        "value": 3277.14,
+        "currency": "EUR"
+      },
+      "transit_time": {
+        "from": 41,
+        "to": 49
+      },
+      "validTo": "2026-05-31T23:59:59.000Z"
+    }
+  ],
+  "warnings": [
+    {
+      "code": "FREIGHTOS_PORT_FALLBACK_NEAREST",
+      "message": "Portsmouth, GB has no Freightos seaport; routed via nearest port Southampton.",
+      "severity": "warning"
+    },
+    {
+      "code": "FREIGHTOS_PORT_FALLBACK_NEAREST",
+      "message": "Portsmouth, GB has no Freightos seaport; routed via nearest port Southampton.",
+      "severity": "warning"
+    },
+    {
+      "code": "FREIGHTOS_DOOR_TO_DOOR_APPROX_AS_PORT_TO_PORT",
+      "message": "Origin/destination types were not both port_airport; skill submitted port-to-port via mapped UN/LOCODE.",
+      "severity": "warning"
+    }
+  ],
+  "blockers": []
+}

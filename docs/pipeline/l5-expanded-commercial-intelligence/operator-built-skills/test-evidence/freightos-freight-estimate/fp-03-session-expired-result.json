@@ -1,0 +1,16 @@
+{
+  "source": "https://ship.freightos.com",
+  "product_candidate_id": "fp-fp-03-session-expired",
+  "selected_quote_id": "fp-q-fp-03-session-expired",
+  "freight_status": "blocked",
+  "captcha_intercepted": false,
+  "cdp_state": "session_expired",
+  "warnings": [],
+  "blockers": [
+    {
+      "code": "SESSION_REFRESH_FAILED",
+      "message": "Freightos search API returned 401; auto-signin recovery would be invoked by the daemon.",
+      "severity": "blocked"
+    }
+  ]
+}

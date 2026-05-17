@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "product_candidate_id",
+    "selected_quote_id",
+    "freight_status",
+    "captcha_intercepted",
+    "cdp_state",
+    "warnings",
+    "blockers"
+  ],
+  "properties": {
+    "source": { "type": "string" },
+    "product_candidate_id": { "type": "string" },
+    "selected_quote_id": { "type": "string" },
+    "freight_status": { "type": "string" },
+    "captcha_intercepted": { "type": "boolean", "default": false },
+    "cdp_state": {
+      "type": "string",
+      "enum": ["connected", "unreachable", "captcha_blocked", "session_expired"],
+      "default": "connected"
+    },
+    "freight_currency": { "type": ["string", "null"] },
+    "freight_base_amount_minor": { "type": ["integer", "null"] },
+    "freight_low_amount_minor": { "type": ["integer", "null"] },
+    "freight_high_amount_minor": { "type": ["integer", "null"] },
+    "freight_with_services_amount_minor": {
+      "type": ["integer", "null"],
+      "description": "Best-value quote WITH insurance + customs brokerage toggles ON. Captured by re-running with includeInsurance/includeCustomsBrokerage flags. May be null if attempt budget did not permit."
+    },
+    "route": {
+      "type": ["object", "null"],
+      "description": "Object with origin_port_code, destination_port_code, inland_origin, inland_destination"
+    },
+    "transit_time_days": { "type": ["integer", "null"] },
+    "transit_time_days_min": { "type": ["integer", "null"] },
+    "transit_time_days_max": { "type": ["integer", "null"] },
+    "provider": {
+      "type": ["object", "null"],
+      "description": "Object with forwarder name, party_id, rating fields when present"
+    },
+    "quote_valid_until": {
+      "type": ["string", "null"],
+      "description": "ISO-8601 expiration of the captured rate (priceIndicator.validTo)"
+    },
+    "quote_expired": { "type": "boolean" },
+    "total_quotes_available": { "type": ["integer", "null"] },
+    "tab_used": {
+      "type": ["string", "null"],
+      "enum": ["best_value", "cheapest", "quickest", "greenest", null]
+    },
+    "source_url": { "type": ["string", "null"] },
+    "rfq_id": {
+      "type": ["string", "null"],
+      "description": "Freightos quoteRequest conversationID returned by the /search endpoint"
+    },
+    "exchange_rates_seen": {
+      "type": ["array", "null"],
+      "description": "Forex rates Freightos used to convert quote currencies into the account display currency"
+    },
+    "evidence": { "type": ["array", "object", "null"] },
+    "warnings": { "type": "array" },
+    "blockers": { "type": "array" }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "source": "https://ship.freightos.com",
+  "product_candidate_id": "fp-fp-01-captcha-sim",
+  "selected_quote_id": "fp-q-fp-01-captcha-sim",
+  "freight_status": "blocked",
+  "captcha_intercepted": true,
+  "cdp_state": "captcha_blocked",
+  "warnings": [],
+  "blockers": [
+    {
+      "code": "CDP_CAPTCHA_INTERCEPTION",
+      "message": "Captcha simulation requested via job_parameters.simulate_captcha; browser was not contacted.",
+      "severity": "blocked"
+    }
+  ]
+}

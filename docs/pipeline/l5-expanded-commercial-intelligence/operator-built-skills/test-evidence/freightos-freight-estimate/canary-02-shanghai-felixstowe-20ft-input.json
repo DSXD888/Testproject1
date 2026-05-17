@@ -1,0 +1,23 @@
+{
+  "id": "canary-02-shanghai-felixstowe-20ft",
+  "product_candidate_id": "test-fasteners-001",
+  "selected_quote_id": "q-002",
+  "origin_country": "CN",
+  "origin_address": "Shanghai",
+  "origin_type": "port_airport",
+  "destination_country": "GB",
+  "destination_address": "Felixstowe",
+  "destination_type": "port_airport",
+  "load": {
+    "mode": "container",
+    "container_type": "20",
+    "units": 1,
+    "overweight": false
+  },
+  "goods_value_minor": 500000,
+  "goods_currency": "USD",
+  "is_hazmat": false,
+  "readiness_timeframe": "ready_now",
+  "include_insurance": false,
+  "include_customs_brokerage": false
+}

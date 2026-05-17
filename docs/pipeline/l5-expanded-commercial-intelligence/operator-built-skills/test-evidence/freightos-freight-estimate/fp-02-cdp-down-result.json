@@ -1,0 +1,16 @@
+{
+  "source": "https://ship.freightos.com",
+  "product_candidate_id": "fp-fp-02-cdp-down",
+  "selected_quote_id": "fp-q-fp-02-cdp-down",
+  "freight_status": "blocked",
+  "captcha_intercepted": false,
+  "cdp_state": "unreachable",
+  "warnings": [],
+  "blockers": [
+    {
+      "code": "CDP_CONNECT_FAILED",
+      "message": "CDP probe at http://localhost:9222/json/version failed: <urlopen error [Errno 61] Connection refused>",
+      "severity": "blocked"
+    }
+  ]
+}

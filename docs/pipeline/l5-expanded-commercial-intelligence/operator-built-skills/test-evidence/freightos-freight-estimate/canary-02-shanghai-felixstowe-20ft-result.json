@@ -1,0 +1,61 @@
+{
+  "source": "https://ship.freightos.com/results/agpzfnRyYWRlb3Mxch0LEhBjb21tZXJjZURvY3MvUkZRGICAmvqb5fkLDA",
+  "product_candidate_id": "test-fasteners-001",
+  "selected_quote_id": "q-002",
+  "freight_status": "quoted",
+  "captcha_intercepted": false,
+  "cdp_state": "connected",
+  "freight_currency": "EUR",
+  "freight_base_amount_minor": 221993,
+  "freight_low_amount_minor": 217136,
+  "freight_high_amount_minor": 427749,
+  "freight_with_services_amount_minor": null,
+  "route": {
+    "origin_port_code": "CNSHA",
+    "destination_port_code": "GBFXT",
+    "origin_country": "CN",
+    "destination_country": "GB"
+  },
+  "transit_time_days": 39,
+  "transit_time_days_min": 36,
+  "transit_time_days_max": 43,
+  "provider": {
+    "name": "Ring International Transport-VN., JSC",
+    "party_id": "agpzfnRyYWRlb3Mxch0LEhB1c2VyL0xlZ2FsRW50aXR5GICAirL4qr8LDA",
+    "type_code": "FW"
+  },
+  "quote_valid_until": "2026-05-24T23:59:59.000Z",
+  "quote_expired": false,
+  "total_quotes_available": 34,
+  "tab_used": "best_value",
+  "source_url": "https://ship.freightos.com/results/agpzfnRyYWRlb3Mxch0LEhBjb21tZXJjZURvY3MvUkZRGICAmvqb5fkLDA",
+  "rfq_id": "agpzfnRyYWRlb3Mxch0LEhBjb21tZXJjZURvY3MvUkZRGICAmvqb5fkLDA",
+  "exchange_rates_seen": [
+    {
+      "from": {
+        "value": "USD"
+      },
+      "to": {
+        "value": "EUR"
+      },
+      "exchangeRate": 0.86
+    }
+  ],
+  "evidence": [
+    {
+      "referenceID": "agpzfnRyYWRlb3MxclQLEhJDaGFubmVsTWVzc2FnZVRlbXAiPGFncHpmblJ5WVdSbGIzTXhjaDBMRWhCamIyMXRaWEpqWlVSdlkzTXZVa1pSR0lDQW12cWI1ZmtMREEjMgw|af5d792c-89e4-4fe0-a2b1-59d67a3dc56f",
+      "forwarder_name": "Ring International Transport-VN., JSC",
+      "total_price": {
+        "value": 2219.93,
+        "currency": "EUR"
+      },
+      "transit_time": {
+        "from": 36,
+        "to": 43
+      },
+      "validTo": "2026-05-24T23:59:59.000Z"
+    }
+  ],
+  "warnings": [],
+  "blockers": []
+}

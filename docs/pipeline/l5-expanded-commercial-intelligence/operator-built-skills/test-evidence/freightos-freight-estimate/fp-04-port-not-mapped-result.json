@@ -1,0 +1,22 @@
+{
+  "source": "https://ship.freightos.com",
+  "product_candidate_id": "fp-fp-04-port-not-mapped",
+  "selected_quote_id": "fp-q-fp-04-port-not-mapped",
+  "freight_status": "blocked",
+  "captcha_intercepted": false,
+  "cdp_state": "connected",
+  "warnings": [
+    {
+      "code": "FREIGHTOS_PORT_FALLBACK_NEAREST",
+      "message": "Portsmouth, GB has no Freightos seaport; routed via nearest port Southampton.",
+      "severity": "warning"
+    }
+  ],
+  "blockers": [
+    {
+      "code": "FREIGHTOS_PORT_NOT_FOUND",
+      "message": "No Freightos seaport found for CN/NowhereCity. Add a CITY_FALLBACK entry if a nearby port exists.",
+      "severity": "blocked"
+    }
+  ]
+}

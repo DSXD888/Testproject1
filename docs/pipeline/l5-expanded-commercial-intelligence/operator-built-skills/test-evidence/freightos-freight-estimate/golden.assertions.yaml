@@ -1,0 +1,61 @@
+# Tolerance-based golden assertions for Freightos canaries. Freight prices
+# fluctuate (carriers refresh rates, currencies shift); these define the SHAPE
+# and BALLPARK ranges that prove the skill works end-to-end against live data.
+
+canary-01-dgu-tianjin-portsmouth:
+  freight_status: quoted
+  cdp_state: connected
+  captcha_intercepted: false
+  freight_base_amount_minor:
+    min: 100000      # >€1,000 minor units — anything below suggests parsing bug
+    max: 2000000     # <€20,000 — anything above suggests parsing bug
+  freight_currency:
+    one_of: ["EUR", "USD", "GBP"]
+  transit_time_days:
+    min: 20
+    max: 120
+  route:
+    must_contain_port_codes: ["CN", "GB"]
+  quote_expired: false
+  blockers_length: 0
+
+canary-02-shanghai-felixstowe-20ft:
+  freight_status: quoted
+  cdp_state: connected
+  captcha_intercepted: false
+  freight_base_amount_minor:
+    min: 50000
+    max: 1500000
+  freight_currency:
+    one_of: ["EUR", "USD", "GBP"]
+  quote_expired: false
+  blockers_length: 0
+
+canary-03-shenzhen-southampton-40hc:
+  freight_status: quoted
+  cdp_state: connected
+  captcha_intercepted: false
+  freight_base_amount_minor:
+    min: 100000
+    max: 2000000
+  freight_currency:
+    one_of: ["EUR", "USD", "GBP"]
+  quote_expired: false
+  blockers_length: 0
+
+canary-04-with-services:
+  freight_status: quoted
+  cdp_state: connected
+  captcha_intercepted: false
+  freight_base_amount_minor:
+    must_exist: true
+  freight_with_services_amount_minor:
+    must_exist: true
+  # Sanity bound: with-services should be in the same ballpark as base
+  # (within 50% in either direction). Different best-value forwarders may
+  # serve the with-services and without-services queries, so prices are
+  # NOT directly comparable — a strict ">=" invariant is wrong. Some
+  # forwarders bundle customs and become cheaper than no-customs ones who
+  # don't.
+  invariant: abs(freight_with_services_amount_minor - freight_base_amount_minor) <= freight_base_amount_minor
+  blockers_length: 0

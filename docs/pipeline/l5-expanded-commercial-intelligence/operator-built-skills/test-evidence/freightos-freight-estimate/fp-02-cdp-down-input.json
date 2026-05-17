@@ -1,0 +1,23 @@
+{
+  "id": "canary-01-dgu-tianjin-portsmouth",
+  "product_candidate_id": "fp-fp-02-cdp-down",
+  "selected_quote_id": "fp-q-fp-02-cdp-down",
+  "origin_country": "CN",
+  "origin_address": "Tianjin",
+  "origin_type": "factory_warehouse",
+  "destination_country": "GB",
+  "destination_address": "Portsmouth",
+  "destination_type": "warehouse",
+  "load": {
+    "mode": "container",
+    "container_type": "40",
+    "units": 1,
+    "overweight": false
+  },
+  "goods_value_minor": 1000000,
+  "goods_currency": "USD",
+  "is_hazmat": false,
+  "readiness_timeframe": "within_two_weeks",
+  "include_insurance": false,
+  "include_customs_brokerage": false
+}

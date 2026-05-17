@@ -1,0 +1,70 @@
+{
+  "source": "https://ship.freightos.com/results/agpzfnRyYWRlb3Mxch0LEhBjb21tZXJjZURvY3MvUkZRGICAmrrmyZMKDA",
+  "product_candidate_id": "test-gloves-001",
+  "selected_quote_id": "q-003",
+  "freight_status": "quoted",
+  "captcha_intercepted": false,
+  "cdp_state": "connected",
+  "freight_currency": "EUR",
+  "freight_base_amount_minor": 360710,
+  "freight_low_amount_minor": 296757,
+  "freight_high_amount_minor": 501428,
+  "freight_with_services_amount_minor": null,
+  "route": {
+    "origin_port_code": "CNSZX",
+    "destination_port_code": "GBSOU",
+    "origin_country": "CN",
+    "destination_country": "GB"
+  },
+  "transit_time_days": 45,
+  "transit_time_days_min": 41,
+  "transit_time_days_max": 49,
+  "provider": {
+    "name": "Think Prime",
+    "party_id": "agpzfnRyYWRlb3Mxch0LEhB1c2VyL0xlZ2FsRW50aXR5GICAoK2t5KMJDA",
+    "type_code": "FW"
+  },
+  "quote_valid_until": "2026-05-31T23:59:59.000Z",
+  "quote_expired": false,
+  "total_quotes_available": 29,
+  "tab_used": "best_value",
+  "source_url": "https://ship.freightos.com/results/agpzfnRyYWRlb3Mxch0LEhBjb21tZXJjZURvY3MvUkZRGICAmrrmyZMKDA",
+  "rfq_id": "agpzfnRyYWRlb3Mxch0LEhBjb21tZXJjZURvY3MvUkZRGICAmrrmyZMKDA",
+  "exchange_rates_seen": [
+    {
+      "from": {
+        "value": "USD"
+      },
+      "to": {
+        "value": "EUR"
+      },
+      "exchangeRate": 0.86
+    },
+    {
+      "from": {
+        "value": "GBP"
+      },
+      "to": {
+        "value": "EUR"
+      },
+      "exchangeRate": 1.146
+    }
+  ],
+  "evidence": [
+    {
+      "referenceID": "agpzfnRyYWRlb3MxclQLEhJDaGFubmVsTWVzc2FnZVRlbXAiPGFncHpmblJ5WVdSbGIzTXhjaDBMRWhCamIyMXRaWEpqWlVSdlkzTXZVa1pSR0lDQW1ycm15Wk1LREEjMgw|57605085-e41e-4a52-8d67-f4ebee8e826d",
+      "forwarder_name": "Think Prime",
+      "total_price": {
+        "value": 3607.1,
+        "currency": "EUR"
+      },
+      "transit_time": {
+        "from": 41,
+        "to": 49
+      },
+      "validTo": "2026-05-31T23:59:59.000Z"
+    }
+  ],
+  "warnings": [],
+  "blockers": []
+}
