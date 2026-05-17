@@ -1,9 +1,9 @@
 # Machine Fork L0-L3 Stages 1-14 E2E Validation Manifest
 
 Generated: 2026-05-12T18:46:53Z
-Last verified: 2026-05-17T14:46:35Z
-Status: PAUSED - Stage 9 marketplace preflight is blocked on Alibaba authentication in the repaired persistent CDP browser
-Git HEAD at verification: 7957146 docs: add stage 9 cdp repair handoff
+Last verified: 2026-05-17T14:58:45Z
+Status: PAUSED - Stage 9 marketplace coverage completed with no durable attempts after CDP/auth repair
+Git HEAD at verification: 169fb2d docs: record stage 9 alibaba auth pause
 State root: `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z`
 Runtime dir: `/Users/zacfarrell/Desktop/Testproject1/runtime-e2e-machine-fork-20260512T195251Z`
 Artifact root: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z`
@@ -45,6 +45,7 @@ Status meanings:
 | 2026-05-17T13:40:56Z | Stage 4b - Semantic lot-number fix and continuation | The daemon now canonicalizes string-or-integer lot identifiers at the semantic domain-write boundary while preserving the tender-spec schema as string-only. Rebuilt the pinned daemon, requeued only semantic job `job-479bed51-0fea-46ee-a207-51e94c641c0b`, and replayed the preserved numeric-lot `result.json` through the daemon contract session path. | The failed semantic job is now `completed`; semantic extraction rows increased to 4; `product_candidates=5`. Re-running `--pipeline procontract` scored 5 candidates and produced `search_profiles=5` for the target process. | Continue to Stage 9 supplier price comparison / marketplace search against the existing E2E roots. |
 | 2026-05-17T14:00:17Z | Stage 9 - Marketplace CDP preflight | `stage-09-cdp-version` failed before any marketplace source command: `curl -sfS -m 3 http://localhost:9222/json/version` returned connection refused. The selected agent probe returned `OK`, so this is a persistent browser/CDP setup issue, not a model CLI issue. | Recorded as first Stage 9 CDP repair pause. No Stage 9 daemon command was run, and no error manifest was created on this first CDP occurrence. | Operator launches or repairs the Chrome profile attached to localhost:9222, then QA re-runs `/json/version`, marketplace login checks, and Stage 9 marketplace coverage. |
 | 2026-05-17T14:46:35Z | Stage 9 - CDP repair and marketplace source preflight | Relaunched the canonical Chrome automation profile on port 9222. `/json/version` and `lsof` passed, and `agent-browser --cdp 9222` controlled `about:blank`. Initial marketplace opens failed with `net::ERR_BLOCKED_BY_CLIENT` because `agent-browser` had targeted Chrome's Gemini side panel; selecting stable tab `t1` restored normal navigation. Amazon UK, eBay UK, Gem Imports, and MX Wholesale loaded through CDP. Alibaba loaded but the snapshot showed `Sign in` and generic `Welcome to Alibaba.com`, not the authenticated account state required by `marketplace-search/alibaba`. | Recorded as first-pass operator Alibaba auth repair pause. No `--ingest marketplace-coverage` or source-specific Stage 9 daemon command was run after this auth finding. Logs include `stage-09-cdp-version-after-repair`, `stage-09-agent-browser-select-t1-after-blocked-client`, `stage-09-agent-browser-example-open-after-t1-select`, and `stage-09-alibaba-snapshot-after-cdp-target-repair`. | Operator logs in or clears the Alibaba challenge in the Chrome window attached to `localhost:9222`, then QA reruns CDP preflight, selects real page tab `t1` if needed, retries the Alibaba source check, and only then runs Stage 9 marketplace coverage. |
+| 2026-05-17T14:58:45Z | Stage 9 - Marketplace coverage after Alibaba auth repair | Operator logged in to Alibaba. CDP preflight passed, `agent-browser` selected real tab `t1`, Alibaba snapshot showed `Welcome to Alibaba.com, zac`, and Claude returned `OK`. The exact `--ingest marketplace-coverage` command then exited 0, but every source reported `found no candidates needing search`. DB validation showed no `search_attempts`, no `supplier_quotes`, no `candidate_quote_coverage`, and no `workflow_jobs.kind='marketplace_search'`. Stepwise selector proof shows `search_profiles=5`, all marginal, but the target process has `notice_only goods_qualified=0`; the Stage 9 picker-equivalent query returns 0. | Created `prompts/machine-fork-e2e-stage-9-no-candidates-after-cdp-auth-error-manifest.md`. SQLite integrity is OK and foreign-key check returned no rows. Stage 10 was not run because Stage 9 wrote no durable attempt/coverage evidence. | Fix the Stage 8/9 candidate-selection or durable no-op semantics, then retry `stage-09-marketplace-coverage-after-no-candidates-fix` against the same preserved roots. |
 
 ## Error Manifests Created
 
@@ -60,6 +61,7 @@ Status meanings:
 | `prompts/machine-fork-e2e-procontract-enrich-timeout-followup-error-manifest.md` | Stage 4b / ProContract enrichment follow-up retry | After Claude quota recovered and ProContract auth preflight passed, the fixed Stage 4b retry still timed out without `result.json`; no tender document rows were produced. | Resolved by current skill fix; verified 2026-05-14T15:42:46Z with a valid result contract and persisted documents. |
 | `prompts/machine-fork-e2e-docling-runtime-unavailable-error-manifest.md` | Stage 4b / Document extraction after ProContract enrichment | Three real ProContract DOCX files were downloaded, but all three `extract_document_structure` jobs failed because Docling package/model artifacts are absent on this machine. | Resolved by machine setup on 2026-05-16: Docling 2.93.0 installed in the default venv and models prefetched to `/Users/zacfarrell/.cache/docling/models`; latest structural extraction retries completed. |
 | `prompts/machine-fork-e2e-semantic-lot-number-type-error-manifest.md` | Stage 4b / Semantic extraction after Docling setup | `pdf-extraction/tender-specification` result for one document emitted numeric `lots[].lot_number`; daemon persistence requires a string and failed the job with `missing string lots[].lot_number`. | Resolved by the semantic lot-number canonicalization fix; verified 2026-05-17 by replaying the preserved result through job `job-479bed51-0fea-46ee-a207-51e94c641c0b` and generating 5 search profiles. |
+| `prompts/machine-fork-e2e-stage-9-no-candidates-after-cdp-auth-error-manifest.md` | Stage 9 / Marketplace coverage after CDP/auth repair | `--ingest marketplace-coverage` exits 0 with all five sources reporting no candidates, leaving no marketplace jobs, no search attempts, no quotes, and no coverage rows despite the resume ledger expecting Stage 9 to search 5 profiles. | Open; created 2026-05-17T14:58:45Z. |
 
 ## Preflight
 
@@ -594,6 +596,36 @@ MX Wholesale: loaded `https://www.mxwholesale.co.uk/`; snapshot showed catalogue
 Alibaba: loaded `https://www.alibaba.com/`, but snapshot showed `Sign in` and generic `Welcome to Alibaba.com`, not the previously verified authenticated state `Welcome to Alibaba.com, zac`. Because `marketplace-search/alibaba` requires a logged-in operator Chrome session, Stage 9 is paused for first-pass Alibaba auth repair before any daemon marketplace command is run.
 ```
 
+Alibaba auth repair evidence after operator login:
+
+```text
+stage-09-alibaba-snapshot-after-auth-repair:
+heading "Welcome to Alibaba.com, zac"
+Deliver to: GB
+English-GBP
+
+stage-09-claude-probe-after-alibaba-auth-repair:
+OK.
+```
+
+The exact Stage 9 command then completed without durable marketplace evidence:
+
+```text
+stage-09-marketplace-coverage-after-alibaba-auth-repair:
+marketplace-coverage live loop completed: marketplace-search `amazon-uk` found no candidates needing search | marketplace-search `ebay-uk` found no candidates needing search | marketplace-search `gem-imports` found no candidates needing search | marketplace-search `mx-wholesale` found no candidates needing search | marketplace-search `alibaba-search` found no candidates needing search
+
+stage-09-marketplace-db-validation-after-alibaba-auth-repair:
+no rows for search_attempts, supplier_quotes, candidate_quote_coverage, or workflow_jobs.kind='marketplace_search'
+
+stage-09-candidate-selection-stepwise-after-no-candidates:
+profiles_total=5
+eligible_or_marginal=5
+notice_only_qualification_rows_for_target: goods_qualified=0, expiry_qualified=1
+stage9_full_picker_equivalent=0
+```
+
+This is no longer a CDP/auth pause. It is a Stage 8/9 data-selection or durable no-op semantics blocker. Stage 10 was not run.
+
 ## Desktop And Localhost UI
 
 Not executed.
@@ -910,11 +942,11 @@ cargo test -p procintel-desktop --test native_shell
 
 ## Final Decision
 
-QA is PAUSED on a Stage 9 Alibaba authentication issue after CDP repair. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, deterministic Stages 2-3 and 5-8 baseline processing completed, Stage 4a ProContract register-interest was fixed and validated, Stage 4b ProContract enrichment produced real downloaded documents, Docling extraction is repaired, and the semantic lot-number blocker is repaired. The pipeline is ready for Stage 9 from `search_profiles=5`; the persistent CDP listener is now reachable, but Alibaba is not authenticated in the CDP browser.
+QA is PAUSED on a Stage 9 no-candidates/durable-evidence blocker after CDP and Alibaba auth repair. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, deterministic Stages 2-3 and 5-8 baseline processing completed, Stage 4a ProContract register-interest was fixed and validated, Stage 4b ProContract enrichment produced real downloaded documents, Docling extraction is repaired, and the semantic lot-number blocker is repaired. The pipeline has `search_profiles=5`, but `--ingest marketplace-coverage` now completes with no marketplace jobs, no search attempts, no quotes, and no coverage rows because the Stage 9 picker selects zero candidates from the preserved state.
 
 Proven on this machine:
 
-- The checkout is on `main` at `7957146 docs: add stage 9 cdp repair handoff` plus this Stage 9 CDP/auth pause ledger edit.
+- The checkout is on `main` at `169fb2d docs: record stage 9 alibaba auth pause` plus this Stage 9 no-candidates ledger/error-manifest edit.
 - Cargo and Bun are present.
 - `origin/main` contains schema epoch fix commit `6d113ad`.
 - The daemon schema epoch is 9 because migration `0012_l4_sync_state` is present.
@@ -929,7 +961,7 @@ Proven on this machine:
 - The CDP browser was launched with `$HOME/.chrome-automation`.
 - `agent-browser --cdp 9222 open "about:blank"`, `get title`, and `snapshot` succeed.
 - `agent-browser` initially targeted Chrome's Gemini side panel during marketplace checks; `agent-browser --cdp 9222 tab t1` selected the real page target and restored normal navigation.
-- Amazon UK, eBay UK, Gem Imports, MX Wholesale, and Alibaba all load through CDP after target selection. eBay shows authenticated state. Amazon/Gem/MX show optional sign-in controls but no blocking login wall or captcha. Alibaba shows `Sign in` and generic `Welcome to Alibaba.com`, so it is not authenticated for the Alibaba marketplace skill.
+- Amazon UK, eBay UK, Gem Imports, MX Wholesale, and Alibaba all load through CDP after target selection. eBay shows authenticated state. Amazon/Gem/MX show optional sign-in controls but no blocking login wall or captcha. Alibaba initially needed operator login, then passed with `Welcome to Alibaba.com, zac`.
 - The isolated daemon dry-run passed with `PRAGMA user_version=9`.
 - The initial Contracts Finder blocker was real: failed workflow jobs `job-c3d5...` and `job-2c44...` had PTY streams containing `Failed to authenticate. API Error: 401 Invalid authentication credentials`.
 - The selected Claude CLI auth probe now returns `OK`.
@@ -969,15 +1001,16 @@ Proven on this machine:
 - Re-running `--pipeline procontract` after the semantic fix scored 5 candidates and produced `search_profiles=5`.
 - Error manifest `prompts/machine-fork-e2e-docling-runtime-unavailable-error-manifest.md` is resolved by machine setup.
 - Error manifest `prompts/machine-fork-e2e-semantic-lot-number-type-error-manifest.md` is resolved by the daemon semantic lot-number canonicalization fix.
-- Stage 9 did not start before CDP repair because `curl -sfS -m 3 http://localhost:9222/json/version` returned connection refused. After repair, no Stage 9 daemon command was run because Alibaba authentication is missing in the persistent CDP browser.
+- Stage 9 did not start before CDP repair because `curl -sfS -m 3 http://localhost:9222/json/version` returned connection refused. After CDP and Alibaba auth repair, the exact Stage 9 daemon command completed but wrote no durable marketplace evidence.
+- The Stage 9 selector proof shows `search_profiles=5`, all marginal, but the target process has `notice_only goods_qualified=0`; the picker-equivalent query returns zero rows.
+- Error manifest `prompts/machine-fork-e2e-stage-9-no-candidates-after-cdp-auth-error-manifest.md` captures the exact commands, logs, DB state, codepath evidence, and retry instructions.
 
 Current next point:
 
 1. Source `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z/e2e-env.sh`.
 2. Keep the existing preserved roots; do not rerun Stage 4a portal registration.
-3. Keep the repaired Chrome CDP profile listening on `localhost:9222`.
-4. Operator logs in or clears the Alibaba challenge in the Chrome window attached to `localhost:9222`.
-5. Re-run `run_logged stage-09-cdp-version-after-alibaba-auth-repair curl -sfS -m 3 http://localhost:9222/json/version`.
-6. Run `agent-browser --cdp 9222 tab t1` if `agent-browser tab list` shows the Gemini side panel selected, then re-open `https://www.alibaba.com/` and verify authenticated Alibaba state.
-7. If CDP/login checks pass, run Stage 9 supplier price comparison / marketplace search from the 5 generated search profiles for process `proc-pc-ecd07d9f-5249-f111-813c-005056b64545`.
-8. After Stage 9 produces supplier quotes, rerun `--pipeline procontract` for Stage 10 gross-margin assessment.
+3. Keep the repaired Chrome CDP profile listening on `localhost:9222`; Alibaba auth is currently repaired but should be rechecked before retry.
+4. Fix the Stage 8/9 candidate-selection or durable no-op semantics documented in `prompts/machine-fork-e2e-stage-9-no-candidates-after-cdp-auth-error-manifest.md`.
+5. Retry `run_logged stage-09-marketplace-coverage-after-no-candidates-fix env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" --state-root "$E2E_STATE_ROOT" --runtime-dir "$E2E_RUNTIME_DIR" --artifact-root "$E2E_ARTIFACT_ROOT" --ingest marketplace-coverage`.
+6. Rerun Stage 9 DB validation and require durable attempts/quotes/coverage rows or an explicit durable non-applicable/blocker record.
+7. Only after Stage 9 is durable, run Stage 10 deterministic continuation with `--pipeline procontract`.
