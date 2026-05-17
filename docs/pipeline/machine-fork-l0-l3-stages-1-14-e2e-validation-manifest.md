@@ -1,15 +1,15 @@
 # Machine Fork L0-L3 Stages 1-14 E2E Validation Manifest
 
 Generated: 2026-05-12T18:46:53Z
-Last verified: 2026-05-17T14:00:17Z
-Status: PAUSED - Stage 9 marketplace preflight cannot start because the persistent CDP browser on localhost:9222 is not reachable
-Git HEAD at verification: 28b6298 fix semantic lot number canonicalization
+Last verified: 2026-05-17T14:46:35Z
+Status: PAUSED - Stage 9 marketplace preflight is blocked on Alibaba authentication in the repaired persistent CDP browser
+Git HEAD at verification: 7957146 docs: add stage 9 cdp repair handoff
 State root: `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z`
 Runtime dir: `/Users/zacfarrell/Desktop/Testproject1/runtime-e2e-machine-fork-20260512T195251Z`
 Artifact root: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z`
 QA log root: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z/qa-logs`
 Daemon binary: `/tmp/testproject1-target-machine-fork-20260512T195251Z/debug/daemon`
-CDP browser: unavailable during Stage 9 preflight (`curl http://localhost:9222/json/version` failed to connect); previous good state was Chrome/148.0.7778.97, Protocol 1.3, launched with `$HOME/.chrome-automation`
+CDP browser: repaired during Stage 9 preflight; Chrome/148.0.7778.168, Protocol 1.3, listening on `127.0.0.1:9222`, launched with `$HOME/.chrome-automation`
 
 Status meanings:
 - GREEN: all required L0-L3 and requested localhost smoke checks passed.
@@ -44,6 +44,7 @@ Status meanings:
 | 2026-05-16T16:41:16Z | Resume check after semantic lot-number blocker | Operator said continue. Fetched `origin/main` and verified the checkout is still at `1e380fb docs: record docling setup validation` with no product-code fix for the semantic lot-number blocker. The failed semantic job remains `job-479bed51-0fea-46ee-a207-51e94c641c0b` with `missing string lots[].lot_number`; there are no pending extraction jobs and `search_profiles=0`. | Updated this validation ledger. No daemon command was retried because the recorded product blocker is still present and no fix commit is available. | Fix the semantic lot-number contract/type mismatch, then retry only `job-479bed51-0fea-46ee-a207-51e94c641c0b` or the smallest supported extraction continuation against the existing E2E roots. |
 | 2026-05-17T13:40:56Z | Stage 4b - Semantic lot-number fix and continuation | The daemon now canonicalizes string-or-integer lot identifiers at the semantic domain-write boundary while preserving the tender-spec schema as string-only. Rebuilt the pinned daemon, requeued only semantic job `job-479bed51-0fea-46ee-a207-51e94c641c0b`, and replayed the preserved numeric-lot `result.json` through the daemon contract session path. | The failed semantic job is now `completed`; semantic extraction rows increased to 4; `product_candidates=5`. Re-running `--pipeline procontract` scored 5 candidates and produced `search_profiles=5` for the target process. | Continue to Stage 9 supplier price comparison / marketplace search against the existing E2E roots. |
 | 2026-05-17T14:00:17Z | Stage 9 - Marketplace CDP preflight | `stage-09-cdp-version` failed before any marketplace source command: `curl -sfS -m 3 http://localhost:9222/json/version` returned connection refused. The selected agent probe returned `OK`, so this is a persistent browser/CDP setup issue, not a model CLI issue. | Recorded as first Stage 9 CDP repair pause. No Stage 9 daemon command was run, and no error manifest was created on this first CDP occurrence. | Operator launches or repairs the Chrome profile attached to localhost:9222, then QA re-runs `/json/version`, marketplace login checks, and Stage 9 marketplace coverage. |
+| 2026-05-17T14:46:35Z | Stage 9 - CDP repair and marketplace source preflight | Relaunched the canonical Chrome automation profile on port 9222. `/json/version` and `lsof` passed, and `agent-browser --cdp 9222` controlled `about:blank`. Initial marketplace opens failed with `net::ERR_BLOCKED_BY_CLIENT` because `agent-browser` had targeted Chrome's Gemini side panel; selecting stable tab `t1` restored normal navigation. Amazon UK, eBay UK, Gem Imports, and MX Wholesale loaded through CDP. Alibaba loaded but the snapshot showed `Sign in` and generic `Welcome to Alibaba.com`, not the authenticated account state required by `marketplace-search/alibaba`. | Recorded as first-pass operator Alibaba auth repair pause. No `--ingest marketplace-coverage` or source-specific Stage 9 daemon command was run after this auth finding. Logs include `stage-09-cdp-version-after-repair`, `stage-09-agent-browser-select-t1-after-blocked-client`, `stage-09-agent-browser-example-open-after-t1-select`, and `stage-09-alibaba-snapshot-after-cdp-target-repair`. | Operator logs in or clears the Alibaba challenge in the Chrome window attached to `localhost:9222`, then QA reruns CDP preflight, selects real page tab `t1` if needed, retries the Alibaba source check, and only then runs Stage 9 marketplace coverage. |
 
 ## Error Manifests Created
 
@@ -543,6 +544,56 @@ OK.
 
 No marketplace source was opened and no Stage 9 daemon command was run after this first Stage 9 CDP failure.
 
+Stage 9 CDP repair evidence from 2026-05-17T14:46:35Z:
+
+```text
+stage-09-cdp-version-before-repair:
+curl: (7) Failed to connect to localhost port 9222 after 0 ms: Couldn't connect to server
+
+stage-09-cdp-version-after-repair:
+Browser Chrome/148.0.7778.168
+Protocol-Version 1.3
+webSocketDebuggerUrl ws://localhost:9222/devtools/browser/b74db0c3-a500-47c0-bb34-5bd7005e8729
+
+stage-09-cdp-lsof-after-repair:
+Google PID 10039 listening on 127.0.0.1:9222
+
+stage-09-agent-browser-cli-after-repair:
+/opt/homebrew/bin/agent-browser
+agent-browser 0.27.0
+
+stage-09-agent-browser-aboutblank-after-repair:
+opened about:blank
+```
+
+The first marketplace preflight after CDP repair found an `agent-browser` target-selection issue, not a marketplace/source issue:
+
+```text
+stage-09-amazon-open-after-cdp-repair:
+Navigation failed: net::ERR_BLOCKED_BY_CLIENT
+
+stage-09-agent-browser-tab-list-after-blocked-client:
+[t1] about:blank - about:blank
+-> [t2] Google Gemini - https://gemini.google.com/glic?hl=en
+
+stage-09-agent-browser-select-t1-after-blocked-client:
+selected t1
+
+stage-09-agent-browser-example-open-after-t1-select:
+opened https://example.com/
+title Example Domain
+```
+
+Marketplace source checks after selecting the real page target:
+
+```text
+Amazon UK: loaded `https://www.amazon.co.uk/`; snapshot showed search UI and no captcha/robot interstitial. Optional account header showed `Hello, sign in`, which is not a blocker for the Amazon retail-benchmark skill because the skill explicitly says not to log in.
+eBay UK: loaded `https://www.ebay.co.uk/`; snapshot showed authenticated state `Hi zac!` and no captcha/challenge.
+Gem Imports: loaded `https://www.gemimports.co.uk/`; snapshot showed catalogue/navigation content and optional `Sign in`, with no captcha/challenge.
+MX Wholesale: loaded `https://www.mxwholesale.co.uk/`; snapshot showed catalogue/navigation content and optional `Log in`, with no captcha/challenge.
+Alibaba: loaded `https://www.alibaba.com/`, but snapshot showed `Sign in` and generic `Welcome to Alibaba.com`, not the previously verified authenticated state `Welcome to Alibaba.com, zac`. Because `marketplace-search/alibaba` requires a logged-in operator Chrome session, Stage 9 is paused for first-pass Alibaba auth repair before any daemon marketplace command is run.
+```
+
 ## Desktop And Localhost UI
 
 Not executed.
@@ -859,11 +910,11 @@ cargo test -p procintel-desktop --test native_shell
 
 ## Final Decision
 
-QA is PAUSED on a Stage 9 persistent CDP browser setup issue. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, deterministic Stages 2-3 and 5-8 baseline processing completed, Stage 4a ProContract register-interest was fixed and validated, Stage 4b ProContract enrichment produced real downloaded documents, Docling extraction is repaired, and the semantic lot-number blocker is repaired. The pipeline is ready for Stage 9 from `search_profiles=5`, but `localhost:9222` refused the first Stage 9 CDP preflight.
+QA is PAUSED on a Stage 9 Alibaba authentication issue after CDP repair. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, deterministic Stages 2-3 and 5-8 baseline processing completed, Stage 4a ProContract register-interest was fixed and validated, Stage 4b ProContract enrichment produced real downloaded documents, Docling extraction is repaired, and the semantic lot-number blocker is repaired. The pipeline is ready for Stage 9 from `search_profiles=5`; the persistent CDP listener is now reachable, but Alibaba is not authenticated in the CDP browser.
 
 Proven on this machine:
 
-- The checkout is on `main` at `28b6298 fix semantic lot number canonicalization` plus this Stage 9 CDP pause ledger edit.
+- The checkout is on `main` at `7957146 docs: add stage 9 cdp repair handoff` plus this Stage 9 CDP/auth pause ledger edit.
 - Cargo and Bun are present.
 - `origin/main` contains schema epoch fix commit `6d113ad`.
 - The daemon schema epoch is 9 because migration `0012_l4_sync_state` is present.
@@ -874,11 +925,11 @@ Proven on this machine:
 - `agent-browser --version` returns `agent-browser 0.27.0`.
 - `agent-browser doctor --offline --quick` reports 6 pass, 0 warn, 0 fail.
 - The persistent Chrome CDP listener is available on `localhost:9222`.
-- `/json/version` returns Chrome/148.0.7778.97 and Protocol-Version 1.3.
+- `/json/version` returns Chrome/148.0.7778.168 and Protocol-Version 1.3.
 - The CDP browser was launched with `$HOME/.chrome-automation`.
 - `agent-browser --cdp 9222 open "about:blank"`, `get title`, and `snapshot` succeed.
-- The browser preflight validation block exits 0 and prints `AGENT_BROWSER_CDP_PREFLIGHT_GREEN`.
-- Login checks were attempted. ProContract, Alibaba, SeaRates, and eBay all load through CDP. ProContract, Alibaba, and eBay show authenticated state; SeaRates loads Logistics Explorer without surfacing an interactive captcha challenge.
+- `agent-browser` initially targeted Chrome's Gemini side panel during marketplace checks; `agent-browser --cdp 9222 tab t1` selected the real page target and restored normal navigation.
+- Amazon UK, eBay UK, Gem Imports, MX Wholesale, and Alibaba all load through CDP after target selection. eBay shows authenticated state. Amazon/Gem/MX show optional sign-in controls but no blocking login wall or captcha. Alibaba shows `Sign in` and generic `Welcome to Alibaba.com`, so it is not authenticated for the Alibaba marketplace skill.
 - The isolated daemon dry-run passed with `PRAGMA user_version=9`.
 - The initial Contracts Finder blocker was real: failed workflow jobs `job-c3d5...` and `job-2c44...` had PTY streams containing `Failed to authenticate. API Error: 401 Invalid authentication credentials`.
 - The selected Claude CLI auth probe now returns `OK`.
@@ -918,14 +969,15 @@ Proven on this machine:
 - Re-running `--pipeline procontract` after the semantic fix scored 5 candidates and produced `search_profiles=5`.
 - Error manifest `prompts/machine-fork-e2e-docling-runtime-unavailable-error-manifest.md` is resolved by machine setup.
 - Error manifest `prompts/machine-fork-e2e-semantic-lot-number-type-error-manifest.md` is resolved by the daemon semantic lot-number canonicalization fix.
-- Stage 9 did not start because `curl -sfS -m 3 http://localhost:9222/json/version` returned connection refused. The selected-agent probe returned `OK`, so this pause is persistent browser/CDP setup.
+- Stage 9 did not start before CDP repair because `curl -sfS -m 3 http://localhost:9222/json/version` returned connection refused. After repair, no Stage 9 daemon command was run because Alibaba authentication is missing in the persistent CDP browser.
 
 Current next point:
 
 1. Source `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z/e2e-env.sh`.
 2. Keep the existing preserved roots; do not rerun Stage 4a portal registration.
-3. Launch or repair the persistent Chrome CDP profile on `localhost:9222`.
-4. Re-run `run_logged stage-09-cdp-version curl -sfS -m 3 http://localhost:9222/json/version`.
-5. Re-run marketplace login checks for Amazon UK, eBay UK, Gem Imports, MX Wholesale, and Alibaba through `agent-browser --cdp 9222`.
-6. If CDP/login checks pass, run Stage 9 supplier price comparison / marketplace search from the 5 generated search profiles for process `proc-pc-ecd07d9f-5249-f111-813c-005056b64545`.
-7. After Stage 9 produces supplier quotes, rerun `--pipeline procontract` for Stage 10 gross-margin assessment.
+3. Keep the repaired Chrome CDP profile listening on `localhost:9222`.
+4. Operator logs in or clears the Alibaba challenge in the Chrome window attached to `localhost:9222`.
+5. Re-run `run_logged stage-09-cdp-version-after-alibaba-auth-repair curl -sfS -m 3 http://localhost:9222/json/version`.
+6. Run `agent-browser --cdp 9222 tab t1` if `agent-browser tab list` shows the Gemini side panel selected, then re-open `https://www.alibaba.com/` and verify authenticated Alibaba state.
+7. If CDP/login checks pass, run Stage 9 supplier price comparison / marketplace search from the 5 generated search profiles for process `proc-pc-ecd07d9f-5249-f111-813c-005056b64545`.
+8. After Stage 9 produces supplier quotes, rerun `--pipeline procontract` for Stage 10 gross-margin assessment.
