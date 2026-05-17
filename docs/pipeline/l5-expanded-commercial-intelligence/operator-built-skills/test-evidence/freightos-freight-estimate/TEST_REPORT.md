@@ -120,4 +120,4 @@ All 8 result.json files validate successfully against `result.schema.json` per P
 
 The Freightos skill is ready for L5 step 09 bead audit. The L5 Phase 3 freight engine (per `docs/pipeline/l5-expanded-commercial-intelligence/manifest.yaml#recorded_decisions.external_api_account_state.operator_built_prerequisites[0]`) can now invoke `landed-cost/freightos-freight-estimate` in parallel with `landed-cost/searates-freight-estimate` for the dual-source cross-check that gates `FREIGHT_MODE_LOW_CONFIDENCE` emission.
 
-Skill files committed at SHA: (to be recorded after `git commit` in Phase D)
+Skill files committed at SHA: `5f24542` (2026-05-17 23:06 local). The commit message + diff covers `skills/landed-cost/freightos-freight-estimate/` (SKILL.md, eval.js, result.schema.json) and `docs/pipeline/l5-expanded-commercial-intelligence/operator-built-skills/test-evidence/freightos-freight-estimate/` (4 canaries × 3 files + 4 failure paths × 3 files + canary.inputs.jsonl + golden.assertions.yaml + failure-paths.jsonl + TEST_REPORT.md).
