@@ -1,0 +1,83 @@
+{
+  "source": "https://ec.europa.eu/taxation_customs/dds2/taric/",
+  "product_candidate_id": "test-rebar-001",
+  "queried_goods_code": "7214200020",
+  "queried_origin_country": "CN",
+  "queried_destination_country": "GB",
+  "queried_additional_code": null,
+  "reference_date": null,
+  "taric_status": "confirmed",
+  "captcha_intercepted": false,
+  "cdp_state": "connected",
+  "taric_last_update": "15-05-2026",
+  "warnings": [],
+  "blockers": [],
+  "source_url": "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&SimDate=20260517&Area=CN&Taric=7214200020",
+  "evidence": [
+    {
+      "kind": "taric_measures_page",
+      "url": "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&SimDate=20260517&Area=CN&Taric=7214200020",
+      "raw_excerpt": "Goods nomenclature code: 7214200020\nAdd code:\n\t\nSECTION XV\tBASE METALS AND ARTICLES OF BASE METAL\nCHAPTER\u00a072\tIRON AND STEEL\u00a0\n\t\nII. IRON AND NON-ALLOY STEEL : \u00a0\n7206\t\nIron and non-alloy steel in ingots or other primary forms (excluding iron of heading\u00a07203) : \u00a0 (TN701)\n7207\t\nSemi-finished products of iron or non-alloy steel : \u00a0 (TN701)\n7208\t\nFlat-rolled products of iron or non-alloy steel, of a width of 600\u00a0mm or more, hot-rolled, not clad, plated or coated : \u00a0 (TN701)\n7209\t\nFlat-rolled products of iron or non-alloy steel, of a width of 600\u00a0mm or more, cold-rolled (cold-reduced), not clad, plated or coated : \u00a0 (TN701)\n7210\t\nFlat-rolled products of iron or non-alloy steel, of a width of 600\u00a0mm or more, clad, plated or coated : \u00a0 (TN701)\n7211\t\nFlat-rolled products of iron or non-alloy steel, of a width of less than 600\u00a0mm, not clad, plated or coated : \u00a0 (TN701)\n7212\t\nFlat-rolled products of iron or non-alloy steel, of a width of less than 600\u00a0mm, clad, plated or coated : \u00a0 (TN701)\n7213\t\nBars and rods, hot-rolled, in irregularly wound coils, of iron or non-alloy steel : \u00a0 (TN701)\n7214\t\nOther bars and rods of iron or non-alloy steel, not further worked than forged, hot-rolled, hot-drawn or hot-extruded, but including those twisted after rolling : \u00a0 (TN701)\n7214 20\t\n-\u00a0\u00a0\nContaining indentations, ribs, grooves or other deformations produced during the rolling process or twisted after rolling : \u00a0\n7214 20 00 10\t\n-\u00a0\u00a0-\u00a0\u00a0\nHigh fatigue performance concrete reinforcing bars and rods\u00a0 (TN090)\n\t\n-\u00a0\u00a0-\u00a0\u00a0\nOther : \u00a0\n7214 20 00 20\u00a0\t\n-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0\nConcrete reinforcement bars and rods excluding long products, such as round bars\u00a0\nERGA OMNES (ERGA OMNES 1011)\n\t\nThird country duty (01-01-2005\u00a0-\u00a0) :\u00a0\t0 %\t\nR1789/03\n\n\n\t\nSuspension - goods for certain categories of ships, boats and other vessels and for drilling or production platforms (01-07-2016\u00a0-\u00a0) :\u00a0\t0 %\t(EU003) (TM510)\nR2658/87\n\t[Show conditions]\t\n\n\n\t\nAnti-dumping/countervailing statistic (21-12-2016\u00a0-\u00a0)\t\t\nR1036/16\n\tExcluding:\u00a0 Belarus (BY)\t\n\n\nAll third countries (ALLTC 1008)\n\t\nImport control (19-12-2023\u00a0-\u00a031-12-2026)\t\t(CD864)\nR0833/14\n\tExcluding:\u00a0 Russian Federation (RU)\t\n\t[Show conditions]\t\n\n\n\t\nCarbon Border Adjustment Mechanism (01-01-2026\u00a0-\u00a027-09-2026)\t\t(CD01023) (CD01024) (CD01025) (TM967)\nR0956/23\n\tExcluding:\u00a0 Switzerland (CH) ,\u00a0Iceland (IS) ,\u00a0Liechtenstein (LI) ,\u00a0Norway (NO) ,\u00a0Ceuta (XC) ,\u00a0Melilla (XL)\t\n\t[Show conditions]\t\n\n\nChina (CN)\n\t\nNon preferential tariff quota (08-07-2025\u00a0-\u00a030-06-2026) :\u00a0\t0 %\t\u00a0\u00a0(Order number:\u00a0098417)\nR0159/19\n\n\nCountries subject to safeguard measures (DEF_SAVG 5005)\n\t\nAdditional duties (safeguard) (01-04-2025\u00a0-\u00a030-06-2026) :\u00a0\t25.00 %\t\nR0159/19\n\tExcluding:\u00a0 United Arab Emirates (AE) ,\u00a0Brazil (BR) ,\u00a0Indonesia (ID) ,\u00a0India (IN) ,\u00a0North Macedonia (MK) ,\u00a0Tunisia (TN) ,\u00a0Viet Nam (VN) ,\u00a0South Africa (ZA)\t\n\n\nTop\n7215\t\nOther bars and rods of iron or non-alloy steel : \u00a0 (TN701)\n7216\t\nAngles, shapes and sections of iron or non-alloy steel : \u00a0 (TN701)\n7217\t\nWire of iron or non-alloy steel : \u00a0 (TN701)\n\t\nCD01023\t\u00a0\tArticle 2a of Regulation 2023/956:\nAn importer, including any importer with the status of an authorised CBAM declarant, shall be exempted from\nthe obligations under this Regulation, where the net mass of the imported goods in a given calendar year does not\ncumulatively exceed the single mass-based threshold laid down in point 1 of Annex VII (the \u201csingle mass-based\nthreshold\u201d). That threshold shall apply to the total net mass of goods under all CN codes aggregated per importer and\nper calendar year. In such a case, the importer, including an importer with the status of an authorised CBAM declarant,\nshall declare that exemption in the relevant customs declaration.\t\u00a0\nCD01024\t\u00a0\tCBAM obligations do not apply to goods of EU origin, and in cases where non-CBAM goods of non-EU origin are processed together with EU-origin goods under the inward processing procedure, the resulting processed CBAM goods released for free circulation shall be excluded from CBAM obligations.\t\u00a0\nCD01025\t\u00a0\tArticl"
+    }
+  ],
+  "measures_count": 9,
+  "mfn_rate_text": "0 %",
+  "mfn_rate_bps": 0,
+  "supplementary_unit": null,
+  "supplementary_unit_required": false,
+  "has_anti_dumping": true,
+  "has_countervailing": true,
+  "has_safeguard": true,
+  "has_suspension": true,
+  "has_tariff_preference": false,
+  "has_tariff_quota": true,
+  "has_additional_duties": true,
+  "has_cbam": true,
+  "measures": [
+    {
+      "measure_type": "Third country duty",
+      "period": "01-01-2005\u00a0-",
+      "rate_text": "0 %"
+    },
+    {
+      "measure_type": "Suspension - goods for certain categories of ships, boats and other vessels and for drilling or production platforms",
+      "period": "01-07-2016\u00a0-",
+      "rate_text": "0 %\t(EU003) (TM510)"
+    },
+    {
+      "measure_type": "Anti-dumping/countervailing statistic (21-12-2016\u00a0-\u00a0)",
+      "period": null,
+      "rate_text": null
+    },
+    {
+      "measure_type": "Import control (19-12-2023\u00a0-\u00a031-12-2026)\t\t(CD864)",
+      "period": null,
+      "rate_text": null
+    },
+    {
+      "measure_type": "Carbon Border Adjustment Mechanism (01-01-2026\u00a0-\u00a027-09-2026)",
+      "period": null,
+      "rate_text": null
+    },
+    {
+      "measure_type": "Non preferential tariff quota",
+      "period": "08-07-2025\u00a0-\u00a030-06-2026",
+      "rate_text": "0 %\t\u00a0\u00a0(Order number:\u00a0098417)"
+    },
+    {
+      "measure_type": "Countries subject to safeguard measures (DEF_SAVG 5005)",
+      "period": null,
+      "rate_text": null
+    },
+    {
+      "measure_type": "Additional duties (safeguard) (01-04-2025\u00a0-\u00a030-06-2026) :\u00a0\t2",
+      "period": null,
+      "rate_text": null
+    },
+    {
+      "measure_type": "EU003\t\u00a0\tAccording to The Special Provisions of Section II (A",
+      "period": null,
+      "rate_text": null
+    }
+  ]
+}

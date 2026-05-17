@@ -1,0 +1,5 @@
+{"id":"canary-01-dgu-confirmed","product_candidate_id":"test-dgu-001","goods_code":"7008002000","origin_country":"CN","destination_country":"GB","additional_code":null,"reference_date":null}
+{"id":"canary-02-steel-rebar-ad","product_candidate_id":"test-rebar-001","goods_code":"7214200020","origin_country":"CN","destination_country":"GB","additional_code":null,"reference_date":null}
+{"id":"canary-03-fasteners-cn","product_candidate_id":"test-fasteners-001","goods_code":"7318157590","origin_country":"CN","destination_country":"GB","additional_code":null,"reference_date":null}
+{"id":"canary-04-gloves-medical","product_candidate_id":"test-gloves-001","goods_code":"4015120000","origin_country":"MY","destination_country":"GB","additional_code":null,"reference_date":null}
+{"id":"canary-05-not-found","product_candidate_id":"test-invalid-001","goods_code":"9999999990","origin_country":"CN","destination_country":"GB","additional_code":null,"reference_date":null}

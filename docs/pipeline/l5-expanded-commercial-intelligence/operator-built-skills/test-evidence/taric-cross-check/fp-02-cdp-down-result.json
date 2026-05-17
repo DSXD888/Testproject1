@@ -1,0 +1,20 @@
+{
+  "product_candidate_id": "fp-test-001",
+  "queried_goods_code": "7008002000",
+  "queried_origin_country": "CN",
+  "queried_destination_country": "GB",
+  "queried_additional_code": null,
+  "reference_date": null,
+  "taric_status": "blocked",
+  "captcha_intercepted": false,
+  "cdp_state": "unreachable",
+  "warnings": [],
+  "blockers": [
+    {
+      "code": "CDP_CONNECT_FAILED",
+      "message": "CDP /json/version returned non-2xx (curl exit 7).",
+      "severity": "blocked"
+    }
+  ],
+  "evidence": []
+}

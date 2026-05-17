@@ -1,0 +1,68 @@
+{
+  "source": "https://ec.europa.eu/taxation_customs/dds2/taric/",
+  "product_candidate_id": "fp-test-001",
+  "queried_goods_code": "7008002000",
+  "queried_origin_country": "CN",
+  "queried_destination_country": "GB",
+  "queried_additional_code": null,
+  "reference_date": "2019-01-01",
+  "taric_status": "confirmed",
+  "captcha_intercepted": false,
+  "cdp_state": "connected",
+  "taric_last_update": "15-05-2026",
+  "warnings": [],
+  "blockers": [],
+  "source_url": "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&SimDate=20190101&Area=CN&Taric=7008002000",
+  "evidence": [
+    {
+      "kind": "taric_measures_page",
+      "url": "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&SimDate=20190101&Area=CN&Taric=7008002000",
+      "raw_excerpt": "Goods nomenclature code: 7008002000\nAdd code:\n\t\nSECTION XIII\tARTICLES OF STONE, PLASTER, CEMENT, ASBESTOS, MICA OR SIMILAR MATERIALS; CERAMIC PRODUCTS; GLASS AND GLASSWARE\nCHAPTER\u00a070\tGLASS AND GLASSWARE\u00a0\n7008\t\nMultiple-walled insulating units of glass : \u00a0 (TN701)\n7008 00 20\u00a0\t\n-\u00a0\u00a0\nColoured throughout the mass (body tinted), opacified, flashed or having an absorbent or reflecting layer\u00a0\nERGA OMNES (ERGA OMNES 1011)\n\t\nThird country duty (01-01-2005\u00a0-\u00a0) :\u00a0\t3.00 %\t\nR2261/98\n\n\n\t\nSuspension - goods for certain categories of ships, boats and other vessels and for drilling or production platforms (01-07-2016\u00a0-\u00a0) :\u00a0\t0 %\t(EU003) (TM510)\nR2658/87\n\t[Show conditions]\t\n\n\n\t\nAirworthiness tariff suspension (01-11-2018\u00a0-\u00a0) :\u00a0\t0 %\t(CD333)\nR1517/18\n\t[Show conditions]\t\n\n\n\t\nSupplementary unit (01-01-2008\u00a0-\u00a0) :\u00a0\tm\u00b2\t\nR2658/87\n\n\nTop\n\t\nCD333\t\u00a0\tThe autonomous Common Customs Tariff duties laid down in Regulation (EEC) No 2658/87 for parts, components and other goods of a kind to be incorporated in or used for aircraft and parts thereof in the course of their manufacture, repair, maintenance, rebuilding, modification or conversion is suspended.\nIn order to benefit from the suspension, the declarant shall present to the customs authorities an Authorised Release Certificate \u2014 EASA Form 1, as set out in Appendix I to Annex I to Regulation (EU) No 748/2012, or an equivalent certificate.\nThe certificates which are deemed to be equivalent to Authorised Release Certificates are listed in Annex II to the Regulation (EU) 2018/1517.\n\t\u00a0\nEU003\t\u00a0\tAccording to The Special Provisions of Section II (A) (3) of the Preliminary Provisions of the Combined Nomenclature the suspension of customs duties for goods for certain categories of ships, boats and other vessels and for drilling or production platforms shall be subject to conditions laid down in the relevant provisions of the European Union with a view to customs control of the use of such goods.\t\u00a0\nTM510\t\u00a0\t1. Customs duties shall be suspended in respect of goods intended for incorporation in the ships, boats or other vessels classified at the following CN codes 8901 10 10; 8901 20 10; 8901 30 10; 8901 90 10; 8902 00 10; 8903 91 10; 8903 92 10; 8904 00 10; 8904 00 91; 8905 10 10; 8905 90 10; 8906 10 00; 8906 90 10 for the purposes of their construction, repair, maintenance or conversion, and in respect of goods intended for fitting to or equipping such ships, boats or other vessels.\n2. Customs duties shall be suspended in respect of:\n(a) goods intended for incorporation in drilling or production platforms:\n(1) fixed, of subheading ex 8430 49, operating in or outside the territorial sea of Member States, or\n(2) floating or submersible, of subheading 8905 20, for the purposes of their construction, repair, maintenance or conversion, and in respect of goods intended for equipping the said platforms.\n(b) tubes, pipes, cables and their connection pieces, linking these drilling or production platforms to the mainland.\n\t\u00a0\nTN701\t\u00a0\tAccording to the Council Regulation (EU) No 692/2014 (OJ L183, p. 9) it shall be prohibited to import into European Union goods originating in Crimea or Sevastopol.\nThe prohibition shall not apply in respect of:\n(a) the execution until 26 September 2014, of trade contracts concluded before 25 June 2014, or of ancillary contracts necessary for the execution of such contracts, provided that the natural or legal persons, entity or body seeking to perform the contract have notified, at least 10 working days in advance, the activity or transaction to the competent authority of the Member State in which they are established.\n(b) goods originating in Crimea or Sevastopol which have been made available to the Ukrainian authorities for examination, for which compliance with the conditions conferring entitlement to preferential origin has been verified and for which a certificate of origin has been issued in accordance with Regulation (EU) No 978/2012 and Regulation (EU) No 374/2014 or in accordance with the EU-U"
+    }
+  ],
+  "measures_count": 6,
+  "mfn_rate_text": "3.00 %",
+  "mfn_rate_bps": 300,
+  "supplementary_unit": "m\u00b2",
+  "supplementary_unit_required": true,
+  "has_anti_dumping": false,
+  "has_countervailing": false,
+  "has_safeguard": false,
+  "has_suspension": true,
+  "has_tariff_preference": false,
+  "has_tariff_quota": false,
+  "has_additional_duties": false,
+  "has_cbam": false,
+  "measures": [
+    {
+      "measure_type": "Third country duty",
+      "period": "01-01-2005\u00a0-",
+      "rate_text": "3.00 %"
+    },
+    {
+      "measure_type": "Suspension - goods for certain categories of ships, boats and other vessels and for drilling or production platforms",
+      "period": "01-07-2016\u00a0-",
+      "rate_text": "0 %\t(EU003) (TM510)"
+    },
+    {
+      "measure_type": "Airworthiness tariff suspension",
+      "period": "01-11-2018\u00a0-",
+      "rate_text": "0 %\t(CD333)"
+    },
+    {
+      "measure_type": "Supplementary unit",
+      "period": "01-01-2008\u00a0-",
+      "rate_text": "m\u00b2"
+    },
+    {
+      "measure_type": "In order to benefit from the suspension, the declarant shall",
+      "period": null,
+      "rate_text": null
+    },
+    {
+      "measure_type": "EU003\t\u00a0\tAccording to The Special Provisions of Section II (A",
+      "period": null,
+      "rate_text": null
+    }
+  ]
+}

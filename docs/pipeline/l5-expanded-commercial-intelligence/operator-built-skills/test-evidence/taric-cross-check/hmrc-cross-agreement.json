@@ -1,0 +1,52 @@
+[
+  {
+    "canary": "canary-01-dgu-confirmed",
+    "hmrc": {
+      "description": "Coloured throughout the mass (body tinted), opacified, flashed or having an absorbent or reflecting layer",
+      "mfn_rate_text": "0.00 %",
+      "supplementary_unit_code": "MTK",
+      "has_anti_dumping": false,
+      "has_countervailing": false,
+      "has_safeguard": false
+    },
+    "taric": {
+      "taric_status": "confirmed",
+      "mfn_rate_text": "3.00 %",
+      "supplementary_unit": "m\u00b2",
+      "has_anti_dumping": false,
+      "has_countervailing": false,
+      "has_safeguard": false
+    },
+    "agreement": {
+      "supp_unit": true,
+      "mfn_duty": false,
+      "trade_remedy_presence": true,
+      "overall_verdict": "PARTIAL_AGREEMENT"
+    }
+  },
+  {
+    "canary": "canary-02-steel-rebar-ad",
+    "hmrc": {
+      "description": "Concrete reinforcement bars and rods excluding long products, such as round bars",
+      "mfn_rate_text": "0.00 %",
+      "supplementary_unit_code": null,
+      "has_anti_dumping": false,
+      "has_countervailing": false,
+      "has_safeguard": false
+    },
+    "taric": {
+      "taric_status": "confirmed",
+      "mfn_rate_text": "0 %",
+      "supplementary_unit": null,
+      "has_anti_dumping": true,
+      "has_countervailing": true,
+      "has_safeguard": true
+    },
+    "agreement": {
+      "supp_unit": null,
+      "mfn_duty": true,
+      "trade_remedy_presence": false,
+      "overall_verdict": "PARTIAL_AGREEMENT"
+    }
+  }
+]

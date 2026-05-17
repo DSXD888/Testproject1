@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "product_candidate_id",
+    "queried_goods_code",
+    "taric_status",
+    "captcha_intercepted",
+    "cdp_state",
+    "warnings",
+    "blockers"
+  ],
+  "properties": {
+    "source": { "type": "string" },
+    "product_candidate_id": { "type": "string" },
+    "queried_goods_code": { "type": "string", "description": "The TARIC-acceptable goods code that was queried (typically 10 digits; some headings only accept CN8)" },
+    "queried_origin_country": { "type": ["string", "null"], "description": "ISO 3166-1 alpha-2 origin/destination code used as TARIC Area parameter" },
+    "queried_destination_country": { "type": ["string", "null"], "description": "Informational only — TARIC does not differentiate destination beyond Area" },
+    "queried_additional_code": { "type": ["string", "null"] },
+    "reference_date": { "type": ["string", "null"], "description": "ISO date used for the TARIC consultation (default: today)" },
+    "taric_last_update": { "type": ["string", "null"], "description": "From the page metadata 'Last TARIC update' (DD-MM-YYYY)" },
+    "taric_status": {
+      "type": "string",
+      "enum": ["confirmed", "not_found", "blocked"],
+      "description": "confirmed = code+origin returned measures; not_found = TARIC has no measures (or code does not exist); blocked = couldn't complete the lookup"
+    },
+    "captcha_intercepted": { "type": "boolean", "default": false },
+    "cdp_state": {
+      "type": "string",
+      "enum": ["connected", "unreachable", "captcha_blocked", "session_expired"],
+      "default": "connected"
+    },
+    "measures_count": { "type": ["integer", "null"], "minimum": 0 },
+    "mfn_rate_text": { "type": ["string", "null"], "description": "Third-country (MFN) duty text exactly as TARIC displays it (e.g., '3.00 %' or '50 EUR / 100 kg net')" },
+    "mfn_rate_bps": { "type": ["integer", "null"], "minimum": 0, "description": "Parsed ad valorem rate in basis points when mfn_rate_text is a simple percent; null when compound/specific" },
+    "supplementary_unit": { "type": ["string", "null"], "description": "Supplementary unit description (e.g., 'm²', 'pa', 'p/st', 'kg net'); null when TARIC does not declare a supp unit at this code" },
+    "supplementary_unit_required": { "type": ["boolean", "null"] },
+    "has_anti_dumping": { "type": "boolean", "default": false },
+    "has_countervailing": { "type": "boolean", "default": false },
+    "has_safeguard": { "type": "boolean", "default": false },
+    "has_tariff_quota": { "type": "boolean", "default": false },
+    "has_tariff_preference": { "type": "boolean", "default": false },
+    "has_suspension": { "type": "boolean", "default": false },
+    "has_additional_duties": { "type": "boolean", "default": false },
+    "has_cbam": { "type": "boolean", "default": false, "description": "Carbon Border Adjustment Mechanism — present on iron/steel/aluminium/cement/fertiliser/electricity/hydrogen codes" },
+    "measures": {
+      "type": "array",
+      "description": "Extracted measure rows; each item has measure_type and rate_text and (where present) geographical_area, conditions, footnotes",
+      "items": { "type": "object" }
+    },
+    "source_url": { "type": ["string", "null"], "description": "Direct deep-link to the TARIC consultation result" },
+    "evidence": { "type": ["array", "object", "null"] },
+    "warnings": { "type": "array" },
+    "blockers": { "type": "array" }
+  }
+}

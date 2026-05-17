@@ -1,0 +1,73 @@
+{
+  "source": "https://ec.europa.eu/taxation_customs/dds2/taric/",
+  "product_candidate_id": "test-fasteners-001",
+  "queried_goods_code": "7318157590",
+  "queried_origin_country": "CN",
+  "queried_destination_country": "GB",
+  "queried_additional_code": null,
+  "reference_date": null,
+  "taric_status": "confirmed",
+  "captcha_intercepted": false,
+  "cdp_state": "connected",
+  "taric_last_update": "15-05-2026",
+  "warnings": [],
+  "blockers": [],
+  "source_url": "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&SimDate=20260517&Area=CN&Taric=7318157590",
+  "evidence": [
+    {
+      "kind": "taric_measures_page",
+      "url": "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&SimDate=20260517&Area=CN&Taric=7318157590",
+      "raw_excerpt": "Goods nomenclature code: 7318157590\nAdd code:\n\t\nSECTION XV\tBASE METALS AND ARTICLES OF BASE METAL\nCHAPTER\u00a073\tARTICLES OF IRON OR STEEL\u00a0\n7318\t\nScrews, bolts, nuts, coach screws, screw hooks, rivets, cotters, cotter pins, washers (including spring washers) and similar articles, of iron or steel : \u00a0 (TN701)\n\t\n-\u00a0\u00a0\nThreaded articles : \u00a0\n7318 11\t\n-\u00a0\u00a0-\u00a0\u00a0\nCoach screws\u00a0\n7318 12\t\n-\u00a0\u00a0-\u00a0\u00a0\nOther wood screws : \u00a0\n7318 13\t\n-\u00a0\u00a0-\u00a0\u00a0\nScrew hooks and screw rings : \u00a0\n7318 14\t\n-\u00a0\u00a0-\u00a0\u00a0\nSelf-tapping screws : \u00a0\n7318 15\t\n-\u00a0\u00a0-\u00a0\u00a0\nOther screws and bolts, whether or not with their nuts or washers : \u00a0\n7318 15 20\t\n-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0\nFor fixing railway track construction material\u00a0\n\t\n-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0\nOther : \u00a0\n\t\n-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0\nWith heads : \u00a0\n\t\n-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0\nHexagonal heads : \u00a0\n7318 15 75\t\n-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0\nOf stainless steel : \u00a0\n7318 15 75 10\t\n-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0\nFor use in certain types of aircraft\u00a0\n7318 15 75 90\u00a0\t\n-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0-\u00a0\u00a0\nOther\u00a0\nERGA OMNES (ERGA OMNES 1011)\n\t\nThird country duty (01-01-2005\u00a0-\u00a0) :\u00a0\t3.70 %\t\nR2261/98\n\n\n\t\nSuspension - goods for certain categories of ships, boats and other vessels and for drilling or production platforms (01-07-2017\u00a0-\u00a0) :\u00a0\t0 %\t(EU003) (TM510)\nR2658/87\n\t[Show conditions]\t\n\n\n\t\nAirworthiness tariff suspension (01-11-2018\u00a0-\u00a0) :\u00a0\t0 %\t(CD333)\nR1517/18\n\t[Show conditions]\t\n\n\nAll third countries (ALLTC 1008)\n\t\nImport control (19-12-2023\u00a0-\u00a031-12-2026)\t\t(CD864)\nR0833/14\n\tExcluding:\u00a0 Russian Federation (RU)\t\n\t[Show conditions]\t\n\n\n\t\nCarbon Border Adjustment Mechanism (01-01-2026\u00a0-\u00a027-09-2026)\t\t(CD01023) (CD01024) (CD01025) (TM967)\nR0956/23\n\tExcluding:\u00a0 Switzerland (CH) ,\u00a0Iceland (IS) ,\u00a0Liechtenstein (LI) ,\u00a0Norway (NO) ,\u00a0Ceuta (XC) ,\u00a0Melilla (XL)\t\n\t[Show conditions]\t\n\n\nTop\n7318 16\t\n-\u00a0\u00a0-\u00a0\u00a0\nNuts : \u00a0\n7318 19\t\n-\u00a0\u00a0-\u00a0\u00a0\nOther : \u00a0\n\t\nCD01023\t\u00a0\tArticle 2a of Regulation 2023/956:\nAn importer, including any importer with the status of an authorised CBAM declarant, shall be exempted from\nthe obligations under this Regulation, where the net mass of the imported goods in a given calendar year does not\ncumulatively exceed the single mass-based threshold laid down in point 1 of Annex VII (the \u201csingle mass-based\nthreshold\u201d). That threshold shall apply to the total net mass of goods under all CN codes aggregated per importer and\nper calendar year. In such a case, the importer, including an importer with the status of an authorised CBAM declarant,\nshall declare that exemption in the relevant customs declaration.\t\u00a0\nCD01024\t\u00a0\tCBAM obligations do not apply to goods of EU origin, and in cases where non-CBAM goods of non-EU origin are processed together with EU-origin goods under the inward processing procedure, the resulting processed CBAM goods released for free circulation shall be excluded from CBAM obligations.\t\u00a0\nCD01025\t\u00a0\tArticle 17.7a. of Regulation 2023/956: By way of derogation from Article 4, where an importer or an indirect customs representative has submitted an application in accordance with Article 5 by 31 March 2026, such an importer or indirect customs representative may provisionally continue to import goods until the competent authority takes a decision under this Article.\t\u00a0\nCD333\t\u00a0\tThe autonomous Common Customs Tariff duties laid down in Regulation (EEC) No 2658/87 for parts, components and other goods of a kind to be incorporated in or used for aircraft and parts thereof in the course of their manufacture, repair, maintenance, rebuilding, modification or conversion is suspended.\nIn order to benefit from the suspension, the declarant shall present to the customs authorities an Authorised Release Certificate \u2014 EASA Form 1, as set out in Appendix I to Annex I to Regulation (EU) No 748/2012, or an equivalent certificate.\nThe certificates which are deemed to be equivalent to Authorised Release Certificates are listed in Annex II to the Regulation (EU) 2018/1517.\n\t\u00a0\nCD864\t\u00a0\tIt shall be prohibited:\n(a) to import, directly or indirectly, iron and steel products as listed in Annex XVII into the Union if they:\n(i) originate in Russia; or\n(ii) have been exporte"
+    }
+  ],
+  "measures_count": 7,
+  "mfn_rate_text": "3.70 %",
+  "mfn_rate_bps": 370,
+  "supplementary_unit": null,
+  "supplementary_unit_required": false,
+  "has_anti_dumping": false,
+  "has_countervailing": false,
+  "has_safeguard": false,
+  "has_suspension": true,
+  "has_tariff_preference": false,
+  "has_tariff_quota": false,
+  "has_additional_duties": false,
+  "has_cbam": true,
+  "measures": [
+    {
+      "measure_type": "Third country duty",
+      "period": "01-01-2005\u00a0-",
+      "rate_text": "3.70 %"
+    },
+    {
+      "measure_type": "Suspension - goods for certain categories of ships, boats and other vessels and for drilling or production platforms",
+      "period": "01-07-2017\u00a0-",
+      "rate_text": "0 %\t(EU003) (TM510)"
+    },
+    {
+      "measure_type": "Airworthiness tariff suspension",
+      "period": "01-11-2018\u00a0-",
+      "rate_text": "0 %\t(CD333)"
+    },
+    {
+      "measure_type": "Import control (19-12-2023\u00a0-\u00a031-12-2026)\t\t(CD864)",
+      "period": null,
+      "rate_text": null
+    },
+    {
+      "measure_type": "Carbon Border Adjustment Mechanism (01-01-2026\u00a0-\u00a027-09-2026)",
+      "period": null,
+      "rate_text": null
+    },
+    {
+      "measure_type": "In order to benefit from the suspension, the declarant shall",
+      "period": null,
+      "rate_text": null
+    },
+    {
+      "measure_type": "EU003\t\u00a0\tAccording to The Special Provisions of Section II (A",
+      "period": null,
+      "rate_text": null
+    }
+  ]
+}

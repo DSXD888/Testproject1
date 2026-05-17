@@ -1,0 +1,20 @@
+{
+  "product_candidate_id": "fp-test-001",
+  "queried_goods_code": "7008002000",
+  "queried_origin_country": "CN",
+  "queried_destination_country": "GB",
+  "queried_additional_code": null,
+  "reference_date": null,
+  "taric_status": "blocked",
+  "captcha_intercepted": true,
+  "cdp_state": "captcha_blocked",
+  "warnings": [],
+  "blockers": [
+    {
+      "code": "CDP_CAPTCHA_INTERCEPTION",
+      "message": "Captcha simulation requested via job_parameters.simulate_captcha; browser was not contacted.",
+      "severity": "blocked"
+    }
+  ],
+  "evidence": []
+}

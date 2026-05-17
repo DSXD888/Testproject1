@@ -1,0 +1,20 @@
+{
+  "product_candidate_id": "fp-test-001",
+  "queried_goods_code": "NOT-A-CODE",
+  "queried_origin_country": "CN",
+  "queried_destination_country": "GB",
+  "queried_additional_code": null,
+  "reference_date": null,
+  "taric_status": "blocked",
+  "captcha_intercepted": false,
+  "cdp_state": "connected",
+  "warnings": [],
+  "blockers": [
+    {
+      "code": "TARIC_FORM_REJECTED",
+      "message": "goods_code 'NOT-A-CODE' must be 6-10 digits before submission to TARIC.",
+      "severity": "blocked"
+    }
+  ],
+  "evidence": []
+}

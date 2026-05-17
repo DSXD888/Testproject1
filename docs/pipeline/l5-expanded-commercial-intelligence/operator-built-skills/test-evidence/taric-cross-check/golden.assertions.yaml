@@ -1,0 +1,51 @@
+# Golden assertions are signal-shape based — TARIC measure rates can change quarterly.
+# These verify the skill captures the RIGHT KINDS of signals reliably.
+# Adjustments vs the handoff template based on Phase A empirical findings:
+# - canary-01: EU MFN is 3.00% (not 0% — UK post-Brexit divergence); supp unit m² confirmed.
+# - canary-02: supp_unit is null for rebar (TARIC does not declare separate supp unit when kg net is base unit).
+# - canary-03: goods_code updated from 7318159081 (does not exist in TARIC) → 7318157590 (valid leaf, hex head SS bolts).
+
+canary-01-dgu-confirmed:
+  taric_status: confirmed
+  cdp_state: connected
+  captcha_intercepted: false
+  measures_count:
+    min: 1
+  supplementary_unit:
+    must_exist: true   # 7008002000 has m² supp unit
+  blockers_length: 0
+
+canary-02-steel-rebar-ad:
+  taric_status: confirmed
+  cdp_state: connected
+  has_anti_dumping: true       # Chinese steel rebar has EU AD
+  measures_count:
+    min: 2                     # third-country duty + AD/safeguard at minimum
+  blockers_length: 0
+  # supplementary_unit may be null for rebar — TARIC does not declare a separate
+  # supp unit when kg net is the base unit of measure. Do not assert must_exist.
+
+canary-03-fasteners-cn:
+  taric_status: confirmed
+  cdp_state: connected
+  measures_count:
+    min: 1
+  blockers_length: 0
+  # MFN ~3.70%, suspension + CBAM present (iron/steel scope); AD presence varies by leaf
+
+canary-04-gloves-medical:
+  taric_status: confirmed
+  cdp_state: connected
+  measures_count:
+    min: 1
+  supplementary_unit:
+    must_exist: true           # gloves declared in `pa` (pairs)
+  blockers_length: 0
+
+canary-05-not-found:
+  taric_status: not_found
+  cdp_state: connected
+  captcha_intercepted: false
+  blockers_length: 0           # not_found is a WARNING, not a blocker
+  warnings_length:
+    min: 1                     # should warn about the missing code

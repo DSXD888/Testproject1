@@ -1,0 +1,25 @@
+{
+  "source": "https://ec.europa.eu/taxation_customs/dds2/taric/",
+  "product_candidate_id": "test-invalid-001",
+  "queried_goods_code": "9999999990",
+  "queried_origin_country": "CN",
+  "queried_destination_country": "GB",
+  "queried_additional_code": null,
+  "reference_date": null,
+  "taric_status": "not_found",
+  "captcha_intercepted": false,
+  "cdp_state": "connected",
+  "taric_last_update": null,
+  "warnings": [
+    {
+      "code": "TARIC_GOODS_CODE_NOT_FOUND",
+      "message": "Request bounced back to search form \u2014 goods code/area unknown to TARIC.",
+      "severity": "warning"
+    }
+  ],
+  "blockers": [],
+  "source_url": "https://ec.europa.eu/taxation_customs/dds2/taric/taric_consultation.jsp?Taric=9999999990&SimDate=20260517&Area=CN&AdditionalCode=&GoodsText=&MeasText=&MeasType=&OrderNum=&StartPub=&EndPub=&Regulation=",
+  "evidence": [],
+  "measures_count": 0,
+  "measures": []
+}

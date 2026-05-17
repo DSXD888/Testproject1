@@ -1,0 +1,48 @@
+{
+  "source": "https://ec.europa.eu/taxation_customs/dds2/taric/",
+  "product_candidate_id": "test-gloves-001",
+  "queried_goods_code": "4015120000",
+  "queried_origin_country": "MY",
+  "queried_destination_country": "GB",
+  "queried_additional_code": null,
+  "reference_date": null,
+  "taric_status": "confirmed",
+  "captcha_intercepted": false,
+  "cdp_state": "connected",
+  "taric_last_update": "15-05-2026",
+  "warnings": [],
+  "blockers": [],
+  "source_url": "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&SimDate=20260517&Area=MY&Taric=4015120000",
+  "evidence": [
+    {
+      "kind": "taric_measures_page",
+      "url": "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&SimDate=20260517&Area=MY&Taric=4015120000",
+      "raw_excerpt": "Goods nomenclature code: 4015120000\nAdd code:\n\t\nSECTION VII\tPLASTICS AND ARTICLES THEREOF; RUBBER AND ARTICLES THEREOF\nCHAPTER\u00a040\tRUBBER AND ARTICLES THEREOF\u00a0 (TN701)\n4015\t\nArticles of apparel and clothing accessories (including gloves, mittens and mitts), for all purposes, of vulcanised rubber other than hard rubber : \u00a0 (TN701)\n\t\n-\u00a0\u00a0\nGloves, mittens and mitts : \u00a0\n4015 12\u00a0\t\n-\u00a0\u00a0-\u00a0\u00a0\nOf a kind used for medical, surgical, dental or veterinary purposes\u00a0\nERGA OMNES (ERGA OMNES 1011)\n\t\nThird country duty (01-01-2022\u00a0-\u00a0) :\u00a0\t2.00 %\t\nR1832/21\n\n\n\t\nSupplementary unit (01-01-2022\u00a0-\u00a0) :\u00a0\tpa\t\nR1832/21\n\n\nTop\n\t\nTN701\t\u00a0\tAccording to Council Regulation (EU) No 692/2014 (OJ L183, p. 9) it shall be prohibited to import into European Union goods originating in Crimea or Sevastopol.\nThe prohibition shall not apply in respect of goods originating in Crimea or Sevastopol which have been made available to the Ukrainian authorities for examination, for which compliance with the conditions conferring entitlement to preferential origin has been verified and for which a certificate of origin has been issued in accordance with the Association Agreement between the European Union and its Member States, of the one part, and Ukraine, of the other part.\n\n-------------------------\n\nAccording to Council Regulation (EU) 2022/263 (OJ L42I, p. 77):\nIt shall be prohibited to import into the European Union goods originating in non-government controlled areas of the Donetsk, Kherson, Luhansk and Zaporizhzhia oblasts of Ukraine.\nThe import prohibitions shall not apply in respect of goods originating in the specified territories which have been made available to the Ukrainian authorities for examination, for which compliance with the conditions conferring entitlement to preferential origin has been verified and for which a certificate of origin has been issued in accordance with the Association Agreement between the European Union and its Member States, of the one part, and Ukraine, of the other part.\t\u00a0\n"
+    }
+  ],
+  "measures_count": 2,
+  "mfn_rate_text": "2.00 %",
+  "mfn_rate_bps": 200,
+  "supplementary_unit": "pa",
+  "supplementary_unit_required": true,
+  "has_anti_dumping": false,
+  "has_countervailing": false,
+  "has_safeguard": false,
+  "has_suspension": false,
+  "has_tariff_preference": false,
+  "has_tariff_quota": false,
+  "has_additional_duties": false,
+  "has_cbam": false,
+  "measures": [
+    {
+      "measure_type": "Third country duty",
+      "period": "01-01-2022\u00a0-",
+      "rate_text": "2.00 %"
+    },
+    {
+      "measure_type": "Supplementary unit",
+      "period": "01-01-2022\u00a0-",
+      "rate_text": "pa"
+    }
+  ]
+}
