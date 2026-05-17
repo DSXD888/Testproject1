@@ -493,6 +493,23 @@ struct Cli {
     #[arg(long)]
     pipeline: Option<String>,
 
+    /// Requeue and execute one failed/pending extraction workflow job by id.
+    #[arg(
+        long,
+        hide = true,
+        value_name = "JOB_ID",
+        conflicts_with_all = [
+            "serve",
+            "serve_once",
+            "ingest",
+            "skill_path",
+            "dry_run",
+            "pipeline",
+            "run_next_job"
+        ]
+    )]
+    retry_workflow_job: Option<String>,
+
     /// Claim and execute exactly one pending workflow job. Hidden because it is
     /// currently only used by deterministic integration tests and PDF queue work.
     #[arg(
@@ -1385,6 +1402,16 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    if let Some(job_id) = cli.retry_workflow_job.clone() {
+        let report = retry_workflow_job_by_id(&mut runtime, &cli, &job_id).await?;
+        if matches!(report.status.as_str(), "completed") {
+            println!("{}", report.summary_line);
+            return Ok(());
+        }
+        eprintln!("{}", report.summary_line);
+        bail!(report.summary_line);
+    }
+
     if cli.run_next_job {
         let report = run_next_workflow_job(&mut runtime, &cli).await?;
         if report.status == "completed" {
@@ -1400,6 +1427,72 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[allow(clippy::future_not_send)]
+async fn retry_workflow_job_by_id(
+    runtime: &mut RuntimeBootstrap,
+    cli: &Cli,
+    job_id: &str,
+) -> Result<LiveLoopReport> {
+    runtime.state_db.with_write_transaction(|tx| {
+        let (kind, status): (String, String) = tx
+            .query_row(
+                "SELECT kind, status FROM workflow_jobs WHERE id = ?1",
+                params![job_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .with_context(|| format!("loading workflow job {job_id}"))?;
+        ensure!(
+            matches!(
+                kind.as_str(),
+                "extract_document_structure" | "extract_document_semantics"
+            ),
+            "retry-workflow-job only supports extraction jobs, got `{kind}`"
+        );
+        match status.as_str() {
+            "failed" => {
+                tx.execute(
+                    "\
+                    UPDATE workflow_jobs
+                    SET status = 'retry',
+                        last_error = NULL,
+                        output_payload = NULL,
+                        completed_at = NULL,
+                        lease_owner = NULL,
+                        lease_expires_at = NULL,
+                        started_at = NULL
+                    WHERE id = ?1
+                      AND status = 'failed'
+                    ",
+                    params![job_id],
+                )?;
+            }
+            "pending" | "retry" => {}
+            other => bail!("workflow job `{job_id}` is not retryable from status `{other}`"),
+        }
+        Ok(())
+    })?;
+
+    let runner = JobRunner::new(LOCAL_EXECUTOR_ID);
+    let claimed = runner
+        .claim_job_by_id(runtime.state_db.connection(), job_id)?
+        .ok_or_else(|| anyhow!("workflow job `{job_id}` was not claimable after retry"))?;
+
+    match claimed.kind.as_str() {
+        "extract_document_structure" => {
+            run_extract_document_structure_job(runtime, &runner, claimed).await
+        }
+        "extract_document_semantics" => {
+            run_extract_document_semantics_job(runtime, &runner, claimed, cli).await
+        }
+        other => fail_job(
+            runtime,
+            &claimed.id,
+            &format!("unsupported queued job kind `{other}`"),
+            json!({"error_code": "AGENT_RUN_FAILED", "job_kind": other}),
+        ),
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -19016,7 +19109,7 @@ fn persist_tender_spec_domain_writes(
     let lots = required_array_at(result_json, &["lots"], "lots")?;
     for lot in lots {
         let lot_number_text =
-            required_string_at(lot, &["lot_number"], "lots[].lot_number")?.to_owned();
+            required_lot_identifier_at(lot, &["lot_number"], "lots[].lot_number")?;
         let lot_id = resolve_notice_lot_id(tx, notice_id, &lot_number_text)?;
         let title = optional_string_at(lot, &["title"]).unwrap_or_default();
         let description = optional_string_at(lot, &["description"]);
@@ -19058,7 +19151,7 @@ fn persist_tender_spec_domain_writes(
         )?;
         refs.push(json!({"table": "notice_lots", "id": lot_id.clone()}));
 
-        let lot_seeds = lot_product_requirement_seeds(result_json, &lot_number_text);
+        let lot_seeds = lot_product_requirement_seeds(result_json, &lot_number_text)?;
         let lot_seed_count = lot_seeds.len();
         for seed in lot_seeds {
             let candidate_key = seed_key(seed);
@@ -19158,7 +19251,8 @@ fn persist_pricing_overlay_domain_writes(
     let mut refs = Vec::new();
     for line_item in line_items {
         let lot_number =
-            optional_string_at(line_item, &["lot_number"]).unwrap_or_else(|| "1".to_owned());
+            optional_lot_identifier_at(line_item, &["lot_number"], "line_items[].lot_number")?
+                .unwrap_or_else(|| "1".to_owned());
         let lot_id = resolve_notice_lot_id(tx, notice_id, &lot_number)?;
         let description = optional_string_at(line_item, &["description"]);
         let Some(candidate) = resolve_candidate_for_lot(tx, &lot_id, description.as_deref())?
@@ -19227,8 +19321,8 @@ fn persist_quantity_overlay_domain_writes(
 
     let mut refs = Vec::new();
     for item in items {
-        let lot_number =
-            optional_string_at(item, &["lot_number"]).unwrap_or_else(|| "1".to_owned());
+        let lot_number = optional_lot_identifier_at(item, &["lot_number"], "items[].lot_number")?
+            .unwrap_or_else(|| "1".to_owned());
         let lot_id = resolve_notice_lot_id(tx, notice_id, &lot_number)?;
         let description = optional_string_at(item, &["description"]);
         let Some(candidate) = resolve_candidate_for_lot(tx, &lot_id, description.as_deref())?
@@ -19284,14 +19378,25 @@ fn persist_quantity_overlay_domain_writes(
     Ok(refs)
 }
 
-fn lot_product_requirement_seeds<'a>(result_json: &'a Value, lot_number: &str) -> Vec<&'a Value> {
+fn lot_product_requirement_seeds<'a>(
+    result_json: &'a Value,
+    lot_number: &str,
+) -> Result<Vec<&'a Value>> {
     let Some(seeds) = optional_array_at(result_json, &["product_requirement_seeds"]) else {
-        return Vec::new();
+        return Ok(Vec::new());
     };
-    seeds
-        .iter()
-        .filter(|seed| optional_string_at(seed, &["lot_number"]).as_deref() == Some(lot_number))
-        .collect()
+    let mut matching = Vec::new();
+    for seed in seeds {
+        let seed_lot_number = optional_lot_identifier_at(
+            seed,
+            &["lot_number"],
+            "product_requirement_seeds[].lot_number",
+        )?;
+        if seed_lot_number.as_deref() == Some(lot_number) {
+            matching.push(seed);
+        }
+    }
+    Ok(matching)
 }
 
 #[derive(Debug, Clone)]
@@ -19609,6 +19714,36 @@ fn optional_string_at(value: &Value, path: &[&str]) -> Option<String> {
 
 fn optional_string_ref_at<'a>(value: &'a Value, path: &[&str]) -> Option<&'a str> {
     walk_json_path(value, path).and_then(Value::as_str)
+}
+
+fn required_lot_identifier_at(value: &Value, path: &[&str], label: &str) -> Result<String> {
+    let raw =
+        walk_json_path(value, path).ok_or_else(|| anyhow!("missing lot identifier `{label}`"))?;
+    canonical_lot_identifier(raw, label)
+}
+
+fn optional_lot_identifier_at(value: &Value, path: &[&str], label: &str) -> Result<Option<String>> {
+    walk_json_path(value, path)
+        .map(|raw| canonical_lot_identifier(raw, label))
+        .transpose()
+}
+
+fn canonical_lot_identifier(value: &Value, label: &str) -> Result<String> {
+    match value {
+        Value::String(raw) => Ok(raw.clone()),
+        Value::Number(number) => number
+            .as_i64()
+            .map(|raw| raw.to_string())
+            .or_else(|| number.as_u64().map(|raw| raw.to_string()))
+            .ok_or_else(|| {
+                anyhow!(
+                    "invalid lot identifier `{label}`: expected string or finite integer number"
+                )
+            }),
+        _ => Err(anyhow!(
+            "invalid lot identifier `{label}`: expected string or finite integer number"
+        )),
+    }
 }
 
 fn required_i64_at(value: &Value, path: &[&str], label: &str) -> Result<i64> {
