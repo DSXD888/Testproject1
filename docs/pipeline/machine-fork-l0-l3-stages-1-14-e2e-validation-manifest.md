@@ -1,15 +1,15 @@
 # Machine Fork L0-L3 Stages 1-14 E2E Validation Manifest
 
 Generated: 2026-05-12T18:46:53Z
-Last verified: 2026-05-16T16:41:16Z
-Status: PAUSED - Stage 4b Docling setup is repaired and structural extraction advanced; one downstream semantic extraction job now fails because `pdf-extraction/tender-specification` emitted numeric `lots[].lot_number` where the daemon/schema contract requires a string
-Git HEAD at verification: 1e380fb docs: record docling setup validation
+Last verified: 2026-05-17T14:00:17Z
+Status: PAUSED - Stage 9 marketplace preflight cannot start because the persistent CDP browser on localhost:9222 is not reachable
+Git HEAD at verification: 28b6298 fix semantic lot number canonicalization
 State root: `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z`
 Runtime dir: `/Users/zacfarrell/Desktop/Testproject1/runtime-e2e-machine-fork-20260512T195251Z`
 Artifact root: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z`
 QA log root: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-20260512T195251Z/qa-logs`
 Daemon binary: `/tmp/testproject1-target-machine-fork-20260512T195251Z/debug/daemon`
-CDP browser: available; Chrome/148.0.7778.97, Protocol 1.3, listening on 127.0.0.1:9222, launched with `$HOME/.chrome-automation`
+CDP browser: unavailable during Stage 9 preflight (`curl http://localhost:9222/json/version` failed to connect); previous good state was Chrome/148.0.7778.97, Protocol 1.3, launched with `$HOME/.chrome-automation`
 
 Status meanings:
 - GREEN: all required L0-L3 and requested localhost smoke checks passed.
@@ -43,6 +43,7 @@ Status meanings:
 | 2026-05-16T15:57:20Z | Stage 4b - Docling setup and extraction retry | Installed Docling 2.93.0 into `/Users/zacfarrell/.docling-venv/bin/python`, prefetched models into `/Users/zacfarrell/.cache/docling/models`, retried the preserved extraction path, and the latest structural extraction jobs completed. The pipeline now has `document_extractions=3`, `semantic_extractions=3`, and `product_candidates=5`; `search_profiles=0`. One new semantic job failed with `missing string lots[].lot_number` because the preserved `pdf-extraction/tender-specification` `result.json` has numeric `lot_number=1`. | Created `prompts/machine-fork-e2e-semantic-lot-number-type-error-manifest.md`. No product code was changed for the Docling setup fix. | Fix the semantic lot-number contract/type mismatch, then retry only the failed semantic job or the smallest supported extraction continuation against the existing E2E roots. |
 | 2026-05-16T16:41:16Z | Resume check after semantic lot-number blocker | Operator said continue. Fetched `origin/main` and verified the checkout is still at `1e380fb docs: record docling setup validation` with no product-code fix for the semantic lot-number blocker. The failed semantic job remains `job-479bed51-0fea-46ee-a207-51e94c641c0b` with `missing string lots[].lot_number`; there are no pending extraction jobs and `search_profiles=0`. | Updated this validation ledger. No daemon command was retried because the recorded product blocker is still present and no fix commit is available. | Fix the semantic lot-number contract/type mismatch, then retry only `job-479bed51-0fea-46ee-a207-51e94c641c0b` or the smallest supported extraction continuation against the existing E2E roots. |
 | 2026-05-17T13:40:56Z | Stage 4b - Semantic lot-number fix and continuation | The daemon now canonicalizes string-or-integer lot identifiers at the semantic domain-write boundary while preserving the tender-spec schema as string-only. Rebuilt the pinned daemon, requeued only semantic job `job-479bed51-0fea-46ee-a207-51e94c641c0b`, and replayed the preserved numeric-lot `result.json` through the daemon contract session path. | The failed semantic job is now `completed`; semantic extraction rows increased to 4; `product_candidates=5`. Re-running `--pipeline procontract` scored 5 candidates and produced `search_profiles=5` for the target process. | Continue to Stage 9 supplier price comparison / marketplace search against the existing E2E roots. |
+| 2026-05-17T14:00:17Z | Stage 9 - Marketplace CDP preflight | `stage-09-cdp-version` failed before any marketplace source command: `curl -sfS -m 3 http://localhost:9222/json/version` returned connection refused. The selected agent probe returned `OK`, so this is a persistent browser/CDP setup issue, not a model CLI issue. | Recorded as first Stage 9 CDP repair pause. No Stage 9 daemon command was run, and no error manifest was created on this first CDP occurrence. | Operator launches or repairs the Chrome profile attached to localhost:9222, then QA re-runs `/json/version`, marketplace login checks, and Stage 9 marketplace coverage. |
 
 ## Error Manifests Created
 
@@ -374,14 +375,28 @@ Dry-run log: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-machine-fork-
 | Stage 4b - Docling setup and extraction retry | `run_logged stage-04b-docling-model-download "$HOME/.docling-venv/bin/docling-tools" models download`; focused daemon regressions; `run_logged stage-04b-procontract-enrich-retry-after-docling-setup env AGENT_BROWSER_CDP_PORT=9222 "$E2E_DAEMON" ... --ingest procontract-enrich`; post-retry SQLite validation | DOCLING FIXED / SEMANTIC BLOCKED | Docling 2.93.0 is available at `/Users/zacfarrell/.docling-venv/bin/python`; model artifacts exist at `/Users/zacfarrell/.cache/docling/models`; no daemon env overrides are required. Latest structural extraction retries completed and created `document_extractions=3`; downstream reached `semantic_extractions=3` and `product_candidates=5`. One semantic job failed with `missing string lots[].lot_number`; preserved result JSON contains numeric `lot_number=1` despite the tender-spec schema requiring a string. Error manifest: `prompts/machine-fork-e2e-semantic-lot-number-type-error-manifest.md`. |
 | Resume check after semantic lot-number blocker | `git fetch origin`; `git log --oneline -8 --decorate --all --max-count=12`; `sqlite3 ... workflow_jobs WHERE kind='extract_document_semantics'`; Docling venv version probe | STILL BLOCKED | `origin/main` and local `main` are at `1e380fb docs: record docling setup validation`; no code fix for the numeric lot-number contract mismatch is present. `/Users/zacfarrell/.docling-venv/bin/python scripts/docling-extract.py --version` returns `2.93.0`, so Docling remains healthy. SQLite still shows `extract_document_semantics completed=3 failed=1`, failed job `job-479bed51-0fea-46ee-a207-51e94c641c0b`, `pending_extraction_jobs=0`, and `search_profiles=0`. |
 | Stage 4b - Semantic lot-number fix verification | `run_logged stage-04b-semantic-lot-number-single-job-retry-after-fix env AGENT_BROWSER_CDP_PORT=9222 SEMANTIC_REPLAY_RESULT_JSON="$E2E_ARTIFACT_ROOT/sessions/2026/05/session-semantic-80e2a70dc3f7de84a29da4d65e5660042ea33eb7b2a2124d17ac92408ff0da0c/workdir/result.json" DAEMON_CLAUDE_PROGRAM=/tmp/testproject1-semantic-lot-replay-claude-20260517 "$E2E_DAEMON" ... --retry-workflow-job job-479bed51-0fea-46ee-a207-51e94c641c0b`; `run_logged stage-05-08-pipeline-procontract-after-semantic-lot-number-fix "$E2E_DAEMON" ... --pipeline procontract`; SQLite validation | PASS / READY FOR STAGE 9 | The pinned daemon rebuilt with the fix and retried only failed semantic job `job-479bed51-0fea-46ee-a207-51e94c641c0b` using the preserved result JSON. The job is now `completed`; extract semantics summary is `completed=4`, and historical structural failures remain preserved. Counts after deterministic continuation: `document_extractions=3`, `semantic_extractions=4`, `product_candidates=5`, `search_profiles=5`; all 5 target-process candidates now have search profiles and marginal search eligibility. |
-| Stages 9-14 | Not run | READY FOR STAGE 9 | Semantic lot-number blocker is resolved and 5 search profiles exist for the target process. Continue with supplier price comparison / marketplace search. |
+| Stage 9 - Marketplace preflight | `run_logged stage-09-cdp-version curl -sfS -m 3 http://localhost:9222/json/version`; `run_logged stage-09-claude-probe claude -p "Return exactly OK." --dangerously-skip-permissions` | PAUSED FOR OPERATOR CDP REPAIR | CDP preflight failed with `curl: (7) Failed to connect to localhost port 9222`; selected-agent probe returned `OK`. No marketplace source or daemon Stage 9 command was run. |
+| Stages 9-14 | Not run | PENDING | Stage 9 is ready from pipeline data, but marketplace CDP preflight is paused until the persistent browser on localhost:9222 is restored. |
 | Desktop UI | Not run | PENDING | Schema epoch blocker is repaired; UI validation waits until deterministic/downstream pipeline state is available. |
 | Desktop Vite localhost | Not run | PENDING | Browser tooling/CDP preflight is green; localhost smoke remains for later in the run. |
 | apps/web localhost smoke | Not run | DEFERRED | Browser tooling/CDP preflight is now green; localhost smoke remains for the resumed E2E run. |
 
 ## Spotlight Process
 
-Not selected yet. Source ingestion and Stage 4b document download have completed for one real ProContract tender, but spotlight selection waits until Docling-backed document extraction creates product candidates and search profiles.
+Spotlight process: `proc-pc-ecd07d9f-5249-f111-813c-005056b64545` / notice `pc-ecd07d9f-5249-f111-813c-005056b64545`, `BEST START FAMILY HUBS OUTREACH SERVICES`, buyer `Oldham Council`.
+
+Selection basis: this is the real ProContract opportunity for which Stage 4a registered interest, Stage 4b downloaded real DOCX tender documents, Docling structural extraction completed, semantic extraction completed, and the deterministic pipeline produced 5 search profiles. It is service-heavy rather than an ideal physical-goods tender, but it is the only fully enriched/document-extracted real ProContract process in this E2E state and is therefore the current end-to-end validation target.
+
+Current candidate/search state:
+
+```text
+Community Development outreach service                         quoteability_score_bps=6000
+Strengthening Parental Confidence through Play Based Learning  quoteability_score_bps=5800
+Support for Dads/Male Carers                                   quoteability_score_bps=5300
+Mental Health Peer Support                                     quoteability_score_bps=5300
+Parenting Peer Support Service                                 quoteability_score_bps=5300
+search_profiles=5, search_eligibility_state=marginal
+```
 
 ## CDP/Auth Events
 
@@ -512,7 +527,21 @@ stage-04b-procontract-login-title-after-claude-quota-reset-2: Supplier Post-Logi
 
 The Stage 4b follow-up retry is not an auth/CDP pause. After timeout, the persistent browser was still on an authenticated ProContract activity dashboard with `Messages & clarifications (0)`, `Your response`, `Start my response`, `Opt out`, and `Indicate your intent to respond`.
 
-The Stage 4b retry after commit `39a7935` was also not an auth/CDP pause. Claude returned `OK`, ProContract loaded `Supplier Post-Login Home`, and the skill emitted a valid result contract. It downloaded three real DOCX files for `BEST START FAMILY HUBS OUTREACH SERVICES`. The immediate pause after that retry was local extraction setup: `python3 scripts/docling-extract.py --version` returned `docling import unavailable: No module named 'docling'`, `$HOME/.docling-venv/bin/docling` was absent, and `$HOME/.cache/docling/models` was absent. That Docling setup blocker is now resolved; the current pause is the semantic `lots[].lot_number` type mismatch documented below.
+The Stage 4b retry after commit `39a7935` was also not an auth/CDP pause. Claude returned `OK`, ProContract loaded `Supplier Post-Login Home`, and the skill emitted a valid result contract. It downloaded three real DOCX files for `BEST START FAMILY HUBS OUTREACH SERVICES`. The immediate pause after that retry was local extraction setup: `python3 scripts/docling-extract.py --version` returned `docling import unavailable: No module named 'docling'`, `$HOME/.docling-venv/bin/docling` was absent, and `$HOME/.cache/docling/models` was absent. That Docling setup blocker is now resolved.
+
+The semantic `lots[].lot_number` type mismatch is also resolved. The Stage 9 preflight pause is CDP/browser setup only:
+
+```text
+stage-09-cdp-version:
+curl -sfS -m 3 http://localhost:9222/json/version
+curl: (7) Failed to connect to localhost port 9222 after 0 ms: Couldn't connect to server
+
+stage-09-claude-probe:
+claude -p "Return exactly OK." --dangerously-skip-permissions
+OK.
+```
+
+No marketplace source was opened and no Stage 9 daemon command was run after this first Stage 9 CDP failure.
 
 ## Desktop And Localhost UI
 
@@ -830,11 +859,11 @@ cargo test -p procintel-desktop --test native_shell
 
 ## Final Decision
 
-QA is PAUSED on a downstream Stage 4b semantic extraction contract blocker. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, deterministic Stages 2-3 and 5-8 baseline processing completed, Stage 4a ProContract register-interest was fixed and validated, and Stage 4b ProContract enrichment produced real downloaded documents. The previous local Docling setup blocker is resolved: Docling 2.93.0 is installed in the daemon's default venv, model artifacts are prefetched, latest structural extraction retries completed, and downstream rows now exist. The current blocker is one semantic job whose `pdf-extraction/tender-specification` result emitted numeric `lots[].lot_number` where the schema and daemon persistence require a string.
+QA is PAUSED on a Stage 9 persistent CDP browser setup issue. Static/unit baseline blockers are resolved and verified. Real live Stage 1 source ingestion succeeded for Contracts Finder and ProContract, deterministic Stages 2-3 and 5-8 baseline processing completed, Stage 4a ProContract register-interest was fixed and validated, Stage 4b ProContract enrichment produced real downloaded documents, Docling extraction is repaired, and the semantic lot-number blocker is repaired. The pipeline is ready for Stage 9 from `search_profiles=5`, but `localhost:9222` refused the first Stage 9 CDP preflight.
 
 Proven on this machine:
 
-- The checkout is on `main` at `1e380fb docs: record docling setup validation` plus this resume-check ledger edit.
+- The checkout is on `main` at `28b6298 fix semantic lot number canonicalization` plus this Stage 9 CDP pause ledger edit.
 - Cargo and Bun are present.
 - `origin/main` contains schema epoch fix commit `6d113ad`.
 - The daemon schema epoch is 9 because migration `0012_l4_sync_state` is present.
@@ -889,10 +918,14 @@ Proven on this machine:
 - Re-running `--pipeline procontract` after the semantic fix scored 5 candidates and produced `search_profiles=5`.
 - Error manifest `prompts/machine-fork-e2e-docling-runtime-unavailable-error-manifest.md` is resolved by machine setup.
 - Error manifest `prompts/machine-fork-e2e-semantic-lot-number-type-error-manifest.md` is resolved by the daemon semantic lot-number canonicalization fix.
+- Stage 9 did not start because `curl -sfS -m 3 http://localhost:9222/json/version` returned connection refused. The selected-agent probe returned `OK`, so this pause is persistent browser/CDP setup.
 
 Current next point:
 
 1. Source `/Users/zacfarrell/Desktop/Testproject1/state-e2e-machine-fork-20260512T195251Z/e2e-env.sh`.
 2. Keep the existing preserved roots; do not rerun Stage 4a portal registration.
-3. Begin Stage 9 supplier price comparison / marketplace search from the 5 generated search profiles for process `proc-pc-ecd07d9f-5249-f111-813c-005056b64545`.
-4. After Stage 9 produces supplier quotes, rerun `--pipeline procontract` for Stage 10 gross-margin assessment.
+3. Launch or repair the persistent Chrome CDP profile on `localhost:9222`.
+4. Re-run `run_logged stage-09-cdp-version curl -sfS -m 3 http://localhost:9222/json/version`.
+5. Re-run marketplace login checks for Amazon UK, eBay UK, Gem Imports, MX Wholesale, and Alibaba through `agent-browser --cdp 9222`.
+6. If CDP/login checks pass, run Stage 9 supplier price comparison / marketplace search from the 5 generated search profiles for process `proc-pc-ecd07d9f-5249-f111-813c-005056b64545`.
+7. After Stage 9 produces supplier quotes, rerun `--pipeline procontract` for Stage 10 gross-margin assessment.
