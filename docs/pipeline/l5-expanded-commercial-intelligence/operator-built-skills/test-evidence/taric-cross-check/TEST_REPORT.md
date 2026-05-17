@@ -104,3 +104,21 @@ The TARIC cross-check skill is ready for L5 implementation:
 - UK-Specificity rule honoured — skill output is signal-grade only; HMRC remains authoritative for UK calculations.
 - Skill files at `skills/landed-cost/taric-cross-check/`.
 - Test evidence at `docs/pipeline/l5-expanded-commercial-intelligence/operator-built-skills/test-evidence/taric-cross-check/`.
+- Committed at git SHA **64770a109e2787b4d16dca79353ebd62630d5b65** (origin/main) on 2026-05-17.
+
+## Final inventory
+
+```
+skills/landed-cost/taric-cross-check/
+├── SKILL.md                  (~19.5 KB; YAML frontmatter + workflow + UK-Specificity rule)
+└── result.schema.json        (~3.5 KB; 7 required + 17 optional fields)
+
+docs/pipeline/l5-expanded-commercial-intelligence/operator-built-skills/test-evidence/taric-cross-check/
+├── TEST_REPORT.md
+├── canary.inputs.jsonl                                 (5 canaries)
+├── golden.assertions.yaml
+├── failure-paths.jsonl                                 (4 scenarios)
+├── canary-{01..05}-{input,result,status}.{json,txt}    (5 × 3 = 15 files)
+├── fp-{01..04}-{input,result,status}.{json,txt}        (4 × 3 = 12 files)
+└── hmrc-cross-agreement.json                           (PARTIAL_AGREEMENT × 2)
+```
