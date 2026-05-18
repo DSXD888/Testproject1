@@ -8,15 +8,7 @@
 
 > **Implementation Status (as of 2026-05-02):** Layer 5 is **PLANNED — not yet built**. No production decision-grade customs classification engine, expanded supplier-source portfolio, or L5 commercial-intelligence authority exists yet. This doc remains a planned execution-grade specification and intentionally has no inline implementation markers.
 
-> **3-SOT Validation (2026-05-08):** Validated for downstream TDD, bead creation, and completion-audit coverage by the L5 pipemaxxer pipeline. Requirement IDs use `L5-FR-{section}.{subsection}.{item}` and acceptance criteria are listed immediately under the requirements they verify.
-
-> **L5 Pipeline Decisions Recorded 2026-05-08 (operator via pipemaxxer AskUserQuestion):**
-> - **DECISION 1 — product_commodity_codes ownership: Option A — L5 SQLite migration.** Rationale: Recommended default. Cleaner local state; no sync-engine impact. Supabase projection created in L4 becomes the push target. Implementation: `migrations/0013_l5_product_commodity_codes.sql` (or the next-free `NNNN` at step 07).
-> - **DECISION 2 — PCS Scotland scope: IN-SCOPE.** Implementation: `skills/procurement-ingestion/pcs/` is created in Phase 5 with full skill directory standard (`SKILL.md`, `result.schema.json`, `checkpoint.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`), a daemon registry entry in `crates/daemon/src/sources/registry.rs`, and bootstrap coverage for PCS OCDS Web API setup. Adds ~3-5 Phase 5 beads.
-> - **DECISION 3 — L5 implementation epic structure: Option (b) — sister epic.** Rationale: Clean separation between layer-doc-authoring epic (`testproject1-4gh`, children `4gh.1-4` already complete) and implementation work. Implementation: Step 07 runs `br create --type=epic --priority=P0 --title="Epic: L5 Implementation — Expanded Commercial Intelligence" --label l5` and captures the new epic ID here. New epic ID: `<to be filled in step 07 after br create runs>`.
-> - **DECISION 4 — Gold-set categories (DoD #12): fasteners + packaging-cartons + examination-gloves.** Rationale: remedy-active fasteners, packaging-easy cartons, regulated medical examination gloves. Implementation: Phase 6 creates `tests/fixtures/calibration/customs-classification/{fasteners,packaging-cartons,examination-gloves}/{canary.inputs.jsonl,golden.assertions.yaml,metadata.json,manifest.md}` per L4 calibration corpus convention.
-> - **External API account state:** L5 has zero paid commercial API procurements. Public/free inputs are HMRC Trade Tariff (`https://www.trade-tariff.service.gov.uk/uk/api/commodities/{code}` via `skills/landed-cost/hmrc-customs-classification/`), HMRC Exchange Rates for Customs and VAT (gov.uk monthly publication), and Frankfurter commercial spot FX via `skills/landed-cost/simple-fx-lookup/`. Existing CDP skill `skills/landed-cost/searates-freight-estimate/` replaces the SeaRates paid API. Operator-built prerequisites `skills/landed-cost/freightos-freight-estimate/` and `skills/landed-cost/taric-cross-check/` replace Freightos paid API and Taric Support paid vendor; step 09 audit verifies they exist before Phase 3/4 execution. Declined for L5: Xe Currency Data API, Freightos paid API, SeaRates paid API, Taric Support paid vendor, HS Ping, Easyship/Shippo, CurrencyBeacon/OANDA, Dutify/Zonos/Avalara accounts. Estimated annual savings versus the earlier paid-API plan: $3,000-10,000+.
-> - **Marketplace skill maturation baseline:** Alibaba, Amazon, and 1688 worked cleanly during QA stages 1-14. Phase 5 maturation is spec-listed deltas only: Alibaba adds Chinese retry on zero/accessory/consumer hits, Ready-to-Ship confidence bump, source-health canary expansion, anti-bot circuit breaker, validator overlay binding, and candidate-to-stable promotion; 1688 adds short Chinese-only clusters, domestic wholesale floor pricing, auth-refresh/1688 coordination, validator overlay binding, and promotion; Amazon adds alias families, structured title vocabulary, browser-first operation after PA-API 5.0 sunset on 2026-04-30, validator overlay binding, and promotion. No speculative hardening beyond §1.15 and §2.3.
+> **3-SOT Validation (2026-05-08):** Validated for downstream TDD, bead creation, and completion-audit coverage by the L5 pipemaxxer pipeline. Requirement IDs use `L5-FR-{section}.{subsection}.{item}` and acceptance criteria are listed immediately under the requirements they verify. Operator decisions are recorded in `## L5 Pipeline Decisions Recorded 2026-05-08`.
 
 ---
 
@@ -42,7 +34,7 @@ L5-FR-1.2.2 — L5 provides at least two supplier sources per validated category
 - AC2: Quote roles remain explicit: marketplace ceilings do not silently become executable wholesale quotes.
 L5-FR-1.2.3 — L5 provides full customs classification
 - AC1: Multi-source recall, multi-family expansion, UK10 resolution, exporter resolution, measure interaction, additional-code satisfiability, VAT rate determination, trade-remedy watch state, and conservative defaults all run before net margin gating.
-L5-FR-1.2.4 — L5 provides dual FX and dual freight source intelligence without paid API accounts
+L5-FR-1.2.4 — L5 provides dual FX and dual freight source intelligence through skill-first and public/free data access
 - AC1: HMRC customs FX and Frankfurter commercial spot FX populate dual-rate fields.
 - AC2: Freightos and SeaRates CDP/browser skills provide low/base/high freight estimates and disagreement signals.
 L5-FR-1.2.5 — L5 requires per-category gold-set expansion before production use
@@ -237,14 +229,14 @@ L5-FR-1.15.2 — PCS Scotland ingestion is truly new and in scope
 ### 1.16 Intelligence Package Additions (19 files)
 L5-FR-1.16.1 — L5 adds customs, FX, logistics, validation, and accuracy modules under `packages/intelligence`
 - AC1: The 19-file package surface below exists and is covered by §3.2 tests.
-- AC2: Validation comparison adapters remain comparison-only and do not require paid vendor accounts.
+- AC2: Validation comparison adapters remain comparison-only and use fixtures or captured samples, with no external vendor credentials.
 
 | Package | Files | Purpose |
 |---------|-------|---------|
 | `packages/intelligence/src/customs/` | 6 files | Description-quality gate, multi-source recall, 10-digit resolution, measure scanner, exporter resolution, classification freshness |
 | `packages/intelligence/src/fx/` | 4 files | HMRC customs rates, Frankfurter commercial rates, basis gap tracking, margin-triggered recalculation |
 | `packages/intelligence/src/logistics/` | 5 files | Mode selection, Freightos skill adapter, SeaRates skill adapter, dual-packing scenarios, low/base/high estimates |
-| `packages/intelligence/src/validation/` | 3 files | Landed-cost comparison adapters for Dutify/Zonos/Avalara fixtures only; no vendor accounts |
+| `packages/intelligence/src/validation/` | 3 files | Landed-cost comparison adapters for Dutify/Zonos/Avalara fixtures or captured samples only; no external vendor credentials |
 | `packages/intelligence/src/customs/accuracy.ts` | 1 file | Evidence-tiered classification accuracy measurement |
 
 ---
@@ -255,7 +247,7 @@ L5-FR-1.16.1 — L5 adds customs, FX, logistics, validation, and accuracy module
 L5-FR-2.1.1 — Dual FX uses HMRC customs rates and Frankfurter commercial spot rates
 - AC1: `customsFxRate` comes from HMRC Exchange Rates for Customs and VAT monthly publication.
 - AC2: `commercialFxRate` comes from Frankfurter through the existing `skills/landed-cost/simple-fx-lookup/` extension.
-- AC3: Xe Currency Data API is declined and no API key is required.
+- AC3: No commercial FX account is required.
 
 | Rate | Source | Purpose | Update Frequency |
 |------|--------|---------|-----------------|
@@ -283,7 +275,7 @@ L5-FR-2.2.1 — Freight mode selection covers sea, air, express, and multimodal 
 L5-FR-2.2.2 — Freight estimates use Freightos and SeaRates CDP skills
 - AC1: The engine invokes `skills/landed-cost/freightos-freight-estimate/` and `skills/landed-cost/searates-freight-estimate/` for dual-source cross-check.
 - AC2: Large provider disagreement emits `FREIGHT_MODE_LOW_CONFIDENCE`.
-- AC3: No Freightos or SeaRates paid API account is required.
+- AC3: Freight access remains skill-first/CDP-browser based and requires no commercial connector account.
 L5-FR-2.2.3 — Freight conservative defaults are explicit
 - AC1: Unknown packaging runs dual scenarios such as palletized versus loose cartons.
 - AC2: Missing Incoterm runs EXW/FOB/CIF boundary scenarios.
@@ -500,7 +492,7 @@ L5-FR-3.7.4 — Risk: freight source variability or CDP page drift
 
 ### 3.8 Forward-Compatibility
 L5-FR-3.8.1 — L5 exposes the L6 bid-readiness gate
-- AC1: L6 cannot reach `ready_to_bid` while `CLASSIFICATION_AMBIGUOUS`, `TARIFF_BRANCH_DIVERGENCE`, required-component `SUPPLEMENTARY_UNIT_MISSING`, `decision_grade = broker_required`, or expired classification freshness is active.
+- AC1: L6 cannot reach `ready_to_bid` while `CLASSIFICATION_AMBIGUOUS`, `TARIFF_BRANCH_DIVERGENCE`, required-component `SUPPLEMENTARY_UNIT_MISSING`, `decision_grade = broker_required`, or expired `classification_fresh_until` is active.
 - AC2: Quote-role quality gate blocks opportunities backed only by `domestic_wholesale_floor` or `optimistic_floor` unless the operator explicitly overrides.
 L5-FR-3.8.2 — L1 PDF extraction can later support customs evidence overlays
 - AC1: Compliance certificate extraction is a semantic overlay extension and does not require schema changes or daemon recompilation.
@@ -508,16 +500,16 @@ L5-FR-3.8.2 — L1 PDF extraction can later support customs evidence overlays
 ### 3.9 Dependencies
 L5-FR-3.9.1 — L5 depends on Layers 0-4 and skill-first external data access
 - AC1: Layers 0-4 must be complete: pipeline data, validation infrastructure, sync engine, projection tables, and web portal.
-- AC2: No paid external commercial API account is required for L5.
+- AC2: L5 external access is satisfied by existing skills, operator-built prerequisite skills, and public/free endpoints.
 
 | Service / Skill | Status | Required? | Auth / Cost | L5 Position |
 |-----------------|--------|-----------|-------------|-------------|
 | HMRC Trade Tariff classification API via `skills/landed-cost/hmrc-customs-classification/` | Existing public endpoint | Yes | No key, free | Canonical UK commodity/measures data |
 | HMRC Exchange Rates for Customs and VAT | Public gov.uk monthly publication | Yes | No key, free | Customs FX source |
-| Frankfurter via `skills/landed-cost/simple-fx-lookup/` | Existing skill extension | Yes | No key, free | Replaces Xe |
-| `skills/landed-cost/searates-freight-estimate/` | Existing CDP skill | Yes | Browser session, free | Replaces SeaRates paid API |
-| `skills/landed-cost/freightos-freight-estimate/` | Operator-built prerequisite | Yes | CDP/browser, free | Replaces Freightos paid API; step 09 verifies |
-| `skills/landed-cost/taric-cross-check/` | Operator-built prerequisite | Yes | Public EU TARIC CDP/browser, free | Replaces Taric Support paid vendor; step 09 verifies |
+| Frankfurter via `skills/landed-cost/simple-fx-lookup/` | Existing skill extension | Yes | No key, free | Commercial spot FX source |
+| `skills/landed-cost/searates-freight-estimate/` | Existing CDP skill | Yes | Browser session, free | SeaRates freight source |
+| `skills/landed-cost/freightos-freight-estimate/` | Operator-built prerequisite | Yes | CDP/browser, free | Freightos freight source; step 09 verifies |
+| `skills/landed-cost/taric-cross-check/` | Operator-built prerequisite | Yes | Public EU TARIC CDP/browser, free | EU TARIC cross-check source; step 09 verifies |
 | HS Ping | Declined for L5 | No | N/A | Four other recall sources are sufficient |
 | Dutify/Zonos/Avalara | Declined for L5 accounts | No | N/A | Comparison adapters use fixtures only |
 | Easyship/Shippo, CurrencyBeacon/OANDA | Declined for L5 | No | N/A | Not on critical path |
@@ -533,11 +525,60 @@ L5-FR-3.9.3 — Bead and Agent Mail operational guidance uses `br`, not deprecat
 L5-FR-3.10.1 — L5 implements ADR-006 internal landed-cost engine at decision-grade depth
 - AC1: ADR-006 coverage includes multi-source recall, UK10 resolution, measure interaction, dual FX, and real freight source cross-checking.
 L5-FR-3.10.2 — L5 implements ADR-001 skill-based data retrieval for added sources
-- AC1: Alibaba, 1688, Amazon, PCS, Freightos, SeaRates, TARIC, HMRC, and FX inputs use skills or public endpoints, not paid connector accounts.
+- AC1: Alibaba, 1688, Amazon, PCS, Freightos, SeaRates, TARIC, HMRC, and FX inputs use skills or public/free endpoints, not external commercial connector accounts.
 
 | ADR | Decision | Layer 5 Action |
 |-----|----------|---------------|
 | **ADR-006** | Internal landed-cost engine | Full decision-grade scope: multi-source recall, 10-digit resolution, measure interaction, dual FX, real freight |
 | **ADR-001** | Skills as primary data retrieval | Mature Alibaba/1688/Amazon; add PCS; use landed-cost skills and public endpoints |
+
+## L5 Pipeline Decisions Recorded 2026-05-08
+
+These decisions were recorded by the operator via pipemaxxer AskUserQuestion on 2026-05-08. They are latest authority for resolving apparent contradictions in this spec.
+
+DECISION 1 — product_commodity_codes ownership: Option A — L5 SQLite migration
+  Recorded: 2026-05-08 by operator (via pipemaxxer AskUserQuestion)
+  Rationale: Recommended default. Cleaner local state; no sync-engine impact. Supabase projection (created in L4) becomes the push target.
+  Implementation: migrations/NNNN_l5_product_commodity_codes.sql (NNNN = next-free at the time, currently 0013)
+
+DECISION 2 — PCS Scotland scope: IN-SCOPE
+  Recorded: 2026-05-08 by operator (via pipemaxxer AskUserQuestion)
+  Implementation: skills/procurement-ingestion/pcs/ created in Phase 5 with full skill directory standard (SKILL.md + result.schema.json + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml). Daemon registry entry in sources/registry.rs. Bootstrap covers PCS OCDS Web API setup. Adds ~3-5 beads to Phase 5.
+
+DECISION 3 — L5 implementation epic structure: Option (b) — sister epic
+  Recorded: 2026-05-08 by operator (via pipemaxxer AskUserQuestion)
+  Rationale: Recommended default. Clean separation between layer-doc-authoring epic (testproject1-4gh, children 4gh.1-4 already complete) and implementation work.
+  Implementation: Step 07 runs `br create --type=epic --priority=P0 --title="Epic: L5 Implementation — Expanded Commercial Intelligence" --label l5` and captures the new epic ID into this section. All Phase 1-6 implementation beads thread under that new epic.
+  New epic ID: <to be filled in step 07 after `br create` runs>
+
+DECISION 4 — Gold-set categories (DoD #12): fasteners + packaging-cartons + examination-gloves
+  Recorded: 2026-05-08 by operator (via pipemaxxer AskUserQuestion)
+  Rationale: Clear differentiation — remedy-active (fasteners) / packaging-easy (cartons) / regulated medical (examination gloves).
+  Implementation: Phase 6 creates tests/fixtures/calibration/customs-classification/{fasteners,packaging-cartons,examination-gloves}/{canary.inputs.jsonl,golden.assertions.yaml,metadata.json,manifest.md} per L4 calibration corpus convention.
+
+External API Account State:
+- L5 has zero paid commercial API procurements.
+- Public APIs (no key, no portal): HMRC Trade Tariff classification API at `https://www.trade-tariff.service.gov.uk/uk/api/commodities/{code}` via existing `skills/landed-cost/hmrc-customs-classification/`; HMRC Exchange Rates for Customs and VAT via gov.uk monthly publication; Frankfurter commercial spot FX via existing `skills/landed-cost/simple-fx-lookup/`.
+- Existing CDP skills: `skills/landed-cost/searates-freight-estimate/` provides browser-resident SeaRates Logistics Explorer estimates with no vendor API account.
+- Operator-built prerequisites before step 07: `skills/landed-cost/freightos-freight-estimate/` and `skills/landed-cost/taric-cross-check/`; step 09 audit verifies them before Phase 3/4 execution.
+- Declined / not in L5 scope: Xe Currency Data API, Freightos paid API, SeaRates paid API, Taric Support paid vendor, HS Ping, Easyship/Shippo, CurrencyBeacon/OANDA, Dutify/Zonos/Avalara vendor accounts. Estimated annual savings versus the earlier paid-API plan: $3,000-10,000+.
+- HMRC FPO endpoint name remains a TDD investigation item: `l5-customs-hmrc-fpo-endpoint-discovery`.
+
+Marketplace Skill Maturation Baseline:
+- Alibaba: Chinese retry on zero/accessory hits + Ready-to-Ship filter + source-health canary expansion + validator overlay binding + candidate-to-stable promotion.
+- 1688: Chinese-only short clusters (2-4 terms) + domestic wholesale floor pricing + auth-refresh/1688 binding + validator overlay binding + candidate-to-stable promotion.
+- Amazon: alias families + structured title vocabulary + browser-first (PA-API 5.0 sunset 2026-04-30) + validator overlay binding + candidate-to-stable promotion.
+- No additional gap-fill work and no speculative hardening beyond §1.15 + §2.3.
+
+Cross-Domain Callout Resolution Ledger:
+- Callout 1 `product_commodity_codes` locality: RESOLVED — Option A per Decision 1. L5 creates the local SQLite junction; L4 Supabase projection becomes the push target.
+- Callout 2 marketplace skill authorship framing: RESOLVED — §1.15 and §2.3 frame Alibaba/1688/Amazon as candidate-to-stable maturation, PCS as truly new.
+- Callout 3 PCS Scotland scope: RESOLVED — IN-SCOPE per Decision 2; §1.15, §3.1, and §3.6 are unconditional.
+- Callout 4 ErrorCode enum extension framing: RESOLVED — §3.5 names daemon enum update requirements and reuses existing `FPO_ACCESS_UNAVAILABLE`.
+- Callout 5 HMRC FPO endpoint verification: DELIBERATE NON-RESOLUTION — Step 03 TDD creates `l5-customs-hmrc-fpo-endpoint-discovery`.
+- Callout 6 existing landed-cost skills: RESOLVED — §3.9 follows the skill-first/free-public endpoint model.
+- Callout 7 operator-built prerequisites: RESOLVED — §3.9 gates Phase 3/4 on Freightos and TARIC prerequisite skill existence.
+- Callout 8 cron scheduler extension: RESOLVED — §1.11 requires four new `CronJobDefinition` entries.
+- Callout 9 no CI workflows: RESOLVED — §3.1 DoD #13 records the local-only quality gate and no `.github/workflows/`.
 
 ---
