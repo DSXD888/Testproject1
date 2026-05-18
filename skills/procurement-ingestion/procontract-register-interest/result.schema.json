@@ -39,14 +39,7 @@
             ]
           },
           "action": {
-            "type": "string",
-            "enum": [
-              "registered",
-              "already_registered",
-              "pending_registration",
-              "skipped",
-              "failed"
-            ]
+            "type": "string"
           },
           "skip_reason": {
             "type": [
@@ -81,7 +74,6 @@
         "total_evaluated",
         "registered",
         "already_registered",
-        "pending_registration",
         "skipped_service",
         "skipped_expiry",
         "failed"
@@ -94,9 +86,6 @@
           "type": "integer"
         },
         "already_registered": {
-          "type": "integer"
-        },
-        "pending_registration": {
           "type": "integer"
         },
         "skipped_service": {

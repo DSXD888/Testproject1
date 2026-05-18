@@ -2,7 +2,7 @@
 
 Date: 2026-05-03
 
-Repository: `/Users/zacfarrell/Desktop/Testproject1`
+Repository: `/Users/alinaaitova/Desktop/Testproject1`
 
 Purpose: allow a fresh agent to resume exactly where this session stopped and
 complete the Stage 11 CDP resilience live validation end to end.
@@ -19,7 +19,7 @@ Current listener:
 
 ```text
 COMMAND  PID    USER          NAME
-Google   92364  zacfarrell   TCP 127.0.0.1:9222 (LISTEN)
+Google   92364  alinaaitova   TCP 127.0.0.1:9222 (LISTEN)
 ```
 
 Current browser metadata:
@@ -38,7 +38,7 @@ Observed launch command:
 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome \
   --remote-debugging-port=9222 \
   --remote-allow-origins=* \
-  --user-data-dir=/Users/zacfarrell/.chrome-automation \
+  --user-data-dir=/Users/alinaaitova/.chrome-automation \
   --profile-directory=Default \
   --no-first-run \
   --no-default-browser-check

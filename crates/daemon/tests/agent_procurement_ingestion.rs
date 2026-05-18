@@ -94,35 +94,6 @@ impl RunHarness {
         })
     }
 
-    fn run_procontract_interest_replay(&self, result_contract: &Value) -> Result<RunResult> {
-        let replay_path = self
-            .state_root
-            .parent()
-            .ok_or_else(|| anyhow::anyhow!("state root missing parent"))?
-            .join("procontract-interest-result.json");
-        fs::write(&replay_path, serde_json::to_vec_pretty(result_contract)?)
-            .with_context(|| format!("writing {}", replay_path.display()))?;
-
-        let output = Command::cargo_bin("daemon")?
-            .arg("--ingest")
-            .arg("procontract-interest")
-            .arg("--state-root")
-            .arg(&self.state_root)
-            .arg("--runtime-dir")
-            .arg(&self.runtime_root)
-            .arg("--artifact-root")
-            .arg(&self.artifact_root)
-            .env("PROCONTRACT_INTEREST_REPLAY_RESULT_JSON", &replay_path)
-            .output()
-            .context("running daemon binary")?;
-
-        Ok(RunResult {
-            stdout: String::from_utf8(output.stdout).context("decoding stdout")?,
-            stderr: String::from_utf8(output.stderr).context("decoding stderr")?,
-            success: output.status.success(),
-        })
-    }
-
     fn connection(&self) -> Result<Connection> {
         Connection::open(&self.db_path)
             .with_context(|| format!("opening {}", self.db_path.display()))
@@ -1006,68 +977,5 @@ fn e2e_ing_027_validator_fail_open_keeps_worker_completed_and_queues_backlog() -
     ensure!(output["validation_marker"] == "VALIDATION_SKIPPED_VALIDATOR_ERROR");
     ensure!(failed_validator_jobs >= 1);
     ensure!(pending_backlog_jobs >= 1);
-    Ok(())
-}
-
-#[test]
-fn e2e_ing_028_procontract_interest_replay_persistence_failure_marks_job_failed() -> Result<()> {
-    let harness = RunHarness::new()?;
-    let result_contract = json!({
-        "cursor": "{}",
-        "continuation_required": false,
-        "registrations": [
-            {
-                "notice_id": "pc-invalid-action",
-                "process_id": "proc-pc-invalid-action",
-                "source_url": "https://example.invalid/pc-invalid-action",
-                "action": "bogus_action"
-            }
-        ],
-        "summary": {
-            "total_evaluated": 1,
-            "registered": 0,
-            "already_registered": 0,
-            "pending_registration": 0,
-            "skipped_service": 0,
-            "skipped_expiry": 0,
-            "failed": 0
-        }
-    });
-
-    let result = harness.run_procontract_interest_replay(&result_contract)?;
-    ensure!(
-        !result.success,
-        "invalid replay should fail the CLI, stdout={}, stderr={}",
-        result.stdout,
-        result.stderr
-    );
-
-    let conn = harness.connection()?;
-    let (status, last_error, output_payload): (String, Option<String>, Option<String>) = conn
-        .query_row(
-            "\
-            SELECT status, last_error, output_payload
-            FROM workflow_jobs
-            WHERE scope_id = 'procontract-interest'
-            ORDER BY created_at DESC
-            LIMIT 1
-            ",
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        )?;
-    ensure!(status == "failed", "latest job status was {status}");
-    let last_error = last_error.unwrap_or_default();
-    ensure!(
-        last_error.contains("unsupported ProContract registration action"),
-        "unexpected last_error: {last_error}"
-    );
-    let payload: Value = serde_json::from_str(
-        output_payload
-            .as_deref()
-            .ok_or_else(|| anyhow::anyhow!("failed job missing output_payload"))?,
-    )?;
-    ensure!(payload["error_code"] == "PROCONTRACT_INTEREST_PERSISTENCE_FAILED");
-    ensure!(payload["source_id"] == "procontract-interest");
-    ensure!(payload["replay_result_path"].as_str().is_some());
     Ok(())
 }

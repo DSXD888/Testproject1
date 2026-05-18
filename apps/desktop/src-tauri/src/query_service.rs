@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 const DEFAULT_PAGE_LIMIT: usize = 25;
 const MAX_PAGE_LIMIT: usize = 100;
 const SQLITE_BUSY_TIMEOUT_MS: u64 = 1_000;
-const EXPECTED_SCHEMA_EPOCH: i64 = 9;
+const EXPECTED_SCHEMA_EPOCH: i64 = 8;
 
 #[derive(Debug)]
 pub struct QueryService {

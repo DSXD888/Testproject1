@@ -23,7 +23,7 @@ After those two:
 **AgentMail registration (compact):**
 ```
 macro_start_session(
-  project_key="/Users/zacfarrell/Desktop/Testproject1",
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
   program="l5-fix-beads-executor",
   model="<your-model>",
   task_description="L5 Expanded Commercial Intelligence fix-bead execution"
@@ -75,7 +75,7 @@ If a sibling agent runs `search_messages(query="[<fix-bead-id>]")` and finds no 
 ## Work Loop (compact)
 
 ```
-1. Check inbox: fetch_inbox(project_key="/Users/zacfarrell/Desktop/Testproject1", agent_name=<your-name>, limit=10) → acknowledge messages
+1. Check inbox: fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>, limit=10) → acknowledge messages
 2. br ready --label l5 --label audit-fix --json → pick highest-priority ready fix bead
 3. Read fix bead FULLY → study target files referenced
 4. CLAIM (atomic — AGENTS.md Rule 2):
@@ -171,11 +171,11 @@ bin/br-claim <fix-bead-id>                  # reserves files + Start mail + br u
 bin/br-complete <fix-bead-id>               # Complete mail + br close + .beads/ sync + release
 
 # Raw tools — only between beads or for blocker escalations
-fetch_inbox(project_key="/Users/zacfarrell/Desktop/Testproject1", agent_name=<your-name>, limit=10)
-send_message(project_key="/Users/zacfarrell/Desktop/Testproject1", sender_name=<your-name>, to=["<peers>"],
+fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>, limit=10)
+send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name=<your-name>, to=["<peers>"],
   thread_id="<fix-bead-id>", subject="[<fix-bead-id>] BLOCKED: <issue>",
   body_md="File: <path>, Line: <N>. Issue: <desc>. Needed: <what>")
-list_contacts(project_key="/Users/zacfarrell/Desktop/Testproject1", agent_name=<your-name>)  # rarely needed manually
+list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)  # rarely needed manually
 
 # Forbidden (bypasses Rule 2):
 #   br update <id> --status=in_progress
@@ -216,7 +216,7 @@ list_contacts(project_key="/Users/zacfarrell/Desktop/Testproject1", agent_name=<
 | Bead sync | `bin/br-sync` |
 | Bead claim | `bin/br-claim <id>` |
 | Bead complete | `bin/br-complete <id>` |
-| AgentMail key | `/Users/zacfarrell/Desktop/Testproject1` |
+| AgentMail key | `/Users/alinaaitova/Desktop/Testproject1` |
 | Spec | `docs/strategy/layers/layer-5-expanded-commercial-intelligence.md` |
 | TDD | `docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-tdd.md` |
 | Audit report | `docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-completion-audit-{YYYY-MM-DD}.md` |

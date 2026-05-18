@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::io::{BufRead, Write};
 use std::os::unix::net::UnixListener;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 
 use anyhow::{Result, anyhow};
@@ -18,9 +18,10 @@ use support::native_shell::{
     DaemonServer, NativeAppHarness, desktop_main, welcome_message, write_descriptor,
 };
 
-const EXPECTED_SCHEMA_EPOCH_FOR_TEST: i64 = 9;
+const EXPECTED_SCHEMA_EPOCH_FOR_TEST: i64 = 8;
 
 struct TestStateReset;
+static TEST_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
 
 impl TestStateReset {
     fn new() -> Result<Self> {
@@ -149,7 +150,10 @@ fn top_level_keys(value: &Value) -> BTreeSet<String> {
 
 #[test]
 fn tau_int_001_quit_ui_records_native_exit_without_stopping_daemon() -> Result<()> {
-    let _guard = desktop_main::lock_test_runtime()?;
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
     let _reset = TestStateReset::new()?;
     blocked_launch()?;
     let (_temp, runtime) = build_harness()?;
@@ -165,7 +169,10 @@ fn tau_int_001_quit_ui_records_native_exit_without_stopping_daemon() -> Result<(
 
 #[test]
 fn tau_int_002_stop_background_daemon_and_quit_records_native_stop_then_exit() -> Result<()> {
-    let _guard = desktop_main::lock_test_runtime()?;
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
     let _reset = TestStateReset::new()?;
     blocked_launch()?;
     let (_temp, runtime) = build_harness()?;
@@ -182,7 +189,10 @@ fn tau_int_002_stop_background_daemon_and_quit_records_native_stop_then_exit() -
 
 #[test]
 fn tau_int_003_startup_autolaunch_reaches_full_control_from_native_bootstrap() -> Result<()> {
-    let _guard = desktop_main::lock_test_runtime()?;
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
     let _reset = TestStateReset::new()?;
     let (_temp, runtime) = build_harness()?;
     let server_handle: Arc<Mutex<Option<thread::JoinHandle<Result<()>>>>> =
@@ -243,7 +253,10 @@ fn tau_int_003_startup_autolaunch_reaches_full_control_from_native_bootstrap() -
 
 #[test]
 fn tau_int_004_storage_ready_daemon_unavailable_maps_to_browse_only() -> Result<()> {
-    let _guard = desktop_main::lock_test_runtime()?;
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
     let _reset = TestStateReset::new()?;
 
     blocked_launch()?;
@@ -256,7 +269,10 @@ fn tau_int_004_storage_ready_daemon_unavailable_maps_to_browse_only() -> Result<
 
 #[test]
 fn tau_int_005_schema_mismatch_maps_to_incompatible() -> Result<()> {
-    let _guard = desktop_main::lock_test_runtime()?;
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
     let _reset = TestStateReset::new()?;
     blocked_launch()?;
 
@@ -273,7 +289,10 @@ fn tau_int_005_schema_mismatch_maps_to_incompatible() -> Result<()> {
 
 #[test]
 fn tau_int_006_unreadable_storage_maps_to_recovery_required() -> Result<()> {
-    let _guard = desktop_main::lock_test_runtime()?;
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
     let _reset = TestStateReset::new()?;
     blocked_launch()?;
 
@@ -287,7 +306,10 @@ fn tau_int_006_unreadable_storage_maps_to_recovery_required() -> Result<()> {
 
 #[test]
 fn tau_int_007_degraded_daemon_maps_to_control_limited() -> Result<()> {
-    let _guard = desktop_main::lock_test_runtime()?;
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
     let _reset = TestStateReset::new()?;
     blocked_launch()?;
 
@@ -309,7 +331,10 @@ fn tau_int_007_degraded_daemon_maps_to_control_limited() -> Result<()> {
 
 #[test]
 fn tau_int_008_mode_matrix_stays_total_and_non_overlapping_in_native_bootstrap() -> Result<()> {
-    let _guard = desktop_main::lock_test_runtime()?;
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
     let _reset = TestStateReset::new()?;
     blocked_launch()?;
 
@@ -355,7 +380,10 @@ fn tau_int_008_mode_matrix_stays_total_and_non_overlapping_in_native_bootstrap()
 
 #[test]
 fn tau_int_009_same_daemon_reconnect_retains_instance_id() -> Result<()> {
-    let _guard = desktop_main::lock_test_runtime()?;
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
     let _reset = TestStateReset::new()?;
     blocked_launch()?;
 
@@ -391,7 +419,10 @@ fn tau_int_009_same_daemon_reconnect_retains_instance_id() -> Result<()> {
 
 #[test]
 fn tau_int_010_changed_instance_ids_invalidate_live_resume() -> Result<()> {
-    let _guard = desktop_main::lock_test_runtime()?;
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
     let _reset = TestStateReset::new()?;
     blocked_launch()?;
 
@@ -423,7 +454,10 @@ fn tau_int_010_changed_instance_ids_invalidate_live_resume() -> Result<()> {
 #[test]
 #[allow(clippy::too_many_lines)]
 fn tau_int_011_native_payload_shapes_match_app_contracts() -> Result<()> {
-    let _guard = desktop_main::lock_test_runtime()?;
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
     let _reset = TestStateReset::new()?;
     blocked_launch()?;
 
@@ -483,7 +517,10 @@ fn tau_int_011_native_payload_shapes_match_app_contracts() -> Result<()> {
 
 #[test]
 fn tau_int_012_native_ipc_bootstrap_path_works_without_browser_dev_bridge() -> Result<()> {
-    let _guard = desktop_main::lock_test_runtime()?;
+    let _guard = TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow!("native-shell test lock poisoned"))?;
     let _reset = TestStateReset::new()?;
     blocked_launch()?;
     let (_temp, runtime) = build_harness()?;

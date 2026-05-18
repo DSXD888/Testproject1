@@ -44,7 +44,7 @@ Step 8: Visually confirm data in desktop Queue and Detail views
 Run ALL of these before attempting the skill:
 
 ```bash
-cd /Users/zacfarrell/Desktop/Testproject1
+cd /Users/alinaaitova/Desktop/Testproject1
 
 # 1a. Daemon compiles cleanly
 cargo check --all-targets
@@ -85,7 +85,7 @@ pkill -f "target/release/daemon" 2>/dev/null; sleep 1
 ## Step 2: Run the Skill
 
 ```bash
-cd /Users/zacfarrell/Desktop/Testproject1
+cd /Users/alinaaitova/Desktop/Testproject1
 
 # Build release binary (in case code changed)
 cargo build --release --bin daemon
@@ -298,7 +298,7 @@ cargo run --release --bin daemon -- --serve \
   --artifact-root "$HOME/Library/Application Support/com.procintel.desktop/artifacts"
 
 # Terminal 2: Start desktop app
-cd /Users/zacfarrell/Desktop/Testproject1/apps/desktop
+cd /Users/alinaaitova/Desktop/Testproject1/apps/desktop
 bun run dev &
 sleep 3
 cargo tauri dev

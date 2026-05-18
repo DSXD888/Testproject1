@@ -48,7 +48,7 @@ const RUNTIME_DIRNAME: &str = "runtime";
 const ARTIFACT_DIRNAME: &str = "artifacts";
 const STATE_DB_FILENAME: &str = "state.db";
 const EXPECTED_PROTOCOL_VERSION: u32 = 1;
-const EXPECTED_SCHEMA_EPOCH: i64 = 9;
+const EXPECTED_SCHEMA_EPOCH: i64 = 8;
 const DEFAULT_DAEMON_PROGRAM: &str = "daemon";
 const DESKTOP_BASE_DIR_ENV: &str = "PROCINTEL_DESKTOP_BASE_DIR";
 const DESKTOP_STATE_ROOT_ENV: &str = "PROCINTEL_DESKTOP_STATE_ROOT";
@@ -74,17 +74,6 @@ static TEST_DAEMON_STOP_HOOK: OnceLock<Mutex<Option<TestDaemonStopHook>>> = Once
 type TestProcessRunningHook = Arc<dyn Fn(u32) -> Result<bool> + Send + Sync>;
 #[cfg(test)]
 static TEST_PROCESS_RUNNING_HOOK: OnceLock<Mutex<Option<TestProcessRunningHook>>> = OnceLock::new();
-#[cfg(test)]
-static TEST_RUNTIME_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
-#[cfg(test)]
-#[allow(clippy::missing_errors_doc)]
-pub fn lock_test_runtime() -> Result<std::sync::MutexGuard<'static, ()>> {
-    TEST_RUNTIME_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .map_err(|_| anyhow!("test runtime lock poisoned"))
-}
 
 const PIPELINE_RERUN_INGEST_STAGES: [&str; 3] = ["landed-cost", "net-gate", "manifest"];
 
@@ -2826,6 +2815,15 @@ mod tests {
     #[cfg(unix)]
     use std::os::unix::net::UnixListener;
     use tempfile::tempdir;
+
+    static TEST_RUNTIME_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+    fn lock_test_runtime() -> Result<std::sync::MutexGuard<'static, ()>> {
+        TEST_RUNTIME_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .map_err(|_| anyhow!("test runtime lock poisoned"))
+    }
 
     fn seeded_db() -> Result<(tempfile::TempDir, PathBuf)> {
         let temp = tempdir()?;

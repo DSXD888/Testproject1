@@ -35,7 +35,7 @@
 
 **Your mission:** verify all of the above are either mitigated by existing infrastructure OR cleanly recoverable, before the swarm runs at full scale on real L5 work.
 
-**Project key:** `/Users/zacfarrell/Desktop/Testproject1`
+**Project key:** `/Users/alinaaitova/Desktop/Testproject1`
 **Branch:** `main` only (per AGENTS.md)
 **Bead label:** `layer-5` (or whatever the L5 spec uses — verify in §1)
 
@@ -44,7 +44,7 @@
 ## 1. Pre-Flight (fail-hard if any of these fail; do NOT spawn any agents until all green)
 
 ```bash
-cd /Users/zacfarrell/Desktop/Testproject1
+cd /Users/alinaaitova/Desktop/Testproject1
 
 # A. Working tree clean + synced
 [ -z "$(git status --porcelain)" ] && echo "✓ tree clean" || echo "ABORT: tree dirty"
@@ -62,9 +62,9 @@ grep -q '("result", "messages", "results")' bin/br-claim    && echo "✓ br-clai
 grep -q '("result", "messages", "results")' bin/br-complete && echo "✓ br-complete response-key fix in" || echo "ABORT: br-complete missing fix"
 
 # D. Hook installed (both pre-commit and pre-push) — fail-hard, no eyeballing
-am_status=$(am guard status /Users/zacfarrell/Desktop/Testproject1 2>&1)
-echo "$am_status" | grep -qE "Pre-commit\s+installed" && echo "✓ pre-commit hook installed" || echo "ABORT: pre-commit hook NOT installed (run: am guard install /Users/zacfarrell/Desktop/Testproject1 /Users/zacfarrell/Desktop/Testproject1)"
-echo "$am_status" | grep -qE "Pre-push\s+installed"   && echo "✓ pre-push hook installed"   || echo "ABORT: pre-push hook NOT installed (run: am guard install --prepush /Users/zacfarrell/Desktop/Testproject1 /Users/zacfarrell/Desktop/Testproject1)"
+am_status=$(am guard status /Users/alinaaitova/Desktop/Testproject1 2>&1)
+echo "$am_status" | grep -qE "Pre-commit\s+installed" && echo "✓ pre-commit hook installed" || echo "ABORT: pre-commit hook NOT installed (run: am guard install /Users/alinaaitova/Desktop/Testproject1 /Users/alinaaitova/Desktop/Testproject1)"
+echo "$am_status" | grep -qE "Pre-push\s+installed"   && echo "✓ pre-push hook installed"   || echo "ABORT: pre-push hook NOT installed (run: am guard install --prepush /Users/alinaaitova/Desktop/Testproject1 /Users/alinaaitova/Desktop/Testproject1)"
 echo "$am_status" | grep -qE "Mode\s+Block"            && echo "✓ Mode=Block"                 || echo "ABORT: hook Mode is NOT Block — enforcement is disabled"
 
 # E. Phase B markers in hook
@@ -171,12 +171,12 @@ git status -sb 2>&1   # what's the active agent editing?
 ```
 # In your agent session, periodically:
 search_messages(
-  project_key="/Users/zacfarrell/Desktop/Testproject1",
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
   query="layer-5 OR L5 OR Start",
   limit=20,
   ranking="recency"
 )
-list_agents(project_key="/Users/zacfarrell/Desktop/Testproject1")
+list_agents(project_key="/Users/alinaaitova/Desktop/Testproject1")
 ```
 
 **CHECKPOINT P1.claim:** As soon as you see ONE in-progress bead and ONE `[<bead-id>] Start` mail, report to the user: "Agent X claimed bead Y, Start mail visible." Don't proceed to wait for completion until the claim is confirmed.
@@ -217,7 +217,7 @@ After ONE bead has fully cycled through claim → commit → complete, verify al
 | **PC3** | Complete mail in archive | `search_messages(query="[<id>] Complete")` returns ≥1 message from agent-name |
 | **PC4** | Commit on origin/main | `git log origin/main --oneline -10` shows the bead-id-prefixed commit |
 | **PC5** | Working tree clean | `git status --porcelain` empty |
-| **PC6** | File reservations released | `am file_reservations list /Users/zacfarrell/Desktop/Testproject1` does NOT mention this bead |
+| **PC6** | File reservations released | `am file_reservations list /Users/alinaaitova/Desktop/Testproject1` does NOT mention this bead |
 
 ### 3f. Phase 1 Validate → Test → Fix Loop
 
@@ -296,7 +296,7 @@ Phase 2 is the FIRST exposure to concurrency. Five specific scenarios to observe
 **S2. Same-file race** (more common — chokepoint files): Two agents claim DIFFERENT beads but those beads' file lists overlap (e.g., both touch `crates/daemon/src/main.rs`). Expected:
 - The first wins the reservation; second gets conflict on `bin/br-claim`.
 - Loser aborts cleanly.
-- **Verification:** `am file_reservations list /Users/zacfarrell/Desktop/Testproject1` should show one agent holding the contested file at a time.
+- **Verification:** `am file_reservations list /Users/alinaaitova/Desktop/Testproject1` should show one agent holding the contested file at a time.
 
 **S3. Push race** (high probability): Agents A and B both finish work and run `bin/br-complete` within seconds. Both attempt `git push`. Expected:
 - One push wins. The other agent's push fails with non-fast-forward.
@@ -408,13 +408,13 @@ test -f .git/agent-mail-bypasses.log && wc -l .git/agent-mail-bypasses.log
 curl -s --max-time 3 http://127.0.0.1:8765/healthz | grep '"status":"alive"'
 
 # File reservations
-am file_reservations list /Users/zacfarrell/Desktop/Testproject1 | wc -l
+am file_reservations list /Users/alinaaitova/Desktop/Testproject1 | wc -l
 ```
 
 ```
 # Mail archive activity
 search_messages(query="layer-5", limit=50, ranking="recency")
-list_agents(project_key="/Users/zacfarrell/Desktop/Testproject1")
+list_agents(project_key="/Users/alinaaitova/Desktop/Testproject1")
 ```
 
 ### 5c. Acceptance criteria for Phase 3
@@ -569,7 +569,7 @@ bin/br-complete <bead-id> --commit <commit-sha>   # explicit SHA
 
 ### R4. Zombie file reservation (held by a dead agent)
 ```bash
-am file_reservations list /Users/zacfarrell/Desktop/Testproject1
+am file_reservations list /Users/alinaaitova/Desktop/Testproject1
 # Identify the stale reservation (note the holder's agent_name)
 # If it's the dead agent's:
 am file_reservations release <reservation-id>
@@ -590,7 +590,7 @@ TOKEN=$(python3 -c "import json,os; cfg=json.load(open(os.path.expanduser('~/.cl
 curl -s --max-time 5 -X POST http://127.0.0.1:8765/mcp/ \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
-  -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"ensure_project","arguments":{"human_key":"/Users/zacfarrell/Desktop/Testproject1"}}}' | head -3
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"ensure_project","arguments":{"human_key":"/Users/alinaaitova/Desktop/Testproject1"}}}' | head -3
 
 # Verify the hook works again with the end-to-end test from pre-flight check L:
 git commit --allow-empty -m "chore: post-restart hook test ($(date -u +%FT%TZ))" \
@@ -602,7 +602,7 @@ git commit --allow-empty -m "chore: post-restart hook test ($(date -u +%FT%TZ))"
 ```
 1. Verify the agent is gone: list_agents — last_active_ts > 10 min ago
 2. Release their reservations:
-   am file_reservations list /Users/zacfarrell/Desktop/Testproject1 | grep <crashed-agent>
+   am file_reservations list /Users/alinaaitova/Desktop/Testproject1 | grep <crashed-agent>
    am file_reservations release <each-reservation-id>
 3. Reset the bead:
    br update <bead-id> --status=open
@@ -628,7 +628,7 @@ TOKEN=$(python3 -c "import json,os; cfg=json.load(open(os.path.expanduser('~/.cl
 curl -s --max-time 5 -X POST http://127.0.0.1:8765/mcp/ \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
-  -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"ensure_project","arguments":{"human_key":"/Users/zacfarrell/Desktop/Testproject1"}}}' | head -5
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"ensure_project","arguments":{"human_key":"/Users/alinaaitova/Desktop/Testproject1"}}}' | head -5
 # Look for: human_key, slug, project_uid in the response.
 ```
 
@@ -641,9 +641,9 @@ curl -s --max-time 5 -X POST http://127.0.0.1:8765/mcp/ \
 pkill am 2>/dev/null || true
 am serve-http --port 8765 &
 sleep 2
-am guard install /Users/zacfarrell/Desktop/Testproject1 /Users/zacfarrell/Desktop/Testproject1
-am guard install --prepush /Users/zacfarrell/Desktop/Testproject1 /Users/zacfarrell/Desktop/Testproject1   # if pre-push is also wanted
-am guard status /Users/zacfarrell/Desktop/Testproject1   # confirm
+am guard install /Users/alinaaitova/Desktop/Testproject1 /Users/alinaaitova/Desktop/Testproject1
+am guard install --prepush /Users/alinaaitova/Desktop/Testproject1 /Users/alinaaitova/Desktop/Testproject1   # if pre-push is also wanted
+am guard status /Users/alinaaitova/Desktop/Testproject1   # confirm
 # Run the pre-flight L test again to verify:
 git commit --allow-empty -m "chore: post-reinstall hook test" && git reset --soft HEAD~1 && echo "✓ fixed"
 ```

@@ -29,7 +29,7 @@ Extend `.git/hooks/hooks.d/pre-commit/50-agent-mail.py` with a new check functio
 
 This is the only deliverable. **Do not modify the wrappers, the skills, AGENTS.md, or any other file.**
 
-**Project key:** `/Users/zacfarrell/Desktop/Testproject1`
+**Project key:** `/Users/alinaaitova/Desktop/Testproject1`
 **Branch:** `main` only
 **Bead label:** N/A — infrastructure work
 
@@ -38,7 +38,7 @@ This is the only deliverable. **Do not modify the wrappers, the skills, AGENTS.m
 ## 2. Pre-flight Checks (do FIRST — abort if any fail)
 
 ```bash
-cd /Users/zacfarrell/Desktop/Testproject1
+cd /Users/alinaaitova/Desktop/Testproject1
 
 # A. Phase A is deployed
 test -x bin/br-claim && echo "br-claim OK" || { echo "ABORT: bin/br-claim missing — Phase A not deployed"; exit 1; }
@@ -67,7 +67,7 @@ Register up front — you'll need to send and search test mails:
 
 ```
 macro_start_session(
-  project_key="/Users/zacfarrell/Desktop/Testproject1",
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
   program="phase-b-precommit-enforcement",
   model="<your-model>",
   task_description="Extend precommit hook with Start-mail check"
@@ -286,7 +286,7 @@ export AGENT_MAIL_BYPASS=1
 # OR add to ~/.zshrc / ~/.bashrc temporarily
 
 # Full rollback to pre-Phase-B state:
-cd /Users/zacfarrell/Desktop/Testproject1
+cd /Users/alinaaitova/Desktop/Testproject1
 git log --oneline -5  # Find the Phase B commit hash
 git revert <phase-b-commit-sha>
 git push

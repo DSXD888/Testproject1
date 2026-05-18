@@ -130,7 +130,7 @@ In order:
 ### 5. AgentMail Setup (Do This ONCE At Session Start)
 
 ```text
-ensure_project(project_key="/Users/zacfarrell/Desktop/Testproject1")
+ensure_project(project_key="/Users/alinaaitova/Desktop/Testproject1")
 register_agent(project_key, program="claude-code", model="opus")
 set_contact_policy(project_key, agent_name, policy="open")
 fetch_inbox(project_key, agent_name, limit=20)
@@ -156,7 +156,7 @@ Use the ASCII diagram from `pipemaxxer/TEMPLATES.md` "Required Kickoff Sections 
 - Bead CLI is `br` (not `bd`).
 - Sync command is `bin/br-sync`.
 - Specific verification commands per stack surface (Rust + TS).
-- Project key: `/Users/zacfarrell/Desktop/Testproject1`.
+- Project key: `/Users/alinaaitova/Desktop/Testproject1`.
 
 ### 8. Verification Commands (per stack surface)
 
@@ -212,7 +212,7 @@ Phase 1 (Foundation)
 
 ### 11. AgentMail Quick Reference
 
-(Use the exact verbatim block from `pipemaxxer/TEMPLATES.md` "Required Kickoff Sections — 11. AgentMail Quick Reference", with project key `/Users/zacfarrell/Desktop/Testproject1`.)
+(Use the exact verbatim block from `pipemaxxer/TEMPLATES.md` "Required Kickoff Sections — 11. AgentMail Quick Reference", with project key `/Users/alinaaitova/Desktop/Testproject1`.)
 
 Key reminders:
 - NO broadcast. `"broadcast"` is NOT a valid recipient.
@@ -254,7 +254,7 @@ The push prompt is short (80-130 lines) — for continuation agents who already 
 
 ### 4. Work Loop (compact)
 
-(Use the exact verbatim compact block from `pipemaxxer/TEMPLATES.md` "Required Push Sections — 4. Work Loop", with bead-cli=br, bead-prefix=l5, project-key=/Users/zacfarrell/Desktop/Testproject1.)
+(Use the exact verbatim compact block from `pipemaxxer/TEMPLATES.md` "Required Push Sections — 4. Work Loop", with bead-cli=br, bead-prefix=l5, project-key=/Users/alinaaitova/Desktop/Testproject1.)
 
 ### 5. Verification Commands (compact, per stack surface)
 
@@ -302,7 +302,7 @@ push: docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-co
 bead_prefix: l5
 bead_cli: br
 bead_sync_cmd: bin/br-sync
-agentmail_project_key: /Users/zacfarrell/Desktop/Testproject1
+agentmail_project_key: /Users/alinaaitova/Desktop/Testproject1
 phases:
   1: { name: Foundation, beads: <count>, status: pending }
   2: { name: FX Engine, beads: <count>, status: pending }
@@ -354,7 +354,7 @@ These ARE the deliverables. They are user-facing. They are not iteratively self-
 After step 10, generation is complete. **Before agents begin executing L5 implementation, the human operator must:**
 
 1. Read kickoff + push (review against L4 quality bar).
-2. Verify AgentMail registration block uses `/Users/zacfarrell/Desktop/Testproject1`.
+2. Verify AgentMail registration block uses `/Users/alinaaitova/Desktop/Testproject1`.
 3. Verify `br ready --json` shows the L5 bead graph.
 4. Verify env vars from bootstrap are set (or scoped delegation explicit).
 5. Authorize parallel agent execution.

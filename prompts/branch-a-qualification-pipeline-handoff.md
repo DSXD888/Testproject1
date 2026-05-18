@@ -113,7 +113,7 @@ When you see a function check `NOT EXISTS (SELECT 1 FROM process_stage_heads WHE
 ### Verify daemon compiles
 
 ```bash
-cd /Users/zacfarrell/Desktop/Testproject1
+cd /Users/alinaaitova/Desktop/Testproject1
 cargo check --all-targets
 ```
 

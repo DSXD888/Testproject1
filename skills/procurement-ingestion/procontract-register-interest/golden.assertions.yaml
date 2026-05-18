@@ -8,6 +8,5 @@ expected_side_effect_class: external_mutation
 allowed_actions:
   - registered
   - already_registered
-  - pending_registration
   - skipped
   - failed

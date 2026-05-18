@@ -175,7 +175,7 @@ If FAIL: fix beads, re-run audit. Do NOT proceed to step 10.
 
 Before agents begin executing L5 implementation:
 1. Read the kickoff/push (review against L4 quality bar).
-2. Verify AgentMail registration block uses `/Users/zacfarrell/Desktop/Testproject1`.
+2. Verify AgentMail registration block uses `/Users/alinaaitova/Desktop/Testproject1`.
 3. Verify `br ready --json` shows the L5 bead graph in expected order.
 4. Verify env vars from bootstrap are set or scoped delegation explicit.
 5. Verify quality gates list correct Rust + TS + UBS commands.
@@ -230,7 +230,7 @@ When `br list --status=open --label=l5` returns empty (or only `audit-fix` candi
 | Test (TS) | `bun run test` |
 | Lint | `cargo clippy --all-targets -- -D warnings && cargo fmt --check && bun run lint` |
 | UBS | `ubs $(git diff --name-only --cached)` |
-| AgentMail key | `/Users/zacfarrell/Desktop/Testproject1` |
+| AgentMail key | `/Users/alinaaitova/Desktop/Testproject1` |
 
 ---
 

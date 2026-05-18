@@ -42,7 +42,7 @@ It runs a background daemon process that persists browser state between commands
 ### 2. Verify daemon compiles
 
 ```bash
-cd /Users/zacfarrell/Desktop/Testproject1
+cd /Users/alinaaitova/Desktop/Testproject1
 cargo check --all-targets
 ```
 
@@ -53,7 +53,7 @@ cargo check --all-targets
 ### Project Structure
 
 ```
-/Users/zacfarrell/Desktop/Testproject1/
+/Users/alinaaitova/Desktop/Testproject1/
   crates/daemon/src/main.rs          # 224KB — daemon core, live loop, pipeline materialization
   crates/daemon/src/agents/claude.rs # Claude CLI adapter (spawns real claude process)
   crates/daemon/src/agents/contracts.rs # Result contract validation

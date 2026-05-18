@@ -89,7 +89,7 @@ The Stage 9 **infrastructure** is built and compiled (YELLOW status from the bui
 ### Verify everything compiles
 
 ```bash
-cd /Users/zacfarrell/Desktop/Testproject1
+cd /Users/alinaaitova/Desktop/Testproject1
 cargo build --release --bin daemon 2>&1 | tail -3
 ```
 

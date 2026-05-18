@@ -574,67 +574,6 @@ fn test_semantic_written_entity_refs_track_domain_writes() -> Result<()> {
 }
 
 #[test]
-fn test_tender_spec_numeric_lot_number_is_canonicalized_before_domain_writes() -> Result<()> {
-    let harness = SemanticHarness::new()?;
-    harness.seed_process("proc-numeric-lot")?;
-    harness.seed_notice("proc-numeric-lot", "notice-numeric-lot", "raw-numeric-lot")?;
-    harness.seed_document_extraction(
-        "extract-numeric-lot",
-        "raw-numeric-lot",
-        "proc-numeric-lot",
-        "notice-numeric-lot",
-        &["pdf-extraction/tender-specification"],
-    )?;
-    harness.seed_semantic_job(
-        "job-numeric-lot",
-        "proc-numeric-lot",
-        "extract-numeric-lot",
-        "notice-numeric-lot",
-        "pdf-extraction/tender-specification",
-    )?;
-
-    let mut payload = sample_semantic_result("pdf-extraction/tender-specification");
-    let first_lot = payload
-        .get_mut("lots")
-        .and_then(Value::as_array_mut)
-        .and_then(|lots| lots.first_mut())
-        .and_then(Value::as_object_mut)
-        .context("sample payload lots[0] object missing")?;
-    first_lot.insert("lot_number".to_owned(), serde_json::json!(1));
-    let seeds = payload
-        .get_mut("product_requirement_seeds")
-        .and_then(Value::as_array_mut)
-        .context("sample payload product_requirement_seeds array missing")?;
-    for seed in seeds {
-        let seed = seed
-            .as_object_mut()
-            .context("sample payload product_requirement_seeds[] object missing")?;
-        seed.insert("lot_number".to_owned(), serde_json::json!(1));
-    }
-
-    let run = harness.run_next_job(&payload)?;
-    ensure!(run.success, "stderr: {}", run.stderr);
-
-    let conn = harness.connection()?;
-    ensure!(workflow_job_status(&conn, "job-numeric-lot")? == "completed");
-    let (source_lot_id, lot_key, lot_number): (String, String, i64) = conn.query_row(
-        "SELECT source_lot_id, lot_key, lot_number FROM notice_lots WHERE notice_id = ?1 LIMIT 1",
-        params!["notice-numeric-lot"],
-        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-    )?;
-    ensure!(source_lot_id == "1");
-    ensure!(lot_key == "1");
-    ensure!(lot_number == 1);
-    let candidate_rows: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM product_candidates WHERE process_id = ?1",
-        params!["proc-numeric-lot"],
-        |row| row.get(0),
-    )?;
-    ensure!(candidate_rows >= 1);
-    Ok(())
-}
-
-#[test]
 fn test_contract_validation_runs_before_persistence() -> Result<()> {
     let harness = SemanticHarness::new()?;
     harness.seed_process("proc-invalid")?;

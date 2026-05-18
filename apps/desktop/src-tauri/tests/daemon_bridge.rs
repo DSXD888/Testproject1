@@ -3,9 +3,6 @@
 #[path = "../src/daemon_bridge.rs"]
 #[allow(dead_code)]
 mod daemon_bridge_impl;
-#[path = "../../../../crates/daemon/src/db/sqlite.rs"]
-#[allow(dead_code)]
-mod sqlite_impl;
 
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -59,7 +56,7 @@ impl TempRuntime {
                 "pid": 42,
                 "socketPath": self.socket_path().display().to_string(),
                 "protocolVersion": 1,
-                "schemaEpoch": sqlite_impl::DEFAULT_SCHEMA_EPOCH,
+                "schemaEpoch": 8,
                 "stateRoot": self.dir.display().to_string(),
                 "startedAt": "2026-03-28T18:00:00Z",
                 "ready": true
@@ -120,7 +117,7 @@ fn welcome_message() -> Value {
         "selectedProtocolVersion": 1,
         "daemonVersion": "1.2.3",
         "instanceId": "daemon-1",
-        "schemaEpoch": sqlite_impl::DEFAULT_SCHEMA_EPOCH,
+        "schemaEpoch": 8,
         "commitSeq": 77,
         "healthState": { "status": "ready" },
         "mutationsAllowed": true,
@@ -133,39 +130,6 @@ fn welcome_message() -> Value {
         "streamResumePermitted": false
     }))
     .expect("welcome json should serialize")
-}
-
-#[test]
-fn schema_epoch_defaults_match_daemon_authority_and_hello_payload() -> TestResult {
-    let runtime = TempRuntime::new()?;
-    let config = DaemonBridgeConfig::new(runtime.dir.clone());
-    assert_eq!(
-        daemon_bridge_impl::DEFAULT_SCHEMA_EPOCH,
-        sqlite_impl::DEFAULT_SCHEMA_EPOCH
-    );
-    assert_eq!(
-        config.expected_schema_epoch,
-        sqlite_impl::DEFAULT_SCHEMA_EPOCH
-    );
-
-    runtime.write_descriptor()?;
-    let listener = UnixListener::bind(runtime.socket_path())?;
-    let server = thread::spawn(
-        move || -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
-            let (mut stream, _) = listener.accept()?;
-            let hello = read_client_value(&stream)?;
-            write_server_message(&mut stream, &welcome_message())?;
-            Ok(hello)
-        },
-    );
-
-    DaemonBridge::with_config(config).connect()?;
-    let hello = server.join().expect("server should join")?;
-    assert_eq!(
-        hello["expectedSchemaEpoch"],
-        sqlite_impl::DEFAULT_SCHEMA_EPOCH
-    );
-    Ok(())
 }
 
 #[test]
@@ -242,7 +206,7 @@ fn rs_dbr_002_get_daemon_info_is_a_read_command_without_idempotency() -> TestRes
                         "instanceId": "daemon-1",
                         "daemonVersion": "1.2.3",
                         "protocolVersion": 1,
-                        "schemaEpoch": sqlite_impl::DEFAULT_SCHEMA_EPOCH,
+                        "schemaEpoch": 8,
                         "socketPath": server_runtime.socket_path().display().to_string(),
                         "descriptorPath": server_runtime.descriptor_path().display().to_string(),
                         "stateRoot": server_runtime.dir.display().to_string(),

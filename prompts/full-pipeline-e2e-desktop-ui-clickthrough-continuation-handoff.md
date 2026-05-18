@@ -34,16 +34,16 @@ Screenshots already captured:
 
 E2E runtime roots:
 
-- State root: `/Users/zacfarrell/Desktop/Testproject1/state-e2e-20260504T113157Z`
-- Runtime dir: `/Users/zacfarrell/Desktop/Testproject1/runtime-e2e-20260504T113157Z`
-- Artifact root: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-20260504T113157Z`
+- State root: `/Users/alinaaitova/Desktop/Testproject1/state-e2e-20260504T113157Z`
+- Runtime dir: `/Users/alinaaitova/Desktop/Testproject1/runtime-e2e-20260504T113157Z`
+- Artifact root: `/Users/alinaaitova/Desktop/Testproject1/artifacts-e2e-20260504T113157Z`
 
 Spotlight process:
 
 - Process ID: `proc-pc-956d1aaa-8841-f111-813c-005056b64545`
 - Notice title: `4) Woodhouses Voluntary Controlled Primary School - Boilers and BMS Panel Replacement (Four of five school summer shutdown projects)`
 - Buyer: Oldham Council
-- Manifest artifact: `/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-20260504T113157Z/manifests/proc-pc-956d1aaa-8841-f111-813c-005056b64545/manifest.md`
+- Manifest artifact: `/Users/alinaaitova/Desktop/Testproject1/artifacts-e2e-20260504T113157Z/manifests/proc-pc-956d1aaa-8841-f111-813c-005056b64545/manifest.md`
 
 ## What Was Already Proven
 
@@ -202,7 +202,7 @@ docs/pipeline/full-pipeline-e2e-screenshots/step-04-inbox-clickthrough-20260504T
 Run:
 
 ```bash
-cd /Users/zacfarrell/Desktop/Testproject1
+cd /Users/alinaaitova/Desktop/Testproject1
 git status --short --branch
 sqlite3 state-e2e-20260504T113157Z/state.db "PRAGMA integrity_check"
 sqlite3 -header -column state-e2e-20260504T113157Z/state.db "
@@ -241,12 +241,12 @@ The UI click-through should create new rows with new idempotency keys so the res
 Use the E2E roots explicitly. Do not let the app fall back to its app-support DB or live `state/state.db`.
 
 ```bash
-cd /Users/zacfarrell/Desktop/Testproject1/apps/desktop
+cd /Users/alinaaitova/Desktop/Testproject1/apps/desktop
 
 PROCINTEL_DAEMON_PROGRAM=/tmp/testproject1-target-e2e/debug/daemon \
-PROCINTEL_DESKTOP_STATE_ROOT=/Users/zacfarrell/Desktop/Testproject1/state-e2e-20260504T113157Z \
-PROCINTEL_DESKTOP_RUNTIME_DIR=/Users/zacfarrell/Desktop/Testproject1/runtime-e2e-20260504T113157Z \
-PROCINTEL_DESKTOP_ARTIFACT_ROOT=/Users/zacfarrell/Desktop/Testproject1/artifacts-e2e-20260504T113157Z \
+PROCINTEL_DESKTOP_STATE_ROOT=/Users/alinaaitova/Desktop/Testproject1/state-e2e-20260504T113157Z \
+PROCINTEL_DESKTOP_RUNTIME_DIR=/Users/alinaaitova/Desktop/Testproject1/runtime-e2e-20260504T113157Z \
+PROCINTEL_DESKTOP_ARTIFACT_ROOT=/Users/alinaaitova/Desktop/Testproject1/artifacts-e2e-20260504T113157Z \
 CARGO_TARGET_DIR=/tmp/testproject1-tauri-e2e-target \
 CARGO_INCREMENTAL=0 \
 bunx tauri dev
@@ -255,7 +255,7 @@ bunx tauri dev
 If `/tmp/testproject1-target-e2e/debug/daemon` is missing, rebuild the daemon without touching live state:
 
 ```bash
-cd /Users/zacfarrell/Desktop/Testproject1
+cd /Users/alinaaitova/Desktop/Testproject1
 CARGO_TARGET_DIR=/tmp/testproject1-target-e2e cargo build -p daemon --bin daemon
 ```
 
@@ -316,7 +316,7 @@ If this file already exists, use a timestamped suffix. Do not overwrite existing
 Validate:
 
 ```bash
-sqlite3 -header -column /Users/zacfarrell/Desktop/Testproject1/state-e2e-20260504T113157Z/state.db "
+sqlite3 -header -column /Users/alinaaitova/Desktop/Testproject1/state-e2e-20260504T113157Z/state.db "
 SELECT idempotency_key, reason_code, payload_json, withdrawn_at, provided_at
 FROM operator_input_overrides
 WHERE product_candidate_id IN (
@@ -348,7 +348,7 @@ If this file already exists, use a timestamped suffix. Do not overwrite existing
 Validate:
 
 ```bash
-sqlite3 -header -column /Users/zacfarrell/Desktop/Testproject1/state-e2e-20260504T113157Z/state.db "
+sqlite3 -header -column /Users/alinaaitova/Desktop/Testproject1/state-e2e-20260504T113157Z/state.db "
 SELECT process_id, stoplight, suggested_action, manifest_basis_hash, artifact_hash, updated_at
 FROM manifests
 WHERE process_id='proc-pc-956d1aaa-8841-f111-813c-005056b64545';
@@ -378,7 +378,7 @@ If this file already exists, use a timestamped suffix. Do not overwrite existing
 Validate:
 
 ```bash
-sqlite3 -header -column /Users/zacfarrell/Desktop/Testproject1/state-e2e-20260504T113157Z/state.db "
+sqlite3 -header -column /Users/alinaaitova/Desktop/Testproject1/state-e2e-20260504T113157Z/state.db "
 SELECT idempotency_key, status, desired_disposition, decision_note, queued_at
 FROM pending_operator_intents
 WHERE process_id='proc-pc-956d1aaa-8841-f111-813c-005056b64545'
@@ -400,7 +400,7 @@ If practical, validate staleness.
 With the UI open on the detail view, trigger an external manifest rerun against the same E2E roots:
 
 ```bash
-cd /Users/zacfarrell/Desktop/Testproject1
+cd /Users/alinaaitova/Desktop/Testproject1
 target/debug/daemon \
   --state-root state-e2e-20260504T113157Z \
   --runtime-dir runtime-e2e-20260504T113157Z \
@@ -471,7 +471,7 @@ Fix:
 
 This continuation is green when:
 
-- Tauri launches cleanly against `/Users/zacfarrell/Desktop/Testproject1/state-e2e-20260504T113157Z/state.db`.
+- Tauri launches cleanly against `/Users/alinaaitova/Desktop/Testproject1/state-e2e-20260504T113157Z/state.db`.
 - Manifest Inbox visibly shows the Woodhouses spotlight card.
 - Clicking the card opens Process Detail.
 - Manifest markdown renders in the detail view.

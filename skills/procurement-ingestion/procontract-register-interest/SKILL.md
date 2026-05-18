@@ -29,9 +29,7 @@ Do not use this skill to discover new opportunities or to extract RFx document p
 
 ## Outputs
 - `result.json` containing a `registrations[]` array and a `summary` object
-- One result item per evaluated contract when `pre_filter_evaluated` is supplied.
-  Qualified items not included in `contracts_to_register` must remain
-  `pending_registration` so the daemon can retry them in a later capped run.
+- One result item per evaluated contract when `pre_filter_evaluated` is supplied
 
 ## Side Effects
 
@@ -72,7 +70,6 @@ If CDP is unreachable, write a valid blocked `result.json` immediately:
     "total_evaluated": 0,
     "registered": 0,
     "already_registered": 0,
-    "pending_registration": 0,
     "skipped_service": 0,
     "skipped_expiry": 0,
     "failed": 0
@@ -113,7 +110,6 @@ Read:
 If `pre_filter_evaluated` is present:
 
 - Any item already marked `action: "skipped"` should be copied through to the final `registrations[]` unchanged.
-- Any item already marked `action: "pending_registration"` but not present in `contracts_to_register` should be copied through unchanged. Do not click anything for these rows; they remain retryable in a later daemon run.
 - Only perform portal actions for the items in `contracts_to_register`.
 
 If `contracts_to_register` is empty:
@@ -193,7 +189,6 @@ Write `result.json` with this top-level shape:
     "total_evaluated": 0,
     "registered": 0,
     "already_registered": 0,
-    "pending_registration": 0,
     "skipped_service": 0,
     "skipped_expiry": 0,
     "failed": 0
@@ -207,10 +202,9 @@ Per-item fields:
 notice_id:             required
 process_id:            required if known from input
 source_url:            required for acted items
-action:                one of registered | already_registered | skipped | failed | pending_registration
+action:                one of registered | already_registered | skipped | failed
 skip_reason:           required when action == skipped
 failure_reason:        required when action == failed
-pending_registration:  use only for daemon-approved register candidates that were not in contracts_to_register or were intentionally not acted in this capped run; do not click anything for these rows; they remain retryable
 pre_filter_result:     copy from daemon input when present
 registered_at:         ISO 8601 timestamp when action is registered/already_registered
 ```

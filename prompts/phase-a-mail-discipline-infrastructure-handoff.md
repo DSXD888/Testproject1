@@ -25,7 +25,7 @@ Deploy 7 deliverables that make Agent Mail compliance the **easiest path** for f
 
 L4 audit-beads and fix-beads will run AFTER you finish, and they must continue to work exactly as L4 itself did. **Phase B (the precommit hook extension that actually enforces mail) is a SEPARATE handoff that runs AFTER L4 audit/fix completes — DO NOT touch the precommit hook in this handoff.**
 
-**Project key:** `/Users/zacfarrell/Desktop/Testproject1`
+**Project key:** `/Users/alinaaitova/Desktop/Testproject1`
 **Branch:** `main` only (no feature branches per AGENTS.md)
 **Bead label:** N/A — this is infrastructure work, not bead-tracked
 
@@ -37,7 +37,7 @@ If you'll be sending mail during testing, register up front:
 
 ```
 macro_start_session(
-  project_key="/Users/zacfarrell/Desktop/Testproject1",
+  project_key="/Users/alinaaitova/Desktop/Testproject1",
   program="phase-a-infrastructure",
   model="<your-model>",
   task_description="Deploy mail-discipline wrappers, skill template updates, AGENTS.md Rule 2"

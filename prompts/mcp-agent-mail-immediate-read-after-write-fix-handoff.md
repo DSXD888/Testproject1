@@ -6,7 +6,7 @@ ULTRATHINK and be meticulous. This is a complete fix handoff for an external bug
 
 ## MISSION
 
-Fix the MCP Agent Mail bug in which `send_message` returns success while every immediate read path (`search_messages`, `fetch_inbox`, `resource://inbox`, `resource://thread`) fails with a generic `"A database error occurred. This may be a transient issue - try again."`, and the resulting archive/SQLite drift is **not** automatically repaired within any bounded time window. The fix lives in the external `mcp_agent_mail_rust` Rust workspace at `/Users/zacfarrell/Desktop/mcp_agent_mail_rust`. It must ship a new build of the `am` binary, not just edit source.
+Fix the MCP Agent Mail bug in which `send_message` returns success while every immediate read path (`search_messages`, `fetch_inbox`, `resource://inbox`, `resource://thread`) fails with a generic `"A database error occurred. This may be a transient issue - try again."`, and the resulting archive/SQLite drift is **not** automatically repaired within any bounded time window. The fix lives in the external `mcp_agent_mail_rust` Rust workspace at `/Users/alinaaitova/Desktop/mcp_agent_mail_rust`. It must ship a new build of the `am` binary, not just edit source.
 
 The defect affects the entire host: a single `send_message` from any pane, in any project, on `127.0.0.1:8765` is sufficient to break read-after-write for every project on the same Mac until reconcile fires (which may not happen automatically). Treat this as a host-global outage class, not a per-project bug.
 
@@ -18,7 +18,7 @@ Out of scope: deleting smoke-test mailbox data, rewriting Agent Mail's archive l
 
 Five things that change how you should approach this. They are not in the original manifest:
 
-1. **The patch in `/Users/zacfarrell/Desktop/mcp_agent_mail_rust` is uncommitted and was never built or installed.** `git status` shows seven dirty files on top of commit `dc586439`; `am --version` still reports `0.2.51` and the live binary at `/Users/zacfarrell/.local/bin/am` (PID 69379, LaunchAgent `com.agent-mail`) was last touched before the patch existed. Every "ACTUAL" line in the manifest reflects the unpatched binary, not the in-flight fix. Your first verification step is to confirm the live binary's build hash diverges from the patched source — and after your fix, to ship a new `0.2.x` and restart the daemon.
+1. **The patch in `/Users/alinaaitova/Desktop/mcp_agent_mail_rust` is uncommitted and was never built or installed.** `git status` shows seven dirty files on top of commit `dc586439`; `am --version` still reports `0.2.51` and the live binary at `/Users/alinaaitova/.local/bin/am` (PID 69379, LaunchAgent `com.agent-mail`) was last touched before the patch existed. Every "ACTUAL" line in the manifest reflects the unpatched binary, not the in-flight fix. Your first verification step is to confirm the live binary's build hash diverges from the patched source — and after your fix, to ship a new `0.2.x` and restart the daemon.
 
 2. **The defect is not "intermittent" in the way the manifest implies.** The manifest reports 1 failing immediate-read cycle and 1 passing immediate-read cycle. Live reproduction on `2026-05-06T08:16:46Z` failed on the next write *and stayed failing for 2+ minutes* — health remained red, search remained broken, and message id 8 stayed permanently archive-only. The original "passing" cycle for id 7 likely caught a window where the readiness drift detector or integrity guard had recently fired; without that, the drift is **unbounded**. Plan for the worst case, not the lucky case.
 
@@ -70,8 +70,8 @@ grep -E "(fresh durability|archive inventory is ahead|reconstructed)" \
      ~/Library/Logs/agent-mail/stderr.log | tail -10
 
 # Confirm the patch state
-git -C /Users/zacfarrell/Desktop/mcp_agent_mail_rust status --short
-git -C /Users/zacfarrell/Desktop/mcp_agent_mail_rust diff --stat
+git -C /Users/alinaaitova/Desktop/mcp_agent_mail_rust status --short
+git -C /Users/alinaaitova/Desktop/mcp_agent_mail_rust diff --stat
 ```
 
 Outcomes you might see:
@@ -91,8 +91,8 @@ This recipe was executed on `2026-05-06T08:16Z` against the live `am 0.2.51` ser
 
 - LaunchAgent `com.agent-mail` running on `127.0.0.1:8765`, PID visible via `lsof -nP -iTCP:8765 -sTCP:LISTEN`.
 - `am --version` returns `am 0.2.51`.
-- Storage root `/Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/` exists and contains projects.
-- Agent `MistyHorse` is registered in project `/Users/zacfarrell/Desktop/Testproject1` (verify with `list_agents`).
+- Storage root `/Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/` exists and contains projects.
+- Agent `MistyHorse` is registered in project `/Users/alinaaitova/Desktop/Testproject1` (verify with `list_agents`).
 
 ### Step 1 — confirm baseline green
 
@@ -107,7 +107,7 @@ Expect `health_level:"green"` and `archive == db` counts. If not green, wait for
 ```json
 {"tool":"mcp__mcp_agent_mail__.send_message",
  "arguments":{
-   "project_key":"/Users/zacfarrell/Desktop/Testproject1",
+   "project_key":"/Users/alinaaitova/Desktop/Testproject1",
    "sender_name":"MistyHorse",
    "to":["MistyHorse"],
    "subject":"[am-fix-verify] cycle <N>",
@@ -117,14 +117,14 @@ Expect `health_level:"green"` and `archive == db` counts. If not green, wait for
    "ack_required":false}}
 ```
 
-Expect `payload.id` in the response and a new file under `~/.mcp_agent_mail_git_mailbox_repo/projects/users-zacfarrell-desktop-testproject1/messages/2026/05/`.
+Expect `payload.id` in the response and a new file under `~/.mcp_agent_mail_git_mailbox_repo/projects/users-alinaaitova-desktop-testproject1/messages/2026/05/`.
 
 ### Step 3 — three immediate reads, in parallel
 
 ```json
-{"tool":"mcp__mcp_agent_mail__.search_messages","arguments":{"project_key":"/Users/zacfarrell/Desktop/Testproject1","query":"<marker>","limit":10,"ranking":"recency"}}
-{"tool":"mcp__mcp_agent_mail__.fetch_inbox","arguments":{"project_key":"/Users/zacfarrell/Desktop/Testproject1","agent_name":"MistyHorse","include_bodies":true,"limit":10}}
-ReadMcpResource: server="mcp-agent-mail" uri="resource://inbox/MistyHorse?project=/Users/zacfarrell/Desktop/Testproject1&include_bodies=true&limit=10"
+{"tool":"mcp__mcp_agent_mail__.search_messages","arguments":{"project_key":"/Users/alinaaitova/Desktop/Testproject1","query":"<marker>","limit":10,"ranking":"recency"}}
+{"tool":"mcp__mcp_agent_mail__.fetch_inbox","arguments":{"project_key":"/Users/alinaaitova/Desktop/Testproject1","agent_name":"MistyHorse","include_bodies":true,"limit":10}}
+ReadMcpResource: server="mcp-agent-mail" uri="resource://inbox/MistyHorse?project=/Users/alinaaitova/Desktop/Testproject1&include_bodies=true&limit=10"
 {"tool":"mcp__mcp_agent_mail__.health_check","arguments":{}}
 ```
 
@@ -174,9 +174,9 @@ You can corroborate every claim below against files already on this host.
 $ am --version
 am 0.2.51
 $ which am
-/Users/zacfarrell/.local/bin/am
+/Users/alinaaitova/.local/bin/am
 $ lsof -nP -iTCP:8765 -sTCP:LISTEN | tail -1
-am      69379 zacfarrell    9u  IPv4  ...        0t0  TCP 127.0.0.1:8765 (LISTEN)
+am      69379 alinaaitova    9u  IPv4  ...        0t0  TCP 127.0.0.1:8765 (LISTEN)
 $ uname -a
 Darwin Mac.fritz.box 24.5.0 Darwin Kernel Version 24.5.0: Tue Apr 22 19:54:26 PDT 2025;
                                 root:xnu-11417.121.6~2/RELEASE_ARM64_T8112 arm64
@@ -185,9 +185,9 @@ Darwin Mac.fritz.box 24.5.0 Darwin Kernel Version 24.5.0: Tue Apr 22 19:54:26 PD
 ### External source state (the patch is uncommitted)
 
 ```bash
-$ git -C /Users/zacfarrell/Desktop/mcp_agent_mail_rust rev-parse HEAD
+$ git -C /Users/alinaaitova/Desktop/mcp_agent_mail_rust rev-parse HEAD
 dc5864396c0144163ecb51e74b74805cb7a0c6ab
-$ git -C /Users/zacfarrell/Desktop/mcp_agent_mail_rust status --short
+$ git -C /Users/alinaaitova/Desktop/mcp_agent_mail_rust status --short
  M .beads/issues.jsonl
  M crates/mcp-agent-mail-db/src/pool.rs
  M crates/mcp-agent-mail-db/src/reconstruct.rs
@@ -195,7 +195,7 @@ $ git -C /Users/zacfarrell/Desktop/mcp_agent_mail_rust status --short
  M crates/mcp-agent-mail-tools/src/identity.rs
  M crates/mcp-agent-mail-tools/src/lib.rs
  M crates/mcp-agent-mail-tools/src/resources.rs
-$ git -C /Users/zacfarrell/Desktop/mcp_agent_mail_rust diff --stat
+$ git -C /Users/alinaaitova/Desktop/mcp_agent_mail_rust diff --stat
  .beads/issues.jsonl                                |   1 +
  crates/mcp-agent-mail-db/src/pool.rs               |  15 +-
  crates/mcp-agent-mail-db/src/reconstruct.rs        |  14 +-
@@ -209,12 +209,12 @@ $ git -C /Users/zacfarrell/Desktop/mcp_agent_mail_rust diff --stat
 ### Storage layout (one SQLite, three projects — proves global blast radius)
 
 ```bash
-$ ls /Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/projects/
+$ ls /Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/projects/
 ahead-project
-users-zacfarrell-desktop-mcp-agent-mail-rust
-users-zacfarrell-desktop-testproject1
+users-alinaaitova-desktop-mcp-agent-mail-rust
+users-alinaaitova-desktop-testproject1
 
-$ ls /Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/projects/users-zacfarrell-desktop-testproject1/messages/2026/05/
+$ ls /Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/projects/users-alinaaitova-desktop-testproject1/messages/2026/05/
 2026-05-05T21-04-24Z__agent-mail-smoke-self-test-message__1.md
 2026-05-05T21-04-27Z__contact-request-from-bronzegoose__2.md
 2026-05-05T21-04-27Z__smoke-test-hello-from-bronzegoose__3.md
@@ -252,7 +252,7 @@ Note `__8.md` — the message I sent during reproduction. It exists in the archi
     "wbq":{"depth":1,"capacity":8192,"latency_p99_ms":155,"enqueued_total":39,"drained_total":39},
     "commit_coalescer":{"pending_requests":0,"latency_p50_ms":1289,"latency_p95_ms":1289,"latency_p99_ms":1289,"enqueued_total":41,"drained_total":41,"sync_fallbacks_total":0}
   },
-  "recovery":{"mode":"degraded_read_only","owner":"none","next_action":"Run `am doctor repair` to attempt automatic recovery","bundle_path":"/Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/doctor/forensics/storage.sqlite3/reconstruct-20260506_075704_372","recovery_lock_active":false}
+  "recovery":{"mode":"degraded_read_only","owner":"none","next_action":"Run `am doctor repair` to attempt automatic recovery","bundle_path":"/Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/doctor/forensics/storage.sqlite3/reconstruct-20260506_075704_372","recovery_lock_active":false}
 }
 ```
 
@@ -261,12 +261,12 @@ Note `commit_coalescer.latency_p50_ms = 1289`. Average commit lag is over a seco
 ### Forensic bundle (manifest-window failure)
 
 ```bash
-$ ls /Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/doctor/forensics/storage.sqlite3/
+$ ls /Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/doctor/forensics/storage.sqlite3/
 reconstruct-20260505_210708_464   # original manifest incident
 reconstruct-20260506_075622_932   # 07:56 reconcile (msg 6)
 reconstruct-20260506_075704_372   # 07:57 reconcile (msg 6 retry)
 
-$ cat /Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/doctor/forensics/storage.sqlite3/reconstruct-20260506_075704_372/references/archive-drift-report.json
+$ cat /Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/doctor/forensics/storage.sqlite3/reconstruct-20260506_075704_372/references/archive-drift-report.json
 {"archive_message_count":7,"db_message_count":6,"shared_message_count":6,
  "archive_only_ids":[6],"db_only_ids":[],"identity_mismatches":[],
  "archive_projects":3,"db_projects":3,"archive_agents":7,"db_agents":6,
@@ -567,13 +567,13 @@ Run `am doctor reconstruct --dry-run` to inspect archive-backed recovery, then
 
 ## WHAT THE EXISTING PATCH ACTUALLY DOES (BE HONEST ABOUT IT)
 
-The dirty working tree at `/Users/zacfarrell/Desktop/mcp_agent_mail_rust` is the in-progress implementation of bead ticket **`br-nw23y`** ("Fix archive-ahead read/search/resource recovery diagnostics"). The patch author marked the bead **closed** at `2026-05-05T23:27:36Z` with `close_reason="Completed archive-ahead read/resource diagnostics and macOS snapshot canonicalization"` — but the working tree was never committed and the patch was never built or installed. So the bead reads as "done" while the binary on disk still reflects the pre-patch behavior. The receiving agent should:
+The dirty working tree at `/Users/alinaaitova/Desktop/mcp_agent_mail_rust` is the in-progress implementation of bead ticket **`br-nw23y`** ("Fix archive-ahead read/search/resource recovery diagnostics"). The patch author marked the bead **closed** at `2026-05-05T23:27:36Z` with `close_reason="Completed archive-ahead read/resource diagnostics and macOS snapshot canonicalization"` — but the working tree was never committed and the patch was never built or installed. So the bead reads as "done" while the binary on disk still reflects the pre-patch behavior. The receiving agent should:
 
 1. Decide whether `br-nw23y` should be reopened or marked as "in-progress" once the actual fix lands.
 2. Treat the patch as a partial implementation that addresses Modes 3, 4, and 5 — and **does not touch** Modes 1 or 2 (which are the actual root causes documented above).
 
 ```bash
-git -C /Users/zacfarrell/Desktop/mcp_agent_mail_rust diff --stat
+git -C /Users/alinaaitova/Desktop/mcp_agent_mail_rust diff --stat
 # .beads/issues.jsonl                                |   1 +
 # crates/mcp-agent-mail-db/src/pool.rs               |  15 +-     # tests only — canonicalize tempdir in three test fns
 # crates/mcp-agent-mail-db/src/reconstruct.rs        |  14 +-     # tests only — canonicalize tempdir in two symlink tests
@@ -821,8 +821,8 @@ Likely paths (try in order):
 1. **Disable the ONNX/CoreML feature flag** if `mcp-agent-mail-tools` enables it via a default Cargo feature. The classes belong to Apple's CoreML framework; `libort_sys` is the ONNX Runtime sys crate. Probably an embedding/search-AI feature that is irrelevant for the read-pool unit test.
 
 ```bash
-rg -n "ort|onnx|ortruntime|CoreML|libort_sys" /Users/zacfarrell/Desktop/mcp_agent_mail_rust/crates/mcp-agent-mail-tools/Cargo.toml
-rg -n "ort|onnx" /Users/zacfarrell/Desktop/mcp_agent_mail_rust/crates/*/Cargo.toml
+rg -n "ort|onnx|ortruntime|CoreML|libort_sys" /Users/alinaaitova/Desktop/mcp_agent_mail_rust/crates/mcp-agent-mail-tools/Cargo.toml
+rg -n "ort|onnx" /Users/alinaaitova/Desktop/mcp_agent_mail_rust/crates/*/Cargo.toml
 cargo test -p mcp-agent-mail-tools --no-default-features read_pool_setup_error_reports_archive_sqlite_degraded_state -- --exact
 ```
 
@@ -850,12 +850,12 @@ cargo fmt --all -- --check
 
 ## DEPLOYMENT — HOW TO ACTUALLY SHIP THIS
 
-A source change is not a deployment. The live `am` is at `/Users/zacfarrell/.local/bin/am` and the LaunchAgent is `com.agent-mail` running as PID 69379 today. Every fix must culminate in:
+A source change is not a deployment. The live `am` is at `/Users/alinaaitova/.local/bin/am` and the LaunchAgent is `com.agent-mail` running as PID 69379 today. Every fix must culminate in:
 
 1. **Build a new release**:
 
 ```bash
-cd /Users/zacfarrell/Desktop/mcp_agent_mail_rust
+cd /Users/alinaaitova/Desktop/mcp_agent_mail_rust
 git status                                    # confirm clean working tree on your branch
 cargo build --release --bin am                # or the workspace bin equivalent
 ls -la target/release/am                      # confirm new binary exists
@@ -872,8 +872,8 @@ pgrep -f 'am serve-http' || echo "stopped"
 3. **Install the new binary**:
 
 ```bash
-cp target/release/am /Users/zacfarrell/.local/bin/am
-codesign --force --sign - /Users/zacfarrell/.local/bin/am  # ad-hoc sign if needed for Gatekeeper
+cp target/release/am /Users/alinaaitova/.local/bin/am
+codesign --force --sign - /Users/alinaaitova/.local/bin/am  # ad-hoc sign if needed for Gatekeeper
 ```
 
 4. **Restart the LaunchAgent**:
@@ -910,7 +910,7 @@ If your new build introduces a regression:
 
 ```bash
 launchctl bootout gui/$UID/com.agent-mail
-cp /Users/zacfarrell/.local/bin/am.previous /Users/zacfarrell/.local/bin/am   # if you saved it
+cp /Users/alinaaitova/.local/bin/am.previous /Users/alinaaitova/.local/bin/am   # if you saved it
 launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.agent-mail.plist
 am --version    # verify rollback
 ```
@@ -1009,10 +1009,10 @@ Do these in order before editing source. They prevent the next session from chas
 
 ```bash
 am --version                                          # expect 0.2.51 today
-ls -la /Users/zacfarrell/.local/bin/am
-git -C /Users/zacfarrell/Desktop/mcp_agent_mail_rust status --short
-git -C /Users/zacfarrell/Desktop/mcp_agent_mail_rust log --oneline -5
-git -C /Users/zacfarrell/Desktop/mcp_agent_mail_rust diff --stat
+ls -la /Users/alinaaitova/.local/bin/am
+git -C /Users/alinaaitova/Desktop/mcp_agent_mail_rust status --short
+git -C /Users/alinaaitova/Desktop/mcp_agent_mail_rust log --oneline -5
+git -C /Users/alinaaitova/Desktop/mcp_agent_mail_rust diff --stat
 ```
 
 If the patch is gone or has been committed, adjust the plan. If `am --version` is ≥ 0.2.52 with the patch applied, the situation has changed since this handoff — re-run the reproduction recipe and re-baseline.
@@ -1024,7 +1024,7 @@ Send a marker, do three immediate reads, capture the failure. If it does not fai
 ### 3. Map the source
 
 ```bash
-cd /Users/zacfarrell/Desktop/mcp_agent_mail_rust
+cd /Users/alinaaitova/Desktop/mcp_agent_mail_rust
 
 # Read-side (where errors originate)
 rg -n "open_read_db_pool|get_read_db_pool|open_resource_read_pool|get_resource_db_pool|read_pool_setup_error_to_mcp_error|resource_sync_db_error_to_mcp_error|archive_sqlite_degraded_error|db_error_to_mcp_error" crates/
@@ -1180,13 +1180,13 @@ These artifacts already exist in `Testproject1` and contain useful background. R
 | `prompts/mcp-agent-mail-read-search-error-manifest.md` | Earlier QA manifest (2026-05-05) for the same family |
 | `docs/handoff-2026-05-05-mcp-agent-mail-db-recovery.md` | Operator post-incident handoff |
 | `agent-mail-search-fixes.patch` | Tracked search-fixes patch (out of scope; keep applied/merged) |
-| `/Users/zacfarrell/.local/bin/am` | Live binary, currently `0.2.51` |
-| `/Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/` | Live storage root (DO NOT MUTATE) |
-| `/Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/storage.sqlite3` | Live SQLite index |
-| `/Users/zacfarrell/.mcp_agent_mail_git_mailbox_repo/doctor/forensics/` | Recovery bundles, audit trail |
+| `/Users/alinaaitova/.local/bin/am` | Live binary, currently `0.2.51` |
+| `/Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/` | Live storage root (DO NOT MUTATE) |
+| `/Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/storage.sqlite3` | Live SQLite index |
+| `/Users/alinaaitova/.mcp_agent_mail_git_mailbox_repo/doctor/forensics/` | Recovery bundles, audit trail |
 | `~/Library/Logs/agent-mail/stderr.log` | Daemon log (load-bearing, polluted, grep before reading) |
 | `~/Library/LaunchAgents/com.agent-mail.plist` | LaunchAgent definition (KeepAlive, RunAtLoad, env) |
-| `/Users/zacfarrell/Desktop/mcp_agent_mail_rust/` | External Rust workspace, dirty working tree on `dc586439` |
+| `/Users/alinaaitova/Desktop/mcp_agent_mail_rust/` | External Rust workspace, dirty working tree on `dc586439` |
 | `crates/mcp-agent-mail-tools/src/lib.rs` | Tool-side read pool + `archive_sqlite_degraded_error` patch |
 | `crates/mcp-agent-mail-tools/src/resources.rs` | Resource snapshot guard + error mapping patch |
 | `crates/mcp-agent-mail-tools/src/messaging.rs` | `send_message`, `fetch_inbox`, fresh-durability-probe call site |

@@ -18,7 +18,6 @@ If I tell you to do something, even if it goes against what follows below, YOU M
 
 ---
 
-<!-- BEGIN: AGENTS.md Rule 2 (managed by install-bead-wrappers skill) -->
 ## RULE NUMBER 2: BEAD CLAIM DISCIPLINE — USE THE WRAPPERS
 
 For any bead-tracked work in this repo, you MUST use the project wrappers to claim and complete beads:
@@ -31,7 +30,6 @@ You MUST NOT use raw `br update --status=in_progress` or `br close <id>` directl
 If a wrapper errors, fix the underlying problem (agent-mail server down, file reservation conflict, missing `AGENT_MAIL_NAME` env var). Never bypass.
 
 This is a constitutional rule, equal in force to Rule 1 (no file deletion). It applies to every layer (L0 through L6 and beyond) and every future stage.
-<!-- END: AGENTS.md Rule 2 (managed by install-bead-wrappers skill) -->
 
 ---
 

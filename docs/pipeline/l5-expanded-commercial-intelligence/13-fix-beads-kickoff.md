@@ -90,7 +90,7 @@ Read in this order:
 
 1. **AGENTS.md** — **READ FULLY** — agent guidelines, Stage Validation Test Gate (lines 150-166), file deletion rules (Rule 1, lines 13-18), bead claim discipline (Rule 2, lines 21-33), branching, toolchain matrix, beads CLI invariants (`br` not `bd`, `bin/br-sync` not raw `br sync`), Agent Mail conventions.
    ```text
-   /Users/zacfarrell/Desktop/Testproject1/AGENTS.md
+   /Users/alinaaitova/Desktop/Testproject1/AGENTS.md
    ```
 
 2. **L5 Spec — SOT #1** — the authority for WHAT L5 should do
@@ -136,7 +136,7 @@ Read in this order:
 ## AgentMail Setup (Do This ONCE At Session Start)
 
 ```text
-ensure_project(project_key="/Users/zacfarrell/Desktop/Testproject1")
+ensure_project(project_key="/Users/alinaaitova/Desktop/Testproject1")
 register_agent(project_key, program="claude-code", model="opus")
 set_contact_policy(project_key, agent_name, policy="open")
 fetch_inbox(project_key, agent_name, limit=20)
@@ -325,11 +325,11 @@ If fully blocked on all remaining fix beads: push all work, release all reservat
 
 ```text
 # Discover peers (after registration; refresh between beads)
-list_contacts(project_key="/Users/zacfarrell/Desktop/Testproject1", agent_name=<your-name>)
+list_contacts(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)
 # → e.g. ["BlueLake", "RedPeak"]
 
 # Check inbox (between fix beads)
-fetch_inbox(project_key="/Users/zacfarrell/Desktop/Testproject1", agent_name=<your-name>, limit=10)
+fetch_inbox(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>, limit=10)
 
 # Claim/Complete via wrappers (handles Start/Complete mail + reservations atomically):
 bin/br-claim <fix-bead-id>
@@ -337,16 +337,16 @@ bin/br-complete <fix-bead-id>
 
 # Ad-hoc messages (NOT for Start/Complete — wrappers send those):
 # Report blocker
-send_message(project_key="/Users/zacfarrell/Desktop/Testproject1", sender_name=<your-name>, to=["<peers>"],
+send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name=<your-name>, to=["<peers>"],
   thread_id="<fix-bead-id>", subject="[<fix-bead-id>] BLOCKED: <issue>",
   body_md="File: <path>, Line: <N>. Issue: <desc>. Needed: <what>")
 
 # Mid-implementation question
-send_message(project_key="/Users/zacfarrell/Desktop/Testproject1", sender_name=<your-name>, to=["<peers>"],
+send_message(project_key="/Users/alinaaitova/Desktop/Testproject1", sender_name=<your-name>, to=["<peers>"],
   thread_id="<fix-bead-id>", subject="[<fix-bead-id>] Question: <topic>")
 
 # Release files (only if voluntarily releasing — wrappers handle normal completion)
-release_file_reservations(project_key="/Users/zacfarrell/Desktop/Testproject1", agent_name=<your-name>)
+release_file_reservations(project_key="/Users/alinaaitova/Desktop/Testproject1", agent_name=<your-name>)
 
 # Forbidden (bypasses Rule 2):
 #   br update <id> --status=in_progress
@@ -386,7 +386,7 @@ release_file_reservations(project_key="/Users/zacfarrell/Desktop/Testproject1", 
 | Bead sync | `bin/br-sync` (NEVER raw `br sync`) |
 | Bead claim | `bin/br-claim <id>` (NEVER raw `br update --status=in_progress`) |
 | Bead complete | `bin/br-complete <id>` (NEVER raw `br close`) |
-| AgentMail key | `/Users/zacfarrell/Desktop/Testproject1` |
+| AgentMail key | `/Users/alinaaitova/Desktop/Testproject1` |
 | Spec | `docs/strategy/layers/layer-5-expanded-commercial-intelligence.md` |
 | TDD | `docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-tdd.md` |
 | Audit report | `docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-completion-audit-{YYYY-MM-DD}.md` |

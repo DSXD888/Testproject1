@@ -6,9 +6,9 @@
 
 ## Context
 
-`Testproject1` has bead-claim/complete wrappers (`bin/br-claim`, `bin/br-complete`) and AGENTS.md Rule 2. The Agent Mail guard hook is installed per target repo/worktree via `am guard install`; verify the current target with `am guard status <REPO>` instead of assuming hook state from older handoffs.
+`Testproject1` has bead-claim/complete wrappers (`bin/br-claim`, `bin/br-complete`), AGENTS.md Rule 2, and the precommit hook (`.git/hooks/hooks.d/pre-commit/50-agent-mail.py` extended for Start-mail enforcement). All three were deployed via Phase A and Phase B handoffs and are LIVE — the precommit hook is already enforcing both file-reservation conflicts and Start-mail presence.
 
-When you start L5 in this same repo, the wrappers and Rule 2 do not need to be recreated. But when you start a NEW project (a future `Testproject2`, or any other repo that wants the same mail discipline), you'd need to install the wrapper assets, append Rule 2, and install the guard hook by hand.
+When you start L5 in this same repo, none of that is needed again — it's already in place. But when you start a NEW project (a future `Testproject2`, or any other repo that wants the same mail discipline), you'd need to re-do all three installs by hand.
 
 This handoff builds a **reusable skill** — `install-bead-wrappers` — that any project can invoke to bootstrap the mail-discipline infrastructure in one command. Idempotent. Cross-CLI. The skill is the canonical source of the wrappers; updates to the wrappers happen in the skill, then re-running the skill in any project pulls the latest version.
 
@@ -16,14 +16,14 @@ This handoff builds a **reusable skill** — `install-bead-wrappers` — that an
 
 ### Verified `am` binary surface (use these exact commands — do NOT guess)
 
-The Rust binary `am` is what's running on this machine. At fresh-eyes audit time it reported `am 0.2.51`; do not rely on a hardcoded version. Verify the live command surface with `am guard install --help`, `am guard status --help`, and `am guard check --help`.
+The Rust binary `am` (currently version 0.2.54+) is what's running on this machine. The relevant subcommands for this skill are:
 
 | Subcommand | Purpose | Args/Flags |
 |---|---|---|
 | `am guard install <PROJECT> <REPO>` | Install precommit hook for a project | `<PROJECT>` = string identifier (the human-readable project name, e.g. `Testproject1`); `<REPO>` = absolute path to the repo root. Optional `--prepush` / `--no-prepush` to also install a pre-push hook. |
-| `am guard status <REPO>` | Show current hook installation status | `<REPO>` = absolute path to the repo root. |
-| `am guard uninstall <REPO>` | Remove the hook (rollback) | `<REPO>` = absolute path to the repo root. |
-| `am guard check --repo <REPO> --advisory` | Run the guard's checks ad-hoc without making it a hard block | `<REPO>` = absolute path to the repo root. |
+| `am guard status` | Show current hook installation status | — |
+| `am guard uninstall` | Remove the hook (rollback) | — |
+| `am guard check` | Run the guard's checks ad-hoc | — |
 | `am serve-http --port 8765` | Start the HTTP MCP server | — |
 | `am check-inbox` | Read agent inbox (used by some git hooks) | — |
 
@@ -33,7 +33,7 @@ The auto-comment at the top of the installed hook still reads `# Auto-generated 
 
 Verify the surface yourself before you bake commands into the skill: `am guard install --help`. If a flag here is wrong on the user's machine (different `am` version), use whatever the binary actually documents.
 
-**Project key:** `/Users/zacfarrell/Desktop/Testproject1` (source of canonical wrappers; the skill itself lives outside this repo)
+**Project key:** `/Users/alinaaitova/Desktop/Testproject1` (source of canonical wrappers; the skill itself lives outside this repo)
 **Branch:** `main` only (no feature branches per AGENTS.md)
 **Bead label:** N/A — skill creation, not bead-tracked
 **Skill name:** `install-bead-wrappers`
@@ -63,11 +63,10 @@ When a future user runs `/install-bead-wrappers` in a fresh git repo (Claude or 
 
 ## 2. AgentMail Registration
 
-This is skill creation — no bead claim happens. You do NOT need to register with AgentMail. You DO need `AGENT_NAME` and `AGENT_MAIL_NAME` set if you intend to commit or smoke-test wrapper behavior (most of this work is on the skill dirs which are typically outside the repo, so commits may not be required):
+This is skill creation — no bead claim happens. You do NOT need to register with AgentMail. You DO need `AGENT_NAME` set if you intend to commit anywhere (most of this work is on the skill dirs which are typically outside the repo, so commits may not be required):
 
 ```bash
 export AGENT_NAME="<your-name>"
-export AGENT_MAIL_NAME="$AGENT_NAME"
 ```
 
 ---
@@ -76,15 +75,15 @@ export AGENT_MAIL_NAME="$AGENT_NAME"
 
 In this order:
 
-1. **`AGENTS.md`** at `/Users/zacfarrell/Desktop/Testproject1/AGENTS.md` — full read. Rule 2 lives here; you'll extract the section as a template asset.
+1. **`AGENTS.md`** at `/Users/alinaaitova/Desktop/Testproject1/AGENTS.md` — full read. Rule 2 lives here; you'll extract the section as a template asset.
 
 2. **The canonical wrappers** (these become skill assets, copied verbatim):
-   - `/Users/zacfarrell/Desktop/Testproject1/bin/br-claim`
-   - `/Users/zacfarrell/Desktop/Testproject1/bin/br-complete`
+   - `/Users/alinaaitova/Desktop/Testproject1/bin/br-claim` (~407 lines)
+   - `/Users/alinaaitova/Desktop/Testproject1/bin/br-complete` (~415 lines)
 
-3. **The Phase A handoff** (`/Users/zacfarrell/Desktop/Testproject1/prompts/phase-a-mail-discipline-infrastructure-handoff.md`) — the spec these wrappers were built against. Reference for wrapper intent and dual-CLI parity, but current `AGENTS.md` and current wrapper source win if there is drift.
+3. **The Phase A handoff** (`/Users/alinaaitova/Desktop/Testproject1/prompts/phase-a-mail-discipline-infrastructure-handoff.md`) — the spec these wrappers were built against. Reference for what Rule 2 should look like and how dual-CLI parity is maintained.
 
-4. **The Phase B handoff** (`/Users/zacfarrell/Desktop/Testproject1/prompts/phase-b-precommit-mail-enforcement-handoff.md`) — explains hook intent. Treat its historical path and enforcement-status details as background. The skill delegates hook installation to the live `am guard install` binary, so you do NOT need to ship hook content yourself.
+4. **The Phase B handoff** (`/Users/alinaaitova/Desktop/Testproject1/prompts/phase-b-precommit-mail-enforcement-handoff.md`) — explains the precommit hook. The skill will delegate hook installation to `am guard install` (one of the Rust binary's subcommands — see the Verified `am` Surface table in §Context above), so you do NOT need to ship the hook content yourself.
 
 5. **An existing skill for structural reference** — pick any well-formed one from `~/.claude/skills/`, e.g. `~/.claude/skills/beads-from-sources/`. Inspect:
    - `SKILL.md` for the YAML frontmatter (`name` + `description` only) and section headings
@@ -107,8 +106,6 @@ In this order:
    am --help                  # full subcommand list
    am guard --help            # subcommands: install, uninstall, status, check
    am guard install --help    # USAGE: am guard install [OPTIONS] <PROJECT> <REPO>
-   am guard status --help     # USAGE: am guard status <REPO>
-   am guard check --help      # supports --repo <REPO> and --advisory
    ```
    The subcommand for installing the precommit hook is **`am guard install <PROJECT> <REPO>`** — two positional args, optional `--prepush`/`--no-prepush`. **It is NOT `am install-guard` (that command does not exist; the hook's auto-comment uses the legacy underscore form `mcp-agent-mail install_guard` for historical reasons but the live CLI uses `am guard install`).** If a future `am` version changes this, run `am guard install --help` and use what's documented.
 
@@ -151,10 +148,10 @@ This skill bootstraps the mail-discipline infrastructure (atomic claim/complete 
 
 ## Prerequisites
 
-- `am` binary on PATH
+- `am` binary on PATH (typically `~/.local/bin/am`, version `0.2.54+`)
 - A git-initialized repo (`git rev-parse --show-toplevel` must succeed)
-- The agent-mail server health endpoint reachable if that endpoint is available on the installed server. If `http://127.0.0.1:8765/healthz` is unavailable, do not invent a different endpoint; verify the local tooling surface with wrapper help and `am guard ... --help`.
-- `AGENT_NAME` and `AGENT_MAIL_NAME` env vars exported in the user's shell for wrapper smoke tests and any git operations.
+- The agent-mail server reachable on `http://127.0.0.1:8765/healthz`
+- `AGENT_NAME` env var exported in the user's shell
 
 ## What This Installs
 
@@ -173,7 +170,7 @@ This skill bootstraps the mail-discipline infrastructure (atomic claim/complete 
 
 - **Wrappers:** overwrite-safe. Re-running this skill refreshes the wrappers from the latest skill snapshot.
 - **AGENTS.md Rule 2:** marker-guarded. The skill detects the `<!-- BEGIN: AGENTS.md Rule 2 (managed by install-bead-wrappers skill) -->` line and skips appending if it's already there.
-- **Precommit hook:** `am guard install` overwrites the hook with the canonical version each time. Use `am guard status <PROJECT_ROOT>` to verify post-install.
+- **Precommit hook:** `am guard install` overwrites the hook with the canonical version each time. Use `am guard status` to verify post-install.
 
 ## Troubleshooting
 
@@ -198,11 +195,11 @@ Pre-flight checklist (5–10 items) and post-install verification checklist (5�
 
 ### D4 — `assets/br-claim`
 
-Copied **verbatim** from `/Users/zacfarrell/Desktop/Testproject1/bin/br-claim`. No modifications. Copy preserves the shebang and executable bit (note: skill assets aren't typically chmod +x in the skill dir, since the install procedure does the chmod when copying into the target project's `bin/`).
+Copied **verbatim** from `/Users/alinaaitova/Desktop/Testproject1/bin/br-claim`. No modifications. Copy preserves the shebang and executable bit (note: skill assets aren't typically chmod +x in the skill dir, since the install procedure does the chmod when copying into the target project's `bin/`).
 
 ### D5 — `assets/br-complete`
 
-Copied **verbatim** from `/Users/zacfarrell/Desktop/Testproject1/bin/br-complete`. Same handling as D4.
+Copied **verbatim** from `/Users/alinaaitova/Desktop/Testproject1/bin/br-complete`. Same handling as D4.
 
 ### D6 — `assets/agents-md-rule-2.md`
 
@@ -218,18 +215,18 @@ For any bead-tracked work in this repo, you MUST use the project wrappers to cla
 - **`bin/br-claim <bead-id>`** to start work — atomically reserves files, sends `[<bead-id>] Start` mail to peers, and sets the bead `in_progress`.
 - **`bin/br-complete <bead-id>`** to finish work — atomically sends `[<bead-id>] Complete` mail, closes the bead, syncs `.beads/`, and releases file reservations.
 
-You MUST NOT use raw `br update --status=in_progress` or `br close <id>` directly — they bypass Agent Mail and file reservations, which leaves the swarm unable to detect collisions. The pre-commit hook at `.git/hooks/hooks.d/pre-commit/50-agent-mail.py` enforces file-reservation conflicts today; the Phase B extension to that hook (when active) will additionally block any commit with a `<bead-id>:` message prefix that has no corresponding `[<bead-id>] Start` mail in the archive.
+You MUST NOT use raw `br update --status=in_progress` or `br close <id>` directly — they bypass Agent Mail and file reservations, which leaves the swarm unable to detect collisions. The pre-commit hook at `.git/hooks/hooks.d/pre-commit/50-agent-mail.py` enforces both file-reservation conflicts AND blocks any commit with a `<bead-id>:` message prefix that has no corresponding `[<bead-id>] Start` mail in the archive.
 
 If a wrapper errors, fix the underlying problem (agent-mail server down, file reservation conflict, missing `AGENT_MAIL_NAME` env var). Never bypass.
 
 This is a constitutional rule, equal in force to Rule 1 (no file deletion). It applies to every layer (L0 through L6 and beyond) and every future stage.
 
-<!-- END: AGENTS.md Rule 2 (managed by install-bead-wrappers skill) -->
+<!-- END: AGENTS.md Rule 2 -->
 ````
 
 The two HTML-comment markers let future re-runs of the install procedure detect the section without ambiguity.
 
-Use the current `Testproject1/AGENTS.md` Rule 2 wording exactly. Do not convert "when active" into present-tense enforcement claims unless current `AGENTS.md` has already been updated to say that.
+**Note** — This snippet differs slightly from `Testproject1/AGENTS.md` line 28: the original says "the Phase B extension to that hook (when active) will additionally block..." (referring to Phase B as future work). Phase B is now active (commit `d445ac8`), so this asset uses the present-tense "enforces both file-reservation conflicts AND blocks..." phrasing. New projects start with the present-tense version. (You may also propose a follow-up handoff to update `Testproject1/AGENTS.md` itself to match — but that's out of scope for this handoff.)
 
 ---
 
@@ -246,16 +243,9 @@ SKILL_DIR="<the skill's own directory — see Implementation Notes §6a>"
 # ----- Step 1 — Pre-flight (fail-hard if any of these fail) -----
 command -v am >/dev/null         || die "am binary not on PATH; install mcp_agent_mail_rust"
 test -d "$PROJECT_ROOT/.git"     || die "not a git repo: $PROJECT_ROOT"
-# Health endpoint check is useful when available, but some installed versions may
-# not expose /healthz. Do not invent alternate endpoints.
-if curl -fsS --max-time 3 http://127.0.0.1:8765/healthz >/dev/null 2>&1; then
-  echo "agent-mail health endpoint reachable"
-else
-  echo "agent-mail health endpoint unavailable; continuing after validating local am/wrapper command surfaces"
-fi
-am guard install --help >/dev/null || die "am guard install --help failed"
-am guard status --help  >/dev/null || die "am guard status --help failed"
-am guard check --help   >/dev/null || die "am guard check --help failed"
+# Strict server check — `grep -q alive` would also match e.g. {"status":"recently_alive_now_dead"}
+curl -s --max-time 3 http://127.0.0.1:8765/healthz | grep -q '"status":"alive"' \
+                                 || die "agent-mail server not reachable; run: am serve-http --port 8765 &"
 # The wrappers prefer AGENT_MAIL_NAME (per their docstrings) but fall back to AGENT_NAME.
 # Require at least one to be set:
 [ -n "${AGENT_MAIL_NAME:-$AGENT_NAME}" ] || die "neither AGENT_MAIL_NAME nor AGENT_NAME env var is set"
@@ -311,8 +301,7 @@ test -x "$PROJECT_ROOT/.git/hooks/hooks.d/pre-commit/50-agent-mail.py" \
   || die "precommit hook not installed by am guard install"
 
 # Verify via am itself:
-am guard status "$PROJECT_ROOT"
-am guard check --repo "$PROJECT_ROOT" --advisory
+am guard status
 
 echo "CHECKPOINT 4: precommit hook installed and reporting status"
 
@@ -338,7 +327,6 @@ Next steps for the user:
      The "chore:" prefix is exempt from the start-mail subcheck, but AGENT_NAME must be set in the shell:
 
          export AGENT_NAME="\$(git config user.name)"
-         export AGENT_MAIL_NAME="\$AGENT_NAME"
          git add bin/ AGENTS.md
          git commit -m "chore: install bead wrappers + AGENTS.md Rule 2"
          git push
@@ -394,7 +382,7 @@ The wrappers in `Testproject1/bin/` are the canonical version at the moment this
 **Mitigation: stamp the snapshot version explicitly in METHODOLOGY.md.** When you copy the wrappers into the skill's `assets/` directory, capture and record:
 
 ```bash
-cd /Users/zacfarrell/Desktop/Testproject1
+cd /Users/alinaaitova/Desktop/Testproject1
 SNAPSHOT_SHA=$(git log -1 --format=%h -- bin/br-claim bin/br-complete)
 SNAPSHOT_DATE=$(git log -1 --format=%ci -- bin/br-claim bin/br-complete)
 echo "Wrappers snapshotted from Testproject1 commit ${SNAPSHOT_SHA} (${SNAPSHOT_DATE})"
@@ -428,7 +416,7 @@ Options:
   -h, --help    Print help
 ```
 
-Idempotency: `am guard install` is safe to re-run — it overwrites the hook with the canonical version and re-stamps the project metadata. Use `am guard status <PROJECT_ROOT>` post-install to confirm. Use `am guard uninstall <PROJECT_ROOT>` to roll back if needed (rollback path documented in METHODOLOGY.md).
+Idempotency: `am guard install` is safe to re-run — it overwrites the hook with the canonical version and re-stamps the project metadata. Use `am guard status` post-install to confirm. Use `am guard uninstall` to roll back if needed (rollback path documented in METHODOLOGY.md).
 
 ### 6e. Dual-CLI symmetry
 
@@ -461,8 +449,9 @@ If anything differs, either the asset copies were imperfect or the SKILL.md / ME
 This is the only true acceptance test. Skipping it means accepting unverified deliverables. Run it before reporting done:
 
 ```bash
-TEST_REPO="$(mktemp -d /tmp/install-bead-wrappers-test.XXXXXX)"
-cd "$TEST_REPO" && git init -b main
+TEST_REPO=/tmp/install-bead-wrappers-test
+rm -rf "$TEST_REPO" 2>/dev/null
+mkdir -p "$TEST_REPO" && cd "$TEST_REPO" && git init -b main
 
 # Invoke the skill — exact mechanism depends on your CLI:
 #   Claude Code: /install-bead-wrappers   (or paste the SKILL.md workflow steps)
@@ -474,8 +463,7 @@ test -x bin/br-complete                                           && echo "✓ w
 grep -q "BEGIN: AGENTS.md Rule 2" AGENTS.md                       && echo "✓ Rule 2 marker present"
 grep -q "RULE NUMBER 2: BEAD CLAIM DISCIPLINE" AGENTS.md          && echo "✓ Rule 2 content present"
 test -x .git/hooks/hooks.d/pre-commit/50-agent-mail.py            && echo "✓ precommit hook installed"
-am guard status "$TEST_REPO" 2>&1 | head -8                       # verify guard reports installed
-am guard check --repo "$TEST_REPO" --advisory 2>&1 | head -20      # ad-hoc advisory guard check
+am guard status 2>&1 | head -3                                    # verify guard reports installed
 
 # Idempotency test — invoke the skill AGAIN on the same repo:
 # (re-trigger via your CLI's mechanism)
@@ -483,20 +471,19 @@ am guard check --repo "$TEST_REPO" --advisory 2>&1 | head -20      # ad-hoc advi
 grep -c "BEGIN: AGENTS.md Rule 2" AGENTS.md   # MUST be exactly 1 (no duplicate)
 
 # Smoke-test the wrappers don't crash (--help is enough)
-AGENT_NAME=tester AGENT_MAIL_NAME=tester bin/br-claim --help    | head -3
-AGENT_NAME=tester AGENT_MAIL_NAME=tester bin/br-complete --help | head -3
+AGENT_NAME=tester bin/br-claim --help    | head -3
+AGENT_NAME=tester bin/br-complete --help | head -3
 
-# Cleanup: do not delete the test repo unless the user has explicitly authorized deletion.
-# Report the path instead so the user can decide what to do with it:
-echo "Throwaway test repo left at: $TEST_REPO"
+# Cleanup — note: per Rule 1 you don't normally rm -rf, but /tmp test repos are explicitly throwaway
+cd /tmp && rm -rf "$TEST_REPO"
 ```
 
 If ANY check fails or the idempotency check shows a duplicate Rule 2: STOP. Report the failure with the exact output. Do NOT call the skill creation done.
 
 ### Project repo (Testproject1) NOT touched
 
-- [ ] `git status` in `/Users/zacfarrell/Desktop/Testproject1` shows no tracked changes caused by this handoff. Pre-existing unrelated changes may exist; do not disturb them.
-- [ ] No new commits in Testproject1 from this handoff unless the user explicitly asked to commit documentation changes. The skill creation itself is entirely in `~/.{claude,codex}/skills/`.
+- [ ] `git status` in `/Users/alinaaitova/Desktop/Testproject1` shows clean working tree
+- [ ] No new commits in Testproject1 from this handoff (the skill creation is entirely in `~/.{claude,codex}/skills/`)
 
 ---
 
@@ -506,8 +493,8 @@ The throwaway test in §7 is the **MANDATORY** acceptance test. The verification
 
 ```bash
 # Asset byte-identity with canonical sources
-diff ~/.claude/skills/install-bead-wrappers/assets/br-claim    /Users/zacfarrell/Desktop/Testproject1/bin/br-claim    && echo "br-claim OK"
-diff ~/.claude/skills/install-bead-wrappers/assets/br-complete /Users/zacfarrell/Desktop/Testproject1/bin/br-complete && echo "br-complete OK"
+diff ~/.claude/skills/install-bead-wrappers/assets/br-claim    /Users/alinaaitova/Desktop/Testproject1/bin/br-claim    && echo "br-claim OK"
+diff ~/.claude/skills/install-bead-wrappers/assets/br-complete /Users/alinaaitova/Desktop/Testproject1/bin/br-complete && echo "br-complete OK"
 
 # Dual-CLI symmetry
 diff -r ~/.claude/skills/install-bead-wrappers/ ~/.codex/skills/install-bead-wrappers/ && echo "dual-CLI symmetry OK"
@@ -526,12 +513,12 @@ head -5 ~/.claude/skills/install-bead-wrappers/SKILL.md   # should show frontmat
 
 ## 9. Commit + Push
 
-The skill dirs (`~/.{claude,codex}/skills/`) are typically NOT version-controlled within the project. They're per-machine. So this handoff should not produce commits to the Testproject1 repo. **Verify that you did not create tracked Testproject1 changes:**
+The skill dirs (`~/.{claude,codex}/skills/`) are typically NOT version-controlled within the project. They're per-machine. So this handoff produces no commits to the Testproject1 repo. **Verify the working tree stays clean:**
 
 ```bash
-cd /Users/zacfarrell/Desktop/Testproject1
+cd /Users/alinaaitova/Desktop/Testproject1
 git status
-# Expected: no tracked Testproject1 changes caused by this handoff. Other agents may have unrelated changes; do not stash, revert, or delete them.
+# Expected: "On branch main / Your branch is up to date / nothing to commit"
 ```
 
 If your skill dirs are version-controlled in some OTHER repo (a personal dotfiles repo), follow that repo's commit conventions. Most users don't, so usually nothing further is needed.
@@ -568,7 +555,7 @@ Idempotency:
   PASS / NOT VERIFIED — <reason>
 
 Project repo (Testproject1):
-  No tracked project files intentionally modified. Pre-existing unrelated changes: <list or "none observed">.
+  Untouched. git status clean.
 ```
 
 Stop after reporting.

@@ -39,16 +39,7 @@ impl Harness {
         fs::create_dir_all(&runtime_root)?;
         fs::write(
             runtime_root.join("daemon.info.json"),
-            serde_json::to_vec(&serde_json::json!({
-                "instanceId": "daemon-1",
-                "pid": 1,
-                "socketPath": "runtime/daemon.sock",
-                "protocolVersion": 1,
-                "schemaEpoch": DEFAULT_SCHEMA_EPOCH,
-                "stateRoot": "state",
-                "startedAt": "2026-03-25T10:00:00Z",
-                "ready": true
-            }))?,
+            r#"{"instanceId":"daemon-1","pid":1,"socketPath":"runtime/daemon.sock","protocolVersion":1,"schemaEpoch":8,"stateRoot":"state","startedAt":"2026-03-25T10:00:00Z","ready":true}"#,
         )?;
         let state_db = StateDb::open_in_repo(&db_path, &repo_root()?, StateDbConfig::default())?;
         Ok(Self {
