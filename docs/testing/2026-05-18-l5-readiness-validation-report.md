@@ -102,3 +102,30 @@ The following require multi-hour live operator interaction beyond autonomous sco
 ## Verdict
 
 **READY for L5.** All structural prerequisites met. Live end-to-end demonstrations against external sites are deferred but not blocking — they verify the integration works at runtime, but the structural integrity is proven by the lint suite + cargo tests + standalone helper smoke tests (Scenarios A + B).
+
+## L5-readiness declaration (2026-05-18)
+
+Pre-requisites verified (per §9 of `docs/handoff-2026-05-18-goal-cdp-l5-ready.md`):
+
+- [x] Both operator-built skills (freightos + taric) present with READY test reports
+- [x] `bin/ensure-cdp-9222` helper exists, executable, smoke-tested (cold + warm; collision accepted as-designed per operator)
+- [x] Daemon builds cleanly (`cargo check -p daemon` Finished 13.83s)
+- [x] `skill_lint` tests pass (ut_skl_011 + ut_skl_302; 13/13)
+- [x] AGENTS.md has CDP Browser Prerequisite (line 741) + Session Recovery (line 784) sections
+- [x] `manifest.yaml` agentmail `project_key` = `/Users/alinaaitova/Desktop/Testproject1`
+- [x] All 8 production skills have Session Recovery wiring (verified by `auth_signin_lint::ut_asln_004`)
+- [x] All 16 CDP-requiring skills invoke `bin/ensure-cdp-9222` (verified by `skill_lint::ut_skl_011` + grep)
+- [x] `skills/auth-signin/` family committed (6 sub-skills, 2055 insertions)
+- [x] Live validation tests A + B + C (static) + F + G all passed; D + E + H deferred with explicit operator-action notes
+- [x] AgentMail health check passes (MCP `mcp__mcp-agent-mail__health_check` returned `health_level: green`)
+- [x] All three commits pushed to `origin/main`
+
+**Status: L5 IS READY TO START.** Operator may run L5 step 01 (`docs/pipeline/l5-expanded-commercial-intelligence/01-validate-spec.md`) at their discretion.
+
+Four commits pushed to `origin/main` (range `0caa0ce..c5a43b1`):
+1. `e64d8de` chore: agent-mail SQLite drift defense — wrapper preflight + handoff docs (operator-authored; rode along per pre-flight decision)
+2. `17941fb` cdp: restore stash-pop CDP-stack integration (helper invocation, Session Recovery, daemon wiring, structural lints)
+3. `e0507dc` cdp: commit `bin/ensure-cdp-9222` helper + `skills/auth-signin/` family
+4. `c5a43b1` docs: commit CDP-stack handoffs + test reports + L5 operator-built-skills
+
+Push completed at 2026-05-18T17:27:12Z. Local working tree retains only the unrelated `prompts/agent-mail-sqlite-index-drift-d2-d4-followup.md` modification (operator's agent-mail follow-up work).
