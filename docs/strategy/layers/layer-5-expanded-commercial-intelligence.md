@@ -62,6 +62,7 @@ L5-FR-1.3.3 — L5 activates additional `supplier_quotes` rows without changing 
 L5-FR-1.4.1 — Multi-source recall uses five parallel recall sources
 - AC1: Every classification run attempts all applicable recall sources in the table below and records source availability, candidates, retrieval scores, and failure mode.
 - AC2: If one recall source is unavailable, remaining sources still run and confidence is penalized rather than fabricated.
+- AC3: Independent-source agreement means agreement across distinct source families with distinct data origin and retrieval logic; multiple query waves, translated terms, or endpoints inside one source family count once.
 
 | Source | Method | Output | Confidence Signal |
 |--------|--------|--------|------------------|
@@ -78,7 +79,7 @@ L5-FR-1.4.3 — HMRC remains the UK legal authority
 - AC1: EU TARIC cross-checks and any advisory recall tools never overrule HMRC on UK national measures, VAT additional codes, UK quotas, or UK trade remedies.
 - AC2: A cross-check disagreement is recorded as evidence divergence and cannot overwrite HMRC UK measure data.
 L5-FR-1.4.4 — Preprocessing before recall rejects low-quality descriptions and extracts classification facts
-- AC1: Description-quality gate rejects bundles, service descriptions, and generic nouns without required archetype facts.
+- AC1: Description-quality gate rejects bundles, service descriptions, and generic nouns without required archetype facts, and emits archetype-keyed missing-facts requests.
 - AC2: Bundle splitter decomposes multi-item descriptions when safe and marks mixed/manual or GIR 3 candidate when decomposition is unsafe.
 - AC3: Attribute extraction captures head noun, material, principal function, sector, sterility/medical status, power/size, and pack form.
 - AC4: Multi-query recall runs normalized variants across all available recall sources.
@@ -109,6 +110,10 @@ L5-FR-1.6.1 — Trade-remedy exporter resolution defaults to residual rate when 
 - AC1: `exporterRateBasis` is one of `named_exporter`, `annex_exporter`, or `residual_default`.
 - AC2: `residual_default` is used whenever exporter/manufacturer proof is absent or insufficient.
 - AC3: `exporterIdentityConfidenceBps` records 0-10000 bps confidence based on supplier listing evidence quality.
+L5-FR-1.6.2 — Named-exporter relief requires manufacturer/exporter evidence
+- AC1: Named or annex exporter rates require listing, invoice, certificate, or supplier-profile evidence tying the product to the eligible manufacturer/exporter.
+- AC2: Distributor names, marketplace seller names, or vague "factory direct" claims do not satisfy named-exporter proof by themselves.
+- AC3: Insufficient evidence emits `EXPORTER_UNRESOLVED`, applies the residual rate, and records the missing evidence in `confidence_breakdown.evidence_leverage`.
 
 Trade remedy measures on Chinese goods frequently carry exporter-specific rates that are materially lower than the residual rate. Examples: aluminium foil 14.2%-35.6% residual depending on exporter/additional-code/invoice path; aluminium extrusions 0%-35.1% residual; tin mill products 27.85% cooperating exporter versus 49.98% all other Chinese exporters. Systematic understatement through assumed named-exporter rates is catastrophic.
 
@@ -122,6 +127,12 @@ L5-FR-1.7.2 — Additional-code satisfiability is modeled as a legal prerequisit
 - AC1: HMRC DE 6/17 and other national additional-code requirements record prerequisites and documentary evidence.
 - AC2: When satisfiability is unknown, the engine applies the rate that applies without the additional code.
 - AC3: `additional_codes` and `additional_code_requirements_json` distinguish measure existence from truthful eligibility to claim the code.
+L5-FR-1.7.3 — Measure scanner classifies every active measure into an interaction family
+- AC1: Each active HMRC measure on a shortlisted UK10 branch is labeled `additive`, `substitutive`, `conditional`, `documentary_only`, or `unknown` before duty computation.
+- AC2: Unknown or unmapped interaction families emit `MEASURE_INTERACTION_UNKNOWN` and cannot auto-approve the affected branch.
+L5-FR-1.7.4 — Golden interaction cases cover additive, substitutive, and conditional families
+- AC1: §3.3 scenarios cover steel AD/CVD, aluminium exporter-specific residual rates, quota/additional-code branching, and compound specific-duty examples.
+- AC2: `measure-interaction.test.ts` maps each interaction family to at least one fixture before L5 implementation beads are created.
 
 ### 1.8 Compound/Specific Duty Expressions
 L5-FR-1.8.1 — Duty expressions preserve full component structure
@@ -133,6 +144,9 @@ L5-FR-1.8.2 — Supplementary units are first-class blockers
 L5-FR-1.8.3 — Bundle splitter includes a GIR 3 set-candidate escape hatch
 - AC1: Retail sets or kits that may classify by essential character or last-in-tariff-order are flagged for manual classification.
 - AC2: Unsafe forced decomposition is prohibited.
+L5-FR-1.8.4 — Specific-duty unit conversion requires explicit compatible quantity evidence
+- AC1: Specific or compound duties use only quantity units explicitly present in supplier quotes, extracted lot documents, packing scenarios, or operator-entered evidence.
+- AC2: Incompatible conversions, such as pieces to kg without net-weight evidence, emit `SUPPLEMENTARY_UNIT_MISSING` rather than deriving an average weight.
 
 ### 1.9 VAT Rate Determination
 L5-FR-1.9.1 — VAT rate and VAT recovery are separate decisions
@@ -172,6 +186,12 @@ L5-FR-1.11.2 — Freshness watchers enqueue recalculation or reclassification
 - AC2: HMRC tariff structure or measure changes emit a tariff-change control event and enqueue affected cached classifications.
 - AC3: FX monthly rollover enqueues affected landed-cost estimates for recalculation.
 - AC4: Implementation adds four new `CronJobDefinition` entries in `crates/daemon/src/scheduler/cron.rs` following the existing `VALIDATION_CALIBRATION_READINESS_SWEEP_CRON` and `VALIDATION_CROSS_MODEL_AUDIT_CRON` pattern.
+L5-FR-1.11.3 — Expired classification freshness downgrades bid readiness
+- AC1: If `classification_fresh_until` expires before the expected import window, the estimate records a blocker and cannot satisfy the L5→L6 readiness gate.
+- AC2: Expired structure, measure, or remedy vectors cannot be cleared by fresh FX alone.
+L5-FR-1.11.4 — Freshness watcher failures are observable and conservative
+- AC1: A missed watcher run beyond its freshness window marks affected commodity families stale and enqueues catch-up work.
+- AC2: A multi-day daemon outage creates stale classification blockers on affected cached estimates until watcher catch-up completes.
 
 ### 1.12 Conservative Defaults (Constitutional)
 L5-FR-1.12.1 — Conservative defaults apply whenever resolution is incomplete
@@ -190,12 +210,19 @@ L5-FR-1.12.2 — Conservative defaults surface unlockable margin instead of rela
 - AC1: `confidence_breakdown.unlockable_margin_bps` stores margin improvement available if documented evidence replaces resolvable conservative defaults.
 - AC2: `confidence_breakdown.evidence_leverage` stores per-parameter evidence needed and margin delta.
 - AC3: Evidence leverage is computed for named exporter proof, origin proof, quota allocation, VAT relief, Incoterm clarification, and supplementary units when applicable.
+L5-FR-1.12.3 — Each conservative default has a deterministic trigger and fixture
+- AC1: The six default rows above are triggered by absence of origin proof, exporter proof, quota allocation proof, VAT status, Incoterm, or compatible supplementary-unit data respectively.
+- AC2: `customs-classification.test.ts` or `measure-interaction.test.ts` includes at least one fixture for each default row.
+L5-FR-1.12.4 — Evidence leverage margin deltas are differential recalculations
+- AC1: For each leverage item, `margin_delta_bps` is the difference between `net_margin_base_bps` under the evidence-resolved branch and `net_margin_base_bps` under the conservative default, using the same quote, freight, and FX snapshot.
+- AC2: Step 03 TDD must lock any category-specific arithmetic details before bead creation, and L5 implementation must emit decision-grade `confidence_breakdown.evidence_leverage[]` entries rather than prose-only hints.
+- AC3: If evidence cannot change the conservative outcome, `margin_delta_bps = 0` and the leverage item is omitted unless the missing evidence remains a hard blocker.
 
 ### 1.13 Customs Branch Divergence
 L5-FR-1.13.1 — Material branch divergence is a hard blocker
 - AC1: UK10 branches split on remedy/no-remedy, duty type, or material duty spread emit `CLASSIFICATION_AMBIGUOUS` or `TARIFF_BRANCH_DIVERGENCE`.
 - AC2: Divergent branches are never averaged into one actionable estimate.
-- AC3: The exact `customs_cost_spread_bps` materiality threshold depends on calibration during step 03 TDD and must become a specific test threshold before bead creation.
+- AC3: Until gold-set calibration replaces it with a documented test constant, `customs_cost_spread_bps >= 1500` emits `TARIFF_BRANCH_DIVERGENCE`; remedy/no-remedy and duty-type splits block regardless of spread bps.
 L5-FR-1.13.2 — Screening-grade auto-pass is allowed only under all three safeguards
 - AC1: `worstCaseNetMargin >= gate`.
 - AC2: `customsCostSpread` is immaterial under the calibrated threshold and all branches remain in the same measure family.
@@ -208,13 +235,19 @@ L5-FR-1.14.1 — CBAM remains a forward placeholder until UK rate rules are fina
 L5-FR-1.14.2 — Tender windows crossing 2027-01-01 surface future regulatory exposure
 - AC1: Tenders with delivery windows crossing 2027-01-01 and affected commodity families set `cbam_exposure_flag = 1` even when the estimate remains null.
 - AC2: The flag is an exposure warning, not a quantified cost.
+L5-FR-1.14.3 — CBAM exposure flag has explicit clear conditions
+- AC1: `cbam_exposure_flag` is left `0` or null when the commodity family is outside confirmed 2027 scope.
+- AC2: `cbam_exposure_flag` is left `0` or null when the expected import or delivery window ends before 2027-01-01.
+- AC3: `cbam_estimate_gbp_pence` remains null while exposure flagging can still be active.
 
 ### 1.15 Layer 5 Skill Work
 
 Repository baseline verified during validation: `skills/supplier-price-enrichment/{ebay,alibaba,amazon,1688}/SKILL.md` all exist and currently declare `promotion_stage: candidate`. L5 matures Alibaba, 1688, and Amazon because they are the expanded-source deltas; eBay remains the existing baseline supplier source.
+All L5 production-bound skill directories follow the L0/L4 directory standard: `SKILL.md`, `result.schema.json`, `checkpoint.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`, and `validator-rubric.yaml`.
 L5-FR-1.15.1 — Existing marketplace skills mature from candidate to decision-grade
 - AC1: `skills/supplier-price-enrichment/alibaba/`, `1688/`, and `amazon/` are promoted from `promotion_stage: candidate` to stable only after the deltas below and validator overlay binding are complete.
 - AC2: Phase 5 bead scope is limited to the listed deltas and promotion; no speculative gap-fill work is added.
+- AC3: eBay baseline plus Alibaba, 1688, and Amazon production bindings include canary fixtures, golden assertions, and validator rubric artifacts before stable promotion.
 
 | Mature from candidate | L5 Delta |
 |-----------------------|----------|
@@ -222,7 +255,7 @@ L5-FR-1.15.1 — Existing marketplace skills mature from candidate to decision-g
 | `skills/supplier-price-enrichment/1688/` | Short Chinese-keyword-only clusters (2-4 terms); domestic wholesale floor pricing; auth-refresh/1688 coordination; validator overlay binding |
 | `skills/supplier-price-enrichment/amazon/` | Alias families; structured title vocabulary; browser-first strategy after PA-API 5.0 sunset on 2026-04-30; validator overlay binding |
 L5-FR-1.15.2 — PCS Scotland ingestion is truly new and in scope
-- AC1: Phase 5 creates `skills/procurement-ingestion/pcs/` with `SKILL.md`, `result.schema.json`, `checkpoint.schema.json`, `canary.inputs.jsonl`, and `golden.assertions.yaml`.
+- AC1: Phase 5 creates `skills/procurement-ingestion/pcs/` with `SKILL.md`, `result.schema.json`, `checkpoint.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`, and `validator-rubric.yaml`.
 - AC2: `crates/daemon/src/sources/registry.rs` gains the PCS source entry near existing procurement ingestion sources after `procontract-enrich` and before supplier sources.
 - AC3: PCS is not conditional in L5 implementation; the 2026-05-08 operator decision closes the scope question as IN-SCOPE.
 
@@ -230,6 +263,9 @@ L5-FR-1.15.2 — PCS Scotland ingestion is truly new and in scope
 L5-FR-1.16.1 — L5 adds customs, FX, logistics, validation, and accuracy modules under `packages/intelligence`
 - AC1: The 19-file package surface below exists and is covered by §3.2 tests.
 - AC2: Validation comparison adapters remain comparison-only and use fixtures or captured samples, with no external vendor credentials.
+L5-FR-1.16.2 — Intelligence package file counts are fixed for bead planning
+- AC1: The package additions total exactly 19 files: 6 customs, 4 FX, 5 logistics, 3 validation, and 1 accuracy module.
+- AC2: Any additional file proposed during implementation must be justified as new functionality in the owning bead and cannot replace one of the listed files by omission.
 
 | Package | Files | Purpose |
 |---------|-------|---------|
@@ -260,6 +296,9 @@ L5-FR-2.1.2 — FX basis delta and rollover behavior are explicit
 L5-FR-2.1.3 — FX error paths block unsafe landed-cost computation
 - AC1: HMRC missing month or parse failure emits `FX_RATE_MISSING` when no valid customs rate snapshot exists.
 - AC2: Frankfurter rate-limit or downtime uses the last valid commercial snapshot only if TTL-valid; otherwise commercial margin confidence is reduced and blocker/warning state is recorded.
+L5-FR-2.1.4 — FX basis delta can trigger margin recalculation or review
+- AC1: When `abs(fx_basis_delta_bps)` crosses the Step 03 TDD threshold, the engine recomputes `net_margin_low_bps`, `net_margin_base_bps`, and `net_margin_high_bps` under both customs and commercial FX bases.
+- AC2: The selected threshold is a named test constant in `fx-engine.test.ts`; untested hardcoded FX-delta thresholds are prohibited.
 
 | File | Purpose |
 |------|---------|
@@ -274,12 +313,13 @@ L5-FR-2.2.1 — Freight mode selection covers sea, air, express, and multimodal 
 - AC2: Hard locks override cheaper modes when safety or feasibility requires.
 L5-FR-2.2.2 — Freight estimates use Freightos and SeaRates CDP skills
 - AC1: The engine invokes `skills/landed-cost/freightos-freight-estimate/` and `skills/landed-cost/searates-freight-estimate/` for dual-source cross-check.
-- AC2: Large provider disagreement emits `FREIGHT_MODE_LOW_CONFIDENCE`.
+- AC2: Large provider disagreement records `FREIGHT_MODE_LOW_CONFIDENCE` in `warnings` or `blockers`; §3.5 remains the 10-code daemon error-vocabulary extension listed there.
 - AC3: Freight access remains skill-first/CDP-browser based and requires no commercial connector account.
 L5-FR-2.2.3 — Freight conservative defaults are explicit
 - AC1: Unknown packaging runs dual scenarios such as palletized versus loose cartons.
 - AC2: Missing Incoterm runs EXW/FOB/CIF boundary scenarios.
 - AC3: If neither provider can quote, emit `FREIGHT_ESTIMATE_FAILED`, preserve a manual-estimate requirement, and do not fabricate provider data.
+- AC4: While product-family logistics heuristics remain uncalibrated, unknown item class or missing dimensional data uses the highest-cost feasible boundary scenario and records the missing logistics facts.
 L5-FR-2.2.4 — Freight error paths are source-specific
 - AC1: Freightos no quote, unsupported mode, or page/schema drift is recorded with source name and transcript evidence.
 - AC2: SeaRates no quote, unsupported mode, or schema drift is recorded separately.
@@ -299,11 +339,13 @@ L5-FR-2.3.1 — Alibaba search remains an optimistic-floor signal with stricter 
 - AC2: Ready-to-Ship listings bump `quoteUsabilityConfidenceBps` only when unit/MOQ/shipping clarity is present.
 - AC3: Source-health canary expansion and anti-bot circuit breaker run before production jobs.
 - AC4: Alibaba rows keep `price_signal_role = optimistic_floor`.
+- AC5: Chinese retry results must pass a back-translation/head-noun compatibility check before supplier quote emission; ambiguous translations become warnings, not quotes.
 L5-FR-2.3.2 — 1688 search is domestic wholesale floor evidence, not regulated-goods execution evidence
 - AC1: Queries use Chinese-only short clusters of 2-4 terms.
 - AC2: Results without explicit compliance/export evidence cannot drive landed-cost decisions for regulated goods.
 - AC3: Auth refresh uses `auth-refresh/1688` before production search.
 - AC4: 1688 rows keep `price_signal_role = domestic_wholesale_floor`.
+- AC5: `VOCABULARY_MISMATCH_EN_ONLY` or equivalent zero-result vocabulary failures require lexicon expansion rather than treating the product as unavailable.
 L5-FR-2.3.3 — Amazon search is browser-first benchmark-ceiling evidence
 - AC1: Query waves use alias families and structured title vocabulary.
 - AC2: PA-API 5.0 is not used after its 2026-04-30 sunset; browser-first operation is required.
@@ -312,6 +354,9 @@ L5-FR-2.3.4 — Marketplace source registration is explicit
 - AC1: Alibaba and 1688 existing registry entries gain production bindings when promoted.
 - AC2: Amazon gains a supplier source entry in `crates/daemon/src/sources/registry.rs` adjacent to Alibaba/1688 supplier registrations.
 - AC3: Validator overlay binding records worker/validator behavior versions per source.
+L5-FR-2.3.5 — Skill promotion uses the full production directory and validator standard
+- AC1: eBay, Alibaba, 1688, Amazon, and PCS production bindings include `SKILL.md`, `result.schema.json`, `checkpoint.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`, and `validator-rubric.yaml`.
+- AC2: Stable promotion records compatible `worker_behavior_version` and `validator_behavior_version`; incompatible versions block promotion rather than silently recalibrating.
 
 ### 2.4 Existing Field Activation (Self-Contained for L5 Implementer)
 L5-FR-2.4.1 — L5 populates every `landed_cost_estimates` column or preserves its L4 sync semantics
@@ -327,19 +372,19 @@ L5-FR-2.4.1 — L5 populates every `landed_cost_estimates` column or preserves i
 | `supplementary_units_required_json` | L5-FR-1.8.2 | Required supplementary units or blocker |
 | `commodity_confidence_bps`, `classification_stability_bps` | L5-FR-1.5.2, L5-FR-3.4.1 | Classification confidence and stability |
 | `customs_valuation_method`, `valuation_mode` | L5-FR-1.10.1, L5-FR-1.10.2 | Valuation basis and mode |
-| `customs_fx_rate`, `commercial_fx_rate`, `fx_basis_delta_bps`, `fx_rate_checked_at` | L5-FR-2.1.1, L5-FR-2.1.2 | Dual FX rates, basis delta, and checked timestamp |
+| `customs_fx_rate`, `commercial_fx_rate`, `fx_basis_delta_bps`, `fx_rate_checked_at` | L5-FR-2.1.1, L5-FR-2.1.2, L5-FR-2.1.4 | Dual FX rates, basis delta, checked timestamp, and FX-delta recalculation triggers |
 | `supplier_cost_gbp_pence` | L5-FR-2.3.1, L5-FR-2.3.2, L5-FR-2.3.3 | Normalized supplier quote cost |
 | `freight_low_gbp_pence`, `freight_base_gbp_pence`, `freight_high_gbp_pence` | L5-FR-2.2.2, L5-FR-2.2.3 | Freight low/base/high estimates |
 | `customs_duty_gbp_pence`, `trade_remedy_duty_gbp_pence`, `duty_outcome_min_gbp_pence`, `duty_outcome_max_gbp_pence`, `customs_cost_spread_bps` | L5-FR-1.7.1, L5-FR-1.8.1, L5-FR-1.13.1 | Duty outcomes and spread across branches |
-| `trade_remedy_state`, `trade_remedy_cases_json` | L5-FR-1.6.1, L5-FR-1.11.2 | Remedy applicability and case references |
+| `trade_remedy_state`, `trade_remedy_cases_json` | L5-FR-1.6.1, L5-FR-1.6.2, L5-FR-1.11.2 | Remedy applicability, exporter evidence, and case references |
 | `duty_breakdown_json`, `measure_interaction_json` | L5-FR-1.7.1, L5-FR-1.8.1 | Full duty expression and interaction outcome |
-| `exporter_rate_basis`, `exporter_identity_confidence_bps`, `origin_evidence_state` | L5-FR-1.6.1, L5-FR-1.12.1 | Exporter and origin evidence basis |
+| `exporter_rate_basis`, `exporter_identity_confidence_bps`, `origin_evidence_state` | L5-FR-1.6.1, L5-FR-1.6.2, L5-FR-1.12.1 | Exporter and origin evidence basis |
 | `import_vat_gbp_pence`, `vat_rate_state`, `import_vat_treatment`, `vat_recovery_rate_bps` | L5-FR-1.9.1, L5-FR-1.9.2 | VAT amount, treatment, and recovery fraction |
 | `uk_final_mile_cost_gbp_pence`, `other_fees_gbp_pence`, `economic_landed_cost_gbp_pence`, `cash_outlay_gbp_pence`, `cash_to_clear_gbp_pence`, `working_capital_cost_gbp_pence` | L5-FR-2.2.3, L5-FR-1.12.2 | Cost rollup, cash outlay, clearance cash, and working-capital cost |
 | `revenue_basis_type`, `revenue_confidence_bps`, `net_margin_low_bps`, `net_margin_base_bps`, `net_margin_high_bps` | L5-FR-1.2.1, L5-FR-1.13.2 | Revenue basis and net margin band |
-| `customs_resolution_confidence_bps`, `commercial_estimate_confidence_bps`, `decision_grade`, `confidence_bps`, `confidence_breakdown`, `warnings`, `blockers` | L5-FR-1.12.2, L5-FR-1.13.1, L5-FR-3.4.2 | Confidence, evidence leverage, decision grade, warnings, and blockers |
-| `tariff_checked_at`, `measures_fresh_until`, `classification_fresh_until`, `trade_remedy_watch_state` | L5-FR-1.11.1, L5-FR-1.11.2 | Independent freshness vectors |
-| `cbam_exposure_flag`, `cbam_estimate_gbp_pence` | L5-FR-1.14.1, L5-FR-1.14.2 | CBAM exposure flag and nullable forward estimate |
+| `customs_resolution_confidence_bps`, `commercial_estimate_confidence_bps`, `decision_grade`, `confidence_bps`, `confidence_breakdown`, `warnings`, `blockers` | L5-FR-1.12.2, L5-FR-1.12.4, L5-FR-1.13.1, L5-FR-3.4.2 | Confidence, evidence leverage, decision grade, warnings, and blockers |
+| `tariff_checked_at`, `measures_fresh_until`, `classification_fresh_until`, `trade_remedy_watch_state` | L5-FR-1.11.1, L5-FR-1.11.2, L5-FR-1.11.3, L5-FR-1.11.4 | Independent freshness vectors and expired-classification blockers |
+| `cbam_exposure_flag`, `cbam_estimate_gbp_pence` | L5-FR-1.14.1, L5-FR-1.14.2, L5-FR-1.14.3 | CBAM exposure flag and nullable forward estimate |
 | `owner_id`, `row_version`, `last_local_seq`, `stage_run_id`, `updated_at`, `created_at` | L4 sync contract, L5-FR-1.3.1 | Existing push-owned sync and audit fields preserved on L5 writes |
 L5-FR-2.4.2 — `product_commodity_codes` is actively populated from recall lattice output
 - AC1: Each row links a `product_candidate` to a commodity code with recall source, agreement metadata, rank, score, and stage-run identity.
@@ -377,9 +422,7 @@ L5-FR-3.1.11 — DoD 11: Decision-grade landed cost per validated category with 
 - AC1: Each validated category has traceable customs, FX, freight, VAT, confidence, warning, and blocker evidence.
 L5-FR-3.1.12 — DoD 12: Gold-set expansion completed for fasteners, packaging-cartons, and examination-gloves
 - AC1: Each category has `canary.inputs.jsonl`, `golden.assertions.yaml`, `metadata.json`, and `manifest.md`.
-L5-FR-3.1.13 — DoD 13: Local quality gate is the only gate because no `.github/workflows/` exists
-- AC1: Verification uses `cargo fmt --check && cargo check --all-targets && cargo clippy --all-targets -- -D warnings && cargo test -p daemon --bin daemon && bun run build && bun run test`.
-- AC2: Adding CI workflow coverage is a separate owner-authorized scope addition and is not silently included in L5.
+- AC2: Each category passes the §3.4 evidence-tiered accuracy metrics before production use.
 
 ### 3.2 Test Files (5 New, Cumulative 57)
 L5-FR-3.2.1 — L5 adds five focused test files with cumulative target 57
@@ -393,6 +436,9 @@ L5-FR-3.2.1 — L5 adds five focused test files with cumulative target 57
 | `measure-interaction.test.ts` | AD/CVD/safeguard stacking/substitution, supplementary units, exporter basis, additional-code satisfiability |
 | `fx-engine.test.ts` | Dual rates, monthly rollover, historical correction, basis delta, recalculation triggers, missing-rate blockers |
 | `freight-engine.test.ts` | Mode locks, Freightos/SeaRates cross-check, dual packing, Incoterm boundary scenarios, provider failures |
+L5-FR-3.2.2 — Local quality gate is the only automated repository gate because no `.github/workflows/` exists
+- AC1: Verification uses `cargo fmt --check && cargo check --all-targets && cargo clippy --all-targets -- -D warnings && cargo test -p daemon --bin daemon && bun run build && bun run test`.
+- AC2: Adding CI workflow coverage is a separate owner-authorized scope addition and is not silently included in L5.
 
 ### 3.3 Test Scenarios
 L5-FR-3.3.1 — Scenario: multi-family expansion with 3 plausible HS6 families
@@ -419,6 +465,20 @@ L5-FR-3.3.11 — Scenario: tariff structure mid-cycle change
 - AC1: Tariff-change event is emitted and affected classifications are enqueued.
 L5-FR-3.3.12 — Scenario: conservative-to-actual uplift measurement
 - AC1: Evidence-tier comparison measures conservative estimate versus gold-label actual.
+L5-FR-3.3.13 — Scenario: 1688 Chinese-only wholesale floor with vocabulary mismatch
+- AC1: Chinese short-cluster search emits domestic-wholesale-floor quotes when vocabulary matches and emits vocabulary-mismatch failure when no Chinese alias can be validated.
+L5-FR-3.3.14 — Scenario: Amazon browser-first benchmark ceiling
+- AC1: Browser-first Amazon search emits benchmark-ceiling GBP quotes, selects a concrete ASIN variant, and rejects ambiguous variant-family pseudo-prices.
+L5-FR-3.3.15 — Scenario: PCS OCDS Web API ingestion
+- AC1: PCS notice-list and notice-family retrieval creates procurement source rows and passes canary assertions with PCS marked IN-SCOPE.
+L5-FR-3.3.16 — Scenario: Frankfurter commercial spot and FX basis delta
+- AC1: Frankfurter spot rate populates `commercial_fx_rate`, computes `fx_basis_delta_bps`, and triggers the configured FX-delta margin recalculation when threshold is crossed.
+L5-FR-3.3.17 — Scenario: Freightos and SeaRates disagreement and dual failure
+- AC1: Provider disagreement records `FREIGHT_MODE_LOW_CONFIDENCE`; dual provider failure emits `FREIGHT_ESTIMATE_FAILED` and preserves the manual-estimate requirement.
+L5-FR-3.3.18 — Scenario: gold-set category promotion for the three decided categories
+- AC1: Fasteners, packaging-cartons, and examination-gloves each have canary, golden assertion, metadata, manifest, and §3.4 metric outputs.
+L5-FR-3.3.19 — Scenario: CBAM exposure flag for a 2027-crossing tender window
+- AC1: An in-scope aluminium or iron/steel family with delivery crossing 2027-01-01 sets `cbam_exposure_flag = 1` and keeps `cbam_estimate_gbp_pence = null`.
 
 ### 3.4 Evidence-Tiered Classification Accuracy
 L5-FR-3.4.1 — Classification accuracy is scored by evidence tier
@@ -428,6 +488,20 @@ L5-FR-3.4.1 — Classification accuracy is scored by evidence tier
 L5-FR-3.4.2 — Accuracy metrics include abstention and catastrophic-error measures
 - AC1: Metrics include duty-outcome accuracy, trade-remedy yes/no, additional-code required yes/no, supplementary-unit required yes/no, review-trigger recall, catastrophic understatement rate, unsafe auto-classification rate, and abstention as a positive class.
 - AC2: Gold-set categories are exactly fasteners, packaging-cartons, and examination-gloves per 2026-05-08 operator decision.
+
+| Metric | Definition |
+|--------|------------|
+| `duty_outcome_accuracy` | Gold/silver duty outcome falls inside the predicted min/max duty range and the selected branch's duty expression matches the labeled measure family. |
+| `trade_remedy_yes_no` | Active trade remedy presence/absence matches the label for the commodity-origin pair. |
+| `additional_code_required_yes_no` | Requirement for national/additional codes matches the label and missing satisfiability is not reported as eligible. |
+| `supplementary_unit_required_yes_no` | Requirement for kg/litre/pair/item/per-1000 or other supplementary unit matches the label. |
+| `review_trigger_recall` | A labeled ambiguous, high-remedy, missing-unit, or missing-additional-code case emits the expected blocker/review path. |
+| `catastrophic_understatement_rate` | Auto-produced duty maximum is below the labeled duty by >=1000 bps of customs value or >=100 GBP equivalent, whichever is lower. |
+| `unsafe_auto_classification_rate` | Engine emits an auto-usable decision when the label requires broker/manual review. |
+| `abstention_positive_class` | Correct abstention on hard negatives or insufficient-evidence cases counts as success; fabricated actionable estimates count as failure. |
+L5-FR-3.4.3 — Evidence-tiered metrics gate category production
+- AC1: Bronze-only labels cannot satisfy auto-classification safety gates for a category.
+- AC2: Gold and silver metric reports must separate correct-abstention successes from wrong-code successes and failures.
 
 ### 3.5 Customs-Specific Error Types (Layer 5 Extension)
 
@@ -458,27 +532,35 @@ L5-FR-3.5.10 — Error code `FREIGHT_ESTIMATE_FAILED`
 L5-FR-3.6.1 — Open questions remain explicit and research-backed
 - AC1: The five questions below are the only L5 open questions.
 - AC2: Step 05 strategy converts each into either a pre-implementation decision or a risk-managed unknown; they cannot become silent de-scopings.
+L5-FR-3.6.2 — Open questions have present-tense runtime behavior
+- AC1: Each open question below includes current L5 behavior that a live implementation follows while the research-backed question remains open.
+- AC2: Runtime behavior cannot wait for an open question to close; it must choose a conservative default, blocker, or explicit warning path.
 
 **§10 Further Research #2: Product-family-specific logistics assumptions**
 - Shipping mode depends on item class and packaging density. Need default freight-mode heuristics per target product family.
 - **L5 impact:** Directly affects freight engine mode selection defaults.
+- **Current L5 behavior:** Until category-specific heuristics are calibrated, §2.2 boundary scenarios choose the highest-cost feasible mode, record missing logistics facts, and block automated landed-cost completion when provider quotes cannot be grounded in weight/volume evidence.
 
 **§10 Further Research #3: Chinese supplier source strategy**
 - Validate which supplier platforms can be lawfully and reliably integrated.
 - **L5 impact:** Determines operational scope of Alibaba/1688 skills.
 - **Scotland scope decision:** IN-SCOPE — confirmed by operator 2026-05-08 via pipemaxxer AskUserQuestion. PCS skill is implemented in Phase 5; full bead set assumes Scotland coverage. Research back-reference preserved as historical context.
+- **Current L5 behavior:** Alibaba and 1688 remain in scope as floor evidence only; they require auth/source-health checks, validator overlay binding, and cannot create executable regulated-goods decisions without explicit compliance/export evidence.
 
 **§10 Further Research #8: Customs cost spread materiality threshold**
 - What `customsCostSpreadBps` triggers `customs_branch_divergent` blocker? 2.7%-4.7% may be tolerable; 2.7%-48.5% is clearly a blocker. Calibrate against whitelist categories.
 - **L5 impact:** Directly affects blocker logic in customs engine.
+- **Current L5 behavior:** §1.13 uses `customs_cost_spread_bps >= 1500` as the conservative placeholder threshold, while remedy/no-remedy and duty-type splits block regardless of spread size.
 
 **§10 Further Research #9: Packaging materials sub-category reclassification**
 - Split easy (cartons, poly mailers) vs dangerous (aluminium foil, glass, tin mill) subfamilies?
 - **L5 impact:** Determines customs engine treatment of packaging category.
+- **Current L5 behavior:** Packaging-cartons is the validated easy slice; aluminium foil, glass, tin mill, metal cans, and composite packaging are treated as dangerous subfamilies requiring broker/manual review until their own gold-set slice passes.
 
 **§10 Further Research #10: CBAM rate integration timeline**
 - UK CBAM trial rates expected Q4 2026, full rates January 2027. When to compute non-zero `cbamEstimateGbp`?
 - **L5 impact:** Determines activation timeline for CBAM field.
+- **Current L5 behavior:** §1.14 emits only exposure flags for confirmed 2027 sectors and keeps `cbam_estimate_gbp_pence` null until rate rules and calculation method are final.
 
 ### 3.7 Risks
 L5-FR-3.7.1 — Risk: HMRC FPO/search-suggestion endpoint is unavailable or not public
@@ -489,11 +571,20 @@ L5-FR-3.7.3 — Risk: customs classification wrong for complex products
 - AC1: Mitigation is multi-source recall, conservative defaults, abstention, and broker escalation.
 L5-FR-3.7.4 — Risk: freight source variability or CDP page drift
 - AC1: Mitigation is dual-source cross-check, per-source schema drift errors, and confidence scoring.
+L5-FR-3.7.5 — Risk: tariff cache freshness gap after daemon downtime
+- AC1: Mitigation is separate freshness vectors, missed-watcher stale marking, and catch-up reclassification before L6 bid readiness.
+L5-FR-3.7.6 — Risk: cross-language marketplace matching corruption
+- AC1: Mitigation is Chinese alias provenance, back-translation/head-noun checks, and validator overlay review before quote emission.
+L5-FR-3.7.7 — Risk: worker and validator overlay version drift
+- AC1: Mitigation is explicit worker/validator behavior version binding and stable-promotion blocking on incompatible versions.
+L5-FR-3.7.8 — Risk: CBAM rate publication delay
+- AC1: Mitigation is keeping rate-bearing estimates null while exposure flags remain active and visible for affected 2027-window tenders.
 
 ### 3.8 Forward-Compatibility
 L5-FR-3.8.1 — L5 exposes the L6 bid-readiness gate
 - AC1: L6 cannot reach `ready_to_bid` while `CLASSIFICATION_AMBIGUOUS`, `TARIFF_BRANCH_DIVERGENCE`, required-component `SUPPLEMENTARY_UNIT_MISSING`, `decision_grade = broker_required`, or expired `classification_fresh_until` is active.
 - AC2: Quote-role quality gate blocks opportunities backed only by `domestic_wholesale_floor` or `optimistic_floor` unless the operator explicitly overrides.
+- AC3: Gate producers are explicit: `L5-FR-3.5.1`, `L5-FR-3.5.2`, `L5-FR-3.5.5`, `L5-FR-2.4.1`/`L5-FR-1.13.2` for `decision_grade = broker_required`, and `L5-FR-1.11.3` for expired `classification_fresh_until`.
 L5-FR-3.8.2 — L1 PDF extraction can later support customs evidence overlays
 - AC1: Compliance certificate extraction is a semantic overlay extension and does not require schema changes or daemon recompilation.
 
@@ -517,6 +608,7 @@ L5-FR-3.9.2 — Operator-built prerequisites gate bead execution
 - AC1: Phase 3 Freight beads cannot start until `skills/landed-cost/freightos-freight-estimate/` exists with `SKILL.md`, `result.schema.json`, and `checkpoint.schema.json`.
 - AC2: Phase 4 Customs recall beads cannot start until `skills/landed-cost/taric-cross-check/` exists with `SKILL.md`, `result.schema.json`, and `checkpoint.schema.json`.
 - AC3: These two prerequisite skills are not pipeline beads; step 09 audit verifies them before authorizing execution.
+- AC4: Step 09 records missing `canary.inputs.jsonl`, `golden.assertions.yaml`, or `validator-rubric.yaml` as stable-production blockers even when the initial bead-claim prerequisite files exist.
 L5-FR-3.9.3 — Bead and Agent Mail operational guidance uses `br`, not deprecated `bd`
 - AC1: L5 handoffs cite AGENTS.md authoritative `br` block at lines 262-305.
 - AC2: The duplicated AGENTS.md `bd` block at lines 666-723 is treated as deprecated working-note context and not used for L5 commands.
@@ -539,11 +631,11 @@ These decisions were recorded by the operator via pipemaxxer AskUserQuestion on 
 DECISION 1 — product_commodity_codes ownership: Option A — L5 SQLite migration
   Recorded: 2026-05-08 by operator (via pipemaxxer AskUserQuestion)
   Rationale: Recommended default. Cleaner local state; no sync-engine impact. Supabase projection (created in L4) becomes the push target.
-  Implementation: migrations/NNNN_l5_product_commodity_codes.sql (NNNN = next-free at the time, currently 0013)
+  Implementation: migrations/0013_l5_product_commodity_codes.sql (or next-free migrations/NNNN_l5_product_commodity_codes.sql if 0013 is no longer available at implementation time)
 
 DECISION 2 — PCS Scotland scope: IN-SCOPE
   Recorded: 2026-05-08 by operator (via pipemaxxer AskUserQuestion)
-  Implementation: skills/procurement-ingestion/pcs/ created in Phase 5 with full skill directory standard (SKILL.md + result.schema.json + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml). Daemon registry entry in sources/registry.rs. Bootstrap covers PCS OCDS Web API setup. Adds ~3-5 beads to Phase 5.
+  Implementation: skills/procurement-ingestion/pcs/ created in Phase 5 with full skill directory standard (SKILL.md + result.schema.json + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml + validator-rubric.yaml). Daemon registry entry in sources/registry.rs. Bootstrap covers PCS OCDS Web API setup. Adds ~3-5 beads to Phase 5.
 
 DECISION 3 — L5 implementation epic structure: Option (b) — sister epic
   Recorded: 2026-05-08 by operator (via pipemaxxer AskUserQuestion)
@@ -561,7 +653,7 @@ External API Account State:
 - Public APIs (no key, no portal): HMRC Trade Tariff classification API at `https://www.trade-tariff.service.gov.uk/uk/api/commodities/{code}` via existing `skills/landed-cost/hmrc-customs-classification/`; HMRC Exchange Rates for Customs and VAT via gov.uk monthly publication; Frankfurter commercial spot FX via existing `skills/landed-cost/simple-fx-lookup/`.
 - Existing CDP skills: `skills/landed-cost/searates-freight-estimate/` provides browser-resident SeaRates Logistics Explorer estimates with no vendor API account.
 - Operator-built prerequisites before step 07: `skills/landed-cost/freightos-freight-estimate/` and `skills/landed-cost/taric-cross-check/`; step 09 audit verifies them before Phase 3/4 execution.
-- Declined / not in L5 scope: Xe Currency Data API, Freightos paid API, SeaRates paid API, Taric Support paid vendor, HS Ping, Easyship/Shippo, CurrencyBeacon/OANDA, Dutify/Zonos/Avalara vendor accounts. Estimated annual savings versus the earlier paid-API plan: $3,000-10,000+.
+- Declined vendor accounts / not required for L5: Xe Currency Data API, Freightos paid API, SeaRates paid API, Taric Support paid vendor, HS Ping, Easyship/Shippo, CurrencyBeacon/OANDA, Dutify/Zonos/Avalara vendor accounts. Estimated annual savings versus the earlier paid-API plan: $3,000-10,000+.
 - HMRC FPO endpoint name remains a TDD investigation item: `l5-customs-hmrc-fpo-endpoint-discovery`.
 
 Marketplace Skill Maturation Baseline:
@@ -579,6 +671,6 @@ Cross-Domain Callout Resolution Ledger:
 - Callout 6 existing landed-cost skills: RESOLVED — §3.9 follows the skill-first/free-public endpoint model.
 - Callout 7 operator-built prerequisites: RESOLVED — §3.9 gates Phase 3/4 on Freightos and TARIC prerequisite skill existence.
 - Callout 8 cron scheduler extension: RESOLVED — §1.11 requires four new `CronJobDefinition` entries.
-- Callout 9 no CI workflows: RESOLVED — §3.1 DoD #13 records the local-only quality gate and no `.github/workflows/`.
+- Callout 9 no CI workflows: RESOLVED — §3.2 records the local-only quality gate and no `.github/workflows/` while DoD remains 12 criteria.
 
 ---
