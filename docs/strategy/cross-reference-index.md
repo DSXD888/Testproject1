@@ -22,7 +22,7 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | L3 relation resolution | `layers/layer-3-operational-hardening.md` §3.6 | Implemented narrowly as OCID-exact `merged_same_process` only in `crates/daemon/src/main.rs:19175`; heuristic relation classes remain deferred. |
 | L3 landed-cost hardening | `layers/layer-3-operational-hardening.md` (implementation addendum) | `OrderQuantityBasis::BasisUndetermined` and operator overrides in `crates/daemon/src/main.rs:3473`, `crates/daemon/src/main.rs:4058`, `crates/daemon/src/main.rs:4197`; see `docs/pipeline/stage-11-hardening-order-quantity-validation-manifest.md`. |
 | L4 shared visibility | `layers/layer-4-shared-visibility.md` | **BUILT** 2026-05-08. Sync engine in `crates/daemon/src/db/sync.rs`, 8 Supabase migrations under `infra/supabase/migrations/`, web portal under `apps/web/`, validator overlays under `skills/validation/overlay-*`. Pipeline archived at `docs/pipeline/l4-shared-visibility/archived/2026-05-08-l4-shared-visibility/`; artifacts (spec/TDD/strategy/kickoff/push/status) remain in place at `docs/pipeline/l4-shared-visibility/artifacts/`. |
-| L5-L6 planned layers | `layers/layer-5-expanded-commercial-intelligence.md`, `layers/layer-6-request-pipeline-automation.md` | Not built as of 2026-05-08. Stage 15 is L6-blocked by `prompts/stage-15-bid-workflow-handoff-DEFERRED.md`. |
+| L5-L6 planned layers | `layers/layer-5-expanded-commercial-intelligence.md`, `layers/layer-6-request-pipeline-automation.md` | L5 validation anchored at `L5-FR-1.1.1`; L6 remains blocked by `prompts/stage-15-bid-workflow-handoff-DEFERRED.md`. |
 
 ## By Topic
 
@@ -52,7 +52,7 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | Sync infrastructure (`local_outbox`, `sync_batches`, `pull_cursors`; SQLite migration `migrations/0012_l4_sync_state.sql`) | `layers/layer-4-shared-visibility.md` | §1 |
 | `pending_operator_intents` (local decision queue with reviewed-basis fields) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.8 DDL), `layers/layer-2-single-operator-desktop.md` §3 (usage) |
 | Basis-total pricing on `supplier_quotes` (offer_total fields for sub-penny accuracy) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.2) |
-| `product_commodity_codes` expanded entity (digits, source, score, rank for L5 multi-source recall) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.5.9) |
+| `product_commodity_codes` expanded entity (digits, source, score, rank for L5 multi-source recall) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.3.2`, `L5-FR-2.4.2` |
 | "All columns from creation" scope clarification (what it does and doesn't prevent) | `layers/layer-0-gold-set-evaluation.md` | §2 (§2.2.1) |
 | L3 schema-activation reconciliation note (repo migration drift vs constitutional shape) | `layers/layer-3-operational-hardening.md` | §4 (§4.1) |
 | Branded scalar types recommendation (`Pence`, `MinorUnits`, `BpsBounded`, `BpsSigned`) | `layers/layer-0-gold-set-evaluation.md` | §5 (§5.3.5) |
@@ -151,26 +151,26 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | Topic | File | Section |
 |-------|------|---------|
 | Screening-grade landed cost (HMRC Tariff + flat freight + single FX) | `layers/layer-0-gold-set-evaluation.md` | §3 (§3.12) |
-| Conservative defaults (constitutional -- MFN, residual, standard VAT) | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.12) |
-| Multi-source HS classification recall (5 sources) | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.4) |
-| Multi-family expansion to UK 10-digit | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.5) |
-| Exporter/manufacturer resolution | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.6) |
-| Measure interaction engine (AD/CVD/safeguard/quota) | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.7) |
-| Compound/specific duty expressions | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.8) |
-| VAT rate determination + recovery | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.9) |
-| Classification freshness system | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.11) |
-| Customs branch divergence (hard blocker) | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.13) |
-| CBAM forward placeholder | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.14) |
-| Dual FX engine (HMRC customs + Xe commercial) | `layers/layer-5-expanded-commercial-intelligence.md` | §2 (§2.1) |
-| Full freight engine (Freightos + SeaRates) | `layers/layer-5-expanded-commercial-intelligence.md` | §2 (§2.2) |
-| Customs error types (10 domain-specific) | `layers/layer-5-expanded-commercial-intelligence.md` | §3 (§3.5) |
-| Evidence-tiered accuracy (gold/silver/bronze) | `layers/layer-5-expanded-commercial-intelligence.md` | §3 (§3.4) |
-| Multi-family expansion tractability (local cache, shortlist, scenarioing) | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.5) |
-| Classification freshness (4 vectors: structure, measures, remedies, FX) | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.11) |
-| Unlockable margin and evidence leverage | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.12) |
-| Additional-code satisfiability (DE 6/17) | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.7) |
-| Bundle/set classification (GIR 3 escape hatch) | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.8) |
-| CBAM scope (aluminium, cement, fertiliser, hydrogen, iron & steel) | `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.14) |
+| Conservative defaults (constitutional -- MFN, residual, standard VAT) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.12.1`, `L5-FR-1.12.2` |
+| Multi-source HS classification recall (5 sources) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.4.1`-`L5-FR-1.4.5` |
+| Multi-family expansion to UK 10-digit | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.5.1`, `L5-FR-1.5.2` |
+| Exporter/manufacturer resolution | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.6.1` |
+| Measure interaction engine (AD/CVD/safeguard/quota) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.7.1` |
+| Compound/specific duty expressions | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.8.1` |
+| VAT rate determination + recovery | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.9.1`, `L5-FR-1.9.2` |
+| Classification freshness system | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.11.1`, `L5-FR-1.11.2` |
+| Customs branch divergence (hard blocker) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.13.1`, `L5-FR-1.13.2` |
+| CBAM forward placeholder | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.14.1`, `L5-FR-1.14.2` |
+| Dual FX engine (HMRC customs + Frankfurter commercial) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-2.1.1`-`L5-FR-2.1.3` |
+| Full freight engine (Freightos + SeaRates CDP skills) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-2.2.1`-`L5-FR-2.2.4` |
+| Customs error types (10 domain-specific requirements; 9 new enum variants + existing `FPO_ACCESS_UNAVAILABLE`) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-3.5.1`-`L5-FR-3.5.10` |
+| Evidence-tiered accuracy (gold/silver/bronze) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-3.4.1`, `L5-FR-3.4.2` |
+| Multi-family expansion tractability (local cache, shortlist, scenarioing) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.5.3`, `L5-FR-1.5.4` |
+| Classification freshness (4 vectors: structure, measures, remedies, FX) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.11.1` |
+| Unlockable margin and evidence leverage | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.12.2` |
+| Additional-code satisfiability (DE 6/17) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.7.2` |
+| Bundle/set classification (GIR 3 escape hatch) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.8.3` |
+| CBAM scope (aluminium, cement, fertiliser, hydrogen, iron & steel) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.14.1` |
 | Classification lattice stage contract (candidate sub-grain) | `layer-strategy.md` | §10 Stage Scope Matrix |
 
 ### Frontend
@@ -226,9 +226,9 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | Bid portal skill (Proactis, 11-step playbook with per-step side-effect class) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.7) |
 | `packages/bidding` (workflow registry, company profile, BidDocument, SubmissionResult) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.6) |
 | Audit trail (constitutional) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.8) |
-| L5→L6 readiness gate (blocker checks, quote-role quality) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.3) |
+| L5→L6 readiness gate (blocker checks, quote-role quality) | `layers/layer-6-request-pipeline-automation.md`, `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.3); `L5-FR-3.8.1` |
 | Portal submission fail-closed on validation | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.3) |
-| L5→L6 readiness gate (cross-layer contract) | `layer-strategy.md` | §10 Interface Contracts |
+| L5→L6 readiness gate (cross-layer contract) | `layer-strategy.md`, `layers/layer-5-expanded-commercial-intelligence.md` | §10 Interface Contracts; `L5-FR-3.8.1` |
 
 ### Testing
 
@@ -247,7 +247,7 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | Validator canary health + retro-validation tests | `layers/layer-3-operational-hardening.md` | §5 (§5.2) |
 | Sync round-trip tests (writer fencing, command ledger, provisional promotion) | `layers/layer-4-shared-visibility.md` | §4 |
 | Redaction boundary tests (summary projection leakage) | `layers/layer-4-shared-visibility.md` | §4 (§4.2) |
-| L5 customs test files (5: classification, measure interaction, FX, freight, FPO) | `layers/layer-5-expanded-commercial-intelligence.md` | §3 (§3.2) |
+| L5 customs test files (5: classification, measure interaction, FX, freight, FPO/search-suggestion) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-3.2.1` |
 | L6 bid workflow test files (3: states, side-effects, readiness gate) | `layers/layer-6-request-pipeline-automation.md` | §2 (§2.2) |
 | No mock-only release gates (real sessions, real portals/APIs, or captured evidence bundles) | `layer-strategy.md` | §11 |
 | Testing evolution (all layers, cumulative 4→60) | `layer-strategy.md` | §11 |
@@ -260,9 +260,9 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | VAT-recoverable importer assumption? | `layers/layer-0-gold-set-evaluation.md` | §7.1 User Input #4 |
 | Margin thresholds as hard filters? | `layers/layer-0-gold-set-evaluation.md` | §7.1 Assumption #3 |
 | Auto-qualification coverage floor? | `layers/layer-2-single-operator-desktop.md` | §5.1 Further Research #5 |
-| Customs cost spread materiality? | `layers/layer-5-expanded-commercial-intelligence.md` | §3.6 Further Research #8 |
-| Packaging sub-category reclassification? | `layers/layer-5-expanded-commercial-intelligence.md` | §3.6 Further Research #9 |
-| CBAM rate integration timeline? | `layers/layer-5-expanded-commercial-intelligence.md` | §3.6 Further Research #10 |
+| Customs cost spread materiality? | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-3.6.1` / Further Research #8 |
+| Packaging sub-category reclassification? | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-3.6.1` / Further Research #9 |
+| CBAM rate integration timeline? | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-3.6.1` / Further Research #10 |
 | Late merge cluster rollup reconciliation (partially resolved) | `layers/layer-3-operational-hardening.md` | §6 (§6.1) |
 | Epoch mismatch recovery and reproject | `layers/layer-4-shared-visibility.md` | §5 (§5.1) |
 
@@ -270,11 +270,11 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 
 | ADR | Decision | Layer(s) |
 |-----|----------|----------|
-| ADR-001 | Skill-based agent scraping | L0 (first 5 skills), L1 (live FTS), L2 (Contracts Finder), L5 (Alibaba/1688/Amazon/PCS) |
+| ADR-001 | Skill-based agent scraping | L0 (first 5 skills), L1 (live FTS), L2 (Contracts Finder), L5 (`L5-FR-3.10.2`) |
 | ADR-002 | Authority matrix database | L0 (classification), L4 (sync enforcement + RLS) |
 | ADR-003 | Tauri + separate Rust daemon | L1 (daemon), L2 (desktop shell) |
 | ADR-004 | PTY-based execution (hybrid) | L1 (basic), L3 (hardened) |
 | ADR-005 | Skills as passive assets + explicit binding | L0 (standard), L1 (runtime), L3 (promotion + cron binding) |
-| ADR-006 | Internal landed-cost engine | L0 (screening-grade), L5 (decision-grade) |
+| ADR-006 | Internal landed-cost engine | L0 (screening-grade), L5 (`L5-FR-3.10.1`) |
 | ADR-007 | Request pipeline automation (not real-money bids) | L6 |
 | ADR-008 | Desktop = control panel, web = read-only | L2 (desktop), L4 (web portal) |
