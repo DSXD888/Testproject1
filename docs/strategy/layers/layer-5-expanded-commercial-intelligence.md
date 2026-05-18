@@ -357,6 +357,13 @@ L5-FR-2.3.4 — Marketplace source registration is explicit
 L5-FR-2.3.5 — Skill promotion uses the full production directory and validator standard
 - AC1: eBay, Alibaba, 1688, Amazon, and PCS production bindings include `SKILL.md`, `result.schema.json`, `checkpoint.schema.json`, `canary.inputs.jsonl`, `golden.assertions.yaml`, and `validator-rubric.yaml`.
 - AC2: Stable promotion records compatible `worker_behavior_version` and `validator_behavior_version`; incompatible versions block promotion rather than silently recalibrating.
+L5-FR-2.3.6 — Alibaba maturation preserves the running SearchProfile and output contract
+- AC1: Alibaba reads every `search_profiles[]` field required by the existing skill, including critical attributes, numeric specs, standards, aliases, exclusions, query waves, and eligibility state; implementations that collapse a profile to only head noun or candidate name fail validation.
+- AC2: Alibaba verifies authenticated persistent-profile browser state before the first query; unauthenticated sessions, CAPTCHA blocks, locale/currency drift, page-shape drift, and hard-conflict-zero-survivor cases emit source-specific failure codes and do not fabricate quotes.
+- AC3: Alibaba filtering preserves the existing hard-conflict rules for head-noun/alias conformance, required critical attributes, numeric-spec tolerance, exclusion terms, and regulated-goods standards conflicts.
+- AC4: Alibaba shortlist/detail behavior preserves max 2 listings per seller, max 2 per query wave, max 1 per normalized title family, and top 3 detail-page enrichment for specs, seller metadata, shipping/Incoterm facts, and compliance evidence tier.
+- AC5: Alibaba confidence scoring remains formula-backed in bps for `match_confidence_bps` and `quote_usability_confidence_bps`; Step 03 TDD must assert the current weighted formulas or record a deliberate formula replacement before bead creation.
+- AC6: Every Alibaba run emits schema-valid `result.json` with `search_attempts[]` and `supplier_quotes[]` plus `run-manifest.md`; failed batches still emit `supplier_quotes: []`, attempted-search metadata, and non-null `failure_code`.
 
 ### 2.4 Existing Field Activation (Self-Contained for L5 Implementer)
 L5-FR-2.4.1 — L5 populates every `landed_cost_estimates` column or preserves its L4 sync semantics
@@ -373,7 +380,7 @@ L5-FR-2.4.1 — L5 populates every `landed_cost_estimates` column or preserves i
 | `commodity_confidence_bps`, `classification_stability_bps` | L5-FR-1.5.2, L5-FR-3.4.1 | Classification confidence and stability |
 | `customs_valuation_method`, `valuation_mode` | L5-FR-1.10.1, L5-FR-1.10.2 | Valuation basis and mode |
 | `customs_fx_rate`, `commercial_fx_rate`, `fx_basis_delta_bps`, `fx_rate_checked_at` | L5-FR-2.1.1, L5-FR-2.1.2, L5-FR-2.1.4 | Dual FX rates, basis delta, checked timestamp, and FX-delta recalculation triggers |
-| `supplier_cost_gbp_pence` | L5-FR-2.3.1, L5-FR-2.3.2, L5-FR-2.3.3 | Normalized supplier quote cost |
+| `supplier_cost_gbp_pence` | L5-FR-2.3.1, L5-FR-2.3.2, L5-FR-2.3.3, L5-FR-2.3.6 | Normalized supplier quote cost |
 | `freight_low_gbp_pence`, `freight_base_gbp_pence`, `freight_high_gbp_pence` | L5-FR-2.2.2, L5-FR-2.2.3 | Freight low/base/high estimates |
 | `customs_duty_gbp_pence`, `trade_remedy_duty_gbp_pence`, `duty_outcome_min_gbp_pence`, `duty_outcome_max_gbp_pence`, `customs_cost_spread_bps` | L5-FR-1.7.1, L5-FR-1.8.1, L5-FR-1.13.1 | Duty outcomes and spread across branches |
 | `trade_remedy_state`, `trade_remedy_cases_json` | L5-FR-1.6.1, L5-FR-1.6.2, L5-FR-1.11.2 | Remedy applicability, exporter evidence, and case references |

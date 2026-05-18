@@ -160,11 +160,12 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | VAT rate determination + recovery | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.9.1`, `L5-FR-1.9.2` |
 | Classification freshness system | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.11.1`, `L5-FR-1.11.2` |
 | Customs branch divergence (hard blocker) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.13.1`, `L5-FR-1.13.2` |
-| CBAM forward placeholder | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.14.1`, `L5-FR-1.14.2` |
-| Dual FX engine (HMRC customs + Frankfurter commercial) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-2.1.1`-`L5-FR-2.1.3` |
+| CBAM forward placeholder | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.14.1`-`L5-FR-1.14.3` |
+| Marketplace source skill maturation (Alibaba, 1688, Amazon, PCS directory contract) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.15.1`, `L5-FR-2.3.1`-`L5-FR-2.3.6` |
+| Dual FX engine (HMRC customs + Frankfurter commercial) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-2.1.1`-`L5-FR-2.1.4` |
 | Full freight engine (Freightos + SeaRates CDP skills) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-2.2.1`-`L5-FR-2.2.4` |
 | Customs error types (10 domain-specific requirements; 9 new enum variants + existing `FPO_ACCESS_UNAVAILABLE`) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-3.5.1`-`L5-FR-3.5.10` |
-| Evidence-tiered accuracy (gold/silver/bronze) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-3.4.1`, `L5-FR-3.4.2` |
+| Evidence-tiered accuracy (gold/silver/bronze) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-3.4.1`-`L5-FR-3.4.3` |
 | Multi-family expansion tractability (local cache, shortlist, scenarioing) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.5.3`, `L5-FR-1.5.4` |
 | Classification freshness (4 vectors: structure, measures, remedies, FX) | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.11.1` |
 | Unlockable margin and evidence leverage | `layers/layer-5-expanded-commercial-intelligence.md` | `L5-FR-1.12.2` |
@@ -226,9 +227,9 @@ Entries in this index that point at L1-L3 strategy sections describe **built** c
 | Bid portal skill (Proactis, 11-step playbook with per-step side-effect class) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.7) |
 | `packages/bidding` (workflow registry, company profile, BidDocument, SubmissionResult) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.6) |
 | Audit trail (constitutional) | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.8) |
-| L5→L6 readiness gate (blocker checks, quote-role quality) | `layers/layer-6-request-pipeline-automation.md`, `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.3); `L5-FR-3.8.1` |
+| L5→L6 readiness gate (blocker checks, quote-role quality) | `layers/layer-6-request-pipeline-automation.md`, `layers/layer-5-expanded-commercial-intelligence.md` | §1 (§1.3); `L5-FR-3.8.1`, `L5-FR-3.8.2` |
 | Portal submission fail-closed on validation | `layers/layer-6-request-pipeline-automation.md` | §1 (§1.3) |
-| L5→L6 readiness gate (cross-layer contract) | `layer-strategy.md`, `layers/layer-5-expanded-commercial-intelligence.md` | §10 Interface Contracts; `L5-FR-3.8.1` |
+| L5→L6 readiness gate (cross-layer contract) | `layer-strategy.md`, `layers/layer-5-expanded-commercial-intelligence.md` | §10 Interface Contracts; `L5-FR-3.8.1`, `L5-FR-3.8.2` |
 
 ### Testing
 
