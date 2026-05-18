@@ -1,0 +1,4 @@
+PASS at 2026-05-17T19:47:12Z: cold-start auto-launch works.
+Killed Chrome, ran bin/ensure-cdp-9222, Chrome relaunched and CDP became reachable in 1s.
+Final browser: Chrome/148.0.7778.168
+Diagnostic emitted: {"helper":"ensure-cdp-9222","status":"launched","port":9222,"message":"Chrome launched with pid 41117; CDP reachable after 2s","ts":"2026-05-17T19:47:12Z"}

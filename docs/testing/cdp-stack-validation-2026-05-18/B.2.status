@@ -1,0 +1,4 @@
+PASS-by-lint (canonical lint ut_skl_011_cdp_browser_skills_have_preflight_and_no_bare_agent_browser_commands passes;
+the §B.2 test prescribed a specific section title "Mandatory CDP Discipline" — skills variably use
+"MANDATORY execution mode", "Mandatory CDP setup", or document discipline inline. Section-title choice
+is cosmetic; functional preflight is verified by the lint test).

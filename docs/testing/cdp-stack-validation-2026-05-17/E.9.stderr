@@ -1,0 +1,2 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.62s
+     Running tests/auth_signin_lint.rs (target/debug/deps/auth_signin_lint-ecceab50cf9508c0)

@@ -1,0 +1,2 @@
+{"helper":"ensure-cdp-9222","status":"info","port":9338,"message":"created fresh CDP_USER_DATA_DIR at /var/folders/z3/784rpxcj23x3_0d8d88c_27h0000gn/T/cdp-test-XXXXXX.gXwLlVx4T8/has\"quote/and\\backslash — operator must sign in to sites manually before CDP-requiring skills will succeed","ts":"2026-05-17T18:29:01Z"}
+{"helper":"ensure-cdp-9222","status":"launched","port":9338,"message":"Chrome launched with pid 34525; CDP reachable after 1s","ts":"2026-05-17T18:29:02Z"}

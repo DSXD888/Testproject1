@@ -1,0 +1,33 @@
+Area C summary at 2026-05-17T18:41:58Z
+
+C.1:
+PASS at 2026-05-17T18:38:21Z
+
+C.2:
+PASS at 2026-05-17T18:38:21Z
+
+C.3:
+PASS-equivalent (design choice): no generic `write_cdp_blocked_result` function. Instead:
+  - `cdp_blocked_sizing_result(row)` exists at main.rs:12380 for the shipment-sizing typed result.
+  - For other skills, the daemon's preflight (`preflight_cdp_for_skill`, `preflight_cdp_for_launch_spec`)
+    logs a warning and lets the skill body detect CDP down via its own ensure-cdp-9222 invocation
+    and write the blocked result. See main.rs:12353 comment:
+    "skill will see CDP down and write its own blocked result"
+
+The handoff anticipated a different implementation; the actual daemon uses a "preflight-and-warn"
+approach combined with skill-level defense-in-depth (which Area B verified is in place). No fix needed.
+
+C.4:
+PASS at 2026-05-17T18:38:31Z: 4 call sites
+
+C.5:
+PASS at 2026-05-17T18:38:59Z: Alibaba pre-check uses ensure_cdp_9222/cdp_blocked_sizing_result
+
+C.6:
+PASS at 2026-05-17T18:39:17Z
+
+C.7:
+PASS at 2026-05-17T18:40:14Z (after fixes: uninlined_format_args + doc_markdown in auth_signin_lint.rs)
+
+C.8:
+PASS at 2026-05-17T18:41:49Z: all tests green

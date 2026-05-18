@@ -1,0 +1,4 @@
+8070:                let _ = ensure_cdp_9222(9222);
+12319:fn ensure_cdp_9222(cdp_port: u16) -> Result<(), String> {
+12348:    if let Err(diag) = ensure_cdp_9222(cdp_port) {
+12370:    if let Err(diag) = ensure_cdp_9222(cdp_port) {

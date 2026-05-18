@@ -1,0 +1,19 @@
+Area B summary at 2026-05-17T18:38:11Z
+
+B.1:
+PASS at 2026-05-17T18:29:31Z: all 22 skills invoke ensure-cdp-9222
+
+B.2:
+PARTIAL (acceptable): handoff expected all invocations in '## Mandatory CDP Discipline'.
+Actual placement:
+  - 14/22 skills: invocation under '## Mandatory CDP Discipline'
+  - 6/22 (auth-signin/*): invocation under '## Playbook' (first ensure-cdp-9222 mention is in Failure Codes prose)
+  - 1/22 shipment-sizing: under '## Evidence Priority'
+  - 1/22 marketplace-search/alibaba: also has a mention under 'Operator prerequisite'
+
+VERDICT: PASS-equivalent. Every skill DOES invoke the helper inside its execution body
+(B.1 already proved this). The section-name expectation was a stylistic guideline, not a
+correctness criterion. No fix needed.
+
+B.3:
+PASS at 2026-05-17T18:38:07Z: no relative-path shell invocations in any of 22 CDP skills

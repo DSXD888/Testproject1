@@ -1,0 +1,8 @@
+Test date:        2026-05-17T18:21:16Z
+Bash:             GNU bash, version 5.3.3(1)-release (aarch64-apple-darwin24.4.0)
+Zsh:              zsh 5.9 (arm64-apple-darwin24.0)
+jq:               jq-1.7.1-apple
+ajv:              not installed
+agent-browser:    agent-browser 0.25.3
+Chrome (browser): Chrome/148.0.7778.168
+macOS:            15.5

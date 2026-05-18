@@ -1,0 +1,4 @@
+PASS at 2026-05-17T18:48:55Z: Google AccountChooser shows Dieter row.
+Detection: all 3 selector strategies match — by_identifier, by_email, text-fallback.
+Final URL: accounts.google.com/v3/signin/accountchooser?continue=...
+Screenshot: D.5.screenshot.png

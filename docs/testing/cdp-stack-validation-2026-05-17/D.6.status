@@ -1,0 +1,17 @@
+PARTIAL at 2026-05-17T18:54:00Z: eBay logged-out branch could not be exercised.
+
+What we verified:
+  - auth-signin/ebay's logged-IN detection works correctly.
+    Step 2 eval returned: signin_link_present=false, greeting_present=true, my_ebay_link_present=false
+    → skill would correctly return signin_status:"signed_in" and no-op. ✓
+  - Page navigates and selectors evaluate cleanly via agent-browser CDP. ✓
+
+What we could NOT test:
+  - The full Sign In → Continue with Google → Chooser → Redirect sequence.
+    Reason: operator could not cleanly sign out of eBay; standard signout URL and avatar menu both left "Hi Dieter!" greeting in place.
+    eBay's session persistence is unusually sticky in the persistent Chrome profile.
+
+Implication: the auth-signin/ebay recovery PATH (Steps 3-7) is verified only by:
+  - D.5 (Google chooser) — Step 6 logic is the same chooser flow.
+  - Phase A discovery (per SKILL.md §"Phase A discovery") — done at skill author time.
+  - Future runtime: the skill will only enter Steps 3-7 if the production caller detects logged-out.

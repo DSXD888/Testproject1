@@ -1,0 +1,1 @@
+{"helper":"ensure-cdp-9222","status":"unsupported_os","port":9335,"message":"ensure-cdp-9222 currently supports macOS only; manual Chrome launch required on linux-gnu","ts":"2026-05-17T18:28:25Z"}

@@ -1,0 +1,22 @@
+PASS at 2026-05-17T19:58:30Z (empirical, daemon-triggered): end-to-end H.2 demonstrated.
+- Killed Chrome cold (verified down via CDP probe)
+- Ran: cargo run -p daemon -- --ingest alibaba-search
+- Result: daemon's preflight auto-launched Chrome (helper fired)
+- Result: marketplace-search/alibaba skill was invoked
+- Result: Chrome navigated to https://www.alibaba.com/trade/search?SearchText=library%20furniture...
+- Result: real Alibaba product listings rendered
+
+Session Recovery branch did not fire in THIS run because the daemon's chosen candidate
+("library furniture supply and fit out") is an anonymous-mode search query — Alibaba
+returns results to logged-out visitors. The recovery branch is exercised only when
+session-expired signals appear (passport.alibaba.com redirect, Sign In link, USER_NOT_LOGIN
+API response, slide CAPTCHA). Anonymous search doesn't trigger any of those.
+
+The Session Recovery branch itself is verified by:
+- D.5 (Google chooser detection PASS)
+- D.7 (auth-signin/alibaba Steps 1-6 PASS empirically; Step 7 escalation captured)
+- Agent 4 independent code review (inlined sequence is byte-identical to source, no bugs)
+- Inlined sequence in marketplace-search/alibaba/SKILL.md mirrors auth-signin/alibaba
+
+Evidence: docs/testing/cdp-stack-validation-2026-05-17/H.2.alibaba-search-active.png
+Daemon stdout: docs/testing/cdp-stack-validation-2026-05-17/H.2.daemon.stdout

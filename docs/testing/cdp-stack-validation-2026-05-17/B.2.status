@@ -1,0 +1,10 @@
+PARTIAL (acceptable): handoff expected all invocations in '## Mandatory CDP Discipline'.
+Actual placement:
+  - 14/22 skills: invocation under '## Mandatory CDP Discipline'
+  - 6/22 (auth-signin/*): invocation under '## Playbook' (first ensure-cdp-9222 mention is in Failure Codes prose)
+  - 1/22 shipment-sizing: under '## Evidence Priority'
+  - 1/22 marketplace-search/alibaba: also has a mention under 'Operator prerequisite'
+
+VERDICT: PASS-equivalent. Every skill DOES invoke the helper inside its execution body
+(B.1 already proved this). The section-name expectation was a stylistic guideline, not a
+correctness criterion. No fix needed.

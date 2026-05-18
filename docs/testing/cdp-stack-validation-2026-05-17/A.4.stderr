@@ -1,0 +1,1 @@
+{"helper":"ensure-cdp-9222","status":"launch_failed","port":9333,"message":"Chrome process 34151 did not produce a reachable CDP endpoint on port 9333 within 15s","ts":"2026-05-17T18:27:31Z"}

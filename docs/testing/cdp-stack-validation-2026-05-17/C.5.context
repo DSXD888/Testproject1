@@ -1,0 +1,26 @@
+                        );
+                        None
+                    }
+                });
+
+        let cdp_unreachable_before_sizing =
+            row.source_name == "alibaba-search" && row.source_url.is_some() && {
+                // Best-effort auto-launch via bin/ensure-cdp-9222 so CDP isn't
+                // dismissed as unreachable just because Chrome wasn't started.
+                // The helper is idempotent: a no-op when Chrome is already up.
+                let _ = ensure_cdp_9222(9222);
+                !cdp_port_reachable(9222)
+            };
+        let (sizing, sizing_outcome) = if cdp_unreachable_before_sizing {
+            (Some(cdp_blocked_sizing_result(row)), None)
+        } else {
+            sizing_skill_runs += 1;
+            let outcome = run_landed_cost_skill(
+                runtime,
+                cli,
+                &sizing_skill,
+                "landed_cost_shipment_sizing",
+                row,
+                &base_parameters,
+                None,
+            )

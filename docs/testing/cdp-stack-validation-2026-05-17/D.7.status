@@ -1,0 +1,28 @@
+PARTIAL at 2026-05-17T19:00:00Z: Alibaba auto-signin sequence reached identity-verification escalation.
+
+Detailed results per step (auth-signin/alibaba SKILL.md):
+  Step 1 (open login.alibaba.com)       — PASS
+  Step 2 (detect signed-out state)      — PASS (returned state="on_login_page")
+  Step 3 (slide-CAPTCHA detection)      — PASS (returned slide_captcha=false; no captcha on this attempt)
+  Step 4 (click "Continue with Google") — FAIL with original selectors; FIXED INLINE
+    Issue: Alibaba renders Google signin as `<a attr-type="google" attr-customurl="...sns_auth.htm...">` (icon link), not a button or standard OAuth href.
+    Fix applied to skills/auth-signin/alibaba/SKILL.md Step 4: read attr-customurl, navigate via window.location.assign. Fallback chain preserved.
+  Step 5 (confirm on Google chooser)    — PASS (after fix, navigated to accounts.google.com/v3/signin/accountchooser)
+  Step 6 (delegate to chooser, click Dieter row) — PASS (page_shape="chooser_target_found", clicked=true)
+  Step 7 (poll for redirect)            — TRIGGERED IDENTITY VERIFICATION
+    Alibaba's risk engine routed the post-OAuth flow to https://login.alibaba.com/iv/verify_mode.htm
+    Body text: "Verify your identity / We've temporarily locked your account to keep it secure / Enter your phone number and we'll send you a code"
+    This is a NEW escalation case not previously documented in the skill.
+
+Fixes applied inline:
+  - skills/auth-signin/alibaba/SKILL.md Step 4 selector: now reads attr-customurl from <a attr-type=google> and navigates via window.location.assign (with fallbacks preserved)
+  - Failure Codes: added ALIBABA_IDENTITY_VERIFICATION_REQUIRED
+  - Step 7 polling eval: detects /iv/verify_mode.htm and "Verify your identity"/"phone number"/"send code" body text
+  - Step 7 result-map table: identity_verification_required → manual_required + ALIBABA_IDENTITY_VERIFICATION_REQUIRED
+
+What this validates:
+  - The skill's structure works (logged-out detection, captcha detection, chooser delegation all PASS once the corrected selector clicks the Google option).
+  - Real-world escalation behavior is now captured in the SKILL.md so the skill correctly returns manual_required instead of going around the loop.
+
+What remains untested:
+  - The "happy path" Step 7 = signed_in result, because Alibaba's risk engine intercepted this attempt. To clear: operator completes SMS verification once; subsequent attempts should land on the happy path.

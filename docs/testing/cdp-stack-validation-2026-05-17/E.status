@@ -1,0 +1,24 @@
+Area E summary at 2026-05-17T19:43:35Z:
+
+Pre-test assumption (from handoff): 0/8 production skills had Session Recovery wired.
+Actual state at start of E: 8/8 production skills HAVE the Session Recovery SECTION wired.
+Each skill referenced its matching auth-signin/<site>/ but left the click sequence as
+"TBD — see skills/auth-signin/<site>/SKILL.md" pending Phase A discovery.
+
+Phase A discovery confirmed complete via D.4 (no placeholders in any auth-signin skill).
+
+Fixes applied this run:
+  - marketplace-search/alibaba — Session Recovery click sequence INLINED from auth-signin/alibaba/SKILL.md Steps 1-7 (includes the live-validated [attr-type=google] selector fix from D.7)
+  - marketplace-search/ebay-uk — Session Recovery click sequence INLINED from auth-signin/ebay/SKILL.md Steps 3-7
+
+Remaining: 6 production skills retain the TBD reference (Phase A is done, inlining is mechanical copy-paste from the corresponding auth-signin SKILL.md):
+  - landed-cost/searates-freight-estimate (auth-signin/searates)
+  - landed-cost/shipment-sizing (auth-signin/alibaba — same source as marketplace-search/alibaba; the inlined block above can be reused with the skill-specific blocker mapping)
+  - source-health/alibaba (auth-signin/alibaba — same)
+  - procurement-ingestion/procontract-discover (auth-signin/procontract)
+  - procurement-ingestion/procontract-enrich-tender (auth-signin/procontract)
+  - procurement-ingestion/procontract-register-interest (auth-signin/procontract)
+
+These remaining 6 are deferred to a follow-up handoff (operator-directed scope).
+
+ut_asln_004 lint: PASS (the Session Recovery sections all reference their matching auth-signin/<site> path; the substring check is satisfied even when only the structural reference is present).

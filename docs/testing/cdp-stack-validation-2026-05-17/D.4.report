@@ -1,0 +1,8 @@
+  OK auth-signin/google-account-chooser
+  OK auth-signin/ebay
+  OK auth-signin/alibaba
+  OK auth-signin/searates
+  OK auth-signin/freightos
+  OK auth-signin/procontract
+
+FAIL=False

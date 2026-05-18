@@ -1,0 +1,2 @@
+PASS (with throwaway profile)
+NOTE: original A.4 used /Users/alinaaitova/.chrome-automation while real Chrome was running there → macOS profile-lock makes a second Chrome instance abort. Helper behavior is correct (polls 15s, emits launch_failed). When combined with CDP_USER_DATA_DIR (i.e. covered by A.5), CDP_PORT override works. The handoff's A.4 step as written tests an unsupported pattern.

@@ -1,0 +1,2 @@
+[2m2026-05-17T19:57:16.490155Z[0m [32m INFO[0m daemon bootstrap ready [3msocket_path[0m[2m=[0mruntime/daemon.sock [3mstate_db[0m[2m=[0mstate/state.db [3martifact_root[0m[2m=[0martifacts
+[2m2026-05-17T19:57:16.491338Z[0m [33m WARN[0m L4 startup sync degraded before cross-authority dispatch; local operation continues [3mfailure[0m[2m=[0mremote-owned pull unavailable for shared_source_configs
