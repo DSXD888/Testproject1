@@ -12324,11 +12324,33 @@ fn ensure_cdp_9222(cdp_port: u16) -> Result<(), String> {
             helper.display()
         ));
     }
+    ::tracing::info!(
+        target: "daemon::cdp_preflight",
+        cdp_port,
+        helper = %helper.display(),
+        "ensure_cdp_9222: probing CDP on port {cdp_port}"
+    );
     let output = process::Command::new(&helper)
         .env("CDP_PORT", cdp_port.to_string())
         .output()
         .map_err(|e| format!("failed to spawn {}: {}", helper.display(), e))?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
     if output.status.success() {
+        let diagnostic = stderr.trim();
+        if diagnostic.is_empty() {
+            ::tracing::info!(
+                target: "daemon::cdp_preflight",
+                cdp_port,
+                "ensure_cdp_9222: CDP already reachable, no-op"
+            );
+        } else {
+            ::tracing::info!(
+                target: "daemon::cdp_preflight",
+                cdp_port,
+                diagnostic,
+                "ensure_cdp_9222: helper completed with diagnostic"
+            );
+        }
         Ok(())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -12354,6 +12376,17 @@ fn preflight_cdp_for_skill(skill: &LoadedSkill) {
             diag
         );
     }
+}
+
+fn preflight_and_log_pty_skill_spawn(skill: &LoadedSkill, mode: ExecutionMode) {
+    preflight_cdp_for_skill(skill);
+    ::tracing::info!(
+        target: "daemon::skill_spawn",
+        skill_id = %skill.metadata.skill_id,
+        execution_mode = %execution_mode_label(mode),
+        "spawning skill: {}",
+        skill.metadata.skill_id
+    );
 }
 
 fn preflight_cdp_for_launch_spec(launch_spec: &LaunchSpec) {
@@ -14319,6 +14352,7 @@ async fn execute_skill_session(
     let runtime_trace_identity = trace_identity.clone();
     let mut result = match mode {
         ExecutionMode::Pty => {
+            preflight_and_log_pty_skill_spawn(skill, mode);
             execute_pty_skill_session(
                 &runtime.artifact_root,
                 trace_identity.clone(),

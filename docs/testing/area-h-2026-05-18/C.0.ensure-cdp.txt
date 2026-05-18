@@ -1,0 +1,3 @@
+{"helper":"ensure-cdp-9222","status":"launched","port":9222,"message":"Chrome launched with pid 73792; CDP reachable after 1s","ts":"2026-05-18T19:30:27Z"}
+{"helper":"ensure-cdp-9222","status":"launched","port":9222,"message":"Chrome launched with pid 73995; CDP reachable after 1s","ts":"2026-05-18T19:32:17Z"}
+{"helper":"ensure-cdp-9222","status":"launched","port":9222,"message":"Chrome launched with pid 74640; CDP reachable after 1s","ts":"2026-05-18T19:40:38Z"}

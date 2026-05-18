@@ -1,0 +1,19 @@
+Final Rust/helper gates: 2026-05-18T19:48:39Z
+cargo fmt --check exit=0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.94s
+cargo check --all-targets exit=0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.37s
+cargo clippy --all-targets -- -D warnings exit=0
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.28s
+     Running tests/cdp_ensure_helper.rs (target/debug/deps/cdp_ensure_helper-a9c7706086ea62a6)
+
+running 5 tests
+test ut_ehlpr_005_helper_fast_path_when_cdp_up ... ignored, requires live CDP browser on localhost:9222
+test ut_ehlpr_001_helper_exists ... ok
+test ut_ehlpr_002_helper_is_executable ... ok
+test ut_ehlpr_004_helper_emits_diagnostic_json_on_failure ... ok
+test ut_ehlpr_003_helper_short_circuits_unsupported_os ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+cargo test --test cdp_ensure_helper exit=0

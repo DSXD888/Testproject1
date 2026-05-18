@@ -227,7 +227,7 @@ or a `chrome-error://` URL), emit
 
 ### Step 1a: Session Recovery (auto-signin on session-expired)
 
-If the title check or any subsequent navigation reveals the operator's persistent Chrome profile is signed OUT of Alibaba, attempt auto-signin via `auth-signin/alibaba/` BEFORE emitting any session-expired blocker. Only emit `SESSION_REFRESH_FAILED` if auto-signin ALSO failed.
+If the title check or any subsequent navigation reveals the operator's persistent Chrome profile is signed OUT of Alibaba, attempt auto-signin via `auth-signin/alibaba/` BEFORE emitting any session-expired blocker. Print `SESSION_REFRESH_TRIGGERED` before starting recovery and print `invoking skill: auth-signin/alibaba` before running the recovery sequence so daemon logs make the recovery edge auditable. Only emit `SESSION_REFRESH_FAILED` if auto-signin ALSO failed.
 
 This replaces the previous "pre-auth-only" model where this skill assumed the operator had manually signed in. With auto-signin, the skill self-recovers from silent session expiry; `auth-refresh/alibaba` remains the correct tool for explicit operator-initiated cookie refresh.
 
@@ -333,7 +333,7 @@ agent-browser --cdp ${CDP_PORT} eval '
 
 After the recovery sequence completes, verify signed-in by checking that the URL is back on `alibaba.com` (not `passport.alibaba.com`) AND the account menu element (`[class*=account-menu]` / `[class*=my-alibaba]` / `[class*=user-info]`) is visible. Then:
 
-1. **If signed in:** EXIT this skill cleanly WITHOUT writing `result.json`. The daemon's retry policy at `crates/daemon/src/jobs/runner.rs` re-invokes the skill on the next pass; the second invocation sees the restored session.
+1. **If signed in:** print `auth-signin successful, resuming original flow` and continue directly to Step 2 in this same skill invocation. Do not exit for a daemon retry and do not write an auth-only `result.json`; the marketplace result must be produced by the original run after inline recovery.
 
 2. **If NOT signed in:** write a blocked `result.json` with one `search_results` entry per candidate having `search_failure_mode: "SOURCE_CAPTCHA_BLOCKED"` (if slide CAPTCHA encountered) or `"SOURCE_SOFT_BLOCKED"` and a single blocker `{code: "SESSION_REFRESH_FAILED", severity: "blocked", message: "<descriptive message naming the failure mode: slide CAPTCHA, account binding required, region prompt, Google chooser empty, 2FA, etc.>"}`. Stop here.
 

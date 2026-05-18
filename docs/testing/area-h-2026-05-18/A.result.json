@@ -1,0 +1,103 @@
+{
+    "result_schema_version": "1.0.0",
+    "skill_id": "source-health/fts",
+    "skill_version": "2026.03.30-1",
+    "source_id": "fts",
+    "source_structure_version": "fts-2026-03-30",
+    "job_id": "job-250052a2f4c77ba5489f1556d68a9abcbe54a3c1b554c70a4244a65c26945b76",
+    "session_id": "session-manual-96d5f571ef6e7ba203613b7db8f12920e0e31a6e336ec5050c4b8e460849ebbe",
+    "outcome_class": "success",
+    "health_state": "green",
+    "failure_classification": null,
+    "started_at": "2026-05-18T19:28:28Z",
+    "completed_at": "2026-05-18T19:29:08Z",
+    "checks": {
+        "reachability": "passed",
+        "fingerprint": "passed",
+        "auth_state": "signed_out",
+        "locale": "passed",
+        "challenge_rate": "passed",
+        "minimal_extraction": "passed"
+    },
+    "expectations": {
+        "expected_locale": "en-GB",
+        "expected_currency": "GBP"
+    },
+    "observed": {
+        "canary_url": "https://www.find-tender.service.gov.uk/Search/Results",
+        "page_title": "Search results - Find a Tender",
+        "results_heading": "Search results",
+        "results_total_text": "We've found 271,191 notices",
+        "language_active": "English",
+        "language_alternates": [
+            "Cymraeg"
+        ],
+        "currency_symbol_observed": "\u00a3",
+        "currency_inference": "GBP",
+        "locale_inference": "en-GB",
+        "challenge_markers_present": false,
+        "auth_links_present": [
+            "Sign in"
+        ],
+        "fingerprint_anchors_present": [
+            "GOV.UK header",
+            "Find a Tender banner",
+            "Keywords search input",
+            "Procurement stage filter",
+            "Notice type filter",
+            "Industry CPV code filter",
+            "Contract location filter",
+            "Value filter",
+            "Suitability filter",
+            "Commercial tool filter",
+            "Date range filter",
+            "Sort results combobox",
+            "Update results button"
+        ]
+    },
+    "minimal_extraction_sample": {
+        "items_seen": 3,
+        "items": [
+            {
+                "title": "Bus Fleet Diesel and Electric Vehicles",
+                "buyer": "Liverpool City Region Combined Authority",
+                "notice_type": "UK6: Contract award notice",
+                "publication_date": "18 May 2026, 8:27pm",
+                "currency_symbol": "\u00a3"
+            },
+            {
+                "title": "Closed Landfill Site Management and Maintenance",
+                "buyer": "West Lancashire Borough Council",
+                "notice_type": "UK4: Tender notice",
+                "publication_date": "18 May 2026, 8:16pm",
+                "currency_symbol": "\u00a3"
+            },
+            {
+                "title": "Howard Partnership - Fixed Electricity Supply Products",
+                "buyer": null,
+                "notice_type": null,
+                "publication_date": null,
+                "currency_symbol": "\u00a3"
+            }
+        ]
+    },
+    "pages_visited": 1,
+    "scroll_cycles": 0,
+    "items_processed": 3,
+    "items_skipped": 0,
+    "items_failed": 0,
+    "warnings": [],
+    "artifacts": [
+        {
+            "kind": "screenshot",
+            "path": "fts-canary.png",
+            "description": "Screenshot of the FTS search results landing page captured via CDP after fingerprint and extraction checks."
+        }
+    ],
+    "cdp": {
+        "port": 9222,
+        "reachable": true,
+        "browser": "Chrome/148.0.7778.168",
+        "protocol_version": "1.3"
+    }
+}

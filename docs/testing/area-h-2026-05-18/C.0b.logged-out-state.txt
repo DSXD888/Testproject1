@@ -1,0 +1,18 @@
+Option C logged-out checkpoint recapture: 2026-05-18T19:40:41Z
+
+CDP version:
+{
+   "Browser": "Chrome/148.0.7778.168",
+   "Protocol-Version": "1.3",
+   "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+   "V8-Version": "14.8.178.21",
+   "WebKit-Version": "537.36 (@58ae0c621a34b558c60db5c6209d9dd9063084b7)",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/browser/2a6c93d1-fdb7-45cf-8712-0445630c007d"
+}
+
+Open Alibaba:
+✓ Alibaba.com: Manufacturers, Suppliers, Exporters & Importers from the world's largest online B2B marketplace
+  https://www.alibaba.com/
+
+Auth state:
+"{\"url\":\"https://www.alibaba.com/\",\"title\":\"Alibaba.com: Manufacturers, Suppliers, Exporters & Importers from the world's largest online B2B marketplace\",\"signInText\":false,\"welcomeDieter\":true,\"bodySample\":\"Deliver to:\\nGB\\nEnglish-GBP\\nAll categories\\nVerified manufacturers\\nOrder protections\\nAccio Work\\nSource in Europe\\nTax exemption\\nBuyer Central\\nApp & extension\\nSell on Alibaba.com\\nAI Mode\\nProducts\\nManufacturers\\nWorldwide\\nWhat are you looking for?\\ndouble glazed unit\\nmetal railings\\nbookstore shelves\\ndouble glazed unit\\nImage Search\\nTry new Image Search\\nSearch\\nWelcome to Alibaba.com, Dieter\\nRequest for Quotation\\nTop Ranking\\nFast customization\\nCategories for you\\nApparel & Accessories\\nConsumer Electronics\\n\"}"

@@ -1,0 +1,15 @@
+Pre-run fix at 2026-05-18T19:22:04Z
+Failure observed: generic --skill-path PTY path did not call daemon CDP preflight before spawning the skill; success diagnostics were not logged.
+Fix applied: crates/daemon/src/main.rs logs ensure_cdp_9222 success/launch diagnostics and calls preflight_cdp_for_skill before generic PTY spawn.
+Files changed: crates/daemon/src/main.rs
+
+Clippy follow-up at 2026-05-18T19:23:14Z
+Failure observed: clippy branches_sharing_code and too_many_lines on first daemon preflight patch.
+Fix applied: moved stderr capture before branch and extracted preflight_and_log_pty_skill_spawn helper.
+Re-run outcome: cargo fmt/check/clippy all exit 0 (post-daemon-preflight-fix-gates-2.txt).
+
+Helper IPv4 fix at 2026-05-18T19:27:33Z
+Failure observed: bin/ensure-cdp-9222 validated localhost, Chrome bound CDP on IPv6 localhost only, while agent-browser --cdp probes 127.0.0.1 and failed.
+Fix applied: helper now probes http://127.0.0.1:${CDP_PORT}/json/version and launches Chrome with --remote-debugging-address=127.0.0.1.
+Files changed: bin/ensure-cdp-9222
+

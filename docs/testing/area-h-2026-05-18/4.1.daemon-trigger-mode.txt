@@ -1,0 +1,11 @@
+Trigger mode selected: daemon one-shot bound-skill mode.
+
+Evidence:
+- `cargo run -p daemon -- --help` exposes `--skill-path <SKILL_PATH>`: "Run a bound skill under daemon control".
+- `--job-parameters-json <JOB_PARAMETERS_JSON>` supplies the skill input payload.
+- Code path: `main` -> `run_bound_skill` -> `execute_skill_session` -> PTY/contract adapter -> `insert_executed_session_log`.
+- Database schema uses `agent_session_logs.skill_path`, not a `skill_name` column, so SQLite evidence queries filter by `skill_path = 'skills/source-health/fts/SKILL.md'` and `skill_path = 'skills/marketplace-search/alibaba/SKILL.md'`.
+
+Area H pre-run discovery:
+- Generic `--skill-path` PTY execution did not run daemon-level CDP preflight before spawning the skill.
+- Fixed in `crates/daemon/src/main.rs`: `preflight_and_log_pty_skill_spawn` now calls `preflight_cdp_for_skill` before PTY spawn, and `ensure_cdp_9222` logs success/no-op/launch diagnostics.

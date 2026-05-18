@@ -1,0 +1,23 @@
+Option C sequence extracted at 2026-05-18T19:48:12Z
+
+Daemon log checkpoints:
+32:2026-05-18T19:45:36.379372Z  INFO daemon bootstrap ready socket_path=runtime/daemon.sock state_db=state/state.db artifact_root=artifacts
+34:2026-05-18T19:45:37.151979Z  INFO ensure_cdp_9222: probing CDP on port 9222 cdp_port=9222 helper=/Users/alinaaitova/Desktop/Testproject1/bin/ensure-cdp-9222
+35:2026-05-18T19:45:38.496641Z  INFO ensure_cdp_9222: helper completed with diagnostic cdp_port=9222 diagnostic="{\"helper\":\"ensure-cdp-9222\",\"status\":\"launched\",\"port\":9222,\"message\":\"Chrome launched with pid 75053; CDP reachable after 1s\",\"ts\":\"2026-05-18T19:45:38Z\"}"
+36:2026-05-18T19:45:38.496757Z  INFO spawning skill: marketplace-search/alibaba skill_id=marketplace-search/alibaba execution_mode=pty
+37:2026-05-18T19:47:32.055427Z  INFO PTY skill produced a valid result contract; dispatching SIGTERM after stable period runtime_ids_pid=75080 runtime_ids_pgid=75080
+39:Persisted 0 search attempts and 0 supplier quotes for source alibaba-search
+40:Skill run completed: job_id=job-c4259f5e792115e773c92a88caab6f591605acec6cd8af91659c35455fc682bd skill_id=marketplace-search/alibaba session_id=session-manual-f4ca69437be74d33629c4850fb7259fbc3c311ca5a2dd084afb325e4b411a177 adapter=claude
+
+Live/browser evidence files:
+C.0a.logged-in-state.txt: logged in via welcomeDieter=true before forced expiry
+C.0b.forced-logout.txt: deleted 79 Alibaba cookies; signInText=true welcomeDieter=false
+C.5.chooser-state.txt: Google chooser targetPresent=true for dieter.x.s.danicek@gmail.com
+C.live-check-3.txt: Alibaba identity verification interstitial at login.alibaba.com/iv/verify_mode.htm
+
+Result contract summary:
+source= alibaba
+failure_mode= SOURCE_SOFT_BLOCKED
+quotes= 0
+blocker= SESSION_REFRESH_FAILED blocked
+message= Operator profile signed out of Alibaba on https://www.alibaba.com/ (Sign In prompt visible, no account menu). Inline auth-signin/alibaba recovery via login.alibaba.com -> Continue with Google -> Dieter Google chooser row succeeded up to the OAuth return, but A

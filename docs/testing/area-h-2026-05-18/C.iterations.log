@@ -1,0 +1,5 @@
+Option C pre-run skill fix at 2026-05-18T19:40:37Z
+Failure observed: SKILL.md recovery block instructed successful auth recovery to exit for daemon retry, conflicting with Option C inline-resume criterion.
+Fix applied: marketplace-search/alibaba now logs SESSION_REFRESH_TRIGGERED/invoking skill markers and resumes Step 2 inline after successful auth-signin.
+Files changed: skills/marketplace-search/alibaba/SKILL.md
+

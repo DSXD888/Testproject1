@@ -1,0 +1,43 @@
+Post-fix Rust gates: 2026-05-18T19:22:04Z
+cargo fmt --check exit=0
+    Checking daemon v0.1.0 (/Users/alinaaitova/Desktop/Testproject1/crates/daemon)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.80s
+cargo check --all-targets exit=0
+    Checking daemon v0.1.0 (/Users/alinaaitova/Desktop/Testproject1/crates/daemon)
+error: all if blocks contain the same code at the start
+     --> crates/daemon/src/main.rs:12337:5
+      |
+12337 | /     if output.status.success() {
+12338 | |         let stderr = String::from_utf8_lossy(&output.stderr);
+      | |_____________________________________________________________^
+      |
+      = warning: some moved values might need to be renamed to avoid wrong references
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#branches_sharing_code
+      = note: `-D clippy::branches-sharing-code` implied by `-D clippy::nursery`
+      = help: to override `-D clippy::nursery` add `#[allow(clippy::branches_sharing_code)]`
+help: consider moving these statements before the if
+      |
+12337 ~     let stderr = String::from_utf8_lossy(&output.stderr);
+12338 +     if output.status.success() {
+      |
+
+error: this function has too many lines (106/100)
+     --> crates/daemon/src/main.rs:14284:1
+      |
+14284 | / async fn execute_skill_session(
+14285 | |     runtime: &RuntimeBootstrap,
+14286 | |     skill: &LoadedSkill,
+14287 | |     job_id: &str,
+...     |
+14290 | |     cli: &Cli,
+14291 | | ) -> Result<ExecutedSession> {
+      | |____________________________^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#too_many_lines
+      = note: `-D clippy::too-many-lines` implied by `-D clippy::pedantic`
+      = help: to override `-D clippy::pedantic` add `#[allow(clippy::too_many_lines)]`
+
+error: could not compile `daemon` (bin "daemon") due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `daemon` (bin "daemon" test) due to 2 previous errors
+cargo clippy --all-targets -- -D warnings exit=101

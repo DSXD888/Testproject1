@@ -1,0 +1,6 @@
+Option A cleanup/process check: 2026-05-18T19:30:16Z
+
+pgrep daemon/Chrome/CDP/skill children:
+
+curl 127.0.0.1:9222/json/version after run:
+curl: (7) Failed to connect to 127.0.0.1 port 9222 after 0 ms: Couldn't connect to server

@@ -1,0 +1,35 @@
+Option C forced Alibaba logout start: 2026-05-18T19:44:20Z
+{"helper":"ensure-cdp-9222","status":"launched","port":9222,"message":"Chrome launched with pid 74867; CDP reachable after 1s","ts":"2026-05-18T19:44:21Z"}
+
+Open Alibaba before cookie expiry:
+✓ Alibaba.com: Manufacturers, Suppliers, Exporters & Importers from the world's largest online B2B marketplace
+  https://www.alibaba.com/
+
+Delete only Alibaba cookies via CDP Network.deleteCookies:
+{
+  "deleted_cookie_count": 79,
+  "deleted_domains": [
+    ".alibaba.com",
+    "baize.alibaba.com",
+    "buyercentral.alibaba.com",
+    "carp.alibaba.com",
+    "clouddisk.alibaba.com",
+    "error.alibaba.com",
+    "i.alibaba.com",
+    "login.alibaba.com",
+    "message.alibaba.com",
+    "offer.alibaba.com",
+    "onetalk.alibaba.com",
+    "open-s.alibaba.com",
+    "sale.alibaba.com",
+    "ug.alibaba.com",
+    "www.alibaba.com"
+  ]
+}
+
+Reload Alibaba after cookie expiry:
+✓ Alibaba.com: Manufacturers, Suppliers, Exporters & Importers from the world's largest online B2B marketplace
+  https://www.alibaba.com/
+
+Auth state after forced logout:
+"{\"url\":\"https://www.alibaba.com/global/index.html?spm=a2700.product_home_fy25.hometab_ggs.global\",\"title\":\"Alibaba.com: Manufacturers, Suppliers, Exporters & Importers from the world's largest online B2B marketplace\",\"signInText\":true,\"welcomeDieter\":false,\"bodySample\":\"Deliver to:\\nDE\\nEnglish-EUR\\nSign in\\nCreate account\\nAll categories\\nVerified manufacturers\\nOrder protections\\nAccio Work\\nSource in Europe\\nTax exemption\\nBuyer Central\\nApp & extension\\nSell on Alibaba.com\\nAI Mode\\nProducts\\nManufacturers\\nWorldwide\\nSearch supplies by region\\nwomen’s intimates\\niphones 15 pro max\\nwatch\\nwomen’s intimates\\nImage Search\\nTry new Image Search\\nSearch\\nAll\\nEurope\\nIndonesia\\nUnited States\\nTürkiye\\nPakistan\\nIndia\\nSingapore\\nSouth Korea\\nMalaysia\\nVietnam\\nHong Kong, China\\nJapan\\nThailand\\nMexi\"}"

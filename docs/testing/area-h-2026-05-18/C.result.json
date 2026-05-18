@@ -1,0 +1,25 @@
+{
+    "schema_version": "1.0.0",
+    "source": "alibaba",
+    "source_id": "alibaba-search",
+    "cursor": "area-h-2026-05-18",
+    "search_results": [
+        {
+            "product_candidate_id": "area-h-candidate-001",
+            "search_profile_id": "area-h-profile-001",
+            "query_used": null,
+            "wave": null,
+            "result_count": 0,
+            "search_failure_mode": "SOURCE_SOFT_BLOCKED",
+            "quotes": [],
+            "blockers": [
+                {
+                    "code": "SESSION_REFRESH_FAILED",
+                    "severity": "blocked",
+                    "message": "Operator profile signed out of Alibaba on https://www.alibaba.com/ (Sign In prompt visible, no account menu). Inline auth-signin/alibaba recovery via login.alibaba.com -> Continue with Google -> Dieter Google chooser row succeeded up to the OAuth return, but Alibaba then served the identity-verification interstitial at https://login.alibaba.com/iv/verify_mode.htm?htoken=... (phone/SMS or alternate verification required). Identity verification cannot be solved by automation; operator must complete it manually in the persistent Chrome at /Users/alinaaitova/.chrome-automation, after which marketplace-search/alibaba can be re-run."
+                }
+            ],
+            "evidence": "Step 1 title check on https://www.alibaba.com/ returned 'Alibaba.com: Manufacturers, Suppliers, Exporters & Importers from the world's largest online B2B marketplace' but DOM probe reported hasSignInPrompt=true, hasMyAlibaba=false, no [class*=account-menu] element. Step 1a recovery: login.alibaba.com loaded without slide CAPTCHA; Continue-with-Google clicked via attr-customurl path; landed on accounts.google.com chooser; Dieter row clicked (page_shape=chooser_target_found); poll returned status=identity_verification_required, url=https://login.alibaba.com/iv/verify_mode.htm?htoken=af856cd...d8c9."
+        }
+    ]
+}

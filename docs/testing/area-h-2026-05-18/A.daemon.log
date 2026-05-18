@@ -1,0 +1,9 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.38s
+     Running `target/debug/daemon --skill-path skills/source-health/fts/SKILL.md --job-parameters-json '{"source_id":"fts","source":"fts","expected_locale":"en-GB","expected_currency":"GBP","canary_url":"https://www.find-tender.service.gov.uk/Search/Results","max_pages":1,"max_scroll_cycles":0}'`
+2026-05-18T19:28:11.346675Z  INFO daemon bootstrap ready socket_path=runtime/daemon.sock state_db=state/state.db artifact_root=artifacts
+2026-05-18T19:28:11.347563Z  WARN L4 startup sync degraded before cross-authority dispatch; local operation continues failure=remote-owned pull unavailable for shared_source_configs
+2026-05-18T19:28:12.101521Z  INFO ensure_cdp_9222: probing CDP on port 9222 cdp_port=9222 helper=/Users/alinaaitova/Desktop/Testproject1/bin/ensure-cdp-9222
+2026-05-18T19:28:13.426806Z  INFO ensure_cdp_9222: helper completed with diagnostic cdp_port=9222 diagnostic="{\"helper\":\"ensure-cdp-9222\",\"status\":\"launched\",\"port\":9222,\"message\":\"Chrome launched with pid 72909; CDP reachable after 1s\",\"ts\":\"2026-05-18T19:28:13Z\"}"
+2026-05-18T19:28:13.426846Z  INFO spawning skill: source-health/fts skill_id=source-health/fts execution_mode=pty
+2026-05-18T19:29:31.883075Z  INFO PTY skill produced a valid result contract; dispatching SIGTERM after stable period runtime_ids_pid=72935 runtime_ids_pgid=72935
+Skill run completed: job_id=job-250052a2f4c77ba5489f1556d68a9abcbe54a3c1b554c70a4244a65c26945b76 skill_id=source-health/fts session_id=session-manual-96d5f571ef6e7ba203613b7db8f12920e0e31a6e336ec5050c4b8e460849ebbe adapter=claude

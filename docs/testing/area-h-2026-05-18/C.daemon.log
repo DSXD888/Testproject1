@@ -1,0 +1,40 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.57s
+     Running `target/debug/daemon --skill-path skills/marketplace-search/alibaba/SKILL.md --job-parameters-json '{
+  "source": "alibaba",
+  "source_id": "alibaba-search",
+  "cursor": "area-h-2026-05-18",
+  "max_candidates": 1,
+  "candidates": [
+    {
+      "product_candidate_id": "area-h-candidate-001",
+      "search_profile_id": "area-h-profile-001",
+      "name": "M8 stainless steel bolts",
+      "head_noun": "bolts",
+      "specification_text": "M8 stainless steel hex bolts for physical-goods supply. Prefer standard fastener listings with tier pricing and supplier MOQ.",
+      "query_waves": [
+        {"wave": 1, "query": "stainless steel bolts M8"}
+      ],
+      "standards": ["ISO 4017"],
+      "critical_attributes": ["M8", "stainless steel", "hex bolt"],
+      "numeric_specs": ["M8"],
+      "material": "stainless steel",
+      "quantity": 1000,
+      "quantity_unit": "piece",
+      "lot_title": "Area H CDP demo fastener canary",
+      "lot_description": "Daemon-driven Alibaba marketplace search canary for standard physical goods.",
+      "notice_title": "Area H daemon-driven E2E demo",
+      "notice_summary": "Runtime validation of CDP Session Recovery and listing extraction.",
+      "buyer_name": "Area H test",
+      "cpv_codes": ["44530000-4 - Fasteners"]
+    }
+  ]
+}'`
+2026-05-18T19:45:36.379372Z  INFO daemon bootstrap ready socket_path=runtime/daemon.sock state_db=state/state.db artifact_root=artifacts
+2026-05-18T19:45:36.380246Z  WARN L4 startup sync degraded before cross-authority dispatch; local operation continues failure=remote-owned pull unavailable for shared_source_configs
+2026-05-18T19:45:37.151979Z  INFO ensure_cdp_9222: probing CDP on port 9222 cdp_port=9222 helper=/Users/alinaaitova/Desktop/Testproject1/bin/ensure-cdp-9222
+2026-05-18T19:45:38.496641Z  INFO ensure_cdp_9222: helper completed with diagnostic cdp_port=9222 diagnostic="{\"helper\":\"ensure-cdp-9222\",\"status\":\"launched\",\"port\":9222,\"message\":\"Chrome launched with pid 75053; CDP reachable after 1s\",\"ts\":\"2026-05-18T19:45:38Z\"}"
+2026-05-18T19:45:38.496757Z  INFO spawning skill: marketplace-search/alibaba skill_id=marketplace-search/alibaba execution_mode=pty
+2026-05-18T19:47:32.055427Z  INFO PTY skill produced a valid result contract; dispatching SIGTERM after stable period runtime_ids_pid=75080 runtime_ids_pgid=75080
+2026-05-18T19:47:32.435845Z  WARN marketplace-search result referenced unknown product_candidate_id product_candidate_id=area-h-candidate-001
+Persisted 0 search attempts and 0 supplier quotes for source alibaba-search
+Skill run completed: job_id=job-c4259f5e792115e773c92a88caab6f591605acec6cd8af91659c35455fc682bd skill_id=marketplace-search/alibaba session_id=session-manual-f4ca69437be74d33629c4850fb7259fbc3c311ca5a2dd084afb325e4b411a177 adapter=claude

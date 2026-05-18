@@ -1,0 +1,51 @@
+Area H pre-flight started: 2026-05-18T19:19:36Z
+
+3.1 git status --short --branch | head -3
+## main...origin/main
+ M prompts/agent-mail-sqlite-index-drift-d2-d4-followup.md
+?? docs/handoff-2026-05-18-area-h-daemon-e2e-demo.md
+
+3.1 git fetch origin
+git fetch exit=0
+
+3.1 behind count HEAD..origin/main
+0
+
+3.2 AgentMail health_check
+status=ok health_level=green (MCP health_check at 2026-05-18T19:18Z)
+
+3.3 Agent identity
+AGENT_NAME=BrownBison
+
+3.4 cargo fmt --check
+cargo fmt --check exit=
+
+3.4 cargo check --all-targets
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.01s
+cargo check --all-targets exit=
+
+3.4 cargo clippy --all-targets -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.28s
+cargo clippy --all-targets -- -D warnings exit=
+
+3.5 helper executable/shebang
+helper executable: yes
+helper shebang: ok
+
+3.6 No Chrome running on 9222
+Chrome clean
+
+3.7 No daemon running
+no daemon running
+
+3.8 Evidence directory
+pre-flight.txt
+
+Area H pre-flight completed: 2026-05-18T19:19:44Z
+
+Corrected pre-flight command statuses: 2026-05-18T19:19:56Z
+cargo fmt --check exit=0
+cargo check --all-targets exit=0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.63s
+cargo clippy --all-targets -- -D warnings exit=0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.26s

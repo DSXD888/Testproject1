@@ -1,0 +1,2 @@
+Option A command started: 2026-05-18T19:24:06Z
+RUST_LOG=info,daemon::cdp_preflight=info,daemon::skill_spawn=info AGENT_NAME=BrownBison AGENT_MAIL_NAME=BrownBison cargo run -p daemon -- --skill-path skills/source-health/fts/SKILL.md --job-parameters-json <json>

@@ -3,7 +3,8 @@
 # bin/ensure-cdp-9222 — idempotent CDP launcher.
 #
 # Behaviour:
-#   - If CDP is already reachable on $CDP_PORT (default 9222), exit 0 silently.
+#   - If CDP is already reachable on 127.0.0.1:$CDP_PORT (default 9222),
+#     exit 0 silently.
 #   - If not reachable, launch Chrome with the operator's persistent profile in
 #     the background, poll for CDP readiness, exit 0 on success, non-zero on
 #     failure with a JSON-line diagnostic on stderr.
@@ -63,10 +64,12 @@ emit_diagnostic() {
 # --- Helpers ---------------------------------------------------------------
 
 cdp_reachable() {
-  # Returns 0 if CDP /json/version responds with HTTP 200 within the health-check timeout.
+  # Returns 0 if CDP /json/version responds with HTTP 200 on IPv4 loopback
+  # within the health-check timeout. agent-browser resolves --cdp to 127.0.0.1,
+  # so localhost/IPv6-only Chrome sockets are not sufficient here.
   local timeout_seconds
   timeout_seconds=$(awk "BEGIN { printf \"%.3f\", $CDP_HEALTH_CHECK_TIMEOUT_MS / 1000 }")
-  curl -sfS -m "$timeout_seconds" "http://localhost:${CDP_PORT}/json/version" >/dev/null 2>&1
+  curl -sfS -m "$timeout_seconds" "http://127.0.0.1:${CDP_PORT}/json/version" >/dev/null 2>&1
 }
 
 # --- Step 1: fast path — is it already up? ---------------------------------
@@ -106,6 +109,7 @@ fi
 
 CHROME_ARGS=(
   "--remote-debugging-port=${CDP_PORT}"
+  "--remote-debugging-address=127.0.0.1"
   "--remote-allow-origins=*"
   "--user-data-dir=${CDP_USER_DATA_DIR}"
   "--profile-directory=${CDP_PROFILE_DIRECTORY}"
