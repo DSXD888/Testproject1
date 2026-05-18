@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+#
+# bin/ensure-cdp-9222 — idempotent CDP launcher.
+#
+# Behaviour:
+#   - If CDP is already reachable on $CDP_PORT (default 9222), exit 0 silently.
+#   - If not reachable, launch Chrome with the operator's persistent profile in
+#     the background, poll for CDP readiness, exit 0 on success, non-zero on
+#     failure with a JSON-line diagnostic on stderr.
+#
+# Designed for invocation from both:
+#   - The Rust daemon's pre-flight gate (before invoking any requires_cdp skill).
+#   - Each SKILL.md's "Mandatory CDP Discipline" section (defense in depth).
+#
+# Exit codes:
+#   0 — CDP reachable on $CDP_PORT (either was already up, or we launched and verified).
+#   1 — launch failed or post-launch verification timed out.
+#   2 — unsupported OS (only macOS is supported today).
+#   3 — Chrome binary not found at canonical path.
+#
+# Environment overrides:
+#   CDP_PORT                       (default: 9222)
+#   AGENT_BROWSER_CDP_PORT         (alias for CDP_PORT, matches existing skill convention)
+#   CDP_USER_DATA_DIR              (default: $HOME/.chrome-automation)
+#   CDP_PROFILE_DIRECTORY          (default: Default)
+#   CDP_LAUNCH_TIMEOUT_SECONDS     (default: 15 — total seconds to wait for CDP after launch)
+#   CDP_HEALTH_CHECK_TIMEOUT_MS    (default: 1000 — milliseconds per health-check probe)
+
+set -euo pipefail
+
+# --- Configuration ----------------------------------------------------------
+
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-${CDP_PORT:-9222}}"
+CDP_USER_DATA_DIR="${CDP_USER_DATA_DIR:-$HOME/.chrome-automation}"
+CDP_PROFILE_DIRECTORY="${CDP_PROFILE_DIRECTORY:-Default}"
+CDP_LAUNCH_TIMEOUT_SECONDS="${CDP_LAUNCH_TIMEOUT_SECONDS:-15}"
+CDP_HEALTH_CHECK_TIMEOUT_MS="${CDP_HEALTH_CHECK_TIMEOUT_MS:-1000}"
+
+CHROME_BIN_MACOS="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
+# Pure-bash JSON-string escape: handles " and \ and newlines. No python3 dep.
+json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"      # backslash → \\
+  s="${s//\"/\\\"}"       # double quote → \"
+  s="${s//$'\n'/\\n}"     # newline → \n
+  s="${s//$'\r'/\\r}"     # carriage return → \r
+  s="${s//$'\t'/\\t}"     # tab → \t
+  printf '%s' "$s"
+}
+
+# Diagnostic JSON to stderr — easy for callers (skill or daemon) to log/grep.
+# Format is stable: helper, status, port, message, ts.
+emit_diagnostic() {
+  local status="$1"
+  local message="$2"
+  local esc_msg
+  esc_msg=$(json_escape "$message")
+  printf '{"helper":"ensure-cdp-9222","status":"%s","port":%d,"message":"%s","ts":"%s"}\n' \
+    "$status" "$CDP_PORT" "$esc_msg" "$(date -u +%FT%TZ)" >&2
+}
+
+# --- Helpers ---------------------------------------------------------------
+
+cdp_reachable() {
+  # Returns 0 if CDP /json/version responds with HTTP 200 within the health-check timeout.
+  local timeout_seconds
+  timeout_seconds=$(awk "BEGIN { printf \"%.3f\", $CDP_HEALTH_CHECK_TIMEOUT_MS / 1000 }")
+  curl -sfS -m "$timeout_seconds" "http://localhost:${CDP_PORT}/json/version" >/dev/null 2>&1
+}
+
+# --- Step 1: fast path — is it already up? ---------------------------------
+
+if cdp_reachable; then
+  exit 0
+fi
+
+# --- Step 2: validate environment for launch -------------------------------
+
+if [[ "$OSTYPE" != darwin* ]]; then
+  emit_diagnostic "unsupported_os" "ensure-cdp-9222 currently supports macOS only; manual Chrome launch required on $OSTYPE"
+  exit 2
+fi
+
+if [[ ! -x "$CHROME_BIN_MACOS" ]]; then
+  emit_diagnostic "chrome_not_found" "Google Chrome not found at $CHROME_BIN_MACOS"
+  exit 3
+fi
+
+if [[ ! -d "$CDP_USER_DATA_DIR" ]]; then
+  # First-time-ever launch: profile dir doesn't exist. Create it so Chrome doesn't
+  # bail. Chrome handles empty user-data-dir gracefully — it creates Local State,
+  # Default/, Preferences etc on first launch. But the operator will need to
+  # MANUALLY sign in to each site (Freightos, ProContract, Alibaba/1688) once
+  # before the relevant skills will work. The operator's existing
+  # $HOME/.chrome-automation should already exist with prior sessions; this
+  # branch is only for fresh machines.
+  mkdir -p "$CDP_USER_DATA_DIR"
+  emit_diagnostic "info" "created fresh CDP_USER_DATA_DIR at $CDP_USER_DATA_DIR — operator must sign in to sites manually before CDP-requiring skills will succeed"
+fi
+
+# --- Step 3: launch Chrome in background -----------------------------------
+#
+# Quoting note: --remote-allow-origins=* must be QUOTED for zsh (which globs *).
+# Bash with set -u tolerates the literal — both shells safe with the array form.
+
+CHROME_ARGS=(
+  "--remote-debugging-port=${CDP_PORT}"
+  "--remote-allow-origins=*"
+  "--user-data-dir=${CDP_USER_DATA_DIR}"
+  "--profile-directory=${CDP_PROFILE_DIRECTORY}"
+  "--no-first-run"
+  "--no-default-browser-check"
+)
+
+# Disown so Chrome survives this script exiting. Use nohup + & for portability.
+nohup "$CHROME_BIN_MACOS" "${CHROME_ARGS[@]}" >/dev/null 2>&1 &
+CHROME_PID=$!
+disown "$CHROME_PID" 2>/dev/null || true
+
+# --- Step 4: poll for CDP readiness ----------------------------------------
+
+START_SECONDS=$SECONDS
+while (( SECONDS - START_SECONDS < CDP_LAUNCH_TIMEOUT_SECONDS )); do
+  if cdp_reachable; then
+    emit_diagnostic "launched" "Chrome launched with pid $CHROME_PID; CDP reachable after $(( SECONDS - START_SECONDS ))s"
+    exit 0
+  fi
+  sleep 0.5
+done
+
+# --- Step 5: launch failed or did not come up in time ----------------------
+
+emit_diagnostic "launch_failed" "Chrome process $CHROME_PID did not produce a reachable CDP endpoint on port $CDP_PORT within ${CDP_LAUNCH_TIMEOUT_SECONDS}s"
+exit 1

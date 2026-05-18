@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "signin_status",
+    "cdp_state",
+    "captcha_intercepted",
+    "warnings",
+    "blockers"
+  ],
+  "properties": {
+    "signin_status": {
+      "type": "string",
+      "enum": ["signed_in", "manual_required", "blocked"]
+    },
+    "autofill_fired": {
+      "type": ["boolean", "null"],
+      "description": "True if Chrome's password autofill populated both username and password fields within 3 seconds of focusing the username input. Null when the skill never got far enough to test (e.g., CDP unreachable, login page never loaded)."
+    },
+    "submit_outcome": {
+      "type": ["string", "null"],
+      "enum": ["signed_in", "blocked_error", "touch_id_pending", "timeout", null],
+      "description": "Outcome after clicking submit. touch_id_pending means the 12-second budget elapsed with no URL change and no error visible — most likely macOS Touch ID OS-modal is blocking, but cannot be confirmed from DOM."
+    },
+    "redirected_to": { "type": ["string", "null"] },
+    "cdp_state": {
+      "type": "string",
+      "enum": ["connected", "unreachable", "captcha_blocked", "session_expired"],
+      "default": "connected"
+    },
+    "captcha_intercepted": { "type": "boolean", "default": false },
+    "warnings": { "type": "array" },
+    "blockers": { "type": "array" }
+  }
+}

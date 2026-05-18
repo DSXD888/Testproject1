@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "signin_status",
+    "cdp_state",
+    "captcha_intercepted",
+    "warnings",
+    "blockers"
+  ],
+  "properties": {
+    "signin_status": {
+      "type": "string",
+      "enum": ["signed_in", "manual_required", "blocked"],
+      "description": "Outcome of the chooser interaction. signed_in = chooser row clicked + redirect to parent origin observed. manual_required = chooser visible but blocked by 2FA/captcha/interstitial requiring operator interaction. blocked = chooser unreachable / target account not listed / CDP unreachable / unknown failure."
+    },
+    "account_selected": {
+      "type": ["string", "null"],
+      "description": "The Google account email that was selected (when successful) or attempted (when failed). Null when the skill never got far enough to know."
+    },
+    "redirected_to": {
+      "type": ["string", "null"],
+      "description": "Final URL after the chooser click + redirect poll. Useful for diagnosing partial failures (e.g. landed on a Google consent screen instead of the parent origin)."
+    },
+    "cdp_state": {
+      "type": "string",
+      "enum": ["connected", "unreachable", "captcha_blocked", "session_expired"],
+      "default": "connected"
+    },
+    "captcha_intercepted": { "type": "boolean", "default": false },
+    "warnings": { "type": "array" },
+    "blockers": { "type": "array" }
+  }
+}

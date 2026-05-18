@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "signin_status",
+    "cdp_state",
+    "captcha_intercepted",
+    "warnings",
+    "blockers"
+  ],
+  "properties": {
+    "signin_status": {
+      "type": "string",
+      "enum": ["signed_in", "manual_required", "blocked"]
+    },
+    "account_selected": { "type": ["string", "null"] },
+    "redirected_to": { "type": ["string", "null"] },
+    "s_token_reissued": {
+      "type": "boolean",
+      "description": "True if localStorage.s-token was repopulated after the OAuth round-trip. The reliable signal for SeaRates auto-signin success — the visible UI signals are too weak to depend on."
+    },
+    "s_token_expires_at": {
+      "type": ["string", "null"],
+      "description": "ISO 8601 string from the JWT exp claim. Null if the token was opaque (non-JWT) or could not be decoded."
+    },
+    "cdp_state": {
+      "type": "string",
+      "enum": ["connected", "unreachable", "captcha_blocked", "session_expired"],
+      "default": "connected"
+    },
+    "captcha_intercepted": { "type": "boolean", "default": false },
+    "warnings": { "type": "array" },
+    "blockers": { "type": "array" }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "signin_status",
+    "cdp_state",
+    "captcha_intercepted",
+    "warnings",
+    "blockers"
+  ],
+  "properties": {
+    "signin_status": {
+      "type": "string",
+      "enum": ["signed_in", "manual_required", "blocked"]
+    },
+    "account_selected": { "type": ["string", "null"] },
+    "redirected_to": { "type": ["string", "null"] },
+    "signed_in_verified_via": {
+      "type": ["string", "null"],
+      "enum": ["signin_link_absent", "greeting_text_present", "my_ebay_link_present", null]
+    },
+    "cdp_state": {
+      "type": "string",
+      "enum": ["connected", "unreachable", "captcha_blocked", "session_expired"],
+      "default": "connected"
+    },
+    "captcha_intercepted": { "type": "boolean", "default": false },
+    "warnings": { "type": "array" },
+    "blockers": { "type": "array" }
+  }
+}
