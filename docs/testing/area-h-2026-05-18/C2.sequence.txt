@@ -1,0 +1,30 @@
+# Option C Resume Sequence — Alibaba Session Recovery After Identity Verification
+
+Resume setup:
+- 2026-05-18T19:55:37Z: Relaunched persistent Chrome profile with `open -na "Google Chrome"` and CDP port 9222 after the raw helper launch exited when a non-CDP Chrome instance was present.
+- `C.resume.after-dieter-url.txt`: Alibaba returned to `login.alibaba.com/iv/verify_mode.htm` after Google OAuth and required phone/SMS identity verification.
+- Operator completed the Alibaba phone/SMS challenge in the visible CDP-controlled Chrome profile.
+- `C2.0a.logged-in-state.json`: Alibaba profile confirmed logged in as Dieter before forced expiry.
+
+Forced-expiry setup:
+- `C2.0b.forced-logout-pagews.txt`: Deleted Alibaba-domain cookies only from the CDP page target; Google cookies were not cleared.
+- `C2.0b.logged-out-state.json`: Reloaded Alibaba and confirmed `signInText=true`, `welcomeDieter=false`.
+
+Daemon-driven run:
+- `C2.daemon.log`: `ensure_cdp_9222: probing CDP on port 9222`.
+- `C2.daemon.log`: `ensure_cdp_9222: CDP already reachable, no-op`.
+- `C2.daemon.log`: `spawning skill: marketplace-search/alibaba`.
+
+Recovery route evidence:
+- `C2.chrome-history-sequence.txt`: `alibaba_login_page` at 20:08:09Z after the forced-expired Alibaba session.
+- `C2.chrome-history-sequence.txt`: `auth_signin_alibaba_google_start` at 20:08:27Z.
+- `C2.chrome-history-sequence.txt`: `google_account_chooser` at 20:08:27Z.
+- `C2.chrome-history-sequence.txt`: `google_oauth_consent` and `alibaba_oauth_return_redacted` at 20:08:42Z.
+- `C2.chrome-history-sequence.txt`: return to `alibaba_home` at 20:09:15Z without a second daemon retry.
+- `C2.chrome-history-sequence.txt`: search results for `stainless steel bolts M8` at 20:09:37Z.
+- `C2.chrome-history-sequence.txt`: two product detail pages visited at 20:10:34Z and 20:11:27Z.
+
+Result evidence:
+- `C2.result.json`: one search result block with two Alibaba quotes.
+- `C2.result-summary.txt`: `quotes=2`.
+- `C2.sqlite-row.txt`: `agent_session_logs` row `session-manual-de8bd8608edbe93fb6f9b450f6ceee08831d39e1f981e52d8a4ae512bb3f33ca`, status `completed`, cleanup `terminated_after_result_contract`.

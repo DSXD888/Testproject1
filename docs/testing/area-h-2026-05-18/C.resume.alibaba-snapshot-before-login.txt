@@ -1,0 +1,530 @@
+- generic
+  - generic
+    - generic [ref=e1] clickable [cursor:pointer, onclick]
+    - search
+      - generic
+      - generic [ref=e2] clickable [onclick]
+        - generic [ref=e11] clickable [onclick]
+          - banner "Main navigation"
+            - complementary
+            - generic [ref=e90] clickable [cursor:pointer, onclick]
+            - generic [ref=e91] clickable [cursor:pointer]
+              - generic
+                - StaticText "Deliver to:"
+                - image "country flag"
+                - StaticText "DE"
+            - generic [ref=e92] clickable [cursor:pointer]
+              - generic
+                - StaticText "English-EUR"
+            - generic [ref=e93] clickable [cursor:pointer, onclick]
+              - link "cart" [ref=e142]
+            - generic [ref=e94] clickable [cursor:pointer, onclick]
+              - StaticText "Sign in"
+            - generic [ref=e95] clickable [cursor:pointer, onclick]
+              - StaticText "Create account"
+            - generic [ref=e121] clickable [cursor:pointer, onclick]
+              - StaticText "All categories"
+            - generic [ref=e122] clickable [cursor:pointer, onclick]
+              - StaticText "Verified manufacturers"
+            - generic [ref=e123] clickable [cursor:pointer, onclick]
+              - StaticText "Order protections"
+            - generic [ref=e124] clickable [cursor:pointer, onclick]
+              - StaticText "Accio Work"
+            - generic [ref=e125] clickable [cursor:pointer, onclick]
+              - StaticText "Source in Europe"
+            - generic [ref=e126] clickable [cursor:pointer, onclick]
+              - StaticText "Tax exemption"
+            - generic [ref=e127] clickable [cursor:pointer, onclick]
+              - StaticText "Buyer Central"
+            - generic [ref=e128] clickable [cursor:pointer, onclick]
+              - StaticText "App & extension"
+            - generic [ref=e129] clickable [cursor:pointer, onclick]
+              - StaticText "Sell on Alibaba.com"
+      - navigation "Search tabs" [ref=e12]
+        - link "AI Mode" [ref=e96]
+          - StaticText "AI Mode"
+          - image
+        - generic [ref=e22] clickable [cursor:pointer, onclick]
+          - StaticText "Products"
+        - link "Manufacturers" [ref=e23]
+        - link "Worldwide" [ref=e24]
+      - generic [ref=e13] clickable [onclick]
+        - generic
+          - generic
+            - generic [ref=e143] clickable [onclick]
+              - generic [ref=e168] clickable [onclick]
+                - StaticText "What are you looking for?"
+              - generic
+                - StaticText "women’s intimates"
+                - StaticText "iphones 15 pro max"
+                - StaticText "watch"
+                - StaticText "women’s intimates"
+              - textbox "Search Alibaba" [ref=e169]
+            - button "Image search" [ref=e170]
+              - image
+              - image
+              - generic
+                - StaticText "Image Search"
+                - StaticText "Try new Image Search"
+            - button "Search" [ref=e171]
+              - image "Search icon"
+              - StaticText "Search"
+  - generic
+    - banner
+      - heading "Welcome to Alibaba.com" [level=3, ref=e3]
+      - navigation
+        - link "Decorative image Request for Quotation" [ref=e25]
+          - image "Decorative image"
+          - StaticText "Request for Quotation"
+        - link "Decorative image Top Ranking" [ref=e26]
+          - image "Decorative image"
+          - StaticText "Top Ranking"
+        - link "Decorative image Fast customization" [ref=e27]
+          - image "Decorative image"
+          - StaticText "Fast customization"
+    - generic [ref=e14] focusable [tabindex]
+      - generic [ref=e28] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Categories for you"
+      - generic [ref=e29] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Apparel & Accessories"
+      - generic [ref=e30] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Consumer Electronics"
+      - generic [ref=e31] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Sports & Entertainment"
+      - generic [ref=e32] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Beauty"
+      - generic [ref=e33] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Jewelry, Eyewear & Watches"
+      - generic [ref=e34] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Home & Garden"
+      - generic [ref=e35] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Sportswear & Outdoor Apparel"
+      - generic [ref=e36] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Shoes & Accessories"
+      - generic [ref=e37] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Luggage, Bags & Cases"
+      - generic [ref=e38] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Packaging & Printing"
+      - generic [ref=e39] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Parents, Kids & Toys"
+      - generic [ref=e40] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Personal Care & Home Care"
+      - generic [ref=e41] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Health & Medical"
+      - generic [ref=e42] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Gifts & Crafts"
+      - generic [ref=e43] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Pet Supplies"
+      - generic [ref=e44] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "School & Office Supplies"
+      - generic [ref=e45] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Industrial Machinery"
+      - generic [ref=e46] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Commercial Equipment & Machinery"
+      - generic [ref=e47] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Construction & Building Machinery"
+      - generic [ref=e48] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Construction & Real Estate"
+      - generic [ref=e49] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Furniture"
+      - generic [ref=e50] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Lights & Lighting"
+      - generic [ref=e51] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Home Appliances"
+      - generic [ref=e52] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Automotive Supplies & Tools"
+      - generic [ref=e53] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Vehicle Parts & Accessories"
+      - generic [ref=e54] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Tools & Hardware"
+      - generic [ref=e55] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Renewable Energy"
+      - generic [ref=e56] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Electrical Equipment & Supplies"
+      - generic [ref=e57] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Safety & Security"
+      - generic [ref=e58] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Material Handling"
+      - generic [ref=e59] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Testing Instrument & Equipment"
+      - generic [ref=e60] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Power Transmission"
+      - generic [ref=e61] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Electronic Components"
+      - generic [ref=e62] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Vehicles & Transportation"
+      - generic [ref=e63] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Agriculture, Food & Beverage"
+      - generic [ref=e64] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Raw Materials"
+      - generic [ref=e65] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Fabrication Services"
+      - generic [ref=e66] clickable [cursor:pointer, onclick, tabindex]
+        - StaticText "Service"
+    - generic [ref=e4] clickable [onclick]
+      - generic
+        - generic [ref=e67] clickable [onclick]
+          - link "Frequently searched Smart Watches Smart Watches hot product" [ref=e130]
+            - StaticText "Frequently searched"
+            - StaticText "Smart Watches"
+            - image "Smart Watches hot product" [ref=e144] clickable [cursor:pointer, onclick]
+        - generic [ref=e68] clickable [onclick]
+          - link "Frequently searched Cars Cars hot product" [ref=e131]
+            - StaticText "Frequently searched"
+            - StaticText "Cars"
+            - image "Cars hot product" [ref=e145] clickable [cursor:pointer, onclick]
+        - generic [ref=e69] clickable [onclick]
+          - link "Frequently searched Mobile Phones Mobile Phones hot product" [ref=e132]
+            - StaticText "Frequently searched"
+            - StaticText "Mobile Phones"
+            - image "Mobile Phones hot product" [ref=e146] clickable [cursor:pointer, onclick]
+    - generic
+      - generic
+        - link "banner" [ref=e70]
+          - image "banner"
+        - link "banner" [ref=e71]
+          - image "banner"
+        - link "banner" [ref=e72]
+          - image "banner"
+        - link "banner" [ref=e73]
+          - image "banner"
+        - link "banner" [ref=e74]
+          - image "banner"
+        - link "banner" [ref=e75]
+          - image "banner"
+        - link "banner" [ref=e76]
+          - image "banner"
+        - link "banner" [ref=e77]
+          - image "banner"
+        - link "banner" [ref=e78]
+          - image "banner"
+      - generic
+        - generic [ref=e79] clickable [cursor:pointer, onclick]
+        - generic [ref=e80] clickable [cursor:pointer, onclick]
+        - generic [ref=e81] clickable [cursor:pointer, onclick]
+        - generic [ref=e82] clickable [cursor:pointer, onclick]
+        - generic [ref=e83] clickable [cursor:pointer, onclick]
+        - generic [ref=e84] clickable [cursor:pointer, onclick]
+        - generic [ref=e85] clickable [cursor:pointer, onclick]
+    - main
+      - link "Savings Booster First order, FREE shipping Explore now Decorative image €0.7304 MOQ: 10 Decorative image €4.57 MOQ: 5 Decorative image €13.64 MOQ: 1 Decorative image €1.05 MOQ: 5 Decorative image €25.13 MOQ: 1 Decorative image €0.6086 MOQ: 20 Decorative image €1.22 MOQ: 5 Decorative image €12.61" [ref=e5]
+        - StaticText "Savings Booster"
+        - StaticText "First order,"
+        - generic
+          - StaticText "FREE shipping"
+        - StaticText "Explore now"
+        - generic [ref=e86] clickable [cursor:pointer, onclick]
+          - generic
+            - generic [ref=e133] clickable [cursor:pointer, onclick]
+              - link "Decorative image €0.7304 MOQ: 10" [ref=e172]
+                - image "Decorative image" [ref=e220] clickable [cursor:pointer, onclick]
+                - StaticText "€0.7304"
+                - StaticText "MOQ: 10"
+            - generic [ref=e134] clickable [cursor:pointer, onclick]
+              - link "Decorative image €4.57 MOQ: 5" [ref=e173]
+                - image "Decorative image" [ref=e221] clickable [cursor:pointer, onclick]
+                - StaticText "€4.57"
+                - StaticText "MOQ: 5"
+            - generic [ref=e135] clickable [cursor:pointer, onclick]
+              - link "Decorative image €13.64 MOQ: 1" [ref=e174]
+                - image "Decorative image" [ref=e222] clickable [cursor:pointer, onclick]
+                - StaticText "€13.64"
+                - StaticText "MOQ: 1"
+            - generic [ref=e136] clickable [cursor:pointer, onclick]
+              - link "Decorative image €1.05 MOQ: 5" [ref=e175]
+                - image "Decorative image" [ref=e223] clickable [cursor:pointer, onclick]
+                - StaticText "€1.05"
+                - StaticText "MOQ: 5"
+            - generic [ref=e137] clickable [cursor:pointer, onclick]
+              - link "Decorative image €25.13 MOQ: 1" [ref=e176]
+                - image "Decorative image" [ref=e224] clickable [cursor:pointer, onclick]
+                - StaticText "€25.13"
+                - StaticText "MOQ: 1"
+            - generic [ref=e138] clickable [cursor:pointer, onclick]
+              - link "Decorative image €0.6086 MOQ: 20" [ref=e177]
+                - image "Decorative image" [ref=e225] clickable [cursor:pointer, onclick]
+                - StaticText "€0.6086"
+                - StaticText "MOQ: 20"
+      - StaticText "Recommended for your business"
+      - link "EU local stock Decorative image Fastest delivery in 5 days Decorative image No import charges Explore now Decorative image Local €20.86 MOQ: 2 Decorative image Local €42.61 MOQ: 2 Decorative image Local €130.42 MOQ: 1 Decorative image Local €50.40 MOQ: 4 Decorative image Local €1,564.94 MOQ: 1 Decorative image Local €12.09 MOQ: 10 Decorative image Local" [ref=e15]
+        - generic
+          - StaticText "EU local stock"
+          - image "Decorative image"
+          - StaticText "Fastest delivery in 5 days"
+          - image "Decorative image"
+          - StaticText "No import charges"
+          - StaticText "Explore now"
+        - generic [ref=e139] clickable [cursor:pointer, onclick]
+          - generic
+            - generic [ref=e178] clickable [cursor:pointer, onclick]
+              - link "Decorative image Local €20.86 MOQ: 2" [ref=e199]
+                - generic
+                  - image "Decorative image" [ref=e235] clickable [cursor:pointer, onclick]
+                  - StaticText "Local"
+                - StaticText "€20.86"
+                - StaticText "MOQ: 2"
+            - generic [ref=e179] clickable [cursor:pointer, onclick]
+              - link "Decorative image Local €42.61 MOQ: 2" [ref=e200]
+                - generic
+                  - image "Decorative image" [ref=e236] clickable [cursor:pointer, onclick]
+                  - StaticText "Local"
+                - StaticText "€42.61"
+                - StaticText "MOQ: 2"
+            - generic [ref=e180] clickable [cursor:pointer, onclick]
+              - link "Decorative image Local €130.42 MOQ: 1" [ref=e201]
+                - generic
+                  - image "Decorative image" [ref=e237] clickable [cursor:pointer, onclick]
+                  - StaticText "Local"
+                - StaticText "€130.42"
+                - StaticText "MOQ: 1"
+      - link "Decorative image Decorative image Quick order and pay Decorative image On-time delivery Decorative image Money-back guarantee Explore now Decorative image €104.33 Delivery by 16 Jun Decorative image €2.87 FREE shipping Decorative image €0.2522 FREE shipping Decorative image €0.2261 FREE shipping Decorative image €3.53 FREE shipping Decorative image €0.087 FREE shipping Decorative image €0.6521 FREE shipping Decorative image" [ref=e16]
+        - generic
+          - image "Decorative image"
+          - image "Decorative image"
+          - StaticText "Quick order and pay"
+          - image "Decorative image"
+          - StaticText "On-time delivery"
+          - image "Decorative image"
+          - StaticText "Money-back guarantee"
+          - StaticText "Explore now"
+        - generic [ref=e140] clickable [cursor:pointer, onclick]
+          - generic
+            - generic [ref=e181] clickable [cursor:pointer, onclick]
+              - link "Decorative image €104.33 Delivery by 16 Jun" [ref=e226]
+                - image "Decorative image" [ref=e241] clickable [cursor:pointer, onclick]
+                - StaticText "€104.33"
+                - StaticText "Delivery by 16 Jun"
+            - generic [ref=e182] clickable [cursor:pointer, onclick]
+              - link "Decorative image €2.87 FREE shipping" [ref=e227]
+                - image "Decorative image" [ref=e242] clickable [cursor:pointer, onclick]
+                - StaticText "€2.87"
+                - StaticText "FREE shipping"
+            - generic [ref=e183] clickable [cursor:pointer, onclick]
+              - link "Decorative image €0.2522 FREE shipping" [ref=e228]
+                - image "Decorative image" [ref=e243] clickable [cursor:pointer, onclick]
+                - StaticText "€0.2522"
+                - StaticText "FREE shipping"
+      - link "Decorative image Fast customization Decorative image Low MOQ Decorative image 14-day dispatch Decorative image True to design Explore now Decorative image Accessories €1.57 MOQ: 1 Decorative image Logo/graphic design €6.09 MOQ: 2 Decorative image Care label €47.82 MOQ: 10 Decorative image Logo/graphic design €47.82 MOQ: 1 Decorative image Packaging €21.57 MOQ: 2 Decorative image Logo/graphic design €0.6173 MOQ: 10 Decorative image" [ref=e17]
+        - generic
+          - image "Decorative image"
+          - StaticText "Fast customization"
+          - image "Decorative image"
+          - StaticText "Low MOQ"
+          - image "Decorative image"
+          - StaticText "14-day dispatch"
+          - image "Decorative image"
+          - StaticText "True to design"
+          - StaticText "Explore now"
+        - generic [ref=e141] clickable [cursor:pointer, onclick]
+          - generic
+            - generic [ref=e184] clickable [cursor:pointer, onclick]
+              - link "Decorative image Accessories €1.57 MOQ: 1" [ref=e202]
+                - generic
+                  - image "Decorative image" [ref=e238] clickable [cursor:pointer, onclick]
+                  - StaticText "Accessories"
+                - StaticText "€1.57"
+                - StaticText "MOQ: 1"
+            - generic [ref=e185] clickable [cursor:pointer, onclick]
+              - link "Decorative image Logo/graphic design €6.09 MOQ: 2" [ref=e203]
+                - generic
+                  - image "Decorative image" [ref=e239] clickable [cursor:pointer, onclick]
+                  - StaticText "Logo/graphic design"
+                - StaticText "€6.09"
+                - StaticText "MOQ: 2"
+            - generic [ref=e186] clickable [cursor:pointer, onclick]
+              - link "Decorative image Care label €47.82 MOQ: 10" [ref=e204]
+                - generic
+                  - image "Decorative image" [ref=e240] clickable [cursor:pointer, onclick]
+                  - StaticText "Care label"
+                - StaticText "€47.82"
+                - StaticText "MOQ: 10"
+      - link "Top Deals View more more Score the lowest prices on Alibaba.com" [ref=e6]
+        - StaticText "Top Deals"
+        - StaticText "View more"
+        - image "more"
+        - StaticText "Score the lowest prices on Alibaba.com"
+      - generic
+        - generic [ref=e97] clickable [onclick]
+          - link "Decorative image €5.44 MOQ: 10" [ref=e147]
+            - image "Decorative image" [ref=e205] clickable [cursor:pointer, onclick]
+            - generic
+              - image
+              - image
+              - StaticText "€5.44"
+            - StaticText "MOQ: 10"
+        - generic [ref=e98] clickable [onclick]
+          - link "Decorative image €3.47 MOQ: 100" [ref=e148]
+            - image "Decorative image" [ref=e206] clickable [cursor:pointer, onclick]
+            - generic
+              - image
+              - image
+              - StaticText "€3.47"
+            - StaticText "MOQ: 100"
+        - generic [ref=e99] clickable [onclick]
+          - link "Decorative image €0.9564 MOQ: 100" [ref=e149]
+            - image "Decorative image" [ref=e207] clickable [cursor:pointer, onclick]
+            - generic
+              - image
+              - image
+              - StaticText "€0.9564"
+            - StaticText "MOQ: 100"
+        - generic [ref=e100] clickable [onclick]
+          - link "Decorative image €0.2609 MOQ: 100" [ref=e150]
+            - image "Decorative image" [ref=e208] clickable [cursor:pointer, onclick]
+            - generic
+              - image
+              - image
+              - StaticText "€0.2609"
+            - StaticText "MOQ: 100"
+        - generic [ref=e101] clickable [onclick]
+          - link "Decorative image €0.9999 MOQ: 100" [ref=e151]
+            - image "Decorative image" [ref=e209] clickable [cursor:pointer, onclick]
+            - generic
+              - image
+              - image
+              - StaticText "€0.9999"
+            - StaticText "MOQ: 100"
+        - generic [ref=e102] clickable [onclick]
+          - link "Decorative image €103.46 MOQ: 1" [ref=e152]
+            - image "Decorative image" [ref=e210] clickable [cursor:pointer, onclick]
+            - generic
+              - image
+              - image
+              - StaticText "€103.46"
+            - StaticText "MOQ: 1"
+      - link "Top Ranking View more more Navigate trends with data-driven rankings" [ref=e7]
+        - StaticText "Top Ranking"
+        - StaticText "View more"
+        - image "more"
+        - StaticText "Navigate trends with data-driven rankings"
+      - generic [ref=e18] clickable [onclick]
+        - generic
+          - generic [ref=e103] clickable [onclick]
+            - link "Decorative image Decorative image Mattresses Hot selling" [ref=e153]
+              - generic
+                - image "Decorative image" [ref=e193] clickable [cursor:pointer, onclick]
+                - image "Decorative image" [ref=e194] clickable [cursor:pointer, onclick]
+              - StaticText "Mattresses"
+              - StaticText "Hot selling"
+          - generic [ref=e104] clickable [onclick]
+            - link "Decorative image Decorative image Excavators Hot selling" [ref=e154]
+              - generic
+                - image "Decorative image" [ref=e195] clickable [cursor:pointer, onclick]
+                - image "Decorative image" [ref=e196] clickable [cursor:pointer, onclick]
+              - StaticText "Excavators"
+              - StaticText "Hot selling"
+          - generic [ref=e105] clickable [onclick]
+            - link "Decorative image Decorative image Men's T-Shirts Hot selling" [ref=e155]
+              - generic
+                - image "Decorative image" [ref=e197] clickable [cursor:pointer, onclick]
+                - image "Decorative image" [ref=e198] clickable [cursor:pointer, onclick]
+              - StaticText "Men's T-Shirts"
+              - StaticText "Hot selling"
+      - link "New Arrivals View more more Stay ahead with the latest offerings" [ref=e8]
+        - StaticText "New Arrivals"
+        - StaticText "View more"
+        - image "more"
+        - StaticText "Stay ahead with the latest offerings"
+      - generic [ref=e19] clickable [onclick]
+        - generic
+          - generic [ref=e106] clickable [onclick]
+            - link "Decorative image €0.3043 MOQ: 100" [ref=e156]
+              - image "Decorative image" [ref=e211] clickable [cursor:pointer, onclick]
+              - StaticText "€0.3043"
+              - StaticText "MOQ: 100"
+          - generic [ref=e107] clickable [onclick]
+            - link "Decorative image €43.48 MOQ: 1" [ref=e157]
+              - image "Decorative image" [ref=e212] clickable [cursor:pointer, onclick]
+              - StaticText "€43.48"
+              - StaticText "MOQ: 1"
+          - generic [ref=e108] clickable [onclick]
+            - link "Decorative image €560.77 MOQ: 10" [ref=e158]
+              - image "Decorative image" [ref=e213] clickable [cursor:pointer, onclick]
+              - StaticText "€560.77"
+              - StaticText "MOQ: 10"
+      - link "Tailored Selections View more more" [ref=e9]
+        - StaticText "Tailored Selections"
+        - StaticText "View more"
+        - image "more"
+      - generic [ref=e20] clickable [onclick]
+        - generic
+          - generic [ref=e109] clickable [onclick]
+            - link "Versatile Freshwater Fishing Lures 37K+ views Decorative image €0.6608 Decorative image €0.9477" [ref=e159]
+              - StaticText "Versatile Freshwater Fishing Lures"
+              - StaticText "37K+ views"
+              - link "Decorative image €0.6608" [ref=e187]
+                - image "Decorative image" [ref=e229] clickable [cursor:pointer, onclick]
+                - StaticText "€0.6608"
+              - link "Decorative image €0.9477" [ref=e188]
+                - image "Decorative image" [ref=e230] clickable [cursor:pointer, onclick]
+                - StaticText "€0.9477"
+          - generic [ref=e110] clickable [onclick]
+            - link "High Capacity Cosmetic Cases 26K+ views Decorative image €31.13 Decorative image €39.13-47.82" [ref=e160]
+              - StaticText "High Capacity Cosmetic Cases"
+              - StaticText "26K+ views"
+              - link "Decorative image €31.13" [ref=e189]
+                - image "Decorative image" [ref=e231] clickable [cursor:pointer, onclick]
+                - StaticText "€31.13"
+              - link "Decorative image €39.13-47.82" [ref=e190]
+                - image "Decorative image" [ref=e232] clickable [cursor:pointer, onclick]
+                - StaticText "€39.13-47.82"
+          - generic [ref=e111] clickable [onclick]
+            - link "Versatile Lace Human Hair Wigs 56K+ views Decorative image €82.44 Decorative image €32.17" [ref=e161]
+              - StaticText "Versatile Lace Human Hair Wigs"
+              - StaticText "56K+ views"
+              - link "Decorative image €82.44" [ref=e191]
+                - image "Decorative image" [ref=e233] clickable [cursor:pointer, onclick]
+                - StaticText "€82.44"
+              - link "Decorative image €32.17" [ref=e192]
+                - image "Decorative image" [ref=e234] clickable [cursor:pointer, onclick]
+                - StaticText "€32.17"
+      - link "€10 off every €100 View more more Buymore, savemore · Valid across stores" [ref=e10]
+        - generic
+          - StaticText "€10 off every €100"
+        - StaticText "View more"
+        - image "more"
+        - StaticText "Buymore, savemore · Valid across stores"
+      - generic [ref=e21] clickable [onclick]
+        - generic
+          - generic [ref=e112] clickable [onclick]
+            - link "Decorative image €156,493.44 MOQ: 1" [ref=e162]
+              - image "Decorative image" [ref=e214] clickable [cursor:pointer, onclick]
+              - StaticText "€156,493.44"
+              - StaticText "MOQ: 1"
+          - generic [ref=e113] clickable [onclick]
+            - link "Decorative image €3.40 MOQ: 100" [ref=e163]
+              - image "Decorative image" [ref=e215] clickable [cursor:pointer, onclick]
+              - StaticText "€3.40"
+              - StaticText "MOQ: 100"
+          - generic [ref=e114] clickable [onclick]
+            - link "Decorative image €18.09 MOQ: 1" [ref=e164]
+              - image "Decorative image" [ref=e216] clickable [cursor:pointer, onclick]
+              - StaticText "€18.09"
+              - StaticText "MOQ: 1"
+          - generic [ref=e115] clickable [onclick]
+            - link "Decorative image €0.7825 MOQ: 1" [ref=e165]
+              - image "Decorative image" [ref=e217] clickable [cursor:pointer, onclick]
+              - StaticText "€0.7825"
+              - StaticText "MOQ: 1"
+          - generic [ref=e116] clickable [onclick]
+            - link "Decorative image €1.73 MOQ: 500" [ref=e166]
+              - image "Decorative image" [ref=e218] clickable [cursor:pointer, onclick]
+              - StaticText "€1.73"
+              - StaticText "MOQ: 500"
+          - generic [ref=e117] clickable [onclick]
+            - link "Decorative image €1.74 MOQ: 1" [ref=e167]
+              - image "Decorative image" [ref=e219] clickable [cursor:pointer, onclick]
+              - StaticText "€1.74"
+              - StaticText "MOQ: 1"
+    - contentinfo
+      - complementary
+        - navigation
+          - generic [ref=e87] clickable [onclick]
+            - generic [ref=e118] clickable [cursor:pointer, onclick]
+              - image
+          - generic
+            - button "Accio Work" [ref=e119]
+          - generic [ref=e88] clickable [onclick]
+            - link "Install Alibaba Lens" [ref=e120]
+              - image "Alibaba Lens icon"
+          - button "Survey" [ref=e89]

@@ -1,0 +1,69 @@
+{
+  "source": "alibaba",
+  "cursor": "area-h-2026-05-18",
+  "continuation_required": false,
+  "search_results": [
+    {
+      "product_candidate_id": "area-h-candidate-001",
+      "search_profile_id": "area-h-profile-001",
+      "query_used": "stainless steel bolts M8",
+      "wave_number": 1,
+      "is_recovery_wave": false,
+      "result_count": 12,
+      "hard_rejected_count": 10,
+      "shortlisted_count": 2,
+      "search_failure_mode": null,
+      "locale": "en-GB display, Deliver to: DE, English-EUR (operator profile served EUR)",
+      "filters_applied": null,
+      "quotes": [
+        {
+          "product_name": "Bolt Factory Price Customized Wholesale High Strength Metric M6 M7 M8 M9 M15 M17 M20 304 316 Stainless Steel Hex Bolt",
+          "source_url": "https://www.alibaba.com/product-detail/Bolt-Factory-Price-Customized-Wholesale-High_1600929681217.html",
+          "source_listing_id": "1600929681217",
+          "unit_price_minor": 2,
+          "currency": "EUR",
+          "vat_inclusive": null,
+          "quantity": 100000,
+          "quantity_unit": "piece",
+          "minimum_order_quantity": 100,
+          "price_tiers": [
+            {"min_qty": 100, "unit_price_minor": 9, "currency": "EUR"},
+            {"min_qty": 100000, "unit_price_minor": 2, "currency": "EUR"}
+          ],
+          "ship_from_country": "CN",
+          "includes_shipping": false,
+          "lead_time_days": null,
+          "is_used_or_refurbished": false,
+          "is_ready_to_ship": false,
+          "incoterm": null,
+          "seller_identifier": "Tangshan Shimai Imp & Exp Trading Co., Ltd.",
+          "match_confidence_bps": 6500,
+          "evidence": "Title 'Bolt Factory Price Customized Wholesale High Strength Metric M6 M7 M8 M9 M15 M17 M20 304 316 Stainless Steel Hex Bolt' (listing 1600929681217) explicitly covers M8 + 304/316 stainless steel + hex bolt — exact match on head_noun, critical_attributes (M8, stainless steel, hex bolt), material. Tier-pricing block scraped from [class*=module_price]: '100 - 99.999 pieces €0.087' and '>= 100.000 pieces €0.0174' (€-cents 9 and 2 respectively, rounded per skill rule). Supplier metadata from detail page: 'Located in Tangshan, Hebei, CN'; search card showed Tangshan Shimai Imp & Exp Trading Co., Ltd., 12 yrs CN trading company, 4.8/5 from 9 reviews. Candidate's ISO 4017 standard not cited directly in this title (long-tail keywords mention DIN558/DIN961, related but not ISO 4017 / DIN933 equivalent); identity match strong, standards match weaker — confidence 6500 bps."
+        },
+        {
+          "product_name": "Custom Logo Size Material A4-80 High Strength 316L Stainless Steel External Hexagon Bolt DIN933 Full Tooth M6-M8-M10-M12",
+          "source_url": "https://www.alibaba.com/product-detail/Custom-Logo-Size-Material-A4-80_1601721616611.html",
+          "source_listing_id": "1601721616611",
+          "unit_price_minor": 9,
+          "currency": "EUR",
+          "vat_inclusive": null,
+          "quantity": 10,
+          "quantity_unit": "piece",
+          "minimum_order_quantity": 10,
+          "price_tiers": [
+            {"min_qty": 10, "unit_price_minor": 9, "currency": "EUR"}
+          ],
+          "ship_from_country": "CN",
+          "includes_shipping": false,
+          "lead_time_days": null,
+          "is_used_or_refurbished": false,
+          "is_ready_to_ship": false,
+          "incoterm": null,
+          "seller_identifier": "Shenzhen Zhongrun Metal Products Co., Ltd.",
+          "match_confidence_bps": 7500,
+          "evidence": "Title 'Custom Logo Size Material A4-80 High Strength 316L Stainless Steel External Hexagon Bolt DIN933 Full Tooth M6-M8-M10-M12' (listing 1601721616611) names DIN933 — the European standard equivalent of candidate's ISO 4017 (fully-threaded metric hex bolt) — A4-80 austenitic SS grade ≥ 316, and explicit M8 in size range. Tier-pricing block (single row) from [class*=module_price]: 'Minimum order quantity: 10 pieces €0.087' (€-cents 9, rounded). Supplier card text: Shenzhen Zhongrun Metal Products Co., Ltd., 1 yr CN supplier, 5.0/5 from 2 reviews. Strongest standards/grade match in shortlist; flat single-tier pricing (no quantity discount ladder, MOQ low at 10 pcs)."
+        }
+      ]
+    }
+  ]
+}

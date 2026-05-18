@@ -1,0 +1,4 @@
+*   Trying 127.0.0.1:9222...
+* connect to 127.0.0.1 port 9222 from 127.0.0.1 port 57891 failed: Connection refused
+* Failed to connect to 127.0.0.1 port 9222 after 0 ms: Couldn't connect to server
+* Closing connection

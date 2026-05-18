@@ -1,0 +1,112 @@
+[ {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@58ae0c621a34b558c60db5c6209d9dd9063084b7/inspector.html?ws=127.0.0.1:9222/devtools/page/D0C8D839314521F663616E46D7113213",
+   "faviconUrl": "https://is.alicdn.com/simg/single/icon/favicon.ico",
+   "id": "D0C8D839314521F663616E46D7113213",
+   "title": "login.alibaba.com/iv/verify_mode.htm?htoken=af856cd810368baff4950c38676dc0d18ac8a1383ab5c100c9e6534b172d507cc8110148dcb708192c8c66d908c7dda0c4506103fa6bef97fad852e654c10b78",
+   "type": "page",
+   "url": "https://login.alibaba.com/iv/verify_mode.htm?htoken=af856cd810368baff4950c38676dc0d18ac8a1383ab5c100c9e6534b172d507cc8110148dcb708192c8c66d908c7dda0c4506103fa6bef97fad852e654c10b78",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/D0C8D839314521F663616E46D7113213"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@58ae0c621a34b558c60db5c6209d9dd9063084b7/inspector.html?ws=127.0.0.1:9222/devtools/page/54C9DD23F66D584E0AC634BAE8ABFA80",
+   "id": "54C9DD23F66D584E0AC634BAE8ABFA80",
+   "title": "MetaMask Offscreen Page",
+   "type": "background_page",
+   "url": "chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn/offscreen.html",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/54C9DD23F66D584E0AC634BAE8ABFA80"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@58ae0c621a34b558c60db5c6209d9dd9063084b7/inspector.html?ws=127.0.0.1:9222/devtools/page/EC2035B1C2A2664559B55F005AC3CD34",
+   "id": "EC2035B1C2A2664559B55F005AC3CD34",
+   "parentId": "54C9DD23F66D584E0AC634BAE8ABFA80",
+   "title": "chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn/snaps/index.html",
+   "type": "iframe",
+   "url": "chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn/snaps/index.html",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/EC2035B1C2A2664559B55F005AC3CD34"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@58ae0c621a34b558c60db5c6209d9dd9063084b7/inspector.html?ws=127.0.0.1:9222/devtools/page/507E7D0B51947D468E0AC2B3091A3AA0",
+   "id": "507E7D0B51947D468E0AC2B3091A3AA0",
+   "parentId": "54C9DD23F66D584E0AC634BAE8ABFA80",
+   "title": "chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn/snaps/index.html",
+   "type": "iframe",
+   "url": "chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn/snaps/index.html",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/507E7D0B51947D468E0AC2B3091A3AA0"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@58ae0c621a34b558c60db5c6209d9dd9063084b7/inspector.html?ws=127.0.0.1:9222/devtools/page/80993FDCA08BBEDF220BD451B3F31725",
+   "id": "80993FDCA08BBEDF220BD451B3F31725",
+   "parentId": "54C9DD23F66D584E0AC634BAE8ABFA80",
+   "title": "chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn/snaps/index.html",
+   "type": "iframe",
+   "url": "chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn/snaps/index.html",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/80993FDCA08BBEDF220BD451B3F31725"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@58ae0c621a34b558c60db5c6209d9dd9063084b7/inspector.html?ws=127.0.0.1:9222/devtools/page/D282986CC57593E6D563B0982FD8C40D",
+   "id": "D282986CC57593E6D563B0982FD8C40D",
+   "title": "Offscreen Audio Player &amp; GIF Generator",
+   "type": "background_page",
+   "url": "chrome-extension://fcoeoabgfenejglbffodgkkbkcdhcgfn/offscreen.html",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/D282986CC57593E6D563B0982FD8C40D"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@58ae0c621a34b558c60db5c6209d9dd9063084b7/inspector.html?ws=127.0.0.1:9222/devtools/page/5AC5988AF1932288B5747FA91B0FAD5A",
+   "faviconUrl": "https://s.alicdn.com/favicon.ico",
+   "id": "5AC5988AF1932288B5747FA91B0FAD5A",
+   "title": "Alibaba.com: Manufacturers, Suppliers, Exporters &amp; Importers from the world&#39;s largest online B2B marketplace",
+   "type": "page",
+   "url": "https://www.alibaba.com/",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/5AC5988AF1932288B5747FA91B0FAD5A"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@58ae0c621a34b558c60db5c6209d9dd9063084b7/inspector.html?ws=127.0.0.1:9222/devtools/page/723E4AC4CCF4B48396EED30C8BFA3503",
+   "faviconUrl": "https://s.alicdn.com/favicon.ico",
+   "id": "723E4AC4CCF4B48396EED30C8BFA3503",
+   "parentId": "5AC5988AF1932288B5747FA91B0FAD5A",
+   "title": "https://s.alicdn.com/@g/big-brother/sentry/store-proxy2.html?iframe_delete=true",
+   "type": "iframe",
+   "url": "https://s.alicdn.com/@g/big-brother/sentry/store-proxy2.html?iframe_delete=true",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/723E4AC4CCF4B48396EED30C8BFA3503"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@58ae0c621a34b558c60db5c6209d9dd9063084b7/worker_app.html?ws=127.0.0.1:9222/devtools/page/B2BE45E252ED9ABC5BD457DC14ADBFAE",
+   "id": "B2BE45E252ED9ABC5BD457DC14ADBFAE",
+   "title": "Service Worker https://www.alibaba.com/homepage-cache-sw.js?v=0.0.352",
+   "type": "service_worker",
+   "url": "https://www.alibaba.com/homepage-cache-sw.js?v=0.0.352",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/B2BE45E252ED9ABC5BD457DC14ADBFAE"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@58ae0c621a34b558c60db5c6209d9dd9063084b7/worker_app.html?ws=127.0.0.1:9222/devtools/page/B06BFFA9B76E5072766852306A1D21A5",
+   "id": "B06BFFA9B76E5072766852306A1D21A5",
+   "title": "Service Worker chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn/scripts/app-init.js",
+   "type": "service_worker",
+   "url": "chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn/scripts/app-init.js",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/B06BFFA9B76E5072766852306A1D21A5"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@58ae0c621a34b558c60db5c6209d9dd9063084b7/worker_app.html?ws=127.0.0.1:9222/devtools/page/B1668B127959736AC1A887D992CC07F4",
+   "id": "B1668B127959736AC1A887D992CC07F4",
+   "title": "Service Worker chrome-extension://fcoeoabgfenejglbffodgkkbkcdhcgfn/service-worker-loader.js",
+   "type": "service_worker",
+   "url": "chrome-extension://fcoeoabgfenejglbffodgkkbkcdhcgfn/service-worker-loader.js",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/B1668B127959736AC1A887D992CC07F4"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@58ae0c621a34b558c60db5c6209d9dd9063084b7/worker_app.html?ws=127.0.0.1:9222/devtools/page/1C6FA021C9BAD1C3B4FABEA3A069B27D",
+   "id": "1C6FA021C9BAD1C3B4FABEA3A069B27D",
+   "title": "Service Worker chrome-extension://bfnaelmomeimhlpmgjnjophhpkkoljpa/background/serviceWorker.js",
+   "type": "service_worker",
+   "url": "chrome-extension://bfnaelmomeimhlpmgjnjophhpkkoljpa/background/serviceWorker.js",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/1C6FA021C9BAD1C3B4FABEA3A069B27D"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@58ae0c621a34b558c60db5c6209d9dd9063084b7/worker_app.html?ws=127.0.0.1:9222/devtools/page/9723C2044D60F6E60C3264A1418D58EE",
+   "id": "9723C2044D60F6E60C3264A1418D58EE",
+   "title": "Service Worker chrome-extension://hnfanknocfeofbddgcijnmhnfnkdnaad/service.js",
+   "type": "service_worker",
+   "url": "chrome-extension://hnfanknocfeofbddgcijnmhnfnkdnaad/service.js",
+   "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/9723C2044D60F6E60C3264A1418D58EE"
+} ]

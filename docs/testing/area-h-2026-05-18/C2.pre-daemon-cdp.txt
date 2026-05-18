@@ -1,0 +1,2 @@
+Chrome/148.0.7778.168
+ws://127.0.0.1:9222/devtools/browser/ae6beebf-a88f-46e2-a50f-95d391bce0f4

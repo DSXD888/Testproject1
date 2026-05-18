@@ -1,0 +1,14 @@
+{
+  "cookies_seen": 40,
+  "domains": [
+    ".alibaba.com",
+    "login.alibaba.com",
+    "www.alibaba.com"
+  ]
+}
+{
+  "remaining_target_cookie_count": 1,
+  "remaining_domains": [
+    ".alibaba.com"
+  ]
+}

@@ -1,0 +1,44 @@
+- generic
+  - generic
+    - main
+      - generic
+        - StaticText "Sign in with Google"
+      - heading "Choose an account" [level=1, ref=e2]
+      - generic
+        - StaticText "to continue to "
+        - button "Alibaba.com" [ref=e3]
+          - StaticText "Alibaba.com"
+      - list
+        - listitem [level=1]
+          - link "Dieter Danicek dieter.x.s.danicek@gmail.com" [ref=e8]
+            - StaticText "Dieter Danicek"
+            - StaticText "dieter.x.s.danicek@gmail.com"
+        - listitem [level=1]
+          - link "Dieter Xia dieterxia123@gmail.com" [ref=e9]
+            - StaticText "Dieter Xia"
+            - StaticText "dieterxia123@gmail.com"
+        - listitem [level=1]
+          - link "zac farrell zfarrell54@gmail.com" [ref=e10]
+            - StaticText "zac farrell"
+            - StaticText "zfarrell54@gmail.com"
+        - listitem [level=1]
+          - link "Ian Roman ianroman603@gmail.com" [ref=e11]
+            - StaticText "Ian Roman"
+            - StaticText "ianroman603@gmail.com"
+        - listitem [level=1]
+          - link "Alina Aitova alinaaitova135@gmail.com" [ref=e12]
+            - StaticText "Alina Aitova"
+            - StaticText "alinaaitova135@gmail.com"
+        - listitem [level=1]
+          - link "Use another account" [ref=e13]
+            - StaticText "Use another account"
+  - contentinfo
+    - combobox "Change language English (United States)" [expanded=false, ref=e7]: English (United States)
+    - list
+      - listitem [level=1]
+        - link "Help" [ref=e4]
+      - listitem [level=1]
+        - link "Privacy" [ref=e5]
+      - listitem [level=1]
+        - link "Terms" [ref=e6]
+  - Iframe [ref=e1]

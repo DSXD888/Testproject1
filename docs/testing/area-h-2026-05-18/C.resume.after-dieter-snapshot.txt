@@ -1,0 +1,64 @@
+- generic [ref=e1] clickable [onclick]
+  - banner
+    - link "Alibaba home" [ref=e2]
+      - StaticText "Alibaba"
+    - navigation "Language selection" [ref=e3]
+      - combobox "Select language" [expanded=true, ref=e9]
+        - generic [ref=e12] clickable [onclick]
+          - combobox "Select language" [expanded=true, ref=e13]
+          - StaticText "English"
+  - generic
+    - StaticText "Verify your identity"
+    - image
+    - StaticText "We've temporarily locked your account to keep it secure. Verify your identity to regain access."
+    - StaticText "Enter your phone number and we’ll send you a code to verify your identity."
+    - generic
+      - generic
+        - combobox [expanded=true, ref=e21]
+          - generic [ref=e23] clickable [onclick]
+            - combobox [expanded=true, ref=e24]
+            - image "country flag"
+            - StaticText "+"
+            - StaticText "49"
+        - generic
+          - textbox "Phone number" [ref=e22]
+          - StaticText "Phone number"
+    - button "Send code" [ref=e10]
+    - link "Contact customer service" [ref=e5]
+      - image
+      - StaticText "Contact customer service"
+- listbox [ref=e4]
+  - option "GE" [ref=e6]
+  - option "DE" [selected, ref=e7]
+  - option "GH" [ref=e8]
+- generic
+  - generic
+    - generic [ref=e14] clickable [cursor:pointer, onclick]
+      - image "country flag"
+      - StaticText "+"
+      - StaticText "689"
+    - generic [ref=e15] clickable [cursor:pointer, onclick]
+      - image "country flag"
+      - StaticText "+"
+      - StaticText "262"
+    - generic [ref=e16] clickable [cursor:pointer, onclick]
+      - image "country flag"
+      - StaticText "+"
+      - StaticText "241"
+    - generic [ref=e17] clickable [cursor:pointer, onclick]
+      - image "country flag"
+      - StaticText "+"
+      - StaticText "220"
+    - generic [ref=e18] clickable [cursor:pointer, onclick]
+      - image "country flag"
+      - StaticText "+"
+      - StaticText "995"
+    - generic [ref=e19] clickable [cursor:pointer, onclick]
+      - image "country flag"
+      - StaticText "+"
+      - StaticText "49"
+    - generic [ref=e20] clickable [cursor:pointer, onclick]
+      - image "country flag"
+      - StaticText "+"
+      - StaticText "233"
+  - generic [ref=e11] clickable [cursor:pointer]
