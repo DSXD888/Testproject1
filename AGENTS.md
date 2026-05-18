@@ -735,3 +735,100 @@ git push                # Push to remote
 ```
 
 The skill contains complete usage instructions, command reference, and workflow patterns. Do not attempt browser testing without loading the skill first.
+
+---
+
+## CDP Browser Prerequisite (port 9222)
+
+Skills that drive a browser via Chrome DevTools Protocol declare `requires_cdp: true` in their YAML frontmatter. The current set is enumerated in `crates/daemon/tests/skill_lint.rs::CDP_BROWSER_SKILLS`.
+
+**Auto-launch:** The daemon calls `bin/ensure-cdp-9222` before invoking any CDP-requiring skill. If Chrome is not already running on port 9222, the helper launches it with the operator's persistent profile at `/Users/alinaaitova/.chrome-automation`. Skills also call the helper from their "Mandatory CDP Discipline" section as defence in depth (in case Chrome crashes mid-execution).
+
+The helper is idempotent and fast on the happy path (~1s when CDP is up).
+
+**Manual launch (rare — first-time machine setup or non-default flags):**
+
+```bash
+'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
+  --remote-debugging-port=9222 \
+  '--remote-allow-origins=*' \
+  --user-data-dir=/Users/alinaaitova/.chrome-automation \
+  --profile-directory=Default --no-first-run --no-default-browser-check &
+```
+
+**Health check:**
+
+```bash
+curl -sfS http://localhost:9222/json/version | jq .
+```
+
+**Helper environment overrides** (rarely needed):
+
+| Var | Default | Purpose |
+|---|---|---|
+| `CDP_PORT` / `AGENT_BROWSER_CDP_PORT` | `9222` | Bind a different port (e.g., for an isolated test browser) |
+| `CDP_USER_DATA_DIR` | `$HOME/.chrome-automation` | Use a different Chrome profile |
+| `CDP_LAUNCH_TIMEOUT_SECONDS` | `15` | How long to wait for CDP after launch before giving up |
+| `CDP_ENSURE_HELPER_PATH` | repo `bin/ensure-cdp-9222` | Override the helper path (used by the daemon's tests to inject mocks) |
+
+**Sites that require manual sign-in (helper auto-launch does NOT log you in):**
+
+- ProContract (procurement-ingestion/procontract-*) — sign in once via the persistent Chrome browser UI; the session cookie persists in the profile.
+- Alibaba / 1688 (auth-refresh/* skills exist specifically to prompt manual re-signin when cookies expire).
+- Freightos (the L5 operator-built freightos-freight-estimate skill).
+
+Auto-launch brings up the SAME persistent profile, so any prior signin state is preserved. If cookies have expired, the relevant skill attempts auto-signin first (see "Session Recovery" section below). Auto-signin can fail (captcha, 2FA, Touch ID, autofill disabled) — in those cases the skill emits `SESSION_REFRESH_FAILED` and the operator must intervene.
+
+---
+
+## Session Recovery for Authenticated CDP Sites
+
+Sites that require login (eBay, Alibaba, SeaRates, Freightos, ProContract) silently log the operator's persistent profile out over time. Skills targeting these sites detect the logged-out state and invoke the matching `auth-signin/{site}/` skill to automatically restore the session. Behaviour, design, and rollback plan are documented in `docs/handoff-2026-05-17-cdp-auto-signin.md`.
+
+**Sign-in mechanisms:**
+
+- Google OAuth (`Continue with Google` → select `dieter.x.s.danicek@gmail.com`): eBay, Alibaba, SeaRates, Freightos. The shared `auth-signin/google-account-chooser/` sub-skill encapsulates the Google account-picker half of the flow; each site-specific skill handles the per-site Sign In + Continue with Google clicks and delegates the chooser interaction.
+- Password manager autofill (`sales@sorelon.com`): ProContract. The skill clicks the username field, waits up to 3s for Chrome autofill to populate both fields, clicks submit, then waits up to 12s for outcome (signed in / error / Touch ID pending).
+- Manual operator-only (cookie refresh): 1688, Alibaba's existing `auth-refresh/*` skills are still the right tool for explicit operator-initiated cookie refresh. The new `auth-signin/alibaba/` is for daemon-triggered recovery on session-expired detection.
+
+**Skills with auto-signin recovery wired in (8 total):**
+
+- `marketplace-search/ebay-uk` → `auth-signin/ebay`
+- `marketplace-search/alibaba` → `auth-signin/alibaba`
+- `landed-cost/searates-freight-estimate` → `auth-signin/searates`
+- `landed-cost/shipment-sizing` → `auth-signin/alibaba` (shared session)
+- `source-health/alibaba` → `auth-signin/alibaba`
+- `procurement-ingestion/procontract-discover` → `auth-signin/procontract`
+- `procurement-ingestion/procontract-enrich-tender` → `auth-signin/procontract`
+- `procurement-ingestion/procontract-register-interest` → `auth-signin/procontract` (precondition re-check before any mutation click)
+
+**Skills with NO auto-signin (intentional):**
+
+- `marketplace-search/{amazon-uk,gem-imports,mx-wholesale}` — anonymous access is sufficient; no operator value to signing in.
+- `procurement-ingestion/{contracts-finder,fts}` — public OCDS APIs / official UK procurement data.
+- `source-health/fts` — public.
+- `landed-cost/{hmrc-customs-classification,simple-fx-lookup}` — public APIs (HMRC, Frankfurter).
+- `auth-refresh/{alibaba,1688}` — these ARE the manual-refresh skills (operator-initiated, not daemon-triggered).
+- L5 in-progress operator-built `landed-cost/taric-cross-check` — TARIC is free public EU customs data; no login mechanism exists.
+
+**Escalation cases (auto-signin returns `manual_required` and the skill emits `SESSION_REFRESH_FAILED`):**
+
+- ProContract Touch ID prompt → operator physically authenticates at the Touch ID prompt, then re-triggers the job.
+- Google 2FA / "Verify it's you" interstitial → operator approves 2FA on their phone.
+- Google reCAPTCHA on the chooser page → operator clicks "I'm not a robot".
+- Alibaba slide-to-verify CAPTCHA → operator solves the slide manually.
+- Alibaba account-binding flow (first-time Google → Alibaba binding) → operator completes one-time binding manually.
+- Alibaba region prompt (IP doesn't match account region) → operator confirms region.
+- Google account chooser empty (no Google account signed into Chrome) → operator signs in at `chrome://chrome-signin`.
+- Operator's Google account not signed into Chrome → operator signs in at `chrome://chrome-signin`.
+- Chrome password autofill disabled (ProContract) → operator enables at `chrome://settings/passwords`.
+- Saved credential for `sales@sorelon.com` missing (ProContract) → operator adds the credential to macOS Passwords / Chrome.
+- Cloudflare interstitial on Freightos → operator clears Cloudflare challenge in the browser.
+
+When auto-signin escalates, the production skill emits `SESSION_REFRESH_FAILED` with a message naming the specific operator action needed.
+
+**Self-policing tests:** `crates/daemon/tests/auth_signin_lint.rs` asserts that:
+- All 6 auth-signin skills exist (`auth-signin/{google-account-chooser,ebay,alibaba,searates,freightos,procontract}`).
+- Each declares `requires_cdp: true` and `cdp_default_port: 9222`.
+- Each invokes `bin/ensure-cdp-9222` in its body.
+- Each of the 8 production skills above contains a reference to its matching `auth-signin/<site>` path.

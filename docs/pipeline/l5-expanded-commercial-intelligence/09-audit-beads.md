@@ -151,7 +151,34 @@ Find the Phase 4 beads that wire conservative defaults.
 - All 6 default rows from spec §1.12 named (origin → MFN, exporter → residual, quota → out-of-quota, VAT → standard, Incoterm → boundary scenarios, supp units → abstain)? ✓ / ✗
 - Test IDs for each parametric default trigger?
 
-#### 5.5 Marketplace Skill Maturation Audit
+#### 5.4.5 Operator-Built Landed-Cost Skill Prerequisites (BLOCKING)
+
+Verify both prerequisite skills exist AND have passing empirical test evidence.
+
+**Skill file presence:**
+- [ ] `skills/landed-cost/freightos-freight-estimate/SKILL.md` exists.
+- [ ] `skills/landed-cost/freightos-freight-estimate/result.schema.json` exists.
+- [ ] `skills/landed-cost/taric-cross-check/SKILL.md` exists.
+- [ ] `skills/landed-cost/taric-cross-check/result.schema.json` exists.
+
+(NO checkpoint.schema.json expected — landed-cost family doesn't use checkpoints. Existing HMRC/SeaRates/simple-fx-lookup skills confirm this convention.)
+
+**Test evidence presence (per operator's revised handoff 2026-05-08):**
+- [ ] `docs/pipeline/l5-expanded-commercial-intelligence/operator-built-skills/test-evidence/freightos-freight-estimate/TEST_REPORT.md` exists.
+- [ ] Freightos TEST_REPORT.md shows verdict **READY** (not BLOCKED).
+- [ ] Freightos TEST_REPORT.md "Canary results" table shows all 4 canaries PASS.
+- [ ] Freightos TEST_REPORT.md "Failure-path results" table shows all 4 failure paths PASS.
+- [ ] `docs/pipeline/l5-expanded-commercial-intelligence/operator-built-skills/test-evidence/taric-cross-check/TEST_REPORT.md` exists.
+- [ ] Taric TEST_REPORT.md shows verdict **READY**.
+- [ ] Taric TEST_REPORT.md "Canary results" table shows all 5 canaries PASS.
+- [ ] Taric TEST_REPORT.md "Failure-path results" table shows all 4 failure paths PASS.
+- [ ] Taric TEST_REPORT.md "HMRC cross-agreement" section is populated with empirical comparisons (no `<...>` placeholders).
+
+If any checkbox is unchecked, audit FAILS. Escalate to operator via AgentMail with subject `[L5 BLOCKER] Operator-built skill test evidence missing or BLOCKED`; do not proceed to step 10 kickoff. Phase 3 and Phase 4 beads cannot be claimed without these.
+
+Verify NO beads exist for CREATING these skills (they're operator-built, not pipeline-built). If a bead `l5-freightos-skill-create` or `l5-taric-skill-create` exists, that's a drift — remove it; operator owns these.
+
+### 5.5 Marketplace Skill Maturation Audit
 
 For each of alibaba/amazon/1688/[pcs]:
 - Bead exists? ✓ / ✗

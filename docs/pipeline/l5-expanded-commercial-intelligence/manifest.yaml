@@ -301,19 +301,82 @@ recorded_decisions:
     recorded_at: "2026-05-08"
 
   external_api_account_state:
-    already_held:
-      - "HMRC Developer Portal (Trade Tariff API + FPO API)"
-    needs_procurement_before_bead_execution:
-      - "Xe Currency Data API (commercial — sign up + payment + key)"
-      - "Freightos API (commercial — sign up + payment + key)"
-      - "SeaRates API (commercial — sign up + payment + key)"
-      - "Taric Support API (commercial — sign up + payment + key)"
-    optional_decline:
-      - "HMRC Exchange Rate Service — public, no auth required (verify during bootstrap)"
-      - "HS Ping (optional cross-check)"
-      - "Easyship/Shippo (optional parcel-mode)"
-      - "CurrencyBeacon/OANDA (optional backup FX)"
-      - "Dutify/Zonos/Avalara (optional comparison-only landed-cost adapters)"
-    note: "Step 03 bootstrap doc must explicitly mark which accounts are operator-held vs needs-procurement. Bead execution cannot start until the four mandatory commercial accounts (Xe, Freightos, SeaRates, Taric Support) have keys in hand. Recommended lead time: 1-2 weeks parallel with steps 01-09."
+    # CORRECTED 2026-05-08 after operator validated existing landed-cost skills.
+    # Architecture is skill-first per project memory ("Skill-first agent scraping via browser
+    # automation NOT API connectors"). The earlier paid-API procurement list was overcautious.
+    existing_skills_cover_these_services:
+      - service: "HMRC Trade Tariff classification API"
+        skill: "skills/landed-cost/hmrc-customs-classification/SKILL.md"
+        mechanism: "curl + jq against public https://www.trade-tariff.service.gov.uk/uk/api/commodities/{code} (NO auth)"
+        notes: "Public API. HMRC Developer Portal registration is NOT required for the Trade Tariff classification endpoint. (Developer Portal is only relevant for the separate FPO endpoint — see hmrc_fpo_investigation below.)"
+      - service: "Commercial spot FX (Xe replacement)"
+        skill: "skills/landed-cost/simple-fx-lookup/SKILL.md"
+        mechanism: "curl against public https://api.frankfurter.app/latest (ECB-backed, no auth, no key, no payment)"
+        notes: "Replaces Xe Currency Data API entirely for screening-grade FX. For L5 dual-FX, this skill is EXTENDED in Phase 2 to also fetch HMRC customs monthly rate (see hmrc_fx_monthly_extension below). NO Xe account needed."
+      - service: "SeaRates freight estimates"
+        skill: "skills/landed-cost/searates-freight-estimate/SKILL.md"
+        mechanism: "agent-browser --cdp ${PORT} calling SeaRates Logistics Explorer GraphQL with browser-resident s-token (NO API key)"
+        notes: "Replaces SeaRates paid API entirely. Uses operator's persistent CDP browser session. NO SeaRates account needed."
+
+    operator_built_prerequisites:
+      # Operator confirmed 2026-05-08: will build these two skills personally BEFORE step 07 (bead creation)
+      # finalizes. Pipeline does NOT include beads for creating these. They are prerequisites the bead
+      # audit (step 09) verifies exist before authorizing execution.
+      - skill_path: "skills/landed-cost/freightos-freight-estimate/"
+        purpose: "Second freight provider for dual-source cross-check against SeaRates (per L5 spec §2.2 'dual-source cross-check' rule)"
+        implementation: "CDP browser skill mirroring searates-freight-estimate pattern. Targets Freightos public rate explorer (freightos.com/freight-shipping-rates/) or Freightos Baltic Index (freightos.com/freight-index/). NO paid API. Operator-built."
+        verified_by: "Step 09 bead audit confirms skill directory exists with SKILL.md + result.schema.json + checkpoint.schema.json before Phase 3 beads can be claimed."
+      - skill_path: "skills/landed-cost/taric-cross-check/"
+        purpose: "EU TARIC database cross-check for multi-source HS classification recall (per L5 spec §1.4 — 'Taric Support' is one of 5 recall sources, never overrules HMRC on UK national measures)"
+        implementation: "CDP browser skill targeting public EU TARIC database (taric.ec.europa.eu) — free public data. NO paid Taric Support vendor account. Operator-built."
+        verified_by: "Step 09 bead audit confirms skill directory exists with SKILL.md + result.schema.json + checkpoint.schema.json before Phase 4 multi-source-recall beads can be claimed."
+
+    pipeline_built_skill_extensions:
+      # These are extensions to EXISTING skills, owned by the implementation pipeline's beads.
+      - skill_path: "skills/landed-cost/simple-fx-lookup/"
+        extension: "Add HMRC customs monthly FX rate fetch (free public endpoint — see hmrc_fx_monthly_extension below). Return BOTH commercial spot (Frankfurter) AND HMRC customs (gov.uk monthly) rates, plus fx_basis_delta_bps. This satisfies L5 dual-FX requirement."
+        owned_by: "Phase 2 bead"
+      - skill_path: "skills/landed-cost/hmrc-customs-classification/"
+        extension: "Add multi-family expansion (per L5 spec §1.5 'never greedy descent'). Currently classifies one commodity code; L5 extends to evaluate ALL plausible HS6/CN8 families to UK 10-digit descendants."
+        owned_by: "Phase 4 bead"
+      - skill_path: "skills/landed-cost/searates-freight-estimate/"
+        extension: "Add measure-interaction reporting + dual-source disagreement signaling (works with new operator-built freightos skill to emit FREIGHT_MODE_LOW_CONFIDENCE when providers disagree)."
+        owned_by: "Phase 3 bead"
+
+    hmrc_fx_monthly_extension:
+      # Free, public, no auth. NOT a procurement item.
+      source: "HMRC Exchange Rates for Customs and VAT — monthly publication at https://www.gov.uk/government/collections/exchange-rates-for-customs-and-vat (also queryable as CSV/XML)"
+      pipeline_impact: "Phase 2 bead extends simple-fx-lookup. NO new external account."
+
+    hmrc_fpo_investigation:
+      status: "DEFERRED — investigated by Step 03 TDD bead 'l5-customs-hmrc-fpo-endpoint-discovery'"
+      question: "Does HMRC provide a public ML-powered commodity-code suggestion endpoint? Or does the existing Trade Tariff /api/search_suggestions endpoint suffice?"
+      possible_outcomes:
+        - "Trade Tariff /api/search endpoint already covers it → no FPO work needed; spec §1.4 lists 5 sources, this becomes 4 effective; spec rule 'FPO is one source among several' supports this"
+        - "Public FPO endpoint exists → add a new skill (similar to existing HMRC skill) — NO developer portal key"
+        - "FPO requires developer portal key → step 03 surfaces this as operator decision; defer to post-L5 if registration overhead not worth it"
+      note: "User asked for analysis 2026-05-08 — see HMRC FX/FPO analysis appended to skill-first correction notes."
+
+    declined_or_optional:
+      - "Xe Currency Data API — DECLINED (Frankfurter replacement is free + sufficient)"
+      - "Freightos paid API — DECLINED (operator-built CDP skill is free + sufficient)"
+      - "SeaRates paid API — DECLINED (existing CDP skill is free + sufficient)"
+      - "Taric Support paid vendor — DECLINED (operator-built CDP skill on free EU TARIC database is sufficient)"
+      - "HS Ping — DECLINED for L5 (optional cross-check; 4 other recall sources are sufficient)"
+      - "Dutify/Zonos/Avalara — DECLINED for L5 (validation-only comparison adapters per spec §1.16; not on critical path)"
+      - "Easyship/Shippo — DECLINED for L5 (optional parcel-mode)"
+      - "CurrencyBeacon/OANDA — DECLINED for L5 (optional backup FX; Frankfurter has not failed)"
+
+    architectural_alignment:
+      project_memory_says: "Data strategy: Skill-first agent scraping via browser automation (NOT API connectors), except cost-estimation APIs"
+      l5_revised_position: "Even cost-estimation APIs (Xe/Freightos/SeaRates/Taric Support) are replaced by skills wherever feasible. Skill-first applies universally for L5. This was validated 2026-05-08 by the operator after evidence of three existing skills (hmrc-customs-classification, simple-fx-lookup, searates-freight-estimate) that already implement the pattern."
+
+    annual_cost_savings_vs_earlier_plan:
+      xe_api: "~$799/yr saved (Frankfurter is free)"
+      freightos_api: "$1000s/yr saved (CDP skill is free)"
+      searates_api: "$1000s/yr saved (existing CDP skill already in place)"
+      taric_support: "$1000s/yr saved (CDP skill on free EU TARIC database)"
+      estimated_total: "$3,000-10,000+/yr saved"
+
     recorded_by: operator
     recorded_at: "2026-05-08"

@@ -31,6 +31,12 @@ get past Alibaba's anti-bot interstitials and read tier pricing.
 
 ### Operator prerequisite (one-time setup)
 
+For routine launches, `bin/ensure-cdp-9222` handles this automatically (the
+operator's persistent `/Users/alinaaitova/.chrome-automation` profile IS already
+a non-default dir, so the Chrome-136+ constraint is satisfied). The manual
+ceremony below is for first-time profile creation or recovery from a broken
+profile state only.
+
 Chrome must be running on port 9222 with a non-default user-data-dir.
 The canonical launch:
 
@@ -177,6 +183,19 @@ CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
 Before doing any navigation:
 
 ```bash
+# Ensure CDP is up. The daemon's pre-flight gate SHOULD have done this already,
+# but defense in depth: bin/ensure-cdp-9222 is idempotent and fast (<1s no-op
+# when CDP is already up; otherwise launches Chrome with the operator's
+# persistent profile at /Users/alinaaitova/.chrome-automation and polls up to
+# 15s). Returns non-zero only if launch genuinely failed. Absolute path because
+# the skill subprocess cwd is the per-skill workdir, not the project root.
+/Users/alinaaitova/Desktop/Testproject1/bin/ensure-cdp-9222
+
+# Defensive reachability check. If this reports CDP_UNREACHABLE / not JSON
+# containing "Chrome/...", follow the existing fallback guidance below: emit
+# one search_results entry per candidate with search_failure_mode
+# "CDP_CONNECT_FAILED", result_count: 0, empty quotes: [], and exit cleanly.
+# Do NOT try to launch a browser yourself.
 curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version" \
   || echo "CDP_UNREACHABLE"
 ```
@@ -205,6 +224,120 @@ agent-browser --cdp ${CDP_PORT} get title
 If the title does NOT contain `Alibaba.com` (e.g. you got a CAPTCHA
 or a `chrome-error://` URL), emit
 `search_failure_mode: "SOURCE_CAPTCHA_BLOCKED"` and terminate.
+
+### Step 1a: Session Recovery (auto-signin on session-expired)
+
+If the title check or any subsequent navigation reveals the operator's persistent Chrome profile is signed OUT of Alibaba, attempt auto-signin via `auth-signin/alibaba/` BEFORE emitting any session-expired blocker. Only emit `SESSION_REFRESH_FAILED` if auto-signin ALSO failed.
+
+This replaces the previous "pre-auth-only" model where this skill assumed the operator had manually signed in. With auto-signin, the skill self-recovers from silent session expiry; `auth-refresh/alibaba` remains the correct tool for explicit operator-initiated cookie refresh.
+
+**Session-expired detection signals (Alibaba):**
+- URL after navigation redirects to `passport.alibaba.com/login.htm` or `login.alibaba.com`.
+- The header `Sign In` link is visible (vs. the account menu / My Alibaba widget when signed in).
+- An Alibaba API response (e.g., during product detail or supplier inspection) returns `error_code: "USER_NOT_LOGIN"` or HTTP 401.
+- The slide-to-verify CAPTCHA (`iframe[src*=nocaptcha]`, `[id*=nc_]`, `.nc-container`) appears — this often coincides with a logged-out state.
+
+**Recovery flow:**
+
+The canonical click sequence below was inlined from `skills/auth-signin/alibaba/SKILL.md` §Workflow on 2026-05-17. Selectors validated live against the persistent Chrome on port 9222 the same day. If you need to update the sequence, edit the source-of-truth at `skills/auth-signin/alibaba/SKILL.md` first and re-inline here.
+
+```bash
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+
+# 1. Open Alibaba login page directly
+agent-browser --cdp ${CDP_PORT} open "https://login.alibaba.com/"
+agent-browser --cdp ${CDP_PORT} wait 2500
+
+# 2. Check for slide-CAPTCHA. If present, write SESSION_REFRESH_FAILED with
+#    SOURCE_CAPTCHA_BLOCKED and stop — do not attempt OAuth (Alibaba rate-limits).
+SLIDE_CAPTCHA=$(agent-browser --cdp ${CDP_PORT} eval '
+(() => {
+  const sliderIframe = document.querySelector("iframe[src*=nocaptcha], iframe[src*=sufei]");
+  const sliderDom = document.querySelector("[id*=nc_], .nc-container, [class*=slider-track]");
+  return JSON.stringify({slide_captcha: !!(sliderIframe || sliderDom)});
+})()
+')
+
+# 3. Click "Continue with Google" — Alibaba uses <a attr-type="google" attr-customurl="...">
+#    The JS click handler reads attr-customurl, so synthetic .click() may not navigate;
+#    read attr-customurl directly and navigate via window.location.assign.
+agent-browser --cdp ${CDP_PORT} eval '
+(() => {
+  const stable = document.querySelector("a[attr-type=google][attr-customurl]");
+  if (stable) {
+    const target = stable.getAttribute("attr-customurl");
+    if (target) { window.location.assign(target); return JSON.stringify({clicked: true, via: "attr-customurl"}); }
+  }
+  const candidates = [
+    document.querySelector("a[href*=\"accounts.google.com/o/oauth2\"]"),
+    document.querySelector("button.google-signin-button, [data-spm*=google i]"),
+    ...Array.from(document.querySelectorAll("button, a, [role=button]")).filter(el => /continue with google|sign in with google/i.test(el.innerText || ""))
+  ].filter(Boolean);
+  const btn = candidates[0];
+  if (!btn) return JSON.stringify({clicked: false, reason: "no_google_button_found"});
+  btn.click();
+  return JSON.stringify({clicked: true, via: "fallback"});
+})()
+'
+agent-browser --cdp ${CDP_PORT} wait 4000
+
+# 4. Confirm we landed on Google's chooser. If not, write SESSION_REFRESH_FAILED.
+agent-browser --cdp ${CDP_PORT} eval 'JSON.stringify({on_google: window.location.hostname.endsWith("accounts.google.com"), url: window.location.href})'
+
+# 5. Click the Dieter row on Google's chooser. (Mirror of auth-signin/google-account-chooser.)
+agent-browser --cdp ${CDP_PORT} eval '
+(() => {
+  const target = "dieter.x.s.danicek@gmail.com";
+  if (!window.location.hostname.endsWith("accounts.google.com")) return JSON.stringify({page_shape: "not_on_google"});
+  if (document.querySelector("iframe[src*=recaptcha]")) return JSON.stringify({page_shape: "captcha"});
+  const bodyText = (document.body && document.body.innerText) || "";
+  if (/Verify it.s you|2-Step Verification/.test(bodyText)) return JSON.stringify({page_shape: "twofa_interstitial"});
+  if (document.querySelector("input[type=email][name=identifier], input#identifierId")) return JSON.stringify({page_shape: "email_entry_form"});
+  const row = document.querySelector(`[data-identifier="${target}"]`)
+    || document.querySelector(`[data-email="${target}"]`)
+    || Array.from(document.querySelectorAll("li[role=link], div[role=link], div[role=button]"))
+        .find(el => (el.innerText || "").toLowerCase().includes(target.toLowerCase()));
+  if (!row) return JSON.stringify({page_shape: "chooser_target_missing"});
+  row.click();
+  return JSON.stringify({page_shape: "chooser_target_found", clicked: true});
+})()
+'
+agent-browser --cdp ${CDP_PORT} wait 5000
+
+# 6. Poll for redirect back to alibaba.com and verify signed-in. Detect each
+#    escalation case (binding, region, identity verification, slide CAPTCHA).
+agent-browser --cdp ${CDP_PORT} eval '
+(async () => {
+  const deadline = Date.now() + 18000;
+  while (Date.now() < deadline) {
+    const url = window.location.href;
+    const hostname = window.location.hostname;
+    const bodyText = (document.body && document.body.innerText) || "";
+    if (/bind.*alibaba account|link your google account/i.test(bodyText)) return JSON.stringify({status: "binding_required", url});
+    if (/select your country|change.*region|account region/i.test(bodyText)) return JSON.stringify({status: "region_prompt", url});
+    if (/verify your identity/i.test(bodyText) && /phone number|send.*code/i.test(bodyText)) return JSON.stringify({status: "identity_verification_required", url});
+    if (url.includes("/iv/verify_mode.htm")) return JSON.stringify({status: "identity_verification_required", url});
+    if (document.querySelector("iframe[src*=nocaptcha], [id*=nc_], .nc-container")) return JSON.stringify({status: "slide_captcha", url});
+    const onAlibaba = hostname.endsWith("alibaba.com") && !hostname.startsWith("passport.") && !hostname.startsWith("login.");
+    if (onAlibaba) {
+      const accountMenu = document.querySelector("[class*=account-menu], [class*=my-alibaba], [class*=user-info]");
+      if (accountMenu) return JSON.stringify({status: "signed_in", url, verified_via: "account_menu_present"});
+      return JSON.stringify({status: "signed_in_weak", url, verified_via: "passport_redirect_absent"});
+    }
+    await new Promise(r => setTimeout(r, 500));
+  }
+  return JSON.stringify({status: "timeout", url: window.location.href});
+})()
+'
+```
+
+After the recovery sequence completes, verify signed-in by checking that the URL is back on `alibaba.com` (not `passport.alibaba.com`) AND the account menu element (`[class*=account-menu]` / `[class*=my-alibaba]` / `[class*=user-info]`) is visible. Then:
+
+1. **If signed in:** EXIT this skill cleanly WITHOUT writing `result.json`. The daemon's retry policy at `crates/daemon/src/jobs/runner.rs` re-invokes the skill on the next pass; the second invocation sees the restored session.
+
+2. **If NOT signed in:** write a blocked `result.json` with one `search_results` entry per candidate having `search_failure_mode: "SOURCE_CAPTCHA_BLOCKED"` (if slide CAPTCHA encountered) or `"SOURCE_SOFT_BLOCKED"` and a single blocker `{code: "SESSION_REFRESH_FAILED", severity: "blocked", message: "<descriptive message naming the failure mode: slide CAPTCHA, account binding required, region prompt, Google chooser empty, 2FA, etc.>"}`. Stop here.
+
+This auto-signin recovery is ONLY invoked on session-expired detection — never preemptively (Alibaba rate-limits aggressive OAuth attempts via slide CAPTCHA, and triggering CAPTCHAs makes the next signin worse).
 
 ### Step 2: For Each Candidate, Walk Query Waves
 

@@ -177,9 +177,44 @@ Each of these MUST end with a recorded resolution in the spec (or a deliberate n
 
 **Edit `§3.5 Customs-Specific Error Types`.** Add a one-paragraph preface: "These 10 error codes are added to the daemon's `ErrorCode` enum at compile time (Rust). They are NOT skill-overlay-only error codes. Adding them requires updating `crates/daemon/src/errors/manifest.rs` (the enum at line 20+ and its `as_str()` matcher in the same file) plus any exhaustive switch sites surfaced by `cargo clippy --all-targets -- -D warnings` — typically 5-15 sites including `validation/policy.rs`, `validation/executor.rs`, `errors/markdown.rs`, `tracing/structured.rs`, `ipc/handlers/*`. The skill plug-and-play rule (L0 S4) governs skill manifests, not daemon enum vocabulary."
 
-#### Callout 5 — HMRC FPO endpoint verification
+#### Callout 5 — HMRC FPO endpoint verification (CORRECTED 2026-05-08)
 
-**Edit `§1.4 Multi-Source HS Classification Recall`.** The current parenthetical "(note: 'FPO' on HMRC's developer portal refers to Fast Parcel Operator — verify the correct API endpoint name during implementation)" is good. Add: "Step 03 TDD records the resolved endpoint resource path. Step 05 strategy makes endpoint verification a prerequisite of the customs-recall bead." This makes the followup chain explicit.
+**Edit `§1.4 Multi-Source HS Classification Recall`.** The current parenthetical "(note: 'FPO' on HMRC's developer portal refers to Fast Parcel Operator — verify the correct API endpoint name during implementation)" is good. Add: "Step 03 TDD produces an investigation bead `l5-customs-hmrc-fpo-endpoint-discovery` that determines: (a) does the existing public Trade Tariff `/api/search` / `/api/search_suggestions` endpoint suffice for ML-powered suggestion? (b) does a public FPO endpoint exist (no auth)? (c) only if both fail, does HMRC Developer Portal registration become a deferred operator decision."
+
+**Important correction:** the HMRC **Trade Tariff classification API** itself (`trade-tariff.service.gov.uk/uk/api/commodities/{code}`) is fully PUBLIC — no auth, no API key, no developer portal needed. The existing skill `skills/landed-cost/hmrc-customs-classification/SKILL.md` already uses it without credentials. The "Developer Portal" concern only applies to the FPO endpoint specifically (if it exists as a separate authenticated service).
+
+#### Callout 8 — Existing landed-cost skills DISCOVERED (RESOLVED 2026-05-08)
+
+**This is a new resolved callout added 2026-05-08 after the operator validated existing skill state.**
+
+Three landed-cost skills already exist (built during stages 1-14 QA after L3) and cover services the L5 spec listed as "Required" paid APIs:
+
+| Skill | Spec service it replaces | Auth? | Free? |
+|---|---|---|---|
+| `skills/landed-cost/hmrc-customs-classification/` | HMRC Trade Tariff API | No (public) | ✓ |
+| `skills/landed-cost/simple-fx-lookup/` (via Frankfurter) | Xe Currency Data API | No (free public) | ✓ |
+| `skills/landed-cost/searates-freight-estimate/` (CDP browser) | SeaRates paid API | No (CDP session) | ✓ |
+
+**Edit `§3.9 Dependencies`.** Update the dependencies table to reflect the skill-first reality:
+- HMRC Trade Tariff: Required, NO API key (public endpoint)
+- HMRC Exchange Rate Service: Required, NO API key (free monthly publication via gov.uk)
+- Xe: DECLINED — Frankfurter (free, ECB-backed) replaces it
+- SeaRates paid API: DECLINED — existing CDP skill replaces it
+- Freightos paid API: DECLINED — operator-built CDP skill (skills/landed-cost/freightos-freight-estimate/) replaces it
+- Taric Support paid vendor: DECLINED — operator-built CDP skill on EU TARIC database (skills/landed-cost/taric-cross-check/) replaces it
+- HS Ping: DECLINED for L5 (4 other recall sources sufficient)
+- Dutify/Zonos/Avalara: DECLINED for L5 (validation-only)
+
+**This aligns L5 with project memory's "Skill-first agent scraping via browser automation (NOT API connectors)" architecture.** Zero new commercial API accounts needed.
+
+#### Callout 9 — Operator-built prerequisites (NEW)
+
+Two skills will be **built by the operator personally** before step 07 (bead creation) finalizes:
+
+1. `skills/landed-cost/freightos-freight-estimate/` — CDP browser skill, parallel to existing SeaRates skill.
+2. `skills/landed-cost/taric-cross-check/` — CDP browser skill targeting public EU TARIC database (taric.ec.europa.eu).
+
+These are **prerequisites for L5 implementation**, NOT pipeline beads. The bead audit (step 09) verifies they exist before authorizing execution. Phase 3 (Freight) and Phase 4 (Customs multi-source recall) beads cannot start without them.
 
 #### Callout 6 — Cron scheduler extension
 

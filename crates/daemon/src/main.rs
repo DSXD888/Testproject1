@@ -6557,6 +6557,7 @@ async fn execute_landed_cost_skill_session(
         .with_context(|| format!("creating {}", stdout_path.display()))?;
     let stderr_file = fs::File::create(&stderr_path)
         .with_context(|| format!("creating {}", stderr_path.display()))?;
+    preflight_cdp_for_skill(skill);
     let mut command = process::Command::new(&launch_spec.program);
     command
         .args(&launch_spec.args)
@@ -8061,9 +8062,14 @@ async fn run_landed_cost_live_loop(
                     }
                 });
 
-        let cdp_unreachable_before_sizing = row.source_name == "alibaba-search"
-            && row.source_url.is_some()
-            && !cdp_port_reachable(9222);
+        let cdp_unreachable_before_sizing =
+            row.source_name == "alibaba-search" && row.source_url.is_some() && {
+                // Best-effort auto-launch via bin/ensure-cdp-9222 so CDP isn't
+                // dismissed as unreachable just because Chrome wasn't started.
+                // The helper is idempotent: a no-op when Chrome is already up.
+                let _ = ensure_cdp_9222(9222);
+                !cdp_port_reachable(9222)
+            };
         let (sizing, sizing_outcome) = if cdp_unreachable_before_sizing {
             (Some(cdp_blocked_sizing_result(row)), None)
         } else {
@@ -11872,6 +11878,7 @@ async fn execute_bounded_manifest_skill_session(
         .with_context(|| format!("creating {}", stdout_path.display()))?;
     let stderr_file = fs::File::create(&stderr_path)
         .with_context(|| format!("creating {}", stderr_path.display()))?;
+    preflight_cdp_for_skill(skill);
     let mut command = process::Command::new(&launch_spec.program);
     command
         .args(&launch_spec.args)
@@ -12290,6 +12297,84 @@ fn cdp_port_reachable(port: u16) -> bool {
         let _ = stream.shutdown(Shutdown::Both);
         true
     })
+}
+
+fn default_ensure_cdp_helper_path() -> PathBuf {
+    if let Ok(p) = std::env::var("CDP_ENSURE_HELPER_PATH") {
+        return PathBuf::from(p);
+    }
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let from_manifest = Path::new(manifest_dir)
+        .parent()
+        .and_then(|p| p.parent())
+        .map(|p| p.join("bin").join("ensure-cdp-9222"));
+    if let Some(p) = from_manifest
+        && p.exists()
+    {
+        return p;
+    }
+    PathBuf::from("/Users/alinaaitova/Desktop/Testproject1/bin/ensure-cdp-9222")
+}
+
+fn ensure_cdp_9222(cdp_port: u16) -> Result<(), String> {
+    let helper = default_ensure_cdp_helper_path();
+    if !helper.exists() {
+        return Err(format!(
+            "ensure-cdp-9222 helper not found at {}",
+            helper.display()
+        ));
+    }
+    let output = process::Command::new(&helper)
+        .env("CDP_PORT", cdp_port.to_string())
+        .output()
+        .map_err(|e| format!("failed to spawn {}: {}", helper.display(), e))?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!(
+            "ensure-cdp-9222 exited with status {:?} — stderr: {}",
+            output.status.code(),
+            stderr.trim()
+        ))
+    }
+}
+
+fn preflight_cdp_for_skill(skill: &LoadedSkill) {
+    if !skill.metadata.requires_cdp {
+        return;
+    }
+    let cdp_port = skill.metadata.cdp_default_port.unwrap_or(9222);
+    if let Err(diag) = ensure_cdp_9222(cdp_port) {
+        ::tracing::warn!(
+            target: "daemon::cdp_preflight",
+            skill_id = %skill.metadata.skill_id,
+            cdp_port,
+            "ensure-cdp-9222 pre-flight failed; skill will see CDP down and write its own blocked result: {}",
+            diag
+        );
+    }
+}
+
+fn preflight_cdp_for_launch_spec(launch_spec: &LaunchSpec) {
+    let port_env = OsString::from("AGENT_BROWSER_CDP_PORT");
+    let Some(cdp_port_os) = launch_spec.env.get(&port_env) else {
+        return;
+    };
+    let Some(cdp_port_str) = cdp_port_os.to_str() else {
+        return;
+    };
+    let Ok(cdp_port) = cdp_port_str.parse::<u16>() else {
+        return;
+    };
+    if let Err(diag) = ensure_cdp_9222(cdp_port) {
+        ::tracing::warn!(
+            target: "daemon::cdp_preflight",
+            cdp_port,
+            "ensure-cdp-9222 pre-flight failed for contract skill; skill will see CDP down: {}",
+            diag
+        );
+    }
 }
 
 fn cdp_blocked_sizing_result(row: &LandedCostAssessmentRow) -> ShipmentSizingResult {
@@ -15824,6 +15909,7 @@ async fn execute_contract_skill_session(
     started_at: DateTime<Utc>,
     config_hash: String,
 ) -> Result<ExecutedSession> {
+    preflight_cdp_for_launch_spec(launch_spec);
     let mut command = std::process::Command::new(&launch_spec.program);
     command
         .args(&launch_spec.args)

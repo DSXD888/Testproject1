@@ -128,27 +128,29 @@ The skill proposes phases. You may override with feature-specific reasoning if t
 - **Exit gate:** `cargo check --all-targets && cargo clippy --all-targets -- -D warnings && cargo test -p daemon --bin daemon` green; 4 cron entries visible in `cron list` output (or equivalent test).
 
 #### Phase 2 — FX Engine
-- Build `packages/intelligence/src/fx/{hmrc-exchange-rates,xe-commercial-rates,fx-engine,fx-types}.ts` (4 files).
-- HMRC Exchange Rate Service client with monthly rolling rate cache + rollover detection.
-- Xe Currency Data API client with TTL + rate-limit handling.
-- Dual-rate computation, `fx_basis_delta_bps` storage, `FX_RATE_MISSING` emission, monthly-rollover-triggered recalculation queue.
+- Build `packages/intelligence/src/fx/{hmrc-exchange-rates,xe-commercial-rates,fx-engine,fx-types}.ts` (4 files — orchestration logic that wraps the existing `simple-fx-lookup` skill and adds HMRC monthly endpoint fetch).
+- **Extend existing skill** `skills/landed-cost/simple-fx-lookup/SKILL.md`: add HMRC customs monthly FX rate fetch from gov.uk publication (free, no auth). Return BOTH commercial spot (Frankfurter — already implemented) AND HMRC customs (gov.uk monthly) rates, plus the difference as `fx_basis_delta_bps`. NO Xe procurement; Xe is replaced by Frankfurter per operator decision 2026-05-08.
+- `fx_basis_delta_bps` storage, `FX_RATE_MISSING` emission, monthly-rollover-triggered recalculation queue.
 - Tests: `fx-engine.test.ts` per TDD (every test ID `L5-T-fx_engine-*`).
-- **Exit gate:** All `L5-T-fx_engine-*` tests pass; FX cron entry triggers correctly in dev; basis delta visible on a test `landed_cost_estimates` row.
+- **Exit gate:** All `L5-T-fx_engine-*` tests pass; FX cron entry triggers correctly in dev; basis delta visible on a test `landed_cost_estimates` row; existing simple-fx-lookup skill still backward-compatible.
 
 #### Phase 3 — Freight Engine
-- Build `packages/intelligence/src/logistics/{mode-selector,freightos-client,searates-client,freight-engine,freight-types}.ts` (5 files).
-- Freightos and SeaRates clients with dual-source cross-check.
+- Build `packages/intelligence/src/logistics/{mode-selector,freightos-client,searates-client,freight-engine,freight-types}.ts` (5 files — orchestration logic that wraps the existing SeaRates skill + the operator-built Freightos skill).
+- **PREREQUISITE (operator-built before Phase 3 beads can claim):** `skills/landed-cost/freightos-freight-estimate/` CDP browser skill must exist. Step 09 bead audit verifies presence.
+- **Extend existing skill** `skills/landed-cost/searates-freight-estimate/SKILL.md`: add dual-source disagreement reporting (works with operator-built Freightos skill to emit `FREIGHT_MODE_LOW_CONFIDENCE`).
 - Mode selector with hard mode locks (hazmat, oversized, fragile, reefer, batteries).
 - Dual-packing scenarios when packaging state unknown.
 - Boundary scenarios (EXW/FOB/CIF) when Incoterm absent.
 - `FREIGHT_ESTIMATE_FAILED`, `FREIGHT_PROVIDER_UNSUPPORTED`, `FREIGHT_MODE_LOW_CONFIDENCE` emission.
 - Tests: `freight-engine.test.ts` per TDD.
-- **Exit gate:** All `L5-T-freight_engine-*` tests pass; dual-source disagreement triggers `FREIGHT_MODE_LOW_CONFIDENCE` in test fixture.
+- **Exit gate:** All `L5-T-freight_engine-*` tests pass; dual-source disagreement triggers `FREIGHT_MODE_LOW_CONFIDENCE` in test fixture using both SeaRates and operator-built Freightos skills.
 
 #### Phase 4 — Customs Engine (Recall + Resolution + Measure Interaction)
-- Build `packages/intelligence/src/customs/{description-quality-gate,multi-source-recall,ten-digit-resolution,measure-scanner,exporter-resolution,classification-freshness}.ts` (6 files).
+- Build `packages/intelligence/src/customs/{description-quality-gate,multi-source-recall,ten-digit-resolution,measure-scanner,exporter-resolution,classification-freshness}.ts` (6 files — orchestration logic that wraps the existing HMRC skill + operator-built Taric skill + local data for priors).
+- **PREREQUISITE (operator-built before Phase 4 multi-source-recall bead can claim):** `skills/landed-cost/taric-cross-check/` CDP browser skill targeting EU TARIC database (taric.ec.europa.eu) must exist. Step 09 bead audit verifies presence.
+- **Extend existing skill** `skills/landed-cost/hmrc-customs-classification/SKILL.md`: add multi-family expansion to UK 10-digit descendants (currently classifies one code; L5 extends to evaluate ALL plausible HS6/CN8 families per spec §1.5 "never greedy descent").
 - Description-quality gate with archetype-keyed missing-facts requests + bundle splitter (incl. GIR 3 set-candidate escape hatch).
-- Multi-source recall: HMRC FPO + CPV-to-chapter priors + rule-based hints + tariff keyword search + ATR codebook reuse. Five sources, each with their confidence basis.
+- Multi-source recall: 5 parallel sources — (1) HMRC Trade Tariff via extended skill, (2) CPV-to-chapter priors (local data, no skill), (3) rule-based hints (local data, no skill), (4) tariff keyword search via Trade Tariff `/api/search` (extend existing skill), (5) ATR/codebook reuse (local cache, no skill). Plus operator-built Taric cross-check as independent agreement signal. **HMRC FPO investigation bead** (`l5-customs-hmrc-fpo-endpoint-discovery`) determines if FPO becomes a 6th source or stays out.
 - 10-digit resolution: locally-cached HMRC tariff hierarchy graph; multi-family expansion (NEVER greedy descent); slot/measure compatibility scoring; shortlist top 3-5 non-dominated branches per family; external validation only on shortlisted candidates.
 - Measure scanner: AD/CVD/safeguard/quota detection with family-specific interaction rules (additive vs substitutive vs conditional). Compound/specific duty expression preservation. Supplementary unit handling.
 - Exporter resolution: `named_exporter` / `annex_exporter` / `residual_default` with confidence basis points. Default to residual.

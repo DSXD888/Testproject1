@@ -436,3 +436,19 @@ fn ut_skl_012_signed_in_browser_skills_require_operator_cdp_session() -> Result<
     }
     Ok(())
 }
+
+#[test]
+fn ut_skl_302_cdp_skills_invoke_ensure_helper() -> Result<()> {
+    // Every CDP-requiring skill must invoke bin/ensure-cdp-9222 in its body so
+    // a Chrome that has crashed mid-execution can be relaunched without the
+    // operator having to intervene manually. Self-policing — newly-added
+    // CDP-requiring skills will fail this lint until they wire the helper in.
+    for relative in CDP_BROWSER_SKILLS {
+        let skill = load_skill_metadata(&repo_skill_dir(relative)?)?;
+        ensure!(
+            skill.skill_markdown.contains("bin/ensure-cdp-9222"),
+            "{relative} declares requires_cdp:true but does not invoke bin/ensure-cdp-9222 in its body"
+        );
+    }
+    Ok(())
+}

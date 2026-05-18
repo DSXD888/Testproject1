@@ -42,6 +42,18 @@ Before navigation:
 
 ```bash
 CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+
+# Ensure CDP is up. The daemon's pre-flight gate SHOULD have done this already,
+# but defense in depth: bin/ensure-cdp-9222 is idempotent and fast (<1s no-op
+# when CDP is already up; otherwise launches Chrome with the operator's
+# persistent profile at /Users/alinaaitova/.chrome-automation and polls up to
+# 15s). Returns non-zero only if launch genuinely failed. Absolute path because
+# the skill subprocess cwd is the per-skill workdir, not the project root.
+/Users/alinaaitova/Desktop/Testproject1/bin/ensure-cdp-9222
+
+# Defensive reachability check. If this fails (helper exited non-zero, or a
+# rare post-launch race), follow the "If CDP is unreachable" guidance below:
+# write the skill-specific blocked result.json and stop.
 curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
 ```
 
@@ -50,6 +62,113 @@ If CDP is unreachable, emit `freight_status: "blocked"`, `cdp_state: "unreachabl
 ```bash
 agent-browser --cdp ${CDP_PORT} ...
 ```
+
+## Session Recovery (auto-signin on session-expired)
+
+If the s-token fetch returns 401 / empty OR `localStorage.s-token` decodes as a JWT with `exp` in the past, attempt auto-signin via `auth-signin/searates/` BEFORE emitting `SEARATES_SESSION_EXPIRED`. Only emit `SESSION_REFRESH_FAILED` if auto-signin ALSO failed.
+
+**Session-expired detection signals (SeaRates):**
+- `localStorage.getItem("s-token")` returns `null`, empty string, OR a JWT whose `exp` claim is in the past.
+- The `fetch("https://www.searates.com/auth/platform-token?id=1")` call inside Step 3 of the existing Workflow returns HTTP 401 OR an empty response body OR a payload without a `token` / `data.token` / `access_token` field.
+- The compact GraphQL `rates(...)` query returns an `errors` array containing an unauthenticated / token-expired message.
+
+**Recovery flow:**
+
+The canonical click sequence below was inlined from `skills/auth-signin/searates/SKILL.md` §Workflow on 2026-05-17. Selectors validated live against the persistent Chrome on port 9222 the same day. If you need to update the sequence, edit the source-of-truth at `skills/auth-signin/searates/SKILL.md` first and re-inline here.
+
+```bash
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+
+# 1. Open SeaRates login page directly
+agent-browser --cdp ${CDP_PORT} open "https://www.searates.com/login"
+agent-browser --cdp ${CDP_PORT} wait 2500
+
+# 2. Click "Continue with Google" on SeaRates' login page
+agent-browser --cdp ${CDP_PORT} eval '
+(() => {
+  const candidates = [
+    document.querySelector("a[href*=\"accounts.google.com/o/oauth2\"]"),
+    document.querySelector("button[aria-label*=Google i]"),
+    document.querySelector("[data-provider=google], [data-social=google]"),
+    ...Array.from(document.querySelectorAll("button, a, [role=button]")).filter(el => /continue with google|sign in with google/i.test(el.innerText || ""))
+  ].filter(Boolean);
+  const btn = candidates[0];
+  if (!btn) return JSON.stringify({clicked: false, reason: "no_google_button_found", current_url: window.location.href});
+  btn.click();
+  return JSON.stringify({clicked: true});
+})()
+'
+agent-browser --cdp ${CDP_PORT} wait 3500
+
+# 3. Confirm we landed on Google's account chooser. If not, treat as
+#    SESSION_REFRESH_FAILED (SeaRates Google button vanished / form changed).
+agent-browser --cdp ${CDP_PORT} eval 'JSON.stringify({on_google: window.location.hostname.endsWith("accounts.google.com"), url: window.location.href})'
+
+# 4. Click the Dieter row on Google's chooser. (Mirror of auth-signin/google-account-chooser.)
+agent-browser --cdp ${CDP_PORT} eval '
+(() => {
+  const target = "dieter.x.s.danicek@gmail.com";
+  if (!window.location.hostname.endsWith("accounts.google.com")) return JSON.stringify({page_shape: "not_on_google"});
+  if (document.querySelector("iframe[src*=recaptcha]")) return JSON.stringify({page_shape: "captcha"});
+  const bodyText = (document.body && document.body.innerText) || "";
+  if (/Verify it.s you|2-Step Verification/.test(bodyText)) return JSON.stringify({page_shape: "twofa_interstitial"});
+  if (document.querySelector("input[type=email][name=identifier], input#identifierId")) return JSON.stringify({page_shape: "email_entry_form"});
+  const row = document.querySelector(`[data-identifier="${target}"]`)
+    || document.querySelector(`[data-email="${target}"]`)
+    || Array.from(document.querySelectorAll("li[role=link], div[role=link], div[role=button]"))
+        .find(el => (el.innerText || "").toLowerCase().includes(target.toLowerCase()));
+  if (!row) return JSON.stringify({page_shape: "chooser_target_missing"});
+  row.click();
+  return JSON.stringify({page_shape: "chooser_target_found", clicked: true});
+})()
+'
+agent-browser --cdp ${CDP_PORT} wait 5000
+
+# 5. Poll for redirect back to searates.com AND verify s-token reissued.
+#    SeaRates' avatar selector varies by page; localStorage.s-token is the reliable signal.
+agent-browser --cdp ${CDP_PORT} eval '
+(async () => {
+  const deadline = Date.now() + 18000;
+  while (Date.now() < deadline) {
+    const url = window.location.href;
+    const hostname = window.location.hostname;
+    if (document.querySelector("iframe[src*=recaptcha]")) {
+      return JSON.stringify({status: "interstitial_captcha", url});
+    }
+    if (hostname.endsWith("searates.com")) {
+      const token = localStorage.getItem("s-token");
+      if (token) {
+        try {
+          const parts = token.split(".");
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+            const expMs = (payload.exp || 0) * 1000;
+            if (expMs > Date.now()) {
+              return JSON.stringify({status: "signed_in", url, exp_ms: expMs, token_length: token.length});
+            }
+          }
+        } catch (_) {
+          // Token exists but is non-JWT format — treat as success with unknown expiry
+          return JSON.stringify({status: "signed_in", url, exp_ms: null, token_length: token.length});
+        }
+      }
+    }
+    await new Promise(r => setTimeout(r, 500));
+  }
+  return JSON.stringify({status: "timeout", url: window.location.href});
+})()
+'
+```
+
+After the recovery sequence completes, map the poll `status` back to this skill's `freight_status` / `cdp_state` taxonomy:
+
+1. **If `status: "signed_in"`:** EXIT this skill cleanly WITHOUT writing `result.json`. The daemon's retry policy at `crates/daemon/src/jobs/runner.rs` re-invokes the skill on the next pass; the second invocation reads the fresh s-token and completes the `rates(...)` query normally.
+
+2. **If `status: "interstitial_captcha"`:** write `result.json` with `freight_status: "blocked"`, `cdp_state: "captcha_blocked"`, `captcha_intercepted: true`, and a single blocker `{code: "SESSION_REFRESH_FAILED", severity: "blocked", message: "Google reCAPTCHA appeared during SeaRates auto-signin"}`. Stop here.
+
+3. **If `status: "timeout"`, the Google chooser returned `"twofa_interstitial"` / `"chooser_target_missing"` / `"captcha"`, or the Step 3 confirmation reported `on_google: false`:** write `result.json` with `freight_status: "blocked"`, `cdp_state: "session_expired"`, `captcha_intercepted: false`, and a single blocker `{code: "SESSION_REFRESH_FAILED", severity: "blocked", message: "<descriptive message naming the failure mode: Google chooser empty, 2FA, missing s-token after redirect, etc.>"}`. Stop here — the daemon's retry loop owns retries.
+
+The previous `SEARATES_SESSION_EXPIRED` blocker emission is now a fallback: only used when this Session Recovery path has been attempted unsuccessfully AND the `cdp_state: "session_expired"` row from the table below still applies.
 
 ## Mandatory CDP State + Captcha Reporting
 

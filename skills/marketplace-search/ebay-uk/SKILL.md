@@ -88,6 +88,18 @@ Before navigation:
 
 ```bash
 CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+
+# Ensure CDP is up. The daemon's pre-flight gate SHOULD have done this already,
+# but defense in depth: bin/ensure-cdp-9222 is idempotent and fast (<1s no-op
+# when CDP is already up; otherwise launches Chrome with the operator's
+# persistent profile at /Users/alinaaitova/.chrome-automation and polls up to
+# 15s). Returns non-zero only if launch genuinely failed. Absolute path because
+# the skill subprocess cwd is the per-skill workdir, not the project root.
+/Users/alinaaitova/Desktop/Testproject1/bin/ensure-cdp-9222
+
+# Defensive reachability check. If this fails (helper exited non-zero, or a
+# rare post-launch race), follow the "If CDP is unreachable" guidance below:
+# write the skill-specific blocked result.json and stop.
 curl -sfS -m 3 "http://localhost:${CDP_PORT}/json/version"
 ```
 
@@ -96,6 +108,108 @@ If CDP is unreachable, write a valid blocked `result.json` with `search_failure_
 ```bash
 agent-browser --cdp ${CDP_PORT} ...
 ```
+
+### Session Recovery (auto-signin on session-expired)
+
+If the main operation below detects that the operator's persistent Chrome profile is signed OUT of eBay UK, attempt auto-signin via `auth-signin/ebay/` BEFORE emitting any session-expired blocker. Only emit `SESSION_REFRESH_FAILED` if auto-signin ALSO failed (which means the case genuinely needs operator intervention — captcha, 2FA, "Verify your account" interstitial, or Google account chooser empty).
+
+This applies to operator-decision setups where the eBay session is expected to be signed in (richer search access, saved-search syndication). It does NOT run when the skill is intentionally configured to operate anonymously — anonymous mode remains the default for this skill.
+
+**Session-expired detection signals (eBay UK):**
+- Top-right header shows the `Sign in or register` link (`a[href*="signin.ebay.co.uk"]` is present) instead of the operator's greeting / avatar.
+- No `Hi <name>` or `Hello <name>` greeting in `document.body.innerText`.
+- No `My eBay` navigation link (`a[href*="/myb/"]` absent).
+
+When any of these conditions hold at navigation time AND the operator wants signed-in access, treat the session as expired.
+
+**Recovery flow:**
+
+The canonical click sequence below was inlined from `skills/auth-signin/ebay/SKILL.md` §Workflow on 2026-05-17. Phase A discovery of the selectors is complete. If you need to update the sequence, edit the source-of-truth at `skills/auth-signin/ebay/SKILL.md` first and re-inline here.
+
+```bash
+CDP_PORT="${AGENT_BROWSER_CDP_PORT:-9222}"
+
+# 1. Click the Sign In link (selector: canonical href on the eBay homepage)
+agent-browser --cdp ${CDP_PORT} eval '
+(() => {
+  const a = document.querySelector("a[href*=\"signin.ebay.co.uk\"]");
+  if (!a) return JSON.stringify({clicked: false, reason: "signin_link_disappeared"});
+  a.click();
+  return JSON.stringify({clicked: true});
+})()
+'
+agent-browser --cdp ${CDP_PORT} wait 2500
+
+# 2. Click "Continue with Google" on the eBay signin page
+agent-browser --cdp ${CDP_PORT} eval '
+(() => {
+  const candidates = [
+    document.querySelector("button[aria-label*=Google i]"),
+    document.querySelector("[data-social=google]"),
+    document.querySelector("button[data-test-id*=google i]"),
+    ...Array.from(document.querySelectorAll("button, a")).filter(el => /continue with google/i.test(el.innerText || ""))
+  ].filter(Boolean);
+  const btn = candidates[0];
+  if (!btn) return JSON.stringify({clicked: false, reason: "no_google_button_found", current_url: window.location.href});
+  btn.click();
+  return JSON.stringify({clicked: true});
+})()
+'
+agent-browser --cdp ${CDP_PORT} wait 3000
+
+# 3. Confirm we landed on the Google chooser
+agent-browser --cdp ${CDP_PORT} eval 'JSON.stringify({on_google: window.location.hostname.endsWith("accounts.google.com"), url: window.location.href})'
+
+# 4. Pick the Dieter row on the Google chooser (mirror of auth-signin/google-account-chooser)
+agent-browser --cdp ${CDP_PORT} eval '
+(() => {
+  const target = "dieter.x.s.danicek@gmail.com";
+  if (!window.location.hostname.endsWith("accounts.google.com")) return JSON.stringify({page_shape: "not_on_google"});
+  if (document.querySelector("iframe[src*=recaptcha]")) return JSON.stringify({page_shape: "captcha"});
+  const bodyText = (document.body && document.body.innerText) || "";
+  if (/Verify it.s you|2-Step Verification/.test(bodyText)) return JSON.stringify({page_shape: "twofa_interstitial"});
+  if (document.querySelector("input[type=email][name=identifier], input#identifierId")) return JSON.stringify({page_shape: "email_entry_form"});
+  const row = document.querySelector(`[data-identifier="${target}"]`)
+    || document.querySelector(`[data-email="${target}"]`)
+    || Array.from(document.querySelectorAll("li[role=link], div[role=link], div[role=button]"))
+        .find(el => (el.innerText || "").toLowerCase().includes(target.toLowerCase()));
+  if (!row) return JSON.stringify({page_shape: "chooser_target_missing"});
+  row.click();
+  return JSON.stringify({page_shape: "chooser_target_found", clicked: true});
+})()
+'
+agent-browser --cdp ${CDP_PORT} wait 5000
+
+# 5. Poll for redirect back to ebay.co.uk and verify signed-in
+agent-browser --cdp ${CDP_PORT} eval '
+(async () => {
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline) {
+    const url = window.location.href;
+    if (document.querySelector("iframe[src*=recaptcha], iframe[title*=captcha i]")) return JSON.stringify({status: "interstitial_captcha", url});
+    if (/Verify your account|Please confirm your identity|unusual activity/i.test((document.body && document.body.innerText) || "")) return JSON.stringify({status: "interstitial_verification", url});
+    const onEbay = window.location.hostname.endsWith("ebay.co.uk") && !window.location.hostname.startsWith("signin.");
+    if (onEbay) {
+      const signinLink = document.querySelector("a[href*=\"signin.ebay.co.uk\"]");
+      const greetingPresent = /\bHi |\bHello /.test((document.body && document.body.innerText) || "");
+      const myEbayLink = document.querySelector("a[href*=\"/myb/\"], a[href*=\"my.ebay.co.uk\"]");
+      if (!signinLink && (greetingPresent || myEbayLink)) return JSON.stringify({status: "signed_in", url, verified_via: greetingPresent ? "greeting_text_present" : "my_ebay_link_present"});
+      if (!signinLink) return JSON.stringify({status: "signed_in_weak", url, verified_via: "signin_link_absent"});
+    }
+    await new Promise(r => setTimeout(r, 500));
+  }
+  return JSON.stringify({status: "timeout", url: window.location.href});
+})()
+'
+```
+
+After the recovery sequence completes, verify signed-in by re-running this skill's own logged-out detection eval (signin link absent + greeting / My eBay link present). Then:
+
+1. **If signed in:** EXIT this skill cleanly WITHOUT writing `result.json`. The daemon's existing retry policy at `crates/daemon/src/jobs/runner.rs` will re-invoke this skill on its next retry pass; the second invocation sees the restored session and completes the main search operation normally.
+
+2. **If NOT signed in after the signin sequence:** write a blocked `result.json` with one `search_results` entry per remaining candidate having `search_failure_mode: "source_soft_blocked"` and a single blocker `{code: "SESSION_REFRESH_FAILED", severity: "blocked", message: "<descriptive message naming the failure mode: captcha, 2FA, account chooser empty, etc.>"}`. Stop here — the daemon's retry loop owns retries.
+
+This auto-signin recovery is ONLY invoked on session-expired detection. It does NOT run preemptively on every invocation — that would waste time on the happy path AND risk login-storm rate limits (Google flags excessive automated OAuth attempts).
 
 ### Step 0: Read Job Parameters
 

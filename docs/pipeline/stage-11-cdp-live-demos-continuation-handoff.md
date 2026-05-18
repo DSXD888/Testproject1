@@ -7,6 +7,11 @@ Repository: `/Users/alinaaitova/Desktop/Testproject1`
 Purpose: allow a fresh agent to resume exactly where this session stopped and
 complete the Stage 11 CDP resilience live validation end to end.
 
+> **2026-05-17 update:** Routine CDP launches now go through `bin/ensure-cdp-9222`
+> (idempotent helper — see AGENTS.md "CDP Browser Prerequisite"). The manual
+> command later in this doc remains the canonical reference for the flags +
+> profile path; the helper just automates invoking it when CDP is not already up.
+
 ## Current State
 
 Scenarios A and B are green. Quality gates are green. Scenario C is the only

@@ -244,7 +244,11 @@ When `br list --status=open --label=l5` returns empty (or only `audit-fix` candi
 
    Step 01 §6 transcribes these verbatim into the spec. Step 02 verifies the transcription. No re-deciding.
 
-2. **External API procurement (operator action — start in parallel with steps 01-09):** Operator HAS HMRC Developer Portal (Trade Tariff + FPO) already. Operator NEEDS to procure: **Xe Currency Data API**, **Freightos API**, **SeaRates API**, **Taric Support API** — all commercial, ~1-2 weeks lead time including payment + key issuance. Bead execution (post step 10) cannot start until these four keys are in hand. Step 03 bootstrap doc lists them with signup URLs.
+2. **Skill-first architecture (operator-confirmed 2026-05-08) — ZERO commercial API procurements needed.** Three existing landed-cost skills already cover HMRC Trade Tariff (public API, no key), commercial FX (Frankfurter, no key), SeaRates (CDP browser, no key). Two new skills are **operator-built prerequisites** that must exist before step 09 bead audit can pass:
+   - `skills/landed-cost/freightos-freight-estimate/` — CDP browser skill targeting Freightos public rate explorer; **operator-built**. **Build handoff:** `docs/pipeline/l5-expanded-commercial-intelligence/operator-built-skills/HANDOFF-freightos-freight-estimate.md`.
+   - `skills/landed-cost/taric-cross-check/` — CDP browser skill targeting public EU TARIC database (taric.ec.europa.eu); **operator-built**. **Build handoff:** `docs/pipeline/l5-expanded-commercial-intelligence/operator-built-skills/HANDOFF-taric-cross-check.md`.
+
+   These are NOT pipeline beads. Step 07 (bead creation) verifies their existence via Step 1.5; step 09 (bead audit) re-verifies before authorizing execution. Operator's free time can run in parallel with steps 01-08 of the pipeline. Estimated operator effort: ~2-3 hours per skill. See `manifest.yaml#recorded_decisions.external_api_account_state` for full inventory + cost-savings analysis, and `operator-built-skills/README.md` for the build sequence.
 
 3. **Before Batch 6 step 10:** human reviews kickoff + push, authorizes execution.
 4. **After parallel execution closes all task beads:** human triggers Batch 12 completion audit.

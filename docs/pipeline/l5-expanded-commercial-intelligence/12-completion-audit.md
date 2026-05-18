@@ -38,6 +38,11 @@ crates/daemon/src/scheduler/cron.rs     — confirm 4 new CronJobDefinition entr
 crates/daemon/src/db/sync.rs            — confirm PUSH_OWNED_RESEED_TABLES includes product_commodity_codes
 crates/daemon/src/main.rs:5639-6350+    — confirm landed-cost paths refactored to delegate to packages/intelligence/src/customs/
 
+skills/landed-cost/hmrc-customs-classification/            — confirm extended for multi-family expansion
+skills/landed-cost/simple-fx-lookup/                       — confirm extended for dual-rate (Frankfurter + HMRC customs monthly)
+skills/landed-cost/searates-freight-estimate/              — confirm extended for dual-source disagreement signaling
+skills/landed-cost/freightos-freight-estimate/             — confirm operator-built prerequisite exists with working CDP browser GraphQL/scrape path
+skills/landed-cost/taric-cross-check/                      — confirm operator-built prerequisite exists with working CDP browser scrape of taric.ec.europa.eu
 skills/supplier-price-enrichment/{alibaba,amazon,1688}/   — confirm promotion_stage updated to stable; specific deltas applied per spec §1.15 + §2.3
 skills/procurement-ingestion/pcs/                          — MUST exist (Scotland IN-scope per operator decision 2026-05-08; full skill directory standard with SKILL.md + result.schema.json + checkpoint.schema.json + canary.inputs.jsonl + golden.assertions.yaml)
 skills/validation/overlay-customs-classification/         — confirm exists if recommended

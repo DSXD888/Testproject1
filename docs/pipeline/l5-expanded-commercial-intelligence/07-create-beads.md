@@ -104,13 +104,34 @@ You MAY NOT:
 
 ### Step 1: Verify Pre-Conditions (BEFORE Invoking Skill)
 
-The three project-level decisions from step 01 §6 must already be recorded in the validated spec. If any are missing, STOP and re-open step 01.
+The four operator-recorded decisions from step 01 §6 must already be recorded in the validated spec. If any are missing, STOP and re-open step 01.
 
-- [ ] **Decision 1 (product_commodity_codes ownership)** — verified recorded; resolution is Option A (new SQLite migration) or Option B (JSONB on product_candidates). Phase 1 bead behavior follows the recorded decision.
-- [ ] **Decision 2 (PCS Scotland scope)** — verified recorded as IN-SCOPE (operator decision 2026-05-08). PCS bead set is unconditional in Phase 5.
-- [ ] **Decision 3 (epic structure)** — verified recorded; if Option (b) sister epic, the new epic ID is captured in the spec entry. Beads will be created under that epic.
+- [ ] **Decision 1 (product_commodity_codes ownership)** — Option A (new SQLite migration) — verified recorded.
+- [ ] **Decision 2 (PCS Scotland scope)** — IN-SCOPE (operator decision 2026-05-08) — verified recorded. PCS bead set is unconditional in Phase 5.
+- [ ] **Decision 3 (epic structure)** — Option (b) sister epic — verified recorded; new epic ID captured.
+- [ ] **Decision 4 (gold-set categories)** — fasteners + packaging-cartons + examination-gloves — verified recorded.
 - [ ] **L5→L6 gate trace from strategy** — confirm which phase produces each of the 5 blocker conditions (`CLASSIFICATION_AMBIGUOUS`, `TARIFF_BRANCH_DIVERGENCE`, `SUPPLEMENTARY_UNIT_MISSING`, `decision_grade = broker_required`, classification freshness expired).
-- [ ] **Skill state** — confirm the alibaba/amazon/1688 SKILL.md files still exist at `promotion_stage: candidate` (no other agent has matured them mid-pipeline).
+- [ ] **Marketplace skill state** — confirm the alibaba/amazon/1688 SKILL.md files still exist at `promotion_stage: candidate` (no other agent has matured them mid-pipeline).
+
+### Step 1.5: Verify Operator-Built Landed-Cost Skill Prerequisites (BEFORE Invoking Skill)
+
+The operator confirmed 2026-05-08 they will personally build two skills before bead creation finalizes. These are NOT pipeline beads — they are prerequisites. Verify they exist on disk:
+
+- [ ] **`skills/landed-cost/freightos-freight-estimate/`** exists with `SKILL.md` + `result.schema.json` + `checkpoint.schema.json` (CDP browser skill mirroring SeaRates pattern, targets freightos.com public rate explorer or Freightos Baltic Index).
+- [ ] **`skills/landed-cost/taric-cross-check/`** exists with `SKILL.md` + `result.schema.json` + `checkpoint.schema.json` (CDP browser skill targeting taric.ec.europa.eu — public EU TARIC database).
+
+If EITHER is missing: **STOP** — escalate via AgentMail to the operator with subject `[L5 BLOCKER] Operator-built skill prerequisite missing: <skill_path>`. Bead creation cannot proceed until both exist. Phase 3 (Freight) and Phase 4 (Customs multi-source recall) beads depend on them.
+
+If both exist: proceed. The pipeline beads will REFERENCE these skills (no beads create them) and Phase 3/4 orchestrator code in `packages/intelligence/` will call them.
+
+### Step 1.6: Existing Landed-Cost Skills (Already in Place)
+
+The following skills already exist (verified 2026-05-08) and will be EXTENDED by Phase 2/3/4 beads (NOT recreated):
+
+- `skills/landed-cost/hmrc-customs-classification/` — Phase 4 bead extends with multi-family expansion.
+- `skills/landed-cost/simple-fx-lookup/` — Phase 2 bead extends to dual-rate (adds HMRC customs monthly rate alongside existing Frankfurter commercial rate).
+- `skills/landed-cost/searates-freight-estimate/` — Phase 3 bead extends with dual-source disagreement signaling.
+- `skills/landed-cost/shipment-sizing/` — Phase 3 may reference; no extension needed.
 
 ### Step 2: Invoke `/beads-from-sources`
 
@@ -155,6 +176,7 @@ While the skill creates beads, ensure these are honored:
 - One bead per skill maturation: alibaba (Chinese retry, Ready-to-Ship filter, source-health canary), 1688 (Chinese-only short clusters, domestic wholesale floor), amazon (alias families, browser-first, alias families). Each bead lists the EXACT delta vs current SKILL.md.
 - One bead for PCS skill creation (mandatory — Scotland IN-scope per operator decision 2026-05-08): `skills/procurement-ingestion/pcs/{SKILL.md,result.schema.json,checkpoint.schema.json,canary.inputs.jsonl,golden.assertions.yaml}` + daemon `RegisteredSource` entry.
 - One bead for validator overlay (`skills/validation/overlay-customs-classification/`) IF recommended by step 03 TDD.
+- **NO beads for Freightos or Taric cross-check skill creation** — those are operator-built prerequisites (per operator decision 2026-05-08). Verified to exist by Step 1.5 above before bead creation finalizes.
 
 #### Phase 6 — Integration + Gold-Set + CBAM (8-12 beads)
 - One bead per gold-set category (3+ beads).

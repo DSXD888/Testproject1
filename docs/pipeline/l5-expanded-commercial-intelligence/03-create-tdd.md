@@ -126,6 +126,8 @@ Key context to provide the skill:
 - No HTTP mocking framework. Use fixture cassettes + real-HTTP integration tier.
 - Calibration corpus convention: `tests/fixtures/calibration/{domain}/{variant}/canary.inputs.jsonl` + `golden.assertions.yaml`.
 - Quality bar: L4 TDD's 4-tier CI tiering (T1 unit <3min, T2 integration light <10min, T3 integration full <25min, T4 E2E <45min).
+- **Skill-first architecture (operator-confirmed 2026-05-08, manifest `recorded_decisions.external_api_account_state`):** L5 has ZERO paid commercial API procurements. Three existing landed-cost skills already cover HMRC Trade Tariff (public API), commercial spot FX (Frankfurter), and SeaRates (CDP browser). Two new skills (Freightos CDP + Taric cross-check CDP) are operator-built prerequisites, NOT pipeline beads. TDD tests these existing/prerequisite skills as integration points; does NOT test against paid APIs.
+- **HMRC FPO investigation bead:** TDD includes an investigation bead `l5-customs-hmrc-fpo-endpoint-discovery` for Step 03 to determine: (a) does Trade Tariff `/api/search` / `/api/search_suggestions` suffice for ML-powered HS suggestion? (b) does a public FPO endpoint exist? (c) only if both fail, defer to operator decision on developer portal registration. NOT a procurement item — a discovery item.
 
 ### Step 2: Feature-Specific Guidance (while skill runs)
 
@@ -157,8 +159,15 @@ After `/spec-to-tdd` completes:
 - [ ] CI tiering table (T1/T2/T3/T4) exists with budget/cadence/inclusions per L4 pattern.
 - [ ] Test pyramid section enumerates: static gates, unit, integration, E2E, manual smoke (for marketplace skills' anti-bot behavior, manual is acceptable).
 - [ ] Bootstrap doc exists at `docs/pipeline/l5-expanded-commercial-intelligence/artifacts/l5-expanded-commercial-intelligence-bootstrap.md`.
-- [ ] Bootstrap lists all 6 mandatory + 4 optional external accounts (per spec §3.9 Dependencies).
-- [ ] Bootstrap lists env vars: `HMRC_TRADE_TARIFF_API_KEY`, `HMRC_FX_RATE_SERVICE_KEY` (or equivalent), `XE_API_KEY`, `FREIGHTOS_API_KEY`, `SEARATES_API_KEY`, `TARIC_SUPPORT_API_CREDENTIALS`, optional `HS_PING_API_KEY` / `DUTIFY_API_KEY` / `ZONOS_API_KEY` / `AVALARA_API_KEY`.
+- [ ] Bootstrap reflects skill-first architecture (operator-confirmed 2026-05-08): **ZERO paid API procurements**. The spec §3.9 Dependencies table is corrected to:
+      - HMRC Trade Tariff: Required, public API, NO key (existing skill `skills/landed-cost/hmrc-customs-classification/` already uses it without auth).
+      - HMRC Exchange Rate Service: Required, free monthly publication via gov.uk, NO key.
+      - Xe: DECLINED — Frankfurter replacement.
+      - SeaRates paid API: DECLINED — existing CDP skill.
+      - Freightos paid API: DECLINED — operator-built CDP skill (`skills/landed-cost/freightos-freight-estimate/`).
+      - Taric Support paid vendor: DECLINED — operator-built CDP skill (`skills/landed-cost/taric-cross-check/`).
+- [ ] Bootstrap lists NO API key env vars beyond CDP browser config. Possibly `HMRC_TRADE_TARIFF_BASE_URL` for endpoint override only.
+- [ ] Bootstrap explicitly states the two operator-built prerequisite skills (Freightos + Taric) must exist before Phase 3 / Phase 4 beads can claim, and the bead audit (step 09) verifies their presence.
 - [ ] Bootstrap states the 4 cron entries L5 adds (HMRC tariff news, TRA case register, FX monthly rollover, marketplace source-health canary) — name each cron expression and the env var that enables it.
 - [ ] Bootstrap names the ≥3 gold-set categories planned (per DoD #12) — propose 3 (e.g., fasteners, packaging-cartons, examination-gloves) and surface for owner decision; do not silently choose.
 - [ ] Bootstrap preflight script verifies HTTP connectivity to each external API endpoint (with auth) before bead execution.
