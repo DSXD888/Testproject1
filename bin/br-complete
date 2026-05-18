@@ -48,6 +48,14 @@ def resolve_agent_name():
 
 
 def resolve_bearer_token():
+    """Find the bearer token for the local mcp-agent-mail HTTP MCP server.
+
+    Order:
+      1. AGENT_MAIL_BEARER_TOKEN env var
+      2. ~/.claude.json mcpServers entry (Claude Code install layout)
+      3. ~/.config/mcp-agent-mail/config.env HTTP_BEARER_TOKEN= line (Codex CLI install layout)
+      4. empty
+    """
     env_tok = os.environ.get("AGENT_MAIL_BEARER_TOKEN", "").strip()
     if env_tok:
         return env_tok
@@ -56,14 +64,59 @@ def resolve_bearer_token():
         with open(cfg_path, "r", encoding="utf-8") as f:
             cfg = json.load(f)
     except (OSError, ValueError):
-        return ""
-    servers = cfg.get("mcpServers", {}) or {}
-    entry = servers.get("mcp-agent-mail", {}) or {}
-    headers = entry.get("headers", {}) or {}
-    auth = headers.get("Authorization", "")
-    if isinstance(auth, str) and auth.lower().startswith("bearer "):
-        return auth[7:].strip()
+        cfg = None
+    if cfg:
+        servers = cfg.get("mcpServers", {}) or {}
+        entry = servers.get("mcp-agent-mail", {}) or {}
+        headers = entry.get("headers", {}) or {}
+        auth = headers.get("Authorization", "")
+        if isinstance(auth, str) and auth.lower().startswith("bearer "):
+            return auth[7:].strip()
+    env_file = os.path.expanduser("~/.config/mcp-agent-mail/config.env")
+    try:
+        with open(env_file, "r", encoding="utf-8") as f:
+            for line in f:
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#") or "=" not in stripped:
+                    continue
+                key, _, val = stripped.partition("=")
+                if key.strip() == "HTTP_BEARER_TOKEN":
+                    return val.strip().strip('"').strip("'")
+    except OSError:
+        pass
     return ""
+
+
+def preflight_health(url, token, tool_label):
+    """Refuse to mutate when the agent-mail server is in known-degraded state.
+
+    Calls MCP health_check; aborts when health_level=red AND the canonical drift
+    signature ('archive inventory is ahead') is present. Echoes the server's own
+    recovery.next_action verbatim so this stays correct if the server text ever
+    changes. Other non-green levels are warned and execution continues.
+    """
+    result = mcp_call(url, token, "health_check", {}, timeout=10)
+    if not isinstance(result, dict):
+        return
+    health_level = (result.get("health_level") or "").lower()
+    sem = result.get("semantic_readiness") or {}
+    detail = sem.get("detail") if isinstance(sem, dict) else ""
+    detail = detail or ""
+    recovery = result.get("recovery") or {}
+    next_action = recovery.get("next_action") if isinstance(recovery, dict) else ""
+    next_action = next_action or ""
+    if health_level == "red" and "archive inventory is ahead" in detail:
+        die(
+            "agent-mail is degraded_read_only — refusing to mutate.\n"
+            f"  semantic_readiness.detail: {detail}\n"
+            f"  recovery.next_action:      {next_action}\n"
+            "  Do not retry until the operator has repaired the SQLite index."
+        )
+    if health_level and health_level not in ("green", "ok"):
+        warn(
+            f"agent-mail health_level={health_level!r} (not green); continuing. "
+            f"detail={detail!r}"
+        )
 
 
 def resolve_project_key():
@@ -254,6 +307,10 @@ def main():
     token = resolve_bearer_token()
     project_key = resolve_project_key()
     url = os.environ.get("AGENT_MAIL_MCP_URL", DEFAULT_MCP_URL)
+
+    # 0. Refuse to mutate when agent-mail is in degraded_read_only.
+    # Runs before --dry-run is honored so dry-run never paints a misleading OK.
+    preflight_health(url, token, "br-complete")
 
     # 1. Verify bead is in_progress.
     bead = br_show(bead_id)
