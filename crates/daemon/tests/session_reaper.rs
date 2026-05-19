@@ -35,6 +35,17 @@ mod tests {
         std::thread::sleep(Duration::from_millis(750));
     }
 
+    fn wait_for_descendants(root_pid: u32) -> Result<Vec<u32>> {
+        for _ in 0..40 {
+            let descendants = SessionReaper::descendant_pids(root_pid)?;
+            if !descendants.is_empty() {
+                return Ok(descendants);
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        SessionReaper::descendant_pids(root_pid)
+    }
+
     #[test]
     #[serial]
     fn it_rpr_001_waitpid_drain_associates_pid_with_session() -> Result<()> {
@@ -196,8 +207,7 @@ mod tests {
         let ctx = TestContext::new()?;
         let _reaper = SessionReaper::for_test(&ctx.state_root, &ctx.artifact_root)?;
         let child = ProcessTreeHelper::spawn(&["fork-grandchild", "2"])?;
-        std::thread::sleep(Duration::from_millis(200));
-        let descendants = SessionReaper::descendant_pids(child.id())?;
+        let descendants = wait_for_descendants(child.id())?;
         assert!(!descendants.is_empty());
         Ok(())
     }
