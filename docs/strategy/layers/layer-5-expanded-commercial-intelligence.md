@@ -648,7 +648,7 @@ DECISION 3 — L5 implementation epic structure: Option (b) — sister epic
   Recorded: 2026-05-08 by operator (via pipemaxxer AskUserQuestion)
   Rationale: Recommended default. Clean separation between layer-doc-authoring epic (testproject1-4gh, children 4gh.1-4 already complete) and implementation work.
   Implementation: Step 07 runs `br create --type=epic --priority=P0 --title="Epic: L5 Implementation — Expanded Commercial Intelligence" --label l5` and captures the new epic ID into this section. All Phase 1-6 implementation beads thread under that new epic.
-  New epic ID: <to be filled in step 07 after `br create` runs>
+  New epic ID: testproject1-hn05 (created 2026-05-19 by step 07)
 
 DECISION 4 — Gold-set categories (DoD #12): fasteners + packaging-cartons + examination-gloves
   Recorded: 2026-05-08 by operator (via pipemaxxer AskUserQuestion)
