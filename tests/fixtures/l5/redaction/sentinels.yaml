@@ -1,0 +1,127 @@
+display_fields:
+  declarable_commodity_code_10:
+    sentinel: "L5-SENTINEL-DISPLAY-4819100000-2026"
+    viewer_visible: true
+    operator_visible: true
+  net_margin_low_bps:
+    sentinel: -250
+    viewer_visible: true
+    operator_visible: true
+  net_margin_base_bps:
+    sentinel: 1325
+    viewer_visible: true
+    operator_visible: true
+  net_margin_high_bps:
+    sentinel: 2480
+    viewer_visible: true
+    operator_visible: true
+  decision_grade:
+    sentinel: "review_required"
+    viewer_visible: true
+    operator_visible: true
+  warnings:
+    sentinel: "L5-SENTINEL-DISPLAY-WARNING-2026"
+    viewer_visible: true
+    operator_visible: true
+  blockers:
+    sentinel: "L5-SENTINEL-DISPLAY-BLOCKER-2026"
+    viewer_visible: true
+    operator_visible: true
+  cbam_exposure_flag:
+    sentinel: true
+    viewer_visible: true
+    operator_visible: true
+
+control_fields:
+  customs_fx_rate:
+    sentinel: 0.78340001
+    viewer_visible: rounded
+    operator_visible: true
+  commercial_fx_rate:
+    sentinel: 0.78710001
+    viewer_visible: rounded
+    operator_visible: true
+  fx_basis_delta_bps:
+    sentinel: 47
+    viewer_visible: true
+    operator_visible: true
+  freight_low_gbp_pence:
+    sentinel: 123400
+    viewer_visible: true
+    operator_visible: true
+  freight_base_gbp_pence:
+    sentinel: 145600
+    viewer_visible: true
+    operator_visible: true
+  freight_high_gbp_pence:
+    sentinel: 188900
+    viewer_visible: true
+    operator_visible: true
+  customs_duty_gbp_pence:
+    sentinel: 43210
+    viewer_visible: true
+    operator_visible: true
+  trade_remedy_duty_gbp_pence:
+    sentinel: 98765
+    viewer_visible: true
+    operator_visible: true
+  product_commodity_codes.commodity_code:
+    sentinel: "L5-SENTINEL-CONTROL-PCC-7318159590"
+    viewer_visible: false
+    operator_visible: true
+
+automation_sensitive_fields:
+  exporter_rate_basis:
+    sentinel: "L5-SENTINEL-AUTOSENSITIVE-RESIDUAL-DEFAULT-2026"
+    viewer_visible: false
+    operator_visible: true
+  exporter_identity_confidence_bps:
+    sentinel: 1701
+    viewer_visible: false
+    operator_visible: true
+  origin_evidence_state:
+    sentinel: "L5-SENTINEL-AUTOSENSITIVE-ORIGIN-GAP-2026"
+    viewer_visible: false
+    operator_visible: true
+  trade_remedy_cases_json:
+    sentinel: "L5-SENTINEL-AUTOSENSITIVE-REMEDY-CASE-2026"
+    viewer_visible: false
+    operator_visible: true
+  duty_breakdown_json:
+    sentinel: "L5-SENTINEL-AUTOSENSITIVE-DUTY-BREAKDOWN-2026"
+    viewer_visible: false
+    operator_visible: true
+  measure_interaction_json:
+    sentinel: "L5-SENTINEL-AUTOSENSITIVE-MEASURE-INTERACTION-2026"
+    viewer_visible: false
+    operator_visible: true
+  "confidence_breakdown.evidence_leverage":
+    sentinel: "L5-SENTINEL-AUTOSENSITIVE-EVIDENCE-LEVERAGE-2026"
+    viewer_visible: false
+    operator_visible: true
+  product_commodity_codes.evidence_json:
+    sentinel: "L5-SENTINEL-AUTOSENSITIVE-PCC-EVIDENCE-2026"
+    viewer_visible: false
+    operator_visible: true
+
+local_only_sensitive:
+  browser_transcripts:
+    sentinel: "/tmp/transcripts/l5-redaction-sentinel-001.txt"
+    viewer_visible: false
+    operator_visible: local_artifact_only
+  raw_marketplace_pages:
+    sentinel: "/tmp/pages/l5-redaction-sentinel-raw-marketplace.html"
+    viewer_visible: false
+    operator_visible: local_artifact_only
+  skill_checkpoints:
+    sentinel: "/tmp/checkpoints/l5-redaction-sentinel-checkpoint.json"
+    viewer_visible: false
+    operator_visible: local_artifact_only
+  service_keys:
+    sentinel: "L5-SENTINEL-LOCAL-SERVICE-KEY-DO-NOT-PROJECT"
+    viewer_visible: false
+    operator_visible: false
+  raw_credential_state:
+    sentinel: "L5-SENTINEL-LOCAL-CREDENTIAL-STATE-DO-NOT-PROJECT"
+    viewer_visible: false
+    operator_visible: false
