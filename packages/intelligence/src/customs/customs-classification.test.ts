@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
+import {
+  TRADE_REMEDY_WATCH_STALE,
+  createTariffChangeEvent,
+  createTradeRemedyCaseOpeningEvent,
+  sweepFreshness,
+} from "./classification-freshness";
 import { EXPORTER_UNRESOLVED, resolveExporter } from "./exporter-resolution";
 import {
   InMemoryRecallLatticeStore,
@@ -236,6 +242,174 @@ describe("customs classification tariff graph", () => {
   });
 });
 
+describe("customs classification freshness", () => {
+  it("L5-T-customs_classification-022 tracks structure, measures, remedies, and FX independently", () => {
+    const result = sweepFreshness({
+      uk10: "4819100000",
+      vectors: freshnessVectors({
+        tariffCheckedAt: "2026-05-18T00:00:00Z",
+        measuresFreshUntil: "2026-05-21T00:00:00Z",
+        tradeRemedyCheckedAt: "2026-05-18T00:00:00Z",
+        fxRateCheckedAt: "2026-05-19T00:00:00Z",
+      }),
+      expectedImportWindow: {
+        start: "2026-05-22T00:00:00Z",
+        end: "2026-05-29T00:00:00Z",
+      },
+      now: new Date("2026-05-19T12:00:00Z"),
+      configuredWindow: {
+        structureDays: 14,
+        measuresDays: 7,
+        remedyDays: 14,
+        fxDays: 31,
+      },
+    });
+
+    expect(result.passing).toBe(false);
+    expect(result.expiredVectors).toEqual(["measures"]);
+    expect(result.vectorStates).toMatchObject({
+      structure: { passing: true },
+      measures: { passing: false },
+      remedies: { passing: true },
+      fx: { passing: true },
+    });
+    expect(result.enqueueReclassification).toBe(true);
+    expect(result.enqueueRecalculation).toBe(false);
+    expect(result.blocksL6Readiness).toBe(true);
+
+    const remedyResult = sweepFreshness({
+      uk10: "7604210000",
+      vectors: freshnessVectors({
+        tariffCheckedAt: "2026-05-18T00:00:00Z",
+        measuresFreshUntil: "2026-06-15T00:00:00Z",
+        tradeRemedyWatchState: "investigation_open",
+        tradeRemedyCheckedAt: "2026-05-18T00:00:00Z",
+        fxRateCheckedAt: "2026-05-19T00:00:00Z",
+      }),
+      expectedImportWindow: {
+        start: "2026-05-22T00:00:00Z",
+        end: "2026-05-29T00:00:00Z",
+      },
+      now: new Date("2026-05-19T12:00:00Z"),
+      configuredWindow: {
+        structureDays: 14,
+        measuresDays: 30,
+        remedyDays: 14,
+        fxDays: 31,
+      },
+    });
+
+    expect(remedyResult.expiredVectors).toEqual(["remedies"]);
+    expect(remedyResult.blockers).toContain(TRADE_REMEDY_WATCH_STALE);
+    expect(remedyResult.vectorStates.fx.passing).toBe(true);
+    expect(remedyResult.enqueueReclassification).toBe(true);
+    expect(remedyResult.enqueueRecalculation).toBe(false);
+  });
+
+  it("L5-T-customs_classification-023 emits tariff and TRA watcher events for affected UK10 codes", () => {
+    const tariffEvent = createTariffChangeEvent({
+      kind: "structure",
+      changedAt: "2026-05-19T03:15:00Z",
+      affectedUk10Codes: ["4819100000", "4819200000"],
+      sourceReference: "hmrc-tariff-news-2026-05-19",
+    });
+
+    expect(tariffEvent).toMatchObject({
+      eventCode: "TARIFF_STRUCTURE_CHANGED",
+      vector: "structure",
+      enqueueReclassification: true,
+      enqueueRecalculation: false,
+      affectedUk10Codes: ["4819100000", "4819200000"],
+      affectedCommodityFamilies: ["4819"],
+    });
+
+    const remedyEvent = createTradeRemedyCaseOpeningEvent({
+      openedAt: "2026-05-19T02:45:00Z",
+      caseReference: "TRA/2026/ACME-ALUMINIUM",
+      affectedUk10Codes: ["7604210000"],
+      originCountries: ["CN"],
+    });
+
+    expect(remedyEvent).toMatchObject({
+      eventCode: "TRA_INVESTIGATION_OPEN",
+      vector: "remedies",
+      tradeRemedyWatchState: "investigation_open",
+      enqueueReclassification: true,
+      enqueueRecalculation: false,
+      blockers: [TRADE_REMEDY_WATCH_STALE],
+      affectedCommodityFamilies: ["7604"],
+    });
+  });
+
+  it("L5-T-customs_classification-024 marks missed watchers stale and blocks readiness until catch-up completes", () => {
+    const stale = sweepFreshness({
+      uk10: "4819100000",
+      vectors: freshnessVectors({
+        tariffCheckedAt: "2026-05-18T00:00:00Z",
+        measuresFreshUntil: "2026-06-15T00:00:00Z",
+        tradeRemedyCheckedAt: "2026-05-18T00:00:00Z",
+        fxRateCheckedAt: "2026-05-18T00:00:00Z",
+      }),
+      expectedImportWindow: {
+        start: "2026-05-20T00:00:00Z",
+        end: "2026-05-24T00:00:00Z",
+      },
+      now: new Date("2026-05-19T12:00:00Z"),
+      configuredWindow: {
+        structureDays: 14,
+        measuresDays: 14,
+        remedyDays: 1,
+        fxDays: 31,
+      },
+      lastSuccessfulWatcherRuns: {
+        remedies: "2026-05-17T02:45:00Z",
+      },
+    });
+
+    expect(stale.expiredVectors).toEqual(["remedies"]);
+    expect(stale.tradeRemedyWatchState).toBe("stale");
+    expect(stale.catchUpJobs).toEqual([
+      {
+        action: "reclassify",
+        affectedCommodityFamilies: ["4819"],
+        affectedUk10Codes: ["4819100000"],
+        reason: "watcher_missed_window",
+        vector: "remedies",
+      },
+    ]);
+    expect(stale.blockers).toContain(TRADE_REMEDY_WATCH_STALE);
+    expect(stale.blocksL6Readiness).toBe(true);
+
+    const caughtUp = sweepFreshness({
+      uk10: "4819100000",
+      vectors: freshnessVectors({
+        tariffCheckedAt: "2026-05-19T11:00:00Z",
+        measuresFreshUntil: "2026-06-15T00:00:00Z",
+        tradeRemedyCheckedAt: "2026-05-19T11:00:00Z",
+        fxRateCheckedAt: "2026-05-19T11:00:00Z",
+      }),
+      expectedImportWindow: {
+        start: "2026-05-20T00:00:00Z",
+        end: "2026-05-24T00:00:00Z",
+      },
+      now: new Date("2026-05-19T12:00:00Z"),
+      configuredWindow: {
+        structureDays: 14,
+        measuresDays: 14,
+        remedyDays: 14,
+        fxDays: 31,
+      },
+      lastSuccessfulWatcherRuns: {
+        remedies: "2026-05-19T11:00:00Z",
+      },
+    });
+
+    expect(caughtUp.passing).toBe(true);
+    expect(caughtUp.catchUpJobs).toEqual([]);
+    expect(caughtUp.blocksL6Readiness).toBe(false);
+  });
+});
+
 describe("customs classification exporter defaults", () => {
   it("L5-T-customs_classification-014 applies residual default and unlockable margin for missing exporter proof", () => {
     const result = resolveExporter({
@@ -301,6 +475,19 @@ function aluminiumExtrusionMeasure() {
         ratePctBps: 750,
       },
     ],
+  };
+}
+
+function freshnessVectors(
+  overrides: Partial<Parameters<typeof sweepFreshness>[0]["vectors"]>,
+): Parameters<typeof sweepFreshness>[0]["vectors"] {
+  return {
+    tariffCheckedAt: "2026-05-18T00:00:00Z",
+    measuresFreshUntil: "2026-06-15T00:00:00Z",
+    tradeRemedyWatchState: "stable",
+    tradeRemedyCheckedAt: "2026-05-18T00:00:00Z",
+    fxRateCheckedAt: "2026-05-19T00:00:00Z",
+    ...overrides,
   };
 }
 
