@@ -1,0 +1,80 @@
+rubric_version: 1
+worker_skill_id: supplier-price-enrichment/alibaba
+validator_overlay: validation/overlay-customs-classification
+worker_behavior_version: skills/supplier-price-enrichment/alibaba@2.0.0
+validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
+test_ids:
+  primary:
+    - L5-T-freight_engine-009
+  promotion_gate:
+    - L5-T-freight_engine-013
+    - L5-T-freight_engine-018
+
+blocking_checks:
+  - id: full_search_profile_preserved
+    severity: blocker
+    rule: "Alibaba must consume critical attributes, numeric specs, standards, aliases, exclusions, query waves, and eligibility state; head-noun-only extraction fails."
+    evidence_fields:
+      - search_profile.critical_attributes_json
+      - search_profile.numeric_specs_json
+      - search_profile.standards_json
+      - search_profile.noun_aliases_en
+      - search_profile.aliases_zh
+      - search_profile.excluded_terms
+      - search_profile.query_waves_json
+      - search_profile.search_eligibility_state
+
+  - id: chinese_retry_guarded_by_back_translation
+    severity: blocker
+    rule: "Chinese retry runs on English zero/accessory/consumer swamps and quote emission requires compatible back-translation/head-noun evidence."
+    failure_code: VOCABULARY_MISMATCH_EN_ONLY
+
+  - id: optimistic_floor_only
+    severity: blocker
+    rule: "Every emitted Alibaba quote keeps price_signal_role=optimistic_floor and never becomes executable quote evidence."
+
+  - id: ready_to_ship_conditional_bump
+    severity: blocker
+    rule: "Ready-to-Ship may add at most 500 bps only when unit, MOQ, and shipping/incoterm clarity are all present."
+
+  - id: auth_and_antibot_gate
+    severity: blocker
+    rule: "Unauthenticated, CAPTCHA, locale drift, page-shape drift, and open circuit-breaker states emit source-specific failure codes and supplier_quotes=[] rather than fabricated quotes."
+    allowed_failure_codes:
+      - ALIBABA_UNAUTH_SESSION
+      - ALIBABA_CAPTCHA_BLOCKED
+      - ALIBABA_LOCALE_DRIFT
+      - ALIBABA_PAGE_SHAPE_DRIFT
+      - ALIBABA_HARD_CONFLICT_ZERO_SURVIVORS
+      - SOURCE_AUTH_STATE_INVALID
+      - SOURCE_CAPTCHA_BLOCKED
+      - PAGE_SHAPE_DRIFT
+      - LOCALE_OR_CURRENCY_DRIFT
+
+  - id: confidence_formula_locked
+    severity: blocker
+    rule: "match_confidence_bps and quote_usability_confidence_bps use the documented weighted formulas unless a future bead records a deliberate replacement."
+
+warning_checks:
+  - id: source_health_canary_degraded
+    severity: warning
+    rule: "A degraded source-health canary may run but must be reflected in warnings and evidence."
+
+  - id: translation_ambiguous
+    severity: warning
+    rule: "Ambiguous Chinese retry translations become warnings and attempted-search evidence, not quotes."
+
+promotion_controls:
+  promotion_stage: candidate
+  stable_promotion_owner: l5-p5-marketplace-fixture-promotion-gate
+  required_standard_files:
+    - SKILL.md
+    - result.schema.json
+    - checkpoint.schema.json
+    - canary.inputs.jsonl
+    - golden.assertions.yaml
+    - validator-rubric.yaml
+  compatible_pairs:
+    - worker: skills/supplier-price-enrichment/alibaba@2.0.0
+      validator: validation/overlay-customs-classification@1.0.0+1.0
+      state: compatible

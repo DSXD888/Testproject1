@@ -53,7 +53,7 @@
           "wave_number":          { "type": "integer", "minimum": 0, "maximum": 4 },
           "strategy": {
             "type": "string",
-            "enum": ["exact_anchor", "alias_swap", "market_frame", "broad_existence", "compliance_off"]
+            "enum": ["exact_anchor", "alias_swap", "market_frame", "broad_existence", "compliance_off", "chinese_retry"]
           },
           "query_text":           { "type": "string" },
           "locale":               { "type": "string" },
@@ -63,9 +63,23 @@
           "is_recovery_wave":     { "type": "boolean" },
           "search_failure_mode": {
             "type": ["string", "null"],
-            "enum": [null, "vocabulary_gap", "overconstrained_query", "accessory_swamp", "compliance_not_surfaceable", "no_marketplace_presence", "low_extraction_quality", "source_specific_failure"]
+            "enum": [null, "vocabulary_gap", "overconstrained_query", "accessory_swamp", "consumer_item_swamp", "translation_ambiguous", "back_translation_mismatch", "compliance_not_surfaceable", "no_marketplace_presence", "low_extraction_quality", "source_specific_failure"]
           },
           "filters_json":         { "type": "object" },
+          "query_language":       { "type": ["string", "null"], "enum": [null, "en", "zh"] },
+          "triggered_by": {
+            "type": ["string", "null"],
+            "enum": [null, "english_zero_results", "accessory_swamp", "consumer_item_swamp", "manual_query_wave"]
+          },
+          "accessory_or_consumer_ratio_bps": { "type": ["integer", "null"], "minimum": 0, "maximum": 10000 },
+          "back_translation_status": {
+            "type": ["string", "null"],
+            "enum": [null, "not_required", "compatible", "ambiguous", "incompatible"]
+          },
+          "head_noun_compatibility_state": {
+            "type": ["string", "null"],
+            "enum": [null, "compatible", "ambiguous", "incompatible"]
+          },
           "listing_urls":         { "type": "array", "items": { "type": "string" } }
         }
       }
@@ -120,6 +134,7 @@
           "normalized_unit_basis":          { "type": ["string", "null"] },
           "is_used_or_refurbished":         { "type": "boolean" },
           "is_ready_to_ship":               { "type": ["boolean", "null"] },
+          "ready_to_ship_usability_bump_bps": { "type": ["integer", "null"], "minimum": 0, "maximum": 500 },
           "vat_inclusive":                  { "type": ["boolean", "null"] },
           "compliance_evidence_tier":       { "type": ["string", "null"], "enum": [null, "structured_attribute", "title_body_mention", "absent"] },
           "match_confidence_bps":           { "type": "integer", "minimum": 0, "maximum": 10000 },
@@ -127,6 +142,9 @@
           "shipping_basis_confidence_bps":  { "type": ["integer", "null"], "minimum": 0, "maximum": 10000 },
           "quote_realism_confidence_bps":   { "type": ["integer", "null"], "minimum": 0, "maximum": 10000 },
           "query_wave_number":              { "type": ["integer", "null"], "minimum": 0, "maximum": 4 },
+          "source_health_canary_state":      { "type": ["string", "null"], "enum": [null, "healthy", "degraded", "blocked", "auth_required", "unknown"] },
+          "back_translation_status":         { "type": ["string", "null"], "enum": [null, "not_required", "compatible", "ambiguous", "incompatible"] },
+          "head_noun_compatibility_state":   { "type": ["string", "null"], "enum": [null, "compatible", "ambiguous", "incompatible"] },
           "evidence_states_json":           { "type": "object" },
           "evidence":                       { "type": "string" },
           "valid_until":                    { "type": ["string", "null"], "format": "date-time" }

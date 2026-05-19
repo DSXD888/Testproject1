@@ -4,17 +4,18 @@ skill_version: 2026.04.21-1
 interaction_profile: pty_interactive
 result_schema_version: 1.0.0
 checkpoint_schema_version: 1.0.0
-validator_overlay_version: 2026.04.21-1
+validator_overlay: validation/overlay-customs-classification
+validator_overlay_version: 1.0.0
 model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: local_state
 promotion_stage: candidate
-worker_behavior_version: supplier-price-enrichment/alibaba@2026.04.21-1+1.0.0
-validator_behavior_version: 2026.04.21-1
+worker_behavior_version: skills/supplier-price-enrichment/alibaba@2.0.0
+validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
 version_change_affects_behavior: true
 gate_a_family_key: supplier-price-enrichment
 gate_a_family_prequalified: false
-gate_b_exact_slice_key: supplier-price-enrichment/alibaba::alibaba::supplier-price-enrichment/alibaba@2026.04.21-1+1.0.0::2026.04.21-1
+gate_b_exact_slice_key: supplier-price-enrichment/alibaba::alibaba::skills/supplier-price-enrichment/alibaba@2.0.0::validation/overlay-customs-classification@1.0.0+1.0
 gate_b_exact_slice_ready: false
 maxPages: 3
 maxScrollCycles: 2
@@ -90,6 +91,17 @@ Each wave is a URL navigation:
 https://www.alibaba.com/trade/search?SearchText={urlencode(wave.query_en)}
 ```
 
+### 1A. L5 Chinese retry on zero/accessory/consumer swamps
+
+Run English query waves first. Trigger the Chinese retry path when either:
+
+- English waves produce zero post-filter survivors.
+- At least 80% of visible results are accessory, replacement-part, retail consumer, or unrelated family hits.
+
+The retry path uses `aliases_zh` from the SearchProfile and only emits short Chinese query clusters that preserve the original `head_noun`, critical attributes, numeric specs, standards, exclusions, query-wave plan, and `search_eligibility_state`. Do not infer Chinese aliases from the listing page. If no validated Chinese alias is present, record `VOCABULARY_MISMATCH_EN_ONLY` and treat the case as lexicon expansion work, not as marketplace unavailability.
+
+Before emitting a quote from a Chinese retry, back-translate the listing title/head noun and verify compatibility with the original `head_noun` or `noun_aliases_en`. Compatible translations may emit quotes with `search_attempts[].strategy = "chinese_retry"`. Ambiguous translations become warnings and attempted-search evidence only; they do not become `supplier_quotes[]`.
+
 ### 2. Snapshot and hard-conflict filter
 
 After each wave's search, `snapshot -i -c` the results page. For each listing in the snapshot:
@@ -99,6 +111,7 @@ After each wave's search, `snapshot -i -c` the results page. For each listing in
 - **Numeric-spec tolerance:** every `numeric_specs_json` entry with `criticality: "required"` MUST have listing-reported values inside the `[min, max]` window. When the listing does not surface a spec, degrade evidence to `missing` but do not hard-drop — flag for detail-page fetch.
 - **Exclusion terms:** if the listing title contains any `excluded_terms`, drop unconditionally.
 - **Standards:** record each `standards_json` entry as `evidence_state = match | missing | ambiguous | conflict` based on title + structured-attribute presence. For `regulated_goods`, a `conflict` is a hard drop; for other categories it is a confidence penalty.
+- **Chinese retry compatibility:** when the result came from `strategy: "chinese_retry"`, the back-translation/head-noun compatibility state MUST be `compatible`; otherwise drop from quote emission and record a warning.
 
 ### 3. Diversified shortlist
 
@@ -121,6 +134,8 @@ For each retained listing, compute two scores (report both in bps, 0-10000):
 
 - **match_confidence_bps** = 0.40 · product_type_match + 0.30 · critical_attrs_match + 0.20 · numeric_specs_match + 0.10 · evidence_quality. Measures *is this the right product?*
 - **quote_usability_confidence_bps** = 0.35 · unit_clarity + 0.25 · MOQ_clarity + 0.20 · shipping_clarity + 0.20 · completeness. Measures *is this quote usable for downstream gross-margin gating?*
+
+Ready-to-Ship is only a confidence bump when all three clarity facts are present: unit clarity, MOQ clarity, and shipping/incoterm clarity. If a listing is marked `Ready to Ship` but any of those facts is missing or ambiguous, keep `is_ready_to_ship: true` as observed evidence but do not increase `quote_usability_confidence_bps`. The maximum Ready-to-Ship bump is 500 bps and must be recorded in `evidence_states_json.ready_to_ship_usability_bump_bps`.
 
 ### 6. Emit supplier_quotes
 
@@ -173,6 +188,12 @@ Alibaba results are ALWAYS `price_signal_role: "optimistic_floor"` — they feed
 
 Both files are MANDATORY every run. Silent omission is a compliance failure. When the batch fails (CAPTCHA, auth issue, zero results across all waves), still emit `result.json` with `supplier_quotes: []`, populated `search_attempts[]` describing what was tried, and a non-null `failure_code` — don't return empty files.
 
+## L5 Source-Health And Anti-Bot Gates
+
+Before production jobs, check the latest Alibaba source-health canary result for the five L5 archetypes: fasteners, packaging-cartons, examination-gloves, Chinese retry/accessory swamp, and auth/CAPTCHA failure recovery. If the canary state is `blocked`, `auth_required`, or missing, emit no quotes and return `supplier_quotes: []` with a non-null failure code.
+
+Maintain an anti-bot circuit breaker in run evidence. After three consecutive `SOURCE_CAPTCHA_BLOCKED`, `SOURCE_SOFT_BLOCKED`, or `ALIBABA_CAPTCHA_BLOCKED` outcomes, open the circuit and pause Alibaba production runs until manual operator clearance or source-health recovery evidence is recorded. An open circuit returns `supplier_quotes: []`, `failure_code: ALIBABA_CAPTCHA_BLOCKED`, and a warning naming the clearance requirement.
+
 ## Non-goals
 
 - Authentication recovery or CAPTCHA solving (use `auth-refresh/alibaba`).
@@ -191,6 +212,12 @@ Both files are MANDATORY every run. Silent omission is a compliance failure. Whe
 - LOCALE_OR_CURRENCY_DRIFT
 - ZERO_RESULTS_ALL_WAVES
 - HARD_CONFLICT_ZERO_SURVIVORS
+- ALIBABA_UNAUTH_SESSION
+- ALIBABA_CAPTCHA_BLOCKED
+- ALIBABA_LOCALE_DRIFT
+- ALIBABA_PAGE_SHAPE_DRIFT
+- ALIBABA_HARD_CONFLICT_ZERO_SURVIVORS
+- VOCABULARY_MISMATCH_EN_ONLY
 - CDP_PROFILE_LOCK_CONFLICT
 - AGENT_STALLED
 - AGENT_RUN_FAILED
