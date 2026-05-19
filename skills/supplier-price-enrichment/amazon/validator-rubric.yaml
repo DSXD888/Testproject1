@@ -1,0 +1,73 @@
+schema_version: 1
+validator_overlay: validation/overlay-customs-classification
+source_id: "amazon"
+rubric_id: supplier-price-enrichment-amazon-l5
+test_ids:
+  - L5-T-freight_engine-011
+domain_checks:
+  browser_first:
+    required: true
+    pass_condition: "All Amazon production runs use browser-first CDP execution; PA-API paths are disabled after 2026-04-30."
+    fail_codes:
+      - AMAZON_PAAPI_SUNSET_DETECTED
+      - AMAZON_BROWSER_FIRST_REQUIRED
+  alias_family:
+    required: true
+    pass_condition: "Query waves include alias-family expansions from head_noun and noun_aliases_en before broad marketplace framing."
+    fail_codes:
+      - AMAZON_ALIAS_FAMILY_MISSING
+  structured_title_vocabulary:
+    required: true
+    pass_condition: "Titles/detail headings are parsed into brand, model, material, dimensions, pack size, and variant attributes."
+    fail_codes:
+      - AMAZON_STRUCTURED_TITLE_VOCABULARY_MISSING
+  concrete_asin_variant:
+    required: true
+    pass_condition: "Every emitted quote is tied to one concrete 10-character ASIN and never to a family-level pseudo-price."
+    fail_codes:
+      - AMAZON_AMBIGUOUS_VARIANT_FAMILY
+      - VARIANT_ASIN_AMBIGUOUS
+  price_signal_role:
+    required: true
+    pass_condition: "Every supplier quote has price_signal_role=benchmark_ceiling and is never executable."
+    fail_codes:
+      - MARKETPLACE_ROLE_DRIFT
+  regulated_goods_reputation:
+    required: true
+    pass_condition: "Regulated-goods quotes require at least 4.0 rating and at least 50 reviews; otherwise they remain warnings only."
+    fail_codes:
+      - LOW_CONFIDENCE_SELLER_COMPLIANCE
+scoring:
+  approved:
+    min_confidence_bps: 8500
+    requires:
+      - browser_first
+      - alias_family
+      - structured_title_vocabulary
+      - concrete_asin_variant
+      - price_signal_role
+  rejected:
+    applies_when:
+      - browser_first fails
+      - concrete_asin_variant fails
+  insufficient_basis:
+    applies_when:
+      - structured_title_vocabulary missing
+      - required ASIN variant evidence missing
+compatibility:
+  worker_behavior_version: supplier-price-enrichment/amazon@2.0.0
+  validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
+  incompatible_versions_block_promotion: true
+evidence_requirements:
+  - browser_first_preflight
+  - alias_family
+  - query_en
+  - structured_title_vocabulary
+  - source_listing_id
+  - selected_asin_variant_attributes
+  - listing_url
+  - observed_locale
+  - observed_currency
+  - fulfillment_class
+  - review_count
+  - source_transcript_path

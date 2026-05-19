@@ -19,6 +19,10 @@ pub const DEFAULT_BINDING_CHECKPOINT_SCHEMA_VERSION: &str = "1.0.0";
 const L5_SUPPLIER_PRICE_ENRICHMENT_SKILL_VERSION: &str = "2026.04.21-1";
 const L5_PROCUREMENT_INGESTION_SKILL_VERSION: &str = "2026.05.19-1";
 const L5_SOURCE_HEALTH_SKILL_VERSION: &str = "2026.05.19-1";
+const L5_MARKETPLACE_VALIDATOR_OVERLAY_VERSION: &str =
+    "validation/overlay-customs-classification@1.0.0";
+const L5_MARKETPLACE_VALIDATOR_BEHAVIOR_VERSION: &str =
+    "validation/overlay-customs-classification@1.0.0+1.0";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -782,13 +786,16 @@ fn builtin_definitions() -> BTreeMap<String, SourceDefinition> {
                 "quote_class": "supplier_price_enrichment",
                 "search_strategy": "browser_first",
                 "pa_api_sunset": "2026-04-30",
+                "pa_api_enabled": false,
+                "validator_overlay": "validation/overlay-customs-classification",
+                "worker_behavior_version": "supplier-price-enrichment/amazon@2.0.0",
+                "validator_behavior_version": L5_MARKETPLACE_VALIDATOR_BEHAVIOR_VERSION,
             }),
-            production_binding: Some(candidate_binding(
+            production_binding: Some(l5_marketplace_candidate_binding(
                 "supplier-price-enrichment/amazon",
                 L5_SUPPLIER_PRICE_ENRICHMENT_SKILL_VERSION,
-                None,
-                "supplier-price-enrichment",
                 "amazon",
+                "supplier-price-enrichment/amazon@2.0.0",
             )),
             canary_binding: None,
             auth_refresh_binding: None,
@@ -1019,6 +1026,30 @@ fn candidate_binding(
     )
 }
 
+fn l5_marketplace_candidate_binding(
+    skill_id: &str,
+    skill_version: &str,
+    source_scope: &str,
+    worker_behavior_version: &str,
+) -> SkillBinding {
+    let mut binding = candidate_binding(
+        skill_id,
+        skill_version,
+        None,
+        "supplier-price-enrichment",
+        source_scope,
+    );
+    L5_MARKETPLACE_VALIDATOR_OVERLAY_VERSION
+        .clone_into(&mut binding.version_dimensions.validator_overlay);
+    worker_behavior_version.clone_into(&mut binding.behavior_versions.worker_behavior_version);
+    L5_MARKETPLACE_VALIDATOR_BEHAVIOR_VERSION
+        .clone_into(&mut binding.behavior_versions.validator_behavior_version);
+    binding.calibration.exact_slice_key = format!(
+        "{skill_id}::{source_scope}::{worker_behavior_version}::{L5_MARKETPLACE_VALIDATOR_BEHAVIOR_VERSION}"
+    );
+    binding
+}
+
 fn binding_with_stage(
     skill_id: &str,
     skill_version: &str,
@@ -1094,7 +1125,7 @@ mod tests {
     use super::{PromotionStage, SourceKind, SourceRegistry};
 
     #[test]
-    fn l5_t_freight_engine_012_014_016_registry_exposes_l5_source_shapes() {
+    fn l5_t_freight_engine_011_012_014_016_registry_exposes_l5_source_shapes() {
         let alibaba =
             SourceRegistry::builtin_definition("alibaba").expect("Alibaba source should exist");
         let alibaba_binding = alibaba
@@ -1137,6 +1168,26 @@ mod tests {
         assert_eq!(amazon.config["price_signal_role"], "benchmark_ceiling");
         assert_eq!(amazon.config["search_strategy"], "browser_first");
         assert_eq!(amazon.config["pa_api_sunset"], "2026-04-30");
+        assert_eq!(amazon.config["pa_api_enabled"].as_bool(), Some(false));
+        assert_eq!(
+            amazon.config["validator_overlay"],
+            "validation/overlay-customs-classification"
+        );
+        assert_eq!(
+            amazon_binding.behavior_versions.worker_behavior_version,
+            "supplier-price-enrichment/amazon@2.0.0"
+        );
+        assert_eq!(
+            amazon_binding.behavior_versions.validator_behavior_version,
+            "validation/overlay-customs-classification@1.0.0+1.0"
+        );
+        assert!(
+            amazon_binding
+                .calibration
+                .exact_slice_key
+                .contains("supplier-price-enrichment/amazon@2.0.0"),
+            "L5-T-freight_engine-011 requires the Amazon L5 behavior identity in registry"
+        );
 
         let pcs =
             SourceRegistry::builtin_definition("pcs").expect("PCS source should be registered");

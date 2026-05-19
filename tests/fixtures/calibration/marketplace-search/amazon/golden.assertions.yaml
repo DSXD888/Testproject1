@@ -1,0 +1,80 @@
+schema_version: 1
+source_id: "amazon"
+skill_id: "supplier-price-enrichment/amazon"
+test_ids:
+  - L5-T-freight_engine-011
+  - L5-T-freight_engine-013
+  - L5-T-freight_engine-018
+expected_contract:
+  promotion_stage: candidate
+  validator_overlay: validation/overlay-customs-classification
+  worker_behavior_version: supplier-price-enrichment/amazon@2.0.0
+  validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
+  price_signal_role: benchmark_ceiling
+  executable_quote_allowed: false
+  browser_first_required_after: "2026-04-30"
+  pa_api_allowed: false
+required_assertions:
+  - all_canaries_parse_as_jsonl
+  - every_canary_source_id_is_amazon
+  - every_canary_price_signal_role_is_benchmark_ceiling
+  - alias_family_query_waves_cover_fasteners_cartons_and_gloves
+  - structured_title_vocabulary_is_present_for_variant_disambiguation
+  - concrete_asin_required_before_supplier_quote_emission
+  - ambiguous_variant_family_suppresses_supplier_quote
+  - pa_api_sunset_blocks_non_browser_execution
+  - amazon_rows_remain_benchmark_ceiling_not_executable
+cases:
+  - case_id: l5-amazon-fasteners-alias-family-001
+    expected_verdict: approved
+    expected_price_signal_role: benchmark_ceiling
+    expected_concrete_asin_required: true
+    must_include:
+      - alias_family
+      - hex cap screw
+      - benchmark_ceiling
+  - case_id: l5-amazon-cartons-structured-title-001
+    expected_verdict: approved
+    expected_price_signal_role: benchmark_ceiling
+    expected_concrete_asin_required: true
+    must_include:
+      - structured_title_disambiguation
+      - dimensions
+      - pack_qty
+  - case_id: l5-amazon-gloves-regulated-variant-001
+    expected_verdict: approved
+    expected_price_signal_role: benchmark_ceiling
+    expected_min_review_count: 50
+    expected_min_rating: 4.0
+    must_include:
+      - regulated_goods
+      - EN 455
+      - concrete ASIN
+  - case_id: l5-amazon-ambiguous-variant-family-001
+    expected_verdict: rejected
+    expected_failure_code: AMAZON_AMBIGUOUS_VARIANT_FAMILY
+    expected_quote_suppressed: true
+    must_include:
+      - structured_title_disambiguation
+      - variant_options
+      - pseudo-price rejection
+  - case_id: l5-amazon-browser-first-paapi-sunset-001
+    expected_verdict: rejected
+    expected_failure_code: AMAZON_BROWSER_FIRST_REQUIRED
+    expected_pa_api_disabled: true
+    must_include:
+      - browser_first_preflight
+      - "pa_api_allowed: false"
+      - "2026-04-30"
+promotion_gate_assertions:
+  stable_promotion_requires_compatible_worker_validator_versions: true
+  candidate_output_cannot_be_authoritative_without_shadow_gate: true
+  rollback_returns_failed_version_to_candidate: true
+  incompatible_versions_block_promotion: true
+  compat_matrix:
+    - worker: supplier-price-enrichment/amazon@2.0.0
+      validator: validation/overlay-customs-classification@1.0.0+1.0
+      state: compatible
+    - worker: supplier-price-enrichment/amazon@2026.04.21-1+1.0.0
+      validator: 2026.04.21-1
+      state: incompatible

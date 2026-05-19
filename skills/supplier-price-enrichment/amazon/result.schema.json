@@ -80,8 +80,11 @@
           "strategy": {
             "type": "string",
             "enum": [
+              "browser_first_preflight",
               "exact_anchor",
+              "alias_family",
               "alias_swap",
+              "structured_title_disambiguation",
               "market_frame",
               "broad_existence",
               "compliance_off"
@@ -170,7 +173,8 @@
             "type": "string"
           },
           "source_listing_id": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[A-Z0-9]{10}$"
           },
           "region": {
             "type": "string"
@@ -433,6 +437,20 @@
           "type": [
             "string",
             "null"
+          ],
+          "enum": [
+            null,
+            "SOURCE_AUTH_STATE_INVALID",
+            "SOURCE_CAPTCHA_BLOCKED",
+            "PAGE_SHAPE_DRIFT",
+            "LOCALE_OR_CURRENCY_DRIFT",
+            "ZERO_RESULTS_ALL_WAVES",
+            "HARD_CONFLICT_ZERO_SURVIVORS",
+            "AMAZON_PAAPI_SUNSET_DETECTED",
+            "AMAZON_BROWSER_FIRST_REQUIRED",
+            "AMAZON_AMBIGUOUS_VARIANT_FAMILY",
+            "AMAZON_BUSINESS_LOGIN_REQUIRED",
+            "VARIANT_ASIN_AMBIGUOUS"
           ]
         }
       }
