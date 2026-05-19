@@ -6175,6 +6175,10 @@ Builds the fasteners gold-set calibration corpus. Fasteners are the REMEDY-ACTIV
 
 **L5-FR-3.3.18 — Scenario: gold-set category promotion for the three decided categories.**
 
+## Calibration Corpus Extension Contract
+
+Before creating this category, inspect the existing calibration corpus root `tests/fixtures/calibration/` and its current largest variant by bytes, `tests/fixtures/calibration/procurement-ingestion/pairwise/{manifest.md,metadata.json}`. Extend the same corpus convention under `tests/fixtures/calibration/customs-classification/<category>/`: every category has the four root files, every `clean`, `weird`, `mutated`, and `pairwise` variant directory carries manifest/metadata-style provenance, and `metadata.json`/`manifest.md` explicitly state `fixture_surface: "calibration-corpus"` (or the markdown equivalent) so the accuracy harness can discover it as a calibration corpus extension.
+
 ## Implementation Details
 
 §11.6 minimum corpus per category:
@@ -6263,6 +6267,7 @@ Plus this bead contributes coverage for `L5-T-customs_classification-028..032,03
 - [ ] Minimum corpus counts met (≥10 gold, ≥15 silver, ≥10 bronze, ≥12 pairwise pairs).
 - [ ] At least 5 mutation types per `mutated/` (HS6 perturbation + 4 others).
 - [ ] Accuracy harness `scoreCategory(fasteners)` returns `production_gate: "eligible"` against this corpus.
+- [ ] `manifest.md` and `metadata.json` explicitly mark the category as a calibration-corpus extension and preserve the existing `clean`/`weird`/`mutated`/`pairwise` variant convention.
 
 ## Dependencies
 
@@ -6302,7 +6307,7 @@ Builds the packaging-cartons gold-set calibration corpus. Cartons are the PACKAG
 
 ## Files to Create/Modify
 
-Same structure as fasteners corpus:
+Create this complete packaging-cartons calibration structure:
 
 - **Create:** `tests/fixtures/calibration/customs-classification/packaging-cartons/{canary.inputs.jsonl, golden.assertions.yaml, metadata.json, manifest.md}`
 - **Create:** `tests/fixtures/calibration/customs-classification/packaging-cartons/{clean,weird,mutated,pairwise}/`
@@ -6316,6 +6321,10 @@ Same structure as fasteners corpus:
 **§3.6 open question #9 packaging sub-category reclassification:**
 - L5 impact: Determines customs engine treatment of packaging category.
 - Current L5 behavior: Packaging-cartons is the validated easy slice; aluminium foil, glass, tin mill, metal cans, and composite packaging are treated as dangerous subfamilies requiring broker/manual review until their own gold-set slice passes.
+
+## Calibration Corpus Extension Contract
+
+Before creating this category, inspect the existing calibration corpus root `tests/fixtures/calibration/` and its current largest variant by bytes, `tests/fixtures/calibration/procurement-ingestion/pairwise/{manifest.md,metadata.json}`. Extend the same corpus convention under `tests/fixtures/calibration/customs-classification/<category>/`: every category has the four root files, every `clean`, `weird`, `mutated`, and `pairwise` variant directory carries manifest/metadata-style provenance, and `metadata.json`/`manifest.md` explicitly state `fixture_surface: "calibration-corpus"` (or the markdown equivalent) so the accuracy harness can discover it as a calibration corpus extension.
 
 ## Implementation Details
 
@@ -6363,6 +6372,7 @@ Mutation focus:
 - [ ] HS 4819 + 4823 + 3923 represented for the §11.3 tariff graph fixture.
 - [ ] Dangerous packaging subfamilies explicitly excluded + documented.
 - [ ] Accuracy harness returns `production_gate: "eligible"`.
+- [ ] `manifest.md` and `metadata.json` explicitly mark the category as a calibration-corpus extension and preserve the existing `clean`/`weird`/`mutated`/`pairwise` variant convention.
 
 ## Dependencies
 
@@ -6402,7 +6412,7 @@ Builds the examination-gloves gold-set calibration corpus. Gloves are the REGULA
 
 ## Files to Create/Modify
 
-Same structure:
+Create this complete examination-gloves calibration structure:
 
 - **Create:** `tests/fixtures/calibration/customs-classification/examination-gloves/{canary.inputs.jsonl, golden.assertions.yaml, metadata.json, manifest.md}`
 - **Create:** `tests/fixtures/calibration/customs-classification/examination-gloves/{clean,weird,mutated,pairwise}/`
@@ -6412,6 +6422,10 @@ Same structure:
 **Decision 4 (operator 2026-05-08):** fasteners + packaging-cartons + examination-gloves verbatim. Rationale: "Clear differentiation — remedy-active (fasteners) / packaging-easy (cartons) / regulated medical (examination gloves)."
 
 **L5-FR-3.1.12 — DoD 12.**
+
+## Calibration Corpus Extension Contract
+
+Before creating this category, inspect the existing calibration corpus root `tests/fixtures/calibration/` and its current largest variant by bytes, `tests/fixtures/calibration/procurement-ingestion/pairwise/{manifest.md,metadata.json}`. Extend the same corpus convention under `tests/fixtures/calibration/customs-classification/<category>/`: every category has the four root files, every `clean`, `weird`, `mutated`, and `pairwise` variant directory carries manifest/metadata-style provenance, and `metadata.json`/`manifest.md` explicitly state `fixture_surface: "calibration-corpus"` (or the markdown equivalent) so the accuracy harness can discover it as a calibration corpus extension.
 
 ## Implementation Details
 
@@ -6473,6 +6487,7 @@ Indirect contribution to `028..032,035`.
 - [ ] VAT relief evidence variations represented.
 - [ ] Material variants (latex/nitrile/vinyl) all covered.
 - [ ] Accuracy harness returns `production_gate: "eligible"`.
+- [ ] `manifest.md` and `metadata.json` explicitly mark the category as a calibration-corpus extension and preserve the existing `clean`/`weird`/`mutated`/`pairwise` variant convention.
 
 ## Dependencies
 
@@ -7160,4 +7175,3 @@ bun test packages/intelligence/src/customs/customs-classification.test.ts -t "L5
 - **Phase:** 6 (FINAL).
 
 ---
-
