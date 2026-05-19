@@ -8,6 +8,12 @@ import {
   normalizeFreightosSkillResult,
 } from "./freightos-skill-adapter";
 import { selectMode } from "./mode-selector";
+import {
+  SEARATES_SKILL_ID,
+  createSearatesAdapter,
+  normalizeSearatesSkillResult,
+  searatesUsesPaidApiCredentials,
+} from "./searates-skill-adapter";
 
 // [TEST_START] L5 freight engine scaffold.
 // L5-T-freight_engine-001,002 land in l5-p3-logistics-types-mode-selector.
@@ -297,6 +303,134 @@ describe("Freightos skill adapter", () => {
     );
     expect(schemaDrift.failureCode).toBe("FREIGHTOS_SCHEMA_DRIFT");
     expect(schemaDrift.baseGbpPence).toBeNull();
+  });
+});
+
+describe("SeaRates skill adapter", () => {
+  const checkedAt = "2026-04-17T10:15:00.000Z";
+
+  it("L5-T-freight_engine-003 normalizes captured SeaRates CDP output into GBP quote bands without paid API use", () => {
+    const estimate = normalizeSearatesSkillResult(
+      {
+        product_candidate_id: "cand-001",
+        selected_quote_id: "sea-quote-441",
+        freight_status: "quoted",
+        cdp_state: "connected",
+        freight_currency: "USD",
+        freight_low_amount_minor: 338_100,
+        freight_base_amount_minor: 422_700,
+        freight_high_amount_minor: 601_400,
+        quote_expired: false,
+        exchange_rates_seen: [
+          { from: { value: "USD" }, to: { value: "GBP" }, exchangeRate: 0.79 },
+        ],
+        warnings: [],
+        blockers: [],
+      },
+      {
+        mode: "sea_lcl",
+        checkedAt,
+        evidenceTranscriptPath: "artifacts/searates-cdp-run.json",
+      },
+    );
+
+    expect(SEARATES_SKILL_ID).toBe("landed-cost/searates-freight-estimate");
+    expect(searatesUsesPaidApiCredentials()).toBe(false);
+    expect(estimate).toEqual({
+      provider: "searates",
+      mode: "sea_lcl",
+      lowGbpPence: 267_099,
+      baseGbpPence: 333_933,
+      highGbpPence: 475_106,
+      evidenceTranscriptPath: "artifacts/searates-cdp-run.json",
+      checkedAt,
+    });
+  });
+
+  it("L5-T-freight_engine-008 records SeaRates-specific no-quote unsupported-mode schema-drift CDP-required and rate-limited failures", async () => {
+    const adapter = createSearatesAdapter();
+    await expect(
+      adapter.estimate({
+        mode: "air_general",
+        originPort: "Shanghai",
+        destinationPort: "Felixstowe",
+        weightKg: 500,
+        volumeM3: 3.2,
+      }),
+    ).resolves.toMatchObject({
+      provider: "searates",
+      failureCode: "SEARATES_UNSUPPORTED_MODE",
+      baseGbpPence: null,
+    });
+
+    await expect(
+      adapter.estimate({
+        mode: "sea_fcl",
+        originPort: "Shanghai",
+        destinationPort: "Felixstowe",
+        weightKg: 1_800,
+        volumeM3: 28,
+      }),
+    ).resolves.toMatchObject({
+      provider: "searates",
+      failureCode: "SEARATES_PERSISTENT_CDP_REQUIRED",
+      baseGbpPence: null,
+    });
+
+    expect(
+      normalizeSearatesSkillResult(
+        {
+          freight_status: "blocked",
+          cdp_state: "connected",
+          freight_currency: null,
+          freight_base_amount_minor: null,
+          warnings: [],
+          blockers: [{ code: "SEARATES_NO_USABLE_RATE" }],
+        },
+        { mode: "sea_lcl", checkedAt },
+      ),
+    ).toMatchObject({
+      provider: "searates",
+      failureCode: "SEARATES_NO_QUOTE",
+      baseGbpPence: null,
+    });
+
+    expect(
+      normalizeSearatesSkillResult(
+        {
+          freight_status: "blocked",
+          cdp_state: "connected",
+          warnings: [],
+          blockers: [{ code: "SEARATES_RATE_LIMITED" }],
+        },
+        { mode: "sea_lcl", checkedAt },
+      ),
+    ).toMatchObject({
+      provider: "searates",
+      failureCode: "SEARATES_RATE_LIMITED",
+      baseGbpPence: null,
+    });
+
+    expect(
+      normalizeSearatesSkillResult(
+        {
+          freight_status: "quoted",
+          cdp_state: "connected",
+          freight_currency: "USD",
+          freight_low_amount_minor: 338_100,
+          freight_base_amount_minor: 422_700,
+          freight_high_amount_minor: 601_400,
+          quote_expired: false,
+          warnings: [],
+          blockers: [],
+        },
+        { mode: "sea_lcl", checkedAt },
+      ),
+    ).toMatchObject({
+      provider: "searates",
+      failureCode: "SEARATES_SCHEMA_DRIFT",
+      baseGbpPence: null,
+    });
   });
 });
 
