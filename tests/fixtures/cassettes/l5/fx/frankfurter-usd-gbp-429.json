@@ -1,0 +1,26 @@
+{
+  "case_id": "l5-fx-frankfurter-usd-gbp-rate-limit",
+  "endpoint_family": "frankfurter_commercial_spot",
+  "request": {
+    "method": "GET",
+    "url": "https://api.frankfurter.app/latest?from=USD&to=GBP",
+    "headers": {
+      "accept": "application/json",
+      "user-agent": "testproject1-l5-cassette-recorder/1"
+    },
+    "body_sha256": null,
+    "authenticated": false
+  },
+  "request_fingerprint": "sha256:d91fa31a28c124feda6eabcf983afb13fca19911be5781ce514bf66c56a7d5a3",
+  "response": {
+    "status": 429,
+    "headers": {
+      "content-type": "application/json; charset=utf-8"
+    },
+    "body_path": "bodies/frankfurter-usd-gbp-429.json",
+    "body_sha256": "sha256:34f24d61b0aaf673a1e056f52dc85f00ec0bb19bd50e16bed7105cf2e2016d0e"
+  },
+  "recorded_at": "2026-05-19T00:30:00Z",
+  "recorder": "manual cassette, no auth, no paid key",
+  "expected_failure_mode": "upstream_unavailable"
+}

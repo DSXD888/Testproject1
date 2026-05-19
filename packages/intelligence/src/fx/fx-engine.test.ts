@@ -7,6 +7,11 @@ import type {
   FxSnapshot,
 } from "./fx-types";
 import {
+  createFrankfurterFetcher,
+  fetchFrankfurterCommercialSpot,
+  probeFrankfurterPublicEndpoint,
+} from "./frankfurter-commercial-rates";
+import {
   fetchHmrcMonthlySnapshot,
   planHmrcCorrectionRecalculation,
   planHmrcRolloverRecalculation,
@@ -251,6 +256,127 @@ describe("hmrc customs FX", () => {
       errorCode: "FX_RATE_MISSING",
       reason: "parse_failure",
     });
+  });
+});
+
+describe("frankfurter commercial FX", () => {
+  it("L5-T-fx_engine-002 parses Frankfurter rates.GBP without credentials", async () => {
+    const result = await fetchFrankfurterCommercialSpot({
+      baseCurrency: "USD",
+      cassettePath: "frankfurter-usd-gbp.json",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(result.message);
+    }
+
+    expect(result.snapshot).toEqual({
+      basis: "frankfurter_commercial_spot",
+      effectiveDate: "2026-05-19",
+      baseCurrency: "USD",
+      quoteCurrency: "GBP",
+      rate: 0.7871,
+      rateBps: 7871,
+      sourceUrl: "https://api.frankfurter.app/2026-05-19?from=USD&to=GBP",
+      checkedAt: "2026-05-19T00:00:00Z",
+      snapshotId: "frankfurter-2026-05-19-USD-GBP-v1",
+    });
+    expect(result.staleness).toBe("fresh");
+    expect(result.commercialEstimateConfidenceBpsReduction).toBe(0);
+
+    const missingGbp = await fetchFrankfurterCommercialSpot({
+      baseCurrency: "USD",
+      cassettePath: "frankfurter-missing-gbp.json",
+    });
+    const malformedJson = await fetchFrankfurterCommercialSpot({
+      baseCurrency: "USD",
+      cassettePath: "frankfurter-malformed-json.json",
+    });
+    expect(missingGbp).toMatchObject({
+      ok: false,
+      errorCode: "FX_RATE_MISSING",
+      reason: "missing_gbp_rate",
+      bidReadinessImpact: "blocker",
+    });
+    expect(malformedJson).toMatchObject({
+      ok: false,
+      errorCode: "FX_RATE_MISSING",
+      reason: "parse_failure",
+      bidReadinessImpact: "blocker",
+    });
+
+    const cassette = await readCassette("frankfurter-usd-gbp.json");
+    expect(cassette.request.authenticated).toBe(false);
+    expect(cassette.request.headers).not.toHaveProperty("authorization");
+  });
+
+  it("L5-T-fx_engine-008 keeps Frankfurter last-valid snapshots only inside TTL", async () => {
+    const fetcher = createFrankfurterFetcher();
+    const fresh = await fetcher.fetchSpotResult({
+      baseCurrency: "USD",
+      cassettePath: "frankfurter-usd-gbp.json",
+    });
+    if (!fresh.ok) {
+      throw new Error(fresh.message);
+    }
+
+    const retained = await fetcher.fetchSpotResult({
+      baseCurrency: "USD",
+      cassettePath: "frankfurter-usd-gbp-429.json",
+      maxAgeSeconds: 3600,
+      now: new Date("2026-05-19T00:30:00Z"),
+    });
+    expect(retained.ok).toBe(true);
+    if (!retained.ok) {
+      throw new Error(retained.message);
+    }
+    expect(retained.snapshot.snapshotId).toBe(fresh.snapshot.snapshotId);
+    expect(retained.staleness).toBe("last_valid");
+    expect(retained.warning).toContain("[WARN] Frankfurter commercial FX returned HTTP 429");
+    expect(retained.commercialEstimateConfidenceBpsReduction).toBeGreaterThan(0);
+
+    const expired = await fetcher.fetchSpotResult({
+      baseCurrency: "USD",
+      cassettePath: "frankfurter-usd-gbp-429.json",
+      maxAgeSeconds: 1,
+      now: new Date("2026-05-19T00:30:00Z"),
+    });
+    expect(expired).toMatchObject({
+      ok: false,
+      errorCode: "FX_RATE_MISSING",
+      reason: "last_valid_expired",
+      bidReadinessImpact: "blocker",
+    });
+    if (!expired.ok) {
+      expect(expired.warning).toContain("[WARN]");
+      expect(expired.commercialEstimateConfidenceBpsReduction).toBeGreaterThan(0);
+    }
+  });
+
+  it("L5-T-fx_engine-011 uses FRANKFURTER_BASE_URL and cassette fallback on transient outage", async () => {
+    const probe = await probeFrankfurterPublicEndpoint({
+      env: {
+        FRANKFURTER_BASE_URL: "https://api.frankfurter.app/",
+      },
+      baseCurrency: "USD",
+      cassettePath: "frankfurter-usd-gbp-500.json",
+      fallbackCassettePath: "frankfurter-usd-gbp.json",
+    });
+
+    expect(probe.probeUrl).toBe(
+      "https://api.frankfurter.app/latest?from=USD&to=GBP",
+    );
+    expect(probe.result.ok).toBe(true);
+    if (!probe.result.ok) {
+      throw new Error(probe.result.message);
+    }
+
+    expect(probe.result.snapshot.basis).toBe("frankfurter_commercial_spot");
+    expect(probe.result.warning).toBe(
+      "[WARN] Frankfurter commercial FX returned HTTP 500; used cassette fallback",
+    );
+    expect(probe.result.staleness).toBe("fresh");
   });
 });
 
