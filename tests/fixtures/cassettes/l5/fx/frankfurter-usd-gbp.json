@@ -1,0 +1,26 @@
+{
+  "case_id": "l5-fx-frankfurter-usd-gbp-success",
+  "endpoint_family": "frankfurter_commercial_spot",
+  "request": {
+    "method": "GET",
+    "url": "https://api.frankfurter.app/2026-05-19?from=USD&to=GBP",
+    "headers": {
+      "accept": "application/json",
+      "user-agent": "testproject1-l5-cassette-recorder/1"
+    },
+    "body_sha256": null,
+    "authenticated": false
+  },
+  "request_fingerprint": "sha256:9a63095faaffd2a9ec69cd365aee0593568090b8a565973bffa0a513a4e252b2",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json; charset=utf-8"
+    },
+    "body_path": "bodies/frankfurter-usd-gbp.json",
+    "body_sha256": "sha256:3ba6090784529050621afd0a833f3e0e71ad15fccdce88f5a71da6390ffad621"
+  },
+  "recorded_at": "2026-05-19T00:00:00Z",
+  "recorder": "scripts/manual curl -LfsS, no auth, no paid key",
+  "expected_failure_mode": null
+}

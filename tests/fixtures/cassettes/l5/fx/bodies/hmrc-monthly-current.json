@@ -1,0 +1,21 @@
+{
+  "month": "2026-05",
+  "rates": [
+    {
+      "currency_code": "USD",
+      "currency_name": "US Dollar",
+      "rate": "0.7834"
+    },
+    {
+      "currency_code": "EUR",
+      "currency_name": "Euro",
+      "rate": "0.8562"
+    },
+    {
+      "currency_code": "CNY",
+      "currency_name": "Chinese Yuan",
+      "rate": "0.1081"
+    }
+  ],
+  "source": "HMRC Exchange Rates for Customs and VAT"
+}

@@ -1,0 +1,26 @@
+{
+  "customsSnapshot": {
+    "basis": "hmrc_customs_monthly",
+    "effectiveMonth": "2026-05",
+    "baseCurrency": "USD",
+    "quoteCurrency": "GBP",
+    "rate": 0.7834,
+    "rateBps": 7834,
+    "sourceUrl": "https://www.trade-tariff.service.gov.uk/exchange_rates/monthly?year=2026",
+    "checkedAt": "2026-05-19T00:00:00Z",
+    "snapshotId": "hmrc-2026-05-USD-GBP-v1"
+  },
+  "commercialSnapshot": {
+    "basis": "frankfurter_commercial_spot",
+    "effectiveDate": "2026-05-19",
+    "baseCurrency": "USD",
+    "quoteCurrency": "GBP",
+    "rate": 0.7871,
+    "rateBps": 7871,
+    "sourceUrl": "https://api.frankfurter.app/2026-05-19?from=USD&to=GBP",
+    "checkedAt": "2026-05-19T12:00:00Z",
+    "snapshotId": "frankfurter-2026-05-19-USD-GBP-v1"
+  },
+  "basisDeltaBps": 47,
+  "computedAt": "2026-05-19T12:01:00Z"
+}
