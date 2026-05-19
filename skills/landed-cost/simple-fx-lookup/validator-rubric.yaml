@@ -1,0 +1,15 @@
+overlay_id: validation/overlay-fx-lookup
+worker_skill_id: landed-cost/simple-fx-lookup
+checks:
+  - field: rate_bps_positive
+    rule: "Every emitted FX snapshot must have a positive integer rate_bps."
+    severity: blocker
+  - field: source_url_matches_basis
+    rule: "HMRC customs snapshots must cite trade-tariff monthly exchange rates; Frankfurter commercial snapshots must cite api.frankfurter.app latest-rate URLs."
+    severity: blocker
+  - field: snapshot_id_unique
+    rule: "Each emitted snapshot_id must be unique within the result and stable for the same source, date or month, base currency, and version."
+    severity: warning
+  - field: paid_fx_provider_absent
+    rule: "The skill must not reference or require Xe, OANDA, CurrencyBeacon, or other paid FX connector accounts."
+    severity: blocker

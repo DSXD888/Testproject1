@@ -1,0 +1,25 @@
+cases:
+  l5-fx-usd-current:
+    result_schema_valid: true
+    has_snapshots_count: 2
+    has_basis_hmrc_customs_monthly: true
+    has_basis_frankfurter_commercial_spot: true
+    rate_bps_positive: true
+    source_urls_present: true
+    no_paid_fx_provider: true
+  l5-fx-eur-current:
+    result_schema_valid: true
+    has_snapshots_count: 2
+    has_basis_hmrc_customs_monthly: true
+    has_basis_frankfurter_commercial_spot: true
+    rate_bps_positive: true
+    source_urls_present: true
+    no_paid_fx_provider: true
+  l5-fx-cny-current:
+    result_schema_valid: true
+    has_snapshots_count: 2
+    has_basis_hmrc_customs_monthly: true
+    has_basis_frankfurter_commercial_spot: true
+    rate_bps_positive: true
+    source_urls_present: true
+    no_paid_fx_provider: true
