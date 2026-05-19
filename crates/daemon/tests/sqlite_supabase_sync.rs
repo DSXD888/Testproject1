@@ -1729,6 +1729,16 @@ const PRODUCT_EXTRACTION_DOMAIN_CHECKS: [&str; 5] = [
     "quantity_unit_plausibility",
     "bundle_decomposition_correctness",
 ];
+const CUSTOMS_CLASSIFICATION_DOMAIN_CHECKS: [&str; 8] = [
+    "candidate_recall_agreement",
+    "declarable_commodity_code_10",
+    "exporter_rate_basis",
+    "duty_breakdown_json",
+    "customs_cost_spread_bps",
+    "decision_grade",
+    "redaction_boundary",
+    "behavior_version_compatibility",
+];
 
 const fn procurement_overlay_fixture() -> OverlaySkillFixture<'static> {
     OverlaySkillFixture {
@@ -1917,6 +1927,165 @@ fn assert_overlay_contract(fixture: &OverlaySkillFixture<'_>) -> Result<()> {
     assert_overlay_schema_covers_domain_checks(fixture)?;
     assert_overlay_canaries(fixture)?;
     assert_overlay_golden_and_rubric(fixture)
+}
+
+fn customs_overlay_path(file: &str) -> String {
+    format!("skills/validation/overlay-customs-classification/{file}")
+}
+
+fn assert_customs_overlay_required_files() -> Result<()> {
+    for file in [
+        "SKILL.md",
+        "result.schema.json",
+        "checkpoint.schema.json",
+        "canary.inputs.jsonl",
+        "golden.assertions.yaml",
+        "validator-rubric.yaml",
+    ] {
+        let path = repo_root()?.join(customs_overlay_path(file));
+        ensure!(path.exists(), "{} is missing", path.display());
+    }
+    Ok(())
+}
+
+fn assert_customs_overlay_frontmatter() -> Result<()> {
+    let skill = read_repo_file(&customs_overlay_path("SKILL.md"))?;
+    for required in [
+        "skill_id: validation/overlay-customs-classification",
+        "skill_version: 1.0.0",
+        "interaction_profile: headless_contract",
+        "result_schema_version: 1.0",
+        "checkpoint_schema_version: 1.0",
+        "validator_overlay_version: 1.0.0",
+        "worker_behavior_versions:",
+        "customs-classification/*@1.0.0+1.0",
+        "overlay_target_skills:",
+        "landed-cost/hmrc-customs-classification",
+        "landed-cost/taric-cross-check",
+        "model_profile: tier_2_audit",
+        "promotion_stage: candidate",
+        "validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0",
+    ] {
+        ensure!(skill.contains(required), "SKILL.md missing `{required}`");
+    }
+    Ok(())
+}
+
+fn assert_customs_overlay_schema_covers_domain_checks() -> Result<()> {
+    let result_schema: Value = serde_json::from_str(&read_repo_file(&customs_overlay_path(
+        "result.schema.json",
+    ))?)?;
+    ensure!(
+        result_schema
+            .pointer("/properties/verdict/enum")
+            .and_then(Value::as_array)
+            .is_some_and(|values| values
+                .iter()
+                .any(|value| value.as_str() == Some("insufficient_basis"))),
+        "customs overlay result schema must allow insufficient_basis verdicts"
+    );
+    let categories = result_schema
+        .pointer("/properties/issues/items/properties/category/enum")
+        .and_then(Value::as_array)
+        .context("customs result schema missing issue category enum")?;
+    for check in CUSTOMS_CLASSIFICATION_DOMAIN_CHECKS {
+        ensure!(
+            categories.iter().any(|value| value.as_str() == Some(check)),
+            "customs result schema missing issue category `{check}`"
+        );
+    }
+
+    let checkpoint_schema: Value = serde_json::from_str(&read_repo_file(&customs_overlay_path(
+        "checkpoint.schema.json",
+    ))?)?;
+    ensure!(
+        checkpoint_schema
+            .pointer("/properties/kind/const")
+            .and_then(Value::as_str)
+            == Some("customs_classification_overlay_checkpoint"),
+        "customs checkpoint schema has the wrong checkpoint kind"
+    );
+    Ok(())
+}
+
+fn assert_customs_overlay_canaries() -> Result<()> {
+    let canaries = read_repo_file(&customs_overlay_path("canary.inputs.jsonl"))?;
+    let mut corpora = BTreeSet::new();
+    let mut checks = BTreeSet::new();
+    for line in canaries.lines().filter(|line| !line.trim().is_empty()) {
+        let row: Value = serde_json::from_str(line)?;
+        corpora.insert(
+            row.get("corpus")
+                .and_then(Value::as_str)
+                .context("customs canary row missing corpus")?
+                .to_owned(),
+        );
+        for check in row
+            .get("domain_checks")
+            .and_then(Value::as_array)
+            .context("customs canary row missing domain_checks")?
+        {
+            checks.insert(
+                check
+                    .as_str()
+                    .context("customs domain check must be a string")?
+                    .to_owned(),
+            );
+        }
+    }
+    ensure!(
+        corpora
+            == BTreeSet::from([
+                "clean-real".to_owned(),
+                "mutated-bad".to_owned(),
+                "pairwise".to_owned(),
+                "weird-valid".to_owned(),
+            ]),
+        "customs overlay canaries did not cover the required corpora"
+    );
+    for check in CUSTOMS_CLASSIFICATION_DOMAIN_CHECKS {
+        ensure!(checks.contains(check), "customs canaries missing `{check}`");
+    }
+    Ok(())
+}
+
+fn assert_customs_overlay_golden_and_rubric() -> Result<()> {
+    let golden = read_repo_file(&customs_overlay_path("golden.assertions.yaml"))?;
+    let rubric = read_repo_file(&customs_overlay_path("validator-rubric.yaml"))?;
+    let _: serde_yaml::Value = serde_yaml::from_str(&golden)?;
+    let _: serde_yaml::Value = serde_yaml::from_str(&rubric)?;
+    for check in CUSTOMS_CLASSIFICATION_DOMAIN_CHECKS {
+        ensure!(golden.contains(check), "customs golden missing `{check}`");
+        ensure!(rubric.contains(check), "customs rubric missing `{check}`");
+    }
+    for required in [
+        "L5-T-freight_engine-013",
+        "L5-T-freight_engine-018",
+        "compat_matrix:",
+        "state: compatible",
+        "state: incompatible",
+        "incompatible_versions_block_promotion: true",
+        "stable_promotion_requires_compatible_worker_validator_versions: true",
+    ] {
+        ensure!(
+            golden.contains(required) || rubric.contains(required),
+            "customs overlay missing `{required}`"
+        );
+    }
+    Ok(())
+}
+
+fn assert_customs_overlay_contract() -> Result<()> {
+    println!("[ASSERT] L5 customs overlay declares the six-file contract");
+    assert_customs_overlay_required_files()?;
+    assert_customs_overlay_frontmatter()?;
+
+    println!(
+        "[ASSERT] L5 customs overlay schemas, canaries, golden assertions, and rubric cover compatibility checks"
+    );
+    assert_customs_overlay_schema_covers_domain_checks()?;
+    assert_customs_overlay_canaries()?;
+    assert_customs_overlay_golden_and_rubric()
 }
 
 fn bail_with_conflict<T>(message: &str, conflict: &impl std::fmt::Debug) -> Result<T> {
@@ -2273,6 +2442,17 @@ fn l4_t_sqlite_supabase_sync_061_product_extraction_overlay_contract() -> Result
     assert_overlay_contract(&product_extraction_overlay_fixture())?;
 
     println!("[TEST_END] L4-T-sqlite_supabase_sync-061 PASS");
+    Ok(())
+}
+
+#[test]
+fn l5_t_freight_engine_013_customs_classification_overlay_contract() -> Result<()> {
+    println!("[TEST_START] L5-T-freight_engine-013");
+    println!("[SETUP] customs-classification validator overlay fixture");
+
+    assert_customs_overlay_contract()?;
+
+    println!("[TEST_END] L5-T-freight_engine-013 PASS");
     Ok(())
 }
 

@@ -1,0 +1,128 @@
+rubric_version: 1.0.0
+overlay_id: validation/overlay-customs-classification
+scope: customs_classification_overlay
+decision_axes:
+  - candidate_recall_agreement
+  - declarable_commodity_code_10
+  - exporter_rate_basis
+  - duty_breakdown_json
+  - customs_cost_spread_bps
+  - decision_grade
+  - redaction_boundary
+  - behavior_version_compatibility
+
+target_field_checks:
+  - field: candidate_recall_agreement
+    rule: must have exactly 5 source-family entries
+    severity: blocker
+  - field: declarable_commodity_code_10
+    rule: must be UK10 (10-digit) when non-null
+    severity: blocker
+  - field: exporter_rate_basis
+    rule: must be in {named_exporter, annex_exporter, residual_default}
+    severity: blocker
+  - field: duty_breakdown_json
+    rule: must preserve compound duty components when applicable
+    severity: blocker
+  - field: customs_cost_spread_bps
+    rule: must trigger TARIFF_BRANCH_DIVERGENCE when >= 1500 or remedy/no-remedy split
+    severity: blocker
+  - field: decision_grade
+    rule: must be in {auto_pass, review_required, broker_required}
+    severity: blocker
+  - field: measure_interaction_json
+    rule: unknown family emits MEASURE_INTERACTION_UNKNOWN and blocks auto-decision
+    severity: blocker
+  - field: confidence_breakdown.evidence_leverage
+    rule: must remain redacted from viewer role outputs
+    severity: blocker
+
+redaction_boundary_fields:
+  hidden_from_viewer:
+    - exporter_rate_basis
+    - exporter_identity_confidence_bps
+    - origin_evidence_state
+    - trade_remedy_cases_json
+    - duty_breakdown_json
+    - measure_interaction_json
+    - confidence_breakdown.evidence_leverage
+  visible_operator_controls:
+    - decision_grade
+    - classification_fresh_until
+    - blocker_error_codes
+
+agent_claimed_vs_daemon_observed:
+  - agent_claimed_multi_family_expansion vs daemon_observed_query_count
+  - agent_claimed_taric_consulted vs daemon_observed_taric_skill_invocation_log
+  - agent_claimed_exporter_basis vs daemon_observed_exporter_evidence_refs
+  - agent_claimed_compound_duty_preserved vs daemon_observed_duty_component_count
+
+basis_sufficiency:
+  insufficient_basis_when:
+    - recall_produced_fewer_than_2_independent_source_families
+    - uk10_branch_evidence_missing_for_non_null_declarable_code
+    - supplementary_unit_required_but_quantity_evidence_missing
+  validator_must_decline_when:
+    - daemon_appendix_missing_required_customs_observations
+    - behavior_version_pair_is_not_compatible
+
+verdict_rules:
+  approved:
+    requires:
+      - candidate_recall_agreement
+      - declarable_commodity_code_10
+      - exporter_rate_basis
+      - duty_breakdown_json
+      - customs_cost_spread_bps
+      - decision_grade
+      - redaction_boundary
+      - behavior_version_compatibility
+      - no_hard_blocker
+  rejected:
+    triggers:
+      - classification_ambiguous_without_operator_resolution
+      - tariff_branch_divergence_present
+      - unknown_measure_interaction_family
+      - supplementary_unit_missing_for_required_specific_duty
+      - expired_classification_fresh_until_for_import_window
+      - behavior_version_pair_incompatible
+      - viewer_payload_exposes_hidden_customs_field
+  flagged:
+    triggers:
+      - exporter_unresolved_with_residual_default_applied
+      - fpo_access_unavailable_but_other_source_families_sufficient
+      - weird_valid_glove_case_requires_operator_review
+  insufficient_basis:
+    triggers:
+      - fewer_than_2_independent_recall_source_families
+      - daemon_observation_missing_for_agent_claim
+
+compat_matrix:
+  - worker: customs-classification/*@1.0.0+1.0
+    validator: validation/overlay-customs-classification@1.0.0+1.0
+    state: compatible
+  - worker: skills/supplier-price-enrichment/alibaba@2.0.0
+    validator: validation/overlay-customs-classification@1.0.0+1.0
+    state: compatible
+  - worker: skills/supplier-price-enrichment/1688@2.0.0
+    validator: validation/overlay-customs-classification@1.0.0+1.0
+    state: compatible
+  - worker: skills/supplier-price-enrichment/amazon@2.0.0
+    validator: validation/overlay-customs-classification@1.0.0+1.0
+    state: compatible
+  - worker: customs-classification/*@0.x
+    validator: validation/overlay-customs-classification@1.0.0+1.0
+    state: incompatible
+
+calibration_corpora:
+  - tests/fixtures/calibration/customs-classification/fasteners/
+  - tests/fixtures/calibration/customs-classification/packaging-cartons/
+  - tests/fixtures/calibration/customs-classification/examination-gloves/
+
+excluded_concerns:
+  - live_hmrc_lookup
+  - live_taric_lookup
+  - freight_estimation
+  - fx_rate_selection
+  - broker_adjudication
+  - enforcement_side_effects

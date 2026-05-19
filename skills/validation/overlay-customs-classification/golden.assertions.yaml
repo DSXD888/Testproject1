@@ -1,0 +1,112 @@
+cases:
+  - case_id: l5-overlay-fasteners-clean-001
+    expected_verdict: approved
+    expected_basis_sufficiency_state: sufficient
+    required_domain_checks:
+      - candidate_recall_agreement
+      - declarable_commodity_code_10
+      - exporter_rate_basis
+      - duty_breakdown_json
+      - customs_cost_spread_bps
+      - decision_grade
+      - redaction_boundary
+      - behavior_version_compatibility
+    required_issue_categories: []
+    required_compatibility_state: compatible
+    provenance: clean-real
+  - case_id: l5-overlay-fasteners-mutated-001
+    expected_verdict: rejected
+    expected_basis_sufficiency_state: sufficient
+    required_domain_checks:
+      - candidate_recall_agreement
+      - declarable_commodity_code_10
+      - customs_cost_spread_bps
+      - decision_grade
+      - behavior_version_compatibility
+    required_issue_categories:
+      - candidate_recall_agreement
+      - behavior_version_compatibility
+    required_compatibility_state: incompatible
+    provenance: mutated-bad
+  - case_id: l5-overlay-cartons-clean-001
+    expected_verdict: approved
+    expected_basis_sufficiency_state: sufficient
+    required_domain_checks:
+      - candidate_recall_agreement
+      - declarable_commodity_code_10
+      - exporter_rate_basis
+      - duty_breakdown_json
+      - decision_grade
+      - redaction_boundary
+    required_issue_categories: []
+    required_compatibility_state: compatible
+    provenance: clean-real
+  - case_id: l5-overlay-cartons-pairwise-001
+    expected_verdict: rejected
+    expected_basis_sufficiency_state: sufficient
+    pair_id: l5-overlay-cartons-pair-001
+    required_domain_checks:
+      - declarable_commodity_code_10
+      - duty_breakdown_json
+      - customs_cost_spread_bps
+      - decision_grade
+    required_issue_categories:
+      - declarable_commodity_code_10
+      - customs_cost_spread_bps
+    required_compatibility_state: compatible
+    provenance: pairwise
+  - case_id: l5-overlay-gloves-weird-001
+    expected_verdict: flagged
+    expected_basis_sufficiency_state: partial
+    required_domain_checks:
+      - candidate_recall_agreement
+      - exporter_rate_basis
+      - duty_breakdown_json
+      - decision_grade
+      - redaction_boundary
+    allowed_issue_categories:
+      - exporter_rate_basis
+      - basis_sufficiency
+    required_compatibility_state: compatible
+    provenance: weird-valid
+
+compatibility_assertions:
+  validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
+  compatible_worker_behavior_versions:
+    - customs-classification/*@1.0.0+1.0
+    - skills/supplier-price-enrichment/alibaba@2.0.0
+    - skills/supplier-price-enrichment/1688@2.0.0
+    - skills/supplier-price-enrichment/amazon@2.0.0
+  incompatible_worker_behavior_versions:
+    - customs-classification/*@0.x
+  incompatible_versions_block_promotion: true
+
+promotion_gate_assertions:
+  test_ids:
+    - L5-T-freight_engine-013
+    - L5-T-freight_engine-018
+  candidate_stage_not_authoritative_without_canary_shadow: true
+  stable_promotion_requires_compatible_worker_validator_versions: true
+  required_standard_files:
+    - SKILL.md
+    - result.schema.json
+    - checkpoint.schema.json
+    - canary.inputs.jsonl
+    - golden.assertions.yaml
+    - validator-rubric.yaml
+
+calibration_targets:
+  mutated_bad_catch_rate_min_bps: 9000
+  clean_real_approval_min_bps: 9500
+  false_positive_rate_max_bps: 500
+  wilson_confidence_bps: 9500
+
+domain_check_inventory:
+  - candidate_recall_agreement
+  - declarable_commodity_code_10
+  - exporter_rate_basis
+  - duty_breakdown_json
+  - customs_cost_spread_bps
+  - decision_grade
+  - redaction_boundary
+  - behavior_version_compatibility

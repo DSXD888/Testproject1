@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["kind", "message", "domain_checks_seen"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "customs_classification_overlay_checkpoint"
+    },
+    "message": {
+      "type": "string"
+    },
+    "domain_checks_seen": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "candidate_recall_agreement",
+          "declarable_commodity_code_10",
+          "exporter_rate_basis",
+          "duty_breakdown_json",
+          "customs_cost_spread_bps",
+          "decision_grade",
+          "redaction_boundary",
+          "behavior_version_compatibility"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}

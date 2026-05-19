@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "verdict",
+    "basis_sufficiency_state",
+    "enforcement_eligible",
+    "confidence_bps",
+    "structured_reasons",
+    "issues",
+    "compatibility_binding",
+    "summary"
+  ],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["approved", "rejected", "flagged", "insufficient_basis"]
+    },
+    "basis_sufficiency_state": {
+      "type": "string",
+      "enum": ["sufficient", "partial", "insufficient"]
+    },
+    "basis_sufficiency": {
+      "type": "string",
+      "enum": ["high", "medium", "low"]
+    },
+    "enforcement_eligible": {
+      "type": "boolean"
+    },
+    "confidence_bps": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "structured_reasons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message", "evidence_refs"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "category", "description", "evidence_refs"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "major", "minor", "observation"]
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "candidate_recall_agreement",
+              "declarable_commodity_code_10",
+              "exporter_rate_basis",
+              "duty_breakdown_json",
+              "customs_cost_spread_bps",
+              "decision_grade",
+              "redaction_boundary",
+              "behavior_version_compatibility",
+              "measure_interaction_json",
+              "supplementary_unit_evidence",
+              "classification_freshness",
+              "basis_sufficiency"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "compatibility_binding": {
+      "type": "object",
+      "required": [
+        "worker_behavior_version",
+        "validator_behavior_version",
+        "state"
+      ],
+      "properties": {
+        "worker_behavior_version": {
+          "type": "string"
+        },
+        "validator_behavior_version": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": ["compatible", "incompatible"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}
