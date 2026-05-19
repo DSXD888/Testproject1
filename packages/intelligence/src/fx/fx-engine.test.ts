@@ -1,6 +1,15 @@
 import { describe, expect, it } from "bun:test";
 import { createHash } from "node:crypto";
 
+import {
+  computeFxBasisDelta,
+  evaluateFxRecalculation,
+  FX_BASIS_DELTA_ROUNDING_RULE,
+  FX_DELTA_RECALC_THRESHOLD_BPS,
+  fxProviderPolicyEvidence,
+  netMarginBandUnderBothBases,
+  projectFxSnapshotsToLandedCostEstimate,
+} from "./fx-engine";
 import type {
   FxBasisDelta,
   FxRecalculationTrigger,
@@ -380,6 +389,99 @@ describe("frankfurter commercial FX", () => {
   });
 });
 
+describe("decision-grade FX engine", () => {
+  it("L5-T-fx_engine-003 computes basis delta with a named rounding rule", () => {
+    const delta = computeFxBasisDelta(
+      customsSnapshot({ rate: 0.7834 }),
+      commercialSnapshot({ rate: 0.8070 }),
+      "2026-05-19T12:00:00Z",
+    );
+
+    expect(FX_BASIS_DELTA_ROUNDING_RULE).toBe("round-half-up");
+    expect(delta.basisDeltaBps).toBe(301);
+    expect(delta.customsSnapshot.basis).toBe("hmrc_customs_monthly");
+    expect(delta.commercialSnapshot.basis).toBe("frankfurter_commercial_spot");
+  });
+
+  it("L5-T-fx_engine-004 uses the named threshold and recomputes net margins under both bases", () => {
+    const crossed = computeFxBasisDelta(
+      customsSnapshot({ rate: 0.7834 }),
+      commercialSnapshot({ rate: 0.8070 }),
+      "2026-05-19T12:00:00Z",
+    );
+    const insideThreshold = computeFxBasisDelta(
+      customsSnapshot({ rate: 0.7834 }),
+      commercialSnapshot({ rate: 0.7871 }),
+      "2026-05-19T12:00:00Z",
+    );
+
+    expect(FX_DELTA_RECALC_THRESHOLD_BPS).toBe(150);
+    expect(evaluateFxRecalculation(crossed)).toEqual({
+      kind: "basis_delta_threshold_crossed",
+      thresholdBps: 150,
+      observedBps: 301,
+    });
+    expect(evaluateFxRecalculation(insideThreshold)).toBeNull();
+
+    expect(
+      netMarginBandUnderBothBases(
+        { low: 1000, base: 2000, high: 3000 },
+        0.7834,
+        0.8070,
+      ),
+    ).toEqual({
+      underCustoms: { low: 1000, base: 2000, high: 3000 },
+      underCommercial: { low: 699, base: 1699, high: 2699 },
+    });
+  });
+
+  it("L5-T-fx_engine-010 projects FX evidence onto existing landed_cost_estimates sync columns", () => {
+    const projection = projectFxSnapshotsToLandedCostEstimate({
+      customsSnapshot: customsSnapshot({ rate: 0.7834 }),
+      commercialSnapshot: commercialSnapshot({ rate: 0.8070 }),
+      fxRateCheckedAt: "2026-05-19T12:00:00Z",
+    });
+
+    expect(projection).toEqual({
+      table: "landed_cost_estimates",
+      syncAuthority: "l4_push_owned_reseed",
+      schemaMutationRequired: false,
+      values: {
+        customs_fx_rate: 0.7834,
+        commercial_fx_rate: 0.807,
+        fx_basis_delta_bps: 301,
+        fx_rate_checked_at: "2026-05-19T12:00:00Z",
+      },
+    });
+    expect(Object.keys(projection.values).sort()).toEqual([
+      "commercial_fx_rate",
+      "customs_fx_rate",
+      "fx_basis_delta_bps",
+      "fx_rate_checked_at",
+    ]);
+  });
+
+  it("L5-T-fx_engine-012 records dual public-free FX provider evidence without commercial procurement", () => {
+    const evidence = fxProviderPolicyEvidence();
+
+    expect(evidence.paidCommercialFxProcurementRequired).toBe(false);
+    expect(evidence.providers).toEqual([
+      {
+        id: "hmrc_monthly",
+        role: "customs_monthly",
+        auth: "none",
+        procurement: "public_free_no_key",
+      },
+      {
+        id: "frankfurter",
+        role: "commercial_spot",
+        auth: "none",
+        procurement: "public_free_no_key",
+      },
+    ]);
+  });
+});
+
 async function readCassette(fileName: string): Promise<CassetteFixture> {
   const cassetteFile = Bun.file(
     new URL(
@@ -412,4 +514,33 @@ async function expectHmrcSnapshot(opts: {
   }
 
   return result.snapshot;
+}
+
+function customsSnapshot(opts: { rate: number }): FxSnapshot {
+  return {
+    basis: "hmrc_customs_monthly",
+    effectiveMonth: "2026-05",
+    baseCurrency: "USD",
+    quoteCurrency: "GBP",
+    rate: opts.rate,
+    rateBps: Math.round(opts.rate * 10000),
+    sourceUrl:
+      "https://www.trade-tariff.service.gov.uk/exchange_rates/monthly?year=2026",
+    checkedAt: "2026-05-19T00:00:00Z",
+    snapshotId: "hmrc-2026-05-USD-GBP-v1",
+  };
+}
+
+function commercialSnapshot(opts: { rate: number }): FxSnapshot {
+  return {
+    basis: "frankfurter_commercial_spot",
+    effectiveDate: "2026-05-19",
+    baseCurrency: "USD",
+    quoteCurrency: "GBP",
+    rate: opts.rate,
+    rateBps: Math.round(opts.rate * 10000),
+    sourceUrl: "https://api.frankfurter.app/latest?from=USD&to=GBP",
+    checkedAt: "2026-05-19T12:00:00Z",
+    snapshotId: "frankfurter-2026-05-19-USD-GBP-v1",
+  };
 }
