@@ -2,6 +2,9 @@ import type { ExporterResolutionResult } from "./exporter-resolution";
 
 export const MEASURE_INTERACTION_UNKNOWN = "MEASURE_INTERACTION_UNKNOWN" as const;
 export const SUPPLEMENTARY_UNIT_MISSING = "SUPPLEMENTARY_UNIT_MISSING" as const;
+export const VALUATION_MODE_CONFLICT = "VALUATION_MODE_CONFLICT" as const;
+
+export const STANDARD_IMPORT_VAT_RATE_BPS = 2_000;
 
 export type InteractionFamily =
   | "additive"
@@ -29,6 +32,57 @@ export type AdditionalCodeSatisfiability =
   | "unsatisfied"
   | "unknown";
 
+export type VatRateState = "standard" | "reduced" | "zero" | "unresolved";
+
+export type ImportVatTreatment =
+  | "standard_rate_default"
+  | "reduced_rate_applied"
+  | "zero_rate_applied"
+  | "vatz_relief"
+  | "vatr_relief"
+  | "family_6_17_relief";
+
+export type VatReliefClaimKind = "VATZ" | "VATR" | "family_6_17";
+
+export interface VatReliefClaim {
+  kind: VatReliefClaimKind;
+  evidenceArtifactPaths: string[];
+}
+
+export interface VatEvidenceLeverage {
+  leverageItem: string;
+  marginDeltaBps: number;
+  evidenceRequired: string[];
+}
+
+export interface VatResolution {
+  vatRateState: VatRateState;
+  vatRecoveryRateBps: number;
+  importVatTreatment: ImportVatTreatment;
+  evidenceLeverage: VatEvidenceLeverage[];
+}
+
+export type ValuationMode = "estimation" | "declaration";
+
+export type CustomsValuationMethod =
+  | "1_proxy"
+  | "1_actual"
+  | "2"
+  | "3"
+  | "4"
+  | "5"
+  | "6"
+  | "unknown";
+
+export interface ValuationOutput {
+  valuationMode: ValuationMode;
+  customsValuationMethod: CustomsValuationMethod;
+  customsValuePence: number;
+  conflictDetected: boolean;
+  errorCode?: typeof VALUATION_MODE_CONFLICT;
+  commissionsAssistsRoyaltiesStatus: "represented" | "unknown" | "absent";
+}
+
 export type DutyExpression =
   | { kind: "ad_valorem"; rateBps: number }
   | { kind: "specific"; unit: SupplementaryDutyUnit; amountPence: number }
@@ -51,6 +105,8 @@ export interface ActiveMeasure {
     rateWithoutAdditionalCode?: DutyExpression;
     documentaryOnly?: boolean;
     interactionFamily?: InteractionFamily;
+    vatRateState?: VatRateState;
+    vatRecoveryRateBps?: number;
   };
 }
 
@@ -162,6 +218,92 @@ interface EvaluatedMeasure {
   expressionPayload: DutyExpressionPayload;
   requiredUnits: SupplementaryQuantityKey[];
   blockers: string[];
+}
+
+export function resolveVat(opts: {
+  uk10: string;
+  measures: ActiveMeasure[];
+  reliefClaims: VatReliefClaim[];
+}): VatResolution {
+  const importVatMeasure = opts.measures.find(isImportVatMeasure);
+  const vatRecoveryRateBps = clampBps(
+    importVatMeasure?.conditions?.vatRecoveryRateBps ?? 0,
+  );
+  const evidenceLeverage: VatEvidenceLeverage[] = [];
+
+  for (const claim of opts.reliefClaims) {
+    const missingEvidence = missingVatReliefEvidence(claim, opts);
+    if (missingEvidence.length === 0) {
+      return {
+        vatRateState: reliefVatRateState(claim.kind),
+        vatRecoveryRateBps,
+        importVatTreatment: reliefImportVatTreatment(claim.kind),
+        evidenceLeverage: [],
+      };
+    }
+
+    evidenceLeverage.push({
+      leverageItem: `vat_relief_${claim.kind.toLowerCase()}`,
+      marginDeltaBps: reliefMarginDeltaBps(claim.kind),
+      evidenceRequired: missingEvidence,
+    });
+  }
+
+  const vatRateState = resolveVatRateState(importVatMeasure);
+
+  if (vatRateState === "unresolved") {
+    evidenceLeverage.push({
+      leverageItem: "vat_rate_resolution",
+      marginDeltaBps: STANDARD_IMPORT_VAT_RATE_BPS,
+      evidenceRequired: ["hmrc_import_vat_measure"],
+    });
+  }
+
+  return {
+    vatRateState,
+    vatRecoveryRateBps,
+    importVatTreatment: importVatTreatmentForRateState(vatRateState),
+    evidenceLeverage: uniqueByLeverageItem(evidenceLeverage),
+  };
+}
+
+export function resolveValuation(opts: {
+  proxyPricePence: number | null;
+  declarationPricePence: number | null;
+  commissionsPence?: number;
+  assistsPence?: number;
+  royaltiesPence?: number;
+  resaleProceedsSharePence?: number;
+  divergenceThresholdBps: number;
+  customsValuationMethod?: CustomsValuationMethod;
+}): ValuationOutput {
+  const hasDeclaration = opts.declarationPricePence !== null;
+  const hasProxy = opts.proxyPricePence !== null;
+  const valuationMode: ValuationMode = hasDeclaration ? "declaration" : "estimation";
+  const adjustmentsPence = valuationAdjustmentPence(opts);
+  const baseValuePence =
+    opts.declarationPricePence ?? opts.proxyPricePence ?? 0;
+  const customsValuePence = baseValuePence + adjustmentsPence;
+  const conflictDetected =
+    hasDeclaration &&
+    hasProxy &&
+    valuationDivergenceBps(
+      opts.proxyPricePence,
+      opts.declarationPricePence,
+    ) > opts.divergenceThresholdBps;
+
+  return {
+    valuationMode,
+    customsValuationMethod: resolveCustomsValuationMethod(
+      valuationMode,
+      opts.customsValuationMethod,
+    ),
+    customsValuePence,
+    conflictDetected,
+    ...(conflictDetected ? { errorCode: VALUATION_MODE_CONFLICT } : {}),
+    commissionsAssistsRoyaltiesStatus:
+      commissionsAssistsRoyaltiesStatus(opts),
+  };
 }
 
 export function scanMeasures(input: MeasureScanInput): MeasureScanResult {
@@ -589,6 +731,205 @@ function conditionalWarnings(entry: EvaluatedMeasure): string[] {
   }
 
   return [];
+}
+
+function isImportVatMeasure(measure: ActiveMeasure): boolean {
+  const normalizedType = normalizeMeasureType(measure.measureType);
+  return (
+    normalizedType.includes("import_vat") ||
+    normalizedType.includes("vat") ||
+    normalizedType.includes("value_added_tax")
+  );
+}
+
+function missingVatReliefEvidence(
+  claim: VatReliefClaim,
+  opts: {
+    uk10: string;
+    measures: ActiveMeasure[];
+  },
+): string[] {
+  return [
+    ...(vatCommodityPrerequisiteSatisfied(claim.kind, opts)
+      ? []
+      : ["commodity_prerequisite"]),
+    ...(claim.evidenceArtifactPaths.length > 0
+      ? []
+      : ["documentary_relief_evidence"]),
+  ];
+}
+
+function vatCommodityPrerequisiteSatisfied(
+  kind: VatReliefClaimKind,
+  opts: {
+    uk10: string;
+    measures: ActiveMeasure[];
+  },
+): boolean {
+  const normalizedKind = normalizeVatReliefKind(kind);
+  return opts.measures.some((measure) => {
+    const measureText = [
+      measure.measureType,
+      measure.conditions?.additionalCode ?? "",
+      measure.id ?? "",
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    if (normalizedKind === "family_6_17") {
+      return (
+        measureText.includes("6/17") ||
+        measureText.includes("6_17") ||
+        measureText.includes("de 6") ||
+        opts.uk10.startsWith("4819")
+      );
+    }
+
+    return measureText.includes(normalizedKind.toLowerCase());
+  });
+}
+
+function normalizeVatReliefKind(kind: VatReliefClaimKind): string {
+  return kind === "family_6_17" ? "family_6_17" : kind;
+}
+
+function reliefVatRateState(kind: VatReliefClaimKind): VatRateState {
+  return kind === "VATR" ? "reduced" : "zero";
+}
+
+function reliefImportVatTreatment(kind: VatReliefClaimKind): ImportVatTreatment {
+  switch (kind) {
+    case "VATZ":
+      return "vatz_relief";
+    case "VATR":
+      return "vatr_relief";
+    case "family_6_17":
+      return "family_6_17_relief";
+  }
+}
+
+function reliefMarginDeltaBps(kind: VatReliefClaimKind): number {
+  return kind === "VATR" ? 1_500 : STANDARD_IMPORT_VAT_RATE_BPS;
+}
+
+function resolveVatRateState(measure: ActiveMeasure | undefined): VatRateState {
+  if (measure === undefined) {
+    return "unresolved";
+  }
+
+  if (measure.conditions?.vatRateState !== undefined) {
+    return measure.conditions.vatRateState;
+  }
+
+  if (measure.dutyExpression.kind !== "ad_valorem") {
+    return "unresolved";
+  }
+
+  if (measure.dutyExpression.rateBps === 0) {
+    return "zero";
+  }
+
+  if (measure.dutyExpression.rateBps < STANDARD_IMPORT_VAT_RATE_BPS) {
+    return "reduced";
+  }
+
+  if (measure.dutyExpression.rateBps === STANDARD_IMPORT_VAT_RATE_BPS) {
+    return "standard";
+  }
+
+  return "unresolved";
+}
+
+function importVatTreatmentForRateState(
+  vatRateState: VatRateState,
+): ImportVatTreatment {
+  switch (vatRateState) {
+    case "standard":
+    case "unresolved":
+      return "standard_rate_default";
+    case "reduced":
+      return "reduced_rate_applied";
+    case "zero":
+      return "zero_rate_applied";
+  }
+}
+
+function uniqueByLeverageItem(
+  entries: readonly VatEvidenceLeverage[],
+): VatEvidenceLeverage[] {
+  const byItem = new Map<string, VatEvidenceLeverage>();
+  for (const entry of entries) {
+    byItem.set(entry.leverageItem, entry);
+  }
+  return [...byItem.values()];
+}
+
+function valuationAdjustmentPence(opts: {
+  commissionsPence?: number;
+  assistsPence?: number;
+  royaltiesPence?: number;
+  resaleProceedsSharePence?: number;
+}): number {
+  return (
+    (opts.commissionsPence ?? 0) +
+    (opts.assistsPence ?? 0) +
+    (opts.royaltiesPence ?? 0) +
+    (opts.resaleProceedsSharePence ?? 0)
+  );
+}
+
+function valuationDivergenceBps(
+  proxyPricePence: number | null,
+  declarationPricePence: number | null,
+): number {
+  if (proxyPricePence === null || declarationPricePence === null) {
+    return 0;
+  }
+
+  const denominator = Math.max(Math.abs(declarationPricePence), 1);
+  return Math.round(
+    (Math.abs(proxyPricePence - declarationPricePence) * 10_000) / denominator,
+  );
+}
+
+function resolveCustomsValuationMethod(
+  valuationMode: ValuationMode,
+  overrideMethod: CustomsValuationMethod | undefined,
+): CustomsValuationMethod {
+  if (
+    valuationMode === "declaration" &&
+    overrideMethod !== undefined &&
+    overrideMethod !== "1_proxy" &&
+    overrideMethod !== "1_actual"
+  ) {
+    return overrideMethod;
+  }
+
+  return valuationMode === "estimation" ? "1_proxy" : "1_actual";
+}
+
+function commissionsAssistsRoyaltiesStatus(opts: {
+  commissionsPence?: number;
+  assistsPence?: number;
+  royaltiesPence?: number;
+  resaleProceedsSharePence?: number;
+}): ValuationOutput["commissionsAssistsRoyaltiesStatus"] {
+  const values = [
+    opts.commissionsPence,
+    opts.assistsPence,
+    opts.royaltiesPence,
+    opts.resaleProceedsSharePence,
+  ];
+
+  if (values.every((value) => value === undefined)) {
+    return "unknown";
+  }
+
+  return values.some((value) => (value ?? 0) > 0) ? "represented" : "absent";
+}
+
+function clampBps(value: number): number {
+  return Math.min(10_000, Math.max(0, Math.round(value)));
 }
 
 function isSubstitutiveMeasure(

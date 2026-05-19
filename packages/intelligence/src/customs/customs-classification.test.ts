@@ -7,6 +7,7 @@ import {
   sweepFreshness,
 } from "./classification-freshness";
 import { EXPORTER_UNRESOLVED, resolveExporter } from "./exporter-resolution";
+import { resolveVat } from "./measure-scanner";
 import {
   InMemoryRecallLatticeStore,
   InMemoryTariffGraph,
@@ -466,6 +467,37 @@ describe("marketplace supplier quote coexistence", () => {
 });
 
 describe("customs classification exporter defaults", () => {
+  it("L5-T-customs_classification-016 records unresolved VAT as a standard-rate conservative default", () => {
+    const result = resolveVat({
+      uk10: "4819100000",
+      measures: [],
+      reliefClaims: [{ kind: "family_6_17", evidenceArtifactPaths: [] }],
+    });
+
+    expect(result).toMatchObject({
+      vatRateState: "unresolved",
+      importVatTreatment: "standard_rate_default",
+      vatRecoveryRateBps: 0,
+    });
+    expect(result.evidenceLeverage).toEqual(
+      expect.arrayContaining([
+        {
+          leverageItem: "vat_relief_family_6_17",
+          marginDeltaBps: 2_000,
+          evidenceRequired: [
+            "commodity_prerequisite",
+            "documentary_relief_evidence",
+          ],
+        },
+        {
+          leverageItem: "vat_rate_resolution",
+          marginDeltaBps: 2_000,
+          evidenceRequired: ["hmrc_import_vat_measure"],
+        },
+      ]),
+    );
+  });
+
   it("L5-T-customs_classification-014 applies residual default and unlockable margin for missing exporter proof", () => {
     const result = resolveExporter({
       commodityCode: "7604210000",

@@ -4,6 +4,9 @@ import { EXPORTER_UNRESOLVED, resolveExporter } from "./exporter-resolution";
 import {
   MEASURE_INTERACTION_UNKNOWN,
   SUPPLEMENTARY_UNIT_MISSING,
+  VALUATION_MODE_CONFLICT,
+  resolveValuation,
+  resolveVat,
   scanMeasures,
   type ActiveMeasure,
 } from "./measure-scanner";
@@ -342,6 +345,167 @@ describe("measure scanner interaction families", () => {
 });
 
 describe("measure interaction redaction sentinels", () => {
+  it("L5-T-measure_interaction-014 requires VAT relief commodity and documentary prerequisites", () => {
+    const reliefClaims = [
+      { kind: "VATZ" as const, expectedTreatment: "vatz_relief" as const },
+      { kind: "VATR" as const, expectedTreatment: "vatr_relief" as const },
+      {
+        kind: "family_6_17" as const,
+        expectedTreatment: "family_6_17_relief" as const,
+      },
+    ];
+
+    for (const claim of reliefClaims) {
+      const missingDocument = resolveVat({
+        uk10: "4819100000",
+        measures: [importVatMeasureForClaim(claim.kind)],
+        reliefClaims: [{ kind: claim.kind, evidenceArtifactPaths: [] }],
+      });
+
+      expect(missingDocument.importVatTreatment, claim.kind).toBe(
+        "standard_rate_default",
+      );
+      expect(missingDocument.evidenceLeverage[0], claim.kind).toMatchObject({
+        leverageItem: `vat_relief_${claim.kind.toLowerCase()}`,
+        evidenceRequired: ["documentary_relief_evidence"],
+      });
+
+      const missingCommodity = resolveVat({
+        uk10: "7308909800",
+        measures: [importVatMeasure()],
+        reliefClaims: [
+          {
+            kind: claim.kind,
+            evidenceArtifactPaths: [`evidence/${claim.kind}.pdf`],
+          },
+        ],
+      });
+
+      expect(missingCommodity.importVatTreatment, claim.kind).toBe(
+        "standard_rate_default",
+      );
+      expect(missingCommodity.evidenceLeverage[0]?.evidenceRequired).toContain(
+        "commodity_prerequisite",
+      );
+
+      const satisfied = resolveVat({
+        uk10: "4819100000",
+        measures: [importVatMeasureForClaim(claim.kind)],
+        reliefClaims: [
+          {
+            kind: claim.kind,
+            evidenceArtifactPaths: [`evidence/${claim.kind}.pdf`],
+          },
+        ],
+      });
+
+      expect(satisfied.importVatTreatment, claim.kind).toBe(
+        claim.expectedTreatment,
+      );
+      expect(satisfied.evidenceLeverage, claim.kind).toEqual([]);
+    }
+  });
+
+  it("L5-T-measure_interaction-015 keeps VAT rate state and recovery fraction separate", () => {
+    const unresolved = resolveVat({
+      uk10: "4819100000",
+      measures: [],
+      reliefClaims: [],
+    });
+
+    expect(unresolved).toMatchObject({
+      vatRateState: "unresolved",
+      importVatTreatment: "standard_rate_default",
+      vatRecoveryRateBps: 0,
+    });
+
+    const partiallyRecoverable = resolveVat({
+      uk10: "4819100000",
+      measures: [
+        {
+          ...importVatMeasure(),
+          conditions: {
+            vatRateState: "standard",
+            vatRecoveryRateBps: 6_250,
+          },
+        },
+      ],
+      reliefClaims: [],
+    });
+
+    expect(partiallyRecoverable.vatRateState).toBe("standard");
+    expect(partiallyRecoverable.importVatTreatment).toBe(
+      "standard_rate_default",
+    );
+    expect(partiallyRecoverable.vatRecoveryRateBps).toBe(6_250);
+  });
+
+  it("L5-T-measure_interaction-016 maps valuation mode to explicit customs valuation methods", () => {
+    const estimation = resolveValuation({
+      proxyPricePence: 125_000,
+      declarationPricePence: null,
+      divergenceThresholdBps: 1_000,
+    });
+
+    expect(estimation).toMatchObject({
+      valuationMode: "estimation",
+      customsValuationMethod: "1_proxy",
+      customsValuePence: 125_000,
+      conflictDetected: false,
+    });
+
+    const declaration = resolveValuation({
+      proxyPricePence: null,
+      declarationPricePence: 100_000,
+      commissionsPence: 3_000,
+      assistsPence: 2_000,
+      royaltiesPence: 1_000,
+      resaleProceedsSharePence: 500,
+      divergenceThresholdBps: 1_000,
+    });
+
+    expect(declaration).toMatchObject({
+      valuationMode: "declaration",
+      customsValuationMethod: "1_actual",
+      customsValuePence: 106_500,
+      commissionsAssistsRoyaltiesStatus: "represented",
+    });
+
+    const noSaleDeclaration = resolveValuation({
+      proxyPricePence: null,
+      declarationPricePence: 100_000,
+      customsValuationMethod: "4",
+      commissionsPence: 0,
+      assistsPence: 0,
+      royaltiesPence: 0,
+      resaleProceedsSharePence: 0,
+      divergenceThresholdBps: 1_000,
+    });
+
+    expect(noSaleDeclaration).toMatchObject({
+      valuationMode: "declaration",
+      customsValuationMethod: "4",
+      commissionsAssistsRoyaltiesStatus: "absent",
+    });
+  });
+
+  it("L5-T-measure_interaction-017 emits valuation conflict on material proxy declaration divergence", () => {
+    const result = resolveValuation({
+      proxyPricePence: 100_000,
+      declarationPricePence: 150_000,
+      divergenceThresholdBps: 1_000,
+    });
+
+    expect(result).toMatchObject({
+      valuationMode: "declaration",
+      customsValuationMethod: "1_actual",
+      customsValuePence: 150_000,
+      conflictDetected: true,
+      errorCode: VALUATION_MODE_CONFLICT,
+      commissionsAssistsRoyaltiesStatus: "unknown",
+    });
+  });
+
   it("L5-T-measure_interaction-011 defaults active trade remedies to residual when exporter proof is absent", () => {
     const result = resolveExporter({
       commodityCode: "7604210000",
@@ -510,6 +674,27 @@ function adValoremMeasure(
     id,
     measureType,
     dutyExpression: { kind: "ad_valorem", rateBps },
+  };
+}
+
+function importVatMeasure(): ActiveMeasure {
+  return {
+    id: "vat-standard",
+    measureType: "import_vat",
+    dutyExpression: { kind: "ad_valorem", rateBps: 2_000 },
+  };
+}
+
+function importVatMeasureForClaim(
+  kind: "VATZ" | "VATR" | "family_6_17",
+): ActiveMeasure {
+  return {
+    ...importVatMeasure(),
+    id: `vat-${kind.toLowerCase()}`,
+    measureType: `import_vat_${kind.toLowerCase()}`,
+    conditions: {
+      additionalCode: kind === "family_6_17" ? "DE 6/17" : kind,
+    },
   };
 }
 
