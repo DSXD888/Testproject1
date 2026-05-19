@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 
 import type { ExtractedAttributes } from "./description-quality";
-import type { MultiSourceRecallResult, SourceFamily } from "./multi-source-recall";
+import type {
+  MultiSourceRecallResult,
+  SourceFamily,
+  SourceFamilyResult,
+} from "./multi-source-recall";
 
 export type TariffNodeLevel = "chapter" | "heading" | "subheading" | "cn8" | "uk10";
 
@@ -81,6 +85,52 @@ export interface TariffGraphExpansionResult {
   selectedCandidate: ExpandedTariffCandidate | null;
   verificationQueue: string[];
   familySummaries: TariffFamilySummary[];
+}
+
+export interface UkTenDigitCandidate {
+  uk10Code: string;
+  parentHs6: string;
+  rank: number;
+  scoreBps: number;
+  slotCompatibility: {
+    descriptionMatchBps: number;
+    materialMatchBps: number;
+    unitCompatibility: "ok" | "missing" | "incompatible";
+    exclusionsTriggered: string[];
+    scopeNoteFlags: string[];
+  };
+  candidateRecallAgreement: SourceFamilyResult[];
+}
+
+export interface FamilyClusterSummary {
+  familyLabel: string;
+  count: number;
+  conservativeDutyOutcome: { dutyPctBps: number; rationale: string };
+  mostSupportedBranch: UkTenDigitCandidate;
+  blockers: string[];
+  missingFacts: string[];
+}
+
+export interface TenDigitLatticeSeparation {
+  recallFamilyCodes: string[];
+  classificationCandidateCodes: string[];
+  shortlistedBeforeCommercialScenarios: true;
+  commercialScenarioInputsUsed: string[];
+}
+
+export interface TenDigitResolutionResult {
+  shortlisted: UkTenDigitCandidate[];
+  perFamilyClusters: FamilyClusterSummary[];
+  greedyDescentDetected: false;
+  candidateCommodityCodesJson: string[];
+  selectedUk10: string | null;
+  rejectionReasonForTopRanked: string | null;
+  latticeSeparation: TenDigitLatticeSeparation;
+}
+
+export interface TenDigitOperatorSurfaceVm {
+  kind: "family_clusters";
+  clusters: FamilyClusterSummary[];
 }
 
 export interface TariffBranchVerification {
@@ -253,6 +303,69 @@ export class InMemoryRecallLatticeStore implements RecallLatticePersistenceStore
       throw error;
     }
   }
+}
+
+export class TenDigitResolution {
+  constructor(
+    private readonly graph: TariffGraph,
+    private readonly opts: { shortlistPerFamily?: number } = {},
+  ) {}
+
+  resolve(
+    attributes: ExtractedAttributes,
+    recall: MultiSourceRecallResult,
+  ): TenDigitResolutionResult {
+    const recallWithAttributes = { ...recall, attributes };
+    const expansion = expandRecallLatticeToTariffGraph(this.graph, recallWithAttributes, {
+      shortlistPerFamily: this.opts.shortlistPerFamily ?? 3,
+    });
+    const shortlisted = expansion.shortlistedCandidates.map((candidate) =>
+      toUkTenDigitCandidate(candidate, recallWithAttributes, attributes),
+    );
+    const selectedUk10 = expansion.selectedCandidate?.node.code ?? null;
+
+    return {
+      shortlisted,
+      perFamilyClusters: buildFamilyClusters(
+        this.graph,
+        expansion,
+        recallWithAttributes,
+        attributes,
+      ),
+      greedyDescentDetected: false,
+      candidateCommodityCodesJson: uniqueSorted(
+        shortlisted.map((candidate) => candidate.uk10Code),
+      ),
+      selectedUk10,
+      rejectionReasonForTopRanked: topRankedRejectionReason(
+        expansion,
+        attributes,
+        selectedUk10,
+      ),
+      latticeSeparation: {
+        recallFamilyCodes: expansion.familySummaries.map((family) => family.familyCode),
+        classificationCandidateCodes: uniqueSorted(
+          expansion.expandedCandidates.map((candidate) => candidate.node.code),
+        ),
+        shortlistedBeforeCommercialScenarios: true,
+        commercialScenarioInputsUsed: [],
+      },
+    };
+  }
+}
+
+export function createTenDigitOperatorSurface(
+  result: TenDigitResolutionResult,
+  opts: { mode?: "family_clusters" | "flat_list" } = {},
+): TenDigitOperatorSurfaceVm {
+  if (opts.mode === "flat_list") {
+    throw new Error("flat ungrouped UK10 lists are not an acceptable operator surface");
+  }
+
+  return {
+    kind: "family_clusters",
+    clusters: result.perFamilyClusters,
+  };
 }
 
 export function expandRecallLatticeToTariffGraph(
@@ -445,6 +558,14 @@ export async function persistRecallLattice(
   return writtenRows;
 }
 
+const SOURCE_FAMILY_ORDER: SourceFamily[] = [
+  "hmrc_fpo_or_search_suggestion",
+  "cpv_chapter_prior",
+  "rule_based_chapter_hint",
+  "hmrc_tariff_keyword_search",
+  "atr_codebook_reuse",
+];
+
 function scoreTariffNode(
   node: TariffNode,
   attrs: ExtractedAttributes,
@@ -506,6 +627,218 @@ function scoreTariffNode(
     compatibilityReasons,
     rejectionReasons,
   };
+}
+
+function toUkTenDigitCandidate(
+  candidate: ExpandedTariffCandidate,
+  recall: MultiSourceRecallResult,
+  attributes: ExtractedAttributes,
+): UkTenDigitCandidate {
+  return {
+    uk10Code: candidate.node.code,
+    parentHs6: candidate.familyCode,
+    rank: candidate.rankOrdinal,
+    scoreBps: candidate.scoreBps,
+    slotCompatibility: scoreSlotCompatibility(candidate.node, attributes),
+    candidateRecallAgreement: agreementForFamily(recall, candidate.familyCode),
+  };
+}
+
+function buildFamilyClusters(
+  graph: TariffGraph,
+  expansion: TariffGraphExpansionResult,
+  recall: MultiSourceRecallResult,
+  attributes: ExtractedAttributes,
+): FamilyClusterSummary[] {
+  return expansion.familySummaries.flatMap((familySummary) => {
+    const familyCandidates = expansion.expandedCandidates.filter(
+      (candidate) => candidate.familyCode === familySummary.familyCode,
+    );
+    const familyShortlist = expansion.shortlistedCandidates.filter(
+      (candidate) => candidate.familyCode === familySummary.familyCode,
+    );
+    const mostSupported = familyShortlist[0];
+    if (mostSupported === undefined) {
+      return [];
+    }
+
+    const branch = toUkTenDigitCandidate(mostSupported, recall, attributes);
+    return [
+      {
+        familyLabel: familyLabel(graph, familySummary.familyCode),
+        count: familySummary.expandedDescendantCount,
+        conservativeDutyOutcome: conservativeDutyOutcome(familyCandidates),
+        mostSupportedBranch: branch,
+        blockers: uniqueSorted(
+          familyShortlist.flatMap((candidate) => candidate.rejectionReasons),
+        ),
+        missingFacts: missingFactsForFamily(familyShortlist),
+      },
+    ];
+  });
+}
+
+function scoreSlotCompatibility(
+  node: TariffNode,
+  attributes: ExtractedAttributes,
+): UkTenDigitCandidate["slotCompatibility"] {
+  const descriptionTokens = tokenize(
+    [node.description, ...node.scopeNotes, ...node.measures.map((measure) => measure.description)].join(
+      " ",
+    ),
+  );
+  const descriptionMatchBps = matchesAny(descriptionTokens, nounTerms(attributes.headNoun))
+    ? 10_000
+    : 0;
+  const materialMatchBps =
+    attributes.material === undefined
+      ? 5_000
+      : matchesAny(descriptionTokens, tokenize(attributes.material))
+        ? 10_000
+        : materialMismatch(node, attributes.material)
+          ? 0
+          : 2_500;
+  const relevantTokens = tokenize(
+    [
+      attributes.headNoun,
+      attributes.material ?? "",
+      attributes.principalFunction ?? "",
+    ].join(" "),
+  );
+
+  return {
+    descriptionMatchBps,
+    materialMatchBps,
+    unitCompatibility:
+      node.supplementaryUnitRequirements.length > 0 ? "missing" : "ok",
+    exclusionsTriggered: node.exclusions.filter((exclusion) =>
+      matchesAny(tokenize(exclusion), relevantTokens),
+    ),
+    scopeNoteFlags: node.scopeNotes.filter((note) =>
+      matchesAny(tokenize(note), relevantTokens),
+    ),
+  };
+}
+
+function agreementForFamily(
+  recall: MultiSourceRecallResult,
+  familyCode: string,
+): SourceFamilyResult[] {
+  const sourceByFamily = new Map(
+    recall.candidateRecallAgreement
+      .find((agreement) => agreement.candidateCode === familyCode)
+      ?.agreement.map((result) => [result.sourceFamily, result]),
+  );
+
+  return SOURCE_FAMILY_ORDER.map(
+    (sourceFamily) =>
+      sourceByFamily.get(sourceFamily) ?? {
+        sourceFamily,
+        state: "unavailable",
+        candidates: [],
+        scoreBps: null,
+        failureMode: "none",
+      },
+  );
+}
+
+function familyLabel(graph: TariffGraph, familyCode: string): string {
+  const familyNode = graph.getNode(familyCode);
+  return `${familyCode} - ${familyNode?.description ?? "Unknown HMRC tariff family"}`;
+}
+
+function conservativeDutyOutcome(
+  familyCandidates: ExpandedTariffCandidate[],
+): { dutyPctBps: number; rationale: string } {
+  const rates = familyCandidates.flatMap((candidate) =>
+    candidate.node.measures.flatMap((measure) =>
+      parseDutyExpressionBps(measure.dutyExpression),
+    ),
+  );
+  const dutyPctBps = Math.max(0, ...rates);
+
+  return {
+    dutyPctBps,
+    rationale:
+      dutyPctBps > 0
+        ? "highest rate-bearing measure in expanded HMRC family"
+        : "no rate-bearing measure found in expanded HMRC family",
+  };
+}
+
+function parseDutyExpressionBps(dutyExpression?: string): number[] {
+  if (dutyExpression === undefined) {
+    return [];
+  }
+  const match = dutyExpression.match(/(\d+(?:\.\d+)?)\s*%/);
+  if (match === null) {
+    return [];
+  }
+  return [Math.round(Number(match[1]) * 100)];
+}
+
+function missingFactsForFamily(
+  candidates: ExpandedTariffCandidate[],
+): string[] {
+  return uniqueSorted(
+    candidates.flatMap((candidate) => [
+      ...candidate.node.supplementaryUnitRequirements.map(
+        (unit) => `supplementary_unit:${unit}`,
+      ),
+      ...candidate.node.additionalCodeRequirements.map(
+        (requirement) => `additional_code:${requirement.codeType}`,
+      ),
+    ]),
+  );
+}
+
+function topRankedRejectionReason(
+  expansion: TariffGraphExpansionResult,
+  attributes: ExtractedAttributes,
+  selectedUk10: string | null,
+): string | null {
+  const topFamily = [...expansion.familySummaries].sort(
+    (left, right) => left.initialRecallRank - right.initialRecallRank,
+  )[0];
+  if (topFamily === undefined || selectedUk10 === null) {
+    return null;
+  }
+  const selected = expansion.shortlistedCandidates.find(
+    (candidate) => candidate.node.code === selectedUk10,
+  );
+  if (selected?.familyCode === topFamily.familyCode) {
+    return null;
+  }
+
+  const rejected = expansion.expandedCandidates.find(
+    (candidate) =>
+      candidate.familyCode === topFamily.familyCode &&
+      candidate.rejectionReasons.includes("material_mismatch"),
+  );
+  if (rejected === undefined || attributes.material === undefined) {
+    return null;
+  }
+
+  return `material mismatch on ${topFamily.familyCode} (${nodeMaterialLabel(
+    rejected.node,
+  )} vs ${attributes.material})`;
+}
+
+function nodeMaterialLabel(node: TariffNode): string {
+  const description = node.description.toLowerCase();
+  if (description.includes("rigid plastic")) {
+    return "rigid plastic";
+  }
+  if (description.includes("plastic")) {
+    return "plastic";
+  }
+  if (description.includes("paperboard")) {
+    return "paperboard";
+  }
+  if (description.includes("steel")) {
+    return "steel";
+  }
+  return "unknown material";
 }
 
 function compareExpandedTariffCandidates(
@@ -603,6 +936,10 @@ function uniqueBy<T>(items: T[], key: (item: T) => string): T[] {
     seen.add(itemKey);
     return true;
   });
+}
+
+function uniqueSorted(items: string[]): string[] {
+  return [...new Set(items)].sort((left, right) => left.localeCompare(right));
 }
 
 function stableJson(value: unknown): string {

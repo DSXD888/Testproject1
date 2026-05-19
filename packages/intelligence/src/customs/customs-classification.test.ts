@@ -15,8 +15,125 @@ import {
   type SourceFamilyResult,
   type TariffNode,
 } from "./multi-source-recall";
+import {
+  TenDigitResolution,
+  createTenDigitOperatorSurface,
+} from "./ten-digit-resolution";
 
 describe("customs classification tariff graph", () => {
+  it("L5-T-customs_classification-001 rejects greedy descent and selects the compatible runner-up UK10 branch", () => {
+    const result = new TenDigitResolution(
+      new InMemoryTariffGraph(nonGreedyTariffNodes()),
+    ).resolve(nonGreedyRecallResult().attributes, nonGreedyRecallResult());
+
+    expect(result.greedyDescentDetected).toBe(false);
+    expect(result.candidateCommodityCodesJson).toEqual([
+      "3923100000",
+      "4819100000",
+      "4823908580",
+    ]);
+    expect(result.selectedUk10).toBe("4819100000");
+    expect(result.rejectionReasonForTopRanked).toBe(
+      "material mismatch on 3923 (rigid plastic vs paperboard)",
+    );
+    expect(result.latticeSeparation.recallFamilyCodes).toEqual([
+      "3923",
+      "4819",
+      "4823",
+    ]);
+  });
+
+  it("L5-T-customs_classification-002 reranks descendants with slot compatibility and source-family agreement states", () => {
+    const recallResult = slotCompatibilityRecallResult();
+    const result = new TenDigitResolution(
+      new InMemoryTariffGraph(slotCompatibilityTariffNodes()),
+    ).resolve(recallResult.attributes, recallResult);
+
+    const selected = result.shortlisted.find(
+      (candidate) => candidate.uk10Code === "4819100000",
+    );
+
+    expect(selected).toMatchObject({
+      parentHs6: "4819",
+      slotCompatibility: {
+        descriptionMatchBps: 10_000,
+        materialMatchBps: 10_000,
+        unitCompatibility: "missing",
+        exclusionsTriggered: [],
+        scopeNoteFlags: [
+          "Covers corrugated paperboard packing containers with declarable item counts",
+        ],
+      },
+    });
+    expect(selected?.candidateRecallAgreement.map((source) => source.state)).toEqual([
+      "agreed",
+      "agreed",
+      "agreed",
+      "diverged",
+      "unavailable",
+    ]);
+    expect(result.perFamilyClusters[0]?.missingFacts).toEqual(
+      expect.arrayContaining([
+        "additional_code:VAT_ADDITIONAL_CODE",
+        "supplementary_unit:number_of_items",
+      ]),
+    );
+  });
+
+  it("L5-T-customs_classification-003 keeps recall classification and commercial scenario lattices separated", () => {
+    const recallResult = nonGreedyRecallResult();
+    const result = new TenDigitResolution(
+      new InMemoryTariffGraph(nonGreedyTariffNodes()),
+    ).resolve(recallResult.attributes, recallResult);
+
+    expect(result.latticeSeparation).toMatchObject({
+      recallFamilyCodes: ["3923", "4819", "4823"],
+      classificationCandidateCodes: [
+        "3923100000",
+        "4819100000",
+        "4823908580",
+      ],
+      shortlistedBeforeCommercialScenarios: true,
+      commercialScenarioInputsUsed: [],
+    });
+    expect(
+      result.shortlisted.every(
+        (candidate) =>
+          !Object.hasOwn(candidate, "freight") &&
+          !Object.hasOwn(candidate, "fx") &&
+          !Object.hasOwn(candidate, "quoteRole"),
+      ),
+    ).toBe(true);
+  });
+
+  it("L5-T-customs_classification-005 groups large descendant sets into operator family clusters", () => {
+    const recallResult = largePaperboardRecallResult();
+    const result = new TenDigitResolution(
+      new InMemoryTariffGraph(largePaperboardTariffNodes()),
+    ).resolve(recallResult.attributes, recallResult);
+    const surface = createTenDigitOperatorSurface(result);
+
+    expect(surface.kind).toBe("family_clusters");
+    expect(surface.clusters).toHaveLength(1);
+    expect(surface.clusters[0]).toMatchObject({
+      familyLabel:
+        "4819 - Cartons, boxes, cases, bags and other packing containers, of paper or paperboard",
+      count: 55,
+      conservativeDutyOutcome: {
+        dutyPctBps: 1_250,
+        rationale: "highest rate-bearing measure in expanded HMRC family",
+      },
+      mostSupportedBranch: {
+        uk10Code: "4819100000",
+        parentHs6: "4819",
+      },
+      missingFacts: ["supplementary_unit:number_of_items"],
+    });
+    expect(() => createTenDigitOperatorSurface(result, { mode: "flat_list" })).toThrow(
+      "flat ungrouped UK10 lists are not an acceptable operator surface",
+    );
+  });
+
   it("L5-T-customs_classification-004 caches HMRC tariff graph data, verifies only shortlisted branches, and persists the recall lattice", async () => {
     const graph = new InMemoryTariffGraph(packagingTariffNodes());
     const recallResult = packagingRecallResult();
@@ -203,13 +320,113 @@ function evidenceIncludesCandidate(evidenceJson: string, candidateCode: string):
   }
 }
 
-function packagingRecallResult(): MultiSourceRecallResult {
-  const attributes = {
+function nonGreedyRecallResult(): MultiSourceRecallResult {
+  const sourceFamilies: SourceFamily[] = [
+    "hmrc_fpo_or_search_suggestion",
+    "cpv_chapter_prior",
+    "rule_based_chapter_hint",
+    "hmrc_tariff_keyword_search",
+    "atr_codebook_reuse",
+  ];
+
+  return {
+    attributes: packagingAttributes(),
+    perSourceResults: [
+      sourceResult("hmrc_fpo_or_search_suggestion", "agreed", "3923", 9_700),
+      sourceResult("cpv_chapter_prior", "agreed", "4819", 8_400),
+      sourceResult("rule_based_chapter_hint", "agreed", "4819", 8_800),
+      sourceResult("hmrc_tariff_keyword_search", "agreed", "4819", 9_200),
+      sourceResult("atr_codebook_reuse", "agreed", "4823", 7_100),
+    ],
+    candidateRecallAgreement: [
+      {
+        candidateCode: "3923",
+        agreement: sourceFamilies.map((sourceFamily) =>
+          sourceFamily === "hmrc_fpo_or_search_suggestion"
+            ? sourceResult(sourceFamily, "agreed", "3923", 9_700)
+            : sourceResult(sourceFamily, "diverged", "4819", 7_000),
+        ),
+      },
+      {
+        candidateCode: "4819",
+        agreement: sourceFamilies.map((sourceFamily) =>
+          sourceFamily === "cpv_chapter_prior" ||
+          sourceFamily === "rule_based_chapter_hint" ||
+          sourceFamily === "hmrc_tariff_keyword_search"
+            ? sourceResult(sourceFamily, "agreed", "4819", 9_200)
+            : sourceResult(sourceFamily, "diverged", "3923", 7_000),
+        ),
+      },
+      {
+        candidateCode: "4823",
+        agreement: sourceFamilies.map((sourceFamily) =>
+          sourceFamily === "atr_codebook_reuse"
+            ? sourceResult(sourceFamily, "agreed", "4823", 7_100)
+            : sourceResult(sourceFamily, "diverged", "4819", 7_000),
+        ),
+      },
+    ],
+    independentSourceFamiliesAvailable: 5,
+    independentSourceFamiliesAgreeing: 3,
+    classificationBlockers: [],
+    autoClassificationAllowed: true,
+  };
+}
+
+function slotCompatibilityRecallResult(): MultiSourceRecallResult {
+  return {
+    ...nonGreedyRecallResult(),
+    candidateRecallAgreement: [
+      {
+        candidateCode: "4819",
+        agreement: [
+          sourceResult("hmrc_fpo_or_search_suggestion", "agreed", "4819", 9_000),
+          sourceResult("cpv_chapter_prior", "agreed", "4819", 8_700),
+          sourceResult("rule_based_chapter_hint", "agreed", "4819", 8_900),
+          sourceResult("hmrc_tariff_keyword_search", "diverged", "3923", 8_000),
+          unavailableSourceResult("atr_codebook_reuse"),
+        ],
+      },
+    ],
+    perSourceResults: [
+      sourceResult("hmrc_fpo_or_search_suggestion", "agreed", "4819", 9_000),
+      sourceResult("cpv_chapter_prior", "agreed", "4819", 8_700),
+      sourceResult("rule_based_chapter_hint", "agreed", "4819", 8_900),
+      sourceResult("hmrc_tariff_keyword_search", "diverged", "3923", 8_000),
+      unavailableSourceResult("atr_codebook_reuse"),
+    ],
+  };
+}
+
+function largePaperboardRecallResult(): MultiSourceRecallResult {
+  return {
+    ...slotCompatibilityRecallResult(),
+    candidateRecallAgreement: [
+      {
+        candidateCode: "4819",
+        agreement: [
+          sourceResult("hmrc_fpo_or_search_suggestion", "agreed", "4819", 9_000),
+          sourceResult("cpv_chapter_prior", "agreed", "4819", 8_700),
+          sourceResult("rule_based_chapter_hint", "agreed", "4819", 8_900),
+          sourceResult("hmrc_tariff_keyword_search", "agreed", "4819", 9_200),
+          sourceResult("atr_codebook_reuse", "agreed", "4819", 7_500),
+        ],
+      },
+    ],
+  };
+}
+
+function packagingAttributes() {
+  return {
     headNoun: "cartons",
     material: "paperboard",
     principalFunction: "packaging",
     packForm: "bulk" as const,
   };
+}
+
+function packagingRecallResult(): MultiSourceRecallResult {
+  const attributes = packagingAttributes();
   const sourceFamilies: SourceFamily[] = [
     "hmrc_fpo_or_search_suggestion",
     "cpv_chapter_prior",
@@ -298,6 +515,185 @@ function sourceResult(
     scoreBps,
     failureMode: "none",
   };
+}
+
+function unavailableSourceResult(sourceFamily: SourceFamily): SourceFamilyResult {
+  return {
+    sourceFamily,
+    state: "unavailable",
+    candidates: [],
+    scoreBps: null,
+    failureMode: "downtime",
+  };
+}
+
+function nonGreedyTariffNodes(): TariffNode[] {
+  const freshness = {
+    structureCheckedAt: "2026-05-12T00:00:00Z",
+    measuresFreshUntil: "2026-05-26T00:00:00Z",
+  };
+
+  return [
+    tariffNode({
+      code: "3923",
+      parent: null,
+      level: "heading",
+      description: "Articles for packing goods, of rigid plastic",
+      freshness,
+    }),
+    tariffNode({
+      code: "3923100000",
+      parent: "3923",
+      level: "uk10",
+      description: "Rigid plastic boxes, cases and crates for packing goods",
+      exclusions: ["Paperboard cartons and corrugated boxes are excluded"],
+      measures: [
+        {
+          id: "mfn-3923",
+          kind: "third_country_duty",
+          description: "Third-country duty for rigid plastic packaging",
+          dutyExpression: "6.5%",
+        },
+      ],
+      freshness,
+    }),
+    tariffNode({
+      code: "4819",
+      parent: null,
+      level: "heading",
+      description:
+        "Cartons, boxes, cases, bags and other packing containers, of paper or paperboard",
+      freshness,
+    }),
+    tariffNode({
+      code: "4819100000",
+      parent: "4819",
+      level: "uk10",
+      description: "Corrugated paperboard cartons and boxes for packaging goods",
+      measures: [
+        {
+          id: "mfn-4819",
+          kind: "third_country_duty",
+          description: "Third-country duty for corrugated paperboard packaging",
+          dutyExpression: "0%",
+        },
+      ],
+      freshness,
+    }),
+    tariffNode({
+      code: "4823",
+      parent: null,
+      level: "heading",
+      description: "Other paper, paperboard, cellulose wadding and webs",
+      freshness,
+    }),
+    tariffNode({
+      code: "4823908580",
+      parent: "4823",
+      level: "uk10",
+      description: "Other paperboard articles for packing support",
+      measures: [
+        {
+          id: "mfn-4823",
+          kind: "third_country_duty",
+          description: "Third-country duty for other paperboard articles",
+          dutyExpression: "0%",
+        },
+      ],
+      freshness,
+    }),
+  ];
+}
+
+function slotCompatibilityTariffNodes(): TariffNode[] {
+  return [
+    tariffNode({
+      code: "4819",
+      parent: null,
+      level: "heading",
+      description:
+        "Cartons, boxes, cases, bags and other packing containers, of paper or paperboard",
+    }),
+    tariffNode({
+      code: "4819100000",
+      parent: "4819",
+      level: "uk10",
+      description:
+        "Cartons and boxes of corrugated paper or paperboard for packaging goods",
+      scopeNotes: [
+        "Covers corrugated paperboard packing containers with declarable item counts",
+      ],
+      supplementaryUnitRequirements: ["number_of_items"],
+      additionalCodeRequirements: [
+        {
+          codeType: "VAT_ADDITIONAL_CODE",
+          description: "UK VAT additional code for paperboard packaging",
+          requiredWhen: "import_vat_measure_active",
+        },
+      ],
+      measures: [
+        {
+          id: "mfn-4819",
+          kind: "third_country_duty",
+          description: "Third-country duty for corrugated paperboard packaging",
+          dutyExpression: "0%",
+        },
+        {
+          id: "vat-4819-standard",
+          kind: "import_vat",
+          description: "Standard import VAT applies to paperboard packaging",
+        },
+      ],
+    }),
+    tariffNode({
+      code: "4819200000",
+      parent: "4819",
+      level: "uk10",
+      description: "Folding boxes of non-corrugated paperboard",
+      exclusions: ["Corrugated paperboard cartons are excluded"],
+      measures: [
+        {
+          id: "mfn-4819-folding",
+          kind: "third_country_duty",
+          description: "Third-country duty for folding paperboard boxes",
+          dutyExpression: "0%",
+        },
+      ],
+    }),
+  ];
+}
+
+function largePaperboardTariffNodes(): TariffNode[] {
+  const heading = tariffNode({
+    code: "4819",
+    parent: null,
+    level: "heading",
+    description:
+      "Cartons, boxes, cases, bags and other packing containers, of paper or paperboard",
+  });
+  const descendants = Array.from({ length: 55 }, (_, index) => {
+    const code = index === 0 ? "4819100000" : `481910${String(index).padStart(4, "0")}`;
+    return tariffNode({
+      code,
+      parent: "4819",
+      level: "uk10",
+      description:
+        index === 0
+          ? "Corrugated paperboard cartons and boxes for packaging goods"
+          : `Paperboard packaging carton variant ${index}`,
+      supplementaryUnitRequirements: ["number_of_items"],
+      measures: [
+        {
+          id: `mfn-4819-${index}`,
+          kind: "third_country_duty",
+          description: "Third-country duty for paperboard packaging",
+          dutyExpression: index === 54 ? "12.5%" : "0%",
+        },
+      ],
+    });
+  });
+
+  return [heading, ...descendants];
 }
 
 function packagingTariffNodes(): TariffNode[] {
