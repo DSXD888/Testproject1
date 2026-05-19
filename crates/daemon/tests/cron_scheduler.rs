@@ -57,8 +57,13 @@ mod tests {
     use serde_json::Value;
 
     use crate::cron_impl::{
-        CronScheduler, VALIDATION_CALIBRATION_READINESS_SWEEP_SKILL_ID,
-        VALIDATION_CALIBRATION_SOURCE_ID, VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID,
+        CronScheduler, HMRC_FX_MONTHLY_ROLLOVER_CRON, HMRC_FX_MONTHLY_ROLLOVER_SKILL_ID,
+        HMRC_TARIFF_NEWS_WEEKLY_CRON, HMRC_TARIFF_NEWS_WEEKLY_SKILL_ID,
+        L5_COMMERCIAL_INTELLIGENCE_SKILL_VERSION, L5_COMMERCIAL_INTELLIGENCE_SOURCE_ID,
+        MARKETPLACE_SOURCE_HEALTH_CANARY_CRON, MARKETPLACE_SOURCE_HEALTH_CANARY_SKILL_ID,
+        TRA_CASE_REGISTER_DAILY_CRON, TRA_CASE_REGISTER_DAILY_SKILL_ID,
+        VALIDATION_CALIBRATION_READINESS_SWEEP_SKILL_ID, VALIDATION_CALIBRATION_SOURCE_ID,
+        VALIDATION_CROSS_MODEL_AUDIT_SKILL_ID,
     };
     use crate::db_support::{StateDb, TestStateDb};
     use crate::runner_impl::JobRunner;
@@ -136,10 +141,11 @@ mod tests {
         // procontract-* sources. The harness adds Alibaba on top. That gives
         // seven source-backed bindings (FTS production + canary, Contracts Finder
         // production, procontract production x3, Alibaba canary) plus two
-        // scheduler-owned validation calibration jobs.
+        // scheduler-owned validation calibration jobs and four scheduler-owned
+        // L5 commercial-intelligence watcher jobs.
         ensure!(
-            definitions.len() == 9,
-            "L3-T-cron_scheduler-001 expected nine cron-backed definitions, got {}: {:?}",
+            definitions.len() == 13,
+            "L3-T-cron_scheduler-001 expected thirteen cron-backed definitions, got {}: {:?}",
             definitions.len(),
             definitions.keys().collect::<Vec<_>>(),
         );
@@ -191,6 +197,56 @@ mod tests {
             definitions[cross_model_key.as_str()].next_run_at == Some(ts(2026, 3, 26, 3, 30, 0)?),
             "L3-T-cron_scheduler-001 unexpected validation cross-model audit schedule"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn l5_t_fx_engine_009_freight_engine_016_customs_classification_023_024_cron_definitions()
+    -> Result<()> {
+        let state_db = TestStateDb::new()?;
+        let registry = reload_registry(&state_db)?;
+        let mut scheduler = CronScheduler::from_registry(&registry);
+        scheduler.refresh_next_run_at(ts(2026, 5, 19, 3, 0, 0)?)?;
+
+        let expected = [
+            (
+                HMRC_TARIFF_NEWS_WEEKLY_SKILL_ID,
+                HMRC_TARIFF_NEWS_WEEKLY_CRON,
+            ),
+            (
+                TRA_CASE_REGISTER_DAILY_SKILL_ID,
+                TRA_CASE_REGISTER_DAILY_CRON,
+            ),
+            (
+                HMRC_FX_MONTHLY_ROLLOVER_SKILL_ID,
+                HMRC_FX_MONTHLY_ROLLOVER_CRON,
+            ),
+            (
+                MARKETPLACE_SOURCE_HEALTH_CANARY_SKILL_ID,
+                MARKETPLACE_SOURCE_HEALTH_CANARY_CRON,
+            ),
+        ];
+
+        for (skill_id, cron_expression) in expected {
+            let key = format!("{L5_COMMERCIAL_INTELLIGENCE_SOURCE_ID}::{skill_id}");
+            let definition = scheduler
+                .definitions()
+                .get(&key)
+                .ok_or_else(|| anyhow!("missing L5 cron definition `{key}`"))?;
+            ensure!(definition.source_id == L5_COMMERCIAL_INTELLIGENCE_SOURCE_ID);
+            ensure!(definition.skill_id == skill_id);
+            ensure!(definition.skill_version == L5_COMMERCIAL_INTELLIGENCE_SKILL_VERSION);
+            ensure!(definition.cron_expression == cron_expression);
+            ensure!(
+                !definition.enabled,
+                "L5 cron definitions should stay registered but inactive until their L5_ENABLE_* env flag is set"
+            );
+            ensure!(
+                definition.next_run_at.is_some(),
+                "L5 cron definition `{key}` should parse and compute a next run"
+            );
+        }
+
         Ok(())
     }
 

@@ -21,6 +21,22 @@ pub const VALIDATION_CALIBRATION_READINESS_SWEEP_CRON: &str = "0 20 2 * * *";
 pub const VALIDATION_CROSS_MODEL_AUDIT_CRON: &str = "0 30 3 * * *";
 pub const VALIDATION_CROSS_MODEL_ALTERNATE_MODEL_FAMILY: &str = "alternate-validator";
 pub const VALIDATION_CROSS_MODEL_ACTIVE_TRAFFIC_WINDOW_DAYS: i64 = 30;
+pub const L5_COMMERCIAL_INTELLIGENCE_SOURCE_ID: &str = "l5-commercial-intelligence";
+pub const L5_COMMERCIAL_INTELLIGENCE_SKILL_VERSION: &str = "2026.05.19-1";
+pub const HMRC_TARIFF_NEWS_WEEKLY_SKILL_ID: &str = "landed-cost/hmrc-tariff-news-watch";
+pub const TRA_CASE_REGISTER_DAILY_SKILL_ID: &str = "landed-cost/tra-case-register-watch";
+pub const HMRC_FX_MONTHLY_ROLLOVER_SKILL_ID: &str = "landed-cost/hmrc-fx-monthly-rollover";
+pub const MARKETPLACE_SOURCE_HEALTH_CANARY_SKILL_ID: &str =
+    "source-health/l5-marketplace-commercial-intelligence";
+pub const HMRC_TARIFF_NEWS_WEEKLY_CRON: &str = "0 15 3 * * 1";
+pub const TRA_CASE_REGISTER_DAILY_CRON: &str = "0 45 2 * * *";
+pub const HMRC_FX_MONTHLY_ROLLOVER_CRON: &str = "0 10 4 18-25 * *";
+pub const MARKETPLACE_SOURCE_HEALTH_CANARY_CRON: &str = "0 0 5 * * *";
+pub const L5_ENABLE_HMRC_TARIFF_NEWS_CRON_ENV: &str = "L5_ENABLE_HMRC_TARIFF_NEWS_CRON";
+pub const L5_ENABLE_TRA_CASE_REGISTER_CRON_ENV: &str = "L5_ENABLE_TRA_CASE_REGISTER_CRON";
+pub const L5_ENABLE_HMRC_FX_ROLLOVER_CRON_ENV: &str = "L5_ENABLE_HMRC_FX_ROLLOVER_CRON";
+pub const L5_ENABLE_MARKETPLACE_SOURCE_HEALTH_CRON_ENV: &str =
+    "L5_ENABLE_MARKETPLACE_SOURCE_HEALTH_CRON";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CronJobDefinition {
@@ -81,7 +97,7 @@ impl CronScheduler {
             .flat_map(|source| definitions_for_source(source).into_iter())
             .map(|definition| (definition_key(&definition), definition))
             .collect();
-        for definition in validation_calibration_definitions() {
+        for definition in scheduler_owned_definitions() {
             definitions.insert(definition_key(&definition), definition);
         }
         Self { definitions }
@@ -119,7 +135,7 @@ impl CronScheduler {
                 continue;
             }
 
-            if definition.source_id != VALIDATION_CALIBRATION_SOURCE_ID {
+            if requires_source_registry_lookup(&definition.source_id) {
                 let registered_source = registry.get(&definition.source_id).ok_or_else(|| {
                     anyhow!("unknown source registry entry `{}`", definition.source_id)
                 })?;
@@ -201,6 +217,13 @@ impl CronScheduler {
     }
 }
 
+fn scheduler_owned_definitions() -> Vec<CronJobDefinition> {
+    validation_calibration_definitions()
+        .into_iter()
+        .chain(l5_commercial_intelligence_definitions())
+        .collect()
+}
+
 fn definitions_for_source(source: &RegisteredSource) -> Vec<CronJobDefinition> {
     [
         source.definition.production_binding.as_ref(),
@@ -226,6 +249,44 @@ fn definitions_for_source(source: &RegisteredSource) -> Vec<CronJobDefinition> {
     .collect()
 }
 
+fn l5_commercial_intelligence_definitions() -> Vec<CronJobDefinition> {
+    [
+        (
+            HMRC_TARIFF_NEWS_WEEKLY_SKILL_ID,
+            HMRC_TARIFF_NEWS_WEEKLY_CRON,
+            L5_ENABLE_HMRC_TARIFF_NEWS_CRON_ENV,
+        ),
+        (
+            TRA_CASE_REGISTER_DAILY_SKILL_ID,
+            TRA_CASE_REGISTER_DAILY_CRON,
+            L5_ENABLE_TRA_CASE_REGISTER_CRON_ENV,
+        ),
+        (
+            HMRC_FX_MONTHLY_ROLLOVER_SKILL_ID,
+            HMRC_FX_MONTHLY_ROLLOVER_CRON,
+            L5_ENABLE_HMRC_FX_ROLLOVER_CRON_ENV,
+        ),
+        (
+            MARKETPLACE_SOURCE_HEALTH_CANARY_SKILL_ID,
+            MARKETPLACE_SOURCE_HEALTH_CANARY_CRON,
+            L5_ENABLE_MARKETPLACE_SOURCE_HEALTH_CRON_ENV,
+        ),
+    ]
+    .into_iter()
+    .map(
+        |(skill_id, cron_expression, enabled_env)| CronJobDefinition {
+            source_id: L5_COMMERCIAL_INTELLIGENCE_SOURCE_ID.to_owned(),
+            skill_id: skill_id.to_owned(),
+            skill_version: L5_COMMERCIAL_INTELLIGENCE_SKILL_VERSION.to_owned(),
+            cron_expression: cron_expression.to_owned(),
+            enabled: env_flag_enabled(enabled_env),
+            last_run_at: None,
+            next_run_at: None,
+        },
+    )
+    .collect()
+}
+
 fn validation_calibration_definitions() -> Vec<CronJobDefinition> {
     [
         (
@@ -248,6 +309,20 @@ fn validation_calibration_definitions() -> Vec<CronJobDefinition> {
         next_run_at: None,
     })
     .collect()
+}
+
+fn requires_source_registry_lookup(source_id: &str) -> bool {
+    source_id != VALIDATION_CALIBRATION_SOURCE_ID
+        && source_id != L5_COMMERCIAL_INTELLIGENCE_SOURCE_ID
+}
+
+fn env_flag_enabled(var_name: &str) -> bool {
+    std::env::var(var_name).is_ok_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
 }
 
 fn definition_key(definition: &CronJobDefinition) -> String {
