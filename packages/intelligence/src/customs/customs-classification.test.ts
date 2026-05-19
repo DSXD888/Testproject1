@@ -410,6 +410,61 @@ describe("customs classification freshness", () => {
   });
 });
 
+describe("marketplace supplier quote coexistence", () => {
+  it("L5-T-customs_classification-008 keeps Alibaba 1688 Amazon and eBay rows with source-specific evidence roles", () => {
+    const quotes = marketplaceSupplierQuotes();
+    const roleBySource: Record<MarketplaceSourceId, MarketplacePriceSignalRole> = {
+      ebay: "benchmark_ceiling",
+      alibaba: "optimistic_floor",
+      "1688": "domestic_wholesale_floor",
+      amazon: "benchmark_ceiling",
+    };
+
+    expect(new Set(quotes.map((quote) => quote.sourceId))).toEqual(
+      new Set(["ebay", "alibaba", "1688", "amazon"]),
+    );
+
+    for (const quote of quotes) {
+      expect(quote.priceSignalRole, quote.sourceId).toBe(
+        roleBySource[quote.sourceId],
+      );
+      expect(quote.executableWholesaleQuote, quote.sourceId).toBe(false);
+      expect(quote.countryOfOrigin, quote.sourceId).toBeTruthy();
+      expect(quote.evidence.listingUrl, quote.sourceId).toMatch(/^https:\/\//);
+      expect(quote.evidence.transcriptPath, quote.sourceId).toContain(
+        quote.sourceId,
+      );
+      expect(quote.evidence.originEvidenceState, quote.sourceId).toBe(
+        "source_observed",
+      );
+      expect(quote.quoteUsabilityConfidenceBps, quote.sourceId).toBeGreaterThan(
+        0,
+      );
+      expect(quote.matchConfidenceBps, quote.sourceId).toBeGreaterThan(0);
+    }
+  });
+
+  it("L5-T-customs_classification-011 requires every validated category to have eBay plus at least one non-eBay marketplace source", () => {
+    const quotes = marketplaceSupplierQuotes();
+    const categories: MarketplaceCategory[] = [
+      "fasteners",
+      "packaging-cartons",
+      "examination-gloves",
+    ];
+
+    for (const category of categories) {
+      const sources = quotes
+        .filter((quote) => quote.category === category)
+        .map((quote) => quote.sourceId);
+      expect(sources, category).toContain("ebay");
+      expect(
+        sources.some((source) => ["alibaba", "1688", "amazon"].includes(source)),
+        category,
+      ).toBe(true);
+    }
+  });
+});
+
 describe("customs classification exporter defaults", () => {
   it("L5-T-customs_classification-014 applies residual default and unlockable margin for missing exporter proof", () => {
     const result = resolveExporter({
@@ -475,6 +530,117 @@ function aluminiumExtrusionMeasure() {
         ratePctBps: 750,
       },
     ],
+  };
+}
+
+type MarketplaceCategory =
+  | "fasteners"
+  | "packaging-cartons"
+  | "examination-gloves";
+
+type MarketplaceSourceId = "ebay" | "alibaba" | "1688" | "amazon";
+
+type MarketplacePriceSignalRole =
+  | "benchmark_ceiling"
+  | "optimistic_floor"
+  | "domestic_wholesale_floor";
+
+type MarketplaceSupplierQuote = {
+  category: MarketplaceCategory;
+  sourceId: MarketplaceSourceId;
+  sourceName: string;
+  supplierName: string;
+  priceSignalRole: MarketplacePriceSignalRole;
+  executableWholesaleQuote: boolean;
+  countryOfOrigin: string;
+  matchConfidenceBps: number;
+  quoteUsabilityConfidenceBps: number;
+  evidence: {
+    listingUrl: string;
+    transcriptPath: string;
+    originEvidenceState: "source_observed";
+  };
+};
+
+function marketplaceSupplierQuotes(): MarketplaceSupplierQuote[] {
+  return [
+    marketplaceQuote("fasteners", "ebay", "eBay", "Bolt Warehouse UK", {
+      countryOfOrigin: "GB",
+      priceSignalRole: "benchmark_ceiling",
+    }),
+    marketplaceQuote("fasteners", "alibaba", "Alibaba", "Ningbo Fastener Factory", {
+      countryOfOrigin: "CN",
+      priceSignalRole: "optimistic_floor",
+    }),
+    marketplaceQuote("packaging-cartons", "ebay", "eBay", "Packaging Supplies UK", {
+      countryOfOrigin: "GB",
+      priceSignalRole: "benchmark_ceiling",
+    }),
+    marketplaceQuote(
+      "packaging-cartons",
+      "1688",
+      "1688",
+      "义乌包装制品有限公司",
+      {
+        countryOfOrigin: "CN",
+        priceSignalRole: "domestic_wholesale_floor",
+      },
+    ),
+    marketplaceQuote(
+      "packaging-cartons",
+      "amazon",
+      "Amazon",
+      "Amazon Business Seller",
+      {
+        countryOfOrigin: "GB",
+        priceSignalRole: "benchmark_ceiling",
+      },
+    ),
+    marketplaceQuote(
+      "examination-gloves",
+      "ebay",
+      "eBay",
+      "Medical Consumables UK",
+      {
+        countryOfOrigin: "GB",
+        priceSignalRole: "benchmark_ceiling",
+      },
+    ),
+    marketplaceQuote(
+      "examination-gloves",
+      "amazon",
+      "Amazon",
+      "Amazon Healthcare Seller",
+      {
+        countryOfOrigin: "GB",
+        priceSignalRole: "benchmark_ceiling",
+      },
+    ),
+  ];
+}
+
+function marketplaceQuote(
+  category: MarketplaceCategory,
+  sourceId: MarketplaceSourceId,
+  sourceName: string,
+  supplierName: string,
+  options: Pick<MarketplaceSupplierQuote, "countryOfOrigin" | "priceSignalRole">,
+): MarketplaceSupplierQuote {
+  return {
+    category,
+    sourceId,
+    sourceName,
+    supplierName,
+    priceSignalRole: options.priceSignalRole,
+    executableWholesaleQuote: false,
+    countryOfOrigin: options.countryOfOrigin,
+    matchConfidenceBps: 8_900,
+    quoteUsabilityConfidenceBps: 8_600,
+    evidence: {
+      listingUrl: `https://example.test/${sourceId}/${category}`,
+      transcriptPath: `tests/fixtures/cassettes/l5/marketplace/${sourceId}/${category}.json`,
+      originEvidenceState: "source_observed",
+    },
   };
 }
 

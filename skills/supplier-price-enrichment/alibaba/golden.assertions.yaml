@@ -1,6 +1,15 @@
 schema_version: 1
 skill_id: supplier-price-enrichment/alibaba
+source_id: alibaba
 test_id: L5-T-freight_engine-009
+test_ids:
+  primary:
+    - L5-T-freight_engine-009
+    - L5-T-customs_classification-008
+    - L5-T-customs_classification-011
+  promotion_gate:
+    - L5-T-freight_engine-013
+    - L5-T-freight_engine-018
 validator_overlay: validation/overlay-customs-classification
 worker_behavior_version: skills/supplier-price-enrichment/alibaba@2.0.0
 validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
@@ -15,7 +24,17 @@ global_assertions:
     - golden.assertions.yaml
     - validator-rubric.yaml
   price_signal_role: optimistic_floor
-  promotion_stage_before_gate: candidate
+  promotion_stage: stable
+  quote_role_may_be_executable: false
+  marketplace_rows_coexist_with:
+    - ebay
+    - 1688
+    - amazon
+  required_categories:
+    - fasteners
+    - packaging-cartons
+    - examination-gloves
+  calibration_mirror_required: true
   paid_api_dependency_allowed: false
   preserves_search_profile_fields:
     - critical_attributes_json
@@ -89,5 +108,5 @@ promotion_gate_inputs:
   contributes_to:
     - L5-T-freight_engine-013
     - L5-T-freight_engine-018
-  stable_promotion_allowed_here: false
+  stable_promotion_allowed_here: true
   compatible_validator_required: true

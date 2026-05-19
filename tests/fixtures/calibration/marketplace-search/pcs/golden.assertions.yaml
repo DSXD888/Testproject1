@@ -1,25 +1,76 @@
 schema_version: 1
 source_id: pcs
 skill_id: procurement-ingestion/pcs
-mirrors: skills/procurement-ingestion/pcs/golden.assertions.yaml
+test_ids:
+  primary:
+    - L5-T-freight_engine-014
+  promotion_gate:
+    - L5-T-freight_engine-013
+    - L5-T-freight_engine-018
+
+shared_assertions:
+  result_schema_valid: true
+  source_account_state: public_no_account_required
+  auth_required: false
+  buyer_country: GB-SCT
+  endpoint_host: api.publiccontractsscotland.gov.uk
+
 cases:
   l5-pcs-notice-list-current:
-    result_schema_valid: true
+    mode: notice_list
+    endpoint_reachable: true
+    response_family: releases
     minimum_notice_count: 1
-    source_account_state: public_no_account_required
+    ocds_fields_present:
+      - uri
+      - version
+      - publishedDate
+      - releases
+      - publisher
+
   l5-pcs-notice-detail-fasteners:
-    category: fasteners
+    mode: notice_detail
     ocid: ocds-r6ebe6-0000750353
-    expected_cpv_codes: ["44316000"]
+    category: fasteners
+    response_family: records
+    title_contains: Ironmongery Products for Prison Industries
+    expected_cpv_codes:
+      - "44316000"
+
   l5-pcs-notice-detail-cartons:
-    category: packaging-cartons
+    mode: notice_detail
     ocid: ocds-r6ebe6-0000773465
-    expected_cpv_codes: ["18933000"]
+    category: packaging-cartons
+    response_family: records
+    title_contains: Packaging Material for SPS
+    expected_cpv_codes:
+      - "18933000"
+
   l5-pcs-notice-detail-gloves:
-    category: examination-gloves
+    mode: notice_detail
     ocid: ocds-r6ebe6-0000766503
-    expected_cpv_codes: ["18424300"]
+    category: examination-gloves
+    response_family: records
+    title_contains: Medical Examination Gloves
+    expected_cpv_codes:
+      - "18424300"
+
   l5-pcs-notice-list-zero-result:
+    mode: notice_list
+    response_family: releases
+    expected_notice_count: 0
     expected_warning: PCS_OCDS_EMPTY_RESULT
+
   l5-pcs-notice-list-stale-cassette:
+    mode: notice_list_replay
+    cassette_path: tests/fixtures/cassettes/l5/pcs/notice-list-stale.json
     cassette_replay_allowed: true
+    live_credentials_required: false
+
+registry_assertions:
+  source_id: pcs
+  kind: procurement
+  promotion_stage: candidate
+  worker_behavior_version: procurement-ingestion/pcs@1.0.0
+  validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
+  scope_decision: in_scope_2026-05-08

@@ -65,7 +65,7 @@ warning_checks:
     rule: "Ambiguous Chinese retry translations become warnings and attempted-search evidence, not quotes."
 
 promotion_controls:
-  promotion_stage: candidate
+  promotion_stage: stable
   stable_promotion_owner: l5-p5-marketplace-fixture-promotion-gate
   required_standard_files:
     - SKILL.md

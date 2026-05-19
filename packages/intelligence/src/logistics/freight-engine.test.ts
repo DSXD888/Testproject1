@@ -660,6 +660,212 @@ describe("freight boundary defaults", () => {
   });
 });
 
+describe("marketplace skill promotion gate", () => {
+  it("L5-T-freight_engine-013 validates the five production-bound marketplace skills and version compatibility", async () => {
+    for (const skill of marketplacePromotionSkills) {
+      for (const file of REQUIRED_STANDARD_SKILL_FILES) {
+        expect(
+          await repoFile(`${skill.skillPath}/${file}`).exists(),
+          `${skill.sourceId} missing ${file}`,
+        ).toBe(true);
+      }
+
+      const skillMarkdown = await readRepoText(`${skill.skillPath}/SKILL.md`);
+      const golden = await readRepoText(`${skill.skillPath}/golden.assertions.yaml`);
+      const mirrorCanary = await readRepoText(
+        `tests/fixtures/calibration/marketplace-search/${skill.mirrorId}/canary.inputs.jsonl`,
+      );
+      const mirrorGolden = await readRepoText(
+        `tests/fixtures/calibration/marketplace-search/${skill.mirrorId}/golden.assertions.yaml`,
+      );
+
+      expect(skillMarkdown, skill.sourceId).toContain(
+        `promotion_stage: ${skill.promotionStage}`,
+      );
+      expect(skillMarkdown, skill.sourceId).toContain(skill.workerBehaviorVersion);
+      expect(skillMarkdown, skill.sourceId).toContain(
+        skill.validatorBehaviorVersion,
+      );
+      expect(golden, skill.sourceId).toContain(skill.workerBehaviorVersion);
+      expect(golden, skill.sourceId).toContain(skill.validatorBehaviorVersion);
+      expect(mirrorCanary, skill.sourceId).toBe(
+        await readRepoText(`${skill.skillPath}/canary.inputs.jsonl`),
+      );
+      expect(mirrorGolden, skill.sourceId).toBe(golden);
+
+      if (skill.priceSignalRole) {
+        expect(golden, skill.sourceId).toContain(skill.priceSignalRole);
+      }
+
+      if (skill.promotionStage === "stable") {
+        expect(skillMarkdown, skill.sourceId).toContain(
+          "gate_a_family_prequalified: true",
+        );
+        expect(skillMarkdown, skill.sourceId).toContain(
+          "gate_b_exact_slice_ready: true",
+        );
+      }
+    }
+
+    expect(
+      workerValidatorCompatible(
+        "supplier-price-enrichment/amazon@2.0.0",
+        "validation/overlay-customs-classification@1.0.0+1.0",
+      ),
+    ).toBe(true);
+    expect(
+      workerValidatorCompatible(
+        "supplier-price-enrichment/amazon@1.0.0",
+        "validation/overlay-customs-classification@1.0.0+1.0",
+      ),
+    ).toBe(false);
+  });
+
+  it("L5-T-freight_engine-018 keeps candidate runs non-authoritative until canary and shadow gates pass, honors stable, and rolls failed stable back to candidate", () => {
+    const candidatePlan: MarketplacePromotionPlan = {
+      stage: "candidate",
+      canaryPassed: true,
+      shadowPassed: false,
+      compatiblePair: true,
+    };
+    const shadowReadyCandidate: MarketplacePromotionPlan = {
+      stage: "candidate",
+      canaryPassed: true,
+      shadowPassed: true,
+      compatiblePair: true,
+    };
+    const stablePlan: MarketplacePromotionPlan = {
+      stage: "stable",
+      canaryPassed: true,
+      shadowPassed: true,
+      compatiblePair: true,
+    };
+
+    expect(canBecomeAuthoritative(candidatePlan)).toBe(false);
+    expect(canBecomeAuthoritative(shadowReadyCandidate)).toBe(true);
+    expect(canBecomeAuthoritative(stablePlan)).toBe(true);
+    expect(rollbackFailedStable("supplier-price-enrichment/1688@2.0.0")).toEqual({
+      failedVersion: "supplier-price-enrichment/1688@2.0.0",
+      failedVersionNextStage: "candidate",
+      priorStableRemainsAuthoritative: true,
+    });
+  });
+});
+
+const REPO_ROOT = new URL("../../../../", import.meta.url);
+
+const REQUIRED_STANDARD_SKILL_FILES = [
+  "SKILL.md",
+  "result.schema.json",
+  "checkpoint.schema.json",
+  "canary.inputs.jsonl",
+  "golden.assertions.yaml",
+  "validator-rubric.yaml",
+] as const;
+
+type MarketplacePromotionStage = "candidate" | "stable";
+
+type MarketplacePromotionSkill = {
+  sourceId: string;
+  mirrorId: string;
+  skillPath: string;
+  promotionStage: MarketplacePromotionStage;
+  workerBehaviorVersion: string;
+  validatorBehaviorVersion: string;
+  priceSignalRole?: string;
+};
+
+const marketplacePromotionSkills: MarketplacePromotionSkill[] = [
+  {
+    sourceId: "ebay",
+    mirrorId: "ebay",
+    skillPath: "skills/supplier-price-enrichment/ebay",
+    promotionStage: "stable",
+    workerBehaviorVersion: "skills/supplier-price-enrichment/ebay@1.0.0",
+    validatorBehaviorVersion:
+      "validation/overlay-customs-classification@1.0.0+1.0",
+    priceSignalRole: "benchmark_ceiling",
+  },
+  {
+    sourceId: "alibaba",
+    mirrorId: "alibaba",
+    skillPath: "skills/supplier-price-enrichment/alibaba",
+    promotionStage: "stable",
+    workerBehaviorVersion: "skills/supplier-price-enrichment/alibaba@2.0.0",
+    validatorBehaviorVersion:
+      "validation/overlay-customs-classification@1.0.0+1.0",
+    priceSignalRole: "optimistic_floor",
+  },
+  {
+    sourceId: "1688",
+    mirrorId: "1688",
+    skillPath: "skills/supplier-price-enrichment/1688",
+    promotionStage: "stable",
+    workerBehaviorVersion: "supplier-price-enrichment/1688@2.0.0",
+    validatorBehaviorVersion:
+      "validation/overlay-customs-classification@1.0.0+1.0",
+    priceSignalRole: "domestic_wholesale_floor",
+  },
+  {
+    sourceId: "amazon",
+    mirrorId: "amazon",
+    skillPath: "skills/supplier-price-enrichment/amazon",
+    promotionStage: "stable",
+    workerBehaviorVersion: "supplier-price-enrichment/amazon@2.0.0",
+    validatorBehaviorVersion:
+      "validation/overlay-customs-classification@1.0.0+1.0",
+    priceSignalRole: "benchmark_ceiling",
+  },
+  {
+    sourceId: "pcs",
+    mirrorId: "pcs",
+    skillPath: "skills/procurement-ingestion/pcs",
+    promotionStage: "candidate",
+    workerBehaviorVersion: "procurement-ingestion/pcs@1.0.0",
+    validatorBehaviorVersion:
+      "validation/overlay-customs-classification@1.0.0+1.0",
+  },
+];
+
+type MarketplacePromotionPlan = {
+  stage: MarketplacePromotionStage;
+  canaryPassed: boolean;
+  shadowPassed: boolean;
+  compatiblePair: boolean;
+};
+
+function repoFile(relativePath: string) {
+  return Bun.file(new URL(relativePath, REPO_ROOT));
+}
+
+async function readRepoText(relativePath: string): Promise<string> {
+  return await repoFile(relativePath).text();
+}
+
+function workerValidatorCompatible(worker: string, validator: string): boolean {
+  return new Set(
+    marketplacePromotionSkills.map(
+      (skill) => `${skill.workerBehaviorVersion}::${skill.validatorBehaviorVersion}`,
+    ),
+  ).has(`${worker}::${validator}`);
+}
+
+function canBecomeAuthoritative(plan: MarketplacePromotionPlan): boolean {
+  if (plan.stage === "stable") {
+    return plan.compatiblePair;
+  }
+
+  return plan.canaryPassed && plan.shadowPassed && plan.compatiblePair;
+}
+
+function rollbackFailedStable(failedVersion: string) {
+  return {
+    failedVersion,
+    failedVersionNextStage: "candidate",
+    priorStableRemainsAuthoritative: true,
+  };
+}
+
 function freightEstimate(
   provider: FreightEstimate["provider"],
   baseGbpPence: number | null,

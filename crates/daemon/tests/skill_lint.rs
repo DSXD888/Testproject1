@@ -385,7 +385,7 @@ fn l5_t_freight_engine_010_1688_maturation_contract() -> Result<()> {
 }
 
 fn assert_1688_metadata_and_skill_text(linted: &LintedSkill) -> Result<()> {
-    ensure!(linted.metadata.promotion_stage.as_deref() == Some("candidate"));
+    ensure!(linted.metadata.promotion_stage.as_deref() == Some("stable"));
     ensure!(
         linted.metadata.worker_behavior_version.as_deref()
             == Some("supplier-price-enrichment/1688@2.0.0")
@@ -402,6 +402,8 @@ fn assert_1688_metadata_and_skill_text(linted: &LintedSkill) -> Result<()> {
             .is_some_and(|key| key.contains("supplier-price-enrichment/1688@2.0.0")
                 && key.contains("validation/overlay-customs-classification@1.0.0+1.0"))
     );
+    ensure!(linted.metadata.gate_a_family_prequalified);
+    ensure!(linted.metadata.gate_b_exact_slice_ready);
 
     for required in [
         "validator_overlay: validation/overlay-customs-classification",
@@ -592,6 +594,245 @@ fn assert_1688_calibration_mirror(canary_text: &str, golden: &str) -> Result<()>
         "1688 calibration mirror golden assertions must match the skill assertions"
     );
     Ok(())
+}
+
+#[test]
+fn l5_t_freight_engine_013_018_marketplace_fixture_promotion_gate() -> Result<()> {
+    let repo_root = repo_root()?;
+    for expected in marketplace_promotion_expectations() {
+        assert_marketplace_promotion_artifact(&repo_root, expected)?;
+    }
+
+    ensure!(marketplace_behavior_pair_compatible(
+        "supplier-price-enrichment/amazon@2.0.0",
+        "validation/overlay-customs-classification@1.0.0+1.0"
+    ));
+    ensure!(!marketplace_behavior_pair_compatible(
+        "supplier-price-enrichment/amazon@1.0.0",
+        "validation/overlay-customs-classification@1.0.0+1.0"
+    ));
+    ensure!(!marketplace_promotion_authoritative(
+        "candidate",
+        true,
+        false,
+        true
+    ));
+    ensure!(marketplace_promotion_authoritative(
+        "candidate",
+        true,
+        true,
+        true
+    ));
+    ensure!(marketplace_promotion_authoritative(
+        "stable", false, false, true
+    ));
+    ensure!(
+        rollback_failed_marketplace_stable("supplier-price-enrichment/1688@2.0.0")
+            == (
+                "supplier-price-enrichment/1688@2.0.0".to_owned(),
+                "candidate"
+            )
+    );
+
+    Ok(())
+}
+
+fn assert_marketplace_promotion_artifact(
+    repo_root: &std::path::Path,
+    expected: MarketplacePromotionExpectation<'_>,
+) -> Result<()> {
+    let skill_dir = repo_root.join("skills").join(expected.skill_relative);
+    let linted = load_skill_metadata(&skill_dir)?;
+    ensure!(
+        linted.metadata.promotion_stage.as_deref() == Some(expected.promotion_stage),
+        "{} promotion stage drifted",
+        expected.source_id
+    );
+    ensure!(
+        linted.metadata.worker_behavior_version.as_deref()
+            == Some(expected.worker_behavior_version),
+        "{} worker behavior version drifted",
+        expected.source_id
+    );
+    ensure!(
+        linted.metadata.validator_behavior_version.as_deref()
+            == Some(expected.validator_behavior_version),
+        "{} validator behavior version drifted",
+        expected.source_id
+    );
+    assert_marketplace_standard_files(&skill_dir, expected.source_id)?;
+    let golden = assert_marketplace_golden_and_canary(&skill_dir, expected)?;
+    assert_marketplace_calibration_mirror(repo_root, &skill_dir, expected, &golden)?;
+    if expected.promotion_stage == "stable" {
+        ensure!(
+            linted.metadata.gate_a_family_prequalified,
+            "{} stable promotion requires family prequalification",
+            expected.source_id
+        );
+        ensure!(
+            linted.metadata.gate_b_exact_slice_ready,
+            "{} stable promotion requires exact-slice readiness",
+            expected.source_id
+        );
+    }
+    Ok(())
+}
+
+fn assert_marketplace_standard_files(skill_dir: &std::path::Path, source_id: &str) -> Result<()> {
+    for file in MARKETPLACE_PROMOTION_REQUIRED_FILES {
+        ensure!(
+            skill_dir.join(file).exists(),
+            "{source_id} missing standard production file {file}"
+        );
+    }
+    Ok(())
+}
+
+fn assert_marketplace_golden_and_canary(
+    skill_dir: &std::path::Path,
+    expected: MarketplacePromotionExpectation<'_>,
+) -> Result<String> {
+    let golden = std::fs::read_to_string(skill_dir.join("golden.assertions.yaml"))?;
+    let _: serde_yaml::Value = serde_yaml::from_str(&golden)?;
+    for line in std::fs::read_to_string(skill_dir.join("canary.inputs.jsonl"))?
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+    {
+        let _: JsonValue = serde_json::from_str(line)?;
+    }
+    for required in [
+        "L5-T-freight_engine-013",
+        "L5-T-freight_engine-018",
+        expected.worker_behavior_version,
+        expected.validator_behavior_version,
+    ] {
+        ensure!(
+            golden.contains(required),
+            "{} golden assertions missing `{required}`",
+            expected.source_id
+        );
+    }
+    if let Some(price_signal_role) = expected.price_signal_role {
+        ensure!(
+            golden.contains(price_signal_role),
+            "{} golden assertions missing price role `{price_signal_role}`",
+            expected.source_id
+        );
+    }
+    Ok(golden)
+}
+
+fn assert_marketplace_calibration_mirror(
+    repo_root: &std::path::Path,
+    skill_dir: &std::path::Path,
+    expected: MarketplacePromotionExpectation<'_>,
+    golden: &str,
+) -> Result<()> {
+    let mirror_dir = repo_root
+        .join("tests/fixtures/calibration/marketplace-search")
+        .join(expected.mirror_id);
+    ensure!(
+        std::fs::read_to_string(mirror_dir.join("canary.inputs.jsonl"))?
+            == std::fs::read_to_string(skill_dir.join("canary.inputs.jsonl"))?,
+        "{} calibration mirror canaries must match the skill canaries",
+        expected.source_id
+    );
+    ensure!(
+        std::fs::read_to_string(mirror_dir.join("golden.assertions.yaml"))? == golden,
+        "{} calibration mirror golden assertions must match the skill assertions",
+        expected.source_id
+    );
+    Ok(())
+}
+
+#[derive(Clone, Copy)]
+struct MarketplacePromotionExpectation<'a> {
+    source_id: &'a str,
+    mirror_id: &'a str,
+    skill_relative: &'a str,
+    promotion_stage: &'a str,
+    worker_behavior_version: &'a str,
+    validator_behavior_version: &'a str,
+    price_signal_role: Option<&'a str>,
+}
+
+const MARKETPLACE_PROMOTION_REQUIRED_FILES: [&str; 6] = [
+    "SKILL.md",
+    "result.schema.json",
+    "checkpoint.schema.json",
+    "canary.inputs.jsonl",
+    "golden.assertions.yaml",
+    "validator-rubric.yaml",
+];
+
+const fn marketplace_promotion_expectations() -> [MarketplacePromotionExpectation<'static>; 5] {
+    [
+        MarketplacePromotionExpectation {
+            source_id: "ebay",
+            mirror_id: "ebay",
+            skill_relative: "supplier-price-enrichment/ebay",
+            promotion_stage: "stable",
+            worker_behavior_version: "skills/supplier-price-enrichment/ebay@1.0.0",
+            validator_behavior_version: "validation/overlay-customs-classification@1.0.0+1.0",
+            price_signal_role: Some("benchmark_ceiling"),
+        },
+        MarketplacePromotionExpectation {
+            source_id: "alibaba",
+            mirror_id: "alibaba",
+            skill_relative: "supplier-price-enrichment/alibaba",
+            promotion_stage: "stable",
+            worker_behavior_version: "skills/supplier-price-enrichment/alibaba@2.0.0",
+            validator_behavior_version: "validation/overlay-customs-classification@1.0.0+1.0",
+            price_signal_role: Some("optimistic_floor"),
+        },
+        MarketplacePromotionExpectation {
+            source_id: "1688",
+            mirror_id: "1688",
+            skill_relative: "supplier-price-enrichment/1688",
+            promotion_stage: "stable",
+            worker_behavior_version: "supplier-price-enrichment/1688@2.0.0",
+            validator_behavior_version: "validation/overlay-customs-classification@1.0.0+1.0",
+            price_signal_role: Some("domestic_wholesale_floor"),
+        },
+        MarketplacePromotionExpectation {
+            source_id: "amazon",
+            mirror_id: "amazon",
+            skill_relative: "supplier-price-enrichment/amazon",
+            promotion_stage: "stable",
+            worker_behavior_version: "supplier-price-enrichment/amazon@2.0.0",
+            validator_behavior_version: "validation/overlay-customs-classification@1.0.0+1.0",
+            price_signal_role: Some("benchmark_ceiling"),
+        },
+        MarketplacePromotionExpectation {
+            source_id: "pcs",
+            mirror_id: "pcs",
+            skill_relative: "procurement-ingestion/pcs",
+            promotion_stage: "candidate",
+            worker_behavior_version: "procurement-ingestion/pcs@1.0.0",
+            validator_behavior_version: "validation/overlay-customs-classification@1.0.0+1.0",
+            price_signal_role: None,
+        },
+    ]
+}
+
+fn marketplace_behavior_pair_compatible(worker: &str, validator: &str) -> bool {
+    marketplace_promotion_expectations().iter().any(|expected| {
+        expected.worker_behavior_version == worker
+            && expected.validator_behavior_version == validator
+    })
+}
+
+fn marketplace_promotion_authoritative(
+    stage: &str,
+    canary_passed: bool,
+    shadow_passed: bool,
+    compatible_pair: bool,
+) -> bool {
+    compatible_pair && (stage == "stable" || (canary_passed && shadow_passed))
+}
+
+fn rollback_failed_marketplace_stable(failed_version: &str) -> (String, &'static str) {
+    (failed_version.to_owned(), "candidate")
 }
 
 #[test]

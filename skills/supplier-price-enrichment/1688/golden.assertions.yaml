@@ -3,10 +3,12 @@ source_id: "1688"
 skill_id: "supplier-price-enrichment/1688"
 test_ids:
   - L5-T-freight_engine-010
+  - L5-T-customs_classification-008
+  - L5-T-customs_classification-011
   - L5-T-freight_engine-013
   - L5-T-freight_engine-018
 expected_contract:
-  promotion_stage: candidate
+  promotion_stage: stable
   validator_overlay: validation/overlay-customs-classification
   worker_behavior_version: supplier-price-enrichment/1688@2.0.0
   validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
@@ -65,6 +67,7 @@ promotion_gate_assertions:
   candidate_output_cannot_be_authoritative_without_shadow_gate: true
   rollback_returns_failed_version_to_candidate: true
   incompatible_versions_block_promotion: true
+  stable_promotion_allowed_here: true
   compat_matrix:
     - worker: supplier-price-enrichment/1688@2.0.0
       validator: validation/overlay-customs-classification@1.0.0+1.0

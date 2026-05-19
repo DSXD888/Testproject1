@@ -9,14 +9,14 @@ validator_overlay_version: 1.0.0
 model_profile: browse_stable_low_cost
 agent_cli: claude
 side_effect_class: local_state
-promotion_stage: candidate
+promotion_stage: stable
 worker_behavior_version: supplier-price-enrichment/amazon@2.0.0
 validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
 version_change_affects_behavior: true
 gate_a_family_key: supplier-price-enrichment
-gate_a_family_prequalified: false
+gate_a_family_prequalified: true
 gate_b_exact_slice_key: supplier-price-enrichment/amazon::amazon::supplier-price-enrichment/amazon@2.0.0::validation/overlay-customs-classification@1.0.0+1.0
-gate_b_exact_slice_ready: false
+gate_b_exact_slice_ready: true
 maxPages: 3
 maxScrollCycles: 2
 browser_attach_mode: cdp_persistent_profile

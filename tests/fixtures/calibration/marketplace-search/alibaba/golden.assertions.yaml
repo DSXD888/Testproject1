@@ -1,0 +1,112 @@
+schema_version: 1
+skill_id: supplier-price-enrichment/alibaba
+source_id: alibaba
+test_id: L5-T-freight_engine-009
+test_ids:
+  primary:
+    - L5-T-freight_engine-009
+    - L5-T-customs_classification-008
+    - L5-T-customs_classification-011
+  promotion_gate:
+    - L5-T-freight_engine-013
+    - L5-T-freight_engine-018
+validator_overlay: validation/overlay-customs-classification
+worker_behavior_version: skills/supplier-price-enrichment/alibaba@2.0.0
+validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
+
+global_assertions:
+  result_schema_valid: true
+  required_standard_files:
+    - SKILL.md
+    - result.schema.json
+    - checkpoint.schema.json
+    - canary.inputs.jsonl
+    - golden.assertions.yaml
+    - validator-rubric.yaml
+  price_signal_role: optimistic_floor
+  promotion_stage: stable
+  quote_role_may_be_executable: false
+  marketplace_rows_coexist_with:
+    - ebay
+    - 1688
+    - amazon
+  required_categories:
+    - fasteners
+    - packaging-cartons
+    - examination-gloves
+  calibration_mirror_required: true
+  paid_api_dependency_allowed: false
+  preserves_search_profile_fields:
+    - critical_attributes_json
+    - numeric_specs_json
+    - standards_json
+    - noun_aliases_en
+    - aliases_zh
+    - excluded_terms
+    - query_waves_json
+    - search_eligibility_state
+  confidence_formula_locked:
+    match_confidence_bps: "0.40 product_type + 0.30 critical_attrs + 0.20 numeric_specs + 0.10 evidence_quality"
+    quote_usability_confidence_bps: "0.35 unit_clarity + 0.25 MOQ_clarity + 0.20 shipping_clarity + 0.20 completeness"
+
+cases:
+  l5-alibaba-fasteners-001:
+    category: fasteners
+    expected_failure_code: null
+    min_canary_profiles: 1
+    expected_price_signal_role: optimistic_floor
+    must_preserve_required_attrs:
+      - material
+      - drive_type
+    expected_query_languages:
+      - en
+
+  l5-alibaba-chinese-retry-001:
+    category: packaging-cartons
+    chinese_retry_required_when:
+      - english_zero_results
+      - accessory_swamp_ratio_bps_at_least_8000
+      - consumer_item_swamp_ratio_bps_at_least_8000
+    expected_query_languages:
+      - en
+      - zh
+    required_retry_fields:
+      - aliases_zh
+      - back_translation_status
+      - head_noun_compatibility_state
+    ambiguous_translation_emits_quote: false
+
+  l5-alibaba-ready-to-ship-001:
+    category: examination-gloves
+    ready_to_ship_bump_allowed_only_when:
+      - unit_clarity_present
+      - moq_clarity_present
+      - shipping_or_incoterm_clarity_present
+    max_ready_to_ship_bump_bps: 500
+    regulated_goods_compliance_evidence_required: true
+
+  l5-alibaba-antibot-auth-001:
+    category: fasteners
+    expected_failure_code: ALIBABA_CAPTCHA_BLOCKED
+    source_health_state_blocks_quotes:
+      - blocked
+      - auth_required
+    anti_bot_circuit_breaker_opens_after_consecutive_blocks: 3
+    supplier_quotes_expected_count: 0
+
+  l5-alibaba-hard-conflict-zero-survivors-001:
+    category: packaging-cartons
+    expected_failure_code: ALIBABA_HARD_CONFLICT_ZERO_SURVIVORS
+    hard_conflict_rules_required:
+      - head_noun_or_alias_conformance
+      - required_critical_attributes
+      - numeric_spec_tolerance
+      - excluded_terms
+    supplier_quotes_expected_count: 0
+
+promotion_gate_inputs:
+  contributes_to:
+    - L5-T-freight_engine-013
+    - L5-T-freight_engine-018
+  stable_promotion_allowed_here: true
+  compatible_validator_required: true

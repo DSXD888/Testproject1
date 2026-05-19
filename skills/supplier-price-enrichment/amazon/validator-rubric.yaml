@@ -58,6 +58,16 @@ compatibility:
   worker_behavior_version: supplier-price-enrichment/amazon@2.0.0
   validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
   incompatible_versions_block_promotion: true
+promotion_controls:
+  promotion_stage: stable
+  stable_promotion_owner: l5-p5-marketplace-fixture-promotion-gate
+  required_standard_files:
+    - SKILL.md
+    - result.schema.json
+    - checkpoint.schema.json
+    - canary.inputs.jsonl
+    - golden.assertions.yaml
+    - validator-rubric.yaml
 evidence_requirements:
   - browser_first_preflight
   - alias_family
