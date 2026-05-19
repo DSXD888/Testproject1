@@ -459,10 +459,13 @@ mod tests {
 
     #[test]
     fn helper_process_group_lookup_runs() -> Result<()> {
+        let mut guard = ProcessIsolationGuard::new("helper_process_group_lookup_runs");
         let mut child = ProcessTreeHelper::spawn(&["sleep", "1"])?;
+        guard.register_pid(child.id());
         let process_group_id = ProcessTreeHelper::process_group(&child)?;
+        guard.register_pgid(process_group_id);
         assert!(process_group_id > 0);
-        let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(2))?;
+        let _ = ProcessTreeHelper::wait_for_exit(&mut child, Duration::from_secs(5))?;
         Ok(())
     }
 

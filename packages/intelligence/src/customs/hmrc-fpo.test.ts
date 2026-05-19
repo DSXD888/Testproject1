@@ -10,6 +10,13 @@ import {
   probeHmrcFpoEndpointDecision,
   reconcileHmrcWithTaric,
 } from "./multi-source-recall";
+import {
+  RECALL_QUERY_SOURCE_FAMILIES,
+  countRecallSourceFamilies,
+  gateDescriptionQuality,
+  generateQueryWaves,
+  planRecallQueryWaves,
+} from "./description-quality";
 
 interface CassetteFixture {
   case_id: string;
@@ -162,6 +169,102 @@ describe("HMRC FPO endpoint discovery and public search-reference recall", () =>
       "atr_codebook_reuse",
     ]);
     expect(evaluation.notes[0]).toContain("FPO unavailable is tolerated");
+  });
+
+  it("L5-T-hmrc_fpo-009 rejects generic service and unsafe bundle descriptions before recall", () => {
+    const generic = gateDescriptionQuality({ text: "equipment" });
+    expect(generic).toMatchObject({
+      kind: "reject_generic",
+      missingArchetypeFacts: [
+        "equipment.material",
+        "equipment.principal_function",
+        "equipment.sector",
+      ],
+    });
+
+    const service = gateDescriptionQuality({
+      text: "training and consulting services for theatre equipment",
+    });
+    expect(service).toEqual({
+      kind: "reject_service",
+      reason: "service_description_not_physical_goods",
+    });
+
+    const unsafeBundle = gateDescriptionQuality({
+      text: "first aid kit with sterile gloves, wipes and scissors",
+    });
+    expect(unsafeBundle).toMatchObject({
+      kind: "reject_bundle_unsafe",
+      markAs: "gir_3_candidate",
+    });
+    expect(unsafeBundle.reason).toContain("retail set");
+
+    const safeBundle = gateDescriptionQuality({
+      text: "bulk nitrile examination gloves and bulk paperboard packaging cartons",
+    });
+    expect(safeBundle).toMatchObject({ kind: "split_safe" });
+    if (safeBundle.kind !== "split_safe") {
+      throw new Error("expected safe bundle split");
+    }
+    expect(safeBundle.subDescriptions.map((item) => item.text)).toEqual([
+      "bulk nitrile examination gloves",
+      "bulk paperboard packaging cartons",
+    ]);
+  });
+
+  it("L5-T-hmrc_fpo-010 runs normalized query waves across source families and counts each method once", () => {
+    const verdict = gateDescriptionQuality({
+      text: "sterile nitrile examination gloves bulk pack",
+    });
+
+    expect(verdict).toMatchObject({
+      kind: "accept",
+      attributes: {
+        headNoun: "gloves",
+        material: "nitrile",
+        principalFunction: "examination protection",
+        sector: "medical",
+        sterilityMedical: "sterile",
+        packForm: "bulk",
+      },
+    });
+    if (verdict.kind !== "accept") {
+      throw new Error("expected accepted glove description");
+    }
+
+    const waves = generateQueryWaves(verdict.attributes);
+    expect(waves.map((wave) => wave.strategy)).toEqual([
+      "head_noun",
+      "material_head_noun",
+      "function_head_noun",
+      "sector_material_function_head_noun",
+      "pack_form_material_head_noun",
+    ]);
+    expect(waves.map((wave) => wave.query_en)).toEqual([
+      "gloves",
+      "nitrile gloves",
+      "examination protection gloves",
+      "medical nitrile examination protection gloves",
+      "bulk nitrile gloves",
+    ]);
+
+    const queryPlan = planRecallQueryWaves(verdict.attributes);
+    expect(queryPlan).toHaveLength(
+      waves.length * RECALL_QUERY_SOURCE_FAMILIES.length,
+    );
+    expect(countRecallSourceFamilies(queryPlan)).toBe(
+      RECALL_QUERY_SOURCE_FAMILIES.length,
+    );
+
+    for (const sourceFamily of RECALL_QUERY_SOURCE_FAMILIES) {
+      const sourceWaves = queryPlan.filter(
+        (planned) => planned.sourceFamily === sourceFamily,
+      );
+      expect(sourceWaves).toHaveLength(waves.length);
+      expect(new Set(sourceWaves.map((planned) => planned.familyCountKey))).toEqual(
+        new Set([sourceFamily]),
+      );
+    }
   });
 });
 
