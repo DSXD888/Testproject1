@@ -8,6 +8,16 @@ export type RecallSourceFamily =
   | "atr_codebook_reuse"
   | "taric_cross_check";
 
+export type SourceFamily = Exclude<RecallSourceFamily, "taric_cross_check">;
+
+export const RECALL_SOURCE_FAMILY_ORDER: SourceFamily[] = [
+  "hmrc_fpo_or_search_suggestion",
+  "cpv_chapter_prior",
+  "rule_based_chapter_hint",
+  "hmrc_tariff_keyword_search",
+  "atr_codebook_reuse",
+];
+
 export type RecallSourceStatus =
   | "available"
   | "unavailable"
@@ -15,7 +25,18 @@ export type RecallSourceStatus =
   | "restricted"
   | "declined";
 
+export type RecallCandidateLevel = "heading" | "subheading" | "cn8";
+export type RecallSourceFailureMode =
+  | "rate_limited"
+  | "downtime"
+  | "schema_drift"
+  | "access_restricted"
+  | "none";
+
 export interface RecallCandidate {
+  code: string;
+  level: RecallCandidateLevel;
+  retrievalScoreBps: number;
   commodityCode: string;
   referencedClass: string;
   title: string;
@@ -25,6 +46,37 @@ export interface RecallCandidate {
   authorityRole: "retrieval_relevance_only" | "advisory_cross_check";
   sourceUrl: string;
 }
+
+export interface SourceFamilyResult {
+  sourceFamily: SourceFamily;
+  state: "agreed" | "diverged" | "unavailable";
+  candidates: RecallCandidate[];
+  scoreBps: number | null;
+  failureMode?: RecallSourceFailureMode;
+}
+
+export interface CandidateRecallAgreement {
+  candidateCode: string;
+  agreement: SourceFamilyResult[];
+}
+
+export interface MultiSourceRecallResult {
+  attributes: import("./description-quality").ExtractedAttributes;
+  perSourceResults: SourceFamilyResult[];
+  candidateRecallAgreement: CandidateRecallAgreement[];
+  independentSourceFamiliesAvailable: number;
+  independentSourceFamiliesAgreeing: number;
+  classificationBlockers: Array<"CLASSIFICATION_AMBIGUOUS">;
+  autoClassificationAllowed: boolean;
+}
+
+export type RecallSourceAdapter = (opts: {
+  attributes: import("./description-quality").ExtractedAttributes;
+  cpvCode?: string;
+  sourceFamily: SourceFamily;
+}) => Promise<RecallCandidate[]> | RecallCandidate[];
+
+export type RecallSourceAdapters = Partial<Record<SourceFamily, RecallSourceAdapter>>;
 
 export interface RecallSourceResult {
   sourceFamily: RecallSourceFamily;
@@ -87,6 +139,91 @@ interface HmrcSearchReferenceBody {
   data?: unknown;
 }
 
+interface HmrcTariffSearchAttributes {
+  description?: unknown;
+  formatted_description?: unknown;
+  goods_nomenclature_item_id?: unknown;
+  goods_nomenclature_sid?: unknown;
+}
+
+interface HmrcTariffSearchItem {
+  id?: unknown;
+  type?: unknown;
+  attributes?: HmrcTariffSearchAttributes;
+}
+
+interface HmrcTariffSearchBody {
+  data?: unknown;
+}
+
+export class MultiSourceRecall {
+  constructor(private readonly adapters: RecallSourceAdapters = {}) {}
+
+  async run(
+    attributes: import("./description-quality").ExtractedAttributes,
+    cpvCode?: string,
+  ): Promise<MultiSourceRecallResult> {
+    const perSourceResults = await Promise.all(
+      RECALL_SOURCE_FAMILY_ORDER.map((sourceFamily) =>
+        this.runSourceFamily(sourceFamily, attributes, cpvCode),
+      ),
+    );
+
+    const candidateRecallAgreement = buildCandidateRecallAgreement(perSourceResults);
+    const topAgreement = candidateRecallAgreement[0]?.agreement ?? [];
+    const independentSourceFamiliesAvailable = perSourceResults.filter(
+      (result) => result.state !== "unavailable",
+    ).length;
+    const independentSourceFamiliesAgreeing = topAgreement.filter(
+      (result) => result.state === "agreed",
+    ).length;
+    const classificationBlockers = hasMaterialHs6Split(perSourceResults)
+      ? (["CLASSIFICATION_AMBIGUOUS"] as const)
+      : [];
+
+    return {
+      attributes,
+      perSourceResults,
+      candidateRecallAgreement,
+      independentSourceFamiliesAvailable,
+      independentSourceFamiliesAgreeing,
+      classificationBlockers: [...classificationBlockers],
+      autoClassificationAllowed:
+        classificationBlockers.length === 0 &&
+        independentSourceFamiliesAvailable >= 2 &&
+        independentSourceFamiliesAgreeing >= 2,
+    };
+  }
+
+  async runSourceFamily(
+    sourceFamily: SourceFamily,
+    attributes: import("./description-quality").ExtractedAttributes,
+    cpvCode?: string,
+  ): Promise<SourceFamilyResult> {
+    const adapter = this.adapters[sourceFamily];
+    if (adapter === undefined) {
+      return unavailableSourceFamily(sourceFamily, "none");
+    }
+
+    try {
+      const candidates = await adapter({ attributes, cpvCode, sourceFamily });
+      if (candidates.length === 0) {
+        return unavailableSourceFamily(sourceFamily, "none");
+      }
+
+      return {
+        sourceFamily,
+        state: "agreed",
+        candidates,
+        scoreBps: candidates[0]?.retrievalScoreBps ?? null,
+        failureMode: "none",
+      };
+    } catch (error) {
+      return unavailableSourceFamily(sourceFamily, sourceFailureMode(error));
+    }
+  }
+}
+
 export function parseHmrcSearchReferenceRecall(
   bodyText: string,
   opts: {
@@ -134,6 +271,42 @@ export function parseHmrcSearchReferenceRecall(
     authorityRole: "retrieval_relevance_only",
     staleClassification: false,
     guessingAllowed: false,
+  };
+}
+
+export function parseHmrcTariffKeywordSearchRecall(
+  bodyText: string,
+  opts: {
+    searchTerm: string;
+    sourceUrl: string;
+  },
+): SourceFamilyResult {
+  let parsed: HmrcTariffSearchBody;
+  try {
+    parsed = JSON.parse(bodyText) as HmrcTariffSearchBody;
+  } catch {
+    return unavailableSourceFamily("hmrc_tariff_keyword_search", "schema_drift");
+  }
+
+  if (!Array.isArray(parsed.data)) {
+    return unavailableSourceFamily("hmrc_tariff_keyword_search", "schema_drift");
+  }
+
+  const tokens = tokenize(opts.searchTerm);
+  const candidates = parsed.data
+    .flatMap((item) => candidateFromTariffSearch(item, tokens, opts.sourceUrl))
+    .sort((left, right) => right.retrievalScoreBps - left.retrievalScoreBps);
+
+  if (candidates.length === 0) {
+    return unavailableSourceFamily("hmrc_tariff_keyword_search", "none");
+  }
+
+  return {
+    sourceFamily: "hmrc_tariff_keyword_search",
+    state: "agreed",
+    candidates,
+    scoreBps: candidates[0]?.retrievalScoreBps ?? null,
+    failureMode: "none",
   };
 }
 
@@ -247,6 +420,9 @@ export function reconcileHmrcWithTaric(opts: {
   divergences: TaricAdvisoryDivergence[];
 } {
   const advisoryCandidate: RecallCandidate = {
+    code: opts.taricCommodityCode,
+    level: inferCandidateLevel(opts.taricCommodityCode),
+    retrievalScoreBps: 0,
     commodityCode: opts.taricCommodityCode,
     referencedClass: "TARIC",
     title: opts.taricCandidateTitle,
@@ -330,6 +506,29 @@ export function availableRecallSource(sourceFamily: RecallSourceFamily): RecallS
   };
 }
 
+export function createRecallCandidate(opts: {
+  code: string;
+  title: string;
+  sourceFamily: SourceFamily;
+  retrievalScoreBps: number;
+  sourceUrl?: string;
+  referencedClass?: string;
+}): RecallCandidate {
+  return {
+    code: opts.code,
+    level: inferCandidateLevel(opts.code),
+    retrievalScoreBps: opts.retrievalScoreBps,
+    commodityCode: opts.code,
+    referencedClass: opts.referencedClass ?? "goods_nomenclature",
+    title: opts.title,
+    sourceFamily: opts.sourceFamily,
+    relevanceBps: opts.retrievalScoreBps,
+    legalEvidence: false,
+    authorityRole: "retrieval_relevance_only",
+    sourceUrl: opts.sourceUrl ?? "local://l5-recall-fixture",
+  };
+}
+
 function candidateFromSearchReference(
   item: unknown,
   queryTokens: string[],
@@ -364,6 +563,9 @@ function candidateFromSearchReference(
 
   return [
     {
+      code: commodityCode,
+      level: inferCandidateLevel(commodityCode),
+      retrievalScoreBps: relevanceBps,
       commodityCode,
       referencedClass,
       title,
@@ -373,6 +575,54 @@ function candidateFromSearchReference(
       authorityRole: "retrieval_relevance_only",
       sourceUrl,
     },
+  ];
+}
+
+function candidateFromTariffSearch(
+  item: unknown,
+  queryTokens: string[],
+  sourceUrl: string,
+): RecallCandidate[] {
+  if (!isTariffSearchItem(item)) {
+    return [];
+  }
+
+  const attributes = item.attributes;
+  if (attributes === undefined) {
+    return [];
+  }
+
+  const title =
+    asString(attributes.description) ??
+    asString(attributes.formatted_description) ??
+    "HMRC tariff keyword result";
+  const commodityCode =
+    asString(attributes.goods_nomenclature_item_id) ??
+    asString(attributes.goods_nomenclature_sid) ??
+    asString(item.id);
+  if (commodityCode === null) {
+    return [];
+  }
+
+  const titleTokens = tokenize(title);
+  const overlap = queryTokens.filter((token) => titleTokens.includes(token)).length;
+  if (overlap === 0) {
+    return [];
+  }
+
+  const retrievalScoreBps = Math.min(
+    10_000,
+    Math.round((overlap / Math.max(queryTokens.length, 1)) * 10_000),
+  );
+
+  return [
+    createRecallCandidate({
+      code: commodityCode,
+      title,
+      sourceFamily: "hmrc_tariff_keyword_search",
+      retrievalScoreBps,
+      sourceUrl,
+    }),
   ];
 }
 
@@ -394,6 +644,99 @@ function fpoUnavailable(
   };
 }
 
+function buildCandidateRecallAgreement(
+  perSourceResults: SourceFamilyResult[],
+): CandidateRecallAgreement[] {
+  const candidateCodes = new Set(
+    perSourceResults.flatMap((result) =>
+      result.candidates.map((candidate) => candidate.code),
+    ),
+  );
+
+  return [...candidateCodes]
+    .map((candidateCode) => ({
+      candidateCode,
+      agreement: RECALL_SOURCE_FAMILY_ORDER.map((sourceFamily) =>
+        agreementForSource(candidateCode, sourceFamily, perSourceResults),
+      ),
+    }))
+    .sort((left, right) => supportScore(right) - supportScore(left));
+}
+
+function agreementForSource(
+  candidateCode: string,
+  sourceFamily: SourceFamily,
+  perSourceResults: SourceFamilyResult[],
+): SourceFamilyResult {
+  const sourceResult = perSourceResults.find(
+    (result) => result.sourceFamily === sourceFamily,
+  );
+  if (sourceResult === undefined || sourceResult.candidates.length === 0) {
+    return unavailableSourceFamily(sourceFamily, sourceResult?.failureMode ?? "none");
+  }
+
+  const state = sourceResult.candidates.some((candidate) =>
+    sameHs6Family(candidate.code, candidateCode),
+  )
+    ? "agreed"
+    : "diverged";
+
+  return {
+    ...sourceResult,
+    state,
+  };
+}
+
+function supportScore(candidate: CandidateRecallAgreement): number {
+  return candidate.agreement.reduce((score, sourceResult) => {
+    if (sourceResult.state !== "agreed") {
+      return score;
+    }
+
+    return score + (sourceResult.scoreBps ?? 0);
+  }, 0);
+}
+
+function hasMaterialHs6Split(perSourceResults: SourceFamilyResult[]): boolean {
+  const hs6Families = new Set(
+    perSourceResults.flatMap((result) =>
+      result.candidates.map((candidate) => hs6Family(candidate.code)),
+    ),
+  );
+  return hs6Families.size > 1;
+}
+
+function unavailableSourceFamily(
+  sourceFamily: SourceFamily,
+  failureMode: RecallSourceFailureMode,
+): SourceFamilyResult {
+  return {
+    sourceFamily,
+    state: "unavailable",
+    candidates: [],
+    scoreBps: null,
+    failureMode,
+  };
+}
+
+function sourceFailureMode(error: unknown): RecallSourceFailureMode {
+  if (error instanceof Error) {
+    if (error.message.includes("429") || error.message.includes("rate")) {
+      return "rate_limited";
+    }
+
+    if (error.message.includes("schema")) {
+      return "schema_drift";
+    }
+
+    if (error.message.includes("restricted") || error.message.includes("403")) {
+      return "access_restricted";
+    }
+  }
+
+  return "downtime";
+}
+
 function isSearchReferenceItem(value: unknown): value is HmrcSearchReferenceItem {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -401,6 +744,35 @@ function isSearchReferenceItem(value: unknown): value is HmrcSearchReferenceItem
 
   const maybeItem = value as HmrcSearchReferenceItem;
   return maybeItem.type === "search_reference" && typeof maybeItem.attributes === "object";
+}
+
+function isTariffSearchItem(value: unknown): value is HmrcTariffSearchItem {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const maybeItem = value as HmrcTariffSearchItem;
+  return typeof maybeItem.attributes === "object";
+}
+
+function inferCandidateLevel(code: string): RecallCandidateLevel {
+  if (code.length <= 4) {
+    return "heading";
+  }
+
+  if (code.length <= 6) {
+    return "subheading";
+  }
+
+  return "cn8";
+}
+
+function sameHs6Family(left: string, right: string): boolean {
+  return hs6Family(left) === hs6Family(right);
+}
+
+function hs6Family(code: string): string {
+  return code.slice(0, 6);
 }
 
 function asString(value: unknown): string | null {

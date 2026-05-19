@@ -3,10 +3,14 @@ import { createHash } from "node:crypto";
 
 import {
   FPO_ACCESS_UNAVAILABLE,
+  MultiSourceRecall,
+  RECALL_SOURCE_FAMILY_ORDER,
   availableRecallSource,
+  createRecallCandidate,
   evaluateRecallFamilyCoverage,
   interpretFpoHttpResponse,
   parseHmrcSearchReferenceRecall,
+  parseHmrcTariffKeywordSearchRecall,
   probeHmrcFpoEndpointDecision,
   reconcileHmrcWithTaric,
 } from "./multi-source-recall";
@@ -41,6 +45,33 @@ interface CassetteFixture {
 }
 
 describe("HMRC FPO endpoint discovery and public search-reference recall", () => {
+  it("L5-T-hmrc_fpo-001 parses HMRC tariff keyword search into HS candidates", async () => {
+    const cassette = await readCassette("tariff-keyword-search-fasteners.json");
+    const bodyText = await readCassetteBody(cassette);
+
+    const result = parseHmrcTariffKeywordSearchRecall(bodyText, {
+      searchTerm: "stainless steel fasteners bolts",
+      sourceUrl: cassette.request.url,
+    });
+
+    expect(cassette.endpoint_family).toBe("hmrc_tariff_keyword_search");
+    expect(cassette.request.authenticated).toBe(false);
+    expect(result).toMatchObject({
+      sourceFamily: "hmrc_tariff_keyword_search",
+      state: "agreed",
+      failureMode: "none",
+    });
+    expect(result.candidates[0]).toMatchObject({
+      code: "7318159590",
+      commodityCode: "7318159590",
+      level: "cn8",
+      sourceFamily: "hmrc_tariff_keyword_search",
+      legalEvidence: false,
+      authorityRole: "retrieval_relevance_only",
+    });
+    expect(result.candidates[0]?.retrievalScoreBps).toBeGreaterThanOrEqual(5000);
+  });
+
   it("L5-T-hmrc_fpo-002 parses the selected public replacement into retrieval-only candidates", async () => {
     const cassette = await readCassette("fpo-search-reference-medical-gloves.json");
     const bodyText = await readCassetteBody(cassette);
@@ -141,6 +172,106 @@ describe("HMRC FPO endpoint discovery and public search-reference recall", () =>
     expect(result.staleClassification).toBe(true);
     expect(result.guessingAllowed).toBe(false);
     expect(result.candidates).toEqual([]);
+  });
+
+  it("L5-T-hmrc_fpo-004 records all five agreeing recall source families", async () => {
+    const attributes = acceptedAttributes("sterile nitrile examination gloves bulk pack");
+    const recall = new MultiSourceRecall(
+      Object.fromEntries(
+        RECALL_SOURCE_FAMILY_ORDER.map((sourceFamily, index) => [
+          sourceFamily,
+          () => [
+            createRecallCandidate({
+              code: "4015120000",
+              title: `${sourceFamily} surgical nitrile gloves`,
+              sourceFamily,
+              retrievalScoreBps: 8_500 - index * 100,
+            }),
+          ],
+        ]),
+      ),
+    );
+
+    const result = await recall.run(attributes, "33141420");
+
+    expect(result.perSourceResults).toHaveLength(5);
+    expect(result.candidateRecallAgreement[0]?.candidateCode).toBe("4015120000");
+    expect(result.candidateRecallAgreement[0]?.agreement.map((entry) => entry.sourceFamily)).toEqual(
+      RECALL_SOURCE_FAMILY_ORDER,
+    );
+    expect(result.candidateRecallAgreement[0]?.agreement.map((entry) => entry.state)).toEqual([
+      "agreed",
+      "agreed",
+      "agreed",
+      "agreed",
+      "agreed",
+    ]);
+    expect(result.independentSourceFamiliesAvailable).toBe(5);
+    expect(result.independentSourceFamiliesAgreeing).toBe(5);
+    expect(result.classificationBlockers).toEqual([]);
+    expect(result.autoClassificationAllowed).toBe(true);
+  });
+
+  it("L5-T-hmrc_fpo-005 records family divergence and emits CLASSIFICATION_AMBIGUOUS", async () => {
+    const attributes = acceptedAttributes("sterile nitrile examination gloves bulk pack");
+    const recall = new MultiSourceRecall({
+      hmrc_fpo_or_search_suggestion: () => [
+        recallCandidate("4015120000", "surgical gloves", "hmrc_fpo_or_search_suggestion"),
+      ],
+      cpv_chapter_prior: () => [
+        recallCandidate("4015190000", "protective rubber gloves", "cpv_chapter_prior"),
+      ],
+      rule_based_chapter_hint: () => [
+        recallCandidate("4015120000", "medical surgical gloves", "rule_based_chapter_hint"),
+      ],
+      hmrc_tariff_keyword_search: () => [
+        recallCandidate("3926200000", "plastic protective gloves", "hmrc_tariff_keyword_search"),
+      ],
+      atr_codebook_reuse: () => [
+        recallCandidate("4015190000", "non-surgical rubber gloves", "atr_codebook_reuse"),
+      ],
+    });
+
+    const result = await recall.run(attributes);
+    const firstAgreement = result.candidateRecallAgreement[0]?.agreement ?? [];
+
+    expect(result.independentSourceFamiliesAvailable).toBe(5);
+    expect(firstAgreement.map((entry) => entry.sourceFamily)).toEqual(
+      RECALL_SOURCE_FAMILY_ORDER,
+    );
+    expect(firstAgreement.map((entry) => entry.state)).toContain("diverged");
+    expect(result.classificationBlockers).toEqual(["CLASSIFICATION_AMBIGUOUS"]);
+    expect(result.autoClassificationAllowed).toBe(false);
+  });
+
+  it("L5-T-hmrc_fpo-006 keeps FPO-only recall non-auto and retrieval-only", async () => {
+    const attributes = acceptedAttributes("sterile nitrile examination gloves bulk pack");
+    const recall = new MultiSourceRecall({
+      hmrc_fpo_or_search_suggestion: () => [
+        recallCandidate(
+          "4015120000",
+          "retrieval-only surgical glove suggestion",
+          "hmrc_fpo_or_search_suggestion",
+        ),
+      ],
+    });
+
+    const result = await recall.run(attributes);
+
+    expect(result.independentSourceFamiliesAvailable).toBe(1);
+    expect(result.independentSourceFamiliesAgreeing).toBe(1);
+    expect(result.autoClassificationAllowed).toBe(false);
+    expect(result.perSourceResults.map((entry) => entry.state)).toEqual([
+      "agreed",
+      "unavailable",
+      "unavailable",
+      "unavailable",
+      "unavailable",
+    ]);
+    expect(result.perSourceResults[0]?.candidates[0]).toMatchObject({
+      legalEvidence: false,
+      authorityRole: "retrieval_relevance_only",
+    });
   });
 
   it("L5-T-hmrc_fpo-012 accepts four non-FPO families when HS Ping is declined and FPO is unavailable", () => {
@@ -291,4 +422,26 @@ async function bodySha256(relativePath: string): Promise<string> {
     ),
   ).arrayBuffer();
   return `sha256:${createHash("sha256").update(Buffer.from(body)).digest("hex")}`;
+}
+
+function acceptedAttributes(text: string) {
+  const verdict = gateDescriptionQuality({ text });
+  if (verdict.kind !== "accept") {
+    throw new Error(`expected accepted description, received ${verdict.kind}`);
+  }
+
+  return verdict.attributes;
+}
+
+function recallCandidate(
+  code: string,
+  title: string,
+  sourceFamily: (typeof RECALL_SOURCE_FAMILY_ORDER)[number],
+) {
+  return createRecallCandidate({
+    code,
+    title,
+    sourceFamily,
+    retrievalScoreBps: 8_000,
+  });
 }

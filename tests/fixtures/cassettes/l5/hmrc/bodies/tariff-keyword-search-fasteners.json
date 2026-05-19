@@ -1,0 +1,34 @@
+{
+  "data": [
+    {
+      "id": "7318159590",
+      "type": "commodity",
+      "attributes": {
+        "description": "Other screws and bolts, whether or not with their nuts or washers, of stainless steel",
+        "formatted_description": "Other screws and bolts of stainless steel",
+        "goods_nomenclature_item_id": "7318159590",
+        "goods_nomenclature_sid": 109381
+      }
+    },
+    {
+      "id": "7318169990",
+      "type": "commodity",
+      "attributes": {
+        "description": "Other nuts of iron or steel",
+        "formatted_description": "Other nuts of iron or steel",
+        "goods_nomenclature_item_id": "7318169990",
+        "goods_nomenclature_sid": 109386
+      }
+    },
+    {
+      "id": "3926909790",
+      "type": "commodity",
+      "attributes": {
+        "description": "Other articles of plastics",
+        "formatted_description": "Other plastic articles",
+        "goods_nomenclature_item_id": "3926909790",
+        "goods_nomenclature_sid": 108004
+      }
+    }
+  ]
+}
