@@ -54,17 +54,17 @@ The strategy claims a phase ordering. Verify it's the actual critical path:
 
 ### 2. ErrorCode Propagation Sizing
 
-Phase 1 extends `ErrorCode` with 10 new variants. The L4 manifest noted that adding variants requires updating the `as_str()` matcher AND every exhaustive `match` site across the daemon. That's typically 5-15 sites:
+Phase 1 extends `ErrorCode` with 10 new variants. The enum itself + its `as_str()` matcher live in `crates/daemon/src/errors/manifest.rs` lines 20-55+ (NOT `validation/policy.rs` — that file holds `ValidationPolicyMode` / `ValidationTrigger` for L3 logic, a separate enum family). Adding 10 variants surfaces 5-15 exhaustive `match` sites across the daemon when clippy runs. Typical propagation sites:
 
-- `crates/daemon/src/validation/policy.rs` (the enum + matcher)
+- `crates/daemon/src/errors/manifest.rs` (the enum + `as_str()` matcher — the single source)
+- `crates/daemon/src/validation/policy.rs` (validation routing that pattern-matches on ErrorCode)
 - `crates/daemon/src/validation/executor.rs` (job dispatch by code)
-- `crates/daemon/src/errors/manifest.rs` (markdown rendering)
 - `crates/daemon/src/errors/markdown.rs` (specific code → human label)
 - `crates/daemon/src/tracing/structured.rs` (tracing tags)
-- ipc/handlers/* (any handler that returns codes to desktop)
-- Any place that pattern-matches on ErrorCode
+- `ipc/handlers/*` (any handler that returns codes to desktop)
+- Any other place that pattern-matches on ErrorCode
 
-Did the strategy size Phase 1's bead for the full propagation, or assume a 1-line enum edit? If the latter, the bead is underscoped.
+Did the strategy size Phase 1's bead for the full propagation, or assume a 1-line enum edit? If the latter, the bead is underscoped. If the strategy lists `validation/policy.rs` as the enum's home, that's wrong — the enum lives in `errors/manifest.rs`.
 
 ### 3. L5→L6 Gate Producer Trace
 
@@ -98,7 +98,7 @@ Phase 5 matures 3 existing skills (alibaba, amazon, 1688) and creates ≤1 new o
 
 ### 6. Gold-Set Category Naming
 
-DoD #12 requires ≥3 categories. Strategy should have these named (in Phase 6 or referenced from bootstrap). If the strategy says "≥3 categories TBD", that's a deferred decision — convert it now. Common candidates: fasteners, packaging-cartons, examination-gloves (clear differentiation: one in remedy-active scope, one in packaging-easy, one in regulated). Or: aluminium foil (CBAM-affected), industrial textiles (compound-duty), basic consumer electronics (low-remedy baseline).
+DoD #12 requires ≥3 categories. The operator pre-resolved the trio on 2026-05-08 (manifest `recorded_decisions.decision_4_gold_set_categories`): **fasteners + packaging-cartons + examination-gloves** (clear differentiation: remedy-active / packaging-easy / regulated medical). The strategy MUST name all three verbatim in Phase 6 (gold-set extension). If the strategy says "≥3 categories TBD" or proposes alternative candidates, that's stale wording — replace with the pre-resolved trio. No "surface for owner decision" language: the decision is closed.
 
 ### 7. CBAM Phase Placement
 
@@ -117,6 +117,12 @@ Verify the strategy:
 - Sizes this bead realistically (likely 3-5 days of focused work, 1 large refactor or 2-3 incremental steps).
 - Has explicit feature-flag wiring (decision-grade feature flag default OFF in early Phase 6, default ON at end of Phase 6). This allows running new and old paths side-by-side during validation.
 - Names a regression-test gate (Stage 11 live demo against a real Contracts Finder lot; existing landed-cost integration tests pass).
+
+### 8A. L5 Field-Level Redaction Risk
+
+The current L4 RLS policy in `infra/supabase/migrations/0004_rls_policies.sql` grants viewer/operator/admin SELECT on the whole `landed_cost_estimates` projection table. L5 TDD classifies new decision-grade fields into display, control, automation-sensitive, and local-only sensitive groups; for example `exporter_rate_basis`, `exporter_identity_confidence_bps`, `origin_evidence_state`, `trade_remedy_cases_json`, `duty_breakdown_json`, `measure_interaction_json`, and `confidence_breakdown.evidence_leverage` are automation-sensitive and viewer-redacted.
+
+This is a sync/RLS boundary risk, not a TDD-only concern. Verify the strategy assigns a Phase 6 integration bead to implement or validate the field-level projection boundary, such as a redacted view, summary projection, RPC serializer, or equivalent role-scoped projection. Do not let Phase 6 close with table-level RLS alone if `L5-T-measure_interaction-020` expects viewer/operator field differences.
 
 ### 9. Phase Equality
 

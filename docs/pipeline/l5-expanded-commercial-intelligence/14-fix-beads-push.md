@@ -46,7 +46,7 @@ export AGENT_MAIL_NAME="<your-name>"
 7. **Supplementary units are first-class** — emit `SUPPLEMENTARY_UNIT_MISSING` and abstain when missing (spec §1.8).
 8. **L5→L6 readiness gate (constitutional)** — these MUST remain producible: `CLASSIFICATION_AMBIGUOUS`, `TARIFF_BRANCH_DIVERGENCE`, `SUPPLEMENTARY_UNIT_MISSING`, `decision_grade = broker_required`, classification freshness expired.
 9. **CBAM is placeholder-only in L5** — rate-bearing logic awaits secondary legislation (spec §1.14).
-10. **No mocks for HMRC/Xe/Freightos/SeaRates clients** — fixture cassettes for unit; real HTTP for integration.
+10. **Skill-first (operator decision 2026-05-08) — no paid API procurement.** Integrations: HMRC public APIs + Frankfurter + CDP browser skills (existing SeaRates/HMRC/simple-fx-lookup + operator-built Freightos + EU TARIC). No mocks — fixture cassettes for unit, real HTTP / real CDP for integration. Xe / Freightos paid / SeaRates paid / Taric Support paid / HS Ping / Dutify-Zonos-Avalara are DECLINED.
 11. **Single-edit chokepoints** (one bead at a time): `crates/daemon/src/errors/manifest.rs` (ErrorCode), `crates/daemon/src/sources/registry.rs`, `crates/daemon/src/scheduler/cron.rs`, `crates/daemon/src/main.rs` Phase 6 refactor target, `crates/daemon/src/db/sync.rs` `PUSH_OWNED_RESEED_TABLES`, daemon `Cargo.toml`, root `package.json`.
 12. **NO file deletion** (AGENTS.md Rule 1).
 

@@ -67,8 +67,8 @@ Walk all DoD criteria from spec §3.1. Each MUST be green:
 | 6 | 10-digit resolution via HMRC Trade Tariff API produces UK-specific commodity codes | ☐ |
 | 7 | Measure scanner detects AD/CVD/safeguard/quota measures and models interactions | ☐ |
 | 8 | HMRC Exchange Rate Service provides customs valuation FX (monthly rolling) | ☐ |
-| 9 | Xe commercial FX provides spot rates | ☐ |
-| 10 | Freightos + SeaRates provide freight market data | ☐ |
+| 9 | Commercial spot FX provided (Xe replaced by Frankfurter — free, ECB-backed — per operator decision 2026-05-08; verify `commercial_fx_rate` populated on test fixture) | ☐ |
+| 10 | Freightos + SeaRates provide freight market data (via existing SeaRates CDP skill + operator-built Freightos CDP skill — both NO paid API per operator decision 2026-05-08) | ☐ |
 | 11 | Decision-grade landed cost per validated category (with full audit trail) | ☐ |
 | 12 | Category-specific gold-set expansion completed for ≥3 categories | ☐ |
 | 13 | (if added in step 01) Local quality gate verified (no .github/workflows/) | ☐ |

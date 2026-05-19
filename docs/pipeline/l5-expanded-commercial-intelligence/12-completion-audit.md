@@ -109,13 +109,14 @@ Critical columns:
 
 For each of the 10 new ErrorCode variants:
 
-- [ ] Find the variant in `crates/daemon/src/validation/policy.rs`.
-- [ ] Find the code path that emits it.
+- [ ] Find the variant in `crates/daemon/src/errors/manifest.rs` (the enum lives at lines 20-55+ alongside its `as_str()` matcher in the same file — NOT `validation/policy.rs`, which holds `ValidationPolicyMode` for L3 validation routing).
+- [ ] Find the code path that emits it (likely in `packages/intelligence/src/customs/*.ts` or `fx/*.ts` or `logistics/*.ts`).
 - [ ] Find the test that verifies emission.
 - [ ] Run the emission test; confirm pass.
 
 If any variant is added but never emitted → fix bead.
 If any variant emits in a wrong condition → fix bead.
+If any variant is missing from the `as_str()` matcher → fix bead (clippy should have surfaced this during Phase 1).
 
 ### 3. Conservative Defaults Verification
 
@@ -214,8 +215,8 @@ Walk all 12 (or 13 if no-CI criterion was added) DoD criteria from spec §3.1. E
 | 6 | 10-digit resolution via HMRC Trade Tariff API produces UK-specific commodity codes | ☐ |
 | 7 | Measure scanner detects AD/CVD/safeguard/quota measures and models interactions | ☐ |
 | 8 | HMRC Exchange Rate Service provides customs valuation FX (monthly rolling) | ☐ |
-| 9 | Xe commercial FX provides spot rates | ☐ |
-| 10 | Freightos + SeaRates provide freight market data | ☐ |
+| 9 | Commercial spot FX provided (Xe replaced by Frankfurter — free, ECB-backed — per operator decision 2026-05-08; verify equivalent functional outcome on `commercial_fx_rate` field) | ☐ |
+| 10 | Freightos + SeaRates provide freight market data (via existing SeaRates CDP skill + operator-built Freightos CDP skill — both NO paid API per operator decision 2026-05-08) | ☐ |
 | 11 | Decision-grade landed cost per validated category (with full audit trail) | ☐ |
 | 12 | Category-specific gold-set expansion completed for ≥3 categories | ☐ |
 

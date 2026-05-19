@@ -106,7 +106,8 @@ docs/pipeline/l3-operational-hardening/artifacts/l3-operational-hardening-kickof
 ### 3. Core Contracts / Non-Negotiables
 
 - **L0 schema is fixed.** No DDL changes to `landed_cost_estimates`. Single new table: `product_commodity_codes` (Phase 1 migration).
-- **No mocks for HMRC/Xe/Freightos/SeaRates.** Use fixture cassettes for unit; real HTTP for integration. Project convention.
+- **Skill-first architecture (operator decision 2026-05-08).** Zero paid commercial API procurements. Integrations are: HMRC public APIs (Trade Tariff, monthly FX publication), Frankfurter (free, ECB-backed), and CDP browser skills (existing SeaRates + HMRC + simple-fx-lookup; operator-built Freightos + EU TARIC). Xe / Freightos paid / SeaRates paid / Taric Support paid / HS Ping / Dutify-Zonos-Avalara are DECLINED.
+- **No mocks for any external integration.** Use fixture cassettes for unit; real HTTP / real CDP for integration. Project convention.
 - **Conservative defaults are constitutional.** When resolution is incomplete: MFN, residual_default, out-of-quota, standard VAT, boundary scenarios, abstain on supplementary unit. Never relax defaults — surface the gap via `unlockable_margin_bps` / `evidence_leverage`.
 - **FPO is one source among five, NEVER the primary classifier.** FPO alone is not evidence. Independent agreement requires slot-level compatibility checking.
 - **UK-specificity rule.** Taric Support and HS Ping NEVER overrule HMRC on UK national measures, VAT additional codes (DE 6/17), UK quotas, UK trade-remedy implementations.
@@ -275,12 +276,12 @@ Phase 6: Integration + gold-set + CBAM + main.rs refactor (after 4 + 3 + 5)
 
 | Phase | Key Files |
 |-------|-----------|
-| 1 | migrations/NNNN_l5_*.sql; daemon validation/policy.rs, sources/registry.rs, scheduler/cron.rs, db/sync.rs |
+| 1 | migrations/NNNN_l5_*.sql; daemon errors/manifest.rs (ErrorCode enum + as_str() matcher; NOT validation/policy.rs), sources/registry.rs, scheduler/cron.rs, db/sync.rs (PUSH_OWNED_RESEED_TABLES) |
 | 2 | packages/intelligence/src/fx/*.ts |
 | 3 | packages/intelligence/src/logistics/*.ts |
 | 4 | packages/intelligence/src/customs/*.ts |
-| 5 | skills/supplier-price-enrichment/{alibaba,amazon,1688}/; skills/procurement-ingestion/pcs/ (if scoped); skills/validation/overlay-customs-classification/ (optional) |
-| 6 | packages/intelligence/src/customs/accuracy.ts; packages/intelligence/src/validation/*.ts; tests/fixtures/calibration/customs-classification/{category}/; daemon main.rs refactor |
+| 5 | skills/supplier-price-enrichment/{alibaba,amazon,1688}/; skills/procurement-ingestion/pcs/ (unconditional — Scotland IN-scope per operator decision 2026-05-08); skills/validation/overlay-customs-classification/ (optional) |
+| 6 | packages/intelligence/src/customs/accuracy.ts; packages/intelligence/src/validation/*.ts; tests/fixtures/calibration/customs-classification/{fasteners,packaging-cartons,examination-gloves}/; daemon main.rs refactor |
 
 ### 8. AgentMail Quick Reference (compact)
 

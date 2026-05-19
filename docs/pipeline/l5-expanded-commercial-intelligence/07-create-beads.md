@@ -71,9 +71,9 @@ You MAY NOT:
 
 ## Key Context From Codebase Research
 
-1. **L5 layer doc epic** `testproject1-4gh` exists with documentation children `4gh.1` through `4gh.4` from the layer-doc authoring work. **DECISION REQUIRED:** Does the implementation pipeline (a) reuse `testproject1-4gh` as the implementation epic; (b) create a sister implementation epic; or (c) thread implementation beads as new children of `4gh`? **RECOMMENDED: option (b)** — clean separation. Create a new epic `Epic: L5 Implementation — Expanded Commercial Intelligence` with the bead prefix `l5`. Document the choice in the bead inventory.
+1. **L5 layer doc epic** `testproject1-4gh` exists with documentation children `4gh.1` through `4gh.4` from the layer-doc authoring work (those children are likely already closed; verify with `br show testproject1-4gh --json`). **Decision 3 PRE-RESOLVED 2026-05-08 as Option (b) sister epic** (manifest `recorded_decisions.decision_3_implementation_epic_structure`). This step (07) creates the sister implementation epic via `br create --type=epic --priority=P0 --title="Epic: L5 Implementation — Expanded Commercial Intelligence" --label l5`. Capture the resulting epic ID, update the spec's `## L5 Pipeline Decisions Recorded 2026-05-08` section (Decision 3 → "New epic ID: <id>"), and thread all Phase 1-6 implementation beads under that new epic. Do NOT reuse `4gh` or add children to it — the operator explicitly chose Option (b) for clean separation between layer-doc-authoring and implementation work.
 
-2. **L4 used `testproject1-4zq` as the existing L4 epic with no children at bead-creation time.** L4 added all implementation beads as children. The L5 case differs because the documentation children already exist. Hence the recommendation for a sister epic.
+2. **L4 used `testproject1-4zq` as the existing L4 epic with no children at bead-creation time.** L4 added all implementation beads as children. The L5 case differs because the documentation children already exist under `4gh`, hence the operator's choice of a sister epic (Option b).
 
 3. **PCS Scotland scope: IN-SCOPE** (resolved 2026-05-08 by operator; manifest `recorded_decisions.decision_2_pcs_scotland_scope`). Phase 5 unconditionally creates `skills/procurement-ingestion/pcs/` (full skill directory standard) plus daemon registry entry. ~3-5 PCS beads in Phase 5.
 
@@ -104,12 +104,12 @@ You MAY NOT:
 
 ### Step 1: Verify Pre-Conditions (BEFORE Invoking Skill)
 
-The four operator-recorded decisions from step 01 §6 must already be recorded in the validated spec. If any are missing, STOP and re-open step 01.
+The four operator-recorded decisions from step 01 §6 must already be transcribed into the validated spec. If any are missing or contradict the manifest, STOP and re-open step 01.
 
-- [ ] **Decision 1 (product_commodity_codes ownership)** — Option A (new SQLite migration) — verified recorded.
-- [ ] **Decision 2 (PCS Scotland scope)** — IN-SCOPE (operator decision 2026-05-08) — verified recorded. PCS bead set is unconditional in Phase 5.
-- [ ] **Decision 3 (epic structure)** — Option (b) sister epic — verified recorded; new epic ID captured.
-- [ ] **Decision 4 (gold-set categories)** — fasteners + packaging-cartons + examination-gloves — verified recorded.
+- [ ] **Decision 1 (product_commodity_codes ownership)** — spec records **Option A** (new SQLite migration `migrations/0013_l5_product_commodity_codes.sql`).
+- [ ] **Decision 2 (PCS Scotland scope)** — spec records **IN-SCOPE** (operator decision 2026-05-08). PCS bead set is unconditional in Phase 5.
+- [ ] **Decision 3 (epic structure)** — spec records **Option (b) sister epic**. Note: the new epic ID is captured BY THIS STEP — the spec entry currently reads "New epic ID: <to be filled in step 07>". The actual `br create --type=epic --priority=P0 --title="Epic: L5 Implementation — Expanded Commercial Intelligence" --label l5` invocation runs after this pre-condition pass completes; the returned epic ID is then written back into the spec entry before the skill is invoked.
+- [ ] **Decision 4 (gold-set categories)** — spec records **fasteners + packaging-cartons + examination-gloves** verbatim.
 - [ ] **L5→L6 gate trace from strategy** — confirm which phase produces each of the 5 blocker conditions (`CLASSIFICATION_AMBIGUOUS`, `TARIFF_BRANCH_DIVERGENCE`, `SUPPLEMENTARY_UNIT_MISSING`, `decision_grade = broker_required`, classification freshness expired).
 - [ ] **Marketplace skill state** — confirm the alibaba/amazon/1688 SKILL.md files still exist at `promotion_stage: candidate` (no other agent has matured them mid-pipeline).
 

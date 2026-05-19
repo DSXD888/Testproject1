@@ -8,9 +8,9 @@ Invoke the `/spec-to-tdd` skill.
 
 ## Your Mission
 
-Generate the **TDD** (test specification covering all L5-FR requirements) and the **bootstrap doc** (environment prerequisites, validation script, external API setup) for Layer 5.
+Generate the **TDD** (test specification covering all L5-FR requirements) and the **bootstrap doc** (environment prerequisites, validation script, external integration setup) for Layer 5.
 
-The TDD is SOT #2: every L5 requirement must have at least one mapped test ID. The bootstrap doc is the environmental contract: a fresh agent should be able to follow it and reach a working L5 dev environment, including the 6 mandatory + 4 optional external API accounts.
+The TDD is SOT #2: every L5 requirement must have at least one mapped test ID. The bootstrap doc is the environmental contract: a fresh agent should be able to follow it and reach a working L5 dev environment. **Per operator decision 2026-05-08 (manifest `recorded_decisions.external_api_account_state`), L5 is skill-first with ZERO paid commercial API procurements** — the bootstrap covers public APIs (HMRC Trade Tariff, HMRC FX monthly publication, Frankfurter), existing CDP browser skills (SeaRates), and operator-built CDP browser skills (Freightos, EU TARIC). No signup URLs, no key creation steps, no procurement lead times.
 
 ---
 
@@ -83,7 +83,7 @@ You MAY NOT:
 
 2. **Existing landed-cost integration tests** are partial — `crates/daemon/tests/agent_supplier_enrichment.rs` exercises supplier enrichment, but there is no `landed_cost_*.rs` integration test today. L5 must create them from scratch.
 
-3. **Calibration fixtures live at `tests/fixtures/calibration/`** with `canary.inputs.jsonl` + `golden.assertions.yaml` per (domain, variant). L5 extends this to cover ≥3 goods categories per DoD criterion 12. The category list should come from the spec's whitelist (referenced via §1.7 family-clusters) — propose 3 candidates and surface for owner decision (e.g., fasteners, packaging, gloves).
+3. **Calibration fixtures live at `tests/fixtures/calibration/`** with `canary.inputs.jsonl` + `golden.assertions.yaml` per (domain, variant). L5 extends this to cover ≥3 goods categories per DoD criterion 12. The operator pre-resolved the trio on 2026-05-08 (manifest `recorded_decisions.decision_4_gold_set_categories`): **fasteners + packaging-cartons + examination-gloves** (clear differentiation: remedy-active / packaging-easy / regulated medical). The TDD names these three categories directly — no "propose for owner decision" wording.
 
 4. **`landed_cost_estimates` ALREADY in L4 sync push set** (`crates/daemon/src/db/sync.rs:35`). L5 mutations auto-flow to Supabase. TDD must include redaction-boundary tests (no decision-grade fields leak to viewer-role projection beyond what RLS policies allow — verify against `infra/supabase/migrations/0004_rls_policies.sql`).
 
@@ -169,8 +169,8 @@ After `/spec-to-tdd` completes:
 - [ ] Bootstrap lists NO API key env vars beyond CDP browser config. Possibly `HMRC_TRADE_TARIFF_BASE_URL` for endpoint override only.
 - [ ] Bootstrap explicitly states the two operator-built prerequisite skills (Freightos + Taric) must exist before Phase 3 / Phase 4 beads can claim, and the bead audit (step 09) verifies their presence.
 - [ ] Bootstrap states the 4 cron entries L5 adds (HMRC tariff news, TRA case register, FX monthly rollover, marketplace source-health canary) — name each cron expression and the env var that enables it.
-- [ ] Bootstrap names the ≥3 gold-set categories planned (per DoD #12) — propose 3 (e.g., fasteners, packaging-cartons, examination-gloves) and surface for owner decision; do not silently choose.
-- [ ] Bootstrap preflight script verifies HTTP connectivity to each external API endpoint (with auth) before bead execution.
+- [ ] Bootstrap names the 3 pre-resolved gold-set categories verbatim (per DoD #12, manifest `recorded_decisions.decision_4_gold_set_categories`): **fasteners + packaging-cartons + examination-gloves**. No "propose for owner decision" wording — the decision is closed.
+- [ ] Bootstrap preflight script verifies HTTP/CDP connectivity (HMRC public endpoints, Frankfurter, CDP browser availability for SeaRates/Freightos/Taric skills) — NOT auth checks against paid APIs (none are used).
 
 ### Step 4: Follow-Up Pass (Sub-Optimization)
 

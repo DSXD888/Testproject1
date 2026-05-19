@@ -4,7 +4,7 @@
 
 A different agent has just produced the L5 TDD + bootstrap doc via `/spec-to-tdd`. You did NOT do that work. You are auditing both with fresh eyes — checking coverage, testability, fixture realism, bootstrap completeness, and absence of scope drift.
 
-L5 is the most test-intensive layer so far: 5 new test files, cumulative target 57 tests, evidence-tiered accuracy harness across 3+ goods categories, marketplace skill canaries for 4 skills, real HTTP integration tier across 6 mandatory external APIs. The TDD must be sharp; weak assertions here become weak L5 implementation later.
+L5 is the most test-intensive layer so far: 5 new test files, cumulative target 57 tests, evidence-tiered accuracy harness across 3 pre-resolved goods categories (fasteners + packaging-cartons + examination-gloves), marketplace skill canaries for 4 skills (alibaba/amazon/1688 + PCS), real HTTP integration tier against the public HMRC Trade Tariff + HMRC FX + Frankfurter endpoints, and CDP-browser integration tests for SeaRates/Freightos/Taric skills (zero paid API procurements per operator decision 2026-05-08). The TDD must be sharp; weak assertions here become weak L5 implementation later.
 
 ---
 
@@ -74,12 +74,14 @@ The TDD uses fixture cassettes (recorded API responses) for unit tests. Verify:
 - Cassette location specified: `tests/fixtures/cassettes/{api}/{scenario}.json` is reasonable.
 - Cassette fixtures include the failure cases (rate-limit 429, 5xx, malformed JSON, schema drift) — not just happy paths.
 
-### 5. Real HTTP Integration Tier Discipline
+### 5. Real HTTP / Real CDP Integration Tier Discipline
 
-Integration tests hit real APIs (HMRC sandbox where available, Xe sandbox, Freightos sandbox/SeaRates limited tier). Verify:
+Integration tests hit real public endpoints (HMRC Trade Tariff classification API at `trade-tariff.service.gov.uk`, HMRC FX monthly publication via gov.uk, Frankfurter at `api.frankfurter.app`) and real CDP browser sessions (SeaRates Logistics Explorer; operator-built Freightos skill; operator-built EU TARIC skill). Verify:
 - The TDD's CI tiering places these in T3 (<25min) or T4 (<45min), not T1 (which would slow every commit).
 - The TDD specifies cadence: nightly? weekly? on-demand? L4 used per-tier cadence — match it.
-- The TDD names rate-limit budgets and explicit failure-handling for API outages (skip with WARN, not FAIL — outage is not test failure).
+- The TDD names rate-limit budgets where relevant (Frankfurter, HMRC public endpoints) and explicit failure-handling for outages (skip with WARN, not FAIL — outage is not test failure).
+- CDP-skill integration tests are gated on CDP browser availability (use the L4 pattern that probes for the CDP port and skips if absent — runtime probe, not `#[ignore]`).
+- No tests hit Xe / Freightos paid / SeaRates paid / Taric Support paid endpoints. Those vendor accounts are declined.
 
 ### 6. Calibration Harness Completeness
 
@@ -111,13 +113,16 @@ L5 enriches `landed_cost_estimates` with decision-grade fields. Some are commerc
 
 ### 9. Bootstrap Completeness
 
-Walk the bootstrap doc:
-- Every external API account from spec §3.9 is listed (HMRC tariff, HMRC FX, Xe, Freightos, SeaRates, Taric Support — 6 mandatory; HS Ping, Easyship/Shippo, CurrencyBeacon/OANDA, Dutify/Zonos/Avalara — 4 optional groups).
-- Each account has: signup URL, account-tier requirements, key-creation steps, env-var name, dev-vs-prod separation.
-- Preflight validation script (bash) verifies each env var is set + each endpoint reachable.
+Walk the bootstrap doc. Operator decision 2026-05-08 made L5 skill-first with ZERO paid API procurements (manifest `recorded_decisions.external_api_account_state`), so verification focuses on existing/operator-built skill presence + public endpoints — NOT on signup URLs / key-creation steps for declined vendor accounts.
+
+- **Public endpoints (no auth, no key):** bootstrap lists HMRC Trade Tariff (`trade-tariff.service.gov.uk/uk/api/commodities/{code}`), HMRC Exchange Rates for Customs and VAT (free monthly gov.uk publication), Frankfurter (`api.frankfurter.app`). Each endpoint has a base-URL env-var override (e.g., `HMRC_TRADE_TARIFF_BASE_URL`) for test fixture redirection — but NO API key env vars.
+- **Existing CDP skills (verified present):** `skills/landed-cost/searates-freight-estimate/`, `skills/landed-cost/hmrc-customs-classification/`, `skills/landed-cost/simple-fx-lookup/` — bootstrap notes how to set up the persistent CDP browser session each one uses (port, profile, login state).
+- **Operator-built prerequisite CDP skills:** `skills/landed-cost/freightos-freight-estimate/`, `skills/landed-cost/taric-cross-check/` — bootstrap states these must exist before Phase 3/4 beads can claim. The step 09 bead audit re-verifies presence.
+- **Declined (must NOT appear in bootstrap as procurement items):** Xe Currency Data API, Freightos paid API, SeaRates paid API, Taric Support paid vendor, HS Ping, Easyship/Shippo, CurrencyBeacon/OANDA, Dutify/Zonos/Avalara. The validation/ comparison adapters (dutify/zonos/avalara) in `packages/intelligence/src/validation/` are comparison-only — no vendor accounts.
+- Preflight validation script (bash) verifies CDP browser availability + HTTP reachability of public endpoints — NOT vendor auth.
 - Daemon dependencies: confirm `reqwest` is reused (no new HTTP crate added unless empirically needed).
 - Cron entries listed with cron expressions and feature flags: HMRC tariff news watcher, TRA case register watcher, FX monthly rollover, marketplace source-health canary.
-- Gold-set categories: ≥3 named (e.g., fasteners, packaging-cartons, examination-gloves) — surface for owner decision if any is undecided. Do NOT silently pick.
+- Gold-set categories: pre-resolved trio **fasteners + packaging-cartons + examination-gloves** (per `recorded_decisions.decision_4_gold_set_categories`) named verbatim. If bootstrap lists "TBD" or "propose for owner decision", that's stale wording from before 2026-05-08 — flag as a fix.
 - Local-only quality gate sequence: `cargo fmt --check && cargo check --all-targets && cargo clippy --all-targets -- -D warnings && cargo test -p daemon --bin daemon && bun run build && bun run test`.
 
 ### 10. CBAM Forward Placeholder Tests
@@ -191,7 +196,7 @@ Re-read your fixes specifically:
 
 5. Open `infra/supabase/migrations/0004_rls_policies.sql` and identify which fields on `landed_cost_estimates` projection are viewer-visible vs operator-only. Cross-check against your redaction-boundary tests. If a new L5 field's classification is missing from the RLS policy, that's a cross-domain gap — note it as a risk in step 06 strategy optimization (don't silently fix it here; it's a sync-engine adjacent change).
 
-6. Did your fixes accidentally remove anything from the bootstrap? Bootstrap completeness loss is silent scope reduction. Re-confirm all 6 mandatory + 4 optional API accounts are still listed.
+6. Did your fixes accidentally remove anything from the bootstrap? Bootstrap completeness loss is silent scope reduction. Re-confirm the skill-first inventory (public endpoints + existing CDP skills + operator-built prerequisite CDP skills + 4 cron entries + pre-resolved gold-set trio) is still present. The "declined" vendor list (Xe / Freightos paid / SeaRates paid / Taric Support paid / HS Ping / Easyship-Shippo / OANDA / Dutify-Zonos-Avalara) should be present as a NEGATIVE list (explicit non-procurement) so future agents don't re-add them.
 
 7. Final check: would an implementation agent receiving this TDD + bootstrap know exactly what to build, what to test, and how to set up their environment, with zero clarifying questions? If not, fix the gap now.
 

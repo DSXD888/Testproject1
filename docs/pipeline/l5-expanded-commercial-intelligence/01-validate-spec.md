@@ -4,7 +4,7 @@
 
 ## Your Mission
 
-The spec for Layer 5 (Expanded Commercial Intelligence) already exists at `docs/strategy/layers/layer-5-expanded-commercial-intelligence.md` (520 lines). Before it enters the TDD pipeline, you must verify it has the structure needed for downstream coverage verification, surface the seven cross-domain spec callouts identified during pipemaxxer's codebase research, and resolve them in-place.
+The spec for Layer 5 (Expanded Commercial Intelligence) already exists at `docs/strategy/layers/layer-5-expanded-commercial-intelligence.md` (520 lines). Before it enters the TDD pipeline, you must verify it has the structure needed for downstream coverage verification, surface the **nine cross-domain spec callouts** identified during pipemaxxer's codebase research (the 7 from `manifest.yaml#spec_callouts` plus 2 added 2026-05-08 after the operator validated existing landed-cost skill state), and resolve them in-place.
 
 **This is NOT a rewrite.** The spec content has been deeply iterated on through three planmaxer cycles + research-doc harmonization. Your job is structural: requirement IDs, ACs, scope-drift scan, and resolution of the seven spec-vs-codebase mismatches captured below.
 
@@ -84,9 +84,9 @@ These are findings from pipemaxxer's Phase 1 research. Several are blocking spec
 
 6. **HMRC FPO endpoint name is unverified.** Spec §1.4 already flags this: "FPO on HMRC's developer portal refers to Fast Parcel Operator — verify the correct API endpoint name during implementation". **Spec callout #5 — keep visible to TDD.**
 
-7. **Cron scheduler at `crates/daemon/src/scheduler/cron.rs` already has 2 entries** (validation calibration sweep, cross-model audit). L5 §1.11 + §2 add 4 more (HMRC tariff news watcher, TRA case register, FX monthly rollover, Freightos/SeaRates source-health). Pattern is established. **Spec callout #6.**
+7. **Cron scheduler at `crates/daemon/src/scheduler/cron.rs` already has 2 entries** (validation calibration sweep, cross-model audit). L5 §1.11 + §2 add 4 more (HMRC tariff news watcher, TRA case register, FX monthly rollover, Freightos/SeaRates source-health). Pattern is established. **Spec callout #8.**
 
-8. **No `.github/workflows/` exists.** The L4 quality gate is local-only. L5 inherits this. **Spec callout #7.**
+8. **No `.github/workflows/` exists.** The L4 quality gate is local-only. L5 inherits this. **Spec callout #9.**
 
 ---
 
@@ -146,7 +146,9 @@ The spec mostly uses tables and bullet lists which is good. But several requirem
 - [ ] Each match must be either (a) an Open Question in §3.6 with a research-back-reference, (b) the CBAM forward placeholder note (which is explicitly bounded by regulation timing, not de-scoping), or (c) removed/rewritten to remove the scope-reduction implication.
 - [ ] The five §3.6 Open Questions retain their research back-references. Do NOT remove them. Do NOT close them prematurely. Annotate that step 05 strategy must convert them into either pre-implementation decisions or risk-managed unknowns — not into silent de-scopings.
 
-### Step 2: Resolve the Seven Cross-Domain Spec Callouts
+### Step 2: Resolve the Nine Cross-Domain Spec Callouts
+
+Callouts 1-5 and 8-9 are the original 7 from `manifest.yaml#spec_callouts`. Callouts 6-7 were added 2026-05-08 after the operator validated existing landed-cost skill state (skill-first architecture confirmation, operator-built prerequisites).
 
 Each of these MUST end with a recorded resolution in the spec (or a deliberate non-resolution note). Edit the spec inline; commit message convention: `l5-validate-spec: resolve callout N (<topic>)`.
 
@@ -183,7 +185,7 @@ Each of these MUST end with a recorded resolution in the spec (or a deliberate n
 
 **Important correction:** the HMRC **Trade Tariff classification API** itself (`trade-tariff.service.gov.uk/uk/api/commodities/{code}`) is fully PUBLIC — no auth, no API key, no developer portal needed. The existing skill `skills/landed-cost/hmrc-customs-classification/SKILL.md` already uses it without credentials. The "Developer Portal" concern only applies to the FPO endpoint specifically (if it exists as a separate authenticated service).
 
-#### Callout 8 — Existing landed-cost skills DISCOVERED (RESOLVED 2026-05-08)
+#### Callout 6 — Existing landed-cost skills DISCOVERED (RESOLVED 2026-05-08)
 
 **This is a new resolved callout added 2026-05-08 after the operator validated existing skill state.**
 
@@ -207,7 +209,7 @@ Three landed-cost skills already exist (built during stages 1-14 QA after L3) an
 
 **This aligns L5 with project memory's "Skill-first agent scraping via browser automation (NOT API connectors)" architecture.** Zero new commercial API accounts needed.
 
-#### Callout 9 — Operator-built prerequisites (NEW)
+#### Callout 7 — Operator-built prerequisites (NEW)
 
 Two skills will be **built by the operator personally** before step 07 (bead creation) finalizes:
 
@@ -216,11 +218,11 @@ Two skills will be **built by the operator personally** before step 07 (bead cre
 
 These are **prerequisites for L5 implementation**, NOT pipeline beads. The bead audit (step 09) verifies they exist before authorizing execution. Phase 3 (Freight) and Phase 4 (Customs multi-source recall) beads cannot start without them.
 
-#### Callout 6 — Cron scheduler extension
+#### Callout 8 — Cron scheduler extension
 
 **Edit `§1.11 Classification Freshness System`.** Add a one-line note: "Implementation: 4 new `CronJobDefinition` entries in `crates/daemon/src/scheduler/cron.rs` follow the existing pattern (see `VALIDATION_CALIBRATION_READINESS_SWEEP_CRON` and `VALIDATION_CROSS_MODEL_AUDIT_CRON` at lines 77-86)."
 
-#### Callout 7 — No CI workflows
+#### Callout 9 — No CI workflows
 
 **Edit `§3.1 Definition of Done` (or `§3.7 Risks` if cleaner there).** Add criterion #13 (or risk row): "Local quality gate is the only gate (no `.github/workflows/`). The L5 implementation is verified by the same six-command sequence used in L4: `cargo fmt --check && cargo check --all-targets && cargo clippy --all-targets -- -D warnings && cargo test -p daemon --bin daemon && bun run build && bun run test`. If a CI workflow is desired, it is a separate, owner-authorized scope addition — NOT silently in scope."
 
@@ -228,7 +230,7 @@ These are **prerequisites for L5 implementation**, NOT pipeline beads. The bead 
 
 After edits:
 - [ ] `docs/strategy/layers/layer-5-expanded-commercial-intelligence.md` has stable `L5-FR-X.Y.Z` IDs throughout.
-- [ ] All 7 callouts have recorded resolutions (or deliberate non-resolution notes for #3 and #5).
+- [ ] All 9 callouts have recorded resolutions (or deliberate non-resolution notes for #5 — HMRC FPO endpoint discovery is deferred to step 03 TDD; Callout #3 PCS Scotland is RESOLVED IN-SCOPE 2026-05-08).
 - [ ] No scope-drift language remains (run the grep from step 1.5).
 - [ ] Line count is within +/- 100 lines of the original 520 (clarification + IDs add lines; deletions are minimal). Significantly more than +200 lines is a signal you've over-edited.
 - [ ] Front-matter or top-of-doc note records the validation date (today: 2026-05-08) and pipemaxxer pipeline reference.
@@ -311,10 +313,25 @@ DECISION 4 — Gold-set categories (DoD #12): fasteners + packaging-cartons + ex
 
 #### External API Account State (transcribe; do NOT escalate)
 
-The operator has confirmed account state. Bootstrap doc (step 03) must reflect:
-- **Already held:** HMRC Developer Portal (Trade Tariff API + FPO API).
-- **Needs procurement before bead execution:** Xe Currency Data API, Freightos API, SeaRates API, Taric Support API. Bootstrap labels these `OPERATOR_PROCUREMENT_REQUIRED` with signup URL + lead-time guidance (~1-2 weeks).
-- **Optional / decline-recommended for L5:** HMRC Exchange Rate Service (no-auth public), HS Ping, Easyship/Shippo, CurrencyBeacon/OANDA, Dutify/Zonos/Avalara (validation-only comparison adapters).
+The operator confirmed on 2026-05-08 that **L5 has ZERO paid commercial API procurements** — see manifest `recorded_decisions.external_api_account_state` for the canonical inventory. Skill-first architecture replaces Xe/Freightos paid/SeaRates paid/Taric Support paid with existing or operator-built CDP browser skills + free public endpoints.
+
+Bootstrap doc (step 03) must reflect, verbatim from the manifest:
+
+- **Public APIs (no key, no portal):**
+  - HMRC Trade Tariff classification API — public endpoint `https://www.trade-tariff.service.gov.uk/uk/api/commodities/{code}` consumed by existing skill `skills/landed-cost/hmrc-customs-classification/`. **No HMRC Developer Portal registration is required for this endpoint** (Callout 5 above corrects the earlier misconception).
+  - HMRC Exchange Rates for Customs and VAT — free monthly publication via gov.uk (CSV/XML); extends existing `skills/landed-cost/simple-fx-lookup/` skill.
+  - Commercial spot FX — Frankfurter (ECB-backed, no auth, free) via the same existing skill.
+
+- **Existing CDP skills (already in place):**
+  - `skills/landed-cost/searates-freight-estimate/` — browser-resident SeaRates Logistics Explorer session, NO paid API.
+
+- **Operator-built prerequisites (built BEFORE step 07 bead creation; verified by step 09 audit):**
+  - `skills/landed-cost/freightos-freight-estimate/` — CDP browser skill mirroring SeaRates pattern.
+  - `skills/landed-cost/taric-cross-check/` — CDP browser skill targeting public EU TARIC database (`taric.ec.europa.eu`).
+
+- **Declined / not in L5 scope:** Xe Currency Data API, Freightos paid API, SeaRates paid API, Taric Support paid vendor, HS Ping, Easyship/Shippo, CurrencyBeacon/OANDA, Dutify/Zonos/Avalara (the comparison adapters in `packages/intelligence/src/validation/` are comparison-only, not canonical — no vendor accounts).
+
+This aligns L5 with project memory's "Skill-first agent scraping via browser automation (NOT API connectors)" architecture. Estimated annual savings vs the earlier paid-API plan: $3,000-10,000+ per year. The HMRC FPO endpoint name remains a TDD investigation item (Callout 5; bead `l5-customs-hmrc-fpo-endpoint-discovery`).
 
 #### Marketplace Skill Maturation Baseline (transcribe; locks Phase 5 bead scope)
 
@@ -330,11 +347,41 @@ These transcriptions are pre-conditions for step 03 (TDD) generation and step 07
 
 ---
 
+### Step 7: Final Fresh-Eyes Pass (MANDATORY — Run After All Prior Steps Complete)
+
+> Step 4 was an early fresh-eyes pass over your structural edits. This step is a SECOND, final re-read AFTER the decision transcription (Step 6) is written into the spec. Skip ONLY if you completed Step 6 before Step 4 — otherwise the early pass missed the transcribed-decisions section, and a second pass is required.
+
+Open the spec one more time as if you've never read it. The agent picking up step 02 (optimize-spec) and step 03 (TDD generation) will read this exact file. You are the last gate between them and confusion.
+
+1. **End-to-end scan.** Read from front-matter through `## L5 Pipeline Decisions Recorded 2026-05-08` to the closing of §3.10. Did any of the four transcribed decisions silently contradict text earlier in the spec (e.g., §3.6 Q3 still hedging on PCS Scotland after Decision 2 declared IN-SCOPE)? Resolve contradictions in favor of the Decisions section — it's the latest authority.
+
+2. **Decisions ↔ Callouts cross-check.** For each of the 4 transcribed decisions, find the callout(s) it resolved (Decision 1 ↔ Callout 1; Decision 2 ↔ Callout 3; Decision 4 ↔ DoD §3.1 #12 + Callout 6 implication for category-specific fixtures). Confirm each callout's resolution wording is consistent with the decision. If Callout 1 still says "Choose A unless Option B's sync change is small" while Decision 1 fixes Option A, tighten Callout 1 to read "Resolved: Option A (per Decision 1, 2026-05-08)".
+
+3. **Skill-first invariant check.** Search the spec one more time for any residual paid-API procurement language outside the External API Account State block. Allowed: the comparison adapters in `packages/intelligence/src/validation/` (declared comparison-only — no vendor accounts). Forbidden: any DoD criterion, §3.9 Dependencies row, or risk that still names Xe / Freightos paid / SeaRates paid / Taric Support paid as a procurement item. If found, edit to match `## L5 Pipeline Decisions Recorded → External API Account State`.
+
+4. **Requirement ID continuity.** Re-run `rg -o 'L5-FR-[0-9]+\.[0-9]+\.[0-9]+' docs/strategy/layers/layer-5-expanded-commercial-intelligence.md | sort -u | wc -l`. The number must match what you recorded after Step 4 (no IDs lost during Step 5/6 edits). Re-run the scope-drift grep one final time.
+
+5. **L5→L6 gate preservation.** Search for `CLASSIFICATION_AMBIGUOUS`, `TARIFF_BRANCH_DIVERGENCE`, `SUPPLEMENTARY_UNIT_MISSING`, `decision_grade = broker_required`, `classification_fresh_until`. All five must appear in §3.5 (or §3.8 Forward-Compatibility) verbatim. Cross-reference-index.md row 229 cites these by name — the spec must keep them visible.
+
+6. **Reader test.** Ask yourself: if you handed this spec cold to the TDD-author agent in step 03 with NO context about pipemaxxer history, would they:
+   - Know what 4 decisions were pre-resolved on 2026-05-08? (Decisions section visible near the bottom.)
+   - Know that L5 has zero paid-API procurement? (External API Account State block visible.)
+   - Know the gold-set trio is fasteners + packaging-cartons + examination-gloves? (Decision 4 + DoD #12.)
+   - Know PCS is unconditionally in scope? (Decision 2 + §1.15 PCS row + §3.6 Q3 closure note.)
+   - Find every L5-FR-X.Y.Z with `grep`? (IDs stable, sequential, no gaps.)
+
+   If ANY answer is "they'd have to ask" — fix the spec now. Do not punt to step 02.
+
+7. **Commit.** `git add docs/strategy/layers/layer-5-expanded-commercial-intelligence.md && git commit -m "l5-validate-spec: <one-line summary>" && git pull --rebase && git push`. The spec is now ready for step 02 (optimize-spec) and step 03 (TDD generation).
+
+---
+
 ## Output
 
 The same spec file at `docs/strategy/layers/layer-5-expanded-commercial-intelligence.md`, validated and structured, with:
 - Stable `L5-FR-X.Y.Z` requirement IDs throughout
-- Resolved spec callouts 1, 2, 4, 6, 7 (and recorded non-resolutions for 3, 5)
+- All 9 spec callouts resolved (Callouts 1, 2, 3, 4, 6, 7, 8, 9 RESOLVED; Callout 5 HMRC FPO endpoint deferred to TDD investigation bead `l5-customs-hmrc-fpo-endpoint-discovery` — explicit deferral with named bead, NOT silent de-scoping)
+- All 4 operator decisions transcribed verbatim (`## L5 Pipeline Decisions Recorded 2026-05-08` section)
 - Bumped version note at the top recording 2026-05-08 validation pass
 
 Do NOT create a sibling validated-spec file. Edit the L5 layer doc in place; the layer doc IS the spec.

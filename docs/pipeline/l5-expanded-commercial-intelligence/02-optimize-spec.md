@@ -108,7 +108,7 @@ Today is 2026-05-08. CBAM trial sector rate Q4 2026 (~6 months out). CBAM full f
 
 - DoD #1 Alibaba/1688 operational ↔ §3.3 row "Alibaba search with Chinese retry" ✓
 - DoD #2 Amazon operational ↔ ? (no obvious row — surface for TDD step)
-- DoD #3 PCS operational ↔ Scotland is IN-SCOPE (operator confirmed 2026-05-08). A test scenario IS needed; verify §3.3 includes one for PCS OCDS Web API ingestion.
+- DoD #3 PCS operational ↔ Scotland is IN-SCOPE (operator pre-resolved 2026-05-08 — unconditional). A test scenario IS needed; verify §3.3 includes one for PCS OCDS Web API ingestion. If the spec leaves PCS scope conditional, that's a transcription failure of Decision 2.
 - DoD #4 HMRC FPO integration ↔ §3.3 multi-family expansion
 - DoD #5 ≥2 sources of recall ↔ same
 - DoD #6 10-digit resolution ↔ same
@@ -164,7 +164,7 @@ If any requirement has no AC and no traceable populating action — BLOCKING fai
 
 - [ ] Every requirement from the L5 layer doc original (520 lines, pre-validation) is represented in the validated version.
 - [ ] No content was silently dropped during validation (compare to git diff if needed).
-- [ ] All 7 cross-domain spec callouts (per `manifest.yaml#spec_callouts`) have recorded resolutions or deliberate non-resolutions.
+- [ ] All 9 cross-domain spec callouts have recorded resolutions or deliberate non-resolutions (the 7 from `manifest.yaml#spec_callouts` + 2 added 2026-05-08 for existing landed-cost skills + operator-built prerequisites; see step 01 §2 for the canonical 1-9 list).
 - [ ] No `post-MVP` / `Phase 2+` / `stretch goal` / `nice to have` / `deferred` outside Open Questions and CBAM placeholder.
 - [ ] §1.16 Intelligence Package Additions still totals 19 files (6 customs + 4 fx + 5 logistics + 3 validation + 1 accuracy.ts).
 - [ ] §3.2 Test Files Planned still totals 5 (hmrc-fpo, customs-classification, measure-interaction, fx-engine, freight-engine).
@@ -177,13 +177,14 @@ If any requirement has no AC and no traceable populating action — BLOCKING fai
 
 ### Required Decisions Recorded (BLOCKING for step 03)
 
-The validator-agent's step 01 §6 must have produced three recorded decisions. Verify each is present in the spec (front-matter or `## L5 Pipeline Decisions Recorded` section):
+All four operator-required decisions were **pre-resolved 2026-05-08** via pipemaxxer AskUserQuestion (manifest `recorded_decisions`). Step 01 §6 is a TRANSCRIPTION pass — not a decision pass. Verify each is present in the spec verbatim (front-matter or `## L5 Pipeline Decisions Recorded 2026-05-08` section):
 
-- [ ] **Decision 1** — `product_commodity_codes` ownership: Option A (L5 SQLite migration) or Option B (JSONB column). If unrecorded, this is BLOCKING — escalate to step 01 to record before proceeding.
-- [ ] **Decision 2** — PCS Scotland scope: pre-resolved 2026-05-08 as **IN-SCOPE** (manifest `recorded_decisions.decision_2_pcs_scotland_scope`). Verify the validator-agent transcribed this verbatim in step 01 §6 and the §3.6 Q3 historical back-reference is preserved.
-- [ ] **Decision 3** — L5 implementation epic structure: (a) reuse 4gh / (b) sister epic / (c) thread under 4gh. RECOMMENDED (b). If decision is (b), the new epic ID must be captured in the spec entry.
+- [ ] **Decision 1** — `product_commodity_codes` ownership: pre-resolved **Option A** (L5 SQLite migration `migrations/0013_l5_product_commodity_codes.sql`). If the spec does not say "Option A" with the migration path, the validator-agent failed to transcribe — escalate to step 01.
+- [ ] **Decision 2** — PCS Scotland scope: pre-resolved **IN-SCOPE** (manifest `recorded_decisions.decision_2_pcs_scotland_scope`). Verify the validator-agent transcribed this verbatim and the §3.6 Q3 historical back-reference is preserved.
+- [ ] **Decision 3** — L5 implementation epic structure: pre-resolved **Option (b) sister epic**. The new epic ID is captured DURING step 07 (when `br create --type=epic ...` runs) — so the spec entry should currently read "New epic ID: <to be filled in step 07 after `br create` runs>" until step 07 fills it in. If the spec says (a) or (c), the validator-agent overrode the operator decision — escalate.
+- [ ] **Decision 4** — Gold-set categories: pre-resolved **fasteners + packaging-cartons + examination-gloves**. Verify all three names appear in the transcribed decisions section.
 
-If any decision is missing, this audit FAILS and step 01 must be re-opened. Step 03 cannot proceed without all three.
+If any decision is missing or contradicts the manifest, this audit FAILS and step 01 must be re-opened. The validator-agent's role is transcription, not re-deciding. Step 03 cannot proceed without all four decisions present and correct.
 
 ---
 
@@ -199,7 +200,7 @@ Re-read your fixes specifically:
 
 3. Open `skills/supplier-price-enrichment/alibaba/SKILL.md` (the 241-line one). Compare the Chinese retry section, anti-bot logic, and result schema to your spec's §2.3 Alibaba row. Do they agree? If SKILL.md describes behavior the spec doesn't, bring it into the spec — the running skill is closer to ground truth than a months-old layer doc.
 
-4. Re-run the scope-drift grep one more time against the post-fix spec. Re-count requirement IDs per subsection. Confirm DoD criteria still total 12 (or 13 if you added the no-CI criterion per Callout 7).
+4. Re-run the scope-drift grep one more time against the post-fix spec. Re-count requirement IDs per subsection. Confirm DoD criteria still total 12 (or 13 if you added the no-CI criterion per Callout 9).
 
 5. Did your fixes accidentally introduce vagueness? Re-read any AC you tightened — if it now says "as appropriate" or "where relevant", you weakened it. Tighten to a measurable threshold or remove.
 

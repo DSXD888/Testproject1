@@ -44,25 +44,27 @@
 | 1 | `01-validate-spec.md` | manual | — |
 | 2 | `02-optimize-spec.md` | manual | session 1 |
 
-**What to do:** L5 doc IS already a structured spec. Session 1 verifies requirement IDs (`L5-FR-X.Y.Z`), ACs, structure, completeness, scope-drift cleanliness, and resolves the **seven cross-domain spec callouts** (per `manifest.yaml#spec_callouts`):
-1. `product_commodity_codes` local SQLite junction (recommended option A: L5 creates `migrations/0013_l5_product_commodity_codes.sql`).
-2. Marketplace skill authorship framing (alibaba/amazon/1688 already exist as `candidate` — reframe §1.15 as "mature to stable", PCS as "truly new" since Scotland is IN-scope per operator decision 2026-05-08).
-3. PCS Scotland scope decision deadline (must precede step 07 bead creation).
-4. ErrorCode enum extension — clarify NOT plug-and-play (Rust enum, recompilation + clippy propagation).
-5. HMRC FPO endpoint name verification — preserve as TDD prerequisite.
-6. Cron scheduler 4 new entries — pattern reference to existing entries at `crates/daemon/src/scheduler/cron.rs:77-86`.
-7. No `.github/workflows/` — bootstrap doc is the local quality gate runbook.
+**What to do:** L5 doc IS already a structured spec. Session 1 verifies requirement IDs (`L5-FR-X.Y.Z`), ACs, structure, completeness, scope-drift cleanliness, and resolves the **nine cross-domain spec callouts** (the 7 from `manifest.yaml#spec_callouts` + 2 added 2026-05-08 after operator validated existing landed-cost skills):
+1. `product_commodity_codes` local SQLite junction (pre-resolved Option A 2026-05-08: L5 creates `migrations/0013_l5_product_commodity_codes.sql`).
+2. Marketplace skill authorship framing (alibaba/amazon/1688 already exist as `candidate` — reframe §1.15 as "mature to stable").
+3. PCS Scotland scope (pre-resolved IN-SCOPE 2026-05-08; PCS row stays in §1.15 unconditionally).
+4. ErrorCode enum extension — clarify NOT plug-and-play (Rust enum in `errors/manifest.rs`, recompilation + clippy propagation across 5-15 sites).
+5. HMRC FPO endpoint name verification — preserve as TDD prerequisite (`l5-customs-hmrc-fpo-endpoint-discovery` investigation bead in step 03).
+6. **(NEW 2026-05-08)** Existing landed-cost skills (`hmrc-customs-classification/`, `simple-fx-lookup/`, `searates-freight-estimate/`) cover the spec's "paid API" services — Xe/SeaRates-paid/Taric Support paid are DECLINED.
+7. **(NEW 2026-05-08)** Operator-built CDP browser skill prerequisites (`freightos-freight-estimate/`, `taric-cross-check/`) must exist before step 07 bead creation; step 09 audit verifies.
+8. Cron scheduler 4 new entries — pattern reference to existing entries at `crates/daemon/src/scheduler/cron.rs:77-86`.
+9. No `.github/workflows/` — bootstrap doc is the local quality gate runbook.
 
 Session 2 is a fresh-eyes audit by an independent agent. Both sessions run scope-drift greps.
 
-**Gate:** Spec has unique `L5-FR-X.Y.Z` requirement IDs, every requirement has explicit ACs, no scope-drift language outside §3.6 Open Questions and §1.14 CBAM placeholder, all 7 callouts have recorded resolutions or deliberate non-resolutions, the `product_commodity_codes` ownership question is resolved, and the L5→L6 readiness gate (5 blocker conditions) is preserved.
+**Gate:** Spec has unique `L5-FR-X.Y.Z` requirement IDs, every requirement has explicit ACs, no scope-drift language outside §3.6 Open Questions and §1.14 CBAM placeholder, all 9 callouts have recorded resolutions, the `product_commodity_codes` ownership question is resolved, and the L5→L6 readiness gate (5 blocker conditions) is preserved.
 
 ### Enrichment after Batch 1
 
 Read the validated spec. Extract:
 - Requirement ID range (e.g., `L5-FR-1.1.1` … `L5-FR-3.10.N`) and total count.
 - Section count (3 main sections: §1 customs+overview, §2 FX/freight/marketplace, §3 testing/DoD/risks/OQ).
-- DoD criterion count (12 base; 13 if no-CI criterion was added per Callout 7).
+- DoD criterion count (12 base; 13 if no-CI criterion was added per Callout 9).
 - Customs error type count (10 in §3.5).
 - Updated marketplace skill row count (3 mature + 0-1 new = 3 or 4).
 - Decision on PCS Scotland scope (in/out/undecided).
@@ -81,7 +83,7 @@ Edit handoffs **03-15** — replace `{ENRICHMENT: spec metadata}` markers and an
 
 **What to do:** Session 3 invokes `/spec-to-tdd` to produce both the TDD (test file inventory, test catalog, coverage matrix) and the bootstrap doc (env prerequisites, validation script, external API setup). Session 4 audits both with fresh eyes.
 
-**Gate:** Every L5-FR-X.Y.Z has at least one test ID, every DoD criterion (1-12 or 1-13) maps to a verifying test, the 5 planned test files (`hmrc-fpo`, `customs-classification`, `measure-interaction`, `fx-engine`, `freight-engine`) are concretely scoped with exact assertions, the calibration harness has tests for all mutation families per L4 precedent + customs-specific mutations, redaction-boundary tests cover all new sensitive `landed_cost_estimates` fields, the bootstrap doc covers all 6 mandatory + 4 optional external API accounts, all 4 cron entries with cron expressions, the ≥3 gold-set categories named, and the local-only quality gate sequence verbatim.
+**Gate:** Every L5-FR-X.Y.Z has at least one test ID, every DoD criterion (1-12 or 1-13) maps to a verifying test, the 5 planned test files (`hmrc-fpo`, `customs-classification`, `measure-interaction`, `fx-engine`, `freight-engine`) are concretely scoped with exact assertions, the calibration harness has tests for all mutation families per L4 precedent + customs-specific mutations, redaction-boundary tests cover all new sensitive `landed_cost_estimates` fields, the bootstrap doc covers the skill-first integration inventory verbatim (public HMRC endpoints + Frankfurter + existing CDP skills + operator-built CDP prerequisite skills + the declined-vendors negative list per `recorded_decisions.external_api_account_state`) — NOT paid API procurement steps, all 4 cron entries with cron expressions, the 3 pre-resolved gold-set categories named verbatim (fasteners + packaging-cartons + examination-gloves), and the local-only quality gate sequence verbatim.
 
 ### Enrichment after Batch 2
 
@@ -90,7 +92,7 @@ Read the TDD. Extract:
 - Test counts by file and by type (unit / integration / E2E / canary / calibration).
 - CI tier distribution (T1/T2/T3/T4 budgets).
 - Coverage matrix summary (DoD criterion → test IDs).
-- Environment prerequisites from bootstrap (HMRC keys, Xe key, Freightos/SeaRates keys, Taric Support, optional clients).
+- Environment prerequisites from bootstrap (HMRC public endpoint base-URLs, Frankfurter base-URL, CDP browser config for SeaRates/Freightos/Taric skills, NO paid API keys per operator decision 2026-05-08).
 - Final gold-set category list (post-decision).
 
 Edit handoffs **05-15** — replace `{ENRICHMENT: tdd metadata}` markers with actuals.
@@ -130,7 +132,7 @@ Read the strategy. Extract: phase names (likely the 6 above), tasks/beads per ph
 | 7 | `07-create-beads.md` | `/beads-from-sources` | Batch 3 |
 | 8 | `08-optimize-beads.md` | manual | session 7 |
 
-**What to do:** Session 7 (after PCS Scotland decision is recorded — STOP if undecided) invokes `/beads-from-sources` to materialize beads from the 3 SOTs. Session 8 audits coverage and uniqueness, runs `br lint`, and verifies bead self-containment.
+**What to do:** Session 7 invokes `/beads-from-sources` to materialize beads from the 3 SOTs (PCS Scotland scope was pre-resolved IN-SCOPE 2026-05-08 — no decision pending; session 7 simply verifies the transcription is in the validated spec via the Step 1 pre-condition checklist). Session 8 audits coverage and uniqueness, runs `br lint`, and verifies bead self-containment.
 
 **Pre-conditions for step 07 (verify recorded in spec):** All three step 01 decisions must be present and resolved.
 
@@ -260,7 +262,7 @@ When `br list --status=open --label=l5` returns empty (or only `audit-fix` candi
 
 | Batch | Approx | Notes |
 |-------|--------|------|
-| 1 SPEC | 2-4 hours | Validation + 7-callout resolution (PCS Scotland pre-resolved IN-scope; product_commodity_codes pre-resolved Option A; epic structure pre-resolved Option (b); gold-sets pre-resolved fasteners+cartons+gloves; QA marketplace baseline pre-confirmed clean) + fresh-eyes audit. Validator-agent transcribes operator decisions; does not re-decide. |
+| 1 SPEC | 2-4 hours | Validation + 9-callout resolution (PCS Scotland pre-resolved IN-scope; product_commodity_codes pre-resolved Option A; epic structure pre-resolved Option (b); gold-sets pre-resolved fasteners+cartons+gloves; existing landed-cost skills validated 2026-05-08; operator-built CDP prerequisite skills required; QA marketplace baseline pre-confirmed clean) + fresh-eyes audit. Validator-agent transcribes operator decisions; does not re-decide. |
 | 2 TDD | 5-9 hours | TDD generation is largest artifact (5 test files spanning many ID ranges); bootstrap is independent and can parallelize |
 | 3 STRATEGY | 2-4 hours | Phase ordering only |
 | 4 BEADS | 4-10 hours | 40-55 beads expected (customs phase alone is 12-20 beads) |
