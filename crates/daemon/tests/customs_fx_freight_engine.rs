@@ -17,6 +17,8 @@ mod runner_impl;
 mod sources_impl;
 mod support;
 
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result, anyhow, ensure};
@@ -175,6 +177,112 @@ fn l5_t_fx_engine_010_landed_cost_dual_fx_fields_persist_with_l4_outbox() -> Res
     assert_landed_cost_outbox_row(&conn, local_seq, &content_hash)
 }
 
+#[test]
+fn l5_t_freight_engine_015_operator_prerequisites_gate_claims_and_stable_promotion() -> Result<()> {
+    let freightos = assert_operator_built_prerequisite(
+        "landed-cost/freightos-freight-estimate",
+        "freightos-freight-estimate",
+    )?;
+    let taric =
+        assert_operator_built_prerequisite("landed-cost/taric-cross-check", "taric-cross-check")?;
+
+    ensure!(freightos.claim_gate_ready);
+    ensure!(taric.claim_gate_ready);
+    ensure!(
+        freightos.stable_production_blockers == ["validator-rubric.yaml"],
+        "Freightos stable-production blockers should preserve missing rubric state"
+    );
+    ensure!(
+        taric.stable_production_blockers == ["validator-rubric.yaml"],
+        "TARIC stable-production blockers should preserve missing rubric state"
+    );
+    assert_stable_production_blocker_contract()
+}
+
+#[test]
+fn l5_t_freight_engine_016_marketplace_source_health_cron_dispatches() -> Result<()> {
+    if std::env::var_os("L5_MARKETPLACE_SOURCE_HEALTH_CRON_CHILD").is_some() {
+        return assert_marketplace_source_health_dispatch();
+    }
+
+    let output = Command::new(std::env::current_exe().context("locating current test binary")?)
+        .arg("--exact")
+        .arg("l5_t_freight_engine_016_marketplace_source_health_cron_dispatches")
+        .arg("--nocapture")
+        .env("L5_MARKETPLACE_SOURCE_HEALTH_CRON_CHILD", "1")
+        .env(cron_impl::L5_ENABLE_MARKETPLACE_SOURCE_HEALTH_CRON_ENV, "1")
+        .output()
+        .context("running marketplace source-health cron child assertion")?;
+
+    ensure!(
+        output.status.success(),
+        "L5-T-freight_engine-016 child assertion failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(())
+}
+
+#[test]
+fn l5_t_freight_engine_004_005_provider_warning_and_failure_persist_to_landed_cost_estimates()
+-> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let ids = db.seed_push_owned_rows()?;
+    let conn = Connection::open(db.db_path())?;
+    conn.execute_batch("PRAGMA foreign_keys = ON")?;
+    seed_landed_cost_inputs(&conn, &ids)?;
+
+    insert_freight_landed_cost_case(
+        &conn,
+        &ids,
+        &FreightPersistenceCase {
+            id: "l5-freight-disagreement",
+            freight_low_gbp_pence: 175_000,
+            freight_base_gbp_pence: 185_000,
+            freight_high_gbp_pence: 195_000,
+            warnings: json!([{
+                "code": "FREIGHT_MODE_LOW_CONFIDENCE",
+                "message": "Freightos and SeaRates exceeded the disagreement threshold",
+                "severity": "warning"
+            }]),
+            blockers: json!([]),
+            decision_grade: "review_required",
+        },
+    )?;
+    insert_freight_landed_cost_case(
+        &conn,
+        &ids,
+        &FreightPersistenceCase {
+            id: "l5-freight-failed",
+            freight_low_gbp_pence: 0,
+            freight_base_gbp_pence: 0,
+            freight_high_gbp_pence: 0,
+            warnings: json!([]),
+            blockers: json!([{
+                "code": "FREIGHT_ESTIMATE_FAILED",
+                "message": "Neither Freightos nor SeaRates returned a usable quote",
+                "severity": "blocked"
+            }]),
+            decision_grade: "broker_required",
+        },
+    )?;
+
+    assert_freight_landed_cost_issue(
+        &conn,
+        "l5-freight-disagreement",
+        "FREIGHT_MODE_LOW_CONFIDENCE",
+        IssueColumn::Warnings,
+        185_000,
+    )?;
+    assert_freight_landed_cost_issue(
+        &conn,
+        "l5-freight-failed",
+        "FREIGHT_ESTIMATE_FAILED",
+        IssueColumn::Blockers,
+        0,
+    )
+}
+
 fn assert_hmrc_fx_rollover_dispatch() -> Result<()> {
     let db = L4TestStateDb::new()?;
     let registry = sources_impl::SourceRegistry::load(db.connection())?;
@@ -215,6 +323,165 @@ fn assert_hmrc_fx_rollover_dispatch() -> Result<()> {
             .contains(cron_impl::HMRC_FX_MONTHLY_ROLLOVER_SKILL_ID)
     );
     Ok(())
+}
+
+fn assert_marketplace_source_health_dispatch() -> Result<()> {
+    let db = L4TestStateDb::new()?;
+    let registry = sources_impl::SourceRegistry::load(db.connection())?;
+    let mut scheduler = cron_impl::CronScheduler::from_registry(&registry);
+    scheduler.refresh_next_run_at(ts(2026, 5, 19, 4, 59, 59)?)?;
+
+    let due_at = ts(2026, 5, 19, 5, 0, 1)?;
+    let dispatches = scheduler.dispatch_due_jobs(&registry, due_at)?;
+    let dispatch = dispatches
+        .iter()
+        .find(|dispatch| {
+            dispatch.definition.skill_id == cron_impl::MARKETPLACE_SOURCE_HEALTH_CANARY_SKILL_ID
+        })
+        .ok_or_else(|| anyhow!("missing marketplace source-health dispatch"))?;
+    let payload = dispatch
+        .enqueue_request
+        .input_payload
+        .as_object()
+        .context("cron input payload must be an object")?;
+
+    ensure!(dispatch.definition.enabled);
+    ensure!(dispatch.definition.source_id == cron_impl::L5_COMMERCIAL_INTELLIGENCE_SOURCE_ID);
+    ensure!(
+        dispatch.definition.cron_expression == cron_impl::MARKETPLACE_SOURCE_HEALTH_CANARY_CRON
+    );
+    ensure!(dispatch.job_class == cron_impl::CronJobClass::SourceHealth);
+    ensure!(dispatch.priority == arbiter_impl::AdmissionPriority::AuthRefreshOrHealthProbe);
+    ensure!(dispatch.enqueue_request.kind == "source_health");
+    ensure!(dispatch.enqueue_request.scope_kind.as_deref() == Some("source"));
+    ensure!(
+        dispatch.enqueue_request.scope_id.as_deref()
+            == Some(cron_impl::L5_COMMERCIAL_INTELLIGENCE_SOURCE_ID)
+    );
+    ensure!(
+        payload.get("skill_id").and_then(Value::as_str)
+            == Some(cron_impl::MARKETPLACE_SOURCE_HEALTH_CANARY_SKILL_ID)
+    );
+    ensure!(
+        dispatch
+            .enqueue_request
+            .idempotency_key
+            .contains(cron_impl::MARKETPLACE_SOURCE_HEALTH_CANARY_SKILL_ID)
+    );
+    assert_l5_source_health_skill_artifacts()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OperatorPrerequisiteAudit {
+    claim_gate_ready: bool,
+    stable_production_blockers: Vec<String>,
+}
+
+fn assert_operator_built_prerequisite(
+    skill_id: &str,
+    evidence_dir_name: &str,
+) -> Result<OperatorPrerequisiteAudit> {
+    let root = repo_root()?;
+    let skill_dir = root.join("skills").join(skill_id);
+    let evidence_dir = root
+        .join(
+            "docs/pipeline/l5-expanded-commercial-intelligence/operator-built-skills/test-evidence",
+        )
+        .join(evidence_dir_name);
+    let skill_markdown = read_existing_file(&skill_dir.join("SKILL.md"))?;
+    let _: Value =
+        serde_json::from_str(&read_existing_file(&skill_dir.join("result.schema.json"))?)?;
+    let report = read_existing_file(&evidence_dir.join("TEST_REPORT.md"))?;
+    let canary_inputs = read_existing_file(&evidence_dir.join("canary.inputs.jsonl"))?;
+    let golden = read_existing_file(&evidence_dir.join("golden.assertions.yaml"))?;
+
+    ensure!(
+        skill_markdown.contains(&format!("skill_id: {skill_id}")),
+        "operator prerequisite skill metadata does not name `{skill_id}`"
+    );
+    ensure!(
+        skill_markdown.contains("requires_cdp: true"),
+        "operator prerequisite `{skill_id}` must remain a CDP/browser skill"
+    );
+    ensure!(
+        report.contains("STATUS: READY FOR L5 STEP 09 BEAD AUDIT"),
+        "operator evidence report for `{skill_id}` must be READY before Phase 3/4 claims"
+    );
+    ensure_canary_inputs_parse(&canary_inputs)?;
+    let _: serde_yaml::Value = serde_yaml::from_str(&golden)?;
+
+    let present_stable_artifacts = stable_artifact_presence(&evidence_dir);
+    Ok(OperatorPrerequisiteAudit {
+        claim_gate_ready: true,
+        stable_production_blockers: stable_production_blockers(&present_stable_artifacts),
+    })
+}
+
+fn assert_stable_production_blocker_contract() -> Result<()> {
+    let present = ["canary.inputs.jsonl", "golden.assertions.yaml"]
+        .into_iter()
+        .map(str::to_owned)
+        .collect::<BTreeSet<_>>();
+    ensure!(
+        stable_production_blockers(&present) == ["validator-rubric.yaml"],
+        "missing rubric must remain a stable-production blocker"
+    );
+    Ok(())
+}
+
+fn assert_l5_source_health_skill_artifacts() -> Result<()> {
+    let skill_dir =
+        repo_root()?.join("skills/source-health/l5-marketplace-commercial-intelligence");
+    let skill_markdown = read_existing_file(&skill_dir.join("SKILL.md"))?;
+    let result_schema: Value =
+        serde_json::from_str(&read_existing_file(&skill_dir.join("result.schema.json"))?)?;
+    let canary_sources =
+        source_health_canary_sources(&read_existing_file(&skill_dir.join("canary.inputs.jsonl"))?)?;
+    let required_sources = result_schema
+        .pointer("/properties/per_source_health/required")
+        .and_then(Value::as_array)
+        .context("per_source_health.required must be present")?
+        .iter()
+        .filter_map(Value::as_str)
+        .map(str::to_owned)
+        .collect::<BTreeSet<_>>();
+
+    ensure!(skill_markdown.contains("paid_api_auth_check"));
+    ensure!(canary_sources == l5_source_set());
+    ensure!(required_sources == l5_source_set());
+    Ok(())
+}
+
+fn source_health_canary_sources(canary_text: &str) -> Result<BTreeSet<String>> {
+    let mut sources = BTreeSet::new();
+    for line in canary_text.lines().filter(|line| !line.trim().is_empty()) {
+        let row: Value = serde_json::from_str(line)?;
+        ensure!(
+            row.get("paid_api_auth_check").and_then(Value::as_bool) == Some(false),
+            "source-health canary must not perform paid API auth checks"
+        );
+        let source_id = row
+            .get("source_id")
+            .and_then(Value::as_str)
+            .context("source-health canary row missing source_id")?;
+        sources.insert(source_id.to_owned());
+    }
+    Ok(sources)
+}
+
+fn l5_source_set() -> BTreeSet<String> {
+    [
+        "1688",
+        "alibaba",
+        "amazon",
+        "freightos",
+        "pcs",
+        "searates",
+        "taric",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect()
 }
 
 fn seed_landed_cost_inputs(conn: &Connection, ids: &support::db::PushOwnedSeedIds) -> Result<()> {
@@ -342,6 +609,167 @@ fn assert_landed_cost_outbox_row(
         )
     );
     Ok(())
+}
+
+#[derive(Debug, Clone)]
+struct FreightPersistenceCase {
+    id: &'static str,
+    freight_low_gbp_pence: i64,
+    freight_base_gbp_pence: i64,
+    freight_high_gbp_pence: i64,
+    warnings: Value,
+    blockers: Value,
+    decision_grade: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IssueColumn {
+    Warnings,
+    Blockers,
+}
+
+fn insert_freight_landed_cost_case(
+    conn: &Connection,
+    ids: &support::db::PushOwnedSeedIds,
+    case: &FreightPersistenceCase,
+) -> Result<()> {
+    conn.execute(
+        freight_landed_cost_insert_sql(),
+        params![
+            case.id,
+            ids.process_id,
+            ids.notice_id,
+            "l5-fx-candidate",
+            "l5-fx-quote",
+            case.freight_low_gbp_pence,
+            case.freight_base_gbp_pence,
+            case.freight_high_gbp_pence,
+            case.warnings.to_string(),
+            case.blockers.to_string(),
+            case.decision_grade,
+        ],
+    )?;
+    Ok(())
+}
+
+fn assert_freight_landed_cost_issue(
+    conn: &Connection,
+    landed_cost_id: &str,
+    expected_code: &str,
+    expected_column: IssueColumn,
+    expected_freight_base_gbp_pence: i64,
+) -> Result<()> {
+    let (freight_base_gbp_pence, decision_grade, warnings, blockers): (
+        i64,
+        String,
+        String,
+        String,
+    ) = conn.query_row(
+        "\
+        SELECT freight_base_gbp_pence, decision_grade, warnings, blockers
+        FROM landed_cost_estimates
+        WHERE id = ?1
+        ",
+        [landed_cost_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    )?;
+    let warning_codes = issue_codes(&warnings)?;
+    let blocker_codes = issue_codes(&blockers)?;
+
+    ensure!(freight_base_gbp_pence == expected_freight_base_gbp_pence);
+    match expected_column {
+        IssueColumn::Warnings => {
+            ensure!(warning_codes.contains(expected_code));
+            ensure!(blocker_codes.is_empty());
+            ensure!(decision_grade == "review_required");
+        }
+        IssueColumn::Blockers => {
+            ensure!(blocker_codes.contains(expected_code));
+            ensure!(warning_codes.is_empty());
+            ensure!(decision_grade == "broker_required");
+        }
+    }
+    Ok(())
+}
+
+fn issue_codes(issue_json: &str) -> Result<BTreeSet<String>> {
+    let issues: Vec<Value> = serde_json::from_str(issue_json)?;
+    Ok(issues
+        .iter()
+        .filter_map(|issue| issue.get("code").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect())
+}
+
+const fn freight_landed_cost_insert_sql() -> &'static str {
+    "\
+    INSERT INTO landed_cost_estimates (
+      id, process_id, notice_id, product_candidate_id, supplier_quote_id, shipping_mode,
+      mode_confidence_bps, commodity_confidence_bps, classification_stability_bps,
+      customs_fx_rate, commercial_fx_rate, fx_basis_delta_bps, fx_rate_checked_at,
+      supplier_cost_gbp_pence, freight_low_gbp_pence, freight_base_gbp_pence,
+      freight_high_gbp_pence, customs_duty_gbp_pence, import_vat_gbp_pence,
+      import_vat_treatment, uk_final_mile_cost_gbp_pence, other_fees_gbp_pence,
+      economic_landed_cost_gbp_pence, cash_outlay_gbp_pence, cash_to_clear_gbp_pence,
+      revenue_basis_type, revenue_confidence_bps, net_margin_low_bps, net_margin_base_bps,
+      net_margin_high_bps, decision_grade, confidence_bps, warnings, blockers, owner_id,
+      row_version, stage_run_id
+    ) VALUES (
+      ?1, ?2, ?3, ?4, ?5, 'sea_lcl', 7600, 8700, 8800, 0.7834, 0.8070,
+      301, '2026-05-19T12:00:00Z', 940, ?6, ?7, ?8, 47, 250, 'standard',
+      90, 20, 2027, 2027, 2027, 'expected_value', 9000, 1500, 1800, 2100,
+      ?11, 7600, ?9, ?10, 'local-owner', 1, 'l5-freight-gate-stage'
+    )
+    "
+}
+
+fn repo_root() -> Result<PathBuf> {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .map(Path::to_path_buf)
+        .context("daemon crate should be two levels below repo root")
+}
+
+fn read_existing_file(path: &Path) -> Result<String> {
+    std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))
+}
+
+fn ensure_canary_inputs_parse(canary_text: &str) -> Result<()> {
+    let mut row_count = 0usize;
+    for line in canary_text.lines().filter(|line| !line.trim().is_empty()) {
+        let _: Value = serde_json::from_str(line)?;
+        row_count += 1;
+    }
+    ensure!(
+        row_count > 0,
+        "canary.inputs.jsonl must contain at least one row"
+    );
+    Ok(())
+}
+
+fn stable_artifact_presence(evidence_dir: &Path) -> BTreeSet<String> {
+    stable_production_artifacts()
+        .into_iter()
+        .filter(|artifact| evidence_dir.join(artifact).exists())
+        .map(str::to_owned)
+        .collect()
+}
+
+fn stable_production_blockers(present_artifacts: &BTreeSet<String>) -> Vec<String> {
+    stable_production_artifacts()
+        .into_iter()
+        .filter(|artifact| !present_artifacts.contains(*artifact))
+        .map(str::to_owned)
+        .collect()
+}
+
+const fn stable_production_artifacts() -> [&'static str; 3] {
+    [
+        "canary.inputs.jsonl",
+        "golden.assertions.yaml",
+        "validator-rubric.yaml",
+    ]
 }
 
 fn ts(
