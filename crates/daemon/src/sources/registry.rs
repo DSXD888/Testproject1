@@ -23,6 +23,7 @@ const L5_MARKETPLACE_VALIDATOR_OVERLAY_VERSION: &str =
     "validation/overlay-customs-classification@1.0.0";
 const L5_MARKETPLACE_VALIDATOR_BEHAVIOR_VERSION: &str =
     "validation/overlay-customs-classification@1.0.0+1.0";
+const L5_PCS_WORKER_BEHAVIOR_VERSION: &str = "procurement-ingestion/pcs@1.0.0";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -691,14 +692,14 @@ fn builtin_definitions() -> BTreeMap<String, SourceDefinition> {
                 "jurisdiction": "scotland",
                 "api_family": "pcs_ocds_web_api",
                 "scope_decision": "in_scope_2026-05-08",
+                "account_state": "public_no_account_required",
+                "notice_list_endpoint": "https://api.publiccontractsscotland.gov.uk/v1/Notices",
+                "notice_family_endpoint": "https://api.publiccontractsscotland.gov.uk/v1/Notice?id={ocid}",
+                "validator_overlay": "validation/overlay-customs-classification",
+                "worker_behavior_version": L5_PCS_WORKER_BEHAVIOR_VERSION,
+                "validator_behavior_version": L5_MARKETPLACE_VALIDATOR_BEHAVIOR_VERSION,
             }),
-            production_binding: Some(candidate_binding(
-                "procurement-ingestion/pcs",
-                L5_PROCUREMENT_INGESTION_SKILL_VERSION,
-                None,
-                "procurement-ingestion",
-                "pcs",
-            )),
+            production_binding: Some(l5_pcs_candidate_binding()),
             canary_binding: None,
             auth_refresh_binding: None,
             policy: SourcePolicy::default(),
@@ -1050,6 +1051,26 @@ fn l5_marketplace_candidate_binding(
     binding
 }
 
+fn l5_pcs_candidate_binding() -> SkillBinding {
+    let mut binding = candidate_binding(
+        "procurement-ingestion/pcs",
+        L5_PROCUREMENT_INGESTION_SKILL_VERSION,
+        None,
+        "procurement-ingestion",
+        "pcs",
+    );
+    L5_MARKETPLACE_VALIDATOR_OVERLAY_VERSION
+        .clone_into(&mut binding.version_dimensions.validator_overlay);
+    L5_PCS_WORKER_BEHAVIOR_VERSION
+        .clone_into(&mut binding.behavior_versions.worker_behavior_version);
+    L5_MARKETPLACE_VALIDATOR_BEHAVIOR_VERSION
+        .clone_into(&mut binding.behavior_versions.validator_behavior_version);
+    binding.calibration.exact_slice_key = format!(
+        "procurement-ingestion/pcs::pcs::{L5_PCS_WORKER_BEHAVIOR_VERSION}::{L5_MARKETPLACE_VALIDATOR_BEHAVIOR_VERSION}"
+    );
+    binding
+}
+
 fn binding_with_stage(
     skill_id: &str,
     skill_version: &str,
@@ -1122,16 +1143,42 @@ impl CanaryResult {
 
 #[cfg(test)]
 mod tests {
-    use super::{PromotionStage, SourceKind, SourceRegistry};
+    use super::{PromotionStage, SkillBinding, SourceDefinition, SourceKind, SourceRegistry};
+    use std::{fs, path::Path};
 
     #[test]
     fn l5_t_freight_engine_011_012_014_016_registry_exposes_l5_source_shapes() {
         let alibaba =
             SourceRegistry::builtin_definition("alibaba").expect("Alibaba source should exist");
-        let alibaba_binding = alibaba
+        assert_alibaba_source_shape(&alibaba);
+
+        let domestic_wholesale =
+            SourceRegistry::builtin_definition("1688").expect("1688 source should exist");
+        assert_1688_source_shape(&domestic_wholesale);
+
+        let amazon = SourceRegistry::builtin_definition("amazon")
+            .expect("Amazon L5 supplier source should exist");
+        assert_amazon_source_shape(&amazon);
+
+        let pcs =
+            SourceRegistry::builtin_definition("pcs").expect("PCS source should be registered");
+        assert_pcs_source_shape(&pcs);
+
+        let aggregate =
+            SourceRegistry::builtin_definition("l5-marketplace-commercial-intelligence")
+                .expect("L5 marketplace source-health aggregate should exist");
+        assert_l5_aggregate_source_shape(&aggregate);
+    }
+
+    fn production_binding(source: &SourceDefinition) -> &SkillBinding {
+        source
             .production_binding
             .as_ref()
-            .expect("Alibaba production binding should exist for L5 maturation");
+            .expect("production binding should exist for L5 maturation")
+    }
+
+    fn assert_alibaba_source_shape(alibaba: &SourceDefinition) {
+        let alibaba_binding = production_binding(alibaba);
         assert_eq!(alibaba.kind, SourceKind::Supplier);
         assert_eq!(
             alibaba_binding.skill_id,
@@ -1142,26 +1189,20 @@ mod tests {
             alibaba.config["price_signal_role"], "optimistic_floor",
             "L5-T-freight_engine-012 requires explicit Alibaba quote-role metadata"
         );
+    }
 
-        let domestic_wholesale =
-            SourceRegistry::builtin_definition("1688").expect("1688 source should exist");
-        let domestic_binding = domestic_wholesale
-            .production_binding
-            .as_ref()
-            .expect("1688 production binding should exist for L5 maturation");
+    fn assert_1688_source_shape(domestic_wholesale: &SourceDefinition) {
+        let domestic_binding = production_binding(domestic_wholesale);
         assert_eq!(domestic_binding.skill_id, "supplier-price-enrichment/1688");
         assert_eq!(domestic_binding.promotion_stage, PromotionStage::Candidate);
         assert_eq!(
             domestic_wholesale.config["price_signal_role"],
             "domestic_wholesale_floor"
         );
+    }
 
-        let amazon = SourceRegistry::builtin_definition("amazon")
-            .expect("Amazon L5 supplier source should exist");
-        let amazon_binding = amazon
-            .production_binding
-            .as_ref()
-            .expect("Amazon production binding should exist for L5 maturation");
+    fn assert_amazon_source_shape(amazon: &SourceDefinition) {
+        let amazon_binding = production_binding(amazon);
         assert_eq!(amazon.kind, SourceKind::Supplier);
         assert_eq!(amazon_binding.skill_id, "supplier-price-enrichment/amazon");
         assert_eq!(amazon_binding.promotion_stage, PromotionStage::Candidate);
@@ -1188,21 +1229,40 @@ mod tests {
                 .contains("supplier-price-enrichment/amazon@2.0.0"),
             "L5-T-freight_engine-011 requires the Amazon L5 behavior identity in registry"
         );
+    }
 
-        let pcs =
-            SourceRegistry::builtin_definition("pcs").expect("PCS source should be registered");
-        let pcs_binding = pcs
-            .production_binding
-            .as_ref()
-            .expect("PCS production binding should exist for Phase 5 skill work");
+    fn assert_pcs_source_shape(pcs: &SourceDefinition) {
+        let pcs_binding = production_binding(pcs);
         assert_eq!(pcs.kind, SourceKind::Procurement);
         assert_eq!(pcs_binding.skill_id, "procurement-ingestion/pcs");
         assert_eq!(pcs_binding.promotion_stage, PromotionStage::Candidate);
         assert_eq!(pcs.config["scope_decision"], "in_scope_2026-05-08");
+        assert_eq!(
+            pcs.config["account_state"], "public_no_account_required",
+            "L5-T-freight_engine-014 requires PCS to remain a public no-key OCDS source"
+        );
+        assert_eq!(
+            pcs.config["notice_list_endpoint"],
+            "https://api.publiccontractsscotland.gov.uk/v1/Notices"
+        );
+        assert_eq!(
+            pcs_binding.behavior_versions.worker_behavior_version,
+            "procurement-ingestion/pcs@1.0.0"
+        );
+        assert_eq!(
+            pcs_binding.behavior_versions.validator_behavior_version,
+            "validation/overlay-customs-classification@1.0.0+1.0"
+        );
+        assert!(
+            pcs_binding
+                .calibration
+                .exact_slice_key
+                .contains("procurement-ingestion/pcs@1.0.0"),
+            "L5-T-freight_engine-014 requires PCS behavior identity in registry"
+        );
+    }
 
-        let aggregate =
-            SourceRegistry::builtin_definition("l5-marketplace-commercial-intelligence")
-                .expect("L5 marketplace source-health aggregate should exist");
+    fn assert_l5_aggregate_source_shape(aggregate: &SourceDefinition) {
         let aggregate_binding = aggregate
             .canary_binding
             .as_ref()
@@ -1220,5 +1280,59 @@ mod tests {
                 .any(|source| source == "pcs"),
             "L5-T-freight_engine-014 and 016 require PCS coverage in the aggregate source-health shape"
         );
+    }
+
+    #[test]
+    fn l5_t_freight_engine_014_pcs_skill_artifacts_cover_scotland_ocds_canaries() {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .expect("daemon crate should be two levels below repo root");
+        for relative_path in [
+            "skills/procurement-ingestion/pcs/SKILL.md",
+            "skills/procurement-ingestion/pcs/result.schema.json",
+            "skills/procurement-ingestion/pcs/checkpoint.schema.json",
+            "skills/procurement-ingestion/pcs/canary.inputs.jsonl",
+            "skills/procurement-ingestion/pcs/golden.assertions.yaml",
+            "skills/procurement-ingestion/pcs/validator-rubric.yaml",
+            "tests/fixtures/calibration/marketplace-search/pcs/canary.inputs.jsonl",
+            "tests/fixtures/calibration/marketplace-search/pcs/golden.assertions.yaml",
+        ] {
+            assert!(
+                repo_root.join(relative_path).is_file(),
+                "L5-T-freight_engine-014 requires PCS artifact `{relative_path}`"
+            );
+        }
+
+        let skill_md =
+            fs::read_to_string(repo_root.join("skills/procurement-ingestion/pcs/SKILL.md"))
+                .expect("PCS SKILL.md should be readable");
+        assert!(skill_md.contains("promotion_stage: candidate"));
+        assert!(skill_md.contains("auth_requirements: none"));
+        assert!(skill_md.contains("https://api.publiccontractsscotland.gov.uk/v1/Notices"));
+        assert!(
+            skill_md.contains("https://api.publiccontractsscotland.gov.uk/v1/Notice?id={ocid}")
+        );
+        assert!(!skill_md.contains("replace with live-verified"));
+
+        let result_schema = fs::read_to_string(
+            repo_root.join("skills/procurement-ingestion/pcs/result.schema.json"),
+        )
+        .expect("PCS result schema should be readable");
+        assert!(result_schema.contains("\"const\": \"GB-SCT\""));
+        assert!(result_schema.contains("public_no_account_required"));
+
+        let canary = fs::read_to_string(
+            repo_root.join("skills/procurement-ingestion/pcs/canary.inputs.jsonl"),
+        )
+        .expect("PCS canary inputs should be readable");
+        assert!(canary.contains("l5-pcs-notice-detail-fasteners"));
+        assert!(canary.contains("l5-pcs-notice-detail-cartons"));
+        assert!(canary.contains("l5-pcs-notice-detail-gloves"));
+        assert!(canary.contains("ocds-r6ebe6-0000750353"));
+        assert!(canary.contains("ocds-r6ebe6-0000773465"));
+        assert!(canary.contains("ocds-r6ebe6-0000766503"));
+        assert!(canary.contains("l5-pcs-notice-list-zero-result"));
+        assert!(canary.contains("l5-pcs-notice-list-stale-cassette"));
     }
 }

@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "cursor",
+    "continuation_required",
+    "checked_at",
+    "source_account_state",
+    "notices"
+  ],
+  "properties": {
+    "cursor": {
+      "type": "string"
+    },
+    "continuation_required": {
+      "type": "boolean"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_account_state": {
+      "const": "public_no_account_required"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "notice_id",
+          "source_notice_id",
+          "source_url",
+          "ocid",
+          "publication_date",
+          "title",
+          "buyer_name",
+          "buyer_country",
+          "cpv_codes",
+          "lot_count",
+          "tender_documents",
+          "raw_release_json"
+        ],
+        "properties": {
+          "notice_id": {
+            "type": "string"
+          },
+          "source_notice_id": {
+            "type": "string"
+          },
+          "source_url": {
+            "type": "string"
+          },
+          "ocid": {
+            "type": "string",
+            "pattern": "^ocds-r6ebe6-[0-9]+$"
+          },
+          "publication_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "title": {
+            "type": "string"
+          },
+          "buyer_name": {
+            "type": "string"
+          },
+          "buyer_country": {
+            "const": "GB-SCT"
+          },
+          "cpv_codes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{8}$"
+            }
+          },
+          "lot_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tender_documents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "url"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "document_type": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "format": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "raw_release_json": {
+            "type": "string"
+          },
+          "notice_family_uri": {
+            "type": "string"
+          },
+          "main_category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "procurement_stage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deadline_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

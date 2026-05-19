@@ -1,0 +1,25 @@
+schema_version: 1
+source_id: pcs
+skill_id: procurement-ingestion/pcs
+mirrors: skills/procurement-ingestion/pcs/golden.assertions.yaml
+cases:
+  l5-pcs-notice-list-current:
+    result_schema_valid: true
+    minimum_notice_count: 1
+    source_account_state: public_no_account_required
+  l5-pcs-notice-detail-fasteners:
+    category: fasteners
+    ocid: ocds-r6ebe6-0000750353
+    expected_cpv_codes: ["44316000"]
+  l5-pcs-notice-detail-cartons:
+    category: packaging-cartons
+    ocid: ocds-r6ebe6-0000773465
+    expected_cpv_codes: ["18933000"]
+  l5-pcs-notice-detail-gloves:
+    category: examination-gloves
+    ocid: ocds-r6ebe6-0000766503
+    expected_cpv_codes: ["18424300"]
+  l5-pcs-notice-list-zero-result:
+    expected_warning: PCS_OCDS_EMPTY_RESULT
+  l5-pcs-notice-list-stale-cassette:
+    cassette_replay_allowed: true

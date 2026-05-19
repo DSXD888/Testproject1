@@ -70,6 +70,7 @@ fn ut_skl_001_required_files_exist_in_every_production_skill_directory() -> Resu
     let fts = lint_skill_directory(&repo_skill_dir("procurement-ingestion/fts")?)?;
     let contracts_finder =
         lint_skill_directory(&repo_skill_dir("procurement-ingestion/contracts-finder")?)?;
+    let pcs = lint_skill_directory(&repo_skill_dir("procurement-ingestion/pcs")?)?;
     let manifest = lint_skill_directory(&repo_skill_dir("manifest-generation")?)?;
     let procurement_skill_dirs: BTreeSet<_> =
         std::fs::read_dir(repo_root()?.join("skills/procurement-ingestion"))?
@@ -82,15 +83,16 @@ fn ut_skl_001_required_files_exist_in_every_production_skill_directory() -> Resu
             })
             .collect();
 
-    // FTS, Contracts Finder, and the three procontract-* skills are the active
-    // procurement source skills. The procontract entries were authored more
-    // recently and are not yet held to the strict lint shape (Non-goals,
+    // FTS, Contracts Finder, PCS, and the three procontract-* skills are the
+    // active procurement source skills. The procontract entries were authored
+    // more recently and are not yet held to the strict lint shape (Non-goals,
     // Resume Strategy, Pagination Bounds), so this test only asserts that the
     // directory listing matches expectations and that the canonical FTS /
-    // Contracts Finder / manifest skills lint cleanly.
+    // Contracts Finder / PCS / manifest skills lint cleanly.
     let expected: BTreeSet<String> = [
         "contracts-finder",
         "fts",
+        "pcs",
         "procontract-discover",
         "procontract-enrich-tender",
         "procontract-register-interest",
@@ -104,6 +106,7 @@ fn ut_skl_001_required_files_exist_in_every_production_skill_directory() -> Resu
     );
     ensure!(fts.metadata.interaction_profile == "pty_interactive");
     ensure!(contracts_finder.metadata.interaction_profile == "pty_interactive");
+    ensure!(pcs.metadata.interaction_profile == "http_public");
     ensure!(manifest.metadata.interaction_profile == "headless_contract");
     Ok(())
 }

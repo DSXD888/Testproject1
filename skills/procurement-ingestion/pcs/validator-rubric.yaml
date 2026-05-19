@@ -1,0 +1,68 @@
+rubric_version: 1
+worker_skill_id: procurement-ingestion/pcs
+validator_overlay: validation/overlay-customs-classification
+worker_behavior_version: procurement-ingestion/pcs@1.0.0
+validator_behavior_version: validation/overlay-customs-classification@1.0.0+1.0
+test_ids:
+  primary:
+    - L5-T-freight_engine-014
+  promotion_gate:
+    - L5-T-freight_engine-013
+    - L5-T-freight_engine-018
+
+blocking_checks:
+  - id: public_ocds_only
+    severity: blocker
+    rule: "PCS must use the public OCDS Web API at api.publiccontractsscotland.gov.uk with no account and no API key."
+    evidence_fields:
+      - source_account_state
+      - endpoint
+
+  - id: scotland_scope_preserved
+    severity: blocker
+    rule: "Every normalized notice from PCS is marked buyer_country=GB-SCT and the 2026-05-08 IN-SCOPE decision is not reopened."
+    evidence_fields:
+      - buyer_country
+      - registry.scope_decision
+
+  - id: ocds_fields_required
+    severity: blocker
+    rule: "List and family retrieval must preserve OCID, release id, publication date, title, buyer, CPV codes, lot count, documents, and raw release JSON."
+    evidence_fields:
+      - ocid
+      - source_notice_id
+      - publication_date
+      - title
+      - buyer_name
+      - cpv_codes
+      - lot_count
+      - tender_documents
+      - raw_release_json
+
+  - id: category_canaries_present
+    severity: blocker
+    rule: "Canaries must cover fasteners, packaging-cartons, and examination-gloves notice-family retrieval."
+
+  - id: zero_result_not_failure
+    severity: blocker
+    rule: "A deliberate empty list canary returns PCS_OCDS_EMPTY_RESULT as a warning, not fabricated notices."
+
+warning_checks:
+  - id: stale_cassette_replay
+    severity: warning
+    rule: "Cassette replay may satisfy deterministic unit checks but live endpoint health must remain separately visible."
+
+promotion_controls:
+  promotion_stage: candidate
+  stable_promotion_owner: l5-p5-marketplace-fixture-promotion-gate
+  required_standard_files:
+    - SKILL.md
+    - result.schema.json
+    - checkpoint.schema.json
+    - canary.inputs.jsonl
+    - golden.assertions.yaml
+    - validator-rubric.yaml
+  compatible_pairs:
+    - worker: procurement-ingestion/pcs@1.0.0
+      validator: validation/overlay-customs-classification@1.0.0+1.0
+      state: compatible
