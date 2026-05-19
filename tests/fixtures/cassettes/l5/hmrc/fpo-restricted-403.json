@@ -1,0 +1,26 @@
+{
+  "case_id": "l5-hmrc-fpo-restricted-403",
+  "endpoint_family": "hmrc_fpo_code_search",
+  "request": {
+    "method": "POST",
+    "url": "https://search.trade-tariff.service.gov.uk/fpo-code-search",
+    "headers": {
+      "content-type": "application/json",
+      "user-agent": "testproject1-l5-cassette-recorder/1"
+    },
+    "body_sha256": "sha256:d6f4ca194eb2948f44c0082754389050317e0b3e670db791461250b63815b4bf",
+    "authenticated": false
+  },
+  "request_fingerprint": "sha256:5fda5d824e29f039ef10ef40515c46c4213969c4b1094a8daa68bd5917c319a7",
+  "response": {
+    "status": 403,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body_path": "bodies/fpo-restricted-403.json",
+    "body_sha256": "sha256:dd89bccba4879e66f832595019e7d789341a26e9d108508ad1bb3994cb263fee"
+  },
+  "recorded_at": "2026-05-19T21:56:17Z",
+  "recorder": "manual curl POST without X-Api-Key to HMRC FPO endpoint, no paid key",
+  "expected_failure_mode": "FPO_ACCESS_UNAVAILABLE"
+}

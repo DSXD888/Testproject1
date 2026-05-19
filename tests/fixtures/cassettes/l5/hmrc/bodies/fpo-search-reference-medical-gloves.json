@@ -1,0 +1,43 @@
+{
+  "data": [
+    {
+      "id": "surgical-gloves-ppe",
+      "type": "search_reference",
+      "attributes": {
+        "title": "Surgical gloves, of vulcanised rubber (PPE)",
+        "referenced_id": "4015120000",
+        "referenced_class": "Commodity",
+        "goods_nomenclature_item_id": "4015120000",
+        "productline_suffix": "80",
+        "goods_nomenclature_sid": 107512,
+        "negated_title": "surgical gloves, of vulcanised rubber (ppe)"
+      }
+    },
+    {
+      "id": "rubber-gloves-excluding-surgical",
+      "type": "search_reference",
+      "attributes": {
+        "title": "gloves, mittens and mitts, of vulcanised rubber (excl. surgical gloves)",
+        "referenced_id": "4015190000",
+        "referenced_class": "Commodity",
+        "goods_nomenclature_item_id": "4015190000",
+        "productline_suffix": "80",
+        "goods_nomenclature_sid": 107519,
+        "negated_title": "gloves, mittens and mitts, of vulcanised rubber"
+      }
+    },
+    {
+      "id": "medical-equipment",
+      "type": "search_reference",
+      "attributes": {
+        "title": "medical equipment",
+        "referenced_id": "9018",
+        "referenced_class": "Heading",
+        "goods_nomenclature_item_id": "9018000000",
+        "productline_suffix": "80",
+        "goods_nomenclature_sid": 53730,
+        "negated_title": "medical equipment"
+      }
+    }
+  ]
+}
