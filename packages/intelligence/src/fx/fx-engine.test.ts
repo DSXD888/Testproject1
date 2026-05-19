@@ -6,6 +6,11 @@ import type {
   FxRecalculationTrigger,
   FxSnapshot,
 } from "./fx-types";
+import {
+  fetchHmrcMonthlySnapshot,
+  planHmrcCorrectionRecalculation,
+  planHmrcRolloverRecalculation,
+} from "./hmrc-exchange-rates";
 
 // [TEST_START] L5 FX engine scaffold.
 // L5-T-fx_engine-001,005,006,007,009 land in l5-p2-hmrc-customs-fx-parser.
@@ -115,6 +120,140 @@ describe("fx-engine scaffold", () => {
   });
 });
 
+describe("hmrc customs FX", () => {
+  it("L5-T-fx_engine-001 parses HMRC monthly CSV cassette without credentials", async () => {
+    const result = await fetchHmrcMonthlySnapshot({
+      baseCurrency: "USD",
+      effectiveMonth: "2026-05",
+      cassettePath: "hmrc-monthly-current-csv.json",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(result.message);
+    }
+
+    expect(result.snapshot).toEqual({
+      basis: "hmrc_customs_monthly",
+      effectiveMonth: "2026-05",
+      baseCurrency: "USD",
+      quoteCurrency: "GBP",
+      rate: 0.7834,
+      rateBps: 7834,
+      sourceUrl:
+        "https://www.trade-tariff.service.gov.uk/exchange_rates/monthly?year=2026",
+      checkedAt: "2026-05-19T00:00:00Z",
+      snapshotId: "hmrc-2026-05-USD-GBP-v1",
+    });
+    const cassette = await readCassette("hmrc-monthly-current-csv.json");
+    expect(cassette.request.authenticated).toBe(false);
+    expect(cassette.request.headers).not.toHaveProperty("authorization");
+  });
+
+  it("L5-T-fx_engine-005 plans rollover recalculation with old and new snapshot IDs", async () => {
+    const previous = await expectHmrcSnapshot({
+      baseCurrency: "USD",
+      effectiveMonth: "2026-04",
+      cassettePath: "hmrc-april-usd-gbp.json",
+    });
+    const fresh = await expectHmrcSnapshot({
+      baseCurrency: "USD",
+      effectiveMonth: "2026-05",
+      cassettePath: "hmrc-monthly-current-csv.json",
+    });
+
+    const jobs = planHmrcRolloverRecalculation(
+      previous,
+      fresh,
+      new Date("2026-05-02T08:00:00Z"),
+    );
+
+    expect(jobs).toEqual([
+      {
+        trigger: {
+          kind: "monthly_rollover",
+          previousMonth: "2026-04",
+          newMonth: "2026-05",
+        },
+        previousSnapshotId: "hmrc-2026-04-USD-GBP-v1",
+        newSnapshotId: "hmrc-2026-05-USD-GBP-v1",
+        staleReason: "hmrc_monthly_rollover",
+      },
+    ]);
+  });
+
+  it("L5-T-fx_engine-006 plans correction recalculation while preserving the prior snapshot ID", async () => {
+    const previous = await expectHmrcSnapshot({
+      baseCurrency: "USD",
+      effectiveMonth: "2026-05",
+      cassettePath: "hmrc-monthly-current-csv.json",
+    });
+    const correctedResult = await fetchHmrcMonthlySnapshot({
+      baseCurrency: "USD",
+      effectiveMonth: "2026-05",
+      cassettePath: "hmrc-may-corrected-usd-gbp.json",
+      snapshotVersion: 2,
+    });
+    if (!correctedResult.ok) {
+      throw new Error(correctedResult.message);
+    }
+
+    const jobs = planHmrcCorrectionRecalculation(
+      previous,
+      correctedResult.snapshot,
+    );
+
+    expect(correctedResult.snapshot.snapshotId).toBe("hmrc-2026-05-USD-GBP-v2");
+    expect(jobs).toEqual([
+      {
+        trigger: {
+          kind: "historical_correction",
+          affectedMonth: "2026-05",
+          previousSnapshotId: "hmrc-2026-05-USD-GBP-v1",
+          newSnapshotId: "hmrc-2026-05-USD-GBP-v2",
+        },
+        previousSnapshotId: "hmrc-2026-05-USD-GBP-v1",
+        newSnapshotId: "hmrc-2026-05-USD-GBP-v2",
+        staleReason: "hmrc_historical_correction",
+      },
+    ]);
+  });
+
+  it("L5-T-fx_engine-007 emits FX_RATE_MISSING instead of fabricating HMRC rates", async () => {
+    const missingMonth = await fetchHmrcMonthlySnapshot({
+      baseCurrency: "USD",
+      effectiveMonth: "2026-05",
+      cassettePath: "hmrc-missing-month.json",
+    });
+    const malformedCsv = await fetchHmrcMonthlySnapshot({
+      baseCurrency: "USD",
+      effectiveMonth: "2026-05",
+      cassettePath: "hmrc-malformed-csv.json",
+    });
+    const malformedXml = await fetchHmrcMonthlySnapshot({
+      baseCurrency: "USD",
+      effectiveMonth: "2026-05",
+      cassettePath: "hmrc-malformed-xml.json",
+    });
+
+    expect(missingMonth).toMatchObject({
+      ok: false,
+      errorCode: "FX_RATE_MISSING",
+      reason: "missing_month",
+    });
+    expect(malformedCsv).toMatchObject({
+      ok: false,
+      errorCode: "FX_RATE_MISSING",
+      reason: "parse_failure",
+    });
+    expect(malformedXml).toMatchObject({
+      ok: false,
+      errorCode: "FX_RATE_MISSING",
+      reason: "parse_failure",
+    });
+  });
+});
+
 async function readCassette(fileName: string): Promise<CassetteFixture> {
   const cassetteFile = Bun.file(
     new URL(
@@ -134,4 +273,17 @@ async function bodySha256(bodyPath: string): Promise<string> {
   );
   const body = Buffer.from(await bodyFile.arrayBuffer());
   return `sha256:${createHash("sha256").update(body).digest("hex")}`;
+}
+
+async function expectHmrcSnapshot(opts: {
+  baseCurrency: "USD" | "EUR" | "CNY";
+  effectiveMonth: string;
+  cassettePath: string;
+}): Promise<FxSnapshot> {
+  const result = await fetchHmrcMonthlySnapshot(opts);
+  if (!result.ok) {
+    throw new Error(result.message);
+  }
+
+  return result.snapshot;
 }

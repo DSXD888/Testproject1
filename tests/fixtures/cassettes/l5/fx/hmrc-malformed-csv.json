@@ -1,0 +1,26 @@
+{
+  "case_id": "l5-fx-hmrc-malformed-csv",
+  "endpoint_family": "hmrc_customs_monthly",
+  "request": {
+    "method": "GET",
+    "url": "https://www.trade-tariff.service.gov.uk/exchange_rates/monthly?year=2026",
+    "headers": {
+      "accept": "text/csv, application/json",
+      "user-agent": "testproject1-l5-cassette-recorder/1"
+    },
+    "body_sha256": null,
+    "authenticated": false
+  },
+  "request_fingerprint": "sha256:14657d3d4e02bac1748fbc6c5221c0545c6833613a0873dd5c679e5b8fb73314",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/csv"
+    },
+    "body_path": "bodies/hmrc-malformed.csv",
+    "body_sha256": "sha256:d8a3872a5a718df22602564ca20449cde926b23b63e857eae4386e54aa11b696"
+  },
+  "recorded_at": "2026-05-19T00:00:00Z",
+  "recorder": "scripts/manual curl -LfsS, no auth, no paid key",
+  "expected_failure_mode": "FX_RATE_MISSING"
+}
