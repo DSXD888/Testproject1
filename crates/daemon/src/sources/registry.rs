@@ -16,6 +16,9 @@ pub const DEFAULT_SOURCE_SKILL_VERSION: &str = "2026.03.30-1";
 pub const DEFAULT_VALIDATOR_OVERLAY_VERSION: &str = "2026.03.30-1";
 pub const DEFAULT_BINDING_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const DEFAULT_BINDING_CHECKPOINT_SCHEMA_VERSION: &str = "1.0.0";
+const L5_SUPPLIER_PRICE_ENRICHMENT_SKILL_VERSION: &str = "2026.04.21-1";
+const L5_PROCUREMENT_INGESTION_SKILL_VERSION: &str = "2026.05.19-1";
+const L5_SOURCE_HEALTH_SKILL_VERSION: &str = "2026.05.19-1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -674,14 +677,49 @@ fn builtin_definitions() -> BTreeMap<String, SourceDefinition> {
         },
     );
     definitions.insert(
+        "pcs".to_owned(),
+        SourceDefinition {
+            source_id: "pcs".to_owned(),
+            kind: SourceKind::Procurement,
+            enabled: true,
+            source_structure_version: "pcs-2026-05-19".to_owned(),
+            config: json!({
+                "jurisdiction": "scotland",
+                "api_family": "pcs_ocds_web_api",
+                "scope_decision": "in_scope_2026-05-08",
+            }),
+            production_binding: Some(candidate_binding(
+                "procurement-ingestion/pcs",
+                L5_PROCUREMENT_INGESTION_SKILL_VERSION,
+                None,
+                "procurement-ingestion",
+                "pcs",
+            )),
+            canary_binding: None,
+            auth_refresh_binding: None,
+            policy: SourcePolicy::default(),
+            default_health_state: HealthState::Unknown,
+        },
+    );
+    definitions.insert(
         "alibaba".to_owned(),
         SourceDefinition {
             source_id: "alibaba".to_owned(),
             kind: SourceKind::Supplier,
             enabled: true,
             source_structure_version: "alibaba-2026-03-30".to_owned(),
-            config: json!({}),
-            production_binding: None,
+            config: json!({
+                "price_signal_role": "optimistic_floor",
+                "region": "CN",
+                "quote_class": "supplier_price_enrichment",
+            }),
+            production_binding: Some(candidate_binding(
+                "supplier-price-enrichment/alibaba",
+                L5_SUPPLIER_PRICE_ENRICHMENT_SKILL_VERSION,
+                None,
+                "supplier-price-enrichment",
+                "alibaba",
+            )),
             canary_binding: Some(stable_binding(
                 "source-health/alibaba",
                 DEFAULT_SOURCE_SKILL_VERSION,
@@ -707,8 +745,18 @@ fn builtin_definitions() -> BTreeMap<String, SourceDefinition> {
             kind: SourceKind::Supplier,
             enabled: true,
             source_structure_version: "1688-2026-03-30".to_owned(),
-            config: json!({}),
-            production_binding: None,
+            config: json!({
+                "price_signal_role": "domestic_wholesale_floor",
+                "region": "CN",
+                "quote_class": "supplier_price_enrichment",
+            }),
+            production_binding: Some(candidate_binding(
+                "supplier-price-enrichment/1688",
+                L5_SUPPLIER_PRICE_ENRICHMENT_SKILL_VERSION,
+                None,
+                "supplier-price-enrichment",
+                "1688",
+            )),
             canary_binding: None,
             auth_refresh_binding: Some(stable_binding(
                 "auth-refresh/1688",
@@ -717,6 +765,66 @@ fn builtin_definitions() -> BTreeMap<String, SourceDefinition> {
                 "auth-refresh",
                 "1688",
             )),
+            policy: SourcePolicy::default(),
+            default_health_state: HealthState::Unknown,
+        },
+    );
+    definitions.insert(
+        "amazon".to_owned(),
+        SourceDefinition {
+            source_id: "amazon".to_owned(),
+            kind: SourceKind::Supplier,
+            enabled: true,
+            source_structure_version: "amazon-2026-05-19".to_owned(),
+            config: json!({
+                "price_signal_role": "benchmark_ceiling",
+                "region": "GB",
+                "quote_class": "supplier_price_enrichment",
+                "search_strategy": "browser_first",
+                "pa_api_sunset": "2026-04-30",
+            }),
+            production_binding: Some(candidate_binding(
+                "supplier-price-enrichment/amazon",
+                L5_SUPPLIER_PRICE_ENRICHMENT_SKILL_VERSION,
+                None,
+                "supplier-price-enrichment",
+                "amazon",
+            )),
+            canary_binding: None,
+            auth_refresh_binding: None,
+            policy: SourcePolicy::default(),
+            default_health_state: HealthState::Unknown,
+        },
+    );
+    definitions.insert(
+        "l5-marketplace-commercial-intelligence".to_owned(),
+        SourceDefinition {
+            source_id: "l5-marketplace-commercial-intelligence".to_owned(),
+            kind: SourceKind::Supplier,
+            enabled: true,
+            source_structure_version: "l5-marketplace-commercial-intelligence-2026-05-19"
+                .to_owned(),
+            config: json!({
+                "covered_sources": [
+                    "alibaba",
+                    "1688",
+                    "amazon",
+                    "pcs",
+                    "searates",
+                    "freightos",
+                    "taric"
+                ],
+                "purpose": "source_health_canary",
+            }),
+            production_binding: None,
+            canary_binding: Some(candidate_binding(
+                "source-health/l5-marketplace-commercial-intelligence",
+                L5_SOURCE_HEALTH_SKILL_VERSION,
+                None,
+                "source-health",
+                "l5-marketplace-commercial-intelligence",
+            )),
+            auth_refresh_binding: None,
             policy: SourcePolicy::default(),
             default_health_state: HealthState::Unknown,
         },
@@ -884,6 +992,41 @@ fn stable_binding(
     gate_a_family_key: &str,
     source_scope: &str,
 ) -> SkillBinding {
+    binding_with_stage(
+        skill_id,
+        skill_version,
+        cron_expression,
+        gate_a_family_key,
+        source_scope,
+        PromotionStage::Stable,
+    )
+}
+
+fn candidate_binding(
+    skill_id: &str,
+    skill_version: &str,
+    cron_expression: Option<&str>,
+    gate_a_family_key: &str,
+    source_scope: &str,
+) -> SkillBinding {
+    binding_with_stage(
+        skill_id,
+        skill_version,
+        cron_expression,
+        gate_a_family_key,
+        source_scope,
+        PromotionStage::Candidate,
+    )
+}
+
+fn binding_with_stage(
+    skill_id: &str,
+    skill_version: &str,
+    cron_expression: Option<&str>,
+    gate_a_family_key: &str,
+    source_scope: &str,
+    promotion_stage: PromotionStage,
+) -> SkillBinding {
     let worker_behavior_version =
         format!("{skill_id}@{skill_version}+{DEFAULT_BINDING_RESULT_SCHEMA_VERSION}");
     let validator_behavior_version = DEFAULT_VALIDATOR_OVERLAY_VERSION.to_owned();
@@ -898,7 +1041,7 @@ fn stable_binding(
             checkpoint_schema: DEFAULT_BINDING_CHECKPOINT_SCHEMA_VERSION.to_owned(),
             validator_overlay: DEFAULT_VALIDATOR_OVERLAY_VERSION.to_owned(),
         },
-        promotion_stage: PromotionStage::Stable,
+        promotion_stage,
         behavior_versions: SkillBehaviorVersions {
             worker_behavior_version: worker_behavior_version.clone(),
             validator_behavior_version: validator_behavior_version.clone(),
@@ -943,5 +1086,88 @@ impl CanaryResult {
             Self::Failed => "failed",
             Self::TimedOut => "timed_out",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{PromotionStage, SourceKind, SourceRegistry};
+
+    #[test]
+    fn l5_t_freight_engine_012_014_016_registry_exposes_l5_source_shapes() {
+        let alibaba =
+            SourceRegistry::builtin_definition("alibaba").expect("Alibaba source should exist");
+        let alibaba_binding = alibaba
+            .production_binding
+            .as_ref()
+            .expect("Alibaba production binding should exist for L5 maturation");
+        assert_eq!(alibaba.kind, SourceKind::Supplier);
+        assert_eq!(
+            alibaba_binding.skill_id,
+            "supplier-price-enrichment/alibaba"
+        );
+        assert_eq!(alibaba_binding.promotion_stage, PromotionStage::Candidate);
+        assert_eq!(
+            alibaba.config["price_signal_role"], "optimistic_floor",
+            "L5-T-freight_engine-012 requires explicit Alibaba quote-role metadata"
+        );
+
+        let domestic_wholesale =
+            SourceRegistry::builtin_definition("1688").expect("1688 source should exist");
+        let domestic_binding = domestic_wholesale
+            .production_binding
+            .as_ref()
+            .expect("1688 production binding should exist for L5 maturation");
+        assert_eq!(domestic_binding.skill_id, "supplier-price-enrichment/1688");
+        assert_eq!(domestic_binding.promotion_stage, PromotionStage::Candidate);
+        assert_eq!(
+            domestic_wholesale.config["price_signal_role"],
+            "domestic_wholesale_floor"
+        );
+
+        let amazon = SourceRegistry::builtin_definition("amazon")
+            .expect("Amazon L5 supplier source should exist");
+        let amazon_binding = amazon
+            .production_binding
+            .as_ref()
+            .expect("Amazon production binding should exist for L5 maturation");
+        assert_eq!(amazon.kind, SourceKind::Supplier);
+        assert_eq!(amazon_binding.skill_id, "supplier-price-enrichment/amazon");
+        assert_eq!(amazon_binding.promotion_stage, PromotionStage::Candidate);
+        assert_eq!(amazon.config["price_signal_role"], "benchmark_ceiling");
+        assert_eq!(amazon.config["search_strategy"], "browser_first");
+        assert_eq!(amazon.config["pa_api_sunset"], "2026-04-30");
+
+        let pcs =
+            SourceRegistry::builtin_definition("pcs").expect("PCS source should be registered");
+        let pcs_binding = pcs
+            .production_binding
+            .as_ref()
+            .expect("PCS production binding should exist for Phase 5 skill work");
+        assert_eq!(pcs.kind, SourceKind::Procurement);
+        assert_eq!(pcs_binding.skill_id, "procurement-ingestion/pcs");
+        assert_eq!(pcs_binding.promotion_stage, PromotionStage::Candidate);
+        assert_eq!(pcs.config["scope_decision"], "in_scope_2026-05-08");
+
+        let aggregate =
+            SourceRegistry::builtin_definition("l5-marketplace-commercial-intelligence")
+                .expect("L5 marketplace source-health aggregate should exist");
+        let aggregate_binding = aggregate
+            .canary_binding
+            .as_ref()
+            .expect("L5 source-health aggregate should expose a canary binding");
+        assert_eq!(
+            aggregate_binding.skill_id,
+            "source-health/l5-marketplace-commercial-intelligence"
+        );
+        assert_eq!(aggregate_binding.promotion_stage, PromotionStage::Candidate);
+        assert!(
+            aggregate.config["covered_sources"]
+                .as_array()
+                .expect("covered_sources should be an array")
+                .iter()
+                .any(|source| source == "pcs"),
+            "L5-T-freight_engine-014 and 016 require PCS coverage in the aggregate source-health shape"
+        );
     }
 }
