@@ -1,0 +1,13 @@
+# L5 public/free endpoint defaults. Copy into a local .envrc only when an
+# override is needed; the daemon and preflight script already use these defaults.
+
+export HMRC_TRADE_TARIFF_BASE_URL="${HMRC_TRADE_TARIFF_BASE_URL:-https://www.trade-tariff.service.gov.uk}"
+export HMRC_EXCHANGE_RATES_URL="${HMRC_EXCHANGE_RATES_URL:-https://www.trade-tariff.service.gov.uk/exchange_rates/monthly?year=$(date -u +%Y)}"
+export FRANKFURTER_BASE_URL="${FRANKFURTER_BASE_URL:-https://api.frankfurter.app}"
+export CDP_ENSURE_HELPER_PATH="${CDP_ENSURE_HELPER_PATH:-bin/ensure-cdp-9222}"
+
+# L5 scheduled watchers are opt-in during development.
+export L5_ENABLE_HMRC_TARIFF_NEWS_CRON="${L5_ENABLE_HMRC_TARIFF_NEWS_CRON:-false}"
+export L5_ENABLE_TRA_CASE_REGISTER_CRON="${L5_ENABLE_TRA_CASE_REGISTER_CRON:-false}"
+export L5_ENABLE_HMRC_FX_ROLLOVER_CRON="${L5_ENABLE_HMRC_FX_ROLLOVER_CRON:-false}"
+export L5_ENABLE_MARKETPLACE_SOURCE_HEALTH_CRON="${L5_ENABLE_MARKETPLACE_SOURCE_HEALTH_CRON:-false}"
