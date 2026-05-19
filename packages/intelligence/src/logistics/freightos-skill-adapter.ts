@@ -52,6 +52,7 @@ interface FreightosSkillEnvelope {
 }
 
 interface FreightosSkillResult {
+  [key: string]: unknown;
   freight_status?: unknown;
   cdp_state?: unknown;
   freight_currency?: unknown;
@@ -131,16 +132,12 @@ export function normalizeFreightosSkillResult(
   evidence: FreightosEvidence | FreightosSkillResult,
   opts: FreightosEstimateOptions,
 ): FreightEstimate {
-  const result = "result" in evidence ? evidence.result : evidence;
+  const envelope = isFreightosEvidence(evidence) ? evidence : null;
+  const result = envelope?.result ?? evidence;
   const checkedAt =
-    opts.checkedAt ??
-    ("recordedAt" in evidence ? evidence.recordedAt : undefined) ??
-    new Date().toISOString();
+    opts.checkedAt ?? envelope?.recordedAt ?? new Date().toISOString();
   const evidenceTranscriptPath =
-    opts.evidenceTranscriptPath ??
-    ("evidenceTranscriptPath" in evidence
-      ? evidence.evidenceTranscriptPath
-      : undefined);
+    opts.evidenceTranscriptPath ?? envelope?.evidenceTranscriptPath;
 
   if (!isObject(result)) {
     return freightosFailure("FREIGHTOS_SCHEMA_DRIFT", opts, {
@@ -251,10 +248,11 @@ async function readFreightosEvidence(
 ): Promise<FreightosEvidence> {
   const raw = await readFileFromKnownRoots(cassettePath);
   const parsed = parseJsonObject(raw, cassettePath);
-  if (isObject(parsed.response) && typeof parsed.response.body_path === "string") {
-    const body = await readFileFromKnownRoots(parsed.response.body_path);
+  const response = isObject(parsed.response) ? parsed.response : null;
+  if (response && typeof response.body_path === "string") {
+    const body = await readFileFromKnownRoots(response.body_path);
     return {
-      result: parseJsonObject(body, parsed.response.body_path),
+      result: parseJsonObject(body, response.body_path),
       recordedAt: readString(parsed.recorded_at) ?? undefined,
       evidenceTranscriptPath: cassettePath,
     };
@@ -359,7 +357,12 @@ function amountToGbpPence(
     return null;
   }
 
-  if (!Number.isInteger(amountMinor) || amountMinor < 0 || !currency) {
+  if (
+    typeof amountMinor !== "number" ||
+    !Number.isInteger(amountMinor) ||
+    amountMinor < 0 ||
+    !currency
+  ) {
     return null;
   }
 
@@ -391,7 +394,11 @@ function findGbpConversionRate(
     const from = nestedCurrency(entry.from);
     const to = nestedCurrency(entry.to);
     const exchangeRate = entry.exchangeRate;
-    if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) {
+    if (
+      typeof exchangeRate !== "number" ||
+      !Number.isFinite(exchangeRate) ||
+      exchangeRate <= 0
+    ) {
       continue;
     }
 
@@ -445,6 +452,10 @@ function parseJsonObject(raw: string, path: string): FreightosSkillResult {
 
 function readString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function isFreightosEvidence(value: unknown): value is FreightosEvidence {
+  return isObject(value) && isObject(value.result);
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
